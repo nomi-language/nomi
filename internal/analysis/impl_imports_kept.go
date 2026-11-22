@@ -8,8 +8,9 @@ import (
 
 // keptImplUses is CheckImplImports' implUses for one list of program files,
 // kept up to date file by file: the impl functions each file's references
-// reach and the (type, interface) pairs each file demands
-// (collectImplUses). A file's part is valid while the list holds the same
+// reach and the (type, interface) pairs each file demands. CheckImplImports
+// builds one for its call; a program keeps one across rechecks
+// (checkImplImportsKept). A file's part is valid while the list holds the same
 // analysis with the same body part (the analysis pointer and
 // FileBodies.generation), as programDemands' is. When the files or their
 // programs differ from the ones it was built over, it is built again.
@@ -53,14 +54,7 @@ type implUsePart struct {
 // checkImplImportsKept is CheckImplImports(program), reading again only the
 // files whose bodies were rebuilt since p's last call with the same files.
 func (p *Program) checkImplImportsKept(program []ProgramFile) map[*FileAnalysis][]TypeError {
-	pending := false
-	for _, f := range program {
-		if f.FA != nil && len(f.FA.ImplImports) > 0 {
-			pending = true
-			break
-		}
-	}
-	if !pending {
+	if !implImportsPending(program) {
 		return nil
 	}
 	p.demandsMu.Lock()
@@ -68,36 +62,50 @@ func (p *Program) checkImplImportsKept(program []ProgramFile) map[*FileAnalysis]
 	if p.implUses == nil || !p.implUses.update(program) {
 		p.implUses = newKeptImplUses(program)
 	}
-	byScope := make(map[*Scope]ProgramFile, len(program))
+	return p.implUses.settle(program)
+}
+
+// settle decides every whole-file import of program's files against k's
+// uses (unusedImports), records each decision on its program, and answers
+// the unused-import errors, by file.
+func (k *keptImplUses) settle(program []ProgramFile) map[*FileAnalysis][]TypeError {
+	byScope := make(map[*Scope]*FileAnalysis, len(program))
+	nodes := make(map[*FileAnalysis][]ast.Node, len(program))
 	for _, f := range program {
 		if f.FA != nil && f.FA.ModuleScope != nil {
-			byScope[f.FA.ModuleScope] = f
+			byScope[f.FA.ModuleScope] = f.FA
+			nodes[f.FA] = f.Nodes
 		}
+	}
+	target := func(s *Scope) *FileAnalysis { return byScope[s] }
+	foreignOf := func(fa *FileAnalysis) ([]ForeignImplFact[ast.Node], bool) {
+		if fa == nil {
+			return nil, false
+		}
+		return foreignImplsOf(fa, nodes[fa], func(n ast.Node) ast.Node { return n }), true
 	}
 	var out map[*FileAnalysis][]TypeError
 	for _, f := range program {
 		if f.FA == nil {
 			continue
 		}
-		for _, ii := range f.FA.ImplImports {
-			target, ok := byScope[ii.module]
-			unused := !ok || !p.implUses.uses.usesImplIn(target)
-			f.FA.Program().settleImplImport(ii, unused)
+		imports := implImportsOf(f.FA, target)
+		for i, unused := range unusedImports(imports, foreignOf, k.uses.decls, k.uses.demanded) {
+			f.FA.Program().settleImplImport(f.FA.ImplImports[i], unused)
 			if !unused {
 				continue
 			}
 			if out == nil {
 				out = make(map[*FileAnalysis][]TypeError)
 			}
-			out[f.FA] = append(out[f.FA], unusedImportError(ii.UnusedImport))
+			out[f.FA] = append(out[f.FA], imports[i].Err)
 		}
 	}
 	return out
 }
 
 // programsOf answers the programs program's files belong to, in the order
-// they first appear, and collectImplUses' base: the last of their files'
-// programs' stdlib bases.
+// they first appear, and the last of their files' programs' stdlib bases.
 func programsOf(program []ProgramFile) ([]*Program, *StdBase) {
 	var programs []*Program
 	var base *StdBase
@@ -116,8 +124,9 @@ func programsOf(program []ProgramFile) ([]*Program, *StdBase) {
 	return programs, base
 }
 
-// newKeptImplUses reads every file of program, and of their programs, as
-// collectImplUses does.
+// newKeptImplUses reads every file of program, and of their programs: the
+// demands of every one the stdlib base does not answer for, and the
+// references of each of program's own the base does not own.
 func newKeptImplUses(program []ProgramFile) *keptImplUses {
 	programs, base := programsOf(program)
 	k := &keptImplUses{
@@ -193,7 +202,7 @@ func (k *keptImplUses) update(program []ProgramFile) bool {
 	return true
 }
 
-// read answers fa's part, as collectImplUses reads it.
+// read answers fa's part.
 func (k *keptImplUses) read(fa *FileAnalysis) implUsePart {
 	part := implUsePart{generation: fa.generation}
 	if !k.uses.base.Owns(fa) {
@@ -209,29 +218,12 @@ func (k *keptImplUses) read(fa *FileAnalysis) implUsePart {
 	}
 	noteStdlibWork(fa.Origin)
 	seen := map[ast.Node]bool{}
-	note := func(n ast.Node) {
+	implUsesOf(fa, func(n ast.Node) {
 		if !seen[n] {
 			seen[n] = true
 			part.decls = append(part.decls, n)
 		}
-	}
-	for _, ref := range fa.References {
-		if ref == nil {
-			continue
-		}
-		if ref.DispatchImpl != nil {
-			note(ref.DispatchImpl)
-		}
-		for r := ref; r != nil; r = r.Resolved {
-			if r.Kind != SymbolFunction {
-				continue
-			}
-			switch r.Node.(type) {
-			case *ast.FuncDef, *ast.ExternFunc:
-				note(r.Node)
-			}
-		}
-	}
+	})
 	return part
 }
 

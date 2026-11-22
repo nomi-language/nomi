@@ -55,20 +55,49 @@ func (gap loweringGap) check(dir string) lowerOutcome {
 	return o
 }
 
-var knownLoweringGaps = []loweringGap{}
+var knownLoweringGaps = []loweringGap{
+	{
+		name: "gapHandleOfMutuallyRecursiveTypes",
+		fix: "the builder: irReachesNominalChannel answers true for every cycle of declarations a handle's element reaches, " +
+			"one through plain fields (`P{q: List<Q>}`, `Q{p: List<P>}`) as well as one through another handle, " +
+			"so a struct with a field `Channel<P>` is outside the value domain; only a cycle through a handle needs refusing",
+		reason: "a once of a kind outside the domain: WP",
+		noSkip: true,
+		src: `import
+    std::channels.Channel
+    std::io
+end
+
+struct P
+    q: List<Q>
+end
+
+struct Q
+    p: List<P>
+end
+
+struct WP
+    c: Channel<P>
+end
+
+once plain: WP = WP{c: Channel.buffered(1)}
+
+fn main()
+    _ = plain
+    io.print("ok")
+end
+`,
+	},
+}
 
 // knownGapFor is the known gap every one of reasons matches, or nil. A gap
-// of a std module's own tests excuses nothing here: knownStdGapFor.
+// of a std module's own tests excuses nothing here: knownGapIn.
 func knownGapFor(reasons []string) *loweringGap {
 	return knownGapIn("", reasons)
 }
 
-// knownStdGapFor is knownGapFor for a std module's own tests: the gaps of
-// that module (loweringGap.std) and those of any program.
-func knownStdGapFor(module string, reasons []string) *loweringGap {
-	return knownGapIn(module, reasons)
-}
-
+// knownGapIn is knownGapFor for a std module's own tests when module is
+// set: the gaps of that module (loweringGap.std) and those of any program.
 func knownGapIn(module string, reasons []string) *loweringGap {
 	var found *loweringGap
 	for _, r := range reasons {

@@ -95,7 +95,7 @@ func TestOrPattern_RenameEditsEverySiteAndTheUse(t *testing.T) {
 func TestOrPattern_SemanticTokensMarkEverySiteAVariable(t *testing.T) {
 	nodes, _ := parser.ParseWithRecovery(lexer.Lex(orPatternSource))
 	fa := buildFile(nodes)
-	data := encodeSemanticTokens(fa, nodes, orPatternSource)
+	data := encodeSemanticTokens(fa, nodes, orPatternSource, nil, nil)
 	line, col := 1, 1
 	found := 0
 	for i := 0; i+4 < len(data); i += 5 {

@@ -1,0 +1,2255 @@
+//# The block phase: the document's lines read one at a time into a tree of
+//# blocks, as goldmark's parser reads them. Each line is offered first to
+//# the blocks already open, outermost first, and then to the block parsers
+//# a block may start with; a paragraph that closes is read for link
+//# reference definitions and then for a table. Blocks are nodes in one
+//# vector and name their parent and their children by index.
+
+import
+    markdown::internal::reader.{self, Cursor, Lines, Seg}
+    markdown::internal::text
+end
+
+/// A table cell's alignment, from its column's delimiter.
+pub enum Align
+    Unaligned
+    Left
+    Center
+    Right
+end
+
+derive Equatable for Align
+
+/// What a block is.
+pub enum Kind
+    Document
+    Paragraph
+    /// A paragraph in a tight list, rendered without `<p>`.
+    TextBlock
+    Heading {level: Int, setext: Bool}
+    ThematicBreak
+    CodeBlock
+    FencedCode {info: Maybe<Seg>}
+    /// `closed` when a line that ends the block was read: such a block
+    /// renders as two omitted-HTML comments.
+    HtmlBlock {kind: Int, closed: Bool}
+    Blockquote
+    ListBlock {marker: Int, start: Int, tight: Bool}
+    ListItem {offset: Int}
+    Definition
+    Table
+    TableHeader
+    TableRow
+    /// `escapes` are where the source has a backslash before a `|` in a
+    /// code span, which the cell leaves out.
+    TableCell {align: Align, escapes: List<Int>}
+end
+
+/// A block: its kind, its parent (-1 for none), its children and its
+/// lines, each held newest first, and whether a blank line came before it.
+pub struct Node
+    kind:     Kind
+    parent:   Int = -1
+    children: List<Int> = []
+    lines:    List<Seg> = []
+    blank:    Bool = False
+end
+
+/// A link reference definition's destination and title, as written.
+pub struct Ref
+    destination: Bytes
+    title:       Maybe<Bytes>
+end
+
+/// An open fenced code block: its fence's character, indent and length.
+pub struct Fence
+    char:   Int
+    indent: Int
+    length: Int
+    node:   Int
+end
+
+/// The block phase's state: the source and a position in it (the line,
+/// the part of it left from `start` to `stop` after `padding` spaces, and
+/// where the line starts), the blocks, the open ones outermost first, the
+/// link reference definitions by label, and what the block parsers keep
+/// between lines.
+pub struct Doc
+    src:     Bytes
+    size:    Int
+    line:    Int = -1
+    start:   Int = 0
+    stop:    Int = 0
+    padding: Int = 0
+    head:    Int = 0
+    /// The column `start` is at, or -1 when it is to be counted from `head`.
+    col: Int = 0
+    /// Where the line's indent of spaces and tabs ends, and the column
+    /// there, counted once when the line is read.
+    indent_end: Int = 0
+    indent_col: Int = 0
+    nodes:      Vector<Node>
+    open:       Vector<Int> = []
+    refs:       Map<String, Ref> = {}
+    fence:      Maybe<Fence> = None
+    skip_list:  Bool = False
+    empty_item: Bool = False
+    tb_pos:     Int = 0
+    tmp_para:   Int = -1
+    offset:     Int = -1
+    indent:     Int = -1
+end
+
+/// The rest of the current line: the source from `start` up to `stop`,
+/// after `pad` spaces.
+struct Line
+    start: Int
+    stop:  Int
+    pad:   Int
+end
+
+/// What a line opens.
+enum Opened
+    Nothing
+    /// The new block, whether it may hold others, and whether it needs the
+    /// paragraph before it, as a setext heading does.
+    Block {id: Int, children: Bool, requires_paragraph: Bool}
+end
+
+/// What an open block does with a line.
+enum Cont
+    Closed
+    Going {children: Bool}
+end
+
+/// What `open_blocks` did with a line.
+enum OpenResult
+    ParagraphContinuation
+    NewBlocks
+    NoBlocks
+end
+
+derive Equatable for OpenResult
+
+/// The block parsers, which a line's first character chooses among.
+enum Parser
+    Setext
+    Thematic
+    ListParser
+    Item
+    Code
+    Atx
+    Fenced
+    Quote
+    Html
+    Para
+end
+
+/// The blocks of `source`: the document is node 0.
+pub fn parse(source: Bytes) -> Doc
+    st = Doc{
+        src:   source,
+        size:  Bytes.length(source),
+        nodes: [Node{kind: .Document}],
+    }
+
+    st = advance_line(st)
+    parse_blocks(st)
+end
+
+/// The node `id`.
+pub fn node(st: Doc, id: Int) -> Node
+    Vector.get(st.nodes, id)!
+end
+
+/// The children of `id`, in order.
+pub fn children(st: Doc, id: Int) -> List<Int>
+    Iter.reverse(node(st, id).children)
+end
+
+/// The child after `id`, or None for the last.
+pub fn next_sibling(st: Doc, id: Int) -> Maybe<Int>
+    parent = node(st, id).parent
+    if parent < 0 then return None
+    before(node(st, parent).children, id)
+end
+
+/// The element held just before `x` in `xs`: since children are held
+/// newest first, the child after it.
+fn before(xs: List<Int>, x: Int) -> Maybe<Int>
+    case xs
+        [a, b, ..] when b == x -> Some(a)
+        [_, ..rest]            -> before(rest, x)
+        []                     -> None
+    end
+end
+
+// The reader.
+fn src_at(st: Doc, i: Int) -> Int
+    text.at(st.src, i)
+end
+
+fn peek(st: Doc) -> Maybe<Line>
+    if st.start >= 0 and st.start < st.size then
+        Some(Line{start: st.start, stop: st.stop, pad: st.padding})
+    else
+        None
+    end
+end
+
+fn segment(st: Doc) -> Seg
+    Seg{start: st.start, stop: st.stop, padding: st.padding}
+end
+
+fn len(l: Line) -> Int
+    l.stop - l.start + l.pad
+end
+
+/// The byte at `i` in the line, its padding spaces first.
+fn ch(st: Doc, l: Line, i: Int) -> Int
+    case
+        i < 0      -> -1
+        i < l.pad  -> 32
+        i < len(l) -> src_at(st, l.start + i - l.pad)
+        _          -> -1
+    end
+end
+
+fn tab_width(column: Int) -> Int
+    4 - column % 4
+end
+
+/// The column the position is at, counting a tab to the next multiple of
+/// four, less the padding still to come.
+fn line_offset(st: Doc) -> Int
+    (if st.col >= 0 then
+        st.col
+    else
+        columns(st, st.head, st.start, 0)
+    end) - st.padding
+end
+
+fn columns(st: Doc, i: Int, stop: Int, v: Int) -> Int
+    if i >= stop then return v
+
+    columns(
+        st,
+        i + 1,
+        stop,
+        if src_at(st, i) == 9 then
+            v + tab_width(v)
+        else
+            v + 1
+        end,
+    )
+end
+
+fn advance(st: Doc, n: Int) -> Doc
+    if st.padding == 0 and n < st.stop - st.start then
+        col = if st.col >= 0 and n >= 0 then columns(st, st.start, st.start + n, st.col) else -1
+        return {..st, start: st.start + n, col:}
+    end
+
+    advance_slow(st, n)
+end
+
+fn advance_slow(st: Doc, n: Int) -> Doc
+    case
+        n <= 0 or st.start >= st.size ->
+            st
+
+        st.padding != 0 ->
+            advance_slow({..st, padding: st.padding - 1}, n - 1)
+
+        src_at(st, st.start) == 10 ->
+            advance_slow(advance_line(st), n - 1)
+
+        _ ->
+            col =
+                if st.col < 0 then
+                    -1
+                else if src_at(st, st.start) == 9 then
+                    st.col + tab_width(st.col)
+                else
+                    st.col + 1
+                end
+
+            advance_slow({..st, start: st.start + 1, col:}, n - 1)
+    end
+end
+
+fn advance_and_set_padding(st: Doc, n: Int, padding: Int) -> Doc
+    st = advance(st, n)
+    if padding > st.padding then {..st, padding:} else st
+end
+
+fn advance_to_eol(st: Doc) -> Doc
+    if st.start >= st.size then return st
+
+    case Bytes.index_of_byte(st.src, 10, from: st.start)
+        Some(i) -> {..st, start: i, padding: 0, col: -1}
+        None    -> {..st, start: st.size, padding: 0, col: -1}
+    end
+end
+
+fn advance_line(st: Doc) -> Doc
+    start = st.stop
+    if start < 0 or start >= st.size then return {..st, start:, head: start, col: 0}
+
+    stop =
+        if src_at(st, start) == 10 then
+            start + 1
+        else
+            case Bytes.index_of_byte(st.src, 10, from: start)
+                Some(i) -> i + 1
+                None    -> st.size
+            end
+        end
+
+    (indent_end, indent_col) = line_indent(st, start, 0)
+
+    {
+        ..st,
+        start:,
+        head: start,
+        stop:,
+        line:    st.line + 1,
+        padding: 0,
+        col:     0,
+        indent_end:,
+        indent_col:,
+    }
+end
+
+fn line_indent(st: Doc, i: Int, col: Int) -> (Int, Int)
+    case src_at(st, i)
+        32 -> line_indent(st, i + 1, col + 1)
+        9  -> line_indent(st, i + 1, col + tab_width(col))
+        _  -> (i, col)
+    end
+end
+
+fn skip_blank_lines(st: Doc) -> (Doc, Bool)
+    case peek(st)
+        None ->
+            (st, False)
+
+        Some(l) ->
+            if is_blank_line(st, l) then
+                skip_blank_lines(advance_line(st))
+            else
+                (st, True)
+            end
+    end
+end
+
+fn is_blank_line(st: Doc, l: Line) -> Bool
+    // The line's record of its indent decides most lines at once.
+    if l.start == st.start and l.start <= st.indent_end then
+        if st.indent_end >= l.stop then return True
+        c = src_at(st, st.indent_end)
+        if not text.is_space(c) then return False
+        if c == 10 then return True
+    end
+
+    text.is_blank(st.src, l.start, l.stop)
+end
+
+/// Whether the line's bytes from `from` up to `to` are all spaces.
+fn blank_from(st: Doc, l: Line, from: Int, to: Int) -> Bool
+    from >= to or (text.is_space(ch(st, l, from)) and blank_from(st, l, from + 1, to))
+end
+
+/// The width of the indent at `from` in the line, at column `column`, and
+/// how many bytes it takes.
+fn indent_width(st: Doc, l: Line, from: Int, column: Int) -> (Int, Int)
+    // The indent at the reader, from the line's record: a scan of it from
+    // each open block would cost the depth of nesting times over.
+    current = from == 0
+        and l.start == st.start
+        and l.start <= st.indent_end
+        and st.col >= 0
+        and column == line_offset(st)
+
+    if current then return (st.indent_col - column, l.pad + st.indent_end - l.start)
+    walk_indent(st, l, from, column, 0, 0)
+end
+
+fn walk_indent(st: Doc, l: Line, i: Int, column: Int, width: Int, pos: Int) -> (Int, Int)
+    case ch(st, l, i)
+        32 -> walk_indent(st, l, i + 1, column, width + 1, pos + 1)
+        9  -> walk_indent(st, l, i + 1, column, width + tab_width(column + width), pos + 1)
+        _  -> (width, pos)
+    end
+end
+
+/// Where an indent of `width` columns ends in the line from `from`, which
+/// starts at column `column` after `padding` spaces, and the columns of a
+/// tab past it, or (-1, -1) when the line is not indented so far:
+/// goldmark's `IndentPositionPadding`.
+fn indent_position(st: Doc, l: Line, from: Int, column: Int, padding: Int, width: Int) -> (Int, Int)
+    if width == 0 then return (0, padding)
+    (i, w) = indent_scan(st, l, from, column, padding, width, 0, 0)
+
+    if w >= width then
+        (i - padding, w - width)
+    else
+        (-1, -1)
+    end
+end
+
+fn indent_scan(
+    st:     Doc,
+    l:      Line,
+    from:   Int,
+    column: Int,
+    p:      Int,
+    width:  Int,
+    i:      Int,
+    w:      Int,
+) -> (Int, Int)
+    if from + i >= len(l) then return (i, w)
+    if p > 0 then return indent_scan(st, l, from, column, p - 1, width, i + 1, w + 1)
+    c = ch(st, l, from + i)
+
+    case
+        c == 9 and w < width ->
+            indent_scan(st, l, from, column, p, width, i + 1, w + tab_width(column + w))
+
+        c == 32 and w < width ->
+            indent_scan(st, l, from, column, p, width, i + 1, w + 1)
+
+        _ ->
+            (i, w)
+    end
+end
+
+fn first_non_space(st: Doc, l: Line, i: Int) -> Int
+    case ch(st, l, i)
+        32 or 9 -> first_non_space(st, l, i + 1)
+        10      -> -1
+        -1      -> -1
+        _       -> i
+    end
+end
+
+// Nodes.
+fn put(st: Doc, id: Int, n: Node) -> Doc
+    {..st, nodes: Vector.set(st.nodes, id, n)!}
+end
+
+fn add_node(st: Doc, n: Node) -> (Doc, Int)
+    ({..st, nodes: Vector.push(st.nodes, n)}, Vector.length(st.nodes))
+end
+
+fn kind_of(st: Doc, id: Int) -> Kind
+    node(st, id).kind
+end
+
+fn is_paragraph(st: Doc, id: Int) -> Bool
+    kind_of(st, id) is .Paragraph
+end
+
+fn append_child(st: Doc, parent: Int, child: Int) -> Doc
+    st = put(st, child, {..node(st, child), parent:})
+    p = node(st, parent)
+    put(st, parent, {..p, children: [child, ..p.children]})
+end
+
+fn remove_child(st: Doc, parent: Int, child: Int) -> Doc
+    p = node(st, parent)
+    st = put(st, parent, {..p, children: without(p.children, child)})
+    put(st, child, {..node(st, child), parent: -1})
+end
+
+fn without(xs: List<Int>, x: Int) -> List<Int>
+    case xs
+        [a, ..rest] when a == x -> rest
+        [a, ..rest]             -> [a, ..without(rest, x)]
+        []                      -> []
+    end
+end
+
+/// `child` put just before `next` among `parent`'s children.
+fn insert_before(st: Doc, parent: Int, next: Int, child: Int) -> Doc
+    st = put(st, child, {..node(st, child), parent:})
+    p = node(st, parent)
+    put(st, parent, {..p, children: placed_after(p.children, next, child)})
+end
+
+/// `child` put just after `prev` among `parent`'s children.
+fn insert_after(st: Doc, parent: Int, prev: Int, child: Int) -> Doc
+    st = put(st, child, {..node(st, child), parent:})
+    p = node(st, parent)
+    put(st, parent, {..p, children: placed_before(p.children, prev, child)})
+end
+
+fn placed_after(xs: List<Int>, x: Int, y: Int) -> List<Int>
+    case xs
+        [a, ..rest] when a == x -> [a, y, ..rest]
+        [a, ..rest]             -> [a, ..placed_after(rest, x, y)]
+        []                      -> [y]
+    end
+end
+
+fn placed_before(xs: List<Int>, x: Int, y: Int) -> List<Int>
+    case xs
+        [a, ..rest] when a == x -> [y, a, ..rest]
+        [a, ..rest]             -> [a, ..placed_before(rest, x, y)]
+        []                      -> [y]
+    end
+end
+
+fn last_child(st: Doc, id: Int) -> Maybe<Int>
+    List.first(node(st, id).children)
+end
+
+fn add_line(st: Doc, id: Int, s: Seg) -> Doc
+    n = node(st, id)
+    put(st, id, {..n, lines: [s, ..n.lines]})
+end
+
+fn last_opened(st: Doc) -> Maybe<Int>
+    Vector.get(st.open, Vector.length(st.open) - 1)
+end
+
+// The main loop.
+/// One line's record: whether line `line` was blank when the block at
+/// depth `level` read it.
+struct Stat
+    line:  Int
+    level: Int
+    blank: Bool
+end
+
+fn parse_blocks(st: Doc) -> Doc
+    (st, ok) = skip_blank_lines(st)
+    if not ok then return st
+    (st, result) = open_blocks(st, 0, True)
+    if result != .NewBlocks then return st
+    lines_loop(advance_line(st), Vector[])
+end
+
+fn lines_loop(st: Doc, stats: Vector<Stat>) -> Doc
+    l = Vector.length(st.open)
+    if l == 0 then return parse_blocks(st)
+    opened = st.open
+
+    case each_open(st, stats, 0, l - 1, opened)
+        (st, stats, False) -> lines_loop(advance_line(st), stats)
+        (st, _, True)      -> st
+    end
+end
+
+/// Offers the line to the open blocks from depth `i`: the state, the line
+/// records, and whether the document ended.
+fn each_open(
+    st:         Doc,
+    stats:      Vector<Stat>,
+    i:          Int,
+    last_index: Int,
+    opened:     Vector<Int>,
+) -> (Doc, Vector<Stat>, Bool)
+    if i > last_index then return (st, stats, False)
+    be = Vector.get(opened, i)!
+
+    case peek(st)
+        None ->
+            st = close_blocks(st, last_index, 0)
+            (advance_line(st), stats, True)
+
+        Some(l) ->
+            line_num = st.line
+            stats = Vector.push(stats, Stat{line: line_num, level: i, blank: is_blank_line(st, l)})
+
+            (st, cont) =
+                if is_paragraph(st, be) then
+                    (st, Cont.Closed)
+                else
+                    continue_block(st, be)
+                end
+
+            case cont
+                .Going{children:} ->
+                    if children and i == last_index then
+                        blank = is_blank_record(line_num - 1, i + 1, stats)
+                        (st, _) = open_blocks(st, be, blank)
+                        (st, stats, False)
+                    else
+                        each_open(st, stats, i + 1, last_index, opened)
+                    end
+
+                _ ->
+                    blank = is_blank_record(line_num - 1, i, stats)
+                    this_parent = if i != 0 then Vector.get(opened, i - 1)! else 0
+                    last_node = Vector.get(opened, last_index)!
+                    (st, result) = open_blocks(st, this_parent, blank)
+
+                    if result != .ParagraphContinuation then
+                        li =
+                            if Vector.get(st.open, last_index) != Some(last_node) then
+                                last_index - 1
+                            else
+                                last_index
+                            end
+
+                        (close_blocks(st, li, i), stats, False)
+                    else
+                        (st, stats, False)
+                    end
+            end
+    end
+end
+
+fn is_blank_record(line: Int, level: Int, stats: Vector<Stat>) -> Bool
+    l = Vector.length(stats)
+    if l == 0 then return True
+    blank_scan(line, level, stats, l - 1 - level)
+end
+
+fn blank_scan(line: Int, level: Int, stats: Vector<Stat>, i: Int) -> Bool
+    if i < 0 then return False
+    s = Vector.get(stats, i)!
+
+    case
+        s.line == line and s.level <= level -> s.blank
+        s.line < line                       -> False
+        _                                   -> blank_scan(line, level, stats, i - 1)
+    end
+end
+
+fn parsers_for(c: Int) -> List<Parser>
+    case c
+        // -
+        45 ->
+            [.Setext, .Thematic, .ListParser, .Item, .Code, .Para]
+
+        // =
+        61 ->
+            [.Setext, .Code, .Para]
+
+        // *
+        42 ->
+            [.Thematic, .ListParser, .Item, .Code, .Para]
+
+        // _
+        95 ->
+            [.Thematic, .Code, .Para]
+
+        // +
+        43 ->
+            [.ListParser, .Item, .Code, .Para]
+
+        // #
+        35 ->
+            [.Atx, .Code, .Para]
+
+        // ` and ~
+        96 or 126 ->
+            [.Fenced, .Code, .Para]
+
+        // >
+        62 ->
+            [.Quote, .Code, .Para]
+
+        // <
+        60 ->
+            [.Html, .Code, .Para]
+
+        _ ->
+            if text.is_digit(c) then
+                [.ListParser, .Item, .Code, .Para]
+            else
+                [.Code, .Para]
+            end
+    end
+end
+
+fn can_interrupt(p: Parser) -> Bool
+    not (p is (.Code or .Para))
+end
+
+fn open_blocks(st: Doc, parent: Int, blank: Bool) -> (Doc, OpenResult)
+    continuable =
+        case last_opened(st)
+            Some(id) -> is_paragraph(st, id)
+            None     -> False
+        end
+
+    open_retry(st, parent, blank, continuable, .NoBlocks)
+end
+
+fn open_retry(
+    st:          Doc,
+    parent:      Int,
+    blank:       Bool,
+    continuable: Bool,
+    result:      OpenResult,
+) -> (Doc, OpenResult)
+    case peek(st)
+        None ->
+            st = {..st, offset: -1, indent: -1}
+            finish_open(st, continuable, result)
+
+        Some(l) ->
+            (w, pos) = indent_width(st, l, 0, line_offset(st))
+
+            st =
+                if w >= len(l) then
+                    {..st, offset: -1, indent: -1}
+                else
+                    {..st, offset: pos, indent: w}
+                end
+
+            if ch(st, l, 0) == 10 then return finish_open(st, continuable, result)
+
+            parsers =
+                if pos < len(l) then
+                    parsers_for(ch(st, l, pos))
+                else
+                    [Parser.Code, Parser.Para]
+                end
+
+            try_parsers(st, parent, blank, continuable, result, parsers, w)
+    end
+end
+
+fn try_parsers(
+    st:          Doc,
+    parent:      Int,
+    blank:       Bool,
+    continuable: Bool,
+    result:      OpenResult,
+    parsers:     List<Parser>,
+    w:           Int,
+) -> (Doc, OpenResult)
+    case parsers
+        [] ->
+            finish_open(st, continuable, result)
+
+        [p, ..rest] ->
+            skip = (continuable and result == .NoBlocks and not can_interrupt(p))
+                or (w > 3 and p != .Code)
+
+            if skip then return try_parsers(st, parent, blank, continuable, result, rest, w)
+            last = last_opened(st)
+            (st, opened) = open_with(p, st, parent)
+
+            case opened
+                .Nothing ->
+                    try_parsers(st, parent, blank, continuable, result, rest, w)
+
+                .Block{id:, children:, requires_paragraph:} ->
+                    taken_paragraph =
+                        case last
+                            Some(lp) when requires_paragraph
+                                and last_child(st, parent) == Some(lp) ->
+                                Some(lp)
+
+                            _ ->
+                                None
+                        end
+
+                    (st, transformed) =
+                        case taken_paragraph
+                            Some(lp) ->
+                                st = close_node(st, lp)
+
+                                st = {
+                                    ..st,
+                                    open: Vector.slice(st.open, 0, Vector.length(st.open) - 1),
+                                }
+
+                                transform_paragraph(st, lp)
+
+                            None ->
+                                (st, False)
+                        end
+
+                    if transformed then return open_retry(st, parent, blank, False, result)
+                    st = put(st, id, {..node(st, id), blank:})
+
+                    st =
+                        case last
+                            Some(lp) when node(st, lp).parent < 0 ->
+                                n = Vector.length(st.open) - 1
+                                close_blocks(st, n, n)
+
+                            _ ->
+                                st
+                        end
+
+                    st = append_child(st, parent, id)
+                    st = {..st, open: Vector.push(st.open, id)}
+
+                    if children then
+                        open_retry(st, id, blank, continuable, .NewBlocks)
+                    else
+                        (st, .NewBlocks)
+                    end
+            end
+    end
+end
+
+derive Equatable for Parser
+
+fn finish_open(st: Doc, continuable: Bool, result: OpenResult) -> (Doc, OpenResult)
+    if result != .NoBlocks or not continuable then return (st, result)
+
+    case last_opened(st)
+        Some(id) ->
+            (st, cont) = para_continue(st, id)
+
+            if cont is .Going{} then
+                (st, .ParagraphContinuation)
+            else
+                (st, result)
+            end
+
+        None ->
+            (st, result)
+    end
+end
+
+fn close_blocks(st: Doc, from: Int, to: Int) -> Doc
+    blocks = st.open
+
+    st = Iter.reduce(Iter.reverse(to..(from + 1)), st, fn st, i ->
+        case Vector.get(blocks, i)
+            Some(id) -> close_one(st, id)
+            None     -> st
+        end
+    end)
+
+    kept =
+        if to > from then
+            blocks
+        else
+            Vector.concat(
+                Vector.slice(blocks, 0,        to),
+                Vector.slice(blocks, from + 1, Vector.length(blocks)),
+            )
+        end
+
+    {..st, open: kept}
+end
+
+fn close_one(st: Doc, id: Int) -> Doc
+    n = node(st, id)
+    st = if n.kind is .Paragraph and n.parent >= 0 then transform_paragraph(st, id).first else st
+    if node(st, id).parent >= 0 then close_node(st, id) else st
+end
+
+fn open_with(p: Parser, st: Doc, parent: Int) -> (Doc, Opened)
+    case p
+        .Setext     -> setext_open(st, parent)
+        .Thematic   -> thematic_open(st)
+        .ListParser -> list_open(st, parent)
+        .Item       -> item_open(st, parent)
+        .Code       -> code_open(st)
+        .Atx        -> atx_open(st)
+        .Fenced     -> fenced_open(st)
+        .Quote      -> quote_open(st)
+        .Html       -> html_open(st)
+        .Para       -> para_open(st)
+    end
+end
+
+fn continue_block(st: Doc, id: Int) -> (Doc, Cont)
+    case kind_of(st, id)
+        .Paragraph ->
+            para_continue(st, id)
+
+        .Blockquote ->
+            if Some(st) = quote_process(st) then
+                (st, .Going{children: True})
+            else
+                (st, .Closed)
+            end
+
+        .CodeBlock ->
+            code_continue(st, id)
+
+        .FencedCode{} ->
+            fenced_continue(st, id)
+
+        .HtmlBlock{} ->
+            html_continue(st, id)
+
+        .ListBlock{} ->
+            list_continue(st, id)
+
+        .ListItem{} ->
+            item_continue(st, id)
+
+        _ ->
+            (st, .Closed)
+    end
+end
+
+fn close_node(st: Doc, id: Int) -> Doc
+    case kind_of(st, id)
+        .Paragraph ->
+            para_close(st, id)
+
+        .CodeBlock ->
+            code_close(st, id)
+
+        .ListBlock{} ->
+            list_close(st, id)
+
+        .Heading{setext: True} ->
+            setext_close(st, id)
+
+        .FencedCode{} ->
+            case st.fence
+                Some(f) when f.node == id -> {..st, fence: None}
+                _                         -> st
+            end
+
+        _ ->
+            st
+    end
+end
+
+fn block(st: Doc, n: Node, children: Bool) -> (Doc, Opened)
+    (st, id) = add_node(st, n)
+    (st, .Block{id:, children:, requires_paragraph: False})
+end
+
+// Paragraphs.
+fn para_open(st: Doc) -> (Doc, Opened)
+    l = peek(st)!
+    if is_blank_line(st, l) then return (st, .Nothing)
+    seg = segment(st)
+    block(advance_to_eol(st), Node{kind: .Paragraph, lines: [seg]}, False)
+end
+
+fn para_continue(st: Doc, id: Int) -> (Doc, Cont)
+    case peek(st)
+        Some(l) when not is_blank_line(st, l) ->
+            st = add_line(st, id, segment(st))
+            (advance_to_eol(st), .Going{children: False})
+
+        _ ->
+            (st, .Closed)
+    end
+end
+
+fn para_close(st: Doc, id: Int) -> Doc
+    n = node(st, id)
+
+    lines =
+        case Iter.map(n.lines, fn s -> Seg.trim_left(s, st.src)) |> Iter.to_list()
+            [last, ..rest] -> [Seg.trim_right(last, st.src), ..rest]
+            []             -> []
+        end
+
+    st = put(st, id, {..n, lines:})
+    if lines == [] then remove_child(st, n.parent, id) else st
+end
+
+// Block quotes.
+fn quote_open(st: Doc) -> (Doc, Opened)
+    case quote_process(st)
+        Some(st) -> block(st, Node{kind: .Blockquote}, True)
+        None     -> (st, .Nothing)
+    end
+end
+
+fn quote_process(st: Doc) -> Maybe<Doc>
+    l = peek(st)?
+    (w, pos) = indent_width(st, l, 0, line_offset(st))
+    if w > 3 or pos >= len(l) or ch(st, l, pos) != 62 then return None
+    pos = pos + 1
+    if pos >= len(l) or ch(st, l, pos) == 10 then return Some(advance(st, pos))
+    st = advance(st, pos)
+    c = ch(st, l, pos)
+
+    case c
+        32 -> Some(advance_and_set_padding(st, 1, 0))
+        9  -> Some(advance_and_set_padding(st, 1, tab_width(line_offset(st)) - 1))
+        _  -> Some(st)
+    end
+end
+
+// Thematic breaks.
+fn thematic_open(st: Doc) -> (Doc, Opened)
+    l = peek(st)!
+    if not is_thematic(st, l, 0, line_offset(st)) then return (st, .Nothing)
+    block(advance_to_eol(st), Node{kind: .ThematicBreak}, False)
+end
+
+fn is_thematic(st: Doc, l: Line, from: Int, column: Int) -> Bool
+    (w, pos) = indent_width(st, l, from, column)
+    w <= 3 and thematic_scan(st, l, from + pos, -1, 0)
+end
+
+fn thematic_scan(st: Doc, l: Line, i: Int, mark: Int, count: Int) -> Bool
+    if i >= len(l) then return count > 2
+    c = ch(st, l, i)
+
+    case
+        text.is_space(c) -> thematic_scan(st, l, i + 1, mark, count)
+        mark < 0         -> (c == 42 or c == 45 or c == 95) and thematic_scan(st, l, i + 1, c, 1)
+        c != mark        -> False
+        _                -> thematic_scan(st, l, i + 1, mark, count + 1)
+    end
+end
+
+// ATX headings.
+fn atx_open(st: Doc) -> (Doc, Opened)
+    l = peek(st)!
+    seg = segment(st)
+    pos = st.offset
+    if pos < 0 then return (st, .Nothing)
+    i = skip_line_byte(st, l, pos, 35)
+    level = i - pos
+    if i == pos or level > 6 then return (st, .Nothing)
+    heading = Node{kind: .Heading{level:, setext: False}}
+    if i == len(l) then return block(st, heading, False)
+    spaces = line_leading_spaces(st, l, i)
+    if spaces == 0 then return (st, .Nothing)
+    start = Int.min(i + spaces, len(l) - 1)
+
+    hl =
+        Seg{start: seg.start + start - seg.padding, stop: seg.start + len(l) - seg.padding}
+        |> Seg.trim_right(st.src)
+
+    if Seg.length(hl) == 0 then return block(advance_to_eol(st), heading, False)
+    value = Seg.value(hl, st.src)
+    stop = Bytes.length(value)
+
+    if stop > 0 then
+        j = closing_hashes(value, stop - 1)
+        if j == 0 and text.at(value, 0) == 35 then return block(advance_to_eol(st), heading, False)
+    end
+
+    stop =
+        if stop == 0 then
+            0
+        else
+            j = closing_hashes(value, stop - 1)
+
+            if j != stop - 1 and text.is_space(text.at(value, j)) then
+                j - text.trailing_spaces(value, 0, j)
+            else
+                stop
+            end
+        end
+
+    block(advance_to_eol(st), {
+        ..heading,
+        lines: [{..hl, stop: hl.start + stop}],
+    }, False)
+end
+
+fn closing_hashes(value: Bytes, i: Int) -> Int
+    if i > 0 and text.at(value, i) == 35 then closing_hashes(value, i - 1) else i
+end
+
+fn skip_line_byte(st: Doc, l: Line, i: Int, c: Int) -> Int
+    if i < len(l) and ch(st, l, i) == c then skip_line_byte(st, l, i + 1, c) else i
+end
+
+fn line_leading_spaces(st: Doc, l: Line, i: Int) -> Int
+    if i < len(l) and text.is_space(ch(st, l, i)) then 1 + line_leading_spaces(st, l, i + 1) else 0
+end
+
+fn line_trailing_spaces(st: Doc, l: Line, from: Int, to: Int) -> Int
+    if to > from and text.is_space(ch(st, l, to - 1)) then
+        1 + line_trailing_spaces(st, l, from, to - 1)
+    else
+        0
+    end
+end
+
+// Setext headings.
+fn setext_open(st: Doc, parent: Int) -> (Doc, Opened)
+    case last_opened(st)
+        Some(last) when is_paragraph(st, last) and node(st, last).parent == parent ->
+            l = peek(st)!
+            seg = segment(st)
+
+            case setext_bar(st, l, 0)
+                Some(c) ->
+                    level = if c == 45 then 2 else 1
+
+                    (st, id) = add_node(
+                        st,
+                        Node{kind: .Heading{level:, setext: True}, lines: [seg]},
+                    )
+
+                    ({..st, tmp_para: last}, .Block{id:, children: False, requires_paragraph: True})
+
+                None ->
+                    (st, .Nothing)
+            end
+
+        _ ->
+            (st, .Nothing)
+    end
+end
+
+/// The character of a setext underline at `from` in the line, `=` or `-`,
+/// or None when the line is not one.
+fn setext_bar(st: Doc, l: Line, from: Int) -> Maybe<Int>
+    end_ = len(l)
+    start = skip_line_byte(st, l, from, 32)
+    if start - from > 3 then return None
+    level1 = skip_line_byte(st, l, start, 61) - start
+
+    (c, level2) =
+        if level1 == 0 then
+            (45, skip_line_byte(st, l, start, 45) - start)
+        else
+            (61, 0)
+        end
+
+    end_ =
+        if text.is_space(ch(st, l, end_ - 1)) then
+            end_ - line_trailing_spaces(st, l, start, end_)
+        else
+            end_
+        end
+
+    if (level1 > 0 and start + level1 == end_) or (level2 > 0 and start + level2 == end_) then
+        Some(c)
+    else
+        None
+    end
+end
+
+fn setext_close(st: Doc, id: Int) -> Doc
+    heading = node(st, id)
+    seg = List.first(heading.lines)!
+    st = put(st, id, {..heading, lines: []})
+    tmp = st.tmp_para
+    st = {..st, tmp_para: -1}
+    para = node(st, tmp)
+
+    if para.lines == [] then
+        seg = Seg.trim_left(seg, st.src)
+
+        st =
+            case next_sibling(st, id)
+                Some(next) when is_paragraph(st, next) ->
+                    n = node(st, next)
+                    put(st, next, {..n, lines: List.concat(n.lines, [seg])})
+
+                _ ->
+                    (st, p) = add_node(st, Node{kind: .Paragraph, lines: [seg]})
+                    insert_after(st, heading.parent, id, p)
+            end
+
+        remove_child(st, heading.parent, id)
+    else
+        st = put(st, id, {..node(st, id), lines: para.lines, blank: para.blank})
+        if para.parent >= 0 then remove_child(st, para.parent, tmp) else st
+    end
+end
+
+// Indented code blocks.
+fn code_open(st: Doc) -> (Doc, Opened)
+    l = peek(st)!
+    s = segment(st)
+    (pos, padding) = indent_position(st, l, 0, line_offset(st), s.padding, 4)
+    if pos < 0 or is_blank_line(st, l) then return (st, .Nothing)
+    seg = Seg{start: s.start + pos, stop: s.stop, padding:}
+    seg = if seg.padding != 0 then keep_leading_tab(st, seg, 0) else seg
+
+    block(advance_to_eol(st), Node{
+        kind:  .CodeBlock,
+        lines: [{..seg, newline: True}],
+    }, False)
+end
+
+fn code_continue(st: Doc, id: Int) -> (Doc, Cont)
+    l = peek(st)!
+    s = segment(st)
+    (pos, padding) = indent_position(st, l, 0, line_offset(st), s.padding, 4)
+
+    if pos < 0 and not is_blank_line(st, l) then return (st, .Closed)
+
+    seg =
+        if pos < 0 then
+            Seg{start: s.stop - 1, stop: s.stop}
+        else
+            seg = Seg{start: s.start + pos, stop: s.stop, padding:, newline: True}
+            if seg.padding != 0 then keep_leading_tab(st, seg, 0) else seg
+        end
+
+    (advance_to_eol(add_line(st, id, seg)), .Going{children: False})
+end
+
+/// `seg` starting at the tab its padding stands for, when the tab is all
+/// of the indent left: goldmark's `preserveLeadingTabInCodeBlock`.
+fn keep_leading_tab(st: Doc, seg: Seg, indent: Int) -> Seg
+    with_padding = line_offset(st) + indent
+
+    if with_padding == line_offset({..st, start: st.start - 1, padding: 0, col: -1}) then
+        {..seg, padding: 0, start: seg.start - 1}
+    else
+        seg
+    end
+end
+
+fn code_close(st: Doc, id: Int) -> Doc
+    n = node(st, id)
+    put(st, id, {..n, lines: drop_blank_lines(st, n.lines)})
+end
+
+fn is_blank_value(value: Bytes) -> Bool
+    text.is_blank(value, 0, Bytes.length(value))
+end
+
+fn drop_blank_lines(st: Doc, lines: List<Seg>) -> List<Seg>
+    case lines
+        [s, ..rest] when is_blank_value(Seg.value(s, st.src)) -> drop_blank_lines(st, rest)
+        _ -> lines
+    end
+end
+
+// Fenced code blocks.
+fn fenced_open(st: Doc) -> (Doc, Opened)
+    l = peek(st)!
+    seg = segment(st)
+    pos = st.offset
+    if pos < 0 then return (st, .Nothing)
+    fc = ch(st, l, pos)
+    if fc != 96 and fc != 126 then return (st, .Nothing)
+    i = skip_line_byte(st, l, pos, fc)
+    length = i - pos
+    if length < 3 then return (st, .Nothing)
+
+    info =
+        if i < len(l) - 1 then
+            left = line_leading_spaces(st, l, i)
+            right = line_trailing_spaces(st, l, i, len(l))
+
+            if left < len(l) - i - right then
+                info_start = seg.start - seg.padding + i + left
+                info_stop = seg.stop - right
+
+                has_backtick = fc == 96
+                    and Iter.any_match((i + left)..(len(l) - right), fn k -> ch(st, l, k) == 96)
+
+                if has_backtick then return (st, .Nothing)
+
+                if info_start != info_stop then
+                    Some(Seg{start: info_start, stop: info_stop})
+                else
+                    None
+                end
+            else
+                None
+            end
+        else
+            None
+        end
+
+    (st, id) = add_node(st, Node{kind: .FencedCode{info:}})
+    st = {..st, fence: Some(Fence{char: fc, indent: pos, length:, node: id})}
+    (st, .Block{id:, children: False, requires_paragraph: False})
+end
+
+fn fenced_continue(st: Doc, id: Int) -> (Doc, Cont)
+    l = peek(st)!
+    s = segment(st)
+    f = st.fence!
+    (w, pos) = indent_width(st, l, 0, line_offset(st))
+
+    if w < 4 then
+        i = skip_line_byte(st, l, pos, f.char)
+
+        if i - pos >= f.length and blank_from(st, l, i, len(l)) then
+            return (advance_to_eol(st), .Closed)
+        end
+    end
+
+    (pos, padding) = indent_position(st, l, 0, line_offset(st), s.padding, f.indent)
+
+    (pos, padding) =
+        if pos < 0 then
+            (Int.max(0, first_non_space(st, l, 0)) - s.padding, 0)
+        else
+            (pos, padding)
+        end
+
+    seg = Seg{start: s.start + pos, stop: s.stop, padding:}
+    seg = if padding != 0 then keep_leading_tab(st, seg, f.indent) else seg
+    (advance_to_eol(add_line(st, id, {..seg, newline: True})), .Going{children: False})
+end
+
+// HTML blocks.
+once allowed_tags: Set<String> = [
+    "address",
+    "article",
+    "aside",
+    "base",
+    "basefont",
+    "blockquote",
+    "body",
+    "caption",
+    "center",
+    "col",
+    "colgroup",
+    "dd",
+    "details",
+    "dialog",
+    "dir",
+    "div",
+    "dl",
+    "dt",
+    "fieldset",
+    "figcaption",
+    "figure",
+    "footer",
+    "form",
+    "frame",
+    "frameset",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "head",
+    "header",
+    "hr",
+    "html",
+    "iframe",
+    "legend",
+    "li",
+    "link",
+    "main",
+    "menu",
+    "menuitem",
+    "meta",
+    "nav",
+    "noframes",
+    "ol",
+    "optgroup",
+    "option",
+    "p",
+    "param",
+    "search",
+    "section",
+    "summary",
+    "table",
+    "tbody",
+    "td",
+    "tfoot",
+    "th",
+    "thead",
+    "title",
+    "tr",
+    "track",
+    "ul",
+]
+
+fn html_open(st: Doc) -> (Doc, Opened)
+    l = peek(st)!
+    seg = segment(st)
+
+    last_is_paragraph =
+        case last_opened(st)
+            Some(id) -> is_paragraph(st, id)
+            None     -> False
+        end
+
+    kind = html_kind(st, l, last_is_paragraph)
+    if kind == 0 then return (st, .Nothing)
+    block(advance_to_eol(st), Node{kind: .HtmlBlock{kind:, closed: False}, lines: [seg]}, False)
+end
+
+fn html_continue(st: Doc, id: Int) -> (Doc, Cont)
+    n = node(st, id)
+    l = peek(st)!
+    seg = segment(st)
+    kind = if .HtmlBlock{kind:} = n.kind then kind else 0
+    first = last_of_segs(n.lines)
+
+    closer =
+        case kind
+            2 -> Some("-->")
+            3 -> Some("?>")
+            4 -> Some(">")
+            5 -> Some("]]>")
+            _ -> None
+        end
+
+    case kind
+        1 ->
+            if List.length(n.lines) == 1 and has_close_tag(st.src, first.start, first.stop) then
+                return (st, .Closed)
+            end
+
+            if has_close_tag(st.src, l.start, l.stop) then return closed_html(st, id)
+
+        2 or 3 or 4 or 5 ->
+            pattern = String.to_bytes(closer!)
+
+            if List.length(n.lines) == 1 and contains(Seg.value(first, st.src), pattern) then
+                return (st, .Closed)
+            end
+
+            if contains(Bytes.slice(st.src, l.start, l.stop), pattern) then
+                return closed_html(st, id)
+            end
+
+        _ ->
+            if is_blank_line(st, l) then
+                return (st, .Closed)
+            end
+    end
+
+    (advance_to_eol(add_line(st, id, seg)), .Going{children: False})
+end
+
+fn closed_html(st: Doc, id: Int) -> (Doc, Cont)
+    n = node(st, id)
+    kind = if .HtmlBlock{kind:} = n.kind then kind else 0
+    st = put(st, id, {..n, kind: .HtmlBlock{kind:, closed: True}})
+    (advance_to_eol(st), .Closed)
+end
+
+fn last_of_segs(xs: List<Seg>) -> Seg
+    case xs
+        [x]         -> x
+        [_, ..rest] -> last_of_segs(rest)
+        []          -> Seg{start: 0, stop: 0}
+    end
+end
+
+fn contains(data: Bytes, pattern: Bytes) -> Bool
+    Bytes.contains_bytes(data, pattern)
+end
+
+/// Which of the seven kinds of HTML block the line starts, or 0: goldmark's
+/// regular expressions for each kind, written out.
+fn html_kind(st: Doc, l: Line, last_is_paragraph: Bool) -> Int
+    sp = skip_line_byte(st, l, 0, 32)
+    if sp > 3 or ch(st, l, sp) != 60 then return 0
+    i = sp + 1
+
+    case
+        Iter.any_match(["script", "pre", "style", "textarea"], fn name ->
+            raw_tag_at(st, l, i, name)
+        end) ->
+            1
+
+        line_starts(st, l, i, "!--") ->
+            2
+
+        ch(st, l, i) == 63 ->
+            3
+
+        ch(st, l, i) == 33 and ch(st, l, i + 1) >= 65 and ch(st, l, i + 1) <= 90 ->
+            4
+
+        line_starts(st, l, i, "![CDATA[") ->
+            5
+
+        _ ->
+            kind = complete_tag_kind(st, l, i, last_is_paragraph)
+
+            if kind != 0 then
+                kind
+            else
+                open_tag_kind(st, l, i)
+            end
+    end
+end
+
+/// Whether the tag `name` starts at `i`, followed by a space, `>`, `/>`
+/// or the end of the line: kind 1's opening.
+fn raw_tag_at(st: Doc, l: Line, i: Int, name: String) -> Bool
+    e = i + Bytes.length(String.to_bytes(name))
+    c = ch(st, l, e)
+
+    ends = e >= len(l)
+        or c == 9
+        or c == 10
+        or c == 12
+        or c == 13
+        or c == 32
+        or c == 62
+        or (c == 47 and ch(st, l, e + 1) == 62)
+
+    line_starts(st, l, i, name) and ends
+end
+
+/// Whether the line has `prefix` at `i`, ASCII letters compared without
+/// case.
+fn line_starts(st: Doc, l: Line, i: Int, prefix: String) -> Bool
+    p = String.to_bytes(prefix)
+
+    Iter.all_match(0..Bytes.length(p), fn k ->
+        text.lower(ch(st, l, i + k)) == text.lower(text.at(p, k))
+    end)
+end
+
+fn is_letter(c: Int) -> Bool
+    (c >= 97 and c <= 122) or (c >= 65 and c <= 90)
+end
+
+fn tag_end(st: Doc, l: Line, i: Int) -> Int
+    c = ch(st, l, i)
+    if text.is_alnum(c) or c == 45 then tag_end(st, l, i + 1) else i
+end
+
+fn tag_name(st: Doc, l: Line, from: Int, to: Int) -> String
+    from..to
+    |> Iter.map(fn k -> Int.to_codepoint(text.lower(ch(st, l, k)))!)
+    |> Iter.to_list()
+    |> String.from_codepoints()
+end
+
+/// Kind 6 by its own expression: a block tag's name after `<` or `</`,
+/// then a space, `>`, `/>` or the end of the line.
+fn open_tag_kind(st: Doc, l: Line, i: Int) -> Int
+    j = if ch(st, l, i) == 47 then skip_line_byte(st, l, i + 1, 32) else i
+    if not is_letter(ch(st, l, j)) then return 0
+    k = tag_end(st, l, j + 1)
+    c = ch(st, l, k)
+
+    rest_ok = k >= len(l)
+        or c == 32
+        or c == 62
+        or c == 10
+        or (c == 47 and ch(st, l, k + 1) == 62)
+        or (c == 13 and ch(st, l, k + 1) == 10)
+
+    if rest_ok and tag_name(st, l, j, k) in allowed_tags then 6 else 0
+end
+
+/// Kind 6 or 7 by kind 7's expression: a whole open or closing tag, its
+/// attributes included, and nothing after it on the line.
+fn complete_tag_kind(st: Doc, l: Line, i: Int, last_is_paragraph: Bool) -> Int
+    closing = ch(st, l, i) == 47
+    j = if closing then skip_line_byte(st, l, i + 1, 32) else i
+    slash_only = closing and j == i + 1
+    if not is_letter(ch(st, l, j)) then return 0
+    k = tag_end(st, l, j + 1)
+    a = attributes_end(st, l, k)
+    m = skip_line_byte(st, l, a, 32)
+
+    m =
+        case
+            ch(st, l, m) == 62 -> m + 1
+            ch(st, l, m) == 47 and ch(st, l, m + 1) == 62 -> m + 2
+            _ -> -1
+        end
+
+    if m < 0 then return 0
+    m = skip_line_byte(st, l, m, 32)
+
+    ends =
+        case
+            m >= len(l)        -> True
+            ch(st, l, m) == 10 -> m + 1 >= len(l)
+            ch(st, l, m) == 13 and ch(st, l, m + 1) == 10 -> m + 2 >= len(l)
+            _ -> False
+        end
+
+    if not ends then return 0
+    name = tag_name(st, l, j, k)
+
+    may_be_seven = name != "script"
+        and name != "style"
+        and name != "pre"
+        and not last_is_paragraph
+        and not (slash_only and a > k)
+
+    case
+        name in allowed_tags -> 6
+        may_be_seven         -> 7
+        _                    -> 0
+    end
+end
+
+fn is_tag_space(c: Int) -> Bool
+    c == 13 or c == 10 or c == 32 or c == 9
+end
+
+fn skip_tag_spaces(st: Doc, l: Line, i: Int) -> Int
+    if is_tag_space(ch(st, l, i)) then skip_tag_spaces(st, l, i + 1) else i
+end
+
+fn attributes_end(st: Doc, l: Line, k: Int) -> Int
+    w = skip_tag_spaces(st, l, k)
+    c = ch(st, l, w)
+    if w == k or not (is_letter(c) or c == 95 or c == 58) then return k
+    n = attribute_name_end(st, l, w + 1)
+    attributes_end(st, l, attribute_value_end(st, l, n))
+end
+
+fn attribute_name_end(st: Doc, l: Line, i: Int) -> Int
+    c = ch(st, l, i)
+
+    if text.is_alnum(c) or c == 58 or c == 46 or c == 95 or c == 45 then
+        attribute_name_end(st, l, i + 1)
+    else
+        i
+    end
+end
+
+fn attribute_value_end(st: Doc, l: Line, n: Int) -> Int
+    e = skip_tag_spaces(st, l, n)
+    if ch(st, l, e) != 61 then return n
+    w = skip_tag_spaces(st, l, e + 1)
+    c = ch(st, l, w)
+
+    if c == 39 or c == 34 then
+        q = quote_end(st, l, w + 1, c)
+        if q < 0 then n else q + 1
+    else
+        u = unquoted_end(st, l, w)
+        if u > w then u else n
+    end
+end
+
+fn quote_end(st: Doc, l: Line, i: Int, q: Int) -> Int
+    c = ch(st, l, i)
+
+    case
+        c < 0  -> -1
+        c == q -> i
+        _      -> quote_end(st, l, i + 1, q)
+    end
+end
+
+fn unquoted_end(st: Doc, l: Line, i: Int) -> Int
+    c = ch(st, l, i)
+    keep = c > 32 and c != 34 and c != 39 and c != 61 and c != 60 and c != 62 and c != 96
+    if keep then unquoted_end(st, l, i + 1) else i
+end
+
+/// Whether the source from `from` up to `to` holds `</script>`, `</pre>`,
+/// `</style>` or `</textarea>`, in any case: what ends kind 1.
+fn has_close_tag(src: Bytes, from: Int, to: Int) -> Bool
+    case Bytes.index_of(Bytes.slice(src, from, to), String.to_bytes("</"))
+        Some(i) ->
+            after = from + i + 2
+            rest = Bytes.slice(src, after, to)
+
+            closes = Iter.any_match(["script>", "pre>", "style>", "textarea>"], fn name ->
+                text.has_prefix_folded(rest, 0, name)
+            end)
+
+            closes or has_close_tag(src, after, to)
+
+        None ->
+            False
+    end
+end
+
+// Lists.
+/// A list marker's place in its line: the spaces before it, where the
+/// marker ends, and where the item's text starts and ends on the line (-1
+/// for an item with none).
+struct Marker
+    indent:      Int
+    marker_end:  Int
+    content:     Int
+    content_end: Int
+    ordered:     Bool
+end
+
+fn list_marker(st: Doc, l: Line) -> Maybe<Marker>
+    n = len(l)
+    i = skip_line_byte(st, l, 0, 32)
+    if i > 3 or i >= n then return None
+    c = ch(st, l, i)
+
+    (marker_end, ordered) =
+        if c == 45 or c == 42 or c == 43 then
+            (i + 1, False)
+        else
+            j = digits_end(st, l, i)
+            d = ch(st, l, j)
+            if j == i or j - i > 9 or j >= n or (d != 46 and d != 41) then return None
+            (j + 1, True)
+        end
+
+    k = marker_end
+
+    if k < n and ch(st, l, k) != 10 then
+        (w, _) = indent_width(st, l, k, 0)
+        if w == 0 then return None
+    end
+
+    if k >= n then
+        return Some(Marker{indent: i, marker_end: k, content: -1, content_end: -1, ordered:})
+    end
+
+    content_end = if ch(st, l, n - 1) == 10 and ch(st, l, k) != 10 then n - 1 else n
+    Some(Marker{indent: i, marker_end: k, content: k, content_end:, ordered:})
+end
+
+fn digits_end(st: Doc, l: Line, i: Int) -> Int
+    if text.is_digit(ch(st, l, i)) then digits_end(st, l, i + 1) else i
+end
+
+fn list_number(st: Doc, l: Line, from: Int, to: Int) -> Int
+    Iter.reduce(from..to, 0, fn n, k -> n * 10 + ch(st, l, k) - 48)
+end
+
+fn item_offset_for(st: Doc, l: Line, m: Marker) -> Int
+    if m.content < 0 or blank_from(st, l, m.content, len(l)) then return 1
+    (offset, _) = indent_width(st, l, m.content, m.content)
+    if offset > 4 then 1 else offset
+end
+
+fn last_offset(st: Doc, list: Int) -> Int
+    case last_child(st, list)
+        Some(item) -> if .ListItem{offset:} = kind_of(st, item) then offset else 0
+        None       -> 0
+    end
+end
+
+fn list_open(st: Doc, parent: Int) -> (Doc, Opened)
+    last = last_opened(st)
+
+    last_is_list =
+        case last
+            Some(id) -> kind_of(st, id) is .ListBlock{}
+            None     -> False
+        end
+
+    if last_is_list or st.skip_list then return ({..st, skip_list: False}, .Nothing)
+    l = peek(st)!
+
+    case list_marker(st, l)
+        None ->
+            (st, .Nothing)
+
+        Some(m) ->
+            start = if m.ordered then list_number(st, l, m.indent, m.marker_end - 1) else -1
+
+            interrupts =
+                case last
+                    Some(id) -> is_paragraph(st, id) and node(st, id).parent == parent
+                    None     -> False
+                end
+
+            if interrupts and m.ordered and start != 1 then return (st, .Nothing)
+
+            if interrupts and (m.content < 0 or blank_from(st, l, m.content, m.content_end)) then
+                return (st, .Nothing)
+            end
+
+            marker = ch(st, l, m.marker_end - 1)
+            kind = Kind.ListBlock{marker:, start: if start > -1 then start else 0, tight: True}
+            block({..st, empty_item: False}, Node{kind:}, True)
+    end
+end
+
+fn list_continue(st: Doc, id: Int) -> (Doc, Cont)
+    l = peek(st)!
+    s = segment(st)
+
+    last_is_empty =
+        case last_child(st, id)
+            Some(item) -> node(st, item).children == []
+            None       -> True
+        end
+
+    if is_blank_line(st, l) then
+        st = if last_is_empty then {..st, empty_item: True} else st
+        return (st, .Going{children: True})
+    end
+
+    offset = last_offset(st, id)
+    (indent, _) = indent_width(st, l, 0, line_offset(st))
+    marker = if (indent < offset or last_is_empty) and indent < 4 then list_marker(st, l) else None
+
+    case marker
+        Some(m) when m.indent - offset < 4 ->
+            listed_line(st, id, l, s, m)
+
+        _ ->
+            case
+                (indent < offset or last_is_empty) and not last_is_empty -> (st, .Closed)
+                last_is_empty and indent < offset -> (st, .Closed)
+                st.empty_item -> (st, .Closed)
+                _ -> (st, .Going{children: True})
+            end
+    end
+end
+
+/// What a list does with a line that starts with a list marker.
+fn listed_line(st: Doc, id: Int, l: Line, s: Seg, m: Marker) -> (Doc, Cont)
+    marker = ch(st, l, m.marker_end - 1)
+    if not can_continue(st, id, marker, m.ordered) then return (st, .Closed)
+    is_tb = s.stop > st.tb_pos and is_thematic(st, l, m.marker_end - 1, 0)
+    st = if s.stop > st.tb_pos then {..st, tb_pos: s.stop} else st
+    if not is_tb then return (st, .Going{children: True})
+
+    is_heading =
+        case last_opened(st)
+            Some(p) when is_paragraph(st, p) -> setext_bar(st, l, m.marker_end - 1) == Some(45)
+            _                                -> False
+        end
+
+    if is_heading then
+        (st, .Going{children: True})
+    else
+        (st, .Closed)
+    end
+end
+
+fn can_continue(st: Doc, list: Int, marker: Int, ordered: Bool) -> Bool
+    case kind_of(st, list)
+        .ListBlock{marker: m} -> m == marker and ordered == (m == 46 or m == 41)
+        _                     -> False
+    end
+end
+
+fn list_close(st: Doc, id: Int) -> Doc
+    items = children(st, id)
+    tight = is_tight(st, items, True)
+    n = node(st, id)
+
+    st =
+        case n.kind
+            .ListBlock{marker:, start:} ->
+                put(st, id, {..n, kind: .ListBlock{marker:, start:, tight:}})
+
+            _ ->
+                st
+        end
+
+    if not tight then return st
+
+    Iter.reduce(items, st, fn st, item ->
+        Iter.reduce(node(st, item).children, st, fn st, child ->
+            c = node(st, child)
+            if c.kind is .Paragraph then put(st, child, {..c, kind: .TextBlock}) else st
+        end)
+    end)
+end
+
+fn is_tight(st: Doc, items: List<Int>, first: Bool) -> Bool
+    case items
+        [] ->
+            True
+
+        [item, ..rest] ->
+            loose_inside =
+                case children(st, item)
+                    [_, ..more] -> Iter.any_match(more, fn k -> node(st, k).blank)
+                    []          -> False
+                end
+
+            if loose_inside or (not first and node(st, item).blank) then
+                False
+            else
+                is_tight(st, rest, False)
+            end
+    end
+end
+
+fn item_open(st: Doc, parent: Int) -> (Doc, Opened)
+    if not (kind_of(st, parent) is .ListBlock{}) then return (st, .Nothing)
+    offset = last_offset(st, parent)
+    l = peek(st)!
+
+    case list_marker(st, l)
+        None ->
+            (st, .Nothing)
+
+        Some(m) ->
+            if m.indent - offset > 3 then return (st, .Nothing)
+            st = {..st, empty_item: False}
+            item_offset = item_offset_for(st, l, m)
+            item = Node{kind: .ListItem{offset: m.marker_end + item_offset}}
+
+            if m.content < 0 or blank_from(st, l, m.content, m.content_end) then
+                return block(st, item, False)
+            end
+
+            (pos, padding) = indent_position(st, l, m.content, m.content, 0, item_offset)
+            block(advance_and_set_padding(st, m.marker_end + pos, padding), item, True)
+    end
+end
+
+fn item_continue(st: Doc, id: Int) -> (Doc, Cont)
+    l = peek(st)!
+    if is_blank_line(st, l) then return (advance_to_eol(st), .Going{children: True})
+    offset = last_offset(st, node(st, id).parent)
+    is_empty = node(st, id).children == [] and st.empty_item
+    (indent, _) = indent_width(st, l, 0, line_offset(st))
+    near = (is_empty or indent < offset) and indent < 4
+    if near and list_marker(st, l) is Some(_) then return ({..st, skip_list: True}, .Closed)
+    if near and not is_empty then return (st, .Closed)
+    (pos, padding) = indent_position(st, l, 0, line_offset(st), 0, offset)
+    (advance_and_set_padding(st, pos, padding), .Going{children: True})
+end
+
+// Paragraph transformers.
+/// The paragraph `id` read for link reference definitions and then for a
+/// table, and whether that took it out of the tree.
+fn transform_paragraph(st: Doc, id: Int) -> (Doc, Bool)
+    st = definitions(st, id)
+    if node(st, id).parent < 0 then return (st, True)
+    st = table(st, id)
+    (st, node(st, id).parent < 0)
+end
+
+fn definitions(st: Doc, id: Int) -> Doc
+    n = node(st, id)
+    segs = Iter.reverse(n.lines)
+    if not starts_with_bracket(st, segs) then return st
+    lines = Lines.of(segs, st.src)
+    (st, removes) = definition_loop(st, id, lines, Cursor{}, [])
+    if removes == [] then return st
+    kept = without_definitions(segs, Iter.reverse(removes))
+    st = put(st, id, {..node(st, id), lines: Iter.reverse(kept)})
+    if kept == [] then remove_child(st, n.parent, id) else st
+end
+
+/// Whether the paragraph's first byte past its spaces is `[`, which a
+/// definition starts with: a paragraph without one holds none.
+fn starts_with_bracket(st: Doc, segs: List<Seg>) -> Bool
+    case segs
+        [s, ..] -> src_at(st, s.start + text.leading_spaces(st.src, s.start, s.stop)) == 91
+        []      -> False
+    end
+end
+
+/// `segs` without the lines the definitions `removes` took, each a start
+/// and an end. Definitions read one after another from the first line
+/// leave the lines after the last; anything else is taken out range by
+/// range as goldmark does.
+fn without_definitions(segs: List<Seg>, removes: List<(Int, Int)>) -> List<Seg>
+    if not consecutive(removes, 0) then return remove_ranges(segs, removes, 0)
+    last = removes |> Iter.map(.second) |> Iter.max() |> Maybe.with_default(0)
+    List.slice(segs, last, List.length(segs))
+end
+
+fn consecutive(removes: List<(Int, Int)>, from: Int) -> Bool
+    case removes
+        []                      -> True
+        [(start, stop), ..rest] -> start == from and consecutive(rest, stop)
+    end
+end
+
+/// `segs` without the line ranges `removes`, each a start and an end, as
+/// goldmark takes them out.
+fn remove_ranges(segs: List<Seg>, removes: List<(Int, Int)>, offset: Int) -> List<Seg>
+    case removes
+        [] ->
+            segs
+
+        [(start, stop), ..rest] ->
+            if segs == [] then return segs
+            tail = List.slice(segs, stop - offset, List.length(segs))
+            remove_ranges(List.concat(List.slice(segs, 0, start - offset), tail), rest, stop)
+    end
+end
+
+fn definition_loop(
+    st:      Doc,
+    para:    Int,
+    lines:   Lines,
+    c:       Cursor,
+    removes: List<(Int, Int)>,
+) -> (Doc, List<(Int, Int)>)
+    case reference_definition(lines, c)
+        None ->
+            (st, removes)
+
+        Some(d) ->
+            key = reader.reference_key(d.label)
+            fresh = Map.get(st.refs, key) is None
+
+            refs =
+                if fresh then
+                    Map.put(st.refs, key, Ref{destination: d.destination, title: d.title})
+                else
+                    st.refs
+                end
+
+            p = node(st, para)
+
+            (st, def) = add_node(
+                {..st, refs:},
+                Node{kind: .Definition, blank: d.first_line == 0 and p.blank},
+            )
+
+            st = insert_before(st, p.parent, para, def)
+            stop = if d.first_line == d.end_line then d.end_line + 1 else d.end_line
+            definition_loop(st, para, lines, d.cursor, [(d.first_line, stop), ..removes])
+    end
+end
+
+/// A link reference definition read from a paragraph's lines: its label,
+/// destination and title, the lines it starts on and ends before, and the
+/// cursor after it.
+struct Definition
+    label:       Bytes
+    destination: Bytes
+    title:       Maybe<Bytes>
+    first_line:  Int
+    end_line:    Int
+    cursor:      Cursor
+end
+
+fn reference_definition(lines: Lines, c: Cursor) -> Maybe<Definition>
+    (c, _, _) = Cursor.skip_spaces(c, lines)
+    (ls, _) = Cursor.peek_line(c, lines)?
+    start_line = c.line
+    (width, pos) = buffer_indent(lines, ls, 0, 0)
+    if width > 3 then return None
+    pos = if width != 0 then pos + 1 else pos
+    if Lines.at(lines, ls + pos) != 91 then return None
+    c = Cursor.advance(c, lines, pos + 1)
+    ((a, b), c) = Cursor.find_closure(c, lines, 91, 93)?
+    label = Bytes.slice(lines.buf, a, b)
+    if text.is_blank(label, 0, Bytes.length(label)) then return None
+    if Cursor.peek(c, lines) != 58 then return None
+    (c, _, _) = c |> Cursor.advance(lines, 1) |> Cursor.skip_spaces(lines)
+    (destination, c) = Cursor.destination(c, lines)?
+
+    is_new_line =
+        case Cursor.peek_line(c, lines)
+            None         -> True
+            Some((s, e)) -> text.is_blank(lines.buf, s, e)
+        end
+
+    end_line = c.line
+    (c, spaces, _) = Cursor.skip_spaces(c, lines)
+    opener = Cursor.peek(c, lines)
+
+    found = Definition{
+        label:,
+        destination:,
+        title:      None,
+        first_line: start_line,
+        end_line:   end_line + 1,
+        cursor:     c,
+    }
+
+    if opener != 34 and opener != 39 and opener != 40 then
+        return if is_new_line then Some(found) else None
+    end
+
+    if spaces == 0 then return None
+    c = Cursor.advance(c, lines, 1)
+    closer = if opener == 40 then 41 else opener
+
+    case Cursor.find_closure(c, lines, opener, closer)
+        None ->
+            if not is_new_line then return None
+            failed = Cursor.failed_closure(c, lines, opener, closer)
+            Some({..found, cursor: Cursor.advance_line(failed, lines)})
+
+        Some(((ta, tb), c)) ->
+            title = Some(Bytes.slice(lines.buf, ta, tb))
+
+            case Cursor.peek_line(c, lines)
+                Some((s, e)) when not text.is_blank(lines.buf, s, e) ->
+                    if is_new_line then Some({..found, title:, end_line:, cursor: c}) else None
+
+                _ ->
+                    Some({..found, title:, end_line: c.line + 1, cursor: c})
+            end
+    end
+end
+
+fn buffer_indent(lines: Lines, i: Int, width: Int, pos: Int) -> (Int, Int)
+    case Lines.at(lines, i)
+        32 -> buffer_indent(lines, i + 1, width + 1, pos + 1)
+        9  -> buffer_indent(lines, i + 1, width + tab_width(width), pos + 1)
+        _  -> (width, pos)
+    end
+end
+
+// Tables.
+fn table(st: Doc, id: Int) -> Doc
+    segs: Vector<Seg> = node(st, id).lines |> Iter.reverse() |> Iter.to_vector()
+    if Vector.length(segs) < 2 then return st
+    find_delimiter_row(st, id, segs, 1)
+end
+
+fn find_delimiter_row(st: Doc, id: Int, segs: Vector<Seg>, i: Int) -> Doc
+    if i >= Vector.length(segs) then return st
+
+    case delimiter_row(st, Vector.get(segs, i)!)
+        None ->
+            find_delimiter_row(st, id, segs, i + 1)
+
+        Some(aligns) ->
+            header = row(st, Vector.get(segs, i - 1)!, aligns, True)
+            if List.length(header) != List.length(aligns) then return st
+            (st, table) = add_node(st, Node{kind: .Table})
+            (st, head) = add_node(st, Node{kind: .TableHeader})
+            st = Iter.reduce(header, st, fn st, cell -> add_cell(st, head, cell))
+            st = append_child(st, table, head)
+
+            st = Iter.reduce((i + 1)..Vector.length(segs), st, fn st, j ->
+                (st, r) = add_node(st, Node{kind: .TableRow})
+                cells = row(st, Vector.get(segs, j)!, aligns, False)
+                st = Iter.reduce(cells, st, fn st, cell -> add_cell(st, r, cell))
+                append_child(st, table, r)
+            end)
+
+            n = node(st, id)
+            st = insert_after(st, n.parent, id, table)
+
+            case Iter.reverse(Vector.slice(segs, 0, i - 1))
+                []             -> remove_child(put(st, id, {..n, lines: []}), n.parent, id)
+                [last, ..rest] -> put(st, id, {..n, lines: [{..last, stop: last.stop - 1}, ..rest]})
+            end
+    end
+end
+
+fn add_cell(st: Doc, row: Int, cell: Node) -> Doc
+    (st, id) = add_node(st, cell)
+    append_child(st, row, id)
+end
+
+fn delimiter_row(st: Doc, seg: Seg) -> Maybe<List<Align>>
+    first = src_at(st, seg.start + text.leading_spaces(st.src, seg.start, seg.stop))
+
+    // - | :
+    if first != 45 and first != 124 and first != 58 then return None
+    value = Seg.value(seg, st.src)
+    if not is_table_delimiter(value) then return None
+    cols = Bytes.split(value, String.to_bytes("|"))
+
+    cols =
+        case cols
+            [first, ..rest] when text.is_blank(first, 0, Bytes.length(first)) -> rest
+            _ -> cols
+        end
+
+    cols =
+        case Iter.reverse(cols)
+            [last, ..rest] when text.is_blank(last, 0, Bytes.length(last)) -> Iter.reverse(rest)
+            _ -> cols
+        end
+
+    cols
+    |> Iter.map(alignment)
+    |> Maybe.collect()
+end
+
+fn is_table_delimiter(value: Bytes) -> Bool
+    n = Bytes.length(value)
+    width = bytes_indent(value, 0, 0)
+    allowed = Iter.all_match(0..n, fn i -> table_delimiter_byte(text.at(value, i)))
+    width <= 3 and allowed and Iter.any_match(0..n, fn i -> text.at(value, i) != 45)
+end
+
+fn table_delimiter_byte(c: Int) -> Bool
+    text.is_space(c) or c == 45 or c == 124 or c == 58
+end
+
+fn bytes_indent(value: Bytes, i: Int, width: Int) -> Int
+    case text.at(value, i)
+        32 -> bytes_indent(value, i + 1, width + 1)
+        9  -> bytes_indent(value, i + 1, width + tab_width(width))
+        _  -> width
+    end
+end
+
+/// A delimiter row's column: `:---`, `---:`, `:---:` or `---`, with RE2's
+/// spaces around it, or None.
+fn alignment(col: Bytes) -> Maybe<Align>
+    n = Bytes.length(col)
+    from = re_spaces_end(col, 0)
+    to = n - re_spaces_before(col, n, from)
+    left = text.at(col, from) == 58
+    right = to - 1 > from and text.at(col, to - 1) == 58
+    first = if left then from + 1 else from
+    last = if right then to - 1 else to
+    dashes = last > first and Iter.all_match(first..last, fn i -> text.at(col, i) == 45)
+
+    case
+        not dashes     -> None
+        left and right -> Some(.Center)
+        left           -> Some(.Left)
+        right          -> Some(.Right)
+        _              -> Some(.Unaligned)
+    end
+end
+
+fn is_re_space(c: Int) -> Bool
+    c == 9 or c == 10 or c == 12 or c == 13 or c == 32
+end
+
+fn re_spaces_end(col: Bytes, i: Int) -> Int
+    if is_re_space(text.at(col, i)) then re_spaces_end(col, i + 1) else i
+end
+
+fn re_spaces_before(col: Bytes, i: Int, from: Int) -> Int
+    if i > from and is_re_space(text.at(col, i - 1)) then
+        1 + re_spaces_before(col, i - 1, from)
+    else
+        0
+    end
+end
+
+/// The cells of a table row read from `seg`, with `aligns` the columns'
+/// alignments; a header row keeps a cell past them, a body row does not.
+fn row(st: Doc, seg: Seg, aligns: List<Align>, is_header: Bool) -> List<Node>
+    seg = seg |> Seg.trim_left(st.src) |> Seg.trim_right(st.src)
+    n = seg.stop - seg.start
+    pos = if n > 0 and src_at(st, seg.start) == 124 then 1 else 0
+    limit = if n > 0 and src_at(st, seg.stop - 1) == 124 then n - 1 else n
+    aligned: Vector<Align> = Iter.to_vector(aligns)
+    cells = row_cells(st, seg, aligned, is_header, pos, limit, 0, [])
+
+    filled =
+        List.length(cells)..Vector.length(aligned)
+        |> Iter.map(fn _ -> Node{
+            kind: .TableCell{align: .Unaligned, escapes: []},
+        })
+        |> Iter.to_list()
+
+    List.concat(Iter.reverse(cells), filled)
+end
+
+fn row_cells(
+    st:        Doc,
+    seg:       Seg,
+    aligns:    Vector<Align>,
+    is_header: Bool,
+    pos:       Int,
+    limit:     Int,
+    i:         Int,
+    cells:     List<Node>,
+) -> List<Node>
+    if pos >= limit then return cells
+    if i >= Vector.length(aligns) and not is_header then return cells
+    align = Vector.get(aligns, i) |> Maybe.with_default(Align.Unaligned)
+    (closure, escapes) = cell_end(st, seg, pos, limit, False, [])
+
+    cell_seg =
+        Seg{start: seg.start + pos, stop: seg.start + closure}
+        |> Seg.trim_left(st.src)
+        |> Seg.trim_right(st.src)
+
+    cell = Node{kind: .TableCell{align:, escapes:}, lines: [cell_seg]}
+    row_cells(st, seg, aligns, is_header, closure + 1, limit, i + 1, [cell, ..cells])
+end
+
+fn cell_end(
+    st:       Doc,
+    seg:      Seg,
+    i:        Int,
+    limit:    Int,
+    backtick: Bool,
+    escapes:  List<Int>,
+) -> (Int, List<Int>)
+    if i >= limit then return (i, escapes)
+    c = src_at(st, seg.start + i)
+    backtick = backtick or c == 96
+    if c != 124 then return cell_end(st, seg, i + 1, limit, backtick, escapes)
+    if i == 0 or src_at(st, seg.start + i - 1) != 92 then return (i, escapes)
+    escapes = if backtick then [seg.start + i - 1, ..escapes] else escapes
+    cell_end(st, seg, i + 1, limit, backtick, escapes)
+end

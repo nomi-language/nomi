@@ -10,7 +10,7 @@ import (
 
 // maxQualImplPlanRoutes is how many routes qualImplPlan tries for a
 // qualified call: the calls in its body of a builder method whose name
-// ends in `Plan` (recordedCallPlan, implItemPlan, stdIfacePlan, ...), each
+// ends in `Plan` (recordedCallPlan, stdIfacePlan, ...), each
 // of which plans the call or declines it. The first two plan from the
 // record: the function the call's record names (recordedCallPlan), and
 // the interface function it dispatches on a receiver held as an interface
@@ -20,7 +20,7 @@ import (
 // record, and calls whose function no gen registered where the call
 // reaches it. A route a record-planned call no longer needs is deleted, so
 // the count only goes down.
-const maxQualImplPlanRoutes = 10
+const maxQualImplPlanRoutes = 4
 
 // TestQualImplPlanRoutesOnlyGoDown counts qualImplPlan's routes and fails
 // when the count rises, or falls without maxQualImplPlanRoutes following

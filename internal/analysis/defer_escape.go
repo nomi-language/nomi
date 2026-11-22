@@ -170,7 +170,7 @@ func (s *escapeScan) carries(n ast.Node) *deferEscape {
 		}
 		return nil
 	case *ast.Call:
-		if !isConstructorCall(v) {
+		if !s.c.fa.isConstructorCall(v) {
 			return nil
 		}
 		args := make([]ast.Node, 0, len(v.Args))

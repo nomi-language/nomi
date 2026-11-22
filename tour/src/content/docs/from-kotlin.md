@@ -88,10 +88,11 @@ enum Event
 end
 
 fn apply(account: Account, event: Event) -> Result<Account, String>
-    balance = case event
-        .Deposit(amount)  -> account.balance + amount
-        .Withdraw(amount) -> account.balance - amount
-    end
+    balance =
+        case event
+            .Deposit(amount)  -> account.balance + amount
+            .Withdraw(amount) -> account.balance - amount
+        end
 
     if balance < 0 then
         Err("short by ${-balance}")

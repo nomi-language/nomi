@@ -80,7 +80,7 @@ end
 	// the on-disk stdlib whose absence is the subject.
 	run := exec.Command(bin, "run", filepath.Join(proj, "main.nomi"))
 	run.Dir = dir
-	run.Env = withUserDirs(append([]string{"HOME=" + dir, "PATH=" + noGoPath(t), "TERM=dumb"}, noManagedGoEnv(dir)...))
+	run.Env = withUserDirs(append([]string{"HOME=" + dir, "PATH=" + noGoPath(t), "TERM=dumb"}, artifactCacheEnv(dir)...))
 	out, err := run.CombinedOutput()
 	if err != nil {
 		t.Fatalf("nomi run failed with no stdlib source tree and no go on PATH: %v\n%s", err, out)
@@ -117,7 +117,7 @@ end
 	}
 	run = exec.Command(bin, "run", filepath.Join(bootDir, "main.nomi"))
 	run.Dir = dir
-	run.Env = withUserDirs(append([]string{"HOME=" + dir, "PATH=" + noGoPath(t), "TERM=dumb"}, noManagedGoEnv(dir)...))
+	run.Env = withUserDirs(append([]string{"HOME=" + dir, "PATH=" + noGoPath(t), "TERM=dumb"}, artifactCacheEnv(dir)...))
 	out, err = run.CombinedOutput()
 	if err != nil || strings.TrimSpace(string(out)) != "listening on :8080" {
 		t.Fatalf("nomi run of a boot program with no stdlib source tree: %v\n%s", err, out)
@@ -131,137 +131,6 @@ end
 	if out, err := probe.CombinedOutput(); err == nil {
 		t.Fatalf("the scrubbed PATH still resolves go, so the run above was not toolchain-free: %s", out)
 	}
-}
-
-// TestDevelopmentBuildWithoutSourceRunsAGoFFIProjectOnlyWithACheckout pins
-// what a development build of `nomi` does with Go FFI once the tree it was
-// built from is out of reach.
-//
-// `nomi run` on a project with Go FFI goes through internal/ffirun, which
-// stages a wrapper importing the compiler's own packages (nomi/vmhost, with
-// adapters generated for the user's bindings), so `go build` compiles them
-// from source. A versioned `nomi` fetches that source through Go
-// (TestVersionedInstallRunsAGoFFIProject); a development build has no version
-// to fetch. So it fails, and what is asserted is that it names the situation
-// instead of reporting a stat on a path the user never wrote, and that the way
-// out it names, NOMI_COMPILER_SOURCE, works.
-func TestDevelopmentBuildWithoutSourceRunsAGoFFIProjectOnlyWithACheckout(t *testing.T) {
-	if testing.Short() {
-		t.Skip("builds a binary")
-	}
-	goBin, err := exec.LookPath("go")
-	if err != nil {
-		t.Skip("no go toolchain to build with")
-	}
-
-	bin, dir := buildTrimmedNomi(t)
-	proj := filepath.Join(dir, "ffiprog")
-	if err := os.MkdirAll(proj, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	write := func(name, content string) {
-		if err := os.WriteFile(filepath.Join(proj, name), []byte(content), 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
-	write("nomi.toml", "[module]\nname = \"fficheck\"\nentry_points = [\"main\"]\n")
-	write("go.mod", "module fficheck\n\ngo 1.27.0\n")
-	write("shout.go", "package fficheck\n\nimport \"strings\"\n\n"+
-		"func Shout(s string) string { return strings.ToUpper(s) }\n")
-	write("ffi.nomi", "gopkg \"fficheck\" as shout\n\n"+
-		"pub fn shout_it(s: String) -> String go shout.Shout\n")
-	write("main.nomi", `import
-  std::io
-  ffi
-end
-
-fn main()
-  io.print(ffi.shout_it("quiet"))
-end
-`)
-
-	env := installedEnv(t, dir, goBin)
-
-	run := exec.Command(bin, "run", filepath.Join(proj, "main.nomi"))
-	run.Dir = dir
-	run.Env = env
-	got, err := run.CombinedOutput()
-	if err == nil {
-		t.Fatalf("`nomi run` on a Go-FFI project SUCCEEDED from a development build with no "+
-			"source tree and no %s:\n%s", "NOMI_COMPILER_SOURCE", got)
-	}
-	if !strings.Contains(string(got), "development build") ||
-		!strings.Contains(string(got), "NOMI_COMPILER_SOURCE") {
-		t.Fatalf("`nomi run` failed without naming why. Got:\n%s\n\nThe message should say "+
-			"that this is a development build without its source and name NOMI_COMPILER_SOURCE, "+
-			"because the predecessor reported `stat nomi/go.mod: no such file or directory`, "+
-			"a path the user never wrote and no way forward.", got)
-	}
-
-	run = exec.Command(bin, "run", filepath.Join(proj, "main.nomi"))
-	run.Dir = dir
-	run.Env = append(env, "NOMI_COMPILER_SOURCE="+repoRoot(t))
-	got, err = run.CombinedOutput()
-	if err != nil || strings.TrimSpace(string(got)) != "QUIET" {
-		t.Fatalf("`nomi run` with NOMI_COMPILER_SOURCE naming the checkout: %v\n%s", err, got)
-	}
-}
-
-// buildTrimmedNomi builds a development `nomi` with no source tree in reach
-// and returns the binary plus a scratch directory with no source tree above
-// it.
-//
-// `-trimpath` rewrites every `runtime.Caller` answer to a module-relative
-// path, which is what puts the compiler's own source out of reach the way it
-// is out of reach on a user's machine. `-buildvcs=false` keeps it a
-// development build whatever state this checkout is in: built at a clean
-// tagged commit it would carry that version and fetch the compiler module
-// instead.
-func buildTrimmedNomi(t *testing.T) (bin, dir string) {
-	t.Helper()
-	_, thisFile, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("runtime.Caller failed")
-	}
-	dir = t.TempDir()
-	bin = exe(filepath.Join(dir, "nomi"))
-	build := exec.Command("go", "build", "-trimpath", "-buildvcs=false", "-o", bin, ".")
-	build.Dir = filepath.Dir(thisFile)
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("building nomi: %v\n%s", err, out)
-	}
-	return bin, dir
-}
-
-// installedEnv is the environment a `nomi build` runs under in these tests:
-// HOME inside the scratch directory, `go` reachable and nothing else on PATH,
-// and nothing inherited: NOMI_STD_PATH is set by this package's test setup and
-// inheriting it would hand the child the source tree whose absence is the
-// subject.
-//
-// GOMODCACHE and GOCACHE are taken from the parent's `go env` rather than left
-// to land under the scratch HOME. Two reasons, and neither weakens what is
-// being tested. The module cache holds rt's one dependency, so a private one
-// would make every run of this test fetch github.com/rivo/uniseg from the
-// network. And Go writes the module cache read-only, so t.TempDir's cleanup
-// of a private one fails with `permission denied`, a test failure with
-// nothing to do with the subject. The subject is
-// the compiler's source tree; Go's own caches are orthogonal and a real
-// installation has them too.
-func installedEnv(t *testing.T, dir, goBin string) []string {
-	t.Helper()
-	list := string(os.PathListSeparator)
-	env := withUserDirs([]string{"HOME=" + dir, "PATH=" + filepath.Dir(goBin) + list + "/usr/bin" + list + "/bin", "TERM=dumb"})
-	for _, name := range []string{"GOMODCACHE", "GOCACHE"} {
-		out, err := exec.Command(goBin, "env", name).Output()
-		if err != nil {
-			t.Fatalf("reading %s from the parent toolchain: %v", name, err)
-		}
-		if v := strings.TrimSpace(string(out)); v != "" {
-			env = append(env, name+"="+v)
-		}
-	}
-	return env
 }
 
 // withUserDirs completes env, which sets HOME, with the variables Windows

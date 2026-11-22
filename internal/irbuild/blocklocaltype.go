@@ -1,10 +1,6 @@
 package irbuild
 
 import (
-	"maps"
-	"slices"
-	"strings"
-
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 )
@@ -17,8 +13,9 @@ import (
 // body is lowered.** collectBlockTypeDecls walks every block under the
 // module's nodes and builds a shell for each declaration, and the layout
 // passes treat those shells as they treat module-level ones
-// (gen.declaredTypes). A block-local type gets the universal `impl Debug` a
-// module-level one gets (registerBlockLocalDebug), and it may be generic.
+// (gen.declaredTypes). A block-local type renders by its shape, and an
+// opaque one gets the name-only `impl Debug` a module-level opaque type gets
+// (registerBlockLocalDebug). It may be generic.
 //
 // That is sound because the front end has already restricted what may be
 // asked. A use of a block-local name from outside its block is an analyzer
@@ -29,70 +26,34 @@ import (
 // the def by that type and not by name (blockLocalOfType,
 // blockLocalTemplateOf).
 //
-// **Identity is the declaration node, and the name-keyed table cannot express
-// it.** `gen.types` is a `map[string]*typeDef`, "the only place a type NAME
-// is looked up". Two bodies may each declare `Point` with a different field
-// set, and one map keyed on `"Point"` can hold one of them.
-//
-// So a block-local declaration goes into a scoped overlay, pushed and popped
-// with the block it was written in, and gen.namedType, the single lookup
-// seam, consults the innermost overlay first. Scoping comes out right because
-// it is the analyzer's own scoping, replayed and not reimplemented.
-//
-// # A block-local type does not shadow a module-level one
-//
-// With `struct Point { label: String }` at file scope, a block-local
-// `struct Point { x: Int, y: Int }` and then `Point{x: 3, y: 4}` reports
-// "struct 'Point' has no field 'x'" — the literal resolved against the module
-// declaration. So the overlay can never SHADOW `gen.types`; it can only add a
-// name the module scope does not have. It is still consulted first, because that
-// is the order the analyzer resolves in and coding the weaker rule would make
-// the builder's answer depend on a front-end limitation rather than on scope.
+// **Identity is the declaration node.** Two bodies may each declare `Point`
+// with a different field set, so a block-local def is found by its
+// declaration (gen.defsByDecl) or by the checker's type for it
+// (blockLocalOfType), never by its name, and `gen.types` holds none. A
+// block's overlay (gen.typeScopes) is pushed and popped with the block it
+// was written in.
 //
 // # A type ALIAS is transparent and gets no def
 //
 // `typealias Count Int` introduces no type: `Count` IS `Int`, in both
-// directions, with no conversion. So an alias is recorded as a name-to-KIND
-// binding rather than a `*typeDef`, and `blockLocalAlias` is consulted where a
-// type name is projected. A `type UserId Int` — a distinct — is the opposite and
-// takes an ordinary def: it converts each way, which is exactly what separates
-// the two in the fixture.
+// directions, with no conversion. So the builder holds nothing for an
+// alias: an annotation that spells it has the target's type in the
+// checker's record. A `type UserId Int` — a distinct — is the opposite and
+// takes an ordinary def: it converts each way, which is exactly what
+// separates the two in the fixture.
 
 // blockTypeDecls is the type declarations written directly in one block.
 type blockTypeDecls struct {
-	// defs are the struct/enum/distinct declarations, by the name they
-	// introduce. Two declarations of one name in ONE block is a front-end
-	// error, so this map cannot lose a declaration to a collision.
-	defs map[string]*typeDef
-	// defOrder is the same defs in source order. Resolution walks this rather
-	// than the map: a struct field may name a sibling declared beside it, and
-	// map iteration order would make the output a function of the hash seed.
-	// Two builds in ONE process cannot catch that, because a randomized order
-	// agrees with itself there.
+	// defOrder is the struct, enum and distinct declarations' defs, in
+	// source order: a struct field may name a sibling declared beside it,
+	// and an order that came from a map would make the output a function of
+	// the hash seed.
 	defOrder []*typeDef
-	// aliases are the `typealias` declarations, by name, and aliasOrder the
-	// same in source order. Separate from defs because an alias introduces no
-	// type — see the file comment.
-	aliases    map[string]kind
-	aliasOrder []*ast.TypeAlias
-	// templates are the generic struct and enum declarations, by name. Each
-	// also has a shell in defs, as a module-level generic has one in
-	// gen.types, so a bare mention of the name reports `generic type`.
-	templates map[string]*genericTemplate
-	// imports are the `import` statements at the top of the block, and
-	// imported the def of each type they bind, by the name it is bound
-	// under (bindBlockImports): the declaration the checker resolved the
-	// import to, so the name resolves to it for the rest of the block, as it
-	// does for the checker (blockImportTypes). Apart from defs because the
-	// block does not declare them: an imported std type is not a user type.
-	imports  []*ast.ImportStmt
-	imported map[string]*typeDef
-	// importedIfaces is the def of each monomorphic interface the imports
-	// bind, by the name it is bound under (bindBlockImports): a sibling
-	// file's mirror, a std interface's shared def, or a std interface's
-	// program def. The module scope need not bind the name at all, as in a
-	// std module's `//!` prompt that opens with `import std::display.Display`.
-	importedIfaces map[string]*ifaceDef
+	// templateByDecl is the generic struct and enum declarations' templates,
+	// by declaration. Each also has a def in defOrder, as a module-level
+	// generic has one in gen.types, so a bare mention reports `generic
+	// type`.
+	templateByDecl map[ast.Node]*genericTemplate
 	// outer is the nearest enclosing block's declarations, or nil. A
 	// declaration here may name one there (`struct Inner { p: P<Int> }`
 	// under the block declaring `P`), so wherever this scope is made
@@ -162,46 +123,26 @@ func (g *gen) declareBlockTypes(b *ast.Block, order *[]*typeDef) {
 			name, isEnum = t.Name, true
 		case *ast.TypeDef:
 			name, isDistinct = t.Name, true
-		case *ast.TypeAlias:
-			if scope == nil {
-				scope = newBlockTypeDecls()
-			}
-			scope.aliasOrder = append(scope.aliasOrder, t)
-			continue
-		case *ast.ImportStmt:
-			if scope == nil {
-				scope = newBlockTypeDecls()
-			}
-			scope.imports = append(scope.imports, t)
-			continue
 		default:
 			continue
 		}
 		if scope == nil {
 			scope = newBlockTypeDecls()
 		}
-		if _, dup := scope.defs[name]; dup {
-			// Two declarations of one name in one block is a front-end error.
-			// Refuse rather than let the second shell win silently, exactly as
-			// buildTypes does for the module scope.
-			scope.defs[name].refusals = append(scope.defs[name].refusals,
-				refusal{construct: "duplicate type declaration", detail: name})
-			continue
-		}
 		d := &typeDef{nomi: name, decl: stmt, line: stmt.LineNum(), isEnum: isEnum, isDistinct: isDistinct, // Optimistic for the reason buildTypes states: resolution has to
 			// resolve a field naming a type declared later in the same block,
 			// and settleLowerable retracts this for whatever turns out refused.
 			lowerable: true}
-		scope.defs[name] = d
+		g.fileDef(stmt, d)
 		scope.defOrder = append(scope.defOrder, d)
 		*order = append(*order, d)
 		if tps := typeDeclTypeParams(stmt); len(tps) > 0 {
-			// Its impls are the universal Debug the front end gives a
-			// module-level generic: an impl or a derive cannot name a
-			// block-local type.
-			tpl := g.newGenericTemplate(stmt, name, tps, g.blockLocalDebug(stmt, name))
+			// Its impls are the name-only Debug the front end gives an
+			// opaque one, if it is opaque: an impl or a derive cannot name
+			// a block-local type.
+			tpl := g.newGenericTemplate(stmt, name, tps, g.blockLocalDebug(stmt))
 			tpl.scope = scope
-			scope.templates[name] = tpl
+			scope.templateByDecl[stmt] = tpl
 		}
 	}
 	if scope == nil {
@@ -212,13 +153,7 @@ func (g *gen) declareBlockTypes(b *ast.Block, order *[]*typeDef) {
 }
 
 func newBlockTypeDecls() *blockTypeDecls {
-	return &blockTypeDecls{
-		defs:           map[string]*typeDef{},
-		imported:       map[string]*typeDef{},
-		importedIfaces: map[string]*ifaceDef{},
-		aliases:        map[string]kind{},
-		templates:      map[string]*genericTemplate{},
-	}
+	return &blockTypeDecls{templateByDecl: map[ast.Node]*genericTemplate{}}
 }
 
 // declareCaseBlockTypes declares and resolves the types written inside test
@@ -260,18 +195,18 @@ func (g *gen) declareCaseBlockTypes(bodies []*ast.Block) {
 	g.emitSynthImpls(g.registerBlockLocalDebug(added))
 }
 
-// registerBlockLocalDebug gives every block-local struct, enum and distinct
-// the universal Debug a module-level one gets.
+// registerBlockLocalDebug gives every opaque block-local struct, enum and
+// distinct the name-only universal Debug a module-level one gets; any other
+// block-local type renders by its shape (nestedDebugImpls' byShape).
 //
-// The front end's SynthesizeUniversalDebug walks module-level declarations
-// only, and an `impl` is a module-level declaration that cannot name a
-// block-local type, so no impl reaches this builder for one. The checker
-// still treats the type as Debug, as it treats every type, so
-// `Debug.inspect`, `dbg` and `io.inspect` over it are legal programs. The
-// impl is the one SynthesizeUniversalDebug would write for the same
-// declaration at module level, registered with the declaring block's
-// overlay active (implDef.typeScope), where its receiver's name resolves.
-// It answers the impls it registered, in order.
+// An `impl` is a module-level declaration that cannot name a block-local
+// type, so no module-level impl reaches this builder for one. The checker
+// treats the type as Debug, as it treats every type, so `Debug.inspect`,
+// `dbg` and `io.inspect` over it are legal programs, and the front end
+// writes and checks its universal Debug in the declaring block
+// (blockLocalDebug). The impl is registered with that block's overlay
+// active (implDef.typeScope), where its receiver's name resolves. It
+// answers the impls it registered, in order.
 func (g *gen) registerBlockLocalDebug(blocks []*ast.Block) []*implDef {
 	var out []*implDef
 	for _, b := range blocks {
@@ -282,12 +217,12 @@ func (g *gen) registerBlockLocalDebug(blocks []*ast.Block) []*implDef {
 				// registerImpl refuses at module level too.
 				continue
 			}
-			for _, n := range g.blockLocalDebug(d.decl, d.nomi) {
+			for _, n := range g.blockLocalDebug(d.decl) {
 				ib, ok := n.(*ast.ImplBlock)
 				if !ok {
 					continue
 				}
-				impl := &implDef{decl: ib, synth: true, items: map[string]*implItem{}, lowerable: true, typeScope: scope}
+				impl := &implDef{decl: ib, synth: isSynthesized(ib), items: map[string]*implItem{}, lowerable: true, typeScope: scope}
 				g.implOrder = append(g.implOrder, impl)
 				out = append(out, impl)
 				leave := g.enterTypeScope(scope)
@@ -299,39 +234,15 @@ func (g *gen) registerBlockLocalDebug(blocks []*ast.Block) []*implDef {
 	return out
 }
 
-// blockLocalDebug writes the universal Debug the front end writes for a
-// module-level declaration (analysis.SynthesizeUniversalDebug) for decl, a
-// block-local declaration of name. The checker never checks it, since an
-// impl cannot name a type declared inside a body, so it is marked so
-// (markUnchecked), and the types of its type expressions are kept
-// (noteSynthTypeExprs).
-func (g *gen) blockLocalDebug(decl ast.Node, name string) []ast.Node {
-	synth := analysis.SynthesizeUniversalDebug([]ast.Node{decl})
-	g.noteSynthTypeExprs(synth, decl, name)
-	for _, n := range synth {
-		g.markUnchecked(n)
+// blockLocalDebug is the universal Debug the front end writes for decl, an
+// opaque block-local declaration, as it writes one for a module-level one:
+// the impl the checker checked in decl's block
+// (analysis.FileBodies.BlockDebug), or none.
+func (g *gen) blockLocalDebug(decl ast.Node) []ast.Node {
+	if impl := g.srcFA().BlockDebug[decl]; impl != nil {
+		return []ast.Node{impl}
 	}
-	return synth
-}
-
-// noteSynthTypeExprs keeps the types of the type expressions of synth, the
-// universal Debug written for decl, a block-local declaration of name, and
-// the variants its patterns' heads name (analysis.UniversalDebugTypes),
-// from the checker's type for decl, for recordedTypeExpr and
-// patternVariant to answer.
-func (g *gen) noteSynthTypeExprs(synth []ast.Node, decl ast.Node, name string) {
-	line, col := nodePos(decl)
-	sym := g.fa.Definitions[analysis.Pos{Line: line, Col: col}]
-	if sym == nil || sym.Type == nil {
-		return
-	}
-	if g.synthTypeExprs == nil {
-		g.synthTypeExprs = map[ast.TypeExpr]analysis.Type{}
-		g.synthPatternVariants = map[ast.TypeExpr]string{}
-	}
-	types, variants := analysis.UniversalDebugTypes(synth, name, sym.Type)
-	maps.Copy(g.synthTypeExprs, types)
-	maps.Copy(g.synthPatternVariants, variants)
+	return nil
 }
 
 // typeDeclTypeParams is a struct's, enum's or distinct's declared type
@@ -360,12 +271,6 @@ func (g *gen) resolveBlockTypeDecls() {
 // resolveBlockScope resolves one block's declarations with its overlay active.
 func (g *gen) resolveBlockScope(scope *blockTypeDecls) {
 	defer g.enterTypeScope(scope)()
-	// Imported types first: a declaration or an alias may name one.
-	g.bindBlockImports(scope)
-	// Aliases first: a struct field may be annotated with one.
-	for _, a := range scope.aliasOrder {
-		scope.aliases[a.Name] = g.aliasTarget(a)
-	}
 	for _, d := range scope.orderedDefs() {
 		switch t := d.decl.(type) {
 		case *ast.StructDef:
@@ -374,42 +279,6 @@ func (g *gen) resolveBlockScope(scope *blockTypeDecls) {
 			g.resolveEnum(d, t)
 		case *ast.TypeDef:
 			g.resolveDistinct(d, t)
-		}
-	}
-}
-
-// bindBlockImports puts each monomorphic struct, enum, distinct type or
-// interface the block's imports bind into the block's overlay under the name
-// the import binds, as the def of the declaration the checker resolved it to:
-// another file's type or interface by its mirror, a std type by the def its
-// analyzer type projects to, a std interface by its shared def or program
-// def (importedIfaceDef). A generic type or interface is left to the
-// name-keyed lookups, and testImport declines an import that rebinds one.
-func (g *gen) bindBlockImports(scope *blockTypeDecls) {
-	if len(scope.imports) == 0 || g.fa == nil {
-		return
-	}
-	fa := g.srcFA()
-	for _, imp := range scope.imports {
-		bound := fa.BlockImportScopes[imp]
-		if bound == nil {
-			continue
-		}
-		// Sorted, so the mirrors are made in the same order on every run.
-		names := make([]string, 0, len(bound.Symbols))
-		for name, sym := range bound.Symbols {
-			if sym != nil && sym.Node == ast.Node(imp) {
-				names = append(names, name)
-			}
-		}
-		slices.Sort(names)
-		for _, name := range names {
-			sym := resolveSymbol(bound.Symbols[name])
-			if d := g.importedTypeDef(sym); d != nil {
-				scope.imported[name] = d
-			} else if d := g.importedIfaceDef(sym); d != nil {
-				scope.importedIfaces[name] = d
-			}
 		}
 	}
 }
@@ -438,81 +307,6 @@ func (g *gen) importedTypeDef(sym *analysis.Symbol) *typeDef {
 		return k.def
 	}
 	return nil
-}
-
-// importedIfaceDef is the def of the monomorphic interface sym declares,
-// found by its declaration rather than by its name, or nil. The name-keyed
-// lookups (ifaceNamed, stdIfaceNamed, stdProgIfaceNamed) read the module
-// scope, which a block's import does not reach.
-func (g *gen) importedIfaceDef(sym *analysis.Symbol) *ifaceDef {
-	if sym == nil || sym.Kind != analysis.SymbolInterface {
-		return nil
-	}
-	decl, isDecl := sym.Node.(*ast.InterfaceDef)
-	if !isDecl || len(decl.TypeParams) > 0 {
-		return nil
-	}
-	if o := g.ownerOfSymbol(sym); o != nil {
-		if !o.isIface {
-			return nil
-		}
-		return g.mirrorIface(o)
-	}
-	it, isIface := sym.Type.(*analysis.InterfaceType)
-	if !isIface || !strings.HasPrefix(it.Origin, "std/") {
-		return nil
-	}
-	if d := g.stdIfaceOfDecl(it.Origin, decl); d != nil {
-		return d
-	}
-	if !g.stdProgBuilds() {
-		return nil
-	}
-	return g.stdProgIfaceOf(sym)
-}
-
-// blockModuleSymbol is the symbol a dotted name (`fmt.WriteOptions`) names
-// when a visible block's `import` binds its qualifier to another file than
-// the module scope does (visibleBlockModule over moduleScopeOf), reporting
-// whether one does. That binding shadows the file's for the rest of the
-// block, as the checker resolves it, so a name it reports is never answered
-// from the file's binding.
-func (g *gen) blockModuleSymbol(name string) (*analysis.Symbol, bool) {
-	dot := strings.IndexByte(name, '.')
-	if dot <= 0 || len(g.typeScopes) == 0 {
-		return nil, false
-	}
-	scope := g.visibleBlockModule(name[:dot])
-	if file := moduleScopeOf(g.fa, name[:dot]); scope == nil || file == nil || file == scope {
-		return nil, false
-	}
-	return resolvedScopeSymbol(scope, name[dot+1:]), true
-}
-
-// blockImportedIface answers an interface name from the innermost enclosing
-// block whose imports bind it (bindBlockImports).
-func (g *gen) blockImportedIface(name string) (*ifaceDef, bool) {
-	for i := len(g.typeScopes) - 1; i >= 0; i-- {
-		if d, found := g.typeScopes[i].importedIfaces[name]; found {
-			return d, true
-		}
-	}
-	return nil, false
-}
-
-// aliasTarget is the kind a `typealias` names, or kindInvalid.
-//
-// An alias is transparent, so this is the ONE fact it contributes and there is
-// no def to build. A target the builder has no representation for makes the
-// alias unusable: a use of the name declines where it is written, so nothing
-// is reported here.
-func (g *gen) aliasTarget(t *ast.TypeAlias) kind {
-	if t == nil || t.TargetTypeExpr == nil || len(t.Bounds) > 0 {
-		// A BOUND alias (`typealias Num Add and Multiply`) names a conjunction
-		// of interfaces rather than a type, so there is no kind to bind.
-		return kindInvalid
-	}
-	return g.typeOf(t.TargetTypeExpr)
 }
 
 // typeScopeActive reports whether scope's declarations are visible now.
@@ -553,19 +347,13 @@ func (g *gen) enterTypeScope(scope *blockTypeDecls) func() {
 	}
 }
 
-// pushTypeScope makes one block's declarations visible to namedType.
+// pushTypeScope makes one block's declarations visible.
 func (g *gen) pushTypeScope(scope *blockTypeDecls) {
 	g.typeScopes = append(g.typeScopes, scope)
 }
 
 func (g *gen) popTypeScope() { g.typeScopes = g.typeScopes[:len(g.typeScopes)-1] }
 
-// blockLocalNamed answers a type name from the innermost enclosing block that
-// declares it.
-//
-// Innermost first, which is the analyzer's own resolution order. See the file
-// comment for why the overlay can never actually shadow gen.types today, and
-// why it is still consulted first.
 // blockLocalOfType answers the block-local def whose declaration the
 // checker typed as t, or nil: the identity of a block-local type outside
 // the block that declares it, where its name resolves to nothing. A generic
@@ -620,82 +408,10 @@ func (g *gen) indexBlockLocals() {
 			case *analysis.EnumType:
 				params = t.TypeParamDefs
 			}
-			if tpl := scope.templates[d.nomi]; tpl != nil && len(params) != 0 {
+			if tpl := scope.templateByDecl[d.decl]; tpl != nil && len(params) != 0 {
 				g.blockLocalTemplates[params[0]] = tpl
 			}
 		}
 	}
 	g.blockLocalIndexed = len(g.blockTypeOrder)
-}
-
-func (g *gen) blockLocalNamed(name string) (*typeDef, bool) {
-	for i := len(g.typeScopes) - 1; i >= 0; i-- {
-		if d, found := g.typeScopes[i].defs[name]; found {
-			return d, true
-		}
-	}
-	return nil, false
-}
-
-// blockImportedNamed answers a type name from the innermost enclosing block
-// whose imports bind it, as the def of the declaration the import names.
-func (g *gen) blockImportedNamed(name string) (*typeDef, bool) {
-	for i := len(g.typeScopes) - 1; i >= 0; i-- {
-		if d, found := g.typeScopes[i].imported[name]; found {
-			return d, true
-		}
-	}
-	return nil, false
-}
-
-// blockLocalTemplate answers the block-local generic template a use of the
-// type spelled name means, or nil. The checker's type for the use decides
-// (typed): an instance of a type a body declares (analysis.BodyOrigin) is
-// one of the template its type parameters are (blockLocalTemplateOf), and
-// an instance of any other declaration is none. So inside a block that
-// declares `Box<T>` beside a module-level `Box<T>`, `Box{w: "inner"}` is the
-// block's, as the checker typed it, and the module's `Box{v: 1}` is the
-// module's even while that block is being lowered. A use with no checked
-// type (typed nil) is answered from the innermost enclosing block that
-// declares the name, unless the module declares it too.
-func (g *gen) blockLocalTemplate(name string, typed analysis.Type) *genericTemplate {
-	if origin, params, generic := genericDeclOf(typed); generic {
-		if !analysis.IsBodyOrigin(origin) {
-			return nil
-		}
-		return g.blockLocalTemplateOf(params)
-	}
-	if _, module := g.types[name]; module {
-		return nil
-	}
-	for i := len(g.typeScopes) - 1; i >= 0; i-- {
-		if tpl := g.typeScopes[i].templates[name]; tpl != nil {
-			return tpl
-		}
-	}
-	return nil
-}
-
-// genericDeclOf is the declaring origin and type parameters of t, an
-// instance of a generic struct or enum the checker solved, and false for
-// any other type.
-func genericDeclOf(t analysis.Type) (origin string, params []*analysis.TypeParam_, generic bool) {
-	switch ty := analysis.ResolveClosed(t).(type) {
-	case *analysis.StructType:
-		origin, params = ty.Origin, ty.TypeParamDefs
-	case *analysis.EnumType:
-		origin, params = ty.Origin, ty.TypeParamDefs
-	}
-	return origin, params, len(params) > 0
-}
-
-// blockLocalAlias answers a `typealias` name from the innermost enclosing block
-// that declares it.
-func (g *gen) blockLocalAlias(name string) (kind, bool) {
-	for i := len(g.typeScopes) - 1; i >= 0; i-- {
-		if k, found := g.typeScopes[i].aliases[name]; found {
-			return k, true
-		}
-	}
-	return kindInvalid, false
 }

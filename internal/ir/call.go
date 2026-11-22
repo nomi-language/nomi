@@ -43,26 +43,25 @@ import "strconv"
 // symbol and two same-named declarations in two modules name two. That is
 // `Table.Symbol`'s contract, which `once` cells use too.
 //
-// A `*Symbol` AND NOT A `*Decl`, deliberately. `Decl` adds a signature, and
-// `ir.go` states the boundary: a Symbol is "exactly enough for an operand that
-// only has to be named", and a signature is needed "wherever a rule has to
-// choose between two declarations". SELECTION HAS ALREADY HAPPENED at a call
-// — by the front end's resolution, by `Table.SelectOverload` on the operator
-// path, or by the builder's own candidate filter — so the call only has to
-// NAME its callee. `table.go`'s Declare comment names what a program-wide
-// callee index would need and does not have; this node needs neither.
+// A `*Symbol`, deliberately: a Symbol is "exactly enough for an operand that
+// only has to be named" (ir.go). SELECTION HAS ALREADY HAPPENED at a call —
+// the checker recorded the function the call or the operator reaches, and
+// the builder lowers that record — so the call only has to NAME its
+// callee.
 //
-// # THREE FORMS, ONE COLLAPSED AND ONE REFUSED
+// # FOUR FORMS, ONE OF THEM WALK-ONLY, AND ONE POPULATION COLLAPSED
 //
 // A reader sizing this class names five populations: direct calls, host calls,
 // interface dispatch, type-parameter-qualified dispatch, and calling a value.
-// There are THREE FORMS; the other two populations collapse into them or are
-// refused, as below.
+// There are FOUR FORMS; host calls collapse into direct ones, as below.
 //
 //	DIRECT      the callee is a declaration known statically.
 //	DISPATCHED  the callee is selected at run time from an interface's method
 //	            table, keyed on the type identity carried by ONE OPERAND.
 //	INDIRECT    the callee is an operand holding a function value.
+//	BOUND       the callee is an interface's function for some type that
+//	            satisfies a type parameter's bound, with no operand to select
+//	            it. Only an abstract module holds one (below).
 //
 // A HOST CALL IS NOT A FORM. Whether a callee's body is Nomi or Go is a fact
 // about the DECLARATION, not about the call: both are a direct call to a
@@ -71,12 +70,21 @@ import "strconv"
 // direct call does carry is whether control leaves the engine (Crosses, set
 // by NewHostCall).
 //
-// TYPE-PARAMETER-QUALIFIED DISPATCH IS REFUSED, not collapsed. `T.method(x)`
-// for a bounded `T` probes the same table, but its key is the enclosing
-// function's DICTIONARY parameter — a type argument, not an operand of this
-// call. `internal/ir` has no representation for a type parameter, so the shape
-// is unrepresentable rather than merely unrouted. Generic bodies are
-// instantiated per program instead. See internal/irbuild/ircall.go.
+// A CALL THROUGH A TYPE PARAMETER'S BOUND RUNS NOWHERE. `T.from_sql(v)` for a
+// bounded `T` names an interface's function, and which implementation runs is
+// the type argument's, not an operand's: `from_sql` takes no value of `T`.
+// `internal/ir` has no representation for a type argument, so no machine can
+// run the call, and a program runs instances of its generic functions instead,
+// where `T` is a type and the call is direct (internal/irbuild's
+// genericmono.go). What the effect walk needs of a generic function for every
+// type its callers may give it is its abstract body (internal/irbuild's
+// abstract.go), and there such a call is the BOUND form: "the function
+// `callee` of its interface, for some type", which the walk answers as it
+// answers a dispatch, by every implementation the program retains. So it is a
+// form of its own and not a dispatch on a made-up operand. Only a module
+// marked abstract (Module.SetAbstract) holds one: lint refuses it anywhere
+// else (RuleBoundCallAbstract), the encoder writes none, the linker defines
+// no abstract module, and the VM's compiler compiles one to a failure.
 //
 // # THE DISPATCH KEY IS AN OPERAND INDEX, AND IT IS NOT ZERO
 //
@@ -158,6 +166,10 @@ const (
 	CalleeDispatched
 	// CalleeIndirect is a callee held in an operand as a function value.
 	CalleeIndirect
+	// CalleeBound is an interface's function for some type that satisfies a
+	// type parameter's bound, with no operand to select the implementation:
+	// a call in an abstract body, which only the effect walk reads.
+	CalleeBound
 )
 
 func (f CalleeForm) String() string {
@@ -168,6 +180,8 @@ func (f CalleeForm) String() string {
 		return "dispatched"
 	case CalleeIndirect:
 		return "indirect"
+	case CalleeBound:
+		return "bound"
 	}
 	return "callee?"
 }
@@ -198,8 +212,9 @@ func NewCall(pos Pos, dst Temp, site CallSite, callee *Symbol, args ...Temp) *Ca
 	return newCall(pos, dst, site, CalleeDirect, callee, NoTemp, -1, args)
 }
 
-// NewHostCall is a direct call whose callee's body is Go: a `host fn`, a
-// stdlib primitive, an FFI extern.
+// NewHostCall is a direct call whose callee's body is Go: a std `host fn`
+// or primitive, or a project's `host fn`, which a host table an embedding
+// Go program supplies answers.
 //
 // THE MARKER IS ONE FIELD RATHER THAN A MECHANISM. The VM reads it when it
 // compiles the calling function: a marked call becomes a host call bound to
@@ -257,6 +272,17 @@ func NewDispatchCall(pos Pos, dst Temp, site CallSite, callee *Symbol, keyAt int
 	return newCall(pos, dst, site, CalleeDispatched, callee, NoTemp, keyAt, args)
 }
 
+// NewBoundCall is a call of interface function `callee` for some type that
+// satisfies a type parameter's bound, which no operand selects: what an
+// abstract body calls through its type parameter's bound. See the file
+// comment for why only an abstract module holds one.
+func NewBoundCall(pos Pos, dst Temp, site CallSite, callee *Symbol, args ...Temp) *Call {
+	if callee == nil {
+		panic("ir: NewBoundCall: a call through a bound names no interface function")
+	}
+	return newCall(pos, dst, site, CalleeBound, callee, NoTemp, -1, args)
+}
+
 // NewIndirectCall is a call through a function value held in fn.
 func NewIndirectCall(pos Pos, dst Temp, site CallSite, fn Temp, args ...Temp) *Call {
 	if fn == NoTemp {
@@ -293,7 +319,8 @@ func newCall(pos Pos, dst Temp, site CallSite, form CalleeForm, callee *Symbol,
 func (c *Call) Form() CalleeForm { return c.form }
 
 // Callee is the declaration a direct call names, or the interface method a
-// dispatched call selects an implementation of. It is nil for an indirect call.
+// dispatched or bound call selects an implementation of. It is nil for an
+// indirect call.
 func (c *Call) Callee() *Symbol { return c.callee }
 
 // Fn is the operand holding an indirect call's callee, or NoTemp.
@@ -342,6 +369,8 @@ func (c *Call) String() string {
 		s += c.callee.Name()
 	case CalleeDispatched:
 		s += "dispatch " + c.callee.Name() + "@" + strconv.Itoa(c.keyAt)
+	case CalleeBound:
+		s += "bound " + c.callee.Name()
 	case CalleeIndirect:
 		s += "value " + c.fn.String()
 	}

@@ -29,8 +29,8 @@ var referencePrompt = regexp.MustCompile(`<pre data-nomi-stdlib-module="([^"]+)"
 // generated stdlib reference pages through the staged wasm, under node, as
 // the page's worker runs one (nomiRunStdlibTest). Each live editor must run
 // clean: the page runs it when it scrolls into view, so one that fails
-// fails for every reader. cmd/nomi-docgen shows a prompt that reaches a
-// capability the browser lacks as code it does not run (its
+// fails for every reader. cmd/nomi-docgen shows a prompt that reaches an
+// effect the browser lacks as code it does not run (its
 // promptClassifier); such a prompt runs here too, and the log names each
 // that ran clean anyway, where the classification, which counts what a
 // prompt could reach, is wider than what it does reach.
@@ -142,7 +142,7 @@ func TestTourWasmAnswersTheReferenceEditors(t *testing.T) {
   error   %s
 
 The page runs this editor when it scrolls into view. If the prompt needs
-something the browser cannot do, its crossing needs a capability class
+something the browser cannot do, its crossing needs an effect class
 the js/wasm target lacks (internal/stdlibbindings, vmhost.TargetLacks), and
 cmd/nomi-docgen then shows it as code it does not run. Otherwise: %s`,
 				p.Name, indentPrompt(p.Source), got.Error, rebuildInstruction)

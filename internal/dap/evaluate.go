@@ -7,9 +7,13 @@ package dap
 // The rules, the same for every client:
 //
 //   - An expression that can reach an effect (output, files, the clock,
-//     tasks) is refused before it runs, unless it ends with the marker
-//     `// allow effects`, a Nomi comment, so the line stays valid Nomi. A
-//     hover never runs one.
+//     tasks), or a call whose cost grows with an argument's value
+//     (`String.repeat`), which the step budget cannot stop, is refused
+//     before it runs, unless it ends with the marker `// allow effects`, a
+//     Nomi comment, so the line stays valid Nomi. A hover never runs one.
+//   - An expression reads the app fields in force in the frame, as the
+//     code stopped there does; reading one is no effect, and a `with` in
+//     the expression lasts for the expression.
 //   - Every evaluation runs under a step budget and a deadline, so one that
 //     loops forever is stopped and reported.
 //   - A variable, or a field path on one (`p.x`, `pair.first`,
@@ -32,7 +36,8 @@ import (
 	"github.com/nomi-language/nomi/vmhost"
 )
 
-// allowEffectsMarker, ending an expression, lets it reach effects.
+// allowEffectsMarker, ending an expression, lets it reach effects and
+// calls whose cost grows with an argument's value.
 const allowEffectsMarker = "// allow effects"
 
 // evalSteps and evalTime bound one evaluation.
@@ -156,17 +161,25 @@ func isName(s string) bool {
 // evalError words an evaluation's failure for the client.
 func evalError(err error) string {
 	var effects *vm.EffectsError
+	var unbounded *vm.UnboundedError
 	var exprErr *vmhost.ExprError
 	var failure *vmhost.EvalFailure
+	what := func(calls []string) string {
+		var out []string
+		for _, e := range calls {
+			out = append(out, strings.ReplaceAll(e, "nomi_debug_eval", "the expression"))
+		}
+		return strings.Join(out, "; ")
+	}
 	switch {
 	case errors.As(err, &effects):
-		var what []string
-		for _, e := range effects.Effects {
-			what = append(what, strings.ReplaceAll(e, "nomi_debug_eval", "the expression"))
-		}
-		return "not run, because " + strings.Join(what, "; ") +
+		return "not run, because " + what(effects.Effects) +
 			", which is an effect. End the expression with `" + allowEffectsMarker +
 			"` to run it anyway; what it does is not undone."
+	case errors.As(err, &unbounded):
+		return "not run, because " + what(unbounded.Calls) +
+			", whose cost grows with its argument, so it may not finish. End the expression with `" + allowEffectsMarker +
+			"` to run it anyway."
 	case errors.Is(err, vmhost.ErrEvalLimit):
 		return fmt.Sprintf("stopped after %d steps or %s without finishing; does the expression loop forever?",
 			evalSteps, evalTime)

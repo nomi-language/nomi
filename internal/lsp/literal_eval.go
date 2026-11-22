@@ -36,12 +36,14 @@ import (
 // so the front end resolves the prefix exactly as at the literal's own site,
 // irbuild lowers the handler and the Debug rendering, and the VM runs each
 // probe through vmhost's Program.Evaluate. That refuses a probe that can
-// reach an effect before running it (vm.Machine.Effects, with its one list of
-// pure crossings) and runs the rest under a step and time limit.
+// reach an effect or read an app field before running it
+// (vm.Machine.Effects, with its one list of pure crossings) and runs the
+// rest under a step and time limit.
 //
 // Anything that stops a literal being evaluated (the buffer does not check,
-// an invalid literal keeps it from loading, the handler has effects, it runs
-// out of steps, its rendering blocks) skips that literal silently.
+// an invalid literal keeps it from loading, the handler has effects or reads
+// an app field, it runs out of steps, its rendering blocks) skips that
+// literal silently.
 //
 // Results are cached by the handler's identity and the literal's text, for
 // the buffer's text; a stdlib handler's results are kept for the process,
@@ -297,11 +299,17 @@ func evaluateLiterals(ctx context.Context, path, content string, lits []staticLi
 		}
 		v, err := p.Evaluate(ctx, fmt.Sprintf("nomi_literal_probe_%d", i), vmhost.EvalLimits{Steps: literalSteps, Deadline: limit})
 		var effectful *vmhost.Effectful
+		var unbounded *vmhost.Unbounded
+		var readsApp *vmhost.ReadsApp
 		switch {
 		case errors.Is(err, vmhost.ErrEvalLimit):
 			results[key] = literalResult{skipped: true, why: "limit"}
 		case errors.As(err, &effectful):
 			results[key] = literalResult{skipped: true, why: "effects: " + strings.Join(effectful.Effects, "; ")}
+		case errors.As(err, &readsApp):
+			results[key] = literalResult{skipped: true, why: "app fields: " + strings.Join(readsApp.Fields, "; ")}
+		case errors.As(err, &unbounded):
+			results[key] = literalResult{skipped: true, why: "unbounded: " + strings.Join(unbounded.Calls, "; ")}
 		case err != nil:
 			results[key] = literalResult{skipped: true, why: err.Error()}
 		default:

@@ -116,9 +116,11 @@ import (
 //   - An input may extend an earlier input's type: an inherent impl or a
 //     `derive` for it is the input's (frontend.Checker.SessionSource). A
 //     derive and a written impl of one interface for one type share a key
-//     (replIfaceImplKey), so either replaces the other, and an impl for an
-//     earlier input's type replaces the Debug the front end synthesized in
-//     the type's file for code earlier inputs compiled too.
+//     (replIfaceImplKey), so either replaces the other. A written Debug
+//     impl for an earlier input's type reaches code earlier inputs
+//     compiled while the type rendered by its shape (cmd/nomi package doc,
+//     "REPL"), and one for an opaque type replaces the name-only
+//     Debug the front end synthesized in the type's file.
 //   - A "did you mean" hint offers every name in scope, not only the ones
 //     the input's file imports (vmhost.Session.SetScopeNames).
 //   - A function declared in the same input as a binding sees the binding's
@@ -559,7 +561,7 @@ func replDeclOf(n ast.Node, text string) (*replDecl, bool) {
 		d.key, d.recvType = replIfaceImplKey(t.Interface, t.Receiver)
 	case *ast.ImportStmt, *ast.ImportBlock:
 		d.key, d.isImport = "import "+flat, true
-	case *ast.ExternPackage, *ast.TestDecl, *ast.Decorator:
+	case *ast.TestDecl, *ast.Decorator:
 		d.key = "text " + flat
 	case *ast.EmbedDecl:
 		// The files it names are read from the working directory when its
@@ -1519,8 +1521,8 @@ func (s *replSession) eval(input string, out, errOut io.Writer) {
 	}
 	for _, d := range in.decls {
 		// An impl for an earlier input's type replaces the impl the front
-		// end synthesized in the type's file (the universal Debug) for code
-		// earlier inputs compiled too.
+		// end synthesized in the type's file (an opaque or host type's
+		// name-only Debug) for code earlier inputs compiled too.
 		if d.inherent == "" && d.typeFile != "" && d.typeFile != key {
 			s.vm.Supersede(p, key, d.typeFile, strings.TrimPrefix(d.key, "impl "))
 		}

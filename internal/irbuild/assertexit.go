@@ -45,9 +45,8 @@ import (
 //     test keeps running. Reading `g.inTest` there would end the case at an
 //     assertion the program runs straight through.
 //   - It makes a boundary DISAGREEMENT a refusal instead of a wrong answer.
-//     `g.inferResult != nil` and `g.inTest` are two independent statements of two
-//     of the checker's bits, so when either diverges the honest answer is
-//     neither.
+//     `g.inTest` is an independent statement of one of the checker's bits,
+//     so when it diverges the honest answer is neither.
 //
 // Both spellings register: `checkAssertionSubject` for `assert expr` at the
 // keyword's own position, `checkPatternDestructure` for `assert pat = expr` at

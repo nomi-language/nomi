@@ -88,21 +88,7 @@ import (
 // rather than this loop's: `rt.RunTestsTo` runs the slice to completion and
 // then reports, each case's output under its own line.
 func (m *Machine) RunTests(path string) (exit int, reason string) {
-	return m.RunTestsLabelled(func(name string) string { return rt.TestName(path, name) })
-}
-
-// RunTestsLabelled is the same run with the LABEL a case is reported under
-// supplied, which is what a TOUR block needs: the playground reports a case
-// under its bare name because a playground block has no file a reader could
-// open, while `nomi test <file>` reports `<path> :: <case>`.
-//
-// BOTH LABELLINGS ARE IN THE COMMITTED RECORDS — 225 of the 239
-// report-shaped records carry `nomi test`'s and the tour's 14 carry the bare
-// one — so a runner compared against them needs both. The parameter is
-// `rt.RunTestsLabelled`'s and the argument for it is there; this is the
-// pass-through, and the two spellings in this package exist so a caller says
-// which COMMAND it is reproducing rather than assembling a label.
-func (m *Machine) RunTestsLabelled(label func(string) string) (exit int, reason string) {
+	label := func(name string) string { return rt.TestName(path, name) }
 	cases := m.mod.Tests()
 	if len(cases) == 0 {
 		return 0, "this module retained no test case"
@@ -159,7 +145,7 @@ func (m *Machine) RunTestsLabelled(label func(string) string) (exit int, reason 
 //
 // A NON-EMPTY LIMIT MEANS THE CASE DID NOT RUN TO ITS OWN RESULT. Its error is
 // then meaningless and the caller reports the case as blocked, which is the
-// distinction RunTestsLabelled draws for the whole run, drawn here per case.
+// distinction RunTests draws for the whole run, drawn here per case.
 func (m *Machine) RunCases(cases []ir.TestCase) (failures []error, outputs []string, limits []string, rows []int) {
 	limits = make([]string, len(cases))
 	tests := make([]rt.Test, len(cases))

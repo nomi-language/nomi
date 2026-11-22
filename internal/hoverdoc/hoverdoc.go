@@ -3,9 +3,9 @@
 // instantiated generics, interface bounds. It is glsp-free so non-LSP callers
 // (cmd/nomi-wasm's nomiHover, cmd/nomi-docgen) can use it without pulling the LSP
 // framework into the binary — notably keeping it out of the tour wasm. A
-// hover on a call that reaches outside the machine ends with what it
-// reaches, from the calls a lowering found, which both callers pass
-// (AppendReach, reach.go).
+// hover on a call that has an effect ends with "Has effects" and its name,
+// or with what else it can do, from the calls a lowering found, which both
+// callers pass (AppendReach, reach.go).
 package hoverdoc
 
 import (
@@ -39,14 +39,15 @@ func At(fa *analysis.FileAnalysis, nodes []ast.Node, content string, pos analysi
 }
 
 // AtReaching is At for a file whose program a lowering found the outside
-// calls of, reached: a symbol's hover ends with the line of each call it is
-// on (AppendReach), inFile saying which of the calls' paths is this file.
+// calls of, reached: a symbol's hover, and a keyword's (the `dbg` of a
+// `dbg`, the call that prints), ends with the line of each call it is on
+// (AppendReach), inFile saying which of the calls' paths is this file.
 func AtReaching(fa *analysis.FileAnalysis, nodes []ast.Node, content string, pos analysis.Pos, reached []analyzedlowering.Reached, inFile func(string) bool) string {
 	if fa == nil {
 		return ""
 	}
-	if md, _, _, ok := KeywordAt(fa, nodes, content, pos); ok {
-		return md
+	if md, at, _, ok := KeywordAt(fa, nodes, content, pos); ok {
+		return AppendReach(md, reached, inFile, pos, at)
 	}
 	if content, _, _, ok := SyntaxAt(fa, nodes, pos); ok {
 		return content

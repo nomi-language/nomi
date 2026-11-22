@@ -89,14 +89,6 @@ func TestHover_KeywordsFollowTheirContext(t *testing.T) {
 			[]string{"```nomi\ntype Name Inner\n```", "Declares a distinct type"}, nil},
 		{"type of a host type", "host ▮type Handle\n",
 			[]string{"```nomi\nhost type Name\n```", "implemented outside Nomi"}, []string{"distinct"}},
-		{"as in a gopkg", "gopkg \"strings\" ▮as strs\n\nfn upper(s: String) -> String go strs.ToUpper\n",
-			[]string{"Names the Go package handle"}, []string{"Pattern as name"}},
-		{"go binding a function", "gopkg \"strings\" as strs\n\nfn upper(s: String) -> String ▮go strs.ToUpper\n",
-			[]string{"```nomi\nfn name(params) -> Result go alias.Symbol\n```", "Binds an exported Go function"}, nil},
-		{"go binding a type", "gopkg \"strings\" as strs\n\nopaque type B ▮go strs.Builder\n",
-			[]string{"```nomi\nopaque type Name go alias.Type\n```", "Binds a Go type"}, nil},
-		{"type of a Go type binding", "gopkg \"strings\" as strs\n\nopaque ▮type B go strs.Builder\n",
-			[]string{"Binds a Go type to a Nomi name"}, []string{"distinct"}},
 	})
 }
 

@@ -206,16 +206,18 @@ This handler uses both kinds of owner:
 ```nomi
 fn handle_order(id: Int) -> Response
     // Need both values, right here, to build the response.
-    priced = concurrent
-        validation = Task.spawn(fn -> validate(id))
-        pricing = Task.spawn(fn -> price(id))
-        Ok((Task.await(validation)?, Task.await(pricing)?))
-    end
+    priced =
+        concurrent
+            validation = Task.spawn(fn -> validate(id))
+            pricing = Task.spawn(fn -> price(id))
+            Ok((Task.await(validation)?, Task.await(pricing)?))
+        end
 
-    resp = case priced
-        Ok((v, p)) -> build_response(id, v, p)
-        Err(e)     -> error_response(id, e)
-    end
+    resp =
+        case priced
+            Ok((v, p)) -> build_response(id, v, p)
+            Err(e)     -> error_response(id, e)
+        end
 
     // Outlives the call: the response goes back without waiting.
     _ = Supervisor.spawn(Config.audit, fn -> record_audit(id, resp))

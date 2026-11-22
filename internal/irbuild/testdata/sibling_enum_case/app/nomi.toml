@@ -1,3 +1,6 @@
 [module]
 name = "app"
 entry_points = ["main"]
+
+[dependencies]
+tracker = { dir = "../tracker" }

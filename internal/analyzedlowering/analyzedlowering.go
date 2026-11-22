@@ -40,28 +40,46 @@ type Analyzed struct {
 
 // Found is what a lowering of a file finds for an editor: Problems, what
 // `nomi check` reports beyond the front end (vmhost.CheckLowering), and
-// Reached, each outside call the program reaches from the roots `nomi
-// check` holds to nomi.toml's [capabilities] lists, and each function
-// that can reach one, which a hover on the call or the function shows.
+// Reached, each effect call the program reaches from the roots `nomi
+// check` holds to nomi.toml's [effects] lists, each function that can
+// reach one, and each call and function that can act, which a hover on
+// the call or the function shows and a mark draws.
 type Found struct {
 	Problems error
 	Reached  []Reached
 }
 
-// Reached is one place a lowering found that reaches outside the machine:
-// an outside call, or a function of the program and each call of it. Path
-// and the span are where a hover shows it: an outside call's callee as the
+// Reached is one place a lowering found that can do something besides
+// compute its result: an effect call, a call that can act, or a function
+// of the program and each call of it. Path
+// and the span are where a hover shows it: an effect call's callee as the
 // author wrote it, where a diagnostic about it points, a function's name,
 // or a call's callee (1-based lines and byte columns, the end one past the
-// last byte). A site that is no call in source, such as a `go` binding's
+// last byte). A site that is no call in source, such as a `host fn`'s
 // declaration, is a point: its End is its start. Text is the Markdown a
 // hover on it shows: what it reaches and whether nomi.toml's lists allow
-// it (capability.ReachedLine, capability.FunctionReach).
+// it (effects.ReachedLine, effects.FunctionReach), or that it acts only
+// on what it is passed (effects.HeldLine), or may act through an
+// interface (effects.MayLine). Marked says an editor draws the token
+// there bold: a call the compiler cannot show is pure, and the name of a
+// function whose body holds one (vmhost's reachedCalls). A read of a
+// `once`, a `once`'s name and a function named as a value have a line and
+// no mark. Uses marks a
+// function's, or its call's, line of the app fields it uses
+// (effects.UsesLine) instead: a hover shows it, and it is never Marked,
+// since an app field is an input and reaches nothing. Fills marks
+// a line of code the program's main, exports and tests do not reach,
+// found by the walk from every function they leave (vmhost's
+// editorWalks): a hover shows it only where no other line is, so a file
+// two programs hold reads as the one that reaches it says.
 type Reached struct {
 	Path            string
 	Line, Col       int
 	EndLine, EndCol int
 	Text            string
+	Marked          bool
+	Uses            bool
+	Fills           bool
 }
 
 // CheckFunc is the lowering Check runs.

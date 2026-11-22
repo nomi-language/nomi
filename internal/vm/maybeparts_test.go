@@ -10,7 +10,7 @@ import (
 
 // A crossing into a generated adapter whose binding answers a Maybe or a
 // Result fuses as Map.get does when its value is only taken apart: the
-// adapter's parts form (hostadapt.PartsFunc) hands over the payload, so a
+// adapter's register form (hostadapt.Regs) hands over the payload, so a
 // Some or an Ok allocates nothing. The count is per activation over a loop
 // doing one crossing each, every answer a Some or an Ok.
 func TestMaybeParts_AMatchedAdapterAnswerAllocatesNothing(t *testing.T) {
@@ -59,16 +59,15 @@ end
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			// sum builds its own Some for the caller: one allocation.
-			// The operands are Ints below 256, which box without
-			// allocating; a String or Bytes operand allocates its box, as
-			// it does for every crossing.
+			// The operands cross in registers, unboxed
+			// (TestHostSlots_ACrossingAllocatesNothing).
 			want := 0.0
 			if tc.name == "Int.to_byte, ?" {
 				want = 1
 			}
 			if per := allocsPerActivation(t, tc.src); per > want+0.1 {
 				t.Errorf("one matched crossing allocates %.2f times, want %.1f. The likely causes: "+
-					"the binding has no parts form, or fuseMaybes does not fuse its crossing", per, want)
+					"the binding has no register form, or fuseMaybes does not fuse its crossing", per, want)
 			}
 		})
 	}

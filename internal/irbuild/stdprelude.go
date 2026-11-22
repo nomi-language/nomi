@@ -4,8 +4,6 @@ import (
 	"reflect"
 	"strings"
 	"sync"
-
-	"github.com/nomi-language/nomi/internal/ast"
 )
 
 // A prelude enum instantiated at PACKAGE-NEUTRAL type arguments — `Maybe<Int>`,
@@ -193,6 +191,11 @@ func (k kind) packageNeutral() bool {
 			// rt and its def is already process-wide. See opaque.go.
 			return true
 		}
+		if k.def.stdOrigin != "" {
+			// A type std declares in Nomi, whose one def stdtypes.go admits
+			// only when everything it holds is neutral.
+			return true
+		}
 		if k.def.preludeOf == nil {
 			return false
 		}
@@ -308,52 +311,6 @@ func internSharedPrelude(nomi string, args []kind, build func() *typeDef) *typeD
 }
 
 // --- the stdlib signature side ---------------------------------------------
-
-// preludeSigKind is the kind a stdlib signature's `Maybe<…>` / `Result<…>`
-// annotation names, and reports whether the annotation named a prelude enum at
-// all.
-//
-// The identity check is the ANCHOR, not the name: `anchors.preludes` was built from
-// this module's own scope by preludeAnchorsOf, which requires the analyzer's
-// (Origin, Name) rule AND the declaration's shape. A stdlib module declaring its
-// own `Maybe` therefore gets no anchor and refuses, exactly as a user module
-// does.
-//
-// A type ARGUMENT is resolved by the same restricted stdTypeKind the outer
-// position uses, so `Maybe<List<String>>` refuses on the `List` rather than
-// admitting a def this boundary cannot share. Recursion is what makes
-// `Result<Maybe<Int>, String>` work without a second rule.
-func preludeSigKind(gt *ast.GenericType, anchors stdAnchors) (kind, bool) {
-	a := anchors.preludes[gt.Name]
-	if a == nil {
-		return kindInvalid, false
-	}
-	if len(gt.Params) != len(a.spec.params) {
-		// stdTypeKind is the only caller, and it passes annotations from std
-		// source the checker accepted, which reports a wrong type-argument
-		// count. Without the guard a short argument list would panic in
-		// preludeVariantSpec.payload, which indexes the arguments by the
-		// spec's parameter, and a long one would intern a shared def
-		// (`Maybe<Int, String>`) that equals no call site's kind.
-		return kindInvalid, true
-	}
-	args := make([]kind, len(gt.Params))
-	for i, p := range gt.Params {
-		args[i] = stdTypeKind(p, anchors)
-		// kindInvalid: propagates — the argument's own refusal is the answer.
-		if args[i] == kindInvalid {
-			return kindInvalid, true
-		}
-	}
-	k, shared := sharedPreludeInstance(a.spec, args)
-	if !shared {
-		// Unreachable while stdTypeKind admits only neutral kinds, and treated
-		// as a refusal rather than trusted: a def interned in no gen at all
-		// would be a kind no call site could ever match.
-		return kindInvalid, true
-	}
-	return k, true
-}
 
 // --- the extern registry side ----------------------------------------------
 

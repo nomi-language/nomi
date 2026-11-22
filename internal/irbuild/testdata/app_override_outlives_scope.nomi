@@ -96,10 +96,11 @@ fn spawn_all_and_return() -> List<Task<String>>
 end
 
 fn task_all_outlives_scope() -> String
-    results = concurrent
-        ts = spawn_all_and_return()
-        Task.await_all(ts)
-    end
+    results =
+        concurrent
+            ts = spawn_all_and_return()
+            Task.await_all(ts)
+        end
 
     case List.first(results)
         Some(seen) -> seen
@@ -115,15 +116,17 @@ end
 fn context_body() -> Unit
     timer.sleep(Duration.milliseconds(60))
 
-    carried = case Context.value(Cfg.context, TraceId)
-        Some(_) -> "value-inherited"
-        None    -> "value-lost"
-    end
+    carried =
+        case Context.value(Cfg.context, TraceId)
+            Some(_) -> "value-inherited"
+            None    -> "value-lost"
+        end
 
-    bound = case Context.deadline_remaining(Cfg.context)
-        Some(_) -> "deadline-inherited"
-        None    -> "deadline-detached"
-    end
+    bound =
+        case Context.deadline_remaining(Cfg.context)
+            Some(_) -> "deadline-inherited"
+            None    -> "deadline-detached"
+        end
 
     _ = Sender.send(Cfg.done.sender, "${carried} ${bound}")
     Unit

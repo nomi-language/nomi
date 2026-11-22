@@ -38,22 +38,22 @@ func StartupSnapshot() Startup {
 
 // ActiveContext reads the current scoped execution context.
 func ActiveContext(fr *Frame) Context {
-	if fr != nil && fr.scopedContext != nil {
-		return *fr.scopedContext
+	if fr == nil {
+		return ContextRoot()
 	}
-	return ContextRoot()
+	return fr.app.activeContext()
 }
 
 func EnterContext(parent *Frame, context Context) *Frame {
 	child := *parent
-	child.scopedContext = &context
+	child.app = parent.app.withContext(&context)
 	return &child
 }
 
 // InstallContext publishes boot's returned context on its execution frame.
 func InstallContext(fr *Frame, context Context) {
-	fr.scopedContext = &context
 	fr.booted = fr.booted.withContext(&context)
+	fr.app = fr.booted
 	child, release := EnterDeadline(fr, context)
 	*fr = *child
 	DeferBoot(fr, release)

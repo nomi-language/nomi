@@ -24,21 +24,23 @@ import (
 //
 // A recorded operator reaches its function by declaration
 // (recordedImplItem, stdFuncByID), so the count only goes down.
-const maxOperatorNameTests = 10
+const maxOperatorNameTests = 6
 
 // operatorLoweringFiles are the files that lower `a op b`, `a == b`,
-// `a < b` and `~~~a` by their records.
+// `a < b` and `~~~a`, and a qualified call of an operator interface's
+// function, by their records.
 var operatorLoweringFiles = []string{
 	"iruseroperator.go", "irstdoperator.go", "operimpl.go",
-	"irequality.go", "ircompare.go", "recordedimpl.go",
+	"irequality.go", "ircompare.go", "recordedimpl.go", "ifacecall.go",
 }
 
 // nameKeyedTables are the builder's tables keyed by a name: a field or
 // variable of this name indexed by anything is a lookup by name. The impl
 // tables (implsByIface, instImpls) are keyed by an interface's identity
-// (ifaceKey) and are not among them.
+// (ifaceKey), and std's byIface by its interface function's
+// (analysis.StdFunc), and are not among them.
 var nameKeyedTables = map[string]bool{
-	"ownerImpls": true, "byIface": true, "byType": true, "ifaces": true, "types": true,
+	"ownerImpls": true, "byType": true, "ifaces": true, "types": true,
 	"genericTemplates": true, "items": true,
 	"operIfaceByOp": true, "operIfaceByName": true,
 }

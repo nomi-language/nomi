@@ -43,7 +43,7 @@ dbg line 16: user = User{first_name: "Ada", age: 36}
 `Json.encode_as` turns a value into JSON text, and `Json.decode_as` reads it
 back. The annotation `user: User` tells `decode_as` which type to read, since
 no argument says so. [`std::json`](/reference/json/) has the other options,
-and how enums and `Maybe` fields map to JSON.
+and how enums, `Maybe` fields and `Result` values map to JSON.
 
 A shape used in one place needs no struct. An anonymous struct is JSON when
 each field is, as a struct deriving both with no options: its field names
@@ -207,18 +207,23 @@ So the second entry's error says where it is, `[1].age`, and what was wrong.
 Use `Dynamic` where data comes in from outside. Inside your program, give
 data real types.
 
-## CSV and XML
+## CSV, XML and TOML
 
 [`std::csv`](/reference/csv/) reads records, or rows found by a header's
 column names, and writes them quoted as RFC 4180 says.
 [`std::xml`](/reference/xml/) reads a document into a tree of elements
 and writes one back. Both read a `Reader` a record or a token at a time
-when a file is too large to hold, and both name the line and column of
-anything malformed:
+when a file is too large to hold. [`std::toml`](/reference/toml/) reads a
+configuration file into `Toml.Value`s, its dates and times as
+std::calendar's types, and `Toml.decode_as` reads one into a type through
+`FromJson`, as `Json.decode_as` does. All three name the line and column
+of anything malformed:
 
 ```nomi-run
 import
+    std::calendar.Date
     std::csv
+    std::toml.Toml
     std::xml.{self, Element}
 end
 
@@ -229,12 +234,17 @@ fn main()
     doc = xml.decode("<feed><title>News &amp; notes</title></feed>")!
     dbg Element.child_text(doc, "title")
     dbg csv.decode("a,\"b")
+
+    dbg Toml.decode_as<{name: String, due: Date}>("name = 'launch'\ndue = 2026-05-04")
+    dbg Toml.decode("port = = 80")
 end
 ```
 <!-- expect
-dbg line 8: rows |> Iter.map(&csv.Row.get(&1, "age")) |> Iter.to_list() = [Some("36")]
-dbg line 11: Element.child_text(doc, "title") = Some("News & notes")
-dbg line 12: csv.decode("a,\"b") = Err(Syntax{message: "a quoted field is not closed, or has a quote in it that is not doubled", line: 1, column: 5})
+dbg line 10: rows |> Iter.map(&csv.Row.get(&1, "age")) |> Iter.to_list() = [Some("36")]
+dbg line 13: Element.child_text(doc, "title") = Some("News & notes")
+dbg line 14: csv.decode("a,\"b") = Err(Syntax{message: "a quoted field is not closed, or has a quote in it that is not doubled", line: 1, column: 5})
+dbg line 16: Toml.decode_as<{name: String, due: Date}>("name = 'launch'\ndue = 2026-05-04") = Ok({due: 2026-05-04, name: "launch"})
+dbg line 17: Toml.decode("port = = 80") = Err(Toml.DecodeError{message: "expected value but found '=' instead", line: 1, col: 8, offset: 7})
 -->
 
 ## Bytes in text

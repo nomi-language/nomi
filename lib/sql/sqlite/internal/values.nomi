@@ -1,0 +1,494 @@
+//# How a `std::sql` `Value` is written to SQLite and read back. A value
+//# is written as the storage class its declared type reads back, and a
+//# value read is read by its column's declared type (sqlite.nomi's module
+//# doc and README.md say which). SQLite has no decimal type: a `DECIMAL(p,
+//# s)` column keeps a 64-bit float, exact to 15 digits, so a `Decimal` of
+//# more digits is refused when it is written, and a stored number that is
+//# not exactly a decimal of the column's scale when it is read, both as
+//# `SQLITE_MISMATCH`.
+
+import
+    std::calendar.{Date, NaiveDateTime, OffsetDateTime, Time}
+    std::duration.Duration
+    std::instant.Instant
+    std::int.Int64
+    std::json.Json
+    std::regex.Regex
+    std::sql.{self, Row, Value}
+    std::uuid.Uuid
+    sqlite::internal::engine.{Cell, Columns}
+end
+
+/// How many decimal digits SQLite keeps exactly in a `DECIMAL` or
+/// `NUMERIC` column: a 64-bit float holds every decimal of at most 15
+/// digits so that its shortest form is that decimal again.
+once exact_digits = 15
+
+/// A failure SQLite's code for a value of the wrong type names.
+pub fn mismatch(message: String) -> sql.Error
+    sql.Error.Database{code: "SQLITE_MISMATCH", message:}
+end
+
+/// The cell parameter `?position` is written as: what its declared type
+/// reads back. An `Int` past what an SQLite `INTEGER` holds, a signed
+/// 64-bit integer, is refused rather than written as text or a float,
+/// which would read back as another value; so is a `Decimal` of more
+/// digits than SQLite keeps, and an `Array`, since SQLite has no array
+/// type.
+pub fn param(position: Int, value: Value) -> Result<Cell, sql.Error>
+    case value
+        .Array(_) ->
+            Err(
+                mismatch(
+                    "parameter ?${position} is an Array, and SQLite has no array type; bind one parameter per element, as in `IN (?1, ?2)`, or the elements as JSON text"
+                )
+            )
+
+        .Null ->
+            Ok(.Null)
+
+        .Int(n) ->
+            if Int64.try_from(n) is Some(_) then
+                Ok(.Integer(n))
+            else
+                Err(
+                    mismatch(
+                        "parameter ?${position} is the Int ${n}, past the signed 64-bit range of an SQLite INTEGER; write its text as a String into a TEXT column"
+                    )
+                )
+            end
+
+        .Float(x) ->
+            Ok(.Real(x))
+
+        .Decimal(d) ->
+            text = "${d}"
+            digits = decimal_digits(text)
+
+            if digits > exact_digits then
+                Err(
+                    mismatch(
+                        "parameter ?${position} is the Decimal ${text}, of ${digits} digits: SQLite stores a decimal as a 64-bit float, exact to ${exact_digits} digits, and would round it; keep the amount as INTEGER minor units (cents), or write its text as a String into a TEXT column"
+                    )
+                )
+            else
+                Ok(.Text(text))
+            end
+
+        .Text(s) ->
+            Ok(.Text(s))
+
+        .Bool(b) ->
+            Ok(.Integer(if b then 1 else 0))
+
+        .Bytes(b) ->
+            Ok(.Blob(b))
+
+        .Date(d) ->
+            Ok(.Text("${d}"))
+
+        .Time(t) ->
+            Ok(.Text("${t}"))
+
+        .Timestamp(t) ->
+            Ok(.Text(String.replace("${t}", "T", " ")))
+
+        .Timestamptz(i) ->
+            Ok(.Text(utc_text(i)))
+
+        .Uuid(id) ->
+            Ok(.Text("${id}"))
+
+        .Json(j) ->
+            Ok(.Text(Json.encode(j)))
+    end
+end
+
+/// The cells each parameter of `statement` is written as.
+pub fn params(statement: sql.Statement) -> Result<List<Cell>, sql.Error>
+    statement.params
+    |> Iter.with_index()
+    |> Iter.map(fn (position, value) -> param(position + 1, value))
+    |> Result.collect()
+end
+
+/// An instant as SQLite's own timestamps are written, in UTC with no
+/// offset (`2026-10-24 16:59:52`, and `2026-10-24 16:59:52.5` with a
+/// fraction): `CURRENT_TIMESTAMP` writes that form, and SQLite compares
+/// timestamps as text, so an instant written any other way would not
+/// compare in time order with the database's own.
+fn utc_text(i: Instant) -> String
+    "${OffsetDateTime.from_instant(i, Duration.hours(0))!}"
+    |> String.replace("T", " ")
+    |> String.replace("+00:00", "")
+end
+
+/// The row `cells` are, of the columns `columns`, for the query `query`.
+pub fn row(query: String, columns: Columns, cells: List<Cell>) -> Result<Row, sql.Error>
+    values =
+        Iter.zip(Iter.zip(columns.names, columns.types), cells)
+        |> Iter.map(fn ((name, declared), c) -> value(name, String.uppercase(declared), c))
+        |> Result.collect()?
+
+    Ok(
+        Row.new(
+            query,
+            Iter.zip(columns.names, values)
+            |> Iter.to_list(),
+        )
+    )
+end
+
+/// The value a cell of the column `name`, declared `declared`, reads as: a
+/// cell its declared type cannot read keeps its storage class.
+fn value(name: String, declared: String, c: Cell) -> Result<Value, sql.Error>
+    case (c, decimal_scale(declared))
+        (.Integer(_), Some(scale)) ->
+            decimal_of(c, scale, name, declared) |> Result.map(Value.Decimal)
+
+        (.Real(_), Some(scale)) ->
+            decimal_of(c, scale, name, declared) |> Result.map(Value.Decimal)
+
+        _ ->
+            Ok(typed(declared, stored(declared, c)))
+    end
+end
+
+/// The value of a cell by its storage class. The text of a column declared
+/// `DATE`, `DATETIME` or `TIMESTAMP` that is a time in one of SQLite's
+/// forms is read in one form: the date of a `DATE`, and the date and time
+/// of the others (`2026-10-24 16:59:52`, a fraction only when there is one).
+fn stored(declared: String, c: Cell) -> Value
+    case c
+        .Integer(n) ->
+            Value.Int(n)
+
+        .Real(x) ->
+            Value.Float(x)
+
+        .Text(s) ->
+            if declared == "DATE" or declared == "DATETIME" or declared == "TIMESTAMP" then
+                Value.Text(
+                    sqlite_time(s, declared == "DATE")
+                    |> Maybe.with_default(s)
+                )
+            else
+                Value.Text(s)
+            end
+
+        .Blob(b) ->
+            Value.Bytes(b)
+
+        .Null ->
+            Value.Null
+    end
+end
+
+/// A time in one of SQLite's forms (lang_datefunc.html's 1 to 7, with an
+/// offset or a `Z` after the seconds left off): its date, or its date and
+/// time.
+once time_form = Regex`^(?P<date>\d{4}-\d\d-\d\d)(?:[ T](?P<hour>\d\d):(?P<minute>\d\d)(?::(?P<second>\d\d)(?P<fraction>\.\d{1,9})?(?:[+-]\d\d:\d\d)?)?)?$`
+
+fn sqlite_time(text: String, date_only: Bool) -> Maybe<String>
+    form = String.captures(
+        String.strip_suffix(text, "Z")
+        |> Maybe.with_default(text),
+        time_form,
+    )?
+
+    _ = Date.parse(form.date) |> Result.to_maybe()?
+
+    hour = String.to_int(
+        form.hour
+        |> Maybe.with_default("00")
+    )?
+
+    minute = String.to_int(
+        form.minute
+        |> Maybe.with_default("00")
+    )?
+
+    second = String.to_int(
+        form.second
+        |> Maybe.with_default("00")
+    )?
+
+    if hour > 23 or minute > 59 or second > 59 then return None
+
+    if date_only then return Some(form.date)
+
+    fraction = form.fraction |> Maybe.map(trim_zeros) |> Maybe.with_default("")
+    clock = "${form.hour |> Maybe.with_default("00")}:${form.minute |> Maybe.with_default("00")}:${form.second |> Maybe.with_default("00")}"
+    Some("${form.date} ${clock}${if fraction == "." then "" else fraction}")
+end
+
+/// `s` with its trailing zeros removed.
+fn trim_zeros(s: String) -> String
+    if String.ends_with(s, "0") then trim_zeros(String.slice(s, 0, String.length(s) - 1)) else s
+end
+
+/// `s` with its leading zeros removed.
+fn trim_leading_zeros(s: String) -> String
+    if String.starts_with(s, "0") then trim_leading_zeros(String.drop(s, 1)) else s
+end
+
+/// `plain` read by the column's declared type, when that type reads it.
+fn typed(declared: String, plain: Value) -> Value
+    read =
+        case (affinity(declared), plain)
+            ("BOOL", .Int(n)) ->
+                Some(Value.Bool(n != 0))
+
+            ("DECIMAL", .Text(s)) ->
+                String.to_decimal(s) |> Maybe.map(Value.Decimal)
+
+            ("DATE", .Text(s)) ->
+                Date.parse(s) |> Result.to_maybe() |> Maybe.map(Value.Date)
+
+            ("TIME", .Text(s)) ->
+                Time.parse(s) |> Result.to_maybe() |> Maybe.map(Value.Time)
+
+            ("TIMESTAMP", .Text(s)) ->
+                NaiveDateTime.parse(s) |> Result.to_maybe() |> Maybe.map(Value.Timestamp)
+
+            ("TIMESTAMPTZ", .Text(s)) ->
+                instant(s) |> Maybe.map(Value.Timestamptz)
+
+            ("UUID", .Text(s)) ->
+                Uuid.parse(s) |> Result.to_maybe() |> Maybe.map(Value.Uuid)
+
+            ("JSON", .Text(s)) ->
+                Json.decode(s) |> Result.to_maybe() |> Maybe.map(Value.Json)
+
+            _ ->
+                None
+        end
+
+    Maybe.with_default(read, plain)
+end
+
+/// The declared type a value is read by: `BOOLEAN` and `BOOL` as `BOOL`,
+/// `DECIMAL` and `NUMERIC` (with or without a precision) as `DECIMAL`,
+/// `DATETIME` as `TIMESTAMP`, and the other names as they are.
+fn affinity(declared: String) -> String
+    upper = String.trim(declared)
+
+    name =
+        case String.split(upper, "(")
+            [first, ..] -> String.trim(first)
+            _           -> upper
+        end
+
+    case name
+        "BOOLEAN"  -> "BOOL"
+        "NUMERIC"  -> "DECIMAL"
+        "DATETIME" -> "TIMESTAMP"
+        _          -> name
+    end
+end
+
+/// The instant a timestamp's text names: SQLite's own form, with no offset,
+/// which `CURRENT_TIMESTAMP` and `utc_text` write, is UTC, and RFC 3339
+/// text with an offset is read too.
+fn instant(text: String) -> Maybe<Instant>
+    case OffsetDateTime.parse(String.replace(text, " ", "T"))
+        Ok(odt) ->
+            Some(OffsetDateTime.to_instant(odt))
+
+        Err(_) ->
+            NaiveDateTime.parse(text)
+            |> Result.to_maybe()
+            |> Maybe.flat_map(fn naive ->
+                OffsetDateTime.with_offset(naive, Duration.hours(0)) |> Result.to_maybe()
+            end)
+            |> Maybe.map(OffsetDateTime.to_instant)
+    end
+end
+
+/// Whether a declared type is `DECIMAL` or `NUMERIC`, and its scale: `s` of
+/// `DECIMAL(p, s)`, 0 of `DECIMAL(p)`, and -1 when it declares none, which
+/// reads a value at its shortest scale.
+fn decimal_scale(declared: String) -> Maybe<Int>
+    (name, args) =
+        case String.split(String.trim(declared), "(")
+            [first, ..rest] -> (String.trim(first), String.join(rest, "("))
+            _               -> ("", "")
+        end
+
+    if name != "DECIMAL" and name != "NUMERIC" then return None
+
+    case String.strip_suffix(String.trim(args), ")")
+        None ->
+            Some(-1)
+
+        Some(inside) ->
+            case String.split(inside, ",")
+                [_, s, ..] ->
+                    case String.to_int(String.trim(s))
+                        Some(scale) when scale >= 0 -> Some(scale)
+                        _                           -> Some(-1)
+                    end
+
+                _ ->
+                    Some(0)
+            end
+    end
+end
+
+/// A decimal text's digits, from its first nonzero digit before the point
+/// through every digit after it: 4 for 12.50, 2 for 0.05.
+fn decimal_digits(text: String) -> Int
+    unsigned = String.strip_prefix(text, "-") |> Maybe.with_default(text)
+
+    case String.split(unsigned, ".")
+        [whole, frac] -> String.length(trim_leading_zeros(whole)) + String.length(frac)
+        [whole, ..]   -> String.length(trim_leading_zeros(whole))
+        _             -> 0
+    end
+end
+
+/// The decimal a number stored in a column declared `DECIMAL` or `NUMERIC`
+/// is, at the column's scale (at the number's shortest scale for a column
+/// that declares none). A float is read by its shortest form, which is the
+/// decimal written when that decimal had at most 15 digits. A value with
+/// more decimals than the scale, or more than 15 digits at the scale, is
+/// not exactly the decimal written (or not one the column declares), and
+/// is an error naming the column.
+fn decimal_of(c: Cell, scale: Int, column: String, declared: String) -> Result<Decimal, sql.Error>
+    text =
+        case c
+            .Integer(n) ->
+                "${n}"
+
+            .Real(x) ->
+                if Float.is_nan(x) or Float.is_infinite(x) then
+                    return Err(
+                        mismatch(
+                            "the column `${column}` is ${declared} and holds ${x}, which is not a decimal"
+                        )
+                    )
+                end
+
+                plain_float(x)
+
+            _ ->
+                return Err(mismatch("the column `${column}` is ${declared} and holds no number"))
+        end
+
+    (sign, rest) =
+        case String.strip_prefix(text, "-")
+            Some(after) -> ("-", after)
+            None        -> ("", text)
+        end
+
+    (whole, frac) =
+        case String.split(rest, ".")
+            [w, f] -> (w, f)
+            _      -> (rest, "")
+        end
+
+    places = if scale < 0 then String.length(frac) else scale
+
+    if String.length(frac) > places then
+        return Err(
+            mismatch(
+                "the column `${column}` is ${declared} and holds ${text}, which has more than ${places} decimals: SQLite does not round a DECIMAL column to its scale, so round the value before writing it"
+            )
+        )
+    end
+
+    digits = String.length(trim_leading_zeros(whole)) + places
+
+    if digits > exact_digits then
+        return Err(
+            mismatch(
+                "the column `${column}` is ${declared} and holds ${text}, of ${digits} digits at its scale, more than the ${exact_digits} SQLite keeps exactly: it stores a DECIMAL column as a 64-bit float, which rounds a longer value; declare the column DECIMAL(p, s) with p at most ${exact_digits}, or keep the amount as INTEGER minor units (cents)"
+            )
+        )
+    end
+
+    written =
+        if places == 0 then
+            "${sign}${whole}"
+        else
+            "${sign}${whole}.${frac}${String.repeat(
+                "0",
+                NonNegativeInt.try_from(places - String.length(frac))
+                |> Maybe.with_default(0),
+            )}"
+        end
+
+    String.to_decimal(written)
+    |> Maybe.to_result(
+        mismatch("the column `${column}` is ${declared} and holds ${text}, which is not a decimal")
+    )
+end
+
+/// `x` written as its shortest decimal, with no exponent: `12.5`, `12`,
+/// `0.00001`.
+fn plain_float(x: Float) -> String
+    shown = "${x}"
+
+    case String.split(shown, "e")
+        [mantissa, exponent] ->
+            expand(
+                mantissa,
+                String.to_int(exponent)
+                |> Maybe.with_default(0),
+            )
+
+        _ ->
+            String.strip_suffix(shown, ".0") |> Maybe.with_default(shown)
+    end
+end
+
+/// The decimal `mantissa` times ten to `exponent` is, with no exponent.
+fn expand(mantissa: String, exponent: Int) -> String
+    (sign, unsigned) =
+        case String.strip_prefix(mantissa, "-")
+            Some(after) -> ("-", after)
+            None        -> ("", mantissa)
+        end
+
+    (whole, frac) =
+        case String.split(unsigned, ".")
+            [w, f] -> (w, f)
+            _      -> (unsigned, "")
+        end
+
+    digits = "${whole}${frac}"
+    point = String.length(whole) + exponent
+    count = String.length(digits)
+
+    shifted =
+        if point <= 0 then
+            "0.${String.repeat(
+                "0",
+                NonNegativeInt.try_from(-point)
+                |> Maybe.with_default(0),
+            )}${digits}"
+        else if point >= count then
+            "${digits}${String.repeat(
+                "0",
+                NonNegativeInt.try_from(point - count)
+                |> Maybe.with_default(0),
+            )}"
+        else
+            "${String.slice(digits, 0, point)}.${String.drop(
+                digits,
+                NonNegativeInt.try_from(point)
+                |> Maybe.with_default(0),
+            )}"
+        end
+
+    trimmed =
+        if String.contains(shifted, ".") then
+            trim_zeros(shifted)
+            |> String.strip_suffix(".")
+            |> Maybe.with_default(trim_zeros(shifted))
+        else
+            shifted
+        end
+
+    "${sign}${trimmed}"
+end

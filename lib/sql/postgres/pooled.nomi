@@ -1,0 +1,532 @@
+//# The connections behind one `Conn`: a pool of them, from
+//# `postgres.pool`, or a single one, from `postgres.connect`, which is a
+//# pool of one that opens its link at once and keeps it. A statement takes
+//# a permit (one per connection the pool may open, so a statement beyond
+//# them waits for one), an idle link or a new one, and gives both back
+//# when it ends. A link taken from the pool is checked first: one a
+//# stopped task left mid-statement is cancelled and read up to its
+//# answer, one left in a transaction is rolled back, one that broke, or
+//# that outlived the pool's lifetime or idle time, is replaced, and one
+//# idle for over a second answers an empty query before it is used.
+//#
+//# A transaction holds its permit and its link until it ends. Its state
+//# is a `Cell` every `Conn` of the transaction and its savepoints shares: a
+//# statement on one takes the cell, so the transaction's statements run
+//# one at a time, and one on the pool runs on another link (or, on a single
+//# connection, waits for the transaction to end). Each level of the
+//# transaction has a token, so a `Conn` whose savepoint or transaction has
+//# ended answers `Finished`. The pool keeps each open transaction's cell
+//# and link, for `close`.
+
+import
+    std::channels.{Channel, Receiver, Sender}
+    std::duration.Duration
+    std::instant.Instant
+    std::sql
+    postgres::cell.Cell
+    postgres::config.Config
+    postgres::session
+    postgres::wire.{self, Link}
+end
+
+/// How long a link may sit idle before it is asked whether it still
+/// answers, before a statement uses it.
+once idle_check = Duration.seconds(1)
+
+/// The connections of one pool, or the one of a single connection.
+pub opaque struct Db
+    config: Result<Config, String>
+    /// Whether this is one connection, which keeps its link for good.
+    single:  Bool
+    permits: Channel<Unit>
+    idle:    Cell<List<Link>>
+    state:   Cell<DbState>
+    /// The open transactions, with the links they hold.
+    open: Cell<List<Entry>>
+end
+
+// What every `Conn` of a pool shares.
+struct DbState
+    closed:  Bool
+    next_id: Int
+end
+
+// An open transaction as the pool keeps it, with its link.
+struct Entry
+    id:   Int
+    cell: Cell<TxState>
+    link: Link
+end
+
+/// A transaction, shared by its `Conn` and every savepoint's: its link,
+/// and its state.
+pub opaque struct Tx
+    id:   Int
+    cell: Cell<TxState>
+    link: Link
+end
+
+// Whether the transaction is open, and the token of each open level: the
+// transaction's first, then each savepoint's inside it.
+struct TxState
+    open:       Bool
+    tokens:     List<Int>
+    next_token: Int
+end
+
+/// A transaction or a savepoint of one, as one `Conn` names it: its depth
+/// (1 for the transaction) and its token.
+pub struct Level
+    tx:    Tx
+    depth: Int
+    token: Int
+end
+
+/// A pool of up to `config`'s `pool_max_conns` connections, which opens
+/// each when a statement first needs it.
+pub fn pool(config: Result<Config, String>) -> Db
+    max =
+        case config
+            Ok(c)  -> c.max_conns
+            Err(_) -> 1
+        end
+
+    db(config, False, max)
+end
+
+/// One connection, opened now.
+pub fn single(config: Config) -> Result<Db, sql.Error>
+    link = wire.open(config)?
+    opened = db(Ok(config), True, 1)
+    Cell.update(opened.idle, fn _ -> ([link], Unit))
+    Ok(opened)
+end
+
+fn db(config: Result<Config, String>, single: Bool, max: PositiveInt) -> Db
+    permits = Channel.buffered<Unit>(max)
+    Iter.each(1..=max, fn _ -> give(permits.sender))
+
+    Db{
+        config:,
+        single:,
+        permits:,
+        idle:  Cell.new([]),
+        state: Cell.new(DbState{closed: False, next_id: 1}),
+        open:  Cell.new([]),
+    }
+end
+
+/// Runs `work` on a link of the pool, or of the transaction `level` is a
+/// level of, after the checks every statement makes.
+pub fn statement<T>(
+    db:    Db,
+    level: Maybe<Level>,
+    work:  (Link) -> Result<T, sql.Error>,
+) -> Result<T, sql.Error>
+    wire.flush_cancels()
+    open_db(db)?
+
+    case level
+        None ->
+            with_link(db, work)
+
+        Some(at) ->
+            Cell.update(at.tx.cell, fn state ->
+                (
+                    state,
+                    usable(db, state, at)
+                    |> Result.flat_map(fn link -> innermost(state, at, link))
+                    |> Result.flat_map(work),
+                )
+            end)
+    end
+end
+
+/// Whether the pool has been closed.
+pub fn is_closed(db: Db) -> Bool
+    Cell.read(db.state).closed
+end
+
+// The pool's statements may run; the error that stops them otherwise.
+fn open_db(db: Db) -> Result<Unit, sql.Error>
+    if Cell.read(db.state).closed then return Err(sql.Error.Closed)
+
+    case db.config
+        Ok(_)       -> Ok(Unit)
+        Err(reason) -> Err(sql.Error.Connection{message: reason})
+    end
+end
+
+// The transaction's link, when the level `at` is still open.
+fn usable(db: Db, state: TxState, at: Level) -> Result<Link, sql.Error>
+    if Cell.read(db.state).closed then return Err(sql.Error.Closed)
+
+    case Iter.get(state.tokens, at.depth - 1)
+        Some(token) when state.open and token == at.token -> Ok(at.tx.link)
+        _ -> Err(sql.Error.Finished)
+    end
+end
+
+// A statement runs on the innermost open level of its transaction: one
+// sent through an outer level would belong to the savepoint, and roll back
+// with it.
+fn innermost(state: TxState, at: Level, link: Link) -> Result<Link, sql.Error>
+    if Iter.count(state.tokens) > at.depth then
+        return Err(
+            sql.Error.Database{
+                code:    "25001",
+                message: "a savepoint is open inside this transaction; run the statement on the Conn its begin answered",
+            }
+        )
+    end
+
+    Ok(link)
+end
+
+// Runs `work` on a link of the pool, giving the link and its permit back
+// however it ends.
+fn with_link<T>(db: Db, work: (Link) -> Result<T, sql.Error>) -> Result<T, sql.Error>
+    _ = Receiver.receive(db.permits.receiver)
+    defer give_permit(db)
+    link = obtain(db)?
+    defer give_back(db, link)
+    work(link)
+end
+
+fn give_permit(db: Db)
+    give(db.permits.sender)
+end
+
+fn give(permits: Sender<Unit>)
+    _ = Sender.send(permits, Unit)
+end
+
+// A link fit for a statement: an idle one that passes the checks, or a
+// new one.
+fn obtain(db: Db) -> Result<Link, sql.Error>
+    popped = Cell.update(db.idle, fn links ->
+        case links
+            [first, ..rest] -> (rest, Some(first))
+            []              -> ([], None)
+        end
+    end)
+
+    case popped
+        Some(link) -> checked(db, link)
+        None       -> opened(db)
+    end
+end
+
+fn opened(db: Db) -> Result<Link, sql.Error>
+    case db.config
+        Ok(config)  -> wire.open(config)
+        Err(reason) -> Err(sql.Error.Connection{message: reason})
+    end
+end
+
+// `link` once it is fit for a statement, or a new link in its place. A
+// single connection's link is never replaced: a broken one is its error.
+fn checked(db: Db, link: Link) -> Result<Link, sql.Error>
+    defer on error give_back(db, link)
+
+    case fit(db, link)
+        Ok(_) ->
+            Ok(link)
+
+        Err(e) when db.single ->
+            Err(e)
+
+        Err(sql.Error.Connection{message:}) ->
+            wire.break_link(link, message)
+            give_back(db, link)
+            opened(db)
+
+        Err(e) ->
+            wire.break_link(link, "${e}")
+            give_back(db, link)
+            opened(db)
+    end
+end
+
+// Makes `link` fit for a statement, or answers why it is not.
+fn fit(db: Db, link: Link) -> Result<Unit, sql.Error>
+    if wire.ready(link)? != .Idle then
+        _ = session.simple(link, "ROLLBACK")?
+    end
+
+    if db.single then return Ok(Unit)
+
+    config = db.config |> Result.map_err(fn reason -> sql.Error.Connection{message: reason})?
+    now = Instant.now()
+    idle = Instant.between(wire.used(link), now)
+
+    if Instant.between(link.born, now) > config.max_lifetime or idle > config.max_idle then
+        return Err(sql.Error.Connection{message: "the connection outlived the pool's limits"})
+    end
+
+    if idle > idle_check then
+        _ = session.simple(link, "")?
+    end
+
+    Ok(Unit)
+end
+
+// Puts `link` back with the idle ones, or closes it when it broke or the
+// pool is closed. A single connection keeps a broken link, whose error
+// each statement then answers.
+fn give_back(db: Db, link: Link)
+    closed = Cell.read(db.state).closed
+    broken = wire.broken(link) != None
+
+    if closed or (broken and not db.single) then
+        wire.close(link)
+    else
+        Cell.update(db.idle, fn links -> ([link, ..links], Unit))
+    end
+end
+
+/// Begins a transaction on a link the pool gives it until the
+/// transaction ends.
+pub fn start(db: Db) -> Result<Level, sql.Error>
+    wire.flush_cancels()
+    open_db(db)?
+    _ = Receiver.receive(db.permits.receiver)
+    defer on error give_permit(db)
+    link = obtain(db)?
+    defer on error give_back(db, link)
+    _ = session.simple(link, "BEGIN")?
+    cell = Cell.new(TxState{open: True, tokens: [1], next_token: 2})
+
+    registered = Cell.update(db.state, fn state ->
+        if state.closed then
+            (state, None)
+        else
+            id = state.next_id
+
+            Cell.update(db.open, fn entries -> ([Entry{id:, cell:, link:}, ..entries], Unit))
+            ({..state, next_id: id + 1}, Some(id))
+        end
+    end)
+
+    case registered
+        Some(id) ->
+            Ok(Level{tx: Tx{id:, cell:, link:}, depth: 1, token: 1})
+
+        None ->
+            _ = session.simple(link, "ROLLBACK")
+            Err(sql.Error.Closed)
+    end
+end
+
+/// Begins a savepoint inside the level `at`, which must be the innermost.
+pub fn savepoint(db: Db, at: Level) -> Result<Level, sql.Error>
+    wire.flush_cancels()
+    open_db(db)?
+
+    Cell.update(at.tx.cell, fn state ->
+        case usable(db, state, at) |> Result.flat_map(fn link -> innermost(state, at, link))
+            Err(e) ->
+                (state, Err(e))
+
+            Ok(link) ->
+                depth = at.depth + 1
+
+                case session.simple(link, "SAVEPOINT sp${depth}")
+                    Ok(_) ->
+                        token = state.next_token
+
+                        (
+                            {..state, tokens: .. + [token], next_token: token + 1},
+                            Ok(Level{tx: at.tx, depth:, token:}),
+                        )
+
+                    Err(e) ->
+                        (state, Err(e))
+                end
+        end
+    end)
+end
+
+/// Commits the transaction `at` names, or releases its savepoint. One that
+/// has ended is `Finished`.
+pub fn commit(db: Db, at: Level) -> Result<Unit, sql.Error>
+    wire.flush_cancels()
+    if Cell.read(db.state).closed then return Err(sql.Error.Closed)
+
+    if at.depth == 1 then
+        conclude(db, at, "COMMIT", Err(sql.Error.Finished))
+    else
+        leave(db, at, "RELEASE SAVEPOINT sp${at.depth}", Err(sql.Error.Finished))
+    end
+end
+
+/// Rolls back the transaction `at` names, or to its savepoint. Rolling
+/// back one that has ended does nothing.
+pub fn rollback(db: Db, at: Level) -> Result<Unit, sql.Error>
+    wire.flush_cancels()
+    if Cell.read(db.state).closed then return Err(sql.Error.Closed)
+
+    if at.depth == 1 then
+        conclude(db, at, "ROLLBACK", Ok(Unit))
+    else
+        name = "sp${at.depth}"
+        leave(db, at, "ROLLBACK TO SAVEPOINT ${name}; RELEASE SAVEPOINT ${name}", Ok(Unit))
+    end
+end
+
+// Ends the savepoint `at` with `command`, closing it and every savepoint
+// inside it; `ended` is the answer for one that has already ended.
+fn leave(
+    db:      Db,
+    at:      Level,
+    command: String,
+    ended:   Result<Unit, sql.Error>,
+) -> Result<Unit, sql.Error>
+    Cell.update(at.tx.cell, fn state ->
+        case usable(db, state, at)
+            Err(sql.Error.Finished) ->
+                (state, ended)
+
+            Err(e) ->
+                (state, Err(e))
+
+            Ok(link) ->
+                case session.simple(link, command)
+                    Ok(_) ->
+                        kept =
+                            Iter.take(
+                                state.tokens,
+                                NonNegativeInt.try_from(at.depth - 1)
+                                |> Maybe.with_default(0),
+                            )
+                            |> Iter.to_list()
+
+                        ({..state, tokens: kept}, Ok(Unit))
+
+                    Err(e) ->
+                        (state, Err(e))
+                end
+        end
+    end)
+end
+
+// Ends the transaction `at` with `command` and gives its link and permit
+// back, whether or not the command finishes. The transaction's state is
+// taken out of its cell, and `finish`, deferred on the next line, puts it
+// back ended, so a stop while the command runs still ends it; the link,
+// owing the server's answer, is cancelled and read up to it by whatever
+// takes it next.
+fn conclude(
+    db:      Db,
+    at:      Level,
+    command: String,
+    ended:   Result<Unit, sql.Error>,
+) -> Result<Unit, sql.Error>
+    state = Cell.take(at.tx.cell)
+    defer finish(db, at, state)
+
+    case usable(db, state, at)
+        Err(sql.Error.Finished) ->
+            ended
+
+        Err(e) ->
+            Err(e)
+
+        Ok(link) ->
+            if wire.owes(link) and command == "ROLLBACK" then return Ok(Unit)
+            session.simple(link, command) |> Result.map(fn _ -> Unit)
+    end
+end
+
+// Puts the transaction's state back: ended, with its link and permit
+// given back and the transaction forgotten, when `at` names the open
+// transaction; as it was otherwise.
+fn finish(db: Db, at: Level, state: TxState)
+    case List.first(state.tokens)
+        Some(token) when state.open and token == at.token ->
+            Cell.put(at.tx.cell, {..state, open: False, tokens: []})
+            forget(db, at.tx.id)
+            give_back(db, at.tx.link)
+            give_permit(db)
+
+        _ ->
+            Cell.put(at.tx.cell, state)
+    end
+end
+
+// Drops the transaction `id` from the pool's open ones.
+fn forget(db: Db, id: Int)
+    Cell.update(db.open, fn entries ->
+        (entries |> Iter.reject(fn e -> e.id == id) |> Iter.to_list(), Unit)
+    end)
+end
+
+/// Asks the server whether it answers, through the transaction `level`
+/// names when there is one. On a single connection whose transaction is
+/// open, it asks through the transaction.
+pub fn ping(db: Db, level: Maybe<Level>) -> Result<Unit, sql.Error>
+    wire.flush_cancels()
+    open_db(db)?
+
+    through =
+        case level
+            Some(at) -> Some((at.tx.cell, at.tx.link))
+            None     -> if db.single then open_one(db) else None
+        end
+
+    case through
+        Some((cell, link)) ->
+            Cell.update(cell, fn held ->
+                answer =
+                    if held.open then
+                        session.simple(link, "") |> Result.map(fn _ -> Unit)
+                    else
+                        Err(sql.Error.Finished)
+                    end
+
+                (held, answer)
+            end)
+
+        None ->
+            with_link(db, fn link -> session.simple(link, "") |> Result.map(fn _ -> Unit))
+    end
+end
+
+// A transaction open on the pool, and its link.
+fn open_one(db: Db) -> Maybe<(Cell<TxState>, Link)>
+    entry = List.first(Cell.read(db.open))?
+    Some((entry.cell, entry.link))
+end
+
+/// Closes the pool, whichever of its `Conn`s it is called on: every open
+/// transaction is rolled back, and every link closed, an idle one now and
+/// one a statement holds when the statement ends. Closing it again does
+/// nothing.
+pub fn close(db: Db) -> Result<Unit, sql.Error>
+    first = Cell.update(db.state, fn state -> ({..state, closed: True}, not state.closed))
+    if not first then return Ok(Unit)
+
+    entries = Cell.update(db.open, fn entries -> ([], entries))
+    Iter.each(entries, &end_closed(db, &1))
+
+    links = Cell.update(db.idle, fn links -> ([], links))
+    Iter.each(links, wire.close)
+    Ok(Unit)
+end
+
+// Rolls back a transaction the pool's close ends, and gives its link and
+// permit back. The pool is closed, so the link is closed.
+fn end_closed(db: Db, entry: Entry)
+    link = entry.link
+    state = Cell.take(entry.cell)
+    defer Cell.put(entry.cell, {..state, open: False, tokens: []})
+
+    if state.open then
+        if not wire.owes(link) then
+            _ = session.simple(link, "ROLLBACK")
+        end
+
+        give_back(db, link)
+        give_permit(db)
+    end
+end

@@ -1,0 +1,84 @@
+//# Inputs that make a careless Markdown parser quadratic: long runs of
+//# delimiters, brackets and backticks, unclosed constructs, and deep
+//# nesting. Each is rendered at a size and at eight times it, and the
+//# larger must take less than 24 times as long: eight is linear, and a
+//# quadratic parser takes 64. Each time is the least of three runs, and
+//# the wide margin keeps a busy machine's noise out of the ratio.
+
+import
+    std::duration.Duration
+    std::instant.Instant
+    markdown
+end
+
+/// The least time of three renderings of `source`.
+fn cost(source: String) -> Duration
+    1..=3
+    |> Iter.map(fn _ ->
+        start = Instant.now()
+        _ = markdown.render(source)
+        Instant.between(start, Instant.now())
+    end)
+    |> Iter.min()!
+end
+
+/// Whether rendering what `make` builds at eight times `n` costs less than
+/// 24 times what it costs at `n`.
+fn scales_linearly(make: (NonNegativeInt) -> String, n: NonNegativeInt) -> Bool
+    within(cost(make(n)), cost(make(n * 8)))
+end
+
+fn within(small: Duration, large: Duration) -> Bool
+    Duration.as_nanos(large) < 24 * Int.max(1, Duration.as_nanos(small))
+end
+
+test "long runs and unclosed constructs render in time linear in their length"
+    [
+        (
+            "nested brackets",
+            fn n: NonNegativeInt -> String.repeat("[", n) + "a" + String.repeat("]", n),
+        ),
+        ("open brackets",       fn n -> String.repeat("[", n) + "a"),
+        ("links",               fn n -> String.repeat("[a](b) ", n)),
+        ("unclosed titles",     fn n -> String.repeat("[a](b \"", n)),
+        ("stars",               fn n -> String.repeat("*", n)),
+        ("stars between words", fn n -> String.repeat("*a ", n)),
+        ("nested emphasis",     fn n -> String.repeat("*a **b ", n) + String.repeat(" c**", n)),
+        ("underscores",         fn n -> String.repeat("_a_ ", n)),
+        ("a run of backticks",  fn n -> String.repeat("`", n)),
+        ("unmatched backticks", fn n -> String.repeat("`a ", n)),
+        (
+            "backtick runs of many lengths",
+            fn n ->
+                Iter.map(1..n, fn k -> String.repeat("`", Int.max(0, k % 50 + 1)) + " x ")
+                |> String.join("")
+            end,
+        ),
+        ("unclosed comments", fn n -> String.repeat("<!-- ", n)),
+        ("unclosed tags", fn n -> String.repeat("<a ", n)),
+        ("entities", fn n -> String.repeat("&amp;", n)),
+        ("addresses", fn n -> String.repeat("a@b ", n)),
+        ("table rows", fn n -> "| a | b |\n|---|---|\n" + String.repeat("| x | y |\n", n)),
+        ("definitions", fn n -> Iter.map(0..n, fn k -> "[l${k}]: /u${k}\n") |> String.join("")),
+        ("quoted lines", fn n -> String.repeat("> a\n", n)),
+    ]
+    |> subtests (name, make), name
+        assert scales_linearly(make, 250)
+    end
+end
+
+test "deep nesting renders in time linear in the input's length"
+    // A quote nested n deep on one line is n long; a list nested n deep is
+    // about n * n long, so a list eight times as long is nearly three times
+    // as deep.
+    assert scales_linearly(fn n -> String.repeat("> ", n) + "a", 250)
+
+    nested_list =
+        fn depth: NonNegativeInt ->
+            0..depth
+            |> Iter.map(fn k -> String.repeat("  ", Int.max(0, k)) + "- a\n")
+            |> String.join("")
+        end
+
+    assert within(cost(nested_list(30)), cost(nested_list(85)))
+end

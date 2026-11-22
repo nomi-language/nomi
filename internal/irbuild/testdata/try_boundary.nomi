@@ -70,11 +70,12 @@ end
 // THE BOUNDARY. `?` unwinds the lambda, so `after the lambda` prints on both
 // paths and the enclosing function observes the failure as an ordinary value.
 fn through_lambda(n: Int) -> Result<Int, String>
-    f = fn x: Int ->
-        v = parse(x)?
+    f =
+        fn x: Int ->
+            v = parse(x)?
 
-        Ok(v + 7)
-    end
+            Ok(v + 7)
+        end
 
     inner = f(n)
     io.print("after the lambda")
@@ -89,18 +90,20 @@ end
 // is emitted: `outer`'s result is decided by its tail, which comes after its
 // `?`.
 fn nested_lambda(n: Int) -> Result<Int, String>
-    outer = fn x: Int ->
-        inner = fn y: Int ->
-            v = parse(y)?
+    outer =
+        fn x: Int ->
+            inner =
+                fn y: Int ->
+                    v = parse(y)?
 
-            Ok(v + 1)
+                    Ok(v + 1)
+                end
+
+            io.print("outer body ran")
+            got = inner(x)?
+
+            Ok(got * 10)
         end
-
-        io.print("outer body ran")
-        got = inner(x)?
-
-        Ok(got * 10)
-    end
 
     outer(n)
 end

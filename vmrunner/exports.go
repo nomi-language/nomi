@@ -116,7 +116,7 @@ func boot(image *Image, stdout, stderr io.Writer, stdin io.Reader, args []string
 	if err != nil {
 		return nil, fmt.Errorf("the compiled program cannot be read: %v", err)
 	}
-	if err := networkRefusal(im); err != nil {
+	if err := familyRefusal(im); err != nil {
 		return nil, err
 	}
 	entry := im.EntryModule()

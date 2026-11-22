@@ -61,7 +61,7 @@ const (
 	// their machine would before `nomi run`: the files the tool writes
 	// replace the block's, in its editor too, and what it prints comes
 	// before the run's output (vmhost.ToolMarked). The module is one the
-	// tour links (tourgo.Modules); the word may repeat, and the tools run
+	// tour links (tourmodules.Modules); the word may repeat, and the tools run
 	// in order.
 	InfoTool = "tool:"
 )
@@ -165,6 +165,18 @@ func (b Block) MarkedReadOnly(name string) bool {
 // are skipped.
 func ExtractBlocks(markdown, lang string) []Block {
 	var blocks []Block
+	for _, b := range Fences(markdown) {
+		if b.Lang == lang {
+			blocks = append(blocks, b)
+		}
+	}
+	return blocks
+}
+
+// Fences returns every fenced ``` code block in markdown, in order. A fence
+// with no info string has an empty Lang.
+func Fences(markdown string) []Block {
+	var blocks []Block
 	lines := strings.Split(markdown, "\n")
 	for i := 0; i < len(lines); i++ {
 		trimmed := strings.TrimSpace(lines[i])
@@ -181,18 +193,35 @@ func ExtractBlocks(markdown, lang string) []Block {
 		}
 		// i now sits on the closing fence (or at EOF); the outer loop's i++
 		// steps past it.
-		if len(info) > 0 && info[0] == lang {
-			expected, _ := parseHiddenExpect(lines, i+1)
-			blocks = append(blocks, Block{
-				Lang:     info[0],
-				Info:     info[1:],
-				Code:     strings.Join(body, "\n"),
-				Line:     open + 1,
-				Expected: expected,
-			})
+		b := Block{Code: strings.Join(body, "\n"), Line: open + 1}
+		if len(info) > 0 {
+			b.Lang, b.Info = info[0], info[1:]
 		}
+		b.Expected, _ = parseHiddenExpect(lines, i+1)
+		blocks = append(blocks, b)
 	}
 	return blocks
+}
+
+// DocCommentMarkdown answers the Markdown a Nomi file's `///` and `//#`
+// doc comments hold, which the stdlib reference renders: each such line's
+// text after its marker and one space, and every other line empty, so a
+// line of the answer is the same line of src.
+func DocCommentMarkdown(src string) string {
+	lines := strings.Split(src, "\n")
+	for i, l := range lines {
+		trimmed := strings.TrimLeft(l, " \t")
+		text, ok := strings.CutPrefix(trimmed, "///")
+		if !ok {
+			text, ok = strings.CutPrefix(trimmed, "//#")
+		}
+		if ok {
+			lines[i] = strings.TrimPrefix(text, " ")
+		} else {
+			lines[i] = ""
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
 func parseHiddenExpect(lines []string, start int) ([]string, bool) {

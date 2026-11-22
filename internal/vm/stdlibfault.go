@@ -112,7 +112,9 @@ func (fr *frame) tailInto(fn *ir.Func, pc int) {
 // leaving places a fault that leaves fr at the program call whose tail call
 // into the stdlib replaced fr's function, if one did.
 func (fr *frame) leaving(err error) error {
-	if fr.stdEntry == nil {
+	if fr.stdEntry == nil || fr.c.parent != nil {
+		// A fault leaving a view leaves a callee, which no tail call
+		// replaced (inline.go).
 		return err
 	}
 	f, isFault := asFault(err)

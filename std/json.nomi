@@ -22,8 +22,8 @@ end
 
 //# JSON text to and from Nomi values. `Json.decode_as<T>` reads text as a
 //# typed value and `Json.encode_as` writes one. A struct takes part with
-//# `derive ToJson` and `derive FromJson`, and the built-in types and
-//# collections already do. `Json.decode` and `Json.encode` work with the
+//# `derive ToJson` and `derive FromJson`, and the built-in types, the
+//# collections, `Maybe` and `Result` already do. `Json.decode` and `Json.encode` work with the
 //# `Json` tree itself, for JSON whose shape is not known in advance.
 
 /// A parsed JSON value. Each variant is named after the Nomi type it
@@ -41,11 +41,12 @@ end
 //! assert Json.decode("1e2") == Result.Ok(Json.Float(100.0))
 //! assert Json.encode(Json.Float(36.0)) == "36"
 //!
-//! label = case Json.decode("[1, null]")
-//!     .Ok(Json.Arr(items)) -> "an array of ${Iter.count(items)}"
-//!     .Ok(_)               -> "something else"
-//!     .Err(_)              -> "not JSON"
-//! end
+//! label =
+//!     case Json.decode("[1, null]")
+//!         .Ok(Json.Arr(items)) -> "an array of ${Iter.count(items)}"
+//!         .Ok(_)               -> "something else"
+//!         .Err(_)              -> "not JSON"
+//!     end
 //!
 //! assert label == "an array of 2"
 //
@@ -372,6 +373,44 @@ pub fn decode_defaulted_field<T>(
     end
 end
 
+// An enum's variant with a payload is an object with one key, the variant's
+// name, holding the payload: a derived FromJson reads an enum this way, and
+// Result's FromJson reads `{"Ok": value}` and `{"Err": error}`. tagged_entry
+// answers the key and its value when json is an object whose one key is in
+// tags. Any other JSON is the error expecting `expected`: an object's names
+// its keys (`got object with keys "Bad", "Good"`), and anything else's its
+// kind.
+pub fn tagged_entry(
+    json:     Json,
+    expected: String,
+    tags:     List<String>,
+) -> Result<(String, Json), Json.ShapeError>
+    case json
+        Json.Obj(fields) ->
+            case Iter.to_list(fields)
+                [(key, value)] when Iter.contains(tags, key) ->
+                    Ok((key, value))
+
+                [] ->
+                    Err(Json.ShapeError{path: [], expected:, got: "object with no keys"})
+
+                _ ->
+                    keys = Map.keys(fields) |> Iter.map(&Debug.inspect(&1)) |> Iter.to_list()
+
+                    Err(
+                        Json.ShapeError{
+                            path: [],
+                            expected:,
+                            got: "object with keys ${String.join(keys, ", ")}",
+                        }
+                    )
+            end
+
+        _ ->
+            Err(shape_error_root(expected, json))
+    end
+end
+
 impl Display for Json.ShapeError
     fn to_string(e: Json.ShapeError) -> String
         message = "expected ${e.expected}, got ${e.got}"
@@ -413,7 +452,10 @@ end
 /// ignored. A missing key reads as its field's type's `from_missing`: `None`
 /// for a `Maybe` field, `Absent` for a `Presence` field (`std::presence`).
 /// When `from_missing` answers `None`, as it does for most types, the
-/// missing key is the error `<key>: expected <type>, got missing`.
+/// missing key is the error `<key>: expected <type>, got missing`. A derived
+/// impl reads an enum's bare variant from its name as a string, and a
+/// variant with a payload from an object with exactly one key, its name, as
+/// `Result`'s impl reads `{"Ok": value}`.
 //! todo = Json.decode_as<{title: String, order: Maybe<Int>}>(`{"title": "milk", "id": 3}`)
 //! assert todo == Ok({title: "milk", order: None})
 //!
@@ -626,6 +668,60 @@ impl FromJson for Maybe<T> where T: FromJson
     end
 end
 
+impl ToJson for Result<T, E> where T: ToJson, E: ToJson
+    /// Writes an object with one key, `{"Ok": value}` or `{"Err": error}`,
+    /// as `derive ToJson` writes an enum's variant with a payload.
+    //! found: Result<Int, String> = Ok(3)
+    //! assert Json.encode_as(found) == `{"Ok":3}`
+    //!
+    //! missing: Result<Int, String> = Err("no user 7")
+    //! assert ToJson.to_json(missing) == Json.Obj{"Err" => Json.String("no user 7")}
+    //
+    fn to_json(value: Result<T, E>) -> Json
+        case value
+            Ok(inner) -> Json.Obj{"Ok" => ToJson.to_json(inner)}
+            Err(e)    -> Json.Obj{"Err" => ToJson.to_json(e)}
+        end
+    end
+end
+
+impl FromJson for Result<T, E> where T: FromJson, E: FromJson
+    /// Reads an object with exactly one key, `"Ok"` or `"Err"`, as `to_json`
+    /// writes it, and its value as `T` or `E`. Any other JSON is an error,
+    /// which names the keys of an object.
+    //! assert Json.decode_as<Result<Int, String>>(`{"Ok": 3}`) == Ok(Ok(3))
+    //! assert Json.decode_as<Result<Int, String>>(`{"Err": "no user 7"}`) == Ok(Err("no user 7"))
+    //!
+    //! both = Json.decode_as<Result<Int, String>>(`{"Ok": 3, "Err": "x"}`)
+    //!
+    //! assert both |> Result.map_err(&Display.to_string(&1)) == Err(
+    //!     "expected Result as {\"Ok\": value} or {\"Err\": error}, got object with keys \"Err\", \"Ok\""
+    //! )
+    //!
+    //! wrong = Json.decode_as<Result<Int, String>>(`{"Ok": "3"}`)
+    //! assert wrong |> Result.map_err(&Display.to_string(&1)) == Err("Ok: expected Int, got string")
+    //
+    fn from_json(json: Json) -> Result<Result<T, E>, Json.ShapeError>
+        case tagged_entry(json, `Result as {"Ok": value} or {"Err": error}`, ["Ok", "Err"])
+            Ok(("Ok", value)) ->
+                case T.from_json(value)
+                    Ok(inner) -> Ok(Ok(inner))
+                    Err(e)    -> Err(shape_error_prepend(e, "Ok"))
+                end
+
+            // The key is "Err", the one other tag.
+            Ok((_, value)) ->
+                case E.from_json(value)
+                    Ok(inner) -> Ok(Err(inner))
+                    Err(e)    -> Err(shape_error_prepend(e, "Err"))
+                end
+
+            Err(e) ->
+                Err(e)
+        end
+    end
+end
+
 impl ToJson for Map<String, V> where V: ToJson
     fn to_json(value: Map<String, V>) -> Json
         Json.Obj(Map.map_values(value, &ToJson.to_json(&1)))
@@ -835,12 +931,13 @@ impl FromJson for Decimal
     fn from_json(json: Json) -> Result<Decimal, Json.ShapeError>
         expected = "decimal as text or a number"
 
-        read = case json
-            Json.String(text) -> String.to_decimal(text)
-            Json.Int(n)       -> String.to_decimal(Int.to_string(n))
-            Json.Float(f)     -> String.to_decimal(Float.to_string(f))
-            _                 -> None
-        end
+        read =
+            case json
+                Json.String(text) -> String.to_decimal(text)
+                Json.Int(n)       -> String.to_decimal(Int.to_string(n))
+                Json.Float(f)     -> String.to_decimal(Float.to_string(f))
+                _                 -> None
+            end
 
         case read
             Some(d) -> Ok(d)

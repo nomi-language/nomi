@@ -19,246 +19,184 @@ func writeFile(t *testing.T, path, content string) {
 	}
 }
 
-// TestBuildModuleIndex_HappyPath mirrors the plan's example layout:
-// a `todo` project requires a sibling `stringkit` module via a local
-// `replace` directive. BuildModuleIndex resolves the require, loads
-// the sibling's nomi.toml, and indexes by the manifest's Name.
-func TestBuildModuleIndex_HappyPath(t *testing.T) {
+// sameDirs fails unless got and want name one directory: t.TempDir on macOS
+// hands back a path under /var/folders/... that is a link to /private/var/...
+func sameDirs(t *testing.T, what, got, want string) {
+	t.Helper()
+	g, _ := filepath.EvalSymlinks(got)
+	w, _ := filepath.EvalSymlinks(want)
+	if g == "" || g != w {
+		t.Fatalf("%s is %q, want %s", what, got, want)
+	}
+}
+
+// TestBuildModuleIndex_ADirDependency: a `todo` project names a sibling
+// module with a dir entry. The index holds it by the name todo's
+// [dependencies] gives it, at its directory.
+func TestBuildModuleIndex_ADirDependency(t *testing.T) {
 	tmp := t.TempDir()
 	todo := filepath.Join(tmp, "todo")
 	stringkit := filepath.Join(tmp, "stringkit")
-
-	writeFile(t, filepath.Join(todo, "go.mod"), `module todo
-
-go 1.22
-
-require stringkit v0.0.0
-
-replace stringkit => ../stringkit
-`)
-	writeFile(t, filepath.Join(todo, "nomi.toml"), `[module]
-name = "todo"
-`)
-	writeFile(t, filepath.Join(todo, "main.nomi"), "fn main() -> Unit\n  ()\nend\n")
-
-	writeFile(t, filepath.Join(stringkit, "go.mod"), `module stringkit
-
-go 1.22
-`)
-	writeFile(t, filepath.Join(stringkit, "nomi.toml"), `[module]
-name = "stringkit"
-`)
-	writeFile(t, filepath.Join(stringkit, "pad.nomi"), "pub fn pad() -> Unit\n  ()\nend\n")
+	writeFile(t, filepath.Join(todo, "nomi.toml"), "[module]\nname = \"todo\"\n\n[dependencies]\nstringkit = { dir = \"../stringkit\" }\n")
+	writeFile(t, filepath.Join(stringkit, "nomi.toml"), "[module]\nname = \"stringkit\"\n")
 
 	idx, err := BuildModuleIndex(todo)
 	if err != nil {
 		t.Fatalf("BuildModuleIndex: %v", err)
 	}
-	if len(idx) != 1 {
-		t.Fatalf("expected 1 entry, got %d: %#v", len(idx), idx)
+	if len(idx.Roots) != 1 || idx.Names[""]["stringkit"] != "stringkit" {
+		t.Fatalf("index = %#v, want stringkit alone", idx)
 	}
-	got, ok := idx["stringkit"]
-	if !ok {
-		t.Fatalf("expected key %q, index = %#v", "stringkit", idx)
-	}
-	// Compare via EvalSymlinks: t.TempDir on macOS hands back a path
-	// under /var/folders/... that is itself a symlink to /private/var/...,
-	// and filepath.Join("../stringkit") through filepath.Join doesn't
-	// resolve symlinks. The directories on disk are the same; check
-	// that with EvalSymlinks rather than string equality.
-	wantResolved, err := filepath.EvalSymlinks(stringkit)
-	if err != nil {
-		t.Fatalf("EvalSymlinks %s: %v", stringkit, err)
-	}
-	gotResolved, err := filepath.EvalSymlinks(got)
-	if err != nil {
-		t.Fatalf("EvalSymlinks %s: %v", got, err)
-	}
-	if gotResolved != wantResolved {
-		t.Fatalf("index[%q] = %s, want %s", "stringkit", gotResolved, wantResolved)
+	sameDirs(t, "stringkit's root", idx.Roots["stringkit"], stringkit)
+	if self := idx.Names["stringkit"]["stringkit"]; self != "stringkit" {
+		t.Errorf("stringkit's own name is %q in its names, want itself", self)
 	}
 }
 
-// TestBuildModuleIndex_NoGoMod confirms the documented contract: a
-// project without a go.mod returns an empty index, no error. This
-// is what keeps single-file `nomi run` and no-deps projects valid.
-func TestBuildModuleIndex_NoGoMod(t *testing.T) {
-	tmp := t.TempDir()
-	idx, err := BuildModuleIndex(tmp)
+// TestBuildModuleIndex_NoManifest: a directory without a nomi.toml is an
+// empty index, no error, which keeps single-file `nomi run` valid.
+func TestBuildModuleIndex_NoManifest(t *testing.T) {
+	idx, err := BuildModuleIndex(t.TempDir())
 	if err != nil {
-		t.Fatalf("BuildModuleIndex on dir without go.mod: %v", err)
+		t.Fatalf("BuildModuleIndex on a directory without nomi.toml: %v", err)
 	}
-	if len(idx) != 0 {
-		t.Fatalf("expected empty index, got %#v", idx)
+	if len(idx.Roots) != 0 || len(idx.Names[""]) != 0 {
+		t.Fatalf("expected an empty index, got %#v", idx)
 	}
 }
 
-// TestBuildModuleIndex_RequireWithoutReplace tests a require with no replace
-// whose module the module cache does not hold. The analysis never downloads,
-// so it is left out of the index, not an error; an import of it reports it
-// missing (TestShortNameImport_FromTheModuleCacheAndMissingFromIt).
-func TestBuildModuleIndex_RequireWithoutReplace(t *testing.T) {
+// TestBuildModuleIndex_NotInTheModuleCache: a dependency the module cache
+// does not hold is left out of the index, not an error, since the analysis
+// never downloads; an import of it reports it missing
+// (TestShortNameImport_FromTheModuleCacheAndMissingFromIt).
+func TestBuildModuleIndex_NotInTheModuleCache(t *testing.T) {
 	t.Setenv("GOMODCACHE", t.TempDir())
 	tmp := t.TempDir()
-	writeFile(t, filepath.Join(tmp, "go.mod"), `module todo
-
-go 1.22
-
-require example.com/remote v1.2.3
-`)
+	writeFile(t, filepath.Join(tmp, "nomi.toml"),
+		"[module]\nname = \"todo\"\n\n[dependencies]\nremote = { module = \"example.com/remote\", version = \"v1.2.3\" }\n")
 	idx, err := BuildModuleIndex(tmp)
 	if err != nil {
 		t.Fatalf("BuildModuleIndex: %v", err)
 	}
-	if len(idx) != 0 {
-		t.Fatalf("expected empty index (require skipped), got %#v", idx)
+	if len(idx.Roots) != 0 {
+		t.Fatalf("expected an empty index, got %#v", idx)
 	}
 }
 
-// TestBuildModuleIndex_MissingTargetDir tests the case where a replace
-// points at a directory that doesn't exist on disk. LoadManifest will
-// fail with a non-ErrManifestMissing error (the parent directory is
-// missing entirely), so BuildModuleIndex must surface that.
-func TestBuildModuleIndex_MissingTargetDir(t *testing.T) {
+// TestBuildModuleIndex_MissingDir: a dir entry naming a directory that does
+// not exist is an error that names the directory.
+func TestBuildModuleIndex_MissingDir(t *testing.T) {
 	tmp := t.TempDir()
-	writeFile(t, filepath.Join(tmp, "go.mod"), `module todo
-
-go 1.22
-
-require stringkit v0.0.0
-
-replace stringkit => ../does-not-exist
-`)
+	writeFile(t, filepath.Join(tmp, "nomi.toml"),
+		"[module]\nname = \"todo\"\n\n[dependencies]\nstringkit = { dir = \"../does-not-exist\" }\n")
 	_, err := BuildModuleIndex(tmp)
 	if err == nil {
-		t.Fatalf("expected error for missing replace target, got nil")
+		t.Fatalf("BuildModuleIndex admits a dir entry whose directory does not exist")
 	}
-	// The error should mention the offending nomi.toml path so the
-	// user knows which dep failed. We don't pin the exact wording.
-	if !strings.Contains(err.Error(), "does-not-exist") {
-		t.Fatalf("error %q should mention missing target directory", err)
+	if want := "[dependencies] stringkit: directory ../does-not-exist does not exist"; !strings.Contains(err.Error(), want) {
+		t.Fatalf("error %q, want one with %q", err, want)
 	}
 }
 
-// TestBuildModuleIndex_PureGoDep tests a sibling module that has a
-// go.mod but no nomi.toml — a pure-Go dep used for FFI rather than
-// Nomi source. The require is skipped silently; not every Go module
-// in a project's graph is a Nomi module.
-func TestBuildModuleIndex_PureGoDep(t *testing.T) {
+// TestBuildModuleIndex_NotANomiModule: a dependency whose directory holds
+// no nomi.toml is not indexed.
+func TestBuildModuleIndex_NotANomiModule(t *testing.T) {
 	tmp := t.TempDir()
 	todo := filepath.Join(tmp, "todo")
-	gokit := filepath.Join(tmp, "gokit")
-
-	writeFile(t, filepath.Join(todo, "go.mod"), `module todo
-
-go 1.22
-
-require gokit v0.0.0
-
-replace gokit => ../gokit
-`)
-	writeFile(t, filepath.Join(todo, "nomi.toml"), `[module]
-name = "todo"
-`)
-
-	// gokit has a go.mod but no nomi.toml — pure-Go dep.
-	writeFile(t, filepath.Join(gokit, "go.mod"), `module gokit
-
-go 1.22
-`)
-
+	writeFile(t, filepath.Join(todo, "nomi.toml"), "[module]\nname = \"todo\"\n\n[dependencies]\ngokit = { dir = \"../gokit\" }\n")
+	writeFile(t, filepath.Join(tmp, "gokit", "kit.go"), "package gokit\n")
 	idx, err := BuildModuleIndex(todo)
 	if err != nil {
 		t.Fatalf("BuildModuleIndex: %v", err)
 	}
-	if len(idx) != 0 {
-		t.Fatalf("expected empty index (pure-Go dep skipped), got %#v", idx)
+	if len(idx.Roots) != 0 || len(idx.Names[""]) != 0 {
+		t.Fatalf("expected an empty index, got %#v", idx)
 	}
 }
 
-// TestBuildModuleIndex_DuplicateNames tests two siblings whose
-// nomi.toml claim the same short-name. The index is keyed by short-
-// name, so this is a hard error — the project can't disambiguate.
-func TestBuildModuleIndex_DuplicateNames(t *testing.T) {
+// TestBuildModuleIndex_TwoModulesWithOneOwnName: two dependencies whose
+// own nomi.toml give them the same [module].name are two modules, each
+// under the name the project gives it. A module's own name is only the
+// name `nomi add` gives it.
+func TestBuildModuleIndex_TwoModulesWithOneOwnName(t *testing.T) {
 	tmp := t.TempDir()
 	todo := filepath.Join(tmp, "todo")
-	libA := filepath.Join(tmp, "lib-a")
-	libB := filepath.Join(tmp, "lib-b")
-
-	writeFile(t, filepath.Join(todo, "go.mod"), `module todo
-
-go 1.22
-
-require lib-a v0.0.0
-require lib-b v0.0.0
-
-replace lib-a => ../lib-a
-replace lib-b => ../lib-b
-`)
-	writeFile(t, filepath.Join(todo, "nomi.toml"), `[module]
-name = "todo"
-`)
-	writeFile(t, filepath.Join(libA, "nomi.toml"), `[module]
-name = "shared"
-`)
-	writeFile(t, filepath.Join(libB, "nomi.toml"), `[module]
-name = "shared"
-`)
-
-	_, err := BuildModuleIndex(todo)
-	if err == nil {
-		t.Fatalf("expected error for duplicate names, got nil")
-	}
-	if !strings.Contains(err.Error(), "shared") {
-		t.Fatalf("error %q should mention the colliding name", err)
-	}
-}
-
-// TestBuildModuleIndex_MalformedGoMod ensures parse errors aren't
-// swallowed silently — the user should see them.
-func TestBuildModuleIndex_MalformedGoMod(t *testing.T) {
-	tmp := t.TempDir()
-	writeFile(t, filepath.Join(tmp, "go.mod"), "this is not a valid go.mod {\n")
-	_, err := BuildModuleIndex(tmp)
-	if err == nil {
-		t.Fatalf("expected parse error, got nil")
-	}
-}
-
-// TestBuildModuleIndex_AbsoluteReplace tests a replace whose target
-// is already absolute (not relative to projectRoot). The replace
-// directive's target should be used as-is.
-func TestBuildModuleIndex_AbsoluteReplace(t *testing.T) {
-	tmp := t.TempDir()
-	todo := filepath.Join(tmp, "todo")
-	stringkit := filepath.Join(tmp, "stringkit")
-
-	writeFile(t, filepath.Join(stringkit, "nomi.toml"), `[module]
-name = "stringkit"
-`)
-	writeFile(t, filepath.Join(todo, "go.mod"), `module todo
-
-go 1.22
-
-require stringkit v0.0.0
-
-replace stringkit => `+stringkit+`
-`)
-	writeFile(t, filepath.Join(todo, "nomi.toml"), `[module]
-name = "todo"
-`)
+	writeFile(t, filepath.Join(todo, "nomi.toml"),
+		"[module]\nname = \"todo\"\n\n[dependencies]\naudit = { dir = \"../lib-b\" }\nshared = { dir = \"../lib-a\" }\n")
+	writeFile(t, filepath.Join(tmp, "lib-a", "nomi.toml"), "[module]\nname = \"shared\"\n")
+	writeFile(t, filepath.Join(tmp, "lib-b", "nomi.toml"), "[module]\nname = \"shared\"\n")
 
 	idx, err := BuildModuleIndex(todo)
 	if err != nil {
+		t.Fatalf("two dependencies with one own name: %v", err)
+	}
+	sameDirs(t, "shared", idx.Roots[idx.Names[""]["shared"]], filepath.Join(tmp, "lib-a"))
+	sameDirs(t, "audit", idx.Roots[idx.Names[""]["audit"]], filepath.Join(tmp, "lib-b"))
+	// Each module's own name names itself in its own files.
+	if idx.Names["audit"]["shared"] != "audit" || idx.Names["shared"]["shared"] != "shared" {
+		t.Errorf("each module's own name: %#v", idx.Names)
+	}
+}
+
+// TestBuildModuleIndex_NamesArePerModule: a dependency's imports resolve
+// through its own [dependencies], never the project's. app names kit's
+// dependency `text` as `words`; kit names it `text`. A module only kit
+// names takes kit's name for it in the program.
+func TestBuildModuleIndex_NamesArePerModule(t *testing.T) {
+	tmp := t.TempDir()
+	app := filepath.Join(tmp, "app")
+	writeFile(t, filepath.Join(app, "nomi.toml"), "[module]\nname = \"app\"\n\n[dependencies]\n"+
+		"kit = { module = \"example.com/kit\", version = \"v0.1.0\", dir = \"../kit\" }\n"+
+		"words = { module = \"example.com/text\", version = \"v0.1.0\", dir = \"../text\" }\n")
+	writeFile(t, filepath.Join(tmp, "kit", "nomi.toml"), "[module]\nname = \"kit\"\npath = \"example.com/kit\"\n\n[dependencies]\n"+
+		"pad = { module = \"example.com/pad\", version = \"v0.1.0\" }\n"+
+		"text = { module = \"example.com/text\", version = \"v0.1.0\" }\n")
+	writeFile(t, filepath.Join(tmp, "text", "nomi.toml"), "[module]\nname = \"text\"\npath = \"example.com/text\"\n")
+	cache := t.TempDir()
+	t.Setenv("GOMODCACHE", cache)
+	writeFile(t, filepath.Join(cache, "example.com", "pad@v0.1.0", "nomi.toml"), "[module]\nname = \"pad\"\npath = \"example.com/pad\"\n")
+	writeFile(t, filepath.Join(cache, "cache", "download", "example.com", "pad", "@v", "v0.1.0.ziphash"), "h1:x\n")
+
+	idx, err := BuildModuleIndex(app)
+	if err != nil {
 		t.Fatalf("BuildModuleIndex: %v", err)
 	}
-	got, ok := idx["stringkit"]
-	if !ok {
-		t.Fatalf("expected key %q, index = %#v", "stringkit", idx)
+	if got := idx.Names[""]; len(got) != 2 || got["kit"] != "kit" || got["words"] != "words" {
+		t.Errorf("app's names are %v, want kit and words", got)
 	}
-	wantResolved, _ := filepath.EvalSymlinks(stringkit)
-	gotResolved, _ := filepath.EvalSymlinks(got)
-	if gotResolved != wantResolved {
-		t.Fatalf("index[stringkit] = %s, want %s", gotResolved, wantResolved)
+	if got := idx.Names["kit"]; got["text"] != "words" || got["pad"] != "pad" || got["kit"] != "kit" {
+		t.Errorf("kit's names are %v, want text as words, pad and itself", got)
+	}
+	sameDirs(t, "kit's text", idx.Roots[idx.Names["kit"]["text"]], filepath.Join(tmp, "text"))
+	if _, ok := idx.Names[""]["pad"]; ok {
+		t.Errorf("app names pad, which only kit names")
+	}
+	sameDirs(t, "pad", idx.Roots["pad"], filepath.Join(cache, "example.com", "pad@v0.1.0"))
+}
+
+// TestLoadManifest_DependencyEntries: each [dependencies] entry is held to
+// its form, at its line, with a message that names it.
+func TestLoadManifest_DependencyEntries(t *testing.T) {
+	for _, tc := range []struct{ body, want string }{
+		{"a = { module = \"example.com/a\", version = \"v1.0.0\" }\nb = { module = \"example.com/a\", version = \"v1.1.0\" }\n",
+			"nomi.toml:7: [dependencies] a and b both name example.com/a; keep one"},
+		{"shop = { dir = \"../x\" }\n", "nomi.toml:6: [dependencies] shop is this module's own name; name the dependency another way"},
+		{"a = { module = \"example.com/a\", version = \"v1.2\" }\n", "nomi.toml:6: [dependencies] a: \"v1.2\" is not a full version such as v1.2.3"},
+		{"a = { module = \"example.com/a\" }\n", "nomi.toml:6: [dependencies] a needs a `version`"},
+		{"a = { version = \"v1.0.0\" }\n", "nomi.toml:6: [dependencies] a has a version but no `module`"},
+		{"a = {}\n", "nomi.toml:6: [dependencies] a needs `module` and `version`, or `dir`"},
+		{"Big = { dir = \"../x\" }\n", "nomi.toml:6: [dependencies] \"Big\" is not a dependency name"},
+		{"a = { module = \"example.com/a\", verison = \"v1.0.0\" }\n", "nomi.toml:6: [dependencies.a] has no key `verison`; did you mean `version`?"},
+	} {
+		dir := t.TempDir()
+		writeFile(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"shop\"\npath = \"example.com/shop\"\n\n[dependencies]\n"+tc.body)
+		_, err := LoadManifest(dir)
+		if err == nil {
+			t.Errorf("LoadManifest admits\n%s", tc.body)
+			continue
+		}
+		if got := strings.TrimPrefix(err.Error(), dir+string(filepath.Separator)); !strings.HasPrefix(got, tc.want) {
+			t.Errorf("for\n%s got  %s\nwant %s", tc.body, got, tc.want)
+		}
 	}
 }

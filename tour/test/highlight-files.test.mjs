@@ -19,10 +19,10 @@ const block = [
   "",
   "// FILE: app/nomi.toml",
   "",
-  "[capabilities.self]",
+  "[effects.self]",
   'std = ["std::io"]',
   "",
-  "[capabilities.deps.modules]",
+  "[effects.deps.modules]",
   '"lib.example/prices" = []  # computes',
   "",
   "// FILE: app/go.mod",
@@ -48,11 +48,11 @@ test("each file is rendered in its own language, and the block's text is kept", 
   );
   // A file is given as its tab holds it.
   assert.deepEqual(
-    seen.map(([name, , text]) => ({ name, body: text })),
+    seen.map(([name, , text]) => ({ name, base64: false, body: text })),
     splitFiles(block),
   );
   assert.match(html, /<span class="tok-comment">\/\/ FILE: app\/nomi\.toml<\/span>/);
-  assert.match(html, /\[<span class="toml-table">capabilities<\/span>\.<span class="toml-table">self<\/span>\]/);
+  assert.match(html, /\[<span class="toml-table">effects<\/span>\.<span class="toml-table">self<\/span>\]/);
   assert.match(html, /<span class="toml-key">"lib\.example\/prices"<\/span>/);
   assert.match(html, /<span class="toml-comment"># computes<\/span>/);
   assert.match(html, /\nmodule example\.com\/app\n/, "go.mod is uncoloured");
@@ -60,8 +60,8 @@ test("each file is rendered in its own language, and the block's text is kept", 
 
 test("a tab's text drops the blank lines around its file", () => {
   assert.deepEqual(splitFiles("// FILE: a.toml\n\n\nx = 1\n\n// FILE: b.nomi\nfn main()\nend\n\n"), [
-    { name: "a.toml", body: "x = 1" },
-    { name: "b.nomi", body: "fn main()\nend" },
+    { name: "a.toml", base64: false, body: "x = 1" },
+    { name: "b.nomi", base64: false, body: "fn main()\nend" },
   ]);
   assert.equal(splitFiles("fn main()\nend"), null);
 });
@@ -70,7 +70,26 @@ test("a file's language comes from its name", () => {
   assert.equal(fileLanguage("app/nomi.toml"), "toml");
   assert.equal(fileLanguage("messages/en.toml"), "toml");
   assert.equal(fileLanguage("go.mod"), "text");
-  assert.equal(fileLanguage("urltools.go"), "go");
   assert.equal(fileLanguage("data.json"), "json");
   assert.equal(fileLanguage("main.nomi"), "nomi");
+});
+
+// A `(base64)` section is a binary file: its tab holds the section's
+// base64, which the run sends back as it is, and the static rendering
+// keeps that text in the page, hidden, and colours nothing in it.
+test("a base64 section is a binary file, kept and hidden", () => {
+  const binary = "// FILE: main.nomi\nfn main()\nend\n\n// FILE: engine/x.wasm (base64)\nAGFzbQEAAAA=\n\n// FILE: notes.txt\nhi";
+  assert.deepEqual(splitFiles(binary), [
+    { name: "main.nomi", base64: false, body: "fn main()\nend" },
+    { name: "engine/x.wasm", base64: true, body: "AGFzbQEAAAA=" },
+    { name: "notes.txt", base64: false, body: "hi" },
+  ]);
+  const rendered = [];
+  const html = renderFiles(fileSections(binary), (name, lang, text) => {
+    rendered.push(name);
+    return text;
+  });
+  assert.deepEqual(rendered, ["main.nomi", "notes.txt"]);
+  assert.match(html, /<span hidden>AGFzbQEAAAA=\n<\/span>/);
+  assert.equal(unescape(html), binary);
 });

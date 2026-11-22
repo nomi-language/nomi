@@ -27,7 +27,8 @@ package vm_test
 //	every case runnable  a body that reaches an instruction this machine
 //	                     has no arm for is NOT a failing case. `Machine.
 //	                     RunTests` answers a reason instead of a report for
-//	                     exactly that, because a machine that reported its
+//	                     exactly that, and `Machine.RunCases` a limit for
+//	                     the case, because a machine that reported its
 //	                     own limits as failure text would be comparing
 //	                     itself.
 //
@@ -62,6 +63,7 @@ import (
 	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/internal/irbuild"
 	"github.com/nomi-language/nomi/internal/vm"
+	"github.com/nomi-language/nomi/rt"
 )
 
 // vmReportRoots are the populations whose record ids are paths, with the
@@ -134,23 +136,35 @@ func vmReportCaptureStderr(fn func() (int, string)) (string, int, string) {
 
 func vmReportRun(population, path string, wantCases int) (transcript string,
 	exit, cases int, reason string) {
-	prog, res, mod, reason := vmLowerTests(path)
+	if population == "tour" {
+		return vmTourReportRun(path, wantCases)
+	}
+	var out bytes.Buffer
+	m, _, reason := vmReportMachine(path, &out)
 	if reason != "" {
 		return "", 0, 0, reason
 	}
-	if population == "tour" {
-		// A TOUR RECORD'S N IS A FLAG, NOT A COUNT: `runTourBlock`'s set
-		// records 1 for any block that declares tests. So a block of two
-		// cases with one retained would pass a comparison against N and then
-		// run half the block. The block's own case count is the runner's,
-		// taken from the entry the front end checked, and the flag is what
-		// the record is compared against.
-		flag := wantCases
-		defer func() {
-			if reason == "" {
-				cases = flag
-			}
-		}()
+	var stderr string
+	stderr, exit, reason = vmReportCaptureStderr(func() (int, string) { return m.RunTests(path) })
+	if reason != "" {
+		return "", 0, 0, "the machine could not run a case: " + reason
+	}
+	// The recorder's transcript: stdout, then stderr under a label when
+	// anything reached it (internal/expectation's `observed.transcript`).
+	transcript = out.String()
+	if stderr != "" {
+		transcript += "--- stderr ---\n" + stderr
+	}
+	return transcript, exit, reportCases(out.String()), ""
+}
+
+// vmReportMachine lowers path and opens the machine its cases run on,
+// writing to out, answering it and the linked module whose cases it runs,
+// or the reason the record is not comparable.
+func vmReportMachine(path string, out io.Writer) (*vm.Machine, *ir.Module, string) {
+	prog, res, mod, reason := vmLowerTests(path)
+	if reason != "" {
+		return nil, nil, reason
 	}
 	// A RECORD'S N COUNTS CASES, a `subtests` row each (rt.CountCases), so
 	// it is not the number of tests to retain. The tests to retain are the
@@ -158,61 +172,95 @@ func vmReportRun(population, path string, wantCases int) (transcript string,
 	// own summary line (reportCases), which is the number the command records.
 	declared := len(frontend.CollectTestCases(prog.Entry().Nodes))
 	if got := len(mod.Tests()); got != declared {
-		return "", 0, 0, fmt.Sprintf("retained %d of %d case(s)", got, declared)
+		return nil, nil, fmt.Sprintf("retained %d of %d case(s)", got, declared)
 	}
-	var out bytes.Buffer
 	// THE PROGRAM'S MODULES, as `vmRun` hands a whole program: a std host
 	// outside rt (calendar parsing, regex) is answered through its generated
 	// adapter, and a machine opened without the linked modules reports its
 	// own limit instead of the case.
 	mod, mods, err := vmLink(mod, res.IRModules())
 	if err != nil {
-		return "", 0, 0, "the link hook refused it: " + err.Error()
+		return nil, nil, "the link hook refused it: " + err.Error()
 	}
-	m := vmTestMachine(prog, path, mod, mods, &out)
-	if population != "tour" {
-		var stderr string
-		stderr, exit, reason = vmReportCaptureStderr(func() (int, string) { return m.RunTests(path) })
-		if reason != "" {
-			return "", 0, 0, "the machine could not run a case: " + reason
-		}
-		// The recorder's transcript: stdout, then stderr under a label when
-		// anything reached it (internal/expectation's `observed.transcript`).
-		transcript = out.String()
-		if stderr != "" {
-			transcript += "--- stderr ---\n" + stderr
-		}
-		return transcript, exit, reportCases(out.String()), ""
+	return vmTestMachine(prog, path, mod, mods, out), mod, ""
+}
+
+// reportFiles is the files whose cases path's record reports, in order:
+// path, then a tour block's other files that declare tests (tourTestFiles).
+func reportFiles(path string) []string {
+	return append([]string{path}, tourTestFiles(path)...)
+}
+
+// vmTourReportRun is a tour block's report, staged with its entry at path.
+//
+// THE TOUR'S COMPOSITION IS THE PLAYGROUND'S AND IT IS NOT `nomi test`'s,
+// in three ways, each read off `runTourBlock` in
+// internal/expectation/populations_test.go rather than guessed:
+//
+//  1. THE PROGRAM RUNS FIRST, into the same buffer, and then the tests.
+//     `nomi test <file>` lowers `fn main` and never calls it
+//     (`renderTestBoot`), so the two commands produce different
+//     transcripts for one file and the record is the playground's.
+//  2. ONE REPORT HOLDS EVERY FILE OF THE BLOCK THAT DECLARES TESTS: the
+//     entry's cases, then each other test file's, that file lowered as the
+//     entry (reportFiles), as vmhost.LoadMarked loads it. So the cases run
+//     through Machine.RunCases and one rt.TestReporter reports them all,
+//     as the playground's Program.Cases does.
+//  3. A CASE IS LABELLED BARE. The playground calls `rep.Result(c.Name, …)`
+//     with no path, because a block has no file a reader could open.
+//
+// A TOUR RECORD'S N IS A FLAG, NOT A COUNT: `runTourBlock`'s set records 1
+// for any block that declares tests, and it is answered as the count. A
+// block with a case that was not retained is refused by vmReportMachine,
+// file by file, before anything runs.
+func vmTourReportRun(path string, flag int) (transcript string, exit, cases int, reason string) {
+	type result struct {
+		name   string
+		err    error
+		output string
+		count  rt.CaseCount
 	}
-	// THE TOUR'S COMPOSITION IS THE PLAYGROUND'S AND IT IS NOT `nomi test`'s,
-	// in two ways, both read off `runTourBlock` in
-	// internal/expectation/populations_test.go rather than guessed:
-	//
-	//  1. THE PROGRAM RUNS FIRST, into the same buffer, and then the tests.
-	//     `nomi test <file>` lowers `fn main` and never calls it
-	//     (`renderTestBoot`), so the two commands produce different
-	//     transcripts for one file and the record is the playground's.
-	//  2. A CASE IS LABELLED BARE. The playground builds a
-	//     `vmhost.NewTestReport` and calls `rep.Result(c.Name, …)` with no
-	//     path, because a block has no file a reader could open.
-	//
-	// The second is why `rt.RunTestsLabelled` has a label parameter.
-	for _, f := range mod.Funcs() {
-		if f.Name() != "main" || len(f.Params()) != 0 {
+	var out bytes.Buffer
+	var results []result
+	for _, file := range reportFiles(path) {
+		m, mod, refused := vmReportMachine(file, &out)
+		if refused != "" {
+			return "", 0, 0, refused
+		}
+		for _, f := range mod.Funcs() {
+			if file != path || f.Name() != "main" || len(f.Params()) != 0 {
+				continue
+			}
+			// The program runs as the playground's run does: boot when the
+			// block's entry declares one, `main`, then the app's shutdown.
+			if err := m.Main(context.Background(), nil, false); err != nil {
+				return "", 0, 0, "the machine ran part of the block's program: " + err.Error()
+			}
+			break
+		}
+		tests := mod.Tests()
+		if len(tests) == 0 {
 			continue
 		}
-		// The program runs as the playground's run does: boot when the
-		// block's entry declares one, `main`, then the app's shutdown.
-		if err := m.Main(context.Background(), nil, false); err != nil {
-			return "", 0, 0, "the machine ran part of the block's program: " + err.Error()
+		failures, outputs, limits, rows := m.RunCases(tests)
+		for i, c := range tests {
+			if limits[i] != "" {
+				return "", 0, 0, "the machine could not run a case: " + c.Name() + ": " + limits[i]
+			}
+			results = append(results, result{c.Name(), failures[i], outputs[i], rt.CountCases(rows[i], failures[i])})
 		}
-		break
 	}
-	exit, reason = m.RunTestsLabelled(func(name string) string { return name })
-	if reason != "" {
-		return "", 0, 0, "the machine could not run a case: " + reason
+	if len(results) == 0 {
+		return "", 0, 0, "the block retained no test case"
 	}
-	return out.String(), exit, len(mod.Tests()), ""
+	rep := rt.NewTestReporter(&out)
+	for _, r := range results {
+		rep.Result(r.name, r.err, r.output, r.count)
+	}
+	if rep.Summary() {
+		exit = 1
+	}
+	return out.String(), exit, flag, ""
 }
 
 // vmLowerTests lowers path and answers the module its entry file produced,

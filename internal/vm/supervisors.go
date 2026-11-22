@@ -36,14 +36,29 @@ func supervisorSpawnHost(m *Machine, pos ir.Pos, args []any) (any, error) {
 	}
 	var h rt.Task[rt.Unit]
 	if err := rtFault(func() {
-		h = rt.SupervisorSpawn(m.hostFrame, sup, func(fr *rt.Frame) rt.Unit {
-			m.runTask(f, fr, pos)
+		h = rt.SupervisorSpawn(rt.WithKeptFields(m.hostFrame, f.kept), sup, func(fr *rt.Frame) rt.Unit {
+			m.runTask(f.supervisedOn(fr), fr, pos)
 			return rt.Unit{}
 		})
 	}); err != nil {
 		return nil, err
 	}
 	return &unitTaskValue{t: h}, nil
+}
+
+// supervisedOn is f as the body of a supervised task running on fr. The
+// task starts from the fields f kept (rt.WithKeptFields at the spawn) with
+// their context's deadline dropped, since a supervised task outlives the
+// work that spawned it (rt's supervisorEnrol), so f runs under fr's fields
+// as they are rather than entering its own again, which would bring the
+// deadline back.
+func (f *functionValue) supervisedOn(fr *rt.Frame) *functionValue {
+	if f.kept == nil {
+		return f
+	}
+	body := *f
+	body.kept = rt.KeptFields(fr)
+	return &body
 }
 
 // unitTaskHost answers the one-handle task operations on a supervised task.
@@ -145,8 +160,8 @@ func supervisorSpawnAllHost(m *Machine, pos ir.Pos, args []any) (any, error) {
 	var handles *rt.List[rt.Task[rt.Unit]]
 	if err := rtFault(func() {
 		rt.SeqMustEnd(m.hostFrame, source, name)
-		handles = rt.SupervisorSpawnAll(m.hostFrame, sup, source, func(fr *rt.Frame, item any) rt.Unit {
-			m.runTask(f, fr, pos, item)
+		handles = rt.SupervisorSpawnAll(rt.WithKeptFields(m.hostFrame, f.kept), sup, source, func(fr *rt.Frame, item any) rt.Unit {
+			m.runTask(f.supervisedOn(fr), fr, pos, item)
 			return rt.Unit{}
 		})
 	}); err != nil {

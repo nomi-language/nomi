@@ -2,6 +2,7 @@ package irbuild
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
@@ -641,7 +642,7 @@ func (bl *irScalarBuilder) retainedVariant(field *ast.FieldAccess) (*typeDef, *v
 	if field.Field == nil {
 		return nil, nil, false
 	}
-	if d := bl.g.dotOwners[field]; d != nil {
+	if d := bl.g.dotEnumDef(bl.g.dotOwners[field], field.Field.Name); d != nil {
 		// A `.Variant` shorthand, whose enum the checked type names. See
 		// dotEnumDef.
 		if !irRetainedEnumKind(d) {
@@ -650,39 +651,35 @@ func (bl *irScalarBuilder) retainedVariant(field *ast.FieldAccess) (*typeDef, *v
 		v := d.variant(field.Field.Name)
 		return d, v, v != nil
 	}
-	var name string
-	if owner, ok := field.Object.(*ast.TypeIdent); ok {
-		name = owner.Name
-	} else if dotted, ok := bl.dottedTypeQualifier(field.Object); ok {
-		// A namespaced enum (`Probe.Reading.Spike`) or one named through a
-		// whole-file import (`shapes.Shape.Circle`).
-		name = dotted
-	} else if d := bl.stdQualifiedOwnerDef(field.Object); d != nil && irRetainedEnumKind(d) {
-		// A std enum named through its module's qualifier
-		// (`json.Json.Int(3)`).
-		v := d.variant(field.Field.Name)
-		return d, v, v != nil
-	} else {
+	nd := bl.g.variantOwnerDef(field.Object)
+	if nd == nil || !irRetainedEnumKind(nd) {
 		return nil, nil, false
 	}
-	d, found := bl.g.namedType(name)
-	if owner, ok := field.Object.(*ast.TypeIdent); ok && !found && name == "Ordering" {
-		// A derived `compare` names `Ordering.Less` in a file that binds
-		// no `Ordering` (std/bool's `derive Comparable for True`): the
-		// checker recorded std/comparable's declaration at the qualifier.
-		if mod, std := stdTypeModule(bl.g.checkedRef(owner.Line, owner.Col)); std && mod == "comparable" {
-			d, found = stdEnumDefs()[stdEnumOrdering], true
+	v := nd.variant(field.Field.Name)
+	return nd, v, v != nil
+}
+
+// variantOwnerDef is this gen's def of the type the owner of a written
+// `Owner.Variant` names, by the declaration the checker resolved the
+// owner's last name to: `Shape` in `Shape.Circle`, `shapes.Shape.Circle`
+// and `json.Json.Int`, `Reading` in the namespaced `Probe.Reading.Spike`.
+// Nil when that name is no type's.
+func (g *gen) variantOwnerDef(owner ast.Node) *typeDef {
+	switch o := owner.(type) {
+	case *ast.TypeIdent:
+		return g.typeDeclDef(g.checkedRef(o.Line, o.Col))
+	case *ast.FieldAccess:
+		if o.Field != nil {
+			return g.typeDeclDef(g.checkedRef(o.Field.Line, o.Field.Col))
 		}
 	}
-	if !found || !irRetainedEnumKind(d) {
-		return nil, nil, false
-	}
-	v := d.variant(field.Field.Name)
-	return d, v, v != nil
+	return nil
 }
 
 // stdQualifiedOwnerDef is the std type a `mod.Type` qualifier names through a
-// whole-module import (qualifiedStdDef), or nil.
+// whole-module import (`random.Error`, the owner of
+// `random.Error.OsEntropy`), by the declaration the checker resolved `Type`
+// to (typeDeclDef), or nil.
 func (bl *irScalarBuilder) stdQualifiedOwnerDef(n ast.Node) *typeDef {
 	q, isFA := n.(*ast.FieldAccess)
 	if !isFA || q.Field == nil {
@@ -692,7 +689,11 @@ func (bl *irScalarBuilder) stdQualifiedOwnerDef(n ast.Node) *typeDef {
 	if !isIdent || bl.namesLocal(mod) {
 		return nil
 	}
-	return bl.g.qualifiedStdDef(mod.Name + "." + q.Field.Name)
+	sym := bl.g.checkedRef(q.Field.Line, q.Field.Col)
+	if sym == nil || !strings.HasPrefix(originOfType(sym.Type), "std/") {
+		return nil
+	}
+	return bl.g.typeDeclDef(sym)
 }
 
 func (bl *irScalarBuilder) variantValue(at ast.Node, d *typeDef, v *variantDef, args []ir.Temp, pure bool) (ir.Temp, kind, bool, bool) {
@@ -775,24 +776,13 @@ func (bl *irScalarBuilder) embedMarker(at ast.Node, d *typeDef, v *variantDef) (
 
 // genericVariant resolves `Wrapper.Wrapped` of a user generic enum to the
 // instance the checker solved at `at`: the result of the constructor call, or
-// the expected kind a payload-free variant is built at.
+// the expected kind a payload-free variant is built at. The template is the
+// one the enum of the variant names (variantEnumType, genericTemplateOf).
 func (bl *irScalarBuilder) genericVariant(field *ast.FieldAccess, call *ast.Call, want kind) (*typeDef, *variantDef, bool) {
 	if field.Field == nil {
 		panic("irbuild: genericVariant: the parser always sets a FieldAccess's Field")
 	}
-	var name string
-	if owner, ok := field.Object.(*ast.TypeIdent); ok {
-		name = owner.Name
-	} else if dotted, ok := bl.dottedTypeQualifier(field.Object); ok {
-		name = dotted
-	} else {
-		return nil, nil, false
-	}
-	var typed analysis.Type
-	if call != nil {
-		typed = bl.g.checkedExprType(bl.checkedCallNode(call))
-	}
-	tpl, instantiate, isTemplate := bl.g.genericTemplateNamed(name, typed)
+	tpl, instantiate, isTemplate := bl.g.genericTemplateOf(bl.variantEnumType(field))
 	if !isTemplate || tpl.enumDecl() == nil {
 		return nil, nil, false
 	}
@@ -828,6 +818,27 @@ func (bl *irScalarBuilder) genericVariant(field *ast.FieldAccess, call *ast.Call
 	}
 	v := k.def.variant(field.Field.Name)
 	return k.def, v, v != nil
+}
+
+// variantEnumType is the enum whose variant field names: for the
+// `Enum.Variant` the builder writes for a `.Variant` shorthand or a
+// literal-attach form, the one the checker typed the written node at
+// (dotOwners); for a written one, the enum of the variant the checker
+// resolved field's name to, whose type is the enum's own or, for a
+// variant with a payload, its constructor's. Nil when the name is no
+// variant's.
+func (bl *irScalarBuilder) variantEnumType(field *ast.FieldAccess) analysis.Type {
+	if et := bl.g.dotOwners[field]; et != nil {
+		return et
+	}
+	sym := bl.g.checkedRef(field.Field.Line, field.Field.Col)
+	if sym == nil || sym.Kind != analysis.SymbolEnumVariant {
+		return nil
+	}
+	if ft, isFunc := irResolvedType(sym.Type).(*analysis.FuncType); isFunc {
+		return ft.Return
+	}
+	return sym.Type
 }
 
 // checkedCallNode is the node the checker typed for call: the pipe a
@@ -889,7 +900,7 @@ func (bl *irScalarBuilder) genericLitWant(t *ast.StructLit, want kind) (ir.Temp,
 	}
 	switch tn := t.TypeName.(type) {
 	case *ast.SimpleType:
-		tpl, instantiate, isTemplate := bl.g.genericTemplateNamed(tn.Name, bl.g.checkedExprType(t))
+		tpl, instantiate, isTemplate := bl.g.genericTemplateOf(bl.g.checkedExprType(t))
 		if !isTemplate || tpl.structDecl() == nil || want.def.genericOf != tpl {
 			return no()
 		}
@@ -903,7 +914,7 @@ func (bl *irScalarBuilder) genericLitWant(t *ast.StructLit, want kind) (ir.Temp,
 		if tn.Member == nil {
 			return no()
 		}
-		tpl, instantiate, isTemplate := bl.g.genericTemplateNamed(tn.Module, bl.g.checkedExprType(t))
+		tpl, instantiate, isTemplate := bl.g.genericTemplateOf(bl.g.checkedExprType(t))
 		if !isTemplate || tpl.enumDecl() == nil || want.def.genericOf != tpl {
 			return no()
 		}
@@ -999,10 +1010,10 @@ func (bl *irScalarBuilder) variantFromLit(at ast.Node, lit *ast.StructLit, d *ty
 
 // variantStructLit builds a struct-shaped variant from a brace literal:
 // written fields in source order, each forced when impure, then omitted fields' declared defaults in declaration order.
-func (bl *irScalarBuilder) variantStructLit(t *ast.StructLit, enum, variant string) (ir.Temp, kind, bool, bool) {
+func (bl *irScalarBuilder) variantStructLit(t *ast.StructLit, variant string) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	d, found := bl.g.namedType(enum)
-	if tpl, instantiate, isTemplate := bl.g.genericTemplateNamed(enum, bl.g.checkedExprType(t)); isTemplate {
+	var d *typeDef
+	if tpl, instantiate, isTemplate := bl.g.genericTemplateOf(bl.g.checkedExprType(t)); isTemplate && tpl.enumDecl() != nil {
 		// A generic enum's struct variant: the instance its field values
 		// solve (`shapes.Holder.Of{value: 5}` is a `Holder<Int>`).
 		args, types, ok := bl.g.literalTypeArgs(t, len(tpl.params))
@@ -1013,15 +1024,14 @@ func (bl *irScalarBuilder) variantStructLit(t *ast.StructLit, enum, variant stri
 		if !ok || k.tag != tagNamed || k.def == nil {
 			return no()
 		}
-		d, found = k.def, true
+		d = k.def
+	} else {
+		// The enum the checker typed the literal as, however it is
+		// spelled: `Shape.Ring{...}`, `shapes.Shape.Ring{...}`,
+		// `random.Error.OsEntropy{...}`, `.Ring{...}`.
+		d = bl.g.nominalDef(bl.g.checkedExprType(t))
 	}
-	if !found {
-		// `random.Error.OsEntropy{...}`: a std enum named through its
-		// module's qualifier.
-		d = bl.g.qualifiedStdDef(enum)
-		found = d != nil
-	}
-	if !found {
+	if d == nil {
 		return no()
 	}
 	return bl.variantStructLitOf(t, d, d.variant(variant))
@@ -1098,11 +1108,11 @@ func (bl *irScalarBuilder) variantFromRecord(call *ast.Call, d *typeDef, v *vari
 	}
 	line, col := nodePos(call.Args[0])
 	name := "%record" + strconv.Itoa(line) + "." + strconv.Itoa(col)
-	bl.patternBinding(call.Args[0], name, src, k)
+	key := bl.patternBinding(call.Args[0], name, src, k)
 	lit := &ast.StructLit{Line: call.Line, Col: call.Col}
 	for _, f := range k.comp.names {
 		lit.Fields = append(lit.Fields, ast.StructFieldVal{Name: f, Line: line, Col: col,
-			Value: &ast.FieldAccess{Object: bl.g.madeIdent(name, line, col),
+			Value: &ast.FieldAccess{Object: bl.g.madeRead(name, key, line, col),
 				Field: &ast.Ident{Name: f, Line: line, Col: col}, Line: line, Col: col}})
 	}
 	return bl.variantFromLit(call, lit, d, v)
@@ -1126,7 +1136,7 @@ func (bl *irScalarBuilder) variantFinish(at ast.Node, t *ast.StructLit, d *typeD
 			}
 			continue
 		}
-		if p.deflt != nil && d.foreign != "" {
+		if p.deflt != nil && bl.defaultElsewhere(d) {
 			val, ok := bl.foreignFieldDefault(t, d, v.nomi, p.nomi, p.k)
 			if !ok {
 				return no()

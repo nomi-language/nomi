@@ -700,7 +700,7 @@ func (ic iterCaller) invokeOwned(f *functionValue, runtime *rt.Frame, owned uint
 	if f.host != nil {
 		v, err = f.host(runtime, append([]any(nil), args...))
 	} else {
-		v, err = ic.m.activateOwned(f.fnSlot(ic.m), args, f.captures, runtime, false, ic.depth, nil, owned)
+		v, err = ic.m.callValue(f, args, runtime, false, ic.depth, nil, owned)
 	}
 	if err != nil {
 		panic(iterationFailure{err})

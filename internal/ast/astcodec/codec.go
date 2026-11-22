@@ -134,6 +134,18 @@ func (d *Decoder) fits(n int) {
 // Fits is fits, for another codec.
 func (d *Decoder) Fits(n int) { d.fits(n) }
 
+// elem numbers p, the address of an element of a slice being written in
+// place, so a pointer to the element written later is written by its
+// number and reads back as the decoded element's address. A pointer to it
+// written before its slice would read back as a copy, so that panics: a
+// writer writes the trees before what points into them.
+func (e *Encoder) elem(p any) {
+	if _, seen := e.ids[p]; seen {
+		panic(fmt.Sprintf("astcodec: a %T into a slice written before the slice", p))
+	}
+	e.ids[p] = len(e.ids)
+}
+
 // sliceKey is a slice's identity: its elements' address, its length and
 // its type.
 type sliceKey struct {

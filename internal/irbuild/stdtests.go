@@ -31,7 +31,6 @@ import (
 	"path"
 	"path/filepath"
 	"slices"
-	"sort"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/analysis"
@@ -174,21 +173,13 @@ func generateStdlibTestIR(std *stdlibIndex, v *stdModuleView, nodes, cases []ast
 	if g.irMod != nil {
 		irMods = append(irMods, g.irMod)
 	}
-	pkgs := make([]string, 0, len(libMods))
-	for pkg := range libMods {
-		pkgs = append(pkgs, pkg)
-	}
-	sort.Strings(pkgs)
-	libs := make([]*ir.Module, 0, len(pkgs)+len(extra))
-	for _, pkg := range pkgs {
-		libs = append(libs, libMods[pkg])
-	}
-	libs = append(libs, extra...)
 	instMods := insts.modules()
 	for _, m := range instMods {
 		irLintFinished(m)
 	}
-	libs = append(libs, instMods...)
+	// The cached modules of the cases' closure (linkedShared), then the
+	// edited module's own lowering and the cases' instances.
+	libs := append(append(std.linkedShared(libMods, append([]string{module}, importedStdModules(nodes, true)...), irMods, extra, instMods), extra...), instMods...)
 	irWithdrawUnforceableReads(dc, irMods, libs)
 	for _, m := range irMods {
 		irLintFinished(m)
@@ -271,7 +262,7 @@ func generateStdlibTestIRWithProgramStd(v *stdModuleView, nodes, cases []ast.Nod
 	}
 	// An edited module's own lowering links after the cached modules, as
 	// generateStdlibTestIR links it, and before the program's instances.
-	cached := len(stdlibLowering().irModules)
+	cached := res.sharedStd
 	res.irLibraries = append(append(slices.Clip(res.irLibraries[:cached]), extra...), res.irLibraries[cached:]...)
 	prog := &Program{
 		Modules:  []Module{{Path: v.path, Name: v.module, Nodes: nodes, FA: fa, DeclaresTests: true}},
@@ -323,9 +314,9 @@ func (bl *irScalarBuilder) stdTestOwnType() bool {
 //     whose alias the builder resolves as that module's own file alias.
 //   - a monomorphic std struct, enum or distinct type, whatever the module
 //     scope binds the name to (`import std::duration.Duration` beside a local
-//     `struct Duration`). The block's overlay answers the name in a type
-//     position (bindBlockImports), and an owner qualifier naming it is
-//     lowered through its module (qualOwner).
+//     `struct Duration`). A type position is the type the checker recorded
+//     there, and a call qualified with it is the function its record names
+//     (typeQualCall).
 //   - a function, whatever the module scope binds the name to (`import
 //     std::io.print` beside a local `fn print` or `once print`). A call or value
 //     of the name resolves by the checker's reference at it (blockImported),
@@ -334,7 +325,7 @@ func (bl *irScalarBuilder) stdTestOwnType() bool {
 //     std::hex as codec` beside the file's `import std::base64 as codec`). A
 //     call or value through the qualifier resolves by the checker's
 //     reference at it (qualifierScope), and a type named through it by the
-//     visible block's import (moduleScope, blockModuleSymbol).
+//     checker's reference at the type's name.
 //
 // Any other import that rebinds a name the module scope binds to something
 // else is declined: a name-keyed lookup would answer the module scope's
@@ -439,16 +430,13 @@ func (bl *irScalarBuilder) ownModuleCall(t *ast.Call, fa *ast.FieldAccess) (*ast
 	if scope := g.qualifierScope(obj); scope == nil || scope != g.srcFA().ModuleScope {
 		return nil, false
 	}
-	method := fa.Field.Name
 	if decl := g.funcDeclAt(fa.Field.Line, fa.Field.Col); g.sigByDecl[decl] == nil || g.stdSiblingDecls[decl] != nil {
 		return nil, false
 	}
-	if bl.boundBySpelling(method) {
-		// The bare spelling would name the local: the call stays qualified.
-		return nil, false
-	}
+	// The bare callee stands at the field, whose reference is the
+	// function, so it reads no local of the name.
 	bare := *t
-	bare.Func = &ast.Ident{Name: method, Line: fa.Field.Line, Col: fa.Field.Col}
+	bare.Func = &ast.Ident{Name: fa.Field.Name, Line: fa.Field.Line, Col: fa.Field.Col}
 	if bl.pipedCall == t {
 		bl.pipedCall = &bare
 	}

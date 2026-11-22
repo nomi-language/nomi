@@ -8,7 +8,7 @@
 // section, where the running program's runtime/debug.ReadBuildInfo finds it.
 // ReadFile finds it there without running the module, so a prebuilt js/wasm
 // or wasip1/wasm runner is checked against `nomi`'s commit like a native one
-// (internal/ffirun/prebuilt.go), and scripts/release.sh reads a wasm
+// (internal/runners/prebuilt.go), and scripts/release.sh reads a wasm
 // runner's platform and VCS stamp through cmd/gobuildinfo.
 package gobuildinfo
 

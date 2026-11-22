@@ -4,13 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"regexp"
 	"strings"
 	"time"
 
 	"github.com/nomi-language/nomi/internal/analysis"
-	"github.com/nomi-language/nomi/internal/ffirun"
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/virtualproject"
 	"github.com/nomi-language/nomi/internal/vm"
@@ -20,7 +18,7 @@ import (
 )
 
 // The test reporter and the failure renderer are rt's, so every runner —
-// `nomi test`, the FFI wrapper, an embedder — prints the same lines.
+// `nomi test`, an embedder — prints the same lines.
 
 // TestOptions selects cases: Line with LineSet is `nomi test --line N`, and
 // Run is `nomi test --run <regexp>`, matched against a case's name as a
@@ -141,20 +139,6 @@ const DefaultTestTimeout = 10 * time.Second
 const TestTimeoutHint = "`nomi test --timeout <duration>` sets how long a case may run " +
 	"(10s unless given), and `--timeout 0` removes the limit"
 
-// TestTimeoutEnv carries `nomi test --timeout` to an FFI project's test
-// wrapper, which runs the cases in its own process (TestTimeoutFromEnv).
-const TestTimeoutEnv = ffirun.TestTimeoutEnv
-
-// TestTimeoutFromEnv is the limit TestTimeoutEnv names, or zero (no limit)
-// when it is unset or not a duration.
-func TestTimeoutFromEnv() time.Duration {
-	d, err := time.ParseDuration(os.Getenv(TestTimeoutEnv))
-	if err != nil || d < 0 {
-		return 0
-	}
-	return d
-}
-
 // SetTestTimeout makes every test case the program runs from now on (Test,
 // Cases) stop once it has run for d of wall-clock time, its group's clock,
 // boot and setup included, and fail with a *TimedOut whose text names where
@@ -164,6 +148,18 @@ func TestTimeoutFromEnv() time.Duration {
 // time out.
 func (p *Program) SetTestTimeout(d time.Duration, hint string) {
 	p.testTimeout, p.testTimeoutHint = d, hint
+}
+
+// SelectReaching narrows the entry's cases Test and Cases answer to those
+// whose code can run the function at at.File's line at.Line: of the
+// functions declared in that file whose code spans the line, the one
+// declared last, each instance of a generic one included
+// (vm.FuncsAt). A case is held to it by the walk that decides whether it
+// runs (vm.Machine.ReachCase); a case that does not reach it is not
+// answered. The cases it answers say whether their code has effects
+// (CaseResult.Effects).
+func (p *Program) SelectReaching(at TestLocation) {
+	p.reaching = &at
 }
 
 // CaseReport renders the VM's case results as the tour's playground shows them after a block's

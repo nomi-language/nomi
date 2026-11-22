@@ -206,6 +206,85 @@ func tryFromImpl(block *ast.ImplBlock, d *ast.TypeDef) *ast.ImplBlock {
 	}
 }
 
+// providedConversion answers fn as one of the functions this pass writes,
+// a `try_from` or an `unchecked`, and nil for any other function. Each
+// builds a value of its type from something else, so for an opaque type it
+// is construction, private to the defining file as the type's call form
+// is (refuseProvidedConversion). A `try_from` the file writes itself, in
+// an `impl TryFrom<E>` of its own, is the file's public function.
+func providedConversion(fn ast.Node) *ast.FuncDef {
+	fd, ok := fn.(*ast.FuncDef)
+	if !ok || !IsSynthesizedLine(fd.Line) || (fd.Name != "try_from" && fd.Name != "unchecked") {
+		return nil
+	}
+	return fd
+}
+
+// refuseProvidedConversion reports, at pos, a use of fn when fn is a
+// conversion this pass provides (providedConversion) for an opaque type
+// this file may not build (refuseOpaqueConstruction). recv is the type the
+// checker called the function for, nil where it records none; then the
+// built type is read from fnType, the function's type, whose result is the
+// type for `unchecked` and a `Maybe` of it for `try_from`.
+func (c *checker) refuseProvidedConversion(pos Pos, fn ast.Node, recv, fnType Type) {
+	fd := providedConversion(fn)
+	if fd == nil {
+		return
+	}
+	built := recv
+	if built == nil {
+		ft, ok := resolveTypeVar(fnType).(*FuncType)
+		if !ok {
+			return
+		}
+		built = resolveTypeVar(ft.Return)
+		if m, isMaybe := built.(*EnumType); isMaybe && fd.Name == "try_from" && len(m.TypeArgs) == 1 {
+			built = m.TypeArgs[0]
+		}
+	}
+	c.refuseOpaqueConstruction(pos.Line, pos.Col, built, fd.Name)
+}
+
+// refuseProvidedConversionCalls is refuseProvidedConversion at each call
+// this check recorded, of the function its callee reaches once the call's
+// impl is chosen (settleCallees): `Kelvin.try_from(1.0)` reaches the
+// provided `TryFrom<Float>` impl where Kelvin's file writes `impl
+// TryFrom<Celsius>` too. A call through the interface,
+// `TryFrom.try_from(7)` where a `Maybe<Pct>` is expected, demands Pct's
+// impl, which outside Pct's file it does not have (opaque_bounds.go).
+func (c *checker) refuseProvidedConversionCalls() {
+	for _, n := range c.recordedCalls {
+		call, ok := n.(*ast.Call)
+		if !ok {
+			continue
+		}
+		pos, named := calleeKey(call.Func)
+		rc := c.fa.Calls[n]
+		if !named || rc == nil {
+			continue
+		}
+		if rc.Callee.Copy != nil {
+			// A call through a local copy, `f(3)` after `f =
+			// Pct.try_from`: the copy was refused where it was made.
+			continue
+		}
+		if acc, ok := call.Func.(*ast.FieldAccess); ok && c.fa.qualifierOf(acc.Object).Kind == QualInterface {
+			// `TryFrom.try_from(7)` demands Pct's TryFrom impl, which
+			// does not count outside Pct's file (opaque_bounds.go).
+			continue
+		}
+		recv := rc.Callee.For
+		var fnType Type
+		if ref := rc.Callee.Ref; ref != nil {
+			if recv == nil {
+				recv = ref.DispatchReceiver
+			}
+			fnType = ref.Type
+		}
+		c.refuseProvidedConversion(pos, rc.Callee.Decl, recv, fnType)
+	}
+}
+
 // tryFromParam is the name `TryFrom.try_from` gives its parameter
 // (std/convert.nomi), which an impl's parameter must have.
 const tryFromParam = "value"

@@ -1,7 +1,6 @@
 package irbuild
 
 import (
-	"maps"
 	"strconv"
 
 	"github.com/nomi-language/nomi/internal/analysis"
@@ -49,28 +48,19 @@ import (
 // The checker admits the record only when each field implements the
 // interface (analysis/structural_bounds.go).
 
-// recordJsonCallArg reports whether t, a call `ToJson.to_json(x)`, has a
-// record operand: by the checked parameter, or, for a call this file
-// synthesized, by the kind its bound operand name holds.
-func (bl *irScalarBuilder) recordJsonCallArg(t *ast.Call) bool {
-	if len(t.Args) != 1 || namedArgNode(t.Args) != nil {
-		return false
-	}
-	if ft := bl.g.checkedCallSignature(t); ft != nil {
-		return len(ft.Params) == 1 && irRetainedRecordKind(bl.g.project(ft.Params[0]))
-	}
-	id, isIdent := t.Args[0].(*ast.Ident)
-	if !isIdent {
-		return false
-	}
-	k, bound := bl.boundK[id.Name]
-	return bound && irRetainedRecordKind(k)
+// recordJsonCall reports whether the record of t, a call of a ToJson or
+// FromJson function, answers it structurally (analysis.Callee.Form, at the
+// instance's types: calleeAt), which the checker records for an
+// anonymous struct alone, and t passes its operands by position.
+func (bl *irScalarBuilder) recordJsonCall(t *ast.Call) bool {
+	return bl.g.calleeAt(t).Form == analysis.OperatorStructural && namedArgNode(t.Args) == nil
 }
 
 // recordToJsonCall lowers `ToJson.to_json(x)`, or `ToJson.to_json_field(x)`
-// as method names, when x is a record. handled is false when it is not.
+// as method names, when the call's record answers it structurally: x is
+// a record. handled is false when it is not.
 func (bl *irScalarBuilder) recordToJsonCall(t *ast.Call, method string) (v ir.Temp, k kind, mobile, ok, handled bool) {
-	if !bl.recordJsonCallArg(t) {
+	if len(t.Args) != 1 || !bl.recordJsonCall(t) {
 		return ir.NoTemp, kindInvalid, false, false, false
 	}
 	// The record's checker type: the checked parameter's, or for a call
@@ -83,7 +73,7 @@ func (bl *irScalarBuilder) recordToJsonCall(t *ast.Call, method string) (v ir.Te
 	if !sok {
 		return ir.NoTemp, kindInvalid, false, false, true
 	}
-	// The operand has the record type recordJsonCallArg found.
+	// The operand has the record type the structural record is for.
 	irLoweredRecordRetained(sk, "ToJson."+method)
 	bl.noteQualRecordRow(t, subj, sk)
 	if method == "to_json_field" {
@@ -102,21 +92,20 @@ func (bl *irScalarBuilder) recordToJsonCall(t *ast.Call, method string) (v ir.Te
 
 // recordJsonKindCall lowers `T.to_json(r)` or `T.from_json(json)` with T
 // bound to the record kind k, whose checker type is kt (nil where the
-// caller has none). handled is false for any other call.
+// caller has none), when the call's record at the instance answers it
+// structurally. handled is false for any other call.
 func (bl *irScalarBuilder) recordJsonKindCall(t *ast.Call, k kind, kt analysis.Type, method string) (ir.Temp, kind, bool, bool, bool) {
-	if !irRetainedRecordKind(k) || namedArgNode(t.Args) != nil {
+	fn := bl.g.calleeAt(t).Std
+	if !bl.recordJsonCall(t) || (fn.Owner != stdToJson.Name && fn.Owner != stdFromJson.Name) || fn.Module != stdToJson.Module {
 		return ir.NoTemp, kindInvalid, false, false, false
 	}
-	fa, qualified := t.Func.(*ast.FieldAccess)
-	if !qualified {
-		return ir.NoTemp, kindInvalid, false, false, false
-	}
-	if len(t.Args) == 0 && method == "from_missing" {
+	// The record answers ToJson and FromJson structurally for an
+	// anonymous struct alone.
+	irLoweredRecordRetained(k, "a structural "+method)
+	switch {
+	case len(t.Args) == 0 && fn.Name == "from_missing":
 		// `T.from_missing()`: FromJson's default, None, since no impl can
 		// be written for a record.
-		if iface := bl.boundCallIface(fa); iface != "FromJson" && iface != "" {
-			return ir.NoTemp, kindInvalid, false, false, false
-		}
 		ft := bl.g.checkedCallSignature(t)
 		if ft == nil {
 			return ir.NoTemp, kindInvalid, false, false, true
@@ -127,12 +116,9 @@ func (bl *irScalarBuilder) recordJsonKindCall(t *ast.Call, k kind, kt analysis.T
 		}
 		v, rk, _, ok := bl.variantValue(t, mk.def, mk.def.variant("None"), nil, true)
 		return v, rk, false, ok, true
-	}
-	if len(t.Args) != 1 {
+	case len(t.Args) != 1:
 		return ir.NoTemp, kindInvalid, false, false, false
-	}
-	switch iface := bl.boundCallIface(fa); {
-	case method == "to_json" && (iface == "ToJson" || iface == ""):
+	case fn.Owner == stdToJson.Name && fn.Name == "to_json":
 		jsonK := kindInvalid
 		if ft := bl.g.checkedCallSignature(t); ft != nil {
 			jsonK = bl.g.project(ft.Return)
@@ -144,7 +130,7 @@ func (bl *irScalarBuilder) recordJsonKindCall(t *ast.Call, k kind, kt analysis.T
 		bl.noteQualRecordRow(t, subj, sk)
 		v, rk, ok := bl.recordToJsonOf(t, subj, k, bl.g.operandCheckerType(t.Args[0]), jsonK, "")
 		return v, rk, false, ok, true
-	case method == "from_json" && (iface == "FromJson" || iface == ""):
+	case fn.Owner == stdFromJson.Name && fn.Name == "from_json":
 		resultK := kindInvalid
 		if ft := bl.g.checkedCallSignature(t); ft != nil {
 			resultK = bl.g.project(ft.Return)
@@ -191,9 +177,6 @@ func (bl *irScalarBuilder) recordToJsonOf(t *ast.Call, subj ir.Temp, sk kind, st
 	recording, qualRecord := bl.recording, bl.qualRecord
 	bl.recording, bl.qualRecord = 0, nil
 	defer func() { bl.recording, bl.qualRecord = recording, qualRecord }()
-	bound, boundK, syms := bl.bound, bl.boundK, bl.sh.syms
-	bl.bound, bl.boundK, bl.sh.syms = maps.Clone(bound), maps.Clone(boundK), maps.Clone(syms)
-	defer func() { bl.bound, bl.boundK, bl.sh.syms = bound, boundK, syms }()
 
 	pos := bl.g.irNodePos(t)
 	// Each field's JSON in the record's order: a Json, or for an optional
@@ -390,8 +373,8 @@ func (g *gen) synthIfaceCall(line int, owner, method string, arg ast.Node, rec *
 // program can spell and lowers the call call builds over that name.
 func (bl *irScalarBuilder) lowerJsonFieldCall(t *ast.Call, v ir.Temp, part kind, path string, call func(ast.Node) *ast.Call) (ir.Temp, kind, bool) {
 	name := "%json" + strconv.Itoa(t.Line) + "." + strconv.Itoa(t.Col) + path
-	bl.patternBinding(t, name, v, part)
-	r, rk, _, ok := bl.lower(call(bl.g.madeIdent(name, t.Line, 0)))
+	key := bl.patternBinding(t, name, v, part)
+	r, rk, _, ok := bl.lower(call(bl.g.madeRead(name, key, t.Line, 0)))
 	return r, rk, ok
 }
 
@@ -411,9 +394,6 @@ func (bl *irScalarBuilder) recordFromJsonOf(t *ast.Call, json ir.Temp, jk kind, 
 	recording, qualRecord := bl.recording, bl.qualRecord
 	bl.recording, bl.qualRecord = 0, nil
 	defer func() { bl.recording, bl.qualRecord = recording, qualRecord }()
-	bound, boundK, syms := bl.bound, bl.boundK, bl.sh.syms
-	bl.bound, bl.boundK, bl.sh.syms = maps.Clone(bound), maps.Clone(boundK), maps.Clone(syms)
-	defer func() { bl.bound, bl.boundK, bl.sh.syms = bound, boundK, syms }()
 
 	pos := bl.g.irNodePos(t)
 	if jk.tag != tagNamed || jk.def == nil {
@@ -448,7 +428,7 @@ func (bl *irScalarBuilder) recordFromJsonOf(t *ast.Call, json ir.Temp, jk kind, 
 	shapeK := fErr.payloads[0].k
 	// kindInvalid: sentinel — the caller passed no result kind, so it is built from k and the shape error.
 	if resultK == kindInvalid {
-		anchor, _ := bl.g.preludeNamed("Result")
+		anchor, _ := preludeSpecAnchor(preludeSpecNamed("Result"))
 		if anchor == nil {
 			return no("no prelude Result")
 		}
@@ -497,8 +477,7 @@ func (bl *irScalarBuilder) recordFromJsonOf(t *ast.Call, json ir.Temp, jk kind, 
 	if !ok || gk != kindString {
 		return no("no ShapeError.got")
 	}
-	notObj, ok := bl.shapeErrorAt(t, shapeK, nil, bl.stringConst(pos, k.nomi()), gotKind)
-	if !ok || !failWith(notObj) {
+	if !failWith(bl.shapeErrorAt(t, shapeK, nil, bl.stringConst(pos, k.nomi()), gotKind)) {
 		return no("Err does not build")
 	}
 	bl.b = obj
@@ -538,8 +517,7 @@ func (bl *irScalarBuilder) recordFromJsonOf(t *ast.Call, json ir.Temp, jk kind, 
 		// else the error naming it.
 		bl.b = missing
 		missingErr := func() bool {
-			e, ok := bl.shapeErrorAt(t, shapeK, []ir.Temp{bl.stringConst(pos, name)}, bl.stringConst(pos, part.nomi()), bl.stringConst(pos, "missing"))
-			return ok && failWith(e)
+			return failWith(bl.shapeErrorAt(t, shapeK, []ir.Temp{bl.stringConst(pos, name)}, bl.stringConst(pos, part.nomi()), bl.stringConst(pos, "missing")))
 		}
 		switch {
 		case irRetainedRecordKind(part):
@@ -638,37 +616,42 @@ func (bl *irScalarBuilder) fromJsonAt(t *ast.Call, json ir.Temp, jk kind, part k
 		return bl.recordFromJsonOf(t, json, jk, part, pt, kindInvalid, path)
 	}
 	name := "%json" + strconv.Itoa(t.Line) + "." + strconv.Itoa(t.Col) + path
-	bl.patternBinding(t, name, json, jk)
+	key := bl.patternBinding(t, name, json, jk)
 	line := t.Line
 	owner := part.nomi()
 	if part.tag == tagNamed && part.def != nil {
 		owner = part.def.nomi
 	}
-	call := bl.g.synthIfaceCall(line, owner, "from_json", bl.g.madeIdent(name, line, 0), bl.g.stdIfaceCallRecord(stdFromJson, "from_json", 1, pt))
-	if irKindDeclared(part) {
-		v, rk, _, ok := bl.kindImplCall(call, part, pt, "from_json")
+	call := bl.g.synthIfaceCall(line, owner, "from_json", bl.g.madeRead(name, key, line, 0), bl.g.stdIfaceCallRecord(stdFromJson, "from_json", 1, pt))
+	// A field of a subtype reads its base and checks the subtype's rules
+	// (subtyperead.go).
+	read := bl.subtypeReadOf(call)
+	v, rk, ok := bl.fromJsonCallAt(call, part, pt)
+	if read == nil || !ok {
 		return v, rk, ok
 	}
-	if bl.g.std != nil {
-		var f *stdFunc
-		for _, c := range bl.g.std.byType[owner+".from_json"] {
-			if c.iface != "FromJson" {
-				continue
-			}
-			if f != nil {
-				return ir.NoTemp, kindInvalid, false
-			}
-			f = c
+	v, rk, _, ok = bl.readNarrowed(call, read, v, rk)
+	return v, rk, ok
+}
+
+// fromJsonCallAt lowers call, `F.from_json(json)` the builder wrote for the
+// field kind part, of checker type pt or nil, as the call a derive writes
+// reaches it.
+func (bl *irScalarBuilder) fromJsonCallAt(call *ast.Call, part kind, pt analysis.Type) (ir.Temp, kind, bool) {
+	if irKindDeclared(part) {
+		v, rk, _, ok := bl.kindImplCall(call, part, pt, "from_json", false)
+		return v, rk, ok
+	}
+	if f := bl.recordedStdFunc(call); f != nil && bl.g.stdInsts.stdTemplateOf(bl.g.calleeAt(call).Std) == nil {
+		// Std's own function the record names (`Int.from_json`); a
+		// generic container's template is instantiated below.
+		args := bl.irQualLowerArgs(call)
+		plan := bl.stdFuncPlan(call, args, f)
+		if plan == nil {
+			return ir.NoTemp, kindInvalid, false
 		}
-		if f != nil {
-			args := bl.irQualLowerArgs(call)
-			plan := bl.stdFuncPlan(call, args, f)
-			if plan == nil {
-				return ir.NoTemp, kindInvalid, false
-			}
-			v, rk, _, ok := bl.qualEmit(call, args, plan)
-			return v, rk, ok
-		}
+		v, rk, _, ok := bl.qualEmit(call, args, plan)
+		return v, rk, ok
 	}
 	if v, rk, _, ok, handled := bl.stdKindQualCall(call, part, pt, "from_json"); handled {
 		return v, rk, ok
@@ -760,11 +743,12 @@ func (bl *irScalarBuilder) mapPutAt(t *ast.Call, m ir.Temp, mk kind, key, value 
 }
 
 // shapeErrorAt builds `Json.ShapeError{path:, expected:, got:}`, path the
-// List<String> of the segments.
-func (bl *irScalarBuilder) shapeErrorAt(t *ast.Call, shapeK kind, path []ir.Temp, expected, got ir.Temp) (ir.Temp, bool) {
+// List<String> of the segments. shapeK is the kind of a FromJson read's
+// error, std/json's ShapeError.
+func (bl *irScalarBuilder) shapeErrorAt(t *ast.Call, shapeK kind, path []ir.Temp, expected, got ir.Temp) ir.Temp {
 	d := shapeK.def
 	if shapeK.tag != tagNamed || d == nil || len(d.fields) != 3 {
-		return ir.NoTemp, false
+		panic("irbuild: a FromJson read whose error is no Json.ShapeError: " + shapeK.nomi())
 	}
 	pos := bl.g.irNodePos(t)
 	lk := bl.g.listKind(kindString)
@@ -774,20 +758,21 @@ func (bl *irScalarBuilder) shapeErrorAt(t *ast.Call, shapeK kind, path []ir.Temp
 	return bl.shapeErrorOf(t, d, map[string]ir.Temp{"path": list.Dst(), "expected": expected, "got": got})
 }
 
-// shapeErrorOf is the ShapeError struct d with the field values vals.
-func (bl *irScalarBuilder) shapeErrorOf(t *ast.Call, d *typeDef, vals map[string]ir.Temp) (ir.Temp, bool) {
+// shapeErrorOf is the ShapeError struct d with the field values vals, one
+// for each of its fields: path, expected and got.
+func (bl *irScalarBuilder) shapeErrorOf(t *ast.Call, d *typeDef, vals map[string]ir.Temp) ir.Temp {
 	ops := make([]ir.Temp, len(d.fields))
 	for i, f := range d.fields {
 		v, found := vals[f.nomi]
 		if !found {
-			return ir.NoTemp, false
+			panic("irbuild: Json.ShapeError has a field no read writes: " + f.nomi)
 		}
 		ops[i] = v
 	}
 	m := ir.NewMakeStruct(bl.g.irNodePos(t), bl.f.NewTemp(), bl.g.irTypeSym(d), irStructFieldNames(d), ops)
 	bl.b.Append(m)
 	bl.side(m.Dst(), irScalarSide{k: named(d)})
-	return m.Dst(), true
+	return m.Dst()
 }
 
 // shapeErrorPrepend is std/json's `shape_error_prepend(e, segment)`: e
@@ -820,5 +805,5 @@ func (bl *irScalarBuilder) shapeErrorPrepend(t *ast.Call, shapeK kind, e ir.Temp
 		return ir.NoTemp, false
 	}
 	vals["path"] = joined
-	return bl.shapeErrorOf(t, d, vals)
+	return bl.shapeErrorOf(t, d, vals), true
 }

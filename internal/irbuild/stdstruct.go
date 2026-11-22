@@ -1,6 +1,7 @@
 package irbuild
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"sync"
@@ -47,8 +48,8 @@ import (
 //
 // # What the shape check is FOR
 //
-// Every field's NAME, ORDER and TYPE is checked against the spec, and the
-// declaration must be `pub opaque struct` with no type parameters and no
+// Every field's NAME, ORDER and written TYPE is checked against the spec, and
+// the declaration must be `pub opaque struct` with no type parameters and no
 // decorator but `derive`. That is not defensiveness: the builder
 // constructs records and reads fields from the SPEC, so a std edit
 // that renamed `zone`, reordered the fields, or changed `instant_nanos: Int` to
@@ -56,18 +57,30 @@ import (
 // type error, a permuted field is a wrong ANSWER rather than an error. A declaration that fails the check produces no anchor, and every
 // mention then refuses loudly through the ordinary paths.
 //
+// A row is held to std three ways, each by its own check:
+//
+//   - the SPELLING: each field's `decl` against the declaration's annotation as
+//     written (typeText), in mismatch below. Syntax only, so it resolves no
+//     type and needs no other row admitted first;
+//   - the KIND: each field's kindOf against the checker's type for that
+//     annotation, projected (TestStdSpecSpellingsAreTheirKinds);
+//   - the GO TYPE: each field's kindOf against rt's field at the same index
+//     (TestStdStructGoWidthMatchesTheDeclaredField).
+//
 // TestStdStructSpecsMatchStdSource is what keeps the check from being vacuous:
 // without it a spec could drift from std and every guard here would pass
 // against a declaration nothing anchors.
 //
 // stdStructField is one field of a stdlib record struct: the Nomi name, the
-// kind it holds and its default. rt's Go field is paired with it by position;
-// TestStdStructGoWidthMatchesTheDeclaredField holds each field's kind against
-// the Go field at the same index.
+// type std writes for it, the kind it holds and its default.
 type stdStructField struct {
 	// nomi is the field name as std declares it, and what a field selector in
 	// std's own source resolves through.
 	nomi string
+	// decl is the field's type as std's declaration writes it, in typeText's
+	// form: `Int64`, `List<AssertionValue>`, `Map<String, String>`. A subtype
+	// is written as itself (`month: Int64`), though its kind is its base's.
+	decl string
 	// kindOf is the field's kind, given the def shell of every spec in the
 	// table.
 	//
@@ -103,13 +116,13 @@ func withDefault(f stdStructField, d *stdFieldDefault) stdStructField {
 }
 
 // stdScalarField is the common row: a field whose kind is fixed.
-func stdScalarField(nomi string, k kind) stdStructField {
-	return stdStructField{nomi: nomi, kindOf: func([]*typeDef) kind { return k }}
+func stdScalarField(nomi, decl string, k kind) stdStructField {
+	return stdStructField{nomi: nomi, decl: decl, kindOf: func([]*typeDef) kind { return k }}
 }
 
 // stdListField is a field holding `List<the spec at index i>`.
-func stdListField(nomi string, i int) stdStructField {
-	return stdStructField{nomi: nomi, kindOf: func(defs []*typeDef) kind {
+func stdListField(nomi, decl string, i int) stdStructField {
+	return stdStructField{nomi: nomi, decl: decl, kindOf: func(defs []*typeDef) kind {
 		return listKindIn(nil, named(defs[i]))
 	}}
 }
@@ -123,8 +136,8 @@ func stdListField(nomi string, i int) stdStructField {
 // package-neutral element it lands in the PROCESS-WIDE table — the same entry a
 // call site's own `g.listKind` produces, which is the equality the whole
 // arrangement needs.
-func stdStringListField(nomi string) stdStructField {
-	return stdStructField{nomi: nomi, kindOf: func([]*typeDef) kind {
+func stdStringListField(nomi, decl string) stdStructField {
+	return stdStructField{nomi: nomi, decl: decl, kindOf: func([]*typeDef) kind {
 		return listKindIn(nil, kindString)
 	}}
 }
@@ -137,8 +150,8 @@ func stdStringListField(nomi string) stdStructField {
 // declared after it and the OnceValue still cannot re-enter itself. Neutral by
 // construction: every def in that slice is `rtDeclared`, which is exactly what
 // `kind.packageNeutral` answers true for.
-func stdStructRowField(nomi string, i int) stdStructField {
-	return stdStructField{nomi: nomi, kindOf: func(defs []*typeDef) kind {
+func stdStructRowField(nomi, decl string, i int) stdStructField {
+	return stdStructField{nomi: nomi, decl: decl, kindOf: func(defs []*typeDef) kind {
 		return named(defs[i])
 	}}
 }
@@ -152,8 +165,8 @@ func stdStructRowField(nomi string, i int) stdStructField {
 // already complete by the time any struct field is resolved. The dependency is
 // one-way and acyclic, and TestStdStructDefsArePackageNeutral covers the
 // resulting kind exactly as it covers every other.
-func stdListOfEnumField(nomi string, i int) stdStructField {
-	return stdStructField{nomi: nomi, kindOf: func([]*typeDef) kind {
+func stdListOfEnumField(nomi, decl string, i int) stdStructField {
+	return stdStructField{nomi: nomi, decl: decl, kindOf: func([]*typeDef) kind {
 		return listKindIn(nil, named(stdEnumShells()[i]))
 	}}
 }
@@ -163,8 +176,8 @@ func stdListOfEnumField(nomi string, i int) stdStructField {
 // Routed through sharedPreludeInstance rather than buildPreludeDef, so the def
 // a field carries is the SAME pointer a signature position or a call site gets
 // for the same instantiation — the identity rule stdprelude.go exists to state.
-func stdMaybeField(nomi string, of func(defs []*typeDef) kind) stdStructField {
-	return stdStructField{nomi: nomi, kindOf: func(defs []*typeDef) kind {
+func stdMaybeField(nomi, decl string, of func(defs []*typeDef) kind) stdStructField {
+	return stdStructField{nomi: nomi, decl: decl, kindOf: func(defs []*typeDef) kind {
 		k, shared := sharedPreludeInstance(preludeSpecFor("std/maybe", "Maybe"), []kind{of(defs)})
 		if !shared {
 			// Unreachable while every argument here is neutral, and honoured
@@ -193,8 +206,8 @@ func stdMaybeField(nomi string, of func(defs []*typeDef) kind) stdStructField {
 // package-neutral: a non-neutral component with a nil gen panics in internComp
 // rather than yielding a kind interned nowhere, which is the loud version of
 // the failure that guard exists for.
-func stdMapField(nomi string, key, val func(defs []*typeDef) kind) stdStructField {
-	return stdStructField{nomi: nomi, kindOf: func(defs []*typeDef) kind {
+func stdMapField(nomi, decl string, key, val func(defs []*typeDef) kind) stdStructField {
+	return stdStructField{nomi: nomi, decl: decl, kindOf: func(defs []*typeDef) kind {
 		return mapKindIn(nil, key(defs), val(defs))
 	}}
 }
@@ -332,7 +345,7 @@ type stdStructSpec struct {
 	// transparent records that std declares this WITHOUT `opaque`, so its
 	// fields are readable — and constructible — outside the declaring module.
 	//
-	// It is a declared expectation rather than a relaxation, and matches()
+	// It is a declared expectation rather than a relaxation, and mismatch()
 	// checks it in BOTH directions: a spec that says opaque must not anchor a
 	// transparent declaration and vice versa. The distinction is a use-site
 	// SURFACE, not a representation: an opaque struct can only be built by
@@ -355,29 +368,29 @@ var stdStructSpecs = []stdStructSpec{{
 	nomi:   "NaiveDateTime",
 	goType: reflect.TypeFor[rt.NaiveDateTime](),
 	fields: []stdStructField{
-		stdScalarField("year", kindInt),
-		stdScalarField("month", kindInt),
-		stdScalarField("day", kindInt),
-		stdScalarField("hour", kindInt),
-		stdScalarField("minute", kindInt),
-		stdScalarField("second", kindInt),
-		stdScalarField("nanosecond", kindInt),
+		stdScalarField("year", "Int", kindInt),
+		stdScalarField("month", "Int64", kindInt),
+		stdScalarField("day", "Int64", kindInt),
+		stdScalarField("hour", "Int64", kindInt),
+		stdScalarField("minute", "Int64", kindInt),
+		stdScalarField("second", "Int64", kindInt),
+		stdScalarField("nanosecond", "Int64", kindInt),
 	},
 }, {
 	origin: "std/calendar",
 	nomi:   "DateTime",
 	goType: reflect.TypeFor[rt.DateTime](),
 	fields: []stdStructField{
-		stdScalarField("instant_nanos", kindInt),
-		stdScalarField("zone", kindString),
+		stdScalarField("instant_nanos", "Int", kindInt),
+		stdScalarField("zone", "String", kindString),
 	},
 }, {
 	origin: "std/calendar",
 	nomi:   "OffsetDateTime",
 	goType: reflect.TypeFor[rt.OffsetDateTime](),
 	fields: []stdStructField{
-		stdScalarField("instant_nanos", kindInt),
-		stdScalarField("offset_seconds", kindInt),
+		stdScalarField("instant_nanos", "Int", kindInt),
+		stdScalarField("offset_seconds", "Int64", kindInt),
 	},
 }, {
 	// std/compiler's diagnostic record: the whole payload of `compiler.check`,
@@ -389,9 +402,9 @@ var stdStructSpecs = []stdStructSpec{{
 	nomi:   "Diagnostic",
 	goType: reflect.TypeFor[rt.Diagnostic](),
 	fields: []stdStructField{
-		stdScalarField("line", kindInt),
-		stdScalarField("col", kindInt),
-		stdScalarField("message", kindString),
+		stdScalarField("line", "Int", kindInt),
+		stdScalarField("col", "Int", kindInt),
+		stdScalarField("message", "String", kindString),
 	},
 	transparent: true,
 }, {
@@ -410,8 +423,8 @@ var stdStructSpecs = []stdStructSpec{{
 	nomi:   "Hover",
 	goType: reflect.TypeFor[rt.Hover](),
 	fields: []stdStructField{
-		stdScalarField("signature", kindString),
-		stdScalarField("markdown", kindString),
+		stdScalarField("signature", "String", kindString),
+		stdScalarField("markdown", "String", kindString),
 	},
 	transparent: true,
 }, {
@@ -434,8 +447,8 @@ var stdStructSpecs = []stdStructSpec{{
 	nomi:   "AssertionPipelineStage",
 	goType: reflect.TypeFor[rt.NomiAssertionPipelineStage](),
 	fields: []stdStructField{
-		stdScalarField("expression", kindString),
-		stdScalarField("value", kindString),
+		stdScalarField("expression", "String", kindString),
+		stdScalarField("value", "String", kindString),
 	},
 	transparent: true,
 }, {
@@ -443,9 +456,9 @@ var stdStructSpecs = []stdStructSpec{{
 	nomi:   "AssertionValue",
 	goType: reflect.TypeFor[rt.NomiAssertionValue](),
 	fields: []stdStructField{
-		stdScalarField("expression", kindString),
-		stdScalarField("value", kindString),
-		stdListField("pipeline", stdSpecAssertionPipelineStage),
+		stdScalarField("expression", "String", kindString),
+		stdScalarField("value", "String", kindString),
+		stdListField("pipeline", "List<AssertionPipelineStage>", stdSpecAssertionPipelineStage),
 	},
 	transparent: true,
 }, {
@@ -453,10 +466,10 @@ var stdStructSpecs = []stdStructSpec{{
 	nomi:   "AssertionBinding",
 	goType: reflect.TypeFor[rt.NomiAssertionBinding](),
 	fields: []stdStructField{
-		stdScalarField("name", kindString),
-		stdScalarField("expression", kindString),
-		stdScalarField("value", kindString),
-		stdListField("pipeline", stdSpecAssertionPipelineStage),
+		stdScalarField("name", "String", kindString),
+		stdScalarField("expression", "String", kindString),
+		stdScalarField("value", "String", kindString),
+		stdListField("pipeline", "List<AssertionPipelineStage>", stdSpecAssertionPipelineStage),
 	},
 	transparent: true,
 }, {
@@ -464,8 +477,8 @@ var stdStructSpecs = []stdStructSpec{{
 	nomi:   "AssertionDetail",
 	goType: reflect.TypeFor[rt.NomiAssertionDetail](),
 	fields: []stdStructField{
-		stdScalarField("label", kindString),
-		stdScalarField("value", kindString),
+		stdScalarField("label", "String", kindString),
+		stdScalarField("value", "String", kindString),
 	},
 	transparent: true,
 }, {
@@ -473,22 +486,22 @@ var stdStructSpecs = []stdStructSpec{{
 	nomi:   "AssertionFailure",
 	goType: reflect.TypeFor[rt.NomiAssertionFailure](),
 	fields: []stdStructField{
-		stdScalarField("line", kindInt),
-		stdScalarField("keyword", kindString),
-		stdScalarField("expression", kindString),
-		stdScalarField("reason", kindString),
-		stdMaybeField("actual", func([]*typeDef) kind { return kindString }),
-		stdMaybeField("binding", func(defs []*typeDef) kind {
+		stdScalarField("line", "Int64", kindInt),
+		stdScalarField("keyword", "String", kindString),
+		stdScalarField("expression", "String", kindString),
+		stdScalarField("reason", "String", kindString),
+		stdMaybeField("actual", "Maybe<String>", func([]*typeDef) kind { return kindString }),
+		stdMaybeField("binding", "Maybe<AssertionBinding>", func(defs []*typeDef) kind {
 			return named(defs[stdSpecAssertionBinding])
 		}),
-		stdListField("values", stdSpecAssertionValue),
-		stdListField("details", stdSpecAssertionDetail),
+		stdListField("values", "List<AssertionValue>", stdSpecAssertionValue),
+		stdListField("details", "List<AssertionDetail>", stdSpecAssertionDetail),
 		// A `subtests` statement's failing rows. The only field that
 		// names a row placed after this one, and the only cycle in the
 		// table: a SubtestFailure holds an AssertionFailure. Both are
 		// pointers at run time, through the List, and stdStructDefs builds
 		// every shell before any field.
-		withDefault(stdListField("subtests", stdSpecSubtestFailure), stdEmptyListDefault()),
+		withDefault(stdListField("subtests", "List<SubtestFailure>", stdSpecSubtestFailure), stdEmptyListDefault()),
 	},
 	transparent: true,
 }, {
@@ -499,13 +512,13 @@ var stdStructSpecs = []stdStructSpec{{
 	nomi:   "AssertionDetails",
 	goType: reflect.TypeFor[rt.NomiAssertionDetails](),
 	fields: []stdStructField{
-		withDefault(stdScalarField("reason", kindString),
+		withDefault(stdScalarField("reason", "String", kindString),
 			stdStringDefault("assertion failed")),
-		withDefault(stdMaybeField("actual", func([]*typeDef) kind { return kindString }),
+		withDefault(stdMaybeField("actual", "Maybe<String>", func([]*typeDef) kind { return kindString }),
 			stdNoneDefault()),
-		withDefault(stdMaybeField("expected", func([]*typeDef) kind { return kindString }),
+		withDefault(stdMaybeField("expected", "Maybe<String>", func([]*typeDef) kind { return kindString }),
 			stdNoneDefault()),
-		withDefault(stdListField("details", stdSpecAssertionDetail),
+		withDefault(stdListField("details", "List<AssertionDetail>", stdSpecAssertionDetail),
 			stdEmptyListDefault()),
 	},
 	transparent: true,
@@ -519,9 +532,9 @@ var stdStructSpecs = []stdStructSpec{{
 	nomi:   "Error",
 	goType: reflect.TypeFor[rt.DynamicDecodeError](),
 	fields: []stdStructField{
-		stdListOfEnumField("path", stdEnumPathSegment),
-		stdScalarField("expected", kindString),
-		stdScalarField("got", kindString),
+		stdListOfEnumField("path", "List<PathSegment>", stdEnumPathSegment),
+		stdScalarField("expected", "String", kindString),
+		stdScalarField("got", "String", kindString),
 	},
 	transparent: true,
 }, {
@@ -549,11 +562,11 @@ var stdStructSpecs = []stdStructSpec{{
 	nomi:   "Project",
 	goType: reflect.TypeFor[rt.Project](),
 	fields: []stdStructField{
-		stdScalarField("entry_point", kindString),
-		stdMapField("files",
+		stdScalarField("entry_point", "String", kindString),
+		stdMapField("files", "Map<String, String>",
 			func([]*typeDef) kind { return kindString },
 			func([]*typeDef) kind { return kindString }),
-		withDefault(stdMaybeField("manifest", func([]*typeDef) kind {
+		withDefault(stdMaybeField("manifest", "Maybe<String>", func([]*typeDef) kind {
 			return kindString
 		}), stdNoneDefault()),
 	},
@@ -571,9 +584,9 @@ var stdStructSpecs = []stdStructSpec{{
 	nomi:   "Date",
 	goType: reflect.TypeFor[rt.Date](),
 	fields: []stdStructField{
-		stdScalarField("year", kindInt),
-		stdScalarField("month", kindInt),
-		stdScalarField("day", kindInt),
+		stdScalarField("year", "Int", kindInt),
+		stdScalarField("month", "Int64", kindInt),
+		stdScalarField("day", "Int64", kindInt),
 	},
 }, {
 	// A SEPARATE row from Date rather than a shared shape, and the reason is
@@ -586,10 +599,10 @@ var stdStructSpecs = []stdStructSpec{{
 	nomi:   "Time",
 	goType: reflect.TypeFor[rt.Time](),
 	fields: []stdStructField{
-		stdScalarField("hour", kindInt),
-		stdScalarField("minute", kindInt),
-		stdScalarField("second", kindInt),
-		stdScalarField("nanosecond", kindInt),
+		stdScalarField("hour", "Int64", kindInt),
+		stdScalarField("minute", "Int64", kindInt),
+		stdScalarField("second", "Int64", kindInt),
+		stdScalarField("nanosecond", "Int64", kindInt),
 	},
 }, {
 	// std/compiler's ON-DISK run input, constructed by
@@ -620,8 +633,8 @@ var stdStructSpecs = []stdStructSpec{{
 	nomi:   "RunFile",
 	goType: reflect.TypeFor[rt.RunFile](),
 	fields: []stdStructField{
-		stdScalarField("entry_point", kindString),
-		withDefault(stdMapField("env",
+		stdScalarField("entry_point", "String", kindString),
+		withDefault(stdMapField("env", "Map<String, String>",
 			func([]*typeDef) kind { return kindString },
 			func([]*typeDef) kind { return kindString }), stdEmptyMapDefault()),
 	},
@@ -631,8 +644,7 @@ var stdStructSpecs = []stdStructSpec{{
 	// That is not a new mechanism: `fa.ModuleScope.Lookup` binds
 	// `Json.DecodeError` to the declaration with `Origin: "std/json"` and
 	// `Name: "Json.DecodeError"`, so the (origin, name) anchor works on the whole
-	// spelling exactly as it does on a bare one. The dotted name is what
-	// `dottedqual.go`'s namedType lookup needs for `Json.DecodeError.to_string`.
+	// spelling exactly as it does on a bare one.
 	//
 	// Four scalar fields and no default; it relies on the `Json` enum, whose
 	// `Result<Json, Json.DecodeError>` is what makes `Json.decode` nameable at
@@ -648,10 +660,10 @@ var stdStructSpecs = []stdStructSpec{{
 	nomi:   "Json.DecodeError",
 	goType: reflect.TypeFor[rt.JsonDecodeError](),
 	fields: []stdStructField{
-		stdScalarField("message", kindString),
-		stdScalarField("line", kindInt),
-		stdScalarField("col", kindInt),
-		stdScalarField("offset", kindInt),
+		stdScalarField("message", "String", kindString),
+		stdScalarField("line", "Int", kindInt),
+		stdScalarField("col", "Int", kindInt),
+		stdScalarField("offset", "Int", kindInt),
 	},
 	transparent: true,
 }, {
@@ -673,17 +685,18 @@ var stdStructSpecs = []stdStructSpec{{
 	nomi:   "Json.ShapeError",
 	goType: reflect.TypeFor[rt.JsonShapeError](),
 	fields: []stdStructField{
-		stdStringListField("path"),
-		stdScalarField("expected", kindString),
-		stdScalarField("got", kindString),
+		stdStringListField("path", "List<String>"),
+		stdScalarField("expected", "String", kindString),
+		stdScalarField("got", "String", kindString),
 	},
 	transparent: true,
 }, {
 	// std/calendar's five FALLIBLE-CONSTRUCTOR CARRIERS, and they are one
 	// decision rather than five rows.
 	//
-	// WHY THEY EXIST AT ALL. A co-located adapter's FFI-shaped signature
-	// projects a `Result<_, E>` only for `E` = `String`, so std/calendar's
+	// WHY THEY EXIST AT ALL. A generated adapter projects a Go function's
+	// error result as a `Result<_, E>` only for `E` = `String`
+	// (internal/hostgen, "Projection rows"), so std/calendar's
 	// eleven fallible constructors cannot return `Result<T, CalendarError>`
 	// across the boundary: the classification a caller matches on
 	// (`Nonexistent` is a DST gap, `InvalidFormat` is a bad string) would
@@ -705,9 +718,9 @@ var stdStructSpecs = []stdStructSpec{{
 	nomi:   "DateAttempt",
 	goType: reflect.TypeFor[rt.CalendarDateResult](),
 	fields: []stdStructField{
-		stdStructRowField("value", stdSpecCalendarDate),
-		stdScalarField("kind", kindInt),
-		stdScalarField("reason", kindString),
+		stdStructRowField("value", "Date", stdSpecCalendarDate),
+		stdScalarField("kind", "Int", kindInt),
+		stdScalarField("reason", "String", kindString),
 	},
 	transparent: true,
 }, {
@@ -715,9 +728,9 @@ var stdStructSpecs = []stdStructSpec{{
 	nomi:   "TimeAttempt",
 	goType: reflect.TypeFor[rt.CalendarTimeResult](),
 	fields: []stdStructField{
-		stdStructRowField("value", stdSpecCalendarTime),
-		stdScalarField("kind", kindInt),
-		stdScalarField("reason", kindString),
+		stdStructRowField("value", "Time", stdSpecCalendarTime),
+		stdScalarField("kind", "Int", kindInt),
+		stdScalarField("reason", "String", kindString),
 	},
 	transparent: true,
 }, {
@@ -725,9 +738,9 @@ var stdStructSpecs = []stdStructSpec{{
 	nomi:   "NaiveAttempt",
 	goType: reflect.TypeFor[rt.CalendarNaiveResult](),
 	fields: []stdStructField{
-		stdStructRowField("value", stdSpecCalendarNaiveDateTime),
-		stdScalarField("kind", kindInt),
-		stdScalarField("reason", kindString),
+		stdStructRowField("value", "NaiveDateTime", stdSpecCalendarNaiveDateTime),
+		stdScalarField("kind", "Int", kindInt),
+		stdScalarField("reason", "String", kindString),
 	},
 	transparent: true,
 }, {
@@ -735,9 +748,9 @@ var stdStructSpecs = []stdStructSpec{{
 	nomi:   "OffsetAttempt",
 	goType: reflect.TypeFor[rt.CalendarOffsetResult](),
 	fields: []stdStructField{
-		stdStructRowField("value", stdSpecCalendarOffsetDateTime),
-		stdScalarField("kind", kindInt),
-		stdScalarField("reason", kindString),
+		stdStructRowField("value", "OffsetDateTime", stdSpecCalendarOffsetDateTime),
+		stdScalarField("kind", "Int", kindInt),
+		stdScalarField("reason", "String", kindString),
 	},
 	transparent: true,
 }, {
@@ -745,16 +758,16 @@ var stdStructSpecs = []stdStructSpec{{
 	nomi:   "ZonedAttempt",
 	goType: reflect.TypeFor[rt.CalendarZonedResult](),
 	fields: []stdStructField{
-		stdStructRowField("value", stdSpecCalendarDateTime),
-		stdScalarField("kind", kindInt),
-		stdScalarField("reason", kindString),
+		stdStructRowField("value", "DateTime", stdSpecCalendarDateTime),
+		stdScalarField("kind", "Int", kindInt),
+		stdScalarField("reason", "String", kindString),
 	},
 	transparent: true,
 }, {
 	origin: "std/startup", nomi: "Startup", goType: reflect.TypeFor[rt.Startup](), transparent: true,
 	fields: []stdStructField{
-		withDefault(stdMapField("env", func([]*typeDef) kind { return kindString }, func([]*typeDef) kind { return kindString }), stdEmptyMapDefault()),
-		withDefault(stdStringListField("args"), stdEmptyListDefault()),
+		withDefault(stdMapField("env", "Map<String, String>", func([]*typeDef) kind { return kindString }, func([]*typeDef) kind { return kindString }), stdEmptyMapDefault()),
+		withDefault(stdStringListField("args", "List<String>"), stdEmptyListDefault()),
 	},
 }, {
 	// What `io.replay` answers. A row so that its `impl Assertable` is
@@ -763,10 +776,10 @@ var stdStructSpecs = []stdStructSpec{{
 	nomi:   "Replayed",
 	goType: reflect.TypeFor[rt.IOReplayed](),
 	fields: []stdStructField{
-		stdScalarField("output", kindString),
-		stdScalarField("transcript", kindString),
-		stdScalarField("expected", kindString),
-		stdScalarField("unread", kindInt),
+		stdScalarField("output", "String", kindString),
+		stdScalarField("transcript", "String", kindString),
+		stdScalarField("expected", "String", kindString),
+		stdScalarField("unread", "Int", kindInt),
 	},
 	transparent: true,
 }, {
@@ -776,8 +789,8 @@ var stdStructSpecs = []stdStructSpec{{
 	nomi:   "SubtestFailure",
 	goType: reflect.TypeFor[rt.NomiSubtestFailure](),
 	fields: []stdStructField{
-		stdScalarField("row", kindString),
-		stdStructRowField("failure", stdSpecAssertionFailure),
+		stdScalarField("row", "String", kindString),
+		stdStructRowField("failure", "AssertionFailure", stdSpecAssertionFailure),
 	},
 	transparent: true,
 }, {
@@ -789,9 +802,9 @@ var stdStructSpecs = []stdStructSpec{{
 	nomi:   "LocaleAttempt",
 	goType: reflect.TypeFor[rt.LocaleResult](),
 	fields: []stdStructField{
-		stdScalarField("value", kindString),
-		stdScalarField("kind", kindInt),
-		stdScalarField("detail", kindString),
+		stdScalarField("value", "String", kindString),
+		stdScalarField("kind", "Int", kindInt),
+		stdScalarField("detail", "String", kindString),
 	},
 	transparent: true,
 }, {
@@ -803,9 +816,9 @@ var stdStructSpecs = []stdStructSpec{{
 	nomi:   "LiteralError",
 	goType: reflect.TypeFor[rt.LiteralError](),
 	fields: []stdStructField{
-		stdScalarField("fragment", kindInt),
-		stdScalarField("offset", kindInt),
-		stdScalarField("message", kindString),
+		stdScalarField("fragment", "Int", kindInt),
+		stdScalarField("offset", "Int", kindInt),
+		stdScalarField("message", "String", kindString),
 	},
 	transparent: true,
 }}
@@ -946,55 +959,20 @@ func stdStructKindOfGoType(t reflect.Type) kind {
 // `Diagnostic` has a different
 // Origin and cannot collide.
 //
-// # A FIXED POINT, and it shrinks from every declared row
+// # Each row on its own
 //
-// A row may name another in a field, and two may name each other:
+// A row may name another in a field, and two name each other:
 // `AssertionFailure.subtests` is a `List<SubtestFailure>` and a
-// `SubtestFailure` holds an `AssertionFailure`. So every row whose declaration
-// exists starts admitted, and a row is retracted when its own shape does not
-// match with the rows still admitted offered to its fields; that repeats until
-// nothing is retracted, at most one round per spec. A row that names a
-// retracted row is retracted in turn. Each admitted row's own fields were
-// checked against its own declaration, so a cycle certifies only rows whose
-// every shape was read, never a row on the strength of another's say-so. Only
-// SAME-ORIGIN rows are offered to a field check: a field naming a row from
-// another std module is not something this table has, and admitting one would
-// make the check depend on a name resolving in a module that does not declare
-// it.
+// `SubtestFailure` holds an `AssertionFailure`. The check compares each
+// field's written spelling and resolves no type, so a row is checked without
+// any other row admitted first, and the answer is one pass over the table.
 var stdStructValidated = perStd(func() []bool {
 	ok := make([]bool, len(stdStructSpecs))
 	lib := stdAnchorLib()
-	decls := make([]*ast.StructDef, len(stdStructSpecs))
-	fas := make([]*analysis.FileAnalysis, len(stdStructSpecs))
 	for i := range stdStructSpecs {
 		s := &stdStructSpecs[i]
-		fas[i] = lib.Files[strings.TrimPrefix(s.origin, "std/")]
-		decls[i] = stdStructDeclIn(fas[i], s)
-	}
-	for i := range stdStructSpecs {
-		ok[i] = decls[i] != nil
-	}
-	for changed := true; changed; {
-		changed = false
-		for i := range stdStructSpecs {
-			if !ok[i] {
-				continue
-			}
-			anchors := stdBaseAnchors(fas[i])
-			// A field of a std subtype (`year: Int64`) takes its base's kind, which
-			// the module's analysis resolves (stdRefinementKind).
-			anchors.fa = fas[i]
-			anchors.structs = map[string]int{}
-			for j := range stdStructSpecs {
-				if ok[j] && stdStructSpecs[j].origin == stdStructSpecs[i].origin {
-					anchors.structs[stdStructSpecs[j].nomi] = j
-				}
-			}
-			if !stdStructSpecs[i].matches(decls[i], anchors) {
-				ok[i] = false
-				changed = true
-			}
-		}
+		decl := stdStructDeclIn(lib.Files[strings.TrimPrefix(s.origin, "std/")], s)
+		ok[i] = decl != nil && s.mismatch(decl) == ""
 	}
 	return ok
 })
@@ -1062,23 +1040,15 @@ func stdStructIndex(d *typeDef) (int, bool) {
 // declaration NODE each spec was reached through, and the spec index under the
 // Nomi name.
 //
-// A free function rather than a gen method for opaqueAnchors' reason: the STDLIB
-// SIGNATURE pass (collectStdCandidates, via stdTypeKind) runs before any gen
-// exists and has to know whether the `DateTime` in
-// `DateTime.with_zone(d: DateTime, zone: String) -> Result<DateTime, Error>` is a
-// representable type. Two implementations of "is this the std type" is the drift
-// the identity rules exist to prevent, so there is one.
-//
 // IDENTITY ONLY. The shape check is stdStructValidated's, asked once against the
 // DECLARING module — see there for why an importer must not ask it, and note
 // that this is strictly stronger rather than a relaxation: a row that fails the
 // shape check anchors for nobody, where before it could in principle have
 // anchored in the module that declared it and not in one that imported it.
-func stdStructAnchors(fa *analysis.FileAnalysis) (map[*ast.StructDef]int, map[string]int) {
+func stdStructAnchors(fa *analysis.FileAnalysis) map[*ast.StructDef]int {
 	byDecl := map[*ast.StructDef]int{}
-	byName := map[string]int{}
 	if fa == nil || fa.ModuleScope == nil {
-		return byDecl, byName
+		return byDecl
 	}
 	validated := stdStructValidated()
 	for i := range stdStructSpecs {
@@ -1090,12 +1060,13 @@ func stdStructAnchors(fa *analysis.FileAnalysis) (map[*ast.StructDef]int, map[st
 			continue
 		}
 		byDecl[decl] = i
-		byName[stdStructSpecs[i].nomi] = i
 	}
-	return byDecl, byName
+	return byDecl
 }
 
-// matches reports whether decl is the declaration this spec describes.
+// mismatch is how decl differs from the declaration this spec describes, and
+// "" when it does not: a sentence naming the row, and for a field the field
+// and both spellings, which TestStdStructSpecsMatchStdSource reports.
 //
 // Everything checked here decides REPRESENTATION, and the FIELD checks are the
 // load-bearing half: the builder constructs records and reads fields
@@ -1122,20 +1093,24 @@ func stdStructAnchors(fa *analysis.FileAnalysis) (map[*ast.StructDef]int, map[st
 // every other module's scope, so no importer can resolve one; the only gen that
 // can is the declaring module's own, which is the one that needs it.
 //
-// std/calendar's boundary carriers need this. The FFI cannot carry
-// `Result<_, Error>` for a five-variant `Error`, so each fallible constructor
+// std/calendar's boundary carriers need this. A generated adapter cannot
+// carry `Result<_, Error>` for a five-variant `Error`, so each fallible constructor
 // crosses through a module-private `DateAttempt`-shaped struct and the public
 // API is a Nomi body over it. Without an anchor those signatures would have no
 // representation, and `Date.parse`, `Date.from_fragments` and the `Date"…"`
 // typed literal would refuse with them.
-func (s *stdStructSpec) matches(decl *ast.StructDef, anchors stdAnchors) bool {
-	if decl.Name != s.nomi || decl.Opaque == s.transparent {
-		return false
+func (s *stdStructSpec) mismatch(decl *ast.StructDef) string {
+	row := s.origin + "." + s.nomi
+	if decl.Name != s.nomi {
+		return row + ": std declares " + decl.Name
+	}
+	if decl.Opaque == s.transparent {
+		return row + ": std's declaration and the row disagree about `opaque`"
 	}
 	if len(decl.TypeParams) > 0 || len(decl.WhereClauses) > 0 {
 		// A generic std struct's identity depends on the instantiation, which
 		// is prelude.go's problem and not this file's.
-		return false
+		return row + ": std declares it generic"
 	}
 	// An attached `//!` test is not checked. The prompt is a test case of its
 	// own, through tests.go's attachedTestCases, so charging it to the type
@@ -1154,22 +1129,22 @@ func (s *stdStructSpec) matches(decl *ast.StructDef, anchors stdAnchors) bool {
 		// Comparable) and none on DateTime, which hand-writes all three because
 		// its identity is the instant alone.
 		if dec.Name != "derive" {
-			return false
+			return row + ": std's declaration carries the decorator " + dec.Name
 		}
 	}
 	if len(decl.Fields) != len(s.fields) {
-		return false
+		return fmt.Sprintf("%s: std declares %d fields, the row %d", row, len(decl.Fields), len(s.fields))
 	}
-	defs := stdStructDefs()
 	for i, f := range decl.Fields {
 		want := s.fields[i]
-		// stdTypeKind rather than scalarKind, and it is the SAME resolver every
-		// other stdlib signature position uses — so `List<AssertionValue>` in a
-		// field is admitted on exactly the terms it is admitted in a parameter,
-		// and a widened `List<String>` produces no anchor because the kinds are
-		// two interned *compKind values and never equal.
-		if f.Name != want.nomi || stdTypeKind(f.TypeAnnotation, anchors) != want.kindOf(defs) {
-			return false
+		if f.Name != want.nomi {
+			return fmt.Sprintf("%s: field %d is %s in std, %s in the row", row, i, f.Name, want.nomi)
+		}
+		// The written spelling, compared by typeText as every std spec
+		// compares a written type. A widened `List<String>` or a subtype
+		// swapped for its base is a different spelling.
+		if got := typeText(f.TypeAnnotation); got != want.decl {
+			return fmt.Sprintf("%s.%s: std writes `%s`, the row says `%s`", row, f.Name, got, want.decl)
 		}
 		// A field default is an expression of the DECLARING module, evaluated
 		// at every construction site. It is representable only where the spec
@@ -1183,14 +1158,14 @@ func (s *stdStructSpec) matches(decl *ast.StructDef, anchors stdAnchors) bool {
 		// carry would invent a value std never wrote.
 		switch {
 		case f.Default == nil && want.deflt != nil:
-			return false
+			return row + "." + f.Name + ": the row has a default std does not declare"
 		case f.Default != nil && want.deflt == nil:
-			return false
+			return row + "." + f.Name + ": std declares a default the row does not have"
 		case f.Default != nil && !want.deflt.shape(f.Default):
-			return false
+			return row + "." + f.Name + ": std's default is not the row's"
 		}
 	}
-	return true
+	return ""
 }
 
 // loadStdStructs resolves the specs against this gen's module, once.
@@ -1199,7 +1174,7 @@ func (g *gen) loadStdStructs() {
 		return
 	}
 	g.stdStructsLoaded = true
-	g.stdStructByDecl, g.stdStructByName = stdStructAnchors(g.fa)
+	g.stdStructByDecl = stdStructAnchors(g.fa)
 }
 
 // stdStructDeclared reports the spec index for a struct declaration this module
@@ -1212,21 +1187,4 @@ func (g *gen) stdStructDeclared(decl *ast.StructDef) int {
 		return i
 	}
 	return -1
-}
-
-// stdStructNamed resolves a type NAME to the shared def, for a module that
-// MENTIONS one of these types without declaring it.
-//
-// The anchor was established through the module's own scope, which is what the
-// checker resolves a bare type name through, so no per-mention re-check is
-// needed — opaqueNamed's reasoning exactly. A module declaring its own
-// `DateTime` never reaches this: namedType and typeOf consult g.types first, and
-// buildTypes put the local declaration there.
-func (g *gen) stdStructNamed(name string) (*typeDef, bool) {
-	g.loadStdStructs()
-	i, anchored := g.stdStructByName[name]
-	if !anchored {
-		return nil, false
-	}
-	return stdStructDefs()[i], true
 }

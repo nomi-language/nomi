@@ -29,21 +29,16 @@ func irRetainedRecordKind(k kind) bool {
 }
 
 func (bl *irScalarBuilder) recordMake(t *ast.StructLit) (ir.Temp, kind, bool, bool) {
-	// `{f: [], g: 0}` whose set a later use fixes (`r.f` stored in a
-	// `Set<Int>` field): the checker's type of the record types each
-	// field, as a tuple's does (tupleMake).
-	if k := bl.g.project(bl.g.checkedExprType(t)); t.Spread == nil && len(t.Fields) != 0 && k.tag == tagAnonStruct && irNestedCollection(k) && irFullyTyped(k) {
-		if _, typed := irRecordField(k, t.Fields[0].Name, len(t.Fields)); typed {
-			return bl.recordMakeOf(t, k)
-		}
-	}
-	// kindInvalid: sentinel — no expected record type.
+	// kindInvalid: sentinel — no position's kind; the literal's record gives its kind.
 	return bl.recordMakeOf(t, kindInvalid)
 }
 
-// recordMakeOf builds an anonymous record literal; want, when it is a record
-// type with the literal's field names, gives each field the kind its value
-// is lowered against (`{a: []}` where a `{a: List<Int>}` is expected).
+// recordMakeOf builds an anonymous record literal at its kind: the type the
+// checker recorded for it, or want, the kind of the position, where the
+// builder made it. Each field's value is lowered against its field type
+// (`{a: []}` recorded as `{a: List<Int>}`). A record with neither, which
+// only a body the builder writes holds (a refinement literal's fields), is
+// its fields' own kinds, and noteUnrecordedKind counts it.
 func (bl *irScalarBuilder) recordMakeOf(t *ast.StructLit, want kind) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if t.Spread != nil {
@@ -51,6 +46,14 @@ func (bl *irScalarBuilder) recordMakeOf(t *ast.StructLit, want kind) (ir.Temp, k
 	}
 	if t.Spread != nil || len(t.Fields) == 0 {
 		panic("irbuild: recordMakeOf: parser builds `{}` as a block, never an empty StructLit; a spread returned above")
+	}
+	if rec, recorded := bl.g.convertedKind(t); recorded && irFullyTyped(rec) {
+		if _, typed := irRecordField(rec, t.Fields[0].Name, len(t.Fields)); typed {
+			want = rec
+		}
+	}
+	if _, typed := irRecordField(want, t.Fields[0].Name, len(t.Fields)); !typed {
+		bl.noteUnrecordedKind("record", t)
 	}
 	names := make([]string, len(t.Fields))
 	parts := make([]kind, len(t.Fields))
@@ -250,16 +253,14 @@ func (bl *irScalarBuilder) updateBaseField(at ast.Node, k kind, base ir.Temp, na
 
 // structUpdateCall lowers `Struct.update(base, {f: v})`: std's own `Struct`,
 // a bare anonymous patch, the base forced, then the same merge a spread uses.
-// A `Struct` a type parameter or local interface names declines here. Its
-// arguments may be named by `Struct`'s parameters
-// (`Struct.update(updates: {x: 1}, original: p)`); they are evaluated in
-// Nomi's order, as written.
+// Both callers reach it by the route the call's record names, std's
+// Struct by its identity, so a `Struct` a type parameter or a program's
+// interface names never does. Its arguments may be named by `Struct`'s
+// parameters (`Struct.update(updates: {x: 1}, original: p)`); they are
+// evaluated in Nomi's order, as written.
 func (bl *irScalarBuilder) structUpdateCall(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	if len(t.Args) != 2 || !bl.g.stdStructUpdateIsStds() {
-		return no()
-	}
-	if _, local := bl.g.ifaceNamed("Struct"); local {
+	if len(t.Args) != 2 || !bl.g.stdStructUpdateCalled(t) {
 		return no()
 	}
 	ops, ok := bl.g.structUpdateOperands(t)

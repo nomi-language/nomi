@@ -1,0 +1,245 @@
+import
+    std::base64
+    std::bytes.Builder
+    std::hash
+    std::io.{Reader, Writer}
+    std::net.{self, Connection}
+    std::sql.{self, Conn}
+    std::tasks.Task
+    postgres
+    postgres::config.{Config, SslMode}
+    postgres::messages
+    postgres::wire
+end
+
+// A server that speaks just enough of the protocol to authenticate one
+// client: it reads the startup message, asks for a password the way
+// `ask` does, and answers `ReadyForQuery` when the client proves it knows
+// `password`, or an error when it does not.
+fn fake_server(listener: net.Listener, password: String, ask: String) -> Result<String, String>
+    conn = net.Listener.accept(listener) |> Result.map_err(fn e -> "${e}")?
+    defer Connection.close(conn)
+    (_, rest) = read_startup(conn, Bytes.from_list([]))?
+
+    case ask
+        "scram" -> scram_server(conn, rest, password)
+        "md5"   -> md5_server(conn, rest, password)
+        _       -> clear_server(conn, rest, password)
+    end
+end
+
+fn read_more(conn: Connection, buffer: Bytes) -> Result<Bytes, String>
+    case Reader.read(Connection.reader(conn))
+        Ok(Some(chunk)) -> Ok(buffer + chunk)
+        Ok(None)        -> Err("the client closed the connection")
+        Err(e)          -> Err("${e}")
+    end
+end
+
+fn read_startup(conn: Connection, buffer: Bytes) -> Result<(Bytes, Bytes), String>
+    case Bytes.int32_be_at(buffer, 0)
+        Some(length) when Bytes.length(buffer) >= length ->
+            Ok((Bytes.slice(buffer, 4, length), Bytes.slice(buffer, length, Bytes.length(buffer))))
+
+        _ ->
+            read_startup(conn, read_more(conn, buffer)?)
+    end
+end
+
+// The next typed message the client sent: its body, and what follows it.
+fn read_message(conn: Connection, buffer: Bytes) -> Result<(Bytes, Bytes), String>
+    case messages.frame_at(buffer, 0)
+        Some((_, body, next)) -> Ok((body, Bytes.slice(buffer, next, Bytes.length(buffer))))
+        None                  -> read_message(conn, read_more(conn, buffer)?)
+    end
+end
+
+fn send(conn: Connection, kind: String, body: Bytes) -> Result<Unit, String>
+    framed =
+        Builder.new()
+        |> Builder.push_string(kind)
+        |> Builder.push_int32_be(Bytes.length(body) + 4)
+        |> Builder.push_bytes(body)
+        |> Builder.to_bytes()
+
+    Writer.write(Connection.writer(conn), framed) |> Result.map_err(fn e -> "${e}")
+end
+
+fn auth(code: Int, data: Bytes) -> Bytes
+    Builder.new() |> Builder.push_int32_be(code) |> Builder.push_bytes(data) |> Builder.to_bytes()
+end
+
+// AuthenticationOk, BackendKeyData and ReadyForQuery.
+fn accept(conn: Connection) -> Result<String, String>
+    send(conn, "R", auth(0, Bytes.from_list([])))?
+
+    send(
+        conn,
+        "K",
+        Builder.new()
+        |> Builder.push_int32_be(42)
+        |> Builder.push_int32_be(7)
+        |> Builder.to_bytes(),
+    )?
+
+    send(conn, "Z", String.to_bytes("I"))?
+    Ok("accepted")
+end
+
+fn refuse(conn: Connection) -> Result<String, String>
+    body =
+        Builder.new()
+        |> Builder.push_string("SFATAL")
+        |> Builder.push(0)
+        |> Builder.push_string("C28P01")
+        |> Builder.push(0)
+        |> Builder.push_string("Mpassword authentication failed")
+        |> Builder.push(0)
+        |> Builder.push(0)
+        |> Builder.to_bytes()
+
+    send(conn, "E", body)?
+    Ok("refused")
+end
+
+fn text_after_nul(body: Bytes) -> String
+    case Bytes.index_of_byte(body, 0)
+        Some(at) -> Bytes.to_string_lossy(Bytes.slice(body, 0, at))
+        None     -> Bytes.to_string_lossy(body)
+    end
+end
+
+fn clear_server(conn: Connection, rest: Bytes, password: String) -> Result<String, String>
+    send(conn, "R", auth(3, Bytes.from_list([])))?
+    (body, _) = read_message(conn, rest)?
+
+    if text_after_nul(body) == password then
+        accept(conn)
+    else
+        refuse(conn)
+    end
+end
+
+fn md5_server(conn: Connection, rest: Bytes, password: String) -> Result<String, String>
+    salt = Bytes.from_list([9, 8, 7, 6])
+    send(conn, "R", auth(5, salt))?
+    (body, _) = read_message(conn, rest)?
+    inner = hash.md5_hex(String.to_bytes(password + "ann"))
+    expected = "md5" + hash.md5_hex(String.to_bytes(inner) + salt)
+
+    if text_after_nul(body) == expected then
+        accept(conn)
+    else
+        refuse(conn)
+    end
+end
+
+// SCRAM-SHA-256 as a server checks it: it keeps only the stored key, and
+// checks that the client's proof recovers a key that hashes to it.
+fn scram_server(conn: Connection, rest: Bytes, password: String) -> Result<String, String>
+    mechanisms = String.to_bytes("SCRAM-SHA-256") + Bytes.from_list([0, 0])
+    send(conn, "R", auth(10, mechanisms))?
+    (initial, rest) = read_message(conn, rest)?
+    after_name = Bytes.index_of_byte(initial, 0) |> Maybe.to_result("no mechanism")?
+    first = Bytes.to_string_lossy(Bytes.slice(initial, after_name + 5, Bytes.length(initial)))
+    bare = String.strip_prefix(first, "n,,") |> Maybe.to_result("no GS2 header")?
+    client_nonce = String.split(bare, "r=") |> Iter.last() |> Maybe.with_default("")
+    nonce = client_nonce + "fakeserver"
+    salt = String.to_bytes("pepper salt")
+    server_first = "r=${nonce},s=${base64.encode(salt)},i=4096"
+    send(conn, "R", auth(11, String.to_bytes(server_first)))?
+    (final, _) = read_message(conn, rest)?
+    client_final = Bytes.to_string_lossy(final)
+    without_proof = "c=biws,r=${nonce}"
+    proof = String.strip_prefix(client_final, without_proof + ",p=") |> Maybe.to_result("no proof")?
+    salted = hash.pbkdf2_sha256(String.to_bytes(password), salt, 4096, 32)
+    stored = hash.sha256(hash.hmac_sha256(salted, String.to_bytes("Client Key")))
+    signed = String.to_bytes("${bare},${server_first},${without_proof}")
+    signature = hash.hmac_sha256(stored, signed)
+    sent = base64.decode(proof) |> Result.map_err(fn _ -> "proof is not base64")?
+
+    recovered =
+        Iter.zip(sent, signature)
+        |> Iter.map(fn (a, b) -> a ^^^ b)
+        |> Iter.to_list()
+        |> Bytes.from_list()
+
+    if hash.sha256(recovered) != stored then return refuse(conn)
+
+    server_signature = hash.hmac_sha256(
+        hash.hmac_sha256(salted, String.to_bytes("Server Key")),
+        signed,
+    )
+
+    send(conn, "R", auth(12, String.to_bytes("v=${base64.encode(server_signature)}")))?
+    accept(conn)
+end
+
+// Opens a link to a fake server that asks for a password as `ask` says,
+// with `given` as the client's password; answers what the client got and
+// what the server did.
+fn against(ask: String, given: String) -> Result<(String, String), String>
+    listener = net.listen("127.0.0.1:0") |> Result.map_err(fn e -> "${e}")?
+    defer net.Listener.close(listener)
+
+    (_, port) =
+        net.split_host_port(net.Listener.address(listener)) |> Result.map_err(fn e -> "${e}")?
+
+    config = Config{
+        host:     "127.0.0.1",
+        port:     String.to_int(port)!,
+        user:     "ann",
+        password: Some(given),
+        ssl_mode: SslMode.Disable,
+    }
+
+    concurrent
+        server = Task.spawn(fn -> fake_server(listener, "pencil", ask))
+
+        client =
+            case wire.open(config)
+                Ok(link) ->
+                    wire.close(link)
+                    "opened"
+
+                Err(e) ->
+                    "${e}"
+            end
+
+        Ok((client, Task.await(server)?))
+    end
+end
+
+test "a client answers a SCRAM-SHA-256 challenge and checks the server's signature"
+    assert against("scram", "pencil") == Ok(("opened", "accepted"))
+    assert Ok((refused, "refused")) = against("scram", "wrong")
+    assert String.contains(refused, "password authentication failed (SQLSTATE 28P01)")
+end
+
+test "a client answers an MD5 challenge and a request for its password in clear"
+    assert against("md5", "pencil") == Ok(("opened", "accepted"))
+    assert Ok((_, "refused")) = against("md5", "wrong")
+    assert against("clear", "pencil") == Ok(("opened", "accepted"))
+end
+
+test "sslmode require refuses a server with no TLS, and prefer talks to it in plain"
+    url = postgres.scratch()?
+
+    required =
+        case postgres.connect(String.replace(url, "sslmode=disable", "sslmode=require"))
+            Err(sql.Error.Connection{message:}) ->
+                message
+
+            Err(e) ->
+                "${e}"
+
+            Ok(opened) ->
+                defer sql.close_quietly(opened)
+                "opened"
+        end
+
+    assert String.contains(required, "the server does not accept TLS connections")
+    db = postgres.connect(String.replace(url, "sslmode=disable", "sslmode=prefer"))?
+    defer sql.close_quietly(db)
+    assert Conn.ping(db) == Ok(Unit)
+end

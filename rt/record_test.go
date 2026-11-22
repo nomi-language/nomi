@@ -190,9 +190,8 @@ func TestEqualHash_AnEmbeddedVariantIsItsPayload(t *testing.T) {
 	if RowText(widened) != "Circle{r: 2}" {
 		t.Errorf("row = %s", RowText(widened))
 	}
-	if _, err := DebugText(widened, nil); err == nil ||
-		err.Error() != "Debug on an unrepresented receiver (Shape.Circle)" {
-		t.Errorf("Debug = %v", err)
+	if got, err := DebugText(widened, nil); err != nil || got != "Circle{r: 2}" {
+		t.Errorf("Debug = %q, %v", got, err)
 	}
 }
 

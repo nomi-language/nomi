@@ -270,7 +270,7 @@ func TestGenStructSpecFieldsBuildForEveryAdmittedArgument(t *testing.T) {
 // A stdFunc's kinds are built once and compared BY POINTER against a call site's
 // argument kinds in a different gen (stdprelude.go's header). A per-gen instance
 // in a std SIGNATURE would be a kind no call site in any gen could match, so
-// `genStructSigKind` calls sharedGenStructInstance directly and a std signature
+// the projection with no gen asks sharedGenStructInstance and a std signature
 // mentioning `Channel<Request>` stays outside the subset.
 //
 // Asserted through the nil-gen path, which is the same statement made where a

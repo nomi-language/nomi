@@ -78,17 +78,18 @@ var iterPassThrough = map[string]bool{
 	"to_set": true, "cycle": true,
 }
 
-// stdCallee is the owner and name of a call written `Owner.name(...)`.
-func stdCallee(call *ast.Call) (owner, name string) {
-	fa, ok := ungroupExpr(call.Func).(*ast.FieldAccess)
-	if !ok || fa.Field == nil {
+// stdCallee is the owner and name of the std owner function call calls,
+// by the declaration it reaches (stdFuncNamed): `Iter` and `map` for
+// `Iter.map`, written so, through an alias of `Iter` or by a selective
+// import. Std declares one `Iter` and one `Range`, so the owner's name
+// names it. Both are "" for any other call, a function of a type a
+// program imports under the name `Iter` among them.
+func (c *checker) stdCallee(call *ast.Call) (owner, name string) {
+	fn := c.fa.stdFuncNamed(call.Func)
+	if fn.Impl != "" {
 		return "", ""
 	}
-	t, ok := fa.Object.(*ast.TypeIdent)
-	if !ok || t == nil {
-		return "", ""
-	}
-	return t.Name, fa.Field.Name
+	return fn.Owner, fn.Name
 }
 
 // callArgs is call's arguments, with piped first when the call is a
@@ -108,7 +109,7 @@ func callArgs(call *ast.Call, piped ast.Node) []ast.Node {
 // Iter function that calls its callback with its source's elements, with
 // the source: a lambda, a capture or a function passed by name.
 func (c *checker) noteIterCallbacks(call *ast.Call, piped ast.Node) {
-	owner, name := stdCallee(call)
+	owner, name := c.stdCallee(call)
 	if owner != "Iter" {
 		return
 	}
@@ -261,7 +262,7 @@ func (c *checker) seedSym(sym *Symbol, ty Type, f *elemFact) {
 	if c.symRanges == nil {
 		c.symRanges = map[*Symbol]famRange{}
 	}
-	c.symRanges[sym] = famRange{f.fam, r}
+	c.symRanges[sym] = famRange{fam: f.fam, r: r}
 }
 
 // seedPattern gives the names a parameter's pattern binds their parts of
@@ -332,7 +333,7 @@ func (c *checker) elemFactOf(n ast.Node, depth int) *elemFact {
 // callElems is what the checker knows of each element of call's result,
 // with piped the value piped into it when it is a pipe's stage.
 func (c *checker) callElems(call *ast.Call, piped ast.Node, depth int) *elemFact {
-	owner, name := stdCallee(call)
+	owner, name := c.stdCallee(call)
 	args := callArgs(call, piped)
 	switch owner {
 	case "Range":

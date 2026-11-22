@@ -39,7 +39,7 @@ func TestStdlibLowersTheSameWithoutLint(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	decoded, err := decodeStdShared(shared)
+	decoded, _, err := decodeStdShared(shared)
 	if err != nil {
 		t.Fatal(err)
 	}

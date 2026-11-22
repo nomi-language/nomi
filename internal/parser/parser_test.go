@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"errors"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/token"
@@ -60,39 +59,6 @@ func TestFloatLiteral(t *testing.T) {
 	}
 	if lit.Value != 3.14 {
 		t.Errorf("expected 3.14, got %f", lit.Value)
-	}
-}
-
-func TestParseGoSelectorBindings(t *testing.T) {
-	nodes := parse(t, `gopkg "example.com/app/ffi" as ffi
-
-opaque type RawBox go ffi.Box
-
-fn echo_upper(s: String) -> String go ffi.EchoUpper
-`)
-	if len(nodes) != 3 {
-		t.Fatalf("expected 3 nodes, got %d", len(nodes))
-	}
-	pkg, ok := nodes[0].(*ast.ExternPackage)
-	if !ok {
-		t.Fatalf("expected gopkg declaration to parse as *ast.ExternPackage, got %T", nodes[0])
-	}
-	if pkg.Alias != "ffi" || pkg.ImportPath != "example.com/app/ffi" {
-		t.Fatalf("gopkg declaration: got alias=%q path=%q", pkg.Alias, pkg.ImportPath)
-	}
-	typ, ok := nodes[1].(*ast.ExternType)
-	if !ok {
-		t.Fatalf("expected Go selector type to parse as *ast.ExternType, got %T", nodes[1])
-	}
-	if typ.Name != "RawBox" || typ.ForeignAlias != "ffi" || typ.ForeignName != "Box" {
-		t.Fatalf("Go selector type: got name=%q alias=%q name=%q", typ.Name, typ.ForeignAlias, typ.ForeignName)
-	}
-	fn, ok := nodes[2].(*ast.ExternFunc)
-	if !ok {
-		t.Fatalf("expected Go selector function to parse as *ast.ExternFunc, got %T", nodes[2])
-	}
-	if fn.Name != "echo_upper" || fn.ForeignAlias != "ffi" || fn.ForeignName != "EchoUpper" {
-		t.Fatalf("Go selector function: got name=%q alias=%q name=%q", fn.Name, fn.ForeignAlias, fn.ForeignName)
 	}
 }
 
@@ -1369,73 +1335,6 @@ func TestParseOpaqueTypeWithoutPub(t *testing.T) {
 	}
 	if td.Name != "UserId" {
 		t.Errorf("expected name UserId, got %s", td.Name)
-	}
-}
-
-func TestParseOpaqueInlineGoTypeBinding(t *testing.T) {
-	nodes := parse(t, `gopkg "example.com/app/ffi" as ffi
-
-opaque type RawBox go ffi.Box`)
-	if len(nodes) != 2 {
-		t.Fatalf("expected 2 statements, got %d", len(nodes))
-	}
-	et, ok := nodes[1].(*ast.ExternType)
-	if !ok {
-		t.Fatalf("expected *ast.ExternType, got %T", nodes[1])
-	}
-	if et.Public {
-		t.Error("expected inline Go type binding to parse as private")
-	}
-	if !et.Opaque {
-		t.Error("expected inline Go type binding to carry Opaque=true")
-	}
-	if et.ForeignAlias != "ffi" || et.ForeignName != "Box" || et.Name != "RawBox" {
-		t.Fatalf("unexpected inline Go binding: %+v", et)
-	}
-}
-
-func TestParseGoPackageWithExplicitAlias(t *testing.T) {
-	nodes := parse(t, `gopkg "example.com/tagged/ffi" as ffi`)
-	if len(nodes) != 1 {
-		t.Fatalf("expected 1 statement, got %d", len(nodes))
-	}
-	pkg, ok := nodes[0].(*ast.ExternPackage)
-	if !ok {
-		t.Fatalf("expected *ast.ExternPackage, got %T", nodes[0])
-	}
-	if pkg.Alias != "ffi" || pkg.ImportPath != "example.com/tagged/ffi" {
-		t.Fatalf("unexpected gopkg declaration: %+v", pkg)
-	}
-}
-
-// Go code is reached only through `gopkg` handles and `go alias.Symbol`
-// bindings, so a raw `go { ... }` block is a parse error wherever it appears.
-func TestParseRejectsGoBlocks(t *testing.T) {
-	cases := []struct {
-		src       string
-		line, col int
-		msg       string
-	}{
-		{"go {\n  var x = 1\n}", 1, 1, "Nomi has no `go { ... }` blocks; declare a Go package with `gopkg \"import/path\" as alias` and bind its functions and types with `go alias.Symbol`"},
-		{"fn f() -> Int go\n  return 1\nend", 1, 15, "a function has no `go { ... }` body; bind a Go function with `go alias.Symbol`, where a `gopkg` declaration introduces `alias`"},
-		{"pub fn f(x: Int) -> Int\n  go { return x }", 2, 3, "a function has no `go { ... }` body; bind a Go function with `go alias.Symbol`, where a `gopkg` declaration introduces `alias`"},
-		{"type Conn go {\n  db *sql.DB\n}", 1, 11, "a type has no `go { ... }` body; bind a Go type with `opaque type Name go alias.Symbol`, where a `gopkg` declaration introduces `alias`"},
-		{"pub opaque type Conn go { db *sql.DB }", 1, 22, "a type has no `go { ... }` body; bind a Go type with `opaque type Name go alias.Symbol`, where a `gopkg` declaration introduces `alias`"},
-	}
-	for _, c := range cases {
-		_, err := Parse(lexer.Lex(c.src))
-		if err == nil {
-			t.Errorf("Parse(%q) accepted a go block", c.src)
-			continue
-		}
-		var pe ParseError
-		if !errors.As(err, &pe) {
-			t.Errorf("Parse(%q): error %T %v is not a ParseError", c.src, err, err)
-			continue
-		}
-		if pe.Line != c.line || pe.Col != c.col || pe.Message != c.msg {
-			t.Errorf("Parse(%q):\n got %d:%d %q\nwant %d:%d %q", c.src, pe.Line, pe.Col, pe.Message, c.line, c.col, c.msg)
-		}
 	}
 }
 

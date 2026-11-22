@@ -10,7 +10,7 @@ import (
 )
 
 // An edit that changes a file's interface changes what the files that
-// import it, directly or through others, may say. Recheck then checks those
+// import it, directly or through others, may say. A recheck then checks those
 // files afresh with the edited ones, parsed, declared, walked and checked
 // as a full check would, and keeps every other file's analysis as it is:
 // such a file imports none of them, so neither its declarations nor its
@@ -69,7 +69,7 @@ func implsFingerprint(nodes []ast.Node) string {
 	return b.String()
 }
 
-// recheckDependents is Recheck's answer for edits that change interfaces:
+// recheckDependents is a recheck's answer for edits that change interfaces:
 // it checks the edited files and every file that imports one of them,
 // directly or through others, afresh, and keeps the analyses of the rest
 // (checkProgramFrom). It answers false with the reason when the edits need
@@ -89,8 +89,6 @@ func (dm *DocumentManager) recheckDependents(prev *CheckedProgram, edits []Progr
 	switch {
 	case c == nil:
 		return nil, "the program was not checked"
-	case prev.externs:
-		return nil, "the project declares Go bindings"
 	case prev.unread:
 		return nil, "the program reads files of other modules"
 	case len(c.checked) != len(prev.Files)-1:

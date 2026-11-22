@@ -1,6 +1,6 @@
 // Package suggest finds the name a misspelled one most likely meant: the
 // "did you mean" a diagnostic ends with. The checker's unknown-name errors,
-// nomi.toml's keys and capability lists, and a host's capability list in
+// nomi.toml's keys and effects lists, and a host's effects list in
 // a runner that links no compiler all use it, so a name is suggested the
 // same way wherever it is misspelled.
 //

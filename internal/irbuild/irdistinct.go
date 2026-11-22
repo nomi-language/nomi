@@ -3,7 +3,7 @@ package irbuild
 // A wrapping distinct is a value the retained grammar admits, in both
 // directions: built with `ir.Make` and read with `ir.Proj`'s `ProjInner`.
 //
-// No new instruction class is needed. `irProjExpr`'s `ProjInner` arm is how a
+// No new instruction class is needed. `ProjInner` is how a
 // destructuring parameter's names are read, and `internal/vm`'s `projValue`
 // answers `ProjInner` off a distinct's record; `ir.Make` builds one.
 //
@@ -21,7 +21,7 @@ package irbuild
 // `ir.Make.Typ()` is a `*ir.Symbol` interned on the `*typeDef` POINTER, which
 // is this package's identity for one declared type and is module-distinct by
 // construction. The NAME on that symbol is display-only by `ir.Type`'s and
-// `ir.Decl`'s own rule — but a VM that builds a distinct has to put SOMETHING
+// `ir.Symbol`'s own rule — but a VM that builds a distinct has to put SOMETHING
 // in its type name, and impl dispatch keys on it. A bare name is a silent
 // wrong answer rather than a cosmetic one: every impl lookup misses. See
 // irdistinct_identity_test.go.
@@ -188,27 +188,32 @@ func irRetainedLeafKind(k kind) bool {
 // flat, which is the other legal arity; a tuple inner is not a scalar so
 // `irWrappingDistinct` has already declined the declaration.
 func (bl *irScalarBuilder) distinctMake(t *ast.Call, ti *ast.TypeIdent) (ir.Temp, kind, bool, bool) {
-	d, found := bl.g.namedType(ti.Name)
-	if !found {
+	d := bl.g.typeDeclDef(bl.g.checkedRef(ti.Line, ti.Col))
+	if d == nil {
 		return ir.NoTemp, kindInvalid, false, false
 	}
+	return bl.distinctMakeAt(t, d)
+}
+
+// distinctMakeAt is distinctMake for d, the declaration the callee names.
+func (bl *irScalarBuilder) distinctMakeAt(t *ast.Call, d *typeDef) (ir.Temp, kind, bool, bool) {
 	var at ast.Node = t
 	if bl.pipedFrom != nil && bl.g.checkedExprType(t) == nil {
 		// `5 |> Wrap()`: the call is pipe.go's splice, which the checker
 		// never saw; the pipe's own type is the construction's.
 		at = bl.pipedFrom
 	}
-	if d = bl.g.distinctInstanceAt(d, ti.Name, at); d == nil {
+	if d = bl.g.distinctInstanceAt(d, at); d == nil {
 		return ir.NoTemp, kindInvalid, false, false
 	}
-	return bl.distinctMakeOf(t, d)
+	return bl.distinctMakeOf(t, t.Args, d)
 }
 
 // distinctInstanceAt is the distinct a construction at n builds: d itself,
 // or for the declaration of a generic distinct (`Tagged`, this file's or a
 // mirror of another's), the instance the checker solved for n
 // (`Tagged<Int>`, generictype.go and foreigngeneric.go).
-func (g *gen) distinctInstanceAt(d *typeDef, name string, n ast.Node) *typeDef {
+func (g *gen) distinctInstanceAt(d *typeDef, n ast.Node) *typeDef {
 	if d.genericOf != nil {
 		return d
 	}
@@ -233,24 +238,26 @@ func (g *gen) selfDistinct() *typeDef {
 	return ds.recv.def
 }
 
-// distinctMakeOf is distinctMake for the declaration d: `self(x)` in a
-// default names it through the implementor rather than a type name.
-func (bl *irScalarBuilder) distinctMakeOf(t *ast.Call, d *typeDef) (ir.Temp, kind, bool, bool) {
+// distinctMakeOf is distinctMake at `at` over args for the declaration d:
+// `self(x)` in a default names it through the implementor rather than a
+// type name, and a refinement's `unchecked` by the type the checker gave
+// its body (uncheckedRefinement).
+func (bl *irScalarBuilder) distinctMakeOf(at ast.Node, args []ast.Node, d *typeDef) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	found := d != nil
-	if found && irCompositeDistinct(d) && namedArgNode(t.Args) == nil {
-		return bl.compositeDistinctMake(t, d)
+	if found && irCompositeDistinct(d) && namedArgNode(args) == nil {
+		return bl.compositeDistinctMake(at, args, d)
 	}
-	if !found || !irWrappingDistinct(d) || len(t.Args) != 1 {
+	if !found || !irWrappingDistinct(d) || len(args) != 1 {
 		return no()
 	}
-	src, k, pure, ok := bl.lower(t.Args[0])
+	src, k, pure, ok := bl.lower(args[0])
 	if !ok || k != d.inner {
 		// The declared inner is what the constructor takes. A mismatch
 		// declines.
 		return no()
 	}
-	m := ir.NewMakeDistinct(bl.g.irNodePos(t), bl.f.NewTemp(), bl.g.irTypeSym(d), src)
+	m := ir.NewMakeDistinct(bl.g.irNodePos(at), bl.f.NewTemp(), bl.g.irTypeSym(d), src)
 	bl.b.Append(m)
 	out := named(d)
 	bl.side(m.Dst(), irScalarSide{k: out, pureMake: pure})
@@ -262,15 +269,16 @@ func (bl *irScalarBuilder) distinctMakeOf(t *ast.Call, d *typeDef) (ir.Temp, kin
 // built at the declared inner type, wrapped by MakeDistinct. The named
 // literals `Headers{...}` and `Path[...]` reach it through attachedVariant
 // as the call of the constructor on the anonymous literal.
-func (bl *irScalarBuilder) compositeDistinctMake(t *ast.Call, d *typeDef) (ir.Temp, kind, bool, bool) {
+func (bl *irScalarBuilder) compositeDistinctMake(at ast.Node, args []ast.Node, d *typeDef) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	var inner ast.Node
 	switch {
-	case len(t.Args) == 1:
-		inner = t.Args[0]
-	case len(t.Args) >= 2 && d.inner.tag == tagTuple:
+	case len(args) == 1:
+		inner = args[0]
+	case len(args) >= 2 && d.inner.tag == tagTuple:
 		// `Pair(1, "x")`: the elements of the tuple the distinct wraps.
-		inner = &ast.TupleLit{Items: t.Args, Line: t.Line, Col: t.Col}
+		line, col := nodePos(at)
+		inner = &ast.TupleLit{Items: args, Line: line, Col: col}
 	default:
 		return no()
 	}
@@ -278,7 +286,7 @@ func (bl *irScalarBuilder) compositeDistinctMake(t *ast.Call, d *typeDef) (ir.Te
 	if !ok {
 		return no()
 	}
-	m := ir.NewMakeDistinct(bl.g.irNodePos(t), bl.f.NewTemp(), bl.g.irTypeSym(d), src)
+	m := ir.NewMakeDistinct(bl.g.irNodePos(at), bl.f.NewTemp(), bl.g.irTypeSym(d), src)
 	bl.b.Append(m)
 	out := named(d)
 	bl.side(m.Dst(), irScalarSide{k: out})
@@ -308,7 +316,7 @@ func (bl *irScalarBuilder) distinctProjection(at ast.Node, src ir.Temp, k kind, 
 // so the FIRST call for a declaration decides the name every later caller
 // sees: two sites passing two spellings would make the name depend on which
 // node the lowering built first (for `duration.Duration.as_hours`,
-// `irProjInner`'s prologue interns before the body does).
+// a distinct's pattern interns before its literal does).
 //
 // CALLED FROM THE BUILDER TOO, which is the one thing `irScalarBuilder` does
 // to the gen that is not read-only. Interning is idempotent, so a DISCARDED
@@ -326,7 +334,7 @@ func (g *gen) irTypeSym(d *typeDef) *ir.Symbol {
 // MODULE-QUALIFIED Nomi spelling, which is the one runtime values key on.
 //
 // A SYMBOL'S IDENTITY IS ITS TOKEN AND ITS NAME IS FOR READING — `ir.Type`
-// and `ir.Decl` both say so — and that stays true. But the VM has to WRITE
+// and `ir.Symbol` both say so — and that stays true. But the VM has to WRITE
 // that name into a value: a record carries its type name, impl dispatch,
 // `Hash` and `Equal` key on it, and a std distinct is stamped
 // `duration.Duration` rather than `Duration`. So the name is also the
@@ -384,6 +392,11 @@ func stdSpecTypeName(d *typeDef) (string, bool) {
 // stdStructSpecs, opaqueSpecs or stdHostSpecs, a prelude anchor, a std
 // generic struct instance), and false for any other def.
 func stdSpecOf(d *typeDef) (origin, nomi string, ok bool) {
+	if d.stdOrigin != "" {
+		// A type std declares in Nomi with no spec row, whose one def
+		// stdtypes.go built: named by its declaration's identity.
+		return d.stdOrigin, d.nomi, true
+	}
 	if i, ok := stdEnumDef(d); ok {
 		spec := stdEnumSpecs[i]
 		return spec.origin, spec.nomi, true

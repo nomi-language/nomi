@@ -1,9 +1,12 @@
 import
-    std::calendar.{Date, NaiveDateTime, Time}
+    std::calendar.{Date, DateTime, DateTimePattern, NaiveDateTime, Time}
     std::channels.{Channel, Receiver, Sender}
     std::duration.Duration
+    std::fs.{self, Dir}
+    std::fs::testing as fs_testing
     std::instant.Instant
     std::json.Json
+    std::process.{self, Command, Status}
     std::sql.{self, Conn, ConstraintKind, Dialect, Row, Sql, Value}
     std::sql::testing
     std::tasks.Task
@@ -400,11 +403,12 @@ test "an Instant is written as SQLite writes a timestamp, and either form reads 
 end
 
 test "a path that cannot be opened is a Connection error"
-    opened = case sqlite.open("/nonexistent/dir/x.db")
-        Err(sql.Error.Connection{message: _}) -> "Connection"
-        Err(e)                                -> "${e}"
-        Ok(_)                                 -> "Ok"
-    end
+    opened =
+        case sqlite.open("/nonexistent/dir/x.db")
+            Err(sql.Error.Connection{message: _}) -> "Connection"
+            Err(e)                                -> "${e}"
+            Ok(_)                                 -> "Ok"
+        end
 
     assert opened == "Connection"
 end
@@ -433,30 +437,31 @@ fn beside_a_transaction(
     opened: Channel<Unit> = Channel.buffered(1)
     finish: Channel<Unit> = Channel.buffered(1)
 
-    (held, wrote, read) = concurrent
-        holder = Task.spawn(fn ->
-            sql.transaction(db, fn tx ->
-                _ = Conn.exec(tx, Sql"INSERT INTO t VALUES (1)")?
-                _ = Sender.send(opened.sender, Unit)
-                _ = Receiver.receive(finish.receiver)
-                outcome
+    (held, wrote, read) =
+        concurrent
+            holder = Task.spawn(fn ->
+                sql.transaction(db, fn tx ->
+                    _ = Conn.exec(tx, Sql"INSERT INTO t VALUES (1)")?
+                    _ = Sender.send(opened.sender, Unit)
+                    _ = Receiver.receive(finish.receiver)
+                    outcome
+                end)
             end)
-        end)
 
-        _ = Receiver.receive(opened.receiver)
+            _ = Receiver.receive(opened.receiver)
 
-        other = Task.spawn(fn ->
-            wrote = Conn.exec(db, Sql"INSERT INTO t VALUES (2)")
-            read = Conn.query(db, Sql"SELECT n FROM t ORDER BY n")
-            (wrote, read)
-        end)
+            other = Task.spawn(fn ->
+                wrote = Conn.exec(db, Sql"INSERT INTO t VALUES (2)")
+                read = Conn.query(db, Sql"SELECT n FROM t ORDER BY n")
+                (wrote, read)
+            end)
 
-        // The other task's statements are waiting by now.
-        timer.sleep(Duration.milliseconds(50))
-        _ = Sender.send(finish.sender, Unit)
-        (wrote, read) = Task.await(other)
-        (Task.await(holder), wrote, read)
-    end
+            // The other task's statements are waiting by now.
+            timer.sleep(Duration.milliseconds(50))
+            _ = Sender.send(finish.sender, Unit)
+            (wrote, read) = Task.await(other)
+            (Task.await(holder), wrote, read)
+        end
 
     seen =
         read?
@@ -478,4 +483,274 @@ end
 test "a rolled-back transaction leaves another task's write standing"
     failed = Err(sql.Error.Database{code: "X", message: "undo"})
     assert beside_a_transaction(failed) == Ok((failed, Ok(1), [2], [2]))
+end
+
+// A statement stops when its task does: a recursive query with no end
+// runs until its task is cancelled, and the connection works afterwards.
+test "a statement stops when its task is cancelled, and the connection goes on"
+    db = sqlite.memory()?
+    defer sql.close_quietly(db)
+    started: Channel<Unit> = Channel.buffered(1)
+
+    outcome =
+        concurrent
+            endless = Task.spawn(fn ->
+                _ = Sender.send(started.sender, Unit)
+
+                Conn.query(
+                    db,
+                    Sql"WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n) SELECT count(*) AS c FROM n",
+                )
+            end)
+
+            _ = Receiver.receive(started.receiver)
+            timer.sleep(Duration.milliseconds(50))
+            Task.cancel(endless)
+            Task.outcome(endless)
+        end
+
+    assert outcome is .Cancelled
+    rows = Conn.query(db, Sql"SELECT 1 AS one")?
+    assert rows |> Iter.map(Row.values) |> Iter.to_list() == [[Value.Int(1)]]
+end
+
+fn temp_dir() -> Result<String, sql.Error>
+    fs.make_temp_dir() |> Result.map_err(fn e -> sql.Error.Connection{message: "${e}"})
+end
+
+fn file_db(dir: String) -> Result<Conn, sql.Error>
+    db = sqlite.open("${dir}/shared.db")?
+    defer on error sql.close_quietly(db)
+    _ = Conn.exec(db, Sql"CREATE TABLE IF NOT EXISTS t (n INTEGER)")?
+    Ok(db)
+end
+
+fn values_of(db: Conn, statement: sql.Statement) -> Result<List<List<Value>>, sql.Error>
+    rows = Conn.query(db, statement)?
+
+    Ok(
+        rows
+        |> Iter.map(Row.values)
+        |> Iter.to_list()
+    )
+end
+
+test "a file database waits up to 5 seconds for a lock"
+    dir = temp_dir()?
+    defer fs.remove_all_quietly(dir)
+    db = file_db(dir)?
+    defer sql.close_quietly(db)
+    assert values_of(db, Sql"PRAGMA busy_timeout")? == [[Value.Int(5000)]]
+end
+
+// Two connections to one file lock it as SQLite does: a write waits for
+// the other connection's transaction, as long as its busy timeout, and
+// sees what that transaction committed.
+test "two connections to one file take turns at its lock"
+    dir = temp_dir()?
+    defer fs.remove_all_quietly(dir)
+    first = file_db(dir)?
+    defer sql.close_quietly(first)
+    second = file_db(dir)?
+    defer sql.close_quietly(second)
+    _ = Conn.exec(second, Sql"PRAGMA busy_timeout = 50")?
+
+    tx = Conn.begin_transaction(first)?
+    _ = Conn.exec(tx, Sql"INSERT INTO t VALUES (1)")?
+    blocked = Conn.exec(second, Sql"INSERT INTO t VALUES (2)")
+    Conn.commit(tx)?
+
+    assert blocked is Err(sql.Error.Database{code: "SQLITE_BUSY"})
+    assert Conn.exec(second, Sql"INSERT INTO t VALUES (2)") == Ok(1)
+    assert ns(first, Sql"SELECT n FROM t ORDER BY n")? == [1, 2]
+end
+
+// The file layer has no shared memory, so a connection keeps its rollback
+// journal unless it holds its database's lock for itself.
+test "WAL needs the exclusive locking mode"
+    dir = temp_dir()?
+    defer fs.remove_all_quietly(dir)
+    db = file_db(dir)?
+    defer sql.close_quietly(db)
+    assert values_of(db, Sql"PRAGMA journal_mode = WAL")? == [[Value.Text("delete")]]
+    _ = Conn.exec(db, Sql"PRAGMA locking_mode = EXCLUSIVE")?
+    assert values_of(db, Sql"PRAGMA journal_mode = WAL")? == [[Value.Text("wal")]]
+    _ = Conn.exec(db, Sql"INSERT INTO t VALUES (7)")?
+    assert ns(db, Sql"SELECT n FROM t")? == [7]
+end
+
+/// What the system's sqlite3 answers for `statement` on the database in
+/// `dir`: whether it succeeded, and what it printed.
+fn system(dir: String, statement: String) -> (Bool, String)
+    process.output(Command{program: "/usr/bin/sqlite3", args: ["${dir}/shared.db", statement]})
+    |> Result.map(fn out ->
+        (Status.is_success(out.status), String.trim(Bytes.to_string_lossy(out.stdout)))
+    end)
+    |> Result.with_default((False, ""))
+end
+
+// The system's sqlite3, when there is one, reads what this driver wrote,
+// writes what it reads back, and waits for its lock: the lock bytes are
+// SQLite's own.
+test "the system's sqlite3 shares a database with the driver"
+    if not (fs.exists("/usr/bin/sqlite3") |> Result.with_default(False)) then return
+
+    dir = temp_dir()?
+    defer fs.remove_all_quietly(dir)
+    db = file_db(dir)?
+    defer sql.close_quietly(db)
+    _ = Conn.exec(db, Sql"INSERT INTO t VALUES (1)")?
+
+    assert system(dir, "SELECT n FROM t") == (True, "1")
+    assert system(dir, "INSERT INTO t VALUES (2)") == (True, "")
+    assert ns(db, Sql"SELECT n FROM t ORDER BY n")? == [1, 2]
+
+    tx = Conn.begin_transaction(db)?
+    _ = Conn.exec(tx, Sql"INSERT INTO t VALUES (3)")?
+    (wrote, _) = system(dir, "INSERT INTO t VALUES (4)")
+    Conn.rollback(tx)?
+
+    refute wrote
+    assert system(dir, "SELECT count(*) FROM t") == (True, "2")
+end
+
+// `localtime` and `utc` read the zone the machine is set to, as
+// `DateTime.local_zone` names it, at the offset each moment has there.
+// TestLibModules runs these tests under TZ=America/New_York, where the
+// winter and summer moments are 5 and 4 hours behind UTC.
+test "localtime is the zone the machine is set to"
+    db = sqlite.memory()?
+    defer sql.close_quietly(db)
+
+    // Noon UTC on 2026-01-15 and on 2026-07-15.
+    winter = 1_768_478_400
+    summer = 1_784_116_800
+
+    case DateTime.local_zone()
+        Ok(zone) ->
+            assert datetime_at(db, winter, "localtime")? == [[Value.Text(wall(winter, zone))]]
+            assert datetime_at(db, summer, "localtime")? == [[Value.Text(wall(summer, zone))]]
+
+            back = Sql"SELECT datetime(datetime(${summer}, 'unixepoch', 'localtime'), 'utc') AS t"
+            assert values_of(db, back)? == [[Value.Text("2026-07-15 12:00:00")]]
+
+        Err(_) ->
+            assert datetime_at(db, winter, "localtime") is Err(.Database{
+                message: "local time unavailable",
+            })
+    end
+end
+
+/// What `datetime(seconds, 'unixepoch', modifier)` answers.
+fn datetime_at(db: Conn, seconds: Int, modifier: String) -> Result<List<List<Value>>, sql.Error>
+    values_of(db, Sql"SELECT datetime(${seconds}, 'unixepoch', ${modifier}) AS t")
+end
+
+/// The wall clock of `zone` at `seconds` since the epoch, as SQLite writes
+/// a time.
+fn wall(seconds: Int, zone: String) -> String
+    DateTime.from_instant_in(Instant.from_seconds(seconds), zone)
+    |> Result.map(&DateTime.to_string_with(&1, DateTimePattern"yyyy-MM-dd HH:mm:ss"))
+    |> Result.with_default("")
+end
+
+/// A sandboxed file database's commit of one row, with `PRAGMA
+/// fullfsync` on when `full`: what the insert answered, and each `sync`,
+/// `sync_data` and `sync_dir` the sandbox logged, in order.
+fn commit_syncs(full: Bool) -> (Result<Int, sql.Error>, List<String>)
+    ran = fs_testing.run(fs_testing.Sandbox{}, fn -> commit_one(full))
+
+    syncs =
+        ran.log
+        |> Iter.filter(fn entry -> String.starts_with(entry, "sync"))
+        |> Iter.to_list()
+
+    (ran.value, syncs)
+end
+
+fn commit_one(full: Bool) -> Result<Int, sql.Error>
+    db = sqlite.open("s.db")?
+    defer sql.close_quietly(db)
+
+    if full then
+        _ = Conn.exec(db, Sql"PRAGMA fullfsync = ON")?
+    end
+
+    _ = Conn.exec(db, Sql"CREATE TABLE t (n INTEGER)")?
+    Conn.exec(db, Sql"INSERT INTO t VALUES (1)")
+end
+
+// A commit syncs as SQLite's Unix layer does: an ordinary sync is
+// `File.sync_data`, which on macOS hands the data to the drive, and only
+// under `PRAGMA fullfsync` is it `File.sync`, which waits for the drive's
+// own cache. Each of the two commits syncs its new journal, the journal's
+// directory, the journal's header and the database.
+test "a commit makes data syncs, and full ones under PRAGMA fullfsync"
+    commit =
+        fn sync: String ->
+            [
+                "${sync} /work/s.db-journal",
+                "sync_dir /work",
+                "${sync} /work/s.db-journal",
+                "${sync} /work/s.db",
+            ]
+        end
+
+    assert commit_syncs(False) == (Ok(1), commit("sync_data") + commit("sync_data"))
+    assert commit_syncs(True) == (Ok(1), commit("sync") + commit("sync"))
+end
+
+/// The names of the entries of `d`, sorted.
+fn names(d: Dir) -> Result<List<String>, sql.Error>
+    Dir.list(d, ".")
+    |> Result.map(fn entries -> entries |> Iter.map(fn e -> e.name) |> Iter.to_list())
+    |> Result.map_err(fn e -> sql.Error.Connection{message: "${e}"})
+end
+
+// A database opened in a Dir keeps its file and its journal under it, and
+// its temporary files in the temporary Dir, which a close leaves empty; a
+// Dir over a sandbox keeps all of it in memory.
+test "open_in keeps a database's files under the Dirs it is handed"
+    data = fs_testing.dir(fs_testing.Sandbox{})
+    defer Dir.close(data)
+    temp = fs_testing.dir(fs_testing.Sandbox{cwd: "/scratch"})
+    defer Dir.close(temp)
+
+    db = sqlite.open_in(data, "app.db", temp: Some(temp))?
+    defer sql.close_quietly(db)
+    _ = Conn.exec(db, Sql"CREATE TABLE t (n INTEGER)")?
+    _ = Conn.exec(db, Sql"INSERT INTO t VALUES (1)")?
+    // A temporary table bigger than its cache spills to a temporary file.
+    _ = Conn.exec(db, Sql"PRAGMA temp_store = FILE")?
+    _ = Conn.exec(db, Sql"PRAGMA temp.cache_size = 2")?
+
+    _ = Conn.exec(
+        db,
+        Sql"CREATE TEMP TABLE scratch AS WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM c WHERE x < 2000) SELECT x, zeroblob(100) AS b FROM c",
+    )?
+
+    spilled = names(temp)?
+    Conn.close(db)?
+
+    assert Iter.count(spilled) == 1
+    assert names(temp)? == []
+    assert names(data)? == ["app.db"]
+
+    again = sqlite.open_in(data, "app.db")?
+    defer sql.close_quietly(again)
+    assert ns(again, Sql"SELECT n FROM t")? == [1]
+end
+
+test "a name that leads outside the Dir does not open"
+    data = fs_testing.dir(fs_testing.Sandbox{})
+    defer Dir.close(data)
+
+    opened =
+        case sqlite.open_in(data, "../outside.db")
+            Err(sql.Error.Connection{message: _}) -> "Connection"
+            Err(e)                                -> "${e}"
+            Ok(_)                                 -> "Ok"
+        end
+
+    assert opened == "Connection"
 end

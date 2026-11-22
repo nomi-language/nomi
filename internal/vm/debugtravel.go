@@ -18,8 +18,8 @@ package vm
 // recorded in the Debugger's log, in order: its name, the step it happened
 // in, and its result, a value or a fault. That is every host adapter and
 // intrinsic except the ones that compute their answer from their operands
-// (pureCrossing), the ones over the machine's own state (`Context.value`,
-// `io.capture`, which call back into Nomi, and an `io.read_line` that an
+// (pureCrossing), the ones over the machine's own state (`io.capture`,
+// which calls back into Nomi, and an `io.read_line` that an
 // `io.capture` or `io.replay` answers from its own input), and output (`io.print`,
 // `io.write`, `io.inspect`, `dbg`), which is recorded only so a replay can
 // check it makes the same call, and runs again against a writer that drops
@@ -482,7 +482,6 @@ const (
 // liveCrossings are the intrinsics over the machine's own state that a
 // replay runs again, beside the pure ones (pureCrossing).
 var liveCrossings = map[string]bool{
-	"Context.with_value": true, "Context.value": true,
 	captureKey: true, replayKey: true,
 	// `std::fs::testing.run`'s sandbox lives in the machine: a replay builds it
 	// again, and the file operations inside run against it again
@@ -490,6 +489,9 @@ var liveCrossings = map[string]bool{
 	// too, and its file operations are answered from the recording.
 	sandboxKey: true, "fs/host.new_sandbox": true, "fs/host.sandbox_fail": true,
 	"fs/host.sandbox_files": true, "fs/host.sandbox_log": true, "fs/host.sandbox_open": true,
+	// The file system a frame reaches is the frame's own, which the replay
+	// builds again: the crossings handed it decide for themselves.
+	"fs/host.here": true,
 	// `std::process::testing.run`'s body runs again, and the starts inside it
 	// are answered from the recording, as every start is.
 	processFakeKey: true,
@@ -517,13 +519,19 @@ var outputCrossings = map[string]bool{"io.print": true, "io.write": true, "io.in
 // fileCrossingKind is how a replay treats a std/fs crossing, or a stream
 // crossing whose first operand is a handle (not a standard stream), made on
 // fr with operands args: it runs again when the program holds what it acts
-// on (a sandbox `std::fs::testing.run` installed, which the replay builds again,
-// or a reader over the program's own data), and is otherwise answered from
-// the recording, so stepping back never reads a file whose contents may have
-// changed or writes one twice. ok is false for every other crossing.
+// on (a sandbox `std::fs::testing.run` installed or a `Dir` over one holds,
+// which the replay builds again, or a reader over the program's own data),
+// and is otherwise answered from the recording, so stepping back never reads
+// a file whose contents may have changed or writes one twice. ok is false
+// for every other crossing.
 func fileCrossingKind(fr *rt.Frame, name string, args []any) (kind crossingKind, ok bool) {
 	held := fr.FilesHeld()
 	if strings.HasPrefix(name, "fs/host.") || strings.HasPrefix(name, "io.File.") || name == "io.file_read" {
+		if len(args) > 0 {
+			if files, isFiles := args[0].(rt.FileSystem); isFiles && files.Held() {
+				held = true
+			}
+		}
 		if held {
 			return crossLive, true
 		}

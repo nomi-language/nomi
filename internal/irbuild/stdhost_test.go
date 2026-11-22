@@ -103,10 +103,10 @@ func TestStdHostDefsAreDistinctAndPackageNeutral(t *testing.T) {
 // TestStdHostKindLookupsAgree checks the channels answer the same kind, and
 // which channels a row HAS.
 //
-// A type reaches this builder three ways and each has its own lookup: an
-// ANNOTATION (`fn f(b: Byte)`) through stdHostNamed, an INFERRED type
-// (`fn b -> ...`) through stdHostKindOfPrimitive, and an rt SIGNATURE through
-// stdHostKindOfGoType. Lookups that must agree is the shape a fourth
+// A type reaches this builder two ways and each has its own lookup: a type
+// the checker recorded, for an annotation (`fn f(b: Byte)`) or an inferred
+// position (`fn b -> ...`), through stdHostKindOfPrimitive, and an rt
+// SIGNATURE through stdHostKindOfGoType. Lookups that must agree is the shape a fourth
 // silently-different answer hides in — `lambda_test.go` records exactly that
 // hazard for Decimal ("`d: Decimal` and `fn d ->` over one must not be two rows").
 // Pointer equality, because that is what stdSignatureMatches compares.

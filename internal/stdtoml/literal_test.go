@@ -114,7 +114,7 @@ func TestCheckReadsTheTextAsToml(t *testing.T) {
 func TestBuildWritesSlotsForWhereTheyStand(t *testing.T) {
 	statics := []string{"", " = ", "\n[t.", "]\nx = [", ", ", "]"}
 	slots := []string{`"a b"`, `"v"`, "42", "1", `"two"`}
-	got := FFIBuild(statics, slots)
+	got := HostBuild(statics, slots)
 	want := "\"a b\" = \"v\"\n[t.\"42\"]\nx = [1, \"two\"]"
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)
@@ -127,7 +127,7 @@ func TestBuildWritesSlotsForWhereTheyStand(t *testing.T) {
 
 func TestBuildQuotesAKeyThatIsNotOneString(t *testing.T) {
 	for _, v := range []string{`"a".b`, `"a" = 1`, "1.5", `"a"` + "\n" + `"b"`, `"""x"""`, `"x\"`} {
-		got := FFIBuild([]string{"", " = 1"}, []string{v})
+		got := HostBuild([]string{"", " = 1"}, []string{v})
 		var m map[string]any
 		if _, err := toml.Decode(got, &m); err != nil {
 			t.Errorf("%q: built %q, not TOML: %v", v, got, err)
@@ -142,7 +142,7 @@ func TestBuildQuotesAKeyThatIsNotOneString(t *testing.T) {
 func TestQuoteRoundTrips(t *testing.T) {
 	for _, s := range []string{"", "plain", `x"` + "\nadmin = true", `back\slash`, "tab\there", "\x00\x01\x1f\x7f", "é ü 字 🎉", "\b\f\r"} {
 		var m map[string]string
-		if _, err := toml.Decode("k = "+FFIQuote(s), &m); err != nil {
+		if _, err := toml.Decode("k = "+HostQuote(s), &m); err != nil {
 			t.Errorf("%q: %v", s, err)
 			continue
 		}
@@ -155,7 +155,7 @@ func TestQuoteRoundTrips(t *testing.T) {
 func TestFloatReadsBackAsAFloat(t *testing.T) {
 	for _, f := range []float64{0, 1, -2.5, 1e21, 1e-7, 123456789, math.MaxFloat64, math.SmallestNonzeroFloat64} {
 		var m map[string]any
-		text := FFIFloat(f)
+		text := HostFloat(f)
 		if _, err := toml.Decode("k = "+text, &m); err != nil {
 			t.Errorf("%v as %q: %v", f, text, err)
 			continue
@@ -165,7 +165,7 @@ func TestFloatReadsBackAsAFloat(t *testing.T) {
 		}
 	}
 	for f, want := range map[float64]string{math.Inf(1): "inf", math.Inf(-1): "-inf", math.NaN(): "nan"} {
-		if got := FFIFloat(f); got != want {
+		if got := HostFloat(f); got != want {
 			t.Errorf("%v: %q, want %q", f, got, want)
 		}
 	}

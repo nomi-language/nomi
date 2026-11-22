@@ -28,10 +28,12 @@ import (
 // layout (rt.Keys.hashSlot), so the relabelled value reads, compares and
 // hashes as one built at the wider type.
 
-// relabels reports whether a value of kind have is, unchanged, a value of
-// kind want. A generic struct instance an element erases into its interface
-// is noted erased as an erasure of that element is (irErases).
-func (bl *irScalarBuilder) relabels(have, want kind) (relabel bool) {
+// relabels reports whether a value of kind have, of checker type ht or
+// nil, is, unchanged, a value of kind want. A generic struct instance an
+// element erases into its interface is noted erased as an erasure of that
+// element is (irErases), at the element's checker type, which ht's parts
+// give (partCheckerType).
+func (bl *irScalarBuilder) relabels(have, want kind, ht analysis.Type) (relabel bool) {
 	if have == want {
 		return true
 	}
@@ -42,10 +44,10 @@ func (bl *irScalarBuilder) relabels(have, want kind) (relabel bool) {
 	}
 	if irConjKind(want) {
 		// A value entering a conjunction unboxed.
-		return bl.g.irErases(want, have, nil) && bl.g.irBoxPlanFor(want, have, nil, nil) == nil
+		return bl.g.irErases(want, have, ht) && bl.g.irBoxPlanFor(want, have, ht, nil) == nil
 	}
 	if irExistentialKind(want) {
-		return bl.erasesUnboxed(want, have)
+		return bl.erasesUnboxed(want, have, ht)
 	}
 	if have.tag != want.tag {
 		return false
@@ -58,7 +60,7 @@ func (bl *irScalarBuilder) relabels(have, want kind) (relabel bool) {
 			return false
 		}
 		for i := range have.comp.parts {
-			if !bl.relabels(have.comp.parts[i], want.comp.parts[i]) {
+			if !bl.relabels(have.comp.parts[i], want.comp.parts[i], partCheckerType(ht, have, i)) {
 				return false
 			}
 		}
@@ -73,22 +75,22 @@ func (bl *irScalarBuilder) relabels(have, want kind) (relabel bool) {
 		}
 		for i := range hp {
 			// A call through want passes want's arguments to have's body.
-			if !bl.relabels(wp[i], hp[i]) {
+			if !bl.relabels(wp[i], hp[i], nil) {
 				return false
 			}
 		}
-		return bl.relabels(funcResult(have), funcResult(want))
+		return bl.relabels(funcResult(have), funcResult(want), nil)
 	case tagNamed:
 	default:
 		return false
 	}
 	if he, ok := setElem(have); ok {
 		we, wok := setElem(want)
-		return wok && bl.relabels(he, we)
+		return wok && bl.relabels(he, we, partCheckerType(ht, have, 0))
 	}
 	if he, ok := vectorElem(have); ok {
 		we, wok := vectorElem(want)
-		return wok && bl.relabels(he, we)
+		return wok && bl.relabels(he, we, partCheckerType(ht, have, 0))
 	}
 	hd, wd := have.def, want.def
 	if hd == nil || wd == nil || hd.preludeOf == nil || wd.preludeOf == nil || hd.preludeOf.spec != wd.preludeOf.spec ||
@@ -96,7 +98,7 @@ func (bl *irScalarBuilder) relabels(have, want kind) (relabel bool) {
 		return false
 	}
 	for i := range hd.preludeArgs {
-		if !bl.relabels(hd.preludeArgs[i], wd.preludeArgs[i]) {
+		if !bl.relabels(hd.preludeArgs[i], wd.preludeArgs[i], partCheckerType(ht, have, i)) {
 			return false
 		}
 	}
@@ -113,14 +115,15 @@ func (bl *irScalarBuilder) relabels(have, want kind) (relabel bool) {
 // work and the kinds cannot relabel: the builder declines rather than
 // rebuild a value the hover says costs nothing.
 func (bl *irScalarBuilder) relabelsAt(at ast.Node, have, want kind) (relabel, ok bool) {
-	rec := bl.g.conversionAt(at)
+	rec := bl.conversionAt(at)
+	ht := bl.g.valueCheckerType(at, have)
 	if rec == nil || rec.Cost == analysis.ConversionPerInstance || bl.g.project(rec.From) != have || bl.g.project(rec.To) != want {
-		return bl.relabels(have, want), true
+		return bl.relabels(have, want, ht), true
 	}
 	switch {
 	case rec.Cost == analysis.ConversionRebuilds:
 		return false, true
-	case !bl.relabels(have, want):
+	case !bl.relabels(have, want, bl.g.checkerTypeArg(rec.From)):
 		bl.g.dc.note("a " + have.nomi() + " the checker says converts to " + want.nomi() + " with no work, which its kinds cannot relabel")
 		return false, false
 	}

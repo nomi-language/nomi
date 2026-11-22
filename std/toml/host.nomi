@@ -1,6 +1,6 @@
 //# The Go-backed half of std::toml: placing a `Toml"..."` literal's slots,
-//# reading its text as TOML, and writing its slots' values
-//# (internal/stdtoml). It is internal; a program imports std::toml.
+//# reading its text as TOML, writing its slots' values, and reading a TOML
+//# document (internal/stdtoml). It is internal; a program imports std::toml.
 
 import
     float.Float
@@ -23,3 +23,12 @@ pub host fn quote(text: String) -> String
 
 /// `value` as a TOML float.
 pub host fn float(value: Float) -> String
+
+/// `text` read as a TOML document. The offset is -1 when it is TOML, and
+/// the list holds the document's values in document order: each value is
+/// its kind and then its text, or for an array or a table the count of its
+/// items or entries, which follow it, each table entry a key and then its
+/// value. Otherwise the list is empty, and the offset (code points from 0),
+/// the line and column (from 1) and the message say where reading stopped
+/// and why.
+pub host fn decode(text: String) -> (List<String>, Int, Int, Int, String)

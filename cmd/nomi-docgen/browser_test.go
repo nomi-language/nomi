@@ -8,7 +8,7 @@ import (
 	"github.com/nomi-language/nomi/std"
 )
 
-// A prompt that reaches a capability the browser lacks is shown as code the
+// A prompt that reaches an effect the browser lacks is shown as code the
 // page does not run, never as a live editor: the browser build answers a
 // listen or a dial with "a WebAssembly program in a browser has no sockets",
 // so such an editor fails for every reader. The classification is the

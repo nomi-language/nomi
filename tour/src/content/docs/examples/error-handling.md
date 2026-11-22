@@ -91,10 +91,11 @@ test "a failure the caller handles is an Err"
 end
 
 test "a broken promise traps"
-    outcome = concurrent
-        task = Task.spawn(fn -> error_handling.parse_trusted("a"))
-        Task.outcome(task)
-    end
+    outcome =
+        concurrent
+            task = Task.spawn(fn -> error_handling.parse_trusted("a"))
+            Task.outcome(task)
+        end
 
     assert .Failed(_) = outcome
 end
@@ -116,10 +117,11 @@ end
 test "a resource is released when the work traps"
     reader = Reader.from_text("1\nx\n3\n")
 
-    outcome = concurrent
-        task = Task.spawn(fn -> error_handling.sum_trusted_lines(reader))
-        Task.outcome(task)
-    end
+    outcome =
+        concurrent
+            task = Task.spawn(fn -> error_handling.sum_trusted_lines(reader))
+            Task.outcome(task)
+        end
 
     assert .Failed(_) = outcome
     assert is_closed(reader)

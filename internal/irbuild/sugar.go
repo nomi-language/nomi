@@ -44,14 +44,19 @@ import (
 //
 // # A destructuring parameter
 //
-// One value, several names. The value arrives in one parameter and each name
-// the pattern introduces is read out of it in the function's prologue
-// (funcDecl, through destructure()). The pattern is irrefutable: the checker
-// rejects a refutable one with a "use a `case` in the body" diagnostic, so
-// there is no mismatch branch, and destructureEnum's single-variant guard is
-// the enforceable half of that claim.
+// One value, several names. The value arrives in one parameter and the
+// names its pattern introduces are bound from it before the body, by the
+// pattern test every position uses (irScalarBuild, bindPattern). The
+// checker rejects a refutable pattern with a "use a `case` in the body"
+// diagnostic, so the test's failure edge is a NoMatch no value reaches.
 
-// paramKind is a parameter's kind, resolved without reporting a refusal.
+// paramKind is a parameter's kind, resolved without reporting a refusal:
+// its annotation's, the type the checker recorded for its pattern, or for
+// a parameter written with neither the type the checker gave it on its
+// symbol (paramSymbolType): a lambda's from the function type its position
+// expects or from the parameter at the same place in another element of
+// its collection literal, any parameter's from its default. kindInvalid
+// where there is none.
 //
 // signature() runs before any body, for every declaration in the module
 // including ones no call reaches, so it must not blame a position — funcDecl
@@ -63,14 +68,7 @@ func (g *gen) paramKind(p ast.Param) kind {
 		return g.typeOf(p.TypeAnnotation)
 	}
 	if p.Destructure == nil {
-		// No annotation and no pattern: a parameter written `limit = 10`
-		// has the type the checker gave it from its default, on its
-		// symbol (inferredParamKind); any other has none.
-		if p.Default != nil {
-			_, k := g.inferredParamKind(p)
-			return k
-		}
-		return kindInvalid
+		return g.project(paramSymbolType(g.srcFA(), p))
 	}
 	// The pattern matches the whole parameter, so its kind is the one the
 	// checker recorded for the pattern: the type its head names (the

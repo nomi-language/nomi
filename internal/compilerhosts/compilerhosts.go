@@ -39,13 +39,14 @@ var (
 )
 
 // hosts are the keys Table answers, each with whether a call to it is an
-// outside call (internal/vm's "OUTSIDE CALLS"). `check`, `check_project`
-// and `hover` read the imported files of the project under the root from
-// disk, `run` and `run_file` run a nested program, whose own reach is not
-// the caller's walk's to see, and `format` reads only its operand.
+// effect, one an effects list names (internal/vm's "EFFECTS"). `check`,
+// `check_project` and `hover` read the imported files of the project under
+// the root from disk, `run` and `run_file` run a nested program, whose own
+// effects are not the caller's walk's to see, and `format` lays out only
+// the text it is given, so it is pure and no list names it.
 var hosts = []struct {
-	name    string
-	outside bool
+	name   string
+	effect bool
 }{
 	{"compiler.check", true},
 	{"compiler.check_project", true},
@@ -65,12 +66,12 @@ func Names() []string {
 	return out
 }
 
-// Outside reports whether name is a key Table answers, and whether a call to
-// it is an outside call. All of them are std/compiler's.
-func Outside(name string) (isOutside, known bool) {
+// Effect reports whether name is a key Table answers, and whether a call to
+// it is an effect an effects list names. All of them are std/compiler's.
+func Effect(name string) (effect, known bool) {
 	for _, h := range hosts {
 		if h.name == name {
-			return h.outside, true
+			return h.effect, true
 		}
 	}
 	return false, false

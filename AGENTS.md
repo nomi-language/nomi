@@ -13,7 +13,7 @@ The canonical references:
 | [`docs/spec.md`](docs/spec.md) | The spec: what the language does. A feature there without a `Status: not yet implemented` callout works. |
 | [`docs/style.md`](docs/style.md) | How to write Nomi well (idiom, not semantics). |
 | [`docs/cheatsheet.md`](docs/cheatsheet.md) | The rules most often written wrong, with checked examples: the short form for a reader or a model. |
-| [`docs/tooling.md`](docs/tooling.md) | The `nomi` command and its flags, `nomi.toml`, modules and dependencies, the test runner, `nomi fmt`'s layout, builds, Go bindings, environment variables, editors and the debugger. |
+| [`docs/tooling.md`](docs/tooling.md) | The `nomi` command and its flags, `nomi.toml`, modules and dependencies, the test runner, `nomi fmt`'s layout, builds, the Go toolchain, environment variables, editors and the debugger. |
 | Package docs (`doc.go`) | How the implementation is built and why: each package's doc comment holds its design, the invariants it shares with other packages, and pointers to the harnesses that hold it. Read it (`go doc ./internal/<pkg>`, or the file) before working in a package. |
 | [`docs/feature-status.md`](docs/feature-status.md) | What is not built yet: aspirational spec sections, gaps in shipped features, tooling capabilities, known defects. |
 | [`docs/roadmap.md`](docs/roadmap.md) | Open big-ticket work and its order. Done items leave it. |
@@ -37,12 +37,11 @@ The repository root is the compiler's Go module,
 |---|---|
 | `cmd/` | Binaries: `nomi` (the CLI), `nomi-lsp`, `nomi-vm` (the VM binary: what `nomi build` appends a program to, and what runs a `.nomic` file), `nomi-vm-reactor` (the wasip1 reactor a program with an `export fn` is appended to; with none appended it loads a `.nomic` through `nomi_load`), `nomi-wasm` (the browser build), `nomi-docgen` (stdlib reference). |
 | `vmhost/` | The public embedding API. |
-| `vmrunner/` | What `nomi-vm` and a built executable run. Generated FFI runners import it. |
-| `hostadapt/` | Support package that generated FFI wrappers import. |
-| `internal/` | Everything else. Syntax: `lexer`, `parser`, `ast`, `token`, `strlit`. `analysis` (resolution and the type checker), `frontend` (the whole front end as one call), `dap` (`nomi dap`), `mcp` (`nomi mcp`, the compiler as Model Context Protocol tools), `irbuild` (IR builder), `ir` (IR, lint, image encoding), `vm` (bytecode VM), `lsp`, `format`, `ffirun` (Go FFI wrapper and runner builds), `gotoolchain` (the `go` builds run, and the managed toolchain), `modcache` and `modfetch` (dependencies), `artifactcache` (what the compiler builds once and reads back: the std bundle), `std*` (Go-backed stdlib adapters), `websocket` (the WebSocket protocol under std/websocket), `mf2` (MessageFormat 2) and `catalog` (phrase catalogs), and the tooling behind them. |
+| `vmrunner/` | What `nomi-vm` and a built executable run. An embedder runs compiled programs with it. |
+| `hostadapt/` | Support package for host tables: std's generated adapters and an embedder's own functions. |
+| `internal/` | Everything else. Syntax: `lexer`, `parser`, `ast`, `token`, `strlit`. `analysis` (resolution and the type checker), `frontend` (the whole front end as one call), `dap` (`nomi dap`), `mcp` (`nomi mcp`, the compiler as Model Context Protocol tools), `irbuild` (IR builder), `ir` (IR, lint, image encoding), `vm` (bytecode VM), `lsp`, `format`, `runners` (finding, downloading, building and caching the runners `nomi build` appends to), `modcache` and `modfetch` (dependencies), `artifactcache` (what the compiler builds once and reads back: the std bundle), `std*` (Go-backed stdlib adapters), `websocket` (the WebSocket protocol under std/websocket), `mf2` (MessageFormat 2) and `catalog` (phrase catalogs), and the tooling behind them. |
 | `std/` | The standard library's `.nomi` sources, embedded into the binaries. A module that helps test another is nested in that module's directory: `std/fs/testing.nomi` is `std::fs::testing`. |
-| `lib/` | First-party Nomi modules outside std, each its own nested Go module with its own `go.mod` and `nomi.toml`: `lib/sql/sqlite` (the SQLite driver), `lib/sql/postgres` (the Postgres driver), `lib/sql/migrate` (migrations), `lib/sql/sqlkit` (checked SQL), `lib/sql/examples/shop`, `lib/markdown` (Markdown to std/html's `Html`, over goldmark), `lib/image` (decoding, resizing and encoding JPEG, PNG and WebP, over golang.org/x/image), `lib/password_hashers` (Argon2id and bcrypt for std/passwords, over golang.org/x/crypto), `lib/jobs/postgres` (std/jobs's queue in a Postgres table), `lib/jobs/examples/notify`, `lib/storage/s3` (std/storage's backend for S3-protocol servers), `lib/storage/minio` (its tests against a MinIO server). The compiler's module neither contains nor requires them. |
-| `librunners/` | A nested Go module requiring the compiler and the `lib/` modules with `go` bindings by directory, holding the main packages of the prebuilt `nomi-lib` (their FFI wrapper) and `nomi-vm-lib` (their runner) a release ships in its lib archives. `go run ./internal/ffirun/libgen` generates them; rerun it after changing a lib/ module's `go` bindings or the FFI wrapper template (`TestLibModules` fails until you do). |
+| `lib/` | First-party Nomi modules outside std, each with its own `nomi.toml` and a `go.mod` that makes it a module of its own to Go's module proxy and leaves it out of the compiler module's zip (internal/modfetch package doc, "go.mod"): `lib/sql/sqlite` (the SQLite driver: SQLite compiled to WebAssembly in the module, run by std::wasm, its file layer in Nomi over std::fs), `lib/sql/postgres` (the Postgres driver, in Nomi over std::net and std::tls), `lib/sql/migrate` (migrations), `lib/sql/sqlkit` (checked SQL), `lib/sql/examples/shop`, `lib/markdown` (Markdown to std/html's `Html`, in Nomi), `lib/image` (decoding, resizing and encoding JPEG, PNG and WebP: C codecs compiled to WebAssembly in the module, run by std::wasm), `lib/jobs/postgres` (std/jobs's queue in a Postgres table), `lib/jobs/examples/notify`, `lib/storage/s3` (std/storage's backend for S3-protocol servers), `lib/storage/minio` (its tests against a MinIO server). The compiler's module neither contains nor requires them. |
 | `rt/` | The runtime library, `github.com/nomi-language/nomi/rt`. The VM runs over it and built executables link it. It may import only the standard library and `github.com/rivo/uniseg` (`TestRuntimeImportsOnlyItsAllowlist`). |
 | `docs/` | The spec, style guide, cheat sheet, tooling reference, feature status, roadmap and install guide. |
 | `tour/` | The Astro Starlight site at nomi-lang.org: the tour and the generated stdlib reference. |
@@ -55,13 +54,13 @@ The repository root is the compiler's Go module,
 | `editors/nvim/` | Neovim 0.11+ plugin: filetype, LSP config, generated queries, test runner, neotest adapter, nvim-dap adapter. |
 | `editors/vscode/` | VS Code extension (TypeScript): language configuration, a TextMate grammar derived from the bat syntax, the `nomi-lsp` client, run and test commands, the `nomi` debugger. |
 | `editors/bat/` | `bat`/syntect syntax definition. |
-| `scripts/` | Tour wasm build, release, grammar publish, full check, publish to `main`, and editor sync scripts. |
+| `scripts/` | Tour wasm build, release, grammar publish, full check, publish to `main`, the js/wasm test runner, the tree-sitter wrapper, git hooks, and editor sync scripts. |
 
 ## Architecture in brief
 
 Every way of running Nomi uses the same pipeline:
 
-```
+```text
 source → front end (parse, analyze, type-check) → internal/irbuild → IR
        → internal/vm (compiles each ir.Func to bytecode on first call) over rt values
 ```
@@ -106,7 +105,7 @@ the same in the background. Details:
   decoded from artifacts the binary embeds or caches. A
   `host fn` is a VM intrinsic or an
   adapter generated from `internal/stdlibbindings`. `lib/` holds first-party
-  modules that need third-party Go code. Details:
+  modules outside std. Details:
   [stdlib](std/shared.go),
   [the std bundle](internal/irbuild/doc.go),
   [the stdlib from its interfaces](std/shared.go),
@@ -117,6 +116,10 @@ the same in the background. Details:
   [processes](internal/stdprocess/doc.go),
   [HTTP, TLS and TCP](internal/stdhttp/doc.go) (`std/http`,
   `std/tls` and `std/net` over `internal/stdhttp`),
+  [WebAssembly](internal/stdwasm/doc.go) (`std/wasm`, modules run by
+  wazero, their machine code kept in the artifact cache, and in a js
+  build by the host's own engine; `scripts/test-js.sh` runs a package's
+  tests built for js under Node),
   [logging and actors](std/doc.go)
   (`std/log`, `std/log/testing` and `std/actors`, written in Nomi alone).
 - **Locale data and collation.** CLDR data from `internal/cldrgen` in
@@ -124,31 +127,38 @@ the same in the background. Details:
   `internal/collation` is a UCA collator over it. Details:
   [locale data](internal/cldrgen/doc.go),
   [collation](internal/collation/doc.go).
-- **Embedding, Go FFI and modules.** `vmhost` is the public Go API that the
-  CLI, REPL, tour wasm and FFI wrapper use. `internal/ffirun` builds a cached
-  Go wrapper for `go` bindings; `internal/modcache` and `internal/modfetch`
-  find and fetch dependencies with no `go` command. Details:
+- **Embedding and modules.** `vmhost` is the public Go API that the CLI,
+  REPL and tour wasm use, and through which a Go program hosts Nomi and
+  answers its `host fn` declarations from host tables. Nomi source binds
+  no Go code. `internal/modcache` and `internal/modfetch` find the
+  dependencies each `nomi.toml` names and fetch and lock them in
+  `nomi.lock`, with no `go` command. Details:
   [embedding](vmhost/doc.go),
-  [Go FFI](internal/ffirun/doc.go),
   [modules](internal/modcache/doc.go).
 - **`nomi build` and the REPL.** `nomi build` appends a pruned IR image to
   `nomi-vm` or the wasip1 reactor, or writes a browser folder or a `.nomic`.
-  Each runner has a variant built with the `nomi_nonet` tag
-  (`nomi-vm-nonet`), with no net/http, crypto/tls or net, which a program
-  that reaches no network crossing is appended to; `go generate
-  ./internal/stdlibadapters` writes the split. The same walk holds a
-  program to the outside calls nomi.toml's `[capabilities]` lists and an
-  embedding host's `vmhost.WithCapabilities` allow, in `check`, `run`,
+  `internal/runners` finds the runner beside `nomi` or in a release, or
+  builds it from the compiler's source, and caches it. A release `nomi`
+  never builds one: its release ships every runner, std/compiler's
+  in an archive of its own per target.
+  Each runner has a lean variant (`nomi-vm-nonet`), built with every
+  optional family's tag (`nomi_nonet`, `nomi_nowasm`), with no net/http,
+  crypto/tls, net or wazero, which a program that reaches no family's
+  crossing is appended to; `go generate ./internal/stdlibadapters` writes
+  the split. No wasip1 runner has WebAssembly modules. The same walk holds a
+  program to the effects nomi.toml's `[effects]` lists and an
+  embedding host's `vmhost.WithEffects` allow, in `check`, `run`,
   `test`, `build` and every `vmhost` load, run and call (vmhost's
-  capability.go). The REPL links each input into one live VM. Details:
+  effects.go). The REPL links each input into one live VM. Details:
   [`nomi build`](vmrunner/doc.go),
+  [runners](internal/runners/doc.go),
   [REPL](cmd/nomi/doc.go).
 
 ## Build
 
 From the repository root:
 
-```
+```sh
 go build -o nomi ./cmd/nomi   # local CLI at ./nomi (gitignored)
 go install ./cmd/nomi         # `nomi` on PATH
 go install ./cmd/nomi-lsp     # the language server editors launch
@@ -190,7 +200,7 @@ Details: [the std bundle](internal/irbuild/doc.go).
 
 ## Test
 
-```
+```sh
 go test ./... -count=1         # everything, rt included
 go test ./rt/... -count=1      # the runtime library on its own
 make test                      # stdlib tests, corpus, then go test
@@ -203,9 +213,9 @@ and `TestTestCommand_VMStdlib` run `nomi test tests` and `nomi test std` and
 require no failed or blocked case, and as many passing cases as
 `corpus.expect` and `stdlib.expect` declare. A case is a test, or each row of
 the `subtests` tables a test runs (`rt.CountCases`), so a test of nine rows
-counts nine. The modules under `lib/` are Go modules of their own, which root
-`go test ./...` and `go vet ./...` skip; `TestLibModules` (`cmd/nomi`) tests
-them.
+counts nine. The modules under `lib/` hold no Go, and each has a go.mod of
+its own, so root `go test ./...` never reaches them; `TestLibModules`
+(`cmd/nomi`) runs their Nomi tests.
 
 **Harnesses.** Fuzzers and tests hold the implementation to properties.
 Each harness's doc comment, in the file named here, gives its inputs, its
@@ -220,8 +230,12 @@ corpus by default and every input under the variable
 - A program that lowers runs, the same twice (the second with every update
   copying) and as its built image:
   `FuzzLoweredProgramsRun`, `knownRunGaps` (`vmhost/run_fuzz_test.go`).
+  A generated function of many parameters, literals and locals, looping by
+  tail calls, prints what its generator computed, on those machines and a
+  debug one: `TestLargeFunctionsRunAsWritten`
+  (`vmhost/large_function_test.go`).
 - Every function a run enters is one the reach walk reaches from that run's
-  roots, which is what a built image keeps and a capability list reads:
+  roots, which is what a built image keeps and an effects list reads:
   the corpus's and the tour's programs, and each test case of the corpus,
   the failure fixtures, the tour and std run on its own:
   `TestReach_EveryEnteredFunctionIsReached`
@@ -235,15 +249,21 @@ corpus by default and every input under the variable
   `NOMI_TYPE_OPS=full`, `NOMI_TYPE_OPS_ONLY` (`vmhost/type_ops_test.go`).
 - Load order does not change a program: `TestLoadOrderDoesNotChangeAProgram`,
   `NOMI_ORDER_COUNT` (`vmhost/load_order_test.go`).
-- Every operator's lowered route pairs with its record as `operatorPairs`
-  lists, and each known disagreement's distinct sites only go down:
-  `verifyOperatorForm`, `NOMI_SUBST_VERIFY=1`, `maxOperatorFormSites`,
-  checked by `TestIRGolden_RecordsMatchTheVM`
+- Every switch that lowers an operator, or a qualified call of an operator
+  interface's function, by the form of its record has an arm or a stated
+  reason for every form the checker records (`formArms`):
+  `TestEveryOperatorFormHasAnArm` (`internal/irbuild/formarms_test.go`).
+  A use with no record its switch reads declines, and each class's
+  distinct sites only go down: `noteUnreadOperator`, `noteUnreadCall`,
+  `NOMI_SUBST_VERIFY=1`, `maxOperatorFormSites`, checked by
+  `TestIRGolden_RecordsMatchTheVM`
   (`internal/irbuild/operatorform_ratchet_test.go`).
 - Every comparator a sort, a Range or a tuple orders by is chosen from
-  the checker's record of `Comparable.compare`, and the distinct sites
-  of an element with no checker type, chosen by kind, only go down:
-  `noteComparator`, `NOMI_SUBST_VERIFY=1`, `maxComparatorSites`, checked
+  the checker's record of `Comparable.compare`, and every tuple slot's
+  and distinct's inner equality from the record of `Equatable.equal` at
+  the part's type; the distinct sites of an element with no checker type
+  or an unresolved per-instance record, chosen by kind, only go down:
+  `noteElemImpl`, `NOMI_SUBST_VERIFY=1`, `maxElemImplSites`, checked
   by `TestIRGolden_RecordsMatchTheVM`
   (`internal/irbuild/comparatorform_ratchet_test.go`).
 - Every Debug body a rendering names for a nested part is chosen from the
@@ -256,9 +276,16 @@ corpus by default and every input under the variable
   `TestIRGolden_RecordsMatchTheVM`
   (`internal/irbuild/debugimplform_ratchet_test.go`).
 - Every std operator impl only the machine computes has a row in
-  `machineImpls`, and each row's operators answer as a call of its body:
-  `TestMachineImplsAreComplete`, `TestMachineImplsComputeTheirBodies`
+  `machineImpls`, and each row's operators, and each Debug row's
+  rendering, answer as a call of its body: `TestMachineImplsAreComplete`,
+  `TestMachineImplsComputeTheirBodies`
   (`internal/irbuild/machineimpl_test.go`).
+- Whether a pattern can fail is the checker's record, which irbuild reads,
+  and each pattern it answers for with no record is a listed class whose
+  distinct sites only go down: `patternAlwaysMatches`,
+  `irrefutableClasses`, `maxIrrefutableSites`, checked by
+  `TestIRGolden_RecordsMatchTheVM`
+  (`internal/irbuild/irrefutableform_ratchet_test.go`).
 - Every place irbuild can decline is listed with a class, and an undecided
   one with its cause. The total, the dead sites and the undecided sites
   only go down: `TestDeclineSitesAreListed`,
@@ -268,28 +295,71 @@ corpus by default and every input under the variable
   (`vmhost/lowering_gaps_inventory_test.go`).
 - Every expression has a type after checking: `TestSeedExprsAreTyped`,
   `knownCheckerGaps` (`vmhost/checker_gaps_test.go`).
-- A local irbuild reads by its name is the declaration the checker resolved
-  the read to, in every test binary: `verifyLocalRead`,
-  `knownLocalReadClasses`, `maxLocalReadSites`, and the places that resolve
-  a name by its spelling only go down: `TestSpellingResolutionsOnlyGoDown`
+- Every std signature position and `once` has a type the checker
+  recorded, and the positions whose type has no shared kind and names no
+  type parameter fall in named classes whose counts only go down:
+  `TestStdSignaturePositionsProject`, `maxSigPositionRefusals`
+  (`internal/irbuild/stdsigkinds_test.go`).
+- A local irbuild reads is the declaration the checker resolved the read
+  to: the builder keeps its locals only by that declaration's key
+  (`readKey`, `localAt`), so the checker's References are the one source
+  of what a read names, and a read with no key fails the lowering
+  (`readWithoutKey`). The places that resolve a name by its spelling only
+  go down: `TestSpellingResolutionsOnlyGoDown`
   (`internal/irbuild/localread_ratchet_test.go`).
 - The kind irbuild lowers each expression at is the type the checker
   recorded for it, or the type a Conversion, Coercion or settled
   Infallible gives it there, in every test binary: `verifyExprKind`,
   `knownExprKindClasses`, and each class's distinct sites only go down:
   `maxExprKindSites` (`internal/irbuild/exprkind_ratchet_test.go`).
+- Each call route that chooses a function by an owner's spelling or an
+  operand's kind (qualImplPlan's routes after the record's, typeQualCall's
+  helpers, call's intrinsic owner arms, stdPick) is a listed route whose
+  distinct sites, written, derived and made, only go down:
+  `noteCallRoute`, `callRoutes`, `maxCallRouteSites`, checked by
+  `TestIRGolden_RecordsMatchTheVM`
+  (`internal/irbuild/callroute_ratchet_test.go`).
+- The AST nodes irbuild constructs, per node type, and the `ast.Call`
+  literals that carry no record only go down:
+  `TestASTConstructionSitesOnlyGoDown`, `maxASTConstructionSites`,
+  `maxUncarriedCallLiterals`
+  (`internal/irbuild/astconstruction_ratchet_test.go`).
 - Modules encoded apart link to the same program, and each file lowered on
   its own matches the whole lowering: `TestObjectsLinkToTheSameProgram`,
   `TestFilesLowerOnTheirOwnAsInTheProgram`, `NOMI_OBJECTS_LINK=full`,
   `NOMI_LINK_OBJECTS` (`internal/expectation/objects_test.go`).
+- Every program irbuild.expect records links through objects to its whole
+  lowering's functions: `TestStdObjects_ProgramsLinkAsTheirWholeLowering`
+  (`internal/irbuild/stdobjects_test.go`). What keeps each std module
+  lowered once for the process instead of with each program (a host
+  function, a host type, a process-wide type, an import by such a module) is
+  pinned per module: `TestStdObjects_WhatHoldsEachModuleShared`,
+  `sharedModuleHolds` (same file).
 - A debug machine runs every program as a plain one does:
   `TestExpectation_ADebugMachineRunsEveryProgramAsAPlainOneDoes`,
   `NOMI_DEBUG_IDENTICAL=full` (`internal/expectation/debugmachine_test.go`).
 - Kept and relinked programs run as fresh ones: `FuzzCachedBuildMatchesFresh`
   (`cmd/nomi/artifact_cache_test.go`), `TestCachedRunsMatchTheRecords`,
   `NOMI_CACHED_RUNS=full` (`internal/expectation/cached_test.go`).
+- A test `nomi test` answers as unchanged from a stored pass is one that
+  passes when every test runs, after each edit of a seeded set, whether
+  its file was loaded or answered from its passes record (which a test
+  binary also loads and decides, panicking on a difference), and an edit
+  that only moves lines runs no test with no effects again:
+  `TestSkippedCasesWouldPass`, `NOMI_CORPUS_WALKS=full`, `NOMI_GEN_SEED`
+  (`cmd/nomi/skipped_cases_test.go`). A function's sum without positions
+  stays when its code moves and changes when its code does:
+  `TestBodySum_*` (`vmhost/bodysum_test.go`).
 - The std bundle decodes to this process's lowering:
   `TestStdBundle_DecodesToTheLowering` (`internal/irbuild/stdbundle_test.go`).
+  A shared module decoded when the process needs it decodes what it names,
+  and every recorded program lowers over modules decoded that way as over
+  every module decoded, and a program links its own closure of shared
+  modules, so its image is the same bytes whatever the process decoded
+  before: `TestStdObjects_AModuleDecodesWithWhatItNames`,
+  `TestStdObjects_DecodedWhenNeededLowersAsAllDecoded`,
+  `TestStdObjects_AProgramBuildsTheSameImageInEveryProcess`
+  (`internal/irbuild/stdobjects_decode_test.go`).
 - The stdlib from its interfaces, and built a module at a time, is the
   whole one: `TestShared_ModulesAreLoadsModules`,
   `TestShared_LazyModulesAreEagerModules` (`std/shared_test.go`),
@@ -297,12 +367,20 @@ corpus by default and every input under the variable
   (`cmd/nomi/std_lazy_test.go`).
 - The stdlib's state reads back as the build it was written from, field by
   field: `TestStdState_ReadsBackAsTheBuild`, `TestStdState_AProcessReadsIt`
-  (`std/state_test.go`), `NOMI_STD_STATE=off`.
+  (`std/state_test.go`), `NOMI_STD_STATE=off`. An embedded state is read,
+  and every other module built over it, in a process that finds no stdlib
+  directory, as the browser and a release find none (a copy of the test
+  built with `-trimpath`): `TestStdState_TheEmbeddedStateIsRead`.
 - The checker hands irbuild every callee, type argument and expression
   type closed: `TestElaborationGate` fails on a call or expression outside
   derived bodies without one; `TestElaborationCensus`,
   `NOMI_ELAB_CENSUS=1`, `NOMI_ELAB_DIR` count the rest (derived bodies,
   implicit operations) (`vmhost/elaboration_census_test.go`).
+- A Debug body the front end synthesizes prints what rt's structural
+  rendering prints for the same value: the Debug probe, a build with
+  `-tags nomi_debugprobe`, which with `NOMI_DEBUG_PROBE=<file>` and
+  `NOMI_NO_INLINE=1` writes both renderings of every call of such a body
+  (`internal/vm/debugprobe_on.go`).
 - `nomi fmt` keeps meaning: `FuzzFormatKeepsMeaning`, `knownFormatGaps`
   (`vmhost/format_meaning_test.go`).
 - An incremental check matches a full one: `FuzzIncrementalMatchesFull`
@@ -422,7 +500,7 @@ reference editor (a `//!` prompt as its reference page renders and runs it)
 with its outcome. The VM's output must match them byte for byte.
 Regenerate with:
 
-```
+```sh
 NOMI_REGENERATE_EXPECTATIONS=1 go test ./internal/expectation -run 'TestExpectation_(Corpus|Stdlib|Tour|Failure)$' -count=1
 NOMI_REGENERATE_EXPECTATIONS=1 go test ./internal/irbuild -count=1 -timeout 30m
 NOMI_REGENERATE_EXPECTATIONS=1 go test ./cmd/nomi-docgen -run TestReferenceInteractiveTestsOnTheVM -count=1
@@ -480,8 +558,8 @@ every tracked `.nomi` file that `nomi fmt` would change, except the few in its
 
 Examples are held to the formatter too, since the tour's editors format an
 example once the reader edits it. `go test ./vmhost -run
-TestDocExamplesAreFormatted` fails for every ```` ```nomi ```` and
-```` ```nomi-run ```` block (per `// FILE:` file, Nomi files only) in the
+TestDocExamplesAreFormatted` fails for every ```` ```nomi ````
+and ```` ```nomi-run ```` block (per `// FILE:` file, Nomi files only) in the
 tour, `docs/`, `README.md` and `CONTRIBUTING.md`, every ```` ```nomi ```` fence
 in a std `///` or `//#` comment, and every std `//!` prompt as its reference
 editor formats it (`format.FormatAttachedTestBody`), that `nomi fmt` would
@@ -507,7 +585,7 @@ until you do).
 
 - A Go package goes under `internal/` unless code outside this module must
   import it. The public ones are `vmhost`, `vmrunner`, `hostadapt` and `std`:
-  embedders and generated FFI wrappers and runners import them.
+  embedders import them.
 - Type references in the AST are `TypeExpr` nodes, never a string plus
   position.
 - Syntax gets an AST node. Do not synthesize data in the analysis builder for
@@ -591,17 +669,21 @@ until you do).
    (`vmhost.TargetLacks`, `vmhost.Program.CheckTarget`). A function that
    computes its answer from its operands alone and acts on nothing outside
    the machine gets `Pure`, so a refinement rule or a typed literal's
-   handler may call it; unset, a call to it is an effect. A row that is not
+   handler may call it; unset, a call to it is an effect. A `Pure` function
+   whose one call costs more as an operand's value grows also gets
+   `Unbounded`, and those evaluations refuse it as unbounded. A row that is not
    `Pure` sets `World: Inside` or `World: Outside`, whether a call to it
    acts on or reads from anything outside the machine (the
-   `internal/stdlibbindings` package doc, "Outside calls");
+   `internal/stdlibbindings` package doc, "Effects and World");
    `TestEveryRowDecidesItsWorld` fails for one that sets neither.
 3. `go generate ./internal/stdlibadapters`.
 4. Add recorded cases for the new row (`internal/stdlibadapters/testdata/*.golden`).
 5. `go test ./internal/hostpair ./internal/stdlibadapters ./internal/hostgen/...`.
-6. A row marked `World: Outside` is a line in the tooling reference's table
-   of outside calls (`docs/tooling.md`, "Capability lists");
-   `TestOutsideCallTableMatchesTheBindings` (`internal/docscheck`) fails
+6. A row that is neither `Pure` nor `Held` has an effect, and each public
+   std function that reaches it is in the tooling reference's table of
+   functions with effects (`docs/tooling.md`, "Effects lists"), which
+   holds what the stdlib reference marks "Has effects";
+   `TestEffectTableMatchesTheReference` (`cmd/nomi-docgen`) fails
    until the table holds it, and prints the table to paste.
 
 `TestGeneratedFileIsCurrent` fails until you regenerate, and generation refuses
@@ -751,28 +833,32 @@ the doctest:
   and its note's match together.
 
 A block runs on an in-memory file system. A `// FILE:` section that is not
-Nomi source or `nomi.toml` is a data file the block starts with; one named
-`go.mod` makes the block a project of modules. A block's entry is its first
+Nomi source or `nomi.toml` is a data file the block starts with. A file
+that is not text is a section marked `// FILE: <path> (base64)`, whose
+lines hold its bytes in standard base64; the editor shows its tab as one
+read-only line with its size, and `read-only:` and the data-file rules
+apply to it as to any data file. The generated sections of a tour module
+carry the files its `embed` declarations name this way. A
+`nomi.toml` section in a directory under the block's root, or a root
+`nomi.toml` with a `[dependencies]` table, makes the block a project of
+modules; with no root `nomi.toml` and a `nomi.toml` in two or more
+top-level directories, it is a block of sibling projects. A block's entry is its first
 file with a `fn main`, else its first Nomi file that declares tests, else
-its first Nomi file. After editing a block's `go` bindings or Go file, or
-the Nomi or Go side of a `lib/` module the tour links (`tourgo.Modules`),
-run `go generate ./internal/tourgo`; `TestGeneratedFileIsCurrent`
-(`internal/tourgo/tourgogen`) fails until you do, and `make start-tour`
-does not build. `TestTourDoctests` runs and regenerates a block that
-imports a linked module too, in a second test binary it builds with the
-`nomi_tourmodules` tag in `internal/tourgo/tour.work`, which links the
-module's Go (a few seconds more; the first build on a machine compiles
-modernc.org/sqlite). How blocks of modules, sibling projects, Go
-bindings and the linked modules run is in the
-[`internal/tourgo` package doc](internal/tourgo/doc.go); the live editor's
+its first Nomi file. After editing a `lib/` module the tour links
+(`tourmodules.Modules`), run `go generate ./internal/tourmodules`;
+`TestGeneratedFileIsCurrent` (`internal/tourmodules/tourmodulesgen`) fails until you
+do. A block that imports a linked module runs with the module's files
+attached, in `TestTourDoctests` as on the page. How blocks of modules,
+sibling projects and the linked modules run is in the
+[`internal/tourmodules` package doc](internal/tourmodules/doc.go); the live editor's
 layout is in [`tour/README.md`](tour/README.md).
 
 The stdlib reference (`src/content/docs/reference/`, gitignored) is generated
 by `cmd/nomi-docgen` from `///` doc comments and `//#` module comments in
 `std/*.nomi`. Edit those comments, never the generated pages. `docgen` does not
 prune: after renaming or removing a stdlib module, delete its old reference
-page. Each `//!` prompt becomes a live editor, except one that reaches a
-capability class the js/wasm build lacks (a socket, a name lookup, a
+page. Each `//!` prompt becomes a live editor, except one that reaches an
+effect class the js/wasm build lacks (a socket, a name lookup, a
 process), which docgen finds by the walk `nomi build` checks a target with
 and shows as highlighted code with a note, as a `compile-only` tour block
 is shown; no list names them. `go test ./vmhost -run
@@ -821,7 +907,7 @@ deletes the item), and a Choices line may not point at it.
 Needs Node 22+. `NODE22_BIN` in the Makefile defaults to Homebrew's path;
 override it elsewhere.
 
-```
+```sh
 make start-tour                           # wasm build + dev server at http://localhost:4321/
 make deploy-tour                          # production build into tour/dist
 go test ./vmhost -run TestTourDoctests    # run every nomi-run block
@@ -886,8 +972,18 @@ Rules enforced by something in the repository:
   go.mod together.
   It also fails on a spec citation outside the spec that names no chapter,
   or a heading its chapter lacks.
+- `TestEveryFenceHasALanguageTheSiteRenders` (`internal/docscheck`) fails
+  for a fence in authored Markdown or a std doc comment with no language,
+  or one `tour/src/lib/rehype-shiki.mjs` gives no form. The forms: `nomi`
+  for code; `console` for commands (with a `$` prompt) and anything a
+  terminal prints, diagnostics and test reports included; `tree` for a
+  directory listing; `gomod` and `toml` for go.mod and nomi.toml; `text`
+  for anything else that is not code. A file only GitHub renders uses
+  `sh` for commands to copy.
 - `TestScriptsNameGoPackagesThatExist` and `TestScriptsAreExecutable` hold
-  `scripts/` to the tree.
+  `scripts/` to the tree, and `TestAgentsNamesWhatExists`
+  (`internal/docscheck`) holds this file to it: every test, repository
+  path and `NOMI_` variable it names must exist.
 - `nomi run`, `check`, `test` and `build` keep each program in the artifact
   cache, with a record of its files from which an edit that changes only
   bodies relinks it ([kept programs](vmhost/doc.go)). Under
@@ -895,9 +991,9 @@ Rules enforced by something in the repository:
   to a directory of its own; a `nomi` a test starts keeps them under the
   directory the test binary chose. `NOMI_DEBUG_ARTIFACT_CACHE=1` says why a
   command read or kept nothing.
-- `internal/ffirun`'s cache refuses the real user cache under `go test`; set
-  `NOMI_FFIRUN_CACHE_ROOT`. The managed toolchain's cache refuses it too
-  (`NOMI_TOOLCHAIN_ROOT`), and a module download refuses a `GOMODCACHE`
+- The build cache of runners (`internal/runners`) refuses the real user
+  cache under `go test`; set
+  `NOMI_RUNNER_CACHE_ROOT`. A module download refuses a `GOMODCACHE`
   the test did not set.
 - The tree-sitter CLI reads a global parser-directories config that may point
   at another checkout; `scripts/tree-sitter.sh` runs it from this checkout's

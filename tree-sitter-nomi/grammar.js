@@ -275,7 +275,6 @@ module.exports = grammar({
       $.group_declaration,
       $.import_statement,
       $.import_block,
-      $.gopkg_declaration,
       $._expression_or_statement,
     ),
 
@@ -497,22 +496,6 @@ module.exports = grammar({
       optional(seq('as', choice($.identifier, $.type_identifier))),
     ),
 
-    gopkg_declaration: $ => seq(
-      'gopkg',
-      field('path', $.string),
-      optional(seq(
-        'as',
-        field('alias', choice($.identifier, '_')),
-      )),
-    ),
-
-    go_selector_binding: $ => seq(
-      'go',
-      field('package', choice($.identifier, '_')),
-      token.immediate('.'),
-      field('symbol', choice($.identifier, $.type_identifier)),
-    ),
-
     // Functions
     function_definition: $ => prec.right(seq(
       optional(choice($.pub, $.export)),
@@ -536,7 +519,7 @@ module.exports = grammar({
       $.parameters,
       optional(seq('->', field('return_type', $._type))),
       optional($.where_clause),
-      choice(seq(optional($._statement_end), $.go_selector_binding), $.body),
+      $.body,
     )),
 
     // Host declarations
@@ -740,19 +723,16 @@ module.exports = grammar({
       choice('type', 'subtype'),
       field('name', $.qualified_type_identifier),
       optional($.type_parameters),
-      optional(choice(
-        $.go_selector_binding,
-        seq(
-          $._distinct_inner_type,
-          // A subtype's parents after the first, or the rest of the
-          // intersection a `type` wraps:
-          // `subtype PositiveInt NonNegativeInt and NonZeroInt when ...`.
-          repeat(seq('and', $._distinct_inner_type)),
-          // Bounds on the type parameters:
-          // `subtype Sorted<T> List<T> where T: Comparable when ...`.
-          optional($.where_clause),
-          optional($.refinement_rule),
-        ),
+      optional(seq(
+        $._distinct_inner_type,
+        // A subtype's parents after the first, or the rest of the
+        // intersection a `type` wraps:
+        // `subtype PositiveInt NonNegativeInt and NonZeroInt when ...`.
+        repeat(seq('and', $._distinct_inner_type)),
+        // Bounds on the type parameters:
+        // `subtype Sorted<T> List<T> where T: Comparable when ...`.
+        optional($.where_clause),
+        optional($.refinement_rule),
       )),
     )),
 

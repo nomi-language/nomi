@@ -93,7 +93,7 @@ func TestStdEnumJson_PinnedText(t *testing.T) {
 		// The error vocabulary, reached through the TYPE-QUALIFIED spelling
 		// `Json.DecodeError.to_string(e)`. These five strings are a designed
 		// contract; see
-		// tests/18-ffi-and-dynamic/json_decode_error_text_test.nomi.
+		// tests/18-json-and-dynamic/json_decode_error_text_test.nomi.
 		"json decode error at line 1, col 2: unexpected character 'o'",
 		"json decode error at line 1, col 6: unexpected end of input: incomplete JSON value",
 		"json decode error at line 1, col 1: unexpected end of input: expected a JSON value",

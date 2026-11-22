@@ -1,37 +1,7 @@
-// Package hostgen generates host-function adapters: Go source that calls a Go
-// host function with rt values and no reflection. See nomi/hostadapt for the
-// runtime half.
-//
-// Two inputs decide an adapter, and neither is restated:
-//
-//   - the Nomi `host fn` declaration, which says what the operands and the
-//     result are (a Shape per position, with the declared struct identities);
-//   - the Go function the binding table names, whose Type says what the Go
-//     side takes and returns: read by reflection off a linked function value
-//     for the stdlib tables (internal/hostgen/stdtable), and off go/ast for a
-//     project's FFI bindings, which internal/ffirun generates into its wrapper
-//     before the project's Go is compiled (see gotype.go).
-//
-// The generator pairs the two position by position under the runtime
-// marshaller's projection rules and refuses, by binding name, any pair it
-// cannot convert. A refusal fails generation, so an unadaptable binding is a
-// build-time error rather than a run-time one.
-//
-// An Int position carries the range its declared type admits (IntRange),
-// read off a subtype chain's `when` bounds and an intersection's members.
-// A Nomi-to-Go Int position takes a fixed-width Go integer only when that
-// range fits it (fits): std's `Instant.as_nanos` is an `Int64` and fills
-// an int64; a plain `Int` does not, and its Go function takes rt.Int or
-// *big.Int. A project's `go` bindings are held to the same rule, and
-// internal/ffirun reports the refusal, an IntRangeError, as an error at
-// the binding (spec §19 *How Nomi types project to Go*). The adapter still
-// narrows with a checked conversion, which a value the declared range
-// admits always passes.
 package hostgen
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
@@ -81,11 +51,6 @@ type ShapeVariant struct {
 	Name   string
 	Shape  rt.VariantShape
 	Fields []ShapeField
-	// Err is set when a positional payload has no boundary form (a
-	// function, say). The variant still has a tag; an
-	// adapter refuses it at run time, and only if the Go type has no field
-	// for it, so the Go side cannot silently hold what Nomi cannot describe.
-	Err error
 }
 
 // ShapeField is one struct field in declaration order.
@@ -101,7 +66,6 @@ const (
 	resultName   = "results.Result"
 	durationName = "duration.Duration"
 	instantName  = "instant.Instant"
-	dynamicName  = "dynamic.Dynamic"
 )
 
 // String renders the shape the way a declaration spells it, for comments and
@@ -144,59 +108,6 @@ func (s *Shape) String() string {
 	return rt.ShortTypeName(s.Name)
 }
 
-// Structure renders the whole shape: every struct field, enum variant and
-// distinct's inner type, recursively, where String names a declared type
-// only. Two shapes with one Structure get the same adapter code. A recursive
-// type is written out at its first occurrence and named after it.
-func (s *Shape) Structure() string {
-	var b strings.Builder
-	s.structure(&b, map[*Shape]bool{})
-	return b.String()
-}
-
-func (s *Shape) structure(b *strings.Builder, seen map[*Shape]bool) {
-	b.WriteString(strconv.Itoa(int(s.Kind)))
-	if s.Name != "" {
-		b.WriteString(strconv.Quote(s.Name))
-		if seen[s] {
-			return
-		}
-		seen[s] = true
-	}
-	if len(s.Elems) > 0 {
-		b.WriteByte('<')
-		for _, e := range s.Elems {
-			e.structure(b, seen)
-			b.WriteByte(',')
-		}
-		b.WriteByte('>')
-	}
-	if s.Ret != nil {
-		b.WriteString("->")
-		s.Ret.structure(b, seen)
-	}
-	fields := func(fs []ShapeField) {
-		b.WriteByte('{')
-		for _, f := range fs {
-			b.WriteString(strconv.Quote(f.Name))
-			b.WriteByte(':')
-			f.Shape.structure(b, seen)
-			b.WriteByte(';')
-		}
-		b.WriteByte('}')
-	}
-	if s.Kind == SStruct {
-		fields(s.Fields)
-	}
-	for _, v := range s.Variants {
-		b.WriteString("|" + strconv.Quote(v.Name) + "/" + strconv.Itoa(int(v.Shape)))
-		fields(v.Fields)
-		if v.Err != nil {
-			b.WriteString("!" + strconv.Quote(v.Err.Error()))
-		}
-	}
-}
-
 // Slot is the record bank a value of this shape takes as a field.
 func (s *Shape) Slot() rt.SlotType {
 	switch s.Kind {
@@ -229,13 +140,7 @@ type Module struct {
 type Resolver struct {
 	// Modules is every module a name may resolve in, by module name.
 	Modules map[string]*Module
-	// Unloaded, when set, resolves a type name that no loaded module declares
-	// to a leaf named as it was written, instead of failing. A caller that
-	// loads only some modules sets it when the rest are keyed another way:
-	// internal/ffirun hashes the shapes a project's own files declare and
-	// leaves std's to the compiler's identity.
-	Unloaded bool
-	cache    map[string]*Shape
+	cache   map[string]*Shape
 }
 
 // NewResolver indexes modules.
@@ -266,9 +171,6 @@ func (r *Resolver) Shape(mod *Module, t ast.TypeExpr) (*Shape, error) {
 				if home, _ := r.lookup(mod, dotted); home != nil {
 					return r.named(mod, dotted, nil)
 				}
-			}
-			if r.Unloaded {
-				return &Shape{Kind: SHost, Name: "?" + x.TypeString()}, nil
 			}
 			return nil, fmt.Errorf("type %s: module %q is not loaded", x.TypeString(), x.Module)
 		}
@@ -366,9 +268,6 @@ func (r *Resolver) named(mod *Module, name string, params []ast.TypeExpr) (*Shap
 		return nil, fmt.Errorf("type %s: a generic user type does not cross the host boundary", name)
 	}
 	if decl == nil {
-		if r.Unloaded {
-			return &Shape{Kind: SHost, Name: "?" + mod.Name + ":" + name}, nil
-		}
 		return nil, fmt.Errorf("type %s: no declaration in module %s or its imports", name, mod.Name)
 	}
 	qualified := home.Name + "." + name
@@ -457,6 +356,8 @@ func (r *Resolver) named(mod *Module, name string, params []ast.TypeExpr) (*Shap
 }
 
 // variant resolves one enum variant's payload in the enum's home module.
+// The enum's descriptor needs every payload's bank, so a payload that does
+// not resolve fails the whole enum.
 func (r *Resolver) variant(home *Module, enum string, v ast.EnumVariant) (ShapeVariant, error) {
 	sv := ShapeVariant{Name: v.Name}
 	switch v.Kind {
@@ -466,8 +367,7 @@ func (r *Resolver) variant(home *Module, enum string, v ast.EnumVariant) (ShapeV
 		sv.Shape = rt.VariantPositional
 		ps, err := r.Shape(home, v.DataTypeExpr)
 		if err != nil {
-			sv.Err = fmt.Errorf("%s.%s: %w", enum, v.Name, err)
-			return sv, nil
+			return sv, fmt.Errorf("%s.%s: %w", enum, v.Name, err)
 		}
 		sv.Fields = []ShapeField{{Shape: ps}}
 	case "struct":
@@ -475,8 +375,6 @@ func (r *Resolver) variant(home *Module, enum string, v ast.EnumVariant) (ShapeV
 		for _, f := range v.Fields {
 			fs, err := r.Shape(home, f.TypeAnnotation)
 			if err != nil {
-				// A struct-shaped variant's descriptor needs every field's
-				// bank, so an unresolvable field fails the whole enum.
 				return sv, fmt.Errorf("%s.%s.%s: %w", enum, v.Name, f.Name, err)
 			}
 			sv.Fields = append(sv.Fields, ShapeField{Name: f.Name, Shape: fs})
@@ -488,9 +386,7 @@ func (r *Resolver) variant(home *Module, enum string, v ast.EnumVariant) (ShapeV
 }
 
 // lookup finds the declaration of a type name: the module's own first, then
-// the modules its imports name, then, for a program's file, which has the
-// prelude without importing it, the modules std's prelude re-exports from
-// (`NonNegativeInt` in a `go` binding's declaration).
+// the modules its imports name. A std file imports every type it names.
 func (r *Resolver) lookup(mod *Module, name string) (*Module, ast.Node) {
 	if d := typeDecl(mod.Nodes, name); d != nil {
 		return mod, d
@@ -503,9 +399,6 @@ func (r *Resolver) lookup(mod *Module, name string) (*Module, ast.Node) {
 		if d := typeDecl(m.Nodes, name); d != nil {
 			return m, d
 		}
-	}
-	if prelude, ok := r.Modules["prelude"]; ok && mod != prelude {
-		return r.lookup(prelude, name)
 	}
 	return nil, nil
 }

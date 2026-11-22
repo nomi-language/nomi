@@ -17,22 +17,28 @@ package vmhost
 // ChangedSources), relink checks and lowers just the files the edit
 // reaches:
 //
+//   - each changed file must be one of the program's, which are the only
+//     sources whose text the record holds (sourceTree);
 //   - each changed or added file's new interface is extracted, and the
 //     program's files, the entry and what it imports, must be the kept ones
-//     less the removed with the added;
+//     less the removed with the added: an added file no file imports is a
+//     miss, since a fresh load may read it through an import that named a
+//     directory;
 //   - the files checked again are the changed and added ones, those that
 //     import a file whose interface changed, and those that can see an
-//     impl that came, went or changed (the relevant impl set); an edit that
-//     reaches more than maxRelowered files and a quarter of the program is
-//     a miss;
+//     impl that came, went or changed (the relevant impl set); none, when
+//     only sources the program does not load went, is a miss, and so is an
+//     edit that reaches more than maxRelowered files and a quarter of the
+//     program;
 //   - each is checked against the interfaces of the files it reads
 //     (analysis.NewStoredInterfaces), with no diagnostic, its own or one
 //     its build works out about the program's impls (a duplicate impl
 //     block, the orphan rules: analysis.FileCheck.Clean);
 //   - the program's reductions over bodies (boot-only calls,
 //     application-field roots, whole-file imports, missing impls) run over
-//     the checked files' new facts and the others' stored ones
-//     (analysis.ReduceFacts) and find nothing, the supply worked out again
+//     the checked files' new facts and the others' stored ones, with the
+//     stdlib base the checks' program is built over (analysis.ReduceFacts,
+//     which refuses a program over none), and find nothing, the supply worked out again
 //     from every file's interface when impls changed. For a program with
 //     an application type, whose application-field roots no file's facts
 //     answer, the walk those roots take of each checked file's bodies
@@ -57,7 +63,10 @@ package vmhost
 // checks that it reaches nothing a machine cannot run. Both records are
 // then written again for the new texts. Anything relink cannot do is a
 // miss, and the command checks and lowers the whole program as it does
-// with no cache. A file that declares keyword declarations (`phrase`,
+// with no cache. So is any edit of a program whose [effects.self] holds its
+// own generic code (fileRecord.Abstract), which only a whole lowering's
+// abstract bodies answer for every type, and what one reaches may be in
+// any file. A file that declares keyword declarations (`phrase`,
 // `noun`, `embed`) is never relowered alone, since what they expand to
 // reads more than the file.
 
@@ -70,6 +79,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"slices"
 	"sort"
 	"strings"
@@ -80,6 +90,7 @@ import (
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/irbuild"
 	"github.com/nomi-language/nomi/internal/progcache"
+	"github.com/nomi-language/nomi/internal/vm"
 )
 
 // filesKind names the record of a program's files beside its load record.
@@ -96,6 +107,11 @@ type fileRecord struct {
 	Kept []byte
 	// Supply is the supply side of the program's missing-impl check.
 	Supply *analysis.ProgramSupply
+	// Abstract reports that [effects.self] holds the program's public
+	// functions and its own files declare generic code that only abstract
+	// bodies answer for every type (irbuild.Result.AbstractOwn), which a
+	// relink does not build: an edit anywhere may change what one reaches.
+	Abstract bool
 }
 
 // keptFile is one project file of a file record.
@@ -113,7 +129,7 @@ type keptFile struct {
 	Advice Diagnostics
 }
 
-const fileRecordMagic = "NOMIFILES6"
+const fileRecordMagic = "NOMIFILES8"
 
 func (r *fileRecord) encode() []byte {
 	var b bytes.Buffer
@@ -165,7 +181,8 @@ func (p *Program) keepFiles(files *progcache.Entry) {
 		return
 	}
 	rec := &fileRecord{Entry: p.prog.Entry().Path, Root: p.prog.Root, HasTests: p.prog.HasTests,
-		Files: map[string]keptFile{}, Kept: kept.Encode()}
+		Files: map[string]keptFile{}, Kept: kept.Encode(),
+		Abstract: p.res.AbstractOwn() && p.effects != nil && p.effects.Self != nil}
 	if fa := p.prog.Entry().FA; fa != nil {
 		for _, st := range fa.Program().AppTypes {
 			rec.AppTypes = append(rec.AppTypes, analysis.AppTypeName{Origin: st.Origin, Name: st.Name})
@@ -258,8 +275,14 @@ func (c *Cache) relink(cfg config) (p *Program, ok bool) {
 	}
 	why := ""
 	defer func() {
+		// A panic here is a bug in Nomi. The command checks the whole
+		// program instead, which answers as it would with no cache, and
+		// says so on stderr, which the cache's harness compares with a
+		// command's that keeps nothing (cmd/nomi's artifact_cache_test.go).
 		if r := recover(); r != nil {
 			p, ok, why = nil, false, "a panic relinking"
+			fmt.Fprintf(os.Stderr, "nomi: relinking %s from its file records failed, so the whole program is checked: %s\n", c.path, vm.InternalErrorText(r))
+			c.files.Logf("the panic's stack:\n%s", debug.Stack())
 		}
 		if !ok && why != "" {
 			c.files.Logf("not relinked: %s", why)
@@ -268,6 +291,13 @@ func (c *Cache) relink(cfg config) (p *Program, ok bool) {
 	rec, err := decodeFileRecord(prev)
 	if err != nil || rec.Entry != c.path {
 		why = "the record does not read"
+		return nil, false
+	}
+	if rec.Abstract {
+		// [effects.self] holds the public generic functions through their
+		// abstract bodies, which only a whole load builds, and what one
+		// reaches may be in any file.
+		why = "[effects.self] holds generic code only a whole load reads for every type"
 		return nil, false
 	}
 	changed, added, removed, same := c.files.ChangedSources()
@@ -279,18 +309,24 @@ func (c *Cache) relink(cfg config) (p *Program, ok bool) {
 	for key, f := range rec.Files {
 		byPath[f.Iface.Path] = key
 	}
-	// The program's files whose texts changed, and those removed. A source
-	// that is not one of them changes the program only if a changed file
-	// now imports it.
+	// The program's files whose texts changed, and those removed: the
+	// record holds the text of the program's own sources and of no other
+	// (sourceTree), so any other file whose text changed is not a source.
+	// A source that is not one of the program's and went changes nothing a
+	// clean program reads; one that came changes the program only if a
+	// changed file now imports it (below).
 	var changedKeys, removedKeys, addedKeys []string
 	for _, path := range changed {
-		if key, ok := byPath[path]; ok {
-			if rec.Files[key].Keyword {
-				why = path + " declares keyword declarations"
-				return nil, false
-			}
-			changedKeys = append(changedKeys, key)
+		key, ok := byPath[path]
+		if !ok {
+			why = path + " changed, and is not one of the program's sources"
+			return nil, false
 		}
+		if rec.Files[key].Keyword {
+			why = path + " declares keyword declarations"
+			return nil, false
+		}
+		changedKeys = append(changedKeys, key)
 	}
 	for _, path := range removed {
 		if key, ok := byPath[path]; ok {
@@ -298,13 +334,11 @@ func (c *Cache) relink(cfg config) (p *Program, ok bool) {
 		}
 	}
 	addedPaths := map[string]string{}
-	for _, path := range append(append([]string(nil), added...), changed...) {
-		if _, ok := byPath[path]; ok {
-			continue
-		}
+	for _, path := range added {
 		rel, err := filepath.Rel(rec.Root, path)
 		if err != nil || strings.HasPrefix(rel, "..") {
-			continue
+			why = path + " came outside the program's root"
+			return nil, false
 		}
 		key := strings.TrimSuffix(filepath.ToSlash(rel), ".nomi")
 		addedPaths[key] = path
@@ -319,7 +353,6 @@ func (c *Cache) relink(cfg config) (p *Program, ok bool) {
 	if err != nil {
 		return nil, false
 	}
-	fc.SourceBoundProvided = true
 	fe := frontend.New(fc)
 	sp, err := fe.StoredSource(c.path, frontend.Mode{Tests: rec.HasTests}, rec.AppTypes)
 	if err != nil || filepath.Clean(sp.Root) != filepath.Clean(rec.Root) {
@@ -384,15 +417,18 @@ func (c *Cache) relink(cfg config) (p *Program, ok bool) {
 		ifaceChanged[key] = true
 	}
 	// The program's files now: the entry and what it imports. They must be
-	// the kept ones less the removed, with the added that are imported.
+	// the kept ones less the removed, with the added. A file that came and
+	// that no file imports may still be one a fresh load reads: an import
+	// that named a directory names it once it is there (spec §14 *Directory
+	// imports*), and a kept interface's imports name only the files that
+	// were there.
 	reach := pi.ImportClosure(entryKey)
 	for _, key := range addedKeys {
 		if !reach[key] {
-			pi.RemoveFile(key)
-			delete(ifaceChanged, key)
+			why = addedPaths[key] + " came, and no file of the program imports it"
+			return nil, false
 		}
 	}
-	addedKeys = slices.DeleteFunc(addedKeys, func(k string) bool { return !reach[k] })
 	want := map[string]bool{}
 	for key := range rec.Files {
 		want[key] = true
@@ -454,6 +490,12 @@ func (c *Cache) relink(cfg config) (p *Program, ok bool) {
 			}
 		}
 	}
+	// Only sources the program does not load went: a relink has no file
+	// to check and lower again, and links nothing.
+	if len(recheck) == 0 {
+		why = "no file of the program changed"
+		return nil, false
+	}
 	supply := rec.Supply
 	if implsChanged {
 		supply = pi.Supply(entryKey)
@@ -511,12 +553,13 @@ func (c *Cache) relink(cfg config) (p *Program, ok bool) {
 			}
 			facts[key] = f.Facts
 		}
-		var std analysis.StdContext
+		// over is a check of the program, whose stdlib the reductions read.
+		var over *analysis.FileAnalysis
 		for _, key := range keys {
 			check := checked[key]
 			if check != nil {
 				facts[key] = checkedFacts[key]
-				std, _ = analysis.StdContextOf(check.FA)
+				over = check.FA
 				continue
 			}
 			check = pi.Check(key)
@@ -542,14 +585,13 @@ func (c *Cache) relink(cfg config) (p *Program, ok bool) {
 			}
 			facts[key] = analysis.FileFactsOf(key, check.FA, check.Nodes, analysis.NewFactsNamer(nodes, entryKey), appTypes)
 			checked[key], checkedFacts[key] = check, facts[key]
-			if s, ok := analysis.StdContextOf(check.FA); ok {
-				std = s
-			} else {
-				why = "the program is not built over the stdlib's base"
-				return nil, false
-			}
+			over = check.FA
 		}
-		red := analysis.ReduceFacts(facts, supply, std)
+		red, ok := analysis.ReduceFacts(facts, supply, over)
+		if !ok {
+			why = "the program is not built over the stdlib's base"
+			return nil, false
+		}
 		if !red.Clean(appTypes) {
 			why = "the program's reductions over bodies find something"
 			return nil, false
@@ -641,10 +683,10 @@ func (c *Cache) relink(cfg config) (p *Program, ok bool) {
 		why = "the program reaches something a machine cannot run"
 		return nil, false
 	}
-	// An edit to a body can reach what nomi.toml's [capabilities] lists do
+	// An edit to a body can reach what nomi.toml's [effects] lists do
 	// not allow; the load that is made instead reports it.
-	if p.capabilityError(p.checkedRoots()...) != nil {
-		why = "nomi.toml's [capabilities] lists do not allow what the program reaches"
+	if p.effectError(p.checkedRoots()...) != nil {
+		why = "nomi.toml's [effects] lists do not allow the effects the program has"
 		return nil, false
 	}
 	// Every typed literal the program checks at load, kept or lowered
@@ -658,7 +700,16 @@ func (c *Cache) relink(cfg config) (p *Program, ok bool) {
 	relinks.Add(1)
 	c.files.Logf("relinked %d of %d files", len(keys), len(newRec.Files))
 	newRec.Kept = kept.Encode()
+	// The record names the program's sources on their own (sourceTree):
+	// the added ones join them and the removed ones leave.
 	trees, files := c.files.Inputs()
+	for _, key := range removedKeys {
+		files = slices.DeleteFunc(files, func(f string) bool { return f == rec.Files[key].Iface.Path })
+	}
+	for _, key := range addedKeys {
+		files = append(files, addedPaths[key])
+	}
+	p.recordTrees, p.recordFiles = trees, files
 	if cfg.cacheable() {
 		a := artifact{entry: c.path, root: rec.Root, hasTests: rec.HasTests, advice: advice}
 		a.phrases, a.nouns = p.phraseTables()

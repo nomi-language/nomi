@@ -10,40 +10,33 @@ import (
 	"github.com/nomi-language/nomi/internal/parser"
 )
 
-// Writing nomi.toml's capability tables: the package doc, "nomi.toml".
+// Writing nomi.toml's effects tables: the package doc, "nomi.toml".
 
-// capabilityListWidth is the width a list is written on one line within.
-const capabilityListWidth = 80
+// effectListWidth is the width a list is written on one line within.
+const effectListWidth = 80
 
-// The lists of the capability tables, as a change or an addition names
-// them: the key's path below [capabilities], and for the entries
-// ListDepsModules, beside the module the entry is for. ListSelf and
+// The lists of the effects tables, as a change or an addition names
+// them: the key's path below [effects], and for the entries
+// (EntryLists) the table's path, beside the key of the entry. ListSelf and
 // ListDeps name a whole table.
 const (
 	ListSelf           = "self"
 	ListSelfStd        = "self.std"
 	ListSelfStdInTests = "self.std_in_tests"
-	ListSelfGo         = "self.go"
-	ListSelfGoInTests  = "self.go_in_tests"
+	ListSelfModules    = "self.modules"
 	ListDeps           = "deps"
 	ListDepsStd        = "deps.std"
 	ListDepsStdInTests = "deps.std_in_tests"
-	ListDepsGo         = "deps.go"
-	ListDepsGoInTests  = "deps.go_in_tests"
 	ListDepsModules    = "deps.modules"
 )
 
-// capabilityFlagChange is the Name of a change to a flag: it turns true,
-// or no longer is.
-const capabilityFlagChange = "true"
-
-// CapabilityChange is one name a list gains or loses from one table to
-// another: List is one of the List constants, Module the entry under
-// [capabilities.deps.modules] for ListDepsModules, and Name the std name
-// or module path, or "true" for self's go and go_in_tests. Name is "" for
-// a whole table (ListSelf, ListDeps), an entry with no names, and
-// deps.std with no names, whose key one table has and the other lacks.
-type CapabilityChange struct {
+// EffectChange is one name a list gains or loses from one table to
+// another: List is one of the List constants, Module the key of the entry
+// for one of EntryLists, and Name the std name. Name is "" for a whole
+// table (ListSelf,
+// ListDeps), an entry with no names, and deps.std with no names, whose key
+// one table has and the other lacks.
+type EffectChange struct {
 	Change string `json:"change"`
 	List   string `json:"list"`
 	Module string `json:"module,omitempty"`
@@ -51,32 +44,32 @@ type CapabilityChange struct {
 }
 
 // Label is the list a change is to, as the report prints it.
-func (c CapabilityChange) Label() string {
-	if c.List == ListDepsModules {
+func (c EffectChange) Label() string {
+	if slices.Contains(EntryLists, c.List) {
 		return fmt.Sprintf("%s %q", c.List, c.Module)
 	}
 	return c.List
 }
 
-// CapabilityChanges is what to add to and remove from old, nil for no
+// EffectChanges is what to add to and remove from old, nil for no
 // tables, to make it to: by list, the names to remove after the names to
 // add. A table one has and the other lacks is a change of its own, and so
 // is deps.std when one has it with no names and the other lacks it, since
 // a ceiling that allows nothing is not the same as none. entries_required
 // is not compared.
-func CapabilityChanges(old, to *Capabilities) []CapabilityChange {
+func EffectChanges(old, to *Effects) []EffectChange {
 	if old == nil {
-		old = &Capabilities{}
+		old = &Effects{}
 	}
 	if to == nil {
-		to = &Capabilities{}
+		to = &Effects{}
 	}
-	var adds, removes []CapabilityChange
+	var adds, removes []EffectChange
 	change := func(add bool, list, module, name string) {
 		if add {
-			adds = append(adds, CapabilityChange{Change: "add", List: list, Module: module, Name: name})
+			adds = append(adds, EffectChange{Change: "add", List: list, Module: module, Name: name})
 		} else {
-			removes = append(removes, CapabilityChange{Change: "remove", List: list, Module: module, Name: name})
+			removes = append(removes, EffectChange{Change: "remove", List: list, Module: module, Name: name})
 		}
 	}
 	diff := func(list, module string, from, into []string) {
@@ -98,91 +91,91 @@ func CapabilityChanges(old, to *Capabilities) []CapabilityChange {
 			change(has, list, "", "")
 		}
 	}
-	flag := func(list string, was, is bool) {
-		if was != is {
-			change(is, list, "", capabilityFlagChange)
+	// entries is each entry of list one side has and the other lacks, and
+	// each name an entry both have gains or loses.
+	entries := func(list string) {
+		od, td := old.Entries(list), to.Entries(list)
+		var keys []string
+		for k := range od {
+			keys = append(keys, k)
+		}
+		for k := range td {
+			if _, ok := od[k]; !ok {
+				keys = append(keys, k)
+			}
+		}
+		slices.Sort(keys)
+		for _, k := range keys {
+			from, had := od[k]
+			into, has := td[k]
+			switch {
+			case !had && len(into) == 0:
+				change(true, list, k, "")
+			case !has && len(from) == 0:
+				change(false, list, k, "")
+			default:
+				diff(list, k, from, into)
+			}
 		}
 	}
 	present(ListSelf, old.Self != nil, to.Self != nil, true)
 	os, ts := cmpSelf(old.Self), cmpSelf(to.Self)
 	diff(ListSelfStd, "", os.Std, ts.Std)
 	diff(ListSelfStdInTests, "", os.StdInTests, ts.StdInTests)
-	flag(ListSelfGo, os.Go, ts.Go)
-	flag(ListSelfGoInTests, os.GoInTests, ts.GoInTests)
+	entries(ListSelfModules)
 	present(ListDeps, old.Deps != nil, to.Deps != nil, true)
 	od, td := cmpDeps(old.Deps), cmpDeps(to.Deps)
 	present(ListDepsStd, od.Std != nil, td.Std != nil, len(od.Std)+len(td.Std) == 0)
 	diff(ListDepsStd, "", od.Std, td.Std)
 	diff(ListDepsStdInTests, "", od.StdInTests, td.StdInTests)
-	diff(ListDepsGo, "", od.Go, td.Go)
-	diff(ListDepsGoInTests, "", od.GoInTests, td.GoInTests)
-	var modules []string
-	for m := range od.Modules {
-		modules = append(modules, m)
-	}
-	for m := range td.Modules {
-		if _, ok := od.Modules[m]; !ok {
-			modules = append(modules, m)
-		}
-	}
-	slices.Sort(modules)
-	for _, m := range modules {
-		from, had := od.Modules[m]
-		into, has := td.Modules[m]
-		switch {
-		case !had && len(into) == 0:
-			change(true, ListDepsModules, m, "")
-		case !has && len(from) == 0:
-			change(false, ListDepsModules, m, "")
-		default:
-			diff(ListDepsModules, m, from, into)
-		}
-	}
+	entries(ListDepsModules)
 	return append(adds, removes...)
 }
 
 // cmpSelf is s, or for no table one that holds nothing.
-func cmpSelf(s *SelfCapabilities) *SelfCapabilities {
+func cmpSelf(s *SelfEffects) *SelfEffects {
 	if s == nil {
-		return &SelfCapabilities{}
+		return &SelfEffects{}
 	}
 	return s
 }
 
 // cmpDeps is d, or for no table one that holds nothing.
-func cmpDeps(d *DepsCapabilities) *DepsCapabilities {
+func cmpDeps(d *DepsEffects) *DepsEffects {
 	if d == nil {
-		return &DepsCapabilities{}
+		return &DepsEffects{}
 	}
 	return d
 }
 
-// capabilityTable is one of the tables WriteCapabilityTables writes: its
+// effectTable is one of the tables WriteEffectTables writes: its
 // path, and its lines as written, nil when it is not written.
-type capabilityTable struct {
+type effectTable struct {
 	path []string
 	at   ManifestTable
 	text []string
 }
 
-// WriteCapabilityTables is data, the nomi.toml in dir, with its
-// [capabilities.self], [capabilities.deps] and [capabilities.deps.modules]
-// tables written as c (writeCapabilityTable), and the text of those tables
-// as written. Every line outside them is kept byte for byte. A table c has
-// and data lacks goes after the table before it, or before the first
-// table data has, or at the end of the file when data has none; a table
-// data has and c lacks goes. [capabilities.deps.modules] is written when
-// c has an entry, or data has the table. A file with CRLF line endings
-// gets them on each line of the tables. The edited text must parse back to
-// c, or nothing is written.
-func WriteCapabilityTables(dir string, data []byte, c *Capabilities) ([]byte, string, error) {
+// WriteEffectTables is data, the nomi.toml in dir, with its
+// [effects.self], [effects.self.modules], [effects.deps]
+// and [effects.deps.modules] tables written as c
+// (writeEffectTable), and the text of those tables as written. Every
+// line outside them is kept byte for byte. A table c has and data lacks
+// goes after the table before it, or before the first table data has, or
+// at the end of the file when data has none; a table data has and c lacks
+// goes. [effects.self.modules] is written when c has the table, or
+// data has it; [effects.deps.modules] when c has an entry, or data
+// has the table. A file with CRLF line endings gets them on each line of
+// the tables. The edited text must parse back to c, or nothing is
+// written.
+func WriteEffectTables(dir string, data []byte, c *Effects) ([]byte, string, error) {
 	was, err := ParseManifestIn(dir, data)
 	if err != nil {
-		return nil, "", fmt.Errorf("the file does not parse (%v); edit its [capabilities] tables by hand", err)
+		return nil, "", fmt.Errorf("the file does not parse (%v); edit its [effects] tables by hand", err)
 	}
-	old := was.Capabilities
+	old := was.Effects
 	if old == nil {
-		old = &Capabilities{}
+		old = &Effects{}
 	}
 	text := string(data)
 	cr := ""
@@ -190,22 +183,30 @@ func WriteCapabilityTables(dir string, data []byte, c *Capabilities) ([]byte, st
 		cr = "\r"
 	}
 	lines := strings.Split(text, "\n")
-	tables := []capabilityTable{
-		{path: []string{"capabilities", "self"}},
-		{path: []string{"capabilities", "deps"}},
-		{path: []string{"capabilities", "deps", "modules"}},
+	tables := []effectTable{
+		{path: []string{"effects", "self"}},
+		{path: []string{"effects", "self", "modules"}},
+		{path: []string{"effects", "deps"}},
+		{path: []string{"effects", "deps", "modules"}},
 	}
 	for i := range tables {
 		tables[i].at = ManifestTableLayout(data, tables[i].path...)
 	}
-	header := func(t capabilityTable) string { return "[" + strings.Join(t.path, ".") + "]" }
+	header := func(t effectTable) string { return "[" + strings.Join(t.path, ".") + "]" }
+	// entries writes the table of list's entries, tables[i].
+	entries := func(i int, list string) {
+		tables[i].text = writeEffectTable(lines, tables[i].at, header(tables[i]), entryKeys(c.Entries(list), old.Entries(list)))
+	}
 	if c.Self != nil {
-		tables[0].text = writeCapabilityTable(lines, tables[0].at, header(tables[0]), selfKeys(c.Self, cmpSelf(old.Self)))
+		tables[0].text = writeEffectTable(lines, tables[0].at, header(tables[0]), selfKeys(c.Self, cmpSelf(old.Self)))
+		if c.Self.Modules != nil || tables[1].at.Header > 0 {
+			entries(1, ListSelfModules)
+		}
 	}
 	if c.Deps != nil {
-		tables[1].text = writeCapabilityTable(lines, tables[1].at, header(tables[1]), depsKeys(c.Deps, cmpDeps(old.Deps)))
-		if len(c.Deps.Modules) > 0 || tables[2].at.Header > 0 {
-			tables[2].text = writeCapabilityTable(lines, tables[2].at, header(tables[2]), moduleKeys(c.Deps, cmpDeps(old.Deps)))
+		tables[2].text = writeEffectTable(lines, tables[2].at, header(tables[2]), depsKeys(c.Deps, cmpDeps(old.Deps)))
+		if len(c.Deps.Modules) > 0 || tables[3].at.Header > 0 {
+			entries(3, ListDepsModules)
 		}
 	}
 	// Each table the file has is replaced by its lines, with the tables
@@ -270,59 +271,45 @@ func WriteCapabilityTables(dir string, data []byte, c *Capabilities) ([]byte, st
 	edited := []byte(strings.Join(lines, "\n"))
 	m, err := ParseManifestIn(dir, edited)
 	if err != nil {
-		return nil, "", fmt.Errorf("the edited file does not parse (%v); edit its [capabilities] tables by hand", err)
+		return nil, "", fmt.Errorf("the edited file does not parse (%v); edit its [effects] tables by hand", err)
 	}
-	if len(CapabilityChanges(m.Capabilities, c)) > 0 {
-		return nil, "", errors.New("the edited file does not hold the tables written; edit its [capabilities] tables by hand")
+	if len(EffectChanges(m.Effects, c)) > 0 {
+		return nil, "", errors.New("the edited file does not hold the tables written; edit its [effects] tables by hand")
 	}
 	return edited, strings.Join(written, "\n") + "\n", nil
 }
 
 // tableKey is a key --write writes in a table: its path as
 // ManifestLines.Key holds it and its text when it is written new, then
-// the names its list holds and held, or for a flag whether it is true and
-// was.
+// the names its list holds and held.
 type tableKey struct {
 	path, key  string
 	names, was []string
-	// flag is a key that is true or false: on is its value and wasOn the
-	// file's. A flag is written only when it is true, and goes when it
-	// turns false; one the file has as false stays.
-	flag, on, wasOn bool
 	// kept is a key --write never adds and keeps as the file has it:
 	// entries_required.
 	kept bool
 }
 
-// selfKeys is what [capabilities.self] holds as c: std, std_in_tests when
-// it holds a name, and go and go_in_tests.
-func selfKeys(c, old *SelfCapabilities) []tableKey {
-	keys := []tableKey{{path: "std", names: c.Std, was: old.Std}}
+// selfKeys is what [effects.self] holds as c: entries_required as the
+// file has it, std, and std_in_tests when it holds a name.
+func selfKeys(c, old *SelfEffects) []tableKey {
+	keys := []tableKey{{path: "entries_required", kept: true}, {path: "std", names: c.Std, was: old.Std}}
 	if len(c.StdInTests) > 0 {
 		keys = append(keys, tableKey{path: "std_in_tests", names: c.StdInTests, was: old.StdInTests})
 	}
-	keys = append(keys,
-		tableKey{path: "go", flag: true, on: c.Go, wasOn: old.Go},
-		tableKey{path: "go_in_tests", flag: true, on: c.GoInTests, wasOn: old.GoInTests})
 	return named(keys)
 }
 
-// depsKeys is what [capabilities.deps] holds as c: entries_required as the
-// file has it, std when c has a ceiling, and the other lists when they
-// hold a name.
-func depsKeys(c, old *DepsCapabilities) []tableKey {
+// depsKeys is what [effects.deps] holds as c: entries_required as the
+// file has it, std when c has a ceiling, and std_in_tests when it holds a
+// name.
+func depsKeys(c, old *DepsEffects) []tableKey {
 	keys := []tableKey{{path: "entries_required", kept: true}}
 	if c.Std != nil {
 		keys = append(keys, tableKey{path: "std", names: c.Std, was: old.Std})
 	}
-	for _, list := range []tableKey{
-		{path: "std_in_tests", names: c.StdInTests, was: old.StdInTests},
-		{path: "go", names: c.Go, was: old.Go},
-		{path: "go_in_tests", names: c.GoInTests, was: old.GoInTests},
-	} {
-		if len(list.names) > 0 {
-			keys = append(keys, list)
-		}
+	if len(c.StdInTests) > 0 {
+		keys = append(keys, tableKey{path: "std_in_tests", names: c.StdInTests, was: old.StdInTests})
 	}
 	return named(keys)
 }
@@ -335,44 +322,42 @@ func named(keys []tableKey) []tableKey {
 	return keys
 }
 
-// moduleKeys is what [capabilities.deps.modules] holds as c: an entry per
-// module, by path.
-func moduleKeys(c, old *DepsCapabilities) []tableKey {
-	paths := make([]string, 0, len(c.Modules))
-	for p := range c.Modules {
+// entryKeys is what a table of entries holds as entries, which held old:
+// an entry per key, in key order.
+func entryKeys(entries, old map[string][]string) []tableKey {
+	paths := make([]string, 0, len(entries))
+	for p := range entries {
 		paths = append(paths, p)
 	}
 	slices.Sort(paths)
 	keys := make([]tableKey, len(paths))
 	for i, p := range paths {
-		keys[i] = tableKey{path: p, key: moduleKey(p), names: c.Modules[p], was: old.Modules[p]}
+		keys[i] = tableKey{path: p, key: moduleKey(p), names: entries[p], was: old[p]}
 	}
 	return keys
 }
 
-// moduleKey is module's path as a key under [capabilities.deps.modules]
-// is written new.
+// moduleKey is an entry's key as a table of entries writes it new.
 func moduleKey(module string) string { return fmt.Sprintf("%q", module) }
 
-// ModuleEntryText is module's entry under [capabilities.deps.modules]
-// holding names, as the tables write an entry the file lacks
-// (writeCapabilityTable): `"lib.example/pg" = ["std::fs"]`, one name a
+// ModuleEntryText is module's entry in a table of entries
+// ([effects.self.modules], [effects.deps.modules]) holding
+// names, as the tables write an entry the file lacks
+// (writeEffectTable): `"pg" = ["std::fs"]`, one name a
 // line when it does not fit on one.
 func ModuleEntryText(module string, names []string) string {
 	return strings.Join(tomlList(moduleKey(module)+" = ", names, ""), "\n")
 }
 
-// writeCapabilityTable is the lines of one table, at in lines, as --write
+// writeEffectTable is the lines of one table, at in lines, as --write
 // writes it with keys: its header as the file has it, then its body in the
 // file's order (keptRuns). A key keys holds keeps the comment lines
 // directly above it and the comment on its line; its lines are as they
-// were when its value is the same, its list is written again when not
-// (writeListValue), and a flag that turns true has its value written
-// again. A key keys does not hold goes, with its comments, and so does a
-// flag that turns false. Then each key the file lacks, in keys' order,
-// with no comment; after a blank line when a blank line separates the
-// keys the table has.
-func writeCapabilityTable(lines []string, at ManifestTable, header string, keys []tableKey) []string {
+// were when its value is the same, and its list is written again when not
+// (writeListValue). A key keys does not hold goes, with its comments. Then
+// each key the file lacks, in keys' order, with no comment; after a blank
+// line when a blank line separates the keys the table has.
+func writeEffectTable(lines []string, at ManifestTable, header string, keys []tableKey) []string {
 	out := []string{header}
 	if at.Header > 0 {
 		out[0] = strings.TrimSuffix(lines[at.Header-1], "\r")
@@ -386,14 +371,8 @@ func writeCapabilityTable(lines []string, at ManifestTable, header string, keys 
 		}
 		k := keys[i]
 		written[k.path] = true
-		switch {
-		case k.kept || k.flag && k.on == k.wasOn || !k.flag && sameNames(k.was, k.names):
+		if k.kept || sameNames(k.was, k.names) {
 			return runLines(lines, run.First, run.Last), true
-		case k.flag && !k.on:
-			return nil, false
-		case k.flag:
-			first := strings.TrimSuffix(lines[run.Line-1], "\r")
-			return append(runLines(lines, run.First, run.Line-1), first[:run.ValueStart]+"true"+first[run.ValueEnd:]), true
 		}
 		return writeListValue(lines, run, k.was, k.names), true
 	})...)
@@ -404,11 +383,7 @@ func writeCapabilityTable(lines []string, at ManifestTable, header string, keys 
 	}
 	var added []string
 	for _, k := range keys {
-		switch {
-		case written[k.path] || k.kept || k.flag && !k.on:
-		case k.flag:
-			added = append(added, k.key+" = true")
-		default:
+		if !written[k.path] && !k.kept {
 			added = append(added, tomlList(k.key+" = ", k.names, "")...)
 		}
 	}
@@ -517,7 +492,7 @@ func sameNames(a, b []string) bool {
 }
 
 // tomlList is a list of names after prefix (`std = `) and before suffix,
-// a comment: on one line when that fits in capabilityListWidth, and with one
+// a comment: on one line when that fits in effectListWidth, and with one
 // name per line, the suffix on the first, when not.
 func tomlList(prefix string, names []string, suffix string) []string {
 	quoted := make([]string, len(names))
@@ -525,7 +500,7 @@ func tomlList(prefix string, names []string, suffix string) []string {
 		quoted[i] = fmt.Sprintf("%q", n)
 	}
 	one := prefix + "[" + strings.Join(quoted, ", ") + "]" + suffix
-	if len(one) <= capabilityListWidth || len(names) < 2 {
+	if len(one) <= effectListWidth || len(names) < 2 {
 		return []string{one}
 	}
 	out := []string{prefix + "[" + suffix}
@@ -537,44 +512,72 @@ func tomlList(prefix string, names []string, suffix string) []string {
 
 // Clone is a copy of c that shares no list with it. A list or table c
 // leaves out stays left out, and Deps' Modules is a map.
-func (c *Capabilities) Clone() *Capabilities {
-	out := &Capabilities{}
+func (c *Effects) Clone() *Effects {
+	out := &Effects{}
+	cloneEntries := func(entries map[string][]string) map[string][]string {
+		out := make(map[string][]string, len(entries))
+		for m, names := range entries {
+			out[m] = slices.Clone(names)
+		}
+		return out
+	}
 	if c.Self != nil {
 		s := *c.Self
 		s.Std, s.StdInTests = slices.Clone(c.Self.Std), slices.Clone(c.Self.StdInTests)
+		if c.Self.Modules != nil {
+			s.Modules = cloneEntries(c.Self.Modules)
+		}
 		out.Self = &s
 	}
 	if c.Deps != nil {
 		d := *c.Deps
 		d.Std, d.StdInTests = slices.Clone(c.Deps.Std), slices.Clone(c.Deps.StdInTests)
-		d.Go, d.GoInTests = slices.Clone(c.Deps.Go), slices.Clone(c.Deps.GoInTests)
-		d.Modules = make(map[string][]string, len(c.Deps.Modules))
-		for m, names := range c.Deps.Modules {
-			d.Modules[m] = slices.Clone(names)
-		}
+		d.Modules = cloneEntries(c.Deps.Modules)
 		out.Deps = &d
 	}
 	return out
 }
 
-// CapabilityAdd is one name a fix adds to one list of the capability
-// tables: List is one of the List constants for a list, Module the entry
-// under [capabilities.deps.modules] for ListDepsModules, and Name the std
-// name or module path; for self's go and go_in_tests the fix sets the key
-// true and Name is "".
-type CapabilityAdd struct {
+// SetEntry sets the entry for key in list's table of entries (EntryLists)
+// to names, giving c the table, and its own table above it, when it has
+// neither.
+func (c *Effects) SetEntry(list, key string, names []string) {
+	switch list {
+	case ListSelfModules:
+		if c.Self == nil {
+			c.Self = &SelfEffects{}
+		}
+		if c.Self.Modules == nil {
+			c.Self.Modules = map[string][]string{}
+		}
+		c.Self.Modules[key] = names
+	case ListDepsModules:
+		if c.Deps == nil {
+			c.Deps = &DepsEffects{}
+		}
+		if c.Deps.Modules == nil {
+			c.Deps.Modules = map[string][]string{}
+		}
+		c.Deps.Modules[key] = names
+	}
+}
+
+// EffectAdd is one name a fix adds to one list of the effect
+// tables: List is one of the List constants for a list, Module the key of
+// the entry for one of EntryLists, and Name the std name.
+type EffectAdd struct {
 	List, Module, Name string
 }
 
-// AllowCapabilities is the fix titled title that adds each of adds to its
-// list in data, the nomi.toml at path whose capability tables are c: the
-// tables as WriteCapabilityTables writes them with the names added, as
+// AllowEffects is the fix titled title that adds each of adds to its
+// list in data, the nomi.toml at path whose effects tables are c: the
+// tables as WriteEffectTables writes them with the names added, as
 // one edit over the lines that change, applied to path (parser.Fix's
 // Path). A name its list already holds adds nothing; nil when nothing is
 // added.
-func AllowCapabilities(path string, data []byte, c *Capabilities, title string, adds []CapabilityAdd) (*parser.Fix, error) {
+func AllowEffects(path string, data []byte, c *Effects, title string, adds []EffectAdd) (*parser.Fix, error) {
 	if c == nil {
-		return nil, errors.New("the file has no [capabilities] tables")
+		return nil, errors.New("the file has no [effects] tables")
 	}
 	to := c.Clone()
 	added := false
@@ -584,55 +587,42 @@ func AllowCapabilities(path string, data []byte, c *Capabilities, title string, 
 			*list = append(*list, name)
 		}
 	}
-	set := func(flag *bool) {
-		if !*flag {
-			added, *flag = true, true
-		}
-	}
 	for _, a := range adds {
 		isSelf := strings.HasPrefix(a.List, ListSelf+".")
 		if isSelf && to.Self == nil {
-			to.Self = &SelfCapabilities{}
+			to.Self = &SelfEffects{}
 		}
 		if !isSelf && to.Deps == nil {
-			to.Deps = &DepsCapabilities{Modules: map[string][]string{}}
+			to.Deps = &DepsEffects{Modules: map[string][]string{}}
 		}
 		switch a.List {
 		case ListSelfStd:
 			add(&to.Self.Std, a.Name)
 		case ListSelfStdInTests:
 			add(&to.Self.StdInTests, a.Name)
-		case ListSelfGo:
-			set(&to.Self.Go)
-		case ListSelfGoInTests:
-			set(&to.Self.GoInTests)
 		case ListDepsStd:
 			add(&to.Deps.Std, a.Name)
 		case ListDepsStdInTests:
 			add(&to.Deps.StdInTests, a.Name)
-		case ListDepsGo:
-			add(&to.Deps.Go, a.Name)
-		case ListDepsGoInTests:
-			add(&to.Deps.GoInTests, a.Name)
-		case ListDepsModules:
-			entry := to.Deps.Modules[a.Module]
+		case ListSelfModules, ListDepsModules:
+			entry := slices.Clone(to.Entries(a.List)[a.Module])
 			add(&entry, a.Name)
-			to.Deps.Modules[a.Module] = entry
+			to.SetEntry(a.List, a.Module, entry)
 		default:
-			return nil, fmt.Errorf("[capabilities] has no list %q", a.List)
+			return nil, fmt.Errorf("[effects] has no list %q", a.List)
 		}
 	}
 	if !added {
 		return nil, nil
 	}
-	return CapabilitiesFix(path, data, title, to)
+	return EffectsFix(path, data, title, to)
 }
 
-// CapabilitiesFix is the fix titled title that writes to as the capability
-// tables of data, the nomi.toml at path (WriteCapabilityTables), as one
+// EffectsFix is the fix titled title that writes to as the effect
+// tables of data, the nomi.toml at path (WriteEffectTables), as one
 // edit over the lines that change, applied to path (parser.Fix's Path).
-func CapabilitiesFix(path string, data []byte, title string, to *Capabilities) (*parser.Fix, error) {
-	edited, _, err := WriteCapabilityTables(filepath.Dir(path), data, to)
+func EffectsFix(path string, data []byte, title string, to *Effects) (*parser.Fix, error) {
+	edited, _, err := WriteEffectTables(filepath.Dir(path), data, to)
 	if err != nil {
 		return nil, err
 	}

@@ -49,11 +49,10 @@ import (
 //  1. rt is a consumer of Context, not only its provider. `EnterDeadline` needs
 //     `contextEffectiveDeadline`, and rt imports no adapter. std/calendar's rt types have no rt-side reader, which is
 //     why its implementation can live in an adapter.
-//  2. The FFI boundary refuses Context as a value by decision, so an
+//  2. The host boundary refuses Context as a value by decision, so an
 //     embedder cannot smuggle a ctx through it. An adapter's mechanism is the
-//     value crossing that boundary. A Go binding's leading context.Context
-//     is not such a value: it receives the frame's Go context, which
-//     EnterDeadline derived (spec §19 *The task's context*).
+//     value crossing that boundary. A host function reads the frame's Go
+//     context (Frame.Context), which EnterDeadline derived, instead.
 //
 // Nothing here wraps a Go library. It is int64 arithmetic and a cons list, the
 // same shape `Duration` and `Instant` have in rt/opaque.go.

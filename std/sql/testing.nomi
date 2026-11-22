@@ -136,10 +136,11 @@ impl Fake
     /// returned.
     //! fake = Fake.new()
     //!
-    //! answer = begin
-    //!     defer sql.close_quietly(fake)
-    //!     Conn.exec(fake, Sql"DELETE FROM t")
-    //! end
+    //! answer =
+    //!     begin
+    //!         defer sql.close_quietly(fake)
+    //!         Conn.exec(fake, Sql"DELETE FROM t")
+    //!     end
     //!
     //! assert answer == Ok(0)
     //! assert Fake.is_closed(fake)
@@ -183,11 +184,12 @@ impl Conn for Fake
             Some(_) ->
                 open = Iter.count(state.levels)
 
-                line = if open == 1 then
-                    "BEGIN"
-                else
-                    "SAVEPOINT ${savepoint(open)}"
-                end
+                line =
+                    if open == 1 then
+                        "BEGIN"
+                    else
+                        "SAVEPOINT ${savepoint(open)}"
+                    end
 
                 level = Level{id: state.next_id, effects: []}
 
@@ -212,11 +214,12 @@ impl Conn for Fake
 
         case depth(state, tx.id)
             Some(index) when index > 0 ->
-                line = if index == 1 then
-                    "COMMIT"
-                else
-                    "RELEASE SAVEPOINT ${savepoint(index)}"
-                end
+                line =
+                    if index == 1 then
+                        "COMMIT"
+                    else
+                        "RELEASE SAVEPOINT ${savepoint(index)}"
+                    end
 
                 outer = Iter.take(state.levels, index - 1) |> Iter.to_list()
                 inner = Iter.drop(state.levels, index - 1) |> Iter.to_list()
@@ -246,11 +249,12 @@ impl Conn for Fake
 
         case depth(state, tx.id)
             Some(index) when index > 0 ->
-                line = if index == 1 then
-                    "ROLLBACK"
-                else
-                    "ROLLBACK TO SAVEPOINT ${savepoint(index)}"
-                end
+                line =
+                    if index == 1 then
+                        "ROLLBACK"
+                    else
+                        "ROLLBACK TO SAVEPOINT ${savepoint(index)}"
+                    end
 
                 levels = Iter.take(state.levels, index) |> Iter.to_list()
                 put(tx, {..state, log: .. + [line], levels:})
@@ -473,18 +477,19 @@ pub fn conformance_answer(
         return Ok([])
     end
 
-    time_rows = fn keep: (Instant) -> Bool, order: ((Int, Instant)) -> Int ->
-        query = "${statement}"
+    time_rows =
+        fn keep: (Instant) -> Bool, order: ((Int, Instant)) -> Int ->
+            query = "${statement}"
 
-        rows =
-            times(visible)
-            |> Iter.filter(fn (_, at) -> keep(at))
-            |> Iter.sort_by(order)
-            |> Iter.map(fn (n, _) -> Row.new(query, [("n", Value.Int(n))]))
-            |> Iter.to_list()
+            rows =
+                times(visible)
+                |> Iter.filter(fn (_, at) -> keep(at))
+                |> Iter.sort_by(order)
+                |> Iter.map(fn (n, _) -> Row.new(query, [("n", Value.Int(n))]))
+                |> Iter.to_list()
 
-        Ok(rows)
-    end
+            Ok(rows)
+        end
 
     by_n = fn (n, _): (Int, Instant) -> n
 
@@ -889,10 +894,11 @@ fn checks() -> List<(String, (Conn) -> Result<Unit, String>)>
                 add(conn, 3)?
                 calls: Channel<Unit> = Channel.buffered(3)
 
-                stop = fn _: Row ->
-                    _ = Sender.send(calls.sender, Unit)
-                    False
-                end
+                stop =
+                    fn _: Row ->
+                        _ = Sender.send(calls.sender, Unit)
+                        False
+                    end
 
                 step(Conn.each_row(conn, read_all(), stop), "each_row")?
                 Sender.close(calls.sender)
@@ -1040,18 +1046,19 @@ fn checks() -> List<(String, (Conn) -> Result<Unit, String>)>
         (
             "sql.transaction rolls back on a trap",
             fn conn ->
-                outcome = concurrent
-                    task = Task.spawn(fn ->
-                        sql.transaction(conn, fn tx ->
-                            _ = Conn.exec(tx, insert(1, None))?
-                            // `!` on None traps.
-                            divisor = NonZeroInt.try_from(Iter.count([]))!
-                            Ok(1 / divisor)
+                outcome =
+                    concurrent
+                        task = Task.spawn(fn ->
+                            sql.transaction(conn, fn tx ->
+                                _ = Conn.exec(tx, insert(1, None))?
+                                // `!` on None traps.
+                                divisor = NonZeroInt.try_from(Iter.count([]))!
+                                Ok(1 / divisor)
+                            end)
                         end)
-                    end)
 
-                    Task.outcome(task)
-                end
+                        Task.outcome(task)
+                    end
 
                 case outcome
                     .Failed(_) -> expect_ns(conn, [])
@@ -1141,17 +1148,18 @@ fn checks() -> List<(String, (Conn) -> Result<Unit, String>)>
         (
             "a deferred sql.close_quietly closes on a trap",
             fn conn ->
-                outcome = concurrent
-                    task = Task.spawn(fn ->
-                        closing(conn, fn c ->
-                            _ = Conn.exec(c, insert(1, None))?
-                            divisor = NonZeroInt.try_from(Iter.count([]))!
-                            Ok(1 / divisor)
+                outcome =
+                    concurrent
+                        task = Task.spawn(fn ->
+                            closing(conn, fn c ->
+                                _ = Conn.exec(c, insert(1, None))?
+                                divisor = NonZeroInt.try_from(Iter.count([]))!
+                                Ok(1 / divisor)
+                            end)
                         end)
-                    end)
 
-                    Task.outcome(task)
-                end
+                        Task.outcome(task)
+                    end
 
                 case outcome
                     .Failed(_) -> expect_closed(Conn.ping(conn), "ping after the trap")

@@ -73,7 +73,7 @@ func TestSharedPreludeInternKeysOnTheWholeInstantiation(t *testing.T) {
 // declare a `Point`. Those rows are below, and they are the point of the table.
 func TestPackageNeutralIsClosed(t *testing.T) {
 	g := preludeGenForTest(t)
-	maybeInt := g.preludeInstance(g.preludeByName["Maybe"], []kind{kindInt})
+	maybeInt := g.preludeInstance(preludeAnchorForTest(g, "Maybe"), []kind{kindInt})
 	duration := opaqueKind(opaqueSpecIndex(t, "Duration"))
 
 	for _, tc := range []struct {
@@ -88,18 +88,18 @@ func TestPackageNeutralIsClosed(t *testing.T) {
 		{"Unit", kindUnit, true},
 		{"an anchored opaque newtype", duration, true},
 		{"Maybe<Int>", maybeInt, true},
-		{"Maybe<Duration>", g.preludeInstance(g.preludeByName["Maybe"], []kind{duration}), true},
-		{"Result<Maybe<Int>, String>", g.preludeInstance(g.preludeByName["Result"], []kind{maybeInt, kindString}), true},
+		{"Maybe<Duration>", g.preludeInstance(preludeAnchorForTest(g, "Maybe"), []kind{duration}), true},
+		{"Result<Maybe<Int>, String>", g.preludeInstance(preludeAnchorForTest(g, "Result"), []kind{maybeInt, kindString}), true},
 		{"kindInvalid", kindInvalid, false},
 		{"List<Int>", g.listKind(kindInt), true},
-		{"Maybe<List<Int>>", g.preludeInstance(g.preludeByName["Maybe"], []kind{g.listKind(kindInt)}), true},
+		{"Maybe<List<Int>>", g.preludeInstance(preludeAnchorForTest(g, "Maybe"), []kind{g.listKind(kindInt)}), true},
 		{"(Int, Int)", g.tupleKind([]kind{kindInt, kindInt}), true},
 		{"(Int) -> Int", g.funcKind([]kind{kindInt}, kindInt), true},
 		{"a generated package's own type", named(localDefForTest()), false},
 		{"List<that type>", g.listKind(named(localDefForTest())), false},
 		{"(Int, that type)", g.tupleKind([]kind{kindInt, named(localDefForTest())}), false},
 		{"Maybe<List<that type>>",
-			g.preludeInstance(g.preludeByName["Maybe"], []kind{g.listKind(named(localDefForTest()))}), false},
+			g.preludeInstance(preludeAnchorForTest(g, "Maybe"), []kind{g.listKind(named(localDefForTest()))}), false},
 	} {
 		if got := tc.k.packageNeutral(); got != tc.want {
 			t.Errorf("%s: packageNeutral() = %v, want %v", tc.name, got, tc.want)

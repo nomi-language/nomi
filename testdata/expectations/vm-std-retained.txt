@@ -3,13 +3,6 @@
 # TestIRRetainedStdPopulationRuns). A line that leaves `ran` is a regression;
 # name the cause of every moved line. Regenerate with:
 #   NOMI_REGENERATE_EXPECTATIONS=1 go test ./internal/irbuild -run '^TestIRRetainedStdPopulationRuns$' -count=1
-assertions.nomi:AssertionBinding.inspect	ran
-assertions.nomi:AssertionDetail.inspect	ran
-assertions.nomi:AssertionDetails.inspect	ran
-assertions.nomi:AssertionFailure.inspect	ran
-assertions.nomi:AssertionPipelineStage.inspect	ran
-assertions.nomi:AssertionValue.inspect	ran
-assertions.nomi:SubtestFailure.inspect	ran
 base64.nomi:base64.encode default 2	ran
 base64.nomi:base64.encode_url default 2	ran
 base64.nomi:encode	ran
@@ -29,6 +22,8 @@ bool.nomi:True.equal	ran
 bool.nomi:True.hash	ran
 bool.nomi:True.inspect	ran
 bool.nomi:True.to_string	ran
+bytes.nomi:Builder.inspect	ran
+bytes.nomi:Builder.new	ran
 bytes.nomi:Byte.BitwiseAnd<Byte, Byte>.bitwise_and	ran
 bytes.nomi:Byte.BitwiseNot<Byte>.bitwise_not	ran
 bytes.nomi:Byte.BitwiseOr<Byte, Byte>.bitwise_or	ran
@@ -41,8 +36,15 @@ bytes.nomi:Bytes.Add<Bytes, Bytes>.add	ran
 bytes.nomi:Bytes.compare	ran
 bytes.nomi:Bytes.empty_sum	ran
 bytes.nomi:Bytes.equal	ran
+bytes.nomi:Bytes.index_of	ran
+bytes.nomi:Bytes.index_of_any	ran
+bytes.nomi:Bytes.index_of_byte	ran
 bytes.nomi:Bytes.inspect	ran
 bytes.nomi:Display.to_string for Bytes	ran
+bytes.nomi:bytes.Builder.new default 1	ran
+bytes.nomi:bytes.Bytes.index_of default 3	ran
+bytes.nomi:bytes.Bytes.index_of_any default 3	ran
+bytes.nomi:bytes.Bytes.index_of_byte default 3	ran
 bytes.nomi:join_debug_parts	ran
 calendar.nomi:Date.Add<Days, Date>.add	ran
 calendar.nomi:Date.Add<Months, Date>.add	ran
@@ -72,7 +74,6 @@ calendar.nomi:Date.parse_with	ran
 calendar.nomi:Date.to_string_with	ran
 calendar.nomi:Date.weekday	ran
 calendar.nomi:Date.year	ran
-calendar.nomi:DateAttempt.inspect	ran
 calendar.nomi:DateFields.equal	ran
 calendar.nomi:DateFields.from_fragments	ran
 calendar.nomi:DateFields.inspect	ran
@@ -82,7 +83,6 @@ calendar.nomi:DatePattern.from_fragments	ran
 calendar.nomi:DatePattern.inspect	ran
 calendar.nomi:DatePattern.parse	ran
 calendar.nomi:DateStyle.equal	ran
-calendar.nomi:DateStyle.inspect	ran
 calendar.nomi:DateStyle.name	ran
 calendar.nomi:DateTime.Add<Days, DateTime>.add	ran
 calendar.nomi:DateTime.Add<Duration, DateTime>.add	ran
@@ -118,8 +118,10 @@ calendar.nomi:DateTime.hash	ran
 calendar.nomi:DateTime.in_zone	ran
 calendar.nomi:DateTime.in_zone_resolve	ran
 calendar.nomi:DateTime.inspect	ran
+calendar.nomi:DateTime.local_zone	ran
 calendar.nomi:DateTime.localize	ran
 calendar.nomi:DateTime.now_in	ran
+calendar.nomi:DateTime.now_local	ran
 calendar.nomi:DateTime.offset	ran
 calendar.nomi:DateTime.parse	ran
 calendar.nomi:DateTime.to_instant	ran
@@ -138,39 +140,30 @@ calendar.nomi:DateTimePattern.parse	ran
 calendar.nomi:Days.compare	ran
 calendar.nomi:Days.equal	ran
 calendar.nomi:Days.hash	ran
-calendar.nomi:Days.inspect	ran
 calendar.nomi:Days.to_string	ran
-calendar.nomi:Disambiguation.inspect	ran
 calendar.nomi:Error.equal	ran
-calendar.nomi:Error.inspect	ran
 calendar.nomi:Error.of	ran
 calendar.nomi:Error.to_string	ran
 calendar.nomi:Hours.compare	ran
 calendar.nomi:Hours.equal	ran
 calendar.nomi:Hours.hash	ran
-calendar.nomi:Hours.inspect	ran
 calendar.nomi:Hours.to_string	ran
 calendar.nomi:Microseconds.compare	ran
 calendar.nomi:Microseconds.equal	ran
 calendar.nomi:Microseconds.hash	ran
-calendar.nomi:Microseconds.inspect	ran
 calendar.nomi:Microseconds.to_string	ran
 calendar.nomi:Milliseconds.compare	ran
 calendar.nomi:Milliseconds.equal	ran
 calendar.nomi:Milliseconds.hash	ran
-calendar.nomi:Milliseconds.inspect	ran
 calendar.nomi:Milliseconds.to_string	ran
 calendar.nomi:Minutes.compare	ran
 calendar.nomi:Minutes.equal	ran
 calendar.nomi:Minutes.hash	ran
-calendar.nomi:Minutes.inspect	ran
 calendar.nomi:Minutes.to_string	ran
 calendar.nomi:Months.compare	ran
 calendar.nomi:Months.equal	ran
 calendar.nomi:Months.hash	ran
-calendar.nomi:Months.inspect	ran
 calendar.nomi:Months.to_string	ran
-calendar.nomi:NaiveAttempt.inspect	ran
 calendar.nomi:NaiveDateTime.Add<Days, NaiveDateTime>.add	ran
 calendar.nomi:NaiveDateTime.Add<Duration, NaiveDateTime>.add	ran
 calendar.nomi:NaiveDateTime.Add<Hours, NaiveDateTime>.add	ran
@@ -223,9 +216,7 @@ calendar.nomi:NaiveDateTime.year	ran
 calendar.nomi:Nanoseconds.compare	ran
 calendar.nomi:Nanoseconds.equal	ran
 calendar.nomi:Nanoseconds.hash	ran
-calendar.nomi:Nanoseconds.inspect	ran
 calendar.nomi:Nanoseconds.to_string	ran
-calendar.nomi:OffsetAttempt.inspect	ran
 calendar.nomi:OffsetDateTime.Add<Days, OffsetDateTime>.add	ran
 calendar.nomi:OffsetDateTime.Add<Duration, OffsetDateTime>.add	ran
 calendar.nomi:OffsetDateTime.Add<Hours, OffsetDateTime>.add	ran
@@ -262,7 +253,6 @@ calendar.nomi:OffsetDateTime.with_offset	ran
 calendar.nomi:Seconds.compare	ran
 calendar.nomi:Seconds.equal	ran
 calendar.nomi:Seconds.hash	ran
-calendar.nomi:Seconds.inspect	ran
 calendar.nomi:Seconds.to_string	ran
 calendar.nomi:Time.Add<Duration, Time>.add	ran
 calendar.nomi:Time.Subtract<Duration, Time>.subtract	ran
@@ -285,7 +275,6 @@ calendar.nomi:Time.parse_in	ran
 calendar.nomi:Time.parse_with	ran
 calendar.nomi:Time.second	ran
 calendar.nomi:Time.to_string_with	ran
-calendar.nomi:TimeAttempt.inspect	ran
 calendar.nomi:TimeFields.equal	ran
 calendar.nomi:TimeFields.from_fragments	ran
 calendar.nomi:TimeFields.inspect	ran
@@ -295,26 +284,20 @@ calendar.nomi:TimePattern.from_fragments	ran
 calendar.nomi:TimePattern.inspect	ran
 calendar.nomi:TimePattern.parse	ran
 calendar.nomi:TimeStyle.equal	ran
-calendar.nomi:TimeStyle.inspect	ran
 calendar.nomi:TimeStyle.name	ran
 calendar.nomi:TimeUnit.equal	ran
 calendar.nomi:TimeUnit.format_relative	ran
-calendar.nomi:TimeUnit.inspect	ran
 calendar.nomi:Weekday.equal	ran
 calendar.nomi:Weekday.hash	ran
-calendar.nomi:Weekday.inspect	ran
 calendar.nomi:Weekday.to_string	ran
 calendar.nomi:Weeks.compare	ran
 calendar.nomi:Weeks.equal	ran
 calendar.nomi:Weeks.hash	ran
-calendar.nomi:Weeks.inspect	ran
 calendar.nomi:Weeks.to_string	ran
 calendar.nomi:Years.compare	ran
 calendar.nomi:Years.equal	ran
 calendar.nomi:Years.hash	ran
-calendar.nomi:Years.inspect	ran
 calendar.nomi:Years.to_string	ran
-calendar.nomi:ZonedAttempt.inspect	ran
 calendar.nomi:calendar.Date.format default 3	ran
 calendar.nomi:calendar.Date.parse_in default 3	ran
 calendar.nomi:calendar.Date.parse_in default 4	ran
@@ -336,6 +319,7 @@ calendar.nomi:calendar.TimeUnit.format_relative default 4	ran
 calendar.nomi:component	ran
 calendar.nomi:day_nanos	ran
 calendar.nomi:offset_in_range	ran
+code_points.nomi:Codepoint.TryFrom<base(Codepoint)>.try_from	ran
 code_points.nomi:Codepoint.compare	ran
 code_points.nomi:Codepoint.equal	ran
 code_points.nomi:Codepoint.hash	ran
@@ -346,8 +330,8 @@ code_points.nomi:Codepoint.step_by	ran
 code_points.nomi:Codepoint.steps_between	ran
 code_points.nomi:Codepoint.to_digit	ran
 code_points.nomi:Codepoint.to_int	ran
+code_points.nomi:Codepoint.unchecked	ran
 collation.nomi:CaseFirst.equal	ran
-collation.nomi:CaseFirst.inspect	ran
 collation.nomi:Collator.compare	ran
 collation.nomi:Collator.equal	ran
 collation.nomi:Collator.hash	ran
@@ -355,22 +339,14 @@ collation.nomi:Collator.inspect	ran
 collation.nomi:Collator.new	ran
 collation.nomi:Collator.sort_key	ran
 collation.nomi:Strength.equal	ran
-collation.nomi:Strength.inspect	ran
 collation.nomi:collation.Collator.new default 2	ran
 collation.nomi:collation.Collator.new default 3	ran
 collation.nomi:collation.Collator.new default 4	ran
 collation.nomi:collation.Collator.new default 5	ran
-comparable.nomi:Direction.inspect	ran
 comparable.nomi:Direction.to_string	ran
 comparable.nomi:Ordering.chain	ran
-comparable.nomi:Ordering.inspect	ran
 comparable.nomi:Ordering.to_string	ran
 comparable.nomi:Ordering.variants	ran
-compiler.nomi:Diagnostic.inspect	ran
-compiler.nomi:Hover.inspect	ran
-compiler.nomi:Project.inspect	ran
-compiler.nomi:RunFile.inspect	ran
-context.nomi:Context.inspect	ran
 csv/host.nomi:Records.inspect	ran
 currency.nomi:Currency.code	ran
 currency.nomi:Currency.custom	ran
@@ -384,7 +360,6 @@ currency.nomi:Currency.minor_digits	ran
 currency.nomi:Currency.parse	ran
 currency.nomi:Currency.to_string	ran
 currency.nomi:Error.equal	ran
-currency.nomi:Error.inspect	ran
 currency.nomi:Error.to_string	ran
 decimal.nomi:Decimal.abs	ran
 decimal.nomi:Decimal.empty_product	ran
@@ -405,7 +380,6 @@ decimal.nomi:PositiveDecimal.try_from	ran
 decimal.nomi:PositiveDecimal.unchecked	ran
 decimal.nomi:Ratios.try_from	ran
 decimal.nomi:Ratios.unchecked	ran
-decimal.nomi:RoundingMode.inspect	ran
 decimal.nomi:RoundingMode.to_string	ran
 decimal.nomi:decimal.Decimal.parse_in default 3	ran
 decimal.nomi:decimal.Decimal.parse_percent_in default 3	ran
@@ -439,7 +413,6 @@ duration.nomi:Duration.parse_clock	ran
 duration.nomi:Duration.seconds	ran
 duration.nomi:Duration.to_string	ran
 duration.nomi:DurationWidth.equal	ran
-duration.nomi:DurationWidth.inspect	ran
 duration.nomi:NonNegativeDuration.try_from	ran
 duration.nomi:NonNegativeDuration.unchecked	ran
 duration.nomi:NonZeroDuration.try_from	ran
@@ -458,9 +431,7 @@ duration.nomi:two_digits	ran
 duration.nomi:unexpected	ran
 duration.nomi:unit	ran
 dynamic.nomi:Dynamic.equal	ran
-dynamic.nomi:Error.inspect	ran
 dynamic.nomi:Error.to_string	ran
-dynamic.nomi:PathSegment.inspect	ran
 dynamic.nomi:PathSegment.to_string	ran
 float.nomi:Float.abs	ran
 float.nomi:Float.clamp	ran
@@ -534,6 +505,8 @@ int.nomi:Int.inspect	ran
 int.nomi:Int.modulo	ran
 int.nomi:Int.next	ran
 int.nomi:Int.parse_in	ran
+int.nomi:Int.rotate_right_32	ran
+int.nomi:Int.rotate_right_64	ran
 int.nomi:Int.sign	ran
 int.nomi:Int.step_by	ran
 int.nomi:Int.steps_between	ran
@@ -554,7 +527,6 @@ int.nomi:int.Int.from_digits default 2	ran
 int.nomi:int.Int.parse_in default 3	ran
 int.nomi:int.Int.to_digits default 2	ran
 io.nomi:Error.equal	ran
-io.nomi:Error.inspect	ran
 io.nomi:Error.to_string	ran
 io.nomi:File.close_quietly	ran
 io.nomi:File.inspect	ran
@@ -565,7 +537,6 @@ io.nomi:Reader.inspect	ran
 io.nomi:Reader.read	ran
 io.nomi:Reader.release	ran
 io.nomi:Replayed.failure	ran
-io.nomi:Replayed.inspect	ran
 io.nomi:Writer.close_quietly	ran
 io.nomi:Writer.commit	ran
 io.nomi:Writer.from_fn	ran
@@ -586,14 +557,14 @@ json.nomi:Decimal.from_json	ran
 json.nomi:Decimal.to_json	ran
 json.nomi:Float.from_json	ran
 json.nomi:Float.to_json	ran
+json.nomi:FromJson.Options.equal	ran
 json.nomi:Instant.to_json	ran
 json.nomi:Int.from_json	ran
 json.nomi:Int.to_json	ran
-json.nomi:Json.DecodeError.inspect	ran
+json.nomi:Json.Case.equal	ran
+json.nomi:Json.Case.to_string	ran
 json.nomi:Json.DecodeError.to_string	ran
-json.nomi:Json.Error.inspect	ran
 json.nomi:Json.Error.to_string	ran
-json.nomi:Json.ShapeError.inspect	ran
 json.nomi:Json.ShapeError.to_string	ran
 json.nomi:Json.equal	ran
 json.nomi:Json.from_json	ran
@@ -610,18 +581,16 @@ json.nomi:String.from_json	ran
 json.nomi:String.to_json	ran
 json.nomi:Time.from_json	ran
 json.nomi:Time.to_json	ran
+json.nomi:ToJson.Options.equal	ran
 json.nomi:object_of_fields	ran
 json.nomi:shape_error_prepend	ran
 json.nomi:shape_error_root	ran
 json.nomi:shape_error_text	ran
 literals.nomi:LiteralError.equal	ran
-literals.nomi:LiteralError.inspect	ran
 literals.nomi:LiteralError.to_string	ran
 locale.nomi:Error.equal	ran
-locale.nomi:Error.inspect	ran
 locale.nomi:Error.to_string	ran
 locale.nomi:LoadError.equal	ran
-locale.nomi:LoadError.inspect	ran
 locale.nomi:LoadError.to_string	ran
 locale.nomi:Locale.available	ran
 locale.nomi:Locale.equal	ran
@@ -638,16 +607,28 @@ locale.nomi:Locale.parse	ran
 locale.nomi:Locale.region	ran
 locale.nomi:Locale.script	ran
 locale.nomi:Locale.to_string	ran
-locale.nomi:LocaleAttempt.inspect	ran
 localize.nomi:Float.localize	ran
 localize.nomi:Int.localize	ran
 localize.nomi:NumberParseError.equal	ran
-localize.nomi:NumberParseError.inspect	ran
 localize.nomi:NumberParseError.to_string	ran
 localize.nomi:String.localize	ran
 money/format.nomi:format	ran
 money/format.nomi:label	ran
 money/format.nomi:parse	ran
+passwords/host.nomi:Cost.try_from	ran
+passwords/host.nomi:Cost.unchecked	ran
+passwords/host.nomi:HashLength.try_from	ran
+passwords/host.nomi:HashLength.unchecked	ran
+passwords/host.nomi:Kib.try_from	ran
+passwords/host.nomi:Kib.unchecked	ran
+passwords/host.nomi:Lanes.try_from	ran
+passwords/host.nomi:Lanes.unchecked	ran
+passwords/host.nomi:LogCost.try_from	ran
+passwords/host.nomi:LogCost.unchecked	ran
+passwords/host.nomi:Passes.try_from	ran
+passwords/host.nomi:Passes.unchecked	ran
+passwords/host.nomi:ScryptFactor.try_from	ran
+passwords/host.nomi:ScryptFactor.unchecked	ran
 phrase/format.nomi:format	ran
 phrase/format.nomi:load	ran
 phrase/format.nomi:noun_text	ran
@@ -656,7 +637,6 @@ plural.nomi:Int.plural_operand	ran
 plural.nomi:PluralCategory.cardinals	ran
 plural.nomi:PluralCategory.equal	ran
 plural.nomi:PluralCategory.hash	ran
-plural.nomi:PluralCategory.inspect	ran
 plural.nomi:PluralCategory.of	ran
 plural.nomi:PluralCategory.ordinal	ran
 plural.nomi:PluralCategory.ordinals	ran
@@ -664,7 +644,6 @@ plural.nomi:PluralCategory.to_string	ran
 process/host.nomi:Child.inspect	ran
 process/host.nomi:Fake.inspect	ran
 random.nomi:Error.equal	ran
-random.nomi:Error.inspect	ran
 random.nomi:Error.to_string	ran
 random.nomi:FiniteRange.unchecked	ran
 random.nomi:Generator.float	ran
@@ -684,7 +663,6 @@ results.nomi:Infallible.equal	NEVER: a parameter is Infallible, so nothing can c
 results.nomi:Infallible.hash	NEVER: a parameter is Infallible, so nothing can call it
 results.nomi:Infallible.inspect	NEVER: a parameter is Infallible, so nothing can call it
 results.nomi:Infallible.to_string	NEVER: a parameter is Infallible, so nothing can call it
-startup.nomi:Startup.inspect	ran
 strings.nomi:Codepoint.find_all_in	ran
 strings.nomi:Codepoint.find_in	ran
 strings.nomi:Codepoint.is_contained_in	ran
@@ -693,12 +671,9 @@ strings.nomi:Codepoint.is_suffix_of	ran
 strings.nomi:Codepoint.replace_in	ran
 strings.nomi:Codepoint.split_in	ran
 strings.nomi:ListStyle.equal	ran
-strings.nomi:ListStyle.inspect	ran
 strings.nomi:ListWidth.equal	ran
-strings.nomi:ListWidth.inspect	ran
 strings.nomi:NonEmptyString.try_from	ran
 strings.nomi:NonEmptyString.unchecked	ran
-strings.nomi:NormalForm.inspect	ran
 strings.nomi:NormalForm.to_string	ran
 strings.nomi:String.Contains<Codepoint>.contains	ran
 strings.nomi:String.Contains<Regex<C>>.contains	ran
@@ -721,14 +696,9 @@ strings.nomi:strings.String.join_list default 3	ran
 strings.nomi:strings.String.join_list default 4	ran
 strings.nomi:strings.String.pad_end default 3	ran
 strings.nomi:strings.String.pad_start default 3	ran
-supervisors.nomi:Backoff.inspect	ran
-supervisors.nomi:FlushOutcome.inspect	ran
-supervisors.nomi:GiveUp.inspect	ran
-supervisors.nomi:Restart.inspect	ran
 supervisors.nomi:Supervisor.flush	ran
 supervisors.nomi:Supervisor.inspect	ran
 supervisors.nomi:Supervisor.new	ran
-supervisors.nomi:Wait.inspect	ran
 supervisors.nomi:supervisors.Supervisor.flush default 2	ran
 supervisors.nomi:supervisors.Supervisor.new default 2	ran
 supervisors.nomi:supervisors.Supervisor.new default 3	ran
@@ -737,4 +707,7 @@ supervisors.nomi:supervisors.Supervisor.new default 5	ran
 unit.nomi:Unit.equal	ran
 unit.nomi:Unit.hash	ran
 unit.nomi:Unit.inspect	ran
+wasm/host.nomi:Compiled.inspect	ran
+wasm/host.nomi:Live.inspect	ran
+wasm/host.nomi:Memory.inspect	ran
 xml/host.nomi:Tokens.inspect	ran

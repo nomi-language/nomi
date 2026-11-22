@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/nomi-language/nomi/internal/osreach"
+	"github.com/nomi-language/nomi/internal/stdio"
 	"github.com/nomi-language/nomi/rt"
 )
 
@@ -51,10 +52,17 @@ func frameContext(fr *rt.Frame) context.Context {
 // newConn wraps c, its reads and writes stopped when ctx ends.
 func newConn(ctx context.Context, c net.Conn) rt.NetConn {
 	x := &conn{c: c}
-	x.r = rt.NewReader(rt.ReadSource{Name: "<connection>", R: c})
-	x.w = rt.NewWriter(rt.WriteSink{Name: "<connection>", W: c, Unbuffered: true})
+	x.r = rt.NewReader(rt.ReadSource{Name: "<connection>", R: c, Fail: connFailure})
+	x.w = rt.NewWriter(rt.WriteSink{Name: "<connection>", W: c, Unbuffered: true, Fail: connFailure})
 	x.stop = context.AfterFunc(ctx, func() { _ = c.SetDeadline(time.Unix(1, 0)) })
 	return rt.NewNetConn(x)
+}
+
+// connFailure is the io.Error a connection's read or write answers for err,
+// as a file's or a process's stream does: a read past the deadline
+// `set_read_deadline` set is `TimedOut`.
+func connFailure(op string, err error) rt.IOError {
+	return stdio.Classify(op, "<connection>", err)
 }
 
 // netErr is err, from operation op on address, as a net.Error variant's

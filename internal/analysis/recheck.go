@@ -13,14 +13,14 @@ import (
 )
 
 // An edit that leaves a file's interface alone (interfaceFingerprint) changes
-// only what its bodies say. Recheck then keeps the file's declarations, their
+// only what its bodies say. A recheck then keeps the file's declarations, their
 // nodes, symbols and scopes, gives the kept declaration nodes the new bodies
 // and the new text's positions (graftEdit), moves every position the kept
 // declarations hold to where the new text puts it (textShift), and rebuilds
 // the file's bodies alone (rebuildBodies). The program's other files keep
 // everything; the program's reductions over every file's bodies run again.
 
-// RecheckPath names the way Recheck answered.
+// RecheckPath names the way a recheck answered.
 type RecheckPath int
 
 const (
@@ -49,7 +49,7 @@ func (p RecheckPath) String() string {
 	return "full"
 }
 
-// RecheckOutcome is how one Recheck answered, and why it checked the whole
+// RecheckOutcome is how one recheck answered, and why it checked the whole
 // program when it did.
 type RecheckOutcome struct {
 	Path RecheckPath
@@ -510,7 +510,7 @@ type bodyEdit struct {
 	importsInOrder bool
 }
 
-// rebuildEditedBodies is Recheck's fast path: it answers the program after
+// rebuildEditedBodies is a recheck's fast path: it answers the program after
 // edits, each of which leaves its file's interface as it was, by rebuilding
 // only those files' bodies, and false with the reason when the edits need
 // more. parsed holds each edited text parsed; it deletes the entry of a file
@@ -527,8 +527,6 @@ func (dm *DocumentManager) rebuildEditedBodies(prev *CheckedProgram, edits []Pro
 	switch {
 	case c == nil:
 		return nil, "the program was not checked"
-	case prev.externs:
-		return nil, "the project declares Go bindings"
 	}
 	var plan []bodyEdit
 	moves := false
@@ -637,7 +635,7 @@ func (dm *DocumentManager) rebuildEditedBodies(prev *CheckedProgram, edits []Pro
 		edited[e.fa] = true
 	}
 	if prog.Onces.reinfer(edited) {
-		return nil, "an unannotated once's type may have changed"
+		return nil, "an unannotated once's type or a resource's usual release may have changed"
 	}
 
 	next := &CheckedProgram{
@@ -648,7 +646,6 @@ func (dm *DocumentManager) rebuildEditedBodies(prev *CheckedProgram, edits []Pro
 		Syntax:           prev.Syntax,
 		fingerprints:     prev.fingerprints,
 		implFingerprints: prev.implFingerprints,
-		externs:          prev.externs,
 		damaged:          prev.damaged,
 		Inputs:           prev.Inputs,
 		reachesEntry:     prev.reachesEntry,

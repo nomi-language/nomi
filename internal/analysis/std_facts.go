@@ -3,6 +3,7 @@ package analysis
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"slices"
 	"sort"
 	"sync"
@@ -89,30 +90,33 @@ func ComputeStdFacts(full, decls map[string]*FileAnalysis, errs map[string][]Typ
 		}
 	}
 	// std's own graph: every std function, read from its body.
-	all := make([]*FileAnalysis, 0, len(names))
-	sums := make([]*bootSummary, 0, len(names))
+	read := make([]bootFile[*ast.FuncDef], 0, len(names))
+	fileOf := map[*ast.FuncDef]*FileAnalysis{}
+	bootMu.Lock()
 	for _, name := range names {
-		all = append(all, full[name])
-		sums = append(sums, full[name].bootSummaryOf())
-	}
-	g := newBootGraph(all, sums, nil)
-	for fd, why := range g.why {
-		fn := g.fns[fd]
-		w := stdBootWhy{
-			module: moduleOf[fn.fa],
-			fn:     Pos{Line: fd.Line, Col: fd.Col},
-			call:   Pos{Line: why.call.Line, Col: why.call.Col},
+		fa := full[name]
+		fns := stdReading(fa, fa.bootSummaryOf()).fns()
+		for _, fn := range fns {
+			fileOf[fn.Key] = fa
 		}
-		if why.callee != nil {
-			callee := g.fns[why.callee]
-			if callee == nil {
-				return nil, fmt.Errorf("std/%s: %s calls a boot-only function outside std", w.module, fd.Name)
-			}
-			w.calleeModule = moduleOf[callee.fa]
-			w.callee = Pos{Line: why.callee.Line, Col: why.callee.Col}
-			w.calleeName = why.callee.Name
-			if why.sym != nil {
-				w.owning = why.sym.OwningType
+		read = append(read, bootFile[*ast.FuncDef]{base: filepath.Base(fa.FilePath), fns: fns})
+	}
+	bootMu.Unlock()
+	g := bootGraphOf(read)
+	for fd, why := range g.why {
+		w := stdBootWhy{
+			module: moduleOf[fileOf[fd]],
+			fn:     Pos{Line: fd.Line, Col: fd.Col},
+			call:   Pos{Line: why.Line, Col: why.Col},
+		}
+		if !why.Supervisor {
+			callee := why.Target.Fn
+			cf := fileOf[callee]
+			w.calleeModule = moduleOf[cf]
+			w.callee = Pos{Line: callee.Line, Col: callee.Col}
+			w.calleeName = callee.Name
+			if sym := cf.Definitions[w.callee]; sym != nil {
+				w.owning = sym.OwningType
 			}
 		}
 		f.boot = append(f.boot, w)
@@ -161,7 +165,7 @@ func (f *StdFacts) InstallModules(files map[string]*FileAnalysis, modules []stri
 		}
 		return fa, fd, sym
 	}
-	whys := map[*ast.FuncDef]bootCall{}
+	whys := map[*ast.FuncDef]BootCallFact[*ast.FuncDef]{}
 	for _, w := range f.boot {
 		if !installing[w.module] {
 			continue
@@ -170,13 +174,13 @@ func (f *StdFacts) InstallModules(files map[string]*FileAnalysis, modules []stri
 		if fd == nil {
 			return fmt.Errorf("std/%s has no function at %d:%d", w.module, w.fn.Line, w.fn.Col)
 		}
-		why := bootCall{call: &ast.Call{Line: w.call.Line, Col: w.call.Col}}
+		why := BootCallFact[*ast.FuncDef]{Line: w.call.Line, Col: w.call.Col, Supervisor: w.calleeModule == ""}
 		if w.calleeModule != "" {
 			_, callee, sym := defOf(w.calleeModule, w.callee)
 			if callee == nil || callee.Name != w.calleeName || sym.OwningType != w.owning {
 				return fmt.Errorf("std/%s has no function %s at %d:%d", w.calleeModule, w.calleeName, w.callee.Line, w.callee.Col)
 			}
-			why.callee, why.sym = callee, sym
+			why.Target = BootTarget[*ast.FuncDef]{Fn: callee, Display: bootName(sym, callee)}
 		}
 		whys[fd] = why
 	}
@@ -206,7 +210,7 @@ func (f *StdFacts) InstallModules(files map[string]*FileAnalysis, modules []stri
 		fa.ImplManifest = m
 		// Each of the module's functions is read from the facts, not from
 		// its body, a stub until Bodies grafts the source's back
-		// (stdFactsBootFn).
+		// (stdFactsBootCalls).
 		fa.bootFromFacts = true
 	}
 	for fd, why := range whys {
@@ -217,20 +221,19 @@ func (f *StdFacts) InstallModules(files map[string]*FileAnalysis, modules []stri
 
 // stdBootWhys holds each boot-only std function's first boot-only call, by
 // its declaration, from the facts of the modules installed.
-var stdBootWhys sync.Map // *ast.FuncDef -> bootCall
+var stdBootWhys sync.Map // *ast.FuncDef -> BootCallFact[*ast.FuncDef]
 
-// stdFactsBootFn is fd's node in the boot graph when f, its file, takes its
-// boot facts from the stdlib's facts (InstallModules): its first boot-only
-// call, or none.
-func stdFactsBootFn(f *FileAnalysis, fd *ast.FuncDef) (*bootFn, bool) {
+// stdFactsBootCalls is fd's calls in std's boot graph when f, its file,
+// takes its boot facts from the stdlib's facts (InstallModules): its first
+// boot-only call, or none.
+func stdFactsBootCalls(f *FileAnalysis, fd *ast.FuncDef) ([]BootCallFact[*ast.FuncDef], bool) {
 	if !f.bootFromFacts {
 		return nil, false
 	}
-	fn := &bootFn{fd: fd, fa: f, sym: f.Definitions[Pos{Line: fd.Line, Col: fd.Col}]}
 	if why, ok := stdBootWhys.Load(fd); ok {
-		fn.calls = []bootCall{why.(bootCall)}
+		return []BootCallFact[*ast.FuncDef]{why.(BootCallFact[*ast.FuncDef])}, true
 	}
-	return fn, true
+	return nil, true
 }
 
 // sameRecordings reports whether a and b hold the same recordings, a

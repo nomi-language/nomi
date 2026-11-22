@@ -229,7 +229,10 @@ func (g *gen) instMethodHome(d *ifaceDef, m *ifaceMethod) (*gen, any, string) {
 }
 
 // genericTemplateDecl is the declaration of the generic interface template
-// d is, this file's or a mirror of another's, or nil.
+// d is, this file's or a mirror of another's, or nil. This gen instantiates
+// either itself: another file's signatures are resolved from that file's
+// records (resolveIface, lowerNamesFrom), whatever this file binds their
+// names to.
 func (g *gen) genericTemplateDecl(d *ifaceDef) *ast.InterfaceDef {
 	if d == nil || d.decl == nil || d.instOf != nil || d.lowerable || d.why != "generic interface" {
 		return nil
@@ -241,13 +244,14 @@ func (g *gen) genericTemplateDecl(d *ifaceDef) *ast.InterfaceDef {
 }
 
 // ifaceInstOf is the template's instance at subst: instantiated here when
-// its signatures mean the same here (ifaceTemplate), else mirrored from the
-// declaring file's. types is subst as the checker's types, or nil.
+// its def here is the template (genericTemplateDecl), else
+// mirrored from the declaring file's. types is subst as the checker's
+// types, or nil.
 func (g *gen) ifaceInstOf(tpl *ast.InterfaceDef, subst map[string]kind, types map[string]analysis.Type) *ifaceInst {
 	if inst := g.stdProgInst(tpl, subst, types); inst != nil {
 		return inst
 	}
-	if g.ifaceTemplate(tpl.Name) == tpl {
+	if g.genericTemplateDecl(g.ifaceOfDecl(tpl)) == tpl {
 		return g.ifaceInstAtTyped(tpl, subst, types)
 	}
 	return g.foreignIfaceInst(tpl, subst, types)

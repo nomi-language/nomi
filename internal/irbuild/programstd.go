@@ -14,9 +14,11 @@ import (
 //
 // Most of the stdlib is lowered once per process (stdlibLowering), and a
 // shared body can only name a type that has a process-wide representation:
-// an rt Go type with a row in stdstruct.go, stdenum.go or opaque.go, and for
-// an interface used as a value an rt dispatch table (stdiface.go). A module
-// listed in programStdModules has none of that. GenerateIR appends each one
+// an rt Go type with a row in stdstruct.go, stdenum.go or opaque.go, a type
+// a shared module declares in Nomi, whose def the process builds once
+// (stdtypes.go), and for an interface used as a value an rt dispatch table
+// (stdiface.go). A module listed in programStdModules keeps its types in
+// each program's registry instead. GenerateIR appends each one
 // a program's files import, directly or through another listed module, to
 // the program as one more Module, built from the shared analysis
 // (std.Shared), and lowers it as it lowers the program's own files: its types
@@ -75,6 +77,7 @@ var programStdModules = map[string]bool{
 	"jwt":              true,
 	"actors":           true,
 	"bits":             true,
+	"bytes/cursor":     true,
 	"csv":              true,
 	"xml":              true,
 	"sql":              true,
@@ -85,6 +88,7 @@ var programStdModules = map[string]bool{
 	"sql/testing":      true,
 	"url":              true,
 	"uuid":             true,
+	"wasm":             true,
 	"websocket":        true,
 }
 

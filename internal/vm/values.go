@@ -129,6 +129,9 @@ func instEnumDesc(name, inst string, variants []rt.VariantSpec) *rt.TypeDesc {
 		b.WriteString(v.Name)
 		b.WriteByte('/')
 		b.WriteString(strconv.Itoa(int(v.Shape)))
+		if v.Spread {
+			b.WriteByte('*')
+		}
 		b.WriteByte('/')
 		b.WriteString(fieldsKey(v.Fields))
 		b.WriteByte(';')
@@ -141,17 +144,25 @@ func instEnumDesc(name, inst string, variants []rt.VariantSpec) *rt.TypeDesc {
 }
 
 // distinctDesc is the descriptor of a distinct type over one value of slot
-// type inner, or of a zero-sized marker when inner is nil.
-func distinctDesc(name string, inner *rt.SlotType) *rt.TypeDesc {
+// type inner, or of a zero-sized marker when inner is nil. spread says the
+// inner type is written as a tuple of its parts (rt.TypeDesc.Spread).
+func distinctDesc(name string, inner *rt.SlotType, spread bool) *rt.TypeDesc {
 	key := "D|" + name + "|"
 	if inner != nil {
 		key += strconv.Itoa(int(*inner))
 	}
-	return internDesc(key, func() *rt.TypeDesc { return rt.NewDistinctDesc(name, inner) })
+	if spread {
+		key += "*"
+	}
+	return internDesc(key, func() *rt.TypeDesc {
+		d := rt.NewDistinctDesc(name, inner)
+		d.Spread = spread
+		return d
+	})
 }
 
 // markerValue is the one value of the zero-sized distinct type name.
-func markerValue(name string) *rt.Record { return distinctDesc(name, nil).New() }
+func markerValue(name string) *rt.Record { return distinctDesc(name, nil, false).New() }
 
 // slotOf is the record slot a field of stored type t takes: a scalar in its
 // bank, everything else (a distinct included) a reference.
@@ -233,6 +244,7 @@ func buildDescOfType(t *ir.ValType) *rt.TypeDesc {
 			case ir.VariantPositional:
 				spec.Shape = rt.VariantPositional
 				spec.Fields = []rt.FieldSpec{{Type: slotOf(v.Fields[0].Type)}}
+				spec.Spread = v.Spread
 			case ir.VariantEmbedded:
 				spec.Shape = rt.VariantEmbedded
 				spec.Fields = []rt.FieldSpec{{Type: rt.SlotRef}}
@@ -253,9 +265,9 @@ func buildDescOfType(t *ir.ValType) *rt.TypeDesc {
 			return nil
 		}
 		if t.NumElems() == 0 {
-			return distinctDesc(t.Sym().Name(), nil)
+			return distinctDesc(t.Sym().Name(), nil, false)
 		}
-		return distinctDesc(t.Sym().Name(), slotPtr(slotOf(t.Elem(0))))
+		return distinctDesc(t.Sym().Name(), slotPtr(slotOf(t.Elem(0))), t.Spread())
 	case ir.KindTuple:
 		slots := make([]rt.SlotType, t.NumElems())
 		for i := range slots {

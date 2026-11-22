@@ -40,7 +40,6 @@ func TestParseExportRefusals(t *testing.T) {
 		{"pub export", "pub export fn f() end\n", "an exported function takes no `pub`: write `export fn`", 1, 1},
 		{"host", "export host fn f() -> Int\n", "a `host fn` is supplied by the host and cannot be exported; an `export fn` has a body", 1, 1},
 		{"host type", "export host type Conn\n", "`export` marks a function: `export fn name(...)`", 1, 1},
-		{"go binding", "gopkg \"strings\" as s\nexport fn up(x: String) -> String go s.ToUpper\n", "a Go binding cannot be exported; an `export fn` has a body", 2, 1},
 		{"in a body", "fn main()\n    export fn g() end\nend\n", "`export` applies to top-level functions only", 2, 5},
 		{"in an impl", "struct P\n    x: Int\nend\nimpl P\n    export fn g() end\nend\n", "a function in an `impl Type` block cannot be exported: `export fn` declares a top-level function", 5, 5},
 	}

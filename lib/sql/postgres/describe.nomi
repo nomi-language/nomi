@@ -7,8 +7,29 @@
 //# and whether it may be NULL), or the error that stopped it from
 //# preparing and the byte Postgres gave for it. The scratch database is
 //# dropped before it returns.
+//#
+//# A statement is described by preparing it, which answers the type of
+//# each parameter and of each result column, and the table column a result
+//# column reads. Which tables an outer join may leave out comes from the
+//# statement's generic plan (`EXPLAIN EXECUTE` under `plan_cache_mode =
+//# force_generic_plan`, which Postgres 12 and later have), so a column of
+//# such a table is nullable. A column of a view (or a materialized view) is
+//# described through the view's definition, which is described as a
+//# statement of its own: the column reads the table column its defining
+//# query's column reads, and is nullable when that column is.
 
-gopkg "github.com/nomi-language/nomi/lib/sql/postgres/goside"
+import
+    std::hash
+    std::hex
+    std::json.Json
+    std::random
+    std::regex.Regex
+    std::sql.{self, Row, Value}
+    postgres::config
+    postgres::messages
+    postgres::session
+    postgres::wire.{self, Link}
+end
 
 /// One migration: its path and its SQL.
 pub struct Migration
@@ -50,6 +71,8 @@ pub struct Column
     nullable:  Bool
 end
 
+derive Equatable for Column
+
 /// What Postgres says of a statement: its columns and the type it inferred
 /// for each parameter, or its error and the byte the error is at (-1 for
 /// none).
@@ -72,11 +95,648 @@ pub struct Description
     offset:     Int
 end
 
+/// How deep a view over views is followed; a column past it stays
+/// nullable.
+once max_view_depth = 16
+
 /// Make a scratch database on the server at `url`, apply `migrations` to
 /// it in order, describe each of `statements` against the schema they
 /// build, and drop the database.
-pub fn describe(
+pub fn describe(url: String, migrations: List<Migration>, statements: List<String>) -> Description
+    case described(url, migrations, statements)
+        Ok(d)  -> d
+        Err(d) -> d
+    end
+end
+
+fn failed(error: String) -> Description
+    Description{tables: [], statements: [], error:, migration: "", offset: -1}
+end
+
+fn message(e: sql.Error) -> String
+    case e
+        .Connection{message:}        -> message
+        .Database{code: _, message:} -> message
+        .Serialization{message:}     -> message
+        other                        -> "${other}"
+    end
+end
+
+fn described(
     url:        String,
     migrations: List<Migration>,
     statements: List<String>,
-) -> Description go goside.Describe
+) -> Result<Description, Description>
+    settings =
+        config.parse(url)
+        |> Result.map_err(fn reason -> failed("the development server does not answer: ${reason}"))?
+
+    admin =
+        wire.open(settings)
+        |> Result.map_err(fn e -> failed("the development server does not answer: ${message(e)}"))?
+
+    defer wire.close(admin)
+    name = scratch_name(migrations, statements)
+
+    _ =
+        session.simple(admin, "CREATE DATABASE ${quoted(name)}")
+        |> Result.map_err(fn e ->
+            failed("cannot make the scratch database ${name}: ${message(e)}")
+        end)?
+
+    // Dropped whatever happens, so a run that fails or is stopped leaves
+    // no database behind.
+    defer drop(admin, name)
+
+    link =
+        wire.open({..settings, database: name})
+        |> Result.map_err(fn e ->
+            failed("cannot connect to the scratch database ${name}: ${message(e)}")
+        end)?
+
+    defer wire.close(link)
+
+    made = Iter.try_reduce(migrations, Made{tables: {}, columns: {}}, fn made, m ->
+        migrate(link, made, m)
+    end)?
+
+    tables = tables_of(link) |> Result.map_err(fn e -> failed(message(e)))?
+
+    annotated =
+        tables
+        |> Iter.map(fn t ->
+            {
+                ..t,
+                migration: Map.get(made.tables, t.name) |> Maybe.with_default(""),
+                columns: t.columns
+                |> Iter.map(fn c ->
+                    {
+                        ..c,
+                        migration: Map.get(made.columns, column_key(t.name, c))
+                        |> Maybe.with_default(""),
+                    }
+                end)
+                |> Iter.to_list(),
+            }
+        end)
+        |> Iter.to_list()
+
+    (_, described_statements) = Iter.map_reduce(statements, Describer{
+        types: {},
+        views: {},
+    }, fn ds, text ->
+        statement(link, ds, text, 0)
+    end)
+
+    Ok(
+        Description{
+            tables:     annotated,
+            statements: described_statements,
+            error:      "",
+            migration:  "",
+            offset:     -1,
+        }
+    )
+end
+
+fn drop(admin: Link, name: String)
+    _ = session.simple(admin, "DROP DATABASE IF EXISTS ${quoted(name)} WITH (FORCE)")
+end
+
+// Which migration first made each table, and each column of each type.
+struct Made
+    tables:  Map<String, String>
+    columns: Map<String, String>
+end
+
+fn column_key(table: String, c: TableColumn) -> String
+    "${table}\u{0}${c.name}\u{0}${c.type_name}"
+end
+
+// Applies one migration and notes what it made.
+fn migrate(link: Link, made: Made, m: Migration) -> Result<Made, Description>
+    answers =
+        session.exchange(link, messages.query(m.text))
+        |> Result.map_err(fn e -> failed(message(e)))?
+
+    case first_error(answers)
+        Some(report) ->
+            return Err(
+                {
+                    ..failed(report.message),
+                    migration: m.path,
+                    offset:    byte_offset(m.text, report.position),
+                }
+            )
+
+        None ->
+            Unit
+    end
+
+    tables = tables_of(link) |> Result.map_err(fn e -> {..failed(message(e)), migration: m.path})?
+
+    Ok(
+        Iter.reduce(tables, made, fn so_far, t ->
+            with_table =
+                if Map.get(so_far.tables, t.name) == None then
+                    {..so_far, tables: Map.put(so_far.tables, t.name, m.path)}
+                else
+                    so_far
+                end
+
+            Iter.reduce(t.columns, with_table, fn inner, c ->
+                key = column_key(t.name, c)
+
+                if Map.get(inner.columns, key) == None then
+                    {..inner, columns: Map.put(inner.columns, key, m.path)}
+                else
+                    inner
+                end
+            end)
+        end)
+    )
+end
+
+fn first_error(answers: List<messages.Message>) -> Maybe<messages.Report>
+    Iter.find_map(answers, fn m ->
+        case m
+            .ErrorResponse{report:} -> Some(report)
+            _                       -> None
+        end
+    end)
+end
+
+// The byte where the 1-based character `position` of `text` starts, -1
+// for no position. Postgres counts characters, not bytes.
+fn byte_offset(text: String, position: Int) -> Int
+    if position <= 0 then return -1
+
+    before =
+        String.to_codepoints(text)
+        |> Iter.take(
+            NonNegativeInt.try_from(position - 1)
+            |> Maybe.with_default(0)
+        )
+        |> Iter.to_list()
+        |> String.from_codepoints()
+
+    Bytes.length(String.to_bytes(before))
+end
+
+// nomi_prepare_ and a hash of what is described, with a random suffix so
+// that two runs at once on one server never share a database.
+fn scratch_name(migrations: List<Migration>, statements: List<String>) -> String
+    keyed =
+        migrations
+        |> Iter.map(fn m -> "${String.length(m.path)}:${m.path}${String.length(m.text)}:${m.text}")
+        |> Iter.concat(Iter.map(statements, fn s -> "${String.length(s)}:${s}"))
+        |> String.join("")
+
+    hashed = hash.sha256_hex(String.to_bytes(keyed)) |> String.slice(0, 16)
+    "nomi_prepare_${hashed}_${hex.encode(random.secure_bytes(4))}"
+end
+
+fn quoted(name: String) -> String
+    "\"${String.replace(name, "\"", "\"\"")}\""
+end
+
+once tables_query = "\nSELECT c.relname, a.attname, format_type(a.atttypid, a.atttypmod), a.attnotnull,\n       EXISTS (SELECT 1 FROM pg_index i WHERE i.indrelid = c.oid AND i.indisprimary AND a.attnum = ANY (i.indkey)),\n       a.atthasdef OR a.attidentity <> '' OR a.attgenerated <> '',\n       COALESCE((SELECT array_agg(e.enumlabel ORDER BY e.enumsortorder) FROM pg_enum e WHERE e.enumtypid = a.atttypid), '{}'),\n       COALESCE((SELECT array_agg(pg_get_constraintdef(k.oid)) FROM pg_constraint k\n                 WHERE k.conrelid = c.oid AND k.contype = 'c' AND k.conkey = ARRAY[a.attnum]), '{}')\nFROM pg_class c\nJOIN pg_namespace n ON n.oid = c.relnamespace\nJOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped\nWHERE c.relkind IN ('r', 'p') AND n.nspname = current_schema()\nORDER BY c.relname, a.attnum"
+
+// Every table of the current schema, in name order, with its columns in
+// their order.
+fn tables_of(link: Link) -> Result<List<Table>, sql.Error>
+    found = rows(link, tables_query, [])?
+
+    grouped =
+        found
+        |> Iter.reduce([], fn tables: List<Table>, row ->
+            table = text_at(row, 0)
+
+            column = TableColumn{
+                name:        text_at(row, 1),
+                type_name:   text_at(row, 2),
+                not_null:    bool_at(row, 3),
+                primary_key: bool_at(row, 4),
+                has_default: bool_at(row, 5),
+                values:      allowed(text_at(row, 1), texts_at(row, 6), texts_at(row, 7)),
+                migration:   "",
+            }
+
+            case tables
+                [last, ..rest] when last.name == table -> [{..last, columns: .. + [column]}, ..rest]
+                _ -> [Table{name: table, columns: [column], migration: ""}, ..tables]
+            end
+        end)
+
+    Ok(Iter.reverse(grouped))
+end
+
+// The values a column allows: its enum type's labels, else those of a
+// one-column `CHECK (column IN (...))`.
+fn allowed(column: String, labels: List<String>, checks: List<String>) -> List<String>
+    if labels != [] then
+        labels
+    else
+        check_values(column, checks)
+    end
+end
+
+// A CHECK constraint Postgres writes back from `CHECK (status IN ('a',
+// 'b'))`: `CHECK ((status = ANY (ARRAY['a'::text, 'b'::text])))`, or for a
+// varchar column `CHECK (((status)::text = ANY ((ARRAY['a'::character
+// varying, ...])::text[])))`.
+once check_in = Regex`^CHECK \(\(+"?([A-Za-z_][A-Za-z0-9_]*)"?\)*(?:::[a-z ]+)? = ANY \(\(?ARRAY\[(.*)\]\)?(?:::[a-z ]+\[\])?\)\)\)?$`
+
+once literal = Regex`'((?:[^']|'')*)'::[a-z ]+`
+
+/// The values a one-column `CHECK (column IN (...))` allows, or `[]` when
+/// no constraint of `column` is of that form.
+//! check = "CHECK (((status)::text = ANY ((ARRAY['active'::character varying, 'it''s'::character varying])::text[])))"
+//! assert check_values("status", [check]) == ["active", "it's"]
+//! assert check_values("other", [check]) == []
+//
+pub fn check_values(column: String, checks: List<String>) -> List<String>
+    found: Maybe<List<String>> = Iter.find_map(checks, fn def ->
+        case String.captures(def, check_in)
+            Some((name, items)) when name == column ->
+                values =
+                    String.captures_all(items, literal)
+                    |> Iter.map(fn v -> String.replace(v, "''", "'"))
+                    |> Iter.to_list()
+
+                if values == [] then None else Some(values)
+
+            _ ->
+                None
+        end
+    end)
+
+    Maybe.with_default(found, [])
+end
+
+// The type names and view descriptions asked for so far.
+struct Describer
+    types: Map<(Int, Int), String>
+    views: Map<Int, Statement>
+end
+
+// A type's name as format_type writes it, with its modifier (-1 for none).
+fn type_name(
+    link:     Link,
+    ds:       Describer,
+    oid:      Int,
+    modifier: Int,
+) -> Result<(Describer, String), sql.Error>
+    case Map.get(ds.types, (oid, modifier))
+        Some(name) ->
+            Ok((ds, name))
+
+        None ->
+            found = rows(
+                link,
+                "SELECT format_type($1::oid, NULLIF($2::int, -1))",
+                [Value.Int(oid), Value.Int(modifier)],
+            )?
+
+            name =
+                found
+                |> List.first()
+                |> Maybe.map(fn row -> text_at(row, 0))
+                |> Maybe.with_default("")
+
+            Ok(({..ds, types: Map.put(ds.types, (oid, modifier), name)}, name))
+    end
+end
+
+// The description of a view's defining query, by the view's oid, with
+// `error` set when it cannot be had.
+fn view(link: Link, ds: Describer, oid: Int, depth: Int) -> (Describer, Statement)
+    case Map.get(ds.views, oid)
+        Some(s) ->
+            (ds, s)
+
+        None ->
+            case rows(link, "SELECT pg_get_viewdef($1::oid)", [Value.Int(oid)])
+                Ok([row, ..]) ->
+                    definition = text_at(row, 0) |> String.trim()
+                    body = String.strip_suffix(definition, ";") |> Maybe.with_default(definition)
+                    (after, s) = statement(link, ds, body, depth + 1)
+                    ({..after, views: Map.put(after.views, oid, s)}, s)
+
+                Ok([]) ->
+                    (ds, unprepared("the view ${oid} has no definition"))
+
+                Err(e) ->
+                    (ds, unprepared(message(e)))
+            end
+    end
+end
+
+fn unprepared(error: String) -> Statement
+    Statement{columns: [], params: [], error:, offset: -1}
+end
+
+// Prepares one statement and reads its parameter and column types, the
+// table column each column reads, and the tables its outer joins may leave
+// out. `depth` is how many views deep the statement is.
+fn statement(link: Link, ds: Describer, text: String, depth: Int) -> (Describer, Statement)
+    case statement_of(link, ds, text, depth)
+        Ok(done)        -> done
+        Err((after, e)) -> (after, unprepared(message(e)))
+    end
+end
+
+fn statement_of(
+    link:  Link,
+    ds:    Describer,
+    text:  String,
+    depth: Int,
+) -> Result<(Describer, Statement), (Describer, sql.Error)>
+    failing = fn d: Describer -> fn e: sql.Error -> (d, e)
+
+    answers =
+        session.exchange(link, session.parse_describe("", text)) |> Result.map_err(failing(ds))?
+
+    case session.described(answers)
+        Err(report) ->
+            Ok((ds, {..unprepared(report.message), offset: byte_offset(text, report.position)}))
+
+        Ok((oids, fields)) ->
+            (with_params, params) =
+                Iter.try_reduce(oids, (ds, []), fn (d, names), oid ->
+                    (next, name) = type_name(link, d, oid, -1)?
+                    Ok((next, names + [name]))
+                end)
+                |> Result.map_err(failing(ds))?
+
+            (outer, planned) = outer_joined(link, text, Iter.count(oids))
+
+            (with_columns, columns) =
+                Iter.try_reduce(fields, (with_params, []), fn (d, cols), f ->
+                    (next, c) = column_of(link, d, f, outer, planned, depth)?
+                    Ok((next, cols + [c]))
+                end)
+                |> Result.map_err(failing(with_params))?
+
+            Ok((with_columns, Statement{columns:, params:, error: "", offset: -1}))
+    end
+end
+
+// A result column: its type, and for a table column the table column it
+// reads and whether it may be NULL there.
+fn column_of(
+    link:    Link,
+    ds:      Describer,
+    f:       messages.Field,
+    outer:   Set<String>,
+    planned: Bool,
+    depth:   Int,
+) -> Result<(Describer, Column), sql.Error>
+    (named, type_name) = type_name(link, ds, f.type_oid, f.type_modifier)?
+    expression = Column{name: f.name, type_name:, table: "", column: "", nullable: True}
+
+    if f.table == 0 or f.attribute <= 0 then return Ok((named, expression))
+
+    found = rows(
+        link,
+        "SELECT c.relname, a.attname, a.attnotnull, c.relkind IN ('v', 'm') FROM pg_attribute a JOIN pg_class c ON c.oid = a.attrelid WHERE a.attrelid = $1 AND a.attnum = $2",
+        [Value.Int(f.table), Value.Int(f.attribute)],
+    )?
+
+    Some(row) = List.first(found) else
+        None -> return Ok((named, expression))
+    end
+
+    read = {..expression, table: text_at(row, 0), column: text_at(row, 1)}
+    not_null = bool_at(row, 2)
+
+    // A view's column is its defining query's column of the same position:
+    // the table column that one reads (none for an expression), NOT NULL
+    // when that one is non-null there. The view's tables are planned into
+    // this statement, so an outer join here that may leave the view out
+    // marks them.
+    (after, through, through_not_null) =
+        if bool_at(row, 3) and depth < max_view_depth then
+            (seen, v) = view(link, named, f.table, depth)
+
+            case (v.error, Iter.get(v.columns, f.attribute - 1))
+                ("", Some(c)) -> (seen, {..read, table: c.table, column: c.column}, not c.nullable)
+                _             -> (seen, read, not_null)
+            end
+        else
+            (named, read, not_null)
+        end
+
+    if bool_at(row, 3) and through.table == "" then return Ok((after, through))
+
+    // Without a plan nothing says which tables an outer join may leave
+    // out, so every table column may be NULL.
+    Ok(
+        (
+            after,
+            {..through, nullable: not through_not_null or not planned or through.table in outer},
+        )
+    )
+end
+
+// The tables an outer join of the statement may leave out, by name, from
+// its generic plan; False when the plan cannot be had. The generic plan is
+// the one a prepared statement's parameters do not shape, so a parameter
+// that happens to be NULL folds nothing away.
+fn outer_joined(link: Link, text: String, params: Int) -> (Set<String>, Bool)
+    case session.simple(link, "BEGIN")
+        Ok(_)  -> Unit
+        Err(_) -> return ([], False)
+    end
+
+    // A prepared statement outlives the transaction's rollback, so it is
+    // deallocated after it, for the next statement's PREPARE.
+    defer end_plan(link)
+
+    explain =
+        if params > 0 then
+            "EXPLAIN (VERBOSE, FORMAT JSON) EXECUTE nomi_describe(${String.join(Iter.map(1..=params, fn _ -> "NULL"), ", ")})"
+        else
+            "EXPLAIN (VERBOSE, FORMAT JSON) EXECUTE nomi_describe"
+        end
+
+    plan =
+        session.simple(link, "SET LOCAL plan_cache_mode = force_generic_plan")
+        |> Result.flat_map(fn _ -> session.simple(link, "PREPARE nomi_describe AS ${text}"))
+        |> Result.flat_map(fn _ -> rows(link, explain, []))
+
+    case plan
+        Ok([[Value.Json(Json.Arr([Json.Obj(fields), ..])), ..], ..]) ->
+            case Map.get(fields, "Plan")
+                Some(root) -> (nullable_tables(root), True)
+                None       -> ([], False)
+            end
+
+        Ok([[Value.Text(raw), ..], ..]) ->
+            case Json.decode(raw)
+                Ok(Json.Arr([Json.Obj(fields), ..])) ->
+                    case Map.get(fields, "Plan")
+                        Some(root) -> (nullable_tables(root), True)
+                        None       -> ([], False)
+                    end
+
+                _ ->
+                    ([], False)
+            end
+
+        _ ->
+            ([], False)
+    end
+end
+
+fn end_plan(link: Link)
+    _ = session.simple(link, "ROLLBACK")
+    _ = session.simple(link, "DEALLOCATE nomi_describe")
+end
+
+// The tables the outer joins of a plan may leave out: the right side of a
+// left join, the left of a right join, both of a full join, and the tables
+// of a CTE on such a side, which is planned apart as an init plan named
+// `CTE <name>`.
+fn nullable_tables(root: Json) -> Set<String>
+    (tables, ctes) = joined(root)
+    with_ctes(root, tables, ctes, [])
+end
+
+fn with_ctes(root: Json, tables: Set<String>, ctes: List<String>, seen: Set<String>) -> Set<String>
+    case ctes
+        [] ->
+            tables
+
+        [name, ..rest] when name in seen ->
+            with_ctes(root, tables, rest, seen)
+
+        [name, ..rest] ->
+            (found, more) =
+                case subplan(root, "CTE ${name}")
+                    Some(node) -> under(node)
+                    None       -> ([], [])
+                end
+
+            with_ctes(root, Set.union(tables, found), rest + more, Set.insert(seen, name))
+    end
+end
+
+fn field(node: Json, name: String) -> String
+    case node
+        Json.Obj(fields) ->
+            case Map.get(fields, name)
+                Some(Json.String(value)) -> value
+                _                        -> ""
+            end
+
+        _ ->
+            ""
+    end
+end
+
+fn children(node: Json) -> List<Json>
+    case node
+        Json.Obj(fields) ->
+            case Map.get(fields, "Plans")
+                Some(Json.Arr(plans)) -> plans
+                _                     -> []
+            end
+
+        _ ->
+            []
+    end
+end
+
+// Every relation and CTE under `node`, itself included.
+fn under(node: Json) -> (Set<String>, List<String>)
+    own_relation: Set<String> =
+        if field(node, "Relation Name") == "" then
+            []
+        else
+            Set[field(node, "Relation Name")]
+        end
+
+    own_cte =
+        if field(node, "CTE Name") == "" then
+            []
+        else
+            [field(node, "CTE Name")]
+        end
+
+    Iter.reduce(children(node), (own_relation, own_cte), fn (tables, ctes), child ->
+        (t, c) = under(child)
+        (Set.union(tables, t), ctes + c)
+    end)
+end
+
+// The relations and CTEs an outer join anywhere under `node` may leave
+// out.
+fn joined(node: Json) -> (Set<String>, List<String>)
+    plans = children(node)
+
+    sides =
+        case field(node, "Join Type")
+            "Left"  -> Iter.drop(plans, 1) |> Iter.take(1) |> Iter.to_list()
+            "Right" -> Iter.take(plans, 1) |> Iter.to_list()
+            "Full"  -> plans
+            _       -> []
+        end
+
+    none: (Set<String>, List<String>) = ([], [])
+
+    here =
+        sides
+        |> Iter.reduce(none, fn (tables, ctes), side ->
+            (t, c) = under(side)
+            (Set.union(tables, t), ctes + c)
+        end)
+
+    Iter.reduce(plans, here, fn (tables, ctes), child ->
+        (t, c) = joined(child)
+        (Set.union(tables, t), ctes + c)
+    end)
+end
+
+// The node under `node` whose subplan is named `name`.
+fn subplan(node: Json, name: String) -> Maybe<Json>
+    if field(node, "Subplan Name") == name then return Some(node)
+    children(node) |> Iter.find_map(fn child -> subplan(child, name))
+end
+
+// The values of each row `sql` answers.
+fn rows(link: Link, sql: String, params: List<Value>) -> Result<List<List<Value>>, sql.Error>
+    (found, _) = session.run(link, sql, sql, params, [], fn acc, row ->
+        ([Row.values(row), ..acc], True)
+    end)?
+
+    Ok(Iter.reverse(found))
+end
+
+fn text_at(row: List<Value>, i: Int) -> String
+    case Iter.get(row, i)
+        Some(.Text(s)) -> s
+        _              -> ""
+    end
+end
+
+fn bool_at(row: List<Value>, i: Int) -> Bool
+    Iter.get(row, i) == Some(Value.Bool(True))
+end
+
+fn texts_at(row: List<Value>, i: Int) -> List<String>
+    case Iter.get(row, i)
+        Some(.Array(values)) ->
+            values
+            |> Iter.flat_map(fn v ->
+                case v
+                    .Text(s) -> [s]
+                    _        -> []
+                end
+            end)
+            |> Iter.to_list()
+
+        _ ->
+            []
+    end
+end

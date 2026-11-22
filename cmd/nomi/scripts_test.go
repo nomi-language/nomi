@@ -7,6 +7,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/nomi-language/nomi/internal/stdlibbindings/families"
 )
 
 // goPackageRef matches a `./cmd/...`-style package argument in a `go run` /
@@ -198,5 +200,20 @@ func TestScriptsAreExecutable(t *testing.T) {
 	}
 	if checked == 0 {
 		t.Fatal("no .sh files found under scripts/, so the assertion above is vacuous")
+	}
+}
+
+// scripts/release.sh builds each -nonet runner, the lean one, with every
+// optional family's tag, as internal/runners builds one and as its identity check
+// expects (families.LeanTags). A family added without its tag there
+// would ship a lean runner that links it.
+func TestReleaseScriptBuildsTheLeanRunnerWithEveryFamilyTag(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("scripts", "release.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `*-nonet) tags="` + strings.Join(families.LeanTags(), ",") + `" ;;`
+	if !strings.Contains(string(data), want) {
+		t.Errorf("scripts/release.sh does not build the lean runner with every family's tag: want the line\n\t%s", want)
 	}
 }

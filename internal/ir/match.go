@@ -85,7 +85,7 @@ const (
 	// in the comparison their consumer runs — `==` for the first three and
 	// `rt.EqDecimal` for the last, which compares scale-insensitively — and
 	// that is a function of the operand's TYPE, which the consumer already
-	// has. Owners include casePatternTest and patternValueTest.
+	// has. Owner: literalTest.
 	MatchLit MatchKind = iota + 1
 	// MatchVariant asks whether the subject is one named variant of one enum.
 	// `Sym` is the ENUM's declaration and `Variant` the variant's name within
@@ -99,15 +99,14 @@ const (
 	MatchVariant
 	// MatchListLen asks whether the subject is a list of EXACTLY `Arity`
 	// elements. This is the no-spread form: `[a, b]` does not match a
-	// three-element list. Owners: listCaseTest, listCaseTestNested.
+	// three-element list. Owner: listCaseTest.
 	MatchListLen
 	// MatchListMin asks whether the subject is a list of AT LEAST `Arity`
 	// elements. This is the spread form `[a, b, ..rest]`, whose length is a
 	// minimum.
 	//
 	// `Arity` is never zero here: `[..rest]` matches every list including the
-	// empty one, so the producer builds no node. Owners: listCaseTest,
-	// listCaseTestNested.
+	// empty one, so the producer builds no node. Owner: listCaseTest.
 	MatchListMin
 	// MatchStrPrefix asks whether the String subject begins with the String
 	// in `Arg`, comparing bytes: the subject is `Arg + rest` for some String

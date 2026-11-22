@@ -32,7 +32,7 @@ const (
 	// whenever the record's layout does; the payload's own format is the
 	// caller's, inside the compiler identity the key holds.
 	recordMagic   = "NOMIPRG\x00"
-	recordVersion = 1
+	recordVersion = 3
 	// unused is how long a record nothing reads is kept, and pruneEvery how
 	// often a process that writes looks for such records.
 	unused     = 5 * 24 * time.Hour
@@ -59,9 +59,22 @@ var racyWindow = 2 * time.Second
 // sources, `.toml` manifests and catalogs, and `go.mod` and `go.sum`. One
 // with All set tracks every file, for an `embed` that reads a directory's
 // contents. Hidden names and node_modules are skipped in both.
+//
+// A tree with NamedSources set holds each `.nomi` file by whether it is
+// there, and its text only when the record names it among its single
+// files: a source's text changes only a build that read it, while a
+// source that comes or goes can change what any import resolves to.
 type Tree struct {
-	Dir string
-	All bool
+	Dir          string
+	All          bool
+	NamedSources bool
+}
+
+// holdsText reports whether t holds the text of its file at rel, a path
+// from its directory: every file but a `.nomi` one of a tree with
+// NamedSources.
+func (t Tree) holdsText(rel string) bool {
+	return !t.NamedSources || !strings.HasSuffix(rel, ".nomi")
 }
 
 // entry is one tracked file: its path (from its tree's directory, slash
@@ -87,12 +100,14 @@ type state struct {
 	tooBig  bool
 }
 
-// record is a decoded record.
+// record is a decoded record. sum is the SHA-256 of payload, made when it
+// was stored (Entry.Sum).
 type record struct {
 	key     string
 	snap    int64
 	trees   []*state
 	files   []entry
+	sum     [32]byte
 	payload []byte
 }
 
@@ -107,6 +122,7 @@ type Entry struct {
 	files         map[string]entry
 	prev          *record
 	payload       []byte
+	sum           [32]byte
 	debug         bool
 }
 
@@ -155,7 +171,7 @@ func Open(kind, entryFile string, predicted []Tree) *Entry {
 		prevSnap = rec.snap
 	}
 	for _, t := range trees {
-		e.states[t] = scan(t, prevStates[t], prevSnap, true)
+		e.states[t] = scan(t, prevStates[t], prevSnap, e.snap, true)
 	}
 	if rec != nil {
 		for _, f := range rec.files {
@@ -170,7 +186,7 @@ func Open(kind, entryFile string, predicted []Tree) *Entry {
 		e.logf("miss: %s", diff)
 		return e
 	}
-	e.payload = rec.payload
+	e.payload, e.sum = rec.payload, rec.sum
 	hits.Add(1)
 	if info, err := os.Stat(e.path); err == nil {
 		artifactcache.Touch(e.path, info)
@@ -195,6 +211,17 @@ func (e *Entry) Payload() []byte {
 		return nil
 	}
 	return e.payload
+}
+
+// Sum is the SHA-256 of Payload, which the record keeps beside it, when
+// the lookup found the program's files unchanged: what a record of another
+// kind names this one's payload by (vmhost's stored passes), with no hash
+// of it made on the lookup.
+func (e *Entry) Sum() ([32]byte, bool) {
+	if e == nil || e.payload == nil {
+		return [32]byte{}, false
+	}
+	return e.sum, true
 }
 
 // Sibling looks up what kind was built from e's program, from e's snapshot:
@@ -232,7 +259,7 @@ func (e *Entry) Sibling(kind string) *Entry {
 	}
 	for _, st := range rec.trees {
 		if s.states[st.tree] == nil {
-			s.states[st.tree] = scan(st.tree, st, rec.snap, true)
+			s.states[st.tree] = scan(st.tree, st, rec.snap, s.snap, true)
 		}
 	}
 	for _, f := range rec.files {
@@ -244,7 +271,7 @@ func (e *Entry) Sibling(kind string) *Entry {
 		s.logf("found, %s", diff)
 		return s
 	}
-	s.payload = rec.payload
+	s.payload, s.sum = rec.payload, rec.sum
 	if info, err := os.Stat(s.path); err == nil {
 		artifactcache.Touch(s.path, info)
 	}
@@ -287,46 +314,13 @@ func (e *Entry) Previous() []byte {
 	return e.prev.payload
 }
 
-// Changed answers the files, by absolute path, whose contents differ from
-// the record's, when that is all that differs: no file was added or
-// removed, and no tree became too large to track. ok is false otherwise,
-// and when there is no record.
-func (e *Entry) Changed() (paths []string, ok bool) {
-	if e == nil || e.prev == nil {
-		return nil, false
-	}
-	for _, was := range e.prev.trees {
-		now := e.states[was.tree]
-		if now == nil || now.tooBig {
-			return nil, false
-		}
-		changed, same := changedEntries(was.entries, now.entries, was.tree.Dir)
-		if !same {
-			return nil, false
-		}
-		paths = append(paths, changed...)
-		if _, same := changedEntries(was.probes, now.probes, ""); !same {
-			return nil, false
-		}
-	}
-	for _, was := range e.prev.files {
-		now := e.files[was.path]
-		if now.exists != was.exists {
-			return nil, false
-		}
-		if was.exists && now.sum != was.sum {
-			paths = append(paths, was.path)
-		}
-	}
-	sort.Strings(paths)
-	return paths, true
-}
-
-// ChangedSources is Changed that also answers the `.nomi` files added to
-// and removed from a tree the record walked for sources (not one walked for
-// every file, an `embed`'s directory), by absolute path: what a build that
-// relinks after files came and went reads (vmhost's file records). Any
-// other difference makes ok false.
+// ChangedSources answers, by absolute path, the files whose text differs
+// from the record's, and the `.nomi` files added to and removed from a tree
+// the record walked for sources (not one walked for every file, an
+// `embed`'s directory): what a build that relinks after files changed, came
+// and went reads (vmhost's file records). Any other difference makes ok
+// false: a file other than a source that came or went, a tree that became
+// too large to track, or no record.
 func (e *Entry) ChangedSources() (changed, added, removed []string, ok bool) {
 	if e == nil || e.prev == nil {
 		return nil, nil, nil, false
@@ -348,6 +342,11 @@ func (e *Entry) ChangedSources() (changed, added, removed []string, ok bool) {
 	for _, was := range e.prev.files {
 		now := e.files[was.path]
 		if now.exists != was.exists {
+			// A source a tree's walk holds by presence came or went, which
+			// the walk answers.
+			if e.walkedSource(was.path) {
+				continue
+			}
 			return nil, nil, nil, false
 		}
 		if was.exists && now.sum != was.sum {
@@ -386,7 +385,7 @@ func changedSourceEntries(was, now []entry, t Tree) (changed, added, removed []s
 			if a.exists != b.exists {
 				return nil, nil, nil, false
 			}
-			if a.exists && a.sum != b.sum {
+			if a.exists && a.sum != b.sum && t.holdsText(a.path) {
 				changed = append(changed, abs(a.path))
 			}
 			i++
@@ -394,6 +393,21 @@ func changedSourceEntries(was, now []entry, t Tree) (changed, added, removed []s
 		}
 	}
 	return changed, added, removed, true
+}
+
+// walkedSource reports whether a tree with NamedSources that e's record
+// names held the file at path, absolute, in the record's walk or in this
+// lookup's: a source its walk answers the coming and going of.
+func (e *Entry) walkedSource(path string) bool {
+	for _, was := range e.prev.trees {
+		if !was.tree.NamedSources {
+			continue
+		}
+		if was.tracks(path) || e.states[was.tree] != nil && e.states[was.tree].tracks(path) {
+			return true
+		}
+	}
+	return false
 }
 
 // changedEntries answers the entries of two walks of one tree whose
@@ -426,7 +440,7 @@ func (e *Entry) Store(trees []Tree, files []string, payload []byte) {
 	if e == nil {
 		return
 	}
-	rec := &record{key: e.key, snap: e.snap, payload: payload}
+	rec := &record{key: e.key, snap: e.snap, sum: sha256.Sum256(payload), payload: payload}
 	seenTree := map[Tree]bool{}
 	for _, t := range trees {
 		if seenTree[t] {
@@ -435,8 +449,8 @@ func (e *Entry) Store(trees []Tree, files []string, payload []byte) {
 		seenTree[t] = true
 		before, ok := e.states[t]
 		if !ok {
-			st := scan(t, nil, 0, true)
-			if why := recent(st.entries, e.snap); why != "" {
+			st := scan(t, nil, 0, e.snap, true)
+			if why := recent(st.texts(), e.snap); why != "" {
 				e.logf("not stored: %s changed while it was built", filepath.Join(t.Dir, why))
 				return
 			}
@@ -446,7 +460,7 @@ func (e *Entry) Store(trees []Tree, files []string, payload []byte) {
 			}
 			before = st
 		} else {
-			now := scan(t, before, e.snap, false)
+			now := scan(t, before, e.snap, e.snap, false)
 			if diff := statDiff(before, now); diff != "" {
 				e.logf("not stored: %s changed while it was built", diff)
 				return
@@ -467,12 +481,25 @@ func (e *Entry) Store(trees []Tree, files []string, payload []byte) {
 	})
 	seenFile := map[string]bool{}
 	for _, f := range files {
-		if seenFile[f] || covered(rec.trees, f) {
+		if seenFile[f] || holdsText(rec.trees, f) {
 			continue
 		}
 		seenFile[f] = true
 		before, ok := e.files[f]
-		if !ok {
+		if walked, inWalk := e.walked(f); !ok && inWalk {
+			// A source a tree's walk holds by presence: its text is the
+			// walk's hash, or, for a file not changed near the snapshot,
+			// its text now, since its stat is the walk's.
+			now := statFile(f, nil, 0, !walked.hashed)
+			if !sameStat(walked, now) || !walked.hashed && isRacy(walked, e.snap) {
+				e.logf("not stored: %s changed while it was built", f)
+				return
+			}
+			if walked.hashed {
+				now.sum, now.hashed = walked.sum, true
+			}
+			before = now
+		} else if !ok {
 			before = statFile(f, nil, 0, true)
 			if why := recent([]entry{before}, e.snap); why != "" {
 				e.logf("not stored: %s changed while it was built", why)
@@ -507,10 +534,10 @@ func (e *Entry) differs(rec *record) string {
 		if now.tooBig {
 			return was.tree.Dir + " holds too many files"
 		}
-		if d := entriesDiffer(was.entries, now.entries, was.tree.Dir); d != "" {
+		if d := entriesDiffer(was.entries, now.entries, was.tree); d != "" {
 			return d
 		}
-		if d := entriesDiffer(was.probes, now.probes, ""); d != "" {
+		if d := entriesDiffer(was.probes, now.probes, Tree{}); d != "" {
 			return d
 		}
 	}
@@ -523,13 +550,15 @@ func (e *Entry) differs(rec *record) string {
 	return ""
 }
 
-// entriesDiffer is why two walks of one tree differ, or "".
-func entriesDiffer(was, now []entry, dir string) string {
+// entriesDiffer is why two walks of tree t differ, or "": a file came or
+// went, or one whose text t holds changed. Probes, by absolute path, are
+// compared under the zero Tree.
+func entriesDiffer(was, now []entry, t Tree) string {
 	name := func(p string) string {
-		if dir == "" {
+		if t.Dir == "" {
 			return p
 		}
-		return filepath.Join(dir, filepath.FromSlash(p))
+		return filepath.Join(t.Dir, filepath.FromSlash(p))
 	}
 	i, j := 0, 0
 	for i < len(was) || j < len(now) {
@@ -546,7 +575,7 @@ func entriesDiffer(was, now []entry, dir string) string {
 			}
 			return name(a.path) + " was removed"
 		}
-		if a.exists && a.sum != b.sum {
+		if a.exists && a.sum != b.sum && t.holdsText(a.path) {
 			return name(a.path) + " changed"
 		}
 		i++
@@ -555,14 +584,16 @@ func entriesDiffer(was, now []entry, dir string) string {
 	return ""
 }
 
-// statDiff is the first entry whose stat differs between two walks of a
-// tree, or "".
+// statDiff is the first entry that differs between two walks of a tree, or
+// "": one that came or went, or one whose text the tree holds with another
+// stat.
 func statDiff(before, now *state) string {
 	if len(before.entries) != len(now.entries) {
 		return before.tree.Dir
 	}
 	for i := range before.entries {
-		if before.entries[i].path != now.entries[i].path || !sameStat(before.entries[i], now.entries[i]) {
+		a, b := before.entries[i], now.entries[i]
+		if a.path != b.path || before.tree.holdsText(a.path) && !sameStat(a, b) {
 			return filepath.Join(before.tree.Dir, filepath.FromSlash(now.entries[i].path))
 		}
 	}
@@ -597,29 +628,72 @@ func isRacy(en entry, snap int64) bool {
 	return en.mtime >= limit || en.ctime >= limit
 }
 
-// covered reports whether path is a file one of trees tracks.
-func covered(trees []*state, path string) bool {
+// holdsText reports whether one of trees tracks the file at path, absolute,
+// with its text.
+func holdsText(trees []*state, path string) bool {
 	for _, st := range trees {
-		rel, err := filepath.Rel(st.tree.Dir, path)
-		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-			continue
-		}
-		rel = filepath.ToSlash(rel)
-		i := sort.Search(len(st.entries), func(i int) bool { return st.entries[i].path >= rel })
-		if i < len(st.entries) && st.entries[i].path == rel {
+		if en, ok := st.entry(path); ok && st.tree.holdsText(en.path) {
 			return true
 		}
 	}
 	return false
 }
 
+// entry is st's entry for the file at path, absolute, when its walk holds
+// one.
+func (st *state) entry(path string) (entry, bool) {
+	rel, err := filepath.Rel(st.tree.Dir, path)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return entry{}, false
+	}
+	rel = filepath.ToSlash(rel)
+	i := sort.Search(len(st.entries), func(i int) bool { return st.entries[i].path >= rel })
+	if i < len(st.entries) && st.entries[i].path == rel {
+		return st.entries[i], true
+	}
+	return entry{}, false
+}
+
+// tracks reports whether st's walk holds the file at path, absolute.
+func (st *state) tracks(path string) bool {
+	_, ok := st.entry(path)
+	return ok
+}
+
+// texts are st's entries whose text its tree holds.
+func (st *state) texts() []entry {
+	var out []entry
+	for _, en := range st.entries {
+		if st.tree.holdsText(en.path) {
+			out = append(out, en)
+		}
+	}
+	return out
+}
+
+// walked is the entry, with its absolute path, that a walk of e's snapshot
+// holds by presence for the file at path, when one does.
+func (e *Entry) walked(path string) (entry, bool) {
+	for _, st := range e.states {
+		if en, ok := st.entry(path); ok && !st.tree.holdsText(en.path) {
+			en.path = path
+			return en, true
+		}
+	}
+	return entry{}, false
+}
+
 // markers are the files above a tree whose presence decides a program's
-// root (analysis.ProjectRoot) or its Go module (internal/ffirun).
-var markers = []string{"nomi.toml", "main.nomi", "go.mod"}
+// root (analysis.ProjectRoot).
+var markers = []string{"nomi.toml", "main.nomi"}
 
 // scan walks t. An entry whose stat matches prev's, recorded at prevSnap,
-// and was not changed near it takes prev's hash; any other is hashed.
-func scan(t Tree, prev *state, prevSnap int64, hash bool) *state {
+// and was not changed near it takes prev's hash; any other is hashed. An
+// entry whose text t does not hold is hashed only when it changed within
+// racyWindow of snap, the snapshot's time, so that a record that comes to
+// name it can trust the walk's hash (Entry.Store); Store hashes any other
+// when a record names it.
+func scan(t Tree, prev *state, prevSnap, snap int64, hash bool) *state {
 	st := &state{tree: t}
 	var prevByPath map[string]entry
 	if prev != nil {
@@ -659,11 +733,16 @@ func scan(t Tree, prev *state, prevSnap int64, hash bool) *state {
 			return nil
 		}
 		rel = filepath.ToSlash(rel)
-		var was *entry
-		if w, ok := prevByPath[rel]; ok {
-			was = &w
+		var en entry
+		if t.holdsText(rel) {
+			var was *entry
+			if w, ok := prevByPath[rel]; ok {
+				was = &w
+			}
+			en = statPath(p, was, prevSnap, hash)
+		} else if en = statPath(p, nil, 0, false); hash && en.exists && isRacy(en, snap) {
+			en = statPath(p, nil, 0, true)
 		}
-		en := statPath(p, was, prevSnap, hash)
 		en.path = rel
 		if !en.exists {
 			// A dangling link, or a directory reached through a link: no
@@ -705,7 +784,7 @@ func tracked(name string) bool {
 	switch {
 	case strings.HasSuffix(name, ".nomi"), strings.HasSuffix(name, ".toml"):
 		return true
-	case name == "go.mod", name == "go.sum":
+	case name == "go.mod", name == "nomi.lock":
 		return true
 	}
 	return false
@@ -801,8 +880,8 @@ func prune(dir string) {
 }
 
 // The record's layout, after the magic: the version, a CRC-32 of the rest,
-// and the rest: the key, the snapshot's time, the trees, the single files
-// and the payload. Integers are varints; strings and the payload are a
+// and the rest: the key, the snapshot's time, the trees, the single files,
+// the payload's SHA-256 and the payload. Integers are varints; strings and the payload are a
 // length and bytes.
 
 func encodeRecord(rec *record) []byte {
@@ -813,10 +892,12 @@ func encodeRecord(rec *record) []byte {
 	for _, st := range rec.trees {
 		putString(&body, st.tree.Dir)
 		putBool(&body, st.tree.All)
+		putBool(&body, st.tree.NamedSources)
 		putEntries(&body, st.entries)
 		putEntries(&body, st.probes)
 	}
 	putEntries(&body, rec.files)
+	body.Write(rec.sum[:])
 	putUvarint(&body, uint64(len(rec.payload)))
 	body.Write(rec.payload)
 	var out bytes.Buffer
@@ -914,11 +995,13 @@ func decodeRecord(data []byte) (rec *record, err error) {
 		st := &state{}
 		st.tree.Dir = r.string()
 		st.tree.All = r.bool()
+		st.tree.NamedSources = r.bool()
 		st.entries = r.entries()
 		st.probes = r.entries()
 		rec.trees = append(rec.trees, st)
 	}
 	rec.files = r.entries()
+	copy(rec.sum[:], r.bytes(32))
 	size := r.uvarint()
 	if r.err == nil && uint64(len(r.b)) != size {
 		return nil, errTruncated

@@ -25,10 +25,11 @@ test "the derived impls compare a decoded value"
 end
 
 test "a missing field names its type as todos.nomi writes it"
-    message = case Json.decode_as<TodoJson>("{\"title\": \"milk\"}")
-        Ok(_)  -> ""
-        Err(e) -> "${e}"
-    end
+    message =
+        case Json.decode_as<TodoJson>("{\"title\": \"milk\"}")
+            Ok(_)  -> ""
+            Err(e) -> "${e}"
+        end
 
     assert String.contains(message, "expected Uuid")
 end

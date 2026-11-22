@@ -1,6 +1,7 @@
 package analysis
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -318,4 +319,40 @@ func cacheKeys(c map[string]*FileAnalysis) []string {
 		out = append(out, k)
 	}
 	return out
+}
+
+// TestInternalAccess_ADependencysOwnFileNamesItsModule: a file of a
+// dependency imports its own module's internal/ directory by the module's
+// name, as its files do when it is the project. The project's files still
+// may not.
+func TestInternalAccess_ADependencysOwnFileNamesItsModule(t *testing.T) {
+	root := filepath.Join(string(filepath.Separator)+"cache", "markdown@v1")
+	project := filepath.Join(string(filepath.Separator) + "project")
+	index := ModuleIndex{
+		Roots: map[string]string{"markdown": root},
+		Names: map[string]map[string]string{"": {"markdown": "markdown"}, "markdown": {"markdown": "markdown"}},
+		Own:   project,
+	}
+	path := []string{"markdown", "internal", "reader"}
+
+	// A dependency's file is built at its module's root, in its module.
+	inside := &builder{
+		projectRoot: root, currentModuleName: "shop", moduleIndex: index, inModule: "markdown",
+		file: &FileAnalysis{FilePath: filepath.Join(root, "internal", "block.nomi")},
+	}
+	if err := inside.internalAccessError(path); err != nil {
+		t.Errorf("the dependency's own file is refused its internal/ directory: %v", err)
+	}
+	nested := []string{"markdown", "tools", "internal", "data"}
+	if err := inside.internalAccessError(nested); err == nil || !strings.Contains(err.Error(), "outside the parent subtree") {
+		t.Errorf("a file outside tools/ reached tools/internal/ of its own module: %v", err)
+	}
+
+	outside := &builder{
+		projectRoot: project, currentModuleName: "shop", moduleIndex: index,
+		file: &FileAnalysis{FilePath: filepath.Join(project, "main.nomi")},
+	}
+	if err := outside.internalAccessError(path); err == nil || !strings.Contains(err.Error(), "unreachable from other modules") {
+		t.Errorf("the project's file reached a dependency's internal/ directory: %v", err)
+	}
 }

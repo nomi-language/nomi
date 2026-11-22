@@ -57,9 +57,10 @@ type listFn struct {
 
 // listFuncs is the lowered surface of `impl List<T>`, minus equality.
 //
-// `equal` is absent on purpose and handled separately: its lowering is
-// containerEqualCall (irequality.go), the comparison `==` makes, because
-// std/lists.nomi:125 defines the method AS `a == b`. Giving it a row here would
+// `equal` is absent on purpose and handled separately: it is a call of an
+// Equatable impl the machine computes by shape (machineImpls), which
+// interfaceCall (ifacecall.go) lowers as the comparison `==` makes, because
+// std/lists.nomi defines the method AS `a == b`. Giving it a row here would
 // make it a second encoding of one semantics.
 //
 // Use across tests/: equal? 39 sites, first 4, tail 2,
@@ -117,7 +118,8 @@ func (g *gen) elemOrders(k kind, at ast.Node) bool {
 	return (k == kindInt || k == kindFloat) && g.compareResolves(at, k, stdEnumKind(stdEnumOrdering))
 }
 
-// listResultKind turns a listFn's result tag into a kind.
+// listResultKind turns a listFn's result tag into a kind, for a List
+// function's call with no record (listCallPlan).
 func (g *gen) listResultKind(tag string, elem, recv kind, at ast.Node) (kind, bool) {
 	switch tag {
 	case "list":
@@ -133,7 +135,7 @@ func (g *gen) listResultKind(tag string, elem, recv kind, at ast.Node) (kind, bo
 // maybeOf is `Maybe<inner>`, asked of prelude.go rather than assembled here so
 // there is one shape of Maybe in the builder and not two. mapResultKind's rule.
 func (g *gen) maybeOf(inner kind, at ast.Node) (kind, bool) {
-	a, anchored := g.preludeNamed("Maybe")
+	a, anchored := preludeSpecAnchor(preludeSpecNamed("Maybe"))
 	if !anchored {
 		g.reject("List function without the prelude Maybe", inner.nomi(), at)
 		return kindInvalid, false

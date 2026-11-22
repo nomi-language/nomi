@@ -2,12 +2,13 @@ package rt
 
 // `std/type.Type<T>`: a Nomi type passed as a runtime value.
 //
-// std/type.nomi declares exactly `pub host type Type<T>` and nothing else — no
-// operation, no interface, no constructor — so the surface is "a witness
-// exists, and something else consults it", plus the equality, hash and Debug
-// every value has: two witnesses are equal when they name the same type
+// std/type.nomi declares `pub host type Type<T>` and its Debug, and no
+// operation or constructor, so the surface is "a witness exists, and
+// something else consults it", plus the equality, hash and Debug every value
+// has: two witnesses are equal when they name the same type
 // (TypeWitnessEqual, TypeWitnessHash), and one inspects as `Type<TraceId>`
-// (TypeWitnessInspect). The one consumer today is `std/context`'s value
+// (TypeWitnessInspect), which std's `impl Debug for Type<T>` answers through
+// the machine's rendering. The one consumer today is `std/context`'s value
 // store, which is keyed by type rather than by name.
 //
 // # Why the payload is a *TypeID and not a name

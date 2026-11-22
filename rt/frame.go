@@ -30,10 +30,11 @@ import (
 // # A Frame is allocated only where the scope changes
 //
 // A new Frame belongs at a scoped replacement (installing the value in force), forcing a
-// `once` (extending a forcing cons-list), and `concurrent`/`spawn` (a task
-// gets its own frame over the parent's context). A program with none of those
-// still allocates exactly one Frame, in Main, and every call passes the same
-// pointer down unchanged.
+// `once` (extending a forcing cons-list), `concurrent`/`spawn` (a task
+// gets its own frame over the parent's context), and a call of a function
+// value that keeps other app fields than its caller's (EnterKeptFields). A
+// program with none of those still allocates exactly one Frame, in Main, and
+// every call passes the same pointer down unchanged.
 //
 // Frame has no assertion trace. Which operands an assertion records is decided
 // when the IR is built, and the trace is a local slice in the lowered body
@@ -98,6 +99,13 @@ type Frame struct {
 	// several frames down sees the flag and a sibling statement afterwards does
 	// not.
 	underDeadline bool
+	// host is the context of the activation a host started this lineage
+	// in (NewHostFrame): an embedder's Program.Call or Run. When it has
+	// ended, a cancellation on the main line is the host stopping the
+	// activation, and it unwinds to the host as a task's unwinds to its
+	// wrapper (raiseCanceled). Nil on every other lineage, and never carried
+	// into a task, whose own wrapper recovers its unwind.
+	host context.Context
 	// stop is set once the context of the task or deadline this frame
 	// answers to has ended, or nil on a frame nothing can stop while it
 	// computes (the main line outside any deadline). SafePoint reads it at
@@ -108,13 +116,14 @@ type Frame struct {
 	// to, or nil. Read only by the drain, to tell "still working" from "nothing
 	// left to wait for" — see supervisor.go's drainOnce.
 	park *parkTracker
-	// scopedFields are immutable snapshots inherited by child frames.
-	scopedFields  map[string]any
-	scopedContext *Context
+	// app is the application fields and Context in force, an immutable
+	// value inherited by child frames and tasks (scoped.go). nil before boot
+	// publishes.
+	app *AppFields
 	// booted is what boot published, which no `with` override changes. It is
-	// what a `once` initializer reads instead of the forcer's scoped fields;
-	// see forcingOnce. Every frame built by hand must carry it across.
-	booted      *bootedApp
+	// what a `once` initializer reads instead of the forcer's app; see
+	// forcingOnce. Every frame built by hand must carry it across.
+	booted      *AppFields
 	bootCleanup *bootCleanupState
 	// capture is the innermost `io.capture` this lineage is inside, or nil.
 	// Dynamic context like `scope`, carried to every child frame and task
@@ -248,8 +257,8 @@ func EnterDeadline(parent *Frame, next Context) (*Frame, func()) {
 // an interface call and a channel read, while the flag is one atomic load,
 // and a frame nothing can stop has no flag at all, so the main line pays a
 // nil comparison. The flag belongs to the context, and only the places that
-// make a context a Nomi program can be stopped by make one: a task's frame
-// and EnterDeadline. A frame derived from one (a block, a `once` force, a
+// make a context a Nomi program can be stopped by make one: a task's frame,
+// EnterDeadline and a host's activation (NewHostFrame). A frame derived from one (a block, a `once` force, a
 // scoped field, a test's time limit) shares its parent's flag, since its own
 // context ends whenever the parent's does, and before that only at the
 // block's exit, when nothing runs on it any more.
@@ -298,6 +307,31 @@ func Unstoppable(fr *Frame) *Frame {
 func NewFrame(ctx context.Context) *Frame {
 	startup := StartupSnapshot()
 	return &Frame{ctx: ctx, bootCleanup: new(bootCleanupState), startup: &startup}
+}
+
+// NewHostFrame returns the root frame of an activation a host started and
+// stops through ctx: internal/vm's Machine.Call and Main, under an
+// embedder's Program.Call or Run. Its main line answers ctx's end as a
+// task answers its cancellation: a wait wakes and a computing step stops at
+// its next safe point, and both unwind (raiseCanceled) to the recover that
+// started the activation, which reads the unwind with Unwound and answers
+// ctx's error. A ctx that never ends makes the frame NewFrame's.
+func NewHostFrame(ctx context.Context) *Frame {
+	fr := NewFrame(ctx)
+	if ctx.Done() != nil {
+		fr.host = ctx
+		fr.stop = stopFlag(ctx)
+	}
+	return fr
+}
+
+// Unwound reports whether r, what an activation's recover caught, is the
+// unwind a cancellation raises (raiseCanceled), not a fault or a Go panic.
+// Only the recover at the root of a host's activation (NewHostFrame) and a
+// task's wrapper meet one.
+func Unwound(r any) bool {
+	_, ok := r.(canceled)
+	return ok
 }
 
 // Context is the cancellation and deadline carrier. It is idiomatic Go, so

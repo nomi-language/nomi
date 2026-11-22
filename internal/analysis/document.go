@@ -4,11 +4,9 @@ import (
 	"context"
 	"fmt"
 	"github.com/nomi-language/nomi/internal/ast"
-	"github.com/nomi-language/nomi/internal/ffirun"
 	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/internal/syntheticextern"
 	"os"
 	"path/filepath"
 	"slices"
@@ -121,7 +119,7 @@ type EntryProgramFile struct {
 //
 // Locking discipline:
 //   - dm.mu (RWMutex) protects the maps (docs, index, imports, reverseDeps,
-//     modules, primitives, workspaceRoot, ffiExternsByRoot), the closed-file
+//     modules, primitives, workspaceRoot), the closed-file
 //     cache, and every field of every *Document. It is held only for short
 //     critical sections: a map access, a content change, or installing a
 //     finished analysis.
@@ -165,9 +163,8 @@ type DocumentManager struct {
 	// imports maps a file URI to the URIs it imports, from an open
 	// document's analyzed nodes or a closed file's index entry, and
 	// reverseDeps is its inverse.
-	imports          map[string][]string
-	reverseDeps      map[string][]string
-	ffiExternsByRoot map[string][]syntheticextern.Decl
+	imports     map[string][]string
+	reverseDeps map[string][]string
 	// closed caches analyses of closed files built for requests.
 	closed closedCache
 	// foreground counts the builds that edits and requests are waiting
@@ -269,12 +266,11 @@ func (s *DocSnapshot) Current() bool {
 
 func NewDocumentManager() *DocumentManager {
 	return &DocumentManager{
-		docs:             make(map[string]*Document),
-		index:            make(map[string]*IndexedFile),
-		imports:          make(map[string][]string),
-		reverseDeps:      make(map[string][]string),
-		ffiExternsByRoot: make(map[string][]syntheticextern.Decl),
-		installed:        make(chan struct{}),
+		docs:        make(map[string]*Document),
+		index:       make(map[string]*IndexedFile),
+		imports:     make(map[string][]string),
+		reverseDeps: make(map[string][]string),
+		installed:   make(chan struct{}),
 	}
 }
 
@@ -573,7 +569,6 @@ func (dm *DocumentManager) makeRecordingLoader(rec *loadRecord) FileLoader {
 			return nodes, nil
 		}
 		filePath := filepath.Join(projectRoot, filepath.Join(modulePath...)) + ".nomi"
-		decls := dm.syntheticExternsForRoot(projectRoot)
 
 		// A tracked file is parsed afresh from its text, never handed out
 		// as its installed nodes: the build writes into the nodes it is
@@ -596,10 +591,6 @@ func (dm *DocumentManager) makeRecordingLoader(rec *loadRecord) FileLoader {
 		if ok {
 			nodes, errs, _ := parser.ParseResilient(lexer.Lex(text))
 			rec.read(filePath, text, len(errs))
-			nodes, err := syntheticextern.Inject(nodes, decls, false)
-			if err != nil {
-				return nil, err
-			}
 			return dm.expandLoaded(projectRoot, modulePath, nodes), nil
 		}
 
@@ -611,75 +602,8 @@ func (dm *DocumentManager) makeRecordingLoader(rec *loadRecord) FileLoader {
 		tokens := lexer.Lex(string(data))
 		nodes, errs := parser.ParseWithRecovery(tokens)
 		rec.read(filePath, string(data), len(errs))
-		nodes, err = syntheticextern.Inject(nodes, decls, false)
-		if err != nil {
-			return nil, err
-		}
 		return dm.expandLoaded(projectRoot, modulePath, nodes), nil
 	}
-}
-
-func (dm *DocumentManager) syntheticExternsForRoot(root string) []syntheticextern.Decl {
-	if root == "" {
-		return nil
-	}
-	if _, err := os.Stat(filepath.Join(root, "go.mod")); err != nil {
-		return nil
-	}
-	dm.mu.RLock()
-	decls, ok := dm.ffiExternsByRoot[root]
-	dm.mu.RUnlock()
-	if ok {
-		return decls
-	}
-	pkgs, err := ffirun.Discover(root)
-	if err != nil {
-		return nil
-	}
-	var out []syntheticextern.Decl
-	for _, pkg := range pkgs {
-		for _, typ := range pkg.Types {
-			if typ.Declaration != "" {
-				out = append(out, syntheticextern.Decl{
-					Key:        typ.Key,
-					Source:     typ.Declaration,
-					SourceFile: typ.SourceFile,
-					SourceLine: typ.SourceLine,
-					SourceCol:  typ.SourceCol,
-					SourceSpan: len(typ.TypeName),
-					OwnerFile:  pkg.OwnerFile,
-					OwnerLine:  pkg.OwnerLine,
-					OwnerCol:   pkg.OwnerCol,
-					OwnerSpan:  len(pkg.Owner),
-				})
-			}
-		}
-		for _, exp := range pkg.Exports {
-			if exp.Declaration != "" {
-				out = append(out, syntheticextern.Decl{
-					Key:        exp.Key,
-					Source:     exp.Declaration,
-					SourceFile: exp.SourceFile,
-					SourceLine: exp.SourceLine,
-					SourceCol:  exp.SourceCol,
-					SourceSpan: len(exp.FuncName),
-					OwnerFile:  pkg.OwnerFile,
-					OwnerLine:  pkg.OwnerLine,
-					OwnerCol:   pkg.OwnerCol,
-					OwnerSpan:  len(pkg.Owner),
-				})
-			}
-		}
-	}
-	dm.mu.Lock()
-	dm.ffiExternsByRoot[root] = out
-	dm.mu.Unlock()
-	return out
-}
-
-func isFFIEntryPath(path string) bool {
-	base := filepath.Base(path)
-	return base == "main.nomi" || strings.HasSuffix(base, "_test.nomi")
 }
 
 // isStdlibFile returns true when the document's URI points at a stdlib
@@ -804,36 +728,6 @@ func (dm *DocumentManager) ReanalyzeOpen(excludeURI string) []*Document {
 	return docs
 }
 
-// InvalidateFFIExterns clears cached tag-derived FFI declarations and the
-// cached closed-file analyses, and re-analyzes every open document. It
-// returns the open documents and the URIs of the closed files whose project
-// root holds a go.mod, the only ones whose analysis reads those
-// declarations. This invalidates broadly: a changed Go file can belong to a
-// replace-target binding whose declarations a different project consumes.
-func (dm *DocumentManager) InvalidateFFIExterns() (open []*Document, closed []string) {
-	dm.forgetPrograms()
-	dm.mu.Lock()
-	dm.ffiExternsByRoot = make(map[string][]syntheticextern.Decl)
-	dm.closed.clear()
-	for _, doc := range dm.docs {
-		open = append(open, doc)
-	}
-	for uri, entry := range dm.index {
-		if _, isOpen := dm.docs[uri]; !isOpen {
-			if _, err := os.Stat(filepath.Join(entry.Root, "go.mod")); err == nil {
-				closed = append(closed, uri)
-			}
-		}
-	}
-	dm.mu.Unlock()
-	sort.Strings(closed)
-	for _, doc := range open {
-		dm.analyze(doc)
-		dm.UpdateImportEdges(doc.URI)
-	}
-	return open, closed
-}
-
 // builtAnalysis is one finished build, not yet installed.
 type builtAnalysis struct {
 	nodes   []ast.Node
@@ -916,10 +810,6 @@ func (dm *DocumentManager) build(uri, content string) builtAnalysis {
 	nodes, errs, damaged := parser.ParseResilient(tokens)
 	root := dm.projectRootFromURI(uri)
 	docPath := fileuri.ToPath(uri)
-	externs := dm.syntheticExternsForRoot(root)
-	if injected, err := syntheticextern.Inject(nodes, externs, isFFIEntryPath(docPath)); err == nil {
-		nodes = injected
-	}
 	if root != "" && !dm.isStdlibFile(uri) {
 		nodes = dm.expandDocument(root, docPath, nodes)
 	}
@@ -953,11 +843,8 @@ func (dm *DocumentManager) build(uri, content string) builtAnalysis {
 	testNameErrs := CheckDuplicateTestNames(nodes)
 	// A program is offered only for a text with no error before analysis;
 	// the build checks a program's other files only then.
-	wantProgram := len(externs) == 0 && len(errs) == 0 && len(damaged) == 0 && len(lowerErrs) == 0 && len(testNameErrs) == 0
+	wantProgram := len(errs) == 0 && len(damaged) == 0 && len(lowerErrs) == 0 && len(testNameErrs) == 0
 	fa, program := dm.buildAnalysis(uri, nodes, root, docPath, wantProgram)
-	if len(externs) > 0 {
-		program = nil
-	}
 	if fa != nil {
 		if len(lowerErrs) > 0 {
 			fa.TypeErrors = append(fa.TypeErrors, lowerErrs...)

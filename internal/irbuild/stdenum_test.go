@@ -10,6 +10,7 @@ import (
 
 	"github.com/nomi-language/nomi/rt"
 
+	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/std"
 )
 
@@ -70,8 +71,7 @@ func TestStdEnumShapeMatchesStdSource(t *testing.T) {
 		if fa == nil {
 			t.Fatalf("%s: std declares no module %q", s.nomi, module)
 		}
-		_, byName := stdEnumAnchors(fa)
-		if _, anchored := byName[s.nomi]; !anchored {
+		if !specAnchored(stdEnumAnchors(fa), i) {
 			t.Errorf("%s.%s: no anchor built, so every mention refuses. "+
 				"Either the declaration moved or its shape changed; compare stdEnumSpec.matches "+
 				"against %s.nomi", s.origin, s.nomi, s.origin)
@@ -239,8 +239,8 @@ func TestStdEnumSpecsAreReachable(t *testing.T) {
 		}
 		for i := range p.Modules {
 			m := &p.Modules[i]
-			_, byName := stdEnumAnchors(m.FA)
-			for name := range byName {
+			for _, spec := range stdEnumAnchors(m.FA) {
+				name := stdEnumSpecs[spec].nomi
 				if found[name] != "" {
 					continue
 				}
@@ -430,16 +430,29 @@ func TestOrderingIsNotDeclaredInAStdlibPackage(t *testing.T) {
 		t.Fatalf("std declares no %s", user)
 	}
 	ug := newStdGen(user, user+".nomi", "nomistdY", lib.Nodes[user], ufa, nil, nil, nil, nil)
-	got, found := ug.stdEnumNamed("Ordering")
-	if !found || got != d {
+	// Through the type the checker recorded for `Int.compare`'s result.
+	var result ast.TypeExpr
+	for _, n := range lib.Nodes[user] {
+		ast.Inspect(n, func(n ast.Node) bool {
+			if fd, ok := n.(*ast.FuncDef); ok && fd.Name == "compare" && result == nil {
+				result = fd.ReturnTypeExpr
+			}
+			return true
+		})
+	}
+	if result == nil {
+		t.Fatalf("std/%s declares no compare, so this test reasons about nothing", user)
+	}
+	if got := ug.typeOf(result); got.tag != tagNamed || got.def != d {
 		t.Fatalf("%s does not reach the same def for Ordering", user)
 	}
 }
 
 // TestIntCompareIsLowered checks that the shared Ordering def admits the
 // `compare` bodies. `Int.compare` is Nomi-bodied in std/int.nomi, and it lowers
-// only because stdTypeKind admits `Ordering` as a return type; without the
-// enum row it would refuse as `stdlib function outside the scalar subset`.
+// only because `Ordering` projects to the shared enum def as a return type;
+// without the enum row it would refuse as `stdlib function outside the scalar
+// subset`.
 func TestIntCompareIsLowered(t *testing.T) {
 	idx := stdlibLowering()
 	for _, key := range []string{"int.Int.compare", "strings.String.compare", "float.Float.compare"} {

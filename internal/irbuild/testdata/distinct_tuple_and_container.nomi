@@ -58,9 +58,10 @@ fn main()
     io.print("kvs=${Debug.inspect(kvs)}")
 
     // The `case` unwrap route.
-    n = case items
-        Items(xs) -> Iter.count(xs)
-    end
+    n =
+        case items
+            Items(xs) -> Iter.count(xs)
+        end
 
     io.print("case-unwrap=${n}")
 
@@ -68,15 +69,17 @@ fn main()
     Items(bound) = items
     io.print("bind-unwrap=${Iter.count(bound)}")
 
-    parts = case flat
-        Coord(cx, cy) -> "${cx},${cy}"
-    end
+    parts =
+        case flat
+            Coord(cx, cy) -> "${cx},${cy}"
+        end
 
     io.print("coord-parts=${parts}")
 
-    nested = case flat
-        Coord((cx, cy)) -> "${cx}/${cy}"
-    end
+    nested =
+        case flat
+            Coord((cx, cy)) -> "${cx}/${cy}"
+        end
 
     io.print("coord-nested=${nested}")
 

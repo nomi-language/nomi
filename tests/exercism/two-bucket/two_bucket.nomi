@@ -23,10 +23,11 @@ end
 /// `two` liters, filling `start` first. No action may leave `start` empty
 /// and the other bucket full.
 pub fn measure(one: Int, two: Int, goal: Int, start: Bucket) -> Result<Outcome, Error>
-    (first, forbidden) = case start
-        .One -> ((one, 0), (0, two))
-        .Two -> ((0, two), (one, 0))
-    end
+    (first, forbidden) =
+        case start
+            .One -> ((one, 0), (0, two))
+            .Two -> ((0, two), (one, 0))
+        end
 
     search([first], [first, forbidden], 1, (one, two), goal)
 end

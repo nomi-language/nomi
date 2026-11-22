@@ -222,6 +222,53 @@ func TestSubtestRowsAreCountedInTheJSONReport(t *testing.T) {
 	}
 }
 
+// A test a stored pass answered is a pass that says so on its ok line, and
+// the summary counts its cases among the passed and again apart, after a
+// semicolon only when there are any, so a run with none prints the line it
+// always has. The JSON records carry how each test was decided.
+func TestUnchangedTestsArePassesCountedApart(t *testing.T) {
+	var b bytes.Buffer
+	rep := NewTestReporter(&b)
+	rep.Result("f :: ran", nil, "", CaseCount{Decided: DecidedNew})
+	rep.Result("f :: same", nil, "", CaseCount{Decided: DecidedUnchanged})
+	rep.Result("f :: rows", nil, "", CaseCount{Subtests: true, Cases: 9, Decided: DecidedUnchanged})
+	rep.Result("f :: broke", errString("boom"), "", CaseCount{Decided: DecidedChanged})
+	if failed := rep.Summary(); !failed {
+		t.Fatal("a run with a failed test did not fail")
+	}
+	want := "ok f :: ran\n" +
+		"ok f :: same (unchanged)\n" +
+		"ok f :: rows (9 cases, unchanged)\n"
+	if got := b.String(); !strings.HasPrefix(got, want) {
+		t.Fatalf("report:\n%q\nwant it to start:\n%q", got, want)
+	}
+	if !strings.HasSuffix(b.String(), "test result: FAILED. 11 passed, 1 failed; 2 ran, 10 unchanged\n") {
+		t.Fatalf("summary:\n%s", b.String())
+	}
+	if passed, failed := rep.Counts(); passed != 11 || failed != 1 {
+		t.Fatalf("Counts = %d, %d; an unchanged test counts as passed", passed, failed)
+	}
+
+	b.Reset()
+	rep = NewTestReporterFormat(&b, TestFormatJSON)
+	rep.ResultAt(TestLocation{File: "/a_test.nomi", Line: 3}, "a_test.nomi :: same", nil, "", CaseCount{Decided: DecidedUnchanged})
+	rep.ResultAt(TestLocation{File: "/a_test.nomi", Line: 5}, "a_test.nomi :: ran", nil, "", CaseCount{Decided: DecidedEffects})
+	rep.ResultAt(TestLocation{File: "/a_test.nomi", Line: 7}, "a_test.nomi :: none", nil, "", CaseCount{})
+	rep.Summary()
+	lines := strings.Split(strings.TrimSuffix(b.String(), "\n"), "\n")
+	for i, want := range []string{`"decided":"unchanged"`, `"decided":"effects"`} {
+		if !strings.Contains(lines[i], want) {
+			t.Errorf("record %d lacks %s:\n%s", i, want, lines[i])
+		}
+	}
+	if strings.Contains(lines[2], "decided") {
+		t.Errorf("a test no stored pass decided carries `decided`:\n%s", lines[2])
+	}
+	if got, want := lines[3], `{"type":"summary","passed":3,"failed":0,"blocked":0,"unchanged":1}`; got != want {
+		t.Errorf("summary %s, want %s", got, want)
+	}
+}
+
 // A case's rows are what its `subtests` statements ran, summed; one that
 // runs inside another's row adds nothing, and nothing outside a case counts.
 func TestEnterSubtestsCountsTheCasesRows(t *testing.T) {

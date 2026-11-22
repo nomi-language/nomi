@@ -4,53 +4,44 @@
 // release embeds ([StdArtifact]). How the stdlib is built from its modules'
 // interfaces and a module at a time is in shared.go's file comment.
 //
-// This comment says what std holds and what lib/ holds, why std binds Go
-// with `host` rather than `go`, and how the std modules written only in
-// Nomi are built. The steps for a new host function are in
+// This comment says what std holds and what lib/ holds, what `host` means,
+// and how the std modules written only in Nomi are built. The steps for a new host function are in
 // internal/stdlibbindings' package doc.
 //
 // # Std and lib
 //
-// std holds what Go's standard library can back with no third-party code
-// (std/fs, std/sql's vocabulary, std/http over net/http). lib/ holds
-// first-party modules that need third-party Go code or are opinionated
-// layers over std: the database drivers (lib/sql/sqlite over
-// modernc.org/sqlite, lib/sql/postgres over pgx), lib/sql/migrate (the
-// migration runner sqlkit's `migrate` calls), lib/sql/sqlkit, lib/markdown
-// over goldmark, lib/image over golang.org/x/image, lib/password_hashers
-// over golang.org/x/crypto, and lib/jobs/postgres and lib/storage/s3, which
-// are Nomi alone over std. A lib module with Go code documents it in its
-// `goside` package.
+// std holds what Go's standard library and a few small libraries the
+// compiler's module requires can back (std/fs, std/sql's vocabulary,
+// std/http over net/http, std/toml over BurntSushi/toml, std/passwords'
+// Argon2id, scrypt and bcrypt over golang.org/x/crypto). lib/ holds
+// first-party modules that carry an engine of their own or are
+// opinionated layers over std: lib/sql/sqlite (SQLite) and lib/image
+// (C image codecs), each compiled to WebAssembly in the module and run by
+// std::wasm, and lib/markdown (CommonMark with GitHub's extensions),
+// lib/sql/postgres (the Postgres driver, over std::net and std::tls),
+// lib/sql/migrate (the migration runner sqlkit's `migrate` calls),
+// lib/sql/sqlkit, lib/jobs/postgres and lib/storage/s3, which are Nomi
+// alone over std and the drivers. No lib module binds Go.
 //
-// Each lib module is its own module with its own go.mod and nomi.toml,
-// nested in this repository, so the compiler's module excludes it and its
-// requirements never enter the compiler's go.mod. It is versioned with
-// nomi's commits, with no tags. A module that requires a sibling `replace`s
-// it with the sibling's directory, and requires a published commit only as
-// a floor. `nomi add` and `nomi update` keep every
-// github.com/nomi-language/nomi/lib/... module a project requires on one
-// commit, the one added or the newest, so a sibling require never needs
-// moving when a batch is pushed. `scripts/pin-lib.sh <commit>` moves the
-// floors when a module comes to need a newer sibling, and
-// `scripts/pin-lib.sh --verify <commit>` adds sqlkit at a pushed commit
-// from the proxy into a fresh project and runs sqlite.
+// Each lib module is its own module with its own nomi.toml and the go.mod
+// nomi writes for its path, nested in this repository, so the compiler's
+// module excludes it. It is versioned with nomi's commits, with no tags. A
+// module that depends on a sibling names it in [dependencies] by its path,
+// a published commit as a floor, and the sibling's directory (`dir`).
+// `nomi add` and `nomi update` keep every
+// github.com/nomi-language/nomi/lib/... module a project depends on at one
+// commit, the one added or the newest, so a sibling's version never needs
+// moving when a batch is pushed. When a module comes to need a newer
+// sibling, `nomi add github.com/nomi-language/nomi/lib/<sibling>@<commit>`
+// in the module moves its floor to a pushed commit.
 //
 // TestLibModules in cmd/nomi runs their Nomi tests, the shop example's
-// generated-code check and the drivers' Go tests, and checks that
-// librunners/ is what `go run ./internal/ffirun/libgen` generates and vets
-// it (internal/ffirun package doc, "Prebuilt lib runners"). It first runs
-// `go mod download` in each driver, which needs the network when the Go
-// module cache lacks modernc.org/sqlite or pgx. Its postgres runs skip
-// without `initdb` and `postgres` on PATH and on Windows. CI's lib job vets
-// and tests their Go side. By hand:
+// generated-code check and `nomi effects --check` on each. Its postgres
+// runs skip without `initdb` and `postgres` on PATH and on
+// Windows. The tour attaches the Nomi sources of each lib module a block
+// imports (internal/tourmodules package doc).
 //
-//	go test -C lib/sql/sqlite ./...
-//	go test -C lib/sql/postgres ./...
-//
-// and `go vet` the same way in each lib module. The tour links a lib
-// module's browser build through a workspace (internal/tourgo package doc).
-//
-// # Why std uses host rather than go
+// # What host means
 //
 // `host` means the implementation is outside Nomi and the standard library
 // owns it. Where the Go code sits is a layout question the binding table
@@ -72,28 +63,6 @@
 //     why a hello-world artifact contains no `time/tzdata`. The stdlib is
 //     one Nomi module, so such a package is not separately distributable
 //     and carries neither nomi.toml nor go.mod.
-//
-// Why std does not use the `go` spelling:
-//
-//   - It would need a Go toolchain. A `go`-bound module makes
-//     internal/ffirun stage and build a wrapper, so a program importing it
-//     needs a Go toolchain; on a machine without Go, the first `nomi run`
-//     downloads one (the managed toolchain, about 70 MB) and every new set
-//     of bindings is a Go build. internal/ffirun's
-//     hostkeyword_toolchain_test.go asserts that no stdlib import takes
-//     that path.
-//   - It pays the FFI projection on every call. An rt-backed `host fn` is
-//     called with the VM's own values; a `go` binding goes through the FFI
-//     projection, which converts each argument into a Go value and the
-//     result back. `Bytes` crossing as `[]byte` makes an O(1) length read
-//     cost an O(n) copy.
-//   - rt's own types do not project. `rt.Bytes` is a Go string, so the
-//     boundary would read it as a Nomi `String`, and `rt.Maybe[rt.Byte]` is
-//     a struct, so a `Maybe<Byte>` return would arrive as a record of its Go
-//     fields.
-//
-// A user's `go` binding pays the same projection, which is correct: it
-// crosses a real FFI boundary into code the compiler does not own.
 //
 // # Modules written only in Nomi
 //
@@ -136,8 +105,8 @@
 // `run_one` runs the handler in a task plus a second task that waits on
 // `Task.outcome` and sends it on a channel, so the worker's `select` over
 // that channel and `Arm.after(timeout)` sees a trap at once and a timeout
-// before the handler ends; a timeout calls `Task.cancel`, which reaches a Go
-// call through the FFI context rule. A library cannot set `App.context`, so
+// before the handler ends; a timeout calls `Task.cancel`, which reaches a
+// host call in progress through the frame it runs on. A library cannot set `App.context`, so
 // the timeout is the worker's.
 //
 // `Worker.new` creates two supervisors, so it can run while boot builds the
@@ -249,14 +218,17 @@
 //
 // # Passwords and JWTs
 //
-// std/passwords, std/signatures and std/jwt are Nomi. passwords' one
-// crossing is `hash.pbkdf2_sha256` (crypto/pbkdf2 in rt/digest.go), salted
-// from `random.secure_bytes`. A stored hash is a PHC string (`Phc`);
-// `verify` picks the first `PasswordHasher` whose `recognizes` accepts the
-// string's algorithm id, so a module adds an algorithm by implementing the
-// interface. lib/password_hashers adds Argon2id (written with std's `Phc`)
-// and bcrypt (its own `$2a$` encoding passed through) over
-// golang.org/x/crypto. Every hasher compares with
+// std/passwords, std/signatures and std/jwt are Nomi. passwords' hashers
+// cross into `hash.pbkdf2_sha256` (crypto/pbkdf2 in rt/digest.go) and its
+// internal std/passwords/host (internal/stdpasswords, over
+// golang.org/x/crypto): Argon2id, scrypt and bcrypt. PBKDF2, Argon2id and
+// scrypt are salted from `random.secure_bytes` and their key derivations
+// are Pure and Unbounded rows; bcrypt draws its own salt, so its hash is an
+// effect named std::passwords and its verify a Pure, Unbounded row. A
+// stored hash is a PHC string (`Phc`), or bcrypt's own `$2a$` encoding
+// passed through; `verify` picks the first `PasswordHasher` whose
+// `recognizes` accepts the string's algorithm id, so a module adds an
+// algorithm by implementing the interface. Every PHC hasher compares with
 // `hash.equal_in_constant_time`.
 //
 // std/signatures crosses into internal/stdhttp (its package doc,

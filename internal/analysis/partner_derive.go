@@ -523,7 +523,8 @@ func derivedInterface(blk *ast.ImplBlock) ast.TypeExpr {
 // impls of derivable interfaces nodes declare: a derive, lowered or not,
 // or an impl block. A derive writes only std's interfaces, so an impl
 // block whose bare header names an interface nodes declare (a file's own
-// `interface ToJson`) is of another interface, and is left out.
+// `interface ToJson`) is of another interface, and is left out. A header
+// that names an import alias names the interface it imports (importedAs).
 func implsWritten(nodes []ast.Node) map[string]map[string]bool {
 	own := map[string]bool{}
 	for _, n := range nodes {
@@ -531,6 +532,7 @@ func implsWritten(nodes []ast.Node) map[string]map[string]bool {
 			own[d.Name] = true
 		}
 	}
+	aliases := importedAs(nodes)
 	out := map[string]map[string]bool{}
 	add := func(recv, iface string) {
 		if recv == "" || iface == "" {
@@ -552,9 +554,14 @@ func implsWritten(nodes []ast.Node) map[string]map[string]bool {
 		case *ast.ImplBlock:
 			// A block the compiler synthesized is a lowered derive, which
 			// the declaration's decorator names, or a universal Debug.
-			if d.Interface != nil && d.Receiver != nil && !IsSynthesizedLine(d.Line) &&
-				(implBlockInterfaceQualifier(d.Interface) != "" || !own[TypeExprBaseName(d.Interface)]) {
-				add(TypeExprBaseName(d.Receiver), TypeExprBaseName(d.Interface))
+			if d.Interface == nil || d.Receiver == nil || IsSynthesizedLine(d.Line) {
+				continue
+			}
+			iface := TypeExprBaseName(d.Interface)
+			if imported, ok := aliases[iface]; ok {
+				add(TypeExprBaseName(d.Receiver), imported)
+			} else if implBlockInterfaceQualifier(d.Interface) != "" || !own[iface] {
+				add(TypeExprBaseName(d.Receiver), iface)
 			}
 		default:
 			name, ok := typeDeclName(n)

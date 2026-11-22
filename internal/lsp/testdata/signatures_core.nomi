@@ -24,7 +24,7 @@ struct Box
     value: Int
 end
 
-once default_name = "Ada" // :: once default_name: String = "Ada"
+once default_name = "Ada" // :: once default_name: NonEmptyString = "Ada"
 
 fn greet(user: User, greeting: String = "Hello") -> String
     greeting + ", " + user.name

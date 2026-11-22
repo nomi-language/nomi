@@ -87,20 +87,21 @@ end
 fn statement(line: String) -> Result<Statement, Error>
     Some(line) = String.strip_suffix(line, ";") else return Err(.InvalidGraph)
 
-    (subject, attributes) = case String.split(line, "[")
-        [subject] ->
-            (subject, {})
+    (subject, attributes) =
+        case String.split(line, "[")
+            [subject] ->
+                (subject, {})
 
-        [subject, list] ->
-            Some(inner) = list |> String.trim() |> String.strip_suffix("]") else
+            [subject, list] ->
+                Some(inner) = list |> String.trim() |> String.strip_suffix("]") else
+                    return Err(.InvalidAttribute)
+                end
+
+                (subject, attributes_in(inner)?)
+
+            _ ->
                 return Err(.InvalidAttribute)
-            end
-
-            (subject, attributes_in(inner)?)
-
-        _ ->
-            return Err(.InvalidAttribute)
-    end
+        end
 
     case String.words(subject)
         [] ->

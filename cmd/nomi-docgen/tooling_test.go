@@ -132,7 +132,11 @@ func TestToolingPagesSplitTheDocument(t *testing.T) {
 				fences++
 			}
 		}
-		fences -= strings.Count(page, "\n```") - strings.Count(page, "\n```\n")
+		for _, line := range strings.Split(page, "\n") {
+			if trimmed := strings.TrimSpace(line); strings.HasPrefix(trimmed, "```") && trimmed != "```" {
+				fences--
+			}
+		}
 	}
 	if fences != 0 {
 		t.Errorf("the pages hold %d fewer fenced blocks with a language than the document's sections", fences)

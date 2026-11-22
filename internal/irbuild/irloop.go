@@ -39,7 +39,7 @@ package irbuild
 // A bare `break` stops with the current state: it writes the state into the
 // answer and jumps to the exit, as `break <state>` would.
 //
-// A loop with no `break` (analysis.LoopNeverBreaks) never reaches its exit.
+// A loop with no `break` (analysis.NeverReturns) never reaches its exit.
 // irScalarBlock makes it the tail of its block, dropping the statements after
 // it, and endlessLoop lowers it there, ending the exit in a jump to itself.
 //
@@ -50,7 +50,6 @@ package irbuild
 
 import (
 	"fmt"
-	"maps"
 	"strconv"
 
 	"github.com/nomi-language/nomi/internal/analysis"
@@ -179,19 +178,20 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		// `&1` read as the state.
 		line, col := nodePos(c)
 		name := captureParamName(c, 1)
-		subst := map[ast.Node]string{}
-		for _, h := range c.Holes() {
-			if ast.HoleNumber(h) != 1 {
-				return no("an Iter.loop capture callback reading past `&1`")
-			}
-			subst[h] = name
-		}
-		defer bl.g.substHoles(subst)()
 		lam = &ast.Lambda{
 			Params: []ast.Param{{Name: name, Line: line, Col: col}},
 			Body:   &ast.Block{Stmts: []ast.Node{c.Body}, Line: line, Col: col},
 			Line:   line, Col: col,
 		}
+		key := bl.g.madeLambda(lam)[0]
+		subst := map[ast.Node]madeName{}
+		for _, h := range c.Holes() {
+			if ast.HoleNumber(h) != 1 {
+				return no("an Iter.loop capture callback reading past `&1`")
+			}
+			subst[h] = madeName{name, key}
+		}
+		defer bl.g.substHoles(subst)()
 		isLambda, synthetic = true, true
 	}
 	if !isLambda {
@@ -218,10 +218,12 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 				return ir.NoTemp, kindInvalid, false, false
 			}
 			name := "$step" + strconv.Itoa(line) + "." + strconv.Itoa(col)
-			bl.bound[name], bl.boundK[name] = v, k
-			callee = bl.g.madeIdent(name, line, col)
+			stepKey := bl.g.madeLocal()
+			bl.declareKey(stepKey, v, k)
+			callee = bl.g.madeRead(name, stepKey, line, col)
 		}
-		state := bl.g.madeIdent("$state", line, col)
+		stateKey := bl.g.madeLocal()
+		state := bl.g.madeRead("$state", stateKey, line, col)
 		step = &ast.Call{Func: callee, Args: []ast.Node{state}, Line: line, Col: col}
 		// The loop passes the state as the step's first argument.
 		bl.g.carryCall(step, stepRec)
@@ -230,6 +232,7 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 			Body:   &ast.Block{Stmts: []ast.Node{step}, Line: line, Col: col},
 			Line:   line, Col: col,
 		}
+		bl.g.setMadeParams(lam, []analysis.Pos{stateKey})
 	}
 	for _, extra := range lam.Params[min(1, len(lam.Params)):] {
 		// `fn a = 0, b = 1 ->`: the loop calls the callback with the state
@@ -260,8 +263,20 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		if p.Destructure == nil {
 			stateName = p.Name
 		}
+		// The state is of the type the checker instantiated the loop's S
+		// at, the type of the loop's answer, which the starting state
+		// enters as an argument enters its parameter: `d: Display =
+		// Iter.loop(Set[1, 2], ...)` is a loop over a Display state. A
+		// loop whose record names no kind declines, and valueKind counts
+		// it: a generic declaration's own body, lowered with no instance's
+		// frame, has a state of its type parameter, which has a kind only
+		// inside an instance, and each instance lowers the loop at its type
+		// argument.
 		var ok bool
-		if seed, sk, _, ok = bl.lower(from); !ok {
+		if sk, ok = bl.valueKind("Iter.loop state", t); !ok {
+			return ir.NoTemp, kindInvalid, false, false
+		}
+		if seed, _, _, ok = bl.lowerWant(from, sk); !ok {
 			return ir.NoTemp, kindInvalid, false, false
 		}
 	}
@@ -285,9 +300,6 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	bl.b.SetTerm(ir.NewJump(pos, lp.head.ID()))
 
 	// The callback body is its own lexical scope.
-	bound, boundK, syms := bl.bound, bl.boundK, bl.sh.syms
-	bl.bound, bl.boundK, bl.sh.syms = maps.Clone(bound), maps.Clone(boundK), maps.Clone(syms)
-	defer func() { bl.bound, bl.boundK, bl.sh.syms = bound, boundK, syms }()
 	bl.b = lp.head
 	bl.markStmt(lam, ir.StmtIteration)
 	if irBodyWrites(lam.Body) {
@@ -302,22 +314,16 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		held := ir.NewBind(at, bl.f.NewTemp(), state.Dst(), ir.NewSymbol("$state"))
 		bl.b.Append(held)
 		bl.side(held.Dst(), irScalarSide{k: sk})
-		cont := bl.f.NewBlock(at, "loop state bound")
-		nomatch := bl.f.NewBlock(at, "loop state mismatch")
-		nomatch.Append(ir.NewNoMatch(at))
-		nomatch.SetTerm(ir.NewJump(at, cont.ID()))
-		if !bl.patternValueTest(p.Destructure, held.Dst(), sk, cont, nomatch) {
+		if !bl.bindPattern(p.Destructure, held.Dst(), sk) {
 			return no("an Iter.loop state pattern outside the retained pattern tests: " + sk.nomi())
 		}
-		bl.b = cont
 	} else if p != nil && !ast.IsDiscardName(p.Name) {
 		// A discard name (`fn _u ->`) binds nothing in the body.
 		sym := ir.NewSymbol(p.Name)
-		bl.sh.syms[p.Name] = sym
 		param := ir.NewBind(bl.g.irNodePos(lam), bl.f.NewTemp(), state.Dst(), sym)
 		bl.b.Append(param)
 		bl.side(param.Dst(), irScalarSide{k: sk})
-		bl.bound[p.Name], bl.boundK[p.Name] = param.Dst(), sk
+		bl.declareKey(bl.g.paramKey(lam, 0), param.Dst(), sk)
 		if !synthetic {
 			// A named step's or a capture's state is no variable of the
 			// program's.
@@ -332,26 +338,19 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		if extra.Destructure != nil {
 			// `(b, c) = (1, 2)`: the pattern's names, read off the
 			// default, as the state's pattern is read off the state.
-			at := bl.g.irNodePos(extra.Destructure)
-			cont := bl.f.NewBlock(at, "loop parameter bound")
-			nomatch := bl.f.NewBlock(at, "loop parameter mismatch")
-			nomatch.Append(ir.NewNoMatch(at))
-			nomatch.SetTerm(ir.NewJump(at, cont.ID()))
-			if !bl.patternValueTest(extra.Destructure, v, k, cont, nomatch) {
+			if !bl.bindPattern(extra.Destructure, v, k) {
 				return ir.NoTemp, kindInvalid, false, false
 			}
-			bl.b = cont
 			continue
 		}
 		if ast.IsDiscardName(extra.Name) {
 			continue
 		}
 		sym := ir.NewSymbol(extra.Name)
-		bl.sh.syms[extra.Name] = sym
 		param := ir.NewBind(bl.g.irNodePos(extra.Default), bl.f.NewTemp(), v, sym)
 		bl.b.Append(param)
 		bl.side(param.Dst(), irScalarSide{k: k})
-		bl.bound[extra.Name], bl.boundK[extra.Name] = param.Dst(), k
+		bl.declareLocal(extra.Line, extra.Col, param.Dst(), k)
 		bl.declareBindAt(param, k, extra.Line, extra.Col)
 	}
 	tail := bl.f.NewTemp()
@@ -588,22 +587,18 @@ func (bl *irScalarBuilder) loopGuard(t *ast.If, lp *irLoopBuild) bool {
 	if !ok || (t.CondPattern == nil && ck != kindBool) {
 		return false
 	}
-	arm := bl.f.NewBlock(bl.g.irNodePos(t.Then), "loop guard")
 	next := bl.f.NewBlock(bl.g.irNodePos(t), "next")
-	bound, boundK, syms := bl.bound, bl.boundK, bl.sh.syms
-	bl.bound, bl.boundK, bl.sh.syms = maps.Clone(bound), maps.Clone(boundK), maps.Clone(syms)
-	defer func() { bl.bound, bl.boundK, bl.sh.syms = bound, boundK, syms }()
 	if t.CondPattern != nil {
 		// `if Some(v) = e { break v }`: the pattern's test, binding its
 		// names on the arm's path, as a pattern `if` region does.
-		if !bl.patternValueTest(t.CondPattern, cond, ck, arm, next) {
+		if !bl.patternTest(t.CondPattern, cond, ck, next) {
 			return false
 		}
 	} else {
-		br := ir.NewBranch(bl.g.irNodePos(t.Cond), cond, arm.ID(), next.ID())
-		bl.b.SetTerm(br)
+		arm := bl.f.NewBlock(bl.g.irNodePos(t.Then), "loop guard")
+		bl.b.SetTerm(ir.NewBranch(bl.g.irNodePos(t.Cond), cond, arm.ID(), next.ID()))
+		bl.b = arm
 	}
-	bl.b = arm
 	// The arm is a block of its own: a `defer` in it runs when the arm
 	// leaves the iteration, before the iteration's own (loopJump).
 	armDefers := &irDeferScope{block: t.Then, outer: bl.openDefers}

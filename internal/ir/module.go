@@ -162,6 +162,9 @@ type Module struct {
 	// `impl Hashable` bodies, by the declared type whose values they answer.
 	// See ImplementEquatable.
 	equates, hashes []DisplayImpl
+	// abstract marks a module of abstract bodies, which only the effect walk
+	// reads. See SetAbstract.
+	abstract bool
 	// lint is LintModuleAdded's record of what it has already checked. See
 	// moduleLintState.
 	lint moduleLintState
@@ -195,6 +198,17 @@ func NewModule(name string) *Module {
 	}
 	return &Module{name: name}
 }
+
+// SetAbstract marks m a module of abstract bodies: what a generic function
+// does for every type its callers may give it, lowered only for the effect
+// walk (internal/irbuild's abstract.go). Such a module may hold a call
+// through a type parameter's bound (NewBoundCall), which no machine runs, so
+// it is never encoded (EncodeImage refuses it), linked (Linker.Define) or
+// run: a machine compiles a bound call to a failure.
+func (m *Module) SetAbstract() { m.abstract = true }
+
+// Abstract reports whether m is a module of abstract bodies (SetAbstract).
+func (m *Module) Abstract() bool { return m.abstract }
 
 // Name is the module's display name. It is not its identity.
 func (m *Module) Name() string { return m.name }

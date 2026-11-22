@@ -42,12 +42,11 @@ import (
 // analyzer has already collapsed the question, and a pointer comparison against
 // a package-level singleton cannot be satisfied by anything else in the process.
 //
-// The NAME channel still goes through module scope (see stdHostAnchors) rather
-// than matching the string directly. Not defensive theatre: `stdTypeKind` and
-// `namedType` are handed an `*ast.SimpleType`, which is a spelling, and the
-// question they need answered is what that spelling RESOLVED to here. Confirming
-// through scope is how the two are kept from being one, and it fails toward no
-// anchor, which is the direction every identity check in this package fails in.
+// An annotation reaches the def through the type the checker recorded for it,
+// which is that singleton. stdHostAnchors confirms each row's name against a
+// module's scope, the check this family's tests hold each row to, and it fails
+// toward no anchor, which is the direction every identity check in this
+// package fails in.
 //
 // # The *typeDef is a LEAF, and process-wide
 //
@@ -134,9 +133,7 @@ type stdHostSpec struct {
 	//
 	// So the authority is internal/stdlibbindings' Types(), and
 	// TestStdHostHandleRowsMatchTheBindingsTypeTable asserts both
-	// directions against it. declaredHostType checks the other half — NO
-	// declaration under `std/` may name a Go symbol — because a `gopkg` handle
-	// introduced into a facade also puts the module on the FFI wrapper path.
+	// directions against it.
 	//
 	// What the bit decides here is the `values:` RENDERING: a handle renders
 	// as `"<" + short type name + ">"`, so a row's operand renders
@@ -149,8 +146,7 @@ type stdHostSpec struct {
 	// `Regex<C>` is the row: C is the shape the checker gives a match's
 	// capture groups (`String.captures`), and the compiled pattern the handle
 	// holds is the same for every C. Each channel reads `Regex<X>` as the
-	// row's one kind and drops X (typeOf, phantomHostSigKind,
-	// projectPhantomHost), a std function whose type parameters stand only
+	// row's one kind and drops X (typeOf, projectPhantomHost), a std function whose type parameters stand only
 	// there is not generic to the builder (stdrecvgeneric.go's phantomOnly),
 	// and a generic function of a program's is instantiated at X from the
 	// checker's record of the call (calleeTypeArgs).
@@ -169,7 +165,7 @@ type stdHostSpec struct {
 // buildExternTypeShell's other branch): a row here must not redirect one whose
 // parameters a value stores. An attached `//!` test is not checked: it cannot
 // affect the representation and it refuses at its own position — see
-// stdStructSpec.matches.
+// stdStructSpec.mismatch.
 func (s *stdHostSpec) declaredHostType(decl *ast.ExternType) bool {
 	if decl.Name != s.nomi || !decl.Public || len(decl.TypeParams) != len(s.phantom) || len(decl.WhereClauses) > 0 {
 		return false
@@ -188,13 +184,7 @@ func (s *stdHostSpec) declaredHostType(decl *ast.ExternType) bool {
 			return false
 		}
 	}
-	// NO GO BINDING, for every row. Nothing under `std/` names a Go symbol, and
-	// a row here must not redirect a declaration that grew a `go` binding,
-	// because that declaration would be discovered as a co-located adapter and
-	// reached through the FFI projection instead.
-	// `ForeignName` is hostpkg.go's own gate for the same distinction, read
-	// here rather than restated.
-	return decl.ForeignName == ""
+	return true
 }
 
 // stdHostSpecs is the whole set, and every row is a decision.
@@ -351,6 +341,17 @@ var stdHostSpecs = []stdHostSpec{
 	// internal/stdcsv and internal/stdxml build (rt/formats.go).
 	{origin: "std/csv/host", nomi: "Records", goType: reflect.TypeFor[rt.CsvRecords]()},
 	{origin: "std/xml/host", nomi: "Tokens", goType: reflect.TypeFor[rt.XmlTokens]()},
+	// `Compiled`, `Live` and `Memory`, std/wasm/host's module, instance and
+	// an instance's memory during an import, for the reason `Child` is:
+	// rt's structs over what internal/stdwasm builds (rt/wasm.go).
+	{origin: "std/wasm/host", nomi: "Compiled", goType: reflect.TypeFor[rt.WasmModule]()},
+	{origin: "std/wasm/host", nomi: "Live", goType: reflect.TypeFor[rt.WasmInstance]()},
+	{origin: "std/wasm/host", nomi: "Memory", goType: reflect.TypeFor[rt.WasmMemory]()},
+	// `Builder`, std/bytes's byte buffer built by appending, for the reason
+	// `Reader` is: rt's struct, a window over an append-only buffer that
+	// only its host calls look inside (rt/bytesbuilder.go). It is a value
+	// with no equality, not a handle to running state.
+	{origin: "std/bytes", nomi: "Builder", goType: reflect.TypeFor[rt.BytesBuilder]()},
 }
 
 // stdHostDefs is the process-wide *typeDef per spec, keyed by spec index.
@@ -384,9 +385,9 @@ func stdHostKind(i int) kind { return named(stdHostDefs()[i]) }
 // the program never spells, which is where a lambda parameter arrives.
 //
 // Origin-identified rows are answered by projectOriginHost, on the solved
-// type's (Origin, Name). Matching on the name alone here would let a user's own
-// FFI `pub host type Context` adopt rt's representation at an inferred
-// position: a wrong ANSWER, not a coverage gap.
+// type's (Origin, Name). Matching on the name alone here would let a
+// program's own type named `Context` adopt rt's representation at an
+// inferred position: a wrong ANSWER, not a coverage gap.
 func stdHostKindOfPrimitive(t analysis.Type) kind {
 	p, isPrim := t.(*analysis.PrimitiveType)
 	if !isPrim {
@@ -434,10 +435,6 @@ func stdHostKindOfGoType(t reflect.Type) kind {
 // anchor to displace. An ORIGIN row reads the node anyway — not to key on, but
 // to CHECK the shape, because the singleton pointer that made that unnecessary
 // for the first three rows does not exist for it.
-//
-// A free function rather than a gen method for opaqueAnchors' reason: the
-// STDLIB SIGNATURE pass runs before any gen exists and has to know whether
-// `Bytes` in `Bytes.length(data: Bytes) -> Int` is a representable type.
 func stdHostAnchors(fa *analysis.FileAnalysis) map[string]int {
 	byName := map[string]int{}
 	if fa == nil || fa.ModuleScope == nil {
@@ -519,43 +516,10 @@ func stdHostOriginAnchored(fa *analysis.FileAnalysis, sym, resolved *analysis.Sy
 	return imported && module == s.origin
 }
 
-// loadStdHosts resolves the specs against this gen's module, once.
-func (g *gen) loadStdHosts() {
-	if g.stdHostsLoaded {
-		return
-	}
-	g.stdHostsLoaded = true
-	g.stdHostByName = stdHostAnchors(g.fa)
-}
-
-// stdHostNamed resolves a type NAME to the shared def, for any module that
-// mentions one of these types.
-//
-// The anchor was established through the module's own scope, which is what the
-// checker resolves a bare type name through, so no per-mention re-check is
-// needed — opaqueNamed's reasoning exactly.
-func (g *gen) stdHostNamed(name string) (*typeDef, bool) {
-	g.loadStdHosts()
-	i, anchored := g.stdHostByName[name]
-	if !anchored {
-		return nil, false
-	}
-	return stdHostDefs()[i], true
-}
-
 // decimalKind is the kind a `1.50d` literal has, WITHOUT going through module
-// scope.
-//
-// Every other entry point into this family confirms the Nomi NAME against the
-// module's scope, because it is handed an `*ast.SimpleType` — a spelling — and
-// has to know what that spelling resolved to here. A LITERAL has no spelling to
-// confirm: `1.50d` names no type and requires no import, and the checker types
-// it as `analysis.TypeDecimal` unconditionally. So asking `stdHostNamed` would
-// refuse a decimal literal in any module that does not happen to mention
-// `Decimal` by name, which is nearly all of them.
-//
-// Resolved against the spec table by singleton pointer, which is the same
-// identity the anchors use minus the step that has nothing to confirm.
+// scope: `1.50d` names no type and requires no import, and the checker types
+// it as `analysis.TypeDecimal` unconditionally. Resolved against the spec
+// table by singleton pointer, which is the same identity the anchors use.
 func decimalKind() kind {
 	for i := range stdHostSpecs {
 		if stdHostSpecs[i].prim == analysis.TypeDecimal {
@@ -570,7 +534,7 @@ func decimalKind() kind {
 // its origin module, which a user file cannot spell (analysis/manifest.go's
 // LoadManifest rejects `[package].name = "std"`), so a user's own
 // `pub host type Context` never adopts rt's representation. A user `host
-// type` (Go-bound or an embedder's plain handle) matches the declaration in
+// type` (an embedder's plain handle) matches the declaration in
 // the module that declares it, so an inferred position agrees with an
 // annotated one, including when the two came from different analyses of
 // that module.
@@ -582,6 +546,10 @@ func (g *gen) projectOriginHost(t *analysis.PrimitiveType) kind {
 		if s := &stdHostSpecs[i]; s.origin == t.Origin && s.nomi == t.Name_ {
 			return stdHostKind(i)
 		}
+	}
+	// With no gen (projectShared) only the specs above answer.
+	if g == nil {
+		return kindInvalid
 	}
 	owners := []*gen{g}
 	if g.reg != nil {
@@ -633,23 +601,10 @@ func projectPhantomHost(ty *analysis.DistinctType) (kind, bool) {
 	return stdHostKind(i), true
 }
 
-// phantomHostSigKind is typeOf for a stdlib signature, against the
-// module's anchors.
-func phantomHostSigKind(gt *ast.GenericType, anchors stdAnchors) (kind, bool) {
-	i, anchored := anchors.hosts[gt.Name]
-	if !anchored || len(stdHostSpecs[i].phantom) == 0 {
-		return kindInvalid, false
-	}
-	if len(gt.Params) != len(stdHostSpecs[i].phantom) {
-		return kindInvalid, true
-	}
-	return stdHostKind(i), true
-}
-
 // irStdHandleKind is a std `host type` carried as an opaque Go handle
 // (Regex): a value, whose equality and hash rt.Equal and rt.Hash answer by
 // the handle's key (rt.HostKeyed), at the top or nested. A project's
-// Go-bound opaque type is not one: what its equality means is its own.
+// host handle is not one: what its equality means is its own.
 func irStdHandleKind(k kind) bool {
 	if k.tag != tagNamed || k.def == nil || !k.def.rtOpaque {
 		return false
@@ -663,9 +618,8 @@ func irStdHandleKind(k kind) bool {
 }
 
 // irHostHandleKind is a std `host type` carried as an opaque Go handle, such
-// as Regex, or a project's `opaque type RawBox go ffi.Box`. Retained code
-// only passes it between host calls: the VM holds it as the rt.HostHandle a
-// generated adapter answers.
+// as Regex. Retained code only passes it between host calls: the VM holds it
+// as the rt.HostHandle a generated adapter answers.
 func irHostHandleKind(k kind) bool {
 	if k.tag != tagNamed || k.def == nil || !k.def.rtOpaque {
 		return false

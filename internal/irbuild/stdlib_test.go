@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/std"
 )
 
@@ -121,9 +122,9 @@ func TestEveryScalarHostFnIsBoundOrDeclared(t *testing.T) {
 		"int.Int.ShiftRight<NonNegativeInt, Int>.shift_right": "operator impl; see int.Int.ShiftLeft<NonNegativeInt, Int>.shift_left",
 
 		// A VM intrinsic the builder lowers by name (irsupervisor.go's
-		// supervisorSpawn). Its signature counts as scalar since shared std
-		// signatures admit a generic std host type at a concrete argument
-		// (its result, `Task<Unit>`; see stdgensig.go's genHostSigKind).
+		// supervisorSpawn). Its signature counts as scalar since a generic
+		// std host type at a concrete argument (its result, `Task<Unit>`)
+		// projects to a shared instance.
 		"supervisors.Supervisor.spawn": "a VM intrinsic lowered by name; the crossing needs the machine's supervisor, not an rt function",
 
 		// The Decimal operator impls, unbound for the reason the Int ones
@@ -225,8 +226,7 @@ func stdKeyClaimants(lib *std.StdLib) map[string]int {
 	sort.Strings(modules)
 	out := map[string]int{}
 	for _, module := range modules {
-		anchors := stdAnchorsOf(lib.Files[module])
-		for _, c := range collectStdCandidates(module, lib.Nodes[module], anchors) {
+		for _, c := range collectStdCandidates(module, lib.Nodes[module], lib.Files[module]) {
 			out[c.f.key]++
 		}
 	}
@@ -290,8 +290,7 @@ func stdKeyClaimantList(lib *std.StdLib) map[string][]*stdFunc {
 	sort.Strings(modules)
 	out := map[string][]*stdFunc{}
 	for _, module := range modules {
-		anchors := stdAnchorsOf(lib.Files[module])
-		for _, c := range collectStdCandidates(module, lib.Nodes[module], anchors) {
+		for _, c := range collectStdCandidates(module, lib.Nodes[module], lib.Files[module]) {
 			out[c.f.key] = append(out[c.f.key], c.f)
 		}
 	}
@@ -341,7 +340,7 @@ func TestStdlibHostFuncsAreReachable(t *testing.T) {
 		}
 		if f.recv == "" {
 			// A top-level `host fn` in std is module-private by construction
-			// (`strings.string_compare`, `float.float_bits`); it is reachable
+			// (`strings.string_compare`, `bytes.bytes_compare`); it is reachable
 			// only from inside its own module, through the sibling table.
 			continue
 		}
@@ -445,8 +444,7 @@ func TestStdlibIndexKeysCarryTheirReceiver(t *testing.T) {
 			// of it (programstd.go).
 			continue
 		}
-		anchors := stdAnchorsOf(lib.Files[module])
-		for _, c := range collectStdCandidates(module, lib.Nodes[module], anchors) {
+		for _, c := range collectStdCandidates(module, lib.Nodes[module], lib.Files[module]) {
 			f := c.f
 			// One: the entry this declaration's key resolves to must BE a
 			// declaration on this receiver. That is the overwrite check, and it
@@ -669,7 +667,7 @@ func TestCollapsedStdlibKeysCostOnlyCoverage(t *testing.T) {
 						t.Errorf("%s: %q lost the inherent/interface-impl contest and carries NO "+
 							"reason; a declaration the source ruled against must say so, or it is "+
 							"invisible to every guard that asks what refused",
-							where, f.key+" ("+f.iface+")")
+							where, f.key+" ("+f.iface.Name+")")
 					}
 					if f.lowerable() {
 						t.Errorf("%s: %q lost the contest and LOWERS anyway (rtCall=%q body=%v); "+
@@ -696,13 +694,17 @@ func TestCollapsedStdlibKeysCostOnlyCoverage(t *testing.T) {
 	for _, spelling := range spellings {
 		check("byType["+spelling+"]", idx.byType[spelling])
 	}
-	ifaceKeys := make([]string, 0, len(idx.byIface))
+	ifaceKeys := make([]analysis.StdFunc, 0, len(idx.byIface))
 	for key := range idx.byIface {
 		ifaceKeys = append(ifaceKeys, key)
 	}
-	sort.Strings(ifaceKeys)
-	for _, key := range ifaceKeys {
-		byRecv := idx.byIface[key]
+	sort.Slice(ifaceKeys, func(i, j int) bool {
+		a, b := ifaceKeys[i], ifaceKeys[j]
+		return a.Module+"."+a.Owner+"."+a.Name < b.Module+"."+b.Owner+"."+b.Name
+	})
+	for _, fn := range ifaceKeys {
+		byRecv := idx.byIface[fn]
+		key := fn.Module + "." + fn.Owner + "." + fn.Name
 		recvs := make([]string, 0, len(byRecv))
 		index := map[string]kind{}
 		for recv := range byRecv {

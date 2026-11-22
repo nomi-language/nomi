@@ -12,10 +12,9 @@ import (
 
 // The conversions in this file are for Go functions written against rt's own
 // types: the rt functions the VM's hand-written hosts call (rt.StringToInt,
-// rt.JsonDecode, rt.SupervisorNewExact, ...). The marshaller has no rules for
-// these, because no FFI binding takes them; what they must agree with is the
-// VM's `value`-based hosts in internal/vm/*hosts.go, and the parity suite
-// there holds them to it.
+// rt.JsonDecode, rt.SupervisorNewExact, ...). What they must agree with is
+// the VM's `value`-based hosts in internal/vm/*hosts.go, and the parity
+// suite there holds them to it.
 //
 //   - rt's generic prelude types: rt.Maybe[T], rt.Result[T, E], *rt.List[T]
 //     and rt.Map[K, V], each converted element by element to and from the
@@ -33,33 +32,37 @@ var rtPkg = reflect.TypeFor[rt.Frame]().PkgPath()
 // qualified Nomi name. The VM values design holds these in the ref bank as
 // themselves, so an adapter neither wraps nor unwraps them.
 var rtHeld = map[string]string{
-	"decimal.Decimal":        TypeKey(ReflectType(reflect.TypeFor[rt.Decimal]())),
-	"context.Context":        TypeKey(ReflectType(reflect.TypeFor[rt.Context]())),
-	"supervisors.Supervisor": TypeKey(ReflectType(reflect.TypeFor[rt.Supervisor]())),
-	"dynamic.Dynamic":        TypeKey(ReflectType(reflect.TypeFor[rt.Dynamic]())),
-	"io.Reader":              TypeKey(ReflectType(reflect.TypeFor[rt.Reader]())),
-	"io.Writer":              TypeKey(ReflectType(reflect.TypeFor[rt.Writer]())),
-	"io.File":                TypeKey(ReflectType(reflect.TypeFor[rt.File]())),
-	"fs/host.FileSystem":     TypeKey(ReflectType(reflect.TypeFor[rt.FileSystem]())),
-	"process/host.Child":     TypeKey(ReflectType(reflect.TypeFor[rt.ChildProcess]())),
-	"http/host.Client":       TypeKey(ReflectType(reflect.TypeFor[rt.HTTPClient]())),
-	"http/host.Exchange":     TypeKey(ReflectType(reflect.TypeFor[rt.HTTPExchange]())),
-	"http/host.Listener":     TypeKey(ReflectType(reflect.TypeFor[rt.HTTPListener]())),
-	"http/host.Incoming":     TypeKey(ReflectType(reflect.TypeFor[rt.HTTPIncoming]())),
-	"http/host.Certificate":  TypeKey(ReflectType(reflect.TypeFor[rt.TLSCertificate]())),
-	"http/host.TlsConfig":    TypeKey(ReflectType(reflect.TypeFor[rt.TLSConfig]())),
-	"http/host.Conn":         TypeKey(ReflectType(reflect.TypeFor[rt.NetConn]())),
-	"http/host.TcpListener":  TypeKey(ReflectType(reflect.TypeFor[rt.NetListener]())),
-	"http/host.Mux":          TypeKey(ReflectType(reflect.TypeFor[rt.HTTPMux]())),
-	"http/host.Jar":          TypeKey(ReflectType(reflect.TypeFor[rt.HTTPJar]())),
-	"process/host.Fake":      TypeKey(ReflectType(reflect.TypeFor[rt.ProcessFake]())),
-	"http/host.Handle":       TypeKey(ReflectType(reflect.TypeFor[rt.HTTPHandle]())),
-	"csv/host.Records":       TypeKey(ReflectType(reflect.TypeFor[rt.CsvRecords]())),
-	"xml/host.Tokens":        TypeKey(ReflectType(reflect.TypeFor[rt.XmlTokens]())),
+	"decimal.Decimal":        typeIdentity(reflect.TypeFor[rt.Decimal]()),
+	"context.Context":        typeIdentity(reflect.TypeFor[rt.Context]()),
+	"supervisors.Supervisor": typeIdentity(reflect.TypeFor[rt.Supervisor]()),
+	"dynamic.Dynamic":        typeIdentity(reflect.TypeFor[rt.Dynamic]()),
+	"io.Reader":              typeIdentity(reflect.TypeFor[rt.Reader]()),
+	"io.Writer":              typeIdentity(reflect.TypeFor[rt.Writer]()),
+	"io.File":                typeIdentity(reflect.TypeFor[rt.File]()),
+	"fs/host.FileSystem":     typeIdentity(reflect.TypeFor[rt.FileSystem]()),
+	"process/host.Child":     typeIdentity(reflect.TypeFor[rt.ChildProcess]()),
+	"http/host.Client":       typeIdentity(reflect.TypeFor[rt.HTTPClient]()),
+	"http/host.Exchange":     typeIdentity(reflect.TypeFor[rt.HTTPExchange]()),
+	"http/host.Listener":     typeIdentity(reflect.TypeFor[rt.HTTPListener]()),
+	"http/host.Incoming":     typeIdentity(reflect.TypeFor[rt.HTTPIncoming]()),
+	"http/host.Certificate":  typeIdentity(reflect.TypeFor[rt.TLSCertificate]()),
+	"http/host.TlsConfig":    typeIdentity(reflect.TypeFor[rt.TLSConfig]()),
+	"http/host.Conn":         typeIdentity(reflect.TypeFor[rt.NetConn]()),
+	"http/host.TcpListener":  typeIdentity(reflect.TypeFor[rt.NetListener]()),
+	"http/host.Mux":          typeIdentity(reflect.TypeFor[rt.HTTPMux]()),
+	"http/host.Jar":          typeIdentity(reflect.TypeFor[rt.HTTPJar]()),
+	"process/host.Fake":      typeIdentity(reflect.TypeFor[rt.ProcessFake]()),
+	"http/host.Handle":       typeIdentity(reflect.TypeFor[rt.HTTPHandle]()),
+	"csv/host.Records":       typeIdentity(reflect.TypeFor[rt.CsvRecords]()),
+	"xml/host.Tokens":        typeIdentity(reflect.TypeFor[rt.XmlTokens]()),
+	"wasm/host.Compiled":     typeIdentity(reflect.TypeFor[rt.WasmModule]()),
+	"wasm/host.Live":         typeIdentity(reflect.TypeFor[rt.WasmInstance]()),
+	"wasm/host.Memory":       typeIdentity(reflect.TypeFor[rt.WasmMemory]()),
+	"bytes.Builder":          typeIdentity(reflect.TypeFor[rt.BytesBuilder]()),
 }
 
 // rtGenericBase is the generic type an rt instantiation instantiates, or "".
-func rtGenericBase(t Type) string {
+func rtGenericBase(t reflect.Type) string {
 	if t.PkgPath() != rtPkg {
 		return ""
 	}
@@ -72,7 +75,7 @@ func rtGenericBase(t Type) string {
 
 // isRtGeneric reports whether t is one of the named rt generic types as a
 // boundary carries it: *rt.List[T], or rt.Maybe, rt.Result, rt.Map by value.
-func isRtGeneric(t Type, bases ...string) bool {
+func isRtGeneric(t reflect.Type, bases ...string) bool {
 	base := rtGenericBase(t)
 	if t.Kind() == reflect.Pointer {
 		if rtGenericBase(t.Elem()) != "List" {
@@ -92,9 +95,9 @@ func isRtGeneric(t Type, bases ...string) bool {
 
 // rtGenericArgs answers the type arguments of an rt generic instantiation,
 // read off its fields rather than parsed out of reflect's name.
-func rtGenericArgs(t Type) (string, []Type, bool) {
+func rtGenericArgs(t reflect.Type) (string, []reflect.Type, bool) {
 	base := rtGenericBase(t)
-	field := func(t Type, name string) Type {
+	field := func(t reflect.Type, name string) reflect.Type {
 		f, ok := t.FieldByName(name)
 		if !ok {
 			panic(fmt.Sprintf("hostgen: %s has no field %s", t, name))
@@ -103,34 +106,31 @@ func rtGenericArgs(t Type) (string, []Type, bool) {
 	}
 	switch base {
 	case "Maybe":
-		return base, []Type{field(t, "Some")}, true
+		return base, []reflect.Type{field(t, "Some")}, true
 	case "Result":
-		return base, []Type{field(t, "Ok"), field(t, "Err")}, true
+		return base, []reflect.Type{field(t, "Ok"), field(t, "Err")}, true
 	case "List":
-		return base, []Type{field(t, "Head")}, true
+		return base, []reflect.Type{field(t, "Head")}, true
 	case "Map":
 		entry := field(field(t, "root").Elem(), "leaf").Elem()
-		return base, []Type{field(entry, "Key"), field(entry, "Val")}, true
+		return base, []reflect.Type{field(entry, "Key"), field(entry, "Val")}, true
 	}
 	return "", nil, false
 }
 
-// rtKeyOps is the hash and equality a Go map key type's rt.Map is built
+// rtKeyOps is the hash and equality an rt.Map of Go key type k is built
 // with: the ones rt's own producers use (rt.JsonDecode builds its objects
-// with rt.HashString and rt.Eq[string]).
-func rtKeyOps(k Type) (string, string, error) {
-	switch {
-	case isPredeclared(k, "string"):
-		return "rt.HashString", "rt.Eq[string]", nil
-	case isPredeclared(k, "int64"):
-		return "rt.HashInt", "rt.Eq[int64]", nil
+// with rt.HashString and rt.Eq[string]). Only a string key converts.
+func rtKeyOps(k reflect.Type) (string, string, error) {
+	if k != reflect.TypeFor[string]() {
+		return "", "", fmt.Errorf("Go map key %s: only a string key converts", k)
 	}
-	return "", "", fmt.Errorf("Go map key %s: only string and int64 keys convert", k)
+	return "rt.HashString", "rt.Eq[string]", nil
 }
 
 // inRtGeneric writes the body of an `in` method reading a Nomi value into an
 // rt generic instantiation.
-func (g *Generator) inRtGeneric(w *bytes.Buffer, s *Shape, t Type, goT string) error {
+func (g *Generator) inRtGeneric(w *bytes.Buffer, s *Shape, t reflect.Type, goT string) error {
 	elemOf := t
 	if t.Kind() == reflect.Pointer {
 		elemOf = t.Elem()
@@ -209,7 +209,7 @@ func (g *Generator) inRtGeneric(w *bytes.Buffer, s *Shape, t Type, goT string) e
 
 // outRtGeneric writes the body of an `out` method building a Nomi value from
 // an rt generic instantiation.
-func (g *Generator) outRtGeneric(w *bytes.Buffer, s *Shape, t Type) error {
+func (g *Generator) outRtGeneric(w *bytes.Buffer, s *Shape, t reflect.Type) error {
 	elemOf := t
 	if t.Kind() == reflect.Pointer {
 		elemOf = t.Elem()
@@ -275,15 +275,12 @@ type taggedVariant struct {
 	ShapeVariant
 	tag    int       // the Go Tag value, 1-based
 	fields []goField // parallel to Fields
-	// unrepresented is set when the Go struct has no room for the variant's
-	// payload because the payload is not data (a function, say).
-	unrepresented bool
 }
 
 // taggedLayout reads rt's tagged-struct encoding of enum s off Go type t and
 // refuses any drift between the two: a data payload with no Go field, or a Go
 // field no variant claims.
-func taggedLayout(s *Shape, t Type) ([]taggedVariant, error) {
+func taggedLayout(s *Shape, t reflect.Type) ([]taggedVariant, error) {
 	if t.Kind() != reflect.Struct || t.PkgPath() != rtPkg || t.NumField() == 0 ||
 		t.Field(0).Name != "Tag" || t.Field(0).Type.Kind() != reflect.Uint8 {
 		return nil, fmt.Errorf("a user enum does not cross the host boundary unless its Go type is rt's tagged-struct "+
@@ -299,11 +296,6 @@ func taggedLayout(s *Shape, t Type) ([]taggedVariant, error) {
 		tv := taggedVariant{ShapeVariant: v, tag: i + 1}
 		switch {
 		case v.Shape == rt.VariantBare:
-		case v.Err != nil || (v.Shape == rt.VariantPositional && v.Fields[0].Shape.Kind == SFunc):
-			if f, ok := fields[strcase.ToSnake(v.Name)]; ok {
-				return nil, fmt.Errorf("Go %s has field %s for %s.%s, whose payload has no boundary form", t, f.path, s.Name, v.Name)
-			}
-			tv.unrepresented = true
 		case v.Shape == rt.VariantPositional:
 			key := strcase.ToSnake(v.Name)
 			f, ok := fields[key]
@@ -334,22 +326,14 @@ func taggedLayout(s *Shape, t Type) ([]taggedVariant, error) {
 
 // inEnum writes the body of an `in` method reading an enum record into rt's
 // tagged struct.
-func (g *Generator) inEnum(w *bytes.Buffer, s *Shape, t Type) error {
+func (g *Generator) inEnum(w *bytes.Buffer, s *Shape, t reflect.Type) error {
 	tvs, err := taggedLayout(s, t)
-	if err != nil {
-		return err
-	}
-	goT, err := g.typ(t)
 	if err != nil {
 		return err
 	}
 	fmt.Fprintf(w, "\tr, tag, err := hostadapt.Variant(v, %q)\n\tif err != nil {\n\t\treturn out, err\n\t}\n\t_ = r\n\tswitch tag {\n", s.Name)
 	for _, tv := range tvs {
 		fmt.Fprintf(w, "\tcase %q:\n", tv.Name)
-		if tv.unrepresented {
-			fmt.Fprintf(w, "\t\treturn out, errors.New(%q)\n", fmt.Sprintf("%s.%s has no representation in Go %s", s.Name, tv.Name, goT))
-			continue
-		}
 		for j, f := range tv.Fields {
 			conv, err := g.in(f.Shape, tv.fields[j].typ)
 			if err != nil {
@@ -373,7 +357,7 @@ func (g *Generator) inEnum(w *bytes.Buffer, s *Shape, t Type) error {
 
 // outEnum writes the body of an `out` method building an enum record from
 // rt's tagged struct.
-func (g *Generator) outEnum(w *bytes.Buffer, s *Shape, t Type) error {
+func (g *Generator) outEnum(w *bytes.Buffer, s *Shape, t reflect.Type) error {
 	tvs, err := taggedLayout(s, t)
 	if err != nil {
 		return err
@@ -386,11 +370,7 @@ func (g *Generator) outEnum(w *bytes.Buffer, s *Shape, t Type) error {
 	w.WriteString("\tswitch v.Tag {\n")
 	for i, tv := range tvs {
 		fmt.Fprintf(w, "\tcase %d:\n", tv.tag)
-		switch {
-		case tv.unrepresented:
-			fmt.Fprintf(w, "\t\treturn nil, errors.New(%q)\n", fmt.Sprintf("%s.%s has no representation in Go %s", s.Name, tv.Name, goT))
-			continue
-		case tv.Shape == rt.VariantBare:
+		if tv.Shape == rt.VariantBare {
 			fmt.Fprintf(w, "\t\treturn b.%s.NewVariant(%d), nil\n", d, i)
 			continue
 		}
@@ -416,30 +396,4 @@ func (g *Generator) outEnum(w *bytes.Buffer, s *Shape, t Type) error {
 	}
 	fmt.Fprintf(w, "\t}\n\treturn nil, fmt.Errorf(\"Go %s carries tag %%d, which names no variant of %s\", v.Tag)\n", goT, s.Name)
 	return nil
-}
-
-// goStreams maps the Go stream interfaces that cross as std/io's Reader and
-// Writer to the Nomi host type each projects to. A Go type that is both
-// (io.ReadWriter) projects to neither.
-var goStreams = map[string]string{
-	"io.Reader":      "io.Reader",
-	"io.ReadCloser":  "io.Reader",
-	"io.Writer":      "io.Writer",
-	"io.WriteCloser": "io.Writer",
-}
-
-// rtStreamType and streamWord spell each stream's rt type and the word in
-// its hostadapt converters.
-var (
-	rtStreamType = map[string]string{"io.Reader": "rt.Reader", "io.Writer": "rt.Writer"}
-	streamWord   = map[string]string{"io.Reader": "Reader", "io.Writer": "Writer"}
-)
-
-// goStreamFor is the Nomi stream type a Go interface type t projects to,
-// or "".
-func goStreamFor(t Type) string {
-	if t == nil || t.Kind() != reflect.Interface {
-		return ""
-	}
-	return goStreams[TypeKey(t)]
 }

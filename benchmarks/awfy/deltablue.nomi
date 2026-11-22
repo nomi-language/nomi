@@ -347,10 +347,11 @@ impl Planner
             out = Constraint.get_output(con)
             overridden = variable(p, out).determined_by
 
-            p = case overridden
-                Some(o) -> update_constraint(p, o, Constraint.mark_unsatisfied)
-                None    -> p
-            end
+            p =
+                case overridden
+                    Some(o) -> update_constraint(p, o, Constraint.mark_unsatisfied)
+                    None    -> p
+                end
 
             p = update_variable(p, out, fn v -> {..v, determined_by: Some(c)})
             (p, propagated) = add_propagate(p, c, mark)
@@ -438,32 +439,33 @@ impl Planner
     fn recalculate(p: Planner, c: Int) -> Planner
         con = constraint(p, c)
 
-        (out, walk_strength, stay) = case con
-            .Edit(u) ->
-                (u.output, u.strength, False)
+        (out, walk_strength, stay) =
+            case con
+                .Edit(u) ->
+                    (u.output, u.strength, False)
 
-            .Stay(u) ->
-                (u.output, u.strength, True)
+                .Stay(u) ->
+                    (u.output, u.strength, True)
 
-            .Equality(b) ->
-                ihn = variable(p, BinaryConstraint.input(b))
+                .Equality(b) ->
+                    ihn = variable(p, BinaryConstraint.input(b))
 
-                (
-                    BinaryConstraint.output(b),
-                    Strength.weakest(b.strength, ihn.walk_strength),
-                    ihn.stay,
-                )
+                    (
+                        BinaryConstraint.output(b),
+                        Strength.weakest(b.strength, ihn.walk_strength),
+                        ihn.stay,
+                    )
 
-            .Scale(s) ->
-                ihn = variable(p, BinaryConstraint.input(s.binary))
-                stay = ihn.stay and variable(p, s.scale).stay and variable(p, s.offset).stay
+                .Scale(s) ->
+                    ihn = variable(p, BinaryConstraint.input(s.binary))
+                    stay = ihn.stay and variable(p, s.scale).stay and variable(p, s.offset).stay
 
-                (
-                    BinaryConstraint.output(s.binary),
-                    Strength.weakest(s.binary.strength, ihn.walk_strength),
-                    stay,
-                )
-        end
+                    (
+                        BinaryConstraint.output(s.binary),
+                        Strength.weakest(s.binary.strength, ihn.walk_strength),
+                        stay,
+                    )
+            end
 
         p = update_variable(p, out, fn v -> {..v, walk_strength:, stay:})
         if stay then execute(p, c) else p
@@ -764,10 +766,11 @@ fn projection_test(n: Int) -> Result<Unit, String>
 end
 
 fn inner_benchmark_loop(inner: Int) -> Bool
-    tests = case chain_test(inner)
-        Ok(Unit) -> projection_test(inner)
-        Err(e)   -> Err(e)
-    end
+    tests =
+        case chain_test(inner)
+            Ok(Unit) -> projection_test(inner)
+            Err(e)   -> Err(e)
+        end
 
     case tests
         Ok(Unit) ->

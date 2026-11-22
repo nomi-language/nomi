@@ -26,7 +26,7 @@ import (
 // the kept objects of the others (relowerOne), a file after the files
 // among them it imports. With the record's texts, the first lowering in a
 // process lowers the entry alone, so the program links and its walk finds
-// the outside calls it reaches, as after an edit. The program that links
+// the effect calls it reaches, as after an edit. The program that links
 // must reach nothing a machine cannot run and have no declined body, as a
 // relink from file records must; its problems are then what CheckLowering
 // would report, and the lowering is kept for the next run when it found
@@ -56,9 +56,13 @@ type storedKeptDoc struct {
 	paths                     map[string]string
 	// headers holds each file's impl headers, by module key.
 	headers map[string][]analysis.ImplHeader
-	// reached is the outside calls the kept lowering's program reaches
+	// reached is the effect calls the kept lowering's program reaches
 	// (reachedCalls), which a lowering of the same texts answers again.
 	reached []analyzedlowering.Reached
+	// appTypes are the program's application types as the last checks of
+	// its files recorded them (Program.appTypes), which a later lowering
+	// whose checks did not record them reads.
+	appTypes []*analysis.StructType
 }
 
 // storedRelowers counts the lowerings that lowered only the changed files
@@ -161,7 +165,7 @@ func checkLoweringStored(ctx context.Context, cfg config, path, src string, in *
 	if len(lower) == 0 && base != st {
 		// The record's texts: the entry is lowered again, which links the
 		// program from the record's kept lowering, whose problems are the
-		// record's answer and whose outside calls the walk finds.
+		// record's answer and whose effect calls the walk finds.
 		for _, f := range in.Files {
 			if f.Path == in.EntryPath {
 				lower[f.Key] = true
@@ -187,6 +191,7 @@ func checkLoweringStored(ctx context.Context, cfg config, path, src string, in *
 	}
 	kept := base.kept
 	var res *irbuild.Result
+	apps := base.appTypes
 	for _, f := range changed {
 		if ctx.Err() != nil {
 			return found, true, ctx.Err()
@@ -194,6 +199,9 @@ func checkLoweringStored(ctx context.Context, cfg config, path, src string, in *
 		check := in.Check(f.Key, nil)
 		if check == nil {
 			return found, false, nil
+		}
+		if check.FA != nil && len(check.FA.Program().AppTypes) > 0 {
+			apps = check.FA.Program().AppTypes
 		}
 		key := f.Key
 		recheck := func(bodies map[string]bool) *analysis.FileCheck { return in.Check(key, bodies) }
@@ -207,9 +215,10 @@ func checkLoweringStored(ctx context.Context, cfg config, path, src string, in *
 	if !built || p.entry == nil && (p.HasMain() || tests) || !p.runsClean() || p.Unsupported() != nil {
 		return found, false, nil
 	}
+	p.appTypes = apps
 	found, err = loweringProblems(p, src)
 	if found.Problems == nil && err == nil && cfg.loweringStopped() == nil {
-		next.kept, next.reached = kept, found.Reached
+		next.kept, next.reached, next.appTypes = kept, found.Reached, apps
 		storedKept.mu.Lock()
 		if storedKept.docs == nil {
 			storedKept.docs = map[string]*storedKeptDoc{}

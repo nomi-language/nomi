@@ -63,11 +63,12 @@ func ExtractInterface(key, path string, nodes []ast.Node) *FileInterface {
 		panic("analysis: a tree does not survive the syntax codec: " + err.Error())
 	}
 	out := make([]ast.Node, 0, len(copied))
+	aliases := importedAs(copied)
 	for _, n := range copied {
 		if _, isTest := n.(*ast.TestDecl); isTest {
 			continue
 		}
-		stripBodies(n)
+		stripBodies(n, aliases)
 		out = append(out, n)
 	}
 	if nodes == nil {
@@ -80,8 +81,30 @@ func ExtractInterface(key, path string, nodes []ast.Node) *FileInterface {
 	return &FileInterface{Key: key, Path: path, Nodes: out, Hash: hex.EncodeToString(sum[:])}
 }
 
+// importedAs is the names nodes' imports bind under an alias, each to the
+// name it imports: `import std::resources.{Release as Freeable}` binds
+// Freeable to Release. An interface is extracted from syntax alone, with no
+// scope to resolve a header in, so it reads an impl header's name through
+// these.
+func importedAs(nodes []ast.Node) map[string]string {
+	var out map[string]string
+	for _, imp := range importStmts(nodes) {
+		for i, name := range imp.Names {
+			if i >= len(imp.Aliases) || imp.Aliases[i] == nil {
+				continue
+			}
+			if out == nil {
+				out = map[string]string{}
+			}
+			out[ast.ImportNodeName(imp.Aliases[i])] = importNameLeaf(ast.ImportNodeName(name))
+		}
+	}
+	return out
+}
+
 // stripBodies takes out of the declaration n what an interface leaves out.
-func stripBodies(n ast.Node) {
+// aliases is the file's importedAs.
+func stripBodies(n ast.Node, aliases map[string]string) {
 	ast.Inspect(n, func(m ast.Node) bool {
 		clearAttachedTests(m)
 		switch m := m.(type) {
@@ -93,10 +116,14 @@ func stripBodies(n ast.Node) {
 			})
 			return false
 		case *ast.ImplBlock:
-			if isResourceImpl(m) {
+			iface := TypeExprBaseName(m.Interface)
+			if imported, ok := aliases[iface]; ok {
+				iface = imported
+			}
+			if isResourceImpl(m, iface) {
 				// A Release or Commit impl's bodies stay: another file's
 				// release check reads the call each one makes, the type's
-				// usual release or commit (releaseFunctionOf).
+				// usual release or commit (resourceSite).
 				ast.Inspect(m, func(d ast.Node) bool {
 					clearAttachedTests(d)
 					return true
@@ -152,7 +179,7 @@ func clearAttachedTests(n ast.Node) {
 // is written does, so an interface written by another format is a miss.
 const (
 	interfaceMagic   = "NOMIIF"
-	interfaceVersion = 4
+	interfaceVersion = 5
 )
 
 // Encode writes fi as bytes.

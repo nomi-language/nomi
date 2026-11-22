@@ -68,8 +68,7 @@ var (
 func of(k string, args ...*gt) *gt { return &gt{k: k, args: args} }
 
 // hasFn reports whether t holds a function type anywhere: `==` and the
-// `same` helper take no function, and a tuple projection's dropped element
-// takes none (dataTyp).
+// `same` helper take no function.
 func hasFn(ts ...*gt) bool {
 	for _, t := range ts {
 		if t.k == "Fn" || hasFn(t.args...) {
@@ -186,15 +185,6 @@ func (g *gen) typ(depth int) *gt {
 		return of("Opt", g.typ(depth-1))
 	}
 	return of("Fn", g.typ(depth-1), g.typ(depth-1))
-}
-
-// dataTyp is a type with no function in it.
-func (g *gen) dataTyp(depth int) *gt {
-	for {
-		if t := g.typ(depth); !hasFn(t) {
-			return t
-		}
-	}
 }
 
 // equatable reports whether `==` and the `same` helper take t. The derives

@@ -118,11 +118,12 @@ end
 // giving stdlib interfaces an owner turned `Display.to_string(Cat{...})` from
 // a lowering into a refusal, and no corpus file could see it.
 fn direct() -> String
-    same = case Comparable.compare(Count{n: 1}, Count{n: 1})
-        Ordering.Less    -> "less"
-        Ordering.Equal   -> "equal"
-        Ordering.Greater -> "greater"
-    end
+    same =
+        case Comparable.compare(Count{n: 1}, Count{n: 1})
+            Ordering.Less    -> "less"
+            Ordering.Equal   -> "equal"
+            Ordering.Greater -> "greater"
+        end
 
     "${Display.to_string(Tag{name: "direct"})}/${Display.to_string(42)}/${same}"
 end

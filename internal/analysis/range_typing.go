@@ -171,16 +171,22 @@ func (c *checker) opRange(op string, left, right ast.Node, fam *numericFamily) (
 //     `minutes` and `hours`: the argument's range times the unit's
 //     nanoseconds;
 //   - `String.length`, `List.length`, `Vector.length`, `Map.size`,
-//     `Set.size` and `Iter.count` of a non-empty subtype: positive.
+//     `Set.size` and `Iter.count` of a value that holds something
+//     (holdsSomething): of a non-empty subtype, a literal that writes an
+//     element, or a read of a binding bound to one: positive.
 //
-// ok is false for any other call.
+// The type a function is called on is the std type its qualifier names
+// (qualifierOf), however it is written: `Dur.abs(d)` under `import
+// std::duration.{Duration as Dur}` is `Duration.abs`, and a program's own
+// type imported as `Duration` has none of these rules. ok is false for any
+// other call.
 func (c *checker) callRange(call *ast.Call, piped ast.Node, fam *numericFamily, ty Type) (numRange, bool) {
 	fa, ok := ungroupExpr(call.Func).(*ast.FieldAccess)
 	if !ok || fa.Field == nil {
 		return numRange{}, false
 	}
-	owner, ok := fa.Object.(*ast.TypeIdent)
-	if !ok || owner == nil {
+	owner := c.fa.qualifierOf(fa.Object).Std
+	if owner.IsZero() {
 		return numRange{}, false
 	}
 	args := callArgs(call, piped)
@@ -202,7 +208,7 @@ func (c *checker) callRange(call *ast.Call, piped ast.Node, fam *numericFamily, 
 		return rangeOf(args[i], f)
 	}
 	// ofam is the family of the type the function is called on.
-	ofam := rangeOwners[owner.Name]
+	ofam := rangeOwners[owner]
 	var r numRange
 	switch name := fa.Field.Name; {
 	case name == "abs" && len(args) == 1 && ofam == fam:
@@ -214,7 +220,7 @@ func (c *checker) callRange(call *ast.Call, piped ast.Node, fam *numericFamily, 
 	case name == "clamp" && len(args) == 2 && ofam == fam:
 		// `Comparable.clamp` takes a ClosedRange, whose start is at most
 		// its end, so the result is min(max(v, start), end).
-		start, end, ok := closedRangeEnds(args[1])
+		start, end, ok := c.closedRangeEnds(args[1])
 		if !ok {
 			return numRange{}, false
 		}
@@ -272,19 +278,19 @@ func (c *checker) callRange(call *ast.Call, piped ast.Node, fam *numericFamily, 
 		}
 		e, _ := arg(1, intFamily)
 		r = powRange(fam, b, e)
-	case name == "to_decimal" && len(args) == 1 && owner.Name == "Int" && fam == decimalFamily:
+	case name == "to_decimal" && len(args) == 1 && ofam == intFamily && fam == decimalFamily:
 		a, ok := arg(0, intFamily)
 		if !ok {
 			return numRange{}, false
 		}
 		r = a
-	case owner.Name == "Duration" && fam == durationFamily && len(args) == 1 && durationUnits[name] != nil:
+	case ofam == durationFamily && fam == durationFamily && len(args) == 1 && durationUnits[name] != nil:
 		a, ok := arg(0, intFamily)
 		if !ok {
 			return numRange{}, false
 		}
 		r = mul(fam, a, pointRange(new(big.Rat).SetInt64(durationUnits[name].Int64())))
-	case name == "sqrt" && len(args) == 1 && owner.Name == "Int" && fam == intFamily:
+	case name == "sqrt" && len(args) == 1 && ofam == intFamily && fam == intFamily:
 		a, ok := arg(0, fam)
 		if !ok {
 			return numRange{}, false
@@ -300,8 +306,8 @@ func (c *checker) callRange(call *ast.Call, piped ast.Node, fam *numericFamily, 
 		if unit := durationCounts[name]; unit.Cmp(big.NewInt(1)) != 0 {
 			r = quotient(fam, a, pointRange(new(big.Rat).SetInt(unit)), false)
 		}
-	case fam == intFamily && len(args) == 1 && nonEmptyCounts[owner.Name] == name:
-		if !c.holdsSomething(c.fa.ExprTypes[args[0]]) {
+	case fam == intFamily && len(args) == 1 && nonEmptyCounts[owner] == name:
+		if !c.holdsSomething(args[0]) {
 			return numRange{}, false
 		}
 		r = numRange{known: true, lo: closedBound(big.NewRat(1, 1)), hi: infBound(), nonZero: true}
@@ -313,26 +319,26 @@ func (c *checker) callRange(call *ast.Call, piped ast.Node, fam *numericFamily, 
 	return meet(fam, r, declared), true
 }
 
-// rangeOwners are the types whose std functions callRange reads, by the
-// name a call is written on. Float is not one: its `max`, `min` and
+// rangeOwners are the std types whose functions callRange reads, by the
+// type a call's qualifier names. Float is not one: its `max`, `min` and
 // `clamp` pass a NaN on, and its `abs` and `pow` round.
-var rangeOwners = map[string]*numericFamily{
-	"Int":      intFamily,
-	"Decimal":  decimalFamily,
-	"Duration": durationFamily,
+var rangeOwners = map[StdType]*numericFamily{
+	{Module: "std/int", Name: "Int"}:           intFamily,
+	{Module: "std/decimal", Name: "Decimal"}:   decimalFamily,
+	{Module: "std/duration", Name: "Duration"}: durationFamily,
 }
 
 // closedRangeEnds is the start and end of n, a ClosedRange written as
 // `a..=b`, or as `Range.from(a)`, which has no end. ok is false for a
 // range of any other form, a binding among them.
-func closedRangeEnds(n ast.Node) (start, end ast.Node, ok bool) {
+func (c *checker) closedRangeEnds(n ast.Node) (start, end ast.Node, ok bool) {
 	switch v := ungroupExpr(n).(type) {
 	case *ast.RangeLit:
 		if v.Start != nil && v.End != nil && v.Inclusive {
 			return v.Start, v.End, true
 		}
 	case *ast.Call:
-		if owner, name := stdCallee(v); owner == "Range" && name == "from" && len(v.Args) == 1 {
+		if owner, name := c.stdCallee(v); owner == "Range" && name == "from" && len(v.Args) == 1 {
 			if a := valueOfArg(v.Args[0]); a != nil {
 				return a, nil, true
 			}
@@ -406,34 +412,14 @@ var durationCounts = map[string]*big.Int{
 }
 
 // nonEmptyCounts are the std functions that count a collection's or a
-// String's elements, by owner.
-var nonEmptyCounts = map[string]string{
-	"String": "length",
-	"List":   "length",
-	"Vector": "length",
-	"Map":    "size",
-	"Set":    "size",
-	"Iter":   "count",
-}
-
-// holdsSomething reports whether t is a std non-empty subtype of a String,
-// List, Vector, Map or Set, or below one.
-func (c *checker) holdsSomething(t Type) bool {
-	for _, s := range refinementChain(t) {
-		dt := refinementOf(s)
-		if dt == nil || dt.Intersection {
-			continue
-		}
-		switch {
-		case dt.Origin == "std/strings" && dt.Name == "NonEmptyString",
-			dt.Origin == "std/lists" && dt.Name == "NonEmptyList",
-			dt.Origin == "std/vectors" && dt.Name == "NonEmptyVector",
-			dt.Origin == "std/maps" && dt.Name == "NonEmptyMap",
-			dt.Origin == "std/sets" && dt.Name == "NonEmptySet":
-			return true
-		}
-	}
-	return false
+// String's elements, by the std type they are called on.
+var nonEmptyCounts = map[StdType]string{
+	{Module: "std/strings", Name: "String"}: "length",
+	{Module: "std/lists", Name: "List"}:     "length",
+	{Module: "std/vectors", Name: "Vector"}: "length",
+	{Module: "std/maps", Name: "Map"}:       "size",
+	{Module: "std/sets", Name: "Set"}:       "size",
+	{Module: "std/iter", Name: "Iter"}:      "count",
 }
 
 // powRange is the range of b to the power e, e >= 0, exact: 1 when e is 0;

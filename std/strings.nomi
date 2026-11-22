@@ -466,17 +466,19 @@ impl String
         style:  ListStyle = ListStyle.And,
         width:  ListWidth = ListWidth.Wide,
     ) -> String
-        style_tag: Int64 = case style
-            ListStyle.And  -> 1
-            ListStyle.Or   -> 2
-            ListStyle.Unit -> 3
-        end
+        style_tag: Int64 =
+            case style
+                ListStyle.And  -> 1
+                ListStyle.Or   -> 2
+                ListStyle.Unit -> 3
+            end
 
-        width_tag: Int64 = case width
-            ListWidth.Wide   -> 1
-            ListWidth.Short  -> 2
-            ListWidth.Narrow -> 3
-        end
+        width_tag: Int64 =
+            case width
+                ListWidth.Wide   -> 1
+                ListWidth.Short  -> 2
+                ListWidth.Narrow -> 3
+            end
 
         join_list_raw(locale, items, style_tag, width_tag)
     end

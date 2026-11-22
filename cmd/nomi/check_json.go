@@ -10,8 +10,7 @@ import (
 )
 
 // runCheckJSON is runCheck in json mode, writing `nomi check --format
-// json`'s records (vmhost.CheckJSON) to w. An FFI program's wrapper writes
-// its own diagnostics' records, which pass through to w.
+// json`'s records (vmhost.CheckJSON) to w.
 func runCheckJSON(w io.Writer, path string) error {
 	cj := vmhost.NewCheckJSON(w)
 	files, through, _, err := frontend.CheckedFiles(path)
@@ -23,7 +22,7 @@ func runCheckJSON(w io.Writer, path string) error {
 	}
 	failed := map[string]bool{}
 	for _, file := range files {
-		err := checkFile(file, vmhost.WithWarningsTo(cj.Warnings), cj)
+		err := checkFile(file, vmhost.WithWarningsTo(cj.Warnings))
 		failed[file] = err != nil
 		cj.File(file, err)
 	}
@@ -40,6 +39,9 @@ func runCheckJSON(w io.Writer, path string) error {
 		if ok {
 			cj.Through(helper, through[helper][0])
 		}
+	}
+	if file, err := goModFailure(path); err != nil {
+		cj.File(file, err)
 	}
 	cj.Summary()
 	if cj.Failed() > 0 {

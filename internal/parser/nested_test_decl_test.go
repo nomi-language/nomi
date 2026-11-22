@@ -9,8 +9,7 @@ import (
 )
 
 // A `test` or `group` is a declaration of the file (a `test` also of a
-// group), and a `gopkg` serves the file's top-level `go` bindings. Each one
-// inside a body is refused where it starts. The strict parse reports it,
+// group). Each one inside a body is refused where it starts. The strict parse reports it,
 // and the resilient parse reports it once and keeps the declaration, so
 // the rest of the body still parses.
 func TestParseTopLevelOnlyDeclarationsInABody(t *testing.T) {
@@ -30,7 +29,6 @@ func TestParseTopLevelOnlyDeclarationsInABody(t *testing.T) {
 		{"test in an attached prompt", "//! test \"x\"\n//!     assert 1 == 1\n//! end\n//! assert answer() == 42\n//\nfn answer() -> Int\n    42\nend\n", nestedTestMessage, 1, 5},
 		{"group in a test", "test \"outer\"\n    group \"g\"\n        test \"a\"\n            assert 1 == 1\n        end\n    end\n    assert 1 == 1\nend\n", nestedGroupMessage, 2, 5},
 		{"group in a function", "fn main()\n    group \"g\"\n        test \"a\"\n            assert 1 == 1\n        end\n    end\nend\n", nestedGroupMessage, 2, 5},
-		{"gopkg in a function", "fn main()\n    gopkg \"strings\"\nend\n", "a `gopkg` declaration belongs at the top level of a file, beside the `go` bindings that use it; it cannot appear inside a body", 2, 5},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -51,9 +49,9 @@ func TestParseTopLevelOnlyDeclarationsInABody(t *testing.T) {
 	}
 }
 
-// The words keep their ordinary meaning in a body: `group` and `gopkg` are
-// names there unless a string follows on the line.
-func TestParseGroupAndGopkgAreNamesInABody(t *testing.T) {
+// The word keeps its ordinary meaning in a body: `group` is a name there
+// unless a string follows on the line.
+func TestParseGroupIsANameInABody(t *testing.T) {
 	for _, src := range []string{
 		"fn main()\n    group = 3\n    g = group + 1\nend\n",
 		"fn main()\n    x = group(1)\nend\n",

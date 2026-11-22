@@ -1,17 +1,14 @@
 package stdcalendar
 
-// The FFI-shaped boundary: the functions calendar.nomi's `go` selectors name
-// when the semantics beside them cannot be named directly.
+// The boundary: the functions std/calendar.nomi's `host fn`s are bound to
+// (internal/stdlibbindings) where the semantics beside them take a shape
+// the facade does not pass.
 //
-// # Why a boundary layer exists at all, and how small it had to be
+// # What the boundary carries
 //
-// A bound Go function crosses through the FFI projection (`internal/ffitypes`,
-// which `internal/hostgen` generates adapters from), so a type the projection
-// does not carry cannot appear in a bound signature.
-//
-// It carries `Int` (int64, or rt.Int for one of any size), `String`
-// (string), `Bool` (bool), `Float` (float64) and every struct rt declares —
-// which is most of std/calendar's surface, and is why `DateToString`,
+// A `host fn` crosses through the host projection that `internal/hostgen`
+// generates adapters from (its shape.go lists the rows). Most of
+// std/calendar's surface fits a row, which is why `DateToString`,
 // `DateDaysBetween`,
 // `NaiveDateTimeToDate`, `NaiveDateTimeToString`, `OffsetDateTimeToString`,
 // `DateTimeToString`, `DateTimeToOffset` and the fourteen
@@ -19,38 +16,29 @@ package stdcalendar
 // straight from the semantics with no wrapper here. A wrapper for those would
 // be a function whose only content is a second name.
 //
-// It does not carry exactly three things, each measured rather than assumed:
+// The functions here pass three things in another shape:
 //
-//  1. `Result<_, E>` for E other than String. A Go `error` crosses only as
-//     `Result<_, String>`. std/calendar has
-//     twenty-five fallible declarations returning `Result<_, Error>`, a
-//     five-variant enum whose classification callers match on. So failure
-//     crosses as DATA in one of rt's five carrier structs and the Nomi facade
-//     rebuilds the variant.
+//  1. Failure. A Go `error` crosses only as `Result<_, String>`, and
+//     std/calendar has twenty-five fallible declarations returning
+//     `Result<_, Error>`, a five-variant enum whose classification callers
+//     match on. So failure crosses as DATA in one of rt's five carrier
+//     structs and the Nomi facade rebuilds the variant.
 //
-//  2. `Duration` and `Instant`. `internal/ffitypes` pins them to `time.Duration`
-//     and `time.Time`, while the semantics use `rt.Duration` and `rt.Instant`.
-//     MEASURED: a Go named int64 offered for a declared `Duration` is refused
-//     "parameter 1 projects to Int, but Nomi declares Duration". So neither
-//     type appears in a bound signature: nanoseconds cross as `Int` and the
-//     facade wraps with `Duration.nanoseconds` / `Instant.from_nanos`.
+//  2. `Duration` and `Instant`. Nanoseconds cross as `Int` and the facade
+//     wraps with `Duration.nanoseconds` / `Instant.from_nanos`.
 //
-//  3. The ten civil periods (`Years` … `Nanoseconds`). `internal/ffitypes` is a
-//     closed table with no clause for a Nomi distinct over Int, so
-//     `rhs: Years` is refused the same way. Each ladder rung is a NOMI body
-//     that destructures its period and calls an `Int`-taking function here —
-//     the shape std/calendar already used for `Add<Weeks, Date>`. The
-//     count crosses as an rt.Int of any size, and the semantics take it as
-//     one.
+//  3. The ten civil periods (`Years` … `Nanoseconds`). Each ladder rung is
+//     a NOMI body that destructures its period and calls an `Int`-taking
+//     function here, the shape std/calendar uses for `Add<Weeks, Date>`.
+//     The count crosses as an rt.Int of any size, and the semantics take it
+//     as one.
 //
 // # Every declaration bound from Nomi is TOP-LEVEL and module-private
 //
-// std/random does the same, and here it also avoids two traps. A
-// `host fn` carrying a `go` selector inside an impl block is a PARSE ERROR
-// (`parseImplBlockBody` leaves `go` unconsumed), and an impl-owned key drops
-// its module prefix (hostpair disagreement 1, still open), so a top-level
-// declaration is the shape with one unambiguous key and no interaction with
-// the interface-instantiation rules.
+// std/random does the same. An impl-owned key drops its module prefix
+// (hostpair disagreement 1, still open), so a top-level declaration is the
+// shape with one unambiguous key and no interaction with the
+// interface-instantiation rules.
 //
 // # Nothing here decides a calendar rule
 //
@@ -265,7 +253,7 @@ func BoundOffsetAddMonths(odt rt.OffsetDateTime, n rt.Int) rt.OffsetDateTime {
 // BoundZonedInZone is `DateTime.in_zone_resolve`.
 //
 // `mode` is a Disambiguation TAG rather than the enum: rt's `Disambiguation` is
-// a one-field Go struct, so the FFI would marshal it onto a Nomi STRUCT while
+// a one-field Go struct, so the host projection would map it onto a Nomi STRUCT while
 // std declares an enum. The facade maps the four variants onto these tags, and
 // rt's constants are the other half of that pairing.
 func BoundZonedInZone(dt rt.NaiveDateTime, zone string, mode int64) rt.CalendarZonedResult {

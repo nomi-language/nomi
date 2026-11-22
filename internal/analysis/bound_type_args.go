@@ -25,7 +25,7 @@ func (c *checker) implArgLists(concrete Type, iface string) [][]Type {
 	cargs := concreteTypeArgs(concrete)
 	var out [][]Type
 	for _, info := range candidates {
-		if info == nil || !implReceiverMatches(info, concrete, c.implsContext(), c.implTypeArgsContext()) {
+		if info == nil || c.hidesConstruction(info, concrete) || !implReceiverMatches(info, concrete, c.implsContext(), c.implTypeArgsContext()) {
 			continue
 		}
 		args := make([]Type, len(info.Args))
@@ -136,7 +136,8 @@ func (c *checker) boundArgsError(line, col int, concrete Type, bound *InterfaceT
 			break
 		}
 	}
-	c.report(TypeError{Line: line, Col: col, Message: fmt.Sprintf(
+	e, _ := c.withConstructionReason(TypeError{Line: line, Col: col, Message: fmt.Sprintf(
 		"%s does not implement %s (required by `where %s: %s`)",
-		concrete, c.shownInterfaceFor(concrete, wanted, true), param, c.shownInterfaceFor(concrete, bound, true))}.WithHint(hint))
+		concrete, c.shownInterfaceFor(concrete, wanted, true), param, c.shownInterfaceFor(concrete, bound, true))}.WithHint(hint), concrete, wanted)
+	c.report(e)
 }

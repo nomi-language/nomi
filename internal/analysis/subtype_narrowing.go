@@ -132,21 +132,10 @@ func (c *checker) bindingType(sym *Symbol) Type {
 	return sym.Type
 }
 
-// isIterIsEmpty reports whether callee names std's `Iter.is_empty`. A
-// program cannot declare its own `Iter`.
+// isIterIsEmpty reports whether callee names std's `Iter.is_empty`, by the
+// declaration it reaches (stdFuncNamed).
 func (c *checker) isIterIsEmpty(callee ast.Node) bool {
-	switch f := ungroupExpr(callee).(type) {
-	case *ast.FieldAccess:
-		if f.Field == nil || f.Field.Name != "is_empty" {
-			return false
-		}
-		owner, ok := f.Object.(*ast.TypeIdent)
-		return ok && owner != nil && owner.Name == "Iter"
-	case *ast.Ident:
-		sym := resolvedSymbol(c.fa.References[Pos{Line: f.Line, Col: f.Col}])
-		return sym != nil && sym.Kind == SymbolFunction && sym.OwningType == "Iter" && sym.Name == "is_empty"
-	}
-	return false
+	return c.fa.stdFuncNamed(callee) == iterOwnerFunc("is_empty")
 }
 
 // emptinessFact is what `x == empty` or `x != empty` proves, with empty
@@ -316,7 +305,7 @@ func (c *checker) narrowedSubtype(t Type, f subtypeFact) (Type, *famRange) {
 		tr = meet(f.fam, stated, f.rng)
 		r.typed = false
 	}
-	fr := &famRange{f.fam, r}
+	fr := &famRange{fam: f.fam, r: r}
 	if _, exact := f.fam.facts(t); !exact {
 		return nil, fr
 	}
@@ -328,7 +317,9 @@ func (c *checker) narrowedSubtype(t Type, f subtypeFact) (Type, *famRange) {
 }
 
 // nonEmptySubtypeOf is the std non-empty subtype of t, a List, Vector,
-// Map, Set or String that is no subtype, at t's type arguments, or nil.
+// Map, Set or String that is no subtype, at t's type arguments, or nil:
+// what a check that it is not empty narrows a binding of t to, and what a
+// value of t that holds something is (holdsSomething).
 func (c *checker) nonEmptySubtypeOf(t Type) Type {
 	t = resolveTypeVar(t)
 	if t == nil || refinementOf(t) != nil {

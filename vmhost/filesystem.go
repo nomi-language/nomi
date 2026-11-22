@@ -85,6 +85,11 @@ type WithinFileSystem interface {
 // File is one file open for reads and writes at a position, as
 // FileSystem.OpenFile answers it: what `io.File` is over. *os.File has
 // every method but Size.
+//
+// A File that also has a `Sync() error` method, as *os.File does, serves
+// `File.sync` and `File.sync_data`, and one that also implements LockFile
+// serves `File.lock`, `File.try_lock` and `File.unlock`. A File without one
+// answers its calls Unsupported.
 type File interface {
 	io.ReaderAt
 	io.WriterAt
@@ -93,6 +98,38 @@ type File interface {
 	// Size is the file's size now.
 	Size() (int64, error)
 	Close() error
+}
+
+// LockFile is a File that locks ranges of its bytes for its own handle.
+// Lock makes the handle's lock on length bytes from start (0: from start
+// to past any end the file can have) mode, and reports whether it could:
+// false, with nothing changed, when another handle holds a lock there that
+// conflicts, an exclusive lock with any lock and a shared lock with an
+// exclusive one. It never waits. A lock on bytes the handle holds replaces
+// it, an unlock of bytes it does not hold does nothing, and Close releases
+// every lock the handle holds.
+type LockFile interface {
+	File
+	Lock(mode LockMode, start, length int64) (bool, error)
+}
+
+// LockMode is what LockFile.Lock makes a range: std/io's `LockMode`, or
+// LockNone to unlock it.
+type LockMode int
+
+const (
+	LockNone      LockMode = LockMode(rt.LockNone)
+	LockShared    LockMode = LockMode(rt.LockShared)
+	LockExclusive LockMode = LockMode(rt.LockExclusive)
+)
+
+// SyncDirFileSystem is a FileSystem that serves `fs.sync_dir`: SyncDir
+// makes the entries of the directory dir durable, and fails for something
+// that is not a directory. One that does not answers `fs.sync_dir`
+// Unsupported.
+type SyncDirFileSystem interface {
+	FileSystem
+	SyncDir(dir string) error
 }
 
 // WriteMode is how FileSystem.Create opens a file: std/fs's `WriteMode`.
@@ -243,7 +280,32 @@ func (e embedded) OpenFile(p string, access stdio.Access) (rt.FileSource, *rt.IO
 	if err != nil {
 		return rt.FileSource{}, fsError("open", p, err)
 	}
-	return rt.FileSource{Name: p, F: f, Size: f.Size, Writable: access != stdio.AccessRead, Close: f.Close, Fail: fsFailer(p)}, nil
+	src := rt.FileSource{Name: p, F: f, Size: f.Size, Writable: access != stdio.AccessRead, Close: f.Close, Fail: fsFailer(p)}
+	src.Sync = func(bool) error { return unsupportedHere("File.sync") }
+	if s, ok := f.(interface{ Sync() error }); ok {
+		src.Sync = func(bool) error { return s.Sync() }
+	}
+	src.Lock = func(rt.LockMode, int64, int64) (bool, error) { return false, unsupportedHere("File.lock") }
+	if l, ok := f.(LockFile); ok {
+		src.Lock = func(mode rt.LockMode, start, length int64) (bool, error) {
+			return l.Lock(LockMode(mode), start, length)
+		}
+	}
+	return src, nil
+}
+
+// unsupportedHere is the error for an operation an embedder's file system
+// does not serve.
+func unsupportedHere(operation string) error {
+	return rt.IOFailure{E: rt.IOError{Tag: rt.TagIOUnsupported, Operation: operation, Target: "this program's file system"}}
+}
+
+func (e embedded) SyncDir(dir string) *rt.IOError {
+	s, ok := e.fs.(SyncDirFileSystem)
+	if !ok {
+		return &rt.IOError{Tag: rt.TagIOUnsupported, Operation: "fs.sync_dir", Target: "this program's file system"}
+	}
+	return fsFailed("sync", dir, s.SyncDir(dir))
 }
 
 func (e embedded) List(dir string) ([]stdio.DirEntry, *rt.IOError) {
@@ -402,6 +464,7 @@ func (f backendFiles) List(dir string) ([]DirEntry, error) {
 func (f backendFiles) CreateDir(p string, parents bool) error {
 	return fsFail(f.b.CreateDir(p, parents))
 }
+func (f backendFiles) SyncDir(dir string) error       { return fsFail(f.b.SyncDir(dir)) }
 func (f backendFiles) Remove(p string) error          { return fsFail(f.b.Remove(p)) }
 func (f backendFiles) RemoveAll(p string) error       { return fsFail(f.b.RemoveAll(p)) }
 func (f backendFiles) Rename(from, to string) error   { return fsFail(f.b.Rename(from, to)) }
@@ -499,6 +562,10 @@ func (f fsFile) ReadAt(p []byte, off int64) (int, error)  { return f.src.F.ReadA
 func (f fsFile) WriteAt(p []byte, off int64) (int, error) { return f.src.F.WriteAt(p, off) }
 func (f fsFile) Truncate(size int64) error                { return f.src.F.Truncate(size) }
 func (f fsFile) Size() (int64, error)                     { return f.src.Size() }
+func (f fsFile) Sync() error                              { return f.src.Sync(false) }
+func (f fsFile) Lock(mode LockMode, start, length int64) (bool, error) {
+	return f.src.Lock(rt.LockMode(mode), start, length)
+}
 
 func (f fsFile) Close() error {
 	if f.src.Close == nil {

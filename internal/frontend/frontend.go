@@ -13,7 +13,6 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/internal/syntheticextern"
 	"github.com/nomi-language/nomi/std"
 )
 
@@ -37,19 +36,11 @@ type Config struct {
 	// ProjectRoot is the directory an in-memory entry resolves project imports
 	// against. A file entry discovers its own root and replaces it.
 	ProjectRoot string
-	// SyntheticExterns are hidden `host` declarations mirrored from an FFI
-	// project's source-level Go bindings.
-	SyntheticExterns []syntheticextern.Decl
 	// Provided reports whether the host answers the user `host fn` or
 	// `host type` registered under key. A declaration nothing provides is a
 	// check error. Nil provides nothing.
 	Provided func(key string) bool
-	// SourceBoundProvided treats every `go`-bound or inline-`go` declaration
-	// as provided: the consumer compiles the binding itself (the FFI wrapper
-	// generates an adapter for it) rather than looking it up by key.
-	SourceBoundProvided bool
-	// HostTypesAreHandles treats every plain `host type` (no `go` binding)
-	// as provided: its values are opaque handles the host's functions create
+	// HostTypesAreHandles treats every `host type` as provided: its values are opaque handles the host's functions create
 	// and read, so there is nothing for the host to register under the
 	// type's own key. vmhost's tables answer functions only.
 	HostTypesAreHandles bool
@@ -235,8 +226,7 @@ func (c *Checker) Loader() analysis.FileLoader {
 
 func (c *Checker) innerLoader() analysis.FileLoader {
 	base := std.MakeReportingLoader(c.recordSyntax)
-	synth := c.cfg.SyntheticExterns
-	if len(c.cfg.VirtualFiles) == 0 && len(synth) == 0 {
+	if len(c.cfg.VirtualFiles) == 0 {
 		return base
 	}
 	return func(projectRoot string, modulePath []string) ([]ast.Node, error) {
@@ -270,7 +260,7 @@ func (c *Checker) innerLoader() analysis.FileLoader {
 				return nil, err
 			}
 		}
-		return syntheticextern.Inject(nodes, synth, false)
+		return nodes, nil
 	}
 }
 
@@ -319,8 +309,7 @@ type Mode struct {
 	Tests bool
 }
 
-// Prepare parses src and runs the passes before analysis: synthetic host
-// injection, derive lowering, attached-test stripping, derive and universal
+// Prepare parses src and runs the passes before analysis: derive lowering, attached-test stripping, derive and universal
 // Debug synthesis.
 func (c *Checker) Prepare(src string, mode Mode) ([]ast.Node, error) {
 	c.entrySrc, c.entryMode, c.prepared = src, mode, true
@@ -328,10 +317,6 @@ func (c *Checker) Prepare(src string, mode Mode) ([]ast.Node, error) {
 	nodes, err := parser.Parse(lexer.Lex(src))
 	if err != nil {
 		return nil, located(c.diagPath, src, err)
-	}
-	nodes, err = syntheticextern.Inject(nodes, c.cfg.SyntheticExterns, true)
-	if err != nil {
-		return nil, err
 	}
 	nodes = analysis.ExpandDeclarations(nodes, c.site(c.entryModRel))
 	nodes, err = lowerDerives(c.diagPath, src, nodes, c.entryModRel, c.projectNodes)

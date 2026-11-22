@@ -68,6 +68,7 @@ func TestOpenFromRecordEditsMatchAFullCheck(t *testing.T) {
 	was := os.Getenv(artifactcache.RootEnv)
 	steps := 0
 	reachHovers := functionReachHovers.Load()
+	effectTokens := effectTokenAnswers.Load()
 	// The typos leave something to report, which the program opened from
 	// its record must word as the program checked whole does.
 	kinds := append(slices.Clone(projectgen.EditKinds), projectgen.TypoLeaf, projectgen.TypoEntry)
@@ -113,6 +114,9 @@ func TestOpenFromRecordEditsMatchAFullCheck(t *testing.T) {
 	}
 	if functionReachHovers.Load() == reachHovers {
 		t.Error("no hover compared said what a function of the program reaches")
+	}
+	if effectTokenAnswers.Load() == effectTokens {
+		t.Error("no semantic tokens compared marked a token that reaches outside the machine")
 	}
 	if taken := stored.docs.StoredEdits(); taken < int64(steps)/2 {
 		t.Errorf("%d of %d edits were taken in the program opened from its record: %v", taken, steps, stored.docs.FullCheckReasons())

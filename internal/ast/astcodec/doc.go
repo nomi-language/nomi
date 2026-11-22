@@ -10,7 +10,11 @@
 // A pointer the tree holds twice is written once and then by its number,
 // and so is a slice that is not empty (keyed by its elements' address, its
 // length and its type), so a decoded tree shares what the encoded one
-// shares. Another codec can
+// shares. An element a slice holds in place whose pointer an interface may
+// hold (an InterfaceMethod of an InterfaceDef's Methods, a symbol's node)
+// is numbered as it is written, so a pointer to it written after its slice
+// reads back as the decoded element's address; one written before its
+// slice panics, since it would read back as a copy. Another codec can
 // write nodes into the same stream, through one Encoder and its pointer
 // table, with the exported Value, Len and Struct<Name> methods: the
 // analysis's state codec does (internal/analysis package doc, "The

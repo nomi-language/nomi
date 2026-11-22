@@ -26,8 +26,8 @@ import (
 // assertion for these strings is absolute: rt/dynamicops_test.go pins the
 // renderings and the type vocabulary as literal tables.
 
-// Dynamic is Nomi's `std/dynamic.Dynamic`: a value of unknown shape that crossed
-// an FFI boundary.
+// Dynamic is Nomi's `std/dynamic.Dynamic`: a value of unknown shape, as decoded
+// JSON or a host answers one.
 //
 // A one-field struct over `any` rather than a bare `any`, and the wrapper is
 // needed. `stdHostKindOfGoType` identifies this

@@ -2,7 +2,7 @@
 // arithmetic and its trap text, Float semantics, structural hashing,
 // equality, scalar rendering, the frame, the task and supervisor runtime,
 // and the test reporter. The VM (internal/vm) runs over it, and built
-// executables and the generated FFI wrapper link it. Its internal
+// executables link it. Its internal
 // organization may change freely to serve the VM.
 //
 // # It is a leaf

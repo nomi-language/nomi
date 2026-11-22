@@ -129,44 +129,109 @@ func IntSign(v Value) int {
 // handles every Int: the adapter generator passes an Int argument to an
 // rt.Int parameter as it is, where an int64 parameter refuses a value past
 // int64's range. The zero Int is 0.
-type Int struct{ v Value }
+//
+// An Int that fits int64 is held as one, unboxed, so making one from a
+// machine word or a register, and reading it back, allocates nothing; only
+// Value boxes it. A larger one is its *BigInt.
+type Int struct {
+	big *BigInt // the value past int64's range, or nil
+	n   int64   // the value when big is nil
+}
 
 // IntOf is the Int whose value v is: an int64 or a *BigInt.
 func IntOf(v Value) Int {
-	if !IsInt(v) {
-		panic(notAnInt("IntOf", v))
+	switch x := v.(type) {
+	case int64:
+		return Int{n: x}
+	case *BigInt:
+		return Int{big: x}
 	}
-	return Int{v}
+	panic(notAnInt("IntOf", v))
 }
 
 // SmallInt is n as an Int.
-func SmallInt(n int64) Int { return Int{n} }
+func SmallInt(n int64) Int { return Int{n: n} }
+
+// IntOfWord is the Int a word and the value beside it hold, as a VM
+// register or a record's word slot holds one: b when the word is BigWord
+// and b is set, else the word's int64.
+func IntOfWord(w uint64, b *BigInt) Int {
+	if w == BigWord && b != nil {
+		return Int{big: b}
+	}
+	return Int{n: int64(w)}
+}
+
+// Word is i as a word and the value beside it: BigWord and its *BigInt for
+// an Int past int64's range, else its int64's bits and nil.
+func (i Int) Word() (uint64, *BigInt) {
+	if i.big != nil {
+		return BigWord, i.big
+	}
+	return uint64(i.n), nil
+}
 
 // BigIntOf is z's value as an Int; the caller keeps z.
-func BigIntOf(z *big.Int) Int { return Int{IntFromBig(z)} }
+func BigIntOf(z *big.Int) Int { return IntOf(IntFromBig(z)) }
+
+// UintInt is u as an Int.
+func UintInt(u uint64) Int {
+	if u <= math.MaxInt64 {
+		return Int{n: int64(u)}
+	}
+	return Int{big: (*BigInt)(new(big.Int).SetUint64(u))}
+}
 
 // Value is i as the Int Value the VM holds.
 func (i Int) Value() Value {
-	if i.v == nil {
-		return int64(0)
+	if i.big != nil {
+		return i.big
 	}
-	return i.v
+	return i.n
 }
 
 // Int64 is i as an int64 when it fits.
-func (i Int) Int64() (int64, bool) {
-	n, ok := i.Value().(int64)
-	return n, ok
+func (i Int) Int64() (int64, bool) { return i.n, i.big == nil }
+
+// Low64 is i's low 64 bits, two's complement, as Wrap64 reads them.
+func (i Int) Low64() uint64 {
+	if i.big != nil {
+		return low64(i.big.bigView())
+	}
+	return uint64(i.n)
 }
 
 // Big is i's value as a fresh *big.Int.
-func (i Int) Big() *big.Int { return IntBig(i.Value()) }
+func (i Int) Big() *big.Int {
+	if i.big != nil {
+		return i.big.Big()
+	}
+	return big.NewInt(i.n)
+}
 
 // Sign is -1, 0 or 1.
-func (i Int) Sign() int { return IntSign(i.Value()) }
+func (i Int) Sign() int {
+	switch {
+	case i.big != nil:
+		return i.big.Sign()
+	case i.n < 0:
+		return -1
+	case i.n > 0:
+		return 1
+	}
+	return 0
+}
 
 // Saturated is i as an int64, clamped past its range (IntSaturated).
-func (i Int) Saturated() int64 { return IntSaturated(i.Value()) }
+func (i Int) Saturated() int64 {
+	switch {
+	case i.big == nil:
+		return i.n
+	case i.big.Sign() > 0:
+		return math.MaxInt64
+	}
+	return math.MinInt64
+}
 
 // String is i in base 10.
 func (i Int) String() string { return FormatIntValue(i.Value()) }

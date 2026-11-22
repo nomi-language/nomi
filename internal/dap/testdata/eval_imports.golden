@@ -23,7 +23,7 @@
 -> variables {"variablesReference":3}
 <- response variables {"variables":[{"name":"x","type":"Int","value":"3","variablesReference":0},{"name":"y","type":"Int","value":"3","variablesReference":0}]}
 -> evaluate {"context":"repl","expression":"[c, c] |> Iter.count()","frameId":1}
-<- response evaluate {"result":"2","type":"NonNegativeInt","variablesReference":0}
+<- response evaluate {"result":"2","type":"PositiveInt","variablesReference":0}
 -> continue {"threadId":1}
 <- response continue {"allThreadsContinued":true}
 <- event output {"category":"stdout","output":"3\n"}

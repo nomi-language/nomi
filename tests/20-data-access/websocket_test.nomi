@@ -56,10 +56,11 @@ test "a request that is not a handshake is refused"
 end
 
 test "an allowed origin passes and another is refused"
-    trusting = fn request: Request ->
-        options = AcceptOptions{allowed_origins: [Origin"https://app.example.com"]}
-        websocket.accept(request, options, fn _ -> Unit)
-    end
+    trusting =
+        fn request: Request ->
+            options = AcceptOptions{allowed_origins: [Origin"https://app.example.com"]}
+            websocket.accept(request, options, fn _ -> Unit)
+        end
 
     from = fn origin: String -> handshake(Method.Get, good + [("Origin", origin)])
     assert trusting(from("https://app.example.com")).status == Status.switching_protocols
@@ -102,11 +103,12 @@ test "middleware leaves the upgrade working"
 end
 
 test "a message over the limit closes the connection with 1009"
-    small = fn request: Request ->
-        websocket.accept(request, AcceptOptions{max_message_size: 8}, fn ws ->
-            _ = WebSocket.each(ws, fn _ -> Unit)
-        end)
-    end
+    small =
+        fn request: Request ->
+            websocket.accept(request, AcceptOptions{max_message_size: 8}, fn ws ->
+                _ = WebSocket.each(ws, fn _ -> Unit)
+            end)
+        end
 
     got = http_testing.open_websocket(small, "/", fn ws ->
         _ = WebSocket.send_text(ws, "12345678")
@@ -119,13 +121,14 @@ test "a message over the limit closes the connection with 1009"
 end
 
 test "an idle connection is closed with 1001"
-    idle = fn request: Request ->
-        websocket.accept(request, AcceptOptions{
-            idle_timeout: Some(Duration.milliseconds(20)),
-        }, fn ws ->
-            _ = WebSocket.each(ws, fn _ -> Unit)
-        end)
-    end
+    idle =
+        fn request: Request ->
+            websocket.accept(request, AcceptOptions{
+                idle_timeout: Some(Duration.milliseconds(20)),
+            }, fn ws ->
+                _ = WebSocket.each(ws, fn _ -> Unit)
+            end)
+        end
 
     got = http_testing.open_websocket(idle, "/", fn ws -> WebSocket.receive(ws))
     assert Ok(Ok(None)) = got

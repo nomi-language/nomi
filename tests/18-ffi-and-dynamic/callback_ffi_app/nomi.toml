@@ -1,3 +1,0 @@
-[module]
-name = "callbackffiapp"
-entry_points = ["main"]

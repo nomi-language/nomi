@@ -6,7 +6,7 @@ name order, and recorded in the table `nomi_migrations`. It works on any
 start at once do not both migrate. There are no down migrations: a mistake
 is fixed by a new migration.
 
-```
+```sh
 nomi add github.com/nomi-language/nomi/lib/sql/migrate
 ```
 
@@ -76,7 +76,7 @@ migration.
 
 ## The tool
 
-```
+```sh
 nomi tool migrate up [--dir db/migrations] [--url URL]
 nomi tool migrate status [--dir db/migrations] [--url URL]
 nomi tool migrate adopt [--dir db/migrations] [--url URL]
@@ -117,7 +117,7 @@ module, so it needs neither.
 golang-migrate records one version in `schema_migrations`. Once, against
 the database it kept:
 
-```
+```sh
 nomi tool migrate adopt --dir migrations
 ```
 

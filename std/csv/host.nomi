@@ -1,9 +1,11 @@
 //# The Go-backed half of std::csv: a reader of CSV records over a
-//# `Reader`, and one record written as CSV (internal/stdcsv, over Go's
-//# encoding/csv). It is internal; a program imports std::csv.
+//# `Reader` or over text held whole, and one record written as CSV
+//# (internal/stdcsv, over Go's encoding/csv). It is internal; a program
+//# imports std::csv.
 
 import
     bool.Bool
+    bytes.Bytes
     code_points.Codepoint
     int.Int
     io.{Error, Reader}
@@ -44,6 +46,18 @@ pub host fn message(records: Records) -> String
 
 /// The reader's error, once `stopped` says 2.
 pub host fn failure(records: Records) -> Error
+
+/// Every record of the CSV in `data`, read whole by the reader `open`
+/// makes, with `open`'s options: the records, the line each starts on, why
+/// reading stopped as `stopped` says it (never 2), and its message.
+pub host fn decode(
+    data:      Bytes,
+    delimiter: Codepoint,
+    comment:   Maybe<Codepoint>,
+    trim:      Bool,
+    lazy:      Bool,
+    fields:    Int,
+) -> (List<List<String>>, List<Int>, List<Int>, String)
 
 /// `fields` as one CSV line, ended by `\r\n` when `crlf` and `\n` if not.
 pub host fn encode(fields: List<String>, delimiter: Codepoint, crlf: Bool) -> String

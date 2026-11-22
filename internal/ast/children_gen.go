@@ -112,7 +112,6 @@ func generatedChildren(n Node, fn func(Node)) bool {
 		if n != nil {
 			childrenOfExternFunc(n, fn)
 		}
-	case *ExternPackage:
 	case *ExternType:
 		if n != nil {
 			childrenOfExternType(n, fn)
@@ -411,8 +410,6 @@ func absent(n Node) bool {
 	case *ExprStmt:
 		return n == nil
 	case *ExternFunc:
-		return n == nil
-	case *ExternPackage:
 		return n == nil
 	case *ExternType:
 		return n == nil
@@ -1745,7 +1742,6 @@ var generatedTypes = []any{
 	(*ErrorNode)(nil),
 	(*ExprStmt)(nil),
 	(*ExternFunc)(nil),
-	(*ExternPackage)(nil),
 	(*ExternType)(nil),
 	(*FieldAccess)(nil),
 	(*FieldAccessor)(nil),

@@ -1,3 +1,0 @@
-[module]
-name = "durationffiapp"
-entry_points = ["main"]

@@ -1,16 +1,18 @@
-package analysis
+package analysis_test
 
 import (
 	"strings"
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
 // destructureSrc writes a tuple and a struct destructuring statement in
 // each place a statement stands: a function body, a test body, an `if`
 // arm and a block, over a generic struct and an anonymous one, with `_`
-// discards and a name bound again.
+// discards and a name bound again. The tests check it over the stdlib, as
+// a program is, so the elaboration gate sees the types a program has.
 const destructureSrc = `struct Box<T>
     item: T
     label: String
@@ -72,7 +74,8 @@ func destructurePatterns(nodes []ast.Node) []ast.Node {
 // pattern gets: the pattern's type under the pattern, each name's and each
 // discard's under its own node, and each name's symbol typed.
 func TestDestructurePattern_RecordsTheStatementAndItsParts(t *testing.T) {
-	fa, nodes := checkNodes(t, destructureSrc)
+	fa, nodes, errs := checkSourceAsWrittenWithStdlib(destructureSrc)
+	expectNoStdlibErrors(t, errs)
 	stmts := destructurePatterns(nodes)
 	if len(stmts) != 9 {
 		t.Fatalf("want 9 destructuring statements in the source, found %d", len(stmts))
@@ -88,27 +91,27 @@ func TestDestructurePattern_RecordsTheStatementAndItsParts(t *testing.T) {
 		if !ok || ty == nil {
 			t.Errorf("%T at %d has no PatternTypes record", s, s.LineNum())
 		}
-		for _, site := range patternSites(s) {
-			sym := fa.Definitions[site.pos]
+		for _, site := range analysis.PatternSitesForTest(s) {
+			sym := fa.Definitions[site.Pos]
 			if sym == nil || sym.Type == nil {
-				t.Errorf("%s at %v has no typed symbol", site.name, site.pos)
+				t.Errorf("%s at %v has no typed symbol", site.Name, site.Pos)
 				continue
 			}
-			if got := sym.Type.String(); got != want[site.name] {
-				t.Errorf("%s at %v is %s, want %s", site.name, site.pos, got, want[site.name])
+			if got := sym.Type.String(); got != want[site.Name] {
+				t.Errorf("%s at %v is %s, want %s", site.Name, site.Pos, got, want[site.Name])
 			}
 		}
 		if tp, isTuple := s.(*ast.TuplePattern); isTuple {
-			tt, _ := ty.(*TupleType)
+			tt, _ := ty.(*analysis.TupleType)
 			for i, part := range tp.Patterns {
 				got, ok := fa.PatternTypes[part]
-				if !ok || tt == nil || !TypesEqual(got, tt.Elems[i]) {
+				if !ok || tt == nil || !analysis.TypesEqual(got, tt.Elems[i]) {
 					t.Errorf("part %d of the tuple at line %d records %v, want %v", i, tp.Line, got, tt)
 				}
 			}
 		}
 	}
-	if vs := besidesStdlessOperators(VerifyElaboration(fa, nodes)); len(vs) > 0 {
+	if vs := analysis.VerifyElaboration(fa, nodes); len(vs) > 0 {
 		t.Fatalf("want nothing reported, got %v", vs)
 	}
 }
@@ -117,11 +120,12 @@ func TestDestructurePattern_RecordsTheStatementAndItsParts(t *testing.T) {
 // destructuring statement's pattern, and of a tuple's name, and holds
 // VerifyElaboration to reporting it.
 func TestDestructurePattern_TheGateHoldsTheRecords(t *testing.T) {
-	fa, nodes := checkNodes(t, destructureSrc)
+	fa, nodes, errs := checkSourceAsWrittenWithStdlib(destructureSrc)
+	expectNoStdlibErrors(t, errs)
 	for _, s := range destructurePatterns(nodes) {
 		ty := fa.PatternTypes[s]
 		delete(fa.PatternTypes, s)
-		if !hasElabCategory(VerifyElaboration(fa, nodes), s, ElabPatternUnrecorded) {
+		if !reportsElab(analysis.VerifyElaboration(fa, nodes), s, analysis.ElabPatternUnrecorded) {
 			t.Errorf("a %T at line %d with no record is not reported", s, s.LineNum())
 		}
 		fa.PatternTypes[s] = ty
@@ -135,7 +139,7 @@ func TestDestructurePattern_TheGateHoldsTheRecords(t *testing.T) {
 		}
 		ty = fa.PatternTypes[name]
 		delete(fa.PatternTypes, name)
-		if !hasElabCategory(VerifyElaboration(fa, nodes), name, ElabPatternUnrecorded) {
+		if !reportsElab(analysis.VerifyElaboration(fa, nodes), name, analysis.ElabPatternUnrecorded) {
 			t.Errorf("the name %s at line %d with no record is not reported", name.Name, name.Line)
 		}
 		fa.PatternTypes[name] = ty
@@ -168,7 +172,7 @@ func TestDestructurePattern_StatementsGiveThePatternsMessages(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, errs := checkSource(tc.src)
+			_, errs := checkSourceWithStdlib(tc.src)
 			for _, e := range errs {
 				if strings.Contains(e.Message, tc.want) {
 					return
@@ -177,4 +181,14 @@ func TestDestructurePattern_StatementsGiveThePatternsMessages(t *testing.T) {
 			t.Fatalf("want an error containing %q, got %v", tc.want, errs)
 		})
 	}
+}
+
+// reportsElab reports whether vs holds a violation of category at n.
+func reportsElab(vs []analysis.ElabViolation, n ast.Node, category string) bool {
+	for _, v := range vs {
+		if v.Node == n && v.Category == category {
+			return true
+		}
+	}
+	return false
 }

@@ -1,10 +1,9 @@
 # markdown
 
-Markdown for Nomi's `std/html`, over
-[goldmark](https://github.com/yuin/goldmark): `markdown.render(text)` is
+Markdown for Nomi's `std/html`, written in Nomi: `markdown.render(text)` is
 `text` rendered as HTML, an `Html` a template inserts as it is.
 
-```
+```sh
 nomi add github.com/nomi-language/nomi/lib/markdown
 ```
 
@@ -24,27 +23,40 @@ fn post(title: String, body: String) -> Html
 end
 ```
 
-A release `nomi` carries the module's Go code prebuilt, so a program that
-uses it needs no Go toolchain while the module is at the release's commit,
-which `nomi add` takes and `nomi update` restores. Otherwise the Go code is
-built into the program's runner the first time a program that uses it
-runs, with the `go` on `PATH` or the Go toolchain `nomi` downloads.
+The module is Nomi alone, so a program that uses it needs no Go toolchain,
+and every function it exports is pure.
 
 ## What it renders
 
-CommonMark, with GitHub's extensions: tables, strikethrough, task lists, and
-a bare URL as a link (`https://example.com` in a sentence).
+CommonMark 0.31.2, with GitHub's extensions: tables, strikethrough, task
+lists, and a bare URL or email address as a link (`https://example.com` in a
+sentence). Headings get no `id`, and there are no footnotes.
+
+Its output is goldmark's, byte for byte: goldmark v1.8.7 with its GFM
+extension rendered every fixture under `testdata/`, and the tests hold this
+module to those renderings. They are the CommonMark spec's examples,
+goldmark's own extension cases, cases written for this module, and
+documents from this repository. `testdata/NOTICE.txt` says where each comes
+from.
 
 ## Why its output is trusted
 
 `render` answers its markup through `Html.trusted`, the one way into an
-`Html` that skips a template's escaping. It can, because goldmark's safe
-defaults are kept:
+`Html` that skips a template's escaping. It can, because of three rules:
 
 - Text is escaped: `a < b` renders as `a &lt; b`.
 - Raw HTML in the text is left out, written as `<!-- raw HTML omitted -->`.
-- A link or image whose URL has a dangerous scheme (`javascript:`) gets an
-  empty URL.
+- A link or image whose URL has a dangerous scheme (`javascript:`,
+  `vbscript:`, `file:`, and `data:` other than a PNG, GIF, JPEG or WebP
+  image) gets an empty URL.
 
 So Markdown a user wrote renders safely. There is no option to let raw HTML
 through.
+
+## Speed
+
+On the tour's Markdown it renders about 0.9 MB a second, about 70 times
+slower than goldmark compiled: a 5 KB post in about 5 ms. Inputs built to
+make a parser quadratic (long runs of `*`, `[` or backticks, unclosed
+titles and comments, deep nesting) take time linear in their length, which
+`pathological_test.nomi` checks.

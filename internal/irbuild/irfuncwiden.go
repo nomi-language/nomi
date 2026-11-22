@@ -38,7 +38,7 @@ func (bl *irScalarBuilder) funcWiden(at ast.Node, fn ir.Temp, have, want kind) (
 	if int(fn) < len(bl.sides) && bl.sides[fn].ctl != irCtlNone {
 		return ir.NoTemp, false
 	}
-	if slices.Equal(hp, wp) && bl.erasesUnboxed(funcResult(want), funcResult(have)) {
+	if slices.Equal(hp, wp) && bl.erasesUnboxed(funcResult(want), funcResult(have), nil) {
 		// Only the result widens, into an existential that holds the
 		// value itself (`Response` where std::http's `ToResponse` is
 		// expected): every call through the function already answers
@@ -48,10 +48,9 @@ func (bl *irScalarBuilder) funcWiden(at ast.Node, fn ir.Temp, have, want kind) (
 	}
 	pos := bl.g.irNodePos(at)
 	f := ir.NewFunc(pos, "widen")
-	sh := &irFuncShell{fn: f, syms: map[string]*ir.Symbol{}, params: map[string]ir.Temp{}, patternOK: true}
-	sh.frame = newIRFuncFrame(f)
+	sh := &irFuncShell{fn: f, params: map[string]ir.Temp{}}
 	sh.entry = f.NewBlock(pos, "entry")
-	child := &irScalarBuilder{g: bl.g, sh: sh, f: f, b: sh.entry, parent: bl, bound: map[string]ir.Temp{}, boundK: map[string]kind{}, unwritten: true}
+	child := &irScalarBuilder{g: bl.g, sh: sh, f: f, b: sh.entry, parent: bl, unwritten: true}
 	in := make([]ir.Temp, len(wp))
 	for i, k := range wp {
 		in[i] = bl.g.irAddParam(f, ir.NewSymbol("_"), k)

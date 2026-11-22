@@ -63,20 +63,20 @@ const (
 	// ProjField reads a declared field of a struct. `Sym` is the FIELD's
 	// declaration identity, not the struct's: two same-named fields of two
 	// structs are two declarations, and this class exists to read one of them.
-	// Owners: irProjField, fieldProject.
+	// Owners: nominalCaseTest, fieldProject.
 	ProjField = ProjKind(iota + 1)
 	// ProjRecordField reads a field of an anonymous struct BY NAME. A record
 	// has no declaration to carry an identity, so the name is the identity —
 	// which is the same fact MakeRecord records from the construction side.
-	// Owners: irProjRecordField, recordRead.
+	// Owners: nominalCaseTest, recordRead.
 	ProjRecordField
-	// ProjSlot reads one component of a tuple by INDEX. Owners: irProjSlot,
+	// ProjSlot reads one component of a tuple by INDEX. Owner:
 	// tupleProjection.
 	ProjSlot
 	// ProjPayload reads one payload of a known enum variant by index. `Sym` is
 	// the enum and `Text` the variant: the subject's tag is already known,
 	// because a pattern match or a `?` has established it. Owner:
-	// payloadValue.
+	// variantPayload.
 	ProjPayload
 	// ProjEnumField reads a field NAME off an enum value WITHOUT knowing the
 	// tag. `Sym` is the enum and `Text` the field name.
@@ -102,7 +102,7 @@ const (
 	// The position is a constant because the only thing in Nomi that reads a
 	// list element at a fixed position is a LIST PATTERN, whose heads are
 	// counted by the pattern itself. An element read at a computed position is
-	// `List.at`, a call. Owners: listCaseTest, listCaseTestNested.
+	// `List.at`, a call. Owner: listCaseTest.
 	ProjElem
 	// ProjSuffix reads the List of everything from a CONSTANT position on —
 	// the `..rest` of `[a, b, ..rest]`, with `Index` the number of heads
@@ -115,7 +115,7 @@ const (
 	// list, so `[h, ..t]` allocates nothing. That is a property of the
 	// operation rather than of one representation, and it is why this is a
 	// projection and not `MakeList` over a drop.
-	// Owners: listCaseTest, listCaseTestNested.
+	// Owner: listCaseTest.
 	ProjSuffix
 	// ProjStrSuffix reads the String of a String's bytes from a CONSTANT byte
 	// offset on: the `rest` of a string prefix pattern `"/users/" + rest`,

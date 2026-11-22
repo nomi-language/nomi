@@ -1,8 +1,6 @@
 package irbuild
 
 import (
-	"maps"
-
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -15,7 +13,7 @@ import (
 // pattern matches. With no else the `if` is Unit, and a miss answers Unit, as
 // ifRegion's Boolean form does.
 func (bl *irScalarBuilder) patternIfRegion(t *ast.If, sig irFuncSig) (kind, bool) {
-	unitElse := t.Else == nil && !sig.testArms && (sig.inferResult || sig.result == kindUnit)
+	unitElse := t.Else == nil && !sig.testArms && sig.result == kindUnit
 	switch {
 	case t.Else == nil && !sig.testArms && !unitElse:
 		// An `if` without `else` is a statement: the checker types it Unit
@@ -44,9 +42,6 @@ func (bl *irScalarBuilder) patternIfRegion(t *ast.If, sig irFuncSig) (kind, bool
 	}
 	els := bl.f.NewBlock(bl.g.irNodePos(elsAt), "pattern else")
 	exit := bl.f.NewBlock(bl.g.irNodePos(t), "exit")
-	bound, boundK, syms := bl.bound, bl.boundK, bl.sh.syms
-	defer func() { bl.bound, bl.boundK, bl.sh.syms = bound, boundK, syms }()
-	bl.bound, bl.boundK, bl.sh.syms = maps.Clone(bound), maps.Clone(boundK), maps.Clone(syms)
 	then, next, ok := bl.caseArmTest(t, &ast.CaseBranch{Pattern: t.CondPattern, Body: t.Then}, false, subj, sk, true, els)
 	if !ok {
 		return kindInvalid, false
@@ -61,8 +56,7 @@ func (bl *irScalarBuilder) patternIfRegion(t *ast.If, sig irFuncSig) (kind, bool
 	if !ok {
 		return kindInvalid, false
 	}
-	bl.bound, bl.boundK, bl.sh.syms = bound, boundK, syms
-	ek, ok := bl.testElse(els, exit, t, tk, bl.laterArmSig(sig, tk))
+	ek, ok := bl.testElse(els, exit, t, tk, sig)
 	if !ok {
 		return kindInvalid, false
 	}

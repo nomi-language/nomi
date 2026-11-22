@@ -112,7 +112,7 @@ func (m *Machine) subtestsInstr(fr *frame, n *ir.Subtests) (err error) {
 			}
 			label = rt.RowText(text)
 		}
-		_, rowErr := run.activateSlot(row.fnSlot(run), []any{item}, row.captures, runtime, true, run.depth, nil)
+		_, rowErr := run.callValue(row, []any{item}, runtime, true, run.depth, nil, 0)
 		if rowErr == nil {
 			ran++
 			return true
@@ -161,7 +161,7 @@ func (m *Machine) rowName(name *functionValue, item any, runtime *rt.Frame) (tex
 			panic(p)
 		}
 	}()
-	out, callErr := m.activateSlot(name.fnSlot(m), []any{item}, name.captures, runtime, false, m.depth, nil)
+	out, callErr := m.callValue(name, []any{item}, runtime, false, m.depth, nil, 0)
 	if callErr != nil {
 		if fault, ok := asFault(callErr); ok {
 			return "", fault, nil

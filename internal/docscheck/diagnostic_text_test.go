@@ -55,9 +55,9 @@ var messageTextAllowed = map[string]string{
 }
 
 // messageTextOutside are the trees that hold no diagnostics: the runtime,
-// whose traps are run-time faults, and the lib modules and their runners,
-// whose errors are a database's or a codec's.
-var messageTextOutside = []string{"rt/", "lib/", "librunners/"}
+// whose traps are run-time faults, and the lib modules, whose errors are a
+// database's or a codec's.
+var messageTextOutside = []string{"rt/", "lib/"}
 
 // errorTextDirs are the directories whose code holds diagnostics as Go
 // errors, where the text of `.Error()` is message text.

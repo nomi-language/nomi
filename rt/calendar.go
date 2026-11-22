@@ -194,11 +194,7 @@ type OffsetDateTime struct {
 // that mentions them names a Go type, and that type has to live in a package
 // everything links.
 //
-// They appear in no bound Go signature. `internal/ffitypes` is a closed projection
-// table — String, Bool, Byte, Int, Float, Bytes, Duration, Instant, Dynamic,
-// Unit — with no clause for a Nomi distinct over Int, so `fn add(lhs: Date,
-// rhs: Years) -> Date go pkg.Sym` cannot bind: the boundary reports "parameter 2
-// projects to Int, but Nomi declares Years". Each ladder rung is therefore a
+// They appear in no Go signature a std row binds. Each ladder rung is a
 // Nomi body that destructures its period (`Years(n)`) and calls an
 // `Int`-taking adapter function, which is the shape std/calendar uses for
 // `Add<Weeks, Date>`. Two rungs cannot collide on one Go signature
@@ -256,8 +252,8 @@ type (
 // value and is never read, which the Nomi facade enforces by branching on Kind
 // before touching it.
 //
-// Kind is int64 rather than uint8 because the Nomi field is `Int`: the FFI
-// projects uint8 onto `Byte`, and a Byte-typed tag would make the facade's
+// Kind is int64 rather than uint8 because the Nomi field is `Int`: the host
+// projection maps uint8 to `Byte`, and a Byte-typed tag would make the facade's
 // comparison against a literal a different type than it reads.
 
 // CalendarDateResult carries `Result<Date, Error>`.

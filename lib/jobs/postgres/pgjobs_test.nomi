@@ -57,20 +57,21 @@ test "an enqueue notifies the table's channel at commit, not before"
     defer close_quietly(listener)
     heard: Channel<Result<Notification, sql.Error>> = Channel.buffered(4)
 
-    outcome = concurrent
-        forwarding = Task.spawn(fn -> Listener.forward(listener, heard.sender))
+    outcome =
+        concurrent
+            forwarding = Task.spawn(fn -> Listener.forward(listener, heard.sender))
 
-        result = sql.transaction(db, fn tx ->
-            _ = jobs.enqueue(queue, tx, noop, 1)?
-            before = Receiver.receive_within(heard.receiver, Duration.milliseconds(200))
-            Ok(before)
-        end)
+            result = sql.transaction(db, fn tx ->
+                _ = jobs.enqueue(queue, tx, noop, 1)?
+                before = Receiver.receive_within(heard.receiver, Duration.milliseconds(200))
+                Ok(before)
+            end)
 
-        after = Receiver.receive_within(heard.receiver, Duration.seconds(5))
-        _ = Listener.close(listener)
-        _ = Task.outcome(forwarding)
-        (result, after)
-    end
+            after = Receiver.receive_within(heard.receiver, Duration.seconds(5))
+            _ = Listener.close(listener)
+            _ = Task.outcome(forwarding)
+            (result, after)
+        end
 
     (during, after) = outcome
     assert during == Ok(Err(TimedOut))
@@ -268,11 +269,12 @@ test "two schedulers on their own connections enqueue each tick once"
     (db, queue, _) = fresh()?
     _ = jobs.enqueue_due(queue, hourly(), nine())?
 
-    answers = concurrent
-        first = Task.spawn(fn -> step_hours(queue, 5))
-        second = Task.spawn(fn -> step_hours(queue, 5))
-        Task.await(first) + Task.await(second)
-    end
+    answers =
+        concurrent
+            first = Task.spawn(fn -> step_hours(queue, 5))
+            second = Task.spawn(fn -> step_hours(queue, 5))
+            Task.await(first) + Task.await(second)
+        end
 
     assert Iter.all_match(answers, &Result.is_ok(&1))
     assert count(db, Sql"SELECT count(*) AS n FROM nomi_jobs") == Ok(5)

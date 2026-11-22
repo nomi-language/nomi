@@ -24,7 +24,7 @@ func (bl *irScalarBuilder) tryValue(t *ast.TryOp, operand, whole ast.Node) (ir.T
 	if !recorded || (bl.inTest && !testBoundary) || isNilNode(operand) {
 		return no()
 	}
-	if !concurrent && !testBoundary && (!strings.HasPrefix(boundary, "fn ") || bl.parent != nil || bl.inferReturn != nil) {
+	if !concurrent && !testBoundary && (!strings.HasPrefix(boundary, "fn ") || bl.parent != nil) {
 		return no()
 	}
 	if !concurrent && !testBoundary && !irTryBoundaryKind(bl.returnKind) {

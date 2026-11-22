@@ -12,7 +12,7 @@ import (
 // one), then each head read from the front and each tail from the end
 // (ProjVectorElem), and the rest a window over the elements between them
 // (ProjVectorSlice), which shares the vector's storage. An element's own
-// pattern is tested as a nested pattern is (patternValueTest).
+// pattern is tested as a nested pattern is (patternTest).
 //
 // A set pattern, `["admin", ..rest]` over a set, tests membership as a map pattern
 // tests keys: each element is an expression, evaluated in pattern order, and
@@ -42,13 +42,10 @@ func irSetCaseKind(k kind) bool {
 	return irRetainedSetKind(k)
 }
 
-// vectorCaseTest tests a vector pattern over subj, ending in arm with the
-// pattern's names bound and branching to next on any failed test.
-func (bl *irScalarBuilder) vectorCaseTest(pattern ast.Node, subj ir.Temp, k kind, arm, next *ir.Block) bool {
-	pat, ok := pattern.(*ast.ListPattern)
-	if !ok || pat.TypeName != nil || pat.Kind != ast.SeqVector {
-		return false
-	}
+// vectorCaseTest tests a vector pattern with no prefix over subj, leaving
+// the builder where its last test passed with the pattern's names bound and
+// branching to next on any failed test.
+func (bl *irScalarBuilder) vectorCaseTest(pat *ast.ListPattern, subj ir.Temp, k kind, next *ir.Block) bool {
 	fixed := len(pat.Heads) + len(pat.Tails)
 	elem, isVector := vectorElem(k)
 	if !isVector {
@@ -62,27 +59,20 @@ func (bl *irScalarBuilder) vectorCaseTest(pattern ast.Node, subj ir.Temp, k kind
 	case fixed > 0:
 		match = ir.NewMatchVectorMinInto(pos, bl.f.NewTemp(), subj, fixed)
 	}
-	body := bl.f.NewBlock(pos, "vector elements")
 	if match != nil {
+		// `[..rest]` matches every vector, so it has no length to test.
 		bl.b.Append(match)
 		bl.side(match.Dst(), irScalarSide{k: kindBool})
-		bl.b.SetTerm(ir.NewBranch(pos, match.Dst(), body.ID(), next.ID()))
-	} else {
-		// `[..rest]` matches every vector. The branch is on a constant so
-		// the arms after it keep the edge they are lowered under, as a
-		// list's `[..rest]` does.
-		always := ir.NewBool(pos, bl.f.NewTemp(), true)
-		bl.b.Append(always)
-		bl.side(always.Dst(), irScalarSide{k: kindBool})
-		bl.b.SetTerm(ir.NewBranch(pos, always.Dst(), body.ID(), next.ID()))
+		bl.passOrFail(pat, match.Dst(), next)
 	}
-	bl.b = body
 	test := func(sub ast.Node, at int) bool {
+		if _, wild := sub.(*ast.WildcardPattern); wild {
+			return true
+		}
 		read := ir.NewProjVectorElem(pos, bl.f.NewTemp(), subj, at, irParamShape(elem))
 		bl.b.Append(read)
 		bl.side(read.Dst(), irScalarSide{k: elem})
-		passed := bl.f.NewBlock(bl.g.irNodePos(sub), "vector element")
-		return bl.patternValueTest(sub, read.Dst(), elem, passed, next)
+		return bl.patternTest(sub, read.Dst(), elem, next)
 	}
 	for i, h := range pat.Heads {
 		if !test(h, i) {
@@ -100,19 +90,13 @@ func (bl *irScalarBuilder) vectorCaseTest(pattern ast.Node, subj ir.Temp, k kind
 		bl.side(rest.Dst(), irScalarSide{k: k})
 		bl.patternBinding(id, id.Name, rest.Dst(), k)
 	}
-	bl.b.SetTerm(ir.NewJump(pos, arm.ID()))
-	bl.b = arm
 	return true
 }
 
-// setCaseTest tests a set pattern over subj, ending in arm with its rest
-// bound and branching to next when the set lacks an element, or, without a
-// `..`, holds another.
-func (bl *irScalarBuilder) setCaseTest(pattern ast.Node, subj ir.Temp, k kind, arm, next *ir.Block) bool {
-	pat, ok := pattern.(*ast.ListPattern)
-	if !ok || pat.TypeName != nil || pat.Kind != ast.SeqSet {
-		return false
-	}
+// setCaseTest tests a set pattern with no prefix over subj, leaving the
+// builder with its rest bound and branching to next when the set lacks an
+// element, or, without a `..`, holds another.
+func (bl *irScalarBuilder) setCaseTest(pat *ast.ListPattern, subj ir.Temp, k kind, next *ir.Block) bool {
 	elem, isSet := setElem(k)
 	if !isSet {
 		return false
@@ -139,13 +123,9 @@ func (bl *irScalarBuilder) setCaseTest(pattern ast.Node, subj ir.Temp, k kind, a
 				return false
 			}
 		}
-		held := v
-		found := host(e, "Set.contains", kindBool, subj, held)
-		present := bl.f.NewBlock(bl.g.irNodePos(e), "set element")
-		bl.b.SetTerm(ir.NewBranch(bl.g.irNodePos(e), found, present.ID(), next.ID()))
-		bl.b = present
+		bl.passOrFail(e, host(e, "Set.contains", kindBool, subj, v), next)
 		if keepRest {
-			rest = host(e, "Set.remove", k, rest, held)
+			rest = host(e, "Set.remove", k, rest, v)
 		}
 	}
 	if pat.TailSpread == nil {
@@ -156,14 +136,11 @@ func (bl *irScalarBuilder) setCaseTest(pattern ast.Node, subj ir.Temp, k kind, a
 		empty := ir.NewMatchLitInto(pos, bl.f.NewTemp(), size, zero.Dst())
 		bl.b.Append(empty)
 		bl.side(empty.Dst(), irScalarSide{k: kindBool})
-		bl.b.SetTerm(ir.NewBranch(pos, empty.Dst(), arm.ID(), next.ID()))
-		bl.b = arm
+		bl.passOrFail(pat, empty.Dst(), next)
 		return true
 	}
 	if id, named := pat.Rest().(*ast.IdentPattern); named {
 		bl.patternBinding(id, id.Name, rest, k)
 	}
-	bl.b.SetTerm(ir.NewJump(pos, arm.ID()))
-	bl.b = arm
 	return true
 }

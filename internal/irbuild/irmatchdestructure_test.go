@@ -10,8 +10,8 @@ import (
 	"github.com/nomi-language/nomi/std"
 )
 
-// Tests for the `match` and `destructure` classes (irmatch.go,
-// irdestructure.go).
+// Tests for the `match` and `destructure` classes (irmatch.go and the
+// pattern tests).
 
 // TestIRMatchDestructure_EveryPatternSiteHasAPosition measures the premise
 // `ir.At` panics on, over the corpus and the stdlib, for the position every

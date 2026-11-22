@@ -105,7 +105,7 @@ func testWatch(ctx context.Context, parsed testArgs, stdout, stderr io.Writer, s
 		func() []string { return append(nomiFilesUnder(parsed.root), loaded...) },
 		func() { loaded = testedFiles(parsed.root) },
 		func(ctx context.Context, stdout, stderr io.Writer, stdin io.Reader) {
-			err := testVM(ctx, parsed.root, parsed.opts, parsed.format, parsed.timeout, stdout, stderr, stdin)
+			err := testVM(ctx, parsed, stdout, stderr, stdin)
 			if err != nil && !errors.Is(err, errTestsFailed) {
 				fmt.Fprintln(stderr, err)
 			}

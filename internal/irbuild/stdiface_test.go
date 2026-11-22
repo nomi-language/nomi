@@ -36,8 +36,16 @@ fn main()
   io.print(show(Mine{n: 1}))
 end
 `)
-	if _, anchored := g.stdIfaceNamed("ToJson"); anchored {
-		t.Fatal("stdIfaceNamed anchored a name the module declares itself: the anchor is name-keyed")
+	sym := resolveSymbol(g.fa.ModuleScope.Lookup("ToJson"))
+	if sym == nil {
+		t.Fatal("the probe's ToJson resolves to nothing, so the check below is vacuous")
+	}
+	it, isIface := sym.Type.(*analysis.InterfaceType)
+	if !isIface {
+		t.Fatal("the probe's own ToJson resolves to no interface, so the check below is vacuous")
+	}
+	if d := g.ifaceOfType(it); d == nil || d != g.ifacesByDecl[sym.Node] {
+		t.Fatalf("the module's own ToJson is not its own def but %s: an interface is found by its identity, not its name", ifaceLabel(d))
 	}
 	for _, d := range stdIfaceDefs() {
 		if d.nomi != "Display" {
@@ -54,24 +62,20 @@ end
 //
 // Every name with a spec row is prelude-injected, and prelude interface names
 // are reserved, so no source program can declare its own interface under a
-// spec'd name. That is what makes `stdIfaceByName` — a NAME-keyed map —
-// safe today: not that a collision resolves correctly, but that a collision
-// cannot be written.
+// spec'd name.
 //
 // If this test starts failing, the analyzer began accepting the shadow again
-// and the requirement it was fencing comes back: `stdIfaceNamed` must return
-// not-anchored for a name the module declares itself, and the `Display`
-// spelling of testdata/std_iface_shadow.nomi is the fixture to restore. The
-// real fix in that world is analysis.InterfaceType gaining an Origin, so a
-// user's `Display` and std's can be told apart at all.
+// and the requirement it was fencing comes back: a name the module declares
+// itself must not anchor std's interface, and the `Display` spelling of
+// testdata/std_iface_shadow.nomi is the fixture to restore.
 func TestStdIface_SpecNamesAreUnshadowableBySource(t *testing.T) {
 	for _, d := range stdIfaceDefs() {
 		name := d.nomi
 		t.Run(name, func(t *testing.T) {
 			src := "pub interface " + name + "\n  fn probe(value: self) -> String\nend\n\nfn main()\n  io.print(\"x\")\nend\n"
 			if _, err := AnalyzeSource("stdiface_fence", src); err == nil {
-				t.Fatalf("the analyzer accepted `pub interface %s`; stdIfaceByName is name-keyed, so a "+
-					"declarable spec name is a reachable wrong answer rather than a coverage gap", name)
+				t.Fatalf("the analyzer accepted `pub interface %s`, a spec'd name the prelude "+
+					"reserves", name)
 			}
 		})
 	}
@@ -198,7 +202,7 @@ func TestStdIfaceSpecsAreReachable(t *testing.T) {
 			continue
 		}
 		for i := range p.Modules {
-			byDecl, _ := stdIfaceAnchors(p.Modules[i].FA)
+			byDecl := stdIfaceAnchors(p.Modules[i].FA)
 			for decl := range byDecl {
 				seen[decl.Name] = true
 			}
@@ -239,9 +243,9 @@ func stdIfaceGen(t *testing.T, src string) *gen {
 		t.Fatalf("analyzing the probe program: %v", err)
 	}
 	g := &gen{fa: p.Modules[0].FA, types: map[string]*typeDef{}, ifaces: map[string]*ifaceDef{}}
-	// The file's OWN interface declarations, which is what `stdIfaceNamed` has
-	// to prefer. Without this the probe would assert against a gen that has
-	// not read the file it was built from.
+	// The file's OWN interface declarations, which an interface of the
+	// file's origin resolves to. Without this the probe would assert against
+	// a gen that has not read the file it was built from.
 	g.declareIfaces(p.Modules[0].Nodes)
 	g.loadStdIfaces()
 	return g

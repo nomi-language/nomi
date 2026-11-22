@@ -3,6 +3,7 @@ package irbuild
 import (
 	"sort"
 
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -20,8 +21,9 @@ import (
 // # Resolution is the analyzer's, and the identity is the declaration NODE
 //
 // The qualifier names a TYPE, so the sibling is found through the type rather
-// than through a file API object: foreignDecl asks the analyzer what `Status`
-// resolves to and the registry which unit declares that node. So an alias, a
+// than through a file API object: the checker's reference says what `Status`
+// resolves to and the registry which unit declares that node
+// (ownerOfSymbol). So an alias, a
 // re-export facade and a selective import all resolve through the front end
 // that already decided them — siblings.go's rule, applied one level in.
 //
@@ -36,8 +38,7 @@ import (
 // MODULE is several FILES: `pub struct Point` in a.nomi and `impl Debug for
 // Point` in b.nomi is legal. So "which impl serves Point.inspect" is a
 // PROGRAM-wide question, and asking it by scanning one gen would answer "none"
-// for a type that has one. foreignNoImpl answers `==` the same way,
-// and buildImplIndex boxing.
+// for a type that has one. buildImplIndex answers boxing the same way.
 //
 // It is built once, after every gen's declareFuncs and before any body is
 // lowered, which is the one window where every impl table is complete and no
@@ -69,11 +70,10 @@ type implMemberKey struct {
 // call in another file may do with it, and whether anybody WROTE it.
 //
 // `synth` is load-bearing rather than informational. The front end injects a
-// universal `impl Debug for T` for every declared type, so a type declared in
-// one file and given an explicit `impl Debug` in another has TWO providers of
-// `T.inspect` and they are not rivals — the written one is what callers
-// observe, which is what `12-derives-and-standard-interfaces/cross_file_debug`
-// pins and what the rival check below must not break.
+// name-only `impl Debug for T` for every opaque type, so an opaque type
+// declared in one file and given an explicit `impl Debug` in another has TWO
+// providers of `T.inspect` and they are not rivals — the written one is what
+// callers observe, and what the rival check below must not break.
 //
 // `iface` is the interface spelling the block implements, empty for an inherent
 // `impl Type { … }`. Recorded because a call may name EITHER, and the two
@@ -105,9 +105,6 @@ type implMemberSite struct {
 	unit  int
 	fn    *fileFunc
 	synth bool
-	// auto is a synthesized block that is the universal Debug
-	// (autoSynthImpl), which a derived one outranks.
-	auto  bool
 	iface string
 	block *ast.ImplBlock
 	// item is the declaring unit's identity for the function's retained
@@ -129,7 +126,7 @@ type implMemberSite struct {
 //
 // Every gen, including the caller's own: the rival check below is only correct
 // program-wide, and a call site excludes its own unit itself (see
-// qualSiblingImplPlan), which runs after the local impl route.
+// siblingSitePlan).
 //
 // A NON-lowerable impl block is indexed too, and deliberately. A call site that
 // cannot find it reports "no such member", which is a different gap from "the
@@ -154,7 +151,7 @@ func (x *fileIndex) resolveImplMembers(gens []*gen) {
 				k := implMemberKey{recv: d.recv.def.decl, method: it.name}
 				x.implMembers[k] = append(x.implMembers[k],
 					implMemberSite{unit: unit, fn: implMemberFunc(d, it),
-						synth: d.synth, auto: autoSynthImpl(d.decl), iface: d.ifaceKey, block: d.decl,
+						synth: d.synth, iface: d.ifaceKey, block: d.decl,
 						item: it})
 			}
 			// A member the block withheld for a call to instantiate has no
@@ -171,12 +168,12 @@ func (x *fileIndex) resolveImplMembers(gens []*gen) {
 					continue
 				}
 				f := &fileFunc{name: method, params0: w.params, generic: true, why: "generic impl function"}
-				if d.ifaceName == "" && w.decl != nil && !w.decl.Public {
+				if w.decl != nil && fileOwnFunc(d, w.decl.Public) {
 					f.why = "private sibling file impl function"
 				}
 				k := implMemberKey{recv: d.recv.def.decl, method: method}
 				x.implMembers[k] = append(x.implMembers[k],
-					implMemberSite{unit: unit, fn: f, synth: d.synth, auto: autoSynthImpl(d.decl), iface: d.ifaceKey,
+					implMemberSite{unit: unit, fn: f, synth: d.synth, iface: d.ifaceKey,
 						block: d.decl, withheld: d})
 			}
 		}
@@ -199,11 +196,11 @@ func (x *fileIndex) resolveOwnerMembers(gens []*gen) {
 		}
 		sort.Strings(owners)
 		for _, owner := range owners {
-			decl := g.ownerDecl(owner)
-			if decl == nil {
-				continue
-			}
 			for _, d := range g.ownerImpls[owner] {
+				decl := g.receiverOwnerDecl(d.decl)
+				if decl == nil {
+					continue
+				}
 				for _, it := range d.order {
 					k := implMemberKey{recv: decl, method: it.name}
 					x.ownerMembers[k] = append(x.ownerMembers[k],
@@ -221,7 +218,7 @@ func (x *fileIndex) resolveOwnerMembers(gens []*gen) {
 						continue
 					}
 					f := &fileFunc{name: method, params0: w.params, generic: true, why: "generic impl function"}
-					if w.decl != nil && !w.decl.Public {
+					if w.decl != nil && fileOwnFunc(d, w.decl.Public) {
 						f.why = "private sibling file impl function"
 					}
 					k := implMemberKey{recv: decl, method: method}
@@ -233,60 +230,25 @@ func (x *fileIndex) resolveOwnerMembers(gens []*gen) {
 	}
 }
 
-// writtenImplMembers is the sites somebody WROTE, or every site when nobody
-// did: a synthesized impl is a fallback, not a candidate beside a written one.
-// Among synthesized ones, the universal Debug the front end writes for every
-// type (ast.FuncDef.AutoSynth) yields to a derived one, the precedence the
-// analyzer's coherence check holds (debugEffectiveCollisionGroup): a REPL
-// input may derive Debug for a type an earlier input declared, whose file
-// holds the universal one.
-//
-// One function so the two readers cannot drift. They ask different questions of
-// the same rule — "is my local answer rivalled?" and "which sibling do I
-// call?" — and a rule spelled out at each of them would let the two drift.
+// writtenImplMembers is the sites whose block has the best precedence the
+// checker ranks impl blocks by (analysis.BestImplPrecedence): a written
+// block over a derived one over the name-only Debug the front end writes
+// for an opaque or a host type, so a synthesized impl is a fallback, not a
+// candidate beside a written one. A REPL input may derive Debug for an
+// opaque type an earlier input declared, whose file holds the name-only
+// one, and the checker's record of a call at the type names the derived
+// block by the same ranking. The name-only Debug of an opaque type
+// declared in a body is ranked by its block, which the front end writes in
+// the synthesized band as it writes a module-level one.
 func writtenImplMembers(sites []implMemberSite) []implMemberSite {
-	written := make([]implMemberSite, 0, len(sites))
-	for _, s := range sites {
-		if !s.synth {
-			written = append(written, s)
-		}
-	}
-	if len(written) > 0 {
-		return written
-	}
-	derived := make([]implMemberSite, 0, len(sites))
-	for _, s := range sites {
-		if !s.auto {
-			derived = append(derived, s)
-		}
-	}
-	if len(derived) == 0 {
-		return sites
-	}
-	return derived
-}
-
-// autoSynthImpl reports whether ib is the universal Debug impl the front end
-// synthesized (analysis.SynthesizeUniversalDebug): every function it holds
-// is marked AutoSynth.
-func autoSynthImpl(ib *ast.ImplBlock) bool {
-	if ib == nil || len(ib.Items) == 0 {
-		return false
-	}
-	for _, item := range ib.Items {
-		fd, ok := item.(*ast.FuncDef)
-		if !ok || !fd.AutoSynth {
-			return false
-		}
-	}
-	return true
+	return analysis.BestImplPrecedence(sites, func(s implMemberSite) *ast.ImplBlock { return s.block })
 }
 
 // implMemberFunc projects one impl function onto what a call in ANOTHER FILE
 // may do with it.
 //
 // A *fileFunc and not a new shape, because the cross-file call path already
-// reads one: qualSiblingImplPlan translates the declaring unit's kinds into
+// reads one: siblingSitePlan translates the declaring unit's kinds into
 // the caller's before it compares the signature. An impl function's receiver
 // is an ordinary parameter in whatever position the signature put it
 // (implFunc), so nothing is added for it.
@@ -306,14 +268,23 @@ func implMemberFunc(d *implDef, it *implItem) *fileFunc {
 		if f.why == "" {
 			f.why = "call to an unlowered impl"
 		}
-	case d.ifaceName == "" && !it.public:
-		// An INHERENT impl function without `pub` is file-private, and the
-		// analyzer says so: "type 'Widget' has no member 'hidden'". So no such
-		// call can reach the builder and this arm is a fence rather than a
-		// route — see implItem.public for the measurement, and
-		// fileFuncShell for the same fence over a free function. An INTERFACE
-		// impl function carries no `pub` and is deliberately not checked.
+	case fileOwnFunc(d, it.public):
+		// See fileOwnFunc: no call another file writes reaches it, so this
+		// arm is a fence rather than a route — see implItem.public for the
+		// measurement, and fileFuncShell for the same fence over a free
+		// function.
 		f.why = "private sibling file impl function"
 	}
 	return f
+}
+
+// fileOwnFunc reports whether a function of block d, public or not, is its
+// file's own, which no call in another file reaches: an INHERENT impl
+// function without `pub`, which the analyzer refuses from elsewhere ("type
+// 'Widget' has no member 'hidden'"). An INTERFACE impl function carries no
+// `pub` and is not one, and neither is one of a block the front end writes
+// (a private subtype's `try_from`), which the builder calls where a reader
+// in another module checks a value of the subtype (subtyperead.go).
+func fileOwnFunc(d *implDef, public bool) bool {
+	return d.ifaceName == "" && !public && (d.decl == nil || d.decl.SynthOriginLine == 0)
 }

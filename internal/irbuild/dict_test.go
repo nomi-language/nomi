@@ -78,10 +78,11 @@ func TestDict_AnAliasedTypeImportDispatchesToItsImpl(t *testing.T) {
 	}
 }
 
-// A bounded generic lowers only as instances. Its erased body has no IR, and
-// funcDecl does not attempt one, so the program records no decline for it
-// (std/parse's `read_fields` is lowered with every listed module that
-// imports it, and TestProgramStdModulesQualify fails on any decline).
+// A bounded generic runs only as instances. Its body under the seam's
+// signature is its abstract body, which funcDecl only queues for the effect
+// walk (abstract.go), so the program records no decline for it (std/parse's
+// `read_fields` is lowered with every listed module that imports it, and
+// TestProgramStdModulesQualify fails on any decline).
 func TestDict_TheErasedBodyIsNotLoweredOrDeclined(t *testing.T) {
 	p, err := AnalyzeSource("loud.nomi", `interface Shout
     fn shout(v: self) -> String

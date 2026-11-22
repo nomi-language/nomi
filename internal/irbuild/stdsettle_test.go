@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/frontend"
 )
@@ -54,8 +55,8 @@ import (
 //   - The operator path then needs a receiver that is inside the std scalar
 //     subset and is NOT lowered natively. A module-declared
 //     `pub type Meters Int` is `stdlib function outside the scalar subset` in
-//     every position, because stdTypeKind admits a distinct only through an
-//     opaqueSpecs anchor and a synthetic module has none. `Int` is inside the
+//     every position, because a distinct has a shared kind only through an
+//     opaqueSpecs row and a synthetic module's has none. `Int` is inside the
 //     subset and its `+` is native, so it never reaches the sibling scope.
 //
 // So the only witness is the REAL stdlib, where the Nomi-bodied
@@ -97,8 +98,7 @@ func stdSettleLowerUnlowered(t *testing.T, src string, unmark bool) (map[string]
 	}
 	empty := &stdlibIndex{
 		byType:    map[string][]*stdFunc{},
-		byFile:    map[string]*stdFunc{},
-		byIface:   map[string]map[kind][]*stdFunc{},
+		byIface:   map[analysis.StdFunc]map[kind][]*stdFunc{},
 		modulePkg: map[string]string{},
 		byKey:     map[string]*stdFunc{},
 		byOnce:    map[string]*stdOnce{},
@@ -210,7 +210,7 @@ end
 
 /// A struct this module declares, which is PERMANENTLY outside the scalar
 /// boundary: its kind identity is a *typeDef belonging to this generated
-/// package, which is the whole reason the boundary exists (see stdTypeKind).
+/// package, which is the whole reason the boundary exists (see projectShared).
 /// Chosen for the unsettleable rows precisely because it cannot stop being
 /// unsettleable when the builder learns to lower some other construct; a fixture
 /// whose negative row can silently become vacuous is worse than no fixture.

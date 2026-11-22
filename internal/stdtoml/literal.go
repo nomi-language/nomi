@@ -1,8 +1,10 @@
 // Package stdtoml is std/toml's host implementation: what a `Toml"..."`
-// literal's check and build need. Check reads the literal's static text,
-// finds where each `${...}` slot stands, and reads the text as TOML with a
-// stand-in for each slot (github.com/BurntSushi/toml, TOML 1.1). Build
-// writes each slot's TOML for where it stands.
+// literal's check and build need, and reading a TOML document into values.
+// Check reads the literal's static text, finds where each `${...}` slot
+// stands, and reads the text as TOML with a stand-in for each slot
+// (github.com/BurntSushi/toml, TOML 1.1). Build writes each slot's TOML for
+// where it stands. Decode reads a document with the same reader and lists
+// its values for std/toml to rebuild as a `Toml.Value` tree (decode.go).
 //
 // A slot stands for a whole key or a whole value. A key slot is one key
 // part: at the start of a line, after a `.` in a dotted key, after `[` or
@@ -407,18 +409,35 @@ func validate(statics []string, ps []place) *refusal {
 		b.WriteString(text)
 	}
 	doc := b.String()
-	var into map[string]any
-	_, err := toml.Decode(doc, &into)
-	if err == nil {
+	_, _, failure := read(doc)
+	if failure == nil {
 		return nil
+	}
+	fragment, offset := locate(statics, ps, failure.offset)
+	return &refusal{fragment, offset, failure.message}
+}
+
+// failure is why a document is not TOML: the code point offset into it where
+// reading stopped, and the reader's message.
+type failure struct {
+	offset  int
+	message string
+}
+
+// read reads doc as TOML: what a literal's text is checked by and what
+// std/toml's `decode` reads.
+func read(doc string) (map[string]any, toml.MetaData, *failure) {
+	var into map[string]any
+	md, err := toml.Decode(doc, &into)
+	if err == nil {
+		return into, md, nil
 	}
 	var pe toml.ParseError
 	if !errors.As(err, &pe) {
-		return &refusal{0, 0, err.Error()}
+		return nil, md, &failure{0, err.Error()}
 	}
 	start := min(max(pe.Position.Start, 0), len(doc))
-	fragment, offset := locate(statics, ps, utf8.RuneCountInString(doc[:start]))
-	return &refusal{fragment, offset, pe.Message}
+	return nil, md, &failure{utf8.RuneCountInString(doc[:start]), pe.Message}
 }
 
 // locate turns a code point offset into the validated text into the static
@@ -440,9 +459,9 @@ func locate(statics []string, ps []place, at int) (int, int) {
 	return 0, 0
 }
 
-// FFICheck is std/toml's `check`: fragment -1 when the statics are a TOML
+// HostCheck is std/toml's `check`: fragment -1 when the statics are a TOML
 // literal, else the static, code point offset and message of the refusal.
-func FFICheck(statics []string) (fragment, offset int64, message string) {
+func HostCheck(statics []string) (fragment, offset int64, message string) {
 	r := check(statics)
 	if r == nil {
 		return -1, 0, ""
@@ -450,12 +469,12 @@ func FFICheck(statics []string) (fragment, offset int64, message string) {
 	return int64(r.fragment), int64(r.offset), r.message
 }
 
-// FFIBuild is std/toml's `build`: the statics with each slot's TOML between
+// HostBuild is std/toml's `build`: the statics with each slot's TOML between
 // them, written as a key where the slot stands for a key. slots holds each
 // slot's `Toml.Value` as std/toml's `Toml.Value.text` writes it, never text
 // a program wrote: a `String` is one basic string, which a key slot writes
 // as it is, and any other value is quoted as a key.
-func FFIBuild(statics, slots []string) string {
+func HostBuild(statics, slots []string) string {
 	// check accepted the statics before the program ran.
 	ps, _ := places(statics)
 	var b strings.Builder
@@ -463,7 +482,7 @@ func FFIBuild(statics, slots []string) string {
 		if i > 0 && i-1 < len(slots) {
 			v := slots[i-1]
 			if i-1 < len(ps) && ps[i-1] == placeKey && !isBasicString(v) {
-				v = FFIQuote(v)
+				v = HostQuote(v)
 			}
 			b.WriteString(v)
 		}
@@ -491,9 +510,9 @@ func isBasicString(text string) bool {
 	return false
 }
 
-// FFIQuote is text as a TOML basic string: `"` and `\` escaped, and every
+// HostQuote is text as a TOML basic string: `"` and `\` escaped, and every
 // control character written as an escape.
-func FFIQuote(text string) string {
+func HostQuote(text string) string {
 	var b strings.Builder
 	b.WriteByte('"')
 	for _, r := range text {
@@ -526,10 +545,10 @@ func FFIQuote(text string) string {
 	return b.String()
 }
 
-// FFIFloat is value as a TOML float: `inf`, `-inf` and `nan` for those, and
+// HostFloat is value as a TOML float: `inf`, `-inf` and `nan` for those, and
 // otherwise the shortest text that reads back as value, with a `.0` when it
 // would otherwise read as an integer.
-func FFIFloat(value float64) string {
+func HostFloat(value float64) string {
 	switch {
 	case math.IsNaN(value):
 		return "nan"

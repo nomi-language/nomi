@@ -1,12 +1,15 @@
 //# The Go-backed half of std::fs and std::fs::testing: each crossing into
-//# the file system the running call reaches (internal/stdio). It is
-//# internal; a program imports std::fs, which builds its values from these
-//# and gives them their documentation.
+//# a file system (internal/stdio). It is internal; a program imports
+//# std::fs, which builds its values from these and gives them their
+//# documentation. Every crossing but `here` acts through the file system it
+//# is handed: the one the running call reaches, which `here` answers, or the
+//# one a `Dir` holds.
 
 import
     bool.Bool
     bytes.Bytes
-    int.{Int, Int64}
+    duration.Duration
+    int.{Int, Int64, NonNegativeInt}
     io.{Error, File, Reader, Writer}
     lists.List
     maps.Map
@@ -15,73 +18,99 @@ import
     unit.Unit
 end
 
+/// The file system the running call reaches: the operating system's, the
+/// browser's, or what `std::fs::testing.run` or `fs.within` replaced it
+/// with.
+pub host fn here() -> FileSystem
+
 /// The whole file at `path`.
-pub host fn read(path: String) -> Result<Bytes, Error>
+pub host fn read(files: FileSystem, path: String) -> Result<Bytes, Error>
 
 /// The whole file at `path` as text.
-pub host fn read_text(path: String) -> Result<String, Error>
+pub host fn read_text(files: FileSystem, path: String) -> Result<String, Error>
 
 /// `data` into `path`, in the write mode at position `mode` of
 /// `fs.WriteMode` (Replace 0, ReplaceAtomically 1, Append 2, New 3).
-pub host fn write(path: String, data: Bytes, mode: Int64) -> Result<Unit, Error>
+pub host fn write(files: FileSystem, path: String, data: Bytes, mode: Int64) -> Result<Unit, Error>
 
 /// A reader over the file at `path`.
-pub host fn open(path: String) -> Result<Reader, Error>
+pub host fn open(files: FileSystem, path: String) -> Result<Reader, Error>
 
 /// A writer over the file at `path`, in the write mode at position `mode`.
-pub host fn create(path: String, mode: Int64) -> Result<Writer, Error>
+pub host fn create(files: FileSystem, path: String, mode: Int64) -> Result<Writer, Error>
 
 /// The entries of `dir`, sorted by name, each its kind's letter (`f`, `d`,
 /// `l`, `o`) and its name, or `!` and the name with U+FFFD for each bad
 /// sequence when it is not UTF-8.
-pub host fn list(dir: String) -> Result<List<String>, Error>
+pub host fn list(files: FileSystem, dir: String) -> Result<List<String>, Error>
 
-pub host fn create_dir(path: String, parents: Bool) -> Result<Unit, Error>
+pub host fn create_dir(files: FileSystem, path: String, parents: Bool) -> Result<Unit, Error>
 
-pub host fn remove(path: String) -> Result<Unit, Error>
+pub host fn remove(files: FileSystem, path: String) -> Result<Unit, Error>
 
-pub host fn remove_all(path: String) -> Result<Unit, Error>
+pub host fn remove_all(files: FileSystem, path: String) -> Result<Unit, Error>
 
-pub host fn rename(from: String, to: String) -> Result<Unit, Error>
+/// The entries of the directory `dir`, made durable.
+pub host fn sync_dir(files: FileSystem, dir: String) -> Result<Unit, Error>
 
-pub host fn copy(from: String, to: String) -> Result<Unit, Error>
+pub host fn rename(files: FileSystem, from: String, to: String) -> Result<Unit, Error>
+
+pub host fn copy(files: FileSystem, from: String, to: String) -> Result<Unit, Error>
 
 /// The kind's position in `fs.Kind`, the size, the modification time in
 /// nanoseconds since the Unix epoch, and the permission bits.
-pub host fn metadata(path: String) -> Result<List<Int>, Error>
+pub host fn metadata(files: FileSystem, path: String) -> Result<List<Int>, Error>
 
 /// As `metadata`, describing a symlink at `path` as itself.
-pub host fn link_metadata(path: String) -> Result<List<Int>, Error>
+pub host fn link_metadata(files: FileSystem, path: String) -> Result<List<Int>, Error>
 
 /// A symlink at `path` whose target is `target`.
-pub host fn create_symlink(path: String, target: String) -> Result<Unit, Error>
+pub host fn create_symlink(files: FileSystem, path: String, target: String) -> Result<Unit, Error>
 
 /// The target of the symlink at `path`.
-pub host fn read_link(path: String) -> Result<String, Error>
+pub host fn read_link(files: FileSystem, path: String) -> Result<String, Error>
 
 /// The permission bits of what `path` names become `mode`.
-pub host fn set_mode(path: String, mode: Int) -> Result<Unit, Error>
+pub host fn set_mode(files: FileSystem, path: String, mode: Int) -> Result<Unit, Error>
 
 /// A file on `path` for reads and writes at a position, opened as the
 /// access at position `access` of `fs.Access` (Read 0, ReadWrite 1,
 /// Create 2).
-pub host fn open_file(path: String, access: Int64) -> Result<File, Error>
+pub host fn open_file(files: FileSystem, path: String, access: Int64) -> Result<File, Error>
 
-/// The file system the running call reaches, confined to `dir`.
-pub host fn within(dir: String) -> Result<FileSystem, Error>
+/// The handle's lock on `length` bytes of `f` from `start` (0: every byte
+/// from `start` on) becomes the mode at position `mode` (0 unlocks, 1 is
+/// `fs.LockMode.Shared` and 2 `Exclusive`). False when another handle's lock
+/// conflicts and `wait` has passed; a `wait` of 0 asks once.
+pub host fn lock(
+    f:      File,
+    mode:   Int64,
+    start:  NonNegativeInt,
+    length: NonNegativeInt,
+    wait:   Duration,
+) -> Result<Bool, Error>
 
-/// Lets go of a file system `within` made.
+/// `files` confined to the directory `dir`: what a `Dir` holds.
+pub host fn within(files: FileSystem, dir: String) -> Result<FileSystem, Error>
+
+/// Lets go of a file system `within` made; a call through it after is
+/// `Closed`.
 pub host fn release(files: FileSystem) -> Unit
 
-pub host fn temp_dir() -> String
+pub host fn temp_dir(files: FileSystem) -> String
 
 /// A fresh directory under the temporary directory.
-pub host fn make_temp_dir() -> Result<String, Error>
+pub host fn make_temp_dir(files: FileSystem) -> Result<String, Error>
 
-pub host fn current_dir() -> Result<String, Error>
+/// A directory, or an empty file when `directory` is false, made with a
+/// fresh name in the directory `files` reaches, and its name.
+pub host fn make_temp(files: FileSystem, directory: Bool) -> Result<String, Error>
+
+pub host fn current_dir(files: FileSystem) -> Result<String, Error>
 
 /// A file system a call runs against: an in-memory one for
-/// `std::fs::testing.run`, or a directory `fs.within` confines a call to.
+/// `std::fs::testing.run`, a directory a `Dir` holds, or the one the
+/// running call reaches.
 pub host type FileSystem
 
 /// A sandbox whose working directory is `cwd`, holding `files`, `dirs`

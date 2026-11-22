@@ -26,6 +26,10 @@ type ResolvedCall struct {
 	// Piped marks a pipe stage, whose head fills the slot marked
 	// SlotPiped.
 	Piped bool
+	// NeverReturns marks a call that never returns: std's `Iter.loop`
+	// whose callback cannot end it (loopNeverBreaks). Nothing after it
+	// runs, and nothing reads its value.
+	NeverReturns bool
 }
 
 // SlotFill is what fills one parameter of a call.
@@ -153,7 +157,9 @@ func positionalSlots(args []ast.Node, piped int, paramNames []string, params []T
 // routing (positionalSlots, moved by routeAroundSeed for a stateless loop),
 // piped whether a pipe's head fills the first parameter, and params the
 // callee's parameter types. A callee with no function in view behind it
-// has no defaults (calleeOf).
+// has no defaults (calleeOf). The record also says whether the call never
+// returns (NeverReturns), which the block around it reads as it is checked
+// (blockResult) and the unreachable-code rule reads once the file is.
 func (c *checker) recordPlacement(call *ast.Call, args []ast.Node, slots []int, piped bool, params []Type) {
 	if c.fa == nil || call == nil {
 		return
@@ -183,6 +189,7 @@ func (c *checker) recordPlacement(call *ast.Call, args []ast.Node, slots []int, 
 	if seed := c.statelessLoopSlot(call); seed >= 0 && seed < len(params) && rc.Slots[seed].Fill == SlotUnfilled {
 		rc.Slots[seed].Fill = SlotNone
 	}
+	rc.NeverReturns = c.loopNeverBreaks(call)
 	c.recordCall(call, rc)
 	ci := c.calleeOf(call.Func)
 	if len(ci.params) != len(params) {

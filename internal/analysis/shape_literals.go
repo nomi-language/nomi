@@ -74,9 +74,7 @@ func (c *checker) resolveShapeTarget(te ast.TypeExpr, line, col int, spelled, sh
 			name, shape, what, spelled, name, form))
 		return shapeTarget{}, false
 	}
-	if dt.Opaque && (c.fa == nil || !c.fa.inside(dt.OwningSourceFile)) {
-		c.addError(line, col, fmt.Sprintf(
-			"constructor of opaque type '%s' is private to its defining module — use an exported constructor function", dt.Name))
+	if c.refuseOpaqueConstruction(line, col, dt, "") {
 		return shapeTarget{}, false
 	}
 	dt = c.freshDistinct(dt)
@@ -254,7 +252,7 @@ func (c *checker) checkVectorPattern(n *ast.ListPattern, expectedTy Type) {
 			c.checkPattern(rest, vec)
 		} else if n.BareRest {
 			// A bare `..` matches the elements between, and binds nothing.
-			c.fa.recordPatternType(n.TailSpread, vec)
+			c.recordPattern(n.TailSpread, vec)
 		}
 		for _, t := range n.Tails {
 			c.checkPattern(t, elem)
@@ -329,6 +327,6 @@ func (c *checker) checkSetPattern(n *ast.ListPattern, expectedTy Type) {
 		c.checkPattern(rest, set)
 	} else if n.BareRest {
 		// A bare `..` matches the other elements, and binds nothing.
-		c.fa.recordPatternType(n.TailSpread, set)
+		c.recordPattern(n.TailSpread, set)
 	}
 }

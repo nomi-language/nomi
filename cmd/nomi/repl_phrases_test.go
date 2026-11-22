@@ -106,7 +106,6 @@ func TestReplVM_EveryTopLevelDeclarationIsADeclaration(t *testing.T) {
 		"derive Debug for P",
 		"import std::io",
 		"import\n    std::io\n    std::uuid\nend",
-		"gopkg \"strings\" as strs",
 		"test \"t\"\n    assert 1 == 1\nend",
 		"group \"g\"\n    test \"t\"\n        assert 1 == 1\n    end\nend",
 		"once x: Int = 1",
@@ -146,7 +145,7 @@ func TestReplVM_EveryTopLevelDeclarationIsADeclaration(t *testing.T) {
 	}
 	for _, n := range []ast.Node{&ast.FuncDef{}, &ast.ExternFunc{}, &ast.StructDef{}, &ast.EnumDef{}, &ast.TypeDef{}, &ast.TypeAlias{},
 		&ast.InterfaceDef{}, &ast.ExternType{}, &ast.ImplBlock{}, &ast.ImplConformance{}, &ast.ImportStmt{}, &ast.ImportBlock{},
-		&ast.ExternPackage{}, &ast.TestDecl{}, &ast.OnceBinding{}, &ast.EmbedDecl{}, &ast.KeywordDecl{}} {
+		&ast.TestDecl{}, &ast.OnceBinding{}, &ast.EmbedDecl{}, &ast.KeywordDecl{}} {
 		if !seen[fmt.Sprintf("%T", n)] {
 			t.Errorf("no case parses to a %T", n)
 		}

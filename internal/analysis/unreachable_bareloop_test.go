@@ -6,7 +6,7 @@ import "testing"
 // resolves to it, whatever the local spelling: `loop` from a selective import
 // and `forever` from an aliased one both never break.
 func TestUnreachable_BareLoopResolvedBySymbol(t *testing.T) {
-	errs := buildErrsWithStdlib(t, `import std::iter.Iter.{loop, loop as forever}
+	errs := unreachableCheck(t, `import std::iter.Iter.{loop, loop as forever}
 
 fn bare()
   loop(fn ->
@@ -61,7 +61,7 @@ end
 // A local function named `loop` is not std's `Iter.loop`: a call to it is an
 // ordinary call, and the statement after it runs.
 func TestUnreachable_LocalFunctionNamedLoopIsACall(t *testing.T) {
-	errs := buildErrsWithStdlib(t, `
+	errs := unreachableCheck(t, `
 fn loop(f: () -> Unit)
   f()
 end

@@ -7,6 +7,16 @@ vim.g.loaded_nomi = true
 require('nomi.filetype').register()
 vim.treesitter.language.register('nomi', 'nomi')
 
+-- nomi-lsp's `effect` modifier marks code that has effects (a call that
+-- reads a file, a function that can): bold, on top of the token's own
+-- colour. `default` leaves a user's own definition alone, and a
+-- colorscheme that clears highlights gets it again.
+local function define_effect()
+  vim.api.nvim_set_hl(0, '@lsp.mod.effect.nomi', { bold = true, default = true })
+end
+define_effect()
+vim.api.nvim_create_autocmd('ColorScheme', { callback = define_effect })
+
 -- Opt out with `vim.g.nomi_lsp = false` before this plugin loads.
 if vim.g.nomi_lsp ~= false then
   vim.lsp.enable('nomi')

@@ -198,3 +198,161 @@ end
 		t.Fatalf("got %q; want one error starting %q", got, want)
 	}
 }
+
+// workerNewBecause is the reason every call or naming of std::jobs's
+// Worker.new gives: its chain is its own call of Supervisor.new.
+const workerNewBecause = "`Worker.new` creates a supervisor \\(`Supervisor.new` at jobs.nomi:\\d+\\), "
+
+// A std boot-only function the program reaches only from code that runs
+// outside boot is reported where that code calls or names it, as the spec
+// says: no function of the program need call it in boot for the check to
+// know it is boot-only.
+func TestBootOnly_AStdBootOnlyFunctionReachedOnlyOutsideBootIsRejected(t *testing.T) {
+	callMessage := "so it can only be called while `boot` builds the app value, in boot or in something boot calls"
+	for _, c := range []struct {
+		name, src string
+		want      []string
+	}{
+		{
+			name: "a lambda in a pub function",
+			src: `import
+    std::jobs.Worker
+    std::jobs::testing.Inline
+end
+
+fn main()
+    Unit
+end
+
+pub fn later() -> List<Worker>
+    [1, 2] |> Iter.map(fn _ -> Worker.new(Inline.new(), max_running: 2)) |> Iter.to_list()
+end
+`,
+			want: []string{"^main.nomi:11:42: " + workerNewBecause + callMessage},
+		},
+		{
+			name: "a test body",
+			src: `import
+    std::jobs.Worker
+    std::jobs::testing.Inline
+end
+
+fn main()
+    Unit
+end
+
+test "a worker"
+    w = Worker.new(Inline.new(), max_running: 2)
+    assert Worker.id(w) != ""
+end
+`,
+			want: []string{"^main.nomi:11:19: " + workerNewBecause + callMessage},
+		},
+		{
+			name: "a capture",
+			src: `import std::jobs.{Queue, Worker}
+
+fn main()
+    Unit
+end
+
+pub fn later(queues: List<Queue>) -> List<Worker>
+    queues |> Iter.map(&Worker.new(&1, max_running: 2)) |> Iter.to_list()
+end
+`,
+			want: []string{"^main.nomi:8:35: " + workerNewBecause + callMessage},
+		},
+		{
+			name: "a function value",
+			src: `import std::jobs.Worker
+
+fn main()
+    make = Worker.new
+    _ = make
+end
+`,
+			want: []string{"^main.nomi:4:19: " + workerNewBecause + "so it cannot be passed as a value"},
+		},
+		{
+			name: "a test body through the program's own helper",
+			src: `import
+    std::jobs.Worker
+    std::jobs::testing.Inline
+end
+
+fn main()
+    Unit
+end
+
+pub fn make_worker() -> List<Worker>
+    [1] |> Iter.map(fn _ -> Worker.new(Inline.new(), max_running: 2)) |> Iter.to_list()
+end
+
+pub fn first_worker() -> Worker
+    Worker.new(Inline.new(), max_running: 2)
+end
+
+test "a worker through a helper"
+    w = first_worker()
+    assert Worker.id(w) != ""
+end
+`,
+			want: []string{
+				"^main.nomi:11:39: " + workerNewBecause + callMessage,
+				"^main.nomi:19:21: `first_worker` creates a supervisor \\(through `Worker.new` at main.nomi:15, then `Supervisor.new` at jobs.nomi:\\d+\\), " + callMessage,
+			},
+		},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			got := checkShop(t, map[string]string{"main.nomi": c.src})
+			if len(got) == 0 {
+				t.Fatalf("the program is admitted; want %d errors matching %q", len(c.want), c.want)
+			}
+			if len(got) != len(c.want) {
+				t.Fatalf("got %q; want %d errors matching %q", got, len(c.want), c.want)
+			}
+			for i, w := range c.want {
+				if !regexp.MustCompile(w).MatchString(got[i]) {
+					t.Errorf("error %d is %q; want one matching %s", i, got[i], w)
+				}
+			}
+		})
+	}
+}
+
+// A group's boot line builds the app in boot, so a worker the entry's boot
+// makes is no error, and neither is a test's call of the entry boot.
+func TestBootOnly_AWorkerMadeByTheEntryBootIsAcceptedInTests(t *testing.T) {
+	got := checkShop(t, map[string]string{
+		"main.nomi": `import
+    std::jobs.{Queue, Worker}
+    std::jobs::testing.Inline
+end
+
+` + bootOnlyAppType + `pub fn boot() -> Result<App, String>
+    queue: Queue = Inline.new()
+    Ok(App{context: Context.root(), queue:, worker: Worker.new(queue, max_running: 2)})
+end
+
+fn main()
+    Worker.start(App.worker, [])!
+end
+
+group "the booted worker"
+    boot boot()
+
+    test "has an id"
+        assert Worker.id(App.worker) != ""
+    end
+end
+
+test "boot builds a worker"
+    app = boot()!
+    assert Worker.id(app.worker) != ""
+end
+`,
+	})
+	if len(got) != 0 {
+		t.Fatalf("the program is rejected: %q", got)
+	}
+}

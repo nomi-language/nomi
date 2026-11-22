@@ -34,14 +34,15 @@ fn node(text: List<Codepoint>) -> Result<(Tree, List<Codepoint>), Error>
     [';', ..rest] = text else return Err(.TreeWithNoNodes)
     (properties, rest) = read_properties(rest, {})?
 
-    (children, rest) = case rest
-        [';', ..] ->
-            (child, rest) = node(rest)?
-            ([child], rest)
+    (children, rest) =
+        case rest
+            [';', ..] ->
+                (child, rest) = node(rest)?
+                ([child], rest)
 
-        _ ->
-            variations(rest, [])?
-    end
+            _ ->
+                variations(rest, [])?
+        end
 
     Ok((Tree{properties:, children:}, rest))
 end

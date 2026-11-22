@@ -6,7 +6,11 @@ import (
 )
 
 // calleeTypeArgs is the type arguments the checker instantiated the generic
-// callee named at ref at, one kind per name in names, in this gen's kinds.
+// callee named at ref at, one kind per name in names, in this gen's kinds,
+// and each as the checker's type too, which an instance the call makes
+// carries (substFrame): the recorded type with the enclosing instances'
+// types put for their type parameters (checkerTypeArg), or the enclosing
+// instance's type for a parameter that is its own; nil where that has none.
 // ref is a call's callee node (t.Func) or a function used as a value; the
 // checker records its instantiation at the name (calleeRefPos), and
 // analysis.CallTypeArgs reads each type argument off it. Every generic
@@ -23,29 +27,14 @@ import (
 // enclosing declaration's own (VerifyElaboration's rule: `compare(ta, tb)`
 // inside `impl Comparable for Vector<T>`'s compare), so each argument is
 // that parameter in the frame.
-func (g *gen) calleeTypeArgs(ref ast.Node, names []string) ([]kind, bool) {
-	ks, _, ok := g.calleeTypeArgsOf(ref, names, false)
-	return ks, ok
-}
-
-// calleeTypedArgs is calleeTypeArgs with each argument as the checker's
-// type too, which an instance the call makes carries (substFrame): the
-// recorded type with the enclosing instances' types put for their type
-// parameters (checkerTypeArg), or the enclosing instance's type for a
-// parameter that is its own; nil where that has none.
-func (g *gen) calleeTypedArgs(ref ast.Node, names []string) ([]kind, []analysis.Type, bool) {
-	return g.calleeTypeArgsOf(ref, names, true)
-}
-
-func (g *gen) calleeTypeArgsOf(ref ast.Node, names []string, typed bool) ([]kind, []analysis.Type, bool) {
+func (g *gen) calleeTypeArgs(ref ast.Node, names []string) ([]kind, []analysis.Type, bool) {
 	if len(names) == 0 {
 		return nil, nil, true
 	}
 	if g.fa == nil || ref == nil {
 		panic("irbuild: calleeTypeArgs: the builder lowers only checked programs, and every caller passes a callee node")
 	}
-	line, col := calleeRefPos(ref)
-	sym := g.srcFA().References[analysis.Pos{Line: line, Col: col}]
+	sym := g.calleeRef(ref)
 	if sym == nil {
 		// The checker records a reference for every callee and every name
 		// used as a value (analysis package doc, "Elaboration").
@@ -53,22 +42,17 @@ func (g *gen) calleeTypeArgsOf(ref ast.Node, names []string, typed bool) ([]kind
 	}
 	types := analysis.CallTypeArgs(sym)
 	out := make([]kind, len(names))
-	var checked []analysis.Type
-	if typed {
-		checked = make([]analysis.Type, len(names))
-	}
+	checked := make([]analysis.Type, len(names))
 	for i, name := range names {
 		var k kind
 		if t, found := types[name]; found {
 			k = g.project(t)
-			if typed {
-				checked[i] = g.checkerTypeArg(t)
-			}
+			checked[i] = g.checkerTypeArg(t)
 		} else if sym.CallType != nil {
 			return nil, nil, false
 		} else if k, found = g.genericSubstKind(name); !found {
 			return nil, nil, false
-		} else if typed {
+		} else {
 			checked[i], _ = g.genericSubstType(name)
 		}
 		if k != kindUnit && !irCallableValueKind(k) {
@@ -83,7 +67,7 @@ func (g *gen) calleeTypeArgsOf(ref ast.Node, names []string, typed bool) ([]kind
 // (a call's callee, or the function used as a value) names: tpl at the type
 // arguments the checker instantiated it at.
 func (g *gen) monoInstanceAt(ref ast.Node, tpl *monoTemplate, name string) (*monoInst, bool) {
-	args, types, ok := g.calleeTypedArgs(ref, tpl.params)
+	args, types, ok := g.calleeTypeArgs(ref, tpl.params)
 	if !ok {
 		return nil, false
 	}

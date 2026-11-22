@@ -45,10 +45,10 @@ func TestBootCleanupAttemptsAllInReverseOrder(t *testing.T) {
 func TestScopedContextDoesNotChangeParent(t *testing.T) {
 	fr := NewFrame(context.Background())
 	child := EnterContext(fr, ContextRoot())
-	if fr.scopedContext != nil || child.scopedContext == nil {
+	if fr.app != nil || child.app == nil || child.app.context == nil {
 		t.Fatal("context override mutated parent")
 	}
-	if EnterScope(child).scopedContext != child.scopedContext {
+	if EnterScope(child).app != child.app {
 		t.Fatal("scope lost context")
 	}
 }

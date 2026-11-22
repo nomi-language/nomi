@@ -30,40 +30,31 @@ func (bl *irScalarBuilder) turbofishOnInterface(t *ast.Call) bool {
 	return declared
 }
 
-// turbofishDispatch lowers `Iface.method<T>(args)` whose type argument names
-// a concrete, non-generic type as the type-qualified `T.method(args)`: the
-// type argument is what selects the impl (`FromJson.from_json<Int>(json)`
-// declares Self only in its result), and naming T as the owner selects the
-// same one. A generic type argument (`List<Int>`) needs an instance of a
-// generic impl and declines. The caller has asked turbofishOnInterface.
-func (bl *irScalarBuilder) turbofishDispatch(t *ast.Call) (ir.Temp, kind, bool, bool) {
-	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
+// turbofishDispatch lowers `Iface.method<T>(args)` as the call at T, the
+// type argument, which is what selects the impl
+// (`FromJson.from_json<Int>(json)` declares Self only in its result): a
+// scalar's or a declared type's impl, or a generic std container's
+// instantiated at the argument's components (stdKindQualCall). At a
+// scalar, handled is false: the call is lowered as written, planned from
+// its record, which names the scalar's impl. A type argument none of
+// those answers declines. The caller has asked turbofishOnInterface.
+func (bl *irScalarBuilder) turbofishDispatch(t *ast.Call) (ir.Temp, kind, bool, bool, bool) {
+	no := func() (ir.Temp, kind, bool, bool, bool) { return ir.NoTemp, kindInvalid, false, false, true }
 	if len(t.TypeArgs) != 1 {
 		return no()
 	}
 	fa := t.Func.(*ast.FieldAccess)
-	// kindInvalid: lookup — an argument with no kind falls through to the spelled-owner route below.
+	// kindInvalid: lookup — an argument with no kind declines.
 	if k := bl.g.typeOf(t.TypeArgs[0]); k != kindInvalid {
-		// The type argument's own impl: a scalar or a local type spelled as
-		// its type-qualified call, or a generic std container's impl
-		// instantiated at the argument's components.
 		// The checker's type of the argument is the type the call is for.
 		if v, rk, mobile, ok, handled := bl.stdKindQualCall(t, k, bl.g.checkerTypeArg(bl.g.calleeOf(t).For), fa.Field.Name); handled {
-			return v, rk, mobile, ok
+			return v, rk, mobile, ok, true
+		}
+		if irScalarLeafKind(k) {
+			return ir.NoTemp, kindInvalid, false, false, false
 		}
 	}
-	st, simple := t.TypeArgs[0].(*ast.SimpleType)
-	if !simple {
-		return no()
-	}
-	owner := &ast.TypeIdent{Name: st.Name, Line: st.Line, Col: st.Col}
-	call := *t
-	call.TypeArgs = nil
-	call.Func = &ast.FieldAccess{Object: owner, Field: fa.Field, Line: fa.Line, Col: fa.Col}
-	// The copy is qualified with the type argument, as the checker
-	// resolved the name at its position.
-	defer bl.g.carryCall(&call, bl.g.respelledCallOf(t, bl.g.srcFA().CalleeOf(call.Func).Qualifier))()
-	return bl.lower(&call)
+	return no()
 }
 
 // returnSelfDispatch lowers `Iface.method(args)` whose method declares self
@@ -83,9 +74,9 @@ func (bl *irScalarBuilder) returnSelfDispatch(t *ast.Call) (ir.Temp, kind, bool,
 	if !isType {
 		return no()
 	}
-	// The interface spelling only: stdKindQualCall re-lowers the call with
-	// the solved type as its owner at the same position, and that call must
-	// not come back here.
+	// The interface spelling only: stdKindQualCall lowers the call at the
+	// solved type, and a call qualified with that type does not come back
+	// here.
 	owner := bl.g.srcFA().References[analysis.Pos{Line: ti.Line, Col: ti.Col}]
 	if owner == nil || owner.Kind != analysis.SymbolInterface || owner.Name != ti.Name {
 		return no()

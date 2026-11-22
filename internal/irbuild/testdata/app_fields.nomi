@@ -100,11 +100,11 @@ group "app fields"
         assert middle() == "booted"
     end
 
-    test "a closure does not carry the override it was made under"
+    test "a closure keeps the override it was made under"
         f = closure()
-        assert f() == "booted"
+        assert f() == "made"
         with Settings.label = "caller"
-        assert f() == "caller"
+        assert f() == "made"
     end
 
     test "a later case does not see an earlier case's override"

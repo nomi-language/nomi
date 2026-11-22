@@ -25,12 +25,12 @@ import (
 //     cannot have the bug.
 //   - A slice is one word larger and carries a capacity nothing here may use.
 //
-// The cost is the conversion at the FFI edge. Inside the VM a value holds
+// The cost is the conversion at the host edge. Inside the VM a value holds
 // `rt.Bytes` end to end, and only `StringToBytes` / `BytesToString` cross,
 // which are the conversions the operation is anyway.
 //
 // The VM stores this immutable Bytes value in its string register bank and in
-// its boxed values. Mutable Go byte slices are copied at the FFI boundary;
+// its boxed values. Mutable Go byte slices are copied where a host function takes or answers one;
 // slicing, concatenation, iteration, decoding, equality and hashing operate on
 // this shared storage within the language runtime.
 
@@ -38,7 +38,7 @@ import (
 //
 // int64 would have matched the other host-type-adjacent precedent in this
 // package (rt.Codepoint is int64 because std declares `opaque type Codepoint
-// Int` and the inner type is part of that declaration). `Byte` is different in
+// Int64` and the inner type is part of that declaration). `Byte` is different in
 // exactly the way that matters: `pub host type Byte` declares no inner type, so
 // there is no width to match and nothing to truncate against. uint8 is then the
 // honest representation — it makes the 0..255 invariant hold by construction in
@@ -83,14 +83,14 @@ func ByteToInt(b Byte) int64 { return int64(b) }
 // `[]rune` answers 2 and every other row still passes.
 func BytesLength(data Bytes) int64 { return int64(len(data)) }
 
-// BytesGet is `Bytes.get`: the byte at index, or None when out of range. An
-// index past int64's range is past any buffer.
+// BytesGet is `Bytes.get`: the byte at index, or None when out of range,
+// BytesWordAt one byte wide. An index past int64's range is past any buffer.
 func BytesGet(data Bytes, at Int) Maybe[Byte] {
-	index := at.Saturated()
-	if index < 0 || index >= int64(len(data)) {
+	u, ok := BytesWordAt(data, at.Saturated(), 1, false, false)
+	if !ok {
 		return None[Byte]()
 	}
-	return Some(Byte(data[index]))
+	return Some(Byte(u))
 }
 
 // BytesSliceBounds is `Bytes.slice`'s clamp, resolved against a length.

@@ -16,16 +16,17 @@ func TestFormat_PipeStageCaseKeepsItsEndCommentInside(t *testing.T) {
 			"    end) == 99\n" +
 			"end\n",
 		"a block source": "fn main()\n" +
-			"    x = if c then\n" +
-			"        1\n" +
-			"    else\n" +
-			"        begin\n" +
-			"            y = 2\n" +
-			"            y\n" +
-			"            // the rest\n" +
+			"    x =\n" +
+			"        if c then\n" +
+			"            1\n" +
+			"        else\n" +
+			"            begin\n" +
+			"                y = 2\n" +
+			"                y\n" +
+			"                // the rest\n" +
+			"            end\n" +
+			"            |> f()\n" +
 			"        end\n" +
-			"        |> f()\n" +
-			"    end\n" +
 			"end\n",
 	} {
 		t.Run(name, func(t *testing.T) {

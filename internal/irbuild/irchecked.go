@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -124,15 +125,12 @@ func (g *gen) declareCheckSite(t *ast.TaggedString) bool {
 	name := fmt.Sprintf("check %s literal at %d:%d", t.Tag, t.Line, tagCol)
 	at := g.irNodePos(t)
 	f := ir.NewFunc(at, name)
-	sh := &irFuncShell{fn: f, syms: map[string]*ir.Symbol{}, params: map[string]ir.Temp{}, patternOK: true}
-	sh.frame = newIRFuncFrame(f)
+	sh := &irFuncShell{fn: f, params: map[string]ir.Temp{}}
 	sh.entry = f.NewBlock(at, "entry")
 	sh.result = f.NewTemp()
 	sh.slot = ir.NewSlot(at, sh.result, ty)
 	sh.entry.Append(sh.slot)
-	sh.prologue = 1
-	cb := &irScalarBuilder{g: g, sh: sh, f: f, b: sh.entry, returnKind: k,
-		bound: map[string]ir.Temp{}, boundK: map[string]kind{}, literalCell: t}
+	cb := &irScalarBuilder{g: g, sh: sh, f: f, b: sh.entry, returnKind: k, literalCell: t}
 	cb.openWithScope(true)
 	items := make([]ir.Temp, len(statics))
 	for i, s := range statics {
@@ -249,6 +247,14 @@ func kindSpelling(k kind) string {
 	parts := make([]string, len(args))
 	for i, a := range args {
 		parts[i] = kindSpelling(a)
+		if len(d.genericArgs) > 0 && i < len(d.genericTypes) {
+			// An abstract body's instance at a type parameter it leaves
+			// open, the one checker type an instance's argument is a type
+			// parameter at (abstract.go), is spelled as it.
+			if p, open := d.genericTypes[i].(*analysis.TypeParam_); open {
+				parts[i] = p.Name_
+			}
+		}
 	}
 	return name + "<" + strings.Join(parts, ", ") + ">"
 }

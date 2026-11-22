@@ -119,15 +119,6 @@ program that reads real files belongs on `--target wasip1/wasm`, which has
 the directories its runner opens for it. Every option `run` takes, and what
 the folder holds, is in [A program in the browser](/tooling/building/#a-program-in-the-browser).
 
-A program with [Go bindings](/calling-go/) builds for the browser too.
-`nomi build --web` compiles your Go code, and the Go packages it uses, into
-`app.wasm`, as `nomi build` compiles them into an executable. Every one of
-those packages must build for WebAssembly. Most pure Go does. A package
-that only works on some operating systems is an error at its `gopkg`,
-which names the package that stops the build. `modernc.org/sqlite` is one,
-because `modernc.org/libc`, which it uses, has no WebAssembly version.
-The same goes for `--target js/wasm` and `--target wasip1/wasm`.
-
 ## Calling Nomi from a page
 
 A page can also call functions in your program, as often as it likes. Mark

@@ -413,21 +413,26 @@ func supervisorEnrol(fr *Frame, sup Supervisor, body func(*Frame) Unit) Task[Uni
 	g.wg.Add(1)
 
 	forcing := (*forcing)(nil)
-	var taskFields map[string]any
-	var booted *bootedApp
+	var app, booted *AppFields
 	var capture *Capture
 	var files any
 	var processes, network any
-	taskContext := ContextWithoutDeadline(ActiveContext(fr))
 	if fr != nil {
 		forcing = fr.forcing
-		taskFields = fr.scopedFields
+		app = fr.app
 		booted = fr.booted
 		capture = fr.capture
 		files = fr.files
 		processes = fr.processes
 		network = fr.network
-
+	}
+	// The task keeps the spawner's fields and its context's values, and not
+	// its deadline. With no deadline to drop the fields are the spawner's
+	// own value, so a function value made there runs in the task as made.
+	if active := app.activeContext(); active.node != nil {
+		if detached := ContextWithoutDeadline(active); detached.node != active.node {
+			app = app.withContext(&detached)
+		}
 	}
 
 	go func() {
@@ -451,7 +456,7 @@ func supervisorEnrol(fr *Frame, sup Supervisor, body func(*Frame) Unit) Task[Uni
 		g.park.live.Add(1)
 		defer g.park.live.Add(-1)
 
-		g.runWithRestarts(t, body, taskCtx, forcing, taskFields, taskContext, booted, capture, files, processes, network)
+		g.runWithRestarts(t, body, taskCtx, forcing, app, booted, capture, files, processes, network)
 	}()
 
 	return Task[Unit]{t: t}
@@ -471,7 +476,7 @@ func supervisorEnrol(fr *Frame, sup Supervisor, body func(*Frame) Unit) Task[Uni
 //
 // Every restart inherits the spawn site's fields and detached Context, so it
 // reads the same configuration as the first attempt.
-func (g *supervisor) runWithRestarts(t *task[Unit], body func(*Frame) Unit, taskCtx context.Context, forcing *forcing, fields map[string]any, scopedContext Context, booted *bootedApp, capture *Capture, files, processes, network any) {
+func (g *supervisor) runWithRestarts(t *task[Unit], body func(*Frame) Unit, taskCtx context.Context, forcing *forcing, app, booted *AppFields, capture *Capture, files, processes, network any) {
 	// attempt counts failures across the task's whole life and is what
 	// `max_restarts` refers to.
 	//
@@ -488,7 +493,7 @@ func (g *supervisor) runWithRestarts(t *task[Unit], body func(*Frame) Unit, task
 	stop := stopFlag(taskCtx)
 	for {
 		runStart := time.Now()
-		taskFrame := &Frame{ctx: taskCtx, forcing: forcing, scopedFields: fields, scopedContext: &scopedContext, booted: booted, inTask: true, stop: stop, park: g.park, capture: capture, files: files, processes: processes, network: network}
+		taskFrame := &Frame{ctx: taskCtx, forcing: forcing, app: app, booted: booted, inTask: true, stop: stop, park: g.park, capture: capture, files: files, processes: processes, network: network}
 		outcome, failure := runSupervisedBody(body, taskFrame)
 		ranFor := Duration(time.Since(runStart))
 

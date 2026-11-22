@@ -155,11 +155,6 @@ func Analyze(entryPath string) (*Program, error) {
 
 // AnalyzeFile is Analyze with the host's front-end configuration: cfg.Provided
 // names the `host fn` keys the host's tables answer.
-//
-// Source-bound declarations (`go alias.Symbol`) are always treated as
-// provided here: the VM reaches them through adapters the FFI wrapper
-// generates, never by looking a key up in a registry, so a missing
-// registration is not something this front end can see or needs to.
 func AnalyzeFile(entryPath string, cfg frontend.Config) (*Program, error) {
 	abs, err := filepath.Abs(entryPath)
 	if err != nil {
@@ -171,7 +166,6 @@ func AnalyzeFile(entryPath string, cfg frontend.Config) (*Program, error) {
 	// mode produced it. Parse errors fall through to the chosen mode so the
 	// reported text is its own.
 	hasTests, _ := frontend.FileDeclaresTests(abs)
-	cfg.SourceBoundProvided = true
 	fe := frontend.New(cfg)
 	proj, err := fe.CheckFile(abs, frontend.Mode{Tests: hasTests})
 	if err != nil {
@@ -190,7 +184,6 @@ func AnalyzeFileSource(entryPath, src string, cfg frontend.Config) (*Program, er
 		return nil, err
 	}
 	hasTests, _ := frontend.SourceDeclaresTests(src)
-	cfg.SourceBoundProvided = true
 	fe := frontend.New(cfg)
 	proj, err := fe.CheckFileSource(abs, src, frontend.Mode{Tests: hasTests})
 	if err != nil {
@@ -277,9 +270,15 @@ type Result struct {
 	// `gen.irModule` makes the container on first use.
 	// Use IRModules for execution with the compilation's stdlib dependencies.
 	IR []*ir.Module
+	// abstract is the lowering's abstract bodies, made on first use
+	// (Abstract, abstract.go).
+	abstract *abstractLowering
 	// irLibraries shares immutable graphs with the process-cached stdlib index.
 	irLibraries []*ir.Module
-	// irHostKeys are the extern keys the program's Go-bound `host fn` bodies
+	// sharedStd is how many of irLibraries, the first, are the shared
+	// stdlib's modules (GenerateIR's).
+	sharedStd int
+	// irHostKeys are the extern keys the program's `host fn` bodies
 	// cross under: bindings only a host that linked the project's Go
 	// packages can supply. See irhostfn.go.
 	irHostKeys map[string]bool
@@ -295,6 +294,10 @@ type Result struct {
 	// Exports are the program's `export fn` declarations, in unit order
 	// and then declaration order (exports.go).
 	Exports []Export
+	// HostFns are the `host fn`s at the top of the program's own files, in
+	// unit order and then declaration order, with the conversions a host
+	// that answers them in JSON needs (exports.go).
+	HostFns []HostFn
 	// instMods are the program's std instances, the last of irLibraries.
 	instMods []*ir.Module
 	// linkedMods are the kept lowering's modules of the listed std modules
@@ -335,7 +338,7 @@ func (r *Result) IRModules() []*ir.Module {
 	return append(mods, r.irLibraries...)
 }
 
-// HostKeys are the extern keys the program's Go-bound `host fn` bodies cross
+// HostKeys are the extern keys the program's `host fn` bodies cross
 // under, sorted: what a runner's host tables must answer. ir.Image.HostKeys
 // holds the same list.
 func (r *Result) HostKeys() []string {
@@ -371,8 +374,6 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 	// blockers. See suppression.go.
 	var masked []Suppression
 	hasMain := false
-	// The lowered standard library, built once for the process.
-	std := stdlibLowering()
 	own := len(p.Modules)
 	p = withProgramStd(p)
 	// The listed std modules p reaches, lowered once for the process and
@@ -387,6 +388,10 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 			linked = ls
 		}
 	}
+	// The lowered standard library, built once for the process. Taken after
+	// the listed lowering is, whose decoding decodes the shared modules it
+	// names, so the program links them.
+	std := stdlibLowering()
 	// Every type declaration in the program, keyed by the node that declared
 	// it and named program-uniquely, so one module can name both its own
 	// `Point` and a sibling file's. See foreign.go.
@@ -506,17 +511,11 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 	if p.stdCases != nil {
 		cases = p.stdCases(&programBuild{reg: reg, files: files, impls: impls, insts: insts, units: len(gens)})
 	}
-	// The VM links by IR symbol, so it links every cached stdlib module, in
-	// package order.
-	stdPkgs := make([]string, 0, len(std.irModules))
-	for pkg := range std.irModules {
-		stdPkgs = append(stdPkgs, pkg)
-	}
-	sort.Strings(stdPkgs)
-	irLibraries := make([]*ir.Module, 0, len(stdPkgs))
-	for _, pkg := range stdPkgs {
-		irLibraries = append(irLibraries, std.irModules[pkg])
-	}
+	// The libraries the program's withdrawn reads are checked against: every
+	// cached stdlib module, in package order, only consulted. What the
+	// program links is its closure of them, chosen once its own modules are
+	// done (linkedShared).
+	irLibraries := std.sortedModules()
 	if linked != nil {
 		irLibraries = append(irLibraries, linked.mods...)
 	}
@@ -550,6 +549,7 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 	// file's walk ended. See siblinggeneric.go.
 	irFlushLateInstances(gens)
 	exports := collectExports(p, gens)
+	hostFns := collectHostFns(p, gens)
 	var irMods []*ir.Module
 	var literals []LiteralSite
 	hostKeys := map[string]bool{}
@@ -602,10 +602,19 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 	if reg.linked != nil {
 		dropLinkedDuplicates(append(append([]*ir.Module(nil), irMods...), instMods...), reg.linked)
 	}
+	// The VM links by IR symbol: the program links the cached stdlib
+	// modules of its closure, in package order, then the listed modules and
+	// its instances.
+	var linkedMods []*ir.Module
+	if linked != nil {
+		linkedMods = linked.mods
+	}
+	shared := std.linkedShared(std.irModules, programStdImports(p), irMods, linkedMods, instMods)
+	irLibraries = append(append(slices.Clip(shared), linkedMods...), instMods...)
 
 	res = &Result{HasMain: hasMain,
-		IR: irMods, irLibraries: irLibraries, irHostKeys: hostKeys, Literals: literals, Refinements: refinements, RefinementRules: refinementRules,
-		Exports: exports, instMods: instMods}
+		IR: irMods, irLibraries: irLibraries, sharedStd: len(shared), irHostKeys: hostKeys, Literals: literals, Refinements: refinements, RefinementRules: refinementRules,
+		Exports: exports, HostFns: hostFns, instMods: instMods}
 	if linked != nil {
 		res.linkedMods = linked.units
 	}
@@ -630,6 +639,13 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 				res.perFileTables.synthRefused = append(res.perFileTables.synthRefused, name.String())
 			}
 		}
+	}
+	// Each generic function's abstract body is lowered on first use, once
+	// the lowering is done, into modules no program links (abstract.go). A
+	// lowering of one file, and one relinked through objects below, name
+	// other files' symbols as decoded objects, and build none.
+	if p.perFile == nil && !perFileHarness() && !(linksThroughObjects() && !p.noLinkStd) {
+		res.abstract = newAbstractLowering(gens, declines, insts)
 	}
 	if perFileHarness() {
 		if err := res.relowerEachFile(p); err != nil {

@@ -59,27 +59,6 @@ func TestMatchQuality(t *testing.T) {
 	}
 }
 
-func TestGetPrefix(t *testing.T) {
-	content := "fn add(x: Int) -> Int\n    x + y\nend"
-	// cursor after "add" at position (0, 6)
-	prefix := getPrefix(content, 0, 6)
-	if prefix != "add" {
-		t.Errorf("expected 'add', got '%s'", prefix)
-	}
-
-	// cursor at start of line
-	prefix = getPrefix(content, 0, 0)
-	if prefix != "" {
-		t.Errorf("expected empty, got '%s'", prefix)
-	}
-
-	// cursor after "x" in body
-	prefix = getPrefix(content, 1, 5)
-	if prefix != "x" {
-		t.Errorf("expected 'x', got '%s'", prefix)
-	}
-}
-
 func TestWordBounds(t *testing.T) {
 	tests := []struct {
 		src         string // ‸ marks the cursor

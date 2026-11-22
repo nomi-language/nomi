@@ -111,13 +111,21 @@ type FileDecls struct {
 	// interface's type params from a concrete receiver.
 	ImplTypeArgs    map[string]map[string]*ImplTypeArgs
 	ImplTypeArgSets map[string]map[string][]*ImplTypeArgs
-	// ImplBlocks is every interface impl block the file writes, a derive's
-	// synthesized ones included, by its receiver's base name and then its
-	// interface's, each with its resolved receiver and its interface's
-	// origin (Args and TypeParamDefs unset): the blocks a call of an
-	// interface function at a receiver of that name may reach
-	// (Callee.Impl, reachedImpl).
+	// ImplBlocks is the record (ImplTypeArgs) of every interface impl block
+	// the file writes, a derive's and the universal Debug's included, by
+	// its receiver's base name and then its interface's: the interface's
+	// identity, the resolved receiver and, for a generic interface, the
+	// type arguments, which ImplTypeArgs and ImplTypeArgSets share. They are
+	// the blocks a call of an interface function at a receiver of that name
+	// may reach (Callee.Impl, reachedImpl), and what ImplBlockTypeArgs
+	// answers.
 	ImplBlocks map[string]map[string][]*ImplTypeArgs
+	// resourceCalls holds, for each function of the file's `impl Release`
+	// and `impl Commit` blocks, the declaration of the function its one
+	// call names: the type's usual release or commit, which the inference
+	// phase records (resourceSite) and every file's release check reads
+	// (resourceKind). Nil for a body that is not one call.
+	resourceCalls map[*ast.FuncDef]ast.Node
 	// BootErrors are this file's boot errors from the project build: a
 	// `fn boot` outside an entry file, or a boot signature or application
 	// struct that is not valid. The checker reports them with the file.
@@ -223,6 +231,14 @@ type FileBodies struct {
 	// for the rest of that block, as it registers a file-level import's for
 	// the whole file. Nil until a block import is walked.
 	BlockImportScopes map[*ast.ImportStmt]*Scope
+	// BlockDebug maps each struct, enum and distinct type a body declares
+	// to the universal Debug the front end writes for it
+	// (synthesizeBlockDebug), since no impl can name such a type. The
+	// builder resolves it in the declaration's block as it walks the block,
+	// the type builder types its function there and the checker checks it
+	// there, so its body carries records as a module-level type's
+	// synthesized Debug does. Nil until the first.
+	BlockDebug map[ast.Node]*ast.ImplBlock
 	// receiverMembers maps each reference the builder recorded for a member
 	// named through an imported type (`Settings.tag`, `Color.Red`) to the
 	// member it copies (symbolWithCallReceiver). The copy is made when the
@@ -237,18 +253,15 @@ type FileBodies struct {
 	// GroupRowTypes maps each group's `subtests` block to the type of its
 	// rows, which its pattern binds. Nil until the first record.
 	GroupRowTypes map[*ast.GroupSubtests]Type
-	// CoveringOrPatterns holds each `or` pattern whose alternatives together
-	// match every value of the type at its position (`.L(n) or .R(n)` over a
-	// two-variant enum), by the coverage rules a `case` applies. The IR
-	// builder reads it where it needs to know a pattern cannot fail: a
-	// binding's `else` fallback stands in for a payload whose pattern always
-	// matches. Nil until the first record.
-	CoveringOrPatterns map[*ast.OrPattern]bool
 	// ExprTypes maps every node the checker checked to the type it gave the
 	// node, and ExpectedTypes maps every node checked against an expected
 	// type to that expected type: the declared parameter type at an argument,
 	// the annotation at a binding's value, the enclosing function's return
-	// type at its tail, the subject's type at a case arm. Both are keyed by
+	// type at its tail, the subject's type at a case arm. A partial
+	// capture's open argument whose position gives it a type
+	// (`&Iter.sum(&1)` mapped over a List of Lists) is recorded at that type
+	// against the slot it fills, so the view or coercion it takes there is
+	// recorded at the `&1` as at a written argument. Both are keyed by
 	// node, as PatternTypes is, and hold the checker's types as it left
 	// them, so a type variable inside one resolves through TypeVar.Resolved.
 	// The editor's completion reads them to know what a value is and what a
@@ -333,6 +346,27 @@ type FileBodies struct {
 	// head is the type expression TypeExprTypes leaves out, and this is
 	// what it means. Nil until the first record.
 	PatternVariants map[ast.TypeExpr]string
+	// IrrefutablePatterns maps each pattern PatternTypes records to whether
+	// it matches every value of the type recorded there
+	// (patternAlwaysMatches): `(a, _)`, `Point{x:, y:}`, `Unit`, a marker's
+	// name, `Port(n)` over a Port, `.L(n) or .R(n)` over a two-variant
+	// enum. A binding with no `else` needs true, and an `if` pattern, an
+	// `is` pattern and a binding with an `else` need false. The IR builder
+	// reads it wherever it would leave a pattern's test out. Nil until the
+	// first record.
+	IrrefutablePatterns map[ast.Node]bool
+	// BindingFallbacks maps each binding with an `else` (`Some(n) = m else
+	// ...`) to the type of the payload a path of its `else` may fall back
+	// to (bindingFallbackPayload), or to nil when every path must leave.
+	// Nil until the first record.
+	BindingFallbacks map[*ast.PatternBinding]Type
+	// HostJSONForms maps each `host fn` at the top of a project's file to
+	// why its signature cannot cross as JSON, or to "" when it can: each
+	// parameter's type implements ToJson and the result's FromJson
+	// (recordHostJSONForm). A host that answers host functions in JSON, a
+	// WASI reactor's, can answer only one that crosses. Nil until the first
+	// record.
+	HostJSONForms map[*ast.ExternFunc]string
 	// OperatorImpls maps each binary operator the checker resolved to an
 	// impl (`+ - * /` through `Add` and the others, `== !=` through
 	// `Equatable`, `< <= > >=` through `Comparable`) to that impl
@@ -395,11 +429,13 @@ type FileBodies struct {
 	// this record. Nil until the first record.
 	UnwrapFailures map[*ast.Unwrap]*DisplayRender
 	// Operators maps each operator that goes through an interface, an
-	// *ast.Binary or a prefix `~~~` (*ast.Unary), to what it means
-	// (operator_uses.go): an impl's call (std's `host fn` or `fn` for a
-	// primitive), a comparison by shape, a comparison of two interface
-	// values by their run-time types, or, over a type parameter, the
-	// bound each instance resolves. Nil until the first record.
+	// *ast.Binary or a prefix `~~~` (*ast.Unary), and each `dbg`
+	// (*ast.Dbg, which renders its operand as `Debug.inspect` does), to
+	// what it means (operator_uses.go): an impl's call (std's `host fn` or
+	// `fn` for a primitive), a comparison or a rendering by shape, a
+	// comparison or a rendering of interface values by their run-time
+	// types, or, over a type parameter, the bound each instance resolves.
+	// Nil until the first record.
 	Operators map[ast.Node]*OperatorUse
 	// Coercions maps each expression of a concrete type, or of a type
 	// parameter bounded by the interface, checked against an interface
@@ -409,11 +445,12 @@ type FileBodies struct {
 	// interface value from this record. Nil until the first record.
 	Coercions map[ast.Node]*Coercion
 	// IterViews maps each expression checked against an `Iter<T>` position
-	// whose type is not an interface to the view the callee receives over
-	// it (iter_views.go): the source's type, the element it pushes, which
-	// built-in walk it is, or the type's own `impl Iter`, or a type
-	// parameter each instance resolves. The IR builder builds each view
-	// from this record. Nil until the first record.
+	// whose type is not an interface, and each spread in a list, vector or
+	// set literal, to the view the callee or the literal receives over it
+	// (iter_views.go, SpreadCollected): the source's type, the element it
+	// pushes, which built-in walk it is, or the type's own `impl Iter`, or
+	// a type parameter each instance resolves. The IR builder builds each
+	// view from this record. Nil until the first record.
 	IterViews map[ast.Node]*IterView
 	// Conversions maps each expression checked against a type that is no
 	// interface, whose own type converts to it below the top (a

@@ -147,7 +147,7 @@ contexts:
       captures:
         1: keyword.declaration.nomi
         2: keyword.declaration.nomi
-    - match: '\b(pub|opaque|export|once|fn|type|subtype|struct|enum|interface|impl|derive|for|go|gopkg|embeds|typealias|extern|import|as|where|with|defer|test|setup|self|open)\b'
+    - match: '\b(pub|opaque|export|once|fn|type|subtype|struct|enum|interface|impl|derive|for|embeds|typealias|extern|import|as|where|with|defer|test|setup|self|open)\b'
       scope: keyword.declaration.nomi
     # `clock` and `boot` are keywords only as a test group's lines
     # (`clock Clock.Virtual`, `boot server.boot(startup())`); `MyApp.clock`,

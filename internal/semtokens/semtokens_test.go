@@ -12,38 +12,6 @@ import (
 	"github.com/nomi-language/nomi/std"
 )
 
-func TestCollect_ForeignAliasDefinitionsAndImplReferences(t *testing.T) {
-	src := `gopkg "example.com/binding/ffi" as ffi
-
-pub opaque type Box go ffi.Box
-
-impl Box
-  fn echo(value: String) -> String go ffi.Echo
-end
-`
-	nodes, err := parser.Parse(lexer.Lex(src))
-	if err != nil {
-		t.Fatalf("Parse: %v", err)
-	}
-	fa := buildFile(nodes)
-	tokens := semtokens.Collect(fa)
-	var aliasDefinition, aliasReference bool
-	for _, tok := range tokens {
-		if tok.Type != "namespace" {
-			continue
-		}
-		if tok.Line == 1 {
-			aliasDefinition = true
-		}
-		if tok.Line == 6 {
-			aliasReference = true
-		}
-	}
-	if !aliasDefinition || !aliasReference {
-		t.Fatalf("foreign alias tokens = %v, definition=%v reference=%v", tokens, aliasDefinition, aliasReference)
-	}
-}
-
 // TestCollect_NoTokenAtImplKeyword pins the user-visible token boundary:
 // Collect should color the interface and receiver names in an impl header, not
 // repaint the `impl` keyword itself as either type.
@@ -331,37 +299,6 @@ end
 		if name, ok := blocked[pos]; ok {
 			t.Fatalf("import path segment %q received semantic token %+v", name, tok)
 		}
-	}
-}
-
-func TestCollect_GoPackageHandleReferencesEmitNamespaceTokens(t *testing.T) {
-	src := `gopkg "urltools"
-
-pub fn escape_query(value: String) -> String go urltools.EscapeQuery
-`
-	nodes, err := parser.Parse(lexer.Lex(src))
-	if err != nil {
-		t.Fatalf("Parse: %v", err)
-	}
-	fa := buildFile(nodes)
-
-	decl := analysis.Pos{Line: 1, Col: 8}
-	ref := analysis.Pos{Line: 3, Col: 49}
-	sawRef := false
-	for _, tok := range semtokens.Collect(fa) {
-		pos := analysis.Pos{Line: tok.Line, Col: tok.Col}
-		if pos == decl {
-			t.Fatalf("gopkg declaration string received semantic token %+v; syntax highlighting should own it", tok)
-		}
-		if pos == ref {
-			if tok.Type != "namespace" || tok.Length != len("urltools") {
-				t.Fatalf("gopkg handle reference token = %+v, want namespace length %d", tok, len("urltools"))
-			}
-			sawRef = true
-		}
-	}
-	if !sawRef {
-		t.Fatalf("missing gopkg handle namespace token at %+v; tokens: %+v", ref, semtokens.Collect(fa))
 	}
 }
 

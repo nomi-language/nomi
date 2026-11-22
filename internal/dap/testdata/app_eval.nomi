@@ -1,0 +1,21 @@
+import std::io
+
+struct App
+    limit: Int
+    label: String
+end
+
+fn boot() -> Result<App, String>
+    Ok(App{limit: 3, label: "lim"})
+end
+
+fn over(n: Int) -> Bool
+    n > App.limit
+end
+
+fn main()
+    n = 5
+    io.print("${over(n)}")
+    with App.limit = 10
+    io.print("${over(n)}")
+end

@@ -85,7 +85,10 @@ func program(opts ...vmrunner.Option) (*vmrunner.Instance, error) {
 	if err != nil {
 		bootErr = fmt.Errorf("this module's Nomi program cannot be read: %v", err)
 	} else {
-		instance, bootErr = vmrunner.BootImage(image, os.Stdout, os.Stderr, os.Stdin, vmrunner.ProgramArgs(), append(options[:len(options):len(options)], opts...)...)
+		// A first nomi_call lists no host_calls; nomi_load_with's options,
+		// in opts, replace that.
+		with := append(options[:len(options):len(options)], vmrunner.WithHostCalls(hostCallsVia, nil, callHost))
+		instance, bootErr = vmrunner.BootImage(image, os.Stdout, os.Stderr, os.Stdin, vmrunner.ProgramArgs(), append(with, opts...)...)
 	}
 	return instance, bootErr
 }
@@ -121,6 +124,40 @@ func bound(d time.Duration) (context.Context, context.CancelFunc) {
 		return context.Background(), func() {}
 	}
 	return context.WithTimeout(context.Background(), d)
+}
+
+// hostCall is the reactor's one import, which the runner supplies whatever
+// the program declares: it answers a call of the program's `host fn` whose
+// UTF-8 key is at keyPtr with the JSON array of arguments at argsPtr. The
+// runner writes its answer, `{"ok": value}` or `{"error": "message"}`, into
+// a buffer it reserves with nomi_alloc while the import runs, and answers
+// where it is as nomi_call does: the address in the high 32 bits and the
+// length in the low 32. The reactor reads the answer and releases the
+// buffer itself. A runner with nothing to supply answers 0, which a program
+// never reaches: a `host fn` it did not list in "host_calls" fails the
+// load.
+//
+//go:wasmimport nomi host_call
+func hostCall(keyPtr unsafe.Pointer, keyLen int32, argsPtr unsafe.Pointer, argsLen int32) uint64
+
+// callHost calls a program's `host fn` through hostCall
+// (vmrunner.HostCaller).
+func callHost(key string, args []byte) ([]byte, error) {
+	k, a := []byte(key), args
+	if len(k) == 0 {
+		k = make([]byte, 1)
+	}
+	if len(a) == 0 {
+		a = make([]byte, 1)
+	}
+	at := hostCall(unsafe.Pointer(&k[0]), int32(len(key)), unsafe.Pointer(&a[0]), int32(len(args)))
+	ptr, size := uintptr(at>>32), int(uint32(at))
+	buf, held := buffers[ptr]
+	if at == 0 || !held || size > len(buf) {
+		return nil, errors.New("the runner's nomi.host_call answered no buffer from nomi_alloc")
+	}
+	delete(buffers, ptr)
+	return buf[:size], nil
 }
 
 // nomiAlloc reserves size bytes for the runner to write into and answers
@@ -205,7 +242,7 @@ func nomiLoad(ptr unsafe.Pointer, size int32) uint64 {
 
 // nomiLoadWith is nomiLoad with options, a JSON object: "std" holds the
 // program to a list of std names and "host" its host functions to a list
-// of keys (vmrunner.WithCapabilitiesFrom), and "timeout_ms"
+// of keys (vmrunner.WithEffectsFrom), and "timeout_ms"
 // bounds the boot and is every later call's bound. Options for an embedded
 // program that an earlier call already booted are refused.
 //
@@ -219,7 +256,7 @@ func load(ptr unsafe.Pointer, size int32, optsPtr unsafe.Pointer, optsLen int32)
 	if size < 0 || size > 0 && ptr == nil || !okOpts {
 		return vmrunner.ErrorResult(errors.New("nomi_load was handed a negative length or a null pointer"))
 	}
-	opts, err := parseOptions("nomi_load_with", optsData, keyStd, keyHost, keyTimeout)
+	opts, err := parseOptions("nomi_load_with", optsData, keyStd, keyHost, keyHostCalls, keyTimeout)
 	if err != nil {
 		return vmrunner.ErrorResult(err)
 	}
@@ -234,14 +271,18 @@ func load(ptr unsafe.Pointer, size int32, optsPtr unsafe.Pointer, optsLen int32)
 	case size > 0 && embedded:
 		return vmrunner.ErrorResult(errors.New("this reactor carries the program `nomi build` embedded in it, " +
 			"so it loads no other. Load programs into a reactor `nomi build-vm --reactor` writes, which carries none"))
-	case size == 0 && (instance != nil || bootErr != nil) && (opts.std != nil || opts.host != nil || opts.timeout > 0):
+	case size == 0 && (instance != nil || bootErr != nil) && (opts.std != nil || opts.host != nil || opts.hostCalls != nil || opts.timeout > 0):
 		return vmrunner.ErrorResult(errors.New("this reactor's program was booted by an earlier call, " +
 			"so nomi_load_with's options cannot hold it: pass them in the first call, an empty nomi_load_with"))
 	}
 	var with []vmrunner.Option
 	if opts.std != nil || opts.host != nil {
-		with = append(with, vmrunner.WithCapabilitiesFrom(stdVia, opts.std, hostVia, opts.host))
+		with = append(with, vmrunner.WithEffectsFrom(stdVia, opts.std, hostVia, opts.host))
 	}
+	// A program's `host fn`s are answered through nomi.host_call only for
+	// the keys the host lists; with none listed, one no linked table
+	// answers fails the load, naming its key.
+	with = append(with, vmrunner.WithHostCalls(hostCallsVia, opts.hostCalls, callHost))
 	ctx, cancel := bound(opts.timeout)
 	defer cancel()
 	if opts.timeout > 0 {

@@ -240,7 +240,7 @@ func (dm *DocumentManager) storedFor(root, entry, building string, texts map[str
 // entry under root, when the artifact cache holds one for the files as
 // they are on disk.
 func (dm *DocumentManager) openStored(root, entry string) *storedProgram {
-	if root == "" || len(dm.syntheticExternsForRoot(root)) > 0 {
+	if root == "" {
 		return nil
 	}
 	entryPath := filepath.Join(root, filepath.FromSlash(entry)+".nomi")
@@ -728,10 +728,6 @@ func storedReportsOf(p *CheckedProgram, rec *storedRecord, appTypes bool) (map[s
 			return nil, false
 		}
 	}
-	std, ok := StdContextOf(entry)
-	if !ok {
-		return nil, false
-	}
 	facts := map[string]*FileFacts{}
 	for key, f := range rec.Files {
 		ff, err := DecodeFileFacts(f.Facts)
@@ -740,8 +736,8 @@ func storedReportsOf(p *CheckedProgram, rec *storedRecord, appTypes bool) (map[s
 		}
 		facts[key] = ff
 	}
-	red := ReduceFacts(facts, rec.Supply, std)
-	if len(red.Coherence) > 0 || !red.AppExact {
+	red, ok := ReduceFacts(facts, rec.Supply, entry)
+	if !ok || len(red.Coherence) > 0 || !red.AppExact {
 		return nil, false
 	}
 	for key := range rec.Files {
@@ -762,7 +758,7 @@ func storedReportsOf(p *CheckedProgram, rec *storedRecord, appTypes bool) (map[s
 // to report in any file, and nothing read that the record's walk of the
 // root and its inputs do not see.
 func storable(p *CheckedProgram) bool {
-	if p.unread || p.externs || p.Root == "" {
+	if p.unread || p.Root == "" {
 		return false
 	}
 	for key := range p.Files {

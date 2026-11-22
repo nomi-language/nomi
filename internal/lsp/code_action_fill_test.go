@@ -247,6 +247,18 @@ func TestFillArms_Missing(t *testing.T) {
 	}
 }
 
+// The arms of a `case` that is a binding's value, on the line below the
+// name, are written at its arms' indentation.
+func TestFillArms_BoundCase(t *testing.T) {
+	body := func(arms string) string {
+		return fillColorDecls + "fn f(c: Color) -> Int\n    n =\n        case c\n" + arms + "        end\n\n    n + 1\nend\n"
+	}
+	got := checkFill(t, NewServer(), fillURI, body("            .Red    -> 1\n            .Green  -> 2\n            .Rgb(v) -> v\n"), "Add missing arm .Named{name:,")
+	if want := body("            .Red                 -> 1\n            .Green               -> 2\n            .Rgb(v)              -> v\n            .Named{name:, code:} -> todo\n"); got != want {
+		t.Fatalf("got\n%s\nwant\n%s", got, want)
+	}
+}
+
 func TestFillArms_Nested(t *testing.T) {
 	src := fillColorDecls + "fn f(a: Color, b: Maybe<Color>) -> Int\n    case a\n        .Red ->\n            case b\n                Some(.Red) -> 1\n                None       -> 0\n            end\n\n        _ ->\n            2\n    end\nend\n"
 	got := checkFill(t, NewServer(), fillURI, src, "Add missing arm .Some(value)")

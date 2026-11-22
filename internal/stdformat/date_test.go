@@ -154,7 +154,7 @@ func TestAYearOfAnySize(t *testing.T) {
 	if got := FormatStyle(d, "en", year, fields, "full/-"); got != "Saturday, January 1, 1000000000000000000000000000000" {
 		t.Errorf("en full: %q", got)
 	}
-	if got := FFIFormatCivilPattern(year, fields, "yyyy-MM-dd D"); got != "1000000000000000000000000000000-01-01 1" {
+	if got := HostFormatCivilPattern(year, fields, "yyyy-MM-dd D"); got != "1000000000000000000000000000000-01-01 1" {
 		t.Errorf("a fixed pattern: %q", got)
 	}
 	for _, c := range []struct{ got, want string }{
@@ -169,7 +169,7 @@ func TestAYearOfAnySize(t *testing.T) {
 	// Before year 1, an era's year counts back from 1 BC, and `u` is the
 	// signed year.
 	minus, _ := rt.ParseIntValue("-123456789012345678901")
-	if got := FFIFormatCivilPattern(rt.IntOf(minus), fields, "y u"); got != "123456789012345678902 -123456789012345678901" {
+	if got := HostFormatCivilPattern(rt.IntOf(minus), fields, "y u"); got != "123456789012345678902 -123456789012345678901" {
 		t.Errorf("a year before 1: %q", got)
 	}
 }

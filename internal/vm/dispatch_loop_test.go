@@ -35,7 +35,7 @@ end
 // (the self tail call restarts past them), and a jump to a jump to a return
 // is the return. bounded's iteration is twelve instructions: four
 // multiplies, three additions, a subtraction of Floats, one of Ints, two
-// compare-and-branches and the tail call.
+// compare-and-branches and the self tail call's jump (opLoop).
 func TestDispatch_ATailRecursiveLoopIsItsWork(t *testing.T) {
 	p, err := vmhost.LoadSource("main", escapeLoop)
 	if err != nil {
@@ -63,11 +63,11 @@ func TestDispatch_ATailRecursiveLoopIsItsWork(t *testing.T) {
 			continue
 		}
 		iteration = append(iteration, op)
-		if op == "tail" {
+		if op == "loop" {
 			break
 		}
 	}
-	want := "mulf mulf addf brcmpf brcmpi subf addf mulf mulf addf subi tail"
+	want := "mulf mulf addf brcmpf brcmpi subf addf mulf mulf addf subi loop"
 	if loads != 4 || strings.Join(iteration, " ") != want {
 		t.Errorf("bounded loads %d constants at entry and iterates over %q, want 4 and %q:\n%s",
 			loads, strings.Join(iteration, " "), want, listing)
@@ -155,5 +155,52 @@ left 2
 `
 	if out.String() != want {
 		t.Errorf("output:\n%s\nwant:\n%s", out.String(), want)
+	}
+}
+
+const literalArms = `import std::io
+
+fn complement(base: String) -> String
+    case base
+        "A" or "a" -> "T"
+        "C" or "c" -> "G"
+        "G" or "g" -> "C"
+        "T" or "t" -> "A"
+        _ -> "N"
+    end
+end
+
+fn main()
+    io.print("${complement("A")}${complement("x")}")
+end
+`
+
+// A function with no tail call to itself loads each constant where its arm
+// reads it: hoisting them to the entry (consthoist.go) would load the
+// literals of every arm at each call, for a subject the first arm matches.
+// So complement's first instruction is not a run of loads of all thirteen
+// literals; it loads at most the two its first comparison reads.
+func TestDispatch_AFunctionWithNoLoopLoadsItsConstantsWhereTheyAreRead(t *testing.T) {
+	p, err := vmhost.LoadSource("main", literalArms)
+	if err != nil {
+		t.Fatal(err)
+	}
+	listing, err := p.Disassemble("complement")
+	if err != nil {
+		t.Fatal(err)
+	}
+	loads := 0
+	for _, line := range strings.Split(listing, "\n")[1:] {
+		f := strings.Fields(line)
+		if len(f) < 2 {
+			continue
+		}
+		if !strings.HasPrefix(f[1], "load") {
+			break
+		}
+		loads++
+	}
+	if loads > 2 {
+		t.Fatalf("complement loads %d constants before its first comparison, want at most 2:\n%s", loads, listing)
 	}
 }

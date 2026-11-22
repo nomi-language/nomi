@@ -23,7 +23,9 @@ const (
 	// an app-field write rebinds the field for the rest of a block, so the value
 	// depends on the scope stack at this position. Owner: appFieldRead.
 	RefAppField
-	// RefFunc takes a function as a value. Owners: funcRef, stdNamedFuncRef.
+	// RefFunc takes a function as a value. One the program writes keeps the
+	// app fields in force where it is read (Ref.KeepsFields), as a lambda
+	// does (FuncValue). Owners: funcRef, stdNamedFuncRef.
 	RefFunc
 	// RefTypeWitness reads the witness for a type parameter — the dictionary
 	// argument type-parameter dispatch is passed. Owner: witnessRef.
@@ -68,6 +70,8 @@ type Ref struct {
 	dst  Temp
 	kind RefKind
 	sym  *Symbol
+	// keeps marks a RefFunc the program wrote (KeepFields).
+	keeps bool
 }
 
 // NewRefLocal reads a local binding or parameter.
@@ -117,6 +121,22 @@ func newRef(pos Pos, dst Temp, kind RefKind, sym *Symbol, who string) *Ref {
 	return &Ref{pos: pos, dst: dst, kind: kind, sym: sym}
 }
 
+// KeepFields marks a RefFunc as a function value the program wrote, a named
+// function used as a value: written out, it is the function partially
+// applied to the app fields in force here, which it keeps (FuncValue). It
+// answers r.
+func (r *Ref) KeepFields() *Ref {
+	if r.kind != RefFunc {
+		panic("ir: only a function value keeps app fields")
+	}
+	r.keeps = true
+	return r
+}
+
+// KeepsFields reports whether a RefFunc keeps the app fields in force where
+// it is read (KeepFields).
+func (r *Ref) KeepsFields() bool { return r.keeps }
+
 // Kind says what is being read.
 func (r *Ref) Kind() RefKind { return r.kind }
 
@@ -165,6 +185,9 @@ func (r *Ref) Dst() Temp { return r.dst }
 func (r *Ref) AppendUses(dst []Temp) []Temp { return dst }
 
 func (r *Ref) String() string {
+	if r.keeps {
+		return r.dst.String() + " = " + r.kind.String() + " " + r.sym.Name() + " keeping fields"
+	}
 	return r.dst.String() + " = " + r.kind.String() + " " + r.sym.Name()
 }
 

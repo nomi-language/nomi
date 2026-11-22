@@ -40,9 +40,9 @@ type Rejection struct {
 	Key, Reason string
 }
 
-// FFILoad is `std::phrase::format.load_raw`: the accepted entries, encoded, then
+// HostLoad is `std::phrase::format.load_raw`: the accepted entries, encoded, then
 // each rejection's key and reason.
-func FFILoad(fr *rt.Frame, text, locale string) []string {
+func HostLoad(fr *rt.Frame, text, locale string) []string {
 	encoded, rejected := LoadCatalog(stdlocale.Data(fr), runtimeOf(fr), text, locale)
 	out := []string{encoded}
 	for _, r := range rejected {

@@ -7,6 +7,7 @@ import (
 
 	"github.com/nomi-language/nomi/rt"
 
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/std"
 )
@@ -158,8 +159,7 @@ func TestOpaqueSpecsMatchStdSource(t *testing.T) {
 		if fa == nil {
 			t.Fatalf("%s: std has no module %q", s.nomi, module)
 		}
-		_, byName := opaqueAnchors(fa)
-		if _, anchored := byName[s.nomi]; !anchored {
+		if !specAnchored(opaqueAnchors(fa), i) {
 			t.Fatalf("%s: no anchor built from %s — the declaration's shape does not match the spec",
 				s.nomi, s.origin)
 		}
@@ -271,7 +271,10 @@ func TestOpaqueStdlibIndexResolvesTheOpaqueSurface(t *testing.T) {
 		"Instant.now", "Instant.from_seconds", "Instant.to_seconds", "Instant.is_before",
 	}
 	for _, name := range lowerable {
-		f := stdSole(idx.byType[name])
+		var f *stdFunc
+		if fs := idx.byType[name]; len(fs) == 1 {
+			f = fs[0]
+		}
 		if f == nil {
 			t.Errorf("%s: not in the stdlib index at all", name)
 			continue
@@ -280,22 +283,21 @@ func TestOpaqueStdlibIndexResolvesTheOpaqueSurface(t *testing.T) {
 			t.Errorf("%s: refused as %q", name, f.why)
 		}
 	}
-	// The file-qualified half.
-	if f := idx.byFile["timer.sleep"]; f == nil || !f.lowerable() {
+	// The file-qualified half: a call's record names it by its identity.
+	if f := idx.byID[analysis.StdFunc{Module: "std/timer", Name: "sleep"}]; f == nil || !f.lowerable() {
 		t.Errorf("timer.sleep is not resolvable as a file-qualified call: %v", f)
 	}
-	// A module-private helper IS reachable through the file API object, and that
-	// is the point rather than a leak. `byFile` keys carry the module, so
-	// `strings.string_compare` is a spelling only std/strings itself can write —
-	// the front end rejects it everywhere else before this index is consulted —
-	// and a module naming its own private free functions is exactly what the
-	// implicit file alias is for.
+	// A module-private helper IS reachable by its identity, and that is the
+	// point rather than a leak: the front end rejects a call of it from
+	// anywhere but its own module before this index is consulted, and a module
+	// naming its own private free functions is exactly what the implicit file
+	// alias is for.
 	//
-	// A `pub` gate here would make every module-private `go`-bound extern
-	// unreachable however carefully it is bound: std/random's `between_state`,
+	// A `pub` gate here would make every module-private extern unreachable
+	// however carefully it is bound: std/random's `between_state`,
 	// `unit_float_state` and `os_state` and most of std/calendar's boundary are
 	// of that shape.
-	if f := idx.byFile["strings.string_compare"]; f == nil {
+	if f := idx.byID[analysis.StdFunc{Module: "std/strings", Name: "string_compare"}]; f == nil {
 		t.Errorf("the private `fn string_compare` is not reachable as " +
 			"strings.string_compare, so a std module cannot call its own private " +
 			"free functions through the implicit file alias")
@@ -321,4 +323,15 @@ var goBuiltinFor = map[tag]reflect.Type{
 	tagFloat:  reflect.TypeFor[float64](),
 	tagString: reflect.TypeFor[string](),
 	tagBool:   reflect.TypeFor[bool](),
+}
+
+// specAnchored reports whether anchors, a family's anchors by declaration,
+// holds spec index i.
+func specAnchored[D comparable](anchors map[D]int, i int) bool {
+	for _, idx := range anchors {
+		if idx == i {
+			return true
+		}
+	}
+	return false
 }

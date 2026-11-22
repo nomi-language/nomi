@@ -46,9 +46,10 @@ func loadEntry(t *testing.T, src string) error {
 }
 
 // TestSynthesizedImplDiagnosticNamesRealSource: a synthesized `impl Debug`
-// block records the declaration it was synthesized for, and the checker
-// reports there rather than at a line from the analyzer's synth band, which
-// names a position no programmer can navigate to.
+// block (an opaque type's name-only one) records the declaration it was
+// synthesized for, and the checker reports there rather than at a line from
+// the analyzer's synth band, which names a position no programmer can
+// navigate to.
 //
 // The assertion is two-sided. Moving the position before
 // `fa.Definitions[pos]`, which keys the item's resolved signature by
@@ -61,7 +62,7 @@ func loadEntry(t *testing.T, src string) error {
 // the impl's position, is fixed), so the mismatch is made by editing the
 // synthesized impl's return type before the checker sees it.
 func TestSynthesizedImplDiagnosticNamesRealSource(t *testing.T) {
-	src := "enum Handler\n  Text Int\nend\n\nfn main() end\n"
+	src := "opaque enum Handler\n  Text Int\nend\n\nfn main() end\n"
 	nodes, err := parser.Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatal(err)
@@ -101,15 +102,15 @@ func TestSynthesizedImplDiagnosticNamesRealSource(t *testing.T) {
 	if !found {
 		t.Fatalf("no `line N, col M` position in the diagnostic at all:\n%s", msg)
 	}
-	if !strings.Contains(msg, "line 1, col 6: impl function 'inspect'") {
-		t.Errorf("want the `Handler` declaration at line 1, col 6; got:\n%s", msg)
+	if !strings.Contains(msg, "line 1, col 13: impl function 'inspect'") {
+		t.Errorf("want the `Handler` declaration at line 1, col 13; got:\n%s", msg)
 	}
 }
 
-// A positional function-typed payload checks clean: its synthesized Debug
+// A positional function-typed payload checks clean: its derived Debug
 // impl's payload binding does not share the impl function's position.
 func TestPositionalFunctionPayloadChecksClean(t *testing.T) {
-	if err := checkEntry(t, "enum Handler\n  Text ((String) -> Bool)\nend\n\nfn main() end\n"); err != nil {
+	if err := checkEntry(t, "enum Handler\n  Text ((String) -> Bool)\nend\n\nderive Debug for Handler\n\nfn main() end\n"); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -63,38 +63,6 @@ func debugBodyIsNameOnly(fn *ast.FuncDef) (string, bool) {
 	return sl.Value, true
 }
 
-// TestSynthesizeAutoDebug_NonOpaqueIsStructural pins that synthesizeAutoDebug
-// delegates to the structural synthesizer for non-opaque types — its output
-// is byte-identical to an explicit @derive Debug.
-func TestSynthesizeAutoDebug_NonOpaqueIsStructural(t *testing.T) {
-	nodes := parseNodes(t, `struct Point
-    x: Int
-    y: Int
-end`)
-	var structDef ast.Node
-	for _, n := range nodes {
-		if _, ok := n.(*ast.StructDef); ok {
-			structDef = n
-		}
-	}
-	if structDef == nil {
-		t.Fatal("no struct decl parsed")
-	}
-	out := synthesizeAutoDebug(structDef, synthSiteOf(0, structDef))
-	fn := debugImplForType(out, "Point")
-	if fn == nil {
-		t.Fatal("synthesizeAutoDebug produced no Debug impl for Point")
-	}
-	// Structural: body is a StringInterp (not a bare StringLit).
-	if fn.Body == nil || len(fn.Body.Stmts) != 1 {
-		t.Fatalf("expected 1-stmt body, got %v", fn.Body)
-	}
-	es := fn.Body.Stmts[0].(*ast.ExprStmt)
-	if _, ok := es.Expr.(*ast.StringInterp); !ok {
-		t.Fatalf("expected structural StringInterp body, got %T", es.Expr)
-	}
-}
-
 // TestSynthesizeAutoDebug_OpaqueIsNameOnly pins the opaque rule: the auto
 // path emits a name-only `"<opaque TypeName>"` body, NOT structural.
 func TestSynthesizeAutoDebug_OpaqueIsNameOnly(t *testing.T) {
@@ -214,10 +182,9 @@ end
 }
 
 // TestSynthesizeUniversalDebug_CoversDeclaredTypes pins the pass: it appends
-// an auto Debug impl for each declared type lacking an explicit one (struct,
-// enum, opaque distinct), with the opaque one rendered name-only. It must NOT
-// add one for a type that already has an explicit Debug impl block, nor
-// duplicate one for a type @derive Debug already covered.
+// the name-only Debug impl of each opaque type lacking an explicit one, and
+// none for a struct or enum that is not opaque, whose Debug is its shape. It
+// must NOT add one for a type that already has an explicit Debug impl block.
 func TestSynthesizeUniversalDebug_CoversDeclaredTypes(t *testing.T) {
 	src := `
 struct Foo
@@ -248,25 +215,16 @@ end
 	nodes, _ = LowerDerives(nodes)
 	out := SynthesizeUniversalDebug(nodes)
 
-	// Foo, Bar, Baz each get exactly one auto Debug impl.
-	for _, ty := range []string{"Foo", "Bar", "Baz"} {
-		if got := countDebugImpls(out, ty); got != 1 {
-			t.Errorf("%s: expected exactly 1 Debug impl, got %d", ty, got)
+	// Foo and Bar render by their shape and get none; the opaque Baz gets
+	// exactly one, name-only.
+	for ty, want := range map[string]int{"Foo": 0, "Bar": 0, "Baz": 1} {
+		if got := countDebugImpls(out, ty); got != want {
+			t.Errorf("%s: expected %d Debug impls, got %d", ty, want, got)
 		}
 	}
-	// Baz is opaque → name-only.
 	bazFn := debugImplForType(out, "Baz")
 	if val, ok := debugBodyIsNameOnly(bazFn); !ok || val != "<opaque Baz>" {
 		t.Errorf("Baz: expected name-only `<opaque Baz>`, got ok=%v val=%q", ok, val)
-	}
-	// Foo (non-opaque struct) → structural StringInterp.
-	fooFn := debugImplForType(out, "Foo")
-	if fooFn == nil {
-		t.Fatal("no Debug impl for Foo")
-	}
-	es := fooFn.Body.Stmts[0].(*ast.ExprStmt)
-	if _, ok := es.Expr.(*ast.StringInterp); !ok {
-		t.Errorf("Foo: expected structural StringInterp body, got %T", es.Expr)
 	}
 	// Qux has an explicit Debug impl block → the pass must NOT add an auto one.
 	// Only the explicit (non-synth-band) impl should be present, so the
@@ -342,7 +300,8 @@ end
 // universal-Debug synthesis is import-independent. A file with NO imports at
 // all, built through the bare BuildFile path (no stdlib, no prelude — the
 // name `Debug` resolves nowhere in scope), still gets a fully-resolving,
-// dispatch-recorded auto Debug impl for every declared type: synthesis runs
+// dispatch-recorded name-only Debug impl for every opaque and host type,
+// and none for a type whose Debug is its shape: synthesis runs
 // unconditionally, and the synthesized `impl Debug` header resolves via the
 // compiler-known route in defineImplBlockAnnotations rather than file scope.
 // Debug is compiler-known machinery (universal conformance, missing-impl
@@ -367,15 +326,15 @@ pub host type Handle
 opaque type Token Int`
 	fa, errs := checkSource(src)
 	expectNoErrors(t, errs)
-	for _, ty := range []string{"Point", "Color", "Handle", "Token"} {
-		if !fa.Impls[ty]["Debug"] {
-			t.Errorf("%s: auto Debug impl not recorded in fa.Impls (got %v)", ty, fa.Impls[ty])
+	for ty, want := range map[string]bool{"Point": false, "Color": false, "Handle": true, "Token": true} {
+		if fa.Impls[ty]["Debug"] != want {
+			t.Errorf("%s: a Debug impl recorded in fa.Impls is %v, want %v (got %v)", ty, !want, want, fa.Impls[ty])
 		}
 	}
-	// A HAND-WRITTEN non-Debug interface header still requires the name in
-	// scope — the compiler-known header route covers Debug (any block) and
-	// the derivable protocols on synthesized blocks only (see
-	// derive_scope_test.go).
+	// A HAND-WRITTEN interface header requires the name in scope: the
+	// compiler-known header route covers Debug and the derivable protocols
+	// on synthesized blocks only (see derive_scope_test.go and
+	// TestDeriveScope_PreludelessHandWrittenDebugRequiresImport).
 	_, errs = checkSource(`struct P
     x: Int
 end
@@ -396,12 +355,12 @@ end`)
 // slices.
 func TestSynthesizeUniversalDebug_Idempotent(t *testing.T) {
 	src := `
-struct Point
+opaque struct Point
     x: Int
     y: Int
 end
 
-enum Shape
+opaque enum Shape
     Circle Float
     Nothing
 end

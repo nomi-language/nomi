@@ -27,11 +27,12 @@ type LoweringFound = analyzedlowering.Found
 // front end: each literal that fails its check (Code InvalidLiteralCode) and
 // each `Currency.custom` call its module does not list
 // (UnlistedCurrencyCode), then what Program.Unsupported reports, then what
-// nomi.toml's [capabilities] lists refuse, then the entry's hints that `nomi
+// nomi.toml's [effects] lists refuse, then the entry's hints that `nomi
 // check` does not print, each literal `Currency.custom` call that is no error
 // (CustomCurrencyCallCode); nil when there is none. found.Reached is each
-// outside call the roots `nomi check` holds to the lists reach, whether or
-// not nomi.toml has lists (reachedCalls). err is the load's own failure: the
+// effect call the roots `nomi check` holds to the lists reach, then each
+// one only a function they do not reach reaches, whether or not nomi.toml
+// has lists (editorWalks, reachedCalls). err is the load's own failure: the
 // front end's errors, which an editor reports from its own analysis, or an
 // *InternalError when the compiler panicked. A stdlib file is not a program
 // and answers nothing.
@@ -76,7 +77,6 @@ func offeredAnalyzed(path, src string, a *analyzedlowering.Analyzed) bool {
 	if err != nil {
 		return true
 	}
-	fc.SourceBoundProvided = true
 	return analyzedProgram(path, src, a, fc) != nil
 }
 
@@ -95,7 +95,6 @@ func checkLoweringAnalyzed(ctx context.Context, path, src string, a *analyzedlow
 	if a != nil && a.Stored != nil {
 		return checkLoweringStored(ctx, cfg, path, src, a.Stored)
 	}
-	fc.SourceBoundProvided = true
 	prog := analyzedProgram(path, src, a, fc)
 	if prog == nil {
 		return found, false, nil
@@ -181,8 +180,9 @@ func onDisk(path, text string) bool {
 // loweringProblems is what CheckLowering reports for the lowered program
 // p, whose entry's text is src. The walk from the roots `nomi check` holds
 // to nomi.toml's lists runs once, with or without lists: its calls are
-// held to the lists (walkedProblems) and kept for an editor's hover
-// (reachedCalls).
+// held to the lists (walkedProblems), and with the walk from every
+// function it does not reach they are kept for an editor's hover
+// (editorWalks, reachedCalls).
 func loweringProblems(p *Program, src string) (out LoweringFound, err error) {
 	p.sources = map[string]string{p.prog.Entry().Path: src}
 	defer func() {
@@ -216,12 +216,12 @@ func loweringProblems(p *Program, src string) (out LoweringFound, err error) {
 		}
 		found = append(found, ds...)
 	}
-	// What `nomi check` holds to nomi.toml's [capabilities] lists.
+	// What `nomi check` holds to nomi.toml's [effects] lists.
 	walks := p.walks(p.checkedRoots())
 	held, _ := p.walkedProblems(walks)
 	found = append(found, held...)
 	found = append(found, p.currencyCallHints()...)
-	out.Reached = p.reachedCalls(walks)
+	out.Reached = p.reachedCalls(p.editorWalks(walks))
 	if len(found) > 0 {
 		out.Problems = found
 	}

@@ -1,0 +1,110 @@
+//# State that several tasks share, one at a time: a `Cell` holds a value
+//# in a channel of one slot, and a task that takes it holds it until it
+//# puts a value back. `Cell.update` takes the value, runs a function on it,
+//# and puts back the value the function answers; when the function does
+//# not return, because the task trapped or was stopped, it puts back what
+//# it took (or, for `update_or`, what the `aborted` function makes of it),
+//# so a stopped task never leaves a cell empty and every other task waiting
+//# on it stuck.
+//#
+//# That holds because nothing between taking the value and registering the
+//# deferred call that puts it back is a safe point: the take is a receive,
+//# which a stop interrupts only while it waits, before it has taken
+//# anything, and the `defer` that follows names only local values. A
+//# deferred call that starts while its task is stopping runs to its end.
+//#
+//# `Cell.take` and `Cell.sender` are for the one other shape: a function
+//# that takes the value and, on the next line, defers the call that puts it
+//# back with an operand that does the work, such as a read of a socket, so
+//# what the work answers reaches the cell however the task ends.
+
+import
+    std::channels.{Channel, Receiver, Sender}
+    std::duration.Duration
+end
+
+/// A value one task at a time holds.
+pub opaque struct Cell<S>
+    slot: Channel<S>
+end
+
+impl Cell<S>
+    /// A cell holding `value`.
+    //! c = Cell.new(1)
+    //! assert Cell.read(c) == 1
+    //
+    pub fn new<S>(value: S) -> Cell<S>
+        slot = Channel.buffered<S>(1)
+        _ = Sender.send(slot.sender, value)
+        Cell{slot:}
+    end
+
+    /// What the cell holds, waiting while another task holds it.
+    pub fn read<S>(cell: Cell<S>) -> S
+        held = take(cell)
+        defer restore(cell.slot.sender, held)
+        held
+    end
+
+    /// Runs `body` on the cell's value, waiting while another task holds
+    /// it, puts back the value `body` answers first, and answers its
+    /// second. When `body` does not return, the cell gets back the value it
+    /// held.
+    //! c = Cell.new(1)
+    //! assert Cell.update(c, fn n -> (n + 1, "was ${n}")) == "was 1"
+    //! assert Cell.read(c) == 2
+    //
+    pub fn update<S, T>(cell: Cell<S>, body: (S) -> (S, T)) -> T
+        Cell.update_or(cell, body, fn value -> value)
+    end
+
+    /// `update`, putting back `aborted` of the value it held when `body`
+    /// does not return.
+    pub fn update_or<S, T>(cell: Cell<S>, body: (S) -> (S, T), aborted: (S) -> S) -> T
+        after = Channel.buffered<S>(1)
+        zero = Duration.seconds(0)
+        held = take(cell)
+        defer settle(cell, after.receiver, held, aborted, zero)
+        (next, answer) = body(held)
+        _ = Sender.send(after.sender, next)
+        answer
+    end
+
+    /// Takes the value out, for a function that registers the deferred
+    /// call putting one back, through `Cell.sender`, on its next line.
+    pub fn take<S>(cell: Cell<S>) -> S
+        case Receiver.receive(cell.slot.receiver)
+            Some(value) -> value
+            None        -> unreachable "nothing closes a cell's channel"
+        end
+    end
+
+    /// Puts a value back into a cell a task took it from.
+    pub fn put<S>(cell: Cell<S>, value: S)
+        _ = Sender.send(cell.slot.sender, value)
+    end
+
+    /// The end a deferred call puts a taken value back through. A send is
+    /// no safe point, so a deferred call that makes no other call before
+    /// it runs to the send even when a stop arrives meanwhile.
+    pub fn sender<S>(cell: Cell<S>) -> Sender<S>
+        cell.slot.sender
+    end
+end
+
+// Puts back the value `read` took.
+fn restore<S>(back: Sender<S>, held: S)
+    _ = Sender.send(back, held)
+end
+
+// Puts back the value `update_or`'s body answered, or `aborted` of the one
+// it was given when the body did not answer.
+fn settle<S>(cell: Cell<S>, after: Receiver<S>, held: S, aborted: (S) -> S, zero: Duration)
+    next =
+        case Receiver.receive_within(after, zero)
+            Ok(Some(answered)) -> answered
+            _                  -> aborted(held)
+        end
+
+    _ = Sender.send(cell.slot.sender, next)
+end

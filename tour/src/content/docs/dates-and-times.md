@@ -304,6 +304,9 @@ end
 ```
 
 The output changes each time, because it reads the real clock.
+[`DateTime.local_zone()`](/reference/calendar/#datetimelocal_zone) names
+the zone the machine is set to, and `DateTime.now_local()` reads the clock
+there.
 
 A reading with no zone, such as a database `timestamp` column, is a
 `NaiveDateTime`.

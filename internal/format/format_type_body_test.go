@@ -58,16 +58,6 @@ end
 	roundTrip(t, src)
 }
 
-func TestFormat_GoSelectorBindings(t *testing.T) {
-	src := `gopkg "example.com/app/ffi"
-
-opaque type RawBox go ffi.Box
-
-fn echo_upper(s: String) -> String go ffi.EchoUpper
-`
-	roundTrip(t, src)
-}
-
 // Every variant payload shape round-trips (positional, tuple, struct,
 // embeds).
 func TestFormat_EnumPayloadShapesRoundTrip(t *testing.T) {

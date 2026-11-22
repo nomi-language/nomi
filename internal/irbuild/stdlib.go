@@ -39,9 +39,9 @@ import (
 // # The signature boundary
 //
 // The shared lowering lowers a stdlib function only when every parameter
-// type and the result type is one stdTypeKind answers: a scalar
-// (Int/Float/String/Bool/Unit), a std type with a process-wide def, or a
-// structural type over those. `kind` identity for a named type is the
+// type and the result type, as the checker recorded it, has a kind with no
+// gen (projectShared): a scalar (Int/Float/String/Bool/Unit), a std type
+// with a process-wide def, or a structural type over those. `kind` identity for a named type is the
 // *typeDef pointer of its declaration, never its name, and a stdFunc's kinds
 // are built once and compared by pointer against a call site's argument
 // kinds in another gen. A kind with no process-wide identity would equal no
@@ -66,8 +66,8 @@ import (
 //     Its Go signature is projected onto kinds here (hostFnFor) and must equal
 //     the declaration's (stdSignatureMatches), and the call is a crossing by
 //     that key (irScalarHost, irFrameHost).
-//   - a Funcs row: a first-party adapter package's FFI-shaped function, which
-//     the VM reaches through a generated adapter. The crossing is named by the binding (irExternHost).
+//   - a Funcs row: a first-party adapter package's function in Go's own
+//     types, which the VM reaches through a generated adapter. The crossing is named by the binding (irExternHost).
 //     Its signature is not projected: internal/hostgen checked it against the
 //     declaration when it generated the adapter, and refuses to generate one
 //     that disagrees.
@@ -183,8 +183,8 @@ func hostFnFor(fn any) (hostFn, string) {
 	if ft.IsVariadic() {
 		return hostFn{}, "variadic"
 	}
-	if ft.NumOut() != 1 {
-		return hostFn{}, fmt.Sprintf("returns %d values, want 1", ft.NumOut())
+	if ft.NumOut() == 0 {
+		return hostFn{}, "returns no value"
 	}
 	h := hostFn{}
 	h.call, h.pkg = hostCallName(rv)
@@ -207,10 +207,23 @@ func hostFnFor(fn any) (hostFn, string) {
 		}
 		h.params = append(h.params, k)
 	}
-	h.result = kindOfGoType(ft.Out(0))
-	// kindInvalid: no-position — reads a Go reflect type for the extern registry; no Nomi position.
-	if h.result == kindInvalid {
-		return hostFn{}, fmt.Sprintf("result is %s, which is outside the representable set", ft.Out(0))
+	// Several Go results are one Nomi tuple, in order, as the generated
+	// adapter builds them (internal/hostgen's results).
+	outs := make([]kind, ft.NumOut())
+	for i := range outs {
+		outs[i] = kindOfGoType(ft.Out(i))
+		// kindInvalid: no-position — reads a Go reflect type for the extern registry; no Nomi position.
+		if outs[i] == kindInvalid {
+			return hostFn{}, fmt.Sprintf("result is %s, which is outside the representable set", ft.Out(i))
+		}
+	}
+	h.result = outs[0]
+	if len(outs) > 1 {
+		k, ok := sharedTupleKind(outs)
+		if !ok {
+			return hostFn{}, "its results are not a tuple every module can share"
+		}
+		h.result = k
 	}
 	return h, ""
 }
@@ -256,7 +269,20 @@ var hostPackages = [...]struct{ path, local string }{
 	{tomlHostPath, "stdtoml"},
 	{csvHostPath, "stdcsv"},
 	{xmlHostPath, "stdxml"},
+	{passwordsHostPath, "stdpasswords"},
+	{wasmHostPath, "stdwasm"},
 }
+
+// wasmHostPath is std/wasm/host's implementation: WebAssembly modules
+// compiled and run by wazero. Its boundary is the Compiled, Live and Memory
+// handles, Bytes, String, Int, List<Int64>, List<String> and the import
+// functions over them.
+const wasmHostPath = "github.com/nomi-language/nomi/internal/stdwasm"
+
+// passwordsHostPath is std/passwords/host's implementation: the Argon2id and
+// scrypt key derivations and bcrypt, over golang.org/x/crypto. Its boundary
+// is Bytes, String, Int and Bool.
+const passwordsHostPath = "github.com/nomi-language/nomi/internal/stdpasswords"
 
 // csvHostPath is std/csv/host's implementation: a CSV reader over a
 // Reader, over Go's encoding/csv, and one record written as CSV. Its
@@ -271,8 +297,8 @@ const csvHostPath = "github.com/nomi-language/nomi/internal/stdcsv"
 const xmlHostPath = "github.com/nomi-language/nomi/internal/stdxml"
 
 // tomlHostPath is std/toml's host implementation: a `Toml"..."` literal's
-// check and build over github.com/BurntSushi/toml. Its boundary is String,
-// Float, Int and List<String>.
+// check and build, and a document's decode, over github.com/BurntSushi/toml.
+// Its boundary is String, Float, Int and List<String>.
 const tomlHostPath = "github.com/nomi-language/nomi/internal/stdtoml"
 
 // phraseHostPath is std/phrase/format's host implementation, the
@@ -300,8 +326,8 @@ const localeHostPath = "github.com/nomi-language/nomi/internal/stdlocale"
 // calendarHostPath is std/calendar's implementation, and it is the FIRST row
 // that is the co-located adapter ITSELF rather than a shim beside one.
 //
-// std/regex is written in the FFI's shapes, so `nomi/stdregex` exists to
-// project it onto rt's. Calendar's boundary is
+// std/regex's adapter is written in Go's own types, so `nomi/stdregex`
+// exists to project it onto rt's. Calendar's boundary is
 // spelled in `Int`, `String` and the structs rt declares — the same Go types
 // under both projections — so there is nothing to project and the rows in
 // internal/stdlibbindings name `nomi/std/calendar` directly.
@@ -357,7 +383,7 @@ const stringsHostPath = "github.com/nomi-language/nomi/internal/stdstrings"
 // The SIXTH host package, and its reason is a FOURTH one. The first five are
 // each about where an implementation the TOOLCHAIN owns may live — it is the
 // compiler, it is filesystem effect, it is a dependency. std/regex's
-// implementation is an adapter with FFI-shaped signatures — `(*T, error)`,
+// implementation is an adapter with Go-typed signatures — `(*T, error)`,
 // `*string`, `[]string` — which have to be projected onto rt's somewhere, and
 // this package is that somewhere.
 //
@@ -482,12 +508,10 @@ func kindOfGoType(t reflect.Type) kind {
 	// A Nomi tuple, which a host function's signature spells as a flat
 	// anonymous struct over `F0`, `F1`, …: `(Int, Int)` is
 	// `struct { F0 int64; F1 int64 }`. The kind is the interned tagTuple a
-	// std signature's tuple annotation resolves to (sharedcomp.go's
-	// `tupleSigKind`).
+	// std signature's tuple projects to (projectShared).
 	//
-	// The FFI projects a Go multiple return element by element onto a tuple.
-	// `hostFnFor` requires exactly one result, so a host function with two
-	// values returns them as one such struct. See nomi/stdrandom.
+	// A Go multiple return is a tuple too: the generated adapter projects it
+	// element by element, and so does hostFnFor.
 	//
 	// kindInvalid: lookup — "not a tuple-shaped anonymous struct", so fall through.
 	if k := tupleKindOfGoType(t); k != kindInvalid {
@@ -602,13 +626,19 @@ type stdFunc struct {
 	// answers), and the same shape for a Nomi body. It is what a refusal names.
 	key    string
 	module string
+	// id is the function's identity as the checker names it, the
+	// analysis.StdFunc a call's record carries (Callee.Std): what byID
+	// files it under. Zero for a declaration of a file that is not std's
+	// (a test's fixture module).
+	id analysis.StdFunc
 	// recv is the impl block's receiver type name ("String", "Int"), empty for a
 	// top-level declaration.
 	recv string
-	// iface is the impl block's interface base NAME ("Debug", "Add"), empty for
-	// an inherent block or a top-level declaration. It is what byIface is keyed
-	// on, because that is the qualifier a call site writes.
-	iface string
+	// iface is the interface the impl block implements, by the checker's
+	// record of the block (analysis.ImplBlockTypeArgs), zero for an inherent
+	// block, a top-level declaration and an impl of an interface no std
+	// module declares. byIface files the function under it.
+	iface analysis.StdType
 	name  string
 	// selfIdx is the parameter position holding the receiver, or -1 when the
 	// function has none. Only 0 is served: the design doc's dispatch table says
@@ -683,6 +713,13 @@ func (f *stdFunc) lowerable() bool { return f.rtCall != "" || f.body }
 // stdlibIndex is every stdlib function a call site can resolve, plus the IR
 // graphs built for the ones with Nomi bodies.
 type stdlibIndex struct {
+	// byID keys each function by its identity (stdFunc.id): a module-level
+	// function and an impl's alike, of every module the index holds. It is
+	// the one lookup a call's record reaches std's function through
+	// (stdFuncByID). An identity names its module, so no module's
+	// declaration can answer for another's, as one spelling in byType
+	// does for two modules' `Error.inspect`.
+	byID map[analysis.StdFunc]*stdFunc
 	// byType keys "String.contains" — the type-qualified spelling a call site
 	// writes.
 	//
@@ -695,12 +732,10 @@ type stdlibIndex struct {
 	// parameter-kind signature, which is exactly the information a call site
 	// supplies. See addOverload and stdPick.
 	byType map[string][]*stdFunc
-	// byFile keys "timer.sleep" — a `pub` TOP-LEVEL function under
-	// "<module>.<name>", which is how a file-qualified call through a stdlib
-	// file's API object spells it. Free functions only: that is all a file API
-	// object reaches in Nomi.
-	byFile map[string]*stdFunc
-	// byIface keys "Debug.inspect" and then the RECEIVER kind. An interface
+	// byIface keys an interface's function by its identity (the interface
+	// as Owner, analysis.StdType.Func: `std/debug`'s `Debug.inspect`) and
+	// then the RECEIVER kind, from the checker's record of the interface
+	// each impl block implements; read through stdIfaceImpls. An interface
 	// qualifier with a statically-known scalar receiver is the concrete-qualifier
 	// row of the design's dispatch table: it names exactly one function, so it
 	// lowers to a direct call and needs no table at run time.
@@ -709,7 +744,7 @@ type stdlibIndex struct {
 	// is NOT enough on its own: all eleven `impl Add<X, NaiveDateTime>` blocks
 	// have `NaiveDateTime` in the receiver position and differ only in the
 	// operand.
-	byIface map[string]map[kind][]*stdFunc
+	byIface map[analysis.StdFunc]map[kind][]*stdFunc
 	// unlowered names, per module namespace key (modulePkg), each function,
 	// wrapper, accessor and `once` whose body the builder did not retain, and
 	// the reason. A program's call to one declines, and noteStdBodyDeclined
@@ -767,6 +802,13 @@ type stdlibIndex struct {
 	// restored yet, which the stdlib has not built: a process restores a
 	// module once a program reaches it (stdlibIndex.withModules).
 	pending map[string]*stdModuleRecord
+	// objects is the std bundle's shared modules the records decode from
+	// (nil for an index lowered without one), and objectsGen the decodes
+	// irModules holds (stdObjects.gen): irModules holds every module
+	// decoded when the index was made, restored or not, since a decoded
+	// module's IR names what its dependencies define.
+	objects    *stdObjects
+	objectsGen int64
 	// lib is the stdlib whose modules the index holds.
 	lib *std.StdLib
 	// unitSyms is set on the scope lowerStdUnit lowers a member of an
@@ -791,9 +833,9 @@ var (
 // package asks: "does std declare this name, in this shape". Those questions
 // are fixed per compiler binary, so one analysis answers them for the process.
 //
-// A std.Load per question would be reached from stdBaseAnchors for every
-// module and every interface-anchor pass, which would dominate the cost of
-// lowering hello world.
+// A std.Load per question would be reached from every gen's anchor loaders
+// and every interface-anchor pass, which would dominate the cost of lowering
+// hello world.
 //
 // It is std.Shared, the same analysis the front end resolved the program
 // against and buildStdlibIndex lowers from, so a `nomi run` analyzes the
@@ -837,12 +879,13 @@ var (
 )
 
 // stdlibLowering is the process's stdlib lowering, holding every module the
-// shared stdlib has built: decoded from the std bundle a module at a time as
-// programs reach modules (withModules), or lowered whole.
+// shared stdlib has built and every module whose object the process has
+// decoded: decoded from the std bundle a module at a time as programs reach
+// modules (withModules), or lowered whole.
 func stdlibLowering() *stdlibIndex {
 	first := stdlibFirstLowering()
 	lib := std.Shared()
-	if cur := stdlibCurrent.Load(); cur != nil && cur.lib == lib {
+	if cur := stdlibCurrent.Load(); cur != nil && cur.lib == lib && !cur.staleObjects() {
 		return cur
 	}
 	stdlibCurrentMu.Lock()
@@ -852,7 +895,7 @@ func stdlibLowering() *stdlibIndex {
 		cur = first
 	}
 	lib = std.Shared()
-	if cur.lib != lib {
+	if cur.lib != lib || cur.staleObjects() {
 		cur = cur.withModules(lib)
 	}
 	stdlibCurrent.Store(cur)
@@ -895,9 +938,9 @@ type stdModuleLowering func(v *stdModuleView, earlier *stdlibIndex) (funcs []*st
 // numbered over names, every module of the stdlib, sorted.
 func newStdlibIndex(names []string) *stdlibIndex {
 	idx := &stdlibIndex{
+		byID:        map[analysis.StdFunc]*stdFunc{},
 		byType:      map[string][]*stdFunc{},
-		byFile:      map[string]*stdFunc{},
-		byIface:     map[string]map[kind][]*stdFunc{},
+		byIface:     map[analysis.StdFunc]map[kind][]*stdFunc{},
 		irModules:   map[string]*ir.Module{},
 		unlowered:   map[string]map[string]string{},
 		modulePkg:   map[string]string{},
@@ -1268,7 +1311,15 @@ func (x *stdlibIndex) withModules(lib *std.StdLib) *stdlibIndex {
 	return y
 }
 
-// restoring is withModules. A module the bundle does not restore is an
+// staleObjects reports that a module's object was decoded after x was
+// made, so x's irModules lacks it.
+func (x *stdlibIndex) staleObjects() bool {
+	return x.objects.generation() != x.objectsGen
+}
+
+// restoring is withModules. It decodes each module it restores from the
+// bundle's objects first, with the modules whose objects define what its
+// own names (stdObjects.decode). A module the bundle does not restore is an
 // error when lower is false; otherwise it is lowered, as a process without
 // the bundle lowers it, and in a test it panics: the bundle was made from
 // this stdlib (its digest), so a module it does not match is a defect.
@@ -1279,17 +1330,28 @@ func (x *stdlibIndex) restoring(lib *std.StdLib, lower bool) (*stdlibIndex, erro
 			restore = append(restore, name)
 		}
 	}
+	if len(restore) > 0 && x.objects != nil {
+		if err := x.objects.decode(restore...); err != nil {
+			if !lower {
+				return nil, err
+			}
+			if testing.Testing() {
+				panic("irbuild: " + err.Error())
+			}
+			stdBundleDebug("%v", err)
+		}
+	}
+	irModules, objectsGen := x.objects.decodedModules(x.irModules, x.modulePkg)
 	if len(restore) == 0 {
 		y := *x
 		y.lib = lib
+		y.irModules, y.objectsGen = irModules, objectsGen
 		return &y, nil
 	}
 	y := newStdlibIndex(nil)
 	y.modulePkg, y.earlierMods, y.order = x.modulePkg, x.earlierMods, x.order
 	y.lib = lib
-	for pkg, m := range x.irModules {
-		y.irModules[pkg] = m
-	}
+	y.objects, y.irModules, y.objectsGen = x.objects, irModules, objectsGen
 	for pkg, u := range x.unlowered {
 		y.unlowered[pkg] = u
 	}
@@ -1480,26 +1542,10 @@ func (x *stdlibIndex) add(f *stdFunc) {
 			x.byKey[f.key] = f
 		}
 	}
-	if f.recv == "" && x.byFile != nil {
-		// A top-level function, `pub` or not. No ambiguity is possible: two
-		// declarations of one name in one file is a front-end error, and the
-		// key carries the module.
-		//
-		// There is no `pub` gate here, because it would be a visibility check
-		// in the wrong layer. `byFile` is the IMPLICIT FILE ALIAS — how a stdlib module
-		// names its OWN free functions — and a module names its private ones
-		// that way most of all. Whether a caller outside the module may spell
-		// `calendar.date_parse_raw` is the front end's decision and it has
-		// already been made before any of this runs; the key carries the
-		// module, so a private entry is unreachable from anywhere the checker
-		// would not have rejected first.
-		//
-		// A gate would make every module-private extern unreachable however
-		// carefully it was bound: std/random's `between_state`, `unit_float_state`
-		// and `os_state`, and std/calendar's boundary, where the public API is
-		// Nomi bodies over private externs because the FFI cannot cross a
-		// `Result<_, Error>` or a `Duration`.
-		x.byFile[f.key] = f
+	if x.byID != nil && !f.id.IsZero() {
+		// No two declarations share an identity (TestStdFuncsAreDistinct),
+		// and an index files each declaration once.
+		x.byID[f.id] = f
 	}
 	if f.recv != "" {
 		key := f.recv + "." + f.name
@@ -1514,8 +1560,8 @@ func (x *stdlibIndex) add(f *stdFunc) {
 	// TestEveryScalarHostFnIsBoundOrDeclared would read calendar and decimal
 	// externs as scalar-and-unbound when they are non-scalar.
 	// kindInvalid: no-position — indexes the registry by receiver kind; no Nomi position.
-	if f.iface != "" && f.selfIdx == 0 && len(f.params) > 0 && f.params[0] != kindInvalid {
-		key := f.iface + "." + f.name
+	if !f.iface.IsZero() && f.selfIdx == 0 && len(f.params) > 0 && f.params[0] != kindInvalid {
+		key := f.iface.Func(f.name)
 		byRecv := x.byIface[key]
 		if byRecv == nil {
 			byRecv = map[kind][]*stdFunc{}
@@ -1619,7 +1665,7 @@ const shadowedByInherent = "stdlib interface impl shadowed by an inherent method
 func stdPrecedenceWinner(group []*stdFunc) *stdFunc {
 	var inherent *stdFunc
 	for _, f := range group {
-		if f.iface != "" {
+		if !f.iface.IsZero() {
 			continue
 		}
 		if inherent != nil {
@@ -1673,41 +1719,37 @@ func stdPick(fs []*stdFunc, args []kind) *stdFunc {
 		if !sameParamKinds(f.params, args) {
 			continue
 		}
-		if match == nil || (match.iface != "" && f.iface == "") {
+		if match == nil || (!match.iface.IsZero() && f.iface.IsZero()) {
 			match = f
 		}
 	}
 	return match
 }
 
-// stdSole is the declaration a spelling names when it names exactly one, for the
-// two callers that have no argument kinds to select with.
-func stdSole(fs []*stdFunc) *stdFunc {
-	if len(fs) == 1 {
-		return fs[0]
-	}
-	return nil
-}
-
-// underlay adds every spelling `earlier` resolves that this index does not,
-// leaving this index's own entries untouched.
+// underlay adds every entry `earlier` holds that this index, a std
+// module's own (bindStdSiblings), does not, leaving this index's own
+// entries untouched.
 //
 // It is deliberately NOT `add`. add marks a duplicate key AMBIGUOUS on both
-// entries, which is right for two declarations inside one module and wrong here:
-// a module's own `Instant.inspect` is not in competition with another module's
-// `Duration.inspect`, and a cross-module name that collided with a local one
-// must lose silently rather than poison the local entry's refusal reason.
-// Locals win, which is also the resolution rule Nomi itself applies.
-//
-// byFile is deliberately not merged. A std gen's local index has a byFile map,
-// so `bindStdSiblings` files this module's own `pub` free functions and
-// `compiler.check(...)` inside std/compiler resolves. What is declined is the
-// CROSS-MODULE spelling — `timer.sleep(...)` written inside some other stdlib
-// module — which would admit a reference under a route nothing exercises.
+// entries, which is right for two declarations inside one module and wrong
+// here. Under one spelling in byType or byIface a module's own entries hide
+// an earlier module's: in std/calendar's gen `Error.inspect` is calendar's
+// `Error`'s, never std/locale's, and a cross-module spelling that collided
+// with a local one loses silently rather than poison the local entry's
+// refusal reason. A call whose record names the other module's function
+// finds it in byID, whose keys carry the module, so nothing hides there.
 func (x *stdlibIndex) underlay(earlier *stdlibIndex) {
 	if earlier == nil {
 		return
 	}
+	byID := maps.Clone(earlier.byID)
+	if byID == nil {
+		byID = map[analysis.StdFunc]*stdFunc{}
+	}
+	for id, f := range x.byID {
+		byID[id] = f
+	}
+	x.byID = byID
 	// The earlier slice is ALIASED rather than copied, and that is sound
 	// because underlay runs after every local add and nothing appends to a
 	// local set afterwards. An append on the earlier index for a later module
@@ -1736,16 +1778,6 @@ func (x *stdlibIndex) underlay(earlier *stdlibIndex) {
 		for recv, fs := range byRecv {
 			if len(mine[recv]) == 0 {
 				mine[recv] = fs
-			}
-		}
-	}
-	// An earlier module's top-level functions, so a later module's body may
-	// call `hex.encode(digest)`. Keys carry the module, so none collides
-	// with this module's own.
-	if x.byFile != nil {
-		for key, f := range earlier.byFile {
-			if _, mine := x.byFile[key]; !mine {
-				x.byFile[key] = f
 			}
 		}
 	}
@@ -1962,23 +1994,24 @@ func lowerStdlibModuleIn(v *stdModuleView, earlier *stdlibIndex, dc *declineCens
 // The resulting key is `lists.List.first`, the documented host-key convention
 // (`int.Int.to_string`, `iter.MapIter.next`). A generic receiver's methods are
 // generic, so they refuse under their own name at their own call site.
-func collectStdCandidates(module string, nodes []ast.Node, anchors stdAnchors) []*stdCandidate {
+func collectStdCandidates(module string, nodes []ast.Node, fa *analysis.FileAnalysis) []*stdCandidate {
 	var out []*stdCandidate
+	declared := stdDeclared(fa)
 	for _, n := range nodes {
 		switch t := n.(type) {
 		case *ast.FuncDef:
-			out = append(out, stdCandidateFor(module, "", "", "", t.Name, t.Params, t.ReturnTypeExpr,
-				len(t.TypeParams) > 0 || len(t.WhereClauses) > 0, len(t.Decorators) > 0, t, anchors))
+			out = append(out, stdCandidateFor(module, "", analysis.StdType{}, "", t.Name, t.Params, t.ReturnTypeExpr,
+				len(t.TypeParams) > 0 || len(t.WhereClauses) > 0, len(t.Decorators) > 0, t, fa))
 		case *ast.ExternFunc:
 			generic := len(t.TypeParams) > 0 || len(t.WhereClauses) > 0
-			if generic && phantomOnly(typeParamNames(t.TypeParams), anchors, nil, stdSig{t.Params, t.ReturnTypeExpr, t.WhereClauses}) {
+			if generic && phantomOnly(typeParamNames(t.TypeParams), fa, nil, stdSig{t.Params, t.ReturnTypeExpr, t.WhereClauses}) {
 				generic = false
 			}
-			out = append(out, stdCandidateFor(module, "", "", "", t.Name, t.Params, t.ReturnTypeExpr,
-				generic, false, t, anchors))
+			out = append(out, stdCandidateFor(module, "", analysis.StdType{}, "", t.Name, t.Params, t.ReturnTypeExpr,
+				generic, false, t, fa))
 		case *ast.ImplBlock:
 			recv := analysis.TypeExprBaseName(t.Receiver)
-			iface := analysis.TypeExprBaseName(t.Interface)
+			iface := analysis.ImplBlockTypeArgs(fa, t).Std()
 			ifaceKey := stdImplKey(t.Interface)
 			implGeneric := len(t.Generics) > 0 || len(t.WhereClauses) > 0
 			// The type parameters the GENERIC RECEIVER contributes, which the
@@ -1991,8 +2024,8 @@ func collectStdCandidates(module string, nodes []ast.Node, anchors stdAnchors) [
 			// `analysis.ReceiverTypeParamNames` is the front end's own rule,
 			// shared rather than reimplemented; see its header.
 			recvTP := map[string]bool{}
-			if anchors.declared != nil {
-				for _, n := range analysis.ReceiverTypeParamNames(t.Receiver, anchors.declared) {
+			if declared != nil {
+				for _, n := range analysis.ReceiverTypeParamNames(t.Receiver, declared) {
 					if n != "" {
 						recvTP[n] = true
 					}
@@ -2017,21 +2050,12 @@ func collectStdCandidates(module string, nodes []ast.Node, anchors stdAnchors) [
 						sigs = append(sigs, stdSig{it.Params, it.ReturnTypeExpr, it.WhereClauses})
 					}
 				}
-				if phantomOnly(blockTP, anchors, []ast.TypeExpr{t.Receiver, t.Interface}, sigs...) {
+				if phantomOnly(blockTP, fa, []ast.TypeExpr{t.Receiver, t.Interface}, sigs...) {
 					implGeneric = false
 					recvTP = map[string]bool{}
 				}
 			}
 			blocked := recv == ""
-			// A DERIVE-SYNTHESIZED block's signatures resolve their type names
-			// through the COMPILER-KNOWN route rather than through this file's
-			// imports, so they see a wider anchor set. `SynthOriginLine` is the
-			// AST's own marker — "Zero on every hand-written block" — rather
-			// than an inference from the shape. See stdEnumSynthAnchors.
-			at := anchors
-			if t.SynthOriginLine != 0 {
-				at = anchors.forSynthesized()
-			}
 			for _, item := range t.Items {
 				switch it := item.(type) {
 				case *ast.FuncDef:
@@ -2039,16 +2063,16 @@ func collectStdCandidates(module string, nodes []ast.Node, anchors stdAnchors) [
 					// gen applies too (ownerimpl.go): `Iter.from(start:
 					// Int)` names no block parameter and is monomorphic.
 					own := (len(it.TypeParams) > 0 || len(it.WhereClauses) > 0) &&
-						!phantomOnly(typeParamNames(it.TypeParams), anchors, nil, stdSig{it.Params, it.ReturnTypeExpr, it.WhereClauses})
+						!phantomOnly(typeParamNames(it.TypeParams), fa, nil, stdSig{it.Params, it.ReturnTypeExpr, it.WhereClauses})
 					out = append(out, stdCandidateFor(module, recv, iface, ifaceKey, it.Name, it.Params, it.ReturnTypeExpr,
 						implGeneric || own || namesBlockParam(it, recvTP),
-						blocked || len(it.Decorators) > 0, it, at))
+						blocked || len(it.Decorators) > 0, it, fa))
 				case *ast.ExternFunc:
 					own := (len(it.TypeParams) > 0 || len(it.WhereClauses) > 0) &&
-						!phantomOnly(typeParamNames(it.TypeParams), anchors, nil, stdSig{it.Params, it.ReturnTypeExpr, it.WhereClauses})
+						!phantomOnly(typeParamNames(it.TypeParams), fa, nil, stdSig{it.Params, it.ReturnTypeExpr, it.WhereClauses})
 					out = append(out, stdCandidateFor(module, recv, iface, ifaceKey, it.Name, it.Params, it.ReturnTypeExpr,
 						implGeneric || own ||
-							sigNamesTypeParam(it.Params, it.ReturnTypeExpr, recvTP), blocked, it, at))
+							sigNamesTypeParam(it.Params, it.ReturnTypeExpr, recvTP), blocked, it, fa))
 				}
 			}
 		case *ast.InterfaceDef:
@@ -2078,9 +2102,9 @@ func collectStdCandidates(module string, nodes []ast.Node, anchors stdAnchors) [
 				if !m.Extern {
 					continue
 				}
-				out = append(out, stdCandidateFor(module, t.Name, "", "", m.Name, m.Params, m.ReturnTypeExpr,
+				out = append(out, stdCandidateFor(module, t.Name, analysis.StdType{}, "", m.Name, m.Params, m.ReturnTypeExpr,
 					len(t.TypeParams) > 0 || len(t.WhereClauses) > 0 ||
-						len(m.TypeParams) > 0 || len(m.WhereClauses) > 0, false, m, anchors))
+						len(m.TypeParams) > 0 || len(m.WhereClauses) > 0, false, m, fa))
 			}
 		}
 	}
@@ -2089,7 +2113,7 @@ func collectStdCandidates(module string, nodes []ast.Node, anchors stdAnchors) [
 
 // decl is the function's declaration: an *ast.FuncDef for a Nomi body, an
 // *ast.ExternFunc or an interface's *ast.InterfaceMethod for a `host fn`.
-func stdCandidateFor(module, recv, iface, ifaceKey, name string, params []ast.Param, ret ast.TypeExpr, generic, blocked bool, decl ast.Node, anchors stdAnchors) *stdCandidate {
+func stdCandidateFor(module, recv string, iface analysis.StdType, ifaceKey, name string, params []ast.Param, ret ast.TypeExpr, generic, blocked bool, decl ast.Node, fa *analysis.FileAnalysis) *stdCandidate {
 	fd, _ := decl.(*ast.FuncDef)
 	progSig := false
 	f := &stdFunc{
@@ -2105,14 +2129,14 @@ func stdCandidateFor(module, recv, iface, ifaceKey, name string, params []ast.Pa
 	}
 	defaulted := false
 	for i, p := range params {
-		k, headName := stdParamKind(p, anchors)
+		k := projectShared(stdParamType(fa, p))
 		f.params = append(f.params, k)
-		if recv != "" && f.selfIdx < 0 && headName == recv {
+		if recv != "" && f.selfIdx < 0 && stdParamHeadName(p) == recv {
 			f.selfIdx = i
 		}
 		// kindInvalid: no-position — classifies a stdlib declaration into f.why; no Nomi position.
 		if k == kindInvalid {
-			if fd != nil && fd.Body != nil && stdProgSigType(p.TypeAnnotation, anchors) {
+			if fd != nil && fd.Body != nil && stdProgSigType(fa, p.TypeAnnotation) {
 				progSig = true
 			} else {
 				blocked = true
@@ -2128,10 +2152,10 @@ func stdCandidateFor(module, recv, iface, ifaceKey, name string, params []ast.Pa
 		}
 	}
 	if ret != nil {
-		f.result = stdTypeKind(ret, anchors)
+		f.result = projectShared(stdTypeExprType(fa, ret))
 		// kindInvalid: no-position — classifies a stdlib declaration into f.why; no Nomi position.
 		if f.result == kindInvalid {
-			if fd != nil && fd.Body != nil && stdProgSigType(ret, anchors) {
+			if fd != nil && fd.Body != nil && stdProgSigType(fa, ret) {
 				progSig = true
 			} else {
 				blocked = true
@@ -2151,7 +2175,7 @@ func stdCandidateFor(module, recv, iface, ifaceKey, name string, params []ast.Pa
 		// is not the problem.
 		f.why = "stdlib generic function"
 	case blocked:
-		f.why = "stdlib function outside the scalar subset"
+		f.why = stdOutsideSubsetWhy
 	case progSig:
 		f.why = stdProgSigWhy
 	case fd == nil && defaulted:
@@ -2292,394 +2316,62 @@ func stdSignatureMatches(h hostFn, f *stdFunc) bool {
 	return true
 }
 
-// stdInferredParamKind is the kind of a stdlib parameter whose type comes
-// from its default (`parents = False`, `mode = WriteMode.Replace`): the
-// type the checker gave it, which the module's analysis records on the
-// parameter's symbol, read as a scalar or as a monomorphic declared type
-// resolved by its name through the anchors an annotation naming it would
-// be. Anything else is kindInvalid, and the function is refused.
-func stdInferredParamKind(p ast.Param, anchors stdAnchors) kind {
-	if anchors.fa == nil {
-		return kindInvalid
+// stdParamType is the type the checker gave a stdlib parameter: its
+// annotation's (`rhs: Duration`), its pattern's for a destructuring one
+// (`Duration.as_nanos(Duration(ns))`, whose head is its type), or, for one
+// written with neither (`parents = False`), the type it takes from its
+// default. A signature's kinds are this type projected with no gen
+// (projectShared), as every other std position's are.
+func stdParamType(fa *analysis.FileAnalysis, p ast.Param) analysis.Type {
+	if fa == nil {
+		return nil
 	}
-	sym, found := anchors.fa.Definitions[analysis.Pos{Line: p.Line, Col: p.Col}]
-	if !found || sym.Kind != analysis.SymbolParam || sym.Name != p.Name || sym.Type == nil {
-		return kindInvalid
+	switch {
+	case p.TypeAnnotation != nil:
+		return fa.TypeExprTypes[p.TypeAnnotation]
+	case p.Destructure != nil:
+		return fa.PatternTypes[p.Destructure]
 	}
-	t := analysis.ResolveClosed(sym.Type)
-	switch t {
-	case analysis.TypeInt:
-		return kindInt
-	case analysis.TypeFloat:
-		return kindFloat
-	case analysis.TypeString:
-		return kindString
-	case analysis.TypeBool:
-		return kindBool
-	}
-	var name string
-	switch n := t.(type) {
-	case *analysis.EnumType:
-		if len(n.TypeArgs) == 0 {
-			name = n.Name
-		}
-	case *analysis.StructType:
-		if len(n.TypeArgs) == 0 {
-			name = n.Name
-		}
-	case *analysis.DistinctType:
-		if len(n.TypeArgs) == 0 {
-			name = n.Name
-		}
-	}
-	if name == "" {
-		return kindInvalid
-	}
-	return stdTypeKind(&ast.SimpleType{Name: name, Line: p.Line, Col: p.Col}, anchors)
+	return paramSymbolType(fa, p)
 }
 
-// stdParamKind is a stdlib parameter's kind and the type name its pattern head
-// names, for the receiver test.
-//
-// A parameter is written one of two ways in std, and both have to answer here.
-// An ANNOTATED one (`rhs: Duration`) reads its annotation. A DESTRUCTURING one
-// (`Duration.as_nanos(Duration(ns))`, and every operator impl in std/duration
-// and std/instant) carries no annotation at all: the pattern's head IS the
-// annotation, which is sugar.go's self-typing rule read without a gen.
-//
-// Only a head that names a type directly is served, because that is the only
-// shape std uses for a receiver — a tuple or anonymous-struct pattern has no
-// head to read and answers kindInvalid, so the function is refused rather than
-// guessed at.
-func stdParamKind(p ast.Param, anchors stdAnchors) (kind, string) {
+// stdTypeExprType is the type the checker recorded for a type std writes in a
+// signature or on a `once`, or nil.
+func stdTypeExprType(fa *analysis.FileAnalysis, te ast.TypeExpr) analysis.Type {
+	if fa == nil {
+		return nil
+	}
+	return fa.TypeExprTypes[te]
+}
+
+// stdDeclared answers whether a name is a type in a std module's scope, the
+// resolver half of analysis.ReceiverTypeParamNames, which tells a receiver's
+// type parameter (`Map<K, V>`) from a concrete type argument (`Map<String,
+// V>`). It is nil when the module has no scope, and the receiver-derived
+// rule is then skipped rather than answering "everything is a type
+// parameter".
+func stdDeclared(fa *analysis.FileAnalysis) func(string) bool {
+	if fa == nil || fa.ModuleScope == nil {
+		return nil
+	}
+	scope := fa.ModuleScope
+	return func(n string) bool { return scope.Lookup(n) != nil }
+}
+
+// stdParamHeadName is the type name a stdlib parameter is written with, for
+// the receiver test: its annotation's (stdHeadTypeName), or the head of its
+// pattern when it destructures (`Duration(ns)`, `Instant{nanos:}`).
+func stdParamHeadName(p ast.Param) string {
 	if p.TypeAnnotation != nil {
-		return stdTypeKind(p.TypeAnnotation, anchors), stdHeadTypeName(p.TypeAnnotation)
+		return stdHeadTypeName(p.TypeAnnotation)
 	}
-	if p.Destructure == nil {
-		if p.Default != nil {
-			return stdInferredParamKind(p, anchors), ""
-		}
-		return kindInvalid, ""
-	}
-	var head ast.TypeExpr
 	switch pat := p.Destructure.(type) {
 	case *ast.StructPattern:
-		head = pat.TypeName
+		return simpleTypeName(pat.TypeName)
 	case *ast.EnumPattern:
-		head = pat.Variant
+		return simpleTypeName(pat.Variant)
 	}
-	name := simpleTypeName(head)
-	if name == "" {
-		return kindInvalid, ""
-	}
-	// A destructuring parameter's kind is the head's type, and the head is
-	// resolved through the same anchored table an annotation is: nothing else
-	// is admitted, so `Point{x:, y:}` in a hypothetical std module refuses rather
-	// than resolving against a declaration this pass cannot see.
-	//
-	// Opaques only, and deliberately not every stdAnchors family: a MONOMORPHIC
-	// stdlib enum has none but bare variants, so `Ordering(x)` is not a pattern
-	// the front end accepts and admitting one here would be a phantom.
-	if i, anchored := anchors.opaques[name]; anchored {
-		return named(opaqueDefs()[i]), name
-	}
-	return kindInvalid, name
-}
-
-// stdTypeKind is the kind a stdlib type annotation names: a scalar, one of the
-// non-scalar types this module's analysis anchored (stdAnchors), or a STRUCTURAL
-// type over those.
-//
-// Deliberately NOT gen.typeOf. typeOf resolves a module's declared types too,
-// and admitting one here would produce a kind whose identity is a *typeDef
-// belonging to one gen, which no call site in another gen could match. The
-// admitted non-scalar types have one identity in every gen: an anchored
-// type's *typeDef is process-wide, and a structural type over package-neutral
-// components has a process-wide *compKind. See opaque.go, stdenum.go and
-// sharedcomp.go.
-func stdTypeKind(te ast.TypeExpr, anchors stdAnchors) kind {
-	// kindInvalid: lookup — scalarKind's "not one of the five", so fall through.
-	if k := scalarKind(te); k != kindInvalid {
-		return k
-	}
-	// Infallible's own impls (`impl Display for Infallible` in results.nomi)
-	// take it as their receiver. It is reserved like Unit, so the name can
-	// mean nothing else, and its kind belongs to no gen.
-	if simpleTypeName(te) == "Infallible" {
-		return kindNever
-	}
-	// A NESTED std type name — `Json.DecodeError`, `Json.ShapeError`, `Json.Case`
-	// — which the parser gives as an *ast.QualifiedType and not as a SimpleType,
-	// so `simpleTypeName` below answers "" for it and every lookup would miss.
-	// Without this arm `Json.decode`'s `Result<Json, Json.DecodeError>` would
-	// refuse with both types anchored, because nothing would ask for the anchor
-	// under the spelling std wrote.
-	//
-	// A NAME lookup, exactly as the bare arms below are, and it inherits their
-	// identity argument rather than weakening it: each anchor was established by
-	// the (origin, name) rule against a validated declaration, so the map holds
-	// only names std really declares. A MODULE-qualified spelling (`io.Reader`)
-	// has the same syntax and simply misses, which is the right answer.
-	if nested := stdNestedTypeName(te); nested != "" {
-		if i, anchored := anchors.structs[nested]; anchored {
-			return named(stdStructDefs()[i])
-		}
-		if i, anchored := anchors.enums[nested]; anchored {
-			return named(stdEnumDefs()[i])
-		}
-		// Nothing else, deliberately. An opaque newtype, a `host type` and a
-		// generic std struct are all declared with UNDOTTED names in std,
-		// so an arm for one would be a path with no member — and the two above
-		// are the two families that really do carry a dotted row.
-		return kindInvalid
-	}
-	if k, isRefinement := stdRefinementKind(te, anchors); isRefinement {
-		return k
-	}
-	name := simpleTypeName(te)
-	if i, anchored := anchors.opaques[name]; anchored {
-		return named(opaqueDefs()[i])
-	}
-	if i, anchored := anchors.enums[name]; anchored {
-		// A monomorphic stdlib enum: `Int.compare(a: Int, b: Int) -> Ordering`.
-		// Admitted on the same terms as an opaque newtype and for the same
-		// reason: its *typeDef is process-wide, so a call site in any gen
-		// holds the same kind. See stdenum.go.
-		return named(stdEnumDefs()[i])
-	}
-	if i, anchored := anchors.structs[name]; anchored {
-		// A stdlib opaque STRUCT: `DateTime.with_zone(d: DateTime, zone:
-		// String): Result<DateTime, Error>`. The same terms once more: a
-		// process-wide *typeDef over a Go struct rt declares. See
-		// stdstruct.go.
-		return named(stdStructDefs()[i])
-	}
-	if i, anchored := anchors.hosts[name]; anchored {
-		// A stdlib `pub host type`: `Bytes.length(data: Bytes) -> Int`. The same
-		// terms a fourth time: a process-wide *typeDef over a Go type rt
-		// declares, and a leaf, with no components. See stdhost.go.
-		return stdHostKind(i)
-	}
-	if i, anchored := anchors.ifaces[name]; anchored {
-		// A stdlib INTERFACE in a type position: `Doc.from_fragments(
-		// fragments: List<Fragment<Display>>): Doc`. Admitted on the same
-		// terms as the families above: the *ifaceDef is process-wide. See
-		// stdiface.go.
-		//
-		// A structural kind over an interface carries the interface in its
-		// components, so `List<Display>` and `List<Comparable>` are two
-		// kinds.
-		return stdIfaceKind(i)
-	}
-	// A TUPLE — `random.between_state(...) -> (Int, Int)`. Placed before the
-	// GenericType block because a tuple is spelled neither nominally nor
-	// generically: the parser gives it as an *ast.FuncType with a nil Return.
-	// Admitted on the List and Map arms' terms; see tupleSigKind.
-	if k, isTuple := tupleSigKind(te, anchors); isTuple {
-		return k
-	}
-	if ft, isFunc := te.(*ast.FuncType); isFunc && ft.Return != nil {
-		// A FUNCTION type — `http.serve`'s `handler: (Request) -> ToResponse`.
-		// Its parts resolve through this same function, and the kind interns
-		// process-wide when every part is package-neutral (funcKindIn with no
-		// gen); a part that is not declines rather than interning nowhere.
-		parts := make([]kind, 0, len(ft.Params)+1)
-		for _, p := range ft.Params {
-			parts = append(parts, stdTypeKind(p, anchors))
-		}
-		result := stdTypeKind(ft.Return, anchors)
-		for _, p := range append(parts, result) {
-			// kindInvalid: propagates — the part's own refusal is the answer.
-			if p == kindInvalid || !p.packageNeutral() {
-				return kindInvalid
-			}
-		}
-		return funcKindIn(nil, parts, result)
-	}
-	if gt, generic := te.(*ast.GenericType); generic {
-		// A PRELUDE instance over the types above: `Float.to_int(x: Float):
-		// Maybe<Int>`. The same terms one level up: admitted only when every
-		// type argument is itself package-neutral, which is what
-		// stdprelude.go interns on.
-		//
-		// Reported as handled even when it refuses, so an unrepresentable type
-		// argument is the answer rather than falling through to a lookup that
-		// would answer the same kindInvalid for a different reason.
-		if k, isPrelude := preludeSigKind(gt, anchors); isPrelude {
-			return k
-		}
-		if k, isList := listSigKind(gt, anchors); isList {
-			return k
-		}
-		if k, isMap := mapSigKind(gt, anchors); isMap {
-			return k
-		}
-		if k, isGenStruct := genStructSigKind(gt, anchors); isGenStruct {
-			return k
-		}
-		if k, isGenHost := genHostSigKind(gt, anchors); isGenHost {
-			return k
-		}
-		if k, isPhantom := phantomHostSigKind(gt, anchors); isPhantom {
-			return k
-		}
-	}
-	return kindInvalid
-}
-
-// stdAnchors is every NON-SCALAR type a stdlib signature may name and this
-// builder has a representation for, resolved against one module's analysis.
-//
-// A struct rather than a parameter per family, because there are several
-// families and the reason each is admissible is identical: a process-wide
-// def, which belongs to no gen. A threaded map per family would make each
-// addition a five-signature edit.
-type stdAnchors struct {
-	// fa is the module's analysis, which records the type a parameter
-	// written `mode = WriteMode.Replace` takes from its default.
-	fa *analysis.FileAnalysis
-	// opaques indexes opaqueSpecs by Nomi name.
-	opaques map[string]int
-	// enums indexes stdEnumSpecs by Nomi name.
-	enums map[string]int
-	// structs indexes stdStructSpecs by Nomi name.
-	structs map[string]int
-	// hosts indexes stdHostSpecs by Nomi name. A base family rather than a
-	// late one: a `host type` declares no contents, so resolving it needs
-	// nothing from any other family. See stdhost.go.
-	hosts map[string]int
-	// preludes maps `Maybe`/`Result` to THIS module's anchor. An anchor rather
-	// than an index because the prelude family is parameterized: the spec alone
-	// does not name a type, so the type ARGUMENTS have to be resolved at the
-	// annotation and the instance interned per instantiation. See stdprelude.go.
-	preludes map[string]*preludeAnchor
-	// ifaces indexes stdIfaceSpecs by Nomi name. Filled LAST by stdAnchorsOf,
-	// because stdIfaceAnchorsWith resolves its own method signatures through
-	// the other families; see stdiface.go.
-	ifaces map[string]int
-	// synthEnums indexes stdEnumSpecs by Nomi name for the names a
-	// DERIVE-SYNTHESIZED signature in this module resolves through the
-	// COMPILER-KNOWN route rather than through the module's imports. Disjoint
-	// from `enums` by construction — see stdEnumSynthAnchors — and consulted
-	// only through forSynthesized.
-	synthEnums map[string]int
-	// genStructs indexes stdGenStructSpecs by Nomi name, through the same
-	// (origin, name) + validated-shape anchor a gen uses.
-	//
-	// It lets std's own signatures name a generic std struct as a user's
-	// annotation can: `ranges.Range.from(n: Int) -> Range<Int>` and
-	// `Range.naturals() -> Range<Int>` resolve here. See stdgensig.go.
-	genStructs map[string]*stdGenStructAnchor
-	// genHosts indexes stdGenHostSpecs by Nomi name, through the anchor a
-	// gen uses (stdGenHostAnchorsOf), so std's own signatures name a
-	// generic std host type as a user's annotation can: a private
-	// `fn f(marks: Vector<String>)` in a shared module resolves here. See
-	// stdgensig.go.
-	genHosts map[string]*stdGenHostAnchor
-	// declared answers "is this name a TYPE in the declaring module" — the
-	// resolver half of analysis.ReceiverTypeParamNames, which needs it to tell a
-	// receiver's type PARAMETER (`Map<K, V>`) from a concrete type argument
-	// (`Map<String, V>`). nil when the module was analyzed without a library,
-	// in which case the receiver-derived rule is skipped entirely rather than
-	// answering "everything is a type parameter".
-	declared func(string) bool
-}
-
-// forSynthesized is these anchors as a DERIVE-SYNTHESIZED declaration in the
-// same module sees them: the ordinary enum anchors plus the compiler-known ones.
-//
-// A union rather than a fallback chain because the two maps cannot collide:
-// stdEnumSynthAnchors admits a name only when the module scope binds it to
-// nothing, and `enums` holds only names the module scope binds to std's own
-// declaration. So there is no precedence to get wrong, and a local `Ordering`
-// is absent from BOTH and still refuses.
-//
-// Returns the receiver unchanged when there is nothing to add, which is the case
-// for every std module that imports what it names — three of the four that
-// derive Comparable are the exception, not the rule.
-func (a stdAnchors) forSynthesized() stdAnchors {
-	if len(a.synthEnums) == 0 {
-		return a
-	}
-	merged := make(map[string]int, len(a.enums)+len(a.synthEnums))
-	for n, i := range a.enums {
-		merged[n] = i
-	}
-	for n, i := range a.synthEnums {
-		merged[n] = i
-	}
-	a.enums = merged
-	return a
-}
-
-// stdAnchorsOf resolves every family against one module's analysis. A module
-// analyzed without an analysis library gets empty maps, and every non-scalar
-// signature position then refuses.
-//
-// stdIfaceAnchorsWith is filled LAST because a stdlib interface's METHOD
-// signatures name every other family. The struct family resolves its own FIELD
-// annotations too, but against the DECLARING module rather than this one — see
-// stdStructValidated — so it needs nothing from here.
-func stdAnchorsOf(fa *analysis.FileAnalysis) stdAnchors {
-	a := stdBaseAnchors(fa)
-	a.fa = fa
-	_, a.structs = stdStructAnchors(fa)
-	_, a.ifaces = stdIfaceAnchorsWith(fa, a)
-	return a
-}
-
-// stdBaseAnchors is the families that resolve without reference to any other:
-// opaque newtypes, monomorphic enums, `host type`s and the prelude anchors.
-//
-// synthEnums is resolved here beside `enums` because it is the same question
-// asked of a different scope, and asking it once keeps the two maps' disjointness
-// a property of one function rather than of two call sites.
-//
-// `declared` closes over fa rather than being derived later, so every consumer
-// asks the SAME module's scope the receiver question. It is nil exactly when the
-// module has no scope, which is the case the receiver-derived generic rule must
-// decline rather than guess at.
-func stdBaseAnchors(fa *analysis.FileAnalysis) stdAnchors {
-	_, opaques := opaqueAnchors(fa)
-	_, enums := stdEnumAnchors(fa)
-	hosts := stdHostAnchors(fa)
-	_, preludes := preludeAnchorsOf(fa)
-	var declared func(string) bool
-	if fa != nil && fa.ModuleScope != nil {
-		scope := fa.ModuleScope
-		declared = func(n string) bool { return scope.Lookup(n) != nil }
-	}
-	return stdAnchors{
-		opaques:    opaques,
-		enums:      enums,
-		hosts:      hosts,
-		preludes:   preludes,
-		synthEnums: stdEnumSynthAnchors(fa),
-		genStructs: stdGenStructAnchorsOf(fa),
-		genHosts:   stdGenHostAnchorsOf(fa),
-		declared:   declared,
-	}
-}
-
-// scalarKind is the kind a type annotation names, restricted to the scalars.
-func scalarKind(te ast.TypeExpr) kind {
-	st, ok := te.(*ast.SimpleType)
-	if !ok {
-		return kindInvalid
-	}
-	switch st.Name {
-	case "Int":
-		return kindInt
-	case "Float":
-		return kindFloat
-	case "String":
-		return kindString
-	case "Bool":
-		return kindBool
-	case "Unit":
-		return kindUnit
-	}
-	return kindInvalid
+	return ""
 }
 
 // simpleTypeName is a type expression's name when it is written UNDECORATED,
@@ -2689,9 +2381,8 @@ func scalarKind(te ast.TypeExpr) kind {
 // "is this annotation literally `Bool`/`Int`/`Duration`/the type parameter
 // `S`?" — shape probes over a `host fn`'s declared signature (iter.go's
 // each_while and known_count checks, ctrlflow.go's Iter.loop check) and the
-// anchored-opaque lookup below. For those a GENERIC spelling must NOT match:
-// `S<X>` is not the type parameter `S`, and no anchored opaque newtype is
-// generic.
+// receiver test's head names (stdParamHeadName). For those a GENERIC
+// spelling must NOT match: `S<X>` is not the type parameter `S`.
 //
 // It is NOT the reading for the impl-block RECEIVER, which is the other
 // question entirely; see the receiver read in collectStdCandidates.
@@ -2703,34 +2394,9 @@ func simpleTypeName(te ast.TypeExpr) string {
 	return st.Name
 }
 
-// stdNestedTypeName is a NESTED type name's whole dotted spelling —
-// `Json.DecodeError` — and "" for every other shape.
-//
-// simpleTypeName's sibling one level up, and deliberately just as narrow. The
-// MEMBER must be undecorated: `Json.Wrapper<Int>` is a generic nested type, a
-// family with no rows and its own identity question, and admitting it here would
-// project it onto whatever `Json.Wrapper` happened to be keyed under.
-//
-// The Module segment is NOT checked for being a type rather than a module alias,
-// because the lookup that follows is what decides: an anchor map holds only names
-// std declares, established through the (origin, name) rule, so `io.Reader`
-// simply misses. Checking here as well would be a second, weaker copy of the
-// identity rule.
-func stdNestedTypeName(te ast.TypeExpr) string {
-	qt, qualified := te.(*ast.QualifiedType)
-	if !qualified || qt.Module == "" {
-		return ""
-	}
-	member, undecorated := qt.Member.(*ast.SimpleType)
-	if !undecorated {
-		return ""
-	}
-	return qt.Module + "." + member.Name
-}
-
 // stdHeadTypeName is the type name a stdlib parameter's annotation names, for
 // the RECEIVER TEST — the undotted spelling, or a nested type's whole dotted
-// one.
+// one (`Json.DecodeError`, a member written undecorated).
 //
 // The receiver test compares this against `analysis.TypeExprBaseName(impl
 // receiver)`, which answers `Json.DecodeError` for `impl Display for
@@ -2754,7 +2420,12 @@ func stdHeadTypeName(te ast.TypeExpr) string {
 	if gt, isGeneric := te.(*ast.GenericType); isGeneric && phantomHostSpec("", gt.Name) >= 0 {
 		return gt.Name
 	}
-	return stdNestedTypeName(te)
+	if qt, qualified := te.(*ast.QualifiedType); qualified && qt.Module != "" {
+		if member, undecorated := qt.Member.(*ast.SimpleType); undecorated {
+			return qt.Module + "." + member.Name
+		}
+	}
+	return ""
 }
 
 // tupleKindOfGoType answers a tuple kind for the flat anonymous struct a host
@@ -2825,22 +2496,7 @@ func newStdGen(module, path, pkg string, nodes []ast.Node, fa *analysis.FileAnal
 // (stdtests.go). It joins the program before its types are built, since a
 // case's block import of a listed module's type is bound then.
 func newStdGenIn(module, path, pkg string, nodes []ast.Node, fa *analysis.FileAnalysis, cands []*stdCandidate, settled map[*stdCandidate]bool, onces []*stdOnce, earlier *stdlibIndex, in *programBuild) *gen {
-	g := &gen{dc: newDeclineCensus(DeclineHooks{}), nomiPath: path, pkg: pkg, // stdModule, so this gen can answer "which stdlib module am I". The
-		// module name is the caller's — buildStdlibIndex takes it from
-		// std.Load()'s keys — and a user gen never reaches this constructor, so
-		// a non-empty stdModule IS "this is the embedded stdlib module of that
-		// name". loadIter's declaresStdIter is the one reader. See native.go.
-		stdModule: module, fa: fa, // nodes, which every `g.nodes` reader in this package needs for a
-		// stdlib module too: declaresIterImpl (iter.go), declaresBoot
-		// (appfield.go), templateWall (generictype.go), the
-		// generic-impl template collection (genericimpl.go), collectHostPkgs
-		// (hostpkg.go), declareOnces (once.go), typeParamNames and
-		// nestedTypeKeys (sigreason.go). Without it
-		// declaresIterImpl would answer "this module declares no `impl Iter`
-		// block" about std/iter.nomi, whose whole API is one.
-		// TestStdModuleView_PopulatesNodes and
-		// TestIterAnchor_DeclaringModuleIsItsOwnProtocol hold it.
-		nodes: nodes, funcs: map[string]*fnSig{}, types: map[string]*typeDef{}, ifaces: map[string]*ifaceDef{}, implsByIface: map[string]map[kind]*implDef{}, tids: map[kind]bool{}}
+	g := newStdGenShell(module, path, pkg, nodes, fa)
 	if earlier != nil {
 		g.stdUnitSyms = earlier.unitSyms
 	}
@@ -2855,7 +2511,6 @@ func newStdGenIn(module, path, pkg string, nodes []ast.Node, fa *analysis.FileAn
 	}
 	// Eager for newGen's reason.
 	g.loadPreludes()
-	g.pushScope()
 	// Interface shells and type declarations so typeOf can answer inside a body.
 	g.declareIfaces(nodes)
 	g.buildTypes(nodes)
@@ -2865,6 +2520,36 @@ func newStdGenIn(module, path, pkg string, nodes []ast.Node, fa *analysis.FileAn
 	// After bindStdSiblings, and on a field of its own, so a later rebind of
 	// the siblings cannot drop it. See stdonce.go's bindStdOnces.
 	g.bindStdOnces(onces)
+	return g
+}
+
+// newStdGenShell is a gen for one stdlib module with nothing declared: the
+// one construction newStdGenIn and newStdTypesGen share.
+func newStdGenShell(module, path, pkg string, nodes []ast.Node, fa *analysis.FileAnalysis) *gen {
+	return &gen{dc: newDeclineCensus(DeclineHooks{}), nomiPath: path, pkg: pkg, // stdModule, so this gen can answer "which stdlib module am I". The
+		// module name is the caller's — buildStdlibIndex takes it from
+		// std.Load()'s keys — and a user gen never reaches this constructor, so
+		// a non-empty stdModule IS "this is the embedded stdlib module of that
+		// name". loadIter's declaresStdIter is the one reader. See native.go.
+		stdModule: module, fa: fa, // nodes, which every `g.nodes` reader in this package needs for a
+		// stdlib module too: declaresIterImpl (iter.go), declaresBoot
+		// (appfield.go), templateWall (generictype.go), the
+		// generic-impl template collection (genericimpl.go), collectHostTypes
+		// (hostpkg.go), declareOnces (once.go), typeParamNames and
+		// nestedTypeKeys (sigreason.go). Without it
+		// declaresIterImpl would answer "this module declares no `impl Iter`
+		// block" about std/iter.nomi, whose whole API is one.
+		// TestStdModuleView_PopulatesNodes and
+		// TestIterAnchor_DeclaringModuleIsItsOwnProtocol hold it.
+		nodes: nodes, funcs: map[string]*fnSig{}, types: map[string]*typeDef{}, ifaces: map[string]*ifaceDef{}, implsByIface: map[string]map[kind]*implDef{}, tids: map[kind]bool{}}
+}
+
+// newStdTypesGen is the gen that builds a std module's types for the process
+// (stdtypes.go): declared, and lowering nothing.
+func newStdTypesGen(module string, nodes []ast.Node, fa *analysis.FileAnalysis) *gen {
+	g := newStdGenShell(module, module+".nomi", "nomistdtypes/"+module, nodes, fa)
+	g.stdTypesBuild = true
+	g.loadPreludes()
 	return g
 }
 
@@ -2903,16 +2588,9 @@ func (g *gen) bindStdSiblingViews(module, pkg string, cands []*stdCandidate, set
 	prevDecls, prevStd := g.stdSiblingDecls, g.std
 	views := make(map[*stdCandidate]*stdFunc, len(cands))
 	local := &stdlibIndex{
-		byType: map[string][]*stdFunc{},
-		// THE FILE-QUALIFIED ROUTE. `stdlibIndex.add` files a `pub` free
-		// function under "<module>.<name>" only when `byFile != nil`; without
-		// the map a module's own `pub host fn`s would not be filed and a
-		// file-qualified call to one could only decline.
-		// `compiler.check(...)` inside std/compiler and
-		// `timer.sleep(...)` inside std/timer need it: the implicit file alias
-		// is how a stdlib module names its own free functions.
-		byFile:    map[string]*stdFunc{},
-		byIface:   map[string]map[kind][]*stdFunc{},
+		byID:      map[analysis.StdFunc]*stdFunc{},
+		byType:    map[string][]*stdFunc{},
+		byIface:   map[analysis.StdFunc]map[kind][]*stdFunc{},
 		modulePkg: map[string]string{module: pkg},
 	}
 	// A bare call finds its sibling by the declaration the checker resolved
@@ -2956,28 +2634,6 @@ func (g *gen) bindStdSiblingViews(module, pkg string, cands []*stdCandidate, set
 // collectStdCandidates, so the body is the only thing left to try.
 func (g *gen) emitStdFunc(f *stdFunc, fd *ast.FuncDef) {
 	g.at(fd.Line)
-	g.pushScope()
-	// A destructuring parameter's names come out of the parameter's value in
-	// the function's prologue; std relies on it heavily — every operator impl
-	// in std/duration and std/instant is `fn add(Duration(a), Duration(b))`.
-	type destructuring struct {
-		pat ast.Node
-		at  int
-	}
-	var patterns []destructuring
-	for i, p := range fd.Params {
-		if p.Destructure != nil {
-			// The synthesized `__destr_<line>_<col>` name the parser gave this
-			// parameter is not spellable in Nomi, so only the pattern's own
-			// names reach the body.
-			patterns = append(patterns, destructuring{p.Destructure, i})
-			continue
-		}
-		if !ast.IsDiscardName(p.Name) {
-			g.bind(p.Name, local{k: f.params[i]})
-		}
-	}
-
 	prevResult, prevSelf := g.result, g.implSelf
 	g.result, g.implSelf = f.result, f.recv
 	// `g.stdInstName` when a per-program INSTANCE of a generic declaration is
@@ -2993,28 +2649,11 @@ func (g *gen) emitStdFunc(f *stdFunc, fd *ast.FuncDef) {
 	// exists and what it deliberately does not widen.
 	stdSig := irStdFuncSig(f, fd)
 	shell := g.irFuncShellFor(fd, stdSig, f.params)
-	destructured := true
-	if len(patterns) > 0 {
-		closePrologue := g.irPrologueOpen(shell)
-		for _, d := range patterns {
-			if !g.destructure(d.pat, shell.paramValue(d.at, f.params[d.at]), fd) {
-				destructured = false
-				g.bindPatternNamesInvalid(d.pat)
-			}
-		}
-		closePrologue(destructured)
-	}
 	g.irBodyObserve(irBodyStdFn, true)
 	produced, retained := g.irScalarLower(fd, stdSig, shell, f.result)
 	if !retained {
 		g.stdUnloweredFunc(name, f.key, g.dc.take().why)
 		produced = f.result
-	}
-	if !destructured {
-		// A pattern that did not lower leaves its names bound at an invalid
-		// kind, so the body reports nothing further and this function is simply
-		// not lowered. Same rule funcDecl applies.
-		produced = kindInvalid
 	}
 	switch {
 	case produced == kindInvalid:
@@ -3024,7 +2663,6 @@ func (g *gen) emitStdFunc(f *stdFunc, fd *ast.FuncDef) {
 		g.reject("stdlib return type mismatch", f.key, fd)
 	}
 	g.result, g.implSelf = prevResult, prevSelf
-	g.popScope()
 }
 
 // emitStdBody lowers one stdlib function plus an accessor per defaulted
@@ -3060,13 +2698,13 @@ func (g *gen) emitStdBody(f *stdFunc, fd *ast.FuncDef, pkg string) bool {
 // index misses and the existing refusal reports. A declaration whose parameters
 // disagree answers nil rather than being called against a signature nobody
 // wrote, which is stdSignatureMatches' rule one level up.
-func (g *gen) stdlibImplOf(key string, recv kind, params ...kind) *stdFunc {
+func (g *gen) stdlibImplOf(fn analysis.StdFunc, recv kind, params ...kind) *stdFunc {
 	if g.std == nil || recv.def == nil {
 		return nil
 	}
 	// stdPick answers a single-member set unconditionally, so the shape checks
 	// below are the ones that decide.
-	f := stdPick(g.std.byIface[key][recv], params)
+	f := stdPick(g.std.stdIfaceImpls(fn, recv), params)
 	if f == nil || f.why != "" || len(f.params) != len(params) {
 		return nil
 	}
@@ -3076,6 +2714,19 @@ func (g *gen) stdlibImplOf(key string, recv kind, params ...kind) *stdFunc {
 		}
 	}
 	return f
+}
+
+// stdIfaceImpls is std's functions of the interface function fn (named
+// as analysis.StdType.Func names one: the interface's module, the
+// interface as Owner) for a receiver of kind recv: those of the impl
+// blocks the checker recorded as implementing that interface
+// (analysis.ImplBlockTypeArgs), an overload set (byIface). The one
+// lookup of a std impl by its interface.
+func (x *stdlibIndex) stdIfaceImpls(fn analysis.StdFunc, recv kind) []*stdFunc {
+	if x == nil {
+		return nil
+	}
+	return x.byIface[fn][recv]
 }
 
 // stdOperatorFits reports whether the std function f, the impl an
@@ -3264,9 +2915,9 @@ func (g *gen) irRecordStdKey(f *stdFunc) {
 	}
 	k := f.params[0]
 	switch {
-	case f.iface == "Equatable" && f.name == "equal" && len(f.params) == 2:
+	case f.iface == stdEquatable && f.name == "equal" && len(f.params) == 2:
 		g.irMod.ImplementEquatable(g.irTypeSym(k.def), f.irBody.Sym())
-	case f.iface == "Hashable" && f.name == "hash" && len(f.params) == 1:
+	case f.iface == stdHashable && f.name == "hash" && len(f.params) == 1:
 		g.irMod.ImplementHashable(g.irTypeSym(k.def), f.irBody.Sym())
 	}
 }
@@ -3275,7 +2926,7 @@ func (g *gen) irRecordStdKey(f *stdFunc) {
 // non-generic type for erased Display renderings, as irRecordDisplayImpls
 // does for a program's own.
 func (g *gen) irRecordStdDisplay(f *stdFunc) {
-	if f.iface != "Display" || f.name != "to_string" || f.irBody == nil || len(f.params) != 1 {
+	if f.iface != stdDisplay || f.name != "to_string" || f.irBody == nil || len(f.params) != 1 {
 		return
 	}
 	k := f.params[0]

@@ -68,8 +68,9 @@ func (bl *irScalarBuilder) compare(t *ast.Binary, op ir.CompareOp) (ir.Temp, kin
 		return bare()
 	}
 	if bl.bareEqualityOperand(t.Left, op) && bl.bareEqualityOperand(t.Right, op) {
-		// `None == None`: neither side has a type, so the checker's (or
-		// Unit's) instance types both. Two constants; no effect moves.
+		// `None == None`: neither side has an expected type, so the
+		// instance the checker records for the left types both. Two
+		// constants; no effect moves.
 		k, ok := bl.bareVariantOwnKind(t.Left)
 		if !ok {
 			return no()
@@ -264,9 +265,17 @@ func (bl *irScalarBuilder) compareOperands(t *ast.Binary, op ir.CompareOp, lhs i
 	// The rows, in source order: both operands of `== != < > <= >=` are
 	// worth showing, and the redundancy rule that drops `1 = 1` is rt's to
 	// apply. Recorded before any route is chosen, so a comparison answered
-	// by an impl call shows its operands too.
-	bl.record(t.Left, lhs, lk, true)
-	bl.record(t.Right, rhs, rk, true)
+	// by an impl call shows its operands too. The `==` that an assertion
+	// subject's `Maybe.equal(a, b)` is lowered as (asOperator), whose
+	// operands are the call's own nodes, hands them to the call instead,
+	// which records them as its rows (recordedQualCall).
+	if c := bl.qualRecord; c != nil && len(c.Args) == 2 && t.Left == argExpr(c.Args[0]) && t.Right == argExpr(c.Args[1]) {
+		bl.qualRecordArgs = irQualArgs{temps: []ir.Temp{lhs, rhs}, kinds: []kind{lk, rk}, mobile: []bool{true, true}, ok: true}
+		bl.qualRecordSeen = true
+	} else {
+		bl.record(t.Left, lhs, lk, true)
+		bl.record(t.Right, rhs, rk, true)
+	}
 	// The result is not mobile, as `bl.binary`'s arithmetic result is
 	// not: a comparison in a left-operand position is forced into a Copy.
 	if op.Ordering() {
@@ -291,8 +300,14 @@ func (bl *irScalarBuilder) compareOperands(t *ast.Binary, op ir.CompareOp, lhs i
 // (tupleRankedCompare); any other impl, a call of the compare the record
 // names and a test of the rank of the Ordering it answers
 // (rankedCompare). An ordering over interface values, by dispatch, has
-// no arm. An arm that cannot lower its operands, and an operator with no
-// record an arm reads, decline here.
+// no arm: the checker rejects one written over them, and a generic call
+// that would instantiate one at an interface type, since an interface type
+// meets no Comparable bound (spec §12 *Interface values*). It reaches
+// here only in the instance of a generic refinement's `try_from` that the
+// checker types at its bounds' interfaces for the rule's effect walk
+// (analysis.RefinementRuleCheck), which is never run, and declines. An arm
+// that cannot lower its operands, and an operator with no record an arm
+// reads, decline here.
 func (bl *irScalarBuilder) ordering(t *ast.Binary, op ir.CompareOp, lhs, rhs ir.Temp, k kind, rmobile bool) (ir.Temp, bool) {
 	use := bl.g.operatorUse(t)
 	var form analysis.OperatorForm
@@ -312,65 +327,24 @@ func (bl *irScalarBuilder) ordering(t *ast.Binary, op ir.CompareOp, lhs, rhs ir.
 		if v, ok := bl.rankedCompare(t, op, lhs, rhs, k, rmobile); ok {
 			return v, true
 		}
-	}
-	bl.g.noteUnreadOperator(t, familyOrdering)
-	return ir.NoTemp, false
-}
-
-// irPreludeEqualityKind reports a prelude enum whose `Maybe.equal(a, b)`
-// containerEqualCall compares by shape: one with no hand-written impl in
-// this file (handWrittenNominalEquatable), and whose payloads are
-// scalars, Decimals and the values rt.Equal compares as the derived impl
-// does.
-func (g *gen) irPreludeEqualityKind(k kind) bool {
-	if k.tag != tagNamed || !irRetainedEnumKind(k.def) || k.def.preludeOf == nil {
-		return false
-	}
-	if g.handWrittenNominalEquatable(k) {
-		return false
-	}
-	spec := k.def.preludeOf.spec
-	outcome := spec == preludeSpecFor("std/tasks", "Outcome")
-	if !outcome && spec != preludeSpecFor("std/maybe", "Maybe") && spec != preludeSpecFor("std/results", "Result") && spec != preludeSpecFor("std/literals", "Fragment") {
-		return false
-	}
-	for _, v := range k.def.variants {
-		for _, p := range v.payloads {
-			// Outcome's Failure carries two String variants, which compare by
-			// tag and message as the other payloads compare.
-			failure := outcome && p.k.tag == tagNamed && p.k.def == namedPayloadDefs()[outcomeFailure]
-			// A container payload compares structurally under both the
-			// derived impl and rt.Equal: a container's `==` never
-			// dispatches.
-			// A Decimal payload compares with rt.EqDecimal under both: it is
-			// the host body of std's `impl Equatable for Decimal`, and
-			// rt.Equal calls it for a Decimal.
-			// A distinct over a tuple or a container compares through its
-			// inner value under the derived impl, and rt.Equal does the same;
-			// a hand-written impl on it answers through vm/keys.go either way.
-			composite := p.k.tag == tagNamed && irCompositeDistinct(p.k.def) && p.k.def.inner.tag != tagFunc
-			if !irScalarLeafKind(p.k) && p.k != kindUnit && !failure && !irEqualityContainerKind(p.k) && !isDecimalKind(p.k) && !composite {
-				return false
+	case form == analysis.OperatorDispatched:
+		// Values of a type parameter an abstract body leaves open, held as
+		// its Comparable bound: a call through the bound of compare, and a
+		// test of its rank (boundcall.go).
+		if p := bl.g.boundComparePlan(); p != nil {
+			call, done := bl.operatorCall(t)
+			defer done()
+			args := irQualArgs{temps: []ir.Temp{lhs, rhs}, kinds: []kind{k, k}, mobile: []bool{true, rmobile}, ok: true}
+			if ordered, ok := bl.rankedCall(call, args, p); ok {
+				c := ir.NewCompareRank(bl.g.irPos(t.Line, t.Col), bl.f.NewTemp(), op, ordered)
+				bl.b.Append(c)
+				bl.side(c.Dst(), irScalarSide{k: kindBool})
+				return c.Dst(), true
 			}
 		}
 	}
-	return true
-}
-
-// A local struct with scalar fields and no Equatable impl anywhere in the
-// program, as noEquatableImpl establishes. Such a type compares
-// structurally. An impl, derived or written, keeps the comparison on the
-// impl route and outside this producer.
-func (g *gen) irStructEqualityKind(k kind) bool {
-	if k.tag != tagNamed || irParamShape(k) != ir.ValStruct || k.def.foreign != "" || !g.noEquatableImpl(k) {
-		return false
-	}
-	for _, f := range k.def.fields {
-		if !irScalarLeafKind(f.k) || f.k.def != nil {
-			return false
-		}
-	}
-	return true
+	bl.g.noteUnreadOperator(t, familyOrdering)
+	return ir.NoTemp, false
 }
 
 // shortCircuit lowers `a and b` / `a or b` through the shared shape.

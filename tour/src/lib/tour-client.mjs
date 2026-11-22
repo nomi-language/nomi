@@ -299,20 +299,20 @@ function tabLabel(btn, name) {
 
 // A setup file says how the project builds rather than what it does; a
 // file tree lists it muted and the block never opens on it.
-const SETUP_FILES = new Set(["go.mod", "go.sum", "nomi.toml"]);
+const SETUP_FILES = new Set(["nomi.toml"]);
 function isSetupFile(name) {
   return SETUP_FILES.has(name.slice(name.lastIndexOf("/") + 1));
 }
 
 // projectDir is the directory a block runs in, from the block's root, as
 // vmhost.LoadMarked picks it: "" for a block whose root is its project,
-// else, for a block of sibling projects (no go.mod at its root, and one in
-// two or more top-level directories), the top-level directory of its first
-// file, with a trailing slash ("rates/").
+// else, for a block of sibling projects (no nomi.toml at its root, and one
+// in two or more top-level directories), the top-level directory of its
+// first file, with a trailing slash ("rates/").
 function projectDir(files) {
-  if (files.some((f) => f.name === "go.mod")) return "";
+  if (files.some((f) => f.name === "nomi.toml")) return "";
   const modules = new Set(
-    files.filter((f) => /^[^/]+\/go\.mod$/.test(f.name)).map((f) => f.name.split("/")[0]),
+    files.filter((f) => /^[^/]+\/nomi\.toml$/.test(f.name)).map((f) => f.name.split("/")[0]),
   );
   if (modules.size < 2 || !files[0].name.includes("/")) return "";
   return files[0].name.split("/")[0] + "/";
@@ -327,22 +327,28 @@ function usesTree(files) {
 
 // A file in a live example is editable only when an edit can change what
 // the example prints. readOnlyReason answers why a file is not, the
-// tooltip its lock carries, or "" for an editable file: a Go file (the
-// tour compiles it ahead of time), go.mod and go.sum, a nomi.toml whose
-// only table is [module], and a data file the block's fence marks with a
-// `read-only:<glob>` word (globs, from data-nomi-read-only), whose
-// contents the program never reads. vmhost's TestTourDoctests holds a
+// tooltip its lock carries, or "" for an editable file: a nomi.toml whose
+// only table is [module], and a data file the block's
+// fence marks with a `read-only:<glob>` word (globs, from
+// data-nomi-read-only), whose contents the program never reads. vmhost's TestTourDoctests holds a
 // marked file to that: a run that reads one fails, and so does a run that
 // never reads a data file left editable.
 function readOnlyReason(file, lang, globs) {
   const base = file.name.slice(file.name.lastIndexOf("/") + 1);
-  if (lang === "go") return "The tour compiles this Go ahead of time";
-  if (base === "go.mod" || base === "go.sum") return "Managed by nomi add and nomi remove";
+  if (file.base64) return "A binary file; its tab shows only its size";
   if (base === "nomi.toml" && onlyModuleTable(file.body)) {
     return "Only names the module; an edit can't change the output";
   }
   if (globs.some((glob) => globMatch(glob, file.name))) return "Only its name matters to this example";
   return "";
+}
+
+// base64Placeholder is the one line a base64 file's tab shows: the size of
+// the bytes its section holds.
+function base64Placeholder(text) {
+  const digits = text.replace(/[^A-Za-z0-9+/]/g, "").length;
+  const bytes = Math.floor((digits * 3) / 4);
+  return `(a binary file of ${bytes.toLocaleString("en-US")} bytes)`;
 }
 
 // onlyModuleTable reports whether a nomi.toml's only table header is
@@ -1217,9 +1223,10 @@ function splitPanes(widget, main, bar, editors, panes, first) {
 }
 
 // Stitch a per-tab file list back into the source string the wasm
-// runtime expects — same FILE-marker convention SplitMultiFile parses.
+// runtime expects, with the FILE markers virtualproject reads: a base64
+// file's marker says so.
 function stitchFiles(files) {
-  return files.map((f) => `// FILE: ${f.name}\n${f.body}`).join("\n\n");
+  return files.map((f) => `// FILE: ${f.name}${f.base64 ? " (base64)" : ""}\n${f.body}`).join("\n\n");
 }
 
 // Help tooltip for the live-indicator dot — same look as the LSP hover
@@ -1653,13 +1660,35 @@ function leaveEditor(ta) {
 
 function tabHint(main) {
   // A span: the page's rule that spaces apart adjacent blocks in the
-  // content leaves spans alone.
+  // content leaves spans alone. It sits in the editor's header before the
+  // controls, and shows its sentence where the header has room for it and
+  // a "?" that shows the sentence in the page's tooltip where it has not
+  // (tour.css).
   const hint = document.createElement("span");
   hint.className = "nomi-tab-hint";
   hint.id = `nomi-tab-hint-${++tabHintCount}`;
   hint.setAttribute("aria-live", "polite");
-  hint.textContent = TAB_HINT;
-  main.append(hint);
+  const text = document.createElement("span");
+  text.className = "nomi-tab-hint-text";
+  text.textContent = TAB_HINT;
+  const mark = document.createElement("span");
+  mark.className = "nomi-tab-hint-mark";
+  mark.setAttribute("aria-hidden", "true");
+  mark.textContent = "?";
+  // The page's own tooltip, at once: a title attribute waits a second or
+  // more before the browser shows it.
+  mark.addEventListener("mouseenter", () => {
+    const r = mark.getBoundingClientRect();
+    const p = document.createElement("p");
+    p.textContent = TAB_HINT;
+    showTooltip(p.outerHTML, r.left, r.bottom - 8);
+  });
+  mark.addEventListener("mouseleave", scheduleHideTooltip);
+  hint.append(text, mark);
+  const bar = main.querySelector(".nomi-bar");
+  const controls = bar && bar.querySelector(":scope > .nomi-live-controls");
+  if (controls) controls.before(hint);
+  else (bar || main).append(hint);
   return hint;
 }
 
@@ -2152,13 +2181,6 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
   const out = outputPanel("Output");
   widget.append(main, out.panel);
 
-  // The Go files' highlighting, which the build put in the block (one hidden
-  // span per file, rehype-shiki.mjs).
-  const goHighlight = {};
-  for (const span of pre.querySelectorAll("span[data-nomi-file]")) {
-    goHighlight[span.dataset.nomiFile] = span.innerHTML;
-  }
-
   // The block opens on its first file, the one the prose is about, unless
   // that is a setup file (go.mod, nomi.toml), which is never opened first.
   // A block of sibling projects opens on its project's first such file.
@@ -2178,7 +2200,9 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
 
     const hl = pane.querySelector(".nomi-hl");
     const ta = pane.querySelector(".nomi-src");
-    ta.value = file.body;
+    // A base64 file's tab is one line saying what it holds; the run reads
+    // the section as the block wrote it (stitchSource).
+    ta.value = file.base64 ? base64Placeholder(file.body) : file.body;
     // Setting the value leaves the caret at the end, and focusing the pane
     // later would scroll the textarea and the page to it.
     ta.setSelectionRange(0, 0);
@@ -2189,7 +2213,7 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
       pane.classList.add("is-readonly");
     }
 
-    return { file, lang, readOnly, pane, hl, ta, captures: null, code: file.body };
+    return { file, lang, readOnly, pane, hl, ta, captures: null, code: ta.value };
   });
 
   const split = splitPanes(widget, main, bar, editors, panes, first);
@@ -2219,10 +2243,6 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
 
   const paint = (p) => {
     p.code = p.ta.value;
-    if (p.lang === "go" && goHighlight[p.file.name] !== undefined) {
-      p.hl.innerHTML = goHighlight[p.file.name];
-      return;
-    }
     if (p.lang !== "nomi") {
       p.hl.innerHTML = renderData(p.lang, p.code, EDITOR_RENDER);
       return;
@@ -2263,7 +2283,8 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
   };
   // The tabs as the run reads them; hover sends the same text, so a hover
   // after a run reuses the worker's analysis of it.
-  const stitchSource = () => stitchFiles(panes.map((p) => ({ name: p.file.name, body: p.ta.value })));
+  const stitchSource = () =>
+    stitchFiles(panes.map((p) => ({ name: p.file.name, base64: p.file.base64, body: p.file.base64 ? p.file.body : p.ta.value })));
 
   const run = () => {
     const id = ++reqSeq;

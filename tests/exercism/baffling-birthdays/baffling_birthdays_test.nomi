@@ -69,9 +69,8 @@ group "random birthdates"
     setup draw(baffling_birthdays.random_birthdates(100))
 
     test "generate requested number of birthdates"
-        sizes: Range<NonNegativeInt> = 1..=20
-
-        assert sizes
+        // Each element of the literal range is 1 or more: a NonNegativeInt.
+        assert 1..=20
             |> Iter.all_match(fn size ->
                 Iter.count(draw(baffling_birthdays.random_birthdates(size))) == size
             end)

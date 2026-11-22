@@ -4,7 +4,7 @@ package irbuild
 // forms with a lowering of their own: `[..xs, y]`, `[x, ..v, y]`,
 // `[..s, ..t]`, `{"a" => 1, ..m}`. The forms with one spread where it
 // shares the existing collection keep theirs: a list's spread written last
-// (`[x, ..xs]`, the elements consed onto it, listMake), a vector's at
+// (`[x, ..xs]`, the elements consed onto it, listMakeOf), a vector's at
 // either end (vectorUpdate), and a set's or map's written first
 // (`[..s, x]`, setUpdate; `{..m, k => v}`, mapUpdate).
 //
@@ -27,17 +27,14 @@ import (
 )
 
 // spreadJoin is a collection literal's shape (a List, Vector, Set or Map),
-// which an empty literal (emptyLiteral) and a literal whose items are
-// lowered against its checked type (literalPartsOf) are built as, and the
-// collection's join, for the literals with spreads.
+// which a literal is built as (literalKind), and the collection's join, for
+// the literals with spreads.
 type spreadJoin struct {
 	// owner and method name the join: `List.concat`.
 	owner, method string
 	// typed reports whether k is a typed collection of the literal's
 	// shape, which fixes the literal's kind.
 	typed func(k kind) bool
-	// kindOf is the collection kind of parts.
-	kindOf func(g *gen, parts []kind) kind
 	// fromRight joins the last two parts first, as a List is joined, so
 	// each element is copied once.
 	fromRight bool
@@ -45,6 +42,9 @@ type spreadJoin struct {
 	// of the shape: `to_list`. It is empty for a map, whose spreads are
 	// maps.
 	collect string
+	// seq is the shape as the checker names a bracket literal's collection
+	// (ast.ListLit.Kind), for a shape with collect.
+	seq ast.SeqKind
 }
 
 var (
@@ -52,10 +52,10 @@ var (
 		owner:  "List",
 		method: "concat",
 		typed:  func(k kind) bool { return k.tag == tagList },
-		kindOf: func(g *gen, parts []kind) kind { return g.listKind(parts[0]) },
 		// A List is cons cells: `List.concat(a, b)` copies a and shares b.
 		fromRight: true,
 		collect:   "to_list",
+		seq:       ast.SeqList,
 	}
 	vectorSpreadJoin = spreadJoin{
 		owner:  "Vector",
@@ -64,8 +64,8 @@ var (
 			_, ok := vectorElem(k)
 			return ok
 		},
-		kindOf:  func(g *gen, parts []kind) kind { return g.vectorKindOf(parts[0]) },
 		collect: "to_vector",
+		seq:     ast.SeqVector,
 	}
 	setSpreadJoin = spreadJoin{
 		owner:  "Set",
@@ -74,8 +74,8 @@ var (
 			_, ok := setElem(k)
 			return ok
 		},
-		kindOf:  func(g *gen, parts []kind) kind { return g.setKindOf(parts[0]) },
 		collect: "to_set",
+		seq:     ast.SeqSet,
 	}
 	mapSpreadJoin = spreadJoin{
 		owner:  "Map",
@@ -83,7 +83,6 @@ var (
 		typed: func(k kind) bool {
 			return k.tag == tagMap && k.comp != nil && len(k.comp.parts) == 2
 		},
-		kindOf: func(g *gen, parts []kind) kind { return g.mapKind(parts[0], parts[1]) },
 	}
 )
 
@@ -117,8 +116,8 @@ func (bl *irScalarBuilder) spreadHeads(at ast.Node, spreads []ast.Spread, join s
 // other Iter (a Maybe, a Range, a Set in a list, an Iter chain)
 // materialized with join's `Iter` function, `Iter.to_list(p)`, as the
 // checker allows (spreadElemType). A typed
-// spread enters the kind the checker gave the literal (checkedSpreadKind)
-// as a value enters any position of that kind: in `ws: List<Display> =
+// spread enters the kind the checker gave the literal (literalKind) as a
+// value enters any position of that kind: in `ws: List<Display> =
 // [..xs, "a"]` the `List<Int>` is a `List<Display>` before anything is
 // joined to it. Every literal with a spread takes its spreads from here,
 // so none reads its own kind off a spread the checker typed it wider than.
@@ -128,6 +127,9 @@ func (bl *irScalarBuilder) collectSpread(at ast.Node, p spreadPart, join spreadJ
 	default:
 		line, col := nodePos(p.at)
 		call := &ast.Call{Line: line, Col: col, Args: []ast.Node{p.at}}
+		// The call stands for the spread collected: the collection of the
+		// elements the checker recorded the spread walks.
+		defer bl.g.carryType(call, bl.g.srcFA().SpreadCollected(join.seq, p.at))()
 		args := irQualArgs{temps: []ir.Temp{p.v}, kinds: []kind{p.k}, mobile: []bool{true}, ok: true}
 		v, k, _, ok := bl.iterCall(call, args, join.collect, nil)
 		if !ok || !join.typed(k) {
@@ -136,7 +138,8 @@ func (bl *irScalarBuilder) collectSpread(at ast.Node, p spreadPart, join spreadJ
 		}
 		p = spreadPart{at: p.at, v: v, k: k}
 	}
-	if k, closed := bl.checkedSpreadKind(at, join); closed && join.typed(p.k) && p.k != k {
+	// kindInvalid: sentinel — no position's kind; a spread enters the record alone.
+	if k, recorded := bl.literalKind(at, join, kindInvalid); recorded && join.typed(p.k) && p.k != k {
 		v, _, ok := bl.convertTo(p.at, p.v, p.k, k)
 		if !ok {
 			bl.g.dc.note("a spread of kind " + p.k.nomi() + " in a literal of kind " + k.nomi())
@@ -147,36 +150,33 @@ func (bl *irScalarBuilder) collectSpread(at ast.Node, p spreadPart, join spreadJ
 	return p, true
 }
 
-// checkedSpreadKind is the kind the checker gave the literal at, of join's
-// shape, and whether it closed it: `[..[]]` where nothing says what the
-// list holds is open.
-func (bl *irScalarBuilder) checkedSpreadKind(at ast.Node, join spreadJoin) (kind, bool) {
-	parts := bl.literalPartsOf(bl.g.checkedExprType(at), join)
-	if parts == nil {
-		return kindInvalid, false
-	}
-	for _, p := range parts {
-		if !irFullyTyped(p) {
-			return kindInvalid, false
-		}
-	}
-	return join.kindOf(bl.g, parts), true
-}
-
-// spreadKind is the kind of the literal at, whose spreads lowered to heads:
-// the checker's type of the literal (checkedSpreadKind), which each typed
-// head already is (collectSpread), and where the checker left it open, the
-// first typed spread's.
-func (bl *irScalarBuilder) spreadKind(at ast.Node, heads []spreadPart, join spreadJoin) (kind, bool) {
-	if k, closed := bl.checkedSpreadKind(at, join); closed {
+// literalKind is the kind a collection literal at of join's shape is built
+// at: the type the checker's records give its value (convertedKind), its
+// own type (`[c, shape]` is a List<Shape>, and `[c]` checked where a
+// List<Shape> is expected is one too) or the type its Conversion converts
+// it to (`[p]` returned as a List<Named>). A literal the builder made has
+// no record (a copy under a type's name, `Json.Obj{...}`'s map, a run of a
+// literal with spreads, a derived body's literal), and takes want, the kind
+// of the position it is lowered for. ok is false where neither is a
+// collection of join's shape whose elements are all closed.
+func (bl *irScalarBuilder) literalKind(at ast.Node, join spreadJoin, want kind) (kind, bool) {
+	if k, recorded := bl.g.convertedKind(at); recorded && join.typed(k) && irFullyTyped(k) {
 		return k, true
 	}
-	for _, h := range heads {
-		if join.typed(h.k) {
-			return h.k, true
-		}
+	if join.typed(want) && irFullyTyped(want) {
+		return want, true
 	}
-	bl.g.dc.note("a collection literal with spreads whose kind is open")
+	return kindInvalid, false
+}
+
+// builtLiteralKind is literalKind of a literal the builder lowers, which
+// declines where it is false: noteUnrecordedKind counts the site.
+func (bl *irScalarBuilder) builtLiteralKind(at ast.Node, join spreadJoin, want kind) (kind, bool) {
+	if k, ok := bl.literalKind(at, join, want); ok {
+		return k, true
+	}
+	bl.noteUnrecordedKind(join.owner+" literal", at)
+	bl.g.dc.note("a " + join.owner + " literal whose kind neither the checker's record nor its position gives")
 	return kindInvalid, false
 }
 
@@ -192,6 +192,8 @@ func (bl *irScalarBuilder) joinSpreadParts(at ast.Node, a, b spreadPart, k kind,
 	}
 	line, col := nodePos(at)
 	call := &ast.Call{Line: line, Col: col, Args: []ast.Node{a.at, b.at}}
+	// The join stands for the literal: it carries the literal's type.
+	defer bl.g.carryType(call, bl.g.recordedType(at))()
 	args := irQualArgs{temps: []ir.Temp{a.v, b.v}, kinds: []kind{a.k, b.k}, mobile: []bool{true, true}, ok: true}
 	var p *irQualPlan
 	switch join.owner {
@@ -247,30 +249,18 @@ func (bl *irScalarBuilder) joinAll(at ast.Node, parts []spreadPart, k kind, join
 
 // seqSpreadLit lowers a list, vector or set literal at with spreads:
 // items are its elements, spreads its spreads, and run builds a run of
-// elements as a literal whose element kind is elem.
+// elements as a literal of the literal's kind k.
 func (bl *irScalarBuilder) seqSpreadLit(at ast.Node, items []ast.Node, spreads []ast.Spread, join spreadJoin,
-	run func(items []ast.Node, elem kind) (ir.Temp, kind, bool, bool)) (ir.Temp, kind, bool, bool) {
+	run func(items []ast.Node, k kind) (ir.Temp, kind, bool, bool)) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	heads, ok := bl.spreadHeads(at, spreads, join)
 	if !ok {
 		return no()
 	}
-	k, ok := bl.spreadKind(at, heads, join)
+	// kindInvalid: sentinel — a literal with spreads is the program's, so its record gives its kind.
+	k, ok := bl.builtLiteralKind(at, join, kindInvalid)
 	if !ok {
 		return no()
-	}
-	var elem kind
-	switch {
-	case k.tag == tagList && k.comp != nil && len(k.comp.parts) == 1:
-		elem = k.comp.parts[0]
-	default:
-		e, isSet := setElem(k)
-		if !isSet {
-			if e, ok = vectorElem(k); !ok {
-				return no()
-			}
-		}
-		elem = e
 	}
 	parts := make([]spreadPart, 0, len(spreads)*2+1)
 	next := 0
@@ -278,7 +268,7 @@ func (bl *irScalarBuilder) seqSpreadLit(at ast.Node, items []ast.Node, spreads [
 		if end == next {
 			return true
 		}
-		v, rk, _, ok := run(items[next:end], elem)
+		v, rk, _, ok := run(items[next:end], k)
 		if !ok {
 			return false
 		}
@@ -301,28 +291,28 @@ func (bl *irScalarBuilder) seqSpreadLit(at ast.Node, items []ast.Node, spreads [
 // listSpreadLit lowers a list literal with spreads other than one written
 // last.
 func (bl *irScalarBuilder) listSpreadLit(t *ast.ListLit) (ir.Temp, kind, bool, bool) {
-	return bl.seqSpreadLit(t, t.Items, t.Spreads, listSpreadJoin, func(items []ast.Node, elem kind) (ir.Temp, kind, bool, bool) {
-		return bl.listMakeOf(t, items, nil, elem)
+	return bl.seqSpreadLit(t, t.Items, t.Spreads, listSpreadJoin, func(items []ast.Node, k kind) (ir.Temp, kind, bool, bool) {
+		return bl.listMakeOf(t, items, nil, k)
 	})
 }
 
 // vectorSpreadLit lowers a vector literal with spreads other than one at
 // either end.
 func (bl *irScalarBuilder) vectorSpreadLit(t *ast.ListLit) (ir.Temp, kind, bool, bool) {
-	return bl.seqSpreadLit(t, t.Items, t.Spreads, vectorSpreadJoin, func(items []ast.Node, elem kind) (ir.Temp, kind, bool, bool) {
+	return bl.seqSpreadLit(t, t.Items, t.Spreads, vectorSpreadJoin, func(items []ast.Node, k kind) (ir.Temp, kind, bool, bool) {
 		run := *t
 		run.Items, run.Spreads = items, nil
-		return bl.vectorMakeOf(&run, elem)
+		return bl.vectorMakeOf(&run, k)
 	})
 }
 
 // setSpreadLit lowers a set literal with spreads other than one written
 // first.
 func (bl *irScalarBuilder) setSpreadLit(t *ast.ListLit) (ir.Temp, kind, bool, bool) {
-	return bl.seqSpreadLit(t, t.Items, t.Spreads, setSpreadJoin, func(items []ast.Node, elem kind) (ir.Temp, kind, bool, bool) {
+	return bl.seqSpreadLit(t, t.Items, t.Spreads, setSpreadJoin, func(items []ast.Node, k kind) (ir.Temp, kind, bool, bool) {
 		run := *t
 		run.Items, run.Spreads = items, nil
-		return bl.setMakeOf(&run, elem)
+		return bl.setMakeOf(&run, k)
 	})
 }
 
@@ -336,11 +326,11 @@ func (bl *irScalarBuilder) mapSpreadLit(t *ast.MapLit) (ir.Temp, kind, bool, boo
 	if !ok {
 		return no()
 	}
-	k, ok := bl.spreadKind(t, heads, mapSpreadJoin)
+	// kindInvalid: sentinel — a literal with spreads is the program's, so its record gives its kind.
+	k, ok := bl.builtLiteralKind(t, mapSpreadJoin, kindInvalid)
 	if !ok {
 		return no()
 	}
-	wants := k.comp.parts
 	var acc spreadPart
 	have := false
 	next := 0
@@ -367,10 +357,10 @@ func (bl *irScalarBuilder) mapSpreadLit(t *ast.MapLit) (ir.Temp, kind, bool, boo
 				return false
 			}
 			acc.v = bl.holdTemp(acc.at, acc.v, acc.k)
-			v, rk, _, ok := bl.mapEntriesOver(&run, wants, acc.v, acc.k)
+			v, rk, _, ok := bl.mapEntriesOver(&run, k, acc.v, acc.k)
 			return ok && add(spreadPart{at: at, v: v, k: rk})
 		}
-		v, rk, _, ok := bl.mapEntries(&run, wants)
+		v, rk, _, ok := bl.mapEntries(&run, k)
 		return ok && add(spreadPart{at: at, v: v, k: rk})
 	}
 	for i, sp := range t.Spreads {

@@ -21,6 +21,10 @@ type TypedLiteral struct {
 	// or `CheckedLiteral`, or "" for an `Html` template, which the
 	// compiler reads itself (spec §18 *HTML templates*).
 	Interface string
+	// Tag is the type whose impl of Interface builds the literal: the type
+	// its tag names, or for a literal written with no tag the type its
+	// position expects (target_literal.go). Nil for an `Html` template.
+	Tag Type
 	// Slot is what each `${}` takes: the impl's `I`. Nil for an `Html`
 	// template, whose slots take what their place in the HTML shows.
 	Slot Type
@@ -37,14 +41,14 @@ type TypedLiteral struct {
 	Failure *DisplayRender
 }
 
-// recordTypedLiteral records that n's handler is an impl of `Literal`, or
-// of `CheckedLiteral` when checked is set, whose slots take slot.
-func (c *checker) recordTypedLiteral(n *ast.TaggedString, checked bool, slot Type) {
+// recordTypedLiteral records that n's handler is tag's impl of `Literal`,
+// or of `CheckedLiteral` when checked is set, whose slots take slot.
+func (c *checker) recordTypedLiteral(n *ast.TaggedString, tag Type, checked bool, slot Type) {
 	iface := "Literal"
 	if checked {
 		iface = "CheckedLiteral"
 	}
-	c.noteTypedLiteral(n, &TypedLiteral{Interface: iface, Slot: slot})
+	c.noteTypedLiteral(n, &TypedLiteral{Interface: iface, Tag: tag, Slot: slot})
 }
 
 // recordHtmlLiteral records what each slot of the `Html` literal n takes,

@@ -130,25 +130,25 @@ func TestUnreferencedCheckCanFail(t *testing.T) {
 		{
 			name: "production import elsewhere is reported",
 			files: map[string]string{
-				"internal/irbuild/stdlib.go":             importingFile("irbuild"),
-				"internal/hostpair/hostpair.go":          plainFile("hostpair"),
-				"internal/hostpair/agree_ffirun_test.go": importingFile("hostpair"),
+				"internal/irbuild/stdlib.go":      importingFile("irbuild"),
+				"internal/hostpair/hostpair.go":   plainFile("hostpair"),
+				"internal/hostpair/agree_test.go": importingFile("hostpair"),
 			},
 			wantOffend: []string{"internal/irbuild/stdlib.go"},
 		},
 		{
 			name: "test import from another package is reported",
 			files: map[string]string{
-				"internal/ffirun/discovery_test.go": importingFile("ffirun"),
-				"internal/hostpair/hostpair.go":     plainFile("hostpair"),
+				"internal/irbuild/stdlib_test.go": importingFile("irbuild"),
+				"internal/hostpair/hostpair.go":   plainFile("hostpair"),
 			},
-			wantOffend: []string{"internal/ffirun/discovery_test.go"},
+			wantOffend: []string{"internal/irbuild/stdlib_test.go"},
 		},
 		{
 			name: "the package's own tests are not reported",
 			files: map[string]string{
 				"internal/hostpair/hostpair.go":               plainFile("hostpair"),
-				"internal/hostpair/agree_ffirun_test.go":      importingFile("hostpair"),
+				"internal/hostpair/agree_test.go":             importingFile("hostpair"),
 				"internal/hostpair/agree_generated_test.go":   importingFile("hostpair"),
 				"internal/hostpair/testdata/broken/broken.go": "this is not go at all",
 			},
@@ -192,4 +192,20 @@ func plainFile(pkg string) string {
 
 func importingFile(pkg string) string {
 	return fmt.Sprintf("package %s\n\nimport _ %q\n", pkg, importPath)
+}
+
+// writeProject writes files under a fresh directory and answers it.
+func writeProject(t *testing.T, files map[string]string) string {
+	t.Helper()
+	root := t.TempDir()
+	for name, body := range files {
+		full := filepath.Join(root, name)
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", name, err)
+		}
+		if err := os.WriteFile(full, []byte(body), 0o644); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+	}
+	return root
 }

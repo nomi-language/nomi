@@ -67,11 +67,12 @@ end
 test "a dotted name is the qualifier in pattern position too"
     // All but the last segment names the owner, so the variant here belongs
     // to `Probe.Reading` — matching what construction spells.
-    got = case Probe.Reading.Spike(4)
-        Probe.Reading.Steady    -> 0
-        Probe.Reading.Spike(n)  -> n
-        Probe.Reading.Blip{at:} -> at
-    end
+    got =
+        case Probe.Reading.Spike(4)
+            Probe.Reading.Steady    -> 0
+            Probe.Reading.Spike(n)  -> n
+            Probe.Reading.Blip{at:} -> at
+        end
 
     assert got == 4
 end
@@ -79,30 +80,33 @@ end
 test "a struct-shaped variant of a dotted enum, built and matched"
     b = Probe.Reading.Blip{at: 9}
 
-    got = case b
-        Probe.Reading.Blip{at:} -> at
-        Probe.Reading.Steady    -> 0
-        Probe.Reading.Spike(n)  -> n
-    end
+    got =
+        case b
+            Probe.Reading.Blip{at:} -> at
+            Probe.Reading.Steady    -> 0
+            Probe.Reading.Spike(n)  -> n
+        end
 
     assert got == 9
 end
 
 test "nested inside another pattern, and a stdlib dotted enum"
-    inner = case Maybe.Some(Probe.Reading.Steady)
-        Some(Probe.Reading.Steady)    -> 1
-        Some(Probe.Reading.Spike(n))  -> n
-        Some(Probe.Reading.Blip{at:}) -> at
-        None                          -> 0
-    end
+    inner =
+        case Maybe.Some(Probe.Reading.Steady)
+            Some(Probe.Reading.Steady)    -> 1
+            Some(Probe.Reading.Spike(n))  -> n
+            Some(Probe.Reading.Blip{at:}) -> at
+            None                          -> 0
+        end
 
     outcome: Outcome<Int> = Outcome.Completed(42)
 
-    got = case outcome
-        Outcome.Completed(v) -> v
-        Outcome.Cancelled    -> 0
-        Outcome.Failed(_)    -> 0
-    end
+    got =
+        case outcome
+            Outcome.Completed(v) -> v
+            Outcome.Cancelled    -> 0
+            Outcome.Failed(_)    -> 0
+        end
 
     assert inner == 1
     assert got == 42

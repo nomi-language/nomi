@@ -51,6 +51,59 @@ func TestSession_EvaluatesInTheStoppedFrame(t *testing.T) {
 	h.check("eval")
 }
 
+// An expression that calls a function whose cost grows with its argument
+// is refused before it runs, as unbounded and not as an effect, and the
+// override runs it.
+func TestSession_AnUnboundedExpressionIsRefusedAsUnbounded(t *testing.T) {
+	h := newHarness(t)
+	h.start(false, runConfig("eval.nomi"))
+	h.breakAt("eval.nomi", 33)
+	h.configure()
+	thread := h.stopped()
+	top := h.stack(thread)[0]
+	if body := h.eval(top, "watch", "String.repeat(label, 3)"); body["result"] != nil {
+		t.Errorf("the watch ran: %v", body)
+	}
+	refused := h.log.String()
+	ran := h.eval(top, "watch", "String.repeat(label, 3) // allow effects")
+	h.do("continue", thread)
+	h.wait("terminated")
+	h.disconnect()
+	want := "not run, because the expression calls strings.String.repeat, whose cost grows with its argument, so it may not finish."
+	if !strings.Contains(refused, want) || strings.Contains(refused, "which is an effect") {
+		t.Errorf("the refusal does not read %q:\n%s", want, refused)
+	}
+	if ran["result"] != `"ptptpt"` {
+		t.Errorf("with the override, the watch = %v, want \"ptptpt\"", ran)
+	}
+}
+
+// An expression reads the app fields in force in the frame, with no
+// `// allow effects`, since reading one is no effect: boot's value before
+// the `with`, the replacement after it, read directly and through a
+// function of the program.
+func TestSession_AnExpressionReadsTheAppFieldsInForce(t *testing.T) {
+	h := newHarness(t)
+	h.start(false, runConfig("app_eval.nomi"))
+	h.breakWith("app_eval.nomi", map[string]any{"line": 18}, map[string]any{"line": 20})
+	h.configure()
+	var got []any
+	for range 2 {
+		thread := h.stopped()
+		top := h.stack(thread)[0]
+		got = append(got, h.eval(top, "watch", "App.limit + n")["result"], h.eval(top, "hover", "over(n)")["result"])
+		h.do("continue", thread)
+	}
+	h.wait("terminated")
+	h.disconnect()
+	want := []any{"8", "True", "15", "False"}
+	for i := range want {
+		if i >= len(got) || got[i] != want[i] {
+			t.Fatalf("results = %v, want %v; transcript:\n%s", got, want, h.log.String())
+		}
+	}
+}
+
 // A tuple's children are named by the ordinals that read them, a named
 // tuple's too, and an item past the twentieth by its index. A watch of an
 // ordinal path is read from the frame with nothing compiled: its type is the

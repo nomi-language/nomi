@@ -12,8 +12,7 @@ func (bl *irScalarBuilder) preludeWithDefaultPlan(t *ast.Call, args irQualArgs, 
 	if !known || !args.ok || len(args.kinds) != fn.args || bl.rowsUnrecorded(t) {
 		return nil
 	}
-	bl.g.loadPreludes()
-	if _, anchored := bl.g.preludeByName[owner]; !anchored {
+	if _, anchored := preludeSpecAnchor(preludeSpecNamed(owner)); !anchored {
 		return nil
 	}
 	// kindInvalid: sentinel — solvedParamKind's nothing-recorded answer; the operand keeps its own kind.
@@ -61,8 +60,7 @@ func (bl *irScalarBuilder) preludeToResultPlan(t *ast.Call, args irQualArgs) *ir
 	if !args.ok || len(args.kinds) != fn.args || bl.rowsUnrecorded(t) {
 		return nil
 	}
-	bl.g.loadPreludes()
-	if _, anchored := bl.g.preludeByName["Result"]; !anchored {
+	if _, anchored := preludeSpecAnchor(preludeSpecNamed("Result")); !anchored {
 		return nil
 	}
 	d := args.kinds[0].def

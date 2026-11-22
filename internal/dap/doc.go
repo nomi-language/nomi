@@ -38,10 +38,12 @@
 // checked and lowered by vmhost as a function appended to the frame's file,
 // whose parameters are the frame's variables it names at their recorded
 // types, and accepted or rejected as Nomi. It runs on a view of the stopped
-// machine that links its lowering without changing the machine. An
-// expression that can reach an effect is refused unless it ends with
-// `// allow effects`, and the view has no debugger, so such an expression
-// runs outside the step-back recording. evaluate.go states the rules.
+// machine that links its lowering without changing the machine, and reads
+// the app fields in force in the frame, which is no effect. An
+// expression that can reach an effect, or a call whose cost grows with an
+// argument's value, is refused unless it ends with `// allow effects`, and
+// the view has no debugger, so such an expression runs outside the
+// step-back recording. evaluate.go states the rules.
 //
 // # Step back
 //

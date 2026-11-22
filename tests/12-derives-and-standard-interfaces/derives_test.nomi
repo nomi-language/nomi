@@ -186,15 +186,17 @@ test "standard derives handle enums with embedded variants"
     s: Switch = Switch.Off
     c: Switch = Off
 
-    from_variant = case s
-        Switch.Off(x) -> use_off(x)
-        _             -> "nope"
-    end
+    from_variant =
+        case s
+            Switch.Off(x) -> use_off(x)
+            _             -> "nope"
+        end
 
-    from_coerced = case c
-        Switch.Off(x) -> use_off(x)
-        _             -> "nope"
-    end
+    from_coerced =
+        case c
+            Switch.Off(x) -> use_off(x)
+            _             -> "nope"
+        end
 
     assert show_order(Comparable.compare(Switch.Off, Switch.On)) == "L"
     assert show_order(Comparable.compare(Switch.On, Switch.Off)) == "G"

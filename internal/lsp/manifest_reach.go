@@ -17,21 +17,21 @@ import (
 	"github.com/nomi-language/nomi/vmhost"
 )
 
-// WHAT A PROJECT'S PROGRAMS REACH, IN ITS NOMI.TOML.
+// THE EFFECTS A PROJECT'S PROGRAMS HAVE, IN ITS NOMI.TOML.
 //
-// A name in nomi.toml's capability lists is answered from what the
-// programs `nomi check` checks in the project reach, worked out as `nomi
-// capabilities` works it out (frontend.CheckedFiles, vmhost.ReachedAll):
+// A name in nomi.toml's effects lists is answered from the effects the
+// programs `nomi check` checks in the project have, worked out as `nomi
+// effects` works them out (frontend.CheckedFiles, vmhost.ReachedAll):
 // from the Nomi files as they are on disk, with the editor's text of
 // nomi.toml. Hover on a std name shows the calls that need it, as `nomi
-// capabilities --why` prints them, and references answer those calls.
-// A std name that nothing a list holds reaches, the name `nomi
-// capabilities --check` reports unused (vmhost.HeldChanges), is a hint at
+// effects --why` prints them, and references answer those calls.
+// A std name that nothing a list holds has, the name `nomi
+// effects --check` reports unused (vmhost.HeldChanges), is a hint at
 // the name in each open nomi.toml, with a fix that takes it out
 // (unusedHints). The answer is worked out once per project and kept until
 // a nomi.toml or a Nomi file changes (projectReaches.changed), which
 // publishes the hints again (reachChanged). A project with a program that
-// does not check has no answer, since what it reaches is unknown, and no
+// does not check has no answer, since its effects are unknown, and no
 // hints.
 
 // reachChanged drops what the projects' programs reach (projectReaches)
@@ -101,7 +101,7 @@ func unusedSource(uri string) string { return "unused " + uri }
 // (unusedHints), unless a later refresh, seq being this one's, or a close
 // came first.
 func (s *Server) publishUnused(uri string, seq int) {
-	defer recoverPanic("publishing what nothing reaches in "+uri, nil)
+	defer recoverPanic("publishing the unused names in "+uri, nil)
 	r := s.reaches.of(filepath.Dir(uriToPath(uri)))
 	text, _ := s.contentForURI(protocol.DocumentUri(uri))
 	diags, fixes := unusedHints(r, uriToPath(uri), text)
@@ -117,7 +117,7 @@ func (s *Server) publishUnused(uri string, seq int) {
 
 // unusedHints are the hints in text, the nomi.toml at path, r being what
 // its project's programs reach: one at each std name a list holds that
-// `nomi capabilities --check` reports unused (vmhost.HeldChanges), saying
+// `nomi effects --check` reports unused (vmhost.HeldChanges), saying
 // why (unusedName), and the fix of each, which writes the tables without
 // it; none for no r or a text that does not parse.
 func unusedHints(r *vmhost.Reach, path, text string) ([]protocol.Diagnostic, []parser.ParseError) {
@@ -126,22 +126,22 @@ func unusedHints(r *vmhost.Reach, path, text string) ([]protocol.Diagnostic, []p
 	}
 	data := []byte(text)
 	m, err := analysis.ParseManifestIn(filepath.Dir(path), data)
-	if err != nil || m.Capabilities == nil {
+	if err != nil || m.Effects == nil {
 		return nil, nil
 	}
-	lists, tight := m.Capabilities, r.Tightest()
+	lists, tight := m.Effects, r.Tightest()
 	lines := newLineIndex(text)
 	severity := protocol.DiagnosticSeverityHint
 	source := "nomi"
 	var diags []protocol.Diagnostic
 	var fixes []parser.ParseError
-	for _, c := range vmhost.HeldChanges(analysis.CapabilityChanges(lists, tight), lists) {
+	for _, c := range vmhost.HeldChanges(analysis.EffectChanges(lists, tight), lists) {
 		if c.Change != "remove" || c.Name == "" || !isStdList(c.List) {
 			continue
 		}
-		key := append([]string{"capabilities"}, strings.Split(c.List, ".")...)
-		if c.List == analysis.ListDepsModules {
-			key = append(key, c.Module)
+		key := append([]string{"effects"}, strings.Split(c.List, ".")...)
+		if slices.Contains(analysis.EntryLists, c.List) {
+			key = analysis.EntryKeyPath(c.List, c.Module)
 		}
 		line := analysis.ManifestEntryLine(data, c.Name, key...)
 		if line == 0 {
@@ -157,7 +157,7 @@ func unusedHints(r *vmhost.Reach, path, text string) ([]protocol.Diagnostic, []p
 			Range: lines.utf16Range(posRange(line, start+1, line, end+1)), Severity: &severity, Source: &source,
 			Message: message, Tags: []protocol.DiagnosticTag{protocol.DiagnosticTagUnnecessary},
 		})
-		if fix, err := analysis.CapabilitiesFix(path, data, title, to); err == nil {
+		if fix, err := analysis.EffectsFix(path, data, title, to); err == nil {
 			fixes = append(fixes, parser.ParseError{Line: line, Col: start + 1, Message: message, Fix: fix})
 		}
 	}
@@ -169,7 +169,7 @@ func unusedHints(r *vmhost.Reach, path, text string) ([]protocol.Diagnostic, []p
 // fix writes: lists without the name. A name std holds that only the tests
 // reach moves to std_in_tests, and a name std_in_tests holds that std
 // allows already is said to be.
-func unusedName(lists, tight *vmhost.Capabilities, c analysis.CapabilityChange) (message, title string, to *vmhost.Capabilities) {
+func unusedName(lists, tight *vmhost.Effects, c analysis.EffectChange) (message, title string, to *vmhost.Effects) {
 	to = lists.Clone()
 	without := func(names []string) []string {
 		return slices.DeleteFunc(slices.Clone(names), func(n string) bool { return n == c.Name })
@@ -187,7 +187,7 @@ func unusedName(lists, tight *vmhost.Capabilities, c analysis.CapabilityChange) 
 	case analysis.ListDepsStd, analysis.ListDepsStdInTests:
 		std, inTests, tightStd, tightInTests = &to.Deps.Std, &to.Deps.StdInTests, tight.Deps.Std, tight.Deps.StdInTests
 	default:
-		to.Deps.Modules[c.Module] = without(to.Deps.Modules[c.Module])
+		to.SetEntry(c.List, c.Module, without(to.Entries(c.List)[c.Module]))
 		return message, fmt.Sprintf("Remove %s from the entry for %s", c.Name, c.Module), to
 	}
 	switch {
@@ -202,7 +202,7 @@ func unusedName(lists, tight *vmhost.Capabilities, c analysis.CapabilityChange) 
 			*inTests = append(*inTests, c.Name)
 			title = fmt.Sprintf("Move %s to std_in_tests", c.Name)
 		}
-		message = fmt.Sprintf("only the tests reach %s, which std_in_tests is for", c.Name)
+		message = fmt.Sprintf("only the tests have the effect %s, which std_in_tests is for", c.Name)
 	default:
 		*std = without(*std)
 	}
@@ -272,7 +272,7 @@ func (p *projectReaches) of(root string) *vmhost.Reach {
 }
 
 // projectReach is what the programs `nomi check root` checks reach, as
-// `nomi capabilities root` works it out; nil when one does not check, or
+// `nomi effects root` works it out; nil when one does not check, or
 // the compiler panics.
 func projectReach(root string) (r *vmhost.Reach) {
 	defer func() {
@@ -288,7 +288,8 @@ func projectReach(root string) (r *vmhost.Reach) {
 }
 
 // manifestHover is the hover at pos in the nomi.toml at uri: on a std name
-// in a capability list, the calls that need it there (nameHover); nil
+// in an effects list, the calls that need it there (nameHover); on a key
+// in a table of entries, what that code reaches (moduleHover); nil
 // anywhere else.
 func (s *Server) manifestHover(uri string, pos protocol.Position) *protocol.Hover {
 	text, _ := s.contentForURI(protocol.DocumentUri(uri))
@@ -302,8 +303,8 @@ func (s *Server) manifestHover(uri string, pos protocol.Position) *protocol.Hove
 	switch list := at.list(); {
 	case isStdList(list) && strings.HasPrefix(name, "std::"):
 		md = nameHover(s.reaches.of(root), list, at.key, name)
-	case list == analysis.ListDepsGo || list == analysis.ListDepsGoInTests || at.onModuleKey():
-		md = moduleHover(s.reaches.of(root), name)
+	case at.entryList() != "":
+		md = moduleHover(s.reaches.of(root), at.entryList(), name)
 	default:
 		return nil
 	}
@@ -343,24 +344,24 @@ func (s *Server) manifestReferences(uri string, pos protocol.Position) []protoco
 // isStdList reports whether list, as a change names it, holds std names.
 func isStdList(list string) bool {
 	switch list {
-	case analysis.ListSelfStd, analysis.ListSelfStdInTests, analysis.ListDepsStd, analysis.ListDepsStdInTests, analysis.ListDepsModules:
+	case analysis.ListSelfStd, analysis.ListSelfStdInTests, analysis.ListDepsStd, analysis.ListDepsStdInTests:
 		return true
 	}
-	return false
+	return slices.Contains(analysis.EntryLists, list)
 }
 
 // maxHoverCalls is how many calls a hover on a name lists before it counts
 // the rest.
 const maxHoverCalls = 10
 
-// nameHover is what a hover on the std name in list (module's entry for
-// ListDepsModules) says, r being what the project's programs reach: the
-// calls that need it there, as `nomi capabilities --why` prints them, at
-// most maxHoverCalls; that nothing there reaches it; or, for no r, that
-// what reaches it is not known.
+// nameHover is what a hover on the std name in list (module's entry for a
+// table of entries) says, r being the effects the project's programs have:
+// the calls that need it there, as `nomi effects --why` prints them, at
+// most maxHoverCalls; that nothing there has it; or, for no r, that which
+// code has it is not known.
 func nameHover(r *vmhost.Reach, list, module, name string) string {
 	if r == nil {
-		return fmt.Sprintf("What reaches `%s` is known once every program of this project checks.", name)
+		return fmt.Sprintf("Which code has the effect `%s` is known once every program of this project checks.", name)
 	}
 	calls := neededBy(r, list, module, name)
 	if len(calls) == 0 {
@@ -372,17 +373,18 @@ func nameHover(r *vmhost.Reach, list, module, name string) string {
 	return "```text\n" + b.String() + "```"
 }
 
-// moduleHover is what a hover on a dependency's path says, r being what
-// the project's programs reach: what the module's own files reach, as
-// `nomi add` prints it (vmhost.WriteModuleReach), or that no program
-// imports it yet; for no r, that what it reaches is not known.
-func moduleHover(r *vmhost.Reach, module string) string {
+// moduleHover is what a hover on module, a key of list's entries (a
+// dependency's path, or a module of the project), says, r being the
+// effects the project's programs have: the effects the module's own files have, as
+// `nomi add` prints them (vmhost.WriteModuleReach), or that no program
+// imports it yet; for no r, that its effects are not known.
+func moduleHover(r *vmhost.Reach, list, module string) string {
 	if r == nil {
-		return fmt.Sprintf("What `%s` reaches is known once every program of this project checks.", module)
+		return fmt.Sprintf("The effects of `%s` are known once every program of this project checks.", module)
 	}
 	var b strings.Builder
 	b.WriteString(module + "\n")
-	modules := r.ModuleReaches()
+	modules := r.EntryReaches(list)
 	if i := slices.IndexFunc(modules, func(u vmhost.ModuleReach) bool { return u.Path == module }); i >= 0 {
 		vmhost.WriteModuleReach(&b, "  ", modules[i])
 	} else {
@@ -391,10 +393,11 @@ func moduleHover(r *vmhost.Reach, module string) string {
 	return "```text\n" + b.String() + "```"
 }
 
-// neededBy is each call r reaches that reaches name and that list holds
-// (Reach.Why): a call in the project's own files for [capabilities.self]'s
-// lists, in a dependency's for [capabilities.deps]', and in module's for
-// its entry under [capabilities.deps.modules].
+// neededBy is each call r reaches that has the effect name and that list
+// holds (Reach.Why): a call in the project's own files for [effects.self]'s
+// lists, in a dependency's for [effects.deps]', and in module's for
+// its entry under [effects.self.modules] or
+// [effects.deps.modules].
 func neededBy(r *vmhost.Reach, list, module, name string) []vmhost.WhyCall {
 	calls, err := r.Why(name)
 	if err != nil {
@@ -406,6 +409,10 @@ func neededBy(r *vmhost.Reach, list, module, name string) []vmhost.WhyCall {
 		switch list {
 		case analysis.ListSelfStd, analysis.ListSelfStdInTests:
 			if !self {
+				continue
+			}
+		case analysis.ListSelfModules:
+			if !self || c.Import != module {
 				continue
 			}
 		case analysis.ListDepsModules:
@@ -422,14 +429,14 @@ func neededBy(r *vmhost.Reach, list, module, name string) []vmhost.WhyCall {
 	return out
 }
 
-// nothingReaches says that no call list holds reaches name (neededBy),
-// naming the code list holds.
+// nothingReaches says that no call list holds has the effect name
+// (neededBy), naming the code list holds.
 func nothingReaches(list, module, name string) string {
 	switch list {
 	case analysis.ListSelfStd, analysis.ListSelfStdInTests:
-		return fmt.Sprintf("nothing in this module's own code reaches %s", name)
-	case analysis.ListDepsModules:
-		return fmt.Sprintf("nothing in %s reaches %s", module, name)
+		return fmt.Sprintf("nothing in this module's own code has the effect %s", name)
+	case analysis.ListSelfModules, analysis.ListDepsModules:
+		return fmt.Sprintf("nothing in %s has the effect %s", module, name)
 	}
-	return fmt.Sprintf("no dependency reaches %s", name)
+	return fmt.Sprintf("no dependency has the effect %s", name)
 }

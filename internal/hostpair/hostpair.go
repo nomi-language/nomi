@@ -1,62 +1,33 @@
-// Package hostpair derives one fact from `.nomi` source: which Go symbol
-// implements which Nomi host declaration.
+// Package hostpair derives, from a std module's `.nomi` source, the keys
+// each of its host declarations answers to, and its tests hold
+// internal/stdlibbindings' hand-written rows to them
+// (registered_test.go).
 //
-// That fact is derived in more than one place, and keeping those places
-// in agreement is the reason this package and internal/ffitypes exist:
+// Every std declaration is a bare `host fn` or `host type`, so the Go half
+// of a row is in no `.nomi` file (symbolsource_test.go measures that), and
+// the key half is what source determines. The derivation is kept here,
+// apart from the IR builder's stdKey, so the check reads the declarations
+// rather than the builder.
 //
-//   - internal/ffirun/discovery.go builds it for the generated-wrapper path.
-//     Its key rule is `externDeclKey`; its symbol is `pkg.Alias + "." +
-//     exp.FuncName`, spelled by codegen.go's wrapper template.
-//   - internal/irbuild/stdlib.go keys stdlib declarations with `stdKey`, which
-//     is not ffirun's rule (see Pairing.BuilderKey / Pairing.BindingKey).
-//   - internal/stdlibbindings holds hand-written rows. Every std declaration
-//     is a bare `host fn`, so the symbol half of those rows is in no `.nomi`
-//     file and no other derivable place, as symbolsource_test.go checks.
-//     Its key half is still derivable, and
-//     registered_test.go is the check that holds it.
-//
-// ffirun reads the receiver's base name and the interface's instantiation.
-// Two disagreements remain: the module prefix on an impl-owned declaration
-// (live in the shipped internal/stdlibbindings table) and ffirun's
-// entry-scoped second key (which stdKey has no analogue for). See
-// disagreement_test.go.
-//
-// This package is the shared derivation those should read. No consumer reads
-// it yet. It is referenced only by its own tests: a consumer switch
-// must be provable to change nothing, and it cannot be if it lands with the
-// thing it is switching to.
-//
-// # What the derivation does not decide
-//
-// Registration. A pairing says "declaration D is implemented by Go symbol S";
-// whether S is bound through a generated adapter table, spelled into a
-// generated wrapper, or linked by one key is the consumer's business. That split
-// is why Pairing exposes several key spellings rather than one: the spellings
-// are all correct, and which one a consumer wants depends on how it looks up.
+// No production code reads this package (unreferenced_test.go).
 package hostpair
 
 import (
-	"fmt"
-	"path"
-	"path/filepath"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
-	"github.com/nomi-language/nomi/internal/lexer"
-	"github.com/nomi-language/nomi/internal/parser"
 )
 
-// Kind separates a host FUNCTION binding from a host TYPE binding. They are
-// one derivation because they come from one scan and share the key rule, and
-// two kinds because a type's Go side is a named type (registered by prototype)
-// and a function's is a func value.
+// Kind separates a host FUNCTION declaration from a host TYPE declaration.
+// A type's Go side is a named type (registered by prototype) and a
+// function's is a func value, so internal/stdlibbindings holds them in two
+// tables.
 type Kind uint8
 
 const (
-	// KindFunc is a `host fn name(...) go alias.Symbol` declaration.
+	// KindFunc is a `host fn` declaration.
 	KindFunc Kind = iota + 1
-	// KindType is a `host type Name go alias.Symbol` (or `opaque type Name go
-	// alias.Symbol`) declaration.
+	// KindType is a `host type` declaration.
 	KindType
 )
 
@@ -70,23 +41,21 @@ func (k Kind) String() string {
 	return "invalid"
 }
 
-// Pairing is one derived "this Nomi declaration ↔ this Go symbol".
+// Pairing is one host declaration as the keys a binding row may name it by.
 //
-// The declaration side is kept DECOMPOSED — module, receiver, interface
-// instantiation, name — rather than pre-joined into a key, because the
-// existing derivations join those four parts differently and a pre-joined
-// string cannot serve them all. Joining is Keys / BuilderKey / BindingKey.
+// The declaration is kept DECOMPOSED (module, receiver, interface
+// instantiation, name) rather than pre-joined into a key, because the
+// spellings join those four parts differently. Joining is Keys and
+// BuilderKey.
 type Pairing struct {
 	Kind Kind
 
-	// Module is the module-name segment a non-entry file's declarations are
-	// qualified with — "regex" for std/regex, "" for an entry file. This is
-	// path.Base of the module path, matching ffirun.moduleNameForNomiFile.
+	// Module is the std module the declaration is in: "regex" for
+	// std/regex.
 	Module string
 	// Receiver is the BASE name of the enclosing `impl` block's receiver type,
 	// or "" for a file-top-level declaration. Base name, so `impl Box<T>`
-	// gives "Box" — ffirun.implReceiverName's rule, which is what a binding is
-	// actually looked up under.
+	// gives "Box".
 	//
 	// The receiver's type parameters are a BINDER, not an instantiation: a
 	// module holds at most one `impl Box<T>`, so `<T>` cannot tell two
@@ -98,86 +67,15 @@ type Pairing struct {
 	// `calendar.NaiveDateTime.Add<Duration, NaiveDateTime>.add` verbatim:
 	// eleven `impl Add<X, NaiveDateTime>` blocks each declare `add`, so
 	// dropping the instantiation collapses eleven declarations onto one key.
-	//
-	// This is the discriminating half, and it is why dropping the receiver's
-	// binder is safe: what distinguishes two impls of one generic interface
-	// for one receiver is the interface's type ARGUMENTS, which are concrete.
-	// ffirun.implInterfaceKey reads the same instantiation.
 	Interface string
-	// Name is the declaration's own name, exactly as written — including a
-	// trailing `?` or `!`.
+	// Name is the declaration's own name, exactly as written, a trailing
+	// `?` or `!` included.
 	Name string
-
-	// ImportPath is the Go package the symbol lives in, taken from the
-	// `gopkg "path" as alias` handle the selector references.
-	ImportPath string
-	// Alias is the `gopkg` handle's alias as the facade wrote it (`go_regex`).
-	// Carried because two consumers render a qualified selector and one of
-	// them, the wrapper, re-aliases; the alias is the facade's spelling, not
-	// the renderer's.
-	Alias string
-	// Symbol is the Go identifier inside ImportPath (`Compile`).
-	Symbol string
-
-	SourceFile string
-	SourceLine int
-	SourceCol  int
-}
-
-// GoSymbol is the fully qualified Go symbol, `<import path>.<Symbol>`.
-//
-// This is the spelling runtime.FuncForPC reports for a linked func value and
-// the spelling reflect.Type reports for a named type, which is what makes the
-// symbol half of a pairing checkable against a real binary rather than only
-// against another derivation.
-func (p Pairing) GoSymbol() string {
-	if p.ImportPath == "" || p.Symbol == "" {
-		return ""
-	}
-	return p.ImportPath + "." + p.Symbol
-}
-
-// BindingKey is the spelling ffirun.externDeclKey produces: an impl-owned
-// declaration keys on its RECEIVER BASE NAME plus the interface's
-// instantiation, and drops the module entirely.
-//
-// It is what internal/stdlibbindings/bindings.go contains — `Regex.compile`,
-// with no `regex.` on it — and it is a member of the candidate list (see
-// Keys), the third of four for an impl-owned declaration in a module.
-//
-// The interface segment appears only for an INSTANTIATED generic interface,
-// which is what keeps eleven `impl Add<X, NaiveDateTime>` declarations of
-// `add` on eleven keys instead of one. The agreement checks in
-// agree_project_test.go hold ffirun to the base name and the interface.
-//
-// The module is still dropped, and that is disagreement 1 — untouched,
-// because it is live in the shipped bindings.go and moving it moves what
-// every binding is keyed under.
-func (p Pairing) BindingKey() string {
-	if p.Receiver != "" {
-		if p.Interface != "" {
-			return p.Receiver + "." + p.Interface + "." + p.Name
-		}
-		return p.Receiver + "." + p.Name
-	}
-	if p.Module != "" {
-		return p.Module + "." + p.Name
-	}
-	return p.Name
 }
 
 // BuilderKey is the spelling irbuild.stdKey produces: the module is ALWAYS
-// present, and an instantiated generic interface contributes a segment.
-//
-// It is the FIRST candidate in Keys. The IR builder needs a single name
-// because it links a call by key rather than walking a list, and this is the
-// one it picked.
-//
-// irbuild.stdKey joins the module unconditionally because every stdlib
-// declaration has one. An ENTRY file's does not, and joining "" would produce
-// a leading dot, so the empty module is dropped — which is also what makes
-// BuilderKey equal BindingKey for an entry-file top-level declaration, the
-// one shape where the two derivations cannot disagree.
+// present, and an instantiated generic interface contributes a segment. It
+// is the FIRST member of Keys.
 func (p Pairing) BuilderKey() string {
 	parts := make([]string, 0, 4)
 	if p.Module != "" {
@@ -192,44 +90,20 @@ func (p Pairing) BuilderKey() string {
 	return strings.Join(append(parts, p.Name), ".")
 }
 
-// EntryKey is the extra spelling a declaration answers to when its OWN file is
-// loaded as the entry, and "" when that is already BindingKey.
-//
-// ffirun.entryScopedKey's rule: only a module-qualified TOP-LEVEL declaration
-// has a second key, because an impl-owned one keys on a receiver that does not
-// change with which file is the entry.
-//
-// Deliberately NOT a member of Keys. It is not a fallback a lookup tries in
-// order; it is the key that REPLACES the qualified one when this file is the
-// entry, decided by the wrapper's nomiExternKey helper at run time from the
-// path it was handed. Folding it into the candidate list would make a wrapper
-// register two names for one declaration.
-func (p Pairing) EntryKey() string {
-	if p.Receiver != "" || p.Module == "" {
-		return ""
-	}
-	return p.Name
-}
-
 // Keys is every registration spelling this declaration answers to, most
 // specific first.
 //
-// For the impl-owned case: module-prefixed before bare, interface-qualified
-// before not. A TOP-LEVEL
-// declaration has exactly ONE spelling — externDeclKey's — because no impl
-// receiver and no interface can vary it; its second name is EntryKey, which is
-// a replacement rather than a fallback.
-//
-// This list is the reason BindingKey and BuilderKey are both correct rather
-// than one being a bug: for an impl-owned declaration BuilderKey is its FIRST
-// member and BindingKey is a later one (the third of four for a
-// module-qualified instantiated-interface impl, the last of two otherwise).
-// A consumer that looks a binding up may walk the list; a consumer that links
-// by one key must choose one member, and that choice is the disagreement this
-// package exists to end.
+// A TOP-LEVEL declaration has exactly one spelling, `module.name`. An
+// impl-owned one has its module-prefixed spellings before its bare ones,
+// interface-qualified before not: internal/stdlibbindings names
+// `Regex.compile`, with no `regex.` on it, and an interface's instantiation
+// only where the interface takes type arguments.
 func (p Pairing) Keys() []string {
 	if p.Receiver == "" {
-		return []string{p.BindingKey()}
+		if p.Module != "" {
+			return []string{p.Module + "." + p.Name}
+		}
+		return []string{p.Name}
 	}
 	bare := make([]string, 0, 2)
 	if p.Interface != "" {
@@ -246,153 +120,8 @@ func (p Pairing) Keys() []string {
 	return append(keys, bare...)
 }
 
-// String is a stable one-line rendering used by the agreement checks' diff
-// output. Not a key; do not parse it.
-func (p Pairing) String() string {
-	symbol := p.GoSymbol()
-	if symbol == "" {
-		symbol = "<no symbol>"
-	}
-	return fmt.Sprintf("%s %s -> %s", p.Kind, p.BuilderKey(), symbol)
-}
-
-// No `.nomi` file under `std/` names a Go symbol (the first-party adapters
-// declare bare `host fn`), so there is nothing in the stdlib for this package
-// to derive. Every caller is a USER project reached through DeriveSource or
-// DeriveNodes.
-
-// DeriveSource parses src and derives its pairings.
-//
-// A non-nil error means the source DID NOT PARSE. The pairings returned
-// alongside it are what recovery parsing could still see, and they are a lower
-// bound rather than a set — so a caller must not read "no error checked, no
-// pairings" as "this file declares no bindings". ffirun makes exactly that
-// elision (discovery.go:281 discards the parse error and derives from
-// recovery), which is defensible there because discovery only decides whether
-// the wrapper path is needed and the analyzer reports the syntax error
-// afterwards. It is not defensible in a derivation whose output a consumer
-// would emit a direct call from, so the error is returned and the recovery
-// pairings are returned WITH it rather than instead of it.
-//
-// Empty source is not an error. A file with no declarations has no pairings,
-// which is a fact rather than a failure.
-func DeriveSource(file, moduleName string, src []byte) ([]Pairing, error) {
-	nodes, err := parser.Parse(lexer.Lex(string(src)))
-	if err != nil {
-		recovered, _ := parser.ParseWithRecovery(lexer.Lex(string(src)))
-		return DeriveNodes(file, moduleName, recovered), fmt.Errorf("hostpair: %s: %w", file, err)
-	}
-	return DeriveNodes(file, moduleName, nodes), nil
-}
-
-// DeriveNodes derives the pairings declared by an already-parsed file.
-//
-// Order is source order: top-level declarations as encountered, and an impl
-// block's items where the block appears. Deterministic without sorting, which
-// keeps a caller free to sort by whichever key it uses.
-func DeriveNodes(file, moduleName string, nodes []ast.Node) []Pairing {
-	aliases := collectGopkgAliases(nodes)
-	var out []Pairing
-	collect(file, moduleName, "", "", nodes, aliases, &out)
-	return out
-}
-
-// collectGopkgAliases indexes every Go package handle a selector in this file
-// may name, by alias.
-//
-// The one source is a top-level `gopkg "path" as alias` handle, which is
-// ffirun.collectExternPackages.
-//
-// A selector naming an alias with no handle is NOT a pairing and is dropped,
-// which is ffirun's behaviour (discovery.go:510 `if pkgDecl == nil`) rather
-// than a new rule. Dropping is right: without a handle there is no import
-// path, so there is no Go symbol to name and any pairing would be invented.
-func collectGopkgAliases(nodes []ast.Node) map[string]*ast.ExternPackage {
-	aliases := make(map[string]*ast.ExternPackage)
-	for _, n := range nodes {
-		switch v := n.(type) {
-		case *ast.ExternPackage:
-			if v.Alias != "" {
-				aliases[v.Alias] = v
-			}
-		}
-	}
-	return aliases
-}
-
-func collect(file, moduleName, receiver, iface string, nodes []ast.Node, aliases map[string]*ast.ExternPackage, out *[]Pairing) {
-	for _, n := range nodes {
-		switch v := n.(type) {
-		case *ast.ImplBlock:
-			recv := receiverBaseName(v.Receiver)
-			if recv == "" {
-				continue
-			}
-			collect(file, moduleName, recv, interfaceInstantiation(v.Interface), v.Items, aliases, out)
-		case *ast.ExternType:
-			// A host TYPE is never impl-owned: `host type` and
-			// `opaque type ... go ...` are file-top-level forms. Carrying the
-			// receiver through anyway costs nothing and keeps one rule.
-			if p, ok := typePairing(file, moduleName, receiver, v, aliases); ok {
-				*out = append(*out, p)
-			}
-		case *ast.ExternFunc:
-			if p, ok := funcPairing(file, moduleName, receiver, iface, v, aliases); ok {
-				*out = append(*out, p)
-			}
-		}
-	}
-}
-
-func typePairing(file, moduleName, receiver string, v *ast.ExternType, aliases map[string]*ast.ExternPackage) (Pairing, bool) {
-	p := Pairing{
-		Kind:       KindType,
-		Module:     moduleName,
-		Receiver:   receiver,
-		Name:       v.Name,
-		SourceFile: file,
-	}
-	if v.ForeignAlias == "" || v.ForeignName == "" {
-		return Pairing{}, false
-	}
-	decl := aliases[v.ForeignAlias]
-	if decl == nil {
-		return Pairing{}, false
-	}
-	p.Alias, p.ImportPath = decl.Alias, decl.ImportPath
-	p.Symbol = v.ForeignName
-	p.SourceLine, p.SourceCol = v.ForeignNameLine, v.ForeignNameCol
-	return p, true
-}
-
-func funcPairing(file, moduleName, receiver, iface string, v *ast.ExternFunc, aliases map[string]*ast.ExternPackage) (Pairing, bool) {
-	p := Pairing{
-		Kind:       KindFunc,
-		Module:     moduleName,
-		Receiver:   receiver,
-		Interface:  iface,
-		Name:       v.Name,
-		SourceFile: file,
-	}
-	if v.ForeignAlias == "" || v.ForeignName == "" {
-		return Pairing{}, false
-	}
-	decl := aliases[v.ForeignAlias]
-	if decl == nil {
-		return Pairing{}, false
-	}
-	p.Alias, p.ImportPath = decl.Alias, decl.ImportPath
-	p.Symbol = v.ForeignName
-	p.SourceLine, p.SourceCol = v.ForeignNameLine, v.ForeignNameCol
-	return p, true
-}
-
-// receiverBaseName is ffirun.implReceiverName: the base name of an impl
-// block's receiver, so `impl Generator<T>` gives "Generator".
-//
-// The base name and not TypeString(), because the base name is what a binding
-// is looked up under. agree_project_test.go's generic-receiver fixture holds
-// ffirun to it.
+// receiverBaseName is the base name of an impl block's receiver, so
+// `impl Generator<T>` gives "Generator".
 func receiverBaseName(recv ast.TypeExpr) string {
 	switch t := recv.(type) {
 	case *ast.SimpleType:
@@ -405,13 +134,13 @@ func receiverBaseName(recv ast.TypeExpr) string {
 	return ""
 }
 
-// interfaceInstantiation is irbuild.stdImplKey and ffirun.implInterfaceKey: the interface's full instantiation when it takes
-// type arguments, and "" otherwise.
+// interfaceInstantiation is irbuild.stdImplKey: the interface's full
+// instantiation when it takes type arguments, and "" otherwise.
 //
-// "" for a non-generic interface is not a shortcut. A non-generic interface can
-// be implemented for a receiver at most once, so the instantiation would add no
-// information; a generic one can be implemented once per instantiation, which
-// is where the collapse lived.
+// "" for a non-generic interface is not a shortcut. A non-generic interface
+// can be implemented for a receiver at most once, so the instantiation would
+// add no information; a generic one can be implemented once per
+// instantiation, which is where the collapse lived.
 func interfaceInstantiation(iface ast.TypeExpr) string {
 	switch t := iface.(type) {
 	case *ast.GenericType:
@@ -426,26 +155,4 @@ func interfaceInstantiation(iface ast.TypeExpr) string {
 		return t.TypeString()
 	}
 	return ""
-}
-
-// ModuleNameForFile is the module-name segment a project file's declarations
-// are qualified with: "" for the entry `main.nomi` and for any `_test.nomi`,
-// and the file's base name otherwise.
-//
-// ffirun.moduleNameForNomiFile's rule, and it is part of the DERIVATION rather
-// than of the file walk: the segment it returns is a component of every key
-// the file's declarations answer to. Which files to walk is deliberately NOT
-// here — that is a project-layout question (nested nomi.toml scopes, local
-// replace targets) with no bearing on what a given file's pairings are.
-func ModuleNameForFile(projectRoot, file string) string {
-	base := filepath.Base(file)
-	if base == "main.nomi" || strings.HasSuffix(base, "_test.nomi") {
-		return ""
-	}
-	rel, err := filepath.Rel(projectRoot, file)
-	if err != nil {
-		return strings.TrimSuffix(base, ".nomi")
-	}
-	withoutExt := strings.TrimSuffix(filepath.ToSlash(rel), ".nomi")
-	return path.Base(withoutExt)
 }

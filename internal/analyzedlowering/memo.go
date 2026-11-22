@@ -15,7 +15,7 @@ import (
 // built from (the entry's, each other project file's and nomi.toml's;
 // Check refuses an analysis whose files do not hold those texts on disk)
 // and the stdlib, which a process does not change. Two analyses of the same
-// texts are the same program (analysis.DocumentManager.Recheck answers what
+// texts are the same program (analysis.DocumentManager.RecheckEdits answers what
 // a full check answers), so the memo keys a lowering by those texts and
 // the root, never by the analysis objects, which a recheck replaces or
 // rewrites in place.

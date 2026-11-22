@@ -5,7 +5,7 @@ import "testing"
 // An owner-level `once` read as a parameter default runs on the VM: a reduce
 // seed, a `fn` default and a lambda default (testdata/owner_once_default.nomi).
 //
-// ownerOnceValue resolves `Count.zero` from the reference the checker records
+// qualifiedOnceValue resolves `Count.zero` from the reference the checker records
 // at the member's position. The checker never checked a default under an
 // annotated parameter, so it recorded nothing there and the read declined as
 // `a field access on the type name Count: .zero`.

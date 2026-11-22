@@ -47,8 +47,11 @@ import (
 // No body is read here. Each file's bodies are read once per body part into
 // its summary (onceSummaryOf), and the program's graph is built from the
 // summaries and kept until one of them changes (programOnceGraph), as the
-// boot-only check keeps its own. A program opened from its record reduces
-// the same graph from each file's facts (OnceFacts, reduceOnce).
+// boot-only check keeps its own. A summary is read as OnceFacts keyed by
+// declaration node here and by DeclRef in a file's stored facts
+// (onceDeclsOf, onceReportsOf), and both graphs are built and reported by
+// the same code (onceCycleErrors, onceReport): a check and a reduction over
+// stored facts (reduceOnce) differ only in their keys.
 //
 // An unannotated `once` whose value reads its own type is reported by type
 // inference already (onceCycleMessage); this check says nothing more there.
@@ -56,15 +59,10 @@ func CheckOnceCycles(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 	onceMu.Lock()
 	defer onceMu.Unlock()
 	g := programOnceGraph(fa)
-	var errs []TypeError
-	for _, node := range nodes {
-		for _, n := range moduleOnces(node) {
-			if e, ok := g.errs[n]; ok {
-				errs = append(errs, e)
-			}
-		}
-	}
-	return errs
+	return onceReport(g.errs, onceReportsOf(fa.onceSummaryOf(), nodes, func(n ast.Node) (*ast.OnceBinding, bool) {
+		b, ok := n.(*ast.OnceBinding)
+		return b, ok
+	}))
 }
 
 // onceMu guards the once-cycle check's summaries and graphs, which the
@@ -295,40 +293,21 @@ func programOnceGraph(fa *FileAnalysis) *onceGraph {
 	if c != nil && slices.Equal(c.all, all) && slices.Equal(c.files, files) && slices.Equal(c.sums, sums) {
 		return c.g
 	}
-	g := newOnceGraph(files, sums)
+	read := make([]onceFile[ast.Node], len(files))
+	for i, f := range files {
+		read[i] = onceFile[ast.Node]{base: filepath.Base(f.FilePath), decls: onceDeclsOf(sums[i], nodeKey)}
+	}
+	g := &onceGraph{errs: map[*ast.OnceBinding]TypeError{}}
+	for k, e := range onceCycleErrors(read) {
+		g.errs[k.(*ast.OnceBinding)] = e
+	}
 	p.onceGraph = &onceGraphCache{all: slices.Clone(all), isStd: isStd, files: files, sums: sums, g: g}
 	return g
 }
 
-// newOnceGraph builds the graph of files' declarations from their summaries
-// and works out each cycle.
-func newOnceGraph(files []*FileAnalysis, sums []*onceSummary) *onceGraph {
-	vs := map[ast.Node]*onceVertex[ast.Node]{}
-	for i, f := range files {
-		base := filepath.Base(f.FilePath)
-		for decl, d := range sums[i].decls {
-			if vs[decl] != nil {
-				continue
-			}
-			v := &onceVertex[ast.Node]{name: onceDisplay(d.sym, decl), base: base, skip: d.typeCycle}
-			if n, ok := decl.(*ast.OnceBinding); ok {
-				v.once, v.line, v.col = true, n.Line, n.Col
-			}
-			for _, r := range d.refs {
-				if r.sym == nil || r.sym.Node == nil {
-					continue
-				}
-				v.arcs = append(v.arcs, onceArc[ast.Node]{to: r.sym.Node, read: r.read, line: r.line, name: onceDisplay(r.sym, r.sym.Node)})
-			}
-			vs[decl] = v
-		}
-	}
-	g := &onceGraph{errs: map[*ast.OnceBinding]TypeError{}}
-	for k, e := range onceCycles(vs) {
-		g.errs[k.(*ast.OnceBinding)] = e
-	}
-	return g
-}
+// nodeKey keys a declaration by its node, as a check reads the reductions'
+// facts: every node is its own key.
+func nodeKey(n ast.Node) (ast.Node, bool) { return n, true }
 
 // onceDisplay is how the chain names a `once` or a function: `once rate`,
 // `once Money.zero`, `load`, `Money.parse`.
@@ -500,23 +479,22 @@ func onceCyclic[K comparable](vs map[K]*onceVertex[K]) map[K]bool {
 	return out
 }
 
-// onceFactsOf is the once-cycle check's reading of the file with key,
-// analyzed as fa with nodes, its declarations named as FileFactsOf names
-// them (ownRef) and other files' by namer. A target no project file
-// declares (a std function) is left out, as the graph leaves it out.
-func onceFactsOf(key string, fa *FileAnalysis, nodes []ast.Node, namer *FactsNamer, ownRef func(ast.Node) DeclRef) OnceFacts {
-	onceMu.Lock()
-	defer onceMu.Unlock()
-	s := fa.onceSummaryOf()
-	target := func(node ast.Node) (DeclRef, bool) {
-		if s.decls[node] != nil {
-			return ownRef(node), true
-		}
-		return namer.ref(node)
-	}
-	var out OnceFacts
+// onceFile is one file's declarations as the once-cycle graph reads them:
+// its name, and each `once` and function it defines, keyed by K.
+type onceFile[K comparable] struct {
+	base  string
+	decls []OnceDeclFact[K]
+}
+
+// onceDeclsOf is the once-cycle check's reading of the declarations s
+// summarizes, each keyed by key, and each read or call of a declaration key
+// names. A target key does not name (a std function, which no file of the
+// program declares) is left out, as the graph leaves it out.
+func onceDeclsOf[K comparable](s *onceSummary, key func(ast.Node) (K, bool)) []OnceDeclFact[K] {
+	out := make([]OnceDeclFact[K], 0, len(s.decls))
 	for decl, d := range s.decls {
-		df := OnceDeclFact{Name: ownRef(decl).Name, Display: onceDisplay(d.sym, decl), TypeCycle: d.typeCycle}
+		k, _ := key(decl)
+		df := OnceDeclFact[K]{Key: k, Display: onceDisplay(d.sym, decl), TypeCycle: d.typeCycle}
 		if n, ok := decl.(*ast.OnceBinding); ok {
 			df.Once, df.Line, df.Col = true, n.Line, n.Col
 		}
@@ -524,51 +502,90 @@ func onceFactsOf(key string, fa *FileAnalysis, nodes []ast.Node, namer *FactsNam
 			if r.sym == nil || r.sym.Node == nil {
 				continue
 			}
-			to, ok := target(r.sym.Node)
+			to, ok := key(r.sym.Node)
 			if !ok {
 				continue
 			}
-			df.Refs = append(df.Refs, OnceRefFact{Target: to, Read: r.read, Line: r.line, Display: onceDisplay(r.sym, r.sym.Node)})
+			df.Refs = append(df.Refs, OnceRefFact[K]{Target: to, Read: r.read, Line: r.line, Display: onceDisplay(r.sym, r.sym.Node)})
 		}
-		out.Decls = append(out.Decls, df)
+		out = append(out, df)
 	}
-	slices.SortFunc(out.Decls, func(a, b OnceDeclFact) int { return strings.Compare(a.Name, b.Name) })
+	return out
+}
+
+// onceReportsOf is the `once` bindings of the file s summarizes, whose
+// nodes are nodes, in the order its report visits them, keyed by key.
+func onceReportsOf[K comparable](s *onceSummary, nodes []ast.Node, key func(ast.Node) (K, bool)) []K {
+	var out []K
 	for _, node := range nodes {
 		for _, n := range moduleOnces(node) {
 			if s.decls[n] != nil {
-				out.Reports = append(out.Reports, ownRef(n).Name)
+				k, _ := key(n)
+				out = append(out, k)
 			}
 		}
 	}
 	return out
 }
 
-// reduceOnce is CheckOnceCycles over facts.
-func reduceOnce(files map[string]*FileFacts, keys []string, r *Reductions) {
-	vs := map[DeclRef]*onceVertex[DeclRef]{}
-	for _, key := range keys {
-		f := files[key]
-		for _, d := range f.Once.Decls {
-			ref := DeclRef{File: key, Name: d.Name}
-			if vs[ref] != nil {
+// onceCycleErrors builds the graph of files' declarations, the first of
+// each key, and answers the error of each `once` on a cycle (onceCycles).
+func onceCycleErrors[K comparable](files []onceFile[K]) map[K]TypeError {
+	vs := map[K]*onceVertex[K]{}
+	for _, f := range files {
+		for _, d := range f.decls {
+			if vs[d.Key] != nil {
 				continue
 			}
-			v := &onceVertex[DeclRef]{once: d.Once, name: d.Display, base: f.Base, line: d.Line, col: d.Col, skip: d.TypeCycle}
+			v := &onceVertex[K]{once: d.Once, name: d.Display, base: f.base, line: d.Line, col: d.Col, skip: d.TypeCycle}
 			for _, rf := range d.Refs {
-				v.arcs = append(v.arcs, onceArc[DeclRef]{to: rf.Target, read: rf.Read, line: rf.Line, name: rf.Display})
+				v.arcs = append(v.arcs, onceArc[K]{to: rf.Target, read: rf.Read, line: rf.Line, name: rf.Display})
 			}
-			vs[ref] = v
+			vs[d.Key] = v
 		}
 	}
-	errs := onceCycles(vs)
-	for _, key := range keys {
-		var out []TypeError
-		for _, name := range files[key].Once.Reports {
-			if e, ok := errs[DeclRef{File: key, Name: name}]; ok {
-				out = append(out, e)
-			}
+	return onceCycles(vs)
+}
+
+// onceReport is a file's once-cycle errors: those of errs at its `once`
+// bindings reports, in order.
+func onceReport[K comparable](errs map[K]TypeError, reports []K) []TypeError {
+	var out []TypeError
+	for _, k := range reports {
+		if e, ok := errs[k]; ok {
+			out = append(out, e)
 		}
-		if len(out) > 0 {
+	}
+	return out
+}
+
+// onceFactsOf is the once-cycle check's reading of the file with key,
+// analyzed as fa with nodes, its declarations named as FileFactsOf names
+// them (ownRef) and other files' by namer.
+func onceFactsOf(fa *FileAnalysis, nodes []ast.Node, namer *FactsNamer, ownRef func(ast.Node) DeclRef) OnceFacts[DeclRef] {
+	onceMu.Lock()
+	defer onceMu.Unlock()
+	s := fa.onceSummaryOf()
+	key := func(node ast.Node) (DeclRef, bool) {
+		if s.decls[node] != nil {
+			return ownRef(node), true
+		}
+		return namer.ref(node)
+	}
+	out := OnceFacts[DeclRef]{Decls: onceDeclsOf(s, key), Reports: onceReportsOf(s, nodes, key)}
+	slices.SortFunc(out.Decls, func(a, b OnceDeclFact[DeclRef]) int { return strings.Compare(a.Key.Name, b.Key.Name) })
+	return out
+}
+
+// reduceOnce is CheckOnceCycles over facts.
+func reduceOnce(files map[string]*FileFacts, keys []string, r *Reductions) {
+	read := make([]onceFile[DeclRef], len(keys))
+	for i, key := range keys {
+		read[i] = onceFile[DeclRef]{base: files[key].Base, decls: files[key].Once.Decls}
+	}
+	errs := onceCycleErrors(read)
+	for _, key := range keys {
+		if out := onceReport(errs, files[key].Once.Reports); len(out) > 0 {
 			r.Once[key] = out
 		}
 	}

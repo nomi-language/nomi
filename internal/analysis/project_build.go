@@ -344,15 +344,22 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		if proj != nil {
 			moduleIndex = proj.ModuleIndex
 		}
+		// A dependency's file is built in its own module: at its root,
+		// resolving its imports through its module's names.
+		in, root := moduleIndex.moduleOfKey(key), projectRoot
+		if in != "" && in != "std" {
+			root = moduleIndex.Roots[in]
+		}
 		b := &builder{
 			file:              fa,
 			modules:           localModules,
 			moduleSyms:        moduleSyms,
 			loader:            loader,
-			projectRoot:       projectRoot,
+			projectRoot:       root,
 			moduleAlias:       moduleAliasForFile(key, filePath),
 			currentModuleName: currentModuleName,
 			moduleIndex:       moduleIndex,
+			inModule:          in,
 			cache:             cache,
 			loading:           loading,
 			stdlibFAs:         stdlibFAs,
@@ -379,7 +386,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// prelude.nomi's drill-through structure (e.g. `std/maybe.Maybe.{self,
 	// None, Some}`) is what lets the variant names land in user scope
 	// without tripping the "cannot import variant 'X' directly" check.
-	preludeStmts, preludeErr := preludeImports(proj.ModuleIndex["std"], loader)
+	preludeStmts, preludeErr := preludeImports(proj.ModuleIndex.Roots["std"], loader)
 	var preludePaths [][]string
 	for _, stmt := range preludeStmts {
 		preludePaths = append(preludePaths, importStmtPath(stmt))
@@ -754,7 +761,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	declaredTypesByFile := make(map[string]map[string]bool)
 	for _, fb := range all {
 		implNodes := withoutRefusedSynthImpls(fb.fa, fb.nodes)
-		IndexImplBlockFuncDefs(implNodes, fb.key, fb.fa.Definitions, ifaceImpls, ifaceImplFiles, implBlockReceivers, implBlockInterfaceKeys, ifaceImplExterns, ifaceImplExternFiles, implBlockInterfaceKeysExtern, &inherentImpls)
+		IndexImplBlockFuncDefs(implNodes, fb.key, fb.fa.Definitions, fb.fa.ModuleScope, ifaceImpls, ifaceImplFiles, implBlockReceivers, implBlockInterfaceKeys, ifaceImplExterns, ifaceImplExternFiles, implBlockInterfaceKeysExtern, &inherentImpls)
 		collectInherentImplBlocks(implNodes, fb.key, &inherentBlocks)
 		names := make(map[string]bool)
 		collectDeclaredTypeNames(fb.nodes, names)
@@ -1239,8 +1246,8 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		// backwards-compat with hand-rolled callers in tests).
 		crossModuleSegments := map[string]bool{}
 		if proj != nil {
-			for shortName := range proj.ModuleIndex {
-				crossModuleSegments[shortName] = true
+			for name := range proj.ModuleIndex.Roots {
+				crossModuleSegments[name] = true
 			}
 		}
 		ownModule := orphanRuleModule(currentModuleName, proj)
@@ -1460,8 +1467,7 @@ const BootResultCode = "boot-result"
 // a `Result<App, E>`. Any other result answers itself, so a boot rejected for
 // returning the struct bare still types the program's field reads.
 func BootAppType(result Type) Type {
-	if et, ok := resolveTypeVar(result).(*EnumType); ok && et.Name == "Result" &&
-		(et.Origin == "std/results" || et.Origin == "") && len(et.TypeArgs) == 2 {
+	if et, ok := resolveTypeVar(result).(*EnumType); ok && isStdType(et, stdResultType) && len(et.TypeArgs) == 2 {
 		return et.TypeArgs[0]
 	}
 	return result

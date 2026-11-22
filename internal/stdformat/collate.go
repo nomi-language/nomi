@@ -12,7 +12,7 @@ import (
 )
 
 // std/collation's `Collator` is an opaque String: the locale's tag and the
-// options it was made with (FFICollatorNew writes it). The collator itself
+// options it was made with (HostCollatorNew writes it). The collator itself
 // is built from the program's CLDR data the first time the data compares
 // with it, and kept with the data (cldrdata.Data.Memo), so a program that
 // loads a locale file gets collators of the new data.
@@ -33,15 +33,15 @@ const (
 	caseFirstOff
 )
 
-// FFICollatorNew is `Collator.new`: the collator's text. It reads no data,
+// HostCollatorNew is `Collator.new`: the collator's text. It reads no data,
 // so a collator for any locale can be made; one the program carries no
 // tailoring for compares in the root order.
-func FFICollatorNew(locale string, strength int64, numeric bool, caseFirst int64, ignorePunctuation bool) string {
+func HostCollatorNew(locale string, strength int64, numeric bool, caseFirst int64, ignorePunctuation bool) string {
 	return fmt.Sprintf("%s;%d;%t;%d;%t", locale, strength, numeric, caseFirst, ignorePunctuation)
 }
 
-// FFICollatorInspect is `Collator`'s Debug: the call that makes it.
-func FFICollatorInspect(spec string) string {
+// HostCollatorInspect is `Collator`'s Debug: the call that makes it.
+func HostCollatorInspect(spec string) string {
 	tag, strength, numeric, caseFirst, shifted := parseSpec(spec)
 	var b strings.Builder
 	fmt.Fprintf(&b, "Collator.new(Locale\"%s\"", tag)
@@ -72,13 +72,13 @@ func parseSpec(spec string) (tag string, strength int64, numeric bool, caseFirst
 	return f[0], strength, f[2] == "true", caseFirst, f[4] == "true"
 }
 
-// FFICollatorCompare is `Collator.compare`: -1, 0 or 1.
-func FFICollatorCompare(fr *rt.Frame, spec, a, b string) int64 {
+// HostCollatorCompare is `Collator.compare`: -1, 0 or 1.
+func HostCollatorCompare(fr *rt.Frame, spec, a, b string) int64 {
 	return int64(CollatorFor(stdlocale.Data(fr), spec).Compare(a, b))
 }
 
-// FFICollatorSortKey is `Collator.sort_key`.
-func FFICollatorSortKey(fr *rt.Frame, spec, text string) rt.Bytes {
+// HostCollatorSortKey is `Collator.sort_key`.
+func HostCollatorSortKey(fr *rt.Frame, spec, text string) rt.Bytes {
 	return rt.Bytes(CollatorFor(stdlocale.Data(fr), spec).SortKey(text))
 }
 

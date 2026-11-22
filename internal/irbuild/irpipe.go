@@ -72,6 +72,9 @@ func (bl *irScalarBuilder) pipe(t *ast.Binary) (ir.Temp, kind, bool, bool) {
 		prevFrom := bl.pipedFrom
 		bl.pipedFrom = t
 		defer func() { bl.pipedFrom = prevFrom }()
+		// The splice is the stage's call: it answers the pipe's value, and
+		// carries the pipe's type.
+		defer bl.g.carryType(&spliced, bl.g.recordedType(t))()
 		return bl.pipedInto(&spliced)
 
 	case *ast.Then:
@@ -82,6 +85,7 @@ func (bl *irScalarBuilder) pipe(t *ast.Binary) (ir.Temp, kind, bool, bool) {
 		line, col := nodePos(r.Fn())
 		call := &ast.Call{Func: r.Fn(), Args: []ast.Node{t.Left}, Line: line, Col: col}
 		defer bl.g.carryCall(call, bl.g.srcFA().Calls[r])()
+		defer bl.g.carryType(call, bl.g.recordedType(t))()
 		return bl.pipedInto(call)
 
 	case *ast.Tap:
@@ -191,10 +195,9 @@ func (bl *irScalarBuilder) pipeTap(t *ast.Binary, r *ast.Tap) (ir.Temp, kind, bo
 		src = cp.Dst()
 	}
 	line, col := nodePos(t.Left)
-	held := bl.g.madeIdent(fmt.Sprintf("|tap %d", src), line, col)
-	bl.bound[held.Name], bl.boundK[held.Name] = src, k
-	defer delete(bl.bound, held.Name)
-	defer delete(bl.boundK, held.Name)
+	key := bl.g.madeLocal()
+	held := bl.g.madeRead(fmt.Sprintf("|tap %d", src), key, line, col)
+	bl.declareKey(key, src, k)
 	fnLine, fnCol := nodePos(r.Fn())
 	call := &ast.Call{Func: r.Fn(), Args: []ast.Node{held}, Line: fnLine, Col: fnCol}
 	defer bl.g.carryCall(call, bl.g.srcFA().Calls[r])()

@@ -1234,9 +1234,8 @@ func KeywordPurpose(word string) (purpose, instead string, ok bool) {
 // construct. `TestContextualWordsAreListed` (internal/parser) holds this
 // list to the lexemes the parser compares against.
 var contextualWords = []string{
-	"boot", "clock", "concurrent", "derive", "embed", "embeds", "error", "go",
-	"gopkg", "group", "host", "noun", "on", "open", "phrase", "setup", "subtests",
-	"todo",
+	"boot", "clock", "concurrent", "derive", "embed", "embeds", "error", "group",
+	"host", "noun", "on", "open", "phrase", "setup", "subtests", "todo",
 }
 
 // ReservedWords returns the reserved words, which the lexer turns into

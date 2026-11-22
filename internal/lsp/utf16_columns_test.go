@@ -133,7 +133,7 @@ func TestSemanticTokens_ColumnsAreUTF16(t *testing.T) {
 	s := NewServer()
 	uri := pathToURI(filepath.Join(t.TempDir(), "main.nomi"))
 	doc := s.docs.Open(uri, src)
-	toks := decodeSemanticTokenData(encodeSemanticTokens(doc.Analysis, doc.Nodes, doc.Content))
+	toks := decodeSemanticTokenData(encodeSemanticTokens(doc.Analysis, doc.Nodes, doc.Content, nil, nil))
 
 	line := strings.Split(src, "\n")[1]
 	var want []decodedSemanticToken

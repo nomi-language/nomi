@@ -188,7 +188,8 @@ func TestOnceType_InferredOnceIsTypedAtEveryRead(t *testing.T) {
 }
 
 // A read used to get no type at all, which a bare return let through. It is
-// the value's type now, so a wrong use is rejected.
+// the value's type now, so a wrong use is rejected: `help` is a
+// NonEmptyList<String>, since its value holds something.
 func TestOnceType_WrongUseOfInferredOnceIsRejected(t *testing.T) {
 	src := `import lib.help
 
@@ -202,8 +203,8 @@ end
 `
 	got := checkOnceProject(t, map[string]string{"main.nomi": src, "lib.nomi": onceLib}, []string{"", "lib"})
 	errs := got["main.nomi"]
-	if len(errs) != 1 || !strings.Contains(errs[0].Message, "expected Int, got List<String>") {
-		t.Fatalf("want one return mismatch naming List<String>, got:\n%s", strings.Join(messages(errs), "\n"))
+	if len(errs) != 1 || !strings.Contains(errs[0].Message, "expected Int, got NonEmptyList<String>") {
+		t.Fatalf("want one return mismatch naming NonEmptyList<String>, got:\n%s", strings.Join(messages(errs), "\n"))
 	}
 }
 

@@ -172,10 +172,11 @@ end
 // The CASCADE shape: the case is a struct literal's FIELD VALUE.
 fn bag(t: Tag, n: Int) -> Bag
     Bag{
-        items: case t
-            Tag.Drop -> []
-            Tag.Keep -> [n]
-        end,
+        items:
+            case t
+                Tag.Drop -> []
+                Tag.Keep -> [n]
+            end,
         label: "b",
     }
 end

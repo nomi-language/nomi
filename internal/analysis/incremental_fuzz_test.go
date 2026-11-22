@@ -125,12 +125,12 @@ const fuzzHang = 30 * time.Second
 const fuzzSeedText = 12 << 10
 
 // FuzzIncrementalMatchesFull edits one file of a multi-file project
-// (fuzzProjects) through the recheck seam, DocumentManager.Recheck, and
+// (fuzzProjects) through the recheck seam, DocumentManager.RecheckWithOutcome, and
 // after each edit compares the program it answers with a full check of the
 // same texts, dump against dump (runEdits). The fuzzer mutates the file's
 // new text and picks the project and the file; the edits that follow
 // (fuzzEdits) delete, type and paste into it and then restore it. With
-// Recheck a full check it always passes; it is there for an incremental
+// a full check as the recheck, it always passes; it is there for an incremental
 // one. Run it with
 //
 //	go test ./internal/analysis -run '^$' -fuzz '^FuzzIncrementalMatchesFull$' -fuzztime 5m -fuzzminimizetime 5s -parallel 4

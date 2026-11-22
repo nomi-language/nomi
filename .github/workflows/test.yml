@@ -9,10 +9,9 @@
 # The tour job builds the tour's wasm bundle, which the go job lacks (the
 # TestTourWasm* tests skip there), and checks it as `make test-tour` does.
 #
-# The lib job vets and tests the Go side of the modules under lib/, each a
-# Go module of its own. The go job's cmd/nomi TestLibModules runs their
-# Nomi tests, and downloads modernc.org/sqlite and pgx, which they require;
-# its postgres runs skip there, with no PostgreSQL on PATH.
+# The go job's cmd/nomi TestLibModules runs the Nomi tests of the modules
+# under lib/, which hold no Go; its postgres runs skip there, with no
+# PostgreSQL on PATH.
 #
 # The windows and windows-irbuild jobs run the go and irbuild jobs' tests on
 # Windows.
@@ -50,36 +49,6 @@ jobs:
       - run: go vet ./...
       - name: go test
         run: go test -count=1 -timeout 40m $(go list ./... | grep -v '/internal/irbuild$')
-
-  lib:
-    # The modules under lib/ are Go modules of their own, which the root's
-    # go vet and go test do not reach. cmd/nomi's TestLibModules (in the go
-    # job) runs their Nomi tests; this runs their Go side.
-    name: go vet and go test of lib/
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-      - run: go -C lib/sql/sqlite vet ./...
-      - run: GOOS=js GOARCH=wasm go -C lib/sql/sqlite vet ./...
-      - run: go -C lib/sql/sqlite test -count=1 ./...
-      - run: go -C lib/sql/sqlkit vet ./...
-      # The postgres driver's tests start a throwaway server with initdb and
-      # postgres from PATH, and skip without them. Ubuntu's runner image
-      # installs PostgreSQL's binaries outside PATH.
-      - name: put PostgreSQL's binaries on PATH
-        run: ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -1 >> "$GITHUB_PATH"
-      - run: go -C lib/sql/postgres vet ./...
-      - run: go -C lib/sql/postgres test -count=1 ./...
-      # The prebuilt lib runners a release ships: generated from the lib
-      # modules' bindings (internal/ffirun/libprebuilt.go).
-      - run: go -C librunners mod download
-      - run: go run ./internal/ffirun/libgen -check
-      - run: go -C librunners vet ./...
-      - run: GOOS=js GOARCH=wasm go -C librunners vet ./...
 
   irbuild:
     name: go test ./internal/irbuild

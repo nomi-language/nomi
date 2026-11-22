@@ -224,6 +224,5 @@ end
 func newUserGenFor(p *Program) *gen {
 	m := p.Entry()
 	g := &gen{nomiPath: m.Path, pkg: unitPackage(0), fa: m.FA, nodes: m.Nodes, funcs: map[string]*fnSig{}, types: map[string]*typeDef{}, ifaces: map[string]*ifaceDef{}, implsByIface: map[string]map[kind]*implDef{}, tids: map[kind]bool{}}
-	g.pushScope()
 	return g
 }

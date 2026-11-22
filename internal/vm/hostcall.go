@@ -9,8 +9,9 @@ package vm
 //     has one, generated from internal/stdlibbindings into
 //     internal/stdlibadapters, and a machine binds that table by itself. A
 //     host adds its own tables with WithHosts: vmhost adds std/compiler's
-//     five hosts, whose answers depend on the program being run, and an FFI
-//     wrapper adds the adapters it generated for the project's bindings.
+//     five hosts, whose answers depend on the program being run, and a Go
+//     program that embeds Nomi adds the functions that answer its
+//     project's `host fn` declarations (vmhost.WithHosts).
 //   - An INTRINSIC (`hostFn`, the `hosts` map in vm.go): an operation over
 //     this machine's own state rather than a Go function — spawning a task
 //     runs a VM closure on a goroutine, `io.print` writes to the machine's
@@ -22,8 +23,11 @@ package vm
 //
 // The lookup happens when the calling function is compiled: the crossing
 // becomes `opHost` bound to what its name lands on, so a run does no lookup
-// (package doc, "Constructions and crossings off the boxed path"). Either
-// kind gets its operands in a slice it may read only during the call.
+// (package doc, "Constructions and crossings off the boxed path"). An
+// adapter with a register form (hostadapt.Regs, which internal/hostgen
+// writes for every binding it can) is called over the registers themselves
+// (hostslots.go); every other crossing gets its operands in a slice it may
+// read only during the call.
 //
 // The adapters are BOUND lazily, once per machine, on the first crossing a
 // compile or a call looks up. Binding resolves each descriptor an adapter
@@ -39,13 +43,14 @@ import (
 	"sync"
 
 	"github.com/nomi-language/nomi/hostadapt"
+	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/internal/stdlibadapters"
 	"github.com/nomi-language/nomi/rt"
 )
 
 // HostTable binds one table of generated adapters against a machine's Env and
 // answers them by crossing name. A generated adapter file's `Bind` is one. An
-// alias, so a generated FFI wrapper, a separate module that cannot name this
+// alias, so an embedder, a separate module that cannot name this
 // package, passes one by its type.
 type HostTable = func(env *hostadapt.Env) (map[string]hostadapt.Func, error)
 
@@ -60,10 +65,10 @@ type hostTables struct {
 
 	once  sync.Once
 	funcs map[string]hostadapt.Func
-	// parts is the parts form of each bound adapter that has one
-	// (hostadapt.PartsFunc), by crossing name.
-	parts map[string]hostadapt.PartsFunc
-	err   error
+	// regs is the register form of each bound adapter that has one
+	// (hostadapt.Regs), by crossing name.
+	regs map[string]*hostadapt.Regs
+	err  error
 
 	// lookup answers a name no bound table answers, at each lookup rather
 	// than once at binding. See WithHostLookup.
@@ -116,9 +121,10 @@ func (m *Machine) adapter(name string) (hostadapt.Func, error) {
 	return h.lookup(name), nil
 }
 
-// adapterParts is the parts form of the bound adapter for a crossing name, or
-// nil when no table answers it with one. A name the lookup answers has none.
-func (m *Machine) adapterParts(name string) (hostadapt.PartsFunc, error) {
+// adapterRegs is the register form of the bound adapter for a crossing name,
+// or nil when no table answers it with one. A name the lookup answers has
+// none.
+func (m *Machine) adapterRegs(name string) (*hostadapt.Regs, error) {
 	h := m.adapters
 	if h == nil {
 		return nil, nil
@@ -127,13 +133,13 @@ func (m *Machine) adapterParts(name string) (hostadapt.PartsFunc, error) {
 	if h.err != nil {
 		return nil, h.err
 	}
-	return h.parts[name], nil
+	return h.regs[name], nil
 }
 
 func (h *hostTables) bind() {
-	h.funcs, h.parts = map[string]hostadapt.Func{}, map[string]hostadapt.PartsFunc{}
-	env := &hostadapt.Env{Resolve: resolveSpec, Invoke: h.invoke, AddParts: func(name string, fn hostadapt.PartsFunc) {
-		h.parts[name] = fn
+	h.funcs, h.regs = map[string]hostadapt.Func{}, map[string]*hostadapt.Regs{}
+	env := &hostadapt.Env{Resolve: resolveSpec, Invoke: h.invoke, AddRegs: func(name string, r hostadapt.Regs) {
+		h.regs[name] = &r
 	}}
 	for _, table := range h.tables {
 		funcs, err := table(env)
@@ -149,6 +155,14 @@ func (h *hostTables) bind() {
 			h.funcs[name] = fn
 		}
 	}
+}
+
+// FunctionOf is f, a top-level function of the program, as the function
+// value a host table calls back through hostadapt.Env.Call on a machine
+// whose modules hold f: how vmrunner's JSON host table (WithHostCalls) runs
+// the conversions an image records for a `host fn` (ir.HostFn).
+func FunctionOf(f *ir.Func) rt.Value {
+	return &functionValue{body: f, arity: len(f.Params())}
 }
 
 // invoke calls a VM function value for a Go host function, on the frame of
@@ -179,7 +193,7 @@ func resolveSpec(spec *hostadapt.DescSpec) (*rt.TypeDesc, error) {
 	case rt.KindEnum:
 		return enumDesc(spec.Name, spec.Variants), nil
 	case rt.KindDistinct:
-		return distinctDesc(spec.Name, spec.Inner), nil
+		return distinctDesc(spec.Name, spec.Inner, false), nil
 	}
 	return nil, errors.New("no descriptor of this kind")
 }
@@ -204,21 +218,19 @@ func callAdapter(fn hostadapt.Func, runtime *rt.Frame, args []any) (v any, err e
 	return fn(runtime, args)
 }
 
-// callParts calls a bound adapter's parts form on runtime, failing as
-// callAdapter does.
-func callParts(fn hostadapt.PartsFunc, runtime *rt.Frame, args []any) (v any, isSome bool, err error) {
-	defer func() {
-		if err != nil {
-			v, err = adapterFailure(v, err)
-			isSome = false
-		}
-	}()
+// callRegs calls a bound adapter's register form on runtime over slots s,
+// failing as callAdapter does.
+func callRegs(fn hostadapt.RegFunc, runtime *rt.Frame, s *hostadapt.Slots) (carried bool, err error) {
 	defer func() {
 		if p := recover(); p != nil {
-			v, err = nil, adapterPanic(p)
+			err = adapterPanic(p)
+		}
+		if err != nil {
+			_, err = adapterFailure(nil, err)
+			carried = false
 		}
 	}()
-	return fn(runtime, args)
+	return fn(runtime, s)
 }
 
 // adapterFailure is the failure an adapter's err becomes: an rt trap is this

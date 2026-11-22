@@ -83,7 +83,7 @@ func StaticLiteralType(text string, ret Type) Type {
 // the handler's type.
 func regexPatternType(pattern string, ret Type) Type {
 	result, isEnum := resolveTypeVar(ret).(*EnumType)
-	if !isEnum || result.Name != "Result" || len(result.TypeArgs) != 2 {
+	if !isEnum || !isStdType(result, stdResultType) || len(result.TypeArgs) != 2 {
 		return nil
 	}
 	re, isRegex := resolveTypeVar(result.TypeArgs[0]).(*DistinctType)

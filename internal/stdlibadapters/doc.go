@@ -11,9 +11,9 @@
 // std/*.nomi, which say what each operand and result is. The table stays the
 // one hand-maintained list; this package adds none. TestGeneratedFileIsCurrent
 // regenerates the file and fails when it differs. The same step writes
-// internal/capability/std_names_gen.go, the std modules a program can
+// internal/effects/std_names_gen.go, the std modules a program can
 // import, which a runner that links no front end checks a host's
-// capability list against.
+// effects list against.
 //
 // The VM binds this table on every machine (internal/vm/hostcall.go) and
 // calls a stdlib crossing through it. The adapters are held to recorded
@@ -21,6 +21,12 @@
 // (testdata/funcs.golden), the RtFuncs rows by
 // TestRtFuncs_AdaptersReproduceTheRecordedHosts (testdata/rtfuncs.golden) and
 // TestRtFuncs_NewRowsReproduceTheirRecordedOutcomes (testdata/builtins.golden).
+// A binding of at most hostadapt.MaxSlots operands and answer parts is
+// generated as its register form alone, listed in regRows, and its adapter
+// is that form over boxed values (hostadapt.BindRows), so the recordings
+// hold the form, and sameRegs holds the parts a machine reads from it to
+// the whole answer the adapter builds, on every argument set of the first
+// two: the same failure, or the same answer's parts.
 package stdlibadapters
 
 //go:generate go run ./gen

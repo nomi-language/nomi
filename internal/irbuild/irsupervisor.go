@@ -38,7 +38,9 @@ func irSupervisorKind(k kind) bool {
 // std/process/testing hold (rt/processes.go), or std/http/host's Client and
 // Exchange, the rt.HTTPClient and rt.HTTPExchange std/http holds
 // (rt/network.go), or std/csv/host's Records and std/xml/host's Tokens,
-// the readers std/csv and std/xml hold (rt/formats.go).
+// the readers std/csv and std/xml hold (rt/formats.go), or std/wasm/host's
+// Compiled, Live and Memory (rt/wasm.go), or std/bytes's Builder
+// (rt/bytesbuilder.go).
 func irStreamKind(k kind) bool {
 	if k.tag != tagNamed {
 		return false
@@ -60,13 +62,16 @@ var irStreamKinds = sync.OnceValue(func() []kind {
 		stdHostOriginKind("std/http/host", "Mux"), stdHostOriginKind("std/http/host", "Jar"),
 		stdHostOriginKind("std/http/host", "Handle"),
 		stdHostOriginKind("std/csv/host", "Records"), stdHostOriginKind("std/xml/host", "Tokens"),
+		stdHostOriginKind("std/wasm/host", "Compiled"), stdHostOriginKind("std/wasm/host", "Live"),
+		stdHostOriginKind("std/wasm/host", "Memory"),
+		stdHostOriginKind("std/bytes", "Builder"),
 	}
 })
 
 // supervisorSpawn lowers `Supervisor.spawn(sup, body)`: a supervisor, a
 // zero-parameter function whose result is Unit (a lambda literal or any other
 // function value), and a `Task<Unit>` handle. Its owner resolved to std's
-// `Supervisor` declaration (stdIntrinsicOwner).
+// `Supervisor`'s function (intrinsicArm).
 func (bl *irScalarBuilder) supervisorSpawn(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	bl.mustBePlacedIntrinsic(t, 2, "Supervisor.spawn")
@@ -87,18 +92,10 @@ func (bl *irScalarBuilder) supervisorSpawn(t *ast.Call) (ir.Temp, kind, bool, bo
 // slots, then each omitted slot filled with the declaring module's
 // `_DEFAULT<slot>` accessor (fillFromAccessors), and a call of the full
 // body.
-func (bl *irScalarBuilder) stdShortCallPlan(t *ast.Call, owner, method, module string) (*irQualPlan, irQualArgs, bool) {
-	var f *stdFunc
-	for _, c := range bl.g.stdShortCandidates(owner, method, module) {
-		if c.lowerable() {
-			if f != nil {
-				panic("irbuild: stdShortCallPlan: stdShortCallShape already required exactly one lowerable candidate")
-			}
-			f = c
-		}
-	}
-	if f == nil || f.decl == nil {
-		panic("irbuild: stdShortCallPlan: stdShortCallShape already required one lowerable candidate with a declaration")
+func (bl *irScalarBuilder) stdShortCallPlan(t *ast.Call) (*irQualPlan, irQualArgs, bool) {
+	f := bl.stdShortCallee(t)
+	if f == nil || !f.lowerable() || f.decl == nil {
+		panic("irbuild: stdShortCallPlan: stdShortCallShape already required a lowerable std function with a declaration, the one the record names")
 	}
 	return bl.stdShortCallPlanFor(t, f)
 }
@@ -187,11 +184,11 @@ func irSlotSignature(kinds, params []kind, result kind) bool {
 
 // stdShortCall lowers `Owner.method(args)` when it writes a prefix of a
 // defaulted std function's parameters and the declaring module retained its
-// body and default accessors for the VM. handled is false when the call is not that shape,
-// so the caller's ordinary routes answer it. module is the std module a
-// whole-module qualifier names (`supervisors.Supervisor.new(...)`), or "" for
-// a bare owner, which a local declaration of the same name claims instead.
-func (bl *irScalarBuilder) stdShortCall(t *ast.Call, owner, method, module string) (ir.Temp, kind, bool, bool, bool) {
+// body and default accessors for the VM. The function is the one the call's
+// record names (stdShortCallee), however the call spells its owner. handled
+// is false when the call is not that shape, so the caller's ordinary routes
+// answer it.
+func (bl *irScalarBuilder) stdShortCall(t *ast.Call) (ir.Temp, kind, bool, bool, bool) {
 	g := bl.g
 	// A stdlib module's own test body calls the module's types as the std
 	// types they are, against default accessors the cached lowering already
@@ -203,15 +200,15 @@ func (bl *irScalarBuilder) stdShortCall(t *ast.Call, owner, method, module strin
 	if g.std == nil || bl.rowsUnrecorded(t) {
 		return ir.NoTemp, kindInvalid, false, false, false
 	}
-	if g.stdModule != "" && !bl.stdTestOwnType() && !bl.stdShortCalleeLowered(t, owner, method, module) {
+	if g.stdModule != "" && !bl.stdTestOwnType() && !bl.stdShortCalleeLowered(t) {
 		return ir.NoTemp, kindInvalid, false, false, false
 	}
-	if !bl.stdShortCallShape(t, owner, method, module) {
+	if !bl.stdShortCallShape(t) {
 		return ir.NoTemp, kindInvalid, false, false, false
 	}
-	plan, args, ok := bl.stdShortCallPlan(t, owner, method, module)
+	plan, args, ok := bl.stdShortCallPlan(t)
 	if !ok {
-		if v, k, mobile, lowered, handled := bl.stdUnretainedShortCall(t, owner, method, module); handled {
+		if v, k, mobile, lowered, handled := bl.stdUnretainedShortCall(t); handled {
 			return v, k, mobile, lowered, true
 		}
 		return ir.NoTemp, kindInvalid, false, false, true
@@ -225,15 +222,15 @@ func (bl *irScalarBuilder) stdShortCall(t *ast.Call, owner, method, module strin
 // module has already lowered. A module lowered later builds them then, so
 // the call declines through the ordinary routes, as it did before they
 // existed.
-func (bl *irScalarBuilder) stdShortCalleeLowered(t *ast.Call, owner, method, module string) bool {
+func (bl *irScalarBuilder) stdShortCalleeLowered(t *ast.Call) bool {
 	if namedArgNode(t.Args) != nil {
 		return false
 	}
-	fs := bl.g.stdShortCandidates(owner, method, module)
-	if len(fs) != 1 || !fs[0].lowerable() || fs[0].pkg == bl.g.pkg {
+	f := bl.stdShortCallee(t)
+	if f == nil || !f.lowerable() || f.pkg == bl.g.pkg {
 		return false
 	}
-	f, canon := fs[0], fs[0]
+	canon := f
 	if f.canon != nil {
 		canon = f.canon
 	}
@@ -260,22 +257,14 @@ func (bl *irScalarBuilder) stdShortCalleeLowered(t *ast.Call, owner, method, mod
 // lowering builds a retained function's (stdInstances.build), and the call
 // is planned against them as stdShortCallPlan plans a retained one. handled
 // is false when the function is not such a body.
-func (bl *irScalarBuilder) stdUnretainedShortCall(t *ast.Call, owner, method, module string) (ir.Temp, kind, bool, bool, bool) {
+func (bl *irScalarBuilder) stdUnretainedShortCall(t *ast.Call) (ir.Temp, kind, bool, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool, bool) { return ir.NoTemp, kindInvalid, false, false, false }
 	s := bl.g.stdInsts
 	if s == nil {
 		return no()
 	}
-	var f *stdFunc
-	for _, c := range bl.g.stdShortCandidates(owner, method, module) {
-		if c.lowerable() {
-			if f != nil {
-				return no()
-			}
-			f = c
-		}
-	}
-	if f == nil || f.decl == nil || len(f.decl.Params) != len(f.params) || !s.stdUnretainedMonoBody(f) {
+	f := bl.stdShortCallee(t)
+	if f == nil || !f.lowerable() || f.decl == nil || len(f.decl.Params) != len(f.params) || !s.stdUnretainedMonoBody(f) {
 		return no()
 	}
 	inst, why := s.instantiate(f, nil, nil, bl.g)
@@ -293,12 +282,12 @@ func (bl *irScalarBuilder) stdUnretainedShortCall(t *ast.Call, owner, method, mo
 
 // stdShortCallLeavesAHole reports that a call stdShortCallShape accepts
 // names a slot past one it leaves to its default (`width:` past `style`).
-func (bl *irScalarBuilder) stdShortCallLeavesAHole(t *ast.Call, owner, method, module string) bool {
-	fs := bl.g.stdShortCandidates(owner, method, module)
-	if len(fs) != 1 || fs[0].decl == nil {
+func (bl *irScalarBuilder) stdShortCallLeavesAHole(t *ast.Call) bool {
+	f := bl.stdShortCallee(t)
+	if f == nil || f.decl == nil {
 		return false
 	}
-	plan, planned := bl.g.callPlan(t, len(fs[0].params))
+	plan, planned := bl.g.callPlan(t, len(f.params))
 	if !planned {
 		return false
 	}
@@ -306,47 +295,24 @@ func (bl *irScalarBuilder) stdShortCallLeavesAHole(t *ast.Call, owner, method, m
 	return !contiguous
 }
 
-// stdShortCallShape reports that Owner.method names one lowerable std
-// function and the call writes fewer arguments than it declares. A bare
-// owner the program declares itself (a local `Date` beside std's) names the
-// program's type, never std's.
-func (bl *irScalarBuilder) stdShortCallShape(t *ast.Call, owner, method, module string) bool {
-	if bl.g.std == nil {
-		return false
-	}
-	if module == "" && !bl.stdTestOwnType() {
-		if _, local := bl.g.types[owner]; local {
-			return false
-		}
-		if _, local := bl.g.ifaces[owner]; local {
-			return false
-		}
-	}
-	fs := bl.g.stdShortCandidates(owner, method, module)
-	return len(fs) == 1 && fs[0].lowerable() && bl.g.leavesDefaults(t, len(fs[0].params))
+// stdShortCallShape reports that the std function the call's record names
+// is lowerable and the call writes fewer arguments than it declares.
+func (bl *irScalarBuilder) stdShortCallShape(t *ast.Call) bool {
+	f := bl.stdShortCallee(t)
+	return f != nil && f.lowerable() && bl.g.leavesDefaults(t, len(f.params))
 }
 
-// stdShortCandidates is the std functions `Owner.method` names: every
-// module's for a bare owner, and module's own for a qualified one. With no
-// owner, `module.method` names the std file's top-level function.
-func (g *gen) stdShortCandidates(owner, method, module string) []*stdFunc {
-	if owner == "" {
-		if f := g.std.byFile[module+"."+method]; f != nil {
-			return []*stdFunc{f}
-		}
+// stdShortCallee is the std function the call t's record names, at the
+// instance's types (calleeAt, analysis.Callee.Std), found by that identity
+// (stdFuncByID): the function a call that writes some of a defaulted std
+// function's parameters fills the rest of. A bare owner the program
+// declares itself names the program's type, whose record names no std
+// function. nil when the record names none.
+func (bl *irScalarBuilder) stdShortCallee(t *ast.Call) *stdFunc {
+	if bl.g.std == nil {
 		return nil
 	}
-	fs := g.std.byType[owner+"."+method]
-	if module == "" {
-		return fs
-	}
-	var out []*stdFunc
-	for _, f := range fs {
-		if f.module == module {
-			out = append(out, f)
-		}
-	}
-	return out
+	return bl.g.stdFuncByID(bl.g.calleeAt(t).Std)
 }
 
 // stdDefault is a std enum field's default n, an rt constant, at kind k: an

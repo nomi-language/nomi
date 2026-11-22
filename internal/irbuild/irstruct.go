@@ -152,8 +152,7 @@ func irRetainedStructKindIn(d *typeDef, outer []*typeDef) bool {
 			continue
 		}
 		// A std struct's scalar list field, `Json.ShapeError.path`, is
-		// carried as the list itself. Its Debug is std's own impl, and
-		// irStructEqualityKind still requires scalar fields.
+		// carried as the list itself. Its Debug is std's own impl.
 		if _, std := stdStructIndex(d); std {
 			if !irStdStructFieldKind(d, f.k) {
 				return false
@@ -403,7 +402,11 @@ func irComposedFieldKind(k kind, outer []*typeDef) bool {
 			}
 			return true
 		}
-		if (p.tag == tagTuple || p.tag == tagList) && p.comp != nil && len(p.comp.parts) > 0 {
+		// `pair: (Int, Maybe<Tree>)`, and `wrap: {inner: Maybe<Tree>, depth:
+		// Int}` inside Tree: a tuple's, a list's or a record's parts decided
+		// with the walk's stack. A record that reaches no type the walk is
+		// deciding is held as irRetainedRecordKind holds it, below.
+		if (p.tag == tagTuple || p.tag == tagList || p.tag == tagAnonStruct && irKindReaches(p, outer)) && p.comp != nil && len(p.comp.parts) > 0 {
 			for _, c := range p.comp.parts {
 				if !part(c) {
 					return false
@@ -437,7 +440,7 @@ func irComposedFieldKind(k kind, outer []*typeDef) bool {
 		// did when boot returned the struct bare.
 		return true
 	}
-	if k.tag != tagTuple && k.tag != tagList && k.tag != tagSeq && k.tag != tagMap {
+	if k.tag != tagTuple && k.tag != tagList && k.tag != tagSeq && k.tag != tagMap && k.tag != tagAnonStruct {
 		_, vector := vectorElem(k)
 		_, set := setElem(k)
 		if !vector && !set {
@@ -730,7 +733,7 @@ func (bl *irScalarBuilder) structMake(t *ast.StructLit) (ir.Temp, kind, bool, bo
 		if _, isSimple := tn.Member.(*ast.SimpleType); isSimple {
 			// `span.Span{...}`: another file's generic struct, named through
 			// its module, or this file's dotted one (`Tree.Node{v: 1}`).
-			if tpl, instantiate, isTemplate := bl.g.genericTemplateNamed(tn.Module+"."+tn.Member.TypeString(), bl.g.checkedExprType(t)); isTemplate && tpl.structDecl() != nil {
+			if tpl, instantiate, isTemplate := bl.g.genericTemplateOf(bl.g.checkedExprType(t)); isTemplate && tpl.structDecl() != nil {
 				return bl.genericStructMake(t, t, tpl, instantiate)
 			}
 		}
@@ -738,21 +741,22 @@ func (bl *irScalarBuilder) structMake(t *ast.StructLit) (ir.Temp, kind, bool, bo
 			// `Json.ShapeError{...}` builds like a simple struct name.
 			return bl.structMakeOf(t, d)
 		}
-		if k, isStd := bl.g.qualifiedStdKind(tn); isStd && k.tag == tagNamed && k.def != nil && !k.def.isEnum {
+		if k := bl.g.project(bl.g.checkedExprType(t)); k.tag == tagNamed && k.def != nil && !k.def.isEnum {
 			// `dynamic.Error{...}`: a std struct named through its module's
-			// qualifier, which the program's registry does not hold.
+			// qualifier, which the program's registry does not hold: the
+			// struct the checker typed the literal as.
 			return bl.structMakeOf(t, k.def)
 		}
-		return bl.variantStructLit(t, tn.Module, tn.Member.TypeString())
+		return bl.variantStructLit(t, tn.Member.TypeString())
 	case *ast.DotVariantType:
 		if tn.ResolvedEnum == "" {
 			return no()
 		}
-		if d := bl.g.dotEnumDef(t, tn.ResolvedEnum, tn.Name); d != nil {
+		if d := bl.g.dotEnumDef(bl.g.dotEnumType(t), tn.Name); d != nil {
 			// The enum the checked type names, whatever this file imports.
 			return bl.variantStructLitOf(t, d, d.variant(tn.Name))
 		}
-		return bl.variantStructLit(t, bl.g.dotEnumName(tn.ResolvedEnum), tn.Name)
+		return bl.variantStructLit(t, tn.Name)
 	}
 	tn, isSimple := t.TypeName.(*ast.SimpleType)
 	if !isSimple {
@@ -764,19 +768,19 @@ func (bl *irScalarBuilder) structMake(t *ast.StructLit) (ir.Temp, kind, bool, bo
 		// `Exponential{}`), which the checker types as the variant.
 		return bl.variantStructLitOf(t, d, v)
 	}
-	if a := bl.stdGenStructLitAnchor(tn); a != nil {
+	if a := bl.stdGenStructLitAnchor(t); a != nil {
 		if a.decl.Name == "Range" && bl.g.stdModule == "ranges" {
 			return bl.rangeStructLit(t)
 		}
 		return bl.stdGenStructMake(t, a)
 	}
-	// A user generic struct, declared here or selectively imported from
-	// another file (`import span.Span`).
-	if tpl, instantiate, isTemplate := bl.g.genericTemplateNamed(tn.Name, bl.g.checkedExprType(t)); isTemplate {
+	// A user generic struct, declared here or in another file, as the
+	// checker typed the literal.
+	if tpl, instantiate, isTemplate := bl.g.genericTemplateOf(bl.g.checkedExprType(t)); isTemplate && tpl.structDecl() != nil {
 		return bl.genericStructMake(t, t, tpl, instantiate)
 	}
-	d, found := bl.g.namedType(tn.Name)
-	if !found {
+	d := bl.g.nominalDef(bl.g.checkedExprType(t))
+	if d == nil {
 		// Another file's source lowered here under its names
 		// (namesFrom) names a struct this file does not: the type the
 		// checker gave the literal there is the struct.
@@ -801,7 +805,7 @@ func (bl *irScalarBuilder) structMake(t *ast.StructLit) (ir.Temp, kind, bool, bo
 // genericStructMake builds a literal t of the user generic struct tpl at the
 // instance the checker typed typed as: the literal itself, or the struct
 // call form (`Box({v: 1})`, `{v: 2} |> Box()`) t is the record of.
-// instantiate is the one genericTemplateNamed handed back, so an instance of
+// instantiate is the one genericTemplateOf handed back, so an instance of
 // another file's template is built there and mirrored here.
 func (bl *irScalarBuilder) genericStructMake(t *ast.StructLit, typed ast.Node, tpl *genericTemplate, instantiate typeInstantiator) (ir.Temp, kind, bool, bool) {
 	args, types, ok := bl.g.literalTypeArgs(typed, len(tpl.params))
@@ -920,23 +924,28 @@ func (bl *irScalarBuilder) fieldDefault(at ast.Node, d *typeDef, f *fieldDef) (i
 	if f.deflt == nil || f.stdDeflt != nil {
 		return ir.NoTemp, false
 	}
-	if d.foreign != "" {
+	if bl.defaultElsewhere(d) {
 		return bl.foreignFieldDefault(at, d, "", f.nomi, f.k)
 	}
 	return bl.declDefault(f.deflt, f.k)
 }
 
+// defaultElsewhere reports whether d's field defaults are another file's
+// source, which only that file's gen lowers: a mirror's, or a std type's
+// process-wide def outside its own module (stdtypes.go), which has no
+// declaring gen in the program and so no accessor.
+func (bl *irScalarBuilder) defaultElsewhere(d *typeDef) bool {
+	return d.foreign != "" || (d.stdOrigin != "" && bl.g.srcFA().Origin != d.stdOrigin)
+}
+
 // declDefault lowers a declared default expression with the local scopes
 // hidden, forced when impure, and coerced to the field's kind.
 func (bl *irScalarBuilder) declDefault(deflt ast.Node, want kind) (ir.Temp, bool) {
-	bound, boundK, parent, syms := bl.bound, bl.boundK, bl.parent, bl.sh.syms
-	bl.bound, bl.boundK, bl.parent, bl.sh.syms = map[string]ir.Temp{}, map[string]kind{}, nil, map[string]*ir.Symbol{}
-	saved := bl.g.scopes
-	bl.g.scopes = []map[string]local{{}}
+	parent, locals, declared := bl.parent, bl.locals, bl.sh.declared
+	bl.parent, bl.locals, bl.sh.declared = nil, nil, nil
 	// Typed by the field, so `Maybe.None` or `None` is the field's Maybe.
 	v, k, mobile, ok := bl.lowerTypedOperand(deflt, want)
-	bl.g.scopes = saved
-	bl.bound, bl.boundK, bl.parent, bl.sh.syms = bound, boundK, parent, syms
+	bl.parent, bl.locals, bl.sh.declared = parent, locals, declared
 	if !ok {
 		return ir.NoTemp, false
 	}
@@ -961,19 +970,22 @@ func (bl *irScalarBuilder) declDefault(deflt ast.Node, want kind) (ir.Temp, bool
 	return v, true
 }
 
-// stdGenStructLitAnchor is the anchored generic std struct a literal names
-// (`Generator{run: ...}` inside std/random), or nil.
-func (bl *irScalarBuilder) stdGenStructLitAnchor(tn *ast.SimpleType) *stdGenStructAnchor {
+// stdGenStructLitAnchor is the anchored generic std struct literal t
+// builds (`Generator{run: ...}` inside std/random), the struct the checker
+// typed it as, or nil.
+func (bl *irScalarBuilder) stdGenStructLitAnchor(t *ast.StructLit) *stdGenStructAnchor {
 	g := bl.g
+	st, isStruct := analysis.ResolveClosed(g.checkedExprType(t)).(*analysis.StructType)
+	if !isStruct {
+		return nil
+	}
 	g.loadStdGenStructs()
-	a := g.genStructs[tn.Name]
-	if a == nil || a.decl == nil {
-		return nil
+	for _, a := range g.genStructs {
+		if a.spec.origin == st.Origin && a.spec.nomi == st.Name && a.decl != nil {
+			return a
+		}
 	}
-	if _, local := g.types[tn.Name]; local && !g.stdGenStructDeclaringModule(a) {
-		return nil
-	}
-	return a
+	return nil
 }
 
 // stdGenStructMake builds a literal of a generic std struct at the
@@ -1007,7 +1019,7 @@ func (bl *irScalarBuilder) stdGenStructMake(t *ast.StructLit, a *stdGenStructAnc
 func (bl *irScalarBuilder) emptyNamedMap(t *ast.StructLit) (ir.Temp, kind, bool, bool) {
 	empty := &ast.MapLit{Line: t.Line, Col: t.Col}
 	if d := bl.g.literalDistinct(t); d != nil {
-		return bl.compositeDistinctMake(&ast.Call{Args: []ast.Node{empty}, Line: t.Line, Col: t.Col}, d)
+		return bl.compositeDistinctMake(t, []ast.Node{empty}, d)
 	}
 	return bl.attachedVariant(t, t.TypeName, empty)
 }

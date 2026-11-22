@@ -1,0 +1,522 @@
+[
+  {
+    "name": "table 1",
+    "markdown": "| foo | bar |\n| --- | --- |\n| baz | bim |",
+    "html": "<table>\n<thead>\n<tr>\n<th>foo</th>\n<th>bar</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>baz</td>\n<td>bim</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "name": "table 2",
+    "markdown": "| abc | defghi |\n:-: | -----------:\nbar | baz",
+    "html": "<table>\n<thead>\n<tr>\n<th style=\"text-align:center\">abc</th>\n<th style=\"text-align:right\">defghi</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td style=\"text-align:center\">bar</td>\n<td style=\"text-align:right\">baz</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "name": "table 3",
+    "markdown": "| f\\|oo  |\n| ------ |\n| b `\\|` az |\n| b **\\|** im |",
+    "html": "<table>\n<thead>\n<tr>\n<th>f|oo</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>b <code>|</code> az</td>\n</tr>\n<tr>\n<td>b <strong>|</strong> im</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "name": "table 4",
+    "markdown": "| abc | def |\n| --- | --- |\n| bar | baz |\n> bar",
+    "html": "<table>\n<thead>\n<tr>\n<th>abc</th>\n<th>def</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>bar</td>\n<td>baz</td>\n</tr>\n</tbody>\n</table>\n<blockquote>\n<p>bar</p>\n</blockquote>\n"
+  },
+  {
+    "name": "table 5",
+    "markdown": "| abc | def |\n| --- | --- |\n| bar | baz |\nbar\n\nbar",
+    "html": "<table>\n<thead>\n<tr>\n<th>abc</th>\n<th>def</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>bar</td>\n<td>baz</td>\n</tr>\n<tr>\n<td>bar</td>\n<td></td>\n</tr>\n</tbody>\n</table>\n<p>bar</p>\n"
+  },
+  {
+    "name": "table 6",
+    "markdown": "| abc | def |\n| --- |\n| bar |",
+    "html": "<p>| abc | def |\n| --- |\n| bar |</p>\n"
+  },
+  {
+    "name": "table 7",
+    "markdown": "| abc | def |\n| --- | --- |\n| bar |\n| bar | baz | boo |",
+    "html": "<table>\n<thead>\n<tr>\n<th>abc</th>\n<th>def</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>bar</td>\n<td></td>\n</tr>\n<tr>\n<td>bar</td>\n<td>baz</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "name": "table 8",
+    "markdown": "| abc | def |\n| --- | --- |",
+    "html": "<table>\n<thead>\n<tr>\n<th>abc</th>\n<th>def</th>\n</tr>\n</thead>\n</table>\n"
+  },
+  {
+    "name": "table 9",
+    "markdown": "Foo|Bar\n---|---\n`Yoyo`|Dyne",
+    "html": "<table>\n<thead>\n<tr>\n<th>Foo</th>\n<th>Bar</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>Yoyo</code></td>\n<td>Dyne</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "name": "table 10",
+    "markdown": "foo|bar\n---|---\n`\\` | second column",
+    "html": "<table>\n<thead>\n<tr>\n<th>foo</th>\n<th>bar</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>\\</code></td>\n<td>second column</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "name": "table 11",
+    "markdown": "**xxx**\n| hello |   hi  |\n| :----: | :----:|",
+    "html": "<p><strong>xxx</strong></p>\n<table>\n<thead>\n<tr>\n<th style=\"text-align:center\">hello</th>\n<th style=\"text-align:center\">hi</th>\n</tr>\n</thead>\n</table>\n"
+  },
+  {
+    "name": "table 12",
+    "markdown": "Foo\n    ---",
+    "html": "<p>Foo\n---</p>\n"
+  },
+  {
+    "name": "table 14",
+    "markdown": "- [Marketing](marketing/_index.md)\n--",
+    "html": "<ul>\n<li><a href=\"marketing/_index.md\">Marketing</a>\n--</li>\n</ul>\n"
+  },
+  {
+    "name": "strikethrough 1",
+    "markdown": "~~Hi~~ Hello, world!",
+    "html": "<p><del>Hi</del> Hello, world!</p>\n"
+  },
+  {
+    "name": "strikethrough 2",
+    "markdown": "This ~~has a\n\nnew paragraph~~.",
+    "html": "<p>This ~~has a</p>\n<p>new paragraph~~.</p>\n"
+  },
+  {
+    "name": "strikethrough 3",
+    "markdown": "~Hi~ Hello, world!",
+    "html": "<p><del>Hi</del> Hello, world!</p>\n"
+  },
+  {
+    "name": "strikethrough 4",
+    "markdown": "This will ~~~not~~~ strike.",
+    "html": "<p>This will ~~~not~~~ strike.</p>\n"
+  },
+  {
+    "name": "strikethrough 5",
+    "markdown": "~~~Hi~~~ Hello, world!",
+    "html": "<pre><code class=\"language-Hi~~~\"></code></pre>\n"
+  },
+  {
+    "name": "linkify 1",
+    "markdown": "www.commonmark.org",
+    "html": "<p><a href=\"http://www.commonmark.org\">www.commonmark.org</a></p>\n"
+  },
+  {
+    "name": "linkify 2",
+    "markdown": "Visit www.commonmark.org/help for more information.",
+    "html": "<p>Visit <a href=\"http://www.commonmark.org/help\">www.commonmark.org/help</a> for more information.</p>\n"
+  },
+  {
+    "name": "linkify 3",
+    "markdown": "www.google.com/search?q=Markup+(business)\n\nwww.google.com/search?q=Markup+(business)))\n\n(www.google.com/search?q=Markup+(business))\n\n(www.google.com/search?q=Markup+(business)",
+    "html": "<p><a href=\"http://www.google.com/search?q=Markup+(business)\">www.google.com/search?q=Markup+(business)</a></p>\n<p><a href=\"http://www.google.com/search?q=Markup+(business)\">www.google.com/search?q=Markup+(business)</a>))</p>\n<p>(<a href=\"http://www.google.com/search?q=Markup+(business)\">www.google.com/search?q=Markup+(business)</a>)</p>\n<p>(<a href=\"http://www.google.com/search?q=Markup+(business)\">www.google.com/search?q=Markup+(business)</a></p>\n"
+  },
+  {
+    "name": "linkify 4",
+    "markdown": "www.google.com/search?q=(business))+ok",
+    "html": "<p><a href=\"http://www.google.com/search?q=(business))+ok\">www.google.com/search?q=(business))+ok</a></p>\n"
+  },
+  {
+    "name": "linkify 5",
+    "markdown": "www.google.com/search?q=commonmark&hl=en\n\nwww.google.com/search?q=commonmark&hl;",
+    "html": "<p><a href=\"http://www.google.com/search?q=commonmark&amp;hl=en\">www.google.com/search?q=commonmark&amp;hl=en</a></p>\n<p><a href=\"http://www.google.com/search?q=commonmark\">www.google.com/search?q=commonmark</a>&amp;hl;</p>\n"
+  },
+  {
+    "name": "linkify 6",
+    "markdown": "www.commonmark.org/he<lp",
+    "html": "<p><a href=\"http://www.commonmark.org/he\">www.commonmark.org/he</a>&lt;lp</p>\n"
+  },
+  {
+    "name": "linkify 7",
+    "markdown": "http://commonmark.org\n\n(Visit https://encrypted.google.com/search?q=Markup+(business))\n\nAnonymous FTP is available at ftp://foo.bar.baz.",
+    "html": "<p><a href=\"http://commonmark.org\">http://commonmark.org</a></p>\n<p>(Visit <a href=\"https://encrypted.google.com/search?q=Markup+(business)\">https://encrypted.google.com/search?q=Markup+(business)</a>)</p>\n<p>Anonymous FTP is available at <a href=\"ftp://foo.bar.baz\">ftp://foo.bar.baz</a>.</p>\n"
+  },
+  {
+    "name": "linkify 8",
+    "markdown": "foo@bar.baz",
+    "html": "<p><a href=\"mailto:foo@bar.baz\">foo@bar.baz</a></p>\n"
+  },
+  {
+    "name": "linkify 9",
+    "markdown": "hello@mail+xyz.example isn't valid, but hello+xyz@mail.example is.",
+    "html": "<p>hello@mail+xyz.example isn't valid, but <a href=\"mailto:hello+xyz@mail.example\">hello+xyz@mail.example</a> is.</p>\n"
+  },
+  {
+    "name": "linkify 10",
+    "markdown": "a.b-c_d@a.b\n\na.b-c_d@a.b.\n\na.b-c_d@a.b-\n\na.b-c_d@a.b_",
+    "html": "<p><a href=\"mailto:a.b-c_d@a.b\">a.b-c_d@a.b</a></p>\n<p><a href=\"mailto:a.b-c_d@a.b\">a.b-c_d@a.b</a>.</p>\n<p>a.b-c_d@a.b-</p>\n<p>a.b-c_d@a.b_</p>\n"
+  },
+  {
+    "name": "linkify 11",
+    "markdown": "https://github.com#sun,mon",
+    "html": "<p><a href=\"https://github.com#sun,mon\">https://github.com#sun,mon</a></p>\n"
+  },
+  {
+    "name": "linkify 12",
+    "markdown": "https://github.com/sunday's",
+    "html": "<p><a href=\"https://github.com/sunday's\">https://github.com/sunday's</a></p>\n"
+  },
+  {
+    "name": "linkify 13",
+    "markdown": "https://github.com?q=stars:>1",
+    "html": "<p><a href=\"https://github.com?q=stars:%3E1\">https://github.com?q=stars:&gt;1</a></p>\n"
+  },
+  {
+    "name": "linkify 14",
+    "markdown": "[https://google.com](https://google.com)",
+    "html": "<p><a href=\"https://google.com\">https://google.com</a></p>\n"
+  },
+  {
+    "name": "linkify 15",
+    "markdown": "This is a `git@github.com:vim/vim`",
+    "html": "<p>This is a <code>git@github.com:vim/vim</code></p>\n"
+  },
+  {
+    "name": "linkify 16",
+    "markdown": "https://nic.college",
+    "html": "<p><a href=\"https://nic.college\">https://nic.college</a></p>\n"
+  },
+  {
+    "name": "linkify 17",
+    "markdown": "http://server.intranet.acme.com:1313",
+    "html": "<p><a href=\"http://server.intranet.acme.com:1313\">http://server.intranet.acme.com:1313</a></p>\n"
+  },
+  {
+    "name": "linkify 18",
+    "markdown": "https://g.page/foo",
+    "html": "<p><a href=\"https://g.page/foo\">https://g.page/foo</a></p>\n"
+  },
+  {
+    "name": "linkify 19",
+    "markdown": "__http://test.com/~/a__\n__http://test.com/~/__\n__http://test.com/~__\n__http://test.com/a/~__",
+    "html": "<p><strong><a href=\"http://test.com/~/a\">http://test.com/~/a</a></strong>\n<strong><a href=\"http://test.com/~/\">http://test.com/~/</a></strong>\n<strong><a href=\"http://test.com/\">http://test.com/</a>~</strong>\n<strong><a href=\"http://test.com/a/\">http://test.com/a/</a>~</strong></p>\n"
+  },
+  {
+    "name": "linkify 20",
+    "markdown": "(https://example.org/).\n\n(https://example.org/):\n\nhttps://example.org/).\n\n(https://example.org/path_(x)).",
+    "html": "<p>(<a href=\"https://example.org/\">https://example.org/</a>).</p>\n<p>(<a href=\"https://example.org/\">https://example.org/</a>):</p>\n<p><a href=\"https://example.org/\">https://example.org/</a>).</p>\n<p>(<a href=\"https://example.org/path_(x)\">https://example.org/path_(x)</a>).</p>\n"
+  },
+  {
+    "name": "linkify 21",
+    "markdown": "(https://example.com/path.)\n\n(https://example.com/path,)\n\n(www.example.com/x.)\n\n(https://example.com/a&amp;).\n\n(https://example.org/path_(x).)",
+    "html": "<p>(<a href=\"https://example.com/path\">https://example.com/path</a>.)</p>\n<p>(<a href=\"https://example.com/path\">https://example.com/path</a>,)</p>\n<p>(<a href=\"http://www.example.com/x\">www.example.com/x</a>.)</p>\n<p>(<a href=\"https://example.com/a\">https://example.com/a</a>&amp;).</p>\n<p>(<a href=\"https://example.org/path_(x)\">https://example.org/path_(x)</a>.)</p>\n"
+  },
+  {
+    "name": "tasklist 1",
+    "markdown": "- [ ] foo\n- [x] bar",
+    "html": "<ul>\n<li><input disabled=\"\" type=\"checkbox\"> foo</li>\n<li><input checked=\"\" disabled=\"\" type=\"checkbox\"> bar</li>\n</ul>\n"
+  },
+  {
+    "name": "tasklist 2",
+    "markdown": "- [x] foo\n  - [ ] bar\n  - [x] baz\n- [ ] bim",
+    "html": "<ul>\n<li><input checked=\"\" disabled=\"\" type=\"checkbox\"> foo\n<ul>\n<li><input disabled=\"\" type=\"checkbox\"> bar</li>\n<li><input checked=\"\" disabled=\"\" type=\"checkbox\"> baz</li>\n</ul>\n</li>\n<li><input disabled=\"\" type=\"checkbox\"> bim</li>\n</ul>\n"
+  },
+  {
+    "name": "tasklist 3",
+    "markdown": "- test[x]=[x]",
+    "html": "<ul>\n<li>test[x]=[x]</li>\n</ul>\n"
+  },
+  {
+    "name": "tasklist 4",
+    "markdown": "+ [x] [x]",
+    "html": "<ul>\n<li><input checked=\"\" disabled=\"\" type=\"checkbox\"> [x]</li>\n</ul>\n"
+  },
+  {
+    "name": "extra 1",
+    "markdown": "*\tA\n    B",
+    "html": "<ul>\n<li>A\nB</li>\n</ul>\n"
+  },
+  {
+    "name": "extra 2",
+    "markdown": "**test**\\\ntest**test**\\\n**test**test\\\ntest**test**",
+    "html": "<p><strong>test</strong><br>\ntest<strong>test</strong><br>\n<strong>test</strong>test<br>\ntest<strong>test</strong></p>\n"
+  },
+  {
+    "name": "extra 3",
+    "markdown": ">*\t>\n> \t1\n>\t\t2\n>3",
+    "html": "<blockquote>\n<ul>\n<li>\n<blockquote>\n</blockquote>\n</li>\n</ul>\n<p>1\n2\n3</p>\n</blockquote>\n"
+  },
+  {
+    "name": "extra 4",
+    "markdown": "`test`a`test`",
+    "html": "<p><code>test</code>a<code>test</code></p>\n"
+  },
+  {
+    "name": "extra 5",
+    "markdown": "_**TL/DR** - [Go see summary.](#my-summary-area)_",
+    "html": "<p><em><strong>TL/DR</strong> - <a href=\"#my-summary-area\">Go see summary.</a></em></p>\n"
+  },
+  {
+    "name": "extra 6",
+    "markdown": "[This link won't be rendered\ncorrectly](https://geeksocket.in/some-long-link-here \"This is the\nplace where everything breaks\")",
+    "html": "<p><a href=\"https://geeksocket.in/some-long-link-here\" title=\"This is the\nplace where everything breaks\">This link won't be rendered\ncorrectly</a></p>\n"
+  },
+  {
+    "name": "extra 7",
+    "markdown": "[](./target.md)",
+    "html": "<p><a href=\"./target.md\"></a></p>\n"
+  },
+  {
+    "name": "extra 8",
+    "markdown": "[]()",
+    "html": "<p><a href=\"\"></a></p>\n"
+  },
+  {
+    "name": "extra 9",
+    "markdown": "[daß] is the old german spelling of [dass]\n\n[daß]: www.das-dass.de",
+    "html": "<p><a href=\"www.das-dass.de\">daß</a> is the old german spelling of <a href=\"www.das-dass.de\">dass</a></p>\n"
+  },
+  {
+    "name": "extra 10",
+    "markdown": "1. First step.\n\n   ~~~\n   aaa\n   ---\n   bbb\n   ~~~\n\n2. few other steps.",
+    "html": "<ol>\n<li>\n<p>First step.</p>\n<pre><code>aaa\n---\nbbb\n</code></pre>\n</li>\n<li>\n<p>few other steps.</p>\n</li>\n</ol>\n"
+  },
+  {
+    "name": "extra 11",
+    "markdown": "`{%`_name_`%}`",
+    "html": "<p><code>{%</code><em>name</em><code>%}</code></p>\n"
+  },
+  {
+    "name": "extra 12",
+    "markdown": "![\"](quot.jpg)\n!['](apos.jpg)\n![<](lt.jpg)\n![>](gt.jpg)\n![&](amp.jpg) ",
+    "html": "<p><img src=\"quot.jpg\" alt=\"&quot;\">\n<img src=\"apos.jpg\" alt=\"'\">\n<img src=\"lt.jpg\" alt=\"&lt;\">\n<img src=\"gt.jpg\" alt=\"&gt;\">\n<img src=\"amp.jpg\" alt=\"&amp;\"></p>\n"
+  },
+  {
+    "name": "extra 13",
+    "markdown": "* foo\n  ```Makefile\n  foo\n  \tfoo\n  ```",
+    "html": "<ul>\n<li>foo\n<pre><code class=\"language-Makefile\">foo\n\tfoo\n</code></pre>\n</li>\n</ul>\n"
+  },
+  {
+    "name": "extra 14",
+    "markdown": "* foo\n  ```Makefile\n  foo\n \tfoo\n  ```",
+    "html": "<ul>\n<li>foo\n<pre><code class=\"language-Makefile\">foo\n  foo\n</code></pre>\n</li>\n</ul>\n"
+  },
+  {
+    "name": "extra 15",
+    "markdown": "* foo\n  -  bar\n     ```Makefile\n     foo\n     \tfoo\n     ```",
+    "html": "<ul>\n<li>foo\n<ul>\n<li>bar\n<pre><code class=\"language-Makefile\">foo\n\tfoo\n</code></pre>\n</li>\n</ul>\n</li>\n</ul>\n"
+  },
+  {
+    "name": "extra 16",
+    "markdown": "* foo\n   \n      foo\n      \tfoo\n",
+    "html": "<ul>\n<li>\n<p>foo</p>\n<pre><code>foo\n\tfoo\n</code></pre>\n</li>\n</ul>\n"
+  },
+  {
+    "name": "extra 17",
+    "markdown": "* foo\n  ```Makefile\n  foo\n  \n  foo\n  ```",
+    "html": "<ul>\n<li>foo\n<pre><code class=\"language-Makefile\">foo\n\nfoo\n</code></pre>\n</li>\n</ul>\n"
+  },
+  {
+    "name": "extra 18",
+    "markdown": "* foo\n  ```Makefile\n  foo\n\n  foo\n  ```",
+    "html": "<ul>\n<li>foo\n<pre><code class=\"language-Makefile\">foo\n\nfoo\n</code></pre>\n</li>\n</ul>\n"
+  },
+  {
+    "name": "extra 19",
+    "markdown": "* foo\n  -  bar\n     ```Makefile\n     foo\n\n     foo\n     ```",
+    "html": "<ul>\n<li>foo\n<ul>\n<li>bar\n<pre><code class=\"language-Makefile\">foo\n\nfoo\n</code></pre>\n</li>\n</ul>\n</li>\n</ul>\n"
+  },
+  {
+    "name": "extra 20",
+    "markdown": "* foo\n  -  bar\n     ```Makefile\n     foo\n\n     foo\n     ```",
+    "html": "<ul>\n<li>foo\n<ul>\n<li>bar\n<pre><code class=\"language-Makefile\">foo\n\nfoo\n</code></pre>\n</li>\n</ul>\n</li>\n</ul>\n"
+  },
+  {
+    "name": "extra 21",
+    "markdown": "- List\n\n    ```\n    A\n    \tB\n    C\n    ```",
+    "html": "<ul>\n<li>\n<p>List</p>\n<pre><code>A\n\tB\nC\n</code></pre>\n</li>\n</ul>\n"
+  },
+  {
+    "name": "extra 22",
+    "markdown": "- List\n\n      A\n      \tB\n      C\n\na",
+    "html": "<ul>\n<li>\n<p>List</p>\n<pre><code>A\n\tB\nC\n</code></pre>\n</li>\n</ul>\n<p>a</p>\n"
+  },
+  {
+    "name": "extra 23",
+    "markdown": "a* b c d *e*",
+    "html": "<p>a* b c d <em>e</em></p>\n"
+  },
+  {
+    "name": "extra 24",
+    "markdown": "<aaa >",
+    "html": "<!-- raw HTML omitted -->\n"
+  },
+  {
+    "name": "extra 25",
+    "markdown": "\t\tx",
+    "html": "<pre><code>\tx\n</code></pre>\n"
+  },
+  {
+    "name": "extra 28",
+    "markdown": "#",
+    "html": "<h1></h1>\n"
+  },
+  {
+    "name": "extra 29",
+    "markdown": "x\n*",
+    "html": "<p>x\n*</p>\n"
+  },
+  {
+    "name": "extra 30",
+    "markdown": "[x]\n\n[x]: <>\n'",
+    "html": "<p><a href=\"\">x</a></p>\n<p>'</p>\n"
+  },
+  {
+    "name": "extra 31",
+    "markdown": "[x]\n\n[x]: <>\n\"",
+    "html": "<p><a href=\"\">x</a></p>\n<p>&quot;</p>\n"
+  },
+  {
+    "name": "extra 32",
+    "markdown": "&#x0000041;",
+    "html": "<p>&amp;#x0000041;</p>\n"
+  },
+  {
+    "name": "extra 35",
+    "markdown": "This is a [test][foo\nbar] 1...2..3...\n\n[foo bar]: /",
+    "html": "<p>This is a <a href=\"/\">test</a> 1...2..3...</p>\n"
+  },
+  {
+    "name": "extra 36",
+    "markdown": "_a[b_c_](d)",
+    "html": "<p>_a<a href=\"d\">b_c_</a></p>\n"
+  },
+  {
+    "name": "extra 38",
+    "markdown": "&#7654321;",
+    "html": "<p>�</p>\n"
+  },
+  {
+    "name": "extra 39",
+    "markdown": "&#0100;",
+    "html": "<p>d</p>\n"
+  },
+  {
+    "name": "extra 40",
+    "markdown": "<1>\n\n<a:>\n\n<a\\f>\n\n< p>",
+    "html": "<p>&lt;1&gt;</p>\n<p>&lt;a:&gt;</p>\n<p>&lt;a\\f&gt;</p>\n<p>&lt; p&gt;</p>\n"
+  },
+  {
+    "name": "extra 41",
+    "markdown": "[x]\n:>\n\n[o] :x",
+    "html": "<p>[x]\n:&gt;</p>\n<p>[o] :x</p>\n"
+  },
+  {
+    "name": "extra 42",
+    "markdown": "[r]:\n<>\n'\n\n[o]:\nx\n'",
+    "html": "<p>'</p>\n<p>'</p>\n"
+  },
+  {
+    "name": "extra 43",
+    "markdown": "[ ![ [b](c) ](x) ](y)",
+    "html": "<p>[ <img src=\"x\" alt=\" b \"> ](y)</p>\n"
+  },
+  {
+    "name": "extra 44",
+    "markdown": "a\n*  ",
+    "html": "<p>a\n*</p>\n"
+  },
+  {
+    "name": "extra 45",
+    "markdown": "-\n\n-",
+    "html": "<ul>\n<li></li>\n<li></li>\n</ul>\n"
+  },
+  {
+    "name": "extra 47",
+    "markdown": "\\\\\\\\\na",
+    "html": "<p>\\\\\na</p>\n"
+  },
+  {
+    "name": "extra 48",
+    "markdown": "- a\n  >\n  b",
+    "html": "<ul>\n<li>a\n<blockquote>\n</blockquote>\nb</li>\n</ul>\n"
+  },
+  {
+    "name": "extra 49",
+    "markdown": "1.\n\n   1. b\n\n-\n\n  - b",
+    "html": "<ol>\n<li></li>\n<li>\n<p>b</p>\n</li>\n</ol>\n<ul>\n<li></li>\n<li>\n<p>b</p>\n</li>\n</ul>\n"
+  },
+  {
+    "name": "extra 50",
+    "markdown": "a \\\nb",
+    "html": "<p>a <br>\nb</p>\n"
+  },
+  {
+    "name": "extra 51",
+    "markdown": "* This is a list item\n    ```\n    This is a test\n\n    This line will be dropped.\n    This line will be displayed.\n    ```",
+    "html": "<ul>\n<li>This is a list item\n<pre><code>This is a test\n\nThis line will be dropped.\nThis line will be displayed.\n</code></pre>\n</li>\n</ul>\n"
+  },
+  {
+    "name": "extra 53",
+    "markdown": "<!--\n-->",
+    "html": "<!-- raw HTML omitted -->\n<!-- raw HTML omitted -->\n"
+  },
+  {
+    "name": "extra 55",
+    "markdown": "a <!-- b --> c\n\na <!-- b -->",
+    "html": "<p>a <!-- raw HTML omitted --> c</p>\n<p>a <!-- raw HTML omitted --></p>\n"
+  },
+  {
+    "name": "extra 56",
+    "markdown": "1.\n> This is a quote.",
+    "html": "<ol>\n<li></li>\n</ol>\n<blockquote>\n<p>This is a quote.</p>\n</blockquote>\n"
+  },
+  {
+    "name": "extra 57",
+    "markdown": "1.\n\t```\n\t```",
+    "html": "<ol>\n<li>\n<pre><code></code></pre>\n</li>\n</ol>\n"
+  },
+  {
+    "name": "extra 58",
+    "markdown": "<pre>\n</pre>",
+    "html": "<!-- raw HTML omitted -->\n<!-- raw HTML omitted -->\n"
+  },
+  {
+    "name": "extra 59",
+    "markdown": "<img src=./.assets/logo.svg\n/>",
+    "html": "<p><!-- raw HTML omitted --></p>\n"
+  },
+  {
+    "name": "extra 60",
+    "markdown": "<img src=./.assets/logo.svg\n\n/>",
+    "html": "<p>&lt;img src=./.assets/logo.svg</p>\n<p>/&gt;</p>\n"
+  },
+  {
+    "name": "extra 61",
+    "markdown": "![alt\ntext](logo.png)",
+    "html": "<p><img src=\"logo.png\" alt=\"alt\ntext\"></p>\n"
+  },
+  {
+    "name": "extra 62",
+    "markdown": "![\\`alt](https://example.com/img.png)",
+    "html": "<p><img src=\"https://example.com/img.png\" alt=\"`alt\"></p>\n"
+  },
+  {
+    "name": "extra 63",
+    "markdown": "[*[a]*](b)",
+    "html": "<p><a href=\"b\"><em>[a]</em></a></p>\n"
+  },
+  {
+    "name": "extra 64",
+    "markdown": "- \n  - foo",
+    "html": "<ul>\n<li>\n<ul>\n<li>foo</li>\n</ul>\n</li>\n</ul>\n"
+  },
+  {
+    "name": "extra 65",
+    "markdown": ">  ```\n>\t0\n>  ```",
+    "html": "<blockquote>\n<pre><code> 0\n</code></pre>\n</blockquote>\n"
+  },
+  {
+    "name": "extra 66",
+    "markdown": ">  ```\n>\t0",
+    "html": "<blockquote>\n<pre><code> 0\n</code></pre>\n</blockquote>\n"
+  },
+  {
+    "name": "extra 67",
+    "markdown": ">  ```\n>   0",
+    "html": "<blockquote>\n<pre><code> 0\n</code></pre>\n</blockquote>\n"
+  },
+  {
+    "name": "extra 68",
+    "markdown": "- test\n  <!--\n    Test\n  -->\n- test2",
+    "html": "<ul>\n<li>test\n<!-- raw HTML omitted -->\n<!-- raw HTML omitted -->\n</li>\n<li>test2</li>\n</ul>\n"
+  },
+  {
+    "name": "extra 70",
+    "markdown": "# A",
+    "html": "<h1>A</h1>\n"
+  }
+]

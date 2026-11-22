@@ -130,8 +130,8 @@ end
 // A generic type's instance spelled in an annotation (`b: Box<Int>`, a
 // field's `Pair<String, Int>`, a parameter's `Box<T>` inside a generic
 // function) reads its arguments' checker types from the types the checker
-// recorded for the annotation's type expressions (typeExprTypes), and the
-// impls of that instance carry them.
+// recorded for the annotation's type expression (typeOf, which projects it),
+// and the impls of that instance carry them.
 func TestSubstTyped_AnnotatedGenericTypeInstance(t *testing.T) {
 	src := `import std::io
 

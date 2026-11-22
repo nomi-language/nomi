@@ -125,50 +125,6 @@ onmessage = (e) => {
   handle(e.data);
 };
 
-// SQLite's official WebAssembly build (sqlite.org's sqlite-wasm, staged in
-// ./sqlite/ by scripts/build-tour-wasm.sh), which the browser build of the
-// sqlite driver calls (internal/tourgo: a block that `import sqlite`s runs
-// the driver module's Go side, which reaches SQLite through
-// globalThis.sqlite3). It is about 1.3 MB, so it is loaded only when a run
-// needs it, once per worker, and before the run's semantic tokens are
-// posted, which starts the page's run budget: loading is not the program's
-// time. Its OPFS file systems are left out: a block's database lives in the
-// worker's memory and writes nothing to the visitor's storage.
-let sqlitePromise = null;
-function loadSqlite() {
-  sqlitePromise ??= (async () => {
-    self.sqlite3ApiConfig = {
-      disable: { vfs: { opfs: true, "opfs-vfs": true, "opfs-wl": true, "opfs-sahpool": true } },
-    };
-    importScripts("./sqlite/sqlite3.js"); // sets self.sqlite3InitModule
-    self.sqlite3 = await self.sqlite3InitModule({
-      print() {},
-      printErr() {},
-      locateFile: (file) => "./sqlite/" + file,
-    });
-  })().catch((err) => {
-    // The driver answers a Connection error that says the build is not
-    // loaded; the reason is here.
-    console.error("loading SQLite's WebAssembly build:", err);
-  });
-  return sqlitePromise;
-}
-
-// needs answers the loads a run of msg waits for: the modules it imports
-// that need more than the Nomi wasm (nomiTourModules).
-function needs(msg) {
-  if (msg.op === "format" || msg.op === "formatTestBody" || msg.op === "hover" || msg.op === "sem" || msg.op === "stdlibTest") return null;
-  let modules = [];
-  try {
-    modules = JSON.parse(self.nomiTourModules(msg.source) || "[]");
-  } catch (_) {}
-  return modules.includes("sqlite") && !sqlitePromise ? loadSqlite() : null;
-}
-
-// waiting holds the messages that arrived while a load needs() started was
-// under way, in order, the one that started it first.
-let waiting = null;
-
 // callGo runs one exported Go function and returns { value }, or { failure }
 // when the call stopped the runtime or threw out of it, marking this instance
 // dead.
@@ -193,23 +149,9 @@ function callGo(fn) {
 }
 
 function handle(msg) {
-  if (waiting) {
-    waiting.push(msg);
-    return;
-  }
   // A message queued behind the one that stopped the runtime gets no answer
   // here; the page re-sends it to the replacement worker.
   if (dead) return;
-  const load = needs(msg);
-  if (load) {
-    waiting = [msg];
-    load.then(() => {
-      const msgs = waiting;
-      waiting = null;
-      for (const m of msgs) handle(m);
-    });
-    return;
-  }
   handleOne(msg);
   if (dead) postMessage({ type: "exited" });
 }

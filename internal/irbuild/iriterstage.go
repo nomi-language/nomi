@@ -223,10 +223,9 @@ func (bl *irScalarBuilder) innerSourceElem(k kind) (kind, bool) {
 func (bl *irScalarBuilder) sourceViewFunc(at ast.Node, sk, elem kind) (ir.Temp, bool) {
 	pos := bl.g.irNodePos(at)
 	f := ir.NewFunc(pos, "view")
-	sh := &irFuncShell{fn: f, syms: map[string]*ir.Symbol{}, params: map[string]ir.Temp{}, patternOK: true}
-	sh.frame = newIRFuncFrame(f)
+	sh := &irFuncShell{fn: f, params: map[string]ir.Temp{}}
 	sh.entry = f.NewBlock(pos, "entry")
-	child := &irScalarBuilder{g: bl.g, sh: sh, f: f, b: sh.entry, parent: bl, bound: map[string]ir.Temp{}, boundK: map[string]kind{}, unwritten: true}
+	child := &irScalarBuilder{g: bl.g, sh: sh, f: f, b: sh.entry, parent: bl, unwritten: true}
 	param := bl.g.irAddParam(f, ir.NewSymbol("source"), sk)
 	v, ok := child.seqView(at, param, sk, elem)
 	if !ok {

@@ -136,21 +136,14 @@ func (o runOutcome) describe(src string) string {
 // `io.read_line` reads the empty input). One in nondeterministicCrossings
 // stays inside the machine but may answer differently each run: the clock,
 // randomness, tasks, channels, supervisors, a Context's deadlines. Any other
-// callee (files, `std/compiler`, a Go binding, a callee added later that
+// callee (files, `std/compiler`, an embedder's host function, a callee added later that
 // nobody has sorted) reaches outside the machine, and the program is not
-// run. A read or write of the running app is inside the machine.
+// run.
 var deterministicCrossings = map[string]bool{
 	"io.print": true, "io.write": true, "io.inspect": true, "io.read_line": true, "dbg": true,
 	// `io.capture` runs its function inside the machine and reads and writes
 	// only its own strings.
 	"io.run_captured": true, "io.run_replayed": true,
-	// A Context's values are what the program put there.
-	"Context.value": true, "Context.with_value": true,
-	// Pure functions vm.Effects reports because one Go call's cost follows
-	// an operand rather than the operands' size, so their rows are not
-	// marked Pure and an editor's evaluation does not make them. A run here
-	// has no such limit: `String.pad_start` reaches `String.repeat`.
-	"strings.String.repeat": true, "decimal.Decimal.divide": true, "decimal.Decimal.round": true,
 }
 
 var nondeterministicCrossingPrefixes = []string{
@@ -166,9 +159,6 @@ func effectClass(effects []string) (outside string, nondeterministic bool) {
 	for _, e := range effects {
 		_, callee, crosses := strings.Cut(e, " calls ")
 		if !crosses {
-			if strings.Contains(e, "the running app") {
-				continue
-			}
 			return e, false
 		}
 		if deterministicCrossings[callee] {
@@ -419,9 +409,12 @@ func runPlanFor(p *Program) runPlan {
 	default:
 		return runPlan{skip: "nothing to run"}
 	}
+	// A call whose cost grows with an argument's value (vm.Effects'
+	// Unbounded) is no bar to a run, which is not an editor's evaluation:
+	// `String.pad_start` reaches `String.repeat`.
 	var effects []string
 	for _, f := range roots {
-		effects = append(effects, m.Effects(f)...)
+		effects = append(effects, m.Effects(f).Effects...)
 	}
 	outside, nondet := effectClass(effects)
 	if outside != "" {
@@ -576,10 +569,11 @@ func classifyRunError(m *vm.Machine, err error) runOutcome {
 }
 
 // runSeeds are the seeds this rule runs under plain `go test`: every
-// generated program, and every corpus, tour and spec seed with a top-level
-// `fn main` (a corpus file's test cases run under TestTestCommand_VMCorpus).
+// generated program, every large-function program (large_function_test.go),
+// and every corpus, tour and spec seed with a top-level `fn main` (a corpus
+// file's test cases run under TestTestCommand_VMCorpus).
 func runSeeds(tb testing.TB) []loweringSeed {
-	seeds := generatedPrograms()
+	seeds := append(generatedPrograms(), largeFunctionPrograms()...)
 	for _, s := range loweringSeeds(tb) {
 		names, files, ok := splitInput(s.src)
 		if ok && topLevelMain.MatchString(files[names[0]]) {

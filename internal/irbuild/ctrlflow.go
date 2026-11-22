@@ -97,19 +97,21 @@ func (g *gen) callbackCarriesSignal(arg ast.Node) bool {
 	return false
 }
 
-// irSignallingCallback reports whether owner.method is an operation whose
-// second operand the VM drives as a signalling callback: every two-operand
-// callback slot analysis/iter_sensitive.go's iterCallbackSlots admits.
-// `Iter.loop` takes its callback first and is inlined (iterLoop).
-func irSignallingCallback(owner, method string) bool {
-	switch owner {
-	case "Iter":
-		switch method {
+// irSignallingCallback reports whether the std function key names, by what
+// the call's record says it is qualified with (recordedQualRoute), is an operation
+// whose second operand the VM drives as a signalling callback: every
+// two-operand callback slot analysis/iter_sensitive.go's iterCallbackSlots
+// admits. `Iter.loop` takes its callback first and is inlined (iterLoop).
+// A program's type of any name has no std identity, so it never answers.
+func irSignallingCallback(key stdQualKey) bool {
+	switch key.Owner {
+	case stdIterType:
+		switch key.Method {
 		case "reduce", "scan", "map_reduce", "map", "filter", "take_while", "drop_while", "flat_map", "each", "iterate", "find", "any_match", "all_match":
 			return true
 		}
-	case "Map":
-		return method == "map_values" || method == "map_keys"
+	case stdMapType:
+		return key.Method == "map_values" || key.Method == "map_keys"
 	}
 	return false
 }

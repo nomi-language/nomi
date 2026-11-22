@@ -1,0 +1,163 @@
+//# Answering the server's password challenge: SCRAM-SHA-256 (RFC 5802
+//# and RFC 7677), which Postgres asks for by default, and the older MD5
+//# hash. Each step is a function from what the server sent to what the
+//# client sends, so the exchange is checked against the RFC's recorded
+//# messages; the connection sends them.
+//#
+//# The password is used as it is written, with no SASLprep: Postgres
+//# accepts that for every password made of printable ASCII, and for
+//# others where the server stored it the same way.
+
+import
+    std::base64
+    std::hash
+end
+
+/// What the client keeps between its first SCRAM message and its last:
+/// its first message without the GS2 header, and its nonce.
+pub struct Scram
+    first_bare: String
+    nonce:      String
+end
+
+/// What the client sends for the server's challenge, and the server
+/// signature the server's final message must carry.
+pub struct ScramProof
+    message:   String
+    signature: Bytes
+end
+
+impl Scram
+    /// The client's first message, with `nonce`: no channel binding, and no
+    /// user name, since Postgres takes the startup message's.
+    //! s = Scram.start("rOprNGfwEbeRWgbNEkqO")
+    //! assert Scram.first_message(s) == "n,,n=,r=rOprNGfwEbeRWgbNEkqO"
+    //
+    pub fn start(nonce: String) -> Scram
+        Scram{first_bare: "n=,r=${nonce}", nonce:}
+    end
+
+    /// The text of the first message.
+    pub fn first_message(scram: Scram) -> String
+        "n,,${scram.first_bare}"
+    end
+
+    /// The client's final message for the server's first, `server_first`,
+    /// and the signature the server must answer with, or why the server's
+    /// message is not a SCRAM challenge for this client.
+    ///
+    /// RFC 7677's example, with the first message's user name as Postgres
+    /// leaves it out:
+    //! s = {..Scram.start("rOprNGfwEbeRWgbNEkqO"), first_bare: "n=user,r=rOprNGfwEbeRWgbNEkqO"}
+    //! server = "r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0,s=W22ZaJ0SNY7soEsUEjb6gQ==,i=4096"
+    //! proof = Scram.answer(s, "pencil", server)!
+    //!
+    //! assert proof.message == "c=biws,r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0,p=dHzbZapWIk4jUhN+Ute9ytag9zjfMHgsqmmiz7AndVQ="
+    //!
+    //! assert Scram.verify(proof, "v=6rriTRBi23WpRR/wtup+mMhUZUn/dB5nLTJRsjl95G4=") == Ok(Unit)
+    //! assert Scram.verify(proof, "v=AAAA") |> Result.is_err()
+    //!
+    //! assert Scram.verify(proof, "e=invalid-proof")
+    //!     == Err("the server refused the password: invalid-proof")
+    //
+    pub fn answer(
+        scram:        Scram,
+        password:     String,
+        server_first: String,
+    ) -> Result<ScramProof, String>
+        fields = attributes(server_first)
+        nonce = field(fields, "r")?
+
+        salt =
+            field(fields, "s")?
+            |> base64.decode()
+            |> Result.map_err(fn _ -> "the server's salt is not base64")?
+
+        iterations =
+            field(fields, "i")?
+            |> String.to_int()
+            |> Maybe.flat_map(PositiveInt.try_from)
+            |> Maybe.to_result("the server's iteration count is not a positive number")?
+
+        if not String.starts_with(nonce, scram.nonce) then
+            return Err("the server's nonce does not extend the client's")
+        end
+
+        salted = hash.pbkdf2_sha256(String.to_bytes(password), salt, iterations, 32)
+        client_key = hash.hmac_sha256(salted, String.to_bytes("Client Key"))
+        stored_key = hash.sha256(client_key)
+        without_proof = "c=biws,r=${nonce}"
+        signed = String.to_bytes("${scram.first_bare},${server_first},${without_proof}")
+        client_signature = hash.hmac_sha256(stored_key, signed)
+        proof = xor(client_key, client_signature)
+        server_key = hash.hmac_sha256(salted, String.to_bytes("Server Key"))
+
+        Ok(
+            ScramProof{
+                message:   "${without_proof},p=${base64.encode(proof)}",
+                signature: hash.hmac_sha256(server_key, signed),
+            }
+        )
+    end
+
+    /// `Ok` when the server's final message carries the signature `proof`
+    /// expects, which proves the server knows the password too.
+    pub fn verify(proof: ScramProof, server_final: String) -> Result<Unit, String>
+        fields = attributes(server_final)
+
+        case (field(fields, "v"), field(fields, "e"))
+            (Ok(signature), _) ->
+                sent =
+                    base64.decode(signature)
+                    |> Result.map_err(fn _ -> "the server's signature is not base64")?
+
+                if hash.equal_in_constant_time(sent, proof.signature) then
+                    Ok(Unit)
+                else
+                    Err("the server's signature does not match: it does not know the password")
+                end
+
+            (_, Ok(reason)) ->
+                Err("the server refused the password: ${reason}")
+
+            _ ->
+                Err("the server's final SCRAM message carries no signature")
+        end
+    end
+end
+
+/// The password an MD5 challenge asks for: `md5`, then the MD5 of the MD5
+/// of the password and the user name, and the salt, in hex.
+//! salt = Bytes.from_list([0x01, 0x02, 0x03, 0x04])
+//! assert md5_password("postgres", "secret", salt) == "md5bb41a296aab6baccb36ff243a562abff"
+//!
+//! assert md5_password("u", "p", Bytes.from_list([0, 0, 0, 0]))
+//!     == "md5d6afbb2a4840883e3273ff8563b82bf4"
+//
+pub fn md5_password(user: String, password: String, salt: Bytes) -> String
+    inner = hash.md5_hex(String.to_bytes(password + user))
+    "md5" + hash.md5_hex(String.to_bytes(inner) + salt)
+end
+
+// The `name=value` attributes of a SCRAM message, by name.
+fn attributes(message: String) -> List<(String, String)>
+    String.split(message, ",")
+    |> Iter.flat_map(fn part ->
+        case String.split(part, "=")
+            [name, ..rest] when rest != [] -> [(name, String.join(rest, "="))]
+            _                              -> []
+        end
+    end)
+    |> Iter.to_list()
+end
+
+fn field(fields: List<(String, String)>, name: String) -> Result<String, String>
+    fields
+    |> Iter.find(fn (key, _) -> key == name)
+    |> Maybe.map(.second)
+    |> Maybe.to_result("the server's SCRAM message has no `${name}`")
+end
+
+fn xor(a: Bytes, b: Bytes) -> Bytes
+    Iter.zip(a, b) |> Iter.map(fn (x, y) -> x ^^^ y) |> Iter.to_list() |> Bytes.from_list()
+end

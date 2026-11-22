@@ -183,7 +183,7 @@ func isManifestURI(uri string) bool {
 // manifestChanged rechecks after a nomi.toml changed, on disk or in an
 // editor (manifest.go), as after an input changed (InputsChanged), and
 // lowers each open document again, since what the lowering reports reads
-// the manifest too: its [capabilities] lists and its [money] currencies.
+// the manifest too: its [effects] lists and its [money] currencies.
 // The memo misses, as it keys a lowering by the manifest's text
 // (analyzedlowering.Memo). What the projects' programs reach is worked out
 // again when next asked (projectReaches).

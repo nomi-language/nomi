@@ -10,6 +10,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -24,6 +25,9 @@ type rpcClient struct {
 	t     testing.TB
 	conn  *jsonrpc2.Conn
 	diags chan published
+	// refreshes counts the server's workspace/semanticTokens/refresh
+	// requests.
+	refreshes atomic.Int32
 }
 
 type published struct {
@@ -42,6 +46,9 @@ func startRPC(t testing.TB, s *Server, root string) *rpcClient {
 	c := &rpcClient{t: t, diags: make(chan published, 256)}
 	c.conn = jsonrpc2.NewConn(context.Background(), jsonrpc2.NewBufferedStream(client, jsonrpc2.VSCodeObjectCodec{}),
 		jsonrpc2.HandlerWithError(func(_ context.Context, _ *jsonrpc2.Conn, req *jsonrpc2.Request) (any, error) {
+			if req.Method == string(protocol.MethodWorkspaceSemanticTokensRefresh) {
+				c.refreshes.Add(1)
+			}
 			if req.Method == string(protocol.ServerTextDocumentPublishDiagnostics) && req.Params != nil {
 				var p protocol.PublishDiagnosticsParams
 				if json.Unmarshal(*req.Params, &p) == nil {
@@ -58,9 +65,12 @@ func startRPC(t testing.TB, s *Server, root string) *rpcClient {
 	var res json.RawMessage
 	if err := c.conn.Call(context.Background(), "initialize", map[string]any{
 		"rootUri": fileuri.FromPath(root),
-		"capabilities": map[string]any{"textDocument": map[string]any{
-			"completion": map[string]any{"completionItem": map[string]any{"snippetSupport": true}},
-		}},
+		"capabilities": map[string]any{
+			"textDocument": map[string]any{
+				"completion": map[string]any{"completionItem": map[string]any{"snippetSupport": true}},
+			},
+			"workspace": map[string]any{"semanticTokens": map[string]any{"refreshSupport": true}},
+		},
 	}, &res); err != nil {
 		t.Fatalf("initialize: %v", err)
 	}

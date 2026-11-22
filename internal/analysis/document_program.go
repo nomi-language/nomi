@@ -11,7 +11,6 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/internal/syntheticextern"
 )
 
 // ProgramEdit replaces the whole text of one project file of a checked
@@ -31,13 +30,13 @@ type ProgramEdit struct {
 // type-checked, has its application-field roots checked, and has its
 // whole-file imports settled, and the entry then gets the coherence, iteration
 // and concurrency checks. It is the state an incremental check starts from
-// (DocumentManager.Recheck).
+// (DocumentManager.RecheckEdits).
 //
-// Recheck consumes the program it is given: when it rebuilds only an edited
-// file's bodies, its answer is made of the given program's analyses, nodes
-// and symbols, rewritten in place, so the given program is no longer the
-// program before the edit and must not be read or rechecked again. A
-// program is written only by the Recheck that consumes it, and by the
+// A recheck consumes the program it is given: when it rebuilds only an
+// edited file's bodies, its answer is made of the given program's analyses,
+// nodes and symbols, rewritten in place, so the given program is no longer
+// the program before the edit and must not be read or rechecked again. A
+// program is written only by the recheck that consumes it, and by the
 // test-only RebuildBodiesForTest, which rebuilds one file in place.
 type CheckedProgram struct {
 	// Root is the project root imports resolve against, and Entry the entry
@@ -72,9 +71,6 @@ type CheckedProgram struct {
 	// implFingerprints holds each such file's impls fingerprint
 	// (implsFingerprint), by module key.
 	implFingerprints map[string]string
-	// externs reports that the root declared Go bindings, which the build
-	// injected into the files' nodes.
-	externs bool
 	// damaged holds the declarations the resilient parse repaired in each
 	// file, by module key (parser.ParseResilient).
 	damaged map[string][]parser.Span
@@ -85,7 +81,7 @@ type CheckedProgram struct {
 	// entryOwn is how many of the entry's nodes are its declarations, as
 	// lowered, before the impls synthesis appends.
 	entryOwn int
-	// consumed is set once a Recheck has taken the program's analyses for
+	// consumed is set once a recheck has taken the program's analyses for
 	// its answer.
 	consumed bool
 	// factsFrom, set on a program whose files were checked against
@@ -108,24 +104,19 @@ func (p *CheckedProgram) Keys() []string {
 	return append([]string{p.Entry}, keys...)
 }
 
-// Recheck answers the program prev becomes when edit replaces the text of
-// one of its files. Its answer is the program CheckProgram builds from the
-// edited texts, fact for fact (TestIncrementalMatchesFull). An edit that
-// leaves the file's interface as it was (interfaceFingerprint), and the type
-// of each of its unannotated `once` bindings, rebuilds that file's bodies
-// alone (rebuildEditedBodies). Any other checks the file and the files that
+// RecheckWithOutcome answers the program prev becomes when edit replaces the
+// text of one of its files, and which way it went (RecheckOutcome). Its
+// answer is the program CheckProgram builds from the edited texts, fact for
+// fact (TestIncrementalMatchesFull). An edit that leaves the file's
+// interface as it was (interfaceFingerprint), and the type of each of its
+// unannotated `once` bindings, rebuilds that file's bodies alone
+// (rebuildEditedBodies). Any other checks the file and the files that
 // import it afresh (recheckDependents), or, when that would not be sound,
 // the whole program.
 //
-// Recheck consumes prev (see CheckedProgram): the caller must not read prev
-// or recheck it again afterwards. The caller serializes Rechecks of one
+// A recheck consumes prev (see CheckedProgram): the caller must not read
+// prev or recheck it again afterwards. The caller serializes rechecks of one
 // program, and keeps readers of prev's analyses away while one runs.
-func (dm *DocumentManager) Recheck(prev *CheckedProgram, edit ProgramEdit) *CheckedProgram {
-	next, _ := dm.RecheckWithOutcome(prev, edit)
-	return next
-}
-
-// RecheckWithOutcome is Recheck, also answering which way it went.
 func (dm *DocumentManager) RecheckWithOutcome(prev *CheckedProgram, edit ProgramEdit) (*CheckedProgram, RecheckOutcome) {
 	return dm.RecheckEdits(prev, []ProgramEdit{edit})
 }
@@ -142,7 +133,7 @@ func (dm *DocumentManager) RecheckEdits(prev *CheckedProgram, edits []ProgramEdi
 // recheckLocked is RecheckEdits for a caller that holds analyzeMu.
 func (dm *DocumentManager) recheckLocked(prev *CheckedProgram, edits []ProgramEdit) (*CheckedProgram, RecheckOutcome) {
 	if prev.consumed {
-		panic("analysis: Recheck of a program an earlier Recheck consumed")
+		panic("analysis: a recheck of a program an earlier recheck consumed")
 	}
 	var changed []ProgramEdit
 	inputs := map[string]bool{}
@@ -263,8 +254,7 @@ func (dm *DocumentManager) checkProgramLocked(root, entry string, texts map[stri
 // checks them. Every other file is parsed, built and checked afresh, and the
 // program's reductions run over every file. The caller has made sure that
 // nothing a kept file's analysis holds depends on a file that changed
-// (recheckDependents), and that the root declares no Go bindings, which a
-// program with kept files does not look for again. With keep nil it is a
+// (recheckDependents). With keep nil it is a
 // check of every file. parsed holds texts already parsed, by module key,
 // each of which the check takes instead of parsing its text again; nothing
 // else may hold their nodes.
@@ -392,15 +382,7 @@ func (dm *DocumentManager) checkProgramFrom(root, entry string, texts map[string
 	}
 	entryText, _ := text(entry)
 	nodes := expand(entry, parse(entry, entryText))
-	var externs []syntheticextern.Decl
-	if reused == nil {
-		externs = dm.syntheticExternsForRoot(root)
-	}
-	p.externs = len(externs) > 0
 	entryPath := filepath.Join(root, filepath.FromSlash(entry)+".nomi")
-	if injected, err := syntheticextern.Inject(nodes, externs, isFFIEntryPath(entryPath)); err == nil {
-		nodes = injected
-	}
 	// A partner test's derives for its partner's types read the partner
 	// as the build below loads it.
 	nodes, partnerErrs := LowerPartnerDerives(nodes, entry, func(key string) ([]ast.Node, bool) {
@@ -408,11 +390,7 @@ func (dm *DocumentManager) checkProgramFrom(root, entry string, texts map[string
 		if !ok {
 			return nil, false
 		}
-		nodes, err := syntheticextern.Inject(parseFile(src).nodes, externs, false)
-		if err != nil {
-			return nil, false
-		}
-		return expand(key, nodes), true
+		return expand(key, parseFile(src).nodes), true
 	})
 	nodes, lowerErrs := LowerDerives(nodes)
 	lowerErrs = append(partnerErrs, lowerErrs...)
@@ -459,12 +437,7 @@ func (dm *DocumentManager) checkProgramFrom(root, entry string, texts map[string
 			}
 			return nodes, err
 		}
-		// A file of root: its bindings are the entry's, looked up once.
-		nodes, err := syntheticextern.Inject(parse(key, src), externs, false)
-		if err != nil {
-			return nil, err
-		}
-		return expand(key, nodes), nil
+		return expand(key, parse(key, src)), nil
 	}
 	entryFA, siblings, siblingNodes := buildProjectWithCache(prog, primitives, modules, stdlibFAs, root, entryPath, entry, true, loader, nil, &buildInputs{reused: reused})
 	if reused != nil {

@@ -175,11 +175,12 @@ once workers: PositiveInt = 4
 /// at most `workers` at once, and the counts are added up when all have
 /// finished.
 pub fn frequency(texts: List<String>) -> Map<String, Int>
-    counts = concurrent
-        texts
-        |> Task.spawn_all(letter_counts, max_running: workers)
-        |> Task.await_all()
-    end
+    counts =
+        concurrent
+            texts
+            |> Task.spawn_all(letter_counts, max_running: workers)
+            |> Task.await_all()
+        end
 
     Iter.reduce(counts, {}, &Map.merge_with(&1, &2, Int.add))
 end

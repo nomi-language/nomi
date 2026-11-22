@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"github.com/nomi-language/nomi/internal/doctest"
 	"github.com/nomi-language/nomi/internal/nodeenv"
-	"github.com/nomi-language/nomi/internal/tourgo"
+	"github.com/nomi-language/nomi/internal/tourmodules"
 	"github.com/nomi-language/nomi/internal/wasmmem"
 	"github.com/nomi-language/nomi/vmhost"
 	"io/fs"
@@ -155,9 +155,6 @@ directory missing one of them was assembled some other way. Fix: %s`,
 // version pinned in the script and fetched from the network, so reading it
 // here would make the test need npm. They also carry a different risk —
 // a pinned third-party file does not drift when Nomi's source changes.
-// SQLite's WebAssembly build (sqlite/sqlite3.js and sqlite3.wasm) is the
-// same: a release pinned in the script by version and checksum, fetched
-// from sqlite.org. TestTourWasmRunsTheSqliteDriversTests runs it.
 func TestTourWasmBundleIsTheCurrentSources(t *testing.T) {
 	if stagedFileMissing(t, "nomi.wasm.gz") {
 		return
@@ -303,14 +300,6 @@ func buildTourWasm(t *testing.T, out string, state []byte) {
 	if err != nil {
 		t.Fatalf("abs(%s): %v", out, err)
 	}
-	//
-	// GOWORK is the script's as well: the tour links the sqlite driver's
-	// browser build from lib/sql/sqlite through that workspace
-	// (tourgo.GoWork), since the compiler's go.mod does not require it.
-	work, err := filepath.Abs(filepath.Join("..", tourgo.GoWork))
-	if err != nil {
-		t.Fatal(err)
-	}
 	// The std bundle the script embeds, made the script's way
 	// (internal/irbuild/stdbundlegen), each build its own.
 	bundle := t.TempDir()
@@ -323,9 +312,9 @@ func buildTourWasm(t *testing.T, out string, state []byte) {
 	}
 	cmd := exec.Command("go", "build", "-C", "..", "-trimpath", "-buildvcs=false",
 		"-tags", "nomi_stdbundle", "-overlay", filepath.Join(bundle, "overlay.json"), "-o", abs, "./cmd/nomi-wasm")
-	cmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm", "GOWORK="+work)
+	cmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
 	if output, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("GOWORK=%s GOOS=js GOARCH=wasm go build -trimpath -buildvcs=false -tags nomi_stdbundle ./cmd/nomi-wasm: %v\n%s", tourgo.GoWork, err, output)
+		t.Fatalf("GOOS=js GOARCH=wasm go build -trimpath -buildvcs=false -tags nomi_stdbundle ./cmd/nomi-wasm: %v\n%s", err, output)
 	}
 	// The script caps the module's memory after building it (internal/wasmmem),
 	// so the rebuild must too or it can never equal the staged file.
@@ -861,18 +850,16 @@ func TestTourWasmHoversAcrossTabs(t *testing.T) {
 // TestTourWasmRunsTheSqliteDriversTests runs the sqlite driver module's own
 // test file (sqlite_test.nomi: std/sql/testing's conformance suite, every
 // value read back, the constraint names) through the staged wasm, as the
-// page runs a block that imports sqlite: on the browser build of the
-// driver, over the staged SQLite WebAssembly build. cmd/nomi's
-// TestLibModules runs the same file (lib/sql/sqlite/sqlite_test.nomi) on the
-// native driver, so the two builds answer it alike. Its last case opens a
-// path in a directory that does not exist, which is a Connection error in
-// both.
+// page runs a block that imports sqlite: the driver's SQLite engine, a
+// WebAssembly module, run on Node's own engine by the browser build's
+// std::wasm, over the page's in-memory files. cmd/nomi's TestLibModules
+// runs the same file (lib/sql/sqlite/sqlite_test.nomi) natively, so the two
+// builds answer it alike.
 func TestTourWasmRunsTheSqliteDriversTests(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; loads a 25MB wasm under node; -short")
 	}
-	if stagedFileMissing(t, "nomi.wasm.gz") || stagedFileMissing(t, "wasm_exec.js") ||
-		stagedFileMissing(t, "sqlite/sqlite3.js") || stagedFileMissing(t, "sqlite/sqlite3.wasm") {
+	if stagedFileMissing(t, "nomi.wasm.gz") || stagedFileMissing(t, "wasm_exec.js") {
 		return
 	}
 	node, err := exec.LookPath("node")
@@ -883,7 +870,7 @@ func TestTourWasmRunsTheSqliteDriversTests(t *testing.T) {
 		t.Skip("node is not on PATH")
 	}
 	dir := ""
-	for _, m := range tourgo.Modules {
+	for _, m := range tourmodules.Modules {
 		if m.Name == "sqlite" {
 			dir = m.Dir
 		}
@@ -1062,10 +1049,9 @@ func runUnderNode(t *testing.T, node string, probes any) []nodeAnswer {
 
 // nodeDriver is the JS host. It is the same three steps run-worker.js performs
 // — load wasm_exec.js, decompress and instantiate nomi.wasm.gz, go.run() to
-// register the globals — and, as run-worker.js does before a run that
-// imports sqlite, loads the staged SQLite WebAssembly build as
-// globalThis.sqlite3; kept here rather than committed as a file so it cannot drift from the test
-// that uses it, and so the test needs nothing staged but the bundle itself.
+// register the globals; kept here rather than committed as a file so it
+// cannot drift from the test that uses it, and so the test needs nothing
+// staged but the bundle itself.
 const nodeDriver = `
 const fs = require("fs");
 const path = require("path");
@@ -1112,21 +1098,6 @@ go.env = { GODEBUG: "gcstoptheworld=1" };
     return r;
   };
   for (const p of probes) {
-    if (!p.hover && !p.module && !globalThis.sqlite3 && JSON.parse(globalThis.nomiTourModules(p.source)).includes("sqlite")) {
-      globalThis.sqlite3ApiConfig = {
-        disable: { vfs: { opfs: true, "opfs-vfs": true, "opfs-wl": true, "opfs-sahpool": true } },
-      };
-      require(path.join(dir, "sqlite", "sqlite3.js")); // sets globalThis.sqlite3InitModule, as importScripts does
-      const bytes = fs.readFileSync(path.join(dir, "sqlite", "sqlite3.wasm"));
-      globalThis.sqlite3 = await globalThis.sqlite3InitModule({
-        print() {},
-        printErr() {},
-        instantiateWasm(imports, done) {
-          WebAssembly.instantiate(bytes, imports).then((r) => done(r.instance, r.module));
-          return {};
-        },
-      });
-    }
     answers.push(answer(p));
   }
   function answer(p) {

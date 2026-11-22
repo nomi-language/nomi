@@ -1,0 +1,203 @@
+import
+    std::calendar.{Date, NaiveDateTime, Time}
+    std::instant.Instant
+    std::json.Json
+    std::sql.{self, Conn, Row, Sql, Value}
+    std::uuid.Uuid
+    postgres
+end
+
+fn fresh() -> Result<Conn, sql.Error>
+    postgres.connect(postgres.scratch()?)
+end
+
+fn first_row(rows: List<Row>) -> Result<List<Value>, sql.Error>
+    case rows
+        [row, ..] -> Ok(Row.values(row))
+        []        -> Err(sql.Error.Finished)
+    end
+end
+
+test "every kind of value reads back as itself, json keeping its text and jsonb normalized"
+    db = fresh()?
+    defer sql.close_quietly(db)
+
+    _ = Conn.exec(
+        db,
+        Sql"""
+        CREATE TABLE v (
+            i BIGINT, s SMALLINT, n INTEGER, r REAL, f DOUBLE PRECISION, d NUMERIC(12, 2), t TEXT,
+            vc VARCHAR(10), b BOOLEAN, x BYTEA, day DATE, at TIME, ts TIMESTAMP, tz TIMESTAMPTZ,
+            id UUID, j JSONB, js JSON, ns BIGINT[], names TEXT[], days DATE[]
+        )
+        """,
+    )?
+
+    at = Instant.from_nanos(1_792_413_005_250_000_000)
+    id = Uuid"0192f4c8-6f0e-7b39-9d6a-3c1f2b5e8a10"
+    ints: List<Maybe<Int>> = [Some(1), None, Some(3)]
+    none: List<String> = []
+
+    _ = Conn.exec(
+        db,
+        Sql"""
+        INSERT INTO v VALUES (${-7}, ${12}, ${70000}, ${1.5}, ${2.5}, ${12.25d}, ${"it's"}, ${"short"},
+        ${True}, ${String.to_bytes("hi")}, ${Date"2026-10-19"}, ${Time"12:30:05.5"},
+        ${NaiveDateTime"2026-10-19T12:30:05.5"}, ${at}, ${id}, ${Json.decode("{\"b\": 1, \"a\": [1, 2]}")!},
+        ${Json.decode("{\"b\": 1, \"a\": 2}")!}, ${ints}, ${none}, ${[Date"2026-10-19", Date"1999-12-31"]})
+        """,
+    )?
+
+    values = first_row(Conn.query(db, Sql"SELECT * FROM v")?)?
+
+    assert values == [
+        Value.Int(-7),
+        Value.Int(12),
+        Value.Int(70000),
+        Value.Float(1.5),
+        Value.Float(2.5),
+        Value.Decimal(12.25d),
+        Value.Text("it's"),
+        Value.Text("short"),
+        Value.Bool(True),
+        Value.Bytes(String.to_bytes("hi")),
+        Value.Date(Date"2026-10-19"),
+        Value.Time(Time"12:30:05.5"),
+        Value.Timestamp(NaiveDateTime"2026-10-19T12:30:05.5"),
+        Value.Timestamptz(at),
+        Value.Uuid(id),
+        Value.Json(Json.decode("{\"a\": [1, 2], \"b\": 1}")!),
+        Value.Json(Json.decode("{\"b\": 1, \"a\": 2}")!),
+        Value.Array([Value.Int(1), Value.Null, Value.Int(3)]),
+        Value.Array([]),
+        Value.Array([Value.Date(Date"2026-10-19"), Value.Date(Date"1999-12-31")]),
+    ]
+
+    text = first_row(Conn.query(db, Sql"SELECT js::text AS raw FROM v")?)?
+    assert text == [Value.Text("{\"a\":2,\"b\":1}")]
+end
+
+test "a type with no Value of its own reads as its text, and infinity as its word"
+    db = fresh()?
+    defer sql.close_quietly(db)
+
+    values = first_row(
+        Conn.query(
+            db,
+            Sql"SELECT interval '1 day 02:00', 'infinity'::date, '-infinity'::timestamptz, inet '10.0.0.1', time '24:00'",
+        )?
+    )?
+
+    assert values == [
+        Value.Text("1 day 02:00:00"),
+        Value.Text("infinity"),
+        Value.Text("-infinity"),
+        Value.Text("10.0.0.1"),
+        Value.Text("24:00:00"),
+    ]
+
+    assert [Value.Float(x)] = first_row(Conn.query(db, Sql"SELECT 'NaN'::numeric")?)?
+    assert Float.is_nan(x)
+
+    assert first_row(Conn.query(db, Sql"SELECT '-Infinity'::numeric")?)
+        == Ok([Value.Float(Float.negative_infinity())])
+end
+
+test "dates and times far from today cross whole"
+    db = fresh()?
+    defer sql.close_quietly(db)
+    bc = Date.new(-44, 3, 15)!
+    far = Date"+010000-01-01"
+    old = Instant.from_seconds(-11_676_096_000)
+
+    values = first_row(
+        Conn.query(
+            db,
+            Sql"SELECT ${bc}::date, ${far}::date, ${old}::timestamptz, ${bc}::date::text AS t",
+        )?
+    )?
+
+    assert values == [
+        Value.Date(bc),
+        Value.Date(far),
+        Value.Timestamptz(old),
+        Value.Text("0045-03-15 BC"),
+    ]
+end
+
+test "an Instant past what a timestamptz holds is refused, not sent wrapped"
+    db = fresh()?
+    defer sql.close_quietly(db)
+    beyond = Instant.from_nanos(Int.pow(10, 30))
+
+    assert Conn.query(db, Sql"SELECT ${beyond}::timestamptz") == Err(
+        sql.Error.Database{
+            code:    "22000",
+            message: "parameter $1: the Instant 1000000000000000000000000000000ns from the epoch is past what a timestamptz holds, 4713 BC to 294276 AD",
+        }
+    )
+end
+
+test "an array of two kinds, or of arrays, is refused"
+    db = fresh()?
+    defer sql.close_quietly(db)
+    mixed = Value.Array([Value.Int(1), Value.Text("a")])
+    nested = Value.Array([Value.Array([Value.Int(1)])])
+
+    assert Conn.query(db, Sql"SELECT ${mixed}::text[]") == Err(
+        sql.Error.Database{
+            code:    "22000",
+            message: "parameter $1: an Array's elements must all be of one kind",
+        }
+    )
+
+    assert Conn.query(db, Sql"SELECT ${nested}::int[]") == Err(
+        sql.Error.Database{
+            code:    "22000",
+            message: "parameter $1: an Array of Arrays, and only one-dimensional arrays cross",
+        }
+    )
+
+    assert Conn.query(db, Sql"SELECT ARRAY[[1, 2], [3, 4]] AS m") == Err(
+        sql.Error.Database{
+            code:    "22000",
+            message: "the column `m` holds an array of more than one dimension, which has no Nomi form",
+        }
+    )
+end
+
+test "exec answers how many rows changed, and runs several statements at once"
+    db = fresh()?
+    defer sql.close_quietly(db)
+
+    assert Conn.exec(db, Sql"CREATE TABLE t (n INTEGER); INSERT INTO t VALUES (1), (2), (3)")
+        == Ok(3)
+
+    assert Conn.exec(db, Sql"UPDATE t SET n = n + ${10} WHERE n > ${1}") == Ok(2)
+    assert Conn.exec(db, Sql"DELETE FROM t") == Ok(3)
+end
+
+test "a statement prepared once runs again after the table under it changes"
+    db = fresh()?
+    defer sql.close_quietly(db)
+    _ = Conn.exec(db, Sql"CREATE TABLE t (n INTEGER)")?
+    _ = Conn.exec(db, Sql"INSERT INTO t VALUES (1)")?
+    assert first_row(Conn.query(db, Sql"SELECT * FROM t")?) == Ok([Value.Int(1)])
+    _ = Conn.exec(db, Sql"ALTER TABLE t ADD COLUMN m TEXT")?
+    assert first_row(Conn.query(db, Sql"SELECT * FROM t")?) == Ok([Value.Int(1), Value.Null])
+end
+
+test "COPY FROM STDIN is refused and the connection stays usable"
+    db = fresh()?
+    defer sql.close_quietly(db)
+    _ = Conn.exec(db, Sql"CREATE TABLE t (n INTEGER)")?
+
+    assert Conn.exec(db, Sql"COPY t FROM STDIN") == Err(
+        sql.Error.Database{
+            code:    "0A000",
+            message: "COPY ... FROM STDIN is not supported: the driver sends no COPY data",
+        }
+    )
+
+    assert first_row(Conn.query(db, Sql"SELECT 1 AS n")?) == Ok([Value.Int(1)])
+end

@@ -5,17 +5,33 @@
 // function its binding names (internal/hostgen). It reads its operands as
 // rt.Value, converts each to the Go parameter type the declaration projects
 // to, calls the Go function directly, and converts the Go results back. The
-// projection rules are these: a Go
-// multiple return is a tuple, a trailing `error` wraps the rest in
-// `Result<_, String>`, `*T` is `Maybe<T>`, a Go struct is the Nomi struct the
-// declaration names, and a registered host type is an opaque handle.
+// projection rules are these (internal/hostgen package doc, "Projection
+// rows"): a Go multiple return is a tuple, a trailing `error` wraps the rest
+// in `Result<_, String>`, a `*T` result is `Maybe<T>`, a Go struct is the
+// Nomi struct the declaration names, and a registered host type is an opaque
+// handle. A std row's Go function, linked into the generator, may also
+// answer a tuple as an anonymous struct of fields F0, F1, ..., as an
+// rt.Maybe's payload (`rt.Maybe[struct{ F0 rt.Int; F1 int64 }]` is
+// `Maybe<(Int, Int)>`), which is how internal/irbuild reads an rt
+// signature's tuple.
 //
-// A binding that answers a Maybe or a Result whose payload is one value has
-// a second adapter, its parts form (PartsFunc): the same call, answering the
-// payload and a flag instead of the Some or Ok record. Bind hands each to
-// Env.AddParts, so an engine that only takes the answer apart builds none.
+// Every binding of at most MaxSlots operands is generated as its register
+// form (RegFunc) instead: the
+// same call over operands and an answer kept unboxed in Slots, as an
+// engine's registers hold them. An Int that fits int64, a Float, a Bool, a
+// Byte, a String and a Bytes cross it without a box, a tuple answers its
+// components and a Maybe or a Result its payload and whether it carries
+// one, so an engine that reads and writes registers builds no box, no
+// tuple and no Some or Ok for the call. A generated table lists these
+// forms as rows (Row), and Bind hands each to Env.AddRegs with the slot
+// types of its operands and its answer (Regs, BindRows). The binding's
+// adapter is that form over boxed values (Regs.Func): its operands laid
+// into slots, refused as a conversion refuses a value of another kind,
+// and its answer built whole from the parts (Regs.Answer), which an
+// engine that keeps the answer whole calls too. So each binding's
+// conversions are written once, and its two forms fail alike.
 //
-// This package is public because a generated FFI wrapper is a separate Go
+// This package is public because an embedder is a separate Go
 // module and can import only public packages. It imports rt and nothing else
 // from this repository, so an adapter links no front end.
 //
@@ -50,14 +66,6 @@ import (
 // callback the Go function invokes runs on it through the Invoker. An adapter
 // for a function that needs neither ignores it, so nil is a legal frame there.
 type Func func(fr *rt.Frame, args []rt.Value) (rt.Value, error)
-
-// PartsFunc is a bound adapter's parts form, for a binding that answers a
-// Maybe or a Result: the result taken apart instead of built. For a Some or
-// an Ok it answers the payload, as the record would hold it, and true; for a
-// None or an Err, the record and false. It fails as the adapter does. An
-// engine that only tests the result and reads the payload calls it to build
-// no Some and no Ok.
-type PartsFunc func(fr *rt.Frame, args []rt.Value) (v rt.Value, ok bool, err error)
 
 // Invoker calls a Nomi function value with rt operands, on the frame of the
 // host call that is calling back. An adapter whose Go function takes a
@@ -169,17 +177,35 @@ type Env struct {
 	Resolve func(*DescSpec) (*rt.TypeDesc, error)
 	// Invoke calls a Nomi function value. Nil fails every callback.
 	Invoke Invoker
-	// AddParts, when set, receives the parts form of each binding that
-	// answers a Maybe or a Result with a payload of its own, by binding
-	// name, as Bind runs.
-	AddParts func(name string, fn PartsFunc)
+	// AddRegs, when set, receives the register form of each binding that
+	// has one, by binding name, as Bind runs.
+	AddRegs func(name string, r Regs)
 
 	mu    sync.Mutex
 	descs map[string]*rt.TypeDesc
+	// bySpec is each spec's answer: a table asks for one more than once.
+	bySpec map[*DescSpec]*rt.TypeDesc
 }
 
 // Desc answers the descriptor for spec, checked against the spec's layout.
 func (e *Env) Desc(spec *DescSpec) (*rt.TypeDesc, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if d, ok := e.bySpec[spec]; ok {
+		return d, nil
+	}
+	d, err := e.desc(spec)
+	if err != nil {
+		return nil, err
+	}
+	if e.bySpec == nil {
+		e.bySpec = map[*DescSpec]*rt.TypeDesc{}
+	}
+	e.bySpec[spec] = d
+	return d, nil
+}
+
+func (e *Env) desc(spec *DescSpec) (*rt.TypeDesc, error) {
 	if e.Resolve != nil {
 		d, err := e.Resolve(spec)
 		if err != nil {
@@ -190,8 +216,6 @@ func (e *Env) Desc(spec *DescSpec) (*rt.TypeDesc, error) {
 		}
 		return d, nil
 	}
-	e.mu.Lock()
-	defer e.mu.Unlock()
 	key := spec.Key()
 	if d, ok := e.descs[key]; ok {
 		return d, nil

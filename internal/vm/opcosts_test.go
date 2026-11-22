@@ -198,3 +198,127 @@ end
 		t.Errorf("Vector.length does not compile to opHost alone:\n%s", listing)
 	}
 }
+
+// A list pattern's length tests and reads run from the cells: an Int read
+// out of a list allocates nothing, and none of the pattern's questions or
+// reads compiles to the boxed handler (only the case's unreachable arm does).
+func TestOpCosts_AListPatternReadsItsCells(t *testing.T) {
+	src := `import std::io
+
+fn first_two(xs: List<Int>) -> Int
+    case xs
+        [a, b]         -> a + b
+        [h, ..rest]    -> h + List.length(rest)
+        []             -> 0
+    end
+end
+
+fn down(n: Int, acc: Int, xs: List<Int>) -> Int
+    if n < 1 then acc else down(n - 1, acc + first_two(xs), xs)
+end
+
+fn main()
+    down(%d, 0, [1000, 2000, 3000]) |> io.print()
+end
+`
+	if per := allocsPerActivation(t, src); per > 0.1 {
+		t.Errorf("a list pattern's match and reads allocate %.2f times, want 0", per)
+	}
+	p, err := vmhost.LoadSource("main", strings.Replace(src, "%d", "3", 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	listing, err := p.Disassemble("first_two")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{" matchl ", " projl "} {
+		if !strings.Contains(listing, want) {
+			t.Errorf("first_two compiles no%s:\n%s", want, listing)
+		}
+	}
+	for _, line := range strings.Split(listing, "\n") {
+		if strings.Contains(line, " ir ") && !strings.HasSuffix(line, "; nomatch") {
+			t.Errorf("first_two runs a list pattern through the handler: %s\n%s", line, listing)
+		}
+	}
+}
+
+// A call through a function value (a named function's or a closure's) and a
+// dispatched call on an interface value pass their operands in registers,
+// as a direct call does: no operand slice, and no box for an Int past 255
+// on the way in or out. Each call compiles to opCallV.
+func TestOpCosts_ACallThroughAValueAllocatesNothing(t *testing.T) {
+	for _, tc := range []struct{ name, src string }{
+		{"named function", `import std::io
+
+fn plus(a: Int, b: Int) -> Int
+    a + b
+end
+
+fn down(n: Int, acc: Int, f: (Int, Int) -> Int) -> Int
+    if n < 1 then acc else down(n - 1, f(acc, 1000), f)
+end
+
+fn main()
+    down(%d, 0, plus) |> io.print()
+end
+`},
+		{"closure", `import std::io
+
+fn down(n: Int, acc: Int, f: (Int) -> Int) -> Int
+    if n < 1 then acc else down(n - 1, acc + f(n), f)
+end
+
+fn main()
+    k = 1000
+    down(%d, 0, fn j: Int -> j * k) |> io.print()
+end
+`},
+		{"interface value", `import std::io
+
+interface Weigh
+    fn weigh(v: self) -> Int
+end
+
+struct P
+    x: Int
+    y: Int
+end
+
+impl Weigh for P
+    fn weigh(p: P) -> Int
+        p.x + p.y
+    end
+end
+
+fn down(n: Int, acc: Int, w: Weigh) -> Int
+    if n < 1 then acc else down(n - 1, acc + Weigh.weigh(w), w)
+end
+
+fn main()
+    w: Weigh = P{x: 1000, y: 2000}
+    down(%d, 0, w) |> io.print()
+end
+`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if per := allocsPerActivation(t, tc.src); per > 0.1 {
+				t.Errorf("a call through a value allocates %.2f times, want 0. The likely causes: "+
+					"the call running through its boxed handler (callInstr) instead of opCallV, "+
+					"or a callee whose parameter banks the site's check refuses", per)
+			}
+			p, err := vmhost.LoadSource("main", strings.Replace(tc.src, "%d", "3", 1))
+			if err != nil {
+				t.Fatal(err)
+			}
+			listing, err := p.Disassemble("down")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(listing, " callv ") || strings.Contains(listing, " ir ") {
+				t.Errorf("down's call through a value does not compile to opCallV alone:\n%s", listing)
+			}
+		})
+	}
+}

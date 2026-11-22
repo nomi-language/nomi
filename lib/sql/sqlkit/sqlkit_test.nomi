@@ -1,4 +1,5 @@
 import
+    std::fs
     std::fs::testing.{self, Sandbox}
     std::json.Json
     std::sql.{self, Conn, Row, Sql, Value}
@@ -13,8 +14,6 @@ import
     sqlkit.{self, Migration, Rows}
     sqltext
 end
-
-gopkg "github.com/nomi-language/nomi/lib/sql/sqlkit/testside"
 
 // --- query files ---------------------------------------------------------
 fn parsed(text: String) -> Result<File, List<Problem>>
@@ -32,10 +31,11 @@ end
 test "a query file reads each query's annotation, doc lines and SQL"
     text = "-- The shop's queries.\n-- import: shop.Report\n\n-- query: user_by_email(email: String) -> Maybe<User>\n-- The user with this email,\n--\n-- if any.\nSELECT id\nFROM users\nWHERE email = @email;\n\n-- query: all_users()\nSELECT id FROM users;\n"
 
-    file = case parsed(text)
-        Ok(f)   -> f
-        Err(ps) -> return Err("${messages(ps)}")
-    end
+    file =
+        case parsed(text)
+            Ok(f)   -> f
+            Err(ps) -> return Err("${messages(ps)}")
+        end
 
     assert file.imports == ["shop.Report"]
 
@@ -68,16 +68,17 @@ end
 test "a parameter's type may hold commas inside brackets"
     text = "-- query: q(a: Map<String, Int>, b: (Int, Int)) -> Int\nSELECT @a, @b;\n"
 
-    params = case parsed(text)
-        Ok(f) ->
-            f.queries
-            |> Iter.flat_map(fn q -> q.params)
-            |> Iter.map(fn p -> p.type_text)
-            |> Iter.to_list()
+    params =
+        case parsed(text)
+            Ok(f) ->
+                f.queries
+                |> Iter.flat_map(fn q -> q.params)
+                |> Iter.map(fn p -> p.type_text)
+                |> Iter.to_list()
 
-        Err(ps) ->
-            return Err("${messages(ps)}")
-    end
+            Err(ps) ->
+                return Err("${messages(ps)}")
+        end
 
     assert params == ["Map<String, Int>", "(Int, Int)"]
 end
@@ -85,10 +86,11 @@ end
 test "a query file's mistakes are problems at their line and column"
     text = "SELECT 1;\n-- query: Bad()\nSELECT 1;\n-- query: no_parens -> Int\nSELECT 1;\n-- query: twice(a: Int, a: Int)\nSELECT @a;\n-- query: no_end() -> Int\nSELECT 1\n-- query: two() -> Int\nSELECT 1; SELECT 2;\n-- query: empty()\n"
 
-    problems = case parsed(text)
-        Ok(_)   -> return Err("no problems")
-        Err(ps) -> ps
-    end
+    problems =
+        case parsed(text)
+            Ok(_)   -> return Err("no problems")
+            Err(ps) -> ps
+        end
 
     assert messages(problems) == [
         "SQL before the first `-- query:` belongs to no query",
@@ -327,20 +329,22 @@ test "SQL that returns no rows answers the rows it changed with `-> Changed`, or
 end
 
 test "a query's result must fit whether its SQL returns rows"
-    none = fn result: String ->
-        messages(
-            problems_of(
-                "-- query: q(id: Int)${result}\nDELETE FROM users WHERE id = @id;\n",
-                [Ok([])],
+    none =
+        fn result: String ->
+            messages(
+                problems_of(
+                    "-- query: q(id: Int)${result}\nDELETE FROM users WHERE id = @id;\n",
+                    [Ok([])],
+                )
             )
-        )
-    end
+        end
 
-    rows = fn result: String ->
-        messages(
-            problems_of("-- query: q()${result}\nSELECT id FROM users;\n", [Ok([id_column()])])
-        )
-    end
+    rows =
+        fn result: String ->
+            messages(
+                problems_of("-- query: q()${result}\nSELECT id FROM users;\n", [Ok([id_column()])])
+            )
+        end
 
     assert none("") == [
         "`q` returns no rows, so its result is the number of rows it changed: write `-> Changed`",
@@ -357,14 +361,15 @@ test "a query's result must fit whether its SQL returns rows"
 end
 
 test "a result that names no row type is a problem at the annotation"
-    refused = fn result: String ->
-        problems = problems_of(
-            "-- query: q() -> ${result}\nSELECT id, name FROM users;\n",
-            [Ok([id_column(), name_column()])],
-        )
+    refused =
+        fn result: String ->
+            problems = problems_of(
+                "-- query: q() -> ${result}\nSELECT id, name FROM users;\n",
+                [Ok([id_column(), name_column()])],
+            )
 
-        (messages(problems), places(problems))
-    end
+            (messages(problems), places(problems))
+        end
 
     assert refused("List") == (
         ["`-> List` names no row type: write `-> List<MyRow>`"],
@@ -386,11 +391,12 @@ test "a result that names no row type is a problem at the annotation"
         [(1, 18)],
     )
 
-    not_a_row = fn t: String ->
-        [
-            "`${t}` is not a row type: a row type names a struct, or for a query of one column one of std's value types or one of the schema's enums",
-        ]
-    end
+    not_a_row =
+        fn t: String ->
+            [
+                "`${t}` is not a row type: a row type names a struct, or for a query of one column one of std's value types or one of the schema's enums",
+            ]
+        end
 
     assert refused("Result<User, String>").first == not_a_row("Result<User, String>")
     assert refused("Result").first == not_a_row("Result")
@@ -442,9 +448,10 @@ fn status_column() -> Column
 end
 
 test "a one-column query reads one of the schema's enums as the column, in every shape"
-    read = fn result: String ->
-        source_of("-- query: q() -> ${result}\nSELECT status FROM users;\n", [status_column()])
-    end
+    read =
+        fn result: String ->
+            source_of("-- query: q() -> ${result}\nSELECT status FROM users;\n", [status_column()])
+        end
 
     assert "    runtime.one(conn, \"q\", statement, fn row -> runtime.text(\"q\", row, 0))\n" in read(
         "UserStatus"
@@ -507,18 +514,20 @@ test "a one-column query's row type is a `Maybe` exactly when the column may be 
     maybe_status = {..status_column(), nullable: True}
     token = Column{name: "token", type_name: "UUID", table: "", column: "", nullable: True}
 
-    refused = fn result: String, column: Column ->
-        problems = problems_of(
-            "-- query: q() -> ${result}\nSELECT ${column.name} FROM users;\n",
-            [Ok([column])],
-        )
+    refused =
+        fn result: String, column: Column ->
+            problems = problems_of(
+                "-- query: q() -> ${result}\nSELECT ${column.name} FROM users;\n",
+                [Ok([column])],
+            )
 
-        messages(problems)
-    end
+            messages(problems)
+        end
 
-    nullable = fn column: String, t: String ->
-        ["the column `${column}` of `q` may be NULL, so its row type cannot be `${t}`"]
-    end
+    nullable =
+        fn column: String, t: String ->
+            ["the column `${column}` of `q` may be NULL, so its row type cannot be `${t}`"]
+        end
 
     assert refused("UserStatus", maybe_status) == nullable("status", "UserStatus")
     assert refused("Maybe<UserStatus>", maybe_status) == nullable("status", "UserStatus")
@@ -532,11 +541,15 @@ test "a one-column query's row type is a `Maybe` exactly when the column may be 
         "the column `status` of `q` is never NULL, so its row type cannot be `Maybe<UserStatus>`",
     ]
 
-    hints = fn result: String ->
-        problems_of("-- query: q() -> ${result}\nSELECT status FROM users;\n", [Ok([maybe_status])])
-        |> Iter.flat_map(fn p -> p.hints)
-        |> Iter.to_list()
-    end
+    hints =
+        fn result: String ->
+            problems_of(
+                "-- query: q() -> ${result}\nSELECT status FROM users;\n",
+                [Ok([maybe_status])],
+            )
+            |> Iter.flat_map(fn p -> p.hints)
+            |> Iter.to_list()
+        end
 
     assert hints("Maybe<UserStatus>") == [
         "write `-> Maybe<Maybe<UserStatus>>` to read the NULL as `None`",
@@ -547,9 +560,10 @@ test "a one-column query's row type is a `Maybe` exactly when the column may be 
         "write `-> Rows<Maybe<UserStatus>>` to read the NULL as `None`"
     )
 
-    accepted = fn result: String, column: Column ->
-        source_of("-- query: q() -> ${result}\nSELECT ${column.name} FROM users;\n", [column])
-    end
+    accepted =
+        fn result: String, column: Column ->
+            source_of("-- query: q() -> ${result}\nSELECT ${column.name} FROM users;\n", [column])
+        end
 
     assert "-> Result<Maybe<Maybe<UserStatus>>, sql.Error>" in accepted(
         "Maybe<Maybe<UserStatus>>",
@@ -613,13 +627,11 @@ end
 test "an imported type shadows the row of its name, and `schema.User` is the row with no import line"
     text = "-- import: models.{User}\n\n-- query: account(id: Int) -> Maybe<User>\nSELECT id, name FROM users WHERE id = @id;\n\n-- query: row(id: Int) -> Maybe<schema.User>\nSELECT id, name FROM users WHERE id = @id;\n"
 
-    source = case generate(
-        text,
-        [Ok([id_column(), name_column()]), Ok([id_column(), name_column()])],
-    )
-        Ok(s)   -> s
-        Err(ps) -> "${messages(ps)}"
-    end
+    source =
+        case generate(text, [Ok([id_column(), name_column()]), Ok([id_column(), name_column()])])
+            Ok(s)   -> s
+            Err(ps) -> "${messages(ps)}"
+        end
 
     assert "import\n    std::sql\n    models.User\n    schema\n    sqlkit::runtime\nend\n" in source
     assert "pub fn account(conn: sql.Conn, id: Int) -> Result<Maybe<User>, sql.Error>" in source
@@ -662,10 +674,11 @@ test "an enum an import shadows is written qualified in an anonymous row"
         [Ok([]), Ok([status])],
     )
 
-    source = case generated
-        Ok(text) -> text
-        Err(ps)  -> "${messages(ps)}"
-    end
+    source =
+        case generated
+            Ok(text) -> text
+            Err(ps)  -> "${messages(ps)}"
+        end
 
     assert "pub fn q(conn: sql.Conn, s: UserStatus)" in source
     assert "status: schema.UserStatus" in source
@@ -782,9 +795,10 @@ end
 
 // --- the schema ----------------------------------------------------------
 fn many_tables() -> List<Table>
-    table = fn name: String, columns: List<TableColumn> ->
-        Table{name:, migration: "db/migrations/1.sql", line: 1, columns:}
-    end
+    table =
+        fn name: String, columns: List<TableColumn> ->
+            Table{name:, migration: "db/migrations/1.sql", line: 1, columns:}
+        end
 
     [
         table("categories",  [column("id", "INTEGER", False, [])]),
@@ -830,12 +844,13 @@ test "nomi.toml names a table's row struct, and its enums follow"
 end
 
 test "row names in nomi.toml that are not type names, name no table or clash are problems"
-    problems = fn tables: Map<String, String> ->
-        case schema_with(named(tables), many_tables())
-            Ok(_)   -> []
-            Err(ps) -> messages(ps)
+    problems =
+        fn tables: Map<String, String> ->
+            case schema_with(named(tables), many_tables())
+                Ok(_)   -> []
+                Err(ps) -> messages(ps)
+            end
         end
-    end
 
     assert problems({"people" => "person"}) == [
         "`[sqlkit.database.main.tables]` names the row of `people` `person`, which is not a type's name",
@@ -851,8 +866,54 @@ test "row names in nomi.toml that are not type names, name no table or clash are
 end
 
 test "with no database table, the module has `main` with the defaults"
-    assert databases.read(Json.Null) == [databases.defaults("main")]
+    assert databases.read(Json.Null, "sqlkit") == [databases.defaults("main")]
     assert databases.out_file(databases.defaults("main"), "schema") == "schema.nomi"
+end
+
+test "a module that names sqlkit `db` reads `[db]` and gets code that imports sqlkit's files through `db`"
+    db = {..databases.defaults("main"), kit: "db"}
+
+    config =
+        Json.decode("{\"database\":{\"main\":{\"dialect\":\"mysql\"}}}")
+        |> Result.with_default(Json.Null)
+
+    assert databases.read(Json.Null, "db") == [db]
+
+    assert databases.problems(config, "db") == [
+        "nomi.toml: `[db.database.main]` names the dialect \"mysql\"; sqlkit knows \"sqlite\" and \"postgres\"",
+    ]
+
+    schema = schema_source(db)
+
+    for_users =
+        case schema_with(db, [users_table()])
+            Ok(s)   -> s
+            Err(ps) -> return Err("${messages(ps)}")
+        end
+
+    file = parsed(
+        "-- query: q(id: Int) -> Changed\nDELETE FROM users WHERE id = @id;\n-- query: all() -> Rows<User>\nSELECT id, name FROM users;\n"
+    )?
+
+    queries =
+        codegen.queries_file(for_users, file, [Ok([]), Ok([id_column(), name_column()])], "ab12")
+        |> Result.map_err(fn ps -> "${messages(ps)}")?
+
+    test_source = codegen.test_file(db, "ab12")
+
+    // sqlkit's root file is `db::sqlkit` there, and binds `sqlkit`.
+    assert "// Generated by `nomi tool db generate`" in schema
+    assert "\n    std::sql\n    db::runtime\n    db::sqlkit\nend\n" in schema
+    assert "pub once migrations: List<sqlkit.Migration> = [\n    sqlkit.Migration{" in schema
+    assert "\n    db::runtime\n    db::sqlkit\n    schema.User\nend\n" in queries
+    assert "-> Result<sqlkit.Changed, sql.Error>" in queries
+    assert "pub fn all(conn: sql.Conn) -> sqlkit.Rows<User>" in queries
+    assert "import db::inputs\n" in test_source
+    assert "// `nomi tool db generate`: run it again." in test_source
+    assert codegen.recorded(queries) == Some("ab12")
+    refute "    sqlkit\n" in schema + queries
+    refute "sqlkit::" in schema + queries + test_source
+    Ok(Unit)
 end
 
 // --- the inputs and the freshness test -----------------------------------
@@ -1032,14 +1093,6 @@ test "one and optional count the rows"
 end
 
 // --- migrations ----------------------------------------------------------
-fn temp_dir() -> Result<String, String> go testside.TempDir
-
-fn remove_all(path: String) -> Result<Unit, String> go testside.RemoveAll
-
-fn remove_quietly(path: String)
-    _ = remove_all(path)
-end
-
 // Opens the database file at path, migrates it, and closes it.
 fn migrate_file(path: String, migrations: List<Migration>) -> Result<Unit, sql.Error>
     db = sqlite.open(path)?
@@ -1058,8 +1111,8 @@ fn applied(path: String) -> Result<List<String>, sql.Error>
 end
 
 test "migrate runs only the migrations a database file has not run, and refuses a changed one"
-    dir = temp_dir() |> Result.map_err(fn e -> sql.Error.Connection{message: e})?
-    defer remove_quietly(dir)
+    dir = fs.make_temp_dir() |> Result.map_err(fn e -> sql.Error.Connection{message: "${e}"})?
+    defer fs.remove_all_quietly(dir)
     path = "${dir}/shop.db"
 
     users = Migration{

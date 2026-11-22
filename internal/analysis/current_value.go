@@ -220,14 +220,17 @@ func (c *checker) wholeValueHint(lit *ast.StructLit, ty Type) string {
 	return fmt.Sprintf("a brace without `..` is a whole new %s; to change only the fields written, write `%s`", formatTypeForError(ty), suggestion)
 }
 
+// StdStructUpdate is std/structs' `Struct.update`, a `host fn` declared
+// inside `interface Struct`, which takes a patch.
+var StdStructUpdate = StdFunc{Module: "std/structs", Owner: "Struct", Name: "update"}
+
 // markStructUpdatePatch records the literal patch of a `Struct.update` call,
-// whose fields are update positions (holesAllowed).
+// whose fields are update positions (holesAllowed). The callee is std's
+// `Struct.update` by the declaration it names (stdFuncNamed): `Rec.update`
+// under `import std::structs.{Struct as Rec}` is one, and a program's own
+// type imported as `Struct` is not.
 func (c *checker) markStructUpdatePatch(call *ast.Call) {
-	fa, ok := call.Func.(*ast.FieldAccess)
-	if !ok || fa.Field == nil || fa.Field.Name != "update" {
-		return
-	}
-	if ti, ok := fa.Object.(*ast.TypeIdent); !ok || ti.Name != "Struct" {
+	if c.fa.stdFuncNamed(call.Func) != StdStructUpdate {
 		return
 	}
 	var patch *ast.StructLit

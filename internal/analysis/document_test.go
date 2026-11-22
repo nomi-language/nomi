@@ -611,8 +611,8 @@ func TestFindProjectRoot_TestProgramDirectoryBeatsCategoryRoot(t *testing.T) {
 
 func TestFindProjectRoot_TestProgramAppMarkerBeatsCategoryRoot(t *testing.T) {
 	tmp := t.TempDir()
-	category := filepath.Join(tmp, "tests", "18-ffi-and-dynamic")
-	program := filepath.Join(category, "tagged_ffi_app")
+	category := filepath.Join(tmp, "tests", "18-json-and-dynamic")
+	program := filepath.Join(category, "tagged_app")
 	if err := os.MkdirAll(program, 0755); err != nil {
 		t.Fatal(err)
 	}

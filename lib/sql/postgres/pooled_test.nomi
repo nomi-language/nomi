@@ -1,0 +1,152 @@
+import
+    std::channels.{Arm, Channel}
+    std::duration.Duration
+    std::sql.{self, Conn, Row, Sql}
+    std::tasks.Task
+    postgres
+end
+
+fn n_of(db: Conn, statement: sql.Statement) -> Result<Int, sql.Error>
+    case Conn.query(db, statement)?
+        [row, ..] -> Row.get<Int>(row, "n")
+        []        -> Err(sql.Error.Finished)
+    end
+end
+
+test "a pool runs a statement beside an open transaction on another connection"
+    db = postgres.pool(postgres.scratch()?)
+    defer sql.close_quietly(db)
+    _ = Conn.exec(db, Sql"CREATE TABLE t (n INTEGER)")?
+    tx = Conn.begin_transaction(db)?
+    _ = Conn.exec(tx, Sql"INSERT INTO t VALUES (1)")?
+
+    beside =
+        concurrent
+            read = Task.spawn(fn -> n_of(db, Sql"SELECT count(*) AS n FROM t"))
+            wrote = Task.spawn(fn -> Conn.exec(db, Sql"INSERT INTO t VALUES (2)"))
+            (Task.await(read), Task.await(wrote))
+        end
+
+    assert beside == (Ok(0), Ok(1)) or beside == (Ok(1), Ok(1))
+    Conn.rollback(tx)?
+    assert n_of(db, Sql"SELECT count(*) AS n FROM t WHERE n = 2") == Ok(1)
+    assert n_of(db, Sql"SELECT count(*) AS n FROM t WHERE n = 1") == Ok(0)
+    assert Conn.commit(tx) == Err(sql.Error.Finished)
+end
+
+test "on one connection a statement beside an open transaction waits for it to end"
+    db = postgres.connect(postgres.scratch()?)?
+    defer sql.close_quietly(db)
+    _ = Conn.exec(db, Sql"CREATE TABLE t (n INTEGER)")?
+    tx = Conn.begin_transaction(db)?
+    _ = Conn.exec(tx, Sql"INSERT INTO t VALUES (1)")?
+
+    (early, after) =
+        concurrent
+            wrote = Task.spawn(fn -> Conn.exec(db, Sql"INSERT INTO t VALUES (2)"))
+
+            // The write cannot run while the transaction holds the connection.
+            early = Channel.select(
+                [
+                    Arm.after(Duration.milliseconds(200), fn ->
+                        n_of(tx, Sql"SELECT count(*) AS n FROM t")
+                    end),
+                ]
+            )
+
+            Conn.rollback(tx)?
+            Ok((early, Task.await(wrote)))
+        end?
+
+    assert early == Ok(1)
+    assert after == Ok(1)
+    assert n_of(db, Sql"SELECT count(*) AS n FROM t") == Ok(1)
+end
+
+test "a statement sent through an outer level while a savepoint is open is refused"
+    db = postgres.connect(postgres.scratch()?)?
+    defer sql.close_quietly(db)
+    tx = Conn.begin_transaction(db)?
+    savepoint = Conn.begin_transaction(tx)?
+
+    assert Conn.exec(tx, Sql"SELECT 1") == Err(
+        sql.Error.Database{
+            code:    "25001",
+            message: "a savepoint is open inside this transaction; run the statement on the Conn its begin answered",
+        }
+    )
+
+    Conn.commit(savepoint)?
+    assert Conn.exec(tx, Sql"SELECT ${1}") == Ok(1)
+    assert Conn.exec(savepoint, Sql"SELECT 1") == Err(sql.Error.Finished)
+    Conn.commit(tx)?
+end
+
+test "commit and rollback on a connection that is not a transaction are refused"
+    db = postgres.connect(postgres.scratch()?)?
+    defer sql.close_quietly(db)
+
+    assert Conn.commit(db) == Err(
+        sql.Error.Database{
+            code:    "25P01",
+            message: "commit on a connection that is not a transaction",
+        }
+    )
+
+    Conn.close(db)?
+    assert Conn.rollback(db) == Err(sql.Error.Closed)
+end
+
+test "a pool whose URL does not parse fails its first statement"
+    db = postgres.pool("postgres://h/db?sslmode=sometimes")
+    defer sql.close_quietly(db)
+
+    assert Conn.ping(db) == Err(
+        sql.Error.Connection{
+            message: "sslmode `sometimes` is not one of disable, allow, prefer, require, verify-ca, verify-full",
+        }
+    )
+end
+
+test "a pool opens no more connections than it may, and a statement waits for one"
+    url = postgres.scratch()?
+    db = postgres.pool(url + "&pool_max_conns=2")
+    defer sql.close_quietly(db)
+    watcher = postgres.connect(url)?
+    defer sql.close_quietly(watcher)
+
+    counted =
+        concurrent
+            sleepers = Task.spawn_all(
+                1..=4,
+                fn _ -> Conn.query(db, Sql"SELECT pg_sleep(0.3)"),
+                max_running: 4,
+            )
+
+            _ = Channel.select([Arm.after(Duration.milliseconds(150), fn -> Unit)])
+
+            busy = n_of(
+                watcher,
+                Sql"SELECT count(*) AS n FROM pg_stat_activity WHERE query LIKE 'SELECT pg_sleep%' AND state = 'active'",
+            )
+
+            _ = Task.await_all(sleepers)
+            busy
+        end
+
+    assert counted == Ok(2)
+end
+
+test "closing a connection rolls back its open transaction"
+    url = postgres.scratch()?
+    db = postgres.connect(url)?
+    defer sql.close_quietly(db)
+    _ = Conn.exec(db, Sql"CREATE TABLE t (n INTEGER)")?
+    tx = Conn.begin_transaction(db)?
+    _ = Conn.exec(tx, Sql"INSERT INTO t VALUES (1)")?
+    Conn.close(db)?
+    assert Conn.exec(tx, Sql"INSERT INTO t VALUES (2)") == Err(sql.Error.Closed)
+    again = postgres.connect(url)?
+    defer sql.close_quietly(again)
+    assert n_of(again, Sql"SELECT count(*) AS n FROM t") == Ok(0)
+end

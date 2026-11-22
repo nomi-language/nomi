@@ -15,7 +15,7 @@ import (
 
 // TestOrphanRule_RejectsForeignIfaceForForeignType_E2E runs the whole
 // BuildProjectWithCache pipeline over testdata/orphan_violator, an on-disk
-// project whose go.mod replaces a sibling orphan_dep module and whose entry
+// project whose nomi.toml names a sibling orphan_dep module and whose entry
 // implements `Display` (std) for `Pad` (orphan_dep). It is the on-disk
 // counterpart to TestOrphanImpl_CrossModuleRejected, so it also covers
 // nomi.toml parsing and project-root discovery.

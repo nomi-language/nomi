@@ -216,7 +216,7 @@ end
 			name: "two self arguments",
 			bad:  "fn f(a: Sized, b: Sized) -> Int\n    Sized.both(a, b)\nend\n",
 			good: "fn f<T>(a: T, b: T) -> Int where T: Sized\n    Sized.both(a, b)\nend\n",
-			want: "main.nomi:25:16: `Sized.both` cannot be called on `a`, a `Sized`: its 2 `self` arguments must be one implementor, and `Sized` values may hold different ones",
+			want: "main.nomi:25:16: `Sized.both` cannot be called on `a`, a `Sized`: its 2 `self` arguments must be one implementing type, and `Sized` values may hold different ones",
 			help: "`fn f<T>(a: T, b: T) -> Int where T: Sized`",
 		},
 		{

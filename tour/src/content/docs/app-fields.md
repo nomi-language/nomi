@@ -167,8 +167,9 @@ The test replaces it with a `std::log::testing` recorder, which keeps every reco
 as a value, so it can check that only Alice's greeting carries the `audit`
 field.
 
-A closure reads app fields when it is called, not when it is made. So a
-closure returned from a function after a `with` line doesn't keep the
+A closure keeps the app fields in force where it is made, and runs under
+them wherever it is called, as it keeps any other value it uses. So a
+closure returned from a function after a `with` line keeps the
 replacement:
 
 ```nomi-run
@@ -199,11 +200,11 @@ end
 ```
 <!-- expect
 psst, world
-hello, world
+psst, world
 -->
 
-A task is different. It keeps the app fields that were in force when it was
-spawned ([Concurrency](/concurrency/)).
+A task's body is a closure too, so a task runs under the app fields in force
+where its body was made ([Concurrency](/concurrency/)).
 
 <div class="tour-details">
 <p class="tour-details-label">Fine print</p>
@@ -216,11 +217,64 @@ spawned ([Concurrency](/concurrency/)).
   block statement or a helper.
 - An app struct can't declare an inherent function or `once` with a
   field's name, since `App.name` always reads the field.
+- A closure made while `boot` or a `once` initializer runs keeps no
+  fields, since none exist yet. It reads the fields in force where it is
+  called.
 
 Spec: [`with`](/spec/program-execution/#with),
+[Closures and tasks](/spec/program-execution/#closures-and-tasks),
 [Reading a field](/spec/program-execution/#reading-a-field).
 
 </div>
+
+## App fields are not globals
+
+`Shop.tax_percent` read from anywhere looks like a global, and `with` looks
+like an assignment to one. Neither is the case:
+
+- **Nothing assigns to an app field.** `boot` builds the struct once, and
+  no statement changes it afterwards.
+- **`with` is scoped.** It gives the rest of its block, and the functions
+  that block calls, a value of its own. When the block ends, the earlier
+  value is in force again, and code outside the block never saw the new
+  one.
+- **Tasks cannot race on one.** A task keeps the fields in force where its
+  body was written, as a closure keeps any value. A `with` in one task
+  changes nothing another task reads.
+- **The compiler checks the reads.** Code that reads `Shop.tax_percent`
+  only runs under a `boot` that returns a `Shop`, so a field is never
+  missing at run time.
+
+An app field works like an argument that every function receives without
+writing it down:
+
+```nomi-run
+struct Shop
+    tax_percent: Int
+end
+
+fn boot() -> Result<Shop, String>
+    Ok(Shop{tax_percent: 8})
+end
+
+fn tax_free_total(price: Int) -> Int
+    with Shop.tax_percent = 0
+
+    price + price * Shop.tax_percent / 100
+end
+
+fn main()
+    dbg tax_free_total(200)
+    dbg Shop.tax_percent
+end
+```
+<!-- expect
+dbg line 16: tax_free_total(200) = 200
+dbg line 17: Shop.tax_percent = 8
+-->
+
+`tax_free_total` works with a tax of 0, and `main` still reads 8 after the
+call returns.
 
 ## `defer` runs block-scoped cleanup
 
@@ -587,7 +641,7 @@ end
 If `server.boot` returns `Err("DATABASE_PATH is not set")` for an empty
 `Startup`, `nomi test` reports:
 
-```text
+```console
 FAIL server_test.nomi :: without a database path / never gets this far
   line 2: test returned early
     boot server.boot(Startup{})

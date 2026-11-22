@@ -371,7 +371,8 @@ var mapFuncs = map[string]mapFn{
 	"map_next": {args: 1, result: "next"},
 }
 
-// mapResultKind turns a mapFn's result tag into a kind.
+// mapResultKind turns a mapFn's result tag into a kind, for a Map
+// function's call with no record (mapCallPlan) and a map pattern's lookup.
 func (g *gen) mapResultKind(tag string, key, val kind, at ast.Node) (kind, bool) {
 	switch tag {
 	case "int":
@@ -401,7 +402,7 @@ func (g *gen) mapResultKind(tag string, key, val kind, at ast.Node) (kind, bool)
 		// Asked for rather than assembled here, so there is one shape of Maybe
 		// in the builder and not two. The anchors are loaded on first use.
 		g.loadPreludes()
-		a, anchored := g.preludeNamed("Maybe")
+		a, anchored := preludeSpecAnchor(preludeSpecNamed("Maybe"))
 		if !anchored {
 			g.reject("Map.get without the prelude Maybe", val.nomi(), at)
 			return kindInvalid, false

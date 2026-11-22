@@ -17,12 +17,11 @@ import (
 // of an internal/stdlibbindings row is not in `.nomi` source and cannot be
 // generated. Measured, and each measurement is a test rather than a claim:
 //
-//   - No std declaration names a Go symbol at all:
-//     TestNoStdlibHostDeclarationNamesAGoSymbol (0 bound, 261 silent).
+//   - Nomi source names no Go symbol: a `host fn` carries none.
 //   - The Go symbol is not a mangle of its Nomi key:
 //     TestTheBoundGoSymbolIsNotAMangleOfItsNomiKey.
 //   - Pairing by SIGNATURE against the adapter package is not a function:
-//     34 of 66 FFI-shaped exports share a signature with another, worst group
+//     34 of 66 host-shaped exports share a signature with another, worst group
 //     9 members (every `func(d DateTime, n int64) DateTime` adder). See
 //     TestSignaturePairingCannotDetermineTheGoSymbol.
 //
@@ -214,7 +213,7 @@ func TestEveryHostDeclarationInAGoBackedModuleIsRegistered(t *testing.T) {
 			"the walk is not reaching most of the stdlib and the Go-backed set below is a lower bound",
 			report.Silent)
 	}
-	if got, want := strings.Join(report.GoBacked, " "), "calendar collation currency decimal duration float int locale money/format phrase/format plural random regex strings toml/host"; got != want {
+	if got, want := strings.Join(report.GoBacked, " "), "calendar collation currency decimal duration float int locale money/format passwords/host phrase/format plural random regex strings toml/host"; got != want {
 		t.Errorf("Go-backed std modules derived as %q, want %q. A NEW module here is fine — "+
 			"update this control. A MISSING one means its rows stopped matching its declarations.",
 			got, want)
@@ -227,7 +226,7 @@ func TestEveryHostDeclarationInAGoBackedModuleIsRegistered(t *testing.T) {
 // three ways: a few by Funcs rows, the rest by RtFuncs rows and by VM
 // intrinsics, which this check does not see. std/strings is one:
 // `String.captures` and `String.captures_all` take a `Regex` handle, which
-// only an FFI-shaped Funcs row can carry, while `String.trim` is an rt row and
+// only an host-shaped Funcs row can carry, while `String.trim` is an rt row and
 // `String.join` an intrinsic. std/int, std/float and std/decimal are the
 // others: their locale-aware formatting and parsing helpers
 // (`int.int_format`, ...) are Funcs rows into internal/stdformat, and their

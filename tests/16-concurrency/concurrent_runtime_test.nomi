@@ -49,12 +49,13 @@ end
 test "unbuffered send and receive meet across two tasks"
     ch: Channel<Int> = Channel.unbuffered()
 
-    got = concurrent
-        w = Task.spawn(fn -> Sender.send(ch.sender, 7))
-        v = Receiver.receive(ch.receiver)
-        _ = Task.await(w)
-        v
-    end
+    got =
+        concurrent
+            w = Task.spawn(fn -> Sender.send(ch.sender, 7))
+            v = Receiver.receive(ch.receiver)
+            _ = Task.await(w)
+            v
+        end
 
     assert got == Some(7)
 end
@@ -62,18 +63,19 @@ end
 test "producer consumer pipeline drains after channel close"
     ch = Channel.buffered<Int>(4)
 
-    total = concurrent
-        p1 = Task.spawn(fn -> produce(ch, 10))
-        p2 = Task.spawn(fn -> produce(ch, 20))
-        p3 = Task.spawn(fn -> produce(ch, 30))
-        cons = Task.spawn(fn -> consume(ch))
+    total =
+        concurrent
+            p1 = Task.spawn(fn -> produce(ch, 10))
+            p2 = Task.spawn(fn -> produce(ch, 20))
+            p3 = Task.spawn(fn -> produce(ch, 30))
+            cons = Task.spawn(fn -> consume(ch))
 
-        Task.await(p1)
-        Task.await(p2)
-        Task.await(p3)
-        Sender.close(ch.sender)
-        Task.await(cons)
-    end
+            Task.await(p1)
+            Task.await(p2)
+            Task.await(p3)
+            Sender.close(ch.sender)
+            Task.await(cons)
+        end
 
     assert total == 60
 end
@@ -92,27 +94,29 @@ test "parallel sleepers complete inside concurrent block"
 end
 
 test "failed task cancels long sibling tasks"
-    outcome = concurrent
-        short = Task.spawn(fn -> short_fail())
-        long1 = Task.spawn(fn -> long_sleep())
-        long2 = Task.spawn(fn -> long_sleep())
-        result = Task.await(short)?
-        _ = Task.await(long1)?
-        _ = Task.await(long2)?
-        Ok(result)
-    end
+    outcome =
+        concurrent
+            short = Task.spawn(fn -> short_fail())
+            long1 = Task.spawn(fn -> long_sleep())
+            long2 = Task.spawn(fn -> long_sleep())
+            result = Task.await(short)?
+            _ = Task.await(long1)?
+            _ = Task.await(long2)?
+            Ok(result)
+        end
 
     assert Err(e) = outcome
     assert e == "boom"
 end
 
 test "nested concurrent blocks observe parent cancellation"
-    outcome = concurrent
-        short = Task.spawn(fn -> short_fail())
-        outer = Task.spawn(fn -> nested_outer_body())
-        _o = outer
-        Ok(Task.await(short)?)
-    end
+    outcome =
+        concurrent
+            short = Task.spawn(fn -> short_fail())
+            outer = Task.spawn(fn -> nested_outer_body())
+            _o = outer
+            Ok(Task.await(short)?)
+        end
 
     assert Err(e) = outcome
     assert e == "boom"
@@ -185,14 +189,15 @@ group "sibling cancellation is observable under a virtual clock"
     test "a short-circuit cancels its siblings instead of waiting for them"
         before = Instant.now()
 
-        outcome = concurrent
-            short = Task.spawn(fn -> short_fail())
-            long1 = Task.spawn(fn -> long_sleep())
-            long2 = Task.spawn(fn -> long_sleep())
-            _l1 = long1
-            _l2 = long2
-            Ok(Task.await(short)?)
-        end
+        outcome =
+            concurrent
+                short = Task.spawn(fn -> short_fail())
+                long1 = Task.spawn(fn -> long_sleep())
+                long2 = Task.spawn(fn -> long_sleep())
+                _l1 = long1
+                _l2 = long2
+                Ok(Task.await(short)?)
+            end
 
         elapsed = Instant.to_seconds(Instant.now()) - Instant.to_seconds(before)
 
@@ -205,12 +210,13 @@ group "sibling cancellation is observable under a virtual clock"
     test "cancellation reaches tasks nested inside a cancelled sibling"
         before = Instant.now()
 
-        outcome = concurrent
-            short = Task.spawn(fn -> short_fail())
-            outer = Task.spawn(fn -> nested_outer_body())
-            _o = outer
-            Ok(Task.await(short)?)
-        end
+        outcome =
+            concurrent
+                short = Task.spawn(fn -> short_fail())
+                outer = Task.spawn(fn -> nested_outer_body())
+                _o = outer
+                Ok(Task.await(short)?)
+            end
 
         elapsed = Instant.to_seconds(Instant.now()) - Instant.to_seconds(before)
 

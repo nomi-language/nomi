@@ -184,18 +184,19 @@ func TestFormat_WidthBrokenMapPatternStaysBroken(t *testing.T) {
 		"    end\n" +
 		"end\n"
 	want := "fn main()\n" +
-		"    by_struct = case struct_keyed\n" +
-		"        {\n" +
-		"            Point{\n" +
-		"                x_rather_long_rather_long_rather_long_rather_long_rather_long: 1,\n" +
-		"                y_rather_long_rather_long_rather_long:                         2,\n" +
-		"            } => v,\n" +
-		"        } ->\n" +
-		"            v\n" +
+		"    by_struct =\n" +
+		"        case struct_keyed\n" +
+		"            {\n" +
+		"                Point{\n" +
+		"                    x_rather_long_rather_long_rather_long_rather_long_rather_long: 1,\n" +
+		"                    y_rather_long_rather_long_rather_long:                         2,\n" +
+		"                } => v,\n" +
+		"            } ->\n" +
+		"                v\n" +
 		"\n" +
-		"        _ ->\n" +
-		"            \"?\"\n" +
-		"    end\n" +
+		"            _ ->\n" +
+		"                \"?\"\n" +
+		"        end\n" +
 		"end\n"
 	formatsKeepingMeaning(t, src, want)
 }

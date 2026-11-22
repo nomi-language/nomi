@@ -220,10 +220,11 @@ end
 pub fn conformance(open: () -> Result<Store, Error>) -> List<Broken>
     checks()
     |> Iter.flat_map(fn (rule, check) ->
-        outcome = case open()
-            Ok(store) -> check(store)
-            Err(e)    -> Err("cannot open a store: ${e}")
-        end
+        outcome =
+            case open()
+                Ok(store) -> check(store)
+                Err(e)    -> Err("cannot open a store: ${e}")
+            end
 
         case outcome
             Ok(_)        -> []

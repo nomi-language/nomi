@@ -42,3 +42,31 @@ func TestVectorSliceSharesItsStorage(t *testing.T) {
 		t.Errorf("a slice that drops every element has %d", empty.Len())
 	}
 }
+
+// `Vector.slice` clamps both bounds to the vector and answers a window over
+// its storage, as the pattern's `..rest` does.
+func TestVectorSliceClampedClampsAndShares(t *testing.T) {
+	items := make([]any, 40)
+	for i := range items {
+		items[i] = int64(i)
+	}
+	v := VectorOf(items)
+	cases := []struct{ start, stop, first, n int64 }{
+		{0, 40, 0, 40}, {3, 7, 3, 4}, {-5, 2, 0, 2}, {38, 99, 38, 2},
+		{7, 3, 0, 0}, {5, 5, 0, 0}, {40, 41, 0, 0}, {-9, -1, 0, 0},
+	}
+	for _, c := range cases {
+		got := VectorSliceClamped(v, c.start, c.stop)
+		if VectorLength(got) != c.n {
+			t.Errorf("slice(%d, %d) has %d elements, want %d", c.start, c.stop, VectorLength(got), c.n)
+			continue
+		}
+		if c.n > 0 && (got.t != v.t || VectorAt(got, 0) != c.first) {
+			t.Errorf("slice(%d, %d) starts at %v of %p, want %d of the vector's %p", c.start, c.stop, VectorAt(got, 0), got.t, c.first, v.t)
+		}
+	}
+	allocs := testing.AllocsPerRun(10, func() { _ = VectorSliceClamped(v, 3, 30) })
+	if allocs != 0 {
+		t.Errorf("a slice allocated %v times; it is a window over the same storage", allocs)
+	}
+}

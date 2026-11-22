@@ -363,7 +363,7 @@ func stdGenStructDeclIn(fa *analysis.FileAnalysis, s *stdGenStructSpec) *ast.Str
 // THE BOUND CHECK IS THE GATE, and it is the one clause here that is a design
 // decision rather than a shape assertion; see the file header. Everything else
 // decides REPRESENTATION on
-// stdStructSpec.matches' terms: the builder lowers constructions and field
+// stdStructSpec.mismatch's terms: the builder lowers constructions and field
 // reads from the spec, so a rename, a reorder or a widened field type must
 // produce NO anchor rather than lower against a layout nobody wrote, and a
 // permuted field is a wrong ANSWER rather than an error.
@@ -393,7 +393,7 @@ func (s *stdGenStructSpec) matches(decl *ast.StructDef) bool {
 		// smuggle a bound past the other.
 		return false
 	}
-	// An attached `//!` test is not checked: see stdStructSpec.matches.
+	// An attached `//!` test is not checked: see stdStructSpec.mismatch.
 	for _, dec := range decl.Decorators {
 		// `derive` is metadata about work already done — it is also synthesized
 		// into an ordinary impl block. Any other decorator is a real refusal.
@@ -627,7 +627,7 @@ func (g *gen) genStructInstance(spec *stdGenStructSpec, args ...kind) (kind, boo
 	if g == nil {
 		// No module to intern into: the stdlib signature boundary, where a
 		// per-gen def would be a kind no call site in any gen could match by
-		// pointer. Refusing is the honest answer and stdgensig.go names it.
+		// pointer. Refusing is the honest answer.
 		return kindInvalid, false
 	}
 	nomi := genStructNomi(spec, args)
@@ -648,25 +648,6 @@ func (g *gen) genStructInstance(spec *stdGenStructSpec, args ...kind) (kind, boo
 	g.genStructInsts[nomi] = append(g.genStructInsts[nomi], d)
 	g.genStructOrder = append(g.genStructOrder, d)
 	return named(d), true
-}
-
-// stdGenStructDeclaringModule reports whether this gen is lowering the very
-// module the anchor's declaration lives in.
-//
-// The analyzer's (Origin, Name) identity, which is what stdGenStructAnchorsOf
-// built the anchor from — so this asks the same question one step further rather
-// than introducing a second notion of "same type": gen origin `std/random`
-// against spec origin `std/random`, and likewise for `std/sets` and
-// `std/ranges`.
-//
-// Two callers apply the one rule. A generic std struct has to be the same def
-// in the declaring module's signatures (typeOf) and in its struct
-// literals (irstruct.go). Otherwise the signature path would hide the anchor
-// behind a shadowing check the declaring module trips by definition, and the
-// literal path would build its own instance: one Nomi type with two defs, and
-// a function refused for disagreeing with itself.
-func (g *gen) stdGenStructDeclaringModule(a *stdGenStructAnchor) bool {
-	return a != nil && g.fa != nil && g.fa.Origin != "" && g.fa.Origin == a.spec.origin
 }
 
 // --- reading a type annotation and reading a kind back ----------------------

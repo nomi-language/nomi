@@ -196,11 +196,11 @@ func TestFormat_Block_EmptyIsOneLine(t *testing.T) {
 func TestFormat_Block_MultiStmtBreaks(t *testing.T) {
 	// A block expression puts each statement on its own line between
 	// `begin` and `end`, indented by 4, even a single one.
-	src := "x = begin\n    y = 1\n    y\nend\n"
+	src := "x =\n    begin\n        y = 1\n        y\n    end\n"
 	if got, _ := Format(src); got != src {
 		t.Errorf("got %q\nwant %q", got, src)
 	}
-	src = "x = begin\n    1\nend\n"
+	src = "x =\n    begin\n        1\n    end\n"
 	got, _ := Format(src)
 	if got != src {
 		t.Errorf("got %q\nwant %q", got, src)
@@ -929,10 +929,11 @@ func TestFormat_Call_FunctionRef_StaysInsideParens(t *testing.T) {
 }
 
 func TestFormat_Case_SimpleArms(t *testing.T) {
-	src := `x = case y
-    0 -> "zero"
-    _ -> "other"
-end
+	src := `x =
+    case y
+        0 -> "zero"
+        _ -> "other"
+    end
 `
 	got, _ := Format(src)
 	if got != src {
@@ -941,10 +942,11 @@ end
 }
 
 func TestFormat_Case_Guard(t *testing.T) {
-	src := `x = case y
-    n when n > 10 -> "big"
-    _             -> "small"
-end
+	src := `x =
+    case y
+        n when n > 10 -> "big"
+        _             -> "small"
+    end
 `
 	got, _ := Format(src)
 	if got != src {
@@ -956,11 +958,12 @@ func TestFormat_Case_NestedPattern(t *testing.T) {
 	// Note: `Some(Err(_))` and `Some(Err)` produce identical AST — the
 	// fast-path `Variant(_)` drops the wildcard — so the canonical form
 	// the formatter emits is `Some(Err)`.
-	src := `x = case result
-    Some(Ok(n)) -> n
-    Some(Err)   -> -1
-    None        -> 0
-end
+	src := `x =
+    case result
+        Some(Ok(n)) -> n
+        Some(Err)   -> -1
+        None        -> 0
+    end
 `
 	got, _ := Format(src)
 	if got != src {
@@ -973,10 +976,11 @@ func TestFormat_Case_VariantWithTuplePattern(t *testing.T) {
 	// `Some((n, s))` is one variant pattern wrapping a tuple pattern.
 	// The old multi-arg sugar (`Some(n, s)` for a tuple-payload Some)
 	// has been removed — the explicit form is the only one accepted.
-	src := `x = case pair_opt
-    Some((n, s)) -> s
-    None         -> ""
-end
+	src := `x =
+    case pair_opt
+        Some((n, s)) -> s
+        None         -> ""
+    end
 `
 	got, _ := Format(src)
 	if got != src {
@@ -986,10 +990,11 @@ end
 
 func TestFormat_Case_StructPattern(t *testing.T) {
 	// Struct patterns with field punning
-	src := `x = case user
-    User{name:, age:} -> name
-    _                 -> "unknown"
-end
+	src := `x =
+    case user
+        User{name:, age:} -> name
+        _                 -> "unknown"
+    end
 `
 	got, _ := Format(src)
 	if got != src {
@@ -998,10 +1003,11 @@ end
 }
 
 func TestFormat_Case_ListConsPattern(t *testing.T) {
-	src := `x = case xs
-    [head, ..tail] -> head
-    []             -> 0
-end
+	src := `x =
+    case xs
+        [head, ..tail] -> head
+        []             -> 0
+    end
 `
 	got, _ := Format(src)
 	if got != src {
@@ -1020,13 +1026,13 @@ end
 `
 	got, _ := Format(src)
 	// Expect: the long arm wraps body to the next line two levels in
-	wantSubstr := "Member{level:} when level > 5 ->\n        build_very_very_long_senior_report_name_xyz"
+	wantSubstr := "Member{level:} when level > 5 ->\n            build_very_very_long_senior_report_name_xyz"
 	if !strings.Contains(got, wantSubstr) {
 		t.Errorf("expected long arm body wrap, got:\n%s", got)
 	}
 	// The arms break together: the short arm moves its body down too, and a
 	// blank line separates the two.
-	wantShort := "extra_options)\n\n    _ ->\n        default()\n"
+	wantShort := "extra_options)\n\n        _ ->\n            default()\n"
 	if !strings.Contains(got, wantShort) {
 		t.Errorf("short arm should break with the long one, got:\n%s", got)
 	}
@@ -1035,14 +1041,15 @@ end
 func TestFormat_Case_MultipleStatementsInArmBody(t *testing.T) {
 	// Arm body as an explicit block with multiple statements keeps `-> {` on
 	// the pattern's line; the block makes the other arm break too.
-	src := `x = case y
-    0 ->
-        z = 1
-        z + 1
+	src := `x =
+    case y
+        0 ->
+            z = 1
+            z + 1
 
-    _ ->
-        0
-end
+        _ ->
+            0
+    end
 `
 	got, _ := Format(src)
 	if got != src {
@@ -1052,10 +1059,11 @@ end
 
 func TestFormat_Case_NoScrutinee(t *testing.T) {
 	// Ad-hoc conditional case: no value between `case` and `{`.
-	src := `x = case
-    y > 0 -> "pos"
-    _     -> "neg"
-end
+	src := `x =
+    case
+        y > 0 -> "pos"
+        _     -> "neg"
+    end
 `
 	got, _ := Format(src)
 	if got != src {
@@ -2281,13 +2289,13 @@ func TestFormat_If_LongBodyBreaks(t *testing.T) {
 	if !strings.Contains(got, "if condition_is_really_long then\n") {
 		t.Errorf("expected then-branch to break, got:\n%s", got)
 	}
-	if !strings.Contains(got, "\n    very_long_function_call(arg1, arg2)\n") {
+	if !strings.Contains(got, "\n        very_long_function_call(arg1, arg2)\n") {
 		t.Errorf("expected indented then body, got:\n%s", got)
 	}
-	if !strings.Contains(got, "\nelse\n") {
+	if !strings.Contains(got, "\n    else\n") {
 		t.Errorf("expected else-branch to break, got:\n%s", got)
 	}
-	if !strings.Contains(got, "\n    another_long_function(arg3, arg4)\n") {
+	if !strings.Contains(got, "\n        another_long_function(arg3, arg4)\n") {
 		t.Errorf("expected indented else body, got:\n%s", got)
 	}
 }
@@ -2297,7 +2305,7 @@ func TestFormat_IfElseChain_AlwaysBreaks(t *testing.T) {
 	// is atomic and the whole thing would fit on one line. Multi-rung
 	// conditionals are easier to read with each rung on its own line.
 	src := "x = if a then 1 else if b then 2 else 3\n"
-	want := "x = if a then\n    1\nelse if b then\n    2\nelse\n    3\nend\n"
+	want := "x =\n    if a then\n        1\n    else if b then\n        2\n    else\n        3\n    end\n"
 	got, _ := Format(src)
 	if got != want {
 		t.Errorf("got %q\nwant %q", got, want)
@@ -2308,7 +2316,7 @@ func TestFormat_IfElseChain_Multiline(t *testing.T) {
 	// else-if chains break uniformly — no partial-flat layouts where some
 	// rungs stay inline and only the final block breaks.
 	src := "x = if aaaaaa then first_branch_result_val else if bbbbbb then second_branch_result_val else third_branch_result_val\n"
-	want := "x = if aaaaaa then\n    first_branch_result_val\nelse if bbbbbb then\n    second_branch_result_val\nelse\n    third_branch_result_val\nend\n"
+	want := "x =\n    if aaaaaa then\n        first_branch_result_val\n    else if bbbbbb then\n        second_branch_result_val\n    else\n        third_branch_result_val\n    end\n"
 	got, _ := Format(src)
 	if got != want {
 		t.Errorf("got %q\nwant %q", got, want)
@@ -2319,14 +2327,15 @@ func TestFormat_If_MultiStmtBody(t *testing.T) {
 	// The `then` branch has multiple statements, which is a non-atomic body.
 	// Under Option A, any non-atomic branch forces the whole chain broken,
 	// including the `else { 0 }` branch, so both render multi-line.
-	src := `x = if cond then
-    y = 1
-    y
-else
-    0
-end
+	src := `x =
+    if cond then
+        y = 1
+        y
+    else
+        0
+    end
 `
-	want := "x = if cond then\n    y = 1\n    y\nelse\n    0\nend\n"
+	want := "x =\n    if cond then\n        y = 1\n        y\n    else\n        0\n    end\n"
 	got, _ := Format(src)
 	if got != want {
 		t.Errorf("got %q\nwant %q", got, want)
@@ -2410,7 +2419,7 @@ func TestFormat_If_WidthBoundary_50Inline_51Broken(t *testing.T) {
 
 	at51 := "x = if c then " + strings.Repeat("a", 31) + " else f(e)\n"
 	got, _ = Format(at51)
-	if !strings.Contains(got, "\nelse\n") {
+	if !strings.Contains(got, "\n    else\n") {
 		t.Errorf("expected broken at 51 cols, got:\n%s", got)
 	}
 }
@@ -2470,11 +2479,11 @@ func TestFormat_If_GuardStaysOnOneLine(t *testing.T) {
 }
 
 func TestFormat_If_InlineEligibleButLineTooLong_BreaksAllOrNothing(t *testing.T) {
-	// An if/else whose own flat form fits 50 but whose enclosing line exceeds
-	// 100 breaks ALL branches — never a partial layout (one branch broken, the
-	// other left inline).
+	// An if/else whose own flat form fits 50 but whose binding's line
+	// exceeds 100 moves below the binding, where it fits on one line. It is
+	// never a partial layout (one branch broken, the other left inline).
 	src := "some_really_quite_extremely_long_destination_name_for_the_value = if cond then value_aaaa else value_bbbb\n"
-	want := "some_really_quite_extremely_long_destination_name_for_the_value = if cond then\n    value_aaaa\nelse\n    value_bbbb\nend\n"
+	want := "some_really_quite_extremely_long_destination_name_for_the_value =\n    if cond then value_aaaa else value_bbbb\n"
 	got, _ := Format(src)
 	if got != want {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)
@@ -2526,7 +2535,7 @@ func TestFormat_If_ElseIfChain_AllAtomic_BreaksAnyway(t *testing.T) {
 	// `else if` chains always break, even when every branch is atomic and
 	// the flat form fits in the width budget.
 	src := "x = if a then 1 else if b then 2 else 3\n"
-	want := "x = if a then\n    1\nelse if b then\n    2\nelse\n    3\nend\n"
+	want := "x =\n    if a then\n        1\n    else if b then\n        2\n    else\n        3\n    end\n"
 	got, _ := Format(src)
 	if got != want {
 		t.Errorf("got %q\nwant %q", got, want)
@@ -2537,7 +2546,7 @@ func TestFormat_If_ElseIfChain_NonAtomic_AllBreak(t *testing.T) {
 	// One non-atomic branch (a call in the middle arm) forces the entire
 	// else-if chain into broken form — no per-branch mixing.
 	src := "x = if a then 1 else if b then compute() else 3\n"
-	want := "x = if a then\n    1\nelse if b then\n    compute()\nelse\n    3\nend\n"
+	want := "x =\n    if a then\n        1\n    else if b then\n        compute()\n    else\n        3\n    end\n"
 	got, _ := Format(src)
 	if got != want {
 		t.Errorf("got %q\nwant %q", got, want)
@@ -4425,11 +4434,12 @@ end
 }
 
 func TestFormat_Trivia_LeadingCommentOnCaseArm(t *testing.T) {
-	src := `x = case y
-    // first arm
-    0 -> "zero"
-    _ -> "other"
-end
+	src := `x =
+    case y
+        // first arm
+        0 -> "zero"
+        _ -> "other"
+    end
 `
 	got, _ := Format(src)
 	if got != src {
@@ -4484,10 +4494,11 @@ func TestFormat_Lambda_TwoStmtsAlwaysBroken(t *testing.T) {
 
 func TestFormat_Lambda_SingleStmtBlockWithCommentStaysBlock(t *testing.T) {
 	src := `fn main()
-    fake_side_effect = fn ->
-        // Imagine an io.print side effect here
-        Unit
-    end
+    fake_side_effect =
+        fn ->
+            // Imagine an io.print side effect here
+            Unit
+        end
 end
 `
 	got := formatOnce(t, src)
@@ -4668,20 +4679,6 @@ end
     std::lists.List
     std::maps.Map
 end
-`
-	got, err := Format(src)
-	if err != nil {
-		t.Fatalf("expected parse to succeed, got: %v", err)
-	}
-	if got != want {
-		t.Errorf("got:\n%s\nwant:\n%s", got, want)
-	}
-}
-
-func TestFormat_GoPackageHandle(t *testing.T) {
-	src := `gopkg "taggedffiapp" as ffi
-`
-	want := `gopkg "taggedffiapp" as ffi
 `
 	got, err := Format(src)
 	if err != nil {
@@ -5576,11 +5573,12 @@ end
 // Case end-trivia path keeps working.
 func TestFormat_TrailingCommentAfterLastCaseArm_Preserved(t *testing.T) {
 	src := `fn main()
-    x = case [1, 2]
-        [] -> "empty"
-        _  -> "full"
-        // trailing comment after last arm
-    end
+    x =
+        case [1, 2]
+            [] -> "empty"
+            _  -> "full"
+            // trailing comment after last arm
+        end
 end
 `
 	got, err := Format(src)

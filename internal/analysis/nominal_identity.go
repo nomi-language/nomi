@@ -138,3 +138,63 @@ func nominalOrigin(t Type) (string, bool) {
 	}
 	return "", false
 }
+
+// The std types a checker rule recognizes a checked type as (isStdType),
+// with stdSetType.
+var (
+	stdResultType   = StdType{Module: "std/results", Name: "Result"}
+	stdMaybeType    = StdType{Module: "std/maybe", Name: "Maybe"}
+	stdBoolType     = StdType{Module: "std/bool", Name: "Bool"}
+	stdRangeType    = StdType{Module: "std/ranges", Name: "Range"}
+	stdVectorType   = StdType{Module: "std/vectors", Name: "Vector"}
+	stdIterType     = StdType{Module: "std/iter", Name: "Iter"}
+	stdDistinctType = StdType{Module: "std/structs", Name: "Distinct"}
+	stdStructType   = StdType{Module: "std/structs", Name: "Struct"}
+	stdToJsonType   = StdType{Module: "std/json", Name: "ToJson"}
+	stdFromJsonType = StdType{Module: "std/json", Name: "FromJson"}
+	stdLocalizeType = StdType{Module: "std/localize", Name: "Localize"}
+	stdFragmentType = StdType{Module: "std/literals", Name: "Fragment"}
+	stdDebugType    = StdType{Module: "std/debug", Name: "Debug"}
+)
+
+// StdRuleTypes is every std type a checker rule or hint reads a checked
+// type or a call's qualifier as (isStdType's types, rangeOwners,
+// nonEmptyCounts, stdRouteType, stdSetType), for the test that holds each
+// to a type std declares.
+func StdRuleTypes() []StdType {
+	out := []StdType{
+		stdResultType, stdMaybeType, stdBoolType, stdRangeType, stdVectorType,
+		stdIterType, stdDistinctType, stdStructType, stdToJsonType, stdFromJsonType,
+		stdLocalizeType, stdFragmentType, stdDebugType, stdRouteType, stdSetType,
+	}
+	for t := range rangeOwners {
+		out = append(out, t)
+	}
+	for t := range nonEmptyCounts {
+		out = append(out, t)
+	}
+	return out
+}
+
+// isStdType reports whether t is s, a type or interface std declares, by
+// its nominal identity (sameNominalIdentity): a type of the declaration's
+// origin and name, or a placeholder of the name the checker fabricates in
+// a build without the declaration (OriginUnresolved). A
+// program's type of the same name is not, and neither is a type variable:
+// the caller resolves t. It is the one question "is this std's X" a rule
+// asks of a checked type; StdRuleTypes lists every s a rule asks it with.
+func isStdType(t Type, s StdType) bool {
+	switch t := t.(type) {
+	case *EnumType:
+		return t != nil && sameNominalIdentity(t.Origin, t.Name, s.Module, s.Name)
+	case *StructType:
+		return t != nil && sameNominalIdentity(t.Origin, t.Name, s.Module, s.Name)
+	case *DistinctType:
+		return t != nil && sameNominalIdentity(t.Origin, t.Name, s.Module, s.Name)
+	case *InterfaceType:
+		return t != nil && sameNominalIdentity(t.Origin, t.Name, s.Module, s.Name)
+	case *PrimitiveType:
+		return t != nil && sameNominalIdentity(t.Origin, t.Name_, s.Module, s.Name)
+	}
+	return false
+}

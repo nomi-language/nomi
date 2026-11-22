@@ -11,6 +11,7 @@ require (
 	github.com/sourcegraph/jsonrpc2 v0.2.0
 	github.com/tliron/commonlog v0.2.21
 	github.com/tliron/glsp v0.2.2
+	golang.org/x/crypto v0.51.0
 	golang.org/x/mod v0.36.0
 	golang.org/x/text v0.37.0
 )
@@ -23,8 +24,8 @@ require (
 	github.com/petermattis/goid v0.0.0-20250813065127-a731cc31b4fe // indirect
 	github.com/sasha-s/go-deadlock v0.3.6 // indirect
 	github.com/segmentio/ksuid v1.0.4 // indirect
+	github.com/tetratelabs/wazero v1.12.0 // indirect
 	github.com/tliron/go-kutil v0.4.0 // indirect
-	golang.org/x/crypto v0.51.0 // indirect
 	golang.org/x/net v0.54.0 // indirect
 	golang.org/x/sys v0.44.0 // indirect
 	golang.org/x/term v0.43.0 // indirect

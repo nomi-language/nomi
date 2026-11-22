@@ -8,7 +8,7 @@ package ir
 // The evidence is the producer's own. `internal/irbuild` lowers a `case`
 // arm's pattern and a destructuring statement with the same nodes: a pattern
 // assertion (`patternAssert`) and a destructuring statement
-// (`patternBindingStmt`) test their pattern with `patternValueTest`, which
+// (`patternBindingStmt`) test their pattern with `patternTest`, which
 // builds the `ir.Match` a `case` arm's test builds and reads a struct's
 // fields with the `ir.Proj` the arm reads them with. They differ in WHERE
 // THE MISS GOES.
@@ -28,9 +28,8 @@ package ir
 // WHY Bind AND NOT Copy. `ir.Copy` already moves one temporary into another
 // and it carries no name. A binding INTRODUCES A NAME, and the name is what a
 // reader of the graph needs to know which local a value is. The two nodes are
-// therefore both needed: `internal/irbuild/irbind.go` builds a `Bind` for a
-// fresh name (`irBindNode`) and a `Copy` for a rebind or a hold
-// (`irCopyNode`).
+// therefore both needed: `internal/irbuild` builds a `Bind` for a fresh name
+// (`patternBinding`) and a `Copy` for a rebind or a hold.
 //
 // A COPY AND NOT AN ALIAS. An arm body may rebind the name, and a subject
 // expression is re-read by every later arm, so a name that aliased the

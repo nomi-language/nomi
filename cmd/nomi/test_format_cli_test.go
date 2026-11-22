@@ -92,7 +92,7 @@ func runNomiSplit(t *testing.T, cacheRoot, dir string, args ...string) (string, 
 	t.Helper()
 	cmd := exec.Command(nomiBin, args...)
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "NOMI_FFIRUN_CACHE_ROOT="+cacheRoot, "NO_COLOR=1", "NOMI_COLOR=")
+	cmd.Env = append(os.Environ(), "NOMI_RUNNER_CACHE_ROOT="+cacheRoot, "NO_COLOR=1", "NOMI_COLOR=")
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -223,7 +223,7 @@ func TestTestCommand_JSONFormatMessageHasNoColour(t *testing.T) {
 	dir, _ := writeFormatFixture(t)
 	cmd := exec.Command(nomiBin, "test", "fixture_test.nomi", "--format", "json")
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "NOMI_FFIRUN_CACHE_ROOT="+t.TempDir(), "NOMI_COLOR=always")
+	cmd.Env = append(os.Environ(), "NOMI_RUNNER_CACHE_ROOT="+t.TempDir(), "NOMI_COLOR=always")
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
 	_ = cmd.Run()
@@ -268,7 +268,7 @@ func runReportFixture(t *testing.T, dir string, env []string, args ...string) st
 	t.Helper()
 	cmd := exec.Command(nomiBin, append([]string{"test", "a_test.nomi"}, args...)...)
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "NOMI_FFIRUN_CACHE_ROOT="+t.TempDir(), "NO_COLOR=", "CLICOLOR_FORCE=", "NOMI_COLOR=")
+	cmd.Env = append(os.Environ(), "NOMI_RUNNER_CACHE_ROOT="+t.TempDir(), "NO_COLOR=", "CLICOLOR_FORCE=", "NOMI_COLOR=")
 	cmd.Env = append(cmd.Env, env...)
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
@@ -485,58 +485,6 @@ func TestTestCommand_JSONFormatRejectsUnknownFormat(t *testing.T) {
 	}
 }
 
-// The FFI path runs the file in a generated wrapper process; its records and
-// its test output must be split the same way.
-func TestTestCommand_JSONFormatFFI(t *testing.T) {
-	if testing.Short() {
-		t.Skip("integration; -short")
-	}
-	cacheRoot := t.TempDir()
-	projectRoot, _ := stageEchoFixture(t)
-	testPath := filepath.Join(projectRoot, "main_test.nomi")
-	mustWrite(t, testPath, `import std::io
-
-gopkg "echobinding" as ffi
-
-fn echo_upper(s: String) -> String go ffi.EchoUpper
-
-test "ffi passes"
-  io.print("printed by an ffi test")
-  assert echo_upper("hello") == "HELLO"
-end
-
-test "ffi fails"
-  assert echo_upper("a") == "b"
-end
-`)
-	stdout, stderr, err := runNomiSplit(t, cacheRoot, projectRoot, "test", testPath, "--format", "json")
-	if err == nil {
-		t.Fatalf("expected a failing exit status")
-	}
-	if strings.Contains(stderr, "printed by an ffi test") {
-		t.Fatalf("test output reached stderr instead of its record:\n%s", stderr)
-	}
-	records := parseJSONRecords(t, stdout)
-	if len(records) != 3 {
-		t.Fatalf("want two tests and a summary:\n%s", stdout)
-	}
-	if got := records[0].Output; got != "printed by an ffi test\n" {
-		t.Errorf("the ffi test's output = %q", got)
-	}
-	if r := records[0]; r.Status != "passed" || r.Line != 7 {
-		t.Errorf("first record = %+v", r)
-	}
-	if r := records[1]; r.Status != "failed" || r.Line != 12 || r.ErrorLine != 13 {
-		t.Errorf("second record = %+v", r)
-	}
-	if s := records[2]; s.Type != "summary" || s.Passed != 1 || s.Failed != 1 {
-		t.Errorf("summary = %+v", s)
-	}
-	if entries, _ := os.ReadDir(cacheRoot); len(entries) == 0 {
-		t.Errorf("no wrapper cache entry, so the file never took the FFI path this test is about")
-	}
-}
-
 const outputFixture = `import std::io
 
 test "passes"
@@ -626,7 +574,7 @@ func runOutputFixture(t *testing.T, dir string, env []string, args ...string) (s
 	t.Helper()
 	cmd := exec.Command(nomiBin, append([]string{"test", "a_test.nomi"}, args...)...)
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "NOMI_FFIRUN_CACHE_ROOT="+t.TempDir(), "NO_COLOR=", "CLICOLOR_FORCE=", "NOMI_COLOR=")
+	cmd.Env = append(os.Environ(), "NOMI_RUNNER_CACHE_ROOT="+t.TempDir(), "NO_COLOR=", "CLICOLOR_FORCE=", "NOMI_COLOR=")
 	cmd.Env = append(cmd.Env, env...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

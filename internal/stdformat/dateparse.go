@@ -513,10 +513,10 @@ func CheckFixedPattern(kind int, text string) string {
 	return ""
 }
 
-// FFICheckFields is `calendar.fields_check`: why text is not a skeleton of
+// HostCheckFields is `calendar.fields_check`: why text is not a skeleton of
 // kind (0 DateFields, 1 TimeFields, 2 DateTimeFields), or "".
-func FFICheckFields(kind int64, text string) string { return CheckSkeleton(int(kind), text) }
+func HostCheckFields(kind int64, text string) string { return CheckSkeleton(int(kind), text) }
 
-// FFICheckPattern is `calendar.pattern_check`: why text is not a fixed
+// HostCheckPattern is `calendar.pattern_check`: why text is not a fixed
 // pattern of kind (0 DatePattern, 1 TimePattern, 2 DateTimePattern), or "".
-func FFICheckPattern(kind int64, text string) string { return CheckFixedPattern(int(kind), text) }
+func HostCheckPattern(kind int64, text string) string { return CheckFixedPattern(int(kind), text) }

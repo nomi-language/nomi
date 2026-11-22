@@ -37,7 +37,7 @@ func TestVectorDebugPropagatesUnsupportedElement(t *testing.T) {
 	if err != nil || got != "Vector[\"a\\nb\\t\\\"\\\\z\"]" {
 		t.Fatalf("Debug: %q, %v", got, err)
 	}
-	v = rt.VectorOf([]any{rtStruct("Point", "x", int64(1))})
+	v = rt.VectorOf([]any{complex(1, 2)})
 	if _, err := debugText(v); err == nil || !strings.Contains(err.Error(), "unrepresented") {
 		t.Fatalf("unsupported child: %v", err)
 	}

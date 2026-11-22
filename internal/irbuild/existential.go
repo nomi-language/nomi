@@ -1,8 +1,6 @@
 package irbuild
 
 import (
-	"strings"
-
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 )
@@ -48,41 +46,13 @@ import (
 
 // --- cross-file interfaces ---------------------------------------------------
 
-// foreignIface resolves an interface name this file does not declare to a
-// MIRROR of the sibling file's declaration, reporting whether the name named
-// one at all.
-//
-// The mirror is registered in g.ifaces under the name it was reached by, so
-// typeOf, registerImpl and the dispatch plans all reach it through the one
-// map an interface name is ever looked up in. Nothing downstream
-// distinguishes a mirror from a local declaration except the two places that
-// must: a dispatch names the owner's method symbol, and an interface default
-// body is not lowered here.
-//
-// Every refusal below is the exact analogue of foreignType's, and for the same
-// reason in each case — a refused mirror rather than a miss, so the report says
-// "this interface exists and closes a type cycle" instead of "no such interface
-// here".
-func (g *gen) foreignIface(name string) (*ifaceDef, bool) {
-	o := g.foreignIfaceOwner(name)
-	if o == nil {
-		return nil, false
-	}
-	d := g.mirrorIface(o)
-	g.ifaces[name] = d
-	return d, true
-}
-
 // mirrorIface is this gen's def for another file's interface declaration,
 // built once per declaration node.
 //
-// Split out of foreignIface so the by-name and by-origin questions reach one
-// def per declaration. Those are two different questions (a name is what the
-// program wrote and an origin is what the checker solved) and they must not
-// build two mirrors of one declaration, because `existential(d)` takes its
-// identity from this pointer: two defs for one interface would be two unequal
-// existential kinds in one gen. Registration in g.ifaces stays in the by-name
-// caller, because only a name has a name to be registered under.
+// Every route to another file's interface (the origin the checker solved,
+// the declaration a record names) reaches one def per declaration, because
+// `existential(d)` takes its identity from this pointer: two defs for one
+// interface would be two unequal existential kinds in one gen.
 func (g *gen) mirrorIface(o *typeOwner) *ifaceDef {
 	if d, ok := g.foreignIfaces[o.decl]; ok {
 		return d
@@ -96,7 +66,7 @@ func (g *gen) mirrorIface(o *typeOwner) *ifaceDef {
 		// the same cycle, reported under the same key.
 		d = g.blockedIface(o, "sibling file type cycle", o.fileKey+"."+o.nomi)
 	default:
-		src := g.reg.gens[o.unit].ifaces[o.nomi]
+		src := g.reg.ifaceDefOf(o)
 		switch {
 		case src == nil:
 			// The declaring file registered no shell, which happens only for
@@ -122,16 +92,12 @@ func (g *gen) mirrorIface(o *typeOwner) *ifaceDef {
 // solvedIface resolves an interface the analyzer solved, a type the program
 // never spelled, to this gen's def for it, by `(Origin, Name)`.
 //
-// # The tables typeOf asks
+// # What it answers
 //
-// `typeOf` asks three tables for an interface name: this file's own `g.ifaces`,
-// a sibling file's declaration through `foreignIface`, and an anchored stdlib
-// interface through `stdIfaceNamed`. `project` asks the same question about a
-// type the checker solved and not one the programmer wrote, and this answers
-// the first two for it. Otherwise a user interface would be reachable by
-// annotation and unreachable by inference, for an interface `typeOf`
-// resolves in the same gen. The cross-check in projectreason_test.go holds
-// the two in agreement.
+// This file's own declaration and a sibling file's mirror; a std
+// interface is stdSharedIface's or stdProgSolved's. An annotation and an
+// inferred position reach one def, since both are the checker's types. The
+// cross-check in projectreason_test.go holds the two in agreement.
 //
 // # Identity is (Origin, Name), not the name
 //
@@ -142,23 +108,16 @@ func (g *gen) mirrorIface(o *typeOwner) *ifaceDef {
 // and the miss is silent: impl lookups key on the interface's declaration, so
 // the wrong one finds a disjoint set of impls.
 //
-// A LOCAL answer must be a local DECLARATION: `g.ifaces` also holds mirrors,
-// registered under the name they were reached by, and one of those belongs to
-// another origin however this file spells it.
-//
-// The `d.foreign != ""` guard is UNREACHABLE BY CONSTRUCTION: `ifaceNamed`
-// asks `g.ifaces` before `foreignIface`, so a file that declares `Renderer`
-// never gets a mirror registered under that name, and only a file that
-// declares it owns this origin. It is a fail-safe: without it a mirror would
-// answer for a declaration it is not, and every impl lookup keys on the
-// declaration.
+// A LOCAL answer is a local DECLARATION: the def this file's gen holds for
+// the declaration the name has in its module scope (declNode,
+// ifacesByDecl), never a mirror `g.ifaces` holds under a name.
 func (g *gen) solvedIface(origin, name string) (*ifaceDef, bool) {
 	if origin == "" || g.fa == nil || g.fa.Origin == "" {
 		return nil, false
 	}
 	if origin == g.fa.Origin {
-		d, found := g.ifaces[name]
-		if !found || d.foreign != "" {
+		d := g.ifacesByDecl[g.declNode(origin, name)]
+		if d == nil {
 			return nil, false
 		}
 		return d, true
@@ -180,27 +139,11 @@ func (g *gen) solvedIface(origin, name string) (*ifaceDef, bool) {
 // type. Either direction would hand `existential()` or `named()` a def of the
 // wrong shape, and neither constructor can tell.
 func (g *gen) siblingIfaceOwner(origin, name string) *typeOwner {
-	if g.reg == nil || origin == "" {
+	o := g.siblingDecl(origin, name)
+	if o == nil || !o.isIface {
 		return nil
 	}
-	for unit, src := range g.reg.gens {
-		if src == nil || src.fa == nil || src.fa.Origin != origin {
-			continue
-		}
-		// The declaration the name has in the declaring file's scope, as
-		// siblingOwner finds it: that gen's own table holds it only once
-		// the gen has built its interfaces.
-		sym := resolvedTypeSymbol(src.fa, name)
-		if sym == nil || sym.Node == nil {
-			return nil
-		}
-		o := g.reg.byDecl[sym.Node]
-		if o == nil || !o.isIface || o.unit != unit {
-			return nil
-		}
-		return o
-	}
-	return nil
+	return o
 }
 
 // importIfaceKind re-derives an existential kind in this gen: the owner's
@@ -214,10 +157,10 @@ func (g *gen) siblingIfaceOwner(origin, name string) *typeOwner {
 //
 // What this needs is the interface's own def: `k.iface` is interned in the
 // owner's gen, so the kind over it equals no existential this gen builds.
-// `mirrorIface` is what `foreignIface` builds for the same declaration reached
-// by name, so this is the third route onto one def and not a new mechanism,
-// which keeps `existential(d)` a single identity, since a kind's iface
-// identity is the pointer.
+// `mirrorIface` is what every other route builds for the same declaration,
+// so this is one more route onto one def and not a new mechanism, which
+// keeps `existential(d)` a single identity, since a kind's iface identity is
+// the pointer.
 //
 // # The composition hazard
 //
@@ -276,11 +219,9 @@ func (g *gen) importIfaceKind(src *ifaceDef) (kind, bool) {
 		// reference crosses back. Its own def is the identity and the mirror
 		// must not be a second one, exactly as importNamed's crossing-back arm
 		// requires for a type.
-		local := g.ifaces[src.nomi]
-		if local == nil || local.decl != src.decl {
-			// A file's names are unique, so its def for the name is that
-			// declaration's.
-			panic("irbuild: importIfaceKind: the declaring file's own " + src.nomi + " is not the declaration its mirror carries")
+		local := g.ifacesByDecl[src.decl]
+		if local == nil {
+			panic("irbuild: importIfaceKind: the declaring file holds no def of its own " + src.nomi)
 		}
 		if !local.lowerable {
 			g.importWhy = local.why
@@ -292,8 +233,7 @@ func (g *gen) importIfaceKind(src *ifaceDef) (kind, bool) {
 	if !d.lowerable {
 		// A mirror the declaring file or the import graph refuses. It records
 		// its OWN reason, so the report names that refusal rather than a
-		// representation gap that is not there — the contract foreignIface's
-		// own header states.
+		// representation gap that is not there.
 		g.importWhy = d.why
 		return kindInvalid, false
 	}
@@ -414,77 +354,6 @@ func (g *gen) importIfaceMethods(d, src *ifaceDef) {
 	}
 }
 
-// ifaceNamed resolves an interface name to this gen's def for it: its own
-// declaration, or a mirror of a sibling file's.
-//
-// The one place an interface name is looked up, since g.ifaces is not the
-// whole answer, on exactly the footing namedType stands on for types. Local
-// wins, for the same reason.
-func (g *gen) ifaceNamed(name string) (*ifaceDef, bool) {
-	if d, imported := g.blockImportedIface(name); imported {
-		// A sibling file's interface a block's import binds
-		// (bindBlockImports). A std interface the import binds is
-		// stdIfaceNamed's or stdProgIfaceNamed's to answer.
-		if d.stdOrigin == "" && !d.stdShared {
-			return d, true
-		}
-		return nil, false
-	}
-	if sym, inBlock := g.blockModuleSymbol(name); inBlock {
-		// `store.Store` through a qualifier a visible block's import binds:
-		// that file's interface, as blockImportedIface's bare name is.
-		if d := g.importedIfaceDef(sym); d != nil && d.stdOrigin == "" && !d.stdShared {
-			return d, true
-		}
-		return nil, false
-	}
-	if d, local := g.ifaces[name]; local {
-		return d, true
-	}
-	return g.foreignIface(name)
-}
-
-// --- the names a default mentions -------------------------------------------
-
-// pickAnyName contributes every name a node mentions that a MODULE SCOPE could
-// resolve — an identifier, a type, a file qualifier.
-//
-// A MEMBER name is deliberately excluded. `Logger.log(value, "INFO", message)`
-// mentions `Logger` at module scope and `log` only relative to it, and a
-// member is resolved against its object rather than against the file. Reading
-// it as a module-level name is wrong: in `15-app-and-defer/effects` the
-// implementing file is `log.nomi`, whose own file API object is bound under
-// the spelling `log`, so the member `log` would make the two files disagree
-// and refuse a default that is portable. Over-collection here would refuse
-// a correct program.
-func pickAnyName(n ast.Node, out map[string]bool) bool {
-	switch t := n.(type) {
-	case *ast.FieldAccess:
-		// The object only. Returning true stops the generic descent, which
-		// would otherwise reach Field.
-		walkNames(t.Object, out, pickAnyName)
-		return true
-	case *ast.Ident:
-		out[t.Name] = true
-	case *ast.SimpleType:
-		out[t.Name] = true
-	case *ast.GenericType:
-		out[t.Name] = true
-	case *ast.QualifiedType:
-		out[t.Module] = true
-	case *ast.TypeIdent:
-		out[t.Name] = true
-	case *ast.TaggedString:
-		// A typed literal's tag names its type, or the file that declares
-		// it (`url.Url`): the literal's handler is found through it.
-		if t.Tag != "" {
-			name, _, _ := strings.Cut(t.Tag, ".")
-			out[name] = true
-		}
-	}
-	return false
-}
-
 // --- whether an impl exists, program-wide ------------------------------------
 
 // implKey identifies one (interface, receiver) pair by DECLARATION NODE.
@@ -575,7 +444,12 @@ func (g *gen) bindsImpl(d *ifaceDef, k kind, kt analysis.Type) bool {
 	// module, so neither index below holds it, and without this every boxing
 	// site would answer that no impl of Display is lowered for Int, on a
 	// program the checker accepted. See debugerased.go.
-	if g.bindsStdScalarImpl(d, k) {
+	if g.bindsStdSharedImpl(d, k) {
+		return true
+	}
+	if isStdDebug(d) && g.debugByShape(k, kt) {
+		// Every type implements Debug, and one with no block of it renders
+		// by its shape, which the value's runtime type gives.
 		return true
 	}
 	if d.stdOrigin != "" {

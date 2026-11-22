@@ -27,7 +27,7 @@ import (
 
 // isStdDistinct reports whether iface is std's `Distinct`.
 func isStdDistinct(iface *InterfaceType) bool {
-	return iface != nil && iface.Name == "Distinct" && (iface.Origin == "std/structs" || iface.Origin == "")
+	return isStdType(iface, stdDistinctType)
 }
 
 // distinctInnerOf is the type a distinct type wraps, with its own type
@@ -261,10 +261,7 @@ func selfPatternParam(p ast.Param) bool {
 // construction surface this file cannot see.
 func (c *checker) opaqueHere(recvTy Type) (*DistinctType, bool) {
 	dt, ok := resolveTypeVar(recvTy).(*DistinctType)
-	if !ok || !dt.Opaque {
-		return nil, false
-	}
-	if c.fa != nil && c.fa.inside(dt.OwningSourceFile) {
+	if !ok || c.opaqueOutside(dt) == "" {
 		return nil, false
 	}
 	return dt, true

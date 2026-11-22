@@ -169,8 +169,8 @@ func TestBind_IsADeclarationAndNotACopy(t *testing.T) {
 		t.Errorf("a binding names %v from %v", first.Dst(), first.Src())
 	}
 
-	// A Copy has no name, which is the difference. internal/irbuild/irbind.go
-	// builds a Bind for a fresh name and a Copy for a rebind or a hold.
+	// A Copy has no name, which is the difference: the builder writes a
+	// Bind for a fresh name and a Copy for a rebind or a hold.
 	c := NewCopy(pos, 1, 9)
 	if c.Dst() != 1 || c.Src() != 9 {
 		t.Errorf("a copy names %v from %v", c.Dst(), c.Src())

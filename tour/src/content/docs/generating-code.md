@@ -29,7 +29,6 @@ cafe's own, `tools/choices.nomi`:
 
 ```tree
 cafe/
-├── go.mod
 ├── nomi.toml
 ├── enums.choices
 ├── enums.nomi
@@ -125,10 +124,11 @@ end
 
 // The enum line `number` declares.
 fn enum_of(number: Int, line: String) -> Result<String, String>
-    (name, words) = case String.split(line, ":") |> Iter.to_list()
-        [name, words] -> (String.trim(name), String.words(words))
-        _             -> return Err("enums.choices:${number}: write `Name: first second third`")
-    end
+    (name, words) =
+        case String.split(line, ":") |> Iter.to_list()
+            [name, words] -> (String.trim(name), String.words(words))
+            _             -> return Err("enums.choices:${number}: write `Name: first second third`")
+        end
 
     if Some(word) = Iter.find(words, fn w -> not is_snake_case(w)) then
         return Err("enums.choices:${number}: `${word}` is not a snake_case word")
@@ -149,11 +149,6 @@ end
 fn is_snake_case(word: String) -> Bool
     word != "" and Iter.all_match(word, fn c -> c in "abcdefghijklmnopqrstuvwxyz_")
 end
-
-// FILE: go.mod
-module cafe
-
-go 1.27.0
 
 // FILE: nomi.toml
 [module]
@@ -238,7 +233,10 @@ end
 The cafe's tool serves the cafe alone. A generator that several projects
 share is a module of its own. A project adds it like any dependency, with
 `nomi add ../csvdata`, and `nomi tool csvdata generate`, run there, reads
-and writes that project's files.
+and writes that project's files. The `csvdata` in that command is the name
+the project's `[dependencies]` gives the module. The tool finds that name in
+`NOMI_TOOL_MODULE` in its `startup.env`, and a shared generator writes its
+imports, and reads its table in `nomi.toml`, by it.
 
 ## Where to go next
 

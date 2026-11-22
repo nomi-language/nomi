@@ -198,11 +198,11 @@ func (n numbers) affixed(neg bool, body string, p *cldrdata.Pattern) string {
 	return prefix.Render(n.sym.percent, n.sym.minus, n.sym.plus) + body + suffix.Render(n.sym.percent, n.sym.minus, n.sym.plus)
 }
 
-// FFIFormatInt is `Int.format`. min_digits is a NonNegativeInt in Nomi, and
+// HostFormatInt is `Int.format`. min_digits is a NonNegativeInt in Nomi, and
 // 0 pads nothing, as 1 does. It has no upper bound: the count is what the
 // caller asked for, and padding past what memory holds traps naming it, as
 // String.repeat's count does.
-func FFIFormatInt(fr *rt.Frame, locale string, value rt.Int, grouping bool, minDigits rt.Int) string {
+func HostFormatInt(fr *rt.Frame, locale string, value rt.Int, grouping bool, minDigits rt.Int) string {
 	n := numbersFor(stdlocale.Data(fr), locale)
 	negative := value.Sign() < 0
 	digits := strings.TrimPrefix(value.String(), "-")
@@ -223,16 +223,16 @@ func absInt(v int64) uint64 {
 	return uint64(v)
 }
 
-// FFIFormatFloat is `Float.format`.
-func FFIFormatFloat(fr *rt.Frame, locale string, value float64, minFraction, maxFraction rt.Int, grouping bool) string {
+// HostFormatFloat is `Float.format`.
+func HostFormatFloat(fr *rt.Frame, locale string, value float64, minFraction, maxFraction rt.Int, grouping bool) string {
 	lo, hi := minFraction.Saturated(), maxFraction.Saturated()
 	checkFraction("Float.format", lo, hi)
 	n := numbersFor(stdlocale.Data(fr), locale)
 	return n.float(value, 0, int(lo), int(hi), n.decimal, grouping)
 }
 
-// FFIFormatFloatPercent is `Float.format_percent`.
-func FFIFormatFloatPercent(fr *rt.Frame, locale string, value float64, maxFraction rt.Int) string {
+// HostFormatFloatPercent is `Float.format_percent`.
+func HostFormatFloatPercent(fr *rt.Frame, locale string, value float64, maxFraction rt.Int) string {
 	hi := maxFraction.Saturated()
 	checkFraction("Float.format_percent", 0, hi)
 	n := numbersFor(stdlocale.Data(fr), locale)
@@ -343,19 +343,19 @@ func decimalParts(text string) (neg bool, intDigits, frac string) {
 	return neg, trimLeadingZeros(intDigits), frac
 }
 
-// FFIFormatDecimal is `Decimal.format`: every digit of the scale, none
+// HostFormatDecimal is `Decimal.format`: every digit of the scale, none
 // rounded. text is the Decimal's Display text.
-func FFIFormatDecimal(fr *rt.Frame, locale, text string, minFraction, maxFraction rt.Int, grouping bool) string {
+func HostFormatDecimal(fr *rt.Frame, locale, text string, minFraction, maxFraction rt.Int, grouping bool) string {
 	checkFraction("Decimal.format", minFraction.Saturated(), maxFraction.Saturated())
 	n := numbersFor(stdlocale.Data(fr), locale)
 	neg, intDigits, frac := decimalParts(text)
 	return n.render(neg, intDigits, frac, n.decimal, grouping)
 }
 
-// FFIFormatDecimalPercent is `Decimal.format_percent`: text is the
+// HostFormatDecimalPercent is `Decimal.format_percent`: text is the
 // percentage, the value times 100 that std/decimal rounded to the digits
 // it shows (12.5 for 0.125d).
-func FFIFormatDecimalPercent(fr *rt.Frame, locale, text string, minFraction, maxFraction rt.Int) string {
+func HostFormatDecimalPercent(fr *rt.Frame, locale, text string, minFraction, maxFraction rt.Int) string {
 	checkFraction("Decimal.format_percent", minFraction.Saturated(), maxFraction.Saturated())
 	n := numbersFor(stdlocale.Data(fr), locale)
 	neg, intDigits, frac := decimalParts(text)

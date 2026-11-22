@@ -144,13 +144,19 @@ func PopulateImplIfaceOrigins(idx *ProjectImplIndex, filesByKey map[string]*File
 // block holding fn names, resolved in fa, the file that writes the block:
 // through the module its header qualifies the interface with (`impl
 // calendar.DateParts for Q` beside fa's own `interface DateParts` names
-// std/calendar's), else by name in fa's scope. A synthesized impl whose
-// interface fa's scope does not bind (the universal Debug of a std file
-// that imports none) names the declaration its block's header resolves
-// to, compilerKnownSynthNamed's.
+// std/calendar's), else by the header's name in fa's scope, an import
+// alias's included (`impl Freeable for Lock` names std/resources' Release).
+// A synthesized impl whose interface fa's scope does not bind (the
+// universal Debug of a std file that imports none) names the declaration
+// its block's header resolves to, compilerKnownSynthNamed's. name is the
+// interface's declared name, which the header spells where fn carries no
+// header (ImplIface).
 func declaringOriginOfImplInterface(fa *FileAnalysis, fn *ast.FuncDef, name string) string {
 	if fa == nil {
 		return OriginUnresolved
+	}
+	if fn.ImplIface != nil {
+		name = TypeExprBaseName(fn.ImplIface)
 	}
 	if module := fa.ImplBlockInterfaceModule[fn]; module != "" {
 		if it := interfaceThrough(fa, module, name); it != nil {
@@ -212,6 +218,24 @@ func (idx *ProjectImplIndex) implIfaceOrigins(recv, iface string) []string {
 	return []string{OriginUnresolved}
 }
 
+// fileOfOrigin is the analysis of the file whose build key is origin: a
+// program's file, the entry's (which the program holds under ""), a std
+// module's, or fa itself. Nil when the program holds no such file.
+func (fa *FileAnalysis) fileOfOrigin(origin string) *FileAnalysis {
+	p := fa.Program()
+	if p == nil {
+		return nil
+	}
+	home := p.File(origin)
+	if home == nil && origin == p.entryOrigin() {
+		home = p.File("")
+	}
+	if home == nil && fa.Origin == origin {
+		home = fa
+	}
+	return home
+}
+
 // interfaceDeclaredAt is the declaration of the interface named name that
 // the file of origin declares, and that file: a program's file, the
 // entry's, or a std module's. Nil where no file of origin declares an
@@ -220,16 +244,9 @@ func (fa *FileAnalysis) interfaceDeclaredAt(origin, name string) (*InterfaceType
 	if fa == nil || origin == OriginUnresolved || IsBodyOrigin(origin) {
 		return nil, nil
 	}
-	p := fa.Program()
-	if p == nil {
+	home := fa.fileOfOrigin(origin)
+	if home == nil {
 		return nil, nil
-	}
-	home := p.File(origin)
-	if home == nil && origin == p.entryOrigin() {
-		home = p.File("")
-	}
-	if home == nil && fa.Origin == origin {
-		home = fa
 	}
 	if it := lookupInterfaceType(home, nil, name); it != nil && it.Origin == origin {
 		return it, home

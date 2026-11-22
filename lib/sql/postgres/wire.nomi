@@ -1,0 +1,764 @@
+//# One connection to a server: opening it (TLS by `sslmode`, the startup
+//# message, a password by SCRAM-SHA-256, MD5 or in clear), sending
+//# messages and reading the server's, cancelling what it runs, and closing
+//# it. A `Link` is the connection's handle and a `Cell` of what changes as
+//# it is used (`Io`): the bytes read and not yet taken, how many
+//# `ReadyForQuery` messages are owed, the statements prepared on it and the
+//# notifications it has heard.
+//#
+//# A task that holds a link is the only one sending on it, but the link's
+//# `Io` stays consistent whatever stops the task. Each read puts what it
+//# read into the cell in the deferred call that holds the read's result, so
+//# a stop that comes while a read waits loses no byte; frames are taken out
+//# of it only by `Cell.update`. A link whose exchange was stopped owes
+//# `ReadyForQuery` messages: the next task to take it cancels the statement
+//# on the server and reads up to them (`ready`), and the next statement
+//# sent on any connection of the process cancels it sooner
+//# (`flush_cancels`), since a stopped task cannot open the connection a
+//# cancel request goes on.
+//#
+//# A read waits on the server for at most `poll` before it is tried
+//# again, so a task waiting on a slow statement or a quiet listener reaches
+//# a safe point that often, where a stop or a passed deadline takes effect.
+//# Each read and write sets the connection's own deadline first, so the
+//# deadline std::net sets when the task that dialed a pooled connection
+//# ends does not stop the task using it now.
+
+import
+    std::base64
+    std::channels.Sender
+    std::duration.Duration
+    std::instant.Instant
+    std::io.{self, Reader, Writer}
+    std::net.{self, Connection, DialOptions}
+    std::random
+    std::sql
+    std::tls.{self, Certificate, ClientConfig, Roots}
+    postgres::auth.{self, Scram, ScramProof}
+    postgres::cell.Cell
+    postgres::config.Config
+    postgres::messages.{self, Field, Message, TxStatus}
+    postgres::types.Codec
+end
+
+/// How long a read waits on the server before it is tried again.
+once poll = Duration.milliseconds(100)
+
+/// How long opening a connection may take when the connection string sets
+/// no `connect_timeout`.
+once open_timeout = Duration.seconds(30)
+
+/// The number the next link opened in the process gets.
+once next_link: Cell<Int> = Cell.new(1)
+
+/// How many prepared statements a link keeps before it drops them all.
+once statement_limit = 256
+
+/// The links whose exchange a stopped task left running on the server: a
+/// stopped task cannot open the connection a cancel request goes on, so
+/// the next statement on any connection of the process sends it
+/// (`flush_cancels`).
+once abandoned: Cell<List<Link>> = Cell.new([])
+
+/// One connection to a server.
+pub struct Link
+    /// Which link of the process it is.
+    id:     Int
+    conn:   Connection
+    reader: Reader
+    writer: Writer
+    io:     Cell<Io>
+    key:    CancelKey
+    born:   Instant
+end
+
+/// What a cancel request needs: where to send it and how, and the key the
+/// server gave the connection.
+pub struct CancelKey
+    config:  Config
+    tls:     Bool
+    process: Int
+    secret:  Bytes
+end
+
+/// What changes as a link is used.
+pub struct Io
+    /// The bytes read and not yet taken, from the start of a message, and
+    /// the chunks read after them, newest first, with their total length.
+    pending:    Bytes = Bytes.from_list([])
+    parts:      List<Bytes> = []
+    parts_size: Int = 0
+    /// How many `ReadyForQuery` messages the server still owes: one for
+    /// each `Sync` and each simple query sent.
+    owed: Int = 0
+    /// How many sends there have been, which names the one a cancel
+    /// request is for, and whether one was sent for it.
+    exchange:  Int = 0
+    cancelled: Bool = False
+    /// The send a stopped task left the server answering, for the cancel
+    /// request `flush_cancels` sends.
+    stopped_at: Maybe<Int> = None
+    /// Why the link cannot be used.
+    broken: Maybe<String> = None
+    /// The notifications heard and not yet taken, oldest first.
+    heard:      List<Heard> = []
+    status:     TxStatus = TxStatus.Idle
+    statements: Map<String, Prepared> = {}
+    next_name:  Int = 1
+    used:       Instant
+end
+
+/// A notification a link heard.
+pub struct Heard
+    channel: String
+    payload: String
+end
+
+/// A statement prepared on a link: its name there, the type of each
+/// parameter, and its result columns with the codec and format each is
+/// read in.
+pub struct Prepared
+    name:    String
+    params:  List<Int>
+    fields:  List<Field>
+    codecs:  List<Codec>
+    formats: List<Int>
+end
+
+/// A link to the server `config` names, opened now: TLS as its `sslmode`
+/// says, then the startup message and the password the server asks for.
+pub fn open(config: Config) -> Result<Link, sql.Error>
+    deadline = Instant.now() + Maybe.with_default(config.connect_timeout, open_timeout)
+
+    case config.ssl_mode
+        .Disable ->
+            start(config, plain(config)?, False, deadline)
+
+        .Allow ->
+            case start(config, plain(config)?, False, deadline)
+                Err(sql.Error.Connection{message: _}) ->
+                    start(config, secured(config, deadline)?, True, deadline)
+
+                other ->
+                    other
+            end
+
+        .Prefer ->
+            case secured(config, deadline)
+                Ok(conn) -> start(config, conn, True, deadline)
+                Err(_)   -> start(config, plain(config)?, False, deadline)
+            end
+
+        _ ->
+            start(config, secured(config, deadline)?, True, deadline)
+    end
+end
+
+fn plain(config: Config) -> Result<Connection, sql.Error>
+    options = DialOptions{timeout: Some(Maybe.with_default(config.connect_timeout, open_timeout))}
+
+    net.dial(Config.address(config), options)
+    |> Result.map_err(fn e -> unreachable_server(config, "${e}"))
+end
+
+// A TLS connection: the request that asks the server whether it speaks
+// TLS on a plain connection, then the handshake. A server that does not is
+// a Connection error.
+fn secured(config: Config, deadline: Instant) -> Result<Connection, sql.Error>
+    conn = plain(config)?
+    reader = Connection.reader(conn)
+
+    _ =
+        Writer.write(Connection.writer(conn), messages.ssl_request())
+        |> Result.map_err(fn e -> unreachable_server(config, "${e}"))?
+
+    case read_until(conn, reader, deadline)
+        Ok(Some(b)) when b == String.to_bytes("S") ->
+            tls_config = client_config(config)?
+
+            tls.client(conn, tls_config)
+            |> Result.map_err(fn e -> unreachable_server(config, "TLS: ${e}"))
+
+        Ok(_) ->
+            Connection.close(conn)
+            Err(unreachable_server(config, "the server does not accept TLS connections"))
+
+        Err(e) ->
+            Connection.close(conn)
+            Err(unreachable_server(config, "${e}"))
+    end
+end
+
+// How TLS checks the server: against the roots, and its host too, under
+// `verify-full` and `verify-ca` (std::tls checks the host whenever it
+// checks a certificate), and under `require` when the string names roots,
+// as libpq does; not at all otherwise.
+fn client_config(config: Config) -> Result<ClientConfig, sql.Error>
+    checked =
+        case config.ssl_mode
+            .VerifyCa   -> True
+            .VerifyFull -> True
+            .Require    -> config.ssl_root_cert != None
+            _           -> False
+        end
+
+    roots =
+        case config.ssl_root_cert
+            Some(path) -> Roots.Files([path])
+            None       -> Roots.System
+        end
+
+    certificates =
+        case (config.ssl_cert, config.ssl_key)
+            (Some(cert), Some(key)) ->
+                [
+                    Certificate.load(cert, key)
+                    |> Result.map_err(fn e ->
+                        unreachable_server(config, "the client certificate: ${e}")
+                    end)?,
+                ]
+
+            _ ->
+                []
+        end
+
+    Ok(
+        ClientConfig{
+            roots:,
+            certificates:,
+            server_name:          Some(config.host),
+            insecure_skip_verify: not checked,
+        }
+    )
+end
+
+// One read, retried after each `poll` until `deadline`.
+fn read_until(conn: Connection, reader: Reader, deadline: Instant) -> Result<Maybe<Bytes>, io.Error>
+    Connection.set_read_deadline(conn, Some(Instant.now() + poll))
+
+    case Reader.read(reader, max: 1)
+        Err(io.Error.TimedOut) when Instant.is_before(Instant.now(), deadline) ->
+            read_until(conn, reader, deadline)
+
+        other ->
+            other
+    end
+end
+
+fn unreachable_server(config: Config, reason: String) -> sql.Error
+    sql.Error.Connection{
+        message: "cannot reach ${Config.address(config)} as ${config.user}: ${reason}",
+    }
+end
+
+// The link over `conn`, once the server has taken the startup message and
+// the password and is ready for a statement.
+fn start(
+    config:   Config,
+    conn:     Connection,
+    secure:   Bool,
+    deadline: Instant,
+) -> Result<Link, sql.Error>
+    key = CancelKey{config:, tls: secure, process: 0, secret: Bytes.from_list([])}
+
+    link = Link{
+        id: Cell.update(next_link, fn n -> (n + 1, n)),
+        conn:,
+        reader: Connection.reader(conn),
+        writer: Connection.writer(conn),
+        io:     Cell.new(Io{used: Instant.now()}),
+        key:,
+        born: Instant.now(),
+    }
+
+    send(link, messages.startup(Config.startup(config)), 1)?
+
+    case handshake(link, config, Some(deadline), [], Opening{scram: None, proof: None, key:})
+        Ok(given) ->
+            Ok({..link, key: given})
+
+        Err(e) ->
+            Connection.close(conn)
+            Err(e)
+    end
+end
+
+// Where the startup stands: the SCRAM exchange so far, and the key a
+// cancel request needs.
+struct Opening
+    scram: Maybe<Scram>
+    proof: Maybe<ScramProof>
+    key:   CancelKey
+end
+
+// Answers each message of the startup until `ReadyForQuery`.
+fn handshake(
+    link:     Link,
+    config:   Config,
+    deadline: Maybe<Instant>,
+    queue:    List<Message>,
+    at:       Opening,
+) -> Result<CancelKey, sql.Error>
+    case queue
+        [] ->
+            handshake(link, config, deadline, receive(link, deadline)?, at)
+
+        [.ReadyForQuery{status: _}, ..] ->
+            Ok(at.key)
+
+        [message, ..rest] ->
+            handshake(link, config, deadline, rest, answer(link, config, message, at)?)
+    end
+end
+
+// What the client sends for one message of the startup: the password the
+// server asks for, by the method it names.
+fn answer(link: Link, config: Config, message: Message, at: Opening) -> Result<Opening, sql.Error>
+    case message
+        .AuthenticationCleartext ->
+            send(link, messages.password(password(config)?), 0)?
+            Ok(at)
+
+        .AuthenticationMd5{salt:} ->
+            send(
+                link,
+                messages.password(auth.md5_password(config.user, password(config)?, salt)),
+                0,
+            )?
+
+            Ok(at)
+
+        .AuthenticationSasl{mechanisms:} ->
+            if not Iter.contains(mechanisms, scram_mechanism) then
+                return Err(
+                    refused(
+                        config,
+                        "it asks for SASL by ${String.join(mechanisms, ", ")}, and the driver speaks ${scram_mechanism}",
+                    )
+                )
+            end
+
+            started = Scram.start(base64.encode(random.secure_bytes(18)))
+            _ = password(config)?
+            send(link, messages.sasl_initial(scram_mechanism, Scram.first_message(started)), 0)?
+            Ok({..at, scram: Some(started)})
+
+        .AuthenticationSaslContinue{data:} ->
+            Some(started) = at.scram else
+                None ->
+                    return Err(
+                        refused(config, "a SCRAM challenge came before the client's first message")
+                    )
+            end
+
+            proof =
+                Scram.answer(started, password(config)?, data)
+                |> Result.map_err(&refused(config, &1))?
+
+            send(link, messages.sasl_response(proof.message), 0)?
+            Ok({..at, proof: Some(proof)})
+
+        .AuthenticationSaslFinal{data:} ->
+            Some(proof) = at.proof else
+                None ->
+                    return Err(
+                        refused(config, "SCRAM's final message came before the client's proof")
+                    )
+            end
+
+            Scram.verify(proof, data) |> Result.map_err(&refused(config, &1))?
+            Ok(at)
+
+        .AuthenticationOther{code:} ->
+            Err(
+                refused(
+                    config,
+                    "it asks for the authentication method ${code}, and the driver speaks ${scram_mechanism}, MD5 and a password in clear",
+                )
+            )
+
+        .BackendKeyData{process:, secret:} ->
+            Ok({..at, key: {.., process:, secret:}})
+
+        .ErrorResponse{report:} ->
+            Err(refused(config, "${report.severity}: ${report.message} (SQLSTATE ${report.code})"))
+
+        _ ->
+            Ok(at)
+    end
+end
+
+once scram_mechanism = "SCRAM-SHA-256"
+
+fn refused(config: Config, reason: String) -> sql.Error
+    sql.Error.Connection{message: "${Config.address(config)} refused ${config.user}: ${reason}"}
+end
+
+fn password(config: Config) -> Result<String, sql.Error>
+    config.password
+    |> Maybe.to_result(
+        sql.Error.Connection{
+            message: "${Config.address(config)} asks ${config.user} for a password, and the connection string has none",
+        }
+    )
+end
+
+/// Sends `bytes`, one or more messages, which owe `owed` `ReadyForQuery`
+/// messages in answer.
+pub fn send(link: Link, bytes: Bytes, owed: Int) -> Result<Unit, sql.Error>
+    Connection.set_write_deadline(link.conn, None)
+    deliver(link.io, Cell.sender(link.io), link.writer, bytes, owed)
+
+    case Cell.read(link.io).broken
+        Some(reason) -> Err(sql.Error.Connection{message: reason})
+        None         -> Ok(Unit)
+    end
+end
+
+// Writes `bytes` while it holds the link's Io, and counts what they owe in
+// the call that puts it back.
+fn deliver(cell: Cell<Io>, back: Sender<Io>, writer: Writer, bytes: Bytes, owed: Int)
+    held = Cell.take(cell)
+    defer delivered(back, held, owed, Instant.now(), Writer.write(writer, bytes))
+end
+
+fn delivered(back: Sender<Io>, held: Io, owed: Int, at: Instant, wrote: Result<Unit, io.Error>)
+    next =
+        case wrote
+            Ok(_) ->
+                {
+                    ..held,
+                    owed:      held.owed + owed,
+                    exchange:  held.exchange + 1,
+                    cancelled: False,
+                    used:      at,
+                }
+
+            Err(e) ->
+                {..held, broken: Some("writing to the server failed: ${e}")}
+        end
+
+    _ = Sender.send(back, next)
+end
+
+/// The next messages the server sent, up to and including a
+/// `ReadyForQuery`, waiting for one; a notification goes to the link's
+/// heard ones instead. `deadline` bounds the wait, for opening a link.
+pub fn receive(link: Link, deadline: Maybe<Instant>) -> Result<List<Message>, sql.Error>
+    case Cell.update(link.io, take_frames)
+        Ok([]) ->
+            if Maybe.map(deadline, fn at -> Instant.is_before(at, Instant.now())) == Some(True) then
+                return Err(sql.Error.Connection{message: "the server did not answer in time"})
+            end
+
+            pull(link)
+            receive(link, deadline)
+
+        other ->
+            other
+    end
+end
+
+/// The next notification the link hears, waiting for one until
+/// `stopping` answers `True` at one of the waits between reads, which
+/// answers `None`.
+pub fn hear(link: Link, stopping: () -> Bool) -> Result<Maybe<Heard>, sql.Error>
+    found = Cell.update(link.io, fn held ->
+        (taken, frames) = take_frames(held)
+
+        case (taken.heard, frames)
+            (_, Err(e))          -> (taken, Err(e))
+            ([first, ..rest], _) -> ({..taken, heard: rest}, Ok(Some(first)))
+            ([], _)              -> (taken, Ok(None))
+        end
+    end)
+
+    case found?
+        Some(heard) ->
+            Ok(Some(heard))
+
+        None ->
+            if stopping() then return Ok(None)
+            pull(link)
+            hear(link, stopping)
+    end
+end
+
+// Reads once into the link's Io, waiting up to `poll`.
+fn pull(link: Link)
+    Connection.set_read_deadline(link.conn, Some(Instant.now() + poll))
+    absorb(link.io, Cell.sender(link.io), link.reader)
+end
+
+// Takes the link's Io, reads, and puts the Io back with what was read in
+// the deferred call that holds the read's result, so what the read took
+// from the connection is kept however this task ends.
+fn absorb(cell: Cell<Io>, back: Sender<Io>, reader: Reader)
+    held = Cell.take(cell)
+    defer absorbed(back, held, Reader.read(reader, max: 65_536))
+end
+
+fn absorbed(back: Sender<Io>, held: Io, read: Result<Maybe<Bytes>, io.Error>)
+    next =
+        case read
+            Ok(Some(chunk)) ->
+                {
+                    ..held,
+                    parts:      [chunk, ..held.parts],
+                    parts_size: held.parts_size + Bytes.length(chunk),
+                }
+
+            Ok(None) ->
+                {..held, broken: Some("the server closed the connection")}
+
+            Err(io.Error.TimedOut) ->
+                held
+
+            Err(e) ->
+                {..held, broken: Some("reading from the server failed: ${e}")}
+        end
+
+    _ = Sender.send(back, next)
+end
+
+// Takes every whole message from the Io's bytes up to and including a
+// `ReadyForQuery`: the messages a statement waits for, with the heard
+// notifications moved to `heard` and notices and parameter reports
+// dropped.
+fn take_frames(held: Io) -> (Io, Result<List<Message>, sql.Error>)
+    if held.broken != None and held.parts == [] and Bytes.length(held.pending) == 0 then
+        return (held, Err(sql.Error.Connection{message: Maybe.with_default(held.broken, "")}))
+    end
+
+    (after, taken) = frames_from(joined_bytes(held), [])
+
+    case taken
+        Ok(found) when found == [] and after.broken != None ->
+            (after, Err(sql.Error.Connection{message: Maybe.with_default(after.broken, "")}))
+
+        _ ->
+            (after, taken)
+    end
+end
+
+// The Io with the chunks read after its pending bytes joined to them, when
+// they hold the whole of the next message: a large message is joined once,
+// not once a chunk.
+fn joined_bytes(held: Io) -> Io
+    if held.parts == [] then return held
+
+    have = Bytes.length(held.pending) + held.parts_size
+    need = messages.frame_length(held.pending, 0) |> Maybe.with_default(5)
+
+    if have < need and Bytes.length(held.pending) >= 5 then return held
+
+    {
+        ..held,
+        pending:    Bytes.concat_all([held.pending, ..Iter.reverse(held.parts)]),
+        parts:      [],
+        parts_size: 0,
+    }
+end
+
+fn frames_from(held: Io, done: List<Message>) -> (Io, Result<List<Message>, sql.Error>)
+    case messages.frame_at(held.pending, 0)
+        None ->
+            (held, Ok(Iter.reverse(done)))
+
+        Some((kind, body, next)) ->
+            rest = {..held, pending: Bytes.slice(held.pending, next, Bytes.length(held.pending))}
+
+            case messages.decode(kind, body)
+                Err(reason) ->
+                    broken = {..rest, broken: Some("the server sent ${reason}")}
+                    (broken, Err(sql.Error.Connection{message: "the server sent ${reason}"}))
+
+                Ok(.NotificationResponse{process: _, channel:, payload:}) ->
+                    frames_from(
+                        joined_bytes({..rest, heard: .. + [Heard{channel:, payload:}]}),
+                        done,
+                    )
+
+                Ok(.NoticeResponse{report: _}) ->
+                    frames_from(joined_bytes(rest), done)
+
+                Ok(.ParameterStatus{name: _, value: _}) ->
+                    frames_from(joined_bytes(rest), done)
+
+                Ok(.ReadyForQuery{status:}) ->
+                    ready = {..rest, owed: rest.owed - 1, status:}
+                    (ready, Ok(Iter.reverse([Message.ReadyForQuery{status:}, ..done])))
+
+                Ok(message) ->
+                    frames_from(joined_bytes(rest), [message, ..done])
+            end
+    end
+end
+
+/// Makes a link fit for a statement, and answers where its session
+/// stands: one whose last exchange stopped owes `ReadyForQuery` messages,
+/// so the statement it was running is cancelled on the server and what the
+/// server still sends for it is read and dropped. A broken link is a
+/// Connection error.
+pub fn ready(link: Link) -> Result<TxStatus, sql.Error>
+    state = Cell.read(link.io)
+
+    case state.broken
+        Some(reason) -> return Err(sql.Error.Connection{message: reason})
+        None         -> Unit
+    end
+
+    if state.owed <= 0 then return Ok(state.status)
+
+    if claim_cancel(link, state.exchange) then cancel(link.key)
+
+    drain(link)?
+    Ok(status(link))
+end
+
+/// Records, from a deferred call, that the exchange on `link` stopped
+/// before the server answered it all, so the next statement in the process
+/// cancels it on the server.
+pub fn abandon(link: Link)
+    left = Cell.update(link.io, fn held ->
+        if held.owed > 0 and held.broken == None then
+            ({..held, stopped_at: Some(held.exchange)}, True)
+        else
+            (held, False)
+        end
+    end)
+
+    if left then Cell.update(abandoned, fn links -> ([link, ..links], Unit))
+end
+
+/// Sends the cancel request of each exchange a stopped task left running,
+/// which the task could not send itself.
+pub fn flush_cancels()
+    links = Cell.update(abandoned, fn links -> ([], links))
+
+    Iter.each(links, fn link ->
+        if claim_cancel(link, Maybe.with_default(Cell.read(link.io).stopped_at, -1)) then
+            cancel(link.key)
+        end
+    end)
+end
+
+fn drain(link: Link) -> Result<Unit, sql.Error>
+    _ = receive(link, None)?
+
+    if Cell.read(link.io).owed > 0 then
+        drain(link)
+    else
+        Ok(Unit)
+    end
+end
+
+// Whether this task is the one to send the cancel request for the
+// exchange `exchange` of `link`: it still runs, and nobody has sent one.
+fn claim_cancel(link: Link, exchange: Int) -> Bool
+    Cell.update(link.io, fn held ->
+        if held.exchange == exchange
+            and held.owed > 0
+            and not held.cancelled
+            and held.broken == None then
+            ({..held, cancelled: True}, True)
+        else
+            (held, False)
+        end
+    end)
+end
+
+/// Asks the server, on a connection of its own, to cancel what the
+/// connection `key` names is running. A failure to reach it is dropped: the
+/// statement then runs to its end.
+pub fn cancel(key: CancelKey)
+    deadline = Instant.now() + Maybe.with_default(key.config.connect_timeout, open_timeout)
+
+    opened =
+        if key.tls then
+            secured(key.config, deadline)
+        else
+            plain(key.config)
+        end
+
+    case opened
+        Ok(conn) ->
+            _ = Writer.write(
+                Connection.writer(conn),
+                messages.cancel_request(key.process, key.secret),
+            )
+
+            Connection.close(conn)
+
+        Err(_) ->
+            Unit
+    end
+end
+
+/// Ends the session and closes the connection.
+pub fn close(link: Link)
+    _ = send(link, messages.terminate(), 0)
+    Connection.close(link.conn)
+end
+
+/// Marks the link unusable, so the pool drops it.
+pub fn break_link(link: Link, reason: String)
+    Cell.update(link.io, fn held -> ({..held, broken: Some(reason)}, Unit))
+end
+
+/// The statement prepared for `sql` on the link, if it is.
+pub fn prepared(link: Link, sql: String) -> Maybe<Prepared>
+    Map.get(Cell.read(link.io).statements, sql)
+end
+
+/// A name for a statement prepared on the link, and the names of the
+/// statements to drop first when it holds as many as it keeps.
+pub fn statement_name(link: Link) -> (String, List<String>)
+    Cell.update(link.io, fn held ->
+        name = "nomi_${held.next_name}"
+
+        dropped =
+            if Map.size(held.statements) >= statement_limit then
+                held.statements |> Map.values() |> Iter.map(.name) |> Iter.to_list()
+            else
+                []
+            end
+
+        kept = if dropped == [] then held.statements else {}
+        ({..held, next_name: held.next_name + 1, statements: kept}, (name, dropped))
+    end)
+end
+
+/// Keeps `prepared` as the statement for `sql` on the link.
+pub fn remember(link: Link, sql: String, prepared: Prepared)
+    Cell.update(link.io, fn held ->
+        ({..held, statements: Map.put(held.statements, sql, prepared)}, Unit)
+    end)
+end
+
+/// Forgets the statement for `sql`, which the server no longer runs as
+/// prepared.
+pub fn forget(link: Link, sql: String)
+    Cell.update(link.io, fn held -> ({..held, statements: Map.remove(held.statements, sql)}, Unit))
+end
+
+/// What the link's last `ReadyForQuery` said.
+pub fn status(link: Link) -> TxStatus
+    Cell.read(link.io).status
+end
+
+/// When a statement was last sent on the link.
+pub fn used(link: Link) -> Instant
+    Cell.read(link.io).used
+end
+
+/// Why the link cannot be used, if it cannot.
+pub fn broken(link: Link) -> Maybe<String>
+    Cell.read(link.io).broken
+end
+
+/// Whether the server still owes the link an answer, as it does when a
+/// stopped task left a statement on it.
+pub fn owes(link: Link) -> Bool
+    Cell.read(link.io).owed > 0
+end

@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -240,6 +241,13 @@ type VariantDef struct {
 	// whose payload is the distinct's inner type. Construction reads this
 	// field: `Shape.Id(5)` builds an `Id`, so it is checked as `Id(5)` is.
 	Embedded Type
+	// WrittenAsParts says a positional variant's payload is declared as a
+	// tuple of its parts, `Node (Tree, Int, Tree)`, which the variant's
+	// literal writes as its arguments: `Node(Leaf, 1, Leaf)`. A payload
+	// declared as one type is one argument even when that type is a tuple:
+	// `Some((1, 2))`, and a variant over a typealias of a tuple. The
+	// declaration says which (writtenParts).
+	WrittenAsParts bool
 }
 
 // EnumType represents an enum declaration.
@@ -278,6 +286,11 @@ type DistinctType struct {
 	Origin string
 	Name   string
 	Inner  Type // nil for zero-sized
+	// WrittenAsParts says the inner type is declared as a tuple of its
+	// parts, `type Coord (Int, Int)`, which the type's literal writes as
+	// its arguments: `Coord(3, 4)`. An inner type declared as one type is
+	// one argument, as VariantDef.WrittenAsParts says for a payload.
+	WrittenAsParts bool
 	// Opaque is true when the type's defining module exported it as
 	// `opaque <name>`. The construction surface (constructor, unwrap,
 	// destructuring, field access) is private to the defining module.
@@ -434,6 +447,16 @@ func (t *AnonStructType) String() string {
 }
 
 func (t *AnonStructType) typeTag() {}
+
+// FieldsByName is t's fields in the order of their names. Two anonymous
+// struct types whose fields differ only in order are one type (spec §4
+// *Anonymous Structs*), so a record of the type made field by field lists
+// its fields in this order, whichever order the type was written in.
+func (t *AnonStructType) FieldsByName() []FieldDef {
+	fields := slices.Clone(t.Fields)
+	slices.SortStableFunc(fields, func(a, b FieldDef) int { return strings.Compare(a.Name, b.Name) })
+	return fields
+}
 
 // ---------------------------------------------------------------------------
 // Generic / inference support

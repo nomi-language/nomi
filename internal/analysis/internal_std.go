@@ -39,7 +39,9 @@ var internalStdModules = map[string]string{
 	"url/host":        "url",
 	"path/host":       "path",
 	"mail/host":       "mail",
+	"passwords/host":  "passwords",
 	"signatures/host": "signatures",
+	"wasm/host":       "wasm",
 }
 
 // InternalStdModule reports whether the std module name (`money/format`) is

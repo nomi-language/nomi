@@ -81,7 +81,7 @@ func ruleRange(rule ast.Node) *IntRange {
 // 64-bit signed integer, `NonNegativeInt and Int64` for a 64-bit unsigned
 // one, and "" for a narrower width, which needs a subtype of the
 // program's own.
-func goIntRange(t Type) (min, max *big.Int, subtype string) {
+func goIntRange(t reflect.Type) (min, max *big.Int, subtype string) {
 	signed := func(bits uint) (*big.Int, *big.Int) {
 		m := new(big.Int).Lsh(big.NewInt(1), bits-1)
 		return new(big.Int).Neg(m), new(big.Int).Sub(m, big.NewInt(1))
@@ -113,33 +113,11 @@ func goIntRange(t Type) (min, max *big.Int, subtype string) {
 	return min, max, subtype
 }
 
-// IntRangeError is fits's refusal: an Int position whose declared type
-// admits values its fixed-width Go integer cannot hold. internal/ffirun
-// reports it as an error at the binding.
-type IntRangeError struct {
-	// Go is the Go integer type, and Min and Max its range.
-	Go       string
-	Min, Max *big.Int
-	// Declared is the Nomi type as written, "Int" for a plain one.
-	Declared string
-	// Want is a declaration that fits (`Int64`, `Octet and Int64`), or ""
-	// when only a subtype of the program's own does.
-	Want string
-}
-
-func (e *IntRangeError) Error() string {
-	want := fmt.Sprintf("a subtype whose `when` bounds it within %s..%s", e.Min, e.Max)
-	if e.Want != "" {
-		want = fmt.Sprintf("`%s` (std::int), or a subtype whose `when` bounds it within that range", e.Want)
-	}
-	return fmt.Sprintf("Go %s holds an Int in %s..%s, and %s admits Ints past that: declare it %s; a Go function that takes an Int of any size takes *big.Int", e.Go, e.Min, e.Max, e.Declared, want)
-}
-
 // fits refuses an Int position whose declared type admits a value the
 // fixed-width Go integer t cannot hold, so no adapter meets such a value
 // as the program runs. A Go function that takes an Int of any size takes
-// *big.Int or rt.Int and defines what a large one means.
-func (g *Generator) fits(s *Shape, t Type) error {
+// rt.Int and defines what a large one means.
+func (g *Generator) fits(s *Shape, t reflect.Type) error {
 	min, max, want := goIntRange(t)
 	if min == nil || s.Range.within(min, max) {
 		return nil
@@ -156,5 +134,9 @@ func (g *Generator) fits(s *Shape, t Type) error {
 	default:
 		want = declared + " and " + want
 	}
-	return &IntRangeError{Go: t.String(), Min: min, Max: max, Declared: declared, Want: want}
+	fit := fmt.Sprintf("a subtype whose `when` bounds it within %s..%s", min, max)
+	if want != "" {
+		fit = fmt.Sprintf("`%s` (std::int), or a subtype whose `when` bounds it within that range", want)
+	}
+	return fmt.Errorf("Go %s holds an Int in %s..%s, and %s admits Ints past that: declare it %s; a Go function that takes an Int of any size takes rt.Int", t, min, max, declared, fit)
 }

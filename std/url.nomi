@@ -530,23 +530,24 @@ impl CheckedLiteral<Display, Url> for Url
             (place, refused) = acc
             after = place_after(place, s)
 
-            refused = case refused
-                Some(_) ->
-                    refused
+            refused =
+                case refused
+                    Some(_) ->
+                        refused
 
-                None ->
-                    if i < last and not escapable(after) then
-                        Some(
-                            LiteralError{
-                                fragment: i,
-                                offset:   Iter.count(String.to_codepoints(s)),
-                                message:  "a slot in the scheme, user or host cannot be escaped",
-                            }
-                        )
-                    else
-                        None
-                    end
-            end
+                    None ->
+                        if i < last and not escapable(after) then
+                            Some(
+                                LiteralError{
+                                    fragment: i,
+                                    offset: Iter.count(String.to_codepoints(s)),
+                                    message: "a slot in the scheme, user or host cannot be escaped",
+                                }
+                            )
+                        else
+                            None
+                        end
+                end
 
             (after, refused)
         end)
@@ -620,10 +621,11 @@ end
 // (`Url"/${x}/b"` with `x = ""`). WHATWG's URL serializer keeps such a path
 // a path by writing `/.` before it, and so does this.
 fn keep_path(fragments: List<Fragment<Display>>, text: String) -> String
-    first = case fragments
-        [.Static(s), ..] -> s
-        _                -> ""
-    end
+    first =
+        case fragments
+            [.Static(s), ..] -> s
+            _                -> ""
+        end
 
     if String.starts_with(text, "//") and not String.starts_with(first, "//") then
         "/." + text
@@ -649,48 +651,49 @@ fn place_after(place: Place, text: String) -> Place
             seen = seen + Codepoint.to_string(cp)
             c = Codepoint.to_string(cp)
 
-            next = case p
-                .InScheme ->
-                    if String.ends_with(seen, "://") then
-                        Place.InAuthority
-                    else if String.ends_with(seen, ":/") then
-                        p
-                    else if c == "/" then
-                        Place.InPath
-                    else if c == "?" then
-                        Place.InQuery
-                    else if c == "#" then
-                        Place.InFragment
-                    else
-                        p
-                    end
+            next =
+                case p
+                    .InScheme ->
+                        if String.ends_with(seen, "://") then
+                            Place.InAuthority
+                        else if String.ends_with(seen, ":/") then
+                            p
+                        else if c == "/" then
+                            Place.InPath
+                        else if c == "?" then
+                            Place.InQuery
+                        else if c == "#" then
+                            Place.InFragment
+                        else
+                            p
+                        end
 
-                .InAuthority ->
-                    if c == "/" then
-                        Place.InPath
-                    else if c == "?" then
-                        Place.InQuery
-                    else if c == "#" then
-                        Place.InFragment
-                    else
+                    .InAuthority ->
+                        if c == "/" then
+                            Place.InPath
+                        else if c == "?" then
+                            Place.InQuery
+                        else if c == "#" then
+                            Place.InFragment
+                        else
+                            p
+                        end
+
+                    .InPath ->
+                        if c == "?" then
+                            Place.InQuery
+                        else if c == "#" then
+                            Place.InFragment
+                        else
+                            p
+                        end
+
+                    .InQuery ->
+                        if c == "#" then Place.InFragment else p
+
+                    .InFragment ->
                         p
-                    end
-
-                .InPath ->
-                    if c == "?" then
-                        Place.InQuery
-                    else if c == "#" then
-                        Place.InFragment
-                    else
-                        p
-                    end
-
-                .InQuery ->
-                    if c == "#" then Place.InFragment else p
-
-                .InFragment ->
-                    p
-            end
+                end
 
             (next, seen)
         end)
@@ -719,13 +722,14 @@ end
 
 // A Url's parts, as rt/url.go reads them.
 fn to_parts(url: Url) -> List<String>
-    (has_user, user, has_password, password) = case url.user
-        Some(u) ->
-            ("1", u.name, flag(Maybe.is_some(u.password)), Maybe.with_default(u.password, ""))
+    (has_user, user, has_password, password) =
+        case url.user
+            Some(u) ->
+                ("1", u.name, flag(Maybe.is_some(u.password)), Maybe.with_default(u.password, ""))
 
-        None ->
-            ("", "", "", "")
-    end
+            None ->
+                ("", "", "", "")
+        end
 
     [
         url.scheme,
@@ -766,20 +770,22 @@ fn from_parts(parts: List<String>) -> Url
             Url{
                 scheme:,
                 opaque_part: maybe_text(opaque_text),
-                user: if has_user == "" then
-                    None
-                else
-                    Some(
-                        Userinfo{
-                            name: user,
-                            password: if has_password == "" then
-                                None
-                            else
-                                Some(password)
-                            end,
-                        }
-                    )
-                end,
+                user:
+                    if has_user == "" then
+                        None
+                    else
+                        Some(
+                            Userinfo{
+                                name: user,
+                                password:
+                                    if has_password == "" then
+                                        None
+                                    else
+                                        Some(password)
+                                    end,
+                            }
+                        )
+                    end,
                 host:,
                 path:,
                 raw_path: maybe_text(raw_path),

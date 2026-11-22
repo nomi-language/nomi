@@ -18,11 +18,11 @@ import (
 // source with no markers is a single-file program named "main", and one
 // whose sections are one module is loaded from memory (SplitMultiFile).
 //
-// A source that names modules, one with a `go.mod` section (a root module
-// that requires and replaces a module of its own under it, such as a
-// generator's), is a project of several modules, which resolve through the
-// files the front end reads from disk: go.mod's requirements, each module's
-// nomi.toml and the catalogs it reads. So it is written as
+// A source that names modules (a root nomi.toml whose [dependencies] names
+// a module of its own under it with a dir, such as a generator's, or a
+// nomi.toml section in a directory under the root) is a project of several
+// modules, which resolve through the files the front end reads from disk:
+// each module's nomi.toml and the catalogs it reads. So it is written as
 // those files under dir, which is emptied first, and loaded from there as
 // the same files written by hand would be. A diagnostic names a file by its
 // path from dir, as the source marks it, and so does a run-time failure (a
@@ -31,9 +31,9 @@ import (
 // (tour/src/lib/go-memfs.js); a test passes a temporary one.
 //
 // A source may instead hold several projects side by side, each a
-// top-level directory with a go.mod of its own (virtualproject's
+// top-level directory with a nomi.toml of its own (virtualproject's
 // projectsDir): the first section's directory is the project, entered at
-// its entry, and the others are modules its go.mod replaces
+// its entry, and the others are modules its nomi.toml names by dir
 // (`../csvdata`). Its run's relative paths start at the project's
 // directory, as `nomi run` there has them. A diagnostic still names a file
 // by its path from dir (`rates/tables.nomi`, `csvdata/csvdata.nomi`), as
@@ -47,10 +47,9 @@ import (
 // whether any file declares tests.
 //
 // A block is loaded for its run and its tests at once, so the load holds
-// it to its nomi.toml's [capabilities] lists as `nomi check` does
-// (checkedRoots): main, the boot and the exports to std and go, and each
-// test file's cases to those with std_in_tests and go_in_tests. A block
-// over its lists fails
+// it to its nomi.toml's [effects] lists as `nomi check` does
+// (checkedRoots): main, the boot and the exports to std, and each test
+// file's cases to std with std_in_tests. A block over its lists fails
 // to load, with the diagnostics at the calls, as a block that does not
 // compile does; the tour shows it as a compile error.
 func LoadMarked(src, dir string, opts ...Option) (p *Program, hasTests bool, err error) {
@@ -111,13 +110,14 @@ func loadMarkedProject(project virtualproject.Project, dir, root string, opts []
 	return p, root, nil
 }
 
-// ReachedCall is one outside call a program reaches, as an editor's hover
+// ReachedCall is one effect call a program reaches, as an editor's hover
 // shows it (analyzedlowering.Reached).
 type ReachedCall = analyzedlowering.Reached
 
-// ReachedMarked is each outside call the entry of a tour-style source
-// reaches from the roots `nomi check` holds to its nomi.toml's lists, as an
-// editor's hover shows it (reachedCalls, hoverdoc.AppendReach), each with
+// ReachedMarked is each effect call the entry of a tour-style source
+// reaches from the roots `nomi check` holds to its nomi.toml's lists, and
+// from each function they do not reach, as an editor's hover shows it
+// (editorWalks, reachedCalls, hoverdoc.AppendReach), each with
 // its file named as the block's tabs name it. The block is loaded as
 // LoadMarked loads it, but not held to its lists, so a call they refuse is
 // shown refused; its other test files are not loaded.
@@ -130,7 +130,7 @@ func ReachedMarked(src, dir string, opts ...Option) ([]ReachedCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	calls := p.reachedCalls(p.walks(p.checkedRoots()))
+	calls := p.reachedCalls(p.editorWalks(p.walks(p.checkedRoots())))
 	for i := range calls {
 		if p.fileNames != nil {
 			calls[i].Path = p.fileNames(calls[i].Path)
@@ -139,13 +139,13 @@ func ReachedMarked(src, dir string, opts ...Option) ([]ReachedCall, error) {
 	return calls, nil
 }
 
-// held is a block's program once its nomi.toml's [capabilities] lists
+// held is a block's program once its nomi.toml's [effects] lists
 // allow what its run and its tests reach (LoadMarked).
 func held(p *Program, err error) (*Program, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := p.capabilityError(p.checkedRoots()...); err != nil {
+	if err := p.effectError(p.checkedRoots()...); err != nil {
 		return nil, err
 	}
 	return p, nil

@@ -439,10 +439,6 @@
           "named": true
         },
         {
-          "type": "gopkg_declaration",
-          "named": true
-        },
-        {
           "type": "group_declaration",
           "named": true
         },
@@ -2762,10 +2758,6 @@
           "named": true
         },
         {
-          "type": "gopkg_declaration",
-          "named": true
-        },
-        {
           "type": "group_declaration",
           "named": true
         },
@@ -3082,10 +3074,6 @@
         },
         {
           "type": "function_definition",
-          "named": true
-        },
-        {
-          "type": "gopkg_declaration",
           "named": true
         },
         {
@@ -8218,10 +8206,6 @@
           "named": true
         },
         {
-          "type": "go_selector_binding",
-          "named": true
-        },
-        {
           "type": "parameters",
           "named": true
         },
@@ -8324,70 +8308,6 @@
           "named": true
         }
       ]
-    }
-  },
-  {
-    "type": "go_selector_binding",
-    "named": true,
-    "fields": {
-      "package": {
-        "multiple": false,
-        "required": true,
-        "types": [
-          {
-            "type": "_",
-            "named": false
-          },
-          {
-            "type": "identifier",
-            "named": true
-          }
-        ]
-      },
-      "symbol": {
-        "multiple": false,
-        "required": true,
-        "types": [
-          {
-            "type": "identifier",
-            "named": true
-          },
-          {
-            "type": "type_identifier",
-            "named": true
-          }
-        ]
-      }
-    }
-  },
-  {
-    "type": "gopkg_declaration",
-    "named": true,
-    "fields": {
-      "alias": {
-        "multiple": false,
-        "required": false,
-        "types": [
-          {
-            "type": "_",
-            "named": false
-          },
-          {
-            "type": "identifier",
-            "named": true
-          }
-        ]
-      },
-      "path": {
-        "multiple": false,
-        "required": true,
-        "types": [
-          {
-            "type": "string",
-            "named": true
-          }
-        ]
-      }
     }
   },
   {
@@ -16669,10 +16589,6 @@
           "named": true
         },
         {
-          "type": "gopkg_declaration",
-          "named": true
-        },
-        {
           "type": "group_declaration",
           "named": true
         },
@@ -19353,10 +19269,6 @@
           "named": true
         },
         {
-          "type": "go_selector_binding",
-          "named": true
-        },
-        {
           "type": "pub",
           "named": true
         },
@@ -20755,14 +20667,6 @@
   },
   {
     "type": "for",
-    "named": false
-  },
-  {
-    "type": "go",
-    "named": false
-  },
-  {
-    "type": "gopkg",
     "named": false
   },
   {

@@ -26,12 +26,10 @@ package vm
 //
 // # THE DEBUG RENDERING IS rt's
 //
-// `rt.DebugText` renders scalars, collections, tuples, anonymous records,
-// distincts, Bool and the prelude's carrying enums structurally, and refuses
-// by name what only a dispatched impl can render (a named struct, a user
-// enum). Before it does either, it asks this machine's hook, which calls the
-// Debug impl the `ir.Render` names for a nominal value's type
-// (`debugImplHook`). A String is rt.StringLiteral, the literal
+// `rt.DebugText` renders a value as the literal that builds it: scalars,
+// collections, tuples, records, structs, enums and distincts. Before it
+// does, it asks this machine's hook, which calls the Debug impl the
+// `ir.Render` names for a nominal value's type (`debugImplHook`). A String is rt.StringLiteral, the literal
 // `String.to_literal` writes, which the Row discipline (`rt.RowText`) writes
 // too; internal/ir/render.go records where Row and Debug disagree, and
 // rt/render_test.go pins each.
@@ -104,9 +102,18 @@ func dbgHost(m *Machine, pos ir.Pos, args []any) (any, error) {
 // marker and host-handle values nested in its operand, preserving the caller's
 // runtime frame. A host handle is keyed by its TypeName, which is the same
 // runtime type name (`regex.Regex`) the builder names the impl under.
+//
+// On an extended machine (Extend, the REPL's) a value none of the
+// rendering's impls owns renders through the hand-written `impl Debug` the
+// machine holds for its type (rowDebugs): the rendering was compiled by an
+// earlier input, before a later one wrote that impl, and named no body for
+// a type whose Debug was then its shape. A derived Debug renders as the
+// shape does. A machine no later lowering extended renders as the
+// rendering says.
 func (m *Machine) debugImplHook(fr *frame, n *ir.Render) rt.DebugHook {
 	impls := n.DebugImpls()
-	if len(impls) == 0 {
+	later := m.extended && len(m.rowDebugs) > 0
+	if len(impls) == 0 && !later {
 		return nil
 	}
 	// An impl is selected by the value's runtime type name and instance key:
@@ -154,6 +161,10 @@ func (m *Machine) debugImplHook(fr *frame, n *ir.Render) rt.DebugHook {
 		sym, owned := byType[key{typeName, inst}]
 		if !owned && bodies[typeName] == 1 {
 			sym, owned = byName[typeName]
+		}
+		if !owned && later {
+			sym = m.rowDebugs[typeName]
+			owned = sym != nil
 		}
 		if !owned {
 			return "", false, nil

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -29,7 +30,7 @@ import (
 // errors (vmhost.CheckLowering), in the background: when a document is
 // opened, when it is saved, loweringDelay after the last edit of a burst,
 // and when a nomi.toml changes on disk (manifestChanged), whose
-// [capabilities] lists hold the calls the program reaches. A stdlib file
+// [effects] lists hold the calls the program reaches. A stdlib file
 // is not lowered (vmhost.CheckLowering).
 //
 // A run lowers the program from the document's installed analysis of the
@@ -105,7 +106,7 @@ type loweringChecks struct {
 	// fixes the errors of that run that carry a fix
 	// (problemDiagnosticsAndFixes), manifestFixes the errors it found in
 	// each nomi.toml that carry a fix, by the nomi.toml's URI
-	// (manifestFixesIn), and reached the outside calls its program
+	// (manifestFixesIn), and reached the effect calls its program
 	// reaches, which hover shows (reachedIn).
 	docs          map[string][]protocol.Diagnostic
 	fixes         map[string][]parser.ParseError
@@ -149,7 +150,7 @@ type loweringRun struct {
 	cancel  context.CancelFunc
 }
 
-// loweringReach is the outside calls a document's run found
+// loweringReach is the effect calls a document's run found
 // (analyzedlowering.Found's Reached), with the text it lowered, whose
 // positions they are in.
 type loweringReach struct {
@@ -246,7 +247,7 @@ func (c *loweringChecks) manifestFixesIn(uri string) []parser.ParseError {
 	return out
 }
 
-// reachedIn is the outside calls a hover in uri, whose text is content,
+// reachedIn is the effect calls a hover in uri, whose text is content,
 // may show (hoverdoc.AppendReach): those uri's own last run found when it
 // lowered content, then those each other document's last run found in the
 // file, which that lowering read from disk, when content is the file on
@@ -553,15 +554,23 @@ func (s *Server) finishLowering(uri, content string, gen int, found loweringFoun
 	c.mu.Lock()
 	c.last = elapsed
 	fresh := c.gen[uri] == gen && snap != nil && snap.Open && snap.Text == content
+	moved := false
 	if fresh {
 		c.docs[uri] = found.diags
 		c.fixes[uri] = found.fixes
 		c.manifestFixes[uri] = found.manifestFixes
+		old, had := c.reached[uri]
+		moved = !had || old.content != content || !slices.Equal(old.calls, found.reached)
 		c.reached[uri] = loweringReach{content: content, calls: found.reached}
 	}
 	c.mu.Unlock()
 	if fresh {
 		s.publishLoweringManifests(uri, found.manifests)
+	}
+	if moved {
+		// The tokens that reach outside follow what the run found, in this
+		// document and in each other file of its program.
+		s.refreshSemanticTokens()
 	}
 	// When the installed analysis is not of the latest text, the analysis
 	// in progress publishes the new diagnostics when it finishes.
@@ -573,7 +582,7 @@ func (s *Server) finishLowering(uri, content string, gen int, found loweringFoun
 
 // loweringFound is what a run found: the document's diagnostics, those of
 // its errors that carry a fix, the diagnostics in each nomi.toml and those
-// of them that carry a fix, by its URI, and the outside calls the program
+// of them that carry a fix, by its URI, and the effect calls the program
 // reaches.
 type loweringFound struct {
 	diags         []protocol.Diagnostic
@@ -592,7 +601,7 @@ func (s *Server) safeLoweringDiagnostics(ctx context.Context, uri, content strin
 // lowerDocument is what the server's loweringDiagnostics finds, through
 // its memo (loweringChecks.lower), with the errors that carry a fix
 // (problemDiagnosticsAndFixes), the diagnostics in a nomi.toml
-// (s.manifestDiagnostics) and the outside calls the program reaches, and
+// (s.manifestDiagnostics) and the effect calls the program reaches, and
 // with a panic in the server around the
 // lowering (one vmhost does not already answer as an InternalError)
 // answered as one diagnostic at the top of the file (recover.go).

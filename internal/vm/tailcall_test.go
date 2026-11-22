@@ -134,6 +134,45 @@ end
 	}
 }
 
+// A self tail call whose operands do not fit selfTail's arrays (five
+// strings, five references, nine words) or carry a big Int moves them on
+// its slow path, and restarts past the constants loaded at entry
+// (consthoist.go) as the fast path does. The window keeps the hoisted
+// strings: each literal here reads as written after the loop has gone round.
+func TestTailCall_ASelfTailCallOnItsSlowPathKeepsItsConstants(t *testing.T) {
+	out, err := runDepth(t, `import std::io
+
+fn big(n: Int, steps: Int) -> String
+  if steps == 0 then "big ${n}" else big(n * 2, steps - 1)
+end
+
+fn strings(a: String, b: String, c: String, d: String, e: String, steps: Int) -> String
+  if steps == 0 then "strings ${a}" else strings(b, c, d, e, a, steps - 1)
+end
+
+fn lists(a: List<Int>, b: List<Int>, c: List<Int>, d: List<Int>, e: List<Int>, steps: Int) -> String
+  if steps == 0 then "lists ${a}" else lists(b, c, d, e, a, steps - 1)
+end
+
+fn words(a: Int, b: Int, c: Int, d: Int, e: Int, f: Int, g: Int, h: Int, steps: Int) -> String
+  if steps == 0 then "words ${a}" else words(b, c, d, e, f, g, h, a, steps - 1)
+end
+
+fn main()
+  io.print(big(4611686018427387904, 2))
+  io.print(strings("1", "2", "3", "4", "5", 2))
+  io.print(lists([1], [2], [3], [4], [5], 2))
+  io.print(words(1, 2, 3, 4, 5, 6, 7, 8, 2))
+end
+`)
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if want := "big 18446744073709551616\nstrings 3\nlists [3]\nwords 3\n"; out != want {
+		t.Fatalf("output %q, want %q", out, want)
+	}
+}
+
 // A call that is not in tail position keeps its caller's frame, so the same
 // loop written `1 + f(...)` still reaches the limit at that call's line.
 func TestTailCall_ANonTailCallStillReachesTheDepthLimit(t *testing.T) {

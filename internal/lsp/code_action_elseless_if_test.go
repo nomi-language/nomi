@@ -22,6 +22,11 @@ func TestElselessIfFix_AddsElseNone(t *testing.T) {
 			"fn label(n: Int) -> Maybe<Int>\n    if n > 0 then\n        m = n * 2\n        Some(m + 1)\n    else\n        None\n    end\nend\n",
 		},
 		{
+			"block form bound to a name",
+			"fn label(n: Int) -> Maybe<Int>\n    m =\n        if n > 0 then\n            k = n * 2\n            Some(k + 1)\n        end\n\n    m\nend\n",
+			"fn label(n: Int) -> Maybe<Int>\n    m =\n        if n > 0 then\n            k = n * 2\n            Some(k + 1)\n        else\n            None\n        end\n\n    m\nend\n",
+		},
+		{
 			"a template slot",
 			"import std::html.Html\n\nfn badge(on: Bool) -> Html\n    Html\"<b class=${if on then Some(\"on\")}></b>\"\nend\n",
 			"import std::html.Html\n\nfn badge(on: Bool) -> Html\n    Html\"<b class=${if on then Some(\"on\") else None}></b>\"\nend\n",

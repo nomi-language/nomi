@@ -1,17 +1,17 @@
 package irbuild
 
 import (
-	"github.com/nomi-language/nomi/internal/stdlibbindings"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/nomi-language/nomi/internal/stdlibbindings"
 )
 
 // TestScalarArith_TheWrittenOutSpellingAnswersAsTheOperator runs the scalar
 // operator impls written out by name (`Divide.divide(20, 5)`, `Int.add`)
-// beside the operators, and needs every case to pass: the arm in
-// scalararith.go lowers both spellings to one rt call. A zero divisor is no
+// beside the operators, and needs every case to pass: interfaceCall lowers
+// a call of an impl the machine computes as its operator (ifacecall.go),
+// so both spellings are one rt call. A zero divisor is no
 // case: the divisor of `/` and `%` is a NonZeroInt, so a checked program
 // never reaches the VM's division-by-zero fault.
 func TestScalarArith_TheWrittenOutSpellingAnswersAsTheOperator(t *testing.T) {
@@ -37,21 +37,16 @@ func TestScalarArith_TheWrittenOutSpellingAnswersAsTheOperator(t *testing.T) {
 // TestScalarArith_TheOperatorKeysStayUnbound is the SCOPE BOUNDARY, pinned
 // rather than left as an absence.
 //
-// The written-out scalar operator impls lower through a BUILDER ARM and
-// deliberately have no internal/stdlibbindings row, so their std keys are
-// still refused by the index.
-// They are the Int, Float and Decimal arithmetic operators plus String's `+`. None
-// can be a registry row, because a row is a named rt symbol of exactly the Nomi
-// arity and has nowhere to put the line a `/` fault must blame. Two things
-// follow and both are checkable here:
-//
-//   - The chain POSITION is what makes the calls lower, so an edit that moved
-//     scalarOperatorCall below stdMethodCallPlan would put every one of them
-//     straight back onto `stdlib host function` with nothing else failing.
-//   - stdKey instantiates these keys (`int.Int.Add<Int, Int>.add`), while a
-//     bare spelling (`int.Int.add`) is the other candidate, so a future
-//     registry row has to decide which it is keyed on. That is the expiry
-//     condition scalararith.go's header names, and this test is where it fires.
+// The written-out scalar operator impls are machine impls (machineImpls),
+// which a call lowers as its operator (interfaceCall), and deliberately
+// have no internal/stdlibbindings row, so their std keys are still refused
+// by the index. They are the Int, Float and Decimal arithmetic operators
+// plus String's `+`. None can be a registry row, because a row is a named
+// rt symbol of exactly the Nomi arity and has nowhere to put the line a `/`
+// fault must blame. stdKey instantiates these keys (`int.Int.Add<Int,
+// Int>.add`), while a bare spelling (`int.Int.add`) is the other
+// candidate, so a future registry row has to decide which it is keyed on;
+// this test is where that fires.
 //
 // # THE CONTROL
 //
@@ -113,74 +108,5 @@ func TestScalarArith_TheOperatorKeysStayUnbound(t *testing.T) {
 			t.Errorf("%s is a registry row with an instantiated interface in its key, "+
 				"which is the shape this test records as having no instances.", b.Name)
 		}
-	}
-}
-
-// TestScalarArith_TheSevenOwnerNamesAreReserved is the SAFETY ARGUMENT for
-// selecting on an owner STRING, recorded as a fact about the language rather
-// than as a claim about this package.
-//
-// scalarArithOp keys on seven names — `Add`, `Subtract`, `Multiply`, `Divide`
-// as interfaces and `Int`, `Float`, `String` as types — and a name is the one
-// thing a user could in principle collide with. The obvious hazard is a module
-// declaring its own generic `interface Add<Rhs, Out>` whose `add` does something
-// else: scalarOperatorCall declines an owner ifaceNamed finds as a local or
-// imported interface, but one ifaceNamed does not answer for would fall
-// through that check, so on that path a user's call could be claimed here.
-//
-// IT CANNOT HAPPEN, and the reason is upstream of this package: all seven names
-// are RESERVED BY THE FRONT END. Each redeclaration is rejected:
-//
-//	pub interface Add<Rhs, Out> { … }
-//	  -> type name 'Add' is reserved by the language and cannot be redeclared
-//	     as an interface; pick a different name (e.g. `interface MyAdd ... end`)
-//	pub type Int Bool
-//	  -> type name 'Int' is reserved by the language and cannot be redeclared
-//	     as a distinct type; …
-//
-// So this test is the REACHABILITY WITNESS for that argument, and its firing
-// condition is precisely the event that would void the argument: the front end
-// relaxing one of the seven. It does NOT assert anything about irbuild, which is
-// the point — a guard inside irbuild could not see the change that breaks it.
-//
-// Related but NOT the same claim: scalarOperatorCall also declines a kindInvalid
-// operand rather than claiming the call and suppressing, which is stricter than
-// scalarEqualCall. That is about keeping the chain's existing report for a call
-// whose operands refused, and it is checked by the corpus rather than here —
-// nothing in the corpus reaches it, and inventing a fixture whose operand
-// refuses would be asserting over a position the sweep already reads.
-func TestScalarArith_TheSevenOwnerNamesAreReserved(t *testing.T) {
-	if testing.Short() {
-		t.Skip("integration; -short")
-	}
-	const tail = "\ntest \"t\"\n  assert 1 == 1\nend\n"
-	cases := []struct{ name, src string }{
-		{"Add", "pub interface Add<Rhs, Out>\n  fn m(lhs: self, rhs: Rhs) -> Out\nend\n" + tail},
-		{"Subtract", "pub interface Subtract<Rhs, Out>\n  fn m(lhs: self, rhs: Rhs) -> Out\nend\n" + tail},
-		{"Multiply", "pub interface Multiply<Rhs, Out>\n  fn m(lhs: self, rhs: Rhs) -> Out\nend\n" + tail},
-		{"Divide", "pub interface Divide<Rhs, Out>\n  fn m(lhs: self, rhs: Rhs) -> Out\nend\n" + tail},
-		{"Int", "pub type Int Bool\n" + tail},
-		{"Float", "pub type Float Bool\n" + tail},
-		{"String", "pub type String Bool\n" + tail},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			dir := t.TempDir()
-			path := filepath.Join(dir, "reserved_test.nomi")
-			if err := os.WriteFile(path, []byte(tc.src), 0o644); err != nil {
-				t.Fatal(err)
-			}
-			_, err := Analyze(path)
-			if err == nil {
-				t.Fatalf("the front end ACCEPTED a redeclaration of %q. scalarArithCall keys "+
-					"on that name, so a user's own declaration can now be claimed by it — "+
-					"the arm must start asking whether the name resolves locally instead of "+
-					"relying on the reservation. See scalararith.go.", tc.name)
-			}
-			if !strings.Contains(err.Error(), "reserved by the language") {
-				t.Fatalf("%q was rejected for a DIFFERENT reason, so this row does not "+
-					"test the reservation:\n%v", tc.name, err)
-			}
-		})
 	}
 }

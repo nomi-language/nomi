@@ -1,0 +1,213 @@
+import
+    std::channels.{Channel, Receiver, Sender}
+    std::embed.Files
+    std::tasks.Task
+    std::wasm.{self, Error, Import, Instance, Memory, Trap, Value}
+end
+
+embed modules `wasm`
+
+fn load(name: String) -> wasm.Module
+    wasm.compile(Files.read(modules, "wasm/${name}.wasm")!)!
+end
+
+fn doubling(results: List<wasm.ValueType>) -> Import
+    Import{
+        module: "env",
+        name:   "twice",
+        params: [.I64],
+        results:,
+        run:
+            fn _, args ->
+                case args
+                    [.I64(n)] -> Ok([.I64(n * 2)])
+                    _         -> Err("twice takes one I64")
+                end
+            end,
+    }
+end
+
+fn shouting() -> Import
+    Import{
+        module: "env",
+        name:   "shout",
+        params: [.I32, .I32],
+        run:
+            fn memory, args ->
+                case args
+                    [.I32(at), .I32(length)] ->
+                        text = Memory.read(memory, at, length) |> Result.map_err(&"${&1}")?
+
+                        _ = Memory.write(
+                            memory,
+                            at,
+                            String.to_bytes(String.uppercase(Bytes.to_string_lossy(text))),
+                        )
+
+                        Ok([])
+
+                    _ ->
+                        Err("shout takes two I32s")
+                end
+            end,
+    }
+end
+
+test "a value of each type crosses"
+    instance = wasm.instantiate(load("values"))!
+    defer Instance.drop(instance)
+
+    assert Instance.call(instance, "add_i32", [.I32(2), .I32(3)]) == Ok([.I32(5)])
+
+    assert Instance.call(instance, "add_i32", [.I32(2_147_483_647), .I32(1)])
+        == Ok([.I32(-2_147_483_648)])
+
+    assert Instance.call(instance, "add_i64", [.I64(18_446_744_073_709_551_615), .I64(2)])
+        == Ok([.I64(1)])
+
+    assert Instance.call(instance, "mul_f32", [.F32(1.5), .F32(2.0)]) == Ok([.F32(3.0)])
+    assert Instance.call(instance, "mul_f64", [.F64(1.5), .F64(-2.0)]) == Ok([.F64(-3.0)])
+    assert Instance.call(instance, "pair") == Ok([.I32(1), .I64(2)])
+    assert Instance.call(instance, "ready") == Ok([.I32(42)])
+
+    assert Instance.call(
+        instance,
+        "add_i64",
+        [.I64(18_446_744_073_709_551_616), .I64(0)],
+    ) is Err(.Mismatch{message: _})
+
+    assert Instance.call(instance, "add_i32", [.I32(-2_147_483_649), .I32(0)]) is Err(.Mismatch{
+        message: _,
+    })
+end
+
+test "a NaN comes back as the one NaN"
+    instance = wasm.instantiate(load("values"))!
+    defer Instance.drop(instance)
+
+    assert Ok([.F64(x)]) = Instance.call(instance, "negative_nan_f64")
+    assert Float.to_bits(x) == Float.to_bits(Float.nan())
+    assert Ok([.F64(y)]) = Instance.call(instance, "nan_payload_f64")
+    assert Float.to_bits(y) == Float.to_bits(Float.nan())
+    assert Ok([.F32(z)]) = Instance.call(instance, "negative_nan_f32")
+    assert Float.to_bits_32(z) == 0x7FC0_0000
+end
+
+/// The call of `name` with `args` in a fresh instance of values.wasm with
+/// two pages of memory at most, and a call of `ready` after it.
+fn twice(
+    name: String,
+    args: List<Value>,
+) -> (Result<List<Value>, Error>, Result<List<Value>, Error>)
+    instance = wasm.instantiate(load("values"), memory_limit: 131_072)!
+    defer Instance.drop(instance)
+    (Instance.call(instance, name, args), Instance.call(instance, "ready"))
+end
+
+test "each trap is its kind, and the instance is dead after"
+    assert twice("unreachable", []) == (Err(.Trapped(.Unreachable)), Err(.Dead(.Unreachable)))
+    assert twice("out_of_bounds", []) == (Err(.Trapped(.OutOfBounds)), Err(.Dead(.OutOfBounds)))
+
+    assert twice("grow_or_trap", [.I32(2)]) == (
+        Err(.Trapped(.MemoryLimit)),
+        Err(.Dead(.MemoryLimit)),
+    )
+
+    divided = Trap.Other{message: "integer divide by zero"}
+    assert twice("divide", [.I32(1), .I32(0)]) == (Err(.Trapped(divided)), Err(.Dead(divided)))
+end
+
+test "imports answer the module, and read and write its memory"
+    instance = wasm.instantiate(load("imports"), [doubling([.I64]), shouting()])!
+    defer Instance.drop(instance)
+
+    assert Instance.call(instance, "twice", [.I64(21)]) == Ok([.I64(42)])
+    assert Instance.write(instance, 4, String.to_bytes("quiet")) == Ok(Unit)
+    assert Instance.call(instance, "shout", [.I32(4), .I32(5)]) == Ok([])
+    assert Instance.read(instance, 4, 5) == Ok(String.to_bytes("QUIET"))
+end
+
+test "an import that fails traps the call"
+    imports = load("imports")
+
+    failing = {..doubling([.I64]), run: fn _, _ -> Err("no twice today")}
+    instance = wasm.instantiate(imports, [failing, shouting()])!
+    defer Instance.drop(instance)
+
+    assert Instance.call(instance, "twice", [.I64(1)])
+        == Err(.Trapped(.ImportFailed{name: "env.twice", message: "no twice today"}))
+
+    wrong = {..doubling([.I64]), run: fn _, _ -> Ok([.F64(1.0)])}
+    other = wasm.instantiate(imports, [wrong, shouting()])!
+    defer Instance.drop(other)
+
+    assert Instance.call(other, "twice", [.I64(1)]) == Err(.Trapped(.ImportFailed{
+                name:    "env.twice",
+                message: "result 1 is a F64, and the module takes a I64",
+            }))
+end
+
+test "instantiate checks the imports"
+    imports = load("imports")
+
+    assert wasm.instantiate(imports, [shouting()]) is Err(.MissingImport{
+        module: "env",
+        name: "twice",
+    })
+
+    assert wasm.instantiate(imports, [doubling([.I32]), shouting()]) is Err(.Mismatch{
+        message: "the module's import env.twice returns [I64], and the Nomi function declares [I32]",
+    })
+end
+
+test "run calls a fresh instance by its convention"
+    upper = load("upper")
+
+    assert wasm.run(upper, "upper", String.to_bytes("hello")) == Ok(String.to_bytes("HELLO"))
+
+    assert wasm.run(load("values"), "add_i32", String.to_bytes("x"))
+        == Err(.NoExport{name: "alloc"})
+
+    assert wasm.run(load("imports"), "shout", String.to_bytes("x"))
+        == Err(.MissingImport{module: "env", name: "shout"})
+end
+
+test "run carries a request into a live instance and its answer out"
+    instance = wasm.instantiate(load("upper"))!
+    defer Instance.drop(instance)
+
+    assert Instance.run(instance, "upper", String.to_bytes("one")) == Ok(String.to_bytes("ONE"))
+    assert Instance.run(instance, "upper", String.to_bytes("two")) == Ok(String.to_bytes("TWO"))
+    assert Instance.run(instance, "lower", String.to_bytes("x")) == Err(.NoExport{name: "lower"})
+end
+
+// A task stopped while it waits runs its deferred call, which calls the
+// instance: the import that declares an answer for a stopping task answers
+// it without running, and the instance stays usable.
+test "an import answers a stopping task without running"
+    answering = {..doubling([.I64]), stopping: Some([.I64(7)])}
+    instance = wasm.instantiate(load("imports"), [answering, shouting()])!
+    defer Instance.drop(instance)
+    started: Channel<Unit> = Channel.buffered(1)
+    waiting: Channel<Unit> = Channel.buffered(1)
+    answered: Channel<Result<List<Value>, Error>> = Channel.buffered(1)
+
+    concurrent
+        task = Task.spawn(fn ->
+            defer report(answered.sender, instance)
+            _ = Sender.send(started.sender, Unit)
+            _ = Receiver.receive(waiting.receiver)
+        end)
+
+        _ = Receiver.receive(started.receiver)
+        Task.cancel(task)
+        _ = Task.outcome(task)
+    end
+
+    assert Receiver.receive(answered.receiver) == Some(Ok([.I64(7)]))
+    assert Instance.call(instance, "twice", [.I64(21)]) == Ok([.I64(42)])
+end
+
+fn report(to: Sender<Result<List<Value>, Error>>, instance: Instance)
+    _ = Sender.send(to, Instance.call(instance, "twice", [.I64(21)]))
+end

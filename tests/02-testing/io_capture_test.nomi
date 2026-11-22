@@ -89,11 +89,12 @@ test "tasks started inside the capture are captured"
 end
 
 test "two tasks capturing at once do not see each other's output"
-    both = concurrent
-        a = Task.spawn(fn -> io.capture("", fn -> write_n("a", 20)))
-        b = Task.spawn(fn -> io.capture("", fn -> write_n("b", 20)))
-        (Task.await(a).output, Task.await(b).output)
-    end
+    both =
+        concurrent
+            a = Task.spawn(fn -> io.capture("", fn -> write_n("a", 20)))
+            b = Task.spawn(fn -> io.capture("", fn -> write_n("b", 20)))
+            (Task.await(a).output, Task.await(b).output)
+        end
 
     assert both == (String.repeat("a", 20), String.repeat("b", 20))
 end
@@ -127,10 +128,11 @@ test "the stream handles reach the capture"
 end
 
 test "a replay ignores what the program writes to stderr"
-    warned = fn ->
-        io.eprint("warning: no config file")
-        io.print("ready")
-    end
+    warned =
+        fn ->
+            io.eprint("warning: no config file")
+            io.print("ready")
+        end
 
     assert io.replay(
         """

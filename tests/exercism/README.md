@@ -14,7 +14,7 @@ the generator refuses an item that says `Fixed:`. The line
 under NOTES.md's title names the exercise's subject, which groups it in the
 tour's sidebar and filters the intro's table:
 
-```
+```markdown
 # Acronym
 
 Subject: Strings & Text

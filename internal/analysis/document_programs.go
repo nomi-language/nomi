@@ -202,7 +202,7 @@ func (dm *DocumentManager) forgetClosed(uri string) {
 
 // forgetPrograms drops every kept program, so the next analysis of each
 // checks its program afresh: a file appeared that an import may now
-// resolve to, or the Go bindings changed.
+// resolve to.
 func (dm *DocumentManager) forgetPrograms() {
 	dm.lockBuild(true)
 	defer dm.analyzeMu.Unlock()
@@ -220,8 +220,7 @@ func (dm *DocumentManager) buildOpen(uri, content string) (builtAnalysis, func()
 	root := dm.projectRootFromURI(uri)
 	docKey := relModuleKey(root, docPath)
 	if dm.isStdlibFile(uri) || !filepath.IsAbs(docPath) || filepath.Ext(docPath) != ".nomi" ||
-		docKey == "" || strings.HasPrefix(docKey, "..") || IsStdlibKey(docKey) ||
-		len(dm.syntheticExternsForRoot(root)) > 0 {
+		docKey == "" || strings.HasPrefix(docKey, "..") || IsStdlibKey(docKey) {
 		return dm.build(uri, content), none
 	}
 	manifest := manifestText(root)

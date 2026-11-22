@@ -16,13 +16,17 @@ var topLevelFn = regexp.MustCompile(`(?m)^(?:pub )?fn ([a-z_][A-Za-z0-9_]*)\(`)
 
 // TestDebug_AMachineWithoutADebuggerCompilesNoHooks compiles every top-level
 // function of the corpus's programs twice, on a plain machine and on a debug
-// machine. The plain listing holds no `stmt` or `pc` hook, and the debug
+// machine, both compiling no call into its caller and no self tail call as a
+// jump (a debug machine compiles neither, inline.go and loop.go). The plain
+// listing holds no `stmt` or `pc` hook, and the debug
 // listing with its hooks taken out is the plain one, opcode for opcode and
 // operand for operand, except for branch targets (a `br`'s, a `brcmpi`'s),
 // which the hooks move, and
 // a jump to a `ret`, which a plain machine folds into the `ret` and a debug
 // machine keeps when a hook sits at its target.
 func TestDebug_AMachineWithoutADebuggerCompilesNoHooks(t *testing.T) {
+	t.Setenv(vm.NoInlineEnv, "1")
+	t.Setenv(vm.NoLoopJumpEnv, "1")
 	root := filepath.Join("..", "..", "tests")
 	compared, hooked := 0, 0
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {

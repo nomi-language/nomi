@@ -321,6 +321,16 @@ func (d *decoder) image(r *rbuf) Image {
 		}
 		im.Exports = append(im.Exports, x)
 	}
+	for k := modSec.count(); k > 0 && modSec.err == nil; k-- {
+		h := HostFn{Key: d.str(modSec.uv()), Name: d.str(modSec.uv())}
+		for n := modSec.count(); n > 0 && modSec.err == nil; n-- {
+			h.Params = append(h.Params, HostFnParam{Name: d.str(modSec.uv()), Type: d.str(modSec.uv()), Encode: d.fn(modSec.uv())})
+		}
+		h.Result = d.str(modSec.uv())
+		h.Decode = d.fn(modSec.uv())
+		h.NoJSON = d.str(modSec.uv())
+		im.HostFns = append(im.HostFns, h)
+	}
 	if locales := d.str(modSec.uv()); locales != "" {
 		im.Locales = []byte(locales)
 	}
@@ -531,6 +541,7 @@ func (d *decoder) valTypeRec(r *rbuf, t *ValType) {
 	}
 	t.names = d.strList(r)
 	t.result = d.vt(r.uv())
+	t.spread = r.bool1()
 	if r.byte1() != 0 {
 		l := &Layout{Fields: d.fields(r)}
 		if n, isNil := r.slen(); !isNil {
@@ -540,6 +551,7 @@ func (d *decoder) valTypeRec(r *rbuf, t *ValType) {
 				v.Name = d.str(r.uv())
 				v.Form = VariantForm(r.byte1())
 				v.Fields = d.fields(r)
+				v.Spread = r.bool1()
 			}
 		}
 		t.layout = l
@@ -688,9 +700,18 @@ func (d *decoder) term(r *rbuf) Term {
 }
 
 func (d *decoder) call(r *rbuf) *Call {
-	return &Call{pos: d.pos(r), dst: r.temp(), form: CalleeForm(r.byte1()),
+	c := &Call{pos: d.pos(r), dst: r.temp(), form: CalleeForm(r.byte1()),
 		callee: d.sym(r.uv()), fn: r.temp(), keyAt: int(r.sv()), args: d.temps(r),
 		tail: r.bool1(), crosses: r.bool1()}
+	switch c.form {
+	case CalleeDirect, CalleeDispatched, CalleeIndirect:
+	default:
+		// A bound call is never written (encoder.call), and no other form
+		// exists.
+		d.fail("call form %d", c.form)
+		r.fail("call")
+	}
+	return c
 }
 
 // instr reads one instruction. Go evaluates a composite literal's elements
@@ -716,7 +737,7 @@ func (d *decoder) instr(r *rbuf) Instr {
 		return &RunDefer{pos: d.pos(r), id: int(r.sv())}
 	case tagFuncValue:
 		return &FuncValue{pos: d.pos(r), dst: r.temp(), body: d.fn(r.uv()), self: r.bool1(),
-			captures: d.temps(r)}
+			keeps: r.bool1(), captures: d.temps(r)}
 	case tagAssert:
 		n := &Assert{pos: d.pos(r), dst: r.temp(), subj: r.temp(), kw: AssertKeyword(r.byte1()),
 			text: d.str(r.uv()), mismatch: r.bool1(), answer: r.temp()}
@@ -785,7 +806,7 @@ func (d *decoder) instr(r *rbuf) Instr {
 	case tagStore:
 		return &Store{pos: d.pos(r), kind: StoreKind(r.byte1()), sym: d.sym(r.uv()), src: r.temp()}
 	case tagRef:
-		return &Ref{pos: d.pos(r), dst: r.temp(), kind: RefKind(r.byte1()), sym: d.sym(r.uv())}
+		return &Ref{pos: d.pos(r), dst: r.temp(), kind: RefKind(r.byte1()), sym: d.sym(r.uv()), keeps: r.bool1()}
 	case tagCopy:
 		return &Copy{pos: d.pos(r), dst: r.temp(), src: r.temp()}
 	case tagRender:

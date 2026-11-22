@@ -61,16 +61,3 @@ func importShape(s *ast.ImportStmt) string {
 	}
 	return out
 }
-
-// The old Go package handle spellings stay the error that names `gopkg`, in
-// both forms.
-func TestImportGoPackageHandleIsTheGopkgError(t *testing.T) {
-	for _, entry := range []string{`go "net/http"`, `go http "net/http"`, `go _ "net/http"`} {
-		for _, src := range []string{"import " + entry + "\n", "import\n  " + entry + "\n}\n"} {
-			_, err := Parse(lexer.Lex(src))
-			if err == nil || !strings.Contains(err.Error(), "gopkg") {
-				t.Errorf("Parse(%q) error = %v, want the `gopkg` error", src, err)
-			}
-		}
-	}
-}

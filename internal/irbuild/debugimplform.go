@@ -11,9 +11,13 @@ import (
 // debugBody is a Debug body a renderer names for a nested part: its
 // symbol, nil for none, and whether the front end synthesized it (a derive
 // or the universal Debug). structural says the checker's record answers
-// structurally, as it does for a type declared in a body, which no impl
-// can name: the builder writes that type's universal Debug itself
-// (blocklocaltype.go), so no record names it.
+// structurally, which for a declared type means a type declared in a body,
+// whose Debug is its shape (nestedDebugImpls' byShape), or its file's
+// bodies are not held (a file lowered from its interface), where the
+// universal Debug of an opaque type declared in a body
+// (analysis.FileBodies.BlockDebug) is no record's and the type's kind
+// finds it (blocklocaltype.go). Where the bodies are held the record names
+// that Debug, as it names a module-level type's.
 type debugBody struct {
 	sym        *ir.Symbol
 	synth      bool
@@ -26,7 +30,13 @@ type debugBody struct {
 // at k of std's generic impl, or std's own function. No symbol where the
 // record names none the renderer can call.
 func (bl *irScalarBuilder) recordedDebugBody(k kind, kt analysis.Type) debugBody {
-	r := bl.recordedIfaceFnAt(stdDebug, "inspect", k, kt, []kind{k}, kindString)
+	return bl.recordedDebugBodyOf(bl.g.stdIfaceCallRecord(stdDebug, "inspect", 1, kt).Callee, k, kt)
+}
+
+// recordedDebugBodyOf is recordedDebugBody answered by c, the record of
+// the `Debug.inspect` it means (a `dbg`'s own, dbgRecord).
+func (bl *irScalarBuilder) recordedDebugBodyOf(c analysis.Callee, k kind, kt analysis.Type) debugBody {
+	r := bl.recordedIfaceFnOf(c, stdDebug, "inspect", k, kt, []kind{k}, kindString)
 	switch {
 	case r.structural:
 		return debugBody{structural: true}
@@ -59,8 +69,10 @@ const (
 	// debugImplNoType: by the part's kind, which has no checker type
 	// where the renderer names its body.
 	debugImplNoType debugImplClass = "no checker type"
-	// debugImplBodyLocal: by the part's kind, a type declared in a body,
-	// whose universal Debug the builder writes and no record names.
+	// debugImplBodyLocal: by the part's kind, an opaque type declared in a
+	// body whose file's bodies the record could not read
+	// (debugBody.structural), whose universal Debug is written in its block
+	// and no record names.
 	debugImplBodyLocal debugImplClass = "a type declared in a body"
 	// debugImplExistential: every implementor of the interface a held
 	// value may be (existentialDebugImpls), an index query over the

@@ -1,0 +1,198 @@
+import
+    std::sql.{self, Conn, Row, Sql}
+    postgres
+    postgres::describe.{self, Column, Description, Migration, Table, TableColumn}
+end
+
+once shop_migrations = [
+    Migration{
+        path: "db/1.up.sql",
+        text: "\nCREATE TYPE kind AS ENUM ('heart', 'pray');\nCREATE TABLE users (\n    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),\n    email text NOT NULL,\n    name text,\n    status varchar(10) NOT NULL CHECK (status IN ('active', 'gone'))\n);\nCREATE TABLE posts (\n    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,\n    user_id uuid REFERENCES users (id),\n    title text NOT NULL,\n    total numeric(12, 2) NOT NULL DEFAULT 0\n);",
+    },
+    Migration{
+        path: "db/2.up.sql",
+        text: "\nCREATE TABLE reactions (post_id bigint NOT NULL REFERENCES posts (id), kind kind NOT NULL);\nALTER TABLE users ADD COLUMN created_at timestamptz NOT NULL DEFAULT now();",
+    },
+]
+
+fn shop(statements: List<String>) -> Result<Description, sql.Error>
+    d = describe.describe(postgres.scratch()?, shop_migrations, statements)
+
+    if d.error != "" then
+        return Err(
+            sql.Error.Database{
+                code:    "",
+                message: "${d.error} (migration ${d.migration}, offset ${d.offset})",
+            }
+        )
+    end
+
+    Ok(d)
+end
+
+fn table(d: Description, name: String) -> Maybe<Table>
+    Iter.find(d.tables, fn t -> t.name == name)
+end
+
+fn column(t: Maybe<Table>, name: String) -> Maybe<TableColumn>
+    t |> Maybe.flat_map(fn found -> Iter.find(found.columns, fn c -> c.name == name))
+end
+
+fn nullable(d: Description, i: Int) -> List<Bool>
+    Iter.get(d.statements, i)
+    |> Maybe.map(fn s -> s.columns |> Iter.map(.nullable) |> Iter.to_list())
+    |> Maybe.with_default([])
+end
+
+test "the tables, their types, and the migration each column came from"
+    d = shop([])?
+    users = table(d, "users")
+    assert Maybe.map(users, .migration) == Some("db/1.up.sql")
+    assert Some(id) = column(users, "id")
+    assert id.type_name == "uuid" and id.not_null and id.primary_key and id.has_default
+    assert Some(name) = column(users, "name")
+    refute name.not_null
+    assert Some(created) = column(users, "created_at")
+    assert created.migration == "db/2.up.sql" and created.type_name == "timestamp with time zone"
+    assert Some(status) = column(users, "status")
+    assert status.values == ["active", "gone"] and status.type_name == "character varying(10)"
+    assert Some(total) = column(table(d, "posts"), "total")
+    assert total.type_name == "numeric(12,2)" and total.has_default
+    assert Some(post_id) = column(table(d, "posts"), "id")
+    assert post_id.has_default
+    assert Some(kind) = column(table(d, "reactions"), "kind")
+    assert kind.values == ["heart", "pray"] and kind.type_name == "kind"
+end
+
+test "the parameters, the columns and the table column each reads"
+    d = shop([
+        "SELECT id, email, name FROM users WHERE id = ANY ($1) AND status = $2",
+        "INSERT INTO posts (user_id, title) VALUES ($1, $2) RETURNING id, total",
+        "SELECT count(*) AS n, max(title) AS last FROM posts",
+    ])?
+
+    assert [select, insert, aggregate] = d.statements
+    assert select.error == "" and select.params == ["uuid[]", "text"]
+
+    assert select.columns == [
+        Column{name: "id", type_name: "uuid", table: "users", column: "id", nullable: False},
+        Column{name: "email", type_name: "text", table: "users", column: "email", nullable: False},
+        Column{name: "name", type_name: "text", table: "users", column: "name", nullable: True},
+    ]
+
+    assert insert.params == ["uuid", "text"]
+
+    assert Iter.get(insert.columns, 0) == Some(
+        Column{name: "id", type_name: "bigint", table: "posts", column: "id", nullable: False}
+    )
+
+    assert Iter.get(insert.columns, 1) |> Maybe.map(.nullable) == Some(False)
+
+    assert Iter.get(aggregate.columns, 0)
+        == Some(Column{name: "n", type_name: "bigint", table: "", column: "", nullable: True})
+
+    assert Iter.get(aggregate.columns, 1) |> Maybe.map(.nullable) == Some(True)
+end
+
+test "a column an outer join may leave out is nullable"
+    d = shop([
+        "SELECT p.title, u.email FROM posts p LEFT JOIN users u ON u.id = p.user_id",
+        "SELECT p.title, u.email FROM users u RIGHT JOIN posts p ON u.id = p.user_id WHERE p.id = $1",
+        "SELECT p.title, u.email FROM posts p JOIN users u ON u.id = p.user_id",
+        "SELECT p.title, u.email FROM posts p FULL JOIN users u ON u.id = p.user_id",
+        "WITH active AS (SELECT * FROM users WHERE status = 'active') SELECT p.title, a.email FROM posts p LEFT JOIN active a ON a.id = p.user_id",
+    ])?
+
+    assert [nullable(d, 0), nullable(d, 1), nullable(d, 2), nullable(d, 3), nullable(d, 4)] == [
+        [False, True],
+        [False, True],
+        [False, False],
+        [True, True],
+        [False, True],
+    ]
+end
+
+test "a view's column is nullable as its definition's column is"
+    views = Migration{
+        path: "db/3.up.sql",
+        text: "\nCREATE VIEW post_authors AS\n  SELECT p.title, u.email, u.name, p.title || '!' AS shout, u.status\n  FROM posts p\n  JOIN users u ON u.id = p.user_id;\nCREATE VIEW post_readers AS\n  SELECT p.title, u.email FROM posts p LEFT JOIN users u ON u.id = p.user_id;\nCREATE VIEW post_titles AS SELECT title FROM post_authors;\nCREATE MATERIALIZED VIEW post_counts AS\n  SELECT u.email, count(*) AS n FROM posts p JOIN users u ON u.id = p.user_id GROUP BY u.email;",
+    }
+
+    d = describe.describe(postgres.scratch()?, shop_migrations + [views], [
+        "SELECT d.title, d.email, d.name, d.shout, d.status FROM post_authors d",
+        "SELECT r.title, r.email FROM post_readers r",
+        "SELECT t.title FROM post_titles t",
+        "SELECT r.kind, d.title FROM reactions r LEFT JOIN post_authors d ON d.title = 'x'",
+        "SELECT c.email, c.n FROM post_counts c",
+    ])
+
+    assert d.error == ""
+
+    assert [nullable(d, 0), nullable(d, 1), nullable(d, 2), nullable(d, 3), nullable(d, 4)] == [
+        [False, False, True, True, False],
+        [False, True],
+        [False],
+        [False, True],
+        [False, True],
+    ]
+
+    assert Iter.get(d.statements, 0) |> Maybe.map(.columns) == Some([
+        Column{name: "title", type_name: "text", table: "posts", column: "title", nullable: False},
+        Column{name: "email", type_name: "text", table: "users", column: "email", nullable: False},
+        Column{name: "name", type_name: "text", table: "users", column: "name", nullable: True},
+        Column{name: "shout", type_name: "text", table: "", column: "", nullable: True},
+        Column{
+            name:      "status",
+            type_name: "character varying(10)",
+            table:     "users",
+            column:    "status",
+            nullable:  False,
+        },
+    ])
+
+    assert Iter.get(d.statements, 2)
+    |> Maybe.flat_map(fn s -> List.first(s.columns))
+    |> Maybe.map(fn c -> (c.table, c.column)) == Some(("posts", "title"))
+end
+
+test "the plan is read on a connection whose encoding is not UTF8"
+    url = postgres.scratch()? + "&client_encoding=SQL_ASCII"
+
+    d = describe.describe(url, shop_migrations, [
+        "SELECT p.title, u.email FROM posts p LEFT JOIN users u ON u.id = p.user_id WHERE p.id = $1",
+    ])
+
+    assert d.error == ""
+    assert nullable(d, 0) == [False, True]
+end
+
+test "an error, and the byte it is at"
+    text = "SELECT émail, nope FROM users"
+    d = shop([text])?
+    assert [s] = d.statements
+    assert String.contains(s.error, "émail")
+    assert s.offset == 7
+
+    bad = [Migration{path: "m.sql", text: "CREATE TABLE t (id int);\nCREATE TABLE u (x nonsense);"}]
+    failed = describe.describe(postgres.scratch()?, bad, [])
+    assert failed.migration == "m.sql" and failed.offset == 43
+end
+
+test "the scratch database is dropped"
+    url = postgres.scratch()?
+    db = postgres.connect(url)?
+    defer sql.close_quietly(db)
+
+    names =
+        fn ->
+            Conn.query(db, Sql"SELECT datname FROM pg_database ORDER BY datname")
+            |> Result.map(fn rows ->
+                rows |> Iter.map(fn r -> Row.get<String>(r, "datname")) |> Iter.to_list()
+            end)
+        end
+
+    before = names()?
+    d = describe.describe(url, shop_migrations, ["SELECT 1"])
+    assert d.error == ""
+    assert names() == Ok(before)
+end

@@ -16,13 +16,6 @@ func irByteValueKind(k kind) bool {
 	return k != kindInvalid && (k == irByteKind() || k == irBytesKind())
 }
 
-// irIntLiteralKind is a kind an Int literal pattern tests: Int, or Byte,
-// whose literal patterns the checker types as Bytes.
-func irIntLiteralKind(k kind) bool {
-	// kindInvalid: sentinel — a program with no std has no Byte kind, which must not match a refused operand.
-	return k == kindInt || (k != kindInvalid && k == irByteKind())
-}
-
 // byteLiteral reports whether the checker typed the Int literal t as a Byte,
 // which it does where a Byte is expected (analysis/byte_literal.go), and held
 // it to 0 to 255.

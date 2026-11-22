@@ -47,9 +47,9 @@ func (g *gen) irNameSite(name string, line, col int) ir.Pos {
 
 // irBindingSite is where pattern n writes the name it binds: the name
 // itself, found inside n (`Some(n)`'s payload, a struct pattern's field
-// binding, the name after `as`), or n's own position when it is not found.
-func irBindingSite(n ast.Node, name string) (int, int) {
-	line, col := 0, 0
+// binding, the name after `as`), or n's own position when it is not found,
+// a name the builder made, with found false.
+func irBindingSite(n ast.Node, name string) (line, col int, found bool) {
 	ast.Inspect(n, func(m ast.Node) bool {
 		if line != 0 {
 			return false
@@ -82,9 +82,10 @@ func irBindingSite(n ast.Node, name string) (int, int) {
 		return line == 0
 	})
 	if line == 0 {
-		return nodePos(n)
+		line, col = nodePos(n)
+		return line, col, false
 	}
-	return line, col
+	return line, col, true
 }
 
 // debugSpelling is k as a type annotation spells it, which a debugger's watch

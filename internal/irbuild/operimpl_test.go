@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
@@ -73,12 +74,11 @@ end
 // being a property of eight consultation sites.
 //
 // The alternative is widening `implsByIface`'s key with the interface's type
-// arguments. `noEquatableImpl` reads `implsByIface[stdIfaceImplKey(stdEquatable)][k]` to decide
-// whether `==` may take the STRUCTURAL fallback, and under a widened key a
-// lookup that lost its existential over the rhs axis answers "no impl" for a
-// type that HAS one: a wrong answer on a comparison that lowers, not a
-// refusal, and invisible to the corpus unless a fixture happens to compare two
-// values of such a type.
+// arguments. Every lookup there asks for one receiver's impl of an
+// interface, and under a widened key a lookup that lost its existential over
+// the rhs axis answers "no impl" for a type that HAS one: a wrong answer, not
+// a refusal, and invisible to the corpus unless a fixture reaches that
+// lookup with such a type.
 //
 // The second index cannot produce that failure BY CONSTRUCTION, and this is that
 // construction asserted: no impl in `implsByIface` is an operator impl, on a
@@ -93,7 +93,7 @@ func TestOperImpl_OperatorImplsNeverEnterImplsByIface(t *testing.T) {
 			if d.oper != nil {
 				t.Errorf("implsByIface has an operator impl under %q (%s). The whole argument for a "+
 					"second index is that every lookup in this map is unchanged; a row here voids "+
-					"it, and noEquatableImpl fails to a WRONG ANSWER rather than to a build error",
+					"it, and a lookup of one receiver's impl fails to a WRONG ANSWER rather than to a build error",
 					key, d.label())
 			}
 		}
@@ -168,8 +168,9 @@ end
 	if fa == nil || fa.ModuleScope == nil {
 		t.Fatal("no module scope, so no anchor can be established and every row below is vacuous")
 	}
+	g := &gen{fa: fa}
 	for _, s := range operIfaceSpecs {
-		got, anchored := operIfaceAnchoredIn(fa, s.nomi)
+		got, anchored := g.operIfaceOf(analysis.StdType{Module: s.module, Name: s.nomi})
 		if !anchored {
 			t.Errorf("%s did not anchor. Either std moved the declaration or the shape check "+
 				"drifted; matchesDecl fails CLOSED, so this is the only thing that notices",
@@ -183,7 +184,7 @@ end
 	// The PAIRED NEGATIVE: a name that is not an operator interface must not
 	// anchor, so the loop above is not passing because the function says yes to
 	// everything.
-	if s, anchored := operIfaceAnchoredIn(fa, "Display"); anchored {
+	if s, anchored := g.operIfaceOf(analysis.StdType{Module: "std/display", Name: "Display"}); anchored {
 		t.Errorf("Display anchored as an operator interface (%+v); the identity check "+
 			"is answering on the name alone", s)
 	}
@@ -192,8 +193,8 @@ end
 // TestOperImpl_TheFourNamesAreReserved is the identity check's SECOND half, and
 // it turns out to be a stronger fact than the check itself.
 //
-// `operIfaceAnchoredIn` requires the name to resolve through an IMPORT of the
-// declaring std module, so a user's own `interface Add<R, O>` anchors nothing.
+// `operIfaceOf` requires the interface the checker recorded to be the
+// declaring std module's, so a user's own `interface Add<R, O>` anchors nothing.
 // MEASURED, and it makes that belt redundant: the analyzer REJECTS the
 // declaration outright — "type name 'Add' is reserved by the language and cannot
 // be redeclared as an interface". So the collision is unreachable at the front
@@ -216,8 +217,8 @@ func TestOperImpl_TheFourNamesAreReserved(t *testing.T) {
 			if err == nil {
 				t.Errorf("the analyzer accepted `pub interface %s`. operIfaceByName is "+
 					"name-keyed, so a declarable spec name is a reachable wrong answer "+
-					"rather than a coverage gap — and the import check in "+
-					"operIfaceAnchoredIn is then the only thing standing between a user's "+
+					"rather than a coverage gap — and the identity check in "+
+					"operIfaceOf is then the only thing standing between a user's "+
 					"interface and the operator dispatch route", s.nomi)
 			}
 		})

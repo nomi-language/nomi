@@ -16,23 +16,24 @@ import (
 	"strings"
 )
 
-// Know links in-memory modules as Add does, without dropping anything from
-// them: the modules are shared (a process's stdlib lowering), so a module
-// already defining a name is not checked for.
+// Know links in-memory modules: their linked symbols become the ones later
+// objects resolve to, and nothing is dropped from them, since they are
+// shared (a process's stdlib lowering). A name already linked keeps its
+// symbol.
 func (l *Linker) Know(mods ...*Module) {
 	for _, m := range mods {
 		for _, s := range ModuleSymbols(m) {
-			if s.link != "" && l.syms[s.link] == nil {
+			if s.link != "" && l.known(s.link) == nil {
 				l.syms[s.link] = s
 			}
 		}
 		for _, f := range m.funcs {
-			if s := f.sym; s != nil && s.link != "" && l.defined[s] == nil {
+			if s := f.sym; s != nil && s.link != "" && l.definer(s) == nil {
 				l.defined[s] = m
 			}
 		}
 		for _, c := range m.cells {
-			if s := c.sym; s != nil && s.link != "" && l.defined[s] == nil {
+			if s := c.sym; s != nil && s.link != "" && l.definer(s) == nil {
 				l.defined[s] = m
 			}
 		}
@@ -153,6 +154,25 @@ func Parts(m *Module) (map[string][32]byte, error) {
 	}
 	return out, nil
 }
+
+// BodySum fingerprints f's code as Parts does, with no source positions:
+// the SHA-256 of f's encoding on its own (funcText) written without
+// positions, debug information or the names of parameters and locals
+// (withoutPositions),
+// with the name and linkage name of every other symbol it names, the value
+// types and layouts it holds and the bodies of the functions it makes
+// values of. Code that only moved, a line inserted above it, sums as it
+// did; a change to an instruction, a constant, a callee, a type or the
+// signature does not. What a run turns a position into (an assertion's
+// line in its failure) is the caller's to add: vm's CaseReach. A symbol
+// whose name spells a position (a typed literal's cell, irbuild's
+// `literal Regex"…" at 58:23`) moves the sum of each function naming it.
+func BodySum(f *Func) [32]byte { return sha256.Sum256(funcText(f, withoutPositions)) }
+
+// FuncKey is f's identity across lowerings, as Parts keys it: its symbol's
+// linkage name, or for a function with none, its name, marked so it meets
+// no linkage name.
+func FuncKey(f *Func) string { return funcKey(f) }
 
 func funcKey(f *Func) string {
 	if f.sym != nil {

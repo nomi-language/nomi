@@ -262,7 +262,7 @@ func (s *varianceSolver) walk(t Type, pol Variance, defs []*TypeParam_, out []Va
 	case *EnumType:
 		s.walkArgs(tt, tt.TypeArgs, pol, defs, out)
 	case *DistinctType:
-		if tt.Name == "Vector" && isStdOrigin(tt.Origin) {
+		if isStdType(tt, stdVectorType) {
 			for _, a := range tt.TypeArgs {
 				s.walk(a, pol, defs, out)
 			}

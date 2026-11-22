@@ -15,7 +15,7 @@ import (
 // receiver when a type the module declares heads a type argument the
 // interface's functions take (spec §12, *Orphan rule*). These tests build
 // projects of several modules on disk: app, the entry's module, and the
-// libraries its go.mod replaces with sibling directories.
+// libraries its nomi.toml names by sibling directories.
 
 // buildModules writes files (paths relative to a fresh root, the entry at
 // app/main.nomi) and builds and checks the entry's program: the build's
@@ -50,17 +50,16 @@ func buildModules(t *testing.T, files map[string]string) []analysis.TypeError {
 	return append(errs, analysis.CheckTypes(fa, entry)...)
 }
 
-// appModule is the entry module's manifest and go.mod, requiring the
-// libraries named.
+// appModule is the entry module's manifest, naming the libraries named
+// by their directories.
 func appModule(main string, libs ...string) map[string]string {
-	gomod := "module app\n\ngo 1.27.0\n"
+	manifest := "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[dependencies]\n"
 	for _, l := range libs {
-		gomod += "\nrequire " + l + " v0.0.0\n\nreplace " + l + " => ../" + l + "\n"
+		manifest += l + " = { dir = \"../" + l + "\" }\n"
 	}
 	return map[string]string{
 		"app/main.nomi": main,
-		"app/nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
-		"app/go.mod":    gomod,
+		"app/nomi.toml": manifest,
 	}
 }
 
@@ -68,7 +67,6 @@ func appModule(main string, libs ...string) map[string]string {
 func library(files map[string]string, name, file, text string) map[string]string {
 	files[name+"/"+file+".nomi"] = text
 	files[name+"/nomi.toml"] = "[module]\nname = \"" + name + "\"\n"
-	files[name+"/go.mod"] = "module " + name + "\n\ngo 1.27.0\n"
 	return files
 }
 

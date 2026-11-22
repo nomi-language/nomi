@@ -17,11 +17,14 @@ import (
 // Token is one classified identifier occurrence (a definition or a reference).
 // Positions are 1-based; Col and Length count bytes, as the analyzer does,
 // until UTF16 converts them. Type is the LSP semantic token-type name (e.g.
-// "function", "parameter").
+// "function", "parameter"). Effect marks a token where the compiler cannot
+// show the code is pure, which Collect never sets:
+// hoverdoc.MarkReaching sets it from what a lowering found.
 type Token struct {
 	Line, Col, Length int
 	Type              string
 	Readonly          bool
+	Effect            bool
 }
 
 // Collect returns every semantic token in fa, sorted by (line, col).
@@ -92,33 +95,6 @@ func Collect(fa *analysis.FileAnalysis) []Token {
 		}
 		if ast.IsDiscardName(sym.Name) &&
 			(kind == analysis.SymbolBinding || kind == analysis.SymbolParam) {
-			return
-		}
-		if isExternPackageHandle(sym) {
-			if pkg, ok := sym.Node.(*ast.ExternPackage); ok {
-				if pkg.AliasLine == 0 || (pos.Line == pkg.ImportPathLine && pos.Col == pkg.ImportPathCol) {
-					return
-				}
-			}
-			if !reference {
-				switch pkg := sym.Node.(type) {
-				case *ast.ExternPackage:
-					if pos.Line != pkg.AliasLine || pos.Col != pkg.AliasCol {
-						return
-					}
-				case *ast.ImportStmt:
-					return
-				default:
-					return
-				}
-			}
-			toks = append(toks, Token{
-				Line:   pos.Line,
-				Col:    pos.Col,
-				Length: symbolSpan(pos, sym, reference, fa.References),
-				Type:   "namespace",
-			})
-			seen[pos] = true
 			return
 		}
 		t, ok := kindToType(kind)
@@ -239,14 +215,6 @@ func isExternalDefinitionSymbol(sym *analysis.Symbol) bool {
 	default:
 		return false
 	}
-}
-
-func isExternPackageHandle(sym *analysis.Symbol) bool {
-	if sym == nil {
-		return false
-	}
-	_, ok := sym.Node.(*ast.ExternPackage)
-	return ok
 }
 
 func semanticKind(sym *analysis.Symbol) analysis.SymbolKind {

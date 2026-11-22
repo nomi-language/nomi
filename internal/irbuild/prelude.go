@@ -139,8 +139,8 @@ type preludeVariantSpec struct {
 	// A fourth shape rather than a wider `fixed`, because `fixed` is a kind
 	// and a named type's kind is a `*typeDef` pointer that cannot exist at
 	// package-variable initialization time. It also keeps `matches`'
-	// discharge honest: a scalar payload is checked with `scalarKind` and a
-	// named one against the payload enum's own declaration, and those are
+	// discharge honest: a scalar payload is checked by its spelling and a
+	// named one is also held to the payload enum's own declaration; those are
 	// different questions. See taskoutcome.go, which owns the shape and the
 	// argument for why a NAME check is an identity check for this one case.
 	namedPayload *namedPayloadSpec
@@ -261,26 +261,17 @@ func (g *gen) loadPreludes() {
 		return
 	}
 	g.preludesLoaded = true
-	g.preludeByDecl, g.preludeByName = preludeAnchorsOf(g.fa)
+	g.preludeByDecl = preludeAnchorsOf(g.fa)
 }
 
 // preludeAnchorsOf resolves the prelude specs against one module's analysis:
-// the declaration NODE each spec was reached through, and the anchor under the
-// Nomi name.
+// the anchor of each spec by the declaration NODE it was reached through.
 //
-// A free function rather than only a gen method for the reason opaqueAnchors is
-// one: the STDLIB SIGNATURE pass (collectStdCandidates) runs before any gen
-// exists and has to know whether `Maybe<Int>` in `Float.to_int(x: Float):
-// Maybe<Int>` is a representable type. Two implementations of "is this the
-// prelude type" is exactly the drift this file's identity rules exist to
-// prevent, so there is one.
-//
-// Never returns nil maps: every caller indexes them.
-func preludeAnchorsOf(fa *analysis.FileAnalysis) (map[*ast.EnumDef]*preludeAnchor, map[string]*preludeAnchor) {
+// Never returns a nil map: every caller indexes it.
+func preludeAnchorsOf(fa *analysis.FileAnalysis) map[*ast.EnumDef]*preludeAnchor {
 	byDecl := map[*ast.EnumDef]*preludeAnchor{}
-	byName := map[string]*preludeAnchor{}
 	if fa == nil || fa.ModuleScope == nil {
-		return byDecl, byName
+		return byDecl
 	}
 	for i := range preludeSpecs {
 		spec := &preludeSpecs[i]
@@ -314,7 +305,6 @@ func preludeAnchorsOf(fa *analysis.FileAnalysis) (map[*ast.EnumDef]*preludeAncho
 			// rather than overriding an answer it gave.
 			if a := preludeDeclaringAnchor(spec); a != nil {
 				byDecl[a.decl] = a
-				byName[spec.nomi] = a
 			}
 			continue
 		}
@@ -324,9 +314,9 @@ func preludeAnchorsOf(fa *analysis.FileAnalysis) (map[*ast.EnumDef]*preludeAncho
 		et, isEnum := sym.Type.(*analysis.EnumType)
 		if !isEnum || et.Origin != spec.origin || et.Name != spec.nomi {
 			// Not the prelude type: either the name resolves to something
-			// else here, or a file declares its own. Either way there is no
-			// anchor by NAME, and every use of the name refuses. The
-			// declaration is still std's: a mention that resolves to it by
+			// else here, or a file declares its own. Either way the module's
+			// binding of the name is no anchor. The declaration is still
+			// std's: a mention that resolves to it by
 			// position (`literals.Fragment<String>` in a file with its own
 			// `Fragment`, or a std interface's signature read against std's
 			// file) reaches it through byDecl.
@@ -341,9 +331,8 @@ func preludeAnchorsOf(fa *analysis.FileAnalysis) (map[*ast.EnumDef]*preludeAncho
 		}
 		a := &preludeAnchor{spec: spec, decl: decl}
 		byDecl[decl] = a
-		byName[spec.nomi] = a
 	}
-	return byDecl, byName
+	return byDecl
 }
 
 // preludeDeclaringAnchor is the anchor for a spec resolved against STD'S OWN
@@ -463,19 +452,7 @@ func (s *preludeSpec) matches(decl *ast.EnumDef) bool {
 		if got.Kind != "positional" {
 			return false
 		}
-		st, isSimple := got.DataTypeExpr.(*ast.SimpleType)
-		if !isSimple {
-			return false
-		}
-		if want.param >= 0 {
-			// Parametric: the payload must NAME the type parameter this spec
-			// assigned it, so a reordered `<T, E>` produces no anchor.
-			if st.Name != s.params[want.param] {
-				return false
-			}
-			continue
-		}
-		if want.namedPayload != nil {
+		if want.namedPayload != nil && want.namedPayload.origin != s.origin {
 			// Concrete but NOT a scalar: the payload names a monomorphic std
 			// enum CO-DECLARED with this spec's own type. The name check is an
 			// identity check only because of that co-declaration, and the
@@ -484,23 +461,29 @@ func (s *preludeSpec) matches(decl *ast.EnumDef) bool {
 			//
 			// The payload enum's own SHAPE is validated separately, against
 			// std's source: `decl` is this spec's declaration and does not
-			// carry the payload enum's.
-			// See taskoutcome.go.
-			if want.namedPayload.origin != s.origin || st.Name != want.namedPayload.nomi {
-				return false
-			}
-			continue
+			// carry the payload enum's. See taskoutcome.go.
+			return false
 		}
-		// Concrete: the payload must be the scalar the spec fixed it to.
-		// scalarKind is the builder's own closed answer for "what type does
-		// this annotation name", so a `fixed` a future row spells wrong — or
-		// spells with a type this builder has no scalar for — answers
-		// kindInvalid and produces no anchor rather than a guessed layout.
-		if scalarKind(got.DataTypeExpr) != want.fixed {
+		if typeText(got.DataTypeExpr) != s.payloadDecl(want) {
 			return false
 		}
 	}
 	return true
+}
+
+// payloadDecl is a carrying variant's payload type as std's declaration must
+// write it (typeText). A parametric payload names the type parameter this
+// spec assigned it, so a reordered `<T, E>` produces no anchor; a named one
+// names the co-declared enum; a fixed one is a scalar, written as its own
+// name, which is the kind's (kind.nomi).
+func (s *preludeSpec) payloadDecl(v preludeVariantSpec) string {
+	switch {
+	case v.param >= 0:
+		return s.params[v.param]
+	case v.namedPayload != nil:
+		return v.namedPayload.nomi
+	}
+	return v.fixed.nomi()
 }
 
 // preludeAt resolves a source position to the prelude enum the name there
@@ -570,9 +553,9 @@ func (g *gen) preludeInstance(a *preludeAnchor, args []kind) kind {
 //
 // The anchor exists to establish, for one module, that a name really is the
 // prelude type; once that is settled the instantiation depends on nothing but
-// the spec and the arguments. Split out because the stdlib signature pass and
-// the extern registry both reach an instantiation with a spec in hand and no
-// anchor to offer — see stdprelude.go.
+// the spec and the arguments. Split out because the projection of a solved
+// prelude type and the extern registry both reach an instantiation with a
+// spec in hand and no anchor to offer — see stdprelude.go.
 func (g *gen) preludeInstanceOf(spec *preludeSpec, args []kind) kind {
 	for _, arg := range args {
 		// kindInvalid: propagates — a kind CONSTRUCTOR; preludeArgs rejected the type argument.
@@ -582,6 +565,11 @@ func (g *gen) preludeInstanceOf(spec *preludeSpec, args []kind) kind {
 	}
 	if k, shared := sharedPreludeInstance(spec, args); shared {
 		return k
+	}
+	if g == nil {
+		// No gen to intern a per-gen instance in (projectShared), as
+		// genStructInstance refuses.
+		return kindInvalid
 	}
 	nomi := preludeNomi(spec, args)
 	if g.preludeInsts == nil {
@@ -668,33 +656,15 @@ func (s *preludeSpec) variant(name string) (preludeVariantSpec, bool) {
 }
 
 // projectPreludeEnum is inferred.go's projection for an instantiated prelude
-// enum: the type the checker solved for an unannotated position.
-//
-// It accepts two spellings of one fact, and the second needs its justification
-// stated. `Origin` is the analyzer's identity key, so `Origin == spec.origin`
-// is the strong form and is what a type reached through a declared annotation
-// carries. A type the analyzer produced by INSTANTIATING the generic
-// declaration — `Some(1)`'s solved return, and every nested argument inside one
-// — carries an EMPTY Origin. Refusing those would lose the whole constructor
-// path, so an empty Origin is accepted against an anchor that was itself
-// established by (Origin, Name), and only when the module declares no type of
-// that name — which is what keeps a user's own `Maybe` out.
+// enum: the type the checker solved for an unannotated position, by the
+// type's own (Origin, Name). Every type the checker instantiates from a
+// declaration carries the declaration's Origin (`Some(1)`'s solved
+// return and every nested argument in one), so a user's own `Maybe`,
+// whose Origin is the user's file, is never the prelude's.
 func (g *gen) projectPreludeEnum(ty *analysis.EnumType) (kind, bool) {
-	g.loadPreludes()
-	a, isPrelude := g.preludeByName[ty.Name]
+	a, isPrelude := preludeOriginAnchor(ty.Origin, ty.Name)
 	if !isPrelude {
-		a, isPrelude = preludeOriginAnchor(ty.Origin, ty.Name)
-		if !isPrelude {
-			return kindInvalid, false
-		}
-	} else if ty.Origin != a.spec.origin {
-		if ty.Origin != "" {
-			return kindInvalid, false
-		}
-		// The declaring module's own name is the prelude type, not a shadow.
-		if _, shadowed := g.types[ty.Name]; shadowed && (g.fa == nil || g.fa.Origin != a.spec.origin) {
-			return kindInvalid, false
-		}
+		return kindInvalid, false
 	}
 	if len(ty.TypeArgs) != len(a.spec.params) {
 		return kindInvalid, true

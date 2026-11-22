@@ -9,32 +9,32 @@ import (
 	"github.com/nomi-language/nomi/internal/parser"
 )
 
-// A synthesized impl's variant-payload binding is defined at its own
-// position. When it shared the impl function's, the Definitions slot the
-// signature check reads held the binding, so a function-typed positional
-// payload (`Num ((Int) -> Int)`) was read as the synthesized `inspect`'s
-// signature: "return type Int does not match interface 'Debug' return type
-// String".
+// A derived impl's variant-payload binding is defined at its own position.
+// When it shared the impl function's, the Definitions slot the signature
+// check reads held the binding, so a function-typed positional payload
+// (`Num ((Int) -> Int)`) was read as the derived `inspect`'s signature:
+// "return type Int does not match interface 'Debug' return type String".
 func TestUniversalDebug_FunctionTypedPositionalPayloadChecks(t *testing.T) {
 	for _, payload := range []string{"((Int) -> Int)", "(Int) -> Int", "((Int, Int) -> Bool)", "(() -> Int)"} {
-		errs := checkUniversalDebugProject(t, "enum Handler\n  Num "+payload+"\n  Other\nend\n\nfn main()\n  _ = Handler.Other\nend\n")
+		errs := checkUniversalDebugProject(t, "enum Handler\n  Num "+payload+"\n  Other\nend\n\nderive Debug for Handler\n\nfn main()\n  _ = Handler.Other\nend\n")
 		expectNoErrs(t, errs)
 	}
 }
 
 func TestUniversalDebug_PayloadBindingHasItsOwnPosition(t *testing.T) {
-	nodes, err := parser.Parse(lexer.Lex("enum Handler\n  Num Int\n  Other\nend\n"))
+	nodes, err := parser.Parse(lexer.Lex("enum Handler\n  Num Int\n  Other\nend\n\nderive Debug for Handler\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
+	nodes, _ = analysis.LowerDerives(nodes)
 	var fn *ast.FuncDef
-	for _, n := range analysis.SynthesizeUniversalDebug(nodes) {
+	for _, n := range nodes {
 		if ib, ok := n.(*ast.ImplBlock); ok {
 			fn = ib.Items[0].(*ast.FuncDef)
 		}
 	}
 	if fn == nil {
-		t.Fatal("no Debug impl synthesized")
+		t.Fatal("no Debug impl derived")
 	}
 	var bindings int
 	for _, s := range fn.Body.Stmts {

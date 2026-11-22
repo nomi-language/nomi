@@ -47,6 +47,9 @@
 //#
 //# `Html.trusted` inserts markup as written, unescaped: for HTML a trusted
 //# renderer produced, such as Markdown, and never for text a user wrote.
+//#
+//# Going the other way, `html.unescape` decodes the character references
+//# in HTML text (`&amp;`, `&#233;`), and `html.entity` looks up one name.
 
 import
     bool.Bool.{self, False, True}
@@ -55,7 +58,7 @@ import
     display.Display
     equatable.Equatable
     float.Float
-    html::host.{escape, escape_url_path, filter_url}
+    html::host.{escape, escape_url_path, filter_url, named_reference, unescape_references}
     int.Int
     io.{Error, Writer}
     iter.Iter
@@ -153,6 +156,44 @@ impl Html
     pub fn write_to(html: Html, writer: Writer) -> Result<Unit, Error>
         Writer.write_text(writer, html.text)
     end
+end
+
+/// `text` with its character references decoded, as a browser decodes them
+/// in an element's text: the inverse of `Html.text`'s escaping, and more. A
+/// named reference is one of the HTML5 table's 2,125 names (`&eacute;`,
+/// `&nbsp;`), matched by its longest name, so a legacy name that may go
+/// without its semicolon is decoded without one (`&amp`, and `&copy2` as
+/// `©2`). A numeric reference is decimal (`&#233;`) or hexadecimal
+/// (`&#xE9;`), with or without its semicolon; 0, a surrogate and a value
+/// past U+10FFFF decode as U+FFFD, and 0x80 to 0x9F as the Windows-1252
+/// characters a browser shows for them. Anything else, `&` alone among it,
+/// stays as written. Use `html.entity` for the exact lookup of one name.
+//! import std::html
+//!
+//! assert html.unescape("fish &amp; chips") == "fish & chips"
+//! assert html.unescape("caf&eacute; &#233; &#xE9;") == "café é é"
+//! assert html.unescape("&copy2 &notit;") == "©2 ¬it;"
+//! assert html.unescape("a & b &zzz;") == "a & b &zzz;"
+//
+pub fn unescape(text: String) -> String
+    unescape_references(text)
+end
+
+/// What the named character reference `&name;` stands for, or None when
+/// the HTML5 table has no such name. `name` is written without its `&` and
+/// `;`, and only a whole name matches, with its case: a parser that
+/// requires the semicolon, as CommonMark does, looks a name up here. Most
+/// names stand for one codepoint and a few for two (`&fjlig;` is `fj`).
+//! import std::html
+//!
+//! assert html.entity("eacute") == Some("é")
+//! assert html.entity("amp") == Some("&")
+//! assert html.entity("fjlig") == Some("fj")
+//! assert html.entity("notit") == None
+//! assert html.entity("AMP;") == None
+//
+pub fn entity(name: String) -> Maybe<String>
+    named_reference(name)
 end
 
 /// A value that renders itself in an element's content: `String` and the

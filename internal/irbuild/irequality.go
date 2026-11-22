@@ -9,16 +9,17 @@ package irbuild
 //   - by shape: a type with no block of Equatable, a tuple, a record, a
 //     declared type with no impl (spec §5 *Equality bounds*), and an impl
 //     the machine computes by shape (machineImpls: List's, Unit's, a
-//     derived enum's or distinct's), compared as shapeEquality says;
+//     derived struct's, enum's or distinct's), compared as shapeEquality
+//     says;
 //   - by an impl the machine computes natively (machineImpls: Int's,
-//     Float's, String's and Bool's), one ir.Compare of the scalar;
+//     Float's, String's, Bool's and Decimal's), one ir.Compare of the
+//     scalar or the Decimal;
 //   - by any other impl, a call of the one the record names: the
-//     program's, derived or written (equatableImplCall), or std's own
-//     (recordedCallPlan).
+//     program's (equatableImplCall), or std's own (recordedCallPlan).
 //
 // An operator with no record the switch can read declines and is counted
 // (noteUnreadOperator): one the builder writes with none carried
-// onto it (carryOperator), one nothing answers, and one over a type
+// onto it (carryOperatorUse), one nothing answers, and one over a type
 // parameter its instance does not resolve. `!=` is `ir.Not` over `==`'s
 // answer, or the comparison's own OpNe.
 //
@@ -27,7 +28,9 @@ package irbuild
 // tuple slot by slot, because `ir.Compare` admits neither shape and the
 // VM's executor is not this package's to widen: structural equality on
 // two distincts of one static type is its inner values' equality, and on
-// two tuples it is every slot's.
+// two tuples it is every slot's. Each such part is compared as the
+// checker's record at its type says (partEqualBody): a written impl by a
+// call of it, any other by its shape.
 
 import (
 	"slices"
@@ -51,7 +54,7 @@ func (bl *irScalarBuilder) equality(t *ast.Binary, op ir.CompareOp, lhs, rhs ir.
 	switch {
 	case form == analysis.OperatorDispatched && irHeldKind(k):
 		return bl.equalityCompare(t, op, ir.ValIface, lhs, rhs), true
-	case machine == routeNative && irScalarLeafKind(k):
+	case machine == routeNative && (irScalarLeafKind(k) || isDecimalKind(k)):
 		return bl.equalityCompare(t, op, irParamShape(k), lhs, rhs), true
 	case form == analysis.OperatorStructural || machine != routeUnset:
 		// By shape, and an impl the machine computes natively over a value
@@ -98,7 +101,7 @@ func (bl *irScalarBuilder) shapeEquality(t *ast.Binary, op ir.CompareOp, lhs, rh
 		bl.side(c.Dst(), irScalarSide{k: kindBool, deferrable: true})
 		return c.Dst(), true
 	case named && !isDecimalKind(k) && d.isDistinct && !d.rtOpaque && irDistinctOverValue(d):
-		eq, ok := bl.structuralEqual(t, lhs, rhs, k)
+		eq, ok := bl.structuralEqual(t, lhs, rhs, k, bl.g.operandCheckerType(t.Left))
 		if !ok {
 			return ir.NoTemp, false
 		}
@@ -119,8 +122,8 @@ func (bl *irScalarBuilder) shapeEquality(t *ast.Binary, op ir.CompareOp, lhs, rh
 }
 
 // implEquality calls the impl of Equatable the operator t's record, use,
-// names over two values of kind k: a program's, derived or written, from
-// the gen that registered it (equatableImplCall), else std's own, planned
+// names over two values of kind k: a program's, from the gen that
+// registered it (equatableImplCall), else std's own, planned
 // as a call of it (operatorCall, recordedCallPlan): its `equal` body or
 // host.
 func (bl *irScalarBuilder) implEquality(t *ast.Binary, op ir.CompareOp, use *analysis.OperatorUse, lhs, rhs ir.Temp, k kind, rmobile bool) (ir.Temp, bool) {
@@ -144,7 +147,7 @@ func (bl *irScalarBuilder) tupleRecordEquality(t *ast.Binary, op ir.CompareOp, l
 	if irRetainedRecordKind(k) {
 		return bl.equalityCompare(t, op, ir.ValStruct, lhs, rhs), true
 	}
-	eq, ok := bl.structuralEqual(t, lhs, rhs, k)
+	eq, ok := bl.structuralEqual(t, lhs, rhs, k, bl.g.operandCheckerType(t.Left))
 	if !ok {
 		return ir.NoTemp, false
 	}
@@ -170,11 +173,23 @@ func (bl *irScalarBuilder) equalityNegate(t *ast.Binary, op ir.CompareOp, eq ir.
 	return n.Dst()
 }
 
-// structuralEqual is structural equality over two values of kind k, built from the
-// shapes `ir.Compare` admits: a distinct through its inner value and a tuple
-// slot by slot, joined by `and`. Every operand is already a value, so the
-// short circuit changes nothing observable.
-func (bl *irScalarBuilder) structuralEqual(t *ast.Binary, lhs, rhs ir.Temp, k kind) (ir.Temp, bool) {
+// structuralEqual is structural equality over two values of kind k and
+// checker type st, built from the shapes `ir.Compare` admits: a distinct
+// through its inner value and a tuple slot by slot, joined by `and`. Every
+// operand is already a value, so the short circuit changes nothing
+// observable. A part whose record names a written impl is compared by a
+// call of it (partEqualBody); the kind chooses only the shape every other
+// part is compared by.
+func (bl *irScalarBuilder) structuralEqual(t *ast.Binary, lhs, rhs ir.Temp, k kind, st analysis.Type) (ir.Temp, bool) {
+	if sym, written, ok := bl.partEqualBody(t, k, st); written {
+		if !ok {
+			return ir.NoTemp, false
+		}
+		call := ir.NewCall(bl.g.irNodePos(t), bl.f.NewTemp(), irCallSite(t), sym, lhs, rhs)
+		bl.b.Append(call)
+		bl.side(call.Dst(), irScalarSide{k: kindBool})
+		return call.Dst(), true
+	}
 	switch {
 	case k == kindInt || k == kindFloat || k == kindString || k == kindBool:
 		return bl.equalityCompare(t, ir.OpEq, irParamShape(k), lhs, rhs), true
@@ -199,15 +214,7 @@ func (bl *irScalarBuilder) structuralEqual(t *ast.Binary, lhs, rhs ir.Temp, k ki
 		// routes say.
 		return bl.equalityCompare(t, ir.OpEq, ir.ValContainer, lhs, rhs), true
 	case k.tag == tagNamed && irRetainedMarker(k.def):
-		// A marker has one value, so a marker slot is equal unless a
-		// written Equatable impl says otherwise. A slot has no record of
-		// its own, so the impl is found by the slot's kind
-		// (handWrittenEquatableImpl). An impl not yet known (one another
-		// unit declares) has no block here, which equatableImplCall
-		// declines.
-		if og, impl, hand, known := bl.g.handWrittenEquatableImpl(k); hand || !known {
-			return bl.equatableImplCall(t, ir.OpEq, lhs, rhs, k, og, impl)
-		}
+		// A marker has one value, so a marker slot is equal.
 		c := ir.NewBool(bl.g.irPos(t.Line, t.Col), bl.f.NewTemp(), true)
 		bl.b.Append(c)
 		bl.side(c.Dst(), irScalarSide{k: kindBool})
@@ -221,13 +228,17 @@ func (bl *irScalarBuilder) structuralEqual(t *ast.Binary, lhs, rhs ir.Temp, k ki
 	case k.tag == tagNamed && irDistinctOverValue(k.def) && !k.def.rtOpaque:
 		l := bl.distinctProjection(t, lhs, k, false, "irequality.go structuralEqual")
 		r := bl.distinctProjection(t, rhs, k, false, "irequality.go structuralEqual")
-		return bl.structuralEqual(t, l, r, k.def.inner)
+		var inner analysis.Type
+		if dt, ok := analysis.ResolveTypeVar(st).(*analysis.DistinctType); ok {
+			inner = analysis.DistinctInner(dt)
+		}
+		return bl.structuralEqual(t, l, r, k.def.inner, inner)
 	case irRetainedTupleKind(k):
 		var acc ir.Temp
 		for i, part := range k.comp.parts {
 			l := bl.tupleProjection(t, lhs, i, part)
 			r := bl.tupleProjection(t, rhs, i, part)
-			eq, ok := bl.structuralEqual(t, l, r, part)
+			eq, ok := bl.structuralEqual(t, l, r, part, partCheckerType(st, k, i))
 			if !ok {
 				return ir.NoTemp, false
 			}
@@ -240,6 +251,40 @@ func (bl *irScalarBuilder) structuralEqual(t *ast.Binary, lhs, rhs ir.Temp, k ki
 		return acc, true
 	}
 	return ir.NoTemp, false
+}
+
+// partEqualBody is the Equatable body a part of kind k and checker type
+// st, compared inside the comparison t, is compared by: the program's
+// impl the checker's record of `Equatable.equal` at st names
+// (recordedIfaceFnOf, the resolution a comparator and a nested Debug body
+// read), which the builder calls, as `==` on the part does. written is
+// false where the record answers by shape or by dispatch, by an impl
+// machineImpls computes (a derived impl among them: machineImpls is the
+// one place that decides a derived Equatable is its type's shape), or by
+// std's own impl, which rt reaches through the key table
+// (irRecordStdKey): the part is then compared by its shape. ok is false
+// for an impl the builder cannot call. A part with no checker type, or
+// with a record its instance leaves unresolved, is compared by its shape
+// and counted (noteElemImpl).
+func (bl *irScalarBuilder) partEqualBody(t *ast.Binary, k kind, st analysis.Type) (sym *ir.Symbol, written, ok bool) {
+	var c analysis.Callee
+	if st != nil {
+		c = bl.g.stdIfaceCallRecord(stdEquatable, "equal", 2, st).Callee
+	}
+	bl.noteElemImpl(t, "a part's equality", st, c.Form)
+	if c.Form != analysis.OperatorByImpl || bl.g.machineRouteOf(operatorUseOfCall(stdEquatable, c, st)) != routeUnset {
+		return nil, false, true
+	}
+	r := bl.recordedIfaceFnOf(c, stdEquatable, "equal", k, st, []kind{k, k}, kindBool)
+	switch {
+	case r.structural || r.std != nil || r.template != nil:
+		return nil, false, true
+	case r.local != nil:
+		return bl.g.irImplSym(r.local), true, true
+	case r.sym != nil:
+		return r.sym, true, true
+	}
+	return nil, true, false
 }
 
 // equalityAnd joins two computed Bool answers with the shared short circuit.
@@ -310,258 +355,23 @@ func irGenUnit(g, og *gen) int {
 	return -1
 }
 
-// equatableImplOf finds the `impl Equatable` for k's declaration in this gen
-// or, for a type the program declares elsewhere, in the gen that holds it.
-func (g *gen) equatableImplOf(k kind) (*gen, *implDef) {
-	if d := g.implsByIface[stdIfaceImplKey(stdEquatable)][k]; d != nil {
-		return g, d
-	}
-	if k.def != nil && k.def.decl != nil && g.stdModule != "" && g.stdInsts != nil {
-		// A std instance at a program's type (`Iter.contains<Point>`): the
-		// impl is the program's, in one of its gens.
-		for _, og := range g.stdInsts.program {
-			if og == nil {
-				continue
-			}
-			if d := og.implsByIface[stdIfaceImplKey(stdEquatable)][k]; d != nil {
-				return og, d
-			}
-			for _, d := range og.implOrder {
-				if d.ifaceKey == stdIfaceImplKey(stdEquatable) && d.recv.tag == tagNamed && d.recv.def != nil && d.recv.def.decl == k.def.decl {
-					return og, d
-				}
-			}
-		}
-	}
-	if g.reg == nil || k.def == nil || k.def.decl == nil {
-		return nil, nil
-	}
-	if k.def.instOrigin != nil {
-		// A mirror of another file's generic instance: its impls are
-		// registered against the owner's instance, never in implOrder.
-		return g.instanceImpl(k.def, stdIfaceImplKey(stdEquatable), "equal")
-	}
-	for _, og := range g.reg.gens {
-		if og == nil || og == g {
-			continue
-		}
-		for _, d := range og.implOrder {
-			if d.ifaceKey == stdIfaceImplKey(stdEquatable) && d.recv.tag == tagNamed && d.recv.def != nil && d.recv.def.decl == k.def.decl {
-				return og, d
-			}
-		}
-	}
-	return nil, nil
-}
-
-// handWrittenEquatableImpl reports the hand-written `impl Equatable` for an
-// enum or distinct, program-wide. known is false when the absence of one
-// cannot be established: a table still short of its declarations, or a std
-// declaration whose impls this builder does not classify.
-func (g *gen) handWrittenEquatableImpl(k kind) (og *gen, d *implDef, hand, known bool) {
-	og, d = g.equatableImplOf(k)
-	if d != nil {
-		return og, d, !d.synth, true
-	}
-	if k.def.decl != nil && g.reg != nil && g.reg.byDecl[k.def.decl] != nil {
-		// A user declaration: every unit's table is searched above, and
-		// declaresEquatable answers "declared" while any is incomplete.
-		return nil, nil, false, !g.reg.declaresEquatable(k.def.decl)
-	}
-	if k.def.foreign != "" {
-		return nil, nil, false, false
-	}
-	if g.std != nil && len(g.std.byIface["Equatable.equal"][k]) > 0 {
-		// std declares no hand-written Equatable on an enum or a distinct
-		// (see handWrittenNominalEquatable), so a std impl is derived.
-		return nil, nil, false, true
-	}
-	return nil, nil, false, true
-}
-
-// bareVariantOwnKind types a payload-free prelude variant written with no
-// expected type, `None == None` or `Maybe.equal(None, None)`: the checker's
-// solution for it when there is one, and otherwise the instance over Unit.
-// A payload-free variant's value is the same whatever the type arguments are,
-// so the choice decides the temporary's stated type and nothing the program
-// can observe.
+// bareVariantOwnKind is the kind of a payload-free prelude variant written
+// with no expected type, `None == None` or `Maybe.equal(None, None)`: the
+// type the checker records for it (valueKind), whose type arguments
+// inference solved (`if c { None } else { Some(2.5) }` makes this None a
+// Maybe<Float>) or closed (analysis's closed_vars.go). ok is false where n
+// is no such variant; one whose record names no kind answers kindInvalid,
+// which its caller declines.
 func (bl *irScalarBuilder) bareVariantOwnKind(n ast.Node) (kind, bool) {
 	name, line, col, ok := preludeValueName(n)
 	if !ok {
 		return kindInvalid, false
 	}
-	a, sym, vs, ok := bl.g.resolvedPreludeVariant(name, line, col)
-	if !ok || vs.carries() {
+	if _, _, vs, ok := bl.g.resolvedPreludeVariant(name, line, col); !ok || vs.carries() {
 		return kindInvalid, false
 	}
-	args, ok := bl.g.checkedPreludeArgs(a, sym)
-	if !ok {
-		// The type the checker gave this value, once inference solved it
-		// (`if c { None } else { Some(2.5) }` makes this None a
-		// Maybe<Float>).
-		if k, solved := bl.g.recordedPreludeKind(n, a); solved {
-			return k, true
-		}
-		args = make([]kind, len(a.spec.params))
-		for i := range args {
-			args[i] = kindUnit
-		}
-	}
-	k := bl.g.preludeInstance(a, args)
-	if k.tag != tagNamed || !irRetainedEnumKind(k.def) {
-		// args are checkedPreludeArgs', each a retained prelude payload
-		// (irRetainedPreludePayload), or Unit, and a prelude instance over
-		// such payloads is retained, as Task.outcome's is (taskCall).
-		panic("bareVariantOwnKind: " + name + " at " + k.nomi() + ", outside the retained domain")
-	}
+	k, _ := bl.valueKind("bare prelude variant", n)
 	return k, true
-}
-
-// equatableContainerOwner is the std container `Equatable.equal(a, b)`
-// compares, by the checker's instantiation of the call: "List", "Vector",
-// "Map", "Maybe" or "Result", or "" for anything else.
-func (bl *irScalarBuilder) equatableContainerOwner(t *ast.Call) string {
-	ft := bl.g.checkedCallSignature(t)
-	if ft == nil || len(ft.Params) != 2 {
-		return ""
-	}
-	k := bl.g.project(ft.Params[0])
-	if _, vector := vectorElem(k); vector {
-		return "Vector"
-	}
-	switch k.tag {
-	case tagList:
-		return "List"
-	case tagMap:
-		return "Map"
-	}
-	if k.tag != tagNamed || k.def == nil || k.def.preludeOf == nil {
-		return ""
-	}
-	switch k.def.preludeOf.spec {
-	case preludeSpecFor("std/maybe", "Maybe"):
-		return "Maybe"
-	case preludeSpecFor("std/results", "Result"):
-		return "Result"
-	}
-	return ""
-}
-
-// containerEqualCall lowers `List.equal(a, b)`, `Vector.equal`, `Map.equal` and
-// `Maybe.equal(a, b)` to
-// the comparison `a == b` is. The first is std's
-// `impl Equatable for List<T>`, whose body is `a == b` over two lists and so
-// structural; and the second is with Maybe's derived impl, which agrees with
-// structural comparison wherever the payload has no hand-written impl — the
-// set irPreludeEqualityKind admits.
-//
-// It owns the call once the owner and method match: the operands are lowered
-// here, with a bare `None` typed by bareVariantOwnKind, and cannot be lowered
-// a second time by a later arm.
-func (bl *irScalarBuilder) containerEqualCall(t *ast.Call, owner string) (ir.Temp, kind, bool, bool) {
-	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	if (owner == "Maybe" || owner == "Result") && bl.recording == 0 && !bl.preludeEqualStructural(t) {
-		// `Maybe.equal(a, b)` over payloads whose own impls decide (a
-		// struct with a derived Equatable) or of two instances an embedded
-		// value tells apart (`Some(circle)`, `Some(shape)`): the prelude
-		// wrapper's Equatable is derived, so the call is `a == b`, lowered
-		// as the operator is, by the call's record (carryOperator).
-		at := &ast.Binary{Op: "==", Left: t.Args[0], Right: t.Args[1], Line: t.Line, Col: t.Col}
-		defer bl.g.carryOperator(at, t)()
-		return bl.compare(at, ir.OpEq)
-	}
-	// kindInvalid: sentinel — the operand at this position is not bare.
-	bare := []kind{kindInvalid, kindInvalid}
-	for i, arg := range t.Args {
-		if !bl.bareEqualityOperand(arg, ir.OpEq) {
-			continue
-		}
-		k, ok := bl.bareVariantOwnKind(arg)
-		if !ok {
-			return no()
-		}
-		bare[i] = k
-	}
-	saved := bl.qualBare
-	bl.qualBare = bare
-	args := bl.irQualLowerArgs(t)
-	bl.qualBare = saved
-	if !args.ok || len(args.kinds) != 2 {
-		return no()
-	}
-	lk, rk := args.kinds[0], args.kinds[1]
-	var shape ir.ValShape
-	switch owner {
-	case "List":
-		if lk != rk || !irEqualityListKind(lk) {
-			return no()
-		}
-		shape = ir.ValContainer
-	case "Vector", "Map":
-		// std's `impl Equatable` for both is `a == b`, structural.
-		if lk != rk || !irEqualityContainerKind(lk) {
-			return no()
-		}
-		shape = ir.ValContainer
-	case "Maybe", "Result":
-		// Result's Equatable is derived, like Maybe's, so it agrees with
-		// structural comparison over the payloads irPreludeEqualityKind admits.
-		spec := preludeSpecFor("std/maybe", "Maybe")
-		if owner == "Result" {
-			spec = preludeSpecFor("std/results", "Result")
-		}
-		maybe := func(k kind) bool {
-			return k.tag == tagNamed && k.def != nil && k.def.preludeOf != nil && k.def.preludeOf.spec == spec
-		}
-		if !maybe(lk) || !maybe(rk) {
-			return no()
-		}
-		if rk != lk {
-			// A bare `None` typed over Unit beside a solved operand: the
-			// value is the same, so it is retyped to the other side's.
-			at, want := 1, lk
-			// kindInvalid: sentinel — the operand at this position is not bare.
-			if bare[0] != kindInvalid {
-				at, want = 0, rk
-			}
-			// kindInvalid: sentinel — neither operand is bare.
-			if at == 1 && bare[1] == kindInvalid {
-				panic("irbuild: containerEqualCall: the loop above sets at to the operand that is bare, so at == 1 implies bare[1] is set")
-			}
-			v, k, _, ok := bl.preludeBareValue(t.Args[at], want)
-			if !ok {
-				return no()
-			}
-			args.temps[at], args.kinds[at] = v, k
-			lk, rk = args.kinds[0], args.kinds[1]
-		}
-		if !bl.g.irPreludeEqualityKind(rk) || lk != rk {
-			return no()
-		}
-		shape = ir.ValVariant
-	default:
-		panic("irbuild: containerEqualCall: reached for " + owner + ", which equatableContainerOwner does not name")
-	}
-	c := ir.NewCompare(bl.g.irPos(t.Line, t.Col), bl.f.NewTemp(), ir.OpEq, shape, args.temps[0], args.temps[1])
-	bl.b.Append(c)
-	bl.side(c.Dst(), irScalarSide{k: kindBool})
-	return c.Dst(), kindBool, false, true
-}
-
-// preludeEqualStructural reports whether the checker typed both operands of
-// a `Maybe.equal` or `Result.equal` call as one instance whose payloads
-// compare structurally (irPreludeEqualityKind), which containerEqualCall
-// compares directly.
-func (bl *irScalarBuilder) preludeEqualStructural(t *ast.Call) bool {
-	if len(t.Args) != 2 {
-		return true
-	}
-	tl, tr := bl.g.checkedExprType(t.Args[0]), bl.g.checkedExprType(t.Args[1])
-	if tl == nil || tr == nil {
-		return true
-	}
-	l, r := bl.g.project(tl), bl.g.project(tr)
-	return l == r && bl.g.irPreludeEqualityKind(l)
 }
 
 // irEqualityListKind is a list `==` compares with rt.Equal: equality never
@@ -589,6 +399,33 @@ func irEqualityContainerKind(k kind) bool {
 		// std's Set Equatable is `a.items == b.items`, the membership maps'
 		// structural equality, which rt.Equal over the Set record answers.
 		irRetainedSetKind(k)
+}
+
+// irScalarRangeKind reports a Range over an Int, a Float or a String, or a
+// tuple or List of them: its fields are such values and a Maybe of one, so
+// the VM compares and hashes it as a container by content
+// (compareOperands), which is what std's Range, declaring no Equatable or
+// Hashable impl, means by either.
+func irScalarRangeKind(k kind) bool {
+	elem, isRange := rangeElem(k)
+	return isRange && irRetainedRangeKind(k) && irScalarRangeElem(elem)
+}
+
+// irScalarRangeElem is an Int, a Float or a String, or a tuple or non-empty
+// List built of them.
+func irScalarRangeElem(elem kind) bool {
+	switch {
+	case elem == kindInt || elem == kindFloat || elem == kindString:
+		return true
+	case (elem.tag == tagTuple || elem.tag == tagList) && elem.comp != nil && len(elem.comp.parts) > 0:
+		for _, p := range elem.comp.parts {
+			if !irScalarRangeElem(p) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
 }
 
 // existentialDebugImpls names the Debug body of every type implementing k's
@@ -756,30 +593,6 @@ func (bl *irScalarBuilder) unitExistentialDebugImpls(k kind, same bool) (impls [
 	return impls, len(impls) != 0 || boxed, true
 }
 
-// recordedPreludeKind is the instance of a's prelude enum the checker
-// recorded as n's type, or false.
-func (g *gen) recordedPreludeKind(n ast.Node, a *preludeAnchor) (kind, bool) {
-	if g.fa == nil {
-		return kindInvalid, false
-	}
-	et, ok := resolvedEnumType(g.srcFA().ExprTypes[n])
-	if !ok || len(et.TypeArgs) != len(a.spec.params) {
-		return kindInvalid, false
-	}
-	args := make([]kind, len(et.TypeArgs))
-	for i, ty := range et.TypeArgs {
-		args[i] = g.project(ty)
-		if !irRetainedPreludePayload(args[i]) {
-			return kindInvalid, false
-		}
-	}
-	k := g.preludeInstance(a, args)
-	if k.tag != tagNamed || k.def == nil || k.def.preludeOf == nil || k.def.preludeOf.spec != a.spec || !irRetainedEnumKind(k.def) {
-		return kindInvalid, false
-	}
-	return k, true
-}
-
 // resolvedEnumType is ty, through solved inference variables, as an enum.
 func resolvedEnumType(ty analysis.Type) (*analysis.EnumType, bool) {
 	for {
@@ -812,44 +625,46 @@ func (g *gen) operatorRecord(t ast.Node) *analysis.OperatorUse {
 	if fa == nil || t == nil {
 		return nil
 	}
-	if b, ok := t.(*ast.Binary); ok {
-		if use := g.carriedOperators[b]; use != nil {
-			return use
-		}
+	if use := g.carriedOperators[t]; use != nil {
+		return use
 	}
 	return fa.Operators[t]
 }
 
-// carryOperator makes the record of the call t, of `Equatable.equal` or
-// a std type's `equal` (`Maybe.equal(a, b)`), at this instance (calleeAt)
-// the record of at, the `a == b` the builder writes for it, until done is
-// called (carryOperatorUse), for t's first operand's type.
-func (g *gen) carryOperator(at *ast.Binary, t *ast.Call) (done func()) {
-	return g.carryOperatorUse(at, stdEquatable, g.calleeAt(t), g.firstOperandType(t))
-}
-
 // carryOperatorUse makes c, the record of a call of iface's function for
 // a receiver of type recv, the record of at, an operator the builder
-// writes, until done is called: by the impl c reaches, or by shape or by
-// dispatch as c is. A record of another form carries nothing, and at
-// then has none (noteUnreadOperator).
-func (g *gen) carryOperatorUse(at *ast.Binary, iface analysis.StdType, c analysis.Callee, recv analysis.Type) (done func()) {
-	var use *analysis.OperatorUse
-	switch c.Form {
-	case analysis.OperatorStructural, analysis.OperatorDispatched:
-		use = &analysis.OperatorUse{Form: c.Form}
-	case analysis.OperatorByImpl:
-		if m, ok := c.Decl.(ast.ImplMethodDecl); ok && !isNilNode(m) {
-			use = &analysis.OperatorUse{Form: c.Form, Impl: &analysis.OperatorImpl{
-				Interface: iface.Name, Receiver: recv, Method: m}}
-		}
-	}
+// writes, until done is called (operatorUseOfCall). A record of another
+// form carries nothing, and at then has none (noteUnreadOperator).
+func (g *gen) carryOperatorUse(at ast.Node, iface analysis.StdType, c analysis.Callee, recv analysis.Type) (done func()) {
+	return g.carryUse(at, operatorUseOfCall(iface, c, recv))
+}
+
+// carryUse makes use the record of at, an operator the builder writes,
+// until done is called. A nil use carries nothing.
+func (g *gen) carryUse(at ast.Node, use *analysis.OperatorUse) (done func()) {
 	if use == nil {
 		return func() {}
 	}
 	if g.carriedOperators == nil {
-		g.carriedOperators = map[*ast.Binary]*analysis.OperatorUse{}
+		g.carriedOperators = map[ast.Node]*analysis.OperatorUse{}
 	}
 	g.carriedOperators[at] = use
 	return func() { delete(g.carriedOperators, at) }
+}
+
+// operatorUseOfCall is c, the record of a call of iface's function for a
+// receiver of type recv, as the record of the operator the function is:
+// by the impl c reaches, or by shape or by dispatch as c is. Nil for a
+// record of another form.
+func operatorUseOfCall(iface analysis.StdType, c analysis.Callee, recv analysis.Type) *analysis.OperatorUse {
+	switch c.Form {
+	case analysis.OperatorStructural, analysis.OperatorDispatched:
+		return &analysis.OperatorUse{Form: c.Form}
+	case analysis.OperatorByImpl:
+		if m, ok := c.Decl.(ast.ImplMethodDecl); ok && !isNilNode(m) {
+			return &analysis.OperatorUse{Form: c.Form, Impl: &analysis.OperatorImpl{
+				Interface: iface.Name, Receiver: recv, Method: m}}
+		}
+	}
+	return nil
 }

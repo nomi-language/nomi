@@ -89,6 +89,7 @@ func (c *checker) freshDistinct(dt *DistinctType) *DistinctType {
 		Origin:           dt.Origin,
 		Name:             dt.Name,
 		Inner:            dt.Inner,
+		WrittenAsParts:   dt.WrittenAsParts,
 		Rule:             dt.Rule,
 		MoreParents:      dt.MoreParents,
 		Subtype:          dt.Subtype,

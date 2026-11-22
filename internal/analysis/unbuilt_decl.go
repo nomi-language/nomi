@@ -128,6 +128,7 @@ func distinctBuilt(dt *DistinctType) {
 	for _, inst := range u.instances {
 		if inst, ok := inst.(*DistinctType); ok {
 			inst.Inner = dt.Inner
+			inst.WrittenAsParts = dt.WrittenAsParts
 			inst.MoreParents = dt.MoreParents
 			inst.TypeParams = dt.TypeParams
 			inst.TypeParamDefs = dt.TypeParamDefs

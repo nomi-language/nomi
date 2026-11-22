@@ -73,10 +73,11 @@ fn main()
     // Keys that are expressions over the surrounding scope.
     base = 1
 
-    computed = case {2 => "computed"}
-        {base + 1 => v} -> v
-        _               -> "?"
-    end
+    computed =
+        case {2 => "computed"}
+            {base + 1 => v} -> v
+            _               -> "?"
+        end
 
     io.print("computed key = ${computed}")
 

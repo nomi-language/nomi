@@ -5,7 +5,8 @@ package irbuild
 // A lowering of the whole program can be kept (Result.Keep): each of its
 // files' modules as an object (ir.EncodeObject), its std instances, and
 // what the lowering of a single file needs to know of the program it does
-// not read: which listed std modules it links, the instances some file
+// not read: which listed std modules it links, the std modules each file
+// imports, the instances some file
 // holds erased and the enums some file boxes (typeRegistry.erasedInsts and
 // boxedEnums, by spelling), the synthesized impls its speculation refused,
 // whether the entry starts an app, the linkage names some body names and
@@ -50,6 +51,7 @@ import (
 	"errors"
 	"fmt"
 	"hash/crc32"
+	"maps"
 	"math"
 	"math/big"
 	"runtime"
@@ -369,6 +371,13 @@ type KeptUnit struct {
 	Decls map[string][32]byte
 	// Files are the files the object's positions are in.
 	Files []string
+	// Imports are the std modules the unit's file imports
+	// (moduleStdImports). With the relowered file's own they seed the
+	// shared modules a program lowered one file at a time links, which are
+	// its whole lowering's (linkedShared): a file's imports are part of the
+	// program's closure whether or not the file's lowering names anything
+	// of them.
+	Imports []string
 	// Refinements are the refinement literals the file checks, each with
 	// no Build, and Builds the object of a module whose functions are the
 	// Build of each that has one (KeptRefinement.Built), in order; Rules
@@ -466,6 +475,7 @@ type keptState struct {
 type keptUnitState struct {
 	key, path string
 	nodes     []ast.Node
+	imports   []string
 	mod       *ir.Module
 	project   bool
 	// refinements and rules are the unit's file's (gen.refinements).
@@ -498,7 +508,7 @@ func keptStateOf(p *Program, own int, gens []*gen, reg *typeRegistry, linked *li
 			k.why = "listed std modules lowered with the program"
 		}
 		project := i < own && !strings.HasPrefix(m.Name, "std/")
-		k.units = append(k.units, keptUnitState{key: m.Name, path: m.Path, nodes: m.Nodes, mod: gens[i].irMod, project: project,
+		k.units = append(k.units, keptUnitState{key: m.Name, path: m.Path, nodes: m.Nodes, imports: moduleStdImports(m), mod: gens[i].irMod, project: project,
 			refinements: gens[i].refinements, rules: gens[i].refinementRuleSites})
 		if !project {
 			continue
@@ -523,7 +533,7 @@ func keptStateOf(p *Program, own int, gens []*gen, reg *typeRegistry, linked *li
 // Keep is the lowering kept for lowering its files one at a time, or an
 // error saying why it cannot be: it was not a whole program's lowering, or
 // it holds what a file's lowering on its own does not reproduce (exported
-// functions, Go bindings, a typed literal checked at load in a std
+// functions, host functions of its own, a typed literal checked at load in a std
 // instance).
 func (r *Result) Keep() (*KeptLowering, error) {
 	k := r.kept
@@ -535,7 +545,7 @@ func (r *Result) Keep() (*KeptLowering, error) {
 	case len(r.Exports) > 0:
 		return nil, errors.New("irbuild: the program exports functions")
 	case len(r.irHostKeys) > 0:
-		return nil, errors.New("irbuild: the program has Go bindings")
+		return nil, errors.New("irbuild: the program declares host functions")
 	}
 	out := &KeptLowering{EntryPath: k.entryPath, HasMain: r.HasMain, EntryBoots: k.entryBoots,
 		Listed: k.listed, Erased: k.erased, Boxed: k.boxed, SynthRefused: k.synthRefused,
@@ -546,7 +556,7 @@ func (r *Result) Keep() (*KeptLowering, error) {
 	}
 	out.Literals = lits
 	for _, u := range k.units {
-		ku := KeptUnit{Key: u.key, Path: u.path}
+		ku := KeptUnit{Key: u.key, Path: u.path, Imports: u.imports}
 		if u.mod != nil {
 			data, files, err := encodeWithFiles(u.mod)
 			if err != nil {
@@ -766,13 +776,14 @@ func LowerFileAmong(p *Program, kept *KeptLowering, moved bool, relowering, aske
 			return nil, miss("%s's declarations moved, and a std instance holds positions in it", f.Name)
 		}
 	}
-	std := stdlibLowering()
 	var ls *linkedStd
 	if len(kept.Listed) > 0 {
 		if ls = linkedStdFor(kept.Listed); ls == nil || ls.err != nil {
 			return nil, miss("the listed std modules are not linked")
 		}
 	}
+	// After the listed lowering, which decodes the shared modules it names.
+	std := stdlibLowering()
 	l := ir.NewLinker()
 	l.Know(std.sortedModules()...)
 	if ls != nil {
@@ -843,7 +854,7 @@ func LowerFileAmong(p *Program, kept *KeptLowering, moved bool, relowering, aske
 		return nil, miss("the file refuses %v, the whole lowering %v", got, kept.Refusals[f.Path])
 	}
 	if len(whole.Exports) > 0 || len(whole.irHostKeys) > 0 {
-		return nil, miss("the file exports a function or has Go bindings")
+		return nil, miss("the file exports a function or declares host functions")
 	}
 	st := whole.perFileTables
 	if extra := missing(st.erased, kept.Erased); extra != "" {
@@ -897,12 +908,28 @@ func LowerFileAmong(p *Program, kept *KeptLowering, moved bool, relowering, aske
 				}
 			}
 		}
-		dropped, err := carryKept(mod, was, f.Name, kept.Units[old].Decls, DeclFingerprints(f.Nodes), relowering != nil, elsewhere)
+		newDecls := DeclFingerprints(f.Nodes)
+		dropped, err := carryKept(mod, was, f.Name, kept.Units[old].Decls, newDecls, relowering != nil, elsewhere)
 		if err != nil {
 			return nil, err
 		}
 		if len(dropped) > 0 {
 			gone := setOf(dropped)
+			// A dispatch entry of F's old object for a type F no longer
+			// makes it for, from a declaration F still has (an instance of
+			// F's generic impl another file boxes into an interface), is
+			// asked for by holding the type erased, which names nothing a
+			// file lowered again could ask for: the program is lowered
+			// whole. One whose declaration went goes with it.
+			reached := entriesReaching(was, gone)
+			for _, typ := range slices.Sorted(maps.Keys(reached)) {
+				for _, link := range reached[typ] {
+					decl, _ := templateDecl(link, f.Name, kept.Units[old].Decls)
+					if _, still := newDecls[decl]; still && !asked[link] {
+						return nil, miss("%s's dispatch entry for %s reached %s, which %s no longer makes", f.Name, typ, link, f.Name)
+					}
+				}
+			}
 			for _, m := range instances {
 				for _, s := range ir.ModuleSymbols(m) {
 					if gone[s.Link()] {
@@ -990,12 +1017,23 @@ func LowerFileAmong(p *Program, kept *KeptLowering, moved bool, relowering, aske
 	if err != nil {
 		return nil, err
 	}
-	libs := append([]*ir.Module(nil), std.sortedModules()...)
+	var listed []*ir.Module
 	if ls != nil {
-		libs = append(libs, ls.mods...)
+		listed = ls.mods
 	}
 	insts := append(instances, whole.instMods...)
-	libs = append(libs, insts...)
+	// The shared modules of the program's closure, as its whole lowering
+	// links them (GenerateIR): seeded by the imports of every file of the
+	// program, the file's as it is now and each other unit's as kept, not
+	// only of the files the file's check read.
+	imports := moduleStdImports(f)
+	for i, u := range kept.Units {
+		if i != old {
+			imports = append(imports, u.Imports...)
+		}
+	}
+	shared := std.linkedShared(std.irModules, imports, units, listed, insts)
+	libs := append(append(slices.Clip(shared), listed...), insts...)
 	refinements, rules, err := relinkedRefinements(kept, old, l, st.refinements, st.refinementRules)
 	if err != nil {
 		return nil, err
@@ -1005,7 +1043,7 @@ func LowerFileAmong(p *Program, kept *KeptLowering, moved bool, relowering, aske
 	if ls != nil {
 		res.linkedMods = ls.units
 	}
-	res.file = &relowered{unit: old, mod: mod, instMods: whole.instMods, decls: DeclFingerprints(f.Nodes), literals: keptLits,
+	res.file = &relowered{unit: old, mod: mod, instMods: whole.instMods, decls: DeclFingerprints(f.Nodes), imports: moduleStdImports(f), literals: keptLits,
 		debugRendered: st.debugRendered, debugImplemented: st.debugImplemented,
 		refinements: st.refinements, rules: st.refinementRules}
 	for _, m := range p.Modules[1:] {
@@ -1023,6 +1061,8 @@ type relowered struct {
 	mod      *ir.Module
 	instMods []*ir.Module
 	decls    map[string][32]byte
+	// imports are the std modules the file imports (KeptUnit.Imports).
+	imports []string
 	// linked are the modules of the files read with their bodies, which
 	// hold the instances the file asked them for.
 	linked []*ir.Module
@@ -1212,7 +1252,7 @@ func (r *Result) Rekeep(kept *KeptLowering) (*KeptLowering, error) {
 	out := *kept
 	out.Units = append([]KeptUnit(nil), kept.Units...)
 	u := out.Units[f.unit]
-	u.Object, u.Decls, u.Files = nil, f.decls, nil
+	u.Object, u.Decls, u.Files, u.Imports = nil, f.decls, nil, f.imports
 	if f.mod != nil {
 		data, files, err := encodeWithFiles(f.mod)
 		if err != nil {
@@ -1228,22 +1268,17 @@ func (r *Result) Rekeep(kept *KeptLowering) (*KeptLowering, error) {
 	out.DebugRenderings = rekeptDebugRenderings(kept.DebugRenderings, out.Units[f.unit].Path, f.debugRendered, f.debugImplemented)
 	out.Instances = append([][]byte(nil), kept.Instances...)
 	files := setOf(kept.InstanceFiles)
-	instances := append([]*ir.Module(nil), f.instMods...)
 	for _, m := range f.linked {
 		// A file read with its bodies made what this file asked of it (an
 		// instance of its generic function or interface default): it goes
 		// into that file's own object, where a whole lowering puts it and a
 		// later lowering of that file carries or drops it by its
 		// declaration.
-		merged, err := r.mergeLinked(&out, m)
-		if err != nil {
+		if err := r.mergeLinked(&out, m); err != nil {
 			return nil, err
 		}
-		if !merged {
-			instances = append(instances, m)
-		}
 	}
-	for _, m := range instances {
+	for _, m := range f.instMods {
 		if m.Empty() {
 			continue
 		}
@@ -1265,9 +1300,22 @@ func (r *Result) Rekeep(kept *KeptLowering) (*KeptLowering, error) {
 
 // mergeLinked adds to the object of out's unit for linked's file each
 // function linked holds, by linkage name, that the object does not, with
-// the entries that dispatch to them. merged is false when out has no unit
-// for the file, or it is the relowered file.
-func (r *Result) mergeLinked(out *KeptLowering, linked *ir.Module) (merged bool, err error) {
+// the entries that dispatch to them. A unit with no object gets one: a file
+// whose declarations are all generic lowers nothing of its own, and the
+// instances other files ask it for are all its object holds. Every
+// function made from a project file's declaration is in that file's
+// object, so the file's next lowering carries it or drops it by its
+// declaration; one kept anywhere else would outlive an edit of its body.
+func (r *Result) mergeLinked(out *KeptLowering, linked *ir.Module) error {
+	var fns []*ir.Func
+	for _, fn := range linked.Funcs() {
+		if fn.Sym() != nil && fn.Sym().Link() != "" {
+			fns = append(fns, fn)
+		}
+	}
+	if len(fns) == 0 {
+		return nil
+	}
 	at := -1
 	for i, u := range out.Units {
 		if u.Path == linked.Name() {
@@ -1275,27 +1323,27 @@ func (r *Result) mergeLinked(out *KeptLowering, linked *ir.Module) (merged bool,
 		}
 	}
 	if at < 0 || at == r.file.unit {
-		return false, nil
+		return fmt.Errorf("irbuild: %s, read with its bodies, is not another file of the kept program", linked.Name())
 	}
 	u := out.Units[at]
-	if u.Object == nil {
-		return false, nil
-	}
-	l := ir.NewLinker()
-	l.Know(r.irLibraries...)
-	// The object's symbols are the ones linked names.
-	l.Know(linked)
-	mod, err := decodeObject(l, u.Object)
-	if err != nil {
-		return false, fmt.Errorf("irbuild: decoding %s's object: %w", u.Key, err)
+	mod := ir.NewModule(u.Path)
+	if u.Object != nil {
+		l := ir.NewLinker()
+		l.Know(r.irLibraries...)
+		// The object's symbols are the ones linked names.
+		l.Know(linked)
+		var err error
+		if mod, err = decodeObject(l, u.Object); err != nil {
+			return fmt.Errorf("irbuild: decoding %s's object: %w", u.Key, err)
+		}
 	}
 	have := setOf(definedLinks(mod))
 	if have == nil {
 		have = map[string]bool{}
 	}
 	added := false
-	for _, fn := range linked.Funcs() {
-		if fn.Sym() == nil || fn.Sym().Link() == "" || have[fn.Sym().Link()] {
+	for _, fn := range fns {
+		if have[fn.Sym().Link()] {
 			continue
 		}
 		mod.AddFunc(fn)
@@ -1303,16 +1351,16 @@ func (r *Result) mergeLinked(out *KeptLowering, linked *ir.Module) (merged bool,
 		added = true
 	}
 	if !added {
-		return true, nil
+		return nil
 	}
 	mod.CarryEntries(linked, func(s *ir.Symbol) bool { return s != nil && have[s.Link()] })
 	data, files, err := encodeWithFiles(mod)
 	if err != nil {
-		return false, err
+		return err
 	}
 	u.Object, u.Files = data, files
 	out.Units[at] = u
-	return true, nil
+	return nil
 }
 
 // WithDecls is kept with the declaration fingerprints of the files at the
@@ -1471,6 +1519,28 @@ func carryKept(mod, was *ir.Module, key string, oldDecls, newDecls map[string][3
 	return dropped, nil
 }
 
+// entriesReaching answers, by the name of each type m's dispatch,
+// Display, row Debug, Equatable and Hashable entries are for, the linkage
+// names in gone of the functions those entries reach.
+func entriesReaching(m *ir.Module, gone map[string]bool) map[string][]string {
+	out := map[string][]string{}
+	add := func(typ, fn *ir.Symbol) {
+		if typ == nil || fn == nil || typ.Link() != "" || !gone[fn.Link()] || slices.Contains(out[typ.Name()], fn.Link()) {
+			return
+		}
+		out[typ.Name()] = append(out[typ.Name()], fn.Link())
+	}
+	for _, im := range m.Impls() {
+		add(im.Type, im.Func)
+	}
+	for _, rows := range [][]ir.DisplayImpl{m.DisplayImpls(), m.RowDebugImpls(), m.EquatableImpls(), m.HashableImpls()} {
+		for _, d := range rows {
+			add(d.Type, d.Func)
+		}
+	}
+	return out
+}
+
 // carryLinked is carry less each function that names a linkage name
 // neither have (mod's and carry's), elsewhere nor a function still carried
 // defines, until none does, with each one taken out added to dropped and
@@ -1539,9 +1609,9 @@ func templateDecl(link, key string, decls map[string][32]byte) (string, bool) {
 	return best, best != ""
 }
 
-// decodeObject decodes one object with l and links it.
-func decodeObject(l *ir.Linker, data []byte) (*ir.Module, error) {
-	im, err := l.Decode(data)
+// decodeObject decodes one object with l, with opts, and links it.
+func decodeObject(l *ir.Linker, data []byte, opts ...ir.DecodeOption) (*ir.Module, error) {
+	im, err := l.Decode(data, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1554,7 +1624,7 @@ func decodeObject(l *ir.Linker, data []byte) (*ir.Module, error) {
 // The kept lowering's encoding.
 const (
 	keptMagic   = "NOMIKEPT"
-	keptVersion = 8
+	keptVersion = 9
 )
 
 // Encode writes k as bytes, with a CRC over them.
@@ -1570,6 +1640,7 @@ func (k *KeptLowering) Encode() []byte {
 		w.str(u.Path)
 		w.bytes(u.Object)
 		w.strs(u.Files)
+		w.strs(u.Imports)
 		names := make([]string, 0, len(u.Decls))
 		for n := range u.Decls {
 			names = append(names, n)
@@ -1666,6 +1737,7 @@ func DecodeKeptLowering(data []byte) (k *KeptLowering, err error) {
 	for i := 0; i < n && r.err == nil; i++ {
 		u := KeptUnit{Key: r.str(), Path: r.str(), Object: r.bytes()}
 		u.Files = r.strs()
+		u.Imports = r.strs()
 		d := r.count()
 		if d > 0 {
 			u.Decls = map[string][32]byte{}

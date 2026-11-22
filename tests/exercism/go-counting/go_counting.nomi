@@ -71,11 +71,12 @@ end
 fn fill(points: Map<Point, String>, start: Point) -> Territory
     (area, borders) = spread(points, [start], [start], [])
 
-    owner = case Iter.to_list(borders)
-        ["B"] -> Owner.Black
-        ["W"] -> .White
-        _     -> .Neither
-    end
+    owner =
+        case Iter.to_list(borders)
+            ["B"] -> Owner.Black
+            ["W"] -> .White
+            _     -> .Neither
+        end
 
     {owner:, points: area}
 end

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/nomi-language/nomi/internal/dap"
-	"github.com/nomi-language/nomi/internal/ffirun"
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/termcolor"
 	"github.com/nomi-language/nomi/internal/vmcmd"
@@ -44,29 +43,37 @@ const usage = `usage:
   nomi <file> [args]                    the same as nomi run, for a file that ends in
                                         .nomi or starts with #!; with a first line of
                                         #!/usr/bin/env nomi it runs as an executable script
-  nomi test [path] [--line N] [--run <regexp>] [--format text|json] [--timeout <duration>] [--watch]
+  nomi test [path] [--line N] [--run <regexp>] [--reaching <file>:<line>] [--format text|json] [--timeout <duration>] [--all | --changed] [--watch]
                                         run test files on the VM; --run runs only the
                                         cases whose names (as the report prints them,
-                                        after "file :: ") the regexp matches; --watch runs them
+                                        after "file :: ") the regexp matches; --reaching
+                                        only those whose code can run the function at
+                                        that line; --watch runs them
                                         again whenever a .nomi file under path, or a
                                         file the tests load, changes; a case that runs
                                         longer than --timeout (default 10s, 0 for none)
-                                        is stopped and fails
+                                        is stopped and fails; a case with no effects
+                                        whose code is that of its last pass is not run
+                                        and is reported unchanged; --all runs every
+                                        case, --changed skips unchanged cases with
+                                        effects too
   nomi check [--format full|short|json] [--hints] <path>
                                         analyze and lower without running, test
                                         files and their cases included; short prints
                                         path:line:col: lines, not source snippets
                                         (NOMI_DIAGNOSTICS=short does so for every command);
                                         --hints also reports the editor's hints
-  nomi capabilities [--write | --check | --why <name>] [--format text|json] [path]
-                                        print what the program reaches outside itself,
+  nomi effects [--write | --check | --why <name> | --tree [--tests]] [--format text|json|mermaid] [path]
+                                        print the effects the program has,
                                         its own code and its dependencies; --write writes
-                                        the tightest [capabilities.self] and
-                                        [capabilities.deps] tables that pass into
+                                        the tightest [effects.self] and
+                                        [effects.deps] tables that pass into
                                         nomi.toml; --check exits 1 when nomi.toml's
                                         tables are not those, wider or narrower;
-                                        --why lists the calls that reach a std module,
-                                        or that a module's files make
+                                        --why lists the calls that have an effect,
+                                        or that a module's files make; --tree prints
+                                        the calls from main and the tests down to
+                                        each effect, as text or mermaid
   nomi types <paths> [-o <file>]        write TypeScript declarations of the JSON that
                                         the pub types of the named files and directories
                                         cross as, for a frontend; stdout by default
@@ -74,33 +81,27 @@ const usage = `usage:
                                         file, -l lists the files that would change, -d prints
                                         the changes, -check lists them and exits 1 if any would;
                                         with no path, formats standard input
-  nomi new <module path> [dir]          start a project: nomi.toml, go.mod and a
-                                        main.nomi, in dir (default: the path's last element)
-  nomi init [module path]               make the current directory a project: write the
-                                        nomi.toml and go.mod it lacks (the path is go.mod's
-                                        when there is one), listing each file with a fn main
-                                        as an entry point
-  nomi add [--allow-go] <module>[@version]
-                                        add a dependency: its latest release when no
-                                        version is given, downloaded, with its checksums
-                                        recorded in go.sum; prints what its code reaches,
-                                        and --allow-go lists it in go under
-                                        [capabilities.deps] in nomi.toml when it binds Go
-  nomi add <directory>                  add the Nomi module in a directory, such as
+  nomi new <module path> [dir]          start a project: nomi.toml and a main.nomi, in
+                                        dir (default: the path's last element)
+  nomi init [module path]               make the current directory a project: write its
+                                        nomi.toml, listing each file with a fn main as an
+                                        entry point, and a go.mod beside Go code
+  nomi add [<name>=]<module>[@version]  add a dependency to nomi.toml's [dependencies]:
+                                        its latest release when no version is given,
+                                        downloaded and locked in nomi.lock; prints the
+                                        effects its code has
+  nomi add [<name>=]<directory>         add the Nomi module in a directory, such as
                                         nomi add ../shared
-  nomi remove <module>                  remove a dependency no file imports any more
-  nomi update [module]                  move one dependency, or all of them, to its
+  nomi remove <name>                    remove a dependency no file imports any more
+  nomi update [name]                    move one dependency, or all of them, to its
                                         latest release of the same module path
-  nomi fetch [--target <goos>/<goarch>]... [dir]
-                                        download everything the project needs: the
-                                        modules go.mod requires and, for Go bindings,
-                                        Go itself when there is no go on PATH and each
-                                        --target's runner, so --offline works later
+  nomi fetch [dir]                      download the modules the project needs and lock
+                                        them in nomi.lock, so --offline works later
   --offline                             on run, test, check, build, fetch, add and
-                                        capabilities: download nothing, and name what
+                                        effects: download nothing, and name what
                                         is missing
   --all-calls                           on run, test, check and build: print every call
-                                        nomi.toml's [capabilities] lists refuse, not
+                                        nomi.toml's [effects] lists refuse, not
                                         the first of each name
   nomi build <file> [-o <out>] [--target <goos>/<goarch>] [--allow-unsupported <class>]
                                         build a single executable: nomi-vm with the
@@ -118,7 +119,7 @@ const usage = `usage:
   nomi build-vm [--target <goos>/<goarch>] [--compiler] [--no-network] [-o <out>]
                                         write nomi-vm itself, with no program (default nomi-vm);
                                         --no-network writes the smaller one for programs
-                                        that never use std::http, std::net or std::tls
+                                        that never use std::http, std::net, std::tls or std::wasm
   nomi build-vm --reactor [--compiler] [-o <out>]
                                         write the WASI reactor with no program (default nomi-vm-reactor.wasm),
                                         which a runner instantiates per .nomic and hands it
@@ -145,7 +146,7 @@ func main() {
 	}
 	offline := false
 	switch command {
-	case "run", "test", "check", "build", "fetch", "add", "types", "capabilities":
+	case "run", "test", "check", "build", "fetch", "add", "types", "effects":
 		var rest []string
 		rest, offline = takeFlag(command, offlineFlag, os.Args[2:])
 		os.Args = append([]string{os.Args[0], command}, rest...)
@@ -214,8 +215,8 @@ func main() {
 			}
 			os.Exit(1)
 		}
-	} else if command == "capabilities" {
-		if err := runCapabilities(os.Stdout, os.Args[2:]); err != nil {
+	} else if command == "effects" {
+		if err := runEffects(os.Stdout, os.Args[2:]); err != nil {
 			if !errors.Is(err, errCheckFailed) {
 				fmt.Fprintln(os.Stderr, err)
 			}
@@ -354,9 +355,8 @@ var checkHints bool
 
 // parseCheckArgs reads `nomi check [--format full|short|json] [--hints] <path>`:
 // exactly one path, and the diagnostics format, which it selects for the
-// process (and any FFI wrapper it starts) through NOMI_DIAGNOSTICS. With
-// json, runCheck writes the records, and an FFI wrapper writes its own
-// diagnostics' records for runCheck to pass through.
+// process through NOMI_DIAGNOSTICS. With json, runCheck writes the
+// records.
 func parseCheckArgs(args []string) (string, error) {
 	const checkUsage = "usage: nomi check [--format full|short|json] [--hints] <path>"
 	var paths []string
@@ -409,7 +409,7 @@ func runCheck(path string) error {
 		return fmt.Errorf("nomi check: %w", pathError(path, err))
 	}
 	if singleFile {
-		if err := checkFile(files[0], vmhost.WithWarnings(os.Stderr), nil); err != nil {
+		if err := checkFile(files[0], vmhost.WithWarnings(os.Stderr)); err != nil {
 			if ownLines(err) {
 				// Diagnostics name their own file.
 				vmhost.WriteFailure(os.Stderr, err)
@@ -418,6 +418,11 @@ func runCheck(path string) error {
 			return fmt.Errorf("nomi check: %w", err)
 		}
 		fmt.Printf("%s %s\n", termcolor.Green("ok"), vmhost.DisplayPath(files[0]))
+		noteUnreadGoFiles(os.Stderr, path)
+		if file, err := goModFailure(path); err != nil {
+			vmhost.WriteFailLine(os.Stderr, vmhost.DisplayPath(file), err)
+			return errCheckFailed
+		}
 		return nil
 	}
 
@@ -428,7 +433,7 @@ func runCheck(path string) error {
 	failed := map[string]bool{}
 	reported := map[string]bool{}
 	for _, file := range files {
-		if err := checkFile(file, vmhost.WithWarnings(os.Stderr), nil); err != nil {
+		if err := checkFile(file, vmhost.WithWarnings(os.Stderr)); err != nil {
 			failed[file] = true
 			writeCheckFailure(os.Stderr, file, err, reported)
 			continue
@@ -451,6 +456,11 @@ func runCheck(path string) error {
 		if ok {
 			fmt.Printf("%s %s (through %s)\n", termcolor.Green("ok"), vmhost.DisplayPath(helper), filepath.Base(importers[0]))
 		}
+	}
+	noteUnreadGoFiles(os.Stderr, path)
+	if file, err := goModFailure(path); err != nil {
+		vmhost.WriteFailLine(os.Stderr, vmhost.DisplayPath(file), err)
+		failed[file] = true
 	}
 	if len(failed) > 0 {
 		return errCheckFailed
@@ -537,10 +547,8 @@ func ownLines(err error) bool {
 // they were then, so it is not checked again (vmhost.Cache); its advice,
 // kept with it, is written as a fresh check writes it.
 //
-// warn takes the program's warnings (vmhost.WithWarnings). records, under
-// `nomi check --format json`, takes the records an FFI program's wrapper
-// writes of its warnings and errors (ffirun.Check).
-func checkFile(absPath string, warn vmhost.Option, records io.Writer) error {
+// warn takes the program's warnings (vmhost.WithWarnings).
+func checkFile(absPath string, warn vmhost.Option) error {
 	opts := []vmhost.Option{warn}
 	if checkHints {
 		opts = append(opts, vmhost.WithHints())
@@ -548,13 +556,6 @@ func checkFile(absPath string, warn vmhost.Option, records io.Writer) error {
 	cache := vmhost.OpenCache(absPath)
 	if cache.Checked(opts...) {
 		return nil
-	}
-	res, err := ffirun.Prepare(absPath)
-	if err != nil {
-		return err
-	}
-	if !res.FastPath {
-		return ffirun.Check(res, absPath, records)
 	}
 	return vmhost.Check(absPath, append(opts, vmhost.WithCache(cache))...)
 }
@@ -567,12 +568,12 @@ func runTest(args []string) error {
 	if parsed.watch {
 		os.Exit(testWatchCommand(parsed))
 	}
-	return runTestVM(parsed.root, parsed.opts, parsed.format, parsed.timeout)
+	return runTestVM(parsed)
 }
 
 func isStdlibTestPath(path string) bool { return vmcmd.IsStdlibPath(path) }
 
-const testUsage = "usage: nomi test [path] [--line N] [--run <regexp>] [--format text|json] [--timeout <duration>] [--watch]"
+const testUsage = "usage: nomi test [path] [--line N] [--run <regexp>] [--reaching <file>:<line>] [--format text|json] [--timeout <duration>] [--all | --changed] [--watch]"
 
 // testArgs is `nomi test`'s parsed command line. Flags may appear in any order
 // around the path.
@@ -585,6 +586,12 @@ type testArgs struct {
 	// timeout is --timeout: how long each case may run, or zero for no
 	// limit (vmhost.DefaultTestTimeout unless given).
 	timeout time.Duration
+	// runs is --all or --changed: which cases a stored pass answers
+	// (vmhost.RunPolicy).
+	runs vmhost.RunPolicy
+	// reaching is --reaching <file>:<line>: only the cases whose code
+	// reaches the function there run (vmcmd.Tester.Reaching).
+	reaching *vmhost.TestLocation
 }
 
 func parseTestArgs(args []string) (testArgs, error) {
@@ -620,6 +627,31 @@ func parseTestArgs(args []string) (testArgs, error) {
 			parsed.opts.Run = re
 		case arg == "--watch":
 			parsed.watch = true
+		case arg == "--reaching" || strings.HasPrefix(arg, "--reaching="):
+			value, inline := strings.CutPrefix(arg, "--reaching=")
+			if !inline {
+				i++
+				if i >= len(args) {
+					return usage()
+				}
+				value = args[i]
+			}
+			file, lineText, _ := strings.Cut(value, ":")
+			line, err := strconv.Atoi(lineText)
+			abs, absErr := filepath.Abs(file)
+			if file == "" || err != nil || line <= 0 || absErr != nil {
+				return testArgs{}, fmt.Errorf("nomi test: invalid --reaching %q: want <file>:<line>", value)
+			}
+			parsed.reaching = &vmhost.TestLocation{File: abs, Line: line}
+		case arg == "--all" || arg == "--changed":
+			runs := vmhost.RunAll
+			if arg == "--changed" {
+				runs = vmhost.RunChanged
+			}
+			if parsed.runs != vmhost.RunChangedOrEffects && parsed.runs != runs {
+				return testArgs{}, fmt.Errorf("nomi test: --all and --changed cannot be used together\n%s", testUsage)
+			}
+			parsed.runs = runs
 		case arg == "--timeout" || strings.HasPrefix(arg, "--timeout="):
 			value, inline := strings.CutPrefix(arg, "--timeout=")
 			if !inline {

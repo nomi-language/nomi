@@ -58,7 +58,7 @@ func TestTaggedLayoutMatchesRtTagConstants(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: %v", c.enum, err)
 		}
-		tvs, err := taggedLayout(s, ReflectType(c.goType))
+		tvs, err := taggedLayout(s, c.goType)
 		if err != nil {
 			t.Fatalf("%s: %v", c.enum, err)
 		}
@@ -91,12 +91,12 @@ end
 		t.Fatal(err)
 	}
 	// rt.Wait has an UpTo field no variant of Shape claims, and no Circle.
-	if _, err := taggedLayout(s, ReflectType(reflect.TypeFor[rt.Wait]())); err == nil || !strings.Contains(err.Error(), "has no field for t.Shape.Circle") {
+	if _, err := taggedLayout(s, reflect.TypeFor[rt.Wait]()); err == nil || !strings.Contains(err.Error(), "has no field for t.Shape.Circle") {
 		t.Errorf("a missing payload field: %v", err)
 	}
 	// A struct outside rt is not the tagged encoding, whatever its fields.
 	type local struct{ Tag uint8 }
-	if _, err := taggedLayout(s, ReflectType(reflect.TypeFor[local]())); err == nil || !strings.Contains(err.Error(), "a user enum does not cross") {
+	if _, err := taggedLayout(s, reflect.TypeFor[local]()); err == nil || !strings.Contains(err.Error(), "a user enum does not cross") {
 		t.Errorf("a non-rt struct: %v", err)
 	}
 	// An enum whose variants all fit, against a Go struct with a field none
@@ -112,7 +112,7 @@ end
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := taggedLayout(two, ReflectType(reflect.TypeFor[rt.Wait]())); err == nil || !strings.Contains(err.Error(), "which no variant of u.Two claims") {
+	if _, err := taggedLayout(two, reflect.TypeFor[rt.Wait]()); err == nil || !strings.Contains(err.Error(), "which no variant of u.Two claims") {
 		t.Errorf("an unclaimed Go field: %v", err)
 	}
 }

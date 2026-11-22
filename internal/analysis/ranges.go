@@ -28,6 +28,11 @@ import (
 // nothing of `i`. Bindings are immutable, so a binding's range holds
 // everywhere it is read and no loop or recursion needs a fixed point.
 //
+// A binding of a List, Vector, Set, Map or String keeps, the same way,
+// whether its value holds something (holdsSomething), and converts where
+// the std non-empty subtype is expected (provenNonEmpty); a `once` takes
+// that subtype as its type (onceRangeType).
+//
 // A Float's range holds only of a value that is no NaN: a Float of no
 // known range may be NaN, and only `+` of two non-negative values and
 // negation keep a range, since a product or a difference can round to
@@ -711,29 +716,39 @@ func (c *checker) exprRange(n ast.Node, fam *numericFamily) numRange {
 	if r, ok := c.ranges[g]; ok && r.fam == fam {
 		return r.r
 	}
-	var r numRange
-	switch v := g.(type) {
-	case *ast.Block:
-		if t := tailExpr(v); t != nil {
+	if blk, ok := g.(*ast.Block); ok {
+		if t := tailExpr(blk); t != nil {
 			return c.exprRange(t, fam)
 		}
 		return numRange{}
+	}
+	branches, ok := valueBranches(g)
+	if !ok {
+		return c.typedExprRange(g, fam)
+	}
+	r := c.branchUnion(fam, branches)
+	c.setRange(g, fam, r)
+	return r
+}
+
+// valueBranches is the branches whose values are n's when n is an `if`
+// with an `else` and no pattern, or a `case`: its value is one of theirs.
+// ok is false for any other node.
+func valueBranches(n ast.Node) ([]ast.Node, bool) {
+	switch v := n.(type) {
 	case *ast.If:
 		if v.Else == nil || v.CondPattern != nil {
-			return c.typedExprRange(g, fam)
+			return nil, false
 		}
-		r = c.branchUnion(fam, []ast.Node{v.Then, v.Else})
+		return []ast.Node{v.Then, v.Else}, true
 	case *ast.Case:
 		bodies := make([]ast.Node, 0, len(v.Branches))
 		for _, b := range v.Branches {
 			bodies = append(bodies, b.Body)
 		}
-		r = c.branchUnion(fam, bodies)
-	default:
-		return c.typedExprRange(g, fam)
+		return bodies, true
 	}
-	c.setRange(g, fam, r)
-	return r
+	return nil, false
 }
 
 // typedExprRange is the range n's recorded type states.
@@ -745,21 +760,15 @@ func (c *checker) typedExprRange(n ast.Node, fam *numericFamily) numRange {
 // branchUnion is the union of the ranges of the values of branches that
 // finish.
 func (c *checker) branchUnion(fam *numericFamily, branches []ast.Node) numRange {
+	finishing, ok := c.finishingBranches(branches)
+	if !ok {
+		return numRange{}
+	}
 	var out numRange
-	seen := false
-	for _, b := range branches {
-		if b == nil {
-			return numRange{}
-		}
-		if blk, ok := b.(*ast.Block); ok && c.blockLeaves(blk) {
-			continue
-		}
-		if isInfallibleLike(c.fa.ExprTypes[b]) {
-			continue
-		}
+	for i, b := range finishing {
 		r := c.exprRange(b, fam)
-		if !seen {
-			out, seen = r, true
+		if i == 0 {
+			out = r
 			continue
 		}
 		out = union(out, r)
@@ -767,17 +776,40 @@ func (c *checker) branchUnion(fam *numericFamily, branches []ast.Node) numRange 
 	return out
 }
 
-// famRange is a recorded range and the family it is of.
+// finishingBranches is those of branches that finish: a branch whose block
+// leaves, or whose value is Infallible, gives the value nothing. ok is
+// false when a branch is missing.
+func (c *checker) finishingBranches(branches []ast.Node) ([]ast.Node, bool) {
+	out := make([]ast.Node, 0, len(branches))
+	for _, b := range branches {
+		if b == nil {
+			return nil, false
+		}
+		if blk, ok := b.(*ast.Block); ok && c.blockLeaves(blk) {
+			continue
+		}
+		if isInfallibleLike(c.fa.ExprTypes[b]) {
+			continue
+		}
+		out = append(out, b)
+	}
+	return out, true
+}
+
+// famRange is what a value proves: a range and the numeric family it is
+// of, or, with fam nil, that a List, Vector, Set, Map or String holds
+// something (nonEmpty; holdsSomething).
 type famRange struct {
-	fam *numericFamily
-	r   numRange
+	fam      *numericFamily
+	r        numRange
+	nonEmpty bool
 }
 
 func (c *checker) setRange(n ast.Node, fam *numericFamily, r numRange) {
 	if c.ranges == nil {
 		c.ranges = map[ast.Node]famRange{}
 	}
-	c.ranges[n] = famRange{fam, r}
+	c.ranges[n] = famRange{fam: fam, r: r}
 }
 
 // bindingRange is sym's range where the checker is: narrowed, the range of
@@ -790,31 +822,46 @@ func (c *checker) bindingRange(sym *Symbol, fam *numericFamily) numRange {
 	return r
 }
 
-// bindRange gives sym, bound to value with no type written, value's range:
-// `k = 60 * 60` holds 3600 wherever k is read. A binding is immutable, so
-// the range holds wherever it is in scope. An annotated binding holds what
-// its type states, as a parameter does.
+// bindRange gives sym, bound to value with no type written, what value
+// proves: its range, so `k = 60 * 60` holds 3600 wherever k is read, or,
+// for a List, Vector, Set, Map or String, that it holds something
+// (holdsSomething), so `names = ["a"]` passes where a NonEmptyList is
+// expected and `name = "Ada"` where a NonEmptyString is. A binding is
+// immutable, so the fact holds wherever it is in scope. An annotated
+// binding holds what its type states, as a parameter does.
 func (c *checker) bindRange(sym *Symbol, value ast.Node) {
-	fam := familyOfBase(RefinementBase(sym.Type))
-	if fam == nil {
-		return
-	}
-	r := c.exprRange(value, fam)
-	if !r.known {
+	fact := famRange{fam: familyOfBase(RefinementBase(sym.Type))}
+	switch {
+	case fact.fam != nil:
+		fact.r = c.exprRange(value, fact.fam)
+		if !fact.r.known {
+			return
+		}
+	case c.holdsSomething(value) && c.nonEmptySubtypeOf(sym.Type) != nil:
+		fact.nonEmpty = true
+	default:
 		return
 	}
 	if c.symRanges == nil {
 		c.symRanges = map[*Symbol]famRange{}
 	}
-	c.symRanges[sym] = famRange{fam, r}
+	c.symRanges[sym] = fact
 }
 
 // onceRangeType is the type of a `once` bound to value, checked as ty:
 // the narrowest std numeric subtype value's range proves, the literals'
-// included, when it is below ty.
+// included, when it is below ty, and for a List, Vector, Set, Map or
+// String whose value holds something (holdsSomething), its std non-empty
+// subtype: `once words = ["a"]` is a NonEmptyList<String>, and `once name
+// = "Ada"` a NonEmptyString.
 func (c *checker) onceRangeType(value ast.Node, ty Type) Type {
 	fam := familyOfBase(RefinementBase(ty))
 	if fam == nil {
+		if c.holdsSomething(value) {
+			if ne := c.nonEmptySubtypeOf(ty); ne != nil {
+				return ne
+			}
+		}
 		return ty
 	}
 	r := c.exprRange(value, fam)
@@ -823,12 +870,16 @@ func (c *checker) onceRangeType(value ast.Node, ty Type) Type {
 }
 
 // provenRefinement is want when n, checked as have, is of want's family
-// and its range proves want's rules (provableTarget, within): the value
-// converts to want with nothing run, since a subtype is its base at run
-// time. Nil otherwise.
+// and its range proves want's rules (provableTarget, within), or the std
+// non-empty subtype want names when n holds something (provenNonEmpty):
+// the value converts to it with nothing run, since a subtype is its base
+// at run time. Nil otherwise.
 func (c *checker) provenRefinement(n ast.Node, have, want Type) Type {
 	if have == nil || want == nil || refinementOf(want) == nil {
 		return nil
+	}
+	if isStdNonEmpty(refinementOf(want)) {
+		return c.provenNonEmpty(n, have, want)
 	}
 	fam := familyOfBase(RefinementBase(want))
 	if fam == nil || familyOfBase(RefinementBase(have)) != fam || refinesInto(have, want) {
@@ -845,4 +896,27 @@ func (c *checker) provenRefinement(n ast.Node, have, want Type) Type {
 		return nil
 	}
 	return want
+}
+
+// provenNonEmpty is the std non-empty subtype of have, a List, Vector,
+// Set, Map or String, at have's type arguments, when that subtype is
+// want's and n's value holds something (holdsSomething): with `names =
+// ["a"]`, `names` passes where a NonEmptyList<String> is expected, and
+// where a generic call's NonEmptyList<T> is, which it solves; `"a${x}"`
+// and a binding of it pass where a NonEmptyString is. The value then
+// meets want as a `once` of the subtype does, its type arguments
+// converting or not as theirs do (a List<Circle> as a
+// NonEmptyList<Shape>). Nil otherwise.
+func (c *checker) provenNonEmpty(n ast.Node, have, want Type) Type {
+	proven := c.nonEmptySubtypeOf(have)
+	if proven == nil {
+		return nil
+	}
+	if got, need := refinementOf(proven), refinementOf(want); got.Origin != need.Origin || got.Name != need.Name {
+		return nil
+	}
+	if !c.holdsSomething(n) {
+		return nil
+	}
+	return proven
 }

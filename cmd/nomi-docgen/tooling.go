@@ -48,7 +48,7 @@ func toolingPages(toolingPath, specPath string) (map[string]string, []string, er
 	sidebar := []item{{"Overview", toolingSite}, {install.title, toolingSite + installSlug + "/"}}
 	var index strings.Builder
 	index.WriteString("---\ntitle: Tooling\n")
-	index.WriteString("description: \"The nomi command and its flags, nomi.toml, modules and dependencies, the test runner, builds, Go bindings, environment variables and editor support.\"\n---\n\n")
+	index.WriteString("description: \"The nomi command and its flags, nomi.toml, modules and dependencies, the test runner, builds, the Go toolchain, environment variables and editor support.\"\n---\n\n")
 	fmt.Fprintf(&index, "<!-- Generated from docs/tooling.md by `%s`. Do not edit. -->\n\n", toolingGenerateCommand)
 	index.WriteString(doc.render(doc.preamble, nil))
 	index.WriteString("\nThese pages are generated from [`docs/tooling.md`](" + styleRepo + "docs/tooling.md) and [`docs/install.md`](" + styleRepo + "docs/install.md) in the repository.\n")

@@ -27,9 +27,9 @@ The examples run in this page on a real SQLite. Edit them and they run
 again.
 
 For Postgres, add `github.com/nomi-language/nomi/lib/sql/postgres` instead
-and open a pool of connections with `postgres.pool(url)`. Both drivers give
-you a `Conn`, so the Nomi code in this chapter works with either. The SQL
-text is the database's own: SQLite fills in an `INTEGER PRIMARY KEY` that
+and open a pool of connections with `postgres.pool(url)`, a driver written
+in Nomi. Both give you a `Conn`, so the Nomi code here works with either.
+The SQL is the database's own: SQLite fills in an `INTEGER PRIMARY KEY` that
 an insert leaves out, and Postgres needs `GENERATED ALWAYS AS IDENTITY` for
 that.
 
@@ -145,18 +145,20 @@ end
 
 /// Orders, filtered by only what the caller asked for.
 fn orders_query(statuses: List<String>, min_total: Maybe<Decimal>, sort: Sort) -> Statement
-    by_status = if Iter.is_empty(statuses) then
-        None
-    else
-        Some(Sql"status IN " + Statement.values(statuses))
-    end
+    by_status =
+        if Iter.is_empty(statuses) then
+            None
+        else
+            Some(Sql"status IN " + Statement.values(statuses))
+        end
 
     by_total = min_total |> Maybe.map(fn t -> Sql"total >= ${t}")
 
-    order = case sort
-        .Newest  -> Sql" ORDER BY placed_at DESC"
-        .Largest -> Sql" ORDER BY total DESC"
-    end
+    order =
+        case sort
+            .Newest  -> Sql" ORDER BY placed_at DESC"
+            .Largest -> Sql" ORDER BY total DESC"
+        end
 
     filters = Maybe.values([by_status, by_total])
     Sql"SELECT id FROM orders" + Statement.where_all(filters) + order
@@ -170,9 +172,9 @@ fn main()
 end
 ```
 <!-- expect
-dbg line 29: "${orders_query([], None, .Newest)}" = "SELECT id FROM orders ORDER BY placed_at DESC"
-dbg line 30: "${orders_query(["paid", "shipped"], Some(20d), .Largest)}" = "SELECT id FROM orders WHERE (status IN (?1, ?2)) AND (total >= ?3) ORDER BY total DESC"
-dbg line 31: orders_query(["paid", "shipped"], Some(20d), .Largest).params = [Text("paid"), Text("shipped"), Decimal(20d)]
+dbg line 31: "${orders_query([], None, .Newest)}" = "SELECT id FROM orders ORDER BY placed_at DESC"
+dbg line 32: "${orders_query(["paid", "shipped"], Some(20d), .Largest)}" = "SELECT id FROM orders WHERE (status IN (?1, ?2)) AND (total >= ?3) ORDER BY total DESC"
+dbg line 33: orders_query(["paid", "shipped"], Some(20d), .Largest).params = [Text("paid"), Text("shipped"), Decimal(20d)]
 -->
 
 A column name can't be a parameter, so the sort order is an enum, and each
@@ -301,7 +303,7 @@ orders. It has one migration, five queries, a `main` and a test file:
 ```tree
 shop/
 ├── nomi.toml
-├── go.mod
+├── nomi.lock
 ├── db/
 │   ├── migrations/
 │   │   └── 20261019120000_users_and_orders.sql

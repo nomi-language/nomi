@@ -1,7 +1,6 @@
 package main
 
 import (
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -85,43 +84,5 @@ func TestTestCommand_TimeoutFailsTheCaseAtItsLine(t *testing.T) {
 	}
 	if r := records[1]; r.Status != "passed" {
 		t.Errorf("the case after = %+v", r)
-	}
-}
-
-// An FFI project's cases run in its wrapper process, which is handed the
-// limit.
-func TestTestCommand_TimeoutReachesTheFFIWrapper(t *testing.T) {
-	if testing.Short() {
-		t.Skip("integration; -short")
-	}
-	cacheRoot := t.TempDir()
-	projectRoot, _ := stageEchoFixture(t)
-	testPath := filepath.Join(projectRoot, "main_test.nomi")
-	mustWrite(t, testPath, `gopkg "echobinding" as ffi
-
-fn echo_upper(s: String) -> String go ffi.EchoUpper
-
-fn spin(s: String) -> String
-  spin(echo_upper(s))
-end
-
-test "ffi spins"
-  assert spin("a") == "b"
-end
-`)
-	stdout, _, err := runNomiSplit(t, cacheRoot, projectRoot, "test", testPath, "--timeout", "300ms", "--format", "json")
-	if err == nil {
-		t.Fatalf("expected a failing exit status")
-	}
-	records := parseJSONRecords(t, stdout)
-	if len(records) != 2 {
-		t.Fatalf("want a test and a summary:\n%s", stdout)
-	}
-	if r := records[0]; r.Status != "failed" || r.ErrorLine != 6 ||
-		!strings.HasPrefix(deref(r.Message), "  line 6: did not finish within 300ms, so it was stopped") {
-		t.Errorf("record = %+v", r)
-	}
-	if entries, _ := os.ReadDir(cacheRoot); len(entries) == 0 {
-		t.Errorf("no wrapper cache entry, so the file never took the FFI path this test is about")
 	}
 }

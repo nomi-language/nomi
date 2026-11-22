@@ -29,11 +29,12 @@ end
 // Err and `after block` still prints. If the boundary were the function, `after
 // block` would vanish and the report would show it.
 fn block_boundary() -> String
-    outcome = concurrent
-        v = fails()?
+    outcome =
+        concurrent
+            v = fails()?
 
-        Ok(v + 1)
-    end
+            Ok(v + 1)
+        end
 
     io.print("after block")
 
@@ -47,11 +48,12 @@ end
 // own guard is exercised too. A guard emitted with an inverted condition passes
 // the Err case and fails this one.
 fn block_boundary_ok() -> String
-    outcome = concurrent
-        v = works()?
+    outcome =
+        concurrent
+            v = works()?
 
-        Ok(v + 1)
-    end
+            Ok(v + 1)
+        end
 
     case outcome
         Ok(n)  -> "ok ${n}"
@@ -64,19 +66,21 @@ end
 // result inference rather than a flag precisely so this case selects the lambda
 // arm. The lambda's Err becomes an ordinary value and the block runs on.
 fn lambda_boundary() -> String
-    inner = concurrent
-        f = fn n: Int ->
-            v = fails()?
+    inner =
+        concurrent
+            f =
+                fn n: Int ->
+                    v = fails()?
 
-            Ok(v + n)
+                    Ok(v + n)
+                end
+
+            r = f(10)
+
+            io.print("after lambda call")
+
+            r
         end
-
-        r = f(10)
-
-        io.print("after lambda call")
-
-        r
-    end
 
     case inner
         Ok(n)  -> "ok ${n}"
@@ -100,11 +104,12 @@ end
 // `?` at all still has to route its tail. Kept because the two guards above
 // would both pass on a builder that always returned the Err.
 test "a concurrent block with no `?` produces its tail"
-    value = concurrent
-        io.print("in block")
+    value =
+        concurrent
+            io.print("in block")
 
-        7
-    end
+            7
+        end
 
     assert value == 7
 end

@@ -1,0 +1,25 @@
+import
+    std::embed.Files
+    std::io
+    std::wasm.{self, Import, Instance}
+end
+
+embed modules `wasm`
+
+fn main()
+    module = wasm.compile(Files.read(modules, "wasm/imports.wasm")!)!
+
+    boom = Import{
+        module:  "env",
+        name:    "twice",
+        params:  [.I64],
+        results: [.I64],
+        run:     fn _, _ -> unreachable "the import gave up",
+    }
+
+    shout = Import{module: "env", name: "shout", params: [.I32, .I32], run: fn _, _ -> Ok([])}
+    instance = wasm.instantiate(module, [boom, shout])!
+    defer Instance.drop(instance)
+    io.inspect(Instance.call(instance, "twice", [.I64(1)]))
+    io.print("not reached")
+end

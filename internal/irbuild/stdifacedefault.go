@@ -25,21 +25,22 @@ import (
 // wherever it is written: std's, the program's, or a derived one. One
 // instance per receiver kind and program, shared by every call.
 //
-// What reaches it is a call the checker resolved to the interface's
-// function (a SymbolInterfaceMethod reference) that no impl writes:
-// `Int.min(3, 4)`, `Comparable.min(3, 4)`, `Version.min(a, b)` on a derived
-// impl, the interface named through its module in a file that declares an
-// interface of its name (`json.ToJson.to_json_field(s)`, by
-// stdModuleIfaceCall), and the same calls inside a generic body once its
-// type argument is known. So do calls the builder writes, which carry no reference: a
-// record field's `ToJson.to_json_field(f)` and a dispatch entry's
-// (`stdProgThunk`), qualified by the interface, and a derived body's
-// `T.from_missing()` at a kind no impl of which writes it
-// (`stdIfaceDefaultAtKind`), found by its unique name. A default with no
-// `self` operand (`fn from_missing() -> Maybe<self>`) takes its receiver
-// from the qualifier, the call's type argument or its checked result. An impl that writes the function (an `open` override, `Float.min`)
-// is found first by every route that finds a written impl function, so it
-// takes precedence. A default is no slot of an rt dispatch table: the
+// What reaches it is a call whose record names the default
+// (recordedStdDefault): the interface's own function, by its std
+// identity, where the receiver's block inherits it or the receiver meets
+// the interface by its shape. `Int.min(3, 4)`, `Comparable.min(3, 4)`,
+// `Version.min(a, b)` on a derived impl, the interface named through its
+// module in a file that declares an interface of its name
+// (`json.ToJson.to_json_field(s)`), and the same
+// calls inside a generic body, whose record the instance's types answer
+// (calleeAt: `T.from_missing()` at a `List<Int>` or a derived struct). So
+// do the calls the builder writes with the record a written call has
+// (stdIfaceCallRecord): a record field's `ToJson.to_json_field(f)` and a
+// dispatch entry's (`stdProgThunk`). A default with no `self` operand (`fn
+// from_missing() -> Maybe<self>`) is instantiated at the type the record
+// says the call is for (Callee.For). An impl that writes the function (an
+// `open` override, `Float.min`) is the record's Decl instead, and is found
+// first by every route that finds a written impl function. A default is no slot of an rt dispatch table: the
 // anchor of a std interface with a table ignores its defaults
 // (stdIfaceSpec.matches), so `Comparable.compare` keeps its table, and a
 // default on an erased receiver declines.
@@ -74,28 +75,6 @@ func (s *stdInstances) stdIfaceDefaultTemplate(iface, method string) *stdFunc {
 			return nil
 		}
 		found = f
-	}
-	return found
-}
-
-// stdIfaceDefaultOwner is the std interface that declares a Nomi-bodied
-// default named method, or "" when none does or two do.
-func (s *stdInstances) stdIfaceDefaultOwner(method string) string {
-	if s == nil || s.std == nil {
-		return ""
-	}
-	found := ""
-	for _, v := range s.std.views {
-		for _, n := range v.nodes {
-			decl, ok := n.(*ast.InterfaceDef)
-			if !ok || stdModuleIfaceDefault(v, decl.Name, method) == nil {
-				continue
-			}
-			if found != "" && found != decl.Name {
-				return ""
-			}
-			found = decl.Name
-		}
 	}
 	return found
 }
@@ -147,7 +126,7 @@ func newStdIfaceDefault(module string, decl *ast.InterfaceDef, im *ast.Interface
 		ifaceDefault: im,
 		key:          decl.Name + "." + im.Name,
 		module:       module,
-		iface:        decl.Name,
+		iface:        analysis.StdType{Module: module, Name: decl.Name},
 		name:         im.Name,
 		selfIdx:      -1,
 		why:          stdIfaceDefaultWhy,
@@ -167,7 +146,7 @@ func newStdIfaceDefault(module string, decl *ast.InterfaceDef, im *ast.Interface
 // to recv: the interface is g's own declaration of it, which the body's
 // bare calls name. It reports false when g declares no such interface.
 func (g *gen) bindStdIfaceDefaultSelf(f *stdFunc, recv kind) bool {
-	d := g.ifaces[f.iface]
+	d := g.ifacesByDecl[stdInterfaceDecl(g.fa, f.iface)]
 	if d == nil {
 		return false
 	}
@@ -190,50 +169,17 @@ func stdIfaceDefaultRef(fa *analysis.FileAnalysis, line, col int) (iface string,
 }
 
 // stdIfaceDefaultCall lowers `Owner.method(args)`, whose operands are
-// lowered into args, as the default of a std interface at its receiver:
-// the call no written impl function answered. handled is false when the
-// call does not name such a default.
-func (bl *irScalarBuilder) stdIfaceDefaultCall(t *ast.Call, args irQualArgs, owner, method string) (ir.Temp, kind, bool, bool, bool) {
-	no := func() (ir.Temp, kind, bool, bool, bool) { return ir.NoTemp, kindInvalid, false, false, false }
-	fa, qualified := t.Func.(*ast.FieldAccess)
-	if !qualified || fa.Field == nil || !args.ok || bl.g.stdInsts == nil {
-		return no()
+// lowered into args, as the default of a std interface its record names
+// (recordedStdDefault), instantiated at the receiver: the call no written
+// impl function answered. handled is false when the record names no such
+// default.
+func (bl *irScalarBuilder) stdIfaceDefaultCall(t *ast.Call, args irQualArgs) (ir.Temp, kind, bool, bool, bool) {
+	if !args.ok {
+		return ir.NoTemp, kindInvalid, false, false, false
 	}
-	iface, ok := stdIfaceDefaultRef(bl.g.srcFA(), fa.Field.Line, fa.Field.Col)
-	std, byRecord := bl.g.recordedStdIface(t)
-	byRecord = byRecord && !ok
-	switch {
-	case ok:
-	case byRecord:
-		// A call the builder wrote, which no reference names: a record
-		// field's `ToJson.to_json_field(f)` (irrecordjson.go), or a std
-		// interface value's dispatch entry (stdProgThunk). Its record
-		// names the std interface (stdIfaceCallRecord), whatever this
-		// file binds the name to.
-		iface = std.Name
-	// kindInvalid: sentinel — kindInvalid marks defaultRecv and instKind as unbound; no operand is judged.
-	case bl.defaultRecv != kindInvalid || (bl.instCall == t && bl.instKind != kindInvalid):
-		// A call the builder respelled with its owner at a kind
-		// (stdIfaceDefaultAtKind; stdKindQualCall for
-		// `FromJson.from_missing<List<Int>>()` or `T.from_missing()` with T
-		// a `List<Int>`), whose owner no reference names: the one std
-		// interface with a default of the name, as a container's std
-		// template is found by its name.
-		if iface = bl.g.stdInsts.stdIfaceDefaultOwner(method); iface == "" {
-			return no()
-		}
-	default:
-		return no()
-	}
-	if d, local := bl.g.ifaceNamed(iface); local && d != nil && bl.g.stdModule == "" && !bl.g.namesStdIfaceBeside(t, d) {
-		// The program's own interface of the name, which the checker's
-		// reference does not tell from std's by name alone; a record that
-		// names std's tells them apart (namesStdIfaceBeside).
-		return no()
-	}
-	f := bl.g.stdInsts.stdIfaceDefaultTemplate(iface, method)
+	f, forType := bl.recordedStdDefault(t)
 	if f == nil {
-		return no()
+		return ir.NoTemp, kindInvalid, false, false, false
 	}
 	declined := func(why string) (ir.Temp, kind, bool, bool, bool) {
 		bl.g.dc.note(why)
@@ -241,20 +187,17 @@ func (bl *irScalarBuilder) stdIfaceDefaultCall(t *ast.Call, args irQualArgs, own
 	}
 	// recv is the receiver the default is instantiated at, and recvType
 	// the checker's type it was read from: the `self` its instance binds.
+	// A default with no `self` operand (`Int.from_missing()`) is for the
+	// type the record says the call is for.
 	var recv kind
 	var recvType analysis.Type
 	switch {
-	// kindInvalid: sentinel — kindInvalid marks defaultRecv as unbound; no operand is judged.
-	case f.selfIdx < 0 && bl.defaultRecv != kindInvalid:
-		recv, recvType = bl.defaultRecv, bl.defaultRecvType
 	case f.selfIdx < 0:
-		// `Int.from_missing()`: no operand is a `self`, so the qualifier
-		// or the call's result names the receiver.
-		r, rt, ok := bl.stdIfaceDefaultOwnerSelf(t, f, owner, iface)
-		if !ok {
+		recv, recvType = bl.g.project(forType), bl.g.checkerTypeArg(forType)
+		// kindInvalid: lookup — a type with no kind here declines.
+		if recv == kindInvalid {
 			return declined("a stdlib interface default with no receiver operand: " + f.key)
 		}
-		recv, recvType = r, rt
 	case f.selfIdx >= len(args.kinds):
 		return declined("a stdlib interface default with no receiver operand: " + f.key)
 	default:
@@ -272,7 +215,7 @@ func (bl *irScalarBuilder) stdIfaceDefaultCall(t *ast.Call, args irQualArgs, own
 	if recvType == nil {
 		// An operand the builder wrote (a partial's placeholder) has no
 		// type of its own; the call's record says which type it is for.
-		recvType = bl.g.checkerTypeArg(bl.g.calleeOf(t).For)
+		recvType = bl.g.checkerTypeArg(forType)
 	}
 	var types []analysis.Type
 	if recvType != nil {
@@ -289,72 +232,31 @@ func (bl *irScalarBuilder) stdIfaceDefaultCall(t *ast.Call, args irQualArgs, own
 	return v, k, mobile, lowered, true
 }
 
-// stdIfaceDefaultAtKind lowers `T.method(args)`, a call the checker
-// resolved to a std interface's function, with T bound to k and no impl of
-// k writing method: the default instantiated at k
-// (`T.from_missing()` at a `List<Int>` or a derived struct). handled is
-// false when the call names no such default. kt is the checker's type k
-// was read from, or nil.
-func (bl *irScalarBuilder) stdIfaceDefaultAtKind(t *ast.Call, args irQualArgs, k kind, kt analysis.Type, method string) (ir.Temp, kind, bool, bool, bool) {
-	prev, prevType := bl.defaultRecv, bl.defaultRecvType
-	bl.defaultRecv, bl.defaultRecvType = k, kt
-	defer func() { bl.defaultRecv, bl.defaultRecvType = prev, prevType }()
-	return bl.stdIfaceDefaultCall(t, args, "", method)
-}
-
-// stdIfaceDefaultOwnerSelf is the receiver of a call of default f, which
-// takes no `self` operand: the instance a generic qualifier named
-// (`List<Int>.from_missing()`, carried as instKind), the type the
-// qualifier names (`Int.from_missing()`, or a type parameter's binding),
-// the type argument of an interface-qualified call
-// (`FromJson.from_missing<Int>()`), or else the `self` the checked result
-// holds when the default returns `self` or `Maybe<self>`. The type is the
-// checker's for it: the one instType carries, else the type the call's
-// record is for (Callee.For), the type the checker bound the qualifier
-// to (ownerType), or the checked result's.
-func (bl *irScalarBuilder) stdIfaceDefaultOwnerSelf(t *ast.Call, f *stdFunc, owner, iface string) (kind, analysis.Type, bool) {
-	// kindInvalid: sentinel — kindInvalid marks instKind as unbound; no operand is judged.
-	if bl.instCall == t && bl.instKind != kindInvalid {
-		return bl.instKind, bl.instType, true
+// recordedStdDefault is the Nomi-bodied std interface default the call t
+// reaches by its record at this instance (calleeAt): a record whose Decl
+// is the interface's own function, found by its std identity
+// (Callee.Std), which the receiver's block (Callee.Impl) inherits or which
+// runs for a receiver that meets the interface by its shape; and the type
+// the record says the call is for (Callee.For), as the body being built
+// writes it. Nil for any other record: a function an impl writes, a
+// program interface's default.
+func (bl *irScalarBuilder) recordedStdDefault(t *ast.Call) (*stdFunc, analysis.Type) {
+	g := bl.g
+	if g.stdInsts == nil || g.stdInsts.std == nil {
+		return nil, nil
 	}
-	forType := bl.g.checkerTypeArg(bl.g.calleeOf(t).For)
-	if owner != iface {
-		// kindInvalid: lookup — asks whether the qualifier names a type; a miss tries the next source, and the caller declines with its own reason.
-		if k := bl.g.qualifierKind(owner); k != kindInvalid {
-			if forType == nil {
-				// The type the checker bound the qualifier to.
-				forType = bl.g.checkerTypeArg(bl.ownerType(t, owner))
-			}
-			return k, forType, true
-		}
+	c := g.calleeAt(t)
+	if c.Std.IsZero() {
+		return nil, nil
 	}
-	if len(t.TypeArgs) == 1 {
-		// kindInvalid: lookup — asks whether the type argument names a type; a miss tries the next source, and the caller declines with its own reason.
-		if k := bl.g.typeOf(t.TypeArgs[0]); k != kindInvalid {
-			return k, forType, true
-		}
+	if _, inherited := c.Decl.(*ast.InterfaceMethod); !inherited {
+		return nil, nil
 	}
-	ft := bl.g.checkedCallSignature(t)
-	if ft == nil || f.decl.ReturnTypeExpr == nil {
-		return kindInvalid, nil, false
+	f := stdModuleIfaceDefault(g.stdInsts.std.views[stdShortModule(c.Std.Module)], c.Std.Owner, c.Std.Name)
+	if f == nil {
+		return nil, nil
 	}
-	result := bl.g.project(ft.Return)
-	resultType := bl.g.checkerTypeArg(ft.Return)
-	switch ret := f.decl.ReturnTypeExpr.(type) {
-	case *ast.SelfType:
-		// kindInvalid: lookup — the checked result's self; a miss makes the caller decline with its own reason.
-		return result, resultType, result != kindInvalid
-	case *ast.GenericType:
-		if _, self := ret.Params[0].(*ast.SelfType); self && len(ret.Params) == 1 && ret.Name == "Maybe" &&
-			irMaybeKind(result) && len(result.def.preludeArgs) == 1 {
-			var elem analysis.Type
-			if et, ok := analysis.ResolveClosed(resultType).(*analysis.EnumType); ok && len(et.TypeArgs) == 1 {
-				elem = et.TypeArgs[0]
-			}
-			return result.def.preludeArgs[0], elem, true
-		}
-	}
-	return kindInvalid, nil, false
+	return f, g.calleeOf(t).For
 }
 
 // stdIfaceOwnCall lowers a bare call, in the body of an interface default

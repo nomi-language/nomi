@@ -90,7 +90,7 @@ func (c *checker) checkTargetTypedLiteral(node ast.Node, expected Type) (Type, b
 	}
 	c.fa.TargetLiterals[node] = twin
 	c.fa.TargetLiteralBuilds[twin] = build
-	ty := c.checkTaggedString(twin)
+	ty := c.checkTaggedString(twin, resolveTypeVar(expected))
 	c.fa.recordExprType(twin, ty)
 	c.registerTargetLiteralHover(node, line, col, span, ty)
 	return ty, true

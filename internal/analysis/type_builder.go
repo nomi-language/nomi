@@ -674,6 +674,10 @@ func recordImplTypeArgsFromBlock(fa *FileAnalysis, reg *TypeRegistry, n *ast.Imp
 	if iface == nil {
 		return
 	}
+	// The block is the impl of the declaration its header names, under
+	// that declaration's name (implInterfaceName): `impl Freeable for
+	// Lock` is Lock's Release.
+	ifaceName = iface.Name
 
 	blockTP, _ := buildImplBlockTypeParams(fa, reg, n)
 	var receiver Type
@@ -686,10 +690,12 @@ func recordImplTypeArgsFromBlock(fa *FileAnalysis, reg *TypeRegistry, n *ast.Imp
 			headerArgs = instantiated.TypeArgs
 		}
 	}
-	fa.recordImplBlock(&ImplTypeArgs{Receiver: receiver, Block: n, Origin: iface.Origin, File: declaredOrigin(fa)}, implTypeName, ifaceName)
+	// The block's one record (FileAnalysis.ImplBlocks), which the
+	// templates below share.
+	info := fa.recordImplBlock(&ImplTypeArgs{Receiver: receiver, Block: n, Interface: ifaceName, Origin: iface.Origin, File: declaredOrigin(fa)}, implTypeName)
 	if len(iface.TypeParamDefs) == 0 && !ContainsTypeParam(receiver) && len(concreteTypeArgs(receiver)) == 0 {
 		// A non-generic interface on a receiver with no type arguments: the
-		// receiver's name is the whole match, so there is nothing to record.
+		// receiver's name is the whole match, so it is no template.
 		// One with type arguments (`impl OptionalAttribute for
 		// Maybe<String>`) records its receiver, so a Maybe<Int> is refused
 		// and a bare `None` is solved to the one instance that implements it
@@ -772,16 +778,8 @@ func recordImplTypeArgsFromBlock(fa *FileAnalysis, reg *TypeRegistry, n *ast.Imp
 	if fa.ImplTypeArgSets[implTypeName] == nil {
 		fa.ImplTypeArgSets[implTypeName] = make(map[string][]*ImplTypeArgs)
 	}
-	info := &ImplTypeArgs{
-		TypeParamDefs: typeParamDefs,
-		Args:          args,
-		Receiver:      receiver,
-		Block:         n,
-		Written:       len(headerArgs) > 0 || headerWritesTypeArgs(n.Interface),
-		Open:          open,
-		Origin:        iface.Origin,
-		File:          declaredOrigin(fa),
-	}
+	info.TypeParamDefs, info.Args, info.Open = typeParamDefs, args, open
+	info.Written = len(headerArgs) > 0 || headerWritesTypeArgs(n.Interface)
 	if fa.ImplTypeArgs[implTypeName][ifaceName] == nil {
 		fa.ImplTypeArgs[implTypeName][ifaceName] = info
 	}
@@ -839,12 +837,12 @@ func validateNoIllegalNestedDecls(node ast.Node) []TypeError {
 	case *ast.ExternFunc:
 		errs = append(errs, TypeError{
 			Line: n.Line, Col: n.Col,
-			Message: "extern declaration must be at the top level",
+			Message: "a `host` declaration must be at the top level",
 		})
 	case *ast.ExternType:
 		errs = append(errs, TypeError{
 			Line: n.Line, Col: n.Col,
-			Message: "extern declaration must be at the top level",
+			Message: "a `host` declaration must be at the top level",
 		})
 	default:
 		ast.Children(node, func(child ast.Node) {
@@ -999,7 +997,7 @@ func buildNestedFuncTypes(fa *FileAnalysis, reg *TypeRegistry, node ast.Node) []
 		// Build a child registry containing this block's nested type defs,
 		// then process the block's statements with that registry visible.
 		// Both see the types the block's own imports bind, as the checker's
-		// walk of the block does (enterBlockImports).
+		// walk of the block does (enterBlock).
 		if imported := blockImportTypes(fa, reg, n); imported != nil {
 			reg = imported
 		}
@@ -1007,6 +1005,13 @@ func buildNestedFuncTypes(fa *FileAnalysis, reg *TypeRegistry, node ast.Node) []
 		errs = append(errs, typeErrs...)
 		for _, stmt := range n.Stmts {
 			errs = append(errs, buildNestedFuncTypes(fa, childReg, stmt)...)
+		}
+		// The universal Debug of each type the block declares, which the
+		// builder wrote and resolved in the block (FileBodies.BlockDebug).
+		for _, stmt := range n.Stmts {
+			if impl := fa.BlockDebug[stmt]; impl != nil {
+				errs = append(errs, buildImplBlockTypes(fa, childReg, impl)...)
+			}
 		}
 	default:
 		ast.Children(n, func(child ast.Node) {
@@ -1300,6 +1305,7 @@ func buildEnumType(fa *FileAnalysis, reg *TypeRegistry, n *ast.EnumDef) []TypeEr
 			vd.Kind = VariantBare
 		case "positional":
 			vd.Kind = VariantPositional
+			vd.WrittenAsParts = writtenParts(v.DataTypeExpr) != nil
 			if v.DataTypeExpr != nil {
 				resolved, err := ResolveDeclaredType(v.DataTypeExpr, reg, tp, fa)
 				if err != nil {
@@ -1522,6 +1528,7 @@ func buildTypeDef(fa *FileAnalysis, reg *TypeRegistry, n *ast.TypeDef) []TypeErr
 	defer distinctBuilt(dt)
 	dt.TypeParams = typeParamNames(n.TypeParams)
 	dt.TypeParamDefs = typeParamDefsFromMap(n.TypeParams, tp)
+	dt.WrittenAsParts = writtenParts(n.InnerTypeExpr) != nil
 
 	if n.InnerTypeExpr != nil {
 		resolved, err := ResolveDeclaredType(n.InnerTypeExpr, reg, tp, fa)
@@ -2285,7 +2292,7 @@ func compilerKnownSynthTypeOf(te ast.TypeExpr, reg *TypeRegistry, tp map[string]
 			}
 			args[i] = resolved
 		}
-		return &EnumType{Name: "Result", TypeArgs: args}
+		return &EnumType{Origin: stdResultType.Module, Name: stdResultType.Name, TypeArgs: args}
 	}
 	return nil
 }
@@ -2468,7 +2475,7 @@ func buildImplBlockTypes(fa *FileAnalysis, reg *TypeRegistry, n *ast.ImplBlock) 
 				errs = append(errs, terr)
 			}
 		}
-		whereBounds, whereErrs := resolveWhereBounds(fa, reg, tp, ef.WhereClauses, fmt.Sprintf("extern function '%s'", ef.Name))
+		whereBounds, whereErrs := resolveWhereBounds(fa, reg, tp, ef.WhereClauses, fmt.Sprintf("host function '%s'", ef.Name))
 		errs = append(errs, whereErrs...)
 		errs = append(errs, functionTypeParamErrors(ef.Name, ef.TypeParams, efExplicit, params, retType, whereBounds)...)
 		// Defaults count here as they do for a module-level extern (see
@@ -2575,7 +2582,7 @@ func buildExternFuncTypeWithBase(fa *FileAnalysis, reg *TypeRegistry, n *ast.Ext
 		}
 	}
 
-	whereBounds, whereErrs := resolveWhereBounds(fa, reg, tp, n.WhereClauses, fmt.Sprintf("extern function '%s'", n.Name))
+	whereBounds, whereErrs := resolveWhereBounds(fa, reg, tp, n.WhereClauses, fmt.Sprintf("host function '%s'", n.Name))
 	errs = append(errs, whereErrs...)
 	errs = append(errs, functionTypeParamErrors(n.Name, n.TypeParams, explicit, params, retType, whereBounds)...)
 

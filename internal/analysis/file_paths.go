@@ -88,10 +88,10 @@ func (b *builder) importParentDir(n *ast.ImportStmt) string {
 	if len(spelled) > 1 {
 		return strings.Join(spelled[:len(spelled)-1], ast.PathSeparator)
 	}
-	if _, dep := b.moduleIndex[spelled[0]]; dep {
+	if t := b.importDest(spelled); t.named && t.module != b.inModule {
 		return spelled[0]
 	}
-	return b.currentModuleName
+	return b.moduleIndex.selfName(b.inModule, b.currentModuleName)
 }
 
 // bindShortName binds sym, a path-only import's file or directory, under
@@ -250,7 +250,7 @@ func (b *builder) directoryOf(path []string, miss *importMiss) *DirectoryError {
 	switch {
 	case len(miss.path) == 0 && miss.dep != "":
 		root = miss.root
-	case len(path) == 1 && path[0] == b.currentModuleName && b.currentModuleName != "":
+	case len(path) == 1 && path[0] != "" && path[0] == b.moduleIndex.selfName(b.inModule, b.currentModuleName):
 		root = b.projectRoot
 	default:
 		return nil
@@ -386,12 +386,8 @@ func (b *builder) reachAccessError(full []string, spelled string) string {
 		return err.Error()
 	}
 	// A directory holding a nomi.toml is another module's root.
-	root, rel := b.projectRoot, full
-	if rest, self := SelfNameImport(full, b.currentModuleName); self {
-		rel = rest
-	} else if dep, ok := b.moduleIndex[full[0]]; ok {
-		root, rel = dep, full[1:]
-	}
+	t := b.importDest(full)
+	root, rel := t.root, t.rest
 	if root == "" {
 		return ""
 	}

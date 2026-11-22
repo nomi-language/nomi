@@ -96,7 +96,7 @@ func (c *checker) iterViewOf(it *InterfaceType, t Type) *IterView {
 		if isStdOrigin(ty.Origin) && len(ty.TypeArgs) == 1 {
 			switch ty.Name {
 			case "Range":
-				if ty.Origin == "" || ty.Origin == "std/ranges" {
+				if isStdType(ty, stdRangeType) {
 					view.Domain, view.Elem = IterViewRange, ty.TypeArgs[0]
 					return view
 				}
@@ -108,7 +108,7 @@ func (c *checker) iterViewOf(it *InterfaceType, t Type) *IterView {
 			}
 		}
 	case *EnumType:
-		if ty.Name == "Maybe" && (ty.Origin == "" || ty.Origin == "std/maybe") && len(ty.TypeArgs) == 1 {
+		if isStdType(ty, stdMaybeType) && len(ty.TypeArgs) == 1 {
 			view.Domain, view.Elem = IterViewMaybe, ty.TypeArgs[0]
 			return view
 		}
@@ -180,4 +180,27 @@ func (c *checker) recordSubtestsViews(nodes []ast.Node) {
 			return true
 		})
 	}
+}
+
+// SpreadCollected is the collection of kind a spread written as head is
+// made before it joins a list, vector or set literal of that kind: the
+// List, Vector or Set of the elements the checker recorded the spread
+// walks (IterViews), `List<Int>` for `..maybe_int` in a list. Nil where
+// the spread has no view with an element, one of a type parameter whose
+// instances each push their own.
+func (fa *FileAnalysis) SpreadCollected(kind ast.SeqKind, head ast.Node) Type {
+	if fa == nil {
+		return nil
+	}
+	view := fa.IterViews[head]
+	if view == nil || view.Elem == nil {
+		return nil
+	}
+	switch kind {
+	case ast.SeqVector:
+		return makeVectorType(view.Elem, nil)
+	case ast.SeqSet:
+		return makeSetType(view.Elem, nil)
+	}
+	return &ListType{Elem: view.Elem}
 }

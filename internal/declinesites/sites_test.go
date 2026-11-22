@@ -47,13 +47,11 @@ const listHeader = `# Every place internal/irbuild can decline a body, with whet
 #   conversion     a kind does not convert to, join with or view as another
 #   shape          a statement or body outside the shapes a construct lowers
 #   instantiation  a std template or generic instance that did not form
-#   ffi            a Go-bound function that takes or returns a function
+#   host           a host function that takes or returns a function
 #   scope          a binding that shadows a module-level name, found by name
 #   route          a call or literal no route took, where no program was found
 #   unlowerable    a def, impl or std body refused elsewhere, passed on here
 #   plan           a plan function's nil, or a memo of another site's decline
-#   destructure    a refusal of the gen-level destructure, which records its
-#                  own errors (gen.reject) and no site
 #   invariant      a state the checker is believed to rule out, not yet shown
 #   domain         a kind outside the value domain, not yet shown held
 #   registry       a cross-file type mirror or layout fail-safe
@@ -74,8 +72,8 @@ type entry struct {
 
 // causes are the causes a class d site may carry (the list's header says
 // what each is), in the order the test prints their counts.
-var causes = []string{"conversion", "shape", "instantiation", "ffi", "scope", "route",
-	"unlowerable", "plan", "destructure", "invariant", "domain", "registry"}
+var causes = []string{"conversion", "shape", "instantiation", "host", "scope", "route",
+	"unlowerable", "plan", "invariant", "domain", "registry"}
 
 func readList(path string) (map[string]entry, error) {
 	f, err := os.Open(path)
@@ -242,10 +240,10 @@ func TestDeclineSitesAreListed(t *testing.T) {
 // sites and pinned gaps only, with every limit a checker error and every
 // impossible state an assertion.
 const (
-	maxSites             = 618
-	maxDeadSites         = 317
+	maxSites             = 568
+	maxDeadSites         = 296
 	maxUnclassifiedSites = 0
-	maxUndecidedSites    = 151
+	maxUndecidedSites    = 129
 )
 
 // promote runs only the suites named and marks the sites they execute a,

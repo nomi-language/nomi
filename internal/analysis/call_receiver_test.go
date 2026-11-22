@@ -9,7 +9,8 @@ import (
 )
 
 // Every call of an interface's function records the type it is for
-// (Callee.For) and how it is answered (Callee.Form): a receiver whose
+// (Callee.For) and how it is answered (Callee.Form): a type with no
+// Debug block rendered by its shape, a receiver whose
 // type holds a variable the checker closed, an operator interface's
 // function called by name, a type-qualified call of an impl's function,
 // a call with no argument for its receiver, and a call the checker
@@ -67,6 +68,9 @@ end
 		34: "Box",
 		35: "Int",
 	}
+	// Maybe and Result have no Debug block, so their `Debug.inspect` is
+	// Debug's own function answered by the type's shape, with no impl.
+	byShape := map[int]bool{28: true, 29: true}
 	for n, rc := range fa.Calls {
 		call, ok := n.(*ast.Call)
 		if !ok {
@@ -87,6 +91,12 @@ end
 		}
 		if got := analysis.Elaborate(c.For).String(); !strings.HasPrefix(got, wantFor) {
 			t.Errorf("line %d: For %s, want %s", call.Line, got, wantFor)
+		}
+		if byShape[call.Line] {
+			if c.Form != analysis.OperatorStructural || c.Kind != analysis.CalleeInterface || c.Impl != nil {
+				t.Errorf("line %d: kind %d form %d impl %v, want Debug's own function answered by shape", call.Line, c.Kind, c.Form, c.Impl != nil)
+			}
+			continue
 		}
 		if c.Form != analysis.OperatorByImpl || c.Kind != analysis.CalleeImpl || c.Impl == nil {
 			t.Errorf("line %d: kind %d form %d impl %v, want the impl block it reaches", call.Line, c.Kind, c.Form, c.Impl != nil)

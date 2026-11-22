@@ -26,7 +26,7 @@ import (
 // interfaces, the entry alone when none did, and links them with the kept
 // objects of the rest, as `nomi check` relinks a kept program (vmhost's
 // checklowering_stored.go). The program it links is what the walk for the
-// outside calls an editor's hover names reads. Another document's
+// effect calls an editor's hover names reads. Another document's
 // lowering lowers its text.
 
 // KeptLoweringFunc answers the kept lowering the server's last lowering of

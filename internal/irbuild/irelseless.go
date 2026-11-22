@@ -8,13 +8,13 @@ import "github.com/nomi-language/nomi/internal/ast"
 // as a Unit branch has none. Any other `if`, and one a test body's arms
 // lower, keeps sig.
 func unitElselessSig(t *ast.If, sig irFuncSig) irFuncSig {
-	if sig.testArms || !(sig.inferResult || sig.result == kindUnit) {
+	if sig.testArms || sig.result != kindUnit {
 		return sig
 	}
 	for l := t; ; {
 		switch e := l.Else.(type) {
 		case nil:
-			sig.inferResult, sig.result, sig.elselessUnit = false, kindUnit, true
+			sig.elselessUnit = true
 			return sig
 		case *ast.If:
 			l = e

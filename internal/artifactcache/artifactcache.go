@@ -21,7 +21,7 @@ func testRoot() string {
 }
 
 func init() {
-	// A test binary's children (a built `nomi`, a Go FFI wrapper) are not
+	// A test binary's children (a built `nomi`) are not
 	// test binaries, so they would otherwise use the user's cache.
 	if testing.Testing() && os.Getenv(RootEnv) == "" {
 		_ = os.Setenv(RootEnv, testRoot())

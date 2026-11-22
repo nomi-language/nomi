@@ -208,12 +208,3 @@ func posInSource(src, containing, token string) (analysis.Pos, bool) {
 	}
 	return pos, true
 }
-
-func containsDiagnostic(diagnostics []string, needle string) bool {
-	for _, diagnostic := range diagnostics {
-		if strings.Contains(diagnostic, needle) {
-			return true
-		}
-	}
-	return false
-}

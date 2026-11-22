@@ -196,10 +196,11 @@ const (
 	bodyStream
 )
 
-// Send is `std::http::host.send`: one request on c under the frame's context. An
-// Err is the http.Error's variant name and its fields (errorParts). With
-// stream false the body is read whole, refused past maxBody bytes when
-// maxBody is not negative; with stream true it stays open for the reader.
+// Send is `std::http::host.send`: one request on c under the frame's context,
+// traced by tracer when it is given. An Err is the http.Error's variant name
+// and its fields (errorParts). With stream false the body is read whole,
+// refused past maxBody bytes when maxBody is not negative; with stream true
+// it stays open for the reader. input is the body only for bodyStream.
 func Send(
 	fr *rt.Frame,
 	c rt.HTTPClient,
@@ -207,15 +208,14 @@ func Send(
 	headers *rt.List[string],
 	bodyKindArg rt.Int,
 	data rt.Bytes,
-	input rt.Reader,
+	input rt.Maybe[rt.Reader],
 	contentLengthArg rt.Int,
 	host string,
 	closes bool,
 	trailers *rt.List[string],
 	stream bool,
 	maxBodyArg rt.Int,
-	tracer rt.HTTPHandle,
-	traced bool,
+	tracer rt.Maybe[rt.HTTPHandle],
 ) rt.Result[rt.HTTPExchange, *rt.List[string]] {
 	bodyKind := bodyKindArg.Saturated()
 	contentLength := contentLengthArg.Saturated()
@@ -227,15 +227,15 @@ func Send(
 	if fr != nil && fr.Context() != nil {
 		ctx = fr.Context()
 	}
-	if traced {
-		ctx = httptrace.WithClientTrace(ctx, tracerOf(tracer).trace())
+	if tracer.Tag == rt.TagSome {
+		ctx = httptrace.WithClientTrace(ctx, tracerOf(tracer.Some).trace())
 	}
 	var body io.Reader
-	switch bodyKind {
-	case bodyBytes:
+	switch {
+	case bodyKind == bodyBytes:
 		body = bytes.NewReader([]byte(data))
-	case bodyStream:
-		body = readerInput{fr: fr, r: input}
+	case bodyKind == bodyStream && input.Tag == rt.TagSome:
+		body = readerInput{fr: fr, r: input.Some}
 	}
 	req, err := http.NewRequestWithContext(ctx, method, target, body)
 	if err != nil {
@@ -350,35 +350,7 @@ func listOf(xs []string) *rt.List[string] {
 	return out
 }
 
-func headerList(h http.Header) *rt.List[string] {
-	var flat []string
-	for k, vs := range h {
-		for _, v := range vs {
-			flat = append(flat, k, v)
-		}
-	}
-	return listOf(sortedPairs(flat))
-}
-
-// sortedPairs orders header pairs by name, keeping each name's values in
-// order: Go's Header is a map, so its order is not the wire's.
-func sortedPairs(flat []string) []string {
-	type pair struct{ k, v string }
-	var ps []pair
-	for i := 0; i+1 < len(flat); i += 2 {
-		ps = append(ps, pair{flat[i], flat[i+1]})
-	}
-	for i := 1; i < len(ps); i++ {
-		for j := i; j > 0 && ps[j-1].k > ps[j].k; j-- {
-			ps[j-1], ps[j] = ps[j], ps[j-1]
-		}
-	}
-	out := make([]string, 0, len(flat))
-	for _, p := range ps {
-		out = append(out, p.k, p.v)
-	}
-	return out
-}
+func headerList(h http.Header) *rt.List[string] { return listOf(flatHeader(h)) }
 
 // Status is `std::http::host.status`.
 func Status(e rt.HTTPExchange) int64 { return int64(exchangeOf(e).resp.StatusCode) }
@@ -532,7 +504,7 @@ func (t *tracer) trace() *httptrace.ClientTrace {
 		GotFirstResponseByte: func() { rec("FirstResponseByte") },
 		Got100Continue:       func() { rec("Continue") },
 		Got1xxResponse: func(code int, header textproto.MIMEHeader) error {
-			rec(append([]string{"Informational", strconv.Itoa(code)}, sortedPairs(flatHeader(http.Header(header)))...)...)
+			rec(append([]string{"Informational", strconv.Itoa(code)}, flatHeader(http.Header(header))...)...)
 			return nil
 		},
 		DNSStart: func(info httptrace.DNSStartInfo) { rec("DnsStart", info.Host) },
@@ -556,10 +528,14 @@ func (t *tracer) trace() *httptrace.ClientTrace {
 	}
 }
 
+// flatHeader is h as names and values alternating, sorted by name, each
+// name's values in order. Go's Header is a map and keeps no order, so
+// every header list that crosses to Nomi comes through here and is the
+// same for the same header; Header.Write sends names in this order too.
 func flatHeader(h http.Header) []string {
 	var flat []string
-	for k, vs := range h {
-		for _, v := range vs {
+	for _, k := range sortedKeys(h) {
+		for _, v := range h[k] {
 			flat = append(flat, k, v)
 		}
 	}

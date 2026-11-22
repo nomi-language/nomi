@@ -1,0 +1,187 @@
+[
+  {
+    "name": "heading and emphasis",
+    "markdown": "# Title\n\nSome *text*.",
+    "html": "<h1>Title</h1>\n<p>Some <em>text</em>.</p>\n"
+  },
+  {
+    "name": "bare URL in a sentence",
+    "markdown": "see https://example.com/a now",
+    "html": "<p>see <a href=\"https://example.com/a\">https://example.com/a</a> now</p>\n"
+  },
+  {
+    "name": "bare URL with a query",
+    "markdown": "watch https://www.youtube.com/watch?v=1",
+    "html": "<p>watch <a href=\"https://www.youtube.com/watch?v=1\">https://www.youtube.com/watch?v=1</a></p>\n"
+  },
+  {
+    "name": "table",
+    "markdown": "| a | b |\n|---|---|\n| 1 | 2 |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>1</td>\n<td>2</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "name": "raw HTML is omitted",
+    "markdown": "hi <script>alert(1)</script> there",
+    "html": "<p>hi <!-- raw HTML omitted -->alert(1)<!-- raw HTML omitted --> there</p>\n"
+  },
+  {
+    "name": "javascript link",
+    "markdown": "[x](javascript:alert(1))",
+    "html": "<p><a href=\"\">x</a></p>\n"
+  },
+  {
+    "name": "escaped text",
+    "markdown": "a & b < c",
+    "html": "<p>a &amp; b &lt; c</p>\n"
+  },
+  {
+    "name": "bold",
+    "markdown": "**bold**",
+    "html": "<p><strong>bold</strong></p>\n"
+  },
+  {
+    "name": "vbscript, file and data links",
+    "markdown": "[a](vbscript:x) [b](file:///etc/passwd) [c](data:text/html,x) [d](data:image/png;base64,AAA) [e](JAVASCRIPT:x)",
+    "html": "<p><a href=\"\">a</a> <a href=\"\">b</a> <a href=\"\">c</a> <a href=\"data:image/png;base64,AAA\">d</a> <a href=\"\">e</a></p>\n"
+  },
+  {
+    "name": "dangerous image",
+    "markdown": "![a](javascript:alert(1))",
+    "html": "<p><img src=\"\" alt=\"a\"></p>\n"
+  },
+  {
+    "name": "dangerous autolink",
+    "markdown": "<javascript:alert(1)> and <https://ok.example>",
+    "html": "<p><a href=\"\">javascript:alert(1)</a> and <a href=\"https://ok.example\">https://ok.example</a></p>\n"
+  },
+  {
+    "name": "dangerous reference link",
+    "markdown": "[a]\n\n[a]: javascript:alert(1) \"t\"",
+    "html": "<p><a href=\"\" title=\"t\">a</a></p>\n"
+  },
+  {
+    "name": "HTML block omitted",
+    "markdown": "<div onclick=\"x()\">\n*hi*\n</div>\n\n<script>\nalert(1)\n</script>\nafter",
+    "html": "<!-- raw HTML omitted -->\n<!-- raw HTML omitted -->\n<!-- raw HTML omitted -->\n<p>after</p>\n"
+  },
+  {
+    "name": "inline HTML attributes",
+    "markdown": "a <img src=x onerror=\"alert(1)\"> b <a href='x'>c</a>",
+    "html": "<p>a <!-- raw HTML omitted --> b <!-- raw HTML omitted -->c<!-- raw HTML omitted --></p>\n"
+  },
+  {
+    "name": "HTML comment and processing instruction",
+    "markdown": "<!-- c --> and <?php x ?> and <![CDATA[ y ]]> and <!DOCTYPE html>",
+    "html": "<!-- raw HTML omitted -->\n"
+  },
+  {
+    "name": "entity and numeric references",
+    "markdown": "&copy; &#169; &#xA9; &bogus; &#0; &#x110000;",
+    "html": "<p>© © © &amp;bogus; � �</p>\n"
+  },
+  {
+    "name": "link with title and entities",
+    "markdown": "[a](/u?x=1&amp;y=2 \"T &quot;q&quot;\")",
+    "html": "<p><a href=\"/u?x=1&amp;y=2\" title=\"T &quot;q&quot;\">a</a></p>\n"
+  },
+  {
+    "name": "URL with spaces and non-ASCII",
+    "markdown": "[a](<a b/é>)",
+    "html": "<p><a href=\"a%20b/%C3%A9\">a</a></p>\n"
+  },
+  {
+    "name": "task list",
+    "markdown": "- [ ] todo\n- [x] done\n- [X] also done\n-  [ ] not first",
+    "html": "<ul>\n<li><input disabled=\"\" type=\"checkbox\"> todo</li>\n<li><input checked=\"\" disabled=\"\" type=\"checkbox\"> done</li>\n<li><input checked=\"\" disabled=\"\" type=\"checkbox\"> also done</li>\n<li><input disabled=\"\" type=\"checkbox\"> not first</li>\n</ul>\n"
+  },
+  {
+    "name": "task list in ordered list",
+    "markdown": "1. [x] one\n2. [ ] two",
+    "html": "<ol>\n<li><input checked=\"\" disabled=\"\" type=\"checkbox\"> one</li>\n<li><input disabled=\"\" type=\"checkbox\"> two</li>\n</ol>\n"
+  },
+  {
+    "name": "strikethrough",
+    "markdown": "~~gone~~ and ~one~ and ~~~three~~~",
+    "html": "<p><del>gone</del> and <del>one</del> and ~~~three~~~</p>\n"
+  },
+  {
+    "name": "www autolink",
+    "markdown": "visit www.example.com/path?q=1. Or (www.example.com).",
+    "html": "<p>visit <a href=\"http://www.example.com/path?q=1\">www.example.com/path?q=1</a>. Or (<a href=\"http://www.example.com\">www.example.com</a>).</p>\n"
+  },
+  {
+    "name": "email autolink",
+    "markdown": "mail me at a.b-c@example.co.uk, please.",
+    "html": "<p>mail me at <a href=\"mailto:a.b-c@example.co.uk\">a.b-c@example.co.uk</a>, please.</p>\n"
+  },
+  {
+    "name": "nested emphasis",
+    "markdown": "***a** b* and _a __b__ c_",
+    "html": "<p><em><strong>a</strong> b</em> and <em>a <strong>b</strong> c</em></p>\n"
+  },
+  {
+    "name": "table with alignment and escaped pipe",
+    "markdown": "| left | center | right | none |\n|:-----|:------:|------:|------|\n| `a\\|b` | **x** | 3 | |\n| only one |",
+    "html": "<table>\n<thead>\n<tr>\n<th style=\"text-align:left\">left</th>\n<th style=\"text-align:center\">center</th>\n<th style=\"text-align:right\">right</th>\n<th>none</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td style=\"text-align:left\"><code>a|b</code></td>\n<td style=\"text-align:center\"><strong>x</strong></td>\n<td style=\"text-align:right\">3</td>\n<td></td>\n</tr>\n<tr>\n<td style=\"text-align:left\">only one</td>\n<td></td>\n<td></td>\n<td></td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "name": "table in a list",
+    "markdown": "- | a |\n  |---|\n  | b |",
+    "html": "<ul>\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>b</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ul>\n"
+  },
+  {
+    "name": "fenced code with language",
+    "markdown": "```go title=\"x\"\nfunc main() {}\n```",
+    "html": "<pre><code class=\"language-go\">func main() {}\n</code></pre>\n"
+  },
+  {
+    "name": "indented code with tabs",
+    "markdown": "\ttab\n    spaces",
+    "html": "<pre><code>tab\nspaces\n</code></pre>\n"
+  },
+  {
+    "name": "hard breaks",
+    "markdown": "a\nb\\\nc",
+    "html": "<p>a\nb<br>\nc</p>\n"
+  },
+  {
+    "name": "link reference with case folding",
+    "markdown": "[ΑΓΩ]\n\n[αγω]: /greek",
+    "html": "<p><a href=\"/greek\">ΑΓΩ</a></p>\n"
+  },
+  {
+    "name": "image with emphasis in alt",
+    "markdown": "![*a* `b` [c](d)](/img.png \"t\")",
+    "html": "<p><img src=\"/img.png\" alt=\"a b c\" title=\"t\"></p>\n"
+  },
+  {
+    "name": "unicode punctuation flanking",
+    "markdown": "—*foo*— and “*bar*”",
+    "html": "<p>—<em>foo</em>— and “<em>bar</em>”</p>\n"
+  },
+  {
+    "name": "blockquote with list",
+    "markdown": "> - a\n>   b\n>\n> c",
+    "html": "<blockquote>\n<ul>\n<li>a\nb</li>\n</ul>\n<p>c</p>\n</blockquote>\n"
+  },
+  {
+    "name": "loose and tight lists",
+    "markdown": "- a\n\n- b\n- c\n  - d\n\n    e",
+    "html": "<ul>\n<li>\n<p>a</p>\n</li>\n<li>\n<p>b</p>\n</li>\n<li>\n<p>c</p>\n<ul>\n<li>\n<p>d</p>\n<p>e</p>\n</li>\n</ul>\n</li>\n</ul>\n"
+  },
+  {
+    "name": "empty document",
+    "markdown": "",
+    "html": ""
+  },
+  {
+    "name": "setext heading after definition",
+    "markdown": "[a]: /x\n===",
+    "html": "<p>===</p>\n"
+  },
+  {
+    "name": "nul character",
+    "markdown": "a\u0000b\n",
+    "html": "<p>a�b</p>\n"
+  }
+]

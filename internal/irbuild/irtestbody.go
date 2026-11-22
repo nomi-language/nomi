@@ -70,13 +70,9 @@ var irTestBodyObserved func(name string, f *ir.Func)
 // the VM reports it as BLOCKED (vm.Machine.Unretained); testCase (tests.go)
 // clears the decline this leaves in g.dc.
 //
-// It is called with the case's scope freshly pushed, before anything else
-// binds the body's names, and the order is load-bearing. `bl.lower`'s
-// `*ast.Ident` arm asks `g.lookup`, so a name already bound in the gen's
-// scope would resolve to an `ir.Ref` naming it, which no machine can read.
-// Building first means a body's own names come from `bl.bound`, the
-// `ir.Bind` destinations this builder created, which is the def-use chain
-// the graph carries.
+// A body's own names come from the locals this builder declared (identRead,
+// localAt), the `ir.Bind` destinations it created, which is the def-use
+// chain the graph carries.
 func (g *gen) irTestBody(c testCaseDecl, name string) {
 	p, group, st := g.irTestBodyBuild(c, name)
 	if st == irTestBodyDeferred {
@@ -202,9 +198,7 @@ func (g *gen) irRetryWalkOnlyTestBodiesWith(setup func(testCaseDecl) func()) {
 		}
 		prevInTest, prevResult := g.inTest, g.result
 		g.inTest, g.result = true, kindInvalid
-		g.pushScope()
 		p, ok := g.irTestBodyAttempt(r.c, r.name, r.group)
-		g.popScope()
 		g.inTest, g.result = prevInTest, prevResult
 		undo()
 		var fn *ir.Func
@@ -312,9 +306,8 @@ func irFlushLateInstances(gens []*gen) {
 func (g *gen) irTestBodyAttempt(c testCaseDecl, name string, group ir.TestGroup) (*irScalarPlan, bool) {
 	at := g.irNodePos(c.body)
 	fn := ir.NewFunc(at, name)
-	sh := &irFuncShell{fn: fn, syms: map[string]*ir.Symbol{}, params: map[string]ir.Temp{},
-		patternOK: true, at: c.body}
-	sh.frame = newIRFuncFrame(fn)
+	sh := &irFuncShell{fn: fn, params: map[string]ir.Temp{},
+		at: c.body}
 	sh.entry = fn.NewBlock(at, "entry")
 	// NO RESULT SLOT AND NO RESULT TEMPORARY, which is the one structural
 	// difference from `irFuncShellFor`. A test body answers nothing: a
@@ -322,7 +315,6 @@ func (g *gen) irTestBodyAttempt(c testCaseDecl, name string, group ir.TestGroup)
 	// the assertion's own, so there is no storage to declare. `sh.result` stays `ir.NoTemp` and nothing here reads it.
 	bl := &irScalarBuilder{
 		g: g, sh: sh, f: fn, b: sh.entry,
-		bound: map[string]ir.Temp{}, boundK: map[string]kind{},
 		inTest: true, testApp: group.Boot != nil,
 		root: c.body,
 		// A block lowered as a value (an arm of an `if` or `case` used as a
@@ -642,12 +634,9 @@ func (bl *irScalarBuilder) testBlock(block *ast.Block) bool {
 		panic("irbuild: testBlock: a block statement while an assertion subject is recording, where testStmt never runs")
 	}
 	defer bl.g.enterBlockTypes(block)()
-	bound, boundK, syms := bl.bound, bl.boundK, bl.sh.syms
 	defs, stages, after, outer, outerWith := bl.testDefs, bl.testStages, bl.testAfter, bl.testDeferScope, bl.testWithScope
-	bl.bound, bl.boundK, bl.sh.syms = maps.Clone(bound), maps.Clone(boundK), maps.Clone(syms)
 	bl.testDefs, bl.testStages = maps.Clone(defs), maps.Clone(stages)
 	defer func() {
-		bl.bound, bl.boundK, bl.sh.syms = bound, boundK, syms
 		bl.testDefs, bl.testStages, bl.testAfter, bl.testDeferScope, bl.testWithScope = defs, stages, after, outer, outerWith
 	}()
 	scope := &irDeferScope{block: block}
@@ -669,12 +658,9 @@ func (bl *irScalarBuilder) testBlock(block *ast.Block) bool {
 // leaves is irFuncSig.leaves: an arm whose last statement is a `todo` or an
 // `unreachable` traps there and reaches no exit.
 func (bl *irScalarBuilder) testArm(exit *ir.Block, body ast.Node, leaves bool) (kind, bool) {
-	bound, boundK, syms := bl.bound, bl.boundK, bl.sh.syms
 	defs, stages, after, outer, outerWith := bl.testDefs, bl.testStages, bl.testAfter, bl.testDeferScope, bl.testWithScope
-	bl.bound, bl.boundK, bl.sh.syms = maps.Clone(bound), maps.Clone(boundK), maps.Clone(syms)
 	bl.testDefs, bl.testStages = maps.Clone(defs), maps.Clone(stages)
 	defer func() {
-		bl.bound, bl.boundK, bl.sh.syms = bound, boundK, syms
 		bl.testDefs, bl.testStages, bl.testAfter, bl.testDeferScope, bl.testWithScope = defs, stages, after, outer, outerWith
 	}()
 	// The arm is a lexical scope: its deferred calls run at its exit, and a
@@ -748,14 +734,7 @@ func (bl *irScalarBuilder) testBinding(b *ast.Binding) bool {
 	// A test body may rebind a name it bound itself, as a named function's
 	// body may: the new binding is a fresh identity, reads in its initializer
 	// see the previous one, and a later assertion's "defined as:" block
-	// follows the latest binding (testDefs is overwritten below). Shadowing a
-	// module-level name still declines.
-	_, shadows := bl.g.lookup(b.Name)
-	rebind := bl.bound[b.Name] != ir.NoTemp
-	if shadows || (rebind && !bl.inTest) {
-		bl.g.dc.note("a test-body binding that shadows or rebinds: " + b.Name)
-		return false
-	}
+	// follows the latest binding (testDefs is overwritten below).
 	// The annotation is a coercion target exactly as in a named function's
 	// body; bindingExpression is that path. A block-valued
 	// binding takes a named function's typed block delivery.
@@ -786,17 +765,12 @@ func (bl *irScalarBuilder) testBinding(b *ast.Binding) bool {
 	if !ok {
 		return false
 	}
-	sym := bl.sh.localSym(b.Name)
-	if rebind {
-		// Reads in the initializer kept the previous identity; later reads
-		// see this one.
-		sym = ir.NewSymbol(b.Name)
-		bl.sh.syms[b.Name] = sym
-	}
-	bind := ir.NewBind(bl.g.irPos(b.Line, b.Col), bl.f.NewTemp(), src, sym)
+	// Reads in the initializer kept the previous identity; later reads see
+	// this one.
+	bind := ir.NewBind(bl.g.irPos(b.Line, b.Col), bl.f.NewTemp(), src, ir.NewSymbol(b.Name))
 	bl.b.Append(bind)
 	bl.side(bind.Dst(), irScalarSide{k: k})
-	bl.bound[b.Name], bl.boundK[b.Name] = bind.Dst(), k
+	bl.declareLocal(b.Line, b.Col, bind.Dst(), k)
 	bl.declareBind(bind, k)
 	if bl.testDefs == nil {
 		bl.testDefs = map[ir.Temp]*ast.Binding{}
@@ -814,26 +788,15 @@ func (bl *irScalarBuilder) testBinding(b *ast.Binding) bool {
 // testAssertionBinding lowers `name = assert e` / `name = refute e`: the
 // assertion, then a binding of its value, which is the judged subject.
 func (bl *irScalarBuilder) testAssertionBinding(b *ast.Binding, a *ast.Assertion) bool {
-	_, shadows := bl.g.lookup(b.Name)
-	rebind := bl.bound[b.Name] != ir.NoTemp
-	if shadows {
-		bl.g.dc.note("a test-body binding that shadows or rebinds: " + b.Name)
-		return false
-	}
 	subj, k, ok := bl.assertionValue(a)
 	if !ok {
 		return false
 	}
-	sym := bl.sh.localSym(b.Name)
-	if rebind {
-		// The subject read the previous identity; later reads see this one.
-		sym = ir.NewSymbol(b.Name)
-		bl.sh.syms[b.Name] = sym
-	}
-	bind := ir.NewBind(bl.g.irPos(b.Line, b.Col), bl.f.NewTemp(), subj, sym)
+	// The subject read the previous identity; later reads see this one.
+	bind := ir.NewBind(bl.g.irPos(b.Line, b.Col), bl.f.NewTemp(), subj, ir.NewSymbol(b.Name))
 	bl.b.Append(bind)
 	bl.side(bind.Dst(), irScalarSide{k: k})
-	bl.bound[b.Name], bl.boundK[b.Name] = bind.Dst(), k
+	bl.declareLocal(b.Line, b.Col, bind.Dst(), k)
 	bl.declareBind(bind, k)
 	if bl.testDefs == nil {
 		bl.testDefs = map[ir.Temp]*ast.Binding{}
@@ -847,7 +810,7 @@ func (bl *irScalarBuilder) testAssertionBinding(b *ast.Binding, a *ast.Assertion
 // `pipeline values:` block.
 func (bl *irScalarBuilder) testStagesRead(name string) bool {
 	for _, s := range bl.testAfter {
-		if assertsBareName(s, name) {
+		if bl.assertsBareName(s, name) {
 			return true
 		}
 	}
@@ -881,8 +844,9 @@ func (bl *irScalarBuilder) pipeStageValues(prefixes []ast.Node) (ir.Temp, kind, 
 		} else {
 			pipe := node.(*ast.Binary)
 			line, col := nodePos(pipe.Left)
-			hole := bl.g.madeIdent(fmt.Sprintf("|stage %d", cur), line, col)
-			bl.bound[hole.Name], bl.boundK[hole.Name] = cur, k
+			key := bl.g.madeLocal()
+			hole := bl.g.madeRead(fmt.Sprintf("|stage %d", cur), key, line, col)
+			bl.declareKey(key, cur, k)
 			if bl.g.holeFor == nil {
 				bl.g.holeFor = map[ast.Node]ast.Node{}
 			}
@@ -890,8 +854,6 @@ func (bl *irScalarBuilder) pipeStageValues(prefixes []ast.Node) (ir.Temp, kind, 
 			spliced := *pipe
 			spliced.Left = hole
 			v, k, mobile, ok = bl.pipe(&spliced)
-			delete(bl.bound, hole.Name)
-			delete(bl.boundK, hole.Name)
 			delete(bl.g.holeFor, hole)
 		}
 		if !ok {

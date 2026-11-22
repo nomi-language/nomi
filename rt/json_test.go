@@ -82,7 +82,7 @@ func TestJsonIsSelfReferentialAndFinite(t *testing.T) {
 
 // TestJsonDecodeErrorTextIsNomisOwn pins every message the vocabulary can
 // produce, against the same inputs
-// tests/18-ffi-and-dynamic/json_decode_error_text_test.nomi asserts.
+// tests/18-json-and-dynamic/json_decode_error_text_test.nomi asserts.
 //
 // That corpus file is the contract and this is the unit-level pin of the same
 // strings. Both are kept: the corpus file runs a whole program through the VM
@@ -219,7 +219,7 @@ func TestJsonNumberSplitIsIntFirst(t *testing.T) {
 // orderings that make this more than a trivial walk: decode inserts object keys
 // sorted, encode emits them in the Map's insertion order, so a decoded object
 // re-encodes sorted while a hand-built one keeps its own spelling. Both texts
-// are asserted in tests/18-ffi-and-dynamic/json_test.nomi.
+// are asserted in tests/18-json-and-dynamic/json_test.nomi.
 func TestJsonRoundTripsTheCorpusSample(t *testing.T) {
 	src := `{
   "name": "Ada",

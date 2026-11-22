@@ -1,8 +1,11 @@
 //# The Go-backed half of std::html: the escaping an `Html` template's slots
-//# write their values with (rt/html.go). It is internal; a program imports
-//# std::html.
+//# write their values with, and the decoding of character references
+//# (rt/html.go). It is internal; a program imports std::html.
 
-import strings.String
+import
+    maybe.Maybe
+    strings.String
+end
 
 /// Text escaped for element content or a quoted attribute value: `&`, `<`,
 /// `>`, `"` and `'` as character references.
@@ -14,3 +17,11 @@ pub host fn filter_url(text: String) -> String
 
 /// One URL path segment, percent-encoded, `:` included.
 pub host fn escape_url_path(text: String) -> String
+
+/// Text with its character references decoded as HTML5 decodes them in
+/// element content: `html.unescape`.
+pub host fn unescape_references(text: String) -> String
+
+/// What the named character reference `&name;` stands for, or None:
+/// `html.entity`.
+pub host fn named_reference(name: String) -> Maybe<String>

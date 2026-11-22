@@ -60,10 +60,11 @@ end
 test "an absent actual is None rather than an empty string"
     assert Err(failure) = testing.check(2 > 3)
 
-    absent = case failure.actual
-        None    -> True
-        Some(_) -> False
-    end
+    absent =
+        case failure.actual
+            None    -> True
+            Some(_) -> False
+        end
 
     assert absent
     // `details` is the second `List<…>` instantiation the failure carries, at a

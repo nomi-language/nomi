@@ -19,8 +19,11 @@ import (
 // the return, so the first argument's runtime type is `Json` and selects no
 // `impl FromJson for List<T>`. The impl follows from the concrete type
 // argument: a call or a function value lowers an instance of the function at
-// that argument (irMonoTemplate, irfuncbody.go), and the body under the
-// seam's own signature has no IR (funcDecl, native.go).
+// that argument (irMonoTemplate, irfuncbody.go). The body under the seam's
+// own signature is lowered nowhere. What it does for every type is its
+// abstract body's, an instance at its own type parameter (abstract.go),
+// where such a call has no receiver to dispatch on and is a call through
+// the bound (boundcall.go).
 //
 // # A bounded type parameter is an existential over its bound
 //
@@ -81,6 +84,8 @@ func (s *dictSeam) at(name string) *dictTypeParam {
 type typeParamBound struct {
 	name   string
 	bounds []string
+	// exprs is each bound as written, in the order of bounds.
+	exprs []ast.TypeExpr
 }
 
 // typeParamBoundsOf merges a function's `<T>` header with its `where` clauses
@@ -104,8 +109,9 @@ func typeParamBoundsOf(tps []ast.TypeParam, where []ast.WhereConstraint) []typeP
 		index[tp.Name] = len(out)
 		out = append(out, typeParamBound{name: tp.Name})
 	}
-	add := func(name, bound string) {
+	add := func(name string, te ast.TypeExpr) {
 		i, ok := index[name]
+		bound := analysis.TypeExprBaseName(te)
 		if !ok || bound == "" {
 			return
 		}
@@ -115,15 +121,16 @@ func typeParamBoundsOf(tps []ast.TypeParam, where []ast.WhereConstraint) []typeP
 			}
 		}
 		out[i].bounds = append(out[i].bounds, bound)
+		out[i].exprs = append(out[i].exprs, te)
 	}
 	for _, tp := range tps {
 		for _, b := range tp.Bounds {
-			add(tp.Name, analysis.TypeExprBaseName(b))
+			add(tp.Name, b)
 		}
 	}
 	for _, wc := range where {
 		for _, b := range wc.Bounds {
-			add(wc.Name, analysis.TypeExprBaseName(b))
+			add(wc.Name, b)
 		}
 	}
 	return out
@@ -258,23 +265,19 @@ func (g *gen) dictSeamFor(fd *ast.FuncDef) (*dictSeam, bool) {
 	if boundedParamAtDepth(fd, bounds[0].name) {
 		return nil, false
 	}
-	// A BOUND ALIAS is a NAME for a conjunction, expanded to the names it
-	// spells before the resolver sees any of them. `where T: ShowAndTag` and
-	// `where T: Showable and Tagged` then reach `dictBoundIface` with the same
-	// list, which is the whole of it — the conjunction itself already has a
-	// representation here, because `bounds` is a list. See typealias.go.
-	//
-	// Names only, and stopping at `dictBoundIface`: whatever that resolver
-	// turns down is turned down identically whichever spelling produced the
-	// name, so the expansion cannot admit a bound the direct spelling refuses.
-	names := g.expandBoundAliases(bounds[0].bounds)
-	if len(names) == 0 {
+	// The bounds' interfaces are the ones the checker resolved
+	// (boundIfaces). A BOUND ALIAS names a conjunction, which the checker
+	// records as its members, so `where T: ShowAndTag` and `where T:
+	// Showable and Tagged` reach the same list — the conjunction itself
+	// already has a representation here, because `bounds` is a list. See
+	// typealias.go.
+	ifaces, resolved := g.boundIfaces(fd, bounds[0].name)
+	if !resolved || len(ifaces) == 0 {
 		return nil, false
 	}
-	defs := make([]*ifaceDef, 0, len(names))
-	for _, name := range names {
-		d, found := g.dictBoundIface(name)
-		if !found || !d.lowerable {
+	defs := make([]*ifaceDef, 0, len(ifaces))
+	for _, d := range ifaces {
+		if !d.lowerable {
 			return nil, false
 		}
 		if d.decl != nil && len(d.decl.Methods) == 0 {
@@ -311,27 +314,77 @@ func (g *gen) dictSeamFor(fd *ast.FuncDef) (*dictSeam, bool) {
 	}}}, true
 }
 
-// dictBoundIface resolves a type parameter's bound to its *ifaceDef: this
-// module's own declaration, a sibling file's mirror, or a stdlib interface's
-// shared def, in that order.
-//
-// The order is `stdIfaceNamed`'s own and is asked for through it, so a user
-// declaration wins here for the same reason it wins at every other position.
-// See stdiface.go, which states why the analyzer's module scope is not a
-// shadow oracle for interfaces.
-//
-// A bound needs the stdlib arm as every other interface position does.
-// `Display` and `Comparable` carry `stdIfaceSpecs` rows and a process-wide
-// `*ifaceDef`, read by an annotation (types.go), an `impl` header (impl.go),
-// a cross-file kind (foreign.go) and a refusal reason (sigreason.go).
-// `ifaceNamed` alone knows nothing about specs, so without it
-// `where T: Display` would decline the seam while the same interface in a
-// parameter position lowered.
-func (g *gen) dictBoundIface(name string) (*ifaceDef, bool) {
-	if d, user := g.ifaceNamed(name); user {
-		return d, true
+// boundIfaces is this gen's def of each interface type parameter name of
+// fd is bounded by, as the checker resolved them, deduped in order: a
+// written bound's type (an interface, or a bound alias's conjunction of
+// them; whereBounds) and the universal Debug the checker inferred from a
+// use (FileAnalysis.InferredTypeParamBounds, which records only std's
+// Debug). resolved is false when one has no def here: an interface this
+// gen holds none of, or a bound the checker typed as no interface.
+func (g *gen) boundIfaces(fd *ast.FuncDef, name string) (defs []*ifaceDef, resolved bool) {
+	var written []ast.TypeExpr
+	for _, tp := range fd.TypeParams {
+		if tp.Name == name {
+			written = append(written, tp.Bounds...)
+		}
 	}
-	return g.stdIfaceNamed(name)
+	types := g.boundTypes(written)
+	if types == nil && len(written) > 0 {
+		return nil, false
+	}
+	types = append(types, g.whereBounds(fd.WhereClauses, name)...)
+	seen := map[*ifaceDef]bool{}
+	add := func(d *ifaceDef) {
+		if !seen[d] {
+			seen[d] = true
+			defs = append(defs, d)
+		}
+	}
+	for _, it := range types {
+		d := g.ifaceOfType(it)
+		if d == nil {
+			return nil, false
+		}
+		add(d)
+	}
+	if g.fa != nil {
+		for _, n := range g.fa.InferredTypeParamBounds[fd][name] {
+			if n != "Debug" {
+				return nil, false
+			}
+			add(g.stdDebugDef())
+		}
+	}
+	return defs, true
+}
+
+// boundTypes is the interfaces the checker typed each of bounds as, a
+// bound alias's conjunction as its members, or nil when one is typed as
+// no interface.
+func (g *gen) boundTypes(bounds []ast.TypeExpr) []*analysis.InterfaceType {
+	var out []*analysis.InterfaceType
+	for _, b := range bounds {
+		switch t := analysis.ResolveTypeVar(g.recordedTypeOrNil(b)).(type) {
+		case *analysis.InterfaceType:
+			out = append(out, t)
+		case *analysis.ConjunctionType:
+			out = append(out, t.Members...)
+		default:
+			return nil
+		}
+	}
+	return out
+}
+
+// ifaceOfType is this gen's def of the interface the checker's type it
+// names, by its identity: a program's or a std module's lowered with the
+// program by its declaration (solvedIface), else std's process-wide def
+// (stdSharedIface); nil for one this gen holds no def of.
+func (g *gen) ifaceOfType(it *analysis.InterfaceType) *ifaceDef {
+	if d, found := g.solvedIface(it.Origin, it.Name); found {
+		return d
+	}
+	return g.stdSharedIface(analysis.StdType{Module: it.Origin, Name: it.Name})
 }
 
 // dictSignature resolves a bounded generic function's signature, or declines.

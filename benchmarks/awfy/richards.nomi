@@ -232,11 +232,17 @@ impl Scheduler
         work_in:   List<Packet>,
         device_in: List<Packet>,
     ) -> Step
-        (work_in, device_in) = case work
-            Some(packet) when packet.kind == PacketKind.Work -> (append(packet, work_in), device_in)
-            Some(packet) -> (work_in, append(packet, device_in))
-            None         -> (work_in, device_in)
-        end
+        (work_in, device_in) =
+            case work
+                Some(packet) when packet.kind == PacketKind.Work ->
+                    (append(packet, work_in), device_in)
+
+                Some(packet) ->
+                    (work_in, append(packet, device_in))
+
+                None ->
+                    (work_in, device_in)
+            end
 
         case work_in
             [] ->
@@ -318,23 +324,25 @@ impl Scheduler
     end
 
     fn run_task(s: Scheduler, t: Task) -> Step
-        (s, message) = if TaskState.is_waiting_with_packet(t.state) then
-            case t.input
-                [message, ..rest] ->
-                    state = if rest == [] then
-                        TaskState.running()
-                    else
-                        TaskState.packet_pending()
-                    end
+        (s, message) =
+            if TaskState.is_waiting_with_packet(t.state) then
+                case t.input
+                    [message, ..rest] ->
+                        state =
+                            if rest == [] then
+                                TaskState.running()
+                            else
+                                TaskState.packet_pending()
+                            end
 
-                    (Scheduler.with_task(s, {..t, input: rest, state:}), Some(message))
+                        (Scheduler.with_task(s, {..t, input: rest, state:}), Some(message))
 
-                [] ->
-                    (s, None)
+                    [] ->
+                        (s, None)
+                end
+            else
+                (s, None)
             end
-        else
-            (s, None)
-        end
 
         case t.handle
             .Device{pending:} ->

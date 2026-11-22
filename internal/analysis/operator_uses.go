@@ -25,7 +25,19 @@ const (
 	// enclosing declaration: OperatorUse.Bound names the interface its
 	// bound gives it, and each instance resolves the impl.
 	OperatorPerInstance
+	// operatorFormEnd follows the last form (OperatorForms).
+	operatorFormEnd
 )
+
+// OperatorForms is every OperatorForm, in order: the closed set a
+// consumer of the records handles (the IR builder's switches over them).
+func OperatorForms() []OperatorForm {
+	out := make([]OperatorForm, 0, operatorFormEnd-1)
+	for f := OperatorByImpl; f < operatorFormEnd; f++ {
+		out = append(out, f)
+	}
+	return out
+}
 
 // OperatorUse is what one operator means (FileAnalysis.Operators):
 // the checker's decision, which the IR builder lowers.
@@ -55,7 +67,7 @@ func operatorIface(op string) (string, string, bool) {
 }
 
 // recordOperatorUses records what each operator the file's bodies hold
-// means (a binary operator, a prefix `~~~`), once every body is checked
+// means (a binary operator, a prefix `~~~`, a `dbg`), once every body is checked
 // and its variables closed (operatorUseOf). An operator nothing answers
 // has no record: a declared type whose impls the index holds but cannot
 // narrow to one (two files each write one), which the verifier reports.
@@ -78,8 +90,11 @@ func (c *checker) recordOperatorUses() {
 // through, and the type that implements it: a comparison's compared
 // operand's (comparedOperand), any other binary operator's left
 // operand's, `~~~`'s operand's (a subtype's value is its base's, as
-// checkBitwiseNot types it). ok is false for any other node, and for an
-// operand with no type.
+// checkBitwiseNot types it), and a `dbg`'s operand's, which it renders as
+// `Debug.inspect` does (spec §12 *Display and Debug*): `dbg e`'s e, and
+// for a pipe stage's bare `dbg` the value piped in, which is the stage's
+// own type. ok is false for any other node, and for an operand with no
+// type.
 func operatorSubject(fa *FileAnalysis, n ast.Node) (iface, method string, t Type, ok bool) {
 	switch n := n.(type) {
 	case *ast.Binary:
@@ -91,6 +106,12 @@ func operatorSubject(fa *FileAnalysis, n ast.Node) (iface, method string, t Type
 	case *ast.Unary:
 		iface, method, ok = "BitwiseNot", "bitwise_not", n.Op == "~~~"
 		t = fa.ExprTypes[n.Right]
+	case *ast.Dbg:
+		iface, method, ok = "Debug", "inspect", true
+		t = fa.ExprTypes[n]
+		if n.Expr != nil {
+			t = fa.ExprTypes[n.Expr]
+		}
 	}
 	if !ok || t == nil {
 		return "", "", nil, false
@@ -264,10 +285,12 @@ func shapeUse(iface string, t Type) (use *OperatorUse, decided bool) {
 // noImplUse is how a use of iface's function on t, a declared type with
 // no impl of iface, is answered: structurally for Equatable and
 // Hashable, which it meets by its structural equality (spec §5 *Equality
-// bounds*, *Hashing and keys*), for Debug, whose rendering of a type with
-// no Debug block of its own (one declared inside a body) is structural,
-// and for Struct, the marker every struct meets. Nil for any other
-// interface: nothing answers.
+// bounds*, *Hashing and keys*), for Debug, and for Struct, the marker
+// every struct meets. Nil for any other interface: nothing answers. Debug
+// is answered here for a struct, enum or distinct type with no written or
+// derived Debug, declared at module level or in a body, which renders by
+// its shape; an opaque type and a host type have the name-only block the
+// front end writes (SynthesizeUniversalDebug, synthesizeBlockDebug).
 func noImplUse(iface string, t Type) *OperatorUse {
 	switch iface {
 	case "Equatable", "Hashable", "Debug":

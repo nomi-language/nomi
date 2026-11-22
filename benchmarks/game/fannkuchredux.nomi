@@ -106,11 +106,12 @@ fn walk(state: Walk, r: Int, n: Int) -> Walk
     count = reset(state.count, r)
     f = flips(state.perm, 0)
 
-    checksum = if state.index % 2 == 0 then
-        state.checksum + f
-    else
-        state.checksum - f
-    end
+    checksum =
+        if state.index % 2 == 0 then
+            state.checksum + f
+        else
+            state.checksum - f
+        end
 
     state = {..state, count:, checksum:, max_flips: Int.max(state.max_flips, f)}
 

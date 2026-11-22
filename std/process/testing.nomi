@@ -147,10 +147,11 @@ pub fn run<T>(answers: List<Answer>, body: () -> T) -> Ran<T>
     calls =
         0..host.fake_calls(fake)
         |> Iter.map(fn i ->
-            (program, args) = case host.fake_command(fake, i)
-                [first, ..rest] -> (first, rest)
-                []              -> ("", [])
-            end
+            (program, args) =
+                case host.fake_command(fake, i)
+                    [first, ..rest] -> (first, rest)
+                    []              -> ("", [])
+                end
 
             dir = host.fake_dir(fake, i)
 

@@ -6,7 +6,10 @@
 //# count and query plan, or the error that stopped it from preparing and
 //# the byte SQLite gave for it.
 
-gopkg "github.com/nomi-language/nomi/lib/sql/sqlite/goside"
+import
+    sqlite::internal::engine.{self, Cell, Engine}
+    sqlite::internal::vfs
+end
 
 /// One migration: its path and its SQL.
 pub struct Migration
@@ -68,7 +71,209 @@ end
 
 /// Apply `migrations` in order to a fresh in-memory database and describe
 /// each of `statements` against the schema they build.
-pub fn describe(
+pub fn describe(migrations: List<Migration>, statements: List<String>) -> Description
+    none = Description{tables: [], statements: [], error: "", migration: "", offset: -1}
+
+    case engine.start(vfs.Place{})
+        Err(message) ->
+            {..none, error: message}
+
+        Ok(e) ->
+            defer engine.stop(e)
+
+            case engine.open(e, ":memory:")
+                Err(f) -> {..none, error: f.message}
+                Ok(db) -> described(e, db, migrations, statements, none)
+            end
+    end
+end
+
+fn described(
+    e:          Engine,
+    db:         Int,
     migrations: List<Migration>,
     statements: List<String>,
-) -> Description go goside.Describe
+    none:       Description,
+) -> Description
+    _ = engine.exec(e, db, "PRAGMA foreign_keys = ON", [])
+
+    // Each table's first migration, and each column's (by its table, name
+    // and declared type) first.
+    applied = Iter.try_reduce(migrations, ({}, {}), fn (created, changed), m ->
+        case engine.exec(e, db, m.text, [])
+            Err(f) ->
+                Err({..none, error: f.message, migration: m.path, offset: f.at})
+
+            Ok(_) ->
+                Ok(
+                    tables(e, db)
+                    |> Iter.reduce((created, changed), fn (made, columns), t ->
+                        (
+                            if Map.get(made, t.name) is Some(_) then
+                                made
+                            else
+                                Map.put(made, t.name, m.path)
+                            end,
+                            t.columns
+                            |> Iter.reduce(columns, fn acc, c ->
+                                k = key(t.name, c)
+
+                                if Map.get(acc, k) is Some(_) then
+                                    acc
+                                else
+                                    Map.put(acc, k, m.path)
+                                end
+                            end),
+                        )
+                    end)
+                )
+        end
+    end)
+
+    case applied
+        Err(failed) ->
+            failed
+
+        Ok((created, changed)) ->
+            built =
+                tables(e, db)
+                |> Iter.map(fn t ->
+                    {
+                        ..t,
+                        migration: Map.get(created, t.name) |> Maybe.with_default(""),
+                        columns: t.columns
+                        |> Iter.map(fn c -> {
+                            ..c,
+                            migration: Map.get(changed, key(t.name, c)) |> Maybe.with_default(""),
+                        })
+                        |> Iter.to_list(),
+                    }
+                end)
+                |> Iter.to_list()
+
+            {
+                ..none,
+                tables:     built,
+                statements: statements |> Iter.map(&statement(e, db, &1)) |> Iter.to_list(),
+            }
+    end
+end
+
+fn key(table: String, c: TableColumn) -> (String, String, String)
+    (table, c.name, c.declared)
+end
+
+/// The rows of a query, each value as text (`""` for NULL), or none when
+/// it fails.
+fn rows(e: Engine, db: Int, sql: String) -> List<List<String>>
+    case engine.exec(e, db, sql, [])
+        Ok(answer) ->
+            answer.rows
+            |> Iter.map(fn row -> row |> Iter.map(text) |> Iter.to_list())
+            |> Iter.to_list()
+
+        Err(_) ->
+            []
+    end
+end
+
+fn text(c: Cell) -> String
+    case c
+        .Integer(n) -> "${n}"
+        .Real(x)    -> "${x}"
+        .Text(s)    -> s
+        .Blob(b)    -> Bytes.to_string_lossy(b)
+        .Null       -> ""
+    end
+end
+
+/// The tables of the database, by name, with their columns.
+fn tables(e: Engine, db: Int) -> List<Table>
+    rows(
+        e,
+        db,
+        "SELECT name, sql FROM sqlite_schema WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
+    )
+    |> Iter.flat_map(fn row ->
+        case row
+            [name, sql] -> [Table{name:, sql:, columns: columns(e, db, name), migration: ""}]
+            _           -> []
+        end
+    end)
+    |> Iter.to_list()
+end
+
+fn columns(e: Engine, db: Int, table: String) -> List<TableColumn>
+    quoted = "'${String.replace(table, "'", "''")}'"
+
+    rows(
+        e,
+        db,
+        "SELECT name, type, \"notnull\", pk, dflt_value IS NOT NULL FROM pragma_table_info(${quoted}) ORDER BY cid",
+    )
+    |> Iter.flat_map(fn row ->
+        case row
+            [name, declared, not_null, pk, has_default] ->
+                [
+                    TableColumn{
+                        name:,
+                        declared:,
+                        not_null:    not_null == "1",
+                        primary_key: pk != "0",
+                        has_default: has_default == "1",
+                        migration:   "",
+                    },
+                ]
+
+            _ ->
+                []
+        end
+    end)
+    |> Iter.to_list()
+end
+
+/// One statement prepared and described, with its query plan.
+fn statement(e: Engine, db: Int, sql: String) -> Statement
+    none = Statement{columns: [], params: 0, plan: [], error: "", offset: -1}
+
+    case engine.describe(e, db, sql)
+        Err(f) ->
+            {..none, error: f.message, offset: f.at}
+
+        Ok(d) ->
+            columns =
+                d.columns
+                |> Iter.map(fn c ->
+                    Column{
+                        name:     c.name,
+                        declared: c.declared,
+                        table:    c.table,
+                        origin:   c.origin,
+                        not_null: c.not_null,
+                    }
+                end)
+                |> Iter.to_list()
+
+            if d.more then
+                return {
+                    ..none,
+                    columns:,
+                    params: d.params,
+                    error:  "a query is one statement; this one has more after it",
+                    offset: 0,
+                }
+            end
+
+            plan =
+                rows(e, db, "EXPLAIN QUERY PLAN ${sql}")
+                |> Iter.flat_map(fn row ->
+                    case row
+                        [_, _, _, detail] -> [detail]
+                        _                 -> []
+                    end
+                end)
+                |> Iter.to_list()
+
+            {..none, columns:, params: d.params, plan:}
+    end
+end

@@ -48,12 +48,8 @@ func (g *gen) patternVariant(head ast.TypeExpr) (string, bool) {
 		return "", false
 	}
 	if fa := g.srcFA(); fa != nil {
-		if v, ok := fa.PatternVariants[head]; ok {
-			return v, true
-		}
+		v, ok := fa.PatternVariants[head]
+		return v, ok
 	}
-	// Code the builder wrote for a block-local declaration, which the
-	// checker never checked (noteSynthTypeExprs).
-	v, ok := g.synthPatternVariants[head]
-	return v, ok
+	return "", false
 }

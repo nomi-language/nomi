@@ -190,11 +190,9 @@ func isStdHandleType(t Type) bool {
 	return false
 }
 
-// isStdIterType reports whether t is std's `Iter<T>` interface. A program
-// cannot declare its own `Iter`, so an unknown origin is std's.
+// isStdIterType reports whether t is std's `Iter<T>` interface.
 func isStdIterType(t Type) bool {
-	it, ok := t.(*InterfaceType)
-	return ok && it.Name == "Iter" && (it.Origin == "std/iter" || it.Origin == "")
+	return isStdType(t, stdIterType)
 }
 
 // A Set element and a Map key are found by equality and hashing, so a value
@@ -296,9 +294,7 @@ func (c *checker) keyWithoutEquality(t Type) (coll, key, part Type, ok bool) {
 	return coll, key, part, ok
 }
 
-// isStdSetType reports whether t is std's `Set<T>`. A program may declare its
-// own `Set`, whose origin is its file; an unknown origin is std's.
+// isStdSetType reports whether t is std's `Set<T>`.
 func isStdSetType(t Type) bool {
-	st, ok := t.(*StructType)
-	return ok && st.Name == "Set" && (st.Origin == "std/sets" || st.Origin == "")
+	return isStdType(t, stdSetType)
 }

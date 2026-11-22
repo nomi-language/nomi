@@ -8,7 +8,6 @@ import (
 
 	"github.com/nomi-language/nomi/internal/doctest"
 	"github.com/nomi-language/nomi/internal/expectation"
-	"github.com/nomi-language/nomi/internal/tourgo"
 	"github.com/nomi-language/nomi/internal/vm"
 )
 
@@ -24,8 +23,7 @@ import (
 // 12 seconds); NOMI_DEBUG_IDENTICAL=full runs all of them (about 31). The
 // red fixtures always run in full: they are the population that reaches the
 // fault hook. vmhost's TestSpecProgramsOnADebugMachine is the same check
-// over the spec's programs. A program run through a generated FFI wrapper
-// runs in its own process and is not on a debug machine.
+// over the spec's programs.
 //
 //	go test ./internal/expectation -run 'TestExpectation_ADebugMachineRunsEveryProgramAsAPlainOneDoes$' -count=1
 //	go test ./vmhost -run 'TestSpecProgramsOnADebugMachine$' -count=1
@@ -79,9 +77,7 @@ func TestExpectation_ADebugMachineRunsEveryProgramAsAPlainOneDoes(t *testing.T) 
 			t.Fatal(err)
 		}
 		for _, b := range doctest.ExtractBlocks(string(data), "nomi-run") {
-			// A block that imports a module only the browser links has
-			// no record (TestExpectation_Tour).
-			if !b.Runs() || len(tourgo.Unlinked(b.Code)) > 0 {
+			if !b.Runs() {
 				continue
 			}
 			block++

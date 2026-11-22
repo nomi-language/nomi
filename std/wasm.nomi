@@ -1,0 +1,868 @@
+//# WebAssembly modules, compiled and run inside the program: an engine
+//# written in C or Rust, compiled to WebAssembly, ships as the bytes of a
+//# module in an ordinary package, usually through `embed`.
+//#
+//# ```nomi
+//# import std::wasm.{self, Instance, Value}
+//#
+//# module = wasm.compile(bytes)?
+//#
+//# instance = wasm.instantiate(module)?
+//#
+//# defer Instance.drop(instance)
+//#
+//# sum = Instance.call(instance, "add", [.I32(2), .I32(3)])?
+//# ```
+//#
+//# `compile` checks and compiles a module. A `Module` is a value: it
+//# depends only on its bytes, and the same bytes compile once a process.
+//# The compiled code is kept in the artifact cache, so a later process
+//# reads it back instead of compiling again. It runs as machine code on
+//# amd64 and arm64 and, in a `js/wasm` build, on the host's own engine;
+//# other architectures interpret it, 20 to 50 times slower.
+//#
+//# An `Instance` is a module made ready to run, with its own memory, which
+//# its calls change. `instantiate` makes one, and is an effect, named
+//# `std::wasm` in an effects list; `Instance.call`, `read`, `write`, `size`
+//# and `drop` act on the instance in hand. Drop it when done: `defer
+//# Instance.drop(instance)` on the line after it. One operation runs on an
+//# instance at a time, so a task waits while another task's call runs.
+//#
+//# A module can do nothing outside its memory but call its imports. Each
+//# import it names is a Nomi function the program gives `instantiate`, as
+//# an `Import`; the module gets no other. An import reads and writes the
+//# calling instance's memory through the `Memory` it is handed. Its
+//# effects are those of the function, named where the function is written.
+//#
+//# A call that traps (an `unreachable`, a load outside memory, a division
+//# by zero, an import that failed) returns `Err(.Trapped(trap))`, and the
+//# instance is dead after it: each later operation on it returns
+//# `Err(.Dead(trap))`. Nothing stops a call that does not end, and nothing
+//# limits its time; a module that may loop for ever takes a budget of its
+//# own as an argument.
+//#
+//# `run` calls one function of a fresh instance with no imports and drops
+//# it: bytes in, bytes out. It acts on nothing, so it is pure: a codec or
+//# a renderer written in C or Rust runs through it where an effect may not.
+//# `Instance.run` calls a live instance by the same convention, so a
+//# request and its answer cross in one call.
+//#
+//# A value crosses as a `Value`. A float a call returns that is a NaN is
+//# the one NaN `Float.nan()` is, since the bits of a NaN an operation makes
+//# differ by architecture; floats in memory are left as they are.
+
+import
+    bytes.Bytes
+    debug.Debug
+    display.Display
+    equatable.Equatable
+    float.Float
+    int.{Int, Int64, NonNegativeInt}
+    iter.Iter
+    lists.List
+    maybe.Maybe.{self, None, Some}
+    resources.Release
+    results.Result.{self, Err, Ok}
+    strings.String
+    unit.Unit
+    wasm::host
+end
+
+/// A compiled WebAssembly module, from `compile`. It is immutable: every
+/// instance made from it starts from the same state.
+pub opaque struct Module
+    compiled: host.Compiled
+end
+
+/// Why bytes are not a module `compile` can compile: the engine's message.
+//! assert compile(String.to_bytes("not wasm")) is Err(CompileError{message: _})
+//
+pub struct CompileError
+    message: String
+end
+
+derive Equatable for CompileError
+derive Debug for CompileError
+
+impl Display for CompileError
+    fn to_string(error: CompileError) -> String
+        error.message
+    end
+end
+
+/// The type of a WebAssembly value: a 32- or 64-bit integer or float.
+pub enum ValueType
+    I32
+    I64
+    F32
+    F64
+end
+
+derive Equatable for ValueType
+derive Debug for ValueType
+
+impl Display for ValueType
+    fn to_string(t: ValueType) -> String
+        case t
+            .I32 -> "I32"
+            .I64 -> "I64"
+            .F32 -> "F32"
+            .F64 -> "F64"
+        end
+    end
+end
+
+/// A WebAssembly value. WebAssembly's integers have no sign, so an `I32`
+/// given to a call may be from -2147483648 to 4294967295, read as its low
+/// 32 bits, and an `I64` from -9223372036854775808 to
+/// 18446744073709551615; an integer a call returns is signed. An `F32` is
+/// its `Float` rounded to 32 bits going in, and exact coming out.
+//! assert Value.type_of(.F64(1.5)) == ValueType.F64
+//
+pub enum Value
+    I32 Int
+    I64 Int
+    F32 Float
+    F64 Float
+end
+
+derive Equatable for Value
+derive Debug for Value
+
+impl Value
+    /// The type of `value`.
+    pub fn type_of(value: Value) -> ValueType
+        case value
+            .I32(_) -> .I32
+            .I64(_) -> .I64
+            .F32(_) -> .F32
+            .F64(_) -> .F64
+        end
+    end
+end
+
+/// How a call into an instance failed while the module ran. The instance
+/// is dead after it.
+//! import std::hex
+//!
+//! // (module (func (export "fail") unreachable))
+//! module = compile(
+//!     hex.decode("0061736d0100000001040160000003020100070801046661696c00000a05010300000b")!
+//! )!
+//!
+//! instance = instantiate(module)!
+//! defer Instance.drop(instance)
+//!
+//! assert Instance.call(instance, "fail") == Err(.Trapped(.Unreachable))
+//! assert Instance.call(instance, "fail") == Err(.Dead(.Unreachable))
+//
+pub enum Trap
+    /// The module ran `unreachable`, which a Rust panic and a C `abort`
+    /// compile to.
+    Unreachable
+
+    /// A load, a store or a table access was outside the memory or the
+    /// table.
+    OutOfBounds
+
+    /// The module asked for more memory than the instance's limit, and
+    /// trapped after; or its initial memory is over the limit, and
+    /// `instantiate` could not make it.
+    MemoryLimit
+
+    /// The import `name` (`module.name`) returned `Err(message)`, or
+    /// values its `Import` does not declare.
+    ImportFailed {name: String, message: String}
+
+    /// Any other trap, in wazero's words: an integer divided by zero or
+    /// overflowed, a float converted to an integer it does not fit, the
+    /// stack overflowed.
+    Other {message: String}
+end
+
+derive Equatable for Trap
+derive Debug for Trap
+
+impl Display for Trap
+    fn to_string(trap: Trap) -> String
+        case trap
+            .Unreachable                   -> "the module ran unreachable"
+            .OutOfBounds                   -> "an access was outside the module's memory or table"
+            .MemoryLimit                   -> "the module needed more memory than its limit"
+            .ImportFailed{name:, message:} -> "the import ${name} failed: ${message}"
+            .Other{message:}               -> message
+        end
+    end
+end
+
+/// Why an operation on a module or an instance failed.
+pub enum Error
+    /// The call trapped. The instance is dead now.
+    Trapped Trap
+
+    /// The instance trapped in an earlier call, with this trap.
+    Dead Trap
+
+    /// The instance was dropped.
+    Dropped
+
+    /// The `Memory` is used after the import it was handed to returned.
+    Expired
+
+    /// The module exports no function `name`.
+    NoExport {name: String}
+
+    /// The module imports `module`.`name`, and `instantiate` was given no
+    /// `Import` for it. A module that imports a memory, a table or a
+    /// global names it here too: an `Import` is a function.
+    MissingImport {module: String, name: String}
+
+    /// Values that do not fit where they go: arguments that are not the
+    /// export's parameters, an integer outside its type's range, an
+    /// `Import` that declares other types than the module's import, or a
+    /// module `run` cannot call by its convention.
+    Mismatch {message: String}
+
+    /// `length` bytes from `at` are not all inside the memory, of `size`
+    /// bytes.
+    OutOfRange {at: Int, length: Int, size: Int}
+end
+
+derive Equatable for Error
+derive Debug for Error
+
+impl Display for Error
+    fn to_string(error: Error) -> String
+        case error
+            .Trapped(trap) ->
+                "${trap}"
+
+            .Dead(trap) ->
+                "the instance trapped before: ${trap}"
+
+            .Dropped ->
+                "the instance was dropped"
+
+            .Expired ->
+                "the memory is used after its import returned"
+
+            .NoExport{name:} ->
+                "the module exports no function ${name}"
+
+            .MissingImport{module:, name:} ->
+                "the module imports ${module}.${name}, which was not given"
+
+            .Mismatch{message:} ->
+                message
+
+            .OutOfRange{at:, length:, size:} ->
+                "${length} bytes from ${at} are outside the memory's ${size}"
+        end
+    end
+end
+
+/// A Nomi function a module calls as its import `module`.`name`. The
+/// function takes the calling instance's memory and the arguments, of the
+/// types `params` declares, and returns values of the types `results`
+/// declares, or `Err(message)`, which traps the call as
+/// `Trap.ImportFailed`. `instantiate` checks the declared types against
+/// the module's import.
+///
+/// The function runs on the task whose call reached it. It must not call
+/// the instance it serves: that instance's call is still running, so it
+/// would wait for itself.
+///
+/// A call into an instance is one call into the host, which a stop does
+/// not interrupt: while the task is stopping (cancelled, past its
+/// context's deadline, or past a test case's time) the function still
+/// runs to its end, as a deferred call does, and the task stops once the
+/// instance's call returns. An import that declares `stopping` returns
+/// those values then instead, without running the function, so a module
+/// that asks an import whether to stop, as SQLite's progress handler
+/// does, ends its call early and the instance stays usable.
+///
+/// ```nomi
+/// twice = Import{
+///     module:  "env",
+///     name:    "twice",
+///     params:  [.I64],
+///     results: [.I64],
+///     run:
+///         fn _, args ->
+///             case args
+///                 [.I64(n)] -> Ok([.I64(n * 2)])
+///                 _         -> Err("twice takes one I64")
+///             end
+///         end,
+/// }
+/// ```
+pub struct Import
+    module:   String
+    name:     String
+    params:   List<ValueType> = []
+    results:  List<ValueType> = []
+    stopping: Maybe<List<Value>> = None
+    run:      (Memory, List<Value>) -> Result<List<Value>, String>
+end
+
+/// An instance of a module, from `instantiate`: its memory and globals,
+/// which its calls change.
+pub opaque struct Instance
+    live: host.Live
+end
+
+/// The memory of the instance whose call reached an import, which the
+/// import's function is handed. It reads and writes that memory until the
+/// function returns; after, each operation is `Err(.Expired)`.
+pub opaque struct Memory
+    memory: host.Memory
+end
+
+/// The module in `bytes`, checked and compiled. The same bytes compile
+/// once a process, and a module compiled before is read back from the
+/// artifact cache. Compiling a large module takes a while: SQLite's,
+/// 1.4 MB, takes about 0.6 s of CPU the first time.
+//! import std::hex
+//!
+//! // (module (memory (export "memory") 1)
+//! //   (func (export "add") (param i32 i32) (result i32)
+//! //     local.get 0 local.get 1 i32.add))
+//! adder = hex.decode(
+//!     "0061736d0100000001070160027f7f017f030201000503010001071002036164640000066d656d6f727902000a09010700200020016a0b"
+//! )!
+//!
+//! assert compile(adder) is Ok(_)
+//! assert compile(Bytes.slice(adder, 0, 20)) is Err(_)
+//
+pub fn compile(bytes: Bytes) -> Result<Module, CompileError>
+    host.compile(bytes)
+    |> Result.map(fn compiled -> Module{compiled:})
+    |> Result.map_err(fn message -> CompileError{message:})
+end
+
+/// An instance of `module`, its imports answered by `imports`, by their
+/// module and name. An `Import` the module does not name is unused. Its
+/// memory may grow to `memory_limit` bytes, 256 MiB unless given, in whole
+/// 64 KiB pages: past it, `memory.grow` returns -1 inside the module. If
+/// the module exports `_initialize`, as a reactor's toolchain writes it,
+/// it runs first.
+//! import std::hex
+//!
+//! // (module (memory (export "memory") 1)
+//! //   (func (export "add") (param i32 i32) (result i32)
+//! //     local.get 0 local.get 1 i32.add))
+//! adder = compile(
+//!     hex.decode(
+//!         "0061736d0100000001070160027f7f017f030201000503010001071002036164640000066d656d6f727902000a09010700200020016a0b"
+//!     )!
+//! )!
+//!
+//! instance = instantiate(adder)!
+//! defer Instance.drop(instance)
+//! assert Instance.call(instance, "add", [.I32(2), .I32(3)]) == Ok([.I32(5)])
+//!
+//! assert instantiate(adder, memory_limit: 0) is Err(.Trapped(.MemoryLimit))
+//
+pub fn instantiate(
+    module:       Module,
+    imports:      List<Import> = [],
+    memory_limit: NonNegativeInt = 268_435_456,
+) -> Result<Instance, Error>
+    stops =
+        imports
+        |> Iter.map(fn i -> stop_answer(i.stopping))
+        |> Result.collect()?
+
+    host.instantiate(
+        module.compiled,
+        imports
+        |> Iter.map(.module)
+        |> Iter.to_list(),
+        imports
+        |> Iter.map(.name)
+        |> Iter.to_list(),
+        imports
+        |> Iter.map(fn i -> kinds(i.params))
+        |> Iter.to_list(),
+        imports
+        |> Iter.map(fn i -> kinds(i.results))
+        |> Iter.to_list(),
+        stops,
+        imports
+        |> Iter.map(serve)
+        |> Iter.to_list(),
+        memory_limit,
+    )
+    |> Result.map(fn live -> Instance{live:})
+    |> Result.map_err(error_of)
+end
+
+/// The function exported as `name` of a fresh instance of `module`, with no imports,
+/// called once with `input`, and the bytes it returns. The instance's memory
+/// may grow to `memory_limit` bytes, as `instantiate`'s may. The instance is
+/// dropped after. It acts on nothing, so it is pure: a typed literal's
+/// handler may not call it, since nothing bounds how long a module runs,
+/// but any pure function may.
+///
+/// The module meets this convention, which a C or Rust function can:
+///
+/// - it exports its memory and `alloc(size: i32) -> i32`, which returns
+///   where `size` bytes may be written;
+/// - `name(at: i32, length: i32) -> i64` reads the `length` bytes of
+///   input at `at`, which `run` wrote at where `alloc` said, and returns
+///   where its output is: the output's address in the high 32 bits and its
+///   length in the low 32.
+///
+/// Nothing is freed: the instance is dropped whole. A module fails by
+/// trapping.
+//! import std::hex
+//!
+//! // `alloc` bumps a pointer from 1024; `upper` uppercases ASCII letters
+//! // in place and returns `(at << 32) | length`.
+//! upper = compile(
+//!     hex.decode(
+//!         "0061736d01000000010c0260017f017f60027f7f017e030302000105030100010607017f014180080b071a0305616c6c6f6300000575707065720001066d656d6f727902000a59021101017f23002101230020006a240020010b4502017f017f02400340200220014f0d01200020026a200020026a2d00002203200341e1006b411a4941206c6b3a0000200241016a21020c000b0b2000ad4220862001ad840b"
+//!     )!
+//! )!
+//!
+//! assert run(upper, "upper", String.to_bytes("hello, wasm")) == Ok(String.to_bytes("HELLO, WASM"))
+//! assert run(upper, "lower", String.to_bytes("x")) == Err(.NoExport{name: "lower"})
+//
+pub fn run(
+    module:       Module,
+    name:         String,
+    input:        Bytes,
+    memory_limit: NonNegativeInt = 268_435_456,
+) -> Result<Bytes, Error>
+    host.run(module.compiled, name, input, memory_limit) |> Result.map_err(error_of)
+end
+
+impl Instance
+    /// The function the module exports as `name`, called with `args`, and
+    /// its results. The
+    /// arguments must be the function's parameters, in type and number.
+    //! import std::hex
+    //!
+    //! // (module (memory (export "memory") 1)
+    //! //   (func (export "add") (param i32 i32) (result i32)
+    //! //     local.get 0 local.get 1 i32.add))
+    //! adder = compile(
+    //!     hex.decode(
+    //!         "0061736d0100000001070160027f7f017f030201000503010001071002036164640000066d656d6f727902000a09010700200020016a0b"
+    //!     )!
+    //! )!
+    //!
+    //! instance = instantiate(adder)!
+    //! defer Instance.drop(instance)
+    //!
+    //! assert Instance.call(instance, "add", [.I32(4_294_967_295), .I32(2)]) == Ok([.I32(1)])
+    //! assert Instance.call(instance, "add", [.I32(1)]) is Err(.Mismatch{message: _})
+    //! assert Instance.call(instance, "add", [.I32(1), .I64(2)]) is Err(.Mismatch{message: _})
+    //! assert Instance.call(instance, "add", [.I32(4_294_967_296), .I32(0)]) is Err(.Mismatch{message: _})
+    //! assert Instance.call(instance, "sub") == Err(.NoExport{name: "sub"})
+    //
+    pub fn call(
+        instance: Instance,
+        name:     String,
+        args:     List<Value> = [],
+    ) -> Result<List<Value>, Error>
+        given = encode(args)?
+        host.call(instance.live, name, given) |> Result.map(decode) |> Result.map_err(error_of)
+    end
+
+    /// The function exported as `name` called once with `input`, by the
+    /// convention `wasm.run` documents, and the bytes it returns: one call
+    /// carries a request in and its answer out, as a call of `alloc`, a
+    /// `write`, a `call` and a `read` would. The module owns what `alloc`
+    /// answers and what it frees: the answer is copied out before `run`
+    /// returns, so the module may use its memory again at its next call.
+    //! import std::hex
+    //!
+    //! // `alloc` bumps a pointer from 1024; `upper` uppercases ASCII letters
+    //! // in place and returns `(at << 32) | length`.
+    //! upper = compile(
+    //!     hex.decode(
+    //!         "0061736d01000000010c0260017f017f60027f7f017e030302000105030100010607017f014180080b071a0305616c6c6f6300000575707065720001066d656d6f727902000a59021101017f23002101230020006a240020010b4502017f017f02400340200220014f0d01200020026a200020026a2d00002203200341e1006b411a4941206c6b3a0000200241016a21020c000b0b2000ad4220862001ad840b"
+    //!     )!
+    //! )!
+    //!
+    //! instance = instantiate(upper)!
+    //! defer Instance.drop(instance)
+    //!
+    //! assert Instance.run(instance, "upper", String.to_bytes("one")) == Ok(String.to_bytes("ONE"))
+    //! assert Instance.run(instance, "upper", String.to_bytes("two")) == Ok(String.to_bytes("TWO"))
+    //! assert Instance.run(instance, "lower", String.to_bytes("x")) == Err(.NoExport{name: "lower"})
+    //
+    pub fn run(instance: Instance, name: String, input: Bytes) -> Result<Bytes, Error>
+        host.run_on(instance.live, name, input) |> Result.map_err(error_of)
+    end
+
+    /// `length` bytes of the instance's memory from `at`.
+    //! import std::hex
+    //!
+    //! // (module (memory (export "memory") 1)
+    //! //   (func (export "add") (param i32 i32) (result i32)
+    //! //     local.get 0 local.get 1 i32.add))
+    //! adder = compile(
+    //!     hex.decode(
+    //!         "0061736d0100000001070160027f7f017f030201000503010001071002036164640000066d656d6f727902000a09010700200020016a0b"
+    //!     )!
+    //! )!
+    //!
+    //! instance = instantiate(adder)!
+    //! defer Instance.drop(instance)
+    //!
+    //! assert Instance.write(instance, 8, String.to_bytes("hi")) == Ok(Unit)
+    //! assert Instance.read(instance, 8, 2) == Ok(String.to_bytes("hi"))
+    //! assert Instance.read(instance, 65_535, 2) == Err(.OutOfRange{at: 65_535, length: 2, size: 65_536})
+    //
+    pub fn read(instance: Instance, at: Int, length: Int) -> Result<Bytes, Error>
+        host.read(instance.live, at, length) |> Result.map_err(&error_at(&1, at, length))
+    end
+
+    /// `data` written into the instance's memory from `at`.
+    //! import std::hex
+    //!
+    //! // (module (memory (export "memory") 1)
+    //! //   (func (export "add") (param i32 i32) (result i32)
+    //! //     local.get 0 local.get 1 i32.add))
+    //! adder = compile(
+    //!     hex.decode(
+    //!         "0061736d0100000001070160027f7f017f030201000503010001071002036164640000066d656d6f727902000a09010700200020016a0b"
+    //!     )!
+    //! )!
+    //!
+    //! instance = instantiate(adder)!
+    //! defer Instance.drop(instance)
+    //!
+    //! assert Instance.write(instance, 0, String.to_bytes("abc")) == Ok(Unit)
+    //!
+    //! assert Instance.write(instance, -1, String.to_bytes("abc"))
+    //!     == Err(.OutOfRange{at: -1, length: 3, size: 65_536})
+    //
+    pub fn write(instance: Instance, at: Int, data: Bytes) -> Result<Unit, Error>
+        host.write(instance.live, at, data) |> Result.map_err(&error_at(&1, at, Bytes.length(data)))
+    end
+
+    /// The size of the instance's memory in bytes, a whole number of
+    /// 64 KiB pages.
+    //! import std::hex
+    //!
+    //! // (module (memory (export "memory") 1)
+    //! //   (func (export "add") (param i32 i32) (result i32)
+    //! //     local.get 0 local.get 1 i32.add))
+    //! adder = compile(
+    //!     hex.decode(
+    //!         "0061736d0100000001070160027f7f017f030201000503010001071002036164640000066d656d6f727902000a09010700200020016a0b"
+    //!     )!
+    //! )!
+    //!
+    //! instance = instantiate(adder)!
+    //! defer Instance.drop(instance)
+    //!
+    //! assert Instance.size(instance) == Ok(65_536)
+    //
+    pub fn size(instance: Instance) -> Result<Int, Error>
+        host.size(instance.live) |> Result.map_err(error_of)
+    end
+
+    /// The instance dropped: its memory is freed, and each later operation
+    /// on it returns `Err(.Dropped)`. Dropping it again does nothing.
+    //! import std::hex
+    //!
+    //! // (module (memory (export "memory") 1)
+    //! //   (func (export "add") (param i32 i32) (result i32)
+    //! //     local.get 0 local.get 1 i32.add))
+    //! adder = compile(
+    //!     hex.decode(
+    //!         "0061736d0100000001070160027f7f017f030201000503010001071002036164640000066d656d6f727902000a09010700200020016a0b"
+    //!     )!
+    //! )!
+    //!
+    //! instance = instantiate(adder)!
+    //! defer Instance.drop(instance)
+    //! Instance.drop(instance)
+    //!
+    //! assert Instance.call(instance, "add", [.I32(1), .I32(2)]) == Err(.Dropped)
+    //! assert Instance.size(instance) == Err(.Dropped)
+    //
+    pub fn drop(instance: Instance) -> Unit
+        host.drop(instance.live)
+    end
+end
+
+impl Release for Instance
+    fn release(instance: Instance)
+        Instance.drop(instance)
+    end
+end
+
+impl Memory
+    /// `length` bytes of the memory from `at`.
+    //! import std::hex
+    //!
+    //! // (module (import "env" "shout" (func $shout (param i32 i32)))
+    //! //   (memory (export "memory") 1)
+    //! //   (func (export "shout") (param i32 i32)
+    //! //     local.get 0 local.get 1 call $shout))
+    //! module = compile(
+    //!     hex.decode(
+    //!         "0061736d0100000001060160027f7f00020d0103656e760573686f757400000302010005030100010712020573686f75740001066d656d6f727902000a0a0108002000200110000b"
+    //!     )!
+    //! )!
+    //!
+    //! shout = Import{
+    //!     module: "env",
+    //!     name:   "shout",
+    //!     params: [.I32, .I32],
+    //!     run:
+    //!         fn memory, args ->
+    //!             case args
+    //!                 [.I32(at), .I32(length)] ->
+    //!                     text = Memory.read(memory, at, length) |> Result.map_err(&"${&1}")?
+    //!                     upper = String.uppercase(Bytes.to_string_lossy(text))
+    //!
+    //!                     _ =
+    //!                         Memory.write(memory, at, String.to_bytes(upper))
+    //!                         |> Result.map_err(&"${&1}")?
+    //!
+    //!                     Ok([])
+    //!
+    //!                 _ ->
+    //!                     Err("shout takes two I32s")
+    //!             end
+    //!         end,
+    //! }
+    //!
+    //! instance = instantiate(module, [shout])!
+    //! defer Instance.drop(instance)
+    //!
+    //! assert Instance.write(instance, 0, String.to_bytes("quiet")) == Ok(Unit)
+    //! assert Instance.call(instance, "shout", [.I32(0), .I32(5)]) == Ok([])
+    //! assert Instance.read(instance, 0, 5) == Ok(String.to_bytes("QUIET"))
+    //
+    pub fn read(memory: Memory, at: Int, length: Int) -> Result<Bytes, Error>
+        host.memory_read(memory.memory, at, length) |> Result.map_err(&error_at(&1, at, length))
+    end
+
+    /// `data` written into the memory from `at`.
+    //! import std::hex
+    //!
+    //! // (module (import "env" "shout" (func $shout (param i32 i32)))
+    //! //   (memory (export "memory") 1)
+    //! //   (func (export "shout") (param i32 i32)
+    //! //     local.get 0 local.get 1 call $shout))
+    //! module = compile(
+    //!     hex.decode(
+    //!         "0061736d0100000001060160027f7f00020d0103656e760573686f757400000302010005030100010712020573686f75740001066d656d6f727902000a0a0108002000200110000b"
+    //!     )!
+    //! )!
+    //!
+    //! stamp = Import{
+    //!     module: "env",
+    //!     name:   "shout",
+    //!     params: [.I32, .I32],
+    //!     run:
+    //!         fn memory, args ->
+    //!             case args
+    //!                 [.I32(at), _] ->
+    //!                     Memory.write(memory, at, String.to_bytes("OK"))
+    //!                     |> Result.map(fn _ -> [])
+    //!                     |> Result.map_err(&"${&1}")
+    //!
+    //!                 _ ->
+    //!                     Err("shout takes two I32s")
+    //!             end
+    //!         end,
+    //! }
+    //!
+    //! instance = instantiate(module, [stamp])!
+    //! defer Instance.drop(instance)
+    //!
+    //! assert Instance.call(instance, "shout", [.I32(16), .I32(0)]) == Ok([])
+    //! assert Instance.read(instance, 16, 2) == Ok(String.to_bytes("OK"))
+    //
+    pub fn write(memory: Memory, at: Int, data: Bytes) -> Result<Unit, Error>
+        host.memory_write(memory.memory, at, data)
+        |> Result.map_err(&error_at(&1, at, Bytes.length(data)))
+    end
+
+    /// The size of the memory in bytes.
+    //! import std::hex
+    //!
+    //! // (module (import "env" "shout" (func $shout (param i32 i32)))
+    //! //   (memory (export "memory") 1)
+    //! //   (func (export "shout") (param i32 i32)
+    //! //     local.get 0 local.get 1 call $shout))
+    //! module = compile(
+    //!     hex.decode(
+    //!         "0061736d0100000001060160027f7f00020d0103656e760573686f757400000302010005030100010712020573686f75740001066d656d6f727902000a0a0108002000200110000b"
+    //!     )!
+    //! )!
+    //!
+    //! check = Import{
+    //!     module: "env",
+    //!     name:   "shout",
+    //!     params: [.I32, .I32],
+    //!     run:
+    //!         fn memory, _ ->
+    //!             if Memory.size(memory) == Ok(65_536) then
+    //!                 Ok([])
+    //!             else
+    //!                 Err("the memory is not one page")
+    //!             end
+    //!         end,
+    //! }
+    //!
+    //! instance = instantiate(module, [check])!
+    //! defer Instance.drop(instance)
+    //!
+    //! assert Instance.call(instance, "shout", [.I32(0), .I32(0)]) == Ok([])
+    //
+    pub fn size(memory: Memory) -> Result<Int, Error>
+        host.memory_size(memory.memory) |> Result.map_err(error_of)
+    end
+end
+
+/// `types` as the kinds they cross with.
+fn kinds(types: List<ValueType>) -> List<Int64>
+    types |> Iter.map(kind_of) |> Iter.to_list()
+end
+
+/// The kind `t` crosses with (std::wasm::host).
+fn kind_of(t: ValueType) -> Int64
+    case t
+        .I32 -> 0
+        .I64 -> 1
+        .F32 -> 2
+        .F64 -> 3
+    end
+end
+
+/// `values` as they cross: a kind and bits each.
+fn encode(values: List<Value>) -> Result<List<Int64>, Error>
+    case values
+        [] ->
+            Ok([])
+
+        [value, ..rest] ->
+            (kind, bits) = bits_of(value)?
+            Ok([kind, bits, ..encode(rest)?])
+    end
+end
+
+/// What an import's `stopping` crosses as: nothing for none, else 1 and
+/// the values.
+fn stop_answer(stopping: Maybe<List<Value>>) -> Result<List<Int64>, Error>
+    case stopping
+        None         -> Ok([])
+        Some(values) -> Ok([1, ..encode(values)?])
+    end
+end
+
+/// `value`'s kind and bits, or why it is no value of its type. An
+/// integer's range check is what makes its bits an Int64 (spec §4 *Value
+/// ranges*), so a crossing checks it once.
+fn bits_of(value: Value) -> Result<(Int64, Int64), Error>
+    case value
+        .I32(n) ->
+            if n < -2_147_483_648 or n > 4_294_967_295 then
+                Err(.Mismatch{message: "${n} is outside an I32's range, -2147483648 to 4294967295"})
+            else
+                Ok((0, n))
+            end
+
+        .I64(n) ->
+            if n < -9_223_372_036_854_775_808 or n > 18_446_744_073_709_551_615 then
+                Err(
+                    .Mismatch{
+                        message: "${n} is outside an I64's range, -9223372036854775808 to 18446744073709551615",
+                    }
+                )
+            else if n > 9_223_372_036_854_775_807 then
+                Ok((1, n - 18_446_744_073_709_551_616))
+            else
+                Ok((1, n))
+            end
+
+        .F32(x) ->
+            Ok((2, Int64.try_from(Float.to_bits_32(x))!))
+
+        .F64(x) ->
+            Ok((3, Int64.try_from(Float.to_bits(x))!))
+    end
+end
+
+/// The values `crossed` holds, a kind and bits each.
+fn decode(crossed: List<Int64>) -> List<Value>
+    case crossed
+        [kind, bits, ..rest] -> [value_of(kind, bits), ..decode(rest)]
+        _                    -> []
+    end
+end
+
+/// The value of `kind` whose bits are `bits`.
+fn value_of(kind: Int64, bits: Int64) -> Value
+    case kind
+        0 -> .I32(bits)
+        1 -> .I64(bits)
+        2 -> .F32(one_nan(Float.from_bits_32(bits)))
+        _ -> .F64(one_nan(Float.from_bits(bits)))
+    end
+end
+
+/// `x`, or `Float.nan()` when `x` is a NaN of any bits: the bits of a NaN
+/// an operation makes differ by architecture.
+fn one_nan(x: Float) -> Float
+    if Float.is_nan(x) then Float.nan() else x
+end
+
+/// The Nomi function the host calls for `given`: it reads the arguments
+/// as the module's import passes them, and writes the results the
+/// function returns, which the host checks against the module's import.
+fn serve(given: Import) -> (host.Memory, List<Int64>) -> Result<List<Int64>, String>
+    answer = given.run
+
+    fn memory, args ->
+        results = answer(Memory{memory:}, decode(args))?
+        encode(results) |> Result.map_err(&"${&1}")
+    end
+end
+
+/// The failure the host's `fields` describe.
+fn error_of(fields: List<String>) -> Error
+    case fields
+        ["trapped", ..trap]              -> .Trapped(trap_of(trap))
+        ["dead", ..trap]                 -> .Dead(trap_of(trap))
+        ["dropped"]                      -> .Dropped
+        ["expired"]                      -> .Expired
+        ["no_export", name]              -> .NoExport{name:}
+        ["missing_import", module, name] -> .MissingImport{module:, name:}
+        ["mismatch", message]            -> .Mismatch{message:}
+        _                                -> unreachable "the host answers a failure std::wasm reads"
+    end
+end
+
+/// The failure the host's `fields` describe, for an access of `length`
+/// bytes from `at`.
+fn error_at(fields: List<String>, at: Int, length: Int) -> Error
+    case fields
+        ["out_of_range", size] ->
+            .OutOfRange{at:, length:, size: String.to_int(size) |> Maybe.with_default(0)}
+
+        _ ->
+            error_of(fields)
+    end
+end
+
+/// The trap the host's `fields` describe.
+fn trap_of(fields: List<String>) -> Trap
+    case fields
+        ["unreachable"]                  -> .Unreachable
+        ["out_of_bounds"]                -> .OutOfBounds
+        ["memory_limit"]                 -> .MemoryLimit
+        ["import_failed", name, message] -> .ImportFailed{name:, message:}
+        ["other", message]               -> .Other{message:}
+        _                                -> unreachable "the host answers a trap std::wasm reads"
+    end
+end

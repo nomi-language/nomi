@@ -35,7 +35,8 @@ import (
 // type definition, implementation, document highlights, references,
 // prepare-rename and rename, completion and signature help at every
 // identifier, hover at every function's name, and the document's symbols,
-// semantic tokens, inlay hints, code lenses, links and call hierarchy.
+// semantic tokens, with the ones that reach outside the machine marked,
+// inlay hints, code lenses, links and call hierarchy.
 
 // storedProject is a project on disk: its directory and its .nomi files'
 // module keys, the entry first.
@@ -103,7 +104,7 @@ func copyProject(tb testing.TB, src, name string) storedProject {
 }
 
 // storedCorpusProjects are the corpus directories with more than one .nomi
-// file and no Go bindings.
+// file.
 func storedCorpusProjects(tb testing.TB) []storedProject {
 	tb.Helper()
 	dirs, err := filepath.Glob(filepath.Join("..", "..", "tests", "*", "*"))
@@ -113,9 +114,6 @@ func storedCorpusProjects(tb testing.TB) []storedProject {
 	var out []storedProject
 	for _, dir := range dirs {
 		if info, err := os.Stat(dir); err != nil || !info.IsDir() {
-			continue
-		}
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
 			continue
 		}
 		nomi, _ := filepath.Glob(filepath.Join(dir, "*.nomi"))
@@ -197,6 +195,14 @@ func answers(t *testing.T, s *Server, p storedProject, key string, every int) []
 	add("symbols", syms, err)
 	toks, err := s.textDocumentSemanticTokensFull(nil, &protocol.SemanticTokensParams{TextDocument: doc})
 	add("tokens", toks, err)
+	if toks != nil {
+		for _, tok := range decodeSemanticTokenData(toks.Data) {
+			if tok.modifiers&modEffect != 0 {
+				effectTokenAnswers.Add(1)
+				break
+			}
+		}
+	}
 	var ih InlayHintParams
 	ih.TextDocument.URI = uri
 	ih.Range.End.Line = uint32(strings.Count(content, "\n") + 1)
@@ -217,7 +223,7 @@ func answers(t *testing.T, s *Server, p storedProject, key string, every int) []
 		hover := func() {
 			h, err := s.textDocumentHover(nil, &protocol.HoverParams{TextDocumentPositionParams: at})
 			add("hover "+where, h, err)
-			if h != nil && (strings.Contains(out[len(out)-1], "Reaches `") || strings.Contains(out[len(out)-1], "Binds Go: `")) &&
+			if h != nil && strings.Contains(out[len(out)-1], "Has effects: `") &&
 				(i > 0 && lexed[i-1].Type == token.FN || strings.Contains(out[len(out)-1], " through `")) {
 				functionReachHovers.Add(1)
 			}
@@ -303,6 +309,11 @@ func answers(t *testing.T, s *Server, p storedProject, key string, every int) []
 // through another function (vmhost's reachedFuncs), so a harness can
 // require that it compared some.
 var functionReachHovers atomic.Int64
+
+// effectTokenAnswers counts the semantic token answers answers asked for
+// that mark a token as reaching outside the machine (modEffect), so a
+// harness can require that it compared some.
+var effectTokenAnswers atomic.Int64
 
 // sortLocations sorts locations by file and then position, the order a
 // map's iteration does not keep.
@@ -474,6 +485,7 @@ func TestOpenFromRecordMatchesAFullCheck(t *testing.T) {
 	projects = append(projects, g)
 	used, refs := 0, 0
 	reachHovers := functionReachHovers.Load()
+	effectTokens := effectTokenAnswers.Load()
 	for i, p := range projects {
 		t.Run(p.name, func(t *testing.T) {
 			if !writeRecord(p) {
@@ -505,5 +517,8 @@ func TestOpenFromRecordMatchesAFullCheck(t *testing.T) {
 	// what a function can reach is among the hovers compared.
 	if functionReachHovers.Load() == reachHovers {
 		t.Error("no hover compared said what a function of the program reaches")
+	}
+	if effectTokenAnswers.Load() == effectTokens {
+		t.Error("no semantic tokens compared marked a token that reaches outside the machine")
 	}
 }

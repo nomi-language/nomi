@@ -206,20 +206,22 @@ fn control_flow(n: Int) -> String
     _abs_or_zero = if n < 0 then 0 - n else n
 
     // Long if-else — branches break.
-    _classification = if n > 100 then
-        "big"
-    else if n > 0 then
-        "small"
-    else
-        "non-positive"
-    end
+    _classification =
+        if n > 100 then
+            "big"
+        else if n > 0 then
+            "small"
+        else
+            "non-positive"
+        end
 
     // Case expression — always multi-line, one arm per line.
-    shape_label = case n
-        0 -> "zero"
-        1 -> "one"
-        _ -> "many"
-    end
+    shape_label =
+        case n
+            0 -> "zero"
+            1 -> "one"
+            _ -> "many"
+        end
 
     shape_label
 end

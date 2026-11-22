@@ -877,30 +877,3 @@ func subsequenceMatch(p, s string) bool {
 	}
 	return i == len(p)
 }
-
-// getPrefix extracts the identifier being typed at the cursor, qualifier
-// included. line and character are 0-based. Only the inline-Go helper
-// completion uses it; Nomi positions are classified from the reparsed tree.
-func getPrefix(content string, line, character int) string {
-	lines := strings.Split(content, "\n")
-	if line >= len(lines) {
-		return ""
-	}
-	lineText := lines[line]
-	if character > len(lineText) {
-		character = len(lineText)
-	}
-	end := character
-	start := end
-	for start > 0 && isIdentChar(lineText[start-1]) {
-		start--
-	}
-	if start == end {
-		return ""
-	}
-	return lineText[start:end]
-}
-
-func isIdentChar(c byte) bool {
-	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '.'
-}

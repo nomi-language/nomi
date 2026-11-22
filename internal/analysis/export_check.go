@@ -9,7 +9,10 @@ import (
 
 // An `export fn` is called by a host by name, with its arguments decoded
 // from JSON and its result encoded to JSON. The parser keeps `export` to
-// top-level functions outside impl blocks; the checks here need types.
+// top-level functions outside impl blocks; the checks here need types. A
+// project's `host fn` crosses the other way when a host answers it in JSON,
+// and its form is recorded rather than required (recordHostJSONForm): a Go
+// host takes the VM's own values, function values among them.
 
 var (
 	toJSONIface   = &InterfaceType{Name: "ToJson", Origin: "std/json"}
@@ -63,32 +66,39 @@ func (c *checker) checkExport(fn *ast.FuncDef) {
 }
 
 // checkCrossesAsJSON reports t, the type of what, when it cannot cross as
-// JSON in the direction iface converts. at is the type annotation to
-// underline, or nil to point at pos.
+// JSON in the direction iface converts (jsonGap). at is the type annotation
+// to underline, or nil to point at pos.
 func (c *checker) checkCrossesAsJSON(t Type, iface *InterfaceType, what string, at ast.Node, pos Pos) {
-	report := func(msg string, hints ...string) {
-		var e TypeError
-		if at != nil {
-			e = errAt(at, msg)
-		} else {
-			e = TypeError{Line: pos.Line, Col: pos.Col, Message: msg}
-		}
-		for _, h := range hints {
-			e = e.WithHint(h)
-		}
-		c.report(e)
+	msg, hint := c.jsonGap(t, iface, what)
+	if msg == "" {
+		return
 	}
+	var e TypeError
+	if at != nil {
+		e = errAt(at, msg)
+	} else {
+		e = TypeError{Line: pos.Line, Col: pos.Col, Message: msg}
+	}
+	if hint != "" {
+		e = e.WithHint(hint)
+	}
+	c.report(e)
+}
+
+// jsonGap says why t, the type of what, cannot cross as JSON in the
+// direction iface converts, with a hint, or "" when it can: it is concrete
+// and it and every type argument in it implement iface.
+func (c *checker) jsonGap(t Type, iface *InterfaceType, what string) (msg, hint string) {
 	t = resolveTypeVar(t)
 	if t == nil {
-		return
+		return "", ""
 	}
 	if !jsonConcrete(t) {
-		report(fmt.Sprintf("%s has type `%s`, which is not concrete: a host passes JSON values of one known type", what, c.typef("%s", t)))
-		return
+		return fmt.Sprintf("%s has type `%s`, which is not concrete: a host passes JSON values of one known type", what, c.typef("%s", t)), ""
 	}
 	bad := c.firstNonJSON(t, iface)
 	if bad == nil {
-		return
+		return "", ""
 	}
 	name := c.typef("%s", bad)
 	full := c.typef("%s", t)
@@ -96,7 +106,37 @@ func (c *checker) checkCrossesAsJSON(t Type, iface *InterfaceType, what string, 
 	if name != full {
 		subject = fmt.Sprintf("`%s`, in `%s`,", name, full)
 	}
-	report(fmt.Sprintf("%s cannot cross as JSON: %s does not implement `%s`", what, subject, iface.Name), jsonHint(bad, name, iface.Name))
+	return fmt.Sprintf("%s cannot cross as JSON: %s does not implement `%s`", what, subject, iface.Name), jsonHint(bad, name, iface.Name)
+}
+
+// recordHostJSONForm records whether the signature of fn, a `host fn` at
+// the top of a project's file whose type is ft, crosses as JSON to a host
+// that answers it in JSON (FileBodies.HostJSONForms): each parameter is
+// encoded for the host, so its type implements ToJson, and the host's
+// answer is decoded, so the result's implements FromJson. A Unit result
+// crosses as nothing. A std module's host functions are answered by the
+// machine and record nothing.
+func (c *checker) recordHostJSONForm(fn *ast.ExternFunc, ft *FuncType) {
+	if c.implBlock != nil || IsStdlibKey(c.fa.Origin) {
+		return
+	}
+	why := ""
+	for i, p := range fn.Params {
+		what := fmt.Sprintf("parameter `%s` of host function `%s`", p.Name, fn.Name)
+		if p.Destructure != nil || p.Name == "" || p.TypeOnly {
+			what = fmt.Sprintf("parameter %d of host function `%s`", i+1, fn.Name)
+		}
+		if why, _ = c.jsonGap(ft.Params[i], toJSONIface, what); why != "" {
+			break
+		}
+	}
+	if ret := resolveTypeVar(ft.Return); why == "" && ret != nil && !isUnitLike(ret) {
+		why, _ = c.jsonGap(ret, fromJSONIface, fmt.Sprintf("the result of host function `%s`", fn.Name))
+	}
+	if c.fa.HostJSONForms == nil {
+		c.fa.HostJSONForms = map[*ast.ExternFunc]string{}
+	}
+	c.fa.HostJSONForms[fn] = why
 }
 
 // firstNonJSON is the innermost part of t that does not implement iface, or
@@ -159,7 +199,7 @@ func jsonConcrete(t Type) bool {
 // jsonHint says how bad, which does not implement iface, can.
 func jsonHint(bad Type, name, iface string) string {
 	if !programDeclares(bad) {
-		return "a parameter's type must implement `FromJson` and a result's `ToJson`: std implements both for Int, Float, String, Bool, List, Vector, Set, Maybe and Map with String keys, and a struct or enum the program declares can derive them"
+		return "a parameter's type must implement `FromJson` and a result's `ToJson`: std implements both for Int, Float, String, Bool, List, Vector, Set, Maybe, Result and Map with String keys, and a struct or enum the program declares can derive them"
 	}
 	return fmt.Sprintf("add `derive %s for %s`", iface, name)
 }

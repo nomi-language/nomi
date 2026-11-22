@@ -27,9 +27,10 @@ test "Ok(Unit) matches a Result<Unit, E>"
 end
 
 test "Unit alone covers a Unit scrutinee"
-    n = case Unit
-        Unit -> 1
-    end
+    n =
+        case Unit
+            Unit -> 1
+        end
 
     assert n == 1
 end

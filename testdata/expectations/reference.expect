@@ -10,9 +10,9 @@
 # S <source line>, only for a record that carries its own program
 # T <transcript line>, verbatim
 population reference
-what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors, and `[not run in the browser: <classes>]` for a prompt the page shows as code since it reaches a capability the browser lacks; it runs here natively. N is the page's editor count.
-records 85
-declared-cases 1103
+what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors, and `[not run in the browser: <classes>]` for a prompt the page shows as code since it reaches an effect the browser lacks; it runs here natively. N is the page's editor count.
+records 88
+declared-cases 1290
 failing 0
 C actors
 E 0
@@ -57,8 +57,8 @@ T ok enum Bool
 T ok Bool.inspect (impl Debug for Bool)
 C bytes
 E 0
-N 22
-H 4932d32be1259d31c68b19ec86f640474fb6b3930fffbda80b1ab935b2a4ba7f
+N 76
+H 5e6502d9139dc49a96e1d315d65421a67a38d266d6b772d2e458fd47e1076aa7
 T ok Byte.to_int
 T ok Byte.to_string (impl Display for Byte)
 T ok Byte.inspect (impl Debug for Byte)
@@ -73,6 +73,40 @@ T ok Bytes.concat
 T ok Bytes.to_list
 T ok Bytes.from_list
 T ok Bytes.to_string
+T ok Bytes.to_string_lossy
+T ok Bytes.valid_utf8_length
+T ok Bytes.concat_all
+T ok Bytes.index_of
+T ok Bytes.index_of_byte
+T ok Bytes.index_of_any
+T ok Bytes.last_index_of
+T ok Bytes.last_index_of_byte
+T ok Bytes.last_index_of_any
+T ok Bytes.contains_bytes
+T ok Bytes.starts_with
+T ok Bytes.ends_with
+T ok Bytes.split
+T ok Bytes.count
+T ok Bytes.uint8_at
+T ok Bytes.int8_at
+T ok Bytes.uint16_be_at
+T ok Bytes.uint16_le_at
+T ok Bytes.int16_be_at
+T ok Bytes.int16_le_at
+T ok Bytes.uint32_be_at
+T ok Bytes.uint32_le_at
+T ok Bytes.int32_be_at
+T ok Bytes.int32_le_at
+T ok Bytes.uint64_be_at
+T ok Bytes.uint64_le_at
+T ok Bytes.int64_be_at
+T ok Bytes.int64_le_at
+T ok Bytes.float32_be_at
+T ok Bytes.float32_le_at
+T ok Bytes.float64_be_at
+T ok Bytes.float64_le_at
+T ok Bytes.uvarint_at
+T ok Bytes.varint_at
 T ok Bytes.each_while (impl Iter for Bytes)
 T ok Bytes.contains (impl Contains for Bytes)
 T ok Bytes.add (impl Add<Bytes, Bytes> for Bytes)
@@ -81,10 +115,66 @@ T ok Bytes.to_string Display (impl Display for Bytes)
 T ok Bytes.inspect (impl Debug for Bytes)
 T ok Bytes.compare (impl Comparable for Bytes)
 T ok Bytes.hash (impl Hashable for Bytes)
+T ok type Builder
+T ok Builder.new
+T ok Builder.length
+T ok Builder.to_bytes
+T ok Builder.push
+T ok Builder.push_bytes
+T ok Builder.push_string
+T ok Builder.push_int8
+T ok Builder.push_int16_be
+T ok Builder.push_int16_le
+T ok Builder.push_int32_be
+T ok Builder.push_int32_le
+T ok Builder.push_int64_be
+T ok Builder.push_int64_le
+T ok Builder.push_float32_be
+T ok Builder.push_float32_le
+T ok Builder.push_float64_be
+T ok Builder.push_float64_le
+T ok Builder.push_uvarint
+T ok Builder.push_varint
+C bytes/cursor
+E 0
+N 32
+H 5b73059e12190ad0ff132224c2b2b7febfec47fc7a0b81df7d5c7f91d79bcb32
+T ok struct Cursor
+T ok Cursor.new
+T ok Cursor.position
+T ok Cursor.remaining
+T ok Cursor.is_at_end
+T ok Cursor.rest
+T ok Cursor.peek
+T ok Cursor.skip
+T ok Cursor.read_byte
+T ok Cursor.read_bytes
+T ok Cursor.read_until
+T ok Cursor.read_until_byte
+T ok Cursor.read_uint8
+T ok Cursor.read_int8
+T ok Cursor.read_uint16_be
+T ok Cursor.read_uint16_le
+T ok Cursor.read_int16_be
+T ok Cursor.read_int16_le
+T ok Cursor.read_uint32_be
+T ok Cursor.read_uint32_le
+T ok Cursor.read_int32_be
+T ok Cursor.read_int32_le
+T ok Cursor.read_uint64_be
+T ok Cursor.read_uint64_le
+T ok Cursor.read_int64_be
+T ok Cursor.read_int64_le
+T ok Cursor.read_float32_be
+T ok Cursor.read_float32_le
+T ok Cursor.read_float64_be
+T ok Cursor.read_float64_le
+T ok Cursor.read_uvarint
+T ok Cursor.read_varint
 C calendar
 E 0
-N 79
-H 9c434bb26807706ab3c479df57db2cb52ba618d0ad2e1e2d0a6fa4e749c1224a
+N 81
+H 0eb687e2c78079f67a609496338b9626cddddb6987ac73183b2bcd7a7df79d3b
 T ok enum Error
 T ok type Years
 T ok type Months
@@ -148,6 +238,8 @@ T ok DateTime.to_string_with
 T ok DateTime.in_zone
 T ok DateTime.from_instant_in
 T ok DateTime.now_in
+T ok DateTime.local_zone
+T ok DateTime.now_local
 T ok DateTime.to_offset
 T ok DateTime.to_naive
 T ok DateTime.with_zone
@@ -166,23 +258,26 @@ T ok type TimePattern
 T ok type DateTimePattern
 C channels
 E 0
-N 11
-H feac8cd1a47cf8a00eae3338e6021565c4faac1a0b4a49872cc3ef2656b734cf
+N 14
+H a926e6d5688ae47385eff24860d39718802d0f4937ad3612f338331be18e08cb
 T ok Channel.buffered
 T ok Channel.unbuffered
 T ok Channel.select
 T ok Sender.send
 T ok Sender.close
 T ok Sender.close_on_drain
+T ok Sender.inspect (impl Debug for Sender<T>)
 T ok Receiver.receive
 T ok Receiver.receive_within
+T ok Receiver.inspect (impl Debug for Receiver<T>)
 T ok Arm.receive
 T ok Arm.send
 T ok Arm.after
+T ok Arm.inspect (impl Debug for Arm<R>)
 C code_points
 E 0
-N 12
-H b1001ec497b52362cca6c060d1180e4bdb2aaed8c38450155696243913754a21
+N 19
+H 97a9b12fbfa006ae9b0ba2b6d9963ede656abf34251f27876c0386fd08e23530
 T ok Codepoint.to_int
 T ok Codepoint.is_letter
 T ok Codepoint.is_digit
@@ -190,6 +285,13 @@ T ok Codepoint.to_digit
 T ok Codepoint.is_whitespace
 T ok Codepoint.is_upper
 T ok Codepoint.is_lower
+T ok Codepoint.is_title
+T ok Codepoint.is_mark
+T ok Codepoint.is_number
+T ok Codepoint.is_punctuation
+T ok Codepoint.is_symbol
+T ok Codepoint.is_separator
+T ok Codepoint.is_control
 T ok Codepoint.to_string (impl Display for Codepoint)
 T ok Codepoint.inspect (impl Debug for Codepoint)
 T ok Codepoint.next (impl Discrete for Codepoint)
@@ -362,8 +464,8 @@ T ok Files.paths
 T ok Files.sub
 C float
 E 0
-N 43
-H a7c56e02c329f98ebe3856b189a5f7ba6d64c7ee55d1f966beb8954f45ce4ca3
+N 47
+H 5b3ce3bd132c40d4f2e1fa94380ae4d46f8c38525c5bf9f5fed1f9ed38510e32
 T ok Float.nan
 T ok Float.positive_infinity
 T ok Float.negative_infinity
@@ -395,6 +497,10 @@ T ok Float.format
 T ok Float.format_percent
 T ok Float.parse_in
 T ok Float.parse_percent_in
+T ok Float.to_bits
+T ok Float.from_bits
+T ok Float.to_bits_32
+T ok Float.from_bits_32
 T ok Float.to_string (impl Display for Float)
 T ok Float.empty_sum (impl Summable for Float)
 T ok Float.empty_product (impl Productable for Float)
@@ -409,8 +515,8 @@ T ok type NonNegativeFloat
 T ok type PositiveFloat
 C fs
 E 0
-N 29
-H 250fb432cb8927f8c8c70576c7c018603ccb9c44d712872df14bef9941d79ce4
+N 64
+H 02a8f8892b45dd19056d30f62520e71937e5e789c981c7eafa2970883fb89f06
 T ok enum WriteMode
 T ok fs.read
 T ok fs.read_text
@@ -421,6 +527,9 @@ T ok fs.chunks
 T ok fs.open
 T ok fs.create
 T ok fs.open_file
+T ok fs.lock
+T ok fs.try_lock
+T ok fs.unlock
 T ok fs.within
 T ok fs.list
 T ok fs.walk
@@ -430,6 +539,7 @@ T ok fs.remove
 T ok fs.remove_all
 T ok fs.remove_all_quietly
 T ok fs.rename
+T ok fs.sync_dir
 T ok fs.copy
 T ok fs.metadata
 T ok fs.link_metadata
@@ -440,12 +550,44 @@ T ok fs.exists
 T ok fs.temp_dir
 T ok fs.make_temp_dir
 T ok fs.current_dir
+T ok fs.open_dir
+T ok struct Dir
+T ok Dir.read
+T ok Dir.read_text
+T ok Dir.write
+T ok Dir.write_text
+T ok Dir.lines
+T ok Dir.chunks
+T ok Dir.open
+T ok Dir.create
+T ok Dir.open_file
+T ok Dir.list
+T ok Dir.walk
+T ok Dir.glob
+T ok Dir.create_dir
+T ok Dir.remove
+T ok Dir.remove_all
+T ok Dir.remove_all_quietly
+T ok Dir.rename
+T ok Dir.sync_dir
+T ok Dir.copy
+T ok Dir.metadata
+T ok Dir.link_metadata
+T ok Dir.create_symlink
+T ok Dir.read_link
+T ok Dir.set_mode
+T ok Dir.exists
+T ok Dir.make_temp_dir
+T ok Dir.make_temp_file
+T ok Dir.subdir
+T ok Dir.close
 C fs/testing
 E 0
-N 4
-H cb61ebd3703fa2147e16c4a5ecb0295c1ece9c0cb513a7db862ffec55004196b
+N 5
+H bd74c17e94ebe3a410508fb22e30982a98807d51b70d4440e3dfab559831e7f6
 T ok struct Failure
 T ok testing.run
+T ok testing.dir
 T ok testing.text
 T ok testing.conformance
 C hash
@@ -475,8 +617,8 @@ T ok hex.encode
 T ok hex.decode
 C html
 E 0
-N 14
-H f0ed15c3592998a7add24aed0d57860c6a76cf8a28260586ae6f33fd08edfb0e
+N 16
+H 88df610d88408dbeca5c654d52bbd92b197c48e6d701c0edd708b7db13ab19ac
 T ok struct Html
 T ok Html.inspect (impl Debug for Html)
 T ok Html.trusted
@@ -486,6 +628,8 @@ T ok Html.concat
 T ok Html.each
 T ok Html.to_string
 T ok Html.write_to
+T ok html.unescape
+T ok html.entity
 T ok interface ToHtml
 T ok interface UrlValue
 T ok type SafeUrl
@@ -598,8 +742,8 @@ T ok Instant.subtract Subtract<Duration, Instant> (impl Subtract<Duration, Insta
 T ok Instant.subtract Subtract<Instant, Duration> (impl Subtract<Instant, Duration> for Instant)
 C int
 E 0
-N 43
-H 27cae7bef61107033dba91b4f3565c587be1b34bd417dee5c207f1b98a35d50e
+N 58
+H adb012ecc4bf88b3c88883d35dff0acb49a09aee7b29fb3d08a4c89b68ee3443
 T ok type Int
 T ok Int.to_float
 T ok Int.to_decimal
@@ -608,6 +752,21 @@ T ok Int.to_codepoint
 T ok Int.wrapping_add
 T ok Int.wrapping_sub
 T ok Int.wrapping_mul
+T ok Int.wrapping_add_32
+T ok Int.wrapping_sub_32
+T ok Int.wrapping_mul_32
+T ok Int.rotate_left_32
+T ok Int.rotate_right_32
+T ok Int.rotate_left_64
+T ok Int.rotate_right_64
+T ok Int.leading_zeros_32
+T ok Int.leading_zeros_64
+T ok Int.trailing_zeros_32
+T ok Int.trailing_zeros_64
+T ok Int.swap_bytes_16
+T ok Int.swap_bytes_32
+T ok Int.swap_bytes_64
+T ok Int.wrap_signed
 T ok Int.bit_count
 T ok Int.bit_length
 T ok Int.modulo
@@ -803,8 +962,8 @@ T ok jwt.verify
 T ok jwt.verify_as
 C lists
 E 0
-N 32
-H 0a14cbbc54cc94cfdf42e63aed137166bc6ae5ae6ea930bf3954ba8495ad8435
+N 34
+H 7f043b7d9f9031b52b300e9bae8126bd79a652022dad76fe92894155024bb109
 T ok type List
 T ok List.next_item
 T ok List.length
@@ -812,6 +971,8 @@ T ok List.concat
 T ok List.first
 T ok List.tail
 T ok List.remove_at
+T ok List.insert
+T ok List.slice
 T ok List.remove
 T ok List.starts_with
 T ok List.ends_with
@@ -1011,8 +1172,11 @@ T ok parse.read_fields
 T ok parse.write_fields
 C passwords
 E 0
-N 6
-H dbe0c13db42109d95f6c8998e3a90a8afb6f3f9f65a331585f0f7476e2d7f622
+N 9
+H 667e14520cdd41c6016426955bc1b911b004a5662b95753ae9ead0f4d1c87d15
+T ok struct Argon2id
+T ok struct Scrypt
+T ok struct Bcrypt
 T ok passwords.hash
 T ok passwords.verify
 T ok passwords.needs_rehash
@@ -1226,8 +1390,8 @@ T ok testing.conformance
 T ok testing.rules
 C storage
 E 0
-N 10
-H ae5dfb9bdc9f8978bd949d562906e4a1795c5fa29667744e765e00b14bad2e38
+N 11
+H 62481df3d58feec2f6e2f94420a6951054de20b0aebcf7fb0991c4245869aa04
 T ok enum Error
 T ok interface Store
 T ok storage.check_key
@@ -1237,6 +1401,7 @@ T ok storage.list_all
 T ok storage.join_key
 T ok storage.check_content_type
 T ok storage.local
+T ok storage.local_dir
 T ok storage.handler
 C storage/testing
 E 0
@@ -1312,13 +1477,14 @@ H 57e0560ff1b64382f11ec0b75f1ffccd8a59ff54c9c93390556f7c5a784c51ac
 T ok interface Summable
 C tasks
 E 0
-N 5
-H 644fe9df8e08335ac944575d177e06af716575064f101c9d0f534cfcfa840eda
+N 6
+H 5fd7adebcbc1c09350ba28519c065411142f3c308843ffbf5f755f527c801be5
 T ok Task.spawn
 T ok Task.await
 T ok Task.spawn_all
 T ok Task.await_all
 T ok Task.outcome
+T ok Task.inspect (impl Debug for Task<T>)
 C testing
 E 0
 N 1
@@ -1340,13 +1506,23 @@ T ok CipherSuite.name_of
 T ok Error.to_string (impl Display for Error)
 C toml
 E 0
-N 5
-H 66b804a71cf64f3a190e259915a545cac6e47641e6e428581ef8282227643b0b
+N 10
+H ac19697b4a51e73205925cf5dddd5ac1aa5d996e2c64f299fad9e17aa7d3da86
+T ok Toml.decode
+T ok Toml.decode_as
+T ok Toml.encode
 T ok Toml.parse
 T ok Toml.text
 T ok Toml.check (impl CheckedLiteral<ToToml, Toml> for Toml)
+T ok struct Toml.DecodeError
 T ok enum Toml.Value
+T ok Toml.Value.to_json (impl ToJson for Toml.Value)
 T ok interface ToToml
+C type
+E 0
+N 1
+H 4abe712169587202f6b743ac40ad1fc9f6bef8490a568f2879d57aa6bf84d3eb
+T ok Type.inspect (impl Debug for Type<T>)
 C unit
 E 0
 N 1
@@ -1402,14 +1578,18 @@ H f01ff405457379af3a290ce9aab350978e30af5a10358920b9a8ea7d31e0eafb
 T ok interface Variants
 C vectors
 E 0
-N 22
-H f32d8612b3f5cff677959309a201402f389340ed26b783701a15f8f4458ef5cd
+N 26
+H d1bc395fa77801b5b921ab74df4f0c2bff6e6adb39a610553d62911746d7e462
 T ok Vector.length
 T ok Vector.get
 T ok Vector.push
 T ok Vector.set
 T ok Vector.concat
 T ok Vector.next_item
+T ok Vector.slice
+T ok Vector.pop
+T ok Vector.insert
+T ok Vector.remove_at
 T ok Vector.contains (impl Contains for Vector<T>)
 T ok Vector.add (impl Add<Vector<T>, Vector<T>> for Vector<T>)
 T ok Vector.empty_sum (impl Summable for Vector<T>)
@@ -1426,6 +1606,25 @@ T ok NonEmptyVector.map
 T ok NonEmptyVector.with_index
 T ok NonEmptyVector.push
 T ok NonEmptyVector.concat
+C wasm
+E 0
+N 15
+H b4e7be7fbc659de3711eafc3185e9a1f958001f9266b6b1eff6e7a95238f20d6
+T ok struct CompileError
+T ok enum Value
+T ok enum Trap
+T ok Instance.call
+T ok Instance.run
+T ok Instance.read
+T ok Instance.write
+T ok Instance.size
+T ok Instance.drop
+T ok Memory.read
+T ok Memory.write
+T ok Memory.size
+T ok wasm.compile
+T ok wasm.instantiate
+T ok wasm.run
 C websocket
 E 0
 N 6

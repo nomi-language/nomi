@@ -740,9 +740,9 @@ Other languages draw these lines in other places:
   `process.spawn_unlinked` does not.
 - **Rust**'s `v[i]` panics and `get` returns an `Option`.
 - **Go** refuses a constant zero divisor when compiling.
-- **Calling the host language:** in Nomi a Go `error` arrives as a
-  `Result`, and a Go panic stops the calling task. Elm has no direct calls,
-  only flags and ports. A Gleam external's type is trusted, and a wrong one
+- **Calling the host language:** a Nomi program reaches code outside it only
+  through the standard library, WebAssembly that std::wasm runs, and the
+  host functions of a program that embeds it. Elm has no direct calls, only flags and ports. A Gleam external's type is trusted, and a wrong one
   can crash at run time.
 
 Write `!` where you know a fact the types cannot see, such as a key that came

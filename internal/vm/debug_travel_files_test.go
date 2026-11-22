@@ -105,3 +105,49 @@ func TestTravel_StepBackInsideASandboxRunsItAgain(t *testing.T) {
 		}
 	}
 }
+
+const travelSandboxDirSrc = `import
+    std::fs.Dir
+    std::fs::testing.{self, Sandbox}
+    std::io
+end
+
+fn main()
+    d = testing.dir(Sandbox{files: {"in.txt" => "a"}})
+    defer Dir.close(d)
+    _ = Dir.write_text(d, "in.txt", "b", mode: .Append)
+    text = Dir.read_text(d, "in.txt")
+    io.inspect(text)
+end
+`
+
+// A Dir over a sandbox is held by the crossings it is handed, outside any
+// std::fs::testing.run: the replay builds the sandbox again and runs the
+// Dir's operations again, so a step back appends once.
+func TestTravel_StepBackThroughASandboxDirRunsItAgain(t *testing.T) {
+	s := travelProgram(t, travelSandboxDirSrc, "")
+	s.breakAt(12)
+	s.runPasses()
+	st := s.stop()
+	s.line(st, vm.StopBreakpoint, 12)
+	if err := s.d.StepBack(st.Thread); err != nil {
+		t.Fatal(err)
+	}
+	st = s.stop()
+	s.line(st, vm.StopStep, 11)
+	s.d.Continue()
+	st = s.stop()
+	s.line(st, vm.StopBreakpoint, 12)
+	s.d.Continue()
+	if err := s.finish(); err != nil {
+		t.Fatal(err)
+	}
+	if out := s.shown.String(); out != "Ok(\"ab\")\n" {
+		t.Fatalf("output %q, want the append once", out)
+	}
+	for _, c := range s.d.Recording() {
+		if strings.HasPrefix(c.Name, "fs/host.") {
+			t.Fatalf("recorded %s; a sandbox Dir's operations run again and are not recorded: %+v", c.Name, s.d.Recording())
+		}
+	}
+}

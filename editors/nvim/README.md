@@ -328,6 +328,25 @@ Two settings, read whenever a window is drawn:
 
 Run `:redraw!` after changing one at runtime.
 
+### Code that has effects
+
+`nomi-lsp` marks a call that has effects (it reads a file, prints, uses
+the network), a function that can, and that function's name where it is
+declared, with the `effect` modifier, once its background
+check of the program finishes. The plugin makes them bold through
+`@lsp.mod.effect.nomi`, defined with `default = true` and again on every
+`ColorScheme` event, so your own definition wins. To underline them
+instead:
+
+```lua
+vim.api.nvim_set_hl(0, '@lsp.mod.effect.nomi', { underline = true })
+```
+
+or `{ fg = '#e0af68' }` to give them a colour.
+
+A colorscheme that already makes every function name bold shows no mark
+at a declaration; the hover there still says `Has effects`.
+
 ### Optional: nvim-treesitter
 
 Nothing extra is needed for indents and textobjects beyond installing the two

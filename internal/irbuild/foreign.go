@@ -81,10 +81,9 @@ type typeOwner struct {
 	nomi    string
 	decl    ast.Node
 	// isIface marks an `interface` declaration and not a type. Both live in
-	// one registry because both are found by the node that declares them. The
-	// two are handed out through separate accessors (foreignOwner,
-	// foreignIfaceOwner) so a type lookup can never come back holding an
-	// interface.
+	// one registry because both are found by the node that declares them.
+	// Each lookup checks it (siblingOwner, siblingIfaceOwner), so a type
+	// lookup never comes back holding an interface.
 	isIface bool
 	// instSrc is the OWNER's monomorphized instance def when this record
 	// stands for `Holder<Int>` rather than for the declaration `Holder`. It
@@ -97,6 +96,10 @@ type typeOwner struct {
 // that declared it.
 type typeRegistry struct {
 	byDecl map[ast.Node]*typeOwner
+	// fileOf is, by analyzer origin, the first program file with that
+	// origin, whose module scope holds the declarations the checker names
+	// by that origin (declNode).
+	fileOf map[string]originFile
 	// ifaceParamDefaults is where each parameter default of an interface
 	// function the program's files declare is declared, gathered on first
 	// ask (ifaceslotdefault.go).
@@ -117,12 +120,6 @@ type typeRegistry struct {
 	// namespace key their gens compare. See component.go.
 	pkgOf []string
 	owner []int
-	// declared is, by interface (std's Equatable or Hashable), every
-	// declaration the program writes an impl of it for, gathered once on
-	// first ask and nil until then, since most programs never ask. Keyed on
-	// the declaration node because that is the type's identity and the
-	// question is asked from a gen that holds only a mirror. See declaresImpl.
-	declared map[string]map[ast.Node]bool
 	// erasedInsts is every generic instance some file holds erased, by the
 	// owner's def's portable spelling (erasedKey): an impl another file
 	// writes for it is recorded for dispatch there (irInstanceImpls).
@@ -150,17 +147,30 @@ type typeRegistry struct {
 	groupsFound bool
 }
 
+// originFile is the program file with one analyzer origin: its unit and
+// its analysis.
+type originFile struct {
+	unit int
+	fa   *analysis.FileAnalysis
+}
+
 // buildTypeRegistry indexes a program's type declarations by the node that
 // declared them.
 func buildTypeRegistry(p *Program) *typeRegistry {
 	owner := componentOwners(p)
 	r := &typeRegistry{
 		byDecl: make(map[ast.Node]*typeOwner),
+		fileOf: make(map[string]originFile),
 		pkgOf:  unitPackagesFrom(owner),
 		owner:  owner,
 	}
 	for i := range p.Modules {
 		m := &p.Modules[i]
+		if m.FA != nil && m.FA.Origin != "" {
+			if _, seen := r.fileOf[m.FA.Origin]; !seen {
+				r.fileOf[m.FA.Origin] = originFile{unit: i, fa: m.FA}
+			}
+		}
 		for _, n := range m.Nodes {
 			switch n.(type) {
 			case *ast.FuncDef, *ast.ExternFunc, *ast.OnceBinding:
@@ -288,43 +298,7 @@ func resolvedScopeSymbol(scope *analysis.Scope, name string) *analysis.Symbol {
 	return nil
 }
 
-// foreignOwner resolves a TYPE name this file does not declare to the user file
-// that does, or nil when nothing in the program declares it (a stdlib type, an
-// interface, or no type at all).
-func (g *gen) foreignOwner(name string) *typeOwner {
-	o := g.foreignDecl(name)
-	if o == nil || o.isIface {
-		return nil
-	}
-	return o
-}
-
-// foreignIfaceOwner is foreignOwner for an `interface` declaration.
-//
-// A separate accessor and not one that answers for both, because every
-// caller of foreignOwner goes on to build a type mirror (a layout, variant
-// tags) and an interface has none of those. A single accessor would make
-// `foreignType("Logger")` answer with an owner and report the interface as
-// `unlowered type`, which is a mis-named refusal.
-func (g *gen) foreignIfaceOwner(name string) *typeOwner {
-	o := g.foreignDecl(name)
-	if o == nil || !o.isIface {
-		return nil
-	}
-	return o
-}
-
-// foreignDecl resolves a name to the sibling-file declaration it names, type or
-// interface alike.
-func (g *gen) foreignDecl(name string) *typeOwner {
-	if g.reg == nil || g.fa == nil || g.fileUnit < 0 {
-		return nil
-	}
-	return g.ownerOfSymbol(resolvedTypeSymbol(g.fa, name))
-}
-
-// ownerOfSymbol is foreignDecl's second half: the registry entry a resolved
-// symbol names, or nil when it names nothing this program declares or names
+// ownerOfSymbol is the registry entry a resolved symbol names, or nil when it names nothing this program declares or names
 // something in THIS file.
 //
 // Split out because a module-qualified reference reaches the same registry
@@ -340,37 +314,14 @@ func (g *gen) ownerOfSymbol(sym *analysis.Symbol) *typeOwner {
 	return o
 }
 
-// foreignType resolves a type name to a MIRROR of another file's declaration,
-// reporting whether the name named one at all.
-//
-// The mirror is registered in g.types under the name it was reached by, so
-// typeOf, the IR builder's construction and variant resolution and the `case`
-// machinery all reach it through the one map a type name is ever looked up in
-// (gen.types' comment). Nothing downstream distinguishes a mirror from a local
-// declaration except the two places that must: a field default is not lowered
-// here (foreignfielddefault.go), and a mirror gets no runtime identity of its
-// own (hasTID answers from the owner's table).
-func (g *gen) foreignType(name string) (*typeDef, bool) {
-	o := g.foreignOwner(name)
-	if o == nil {
-		return nil, false
-	}
-	d := g.mirrorOf(o)
-	g.types[name] = d
-	return d, true
-}
-
 // mirrorOf is this gen's mirror of one owner's declaration, built once per
 // declaration node and cached on it.
 //
-// Split out of foreignType because a mirror is reachable by two different
-// questions and only one of them has a name to ask with. foreignType asks
-// what this file's imports bind `Widget` to. project() asks what the analyzer
-// solved, at origin O, for positions where the program never writes the name
-// at all, so there is no import to resolve through. Both must reach the same
-// *typeDef, because that pointer is the type's identity here and two mirrors
-// of one declaration would be two unequal kinds for one type. See
-// siblingOwner.
+// Every question that reaches a declaration of another file (what the
+// analyzer solved at origin O, the declaration a reference resolved to)
+// reaches the same *typeDef here, because that pointer is the type's
+// identity and two mirrors of one declaration would be two unequal kinds
+// for one type. See siblingOwner.
 //
 // # A mirror does not ask whether the declaration is `pub`
 //
@@ -399,7 +350,7 @@ func (g *gen) mirrorOf(o *typeOwner) *typeDef {
 	case deferred == nil && !g.reg.ensureLayout(o.unit):
 		d = g.blockedMirror(o, "sibling file type cycle", o.fileKey+"."+o.nomi)
 	default:
-		src := g.reg.gens[o.unit].types[o.nomi]
+		src := g.reg.defOf(o)
 		switch {
 		case src == nil:
 			// The declaring file registered no shell for it, which happens
@@ -426,152 +377,17 @@ func (g *gen) mirrorOf(o *typeOwner) *typeDef {
 // traps. Two sibling files may each declare `Widget`, and only the origin the
 // analyzer solved says which one a given inferred position meant.
 //
-// A linear scan over the program's modules rather than an index: it runs only
-// for a nominal type whose origin is NOT this file's, which is a path taken
-// once per distinct inferred sibling type, and `gens` is one entry per source
-// FILE. An index would also have to live on typeRegistry, which is shared.
+// The declaration is the one the name has in the declaring file's module
+// scope (siblingDecl), which the checker resolved: the declaring gen's own
+// table holds it only once that gen has built its types.
 func (g *gen) siblingOwner(origin, name string) *typeOwner {
-	if g.reg == nil || origin == "" {
+	o := g.siblingDecl(origin, name)
+	if o == nil || o.isIface {
+		// isIface: a type lookup must never come back holding an
+		// interface.
 		return nil
 	}
-	for unit, src := range g.reg.gens {
-		if src == nil || src.fa == nil || src.fa.Origin != origin {
-			continue
-		}
-		// The declaration the name has in the declaring file's scope, which
-		// the checker resolved: the declaring gen's own table holds it only
-		// once that gen has built its types.
-		sym := resolvedTypeSymbol(src.fa, name)
-		if sym == nil || sym.Node == nil {
-			return nil
-		}
-		o := g.reg.byDecl[sym.Node]
-		if o == nil || o.isIface || o.unit != unit {
-			// isIface: a type lookup must never come back holding an
-			// interface, which is the invariant foreignOwner keeps for the
-			// by-name path.
-			return nil
-		}
-		return o
-	}
-	return nil
-}
-
-// namedType resolves a type name to this gen's def for it: its own
-// declaration, or a mirror of another file's.
-//
-// The one place a type name is looked up, which is what gen.types' comment
-// claims for that map; the map alone is not the whole answer. Local wins: a file that declares `Point` and imports another
-// `Point` is a front-end error, and if it ever stops being one the local
-// declaration is the one the checker resolves.
-func (g *gen) namedType(name string) (*typeDef, bool) {
-	// A `typealias` names its target's declaration (`typealias S Shape`).
-	// See typealias.go.
-	if d, isAlias := g.aliasNamedDef(name); isAlias {
-		return d, d != nil
-	}
-	// `shapes.P` under shapes' `typealias P Pt` names Pt's declaration.
-	if d, isAlias := g.qualifiedAliasDef(name); isAlias {
-		return d, d != nil
-	}
-	// A type declared in an enclosing BLOCK, which the name-keyed table below
-	// cannot hold: two bodies may each declare `Point`. Innermost-first, which
-	// is the analyzer's own resolution order. See blocklocaltype.go.
-	if d, isBlockLocal := g.blockLocalNamed(name); isBlockLocal {
-		return d, true
-	}
-	// A type an `import` at the top of an enclosing block binds, which
-	// shadows the module scope's binding of the name there, as it does for
-	// the checker. See bindBlockImports.
-	if d, isImported := g.blockImportedNamed(name); isImported {
-		return d, true
-	}
-	// `fmt.WriteOptions` where a visible block's `import std::xml as fmt`
-	// shadows the file's `import std::csv as fmt`: the block's file answers,
-	// never the dotted names g.types caches for the file's binding nor the
-	// std arms below, which read the file's. A qualifier only blocks bind
-	// reaches those arms, as before.
-	if sym, shadows := g.blockModuleSymbol(name); shadows {
-		d := g.importedTypeDef(sym)
-		return d, d != nil
-	}
-	if d, local := g.types[name]; local {
-		return d, true
-	}
-	// A stdlib opaque newtype, whose Go type rt declares. Ahead of the mirror
-	// route because it is not a user file's type at all, and mutually exclusive
-	// with one: the anchor requires the analyzer to have resolved the name to a
-	// std origin. See opaque.go.
-	if d, isOpaque := g.opaqueNamed(name); isOpaque {
-		return d, true
-	}
-	// A monomorphic stdlib enum, same story: `Ordering` is rt.Ordering, and the
-	// anchor requires the analyzer to have resolved the name to a std origin.
-	// See stdenum.go.
-	if d, isStdEnum := g.stdEnumNamed(name); isStdEnum {
-		return d, true
-	}
-	// A stdlib opaque STRUCT, same story once more: `DateTime` is rt.DateTime.
-	// See stdstruct.go.
-	if d, isStdStruct := g.stdStructNamed(name); isStdStruct {
-		return d, true
-	}
-	// A stdlib `pub host type`, same story a fourth time: `Bytes` is rt.Bytes.
-	// See stdhost.go.
-	if d, isStdHost := g.stdHostNamed(name); isStdHost {
-		return d, true
-	}
-	// A stdlib nil-inner MARKER, same story a fifth time: `ChannelClosed` is
-	// rt.ChannelClosed. See stdgenhost.go.
-	if d, isMarker := g.stdMarkerNamed(name); isMarker {
-		return d, true
-	}
-	// A named PAYLOAD of a generic std enum: `Failure` is rt.Failure. Same
-	// story a sixth time — the anchor requires the analyzer to have resolved
-	// the name to a std origin. It is not an stdEnumSpecs row; see
-	// taskoutcome.go.
-	if d, isPayload := g.namedPayloadNamed(name); isPayload {
-		return d, true
-	}
-	if d, isForeign := g.foreignType(name); isForeign {
-		return d, true
-	}
-	// A std type imported under another name: `Error as CurrencyError`. See
-	// importalias.go.
-	if k, isAliased := g.aliasedTypeKind(name, nil); isAliased && k.tag == tagNamed && k.def != nil {
-		return k.def, true
-	}
-	// `shapes.Shape` — a declaration named through a WHOLE-FILE import's
-	// qualifier. LAST, so every arm above keeps the answer it had: a local
-	// declaration, a namespaced one registered under its own dotted name, and
-	// a stdlib anchor are all asked first, and this runs only where the name
-	// resolved to nothing. See modulequaltype.go.
-	return g.moduleQualifiedDotted(name)
-}
-
-// userTypeNamed reports that a type NAME, in a user unit, resolves to a type a
-// user file declares: this file's own declaration, one in an enclosing block,
-// or another file's reached through an import. Nominal identity is (declaring
-// file, name), so a user `Task` is not std/tasks' `Task`, and an arm that
-// recognises a stdlib type by its spelling (`Task.spawn`, `Sender.send`) must
-// not claim a call on it. A stdlib module's own unit declares no user type.
-func (g *gen) userTypeNamed(name string) bool {
-	if g.stdModule != "" {
-		return false
-	}
-	if _, isBlockLocal := g.blockLocalNamed(name); isBlockLocal {
-		return true
-	}
-	if d, isImported := g.blockImportedNamed(name); isImported {
-		// A block import of a std type names no user type, though this
-		// file may declare one of the same name.
-		return d.foreign != ""
-	}
-	if _, local := g.types[name]; local {
-		return true
-	}
-	_, isForeign := g.foreignType(name)
-	return isForeign
+	return o
 }
 
 // blockedMirror is a mirror that names the other file's type and refuses every
@@ -621,12 +437,11 @@ func (g *gen) mirrorShell(src *typeDef, o *typeOwner) *typeDef {
 			g.foreignInstDefs = map[*typeDef]*typeDef{}
 		}
 		g.foreignInstDefs[o.instSrc] = d
-		// The TEMPLATE travels with the mirror, because a qualifier at a use
-		// site names the template, and resolving it (genericTemplateNamed)
-		// must reach the template the value was made from. It is the OWNER
-		// gen's template pointer,
-		// which is what `foreignTemplate` resolves the qualifier to here, so
-		// the two sides compare equal.
+		// The TEMPLATE travels with the mirror, because a use site's
+		// template (genericTemplateOf) must be the one the value was made
+		// from. It is the OWNER gen's template pointer, which is what
+		// `foreignTemplateAt` resolves the declaration to here, so the two
+		// sides compare equal.
 		//
 		// `genericArgs` deliberately does NOT travel: they are the owner's
 		// kinds, and re-deriving them here would be a second import of
@@ -677,6 +492,7 @@ func (g *gen) importMirrorKinds(d, src *typeDef, o *typeOwner) bool {
 			return fail(g.importWhy, o.fileKey+"."+src.nomi+" wraps "+src.inner.nomi())
 		}
 		d.inner = k
+		d.spread = src.spread
 	}
 	for _, f := range src.fields {
 		k, ok := g.importKind(f.k)
@@ -687,7 +503,7 @@ func (g *gen) importMirrorKinds(d, src *typeDef, o *typeOwner) bool {
 		d.note(k)
 	}
 	for _, v := range src.variants {
-		vd := variantDef{nomi: v.nomi, tag: v.tag, kind: v.kind}
+		vd := variantDef{nomi: v.nomi, tag: v.tag, kind: v.kind, spread: v.spread}
 		for _, p := range v.payloads {
 			k, ok := g.importKind(p.k)
 			if !ok {
@@ -773,15 +589,32 @@ func (g *gen) importKind(k kind) (kind, bool) {
 		}
 		return rk, true
 	case tagIface:
-		if _, isStd := stdIfaceOf(k.iface); isStd {
-			// A stdlib interface's *ifaceDef is process-wide, so the
-			// existential over it is the same kind in every gen: there is
-			// nothing to re-derive and no second def to intern. The refusal
-			// below is about a def interned in the owner's gen, which this
-			// is not. See stdiface.go.
+		// An interface's kind, or a conjunction's, which is its members'
+		// (conjunction.go), each imported.
+		members := conjMembers(k)
+		for i, m := range members {
+			if _, isStd := stdIfaceOf(m.iface); isStd {
+				// A stdlib interface's *ifaceDef is process-wide, so the
+				// existential over it is the same kind in every gen: there
+				// is nothing to re-derive and no second def to intern. The
+				// refusal below is about a def interned in the owner's gen,
+				// which this is not. See stdiface.go.
+				continue
+			}
+			im, ok := g.importIfaceKind(m.iface)
+			if !ok {
+				return kindInvalid, false
+			}
+			if !irConjKind(k) {
+				return im, true
+			}
+			members = append([]kind(nil), members...)
+			members[i] = im
+		}
+		if !irConjKind(k) {
 			return k, true
 		}
-		return g.importIfaceKind(k.iface)
+		return g.conjKind(members), true
 	case tagNamed:
 		return g.importNamed(k.def)
 	case tagFunc:
@@ -842,17 +675,13 @@ func (g *gen) importKind(k kind) (kind, bool) {
 // preludeInstance every other site goes through. See prelude.go.
 func (g *gen) importNamed(src *typeDef) (kind, bool) {
 	if src.preludeOf != nil {
-		g.loadPreludes()
-		a := g.preludeByName[src.preludeOf.spec.nomi]
-		if a == nil {
-			// The OWNER established the identity — this def carries the spec
-			// it was built from — so what is missing is only the shape
-			// validation an anchor also carries, and std's own declaration
-			// supplies that without a scope. See preludeorigin.go.
-			var anchored bool
-			if a, anchored = preludeSpecAnchor(src.preludeOf.spec); !anchored {
-				panic("irbuild: importNamed: std's own declaration does not anchor the prelude enum " + src.nomi)
-			}
+		// The OWNER established the identity — this def carries the spec it
+		// was built from — so what is left is the shape validation an anchor
+		// carries, which std's own declaration supplies without a scope. See
+		// preludeorigin.go.
+		a, anchored := preludeSpecAnchor(src.preludeOf.spec)
+		if !anchored {
+			panic("irbuild: importNamed: std's own declaration does not anchor the prelude enum " + src.nomi)
 		}
 		args := make([]kind, 0, len(src.preludeArgs))
 		for _, arg := range src.preludeArgs {
@@ -930,7 +759,7 @@ func (g *gen) importNamed(src *typeDef) (kind, bool) {
 		// the family refusal and not under anything true of the instance.
 		return g.importGenericInstance(src)
 	}
-	if src.rtDeclared {
+	if src.rtDeclared || src.stdOrigin != "" {
 		// An anchored stdlib type rt declares: `Duration`, `Instant`,
 		// `Ordering`, `DateTime`, `Diagnostic`. Its *typeDef is process-wide,
 		// so it is the same kind here as in the owner: there is nothing to
@@ -958,7 +787,7 @@ func (g *gen) importNamed(src *typeDef) (kind, bool) {
 		// The owner's component is declared in THIS file — the reference
 		// crosses back. Its own def is the identity; the mirror must not be a
 		// second one.
-		if local := g.types[src.nomi]; local != nil && local.decl == src.decl {
+		if local := g.reg.defOf(o); local != nil && local.decl == src.decl {
 			return named(local), local.lowerable
 		}
 		g.importWhy = "non-local type"
@@ -978,7 +807,7 @@ func (g *gen) importNamed(src *typeDef) (kind, bool) {
 		g.importWhy = "sibling file type cycle"
 		return kindInvalid, false
 	}
-	inner := g.reg.gens[o.unit].types[o.nomi]
+	inner := g.reg.defOf(o)
 	if inner == nil {
 		g.importWhy = "unlowered type"
 		return kindInvalid, false
@@ -992,127 +821,6 @@ func (g *gen) importNamed(src *typeDef) (kind, bool) {
 		return kindInvalid, false
 	}
 	return named(d), true
-}
-
-// --- what a mirror cannot see for itself ------------------------------------
-
-// declaresEquatable is declaresImpl for Equatable.
-func (r *typeRegistry) declaresEquatable(decl ast.Node) bool {
-	return r.declaresImpl(stdEquatable, decl)
-}
-
-// foreignNoImpl establishes, for a MIRROR, that no file in the program writes
-// an `impl iface` for the type — the question noImplOf asks of a local
-// declaration by reading its own table.
-//
-// It has to be POSITIVE, and the reason is the one noEquatableImpl gives: a
-// missing impl is exactly when `==` is structural equality, and an impl this
-// builder cannot CALL from here is when `==` calls something instead, so a
-// structural answer is right in the first case and a silent wrong answer in the
-// second. A failed lookup cannot tell those apart. Answering false
-// unconditionally would be correct and would refuse every `==` on a sibling
-// file's struct, including the common case where the program declares no impl
-// at all.
-//
-// The PROGRAM, not the owner's file. Nomi's orphan rule admits an `impl Equatable for Point` in Point's
-// MODULE or in Equatable's, and a Nomi module is several FILES — so `struct
-// Point` in a.nomi and `impl Equatable for Point` in b.nomi is legal, and
-// reading only a.nomi's gen would answer "no impl" for a type that has one.
-//
-// Nothing here is keyed on a name. The declaration NODE is the identity, the
-// mirror carries the owner's own node verbatim (importDef), and a receiver is
-// matched by that node — so two files each declaring a `Point` cannot answer
-// for each other. The interface is matched on its SPELLING, which is what the
-// local arm does too, and the error direction is the safe one: a user who
-// declares their own `interface Equatable` makes this answer false and
-// over-refuse, never the reverse.
-func (g *gen) foreignNoImpl(iface analysis.StdType, d *typeDef) bool {
-	if g.reg == nil || d.decl == nil {
-		return false
-	}
-	o := g.reg.byDecl[d.decl]
-	if o == nil {
-		// Not a user declaration this program indexed. A stdlib-anchored def
-		// reached through a sibling file gets here, and its impls live in the
-		// stdlib index rather than in any gen's table, so absence is not
-		// established.
-		return false
-	}
-	// The owner's own def, reached through the node rather than trusted from
-	// the mirror: `src.decl != d.decl` means the owner's table no longer holds
-	// the declaration this mirror was built from, and a mirror whose original
-	// cannot be found establishes nothing.
-	owner := g.reg.gens[o.unit]
-	if owner == nil {
-		return false
-	}
-	if src := owner.types[o.nomi]; src == nil || src.decl != d.decl {
-		return false
-	}
-	return !g.reg.declaresImpl(iface, d.decl)
-}
-
-// declaresImpl reports whether ANY file in the program writes an
-// `impl iface` (std's Equatable or Hashable) for this declaration, lowerable
-// or not.
-//
-// "Or not" is the load-bearing half. An impl that exists and cannot be lowered
-// must make the comparison REFUSE, not silently become structural — the same
-// rule noEquatableImpl's std probe follows by reading `byIface` before the
-// `why` filtering stdlibImplOf applies. A `derive Equatable` counts: the front
-// end turns it into an impl block and `==` dispatches to it.
-//
-// Answers false — "no impl" — only once every gen's table is COMPLETE. While
-// any is short of declareFuncs the answer is "declared", which over-refuses,
-// because a half-built table cannot be told apart from an empty one.
-func (r *typeRegistry) declaresImpl(iface analysis.StdType, decl ast.Node) bool {
-	key := stdIfaceImplKey(iface)
-	if r.declared[key] == nil {
-		for _, g := range r.gens {
-			if g == nil || !g.funcsDone {
-				return true
-			}
-		}
-		if r.declared == nil {
-			r.declared = map[string]map[ast.Node]bool{}
-		}
-		set := map[ast.Node]bool{}
-		for _, g := range r.gens {
-			for _, impl := range g.implOrder {
-				if impl.ifaceKey != key || impl.recv.tag != tagNamed || impl.recv.def == nil {
-					continue
-				}
-				if impl.recv.def.decl != nil {
-					set[impl.recv.def.decl] = true
-				}
-			}
-			// A generic type's impls, derived or written, are registered
-			// against each instance as it is built, never in implOrder; an
-			// instance's decl is its template's.
-			for _, tpl := range g.genericTemplates {
-				markTemplateImpl(set, tpl, iface.Name)
-			}
-			for _, tpl := range g.blockLocalTemplates {
-				markTemplateImpl(set, tpl, iface.Name)
-			}
-		}
-		r.declared[key] = set
-	}
-	return r.declared[key][decl]
-}
-
-// markTemplateImpl adds tpl's declaration to set when one of its impl blocks
-// is an `impl iface`.
-func markTemplateImpl(set map[ast.Node]bool, tpl *genericTemplate, iface string) {
-	if tpl == nil || tpl.decl == nil {
-		return
-	}
-	for _, it := range tpl.impls {
-		if it.decl != nil && it.decl.Interface != nil && implReceiverBaseName(it.decl.Interface) == iface {
-			set[tpl.decl] = true
-			return
-		}
-	}
 }
 
 // walkNames collects names from a node tree, with `pick` deciding which names

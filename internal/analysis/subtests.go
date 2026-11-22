@@ -258,7 +258,7 @@ func (c *checker) rowTailCannotFail(n ast.Node) bool {
 	case *TypeVar, *TypeParam_:
 		return false
 	case *EnumType:
-		if resolved.Name == "Result" && len(resolved.TypeArgs) == 2 {
+		if isStdType(resolved, stdResultType) && len(resolved.TypeArgs) == 2 {
 			errTy := resolveTypeVar(resolved.TypeArgs[1])
 			if _, open := errTy.(*TypeVar); open {
 				return false

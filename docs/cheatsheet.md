@@ -514,9 +514,9 @@ entry_points = ["main"]
   arguments and environment and returns it in `Ok`. An `Err` stops the program
   before `main`. The struct has at most one `Context` field, which boot builds
   with `Context.root()`.
-- Code reads a field as `App.field`. The statement `with App.field = value`
-  replaces it from that line to the end of the block. Several fields take
-  several lines.
+- Code reads a field as `App.field`. `with App.field = value` replaces
+  one field to the end of the block. A closure keeps the fields in force
+  where it is made.
 - `test "name"` blocks, closed by `end`, sit beside the code. `assert`
   checks a `Bool`, `Some` or `Ok`, or a pattern; `refute` the opposite.
   `nomi test` runs them.
@@ -526,12 +526,11 @@ entry_points = ["main"]
   `Result`. A test binds the setup value with a pattern:
   `test "loads rows", db`. Each test runs clock, boot, setup and body
   afresh. `clock Clock.Virtual` makes waits instant.
-- Tasks start only inside a `concurrent` block, `concurrent` alone on its
+- Tasks start only in a `concurrent` block, `concurrent` alone on its
   line and `end`, which waits for them:
   `Task.spawn(fn -> ...)` and `Task.await(task)`, from `std::tasks`. Every task
   is awaited. `std::channels` splits a channel into a `Sender` and a
-  `Receiver`. A `Supervisor` is created only while `boot` builds the app
-  struct.
+  `Receiver`. A `Supervisor` is created only during `boot`.
 
 ```nomi-run
 import
@@ -565,11 +564,12 @@ group "greetings"
     end
 
     test "tasks"
-        total = concurrent
-            a = Task.spawn(fn -> 20)
-            b = Task.spawn(fn -> 22)
-            Task.await(a) + Task.await(b)
-        end
+        total =
+            concurrent
+                a = Task.spawn(fn -> 20)
+                b = Task.spawn(fn -> 22)
+                Task.await(a) + Task.await(b)
+            end
 
         assert total == 42
     end

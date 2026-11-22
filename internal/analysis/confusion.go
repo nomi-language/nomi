@@ -185,15 +185,19 @@ func (c *checker) methodCallOwner(t Type, name string) (owner, fn string, ok boo
 	return "", "", false
 }
 
+// stdSetType is std's Set, whose `add` setAddHint explains.
+var stdSetType = StdType{Module: "std/sets", Name: "Set"}
+
 // setAddHint is the hint for `Set.add(s, x)` with an element where the
 // second Set goes: `Set.add` is Add's function, the union `+`, and
-// `Set.insert` adds one element. "" for any other call or argument.
-func setAddHint(callee ast.Node, want, have Type) string {
+// `Set.insert` adds one element. The qualifier is std's Set by the type it
+// names (qualifierOf). "" for any other call or argument.
+func (c *checker) setAddHint(callee ast.Node, want, have Type) string {
 	fa, ok := callee.(*ast.FieldAccess)
 	if !ok || fa.Field == nil || fa.Field.Name != "add" {
 		return ""
 	}
-	if ti, ok := fa.Object.(*ast.TypeIdent); !ok || ti.Name != "Set" {
+	if c.fa.qualifierOf(fa.Object).Std != stdSetType {
 		return ""
 	}
 	if typeHeadName(want) != "Set" || typeHeadName(have) == "Set" {

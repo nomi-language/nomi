@@ -41,14 +41,10 @@ func irSetElemKind(k kind) bool {
 	return false
 }
 
-func (bl *irScalarBuilder) setMake(t *ast.ListLit) (ir.Temp, kind, bool, bool) {
-	// kindInvalid: sentinel — no expected element kind.
-	return bl.setMakeOf(t, kindInvalid)
-}
-
-// setMakeOf builds a set literal; elem, when not kindInvalid, is the
-// expected element kind each item is lowered against.
-func (bl *irScalarBuilder) setMakeOf(t *ast.ListLit, elem kind) (ir.Temp, kind, bool, bool) {
+// setMakeOf builds the set literal t at its kind (literalKind: its record,
+// or want, the kind of the position, where the builder made it), each item
+// lowered against the set's element (lowerItemsAt).
+func (bl *irScalarBuilder) setMakeOf(t *ast.ListLit, want kind) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if len(t.Spreads) == 1 && t.Spreads[0].At == 0 {
 		return bl.setUpdate(t)
@@ -57,25 +53,20 @@ func (bl *irScalarBuilder) setMakeOf(t *ast.ListLit, elem kind) (ir.Temp, kind, 
 		return bl.setSpreadLit(t)
 	}
 	if len(t.Items) == 0 {
-		return bl.emptyLiteral(t, setSpreadJoin, kindInvalid)
+		return bl.emptyLiteral(t, setSpreadJoin, want)
 	}
-	want := elem
-	// kindInvalid: sentinel — the items give the element kind.
-	if parts := bl.literalParts(t, setSpreadJoin); want == kindInvalid && parts != nil {
-		want = parts[0]
-	}
-	values, elem, ok := bl.lowerSameKindItems(t, setSpreadJoin, t.Items, want, irSetElemKind)
+	k, ok := bl.builtLiteralKind(t, setSpreadJoin, want)
 	if !ok {
 		return no()
 	}
-	// Every element lowerSameKindItems admits is a set element
-	// (irSetElemKind), and std's Set instantiates at each.
-	k := bl.g.setKindOf(elem)
+	// std's Set instantiates at each element the VM hashes and compares.
+	elem, _ := setElem(k)
 	if !irRetainedSetKind(k) {
-		panic("irbuild: no retained Set over the element " + elem.nomi())
+		bl.g.dc.note("a set literal outside the retained sets: " + k.nomi())
+		return no()
 	}
-	ok = bl.g.mapKeyOK(elem, t)
-	if !ok {
+	values, ok := bl.lowerItemsAt(t.Items, elem)
+	if !ok || !bl.g.mapKeyOK(elem, t) {
 		return no()
 	}
 	n := ir.NewMakeSet(bl.g.irNodePos(t), bl.f.NewTemp(), values)
@@ -88,13 +79,8 @@ func (bl *irScalarBuilder) setCallPlan(t *ast.Call, args irQualArgs, method stri
 	if !args.ok {
 		return nil
 	}
-	switch method {
-	case "size", "contains", "insert", "remove", "union", "intersection", "difference", "is_subset_of":
-	default:
-		return nil
-	}
-	fn := setFuncs[method]
-	if len(args.kinds) != fn.args {
+	fn, intrinsic := setFuncs[method]
+	if !intrinsic || len(args.kinds) != fn.args {
 		return nil
 	}
 	k := args.kinds[0]

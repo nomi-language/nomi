@@ -669,6 +669,8 @@ func nodeStart(n ast.Node) (int, int) {
 		return t.Line, t.Col
 	case *ast.Unwrap:
 		return t.Line, t.Col
+	case *ast.Dbg:
+		return t.Line, t.Col
 	case *ast.Block:
 		return t.Line, t.Col
 	case *ast.FuncDef:

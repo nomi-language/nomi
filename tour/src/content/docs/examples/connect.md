@@ -57,16 +57,17 @@ fn connects(rows: List<List<String>>, player: Player) -> Bool
     width = rows |> Iter.first() |> Maybe.map(Iter.count) |> Maybe.with_default(0)
     last_column = width - 1
 
-    (is_start, is_goal) = case player
-        .X ->
-            (
-                fn (_row, column): Cell -> column == 0,
-                fn (_row, column): Cell -> column == last_column,
-            )
+    (is_start, is_goal) =
+        case player
+            .X ->
+                (
+                    fn (_row, column): Cell -> column == 0,
+                    fn (_row, column): Cell -> column == last_column,
+                )
 
-        .O ->
-            (fn (row, _column): Cell -> row == 0, fn (row, _column): Cell -> row == last_row)
-    end
+            .O ->
+                (fn (row, _column): Cell -> row == 0, fn (row, _column): Cell -> row == last_row)
+        end
 
     starts = stones |> Iter.filter(is_start) |> Iter.to_list()
     reaches(stones, starts, Iter.to_set(starts), is_goal)

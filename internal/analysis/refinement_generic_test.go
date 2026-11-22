@@ -115,7 +115,7 @@ func TestGenericRefinement_Rejected(t *testing.T) {
 		{"a literal with a computed element", "fn f(n: Int) -> Many<Int>\n    [n]\nend\n",
 			"Many is a subtype: a literal of it is checked when the program is compiled, so each of its elements is a literal, and `n` is not\nhelp: build a Many from values known only when the program runs with `Many.try_from(...)`, a `Maybe<Many<Int>>`"},
 		{"a std non-empty literal of spreads that may be empty", "fn f(xs: List<Int>) -> NonEmptyList<Int>\n    [..xs]\nend\n",
-			"`[..xs]` may be empty, and a NonEmptyList holds something: none of its spreads is of a non-empty type, and it writes no element\nhelp: write an element beside the spread, spread a NonEmptyList, or check the value with `NonEmptyList.try_from(...)`"},
+			"`[..xs]` may be empty, and a NonEmptyList holds something: none of its spreads holds something, and it writes no element\nhelp: write an element beside the spread, spread a NonEmptyList, or check the value with `NonEmptyList.try_from(...)`"},
 		{"a std non-empty literal's element of another type", "fn f(n: Int) -> NonEmptyList<PositiveInt>\n    [n]\nend\n",
 			"list element type mismatch: expected PositiveInt, got Int"},
 		{"a subtype over NonEmptyList keeps its rule", "subtype Short<T> NonEmptyList<T> when fn xs -> List.length(xs) < 3\n\nfn f(n: Int) -> Short<Int>\n    [n]\nend\n",

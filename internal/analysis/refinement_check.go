@@ -335,7 +335,9 @@ func (c *checker) recordRefinementRuleCheck(n *ast.TypeDef) {
 		c.fa.References[Pos{Line: line, Col: at - 1}] = typeSym
 		c.fa.References[Pos{Line: line, Col: at - 3}] = &Symbol{Name: RefinementLiteralName, Kind: SymbolBinding, Type: arg, Pos: Pos{Line: line, Col: at - 3}}
 		mark, undeterminedMark := len(c.errors), len(c.undetermined)
+		c.ruleWitness = i == 0
 		got := c.checkNode(call)
+		c.ruleWitness = false
 		failed := len(c.errors) > mark
 		c.errors, c.undetermined = c.errors[:mark], c.undetermined[:undeterminedMark]
 		if failed || got == nil {
@@ -475,6 +477,12 @@ func checkedKindText(dt *DistinctType) string {
 // compiled, a value already of a `type`'s inner subtype passes when the
 // type adds no rule, and any other value is an error naming `try_from`.
 func (c *checker) checkedCtorArg(arg ast.Node, dt *DistinctType, label string) {
+	if c.opaqueOutside(dt) != "" {
+		// The call form is refused as construction (checkOpaqueConstructor),
+		// and so is the `try_from` the errors below would name.
+		c.checkNode(arg)
+		return
+	}
 	inner := DistinctInner(dt)
 	if refinementLiteral(arg) {
 		c.checkRefinementLiteral(arg, dt)
@@ -577,7 +585,11 @@ func refinementMismatchHint(want, have Type) (string, bool) {
 			dt.Name), true
 	}
 	for _, anc := range RefinementAncestors(dt) {
-		if TypesIdentical(anc, have) {
+		// A generic call's NonEmptyList<T> given a List<String>: the
+		// ancestor at the argument's type arguments is the value's type.
+		args := map[*TypeParam_]Type{}
+		matchTypeParams(anc, have, args)
+		if TypesIdentical(anc, have) || len(args) > 0 && TypesIdentical(Substitute(anc, args), have) {
 			return fmt.Sprintf("%s is a subtype of %s; check the value with `%s.try_from(...)`, which is `Some` %s",
 				dt.Name, refinementParentsText(dt), dt.Name, tryFromSomeWhen(dt)), true
 		}
@@ -605,18 +617,9 @@ func (c *checker) checkUncheckedRefinement(n *ast.UncheckedRefinement) Type {
 		line, col := startOf(n.Value)
 		c.addError(line, col, fmt.Sprintf("type mismatch: expected %s, got %s", formatTypeForError(base), formatTypeForError(have)))
 	}
-	solved := resolveSolvedVars(t)
-	if dt, ok := solved.(*DistinctType); ok && !dt.Subtype && len(dt.TypeArgs) > 0 && c.fa != nil {
-		// A generic validated type is built by its call form at the
-		// arguments solved here, which the IR builder reads at the
-		// node's position as it reads a written call's callee.
-		if sym := c.fa.ModuleScope.Lookup(n.Refinement); sym != nil {
-			site := *sym
-			site.CallType = &FuncType{Params: []Type{resolveSolvedVars(base)}, Return: solved}
-			c.fa.References[Pos{Line: n.Line, Col: n.Col}] = &site
-		}
-	}
-	return solved
+	// The IR builder builds the value by this type: a generic validated
+	// type at the arguments solved here.
+	return resolveSolvedVars(t)
 }
 
 // checkRefinementRule types a generated `try_from`'s call of its rule: the
@@ -902,7 +905,7 @@ func (c *checker) checkRefinementImpl(n *ast.ImplBlock) {
 	if n.Interface == nil || n.Receiver == nil {
 		return
 	}
-	if !IsSynthesizedLine(n.Line) && TypeExprBaseName(n.Interface) == "TryFrom" {
+	if !IsSynthesizedLine(n.Line) && implInterfaceName(c.fa, n.Interface) == "TryFrom" {
 		if c.reportSuppliedTryFrom(n) {
 			return
 		}
@@ -911,7 +914,7 @@ func (c *checker) checkRefinementImpl(n *ast.ImplBlock) {
 	if IsSynthesizedLine(line) && n.SynthOriginLine > 0 {
 		line, col = n.SynthOriginLine, n.SynthOriginCol
 	}
-	iface := TypeExprBaseName(n.Interface)
+	iface := implInterfaceName(c.fa, n.Interface)
 	if gt, generic := n.Interface.(*ast.GenericType); generic {
 		// `impl Add<Port, Int> for Int`: the impl would be selected at
 		// run time by Port's base, where the base's own impl already is.
@@ -1038,10 +1041,10 @@ func (c *checker) checkCollectionRefinementLit(n ast.Node, ty Type) Type {
 				// the rule, whatever its elements are.
 				return ty
 			}
-			// Only spreads, none of a non-empty type: `[..xs]`.
+			// Only spreads, none of which holds something: `[..xs]`.
 			line, col := startOf(n)
 			c.report(TypeError{Line: line, Col: col, Message: fmt.Sprintf(
-				"`%s` may be empty, and a %s holds something: none of its spreads is of a non-empty type, and it writes no element",
+				"`%s` may be empty, and a %s holds something: none of its spreads holds something, and it writes no element",
 				RenderLiteral(n), dt.Name)}.WithHint(fmt.Sprintf(
 				"write an element beside the spread, spread a %s, or check the value with `%s.try_from(...)`, a `Maybe<%s>`",
 				dt.Name, dt.Name, formatTypeForError(dt))))
@@ -1063,41 +1066,109 @@ func (c *checker) checkCollectionRefinementLit(n ast.Node, ty Type) Type {
 	return ty
 }
 
-// stdNonEmptyCollections are the std subtypes whose only rule is that the
-// collection holds something, by declaring file and name.
-var stdNonEmptyCollections = map[[2]string]bool{
+// stdNonEmptySubtypes are the std subtypes whose only rule is that the
+// value holds something, by declaring file and name: a collection's
+// (true) and the String's (false).
+var stdNonEmptySubtypes = map[[2]string]bool{
 	{"std/lists", "NonEmptyList"}:     true,
 	{"std/vectors", "NonEmptyVector"}: true,
 	{"std/maps", "NonEmptyMap"}:       true,
 	{"std/sets", "NonEmptySet"}:       true,
+	{"std/strings", "NonEmptyString"}: false,
+}
+
+// isStdNonEmpty reports whether dt is one of stdNonEmptySubtypes, at any
+// type arguments. A subtype declared over one of them is not: its own
+// rule says more.
+func isStdNonEmpty(dt *DistinctType) bool {
+	if dt == nil || !dt.Subtype || dt.Intersection {
+		return false
+	}
+	_, ok := stdNonEmptySubtypes[[2]string{dt.Origin, dt.Name}]
+	return ok
 }
 
 // isStdNonEmptyCollection reports whether dt is NonEmptyList,
-// NonEmptyVector, NonEmptyMap or NonEmptySet, at any type arguments. A
-// subtype declared over one of them is not: its own rule says more.
+// NonEmptyVector, NonEmptyMap or NonEmptySet, at any type arguments.
 func isStdNonEmptyCollection(dt *DistinctType) bool {
-	return dt != nil && dt.Subtype && !dt.Intersection && stdNonEmptyCollections[[2]string{dt.Origin, dt.Name}]
+	return isStdNonEmpty(dt) && stdNonEmptySubtypes[[2]string{dt.Origin, dt.Name}]
 }
 
 // nonEmptyByType reports whether a value of t holds something because of
-// its type: t is a std non-empty collection subtype or a subtype below one.
+// its type: t is a std non-empty subtype of a List, Vector, Map, Set or
+// String, or a subtype below one.
 func nonEmptyByType(t Type) bool {
 	for _, s := range refinementChain(t) {
-		if isStdNonEmptyCollection(refinementOf(s)) {
+		if isStdNonEmpty(refinementOf(s)) {
 			return true
 		}
 	}
 	return false
 }
 
-// literalHoldsSomething reports whether the list, vector, set or map
-// literal n, already checked, holds at least one element whatever its
-// elements are: it writes an element or an entry, or spreads a value whose
-// type is non-empty (nonEmptyByType). `[..xs]` with xs a List may be empty;
-// `[..xs, y]` and `[..ys]` with ys a NonEmptyList are not.
+// holdsSomething reports whether the value of n, a checked expression,
+// holds at least one element or character (spec §4 *Literals, `try_from`
+// and `unchecked`*): its type is non-empty (nonEmptyByType), it is a
+// literal that holds something (literalHoldsSomething), a read of a
+// binding whose value proved it (bindRange), or a block whose last
+// expression, or an `if` or `case` whose every branch that finishes,
+// holds something. A binding with no type written and a `once` keep what
+// this answers of their values, a literal's spreads are judged by it, and
+// so is the argument of a length or size (callRange).
+func (c *checker) holdsSomething(n ast.Node) bool {
+	if c.fa == nil || n == nil {
+		return false
+	}
+	g := ungroupExpr(n)
+	if nonEmptyByType(c.fa.ExprTypes[n]) || nonEmptyByType(c.fa.ExprTypes[g]) {
+		return true
+	}
+	switch v := g.(type) {
+	case *ast.ListLit, *ast.MapLit, *ast.StringLit, *ast.StringInterp:
+		return c.literalHoldsSomething(g)
+	case *ast.Ident:
+		sym := c.fa.References[Pos{Line: v.Line, Col: v.Col}]
+		return sym != nil && c.symRanges[sym].nonEmpty
+	case *ast.Block:
+		return c.holdsSomething(tailExpr(v))
+	}
+	branches, ok := valueBranches(g)
+	if !ok {
+		return false
+	}
+	finishing, ok := c.finishingBranches(branches)
+	if !ok || len(finishing) == 0 {
+		return false
+	}
+	for _, b := range finishing {
+		if !c.holdsSomething(b) {
+			return false
+		}
+	}
+	return true
+}
+
+// literalHoldsSomething reports whether the list, vector, set, map or
+// string literal n, already checked, holds at least one element or
+// character whatever its parts are. A collection literal does when it
+// writes an element or an entry, or spreads a value that holds something
+// (holdsSomething): `[..xs]` with xs a List parameter may be empty;
+// `[..xs, y]`, and `[..ys]` with ys a NonEmptyList or bound to `["a"]`,
+// are not. A string literal does when it writes any text, whatever its
+// `${...}` parts are: `"a"` and `"a${x}"` hold something, and `""` and
+// `"${x}"` may be empty.
 func (c *checker) literalHoldsSomething(n ast.Node) bool {
 	var spreads []ast.Spread
 	switch v := ungroupExpr(n).(type) {
+	case *ast.StringLit:
+		return v.Value != ""
+	case *ast.StringInterp:
+		for _, part := range v.Parts {
+			if text, ok := part.(ast.StringText); ok && text.Value != "" {
+				return true
+			}
+		}
+		return false
 	case *ast.ListLit:
 		if len(v.Items) > 0 {
 			return true
@@ -1112,7 +1183,7 @@ func (c *checker) literalHoldsSomething(n ast.Node) bool {
 		return false
 	}
 	for _, sp := range spreads {
-		if c.fa != nil && nonEmptyByType(c.fa.ExprTypes[sp.Head]) {
+		if c.holdsSomething(sp.Head) {
 			return true
 		}
 	}

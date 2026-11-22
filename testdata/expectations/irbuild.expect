@@ -11,7 +11,7 @@
 # T <transcript line>, verbatim
 population irbuild
 what one record per program an internal/irbuild test compares the VM against, keyed <entry>@<sha256(its files, .nomi files as tokens)[:16]>, run as the command that owns it would run it. <dir> is the program's directory. A temp program carries its files as source; a repository program's entry is its path from the worktree root.
-records 385
+records 380
 declared-cases 0
 failing 85
 C assert_subject_test.nomi@295b6bb031afecb5
@@ -3105,7 +3105,7 @@ T
 C internal/irbuild/testdata/anon_struct.nomi@a4c410da3dc462a8
 E 1
 N 0
-H bd0e567a86a5ac6a26dc6a430e16d925110fda392c04be8a9a8668d20b1940db
+H 89a1fd2c3b0e2a51d798ebe1b4ea79aa12fa806e4ece8b3321890417663f38df
 T FAIL <dir>/anon_struct.nomi :: records are structural, ordered by nothing the programmer wrote
 T   30
 T   Hi Bob, you are 42
@@ -3115,7 +3115,7 @@ T   {count: 3, outer: {inner: 1, label: hi}}
 T   1
 T   x is ten, y is 20
 T   30
-T   line 65: assertion failed
+T   line 67: assertion failed
 T     assert no({a: 1, a0: 2})
 T     values:
 T       {a: 1, a0: 2}
@@ -3142,16 +3142,16 @@ T       rec
 T         = {x: 1, y: 2}
 T test result: FAILED. 0 passed, 2 failed
 T
-C internal/irbuild/testdata/app_fields.nomi@e6ab5e1a2f41e5e4
+C internal/irbuild/testdata/app_fields.nomi@2c689d3537c1892f
 E 0
 N 0
-H 7ef896e652c3cf6733ae111b5434bc308b4ca1835f7401521b811dcc7774a4e7
+H 740afabbd921ebc939081a30785702a0ca5ef66e353f561e7b92437d28f1dde1
 T ok <dir>/app_fields.nomi :: app fields / a read with no override sees the booted value
 T ok <dir>/app_fields.nomi :: app fields / an override reaches a deep callee through an intermediate
 T ok <dir>/app_fields.nomi :: app fields / the value reads the field in force where its line runs
 T ok <dir>/app_fields.nomi :: app fields / an override in a block ends with the block
 T ok <dir>/app_fields.nomi :: app fields / a with in a lambda and before an early return
-T ok <dir>/app_fields.nomi :: app fields / a closure does not carry the override it was made under
+T ok <dir>/app_fields.nomi :: app fields / a closure keeps the override it was made under
 T ok <dir>/app_fields.nomi :: app fields / a later case does not see an earlier case's override
 T ok <dir>/app_fields.nomi :: an override in a setup / reaches the test body
 T test result: ok. 8 passed, 0 failed
@@ -3219,7 +3219,7 @@ T
 C internal/irbuild/testdata/assert_shape.nomi@4009726e11b92b66
 E 1
 N 0
-H 329c0dc8cb5c2bc8c0d1db4aad5c275267b4eabc2cc7f8b2c20bb2c274506baa
+H ee2bf1c5604ac0a66f3bfa11b29f0ede81939a61a75574bf89f4c47cdfcc9796
 T FAIL <dir>/assert_shape.nomi :: a Maybe subject that is None fails
 T   line 37: assertion failed
 T     assert find(2)
@@ -3231,16 +3231,16 @@ T     refute find(1)
 T     actual: Some("Ada")
 T ok <dir>/assert_shape.nomi :: refuting a None passes and carries the None through
 T FAIL <dir>/assert_shape.nomi :: a Result subject that is Err fails
-T   line 64: assertion failed
+T   line 65: assertion failed
 T     assert parse("wat")
 T     actual: Err("not a number")
 T ok <dir>/assert_shape.nomi :: a Result subject that is Ok passes and carries the variant through
 T FAIL <dir>/assert_shape.nomi :: refuting an Ok fails in its own words
-T   line 74: refute failed
+T   line 75: refute failed
 T     refute parse("42")
 T     actual: Ok(42)
 T FAIL <dir>/assert_shape.nomi :: a bound shape subject shows its defining expression above its value
-T   line 80: assertion failed
+T   line 81: assertion failed
 T     assert looked_up
 T     defined as:
 T       find(2)
@@ -4152,7 +4152,7 @@ T
 C internal/irbuild/testdata/debug_display_surfaces.nomi@c8f84eeab400cea9
 E 1
 N 0
-H ad3e6da8200d697bd96c99780718a4e78bfec624fcc5ef25c7d9e07f56ef249d
+H 43fad985c3ff8f3f049833ccd13f2eaa4b9601c1429515d1abda08da86cdacdd
 T ok <dir>/debug_display_surfaces.nomi :: the four renderings of one value
 T   1 Display.to_string(r) = REV-DISPLAY
 T   2 interpolated r       = REV-DISPLAY
@@ -4167,37 +4167,37 @@ T   10 Debug.inspect(b)    = False
 T   11 Debug.inspect(list) = [True, False]
 T   12 materialized payload = False
 T FAIL <dir>/debug_display_surfaces.nomi :: values row for a struct with an impl Display
-T   line 178: assertion failed
+T   line 179: assertion failed
 T     assert no_rev(r)
 T     values:
 T       r
 T         = Rev{alpha: 2, zeta: 1}
 T FAIL <dir>/debug_display_surfaces.nomi :: values row honours a hand-written impl Debug
-T   line 183: assertion failed
+T   line 184: assertion failed
 T     assert no_custom(c)
 T     values:
 T       c
 T         = CUSTOM-DEBUG
 T FAIL <dir>/debug_display_surfaces.nomi :: values row for a struct with no impls at all
-T   line 188: assertion failed
+T   line 189: assertion failed
 T     assert no_plain(p)
 T     values:
 T       p
 T         = Plain{alpha: 2, zeta: 1}
 T FAIL <dir>/debug_display_surfaces.nomi :: values row for a Bool
-T   line 193: assertion failed
+T   line 194: assertion failed
 T     assert no_bool(b)
 T     values:
 T       b
 T         = True
 T FAIL <dir>/debug_display_surfaces.nomi :: values row for a list of Bool
-T   line 198: assertion failed
+T   line 199: assertion failed
 T     assert no_bools(bs)
 T     values:
 T       bs
 T         = [True, False]
 T FAIL <dir>/debug_display_surfaces.nomi :: values row shows an opaque payload Debug hides
-T   line 203: assertion failed
+T   line 204: assertion failed
 T     assert no_meters(m)
 T     values:
 T       m
@@ -6919,7 +6919,7 @@ N 0
 H f7401952233607f55e3f63f88395e92d5f7290dd57a43a4ac5638ccb5cd2de78
 T go = 0
 T
-C internal/irbuild/testdata/sibling_enum_case/app/main.nomi@210dd562b2f1cd97
+C internal/irbuild/testdata/sibling_enum_case/app/main.nomi@03b6efc0a5455463
 E 0
 N 0
 H e801fb034e89ff78eb75e7045e3ef67c4c25ffeb80e1519938f327f3604d1279
@@ -7099,7 +7099,7 @@ T lt True
 T ge False
 T compare Less
 T
-C internal/irbuild/testdata/std_dynamic_boundary.nomi@bcd18cf90012c249
+C internal/irbuild/testdata/std_dynamic_boundary.nomi@2e41ceabc05c3f3c
 E 0
 N 0
 H 4813c1807a70c2370ad71783d7e067d770d51acd02509830bf1d349bb15f2799
@@ -7488,7 +7488,7 @@ T sum = 1000
 T swap even = -5
 T swap odd = 5
 T
-C internal/irbuild/testdata/tail_impl_boundary.nomi@56b5c105b8fbaab5
+C internal/irbuild/testdata/tail_impl_boundary.nomi@a29f1a9ad363308a
 E 0
 N 0
 H 1307c80650376a374990f73ae2a54a711323491e6e4169e4920b6e232465e98d
@@ -9971,43 +9971,4 @@ T ok <dir>/toml_literal_test.nomi :: a key slot is one quoted key part
 T ok <dir>/toml_literal_test.nomi :: a program's own type writes itself as another ToToml
 T ok <dir>/toml_literal_test.nomi :: a program's own type cannot write TOML text
 T test result: ok. 9 passed, 0 failed
-T
-C tests/18-ffi-and-dynamic/callback_ffi_app/main_test.nomi@a8f6d6d5f9b9cccb
-E 0
-N 0
-H 8e6cfe4d010288bc19c4fb841f348f5ba5b92e790fd735d3645b545427610261
-T ok <dir>/main_test.nomi :: Go callback parameter can call Nomi lambda
-T test result: ok. 1 passed, 0 failed
-T
-C tests/18-ffi-and-dynamic/duration_ffi_app/main_test.nomi@75c0f04838440624
-E 0
-N 0
-H b22fd84eac2eb7d2f757e9c0c4de9dbd830b798a1ef27f5a7e6caab7dcaf970f
-T ok <dir>/main_test.nomi :: Go time.Duration projects to Nomi Duration
-T ok <dir>/main_test.nomi :: Nomi Duration passes back to Go time.Duration
-T test result: ok. 2 passed, 0 failed
-T
-C tests/18-ffi-and-dynamic/inline_go_block_app/main_test.nomi@2773d7dc4b7bfe16
-E 0
-N 0
-H bbc6576e5c0f998807426b72174239f3851af3462ac722968c3745ef93d5ce24
-T ok <dir>/main_test.nomi :: local Go package functions are available
-T ok <dir>/main_test.nomi :: local Go package types can back opaque Nomi types
-T test result: ok. 2 passed, 0 failed
-T
-C tests/18-ffi-and-dynamic/tagged_ffi_app/main_test.nomi@4e93739d344ecd49
-E 0
-N 0
-H 50e72742378b0953245c9c8a435122cc4a79fb67bd89052bc2fd92671f8aa62e
-T ok <dir>/main_test.nomi :: project-local Go export is available to tests
-T ok <dir>/main_test.nomi :: project-local Go type binding is available to tests
-T test result: ok. 2 passed, 0 failed
-T
-C tests/18-ffi-and-dynamic/time_ffi_app/main_test.nomi@5cd4012842b11fab
-E 0
-N 0
-H 9be36e6a847c0f8492901ae5bbe30960707f9ce05a8d53157bbc73a93aa8bf1f
-T ok <dir>/main_test.nomi :: Go time.Time projects to Nomi Instant
-T ok <dir>/main_test.nomi :: Nomi Instant passes back to Go time.Time
-T test result: ok. 2 passed, 0 failed
 T

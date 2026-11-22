@@ -210,10 +210,11 @@ fn deliver(args: EmailArgs)
         Conn.query(App.db, Sql"SELECT u.email FROM users u WHERE u.id = ${args.user_id}")
         |> Result.with_default([])
 
-    email = case Iter.first(rows)
-        Some(row) -> Row.get<String>(row, "email") |> Result.with_default("?")
-        None      -> "?"
-    end
+    email =
+        case Iter.first(rows)
+            Some(row) -> Row.get<String>(row, "email") |> Result.with_default("?")
+            None      -> "?"
+        end
 
     _ = Sender.send(App.sent.sender, email)
 end

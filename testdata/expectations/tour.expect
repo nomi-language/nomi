@@ -10,9 +10,9 @@
 # S <source line>, only for a record that carries its own program
 # T <transcript line>, verbatim
 population tour
-what one record per runnable ```nomi-run block in tour, keyed chapter:L<line>, run the way the tour playground runs it. N is 1 when the block declares tests and 0 otherwise; a block's own tests run and their report is part of the transcript, which the hidden <!-- expect --> block does not cover. A block that stops on purpose (a todo reached, a trap, an Err from main) is recorded with exit 1 and its failure on stderr, as `nomi run` prints it. A block that imports a module whose Go side only the browser links (sqlite) has no record; the staged wasm is held to its expect block.
-records 417
-declared-cases 201
+what one record per runnable ```nomi-run block in tour, keyed chapter:L<line>, run the way the tour playground runs it. N is 1 when the block declares tests and 0 otherwise; a block's own tests run and their report is part of the transcript, which the hidden <!-- expect --> block does not cover. A block that stops on purpose (a todo reached, a trap, an Err from main) is recorded with exit 1 and its failure on stderr, as `nomi run` prints it. A block that imports a tour module (sqlite) runs with the module's files attached, as the playground attaches them.
+records 426
+declared-cases 203
 failing 16
 C app-fields.md:L105
 E 0
@@ -27,14 +27,21 @@ N 0
 H 333179f3c55fb5bf5224cda7f4a76639ad3a798a5254aea2b7f5596736939f64
 T listening on :8080
 T
-C app-fields.md:L174
+C app-fields.md:L175
 E 0
 N 0
-H b75b2f17a115c5f167ad8816a1c4f05344d994e1ae0724efce759c370f0de264
+H 645503c9bfaa9618856eb8a7d46fe1ca102c991c9a25ea4215ee60b51dc09d6d
 T psst, world
-T hello, world
+T psst, world
 T
-C app-fields.md:L230
+C app-fields.md:L251
+E 0
+N 0
+H 57e77be4b3a95a5f4b2efad558b1c7c3869d83950889660dc17a92fa1af969f7
+T dbg line 16: tax_free_total(200) = 200
+T dbg line 17: Shop.tax_percent = 8
+T
+C app-fields.md:L284
 E 0
 N 0
 H 51274f8b06dd6180de571bf759b8e1b0bb7c092e7b9cf0096c09c85440ae84f4
@@ -45,13 +52,13 @@ T close log
 T close notes
 T after the block
 T
-C app-fields.md:L370
+C app-fields.md:L424
 E 0
 N 0
 H 8feac82b1491d389c0360dd65a6689b7a47a6eb9d016618d4dc79bba6c824f09
 T dev: postgres://localhost/myapp_dev, 5 connections
 T
-C app-fields.md:L450
+C app-fields.md:L504
 E 0
 N 1
 H 6f7cc69cd602b57272358318906f7cbbca164ac2f14b83912bd321c886fd9426
@@ -60,7 +67,7 @@ T ok app-backed behavior / reads the booted field
 T ok app-backed behavior / a with line replaces a field for the rest of the body
 T test result: ok. 2 passed, 0 failed
 T
-C app-fields.md:L494
+C app-fields.md:L548
 E 0
 N 1
 H 5e5a6007494211f6690adb2b128d0333f87e2c428ddeb5a37b336cbbc10b226e
@@ -69,7 +76,7 @@ T ok quiet by default / takes no arguments
 T ok verbose / reads -v
 T test result: ok. 2 passed, 0 failed
 T
-C app-fields.md:L602
+C app-fields.md:L656
 E 0
 N 1
 H f8dddb7c5f81249e771f276065062524732366ab8b5b544869ff605ca7ad662f
@@ -85,7 +92,7 @@ T dbg line 43: handle_order(1) = "order 1 accepted"
 T dbg line 44: handle_order(2) = "order 2 accepted"
 T dbg line 48: audited_total() = 3
 T
-C background-work.md:L433
+C background-work.md:L435
 E 0
 N 1
 H ddd98c693bb3466050638c85c8d1865af29c49d1edffbeebafef20b6255218a3
@@ -93,14 +100,14 @@ T count: Ok(2)
 T ok a counter actor / messages accumulate into state a caller can read back
 T test result: ok. 1 passed, 0 failed
 T
-C background-work.md:L535
+C background-work.md:L537
 E 0
 N 1
 H 10d6b786d27bbc303bc4d0615d5d71c534fc08ed3b71cfbb4fee9f35ac88e5c9
 T ok a receipt job runs once it is enqueued
 T test result: ok. 1 passed, 0 failed
 T
-C background-work.md:L578
+C background-work.md:L580
 E 0
 N 1
 H 10e6aafdfa1dd5e1fecbb29908ea72d07f631b2e5642f8f83fc0c359ab079271
@@ -182,18 +189,18 @@ T
 C bindings-and-expressions.md:L371
 E 0
 N 0
-H 43b613d8570e1fd94b76c24cf0c81073887de870e640dc2f2a0eaff21897d114
-T dbg line 8: total = 30
+H b9587e4c0e70e3f4fa162783e54bc0e50899275d04d7fefe6b6e07b04d018c06
+T dbg line 9: total = 30
 T
-C bindings-and-expressions.md:L412
+C bindings-and-expressions.md:L413
 E 0
 N 0
-H f3443d8a6076b8cbdaee47df7e54478e1ee5f705d73a1494a47f308b1a9a4b83
+H 3b33bb86248335ed4db6d88295eca972da727ea74c8513b4e3c930b277af0931
 T dbg line 5: size = "small"
-T dbg line 13: label = "many"
-T dbg line 22: range = "medium"
+T dbg line 14: label = "many"
+T dbg line 24: range = "medium"
 T
-C bindings-and-expressions.md:L461
+C bindings-and-expressions.md:L464
 E 0
 N 0
 H 2c5d5933a76b066781c055af8e23078df59868d2d4fe8e12893d5bcdbf35e2f7
@@ -219,22 +226,6 @@ H a6b1bb95ee0c31463cd87c269dfbaa3a8d9997a41fb39e28526ec04826cd298e
 T [static/index.html, static/style.css]
 T <h1>Hello</h1>
 T
-T
-C calling-go.md:L188
-E 0
-N 0
-H 46952e420e0adb4ecb98ffa8edb1eb17ffb2009326aa46a5a07ee3021d0fc42b
-T HI
-T ababab
-T Ok(42)
-T
-C calling-go.md:L38
-E 0
-N 0
-H c418f9870799c22c5d9c4e071311233d0cded72acbe7ffc5522d2e4fd38b9601
-T example.com/search tags=[go, nomi]
-T a+b%2Bc
-T Err(invalid URL escape "%zz")
 T
 C cheat-sheet.md:L137
 E 0
@@ -278,7 +269,7 @@ H 43d4e6551530ef28b9999096eab53b4c94adb056747d99c43519d2f927f6bb81
 T ok bindings and functions
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L539
+C cheat-sheet.md:L538
 E 0
 N 1
 H a7280413a9dcc66fb588d5b17d2c6fc7da6a1dccdf02b01bcc260d8151ebd48f
@@ -396,47 +387,47 @@ T   |> Iter.map(fn n -> n * n)
 T   |> Iter.sum()
 T   = 50
 T
-C concurrency.md:L174
+C concurrency.md:L176
 E 0
 N 0
-H d7ff00537577b1217318624b42d45caf4aace5d0597198d662b5fbf251a120b4
-T dbg line 22: answer = "failed: 503"
+H ca99f3b0bdfcb57b398df95ab75750981837ddd3e80b1cefde3d79975a27df4c
+T dbg line 23: answer = "failed: 503"
 T
-C concurrency.md:L234
+C concurrency.md:L237
 E 0
 N 0
-H eaafa48c64fe8918be364596fe1587d23b02fabf2197d579e54076e43bfe2762
-T dbg line 26: outcome = Err("boom")
+H 7fd6c4fb050ee2790305f72ed0b528e428fe4d9729d6badecb51205a9a5b76dd
+T dbg line 27: outcome = Err("boom")
 T
 C concurrency.md:L31
 E 0
 N 0
-H c31b6ae62ff1f91268d14d0e4b44d9f8d44d51dca1a08675df3af07e09d6cd15
-T dbg line 15: total = 120
+H 95f626521c3d16ba7a1fe1ea09710784778085fdedb2f2e995d05f0a5a9f5a3c
+T dbg line 16: total = 120
 T
-C concurrency.md:L331
+C concurrency.md:L335
 E 0
 N 0
-H 836e01dc8cc03b4bf544e66091f956a2cc0d5ae5ba56ef023d29bec1ca948be6
-T dbg line 23: counts = [Ok(2), Ok(6), Err(NotFound{path: "missing.txt"})]
+H 53695832f6a7b7ce793d40403f20e3f08d7db0027aa34f34a49ff9afeffefde2
+T dbg line 24: counts = [Ok(2), Ok(6), Err(NotFound{path: "missing.txt"})]
 T
-C concurrency.md:L429
+C concurrency.md:L435
 E 0
 N 0
-H a863eda0833fa93e145d571d5dbb459b9a44a775bbff5d2031874287e59d30da
-T dbg line 22: outcome = Cancelled
+H 400fbb45b606708f4c377d90b8fe23d6df0656c0d476838432651063459a77ba
+T dbg line 23: outcome = Cancelled
 T
-C concurrency.md:L543
+C concurrency.md:L551
 E 0
 N 0
-H daf67897ba4a63cc77d1260d20a68e49a1bf3dcb5864bc498d510432a94d2b74
-T dbg line 39: result = "timed out, falling back"
+H ec2d49035faba55900e7d32b6e5cae62d08cec9aee89e7498a11e58c50178c76
+T dbg line 41: result = "timed out, falling back"
 T
-C concurrency.md:L97
+C concurrency.md:L98
 E 0
 N 0
-H 3339a05f5c0b79fd6335143f1aedae34dbda7764e5aebea63f3f6ec5a2c7882b
-T dbg line 40: total = 60
+H 49715766664843be8fbbd937694ee7245e941c634395e517b27354c27e4019f0
+T dbg line 41: total = 60
 T
 C databases.md:L104
 E 0
@@ -448,10 +439,39 @@ T
 C databases.md:L137
 E 0
 N 0
-H 9abcd7ad79b8914755b0f27cf4ca0deb95786daf155601933c3f1d20df55bddf
-T dbg line 29: "${orders_query([], None, .Newest)}" = "SELECT id FROM orders ORDER BY placed_at DESC"
-T dbg line 30: "${orders_query(["paid", "shipped"], Some(20d), .Largest)}" = "SELECT id FROM orders WHERE (status IN (?1, ?2)) AND (total >= ?3) ORDER BY total DESC"
-T dbg line 31: orders_query(["paid", "shipped"], Some(20d), .Largest).params = [Text("paid"), Text("shipped"), Decimal(20d)]
+H 3b43a9a112a6a9538ce3bdcb795fb814c1ba4c37474310a1d92d3e76698c8b1b
+T dbg line 31: "${orders_query([], None, .Newest)}" = "SELECT id FROM orders ORDER BY placed_at DESC"
+T dbg line 32: "${orders_query(["paid", "shipped"], Some(20d), .Largest)}" = "SELECT id FROM orders WHERE (status IN (?1, ?2)) AND (total >= ?3) ORDER BY total DESC"
+T dbg line 33: orders_query(["paid", "shipped"], Some(20d), .Largest).params = [Text("paid"), Text("shipped"), Decimal(20d)]
+T
+C databases.md:L193
+E 0
+N 0
+H 9bc15f3a7f1587e5c9c37c61c1b1df29bccc3027900a6c91d25a1ec77a75d273
+T dbg line 35: transfer(db, "ada", "bob", 30) = Ok(Unit)
+T dbg line 36: transfer(db, "ada", "bob", 30) = Err(Constraint{kind: Check, name: "accounts_balance_check", table: Some("accounts"), column: Some("balance")})
+T ada: 20
+T bob: 30
+T
+C databases.md:L43
+E 0
+N 0
+H 59edbd9e54b7a922a4fde1a3540f59d8881f03d636dbd1bae2ea8e948cd4ff9c
+T 1: buy milk
+T 2: call Ada
+T
+C databases.md:L430
+E 0
+N 1
+H b15ba2af64a66d291feb271cc348563a99511043832aa7f3c9bd05488c4053a7
+T order 1 is paid (1 row changed)
+T user 1: ada@example.com (Ada)
+T ada@example.com: orders 1, last order 1
+T grace@example.com: orders 0, last order none
+T ok the shop / a user reads back as its row
+T ok the shop / a second user with the same email breaks the unique constraint
+T ok generated sql is current
+T test result: ok. 3 passed, 0 failed
 T
 C dates-and-times.md:L106
 E 0
@@ -1780,14 +1800,14 @@ T bread
 T milk
 T nothing yet
 T
-C files.md:L228
+C files.md:L230
 E 0
 N 0
 H a0ed10c8e4291ee06c8d1aa253634d252c4c928c7f055cc701f9265cfad3742c
 T Ok(3)
 T Ok(2)
 T
-C files.md:L276
+C files.md:L278
 E 0
 N 0
 H 47852bb9f3ba8222f228520f8ad4e384705c5daa10b164cd436f9fd83507c787
@@ -1799,7 +1819,7 @@ T notes.txt
 T photos/alps.jpg
 T True
 T
-C files.md:L324
+C files.md:L326
 E 0
 N 0
 H 5b03d0c916a290485d6f7ad3fe182ddbb94936f415ef1a3dd34e51104cf845be
@@ -1809,14 +1829,21 @@ T notes/2026/trip.md File
 T notes/todo.md File
 T [notes/2026/trip.md, notes/todo.md]
 T
-C files.md:L369
+C files.md:L371
 E 0
 N 0
-H 53d04b5d618e6eda85f5687eff79cc52e3040cd1d800a9032cec162115e1cd9b
+H fe96514ee116296326d9efcb59bafed9ca5525f88ec57af02d920e0f145d9db7
 T Ok(home)
-T Err(invalid path "../private.txt": the path leads outside the directory fs.within confines calls to)
+T Err(invalid path "../private.txt": the path leads outside the directory it is confined to)
 T
-C files.md:L406
+C files.md:L407
+E 0
+N 0
+H fe96514ee116296326d9efcb59bafed9ca5525f88ec57af02d920e0f145d9db7
+T Ok(home)
+T Err(invalid path "../private.txt": the path leads outside the directory it is confined to)
+T
+C files.md:L446
 E 0
 N 1
 H c5dd1c6210a5cc1978f4c1bdc5765a3df9f6f7b1f3cdac0f7fcc37aec17d308e
@@ -1838,7 +1865,7 @@ H aada28850a6e283a0445642bf09590bf2e44429176ea1fe4ac3c83115e6867b4
 T ok the same program
 T test result: ok. 1 passed, 0 failed
 T
-C from-go.md:L72
+C from-go.md:L74
 E 0
 N 1
 H aada28850a6e283a0445642bf09590bf2e44429176ea1fe4ac3c83115e6867b4
@@ -1908,7 +1935,7 @@ H f6ccf37ab3ee63b6e0ad8400466695f930c851fb4f99f3d4eb56d58d05d846be
 T dbg line 11: add(3, 4) = 7
 T dbg line 12: abs(-9) = 9
 T
-C functions-and-lambdas.md:L187
+C functions-and-lambdas.md:L188
 E 0
 N 0
 H 41732bf383823f41415afcdec076d138095dbffa40e2be0721f8b497e57bdd5e
@@ -1917,7 +1944,7 @@ T dbg line 7: greet("World", "Hi") = "Hi, World!"
 T dbg line 11: add(5) = 15
 T dbg line 12: add(5, 2) = 7
 T
-C functions-and-lambdas.md:L243
+C functions-and-lambdas.md:L244
 E 0
 N 0
 H 5a75baa21186e7996be93bb40480a8abfdcb0f66042a04e61111288d5c50fa29
@@ -1925,7 +1952,7 @@ T dbg line 6: connect("localhost") = "localhost:8080:30"
 T dbg line 7: connect("localhost", timeout: 10) = "localhost:8080:10"
 T dbg line 8: connect(host: "api", port: 443, timeout: 5) = "api:443:5"
 T
-C functions-and-lambdas.md:L282
+C functions-and-lambdas.md:L283
 E 0
 N 0
 H 50186f7fae2f0e3eae313cd0715e9352453557deb04a1d53e60d14a91c83bdcb
@@ -1933,7 +1960,7 @@ T dbg line 22: diff = 7
 T dbg line 23: sum_point(Point{x: 4, y: 5}) = 9
 T dbg line 24: add_pair((20, 22)) = 42
 T
-C functions-and-lambdas.md:L348
+C functions-and-lambdas.md:L349
 E 0
 N 0
 H 1b3f2615e5310cafc065aef3b352e88fdd3769495725b2a187d165775ed4973f
@@ -1944,18 +1971,18 @@ T
 C functions-and-lambdas.md:L41
 E 0
 N 0
-H 6d937e12fce5d55237e781170fb756678f434131ad22c87813b3a2df7b924afb
+H 9ab3a7b66f4aa3ec95bec533d0d23b4764954f8ec60b49c73bcb972af46bb144
 T dbg line 3: inc(41) = 42
-T dbg line 10: describe("cart", 3) = "cart: 3 items"
+T dbg line 11: describe("cart", 3) = "cart: 3 items"
 T
-C functions-and-lambdas.md:L414
+C functions-and-lambdas.md:L415
 E 0
 N 0
 H 603dda6a246f0e461002dfc04a26b5a6a18bb3eb8c627c4a7fc9746d699b4ac0
 T dbg line 9: first_field("a,b") = "a"
 T dbg line 10: first_field("") = ""
 T
-C functions-and-lambdas.md:L77
+C functions-and-lambdas.md:L78
 E 0
 N 0
 H 3ee0bd7176c2e9757c2425fe01e9cec7469c3af4a95fc77ddd05180b60c9120d
@@ -1965,7 +1992,7 @@ T dbg line 10: xs |> Iter.map(&Point{x: &1, y: 0}) |> Iter.to_list() = [Point{x:
 T dbg line 11: xs |> Iter.map(&Int.max(&1, 2)) |> Iter.to_list() = [2, 2, 3]
 T dbg line 12: xs |> Iter.map(&"id ${&1}") |> Iter.to_list() = ["id 1", "id 2", "id 3"]
 T
-C generating-code.md:L53
+C generating-code.md:L52
 E 0
 N 0
 H 035d3950800ba92bb9ccb32e6bbeea1ac17d6b00d6ad9ba69e681ae7ca5dff35
@@ -2021,22 +2048,22 @@ T
 C http.md:L399
 E 0
 N 0
-H f72787b5011b41d07eaf23f27abeabb7e4678707bddf565473c6a335f54fa8d1
-T dbg line 62: Response.text(get("bob", "/dashboard")) = Ok("hello, Bob")
-T dbg line 63: get("bob", "/admin/stats").status = Status(403)
-T dbg line 64: Response.text(get("ada", "/admin/stats")) = Ok("42 users")
-T dbg line 65: app(testing.request(.Get, "/dashboard")).status = Status(401)
-T dbg line 66: Headers.get(get("ada", "/dashboard").headers, "X-Frame-Options") = Some("DENY")
+H fa7c0a4b266055670a16117a78e46652eb4d425fea2f5a7f412aa189f82d1a47
+T dbg line 63: Response.text(get("bob", "/dashboard")) = Ok("hello, Bob")
+T dbg line 64: get("bob", "/admin/stats").status = Status(403)
+T dbg line 65: Response.text(get("ada", "/admin/stats")) = Ok("42 users")
+T dbg line 66: app(testing.request(.Get, "/dashboard")).status = Status(401)
+T dbg line 67: Headers.get(get("ada", "/dashboard").headers, "X-Frame-Options") = Some("DENY")
 T
-C http.md:L493
+C http.md:L494
 E 0
 N 0
-H d49ef6e474dd765b3ea9dd936ebca521fa1d54d2f7e205af9a2128e9aa320882
-T dbg line 63: Response.text(app(Request.add_cookie(testing.request(.Get, "/dashboard"), cookie))) = Ok("<h1>Hello, Ada</h1>")
-T dbg line 64: app(testing.request(.Get, "/dashboard")).status = Status(303)
-T dbg line 71: app(Request.add_cookie(forged, cookie)).status = Status(403)
+H 65f1266a808201818d86186e7a2c072f17223fa6ed8e53e4a3e6716eee125d17
+T dbg line 64: Response.text(app(Request.add_cookie(testing.request(.Get, "/dashboard"), cookie))) = Ok("<h1>Hello, Ada</h1>")
+T dbg line 65: app(testing.request(.Get, "/dashboard")).status = Status(303)
+T dbg line 72: app(Request.add_cookie(forged, cookie)).status = Status(403)
 T
-C http.md:L607
+C http.md:L611
 E 0
 N 0
 H acd2e735722a17969ba3fa0292bb232a2a0f5c51cd32884fde310ee1a906f14f
@@ -2051,19 +2078,50 @@ T dbg line 14: Response.text(found) = Ok("user 7")
 T dbg line 15: Router.serve(router, testing.request(.Get, "/users/ann")).status = Status(404)
 T dbg line 16: "${Route.path_with(user, {id: 8})}" = "/users/8"
 T
-C http.md:L726
+C http.md:L730
 E 0
 N 1
 H b15893906451bcb5240d4d6eef8c96b3a7a0215aa35368c9214a36d2814ef0b4
 T ok the server shouts back
 T test result: ok. 1 passed, 0 failed
 T
+C index.md:L115
+E 0
+N 0
+H 2be5f73a0964bc4775793735c49d15df33cc39375fb44828a5776b92fab5386f
+T dbg line 18: spent = 80
+T dbg line 19: label(0) = "free"
+T dbg line 20: label(250) = "expensive"
+T
+C index.md:L165
+E 0
+N 1
+H 46433e6a3ec31a706d2232ed47bec7f0076b3237549f8c026be455f1fdcc5b2f
+T ok initials //! test line 1
+T ok one word gives one letter
+T test result: ok. 2 passed, 0 failed
+T
+C index.md:L256
+E 0
+N 0
+H 762c8c84c98e73b1587598b76f98eaffbd00bbd462a69744636bc88d3825cfa9
+T dbg line 16: serve(8080) = "listening on 8080"
+T dbg line 17: port_from("70000") = None
+T dbg line 18: share(120, 4) = 30
+T
+C index.md:L308
+E 0
+N 0
+H 0b83e6dd47e8a942f7b1bb5ddac365f26f66727bc3ab943e189b80a67deae160
+T dbg line 17: price_tag(200) = "216 USD"
+T dbg line 20: price_tag(200) = "240 USD"
+T
 C index.md:L63
 E 0
 N 0
-H ae079f8c8903411f8799d9cd753380509f6817f0294bb98648f9295623adf26e
-T dbg line 11: age_of("Ada") = "Ada is 36"
-T dbg line 12: age_of("Cy") = "no age for Cy"
+H d52e862f6629c564a8684fb261dffd4155eeeb7fdae6481404329218fd260cb8
+T dbg line 24: total_paid(cart) = 4
+T dbg line 25: total_paid(settled) = 13
 T
 C input-and-output.md:L121
 E 0
@@ -2248,13 +2306,15 @@ H 71fd30974ec2dbe550574e36c69e22bb55a2c7c6638fedb45b2217ecdb77eda7
 T dbg line 13: text = "{\"firstName\":\"Ada\",\"age\":36}"
 T dbg line 16: user = User{first_name: "Ada", age: 36}
 T
-C json-and-dynamic.md:L219
+C json-and-dynamic.md:L222
 E 0
 N 0
-H 250a0e4203ea0c9cf401af9d9ddea56df05e09cd85a76966f19c5d57f88cec7b
-T dbg line 8: rows |> Iter.map(&csv.Row.get(&1, "age")) |> Iter.to_list() = [Some("36")]
-T dbg line 11: Element.child_text(doc, "title") = Some("News & notes")
-T dbg line 12: csv.decode("a,\"b") = Err(Syntax{message: "a quoted field is not closed, or has a quote in it that is not doubled", line: 1, column: 5})
+H 21c5c1f016dd81b693f6e57b980bb5bcbc0ed396b45f6d61d2ee4cf3358b8061
+T dbg line 10: rows |> Iter.map(&csv.Row.get(&1, "age")) |> Iter.to_list() = [Some("36")]
+T dbg line 13: Element.child_text(doc, "title") = Some("News & notes")
+T dbg line 14: csv.decode("a,\"b") = Err(Syntax{message: "a quoted field is not closed, or has a quote in it that is not doubled", line: 1, column: 5})
+T dbg line 16: Toml.decode_as<{name: String, due: Date}>("name = 'launch'\ndue = 2026-05-04") = Ok({due: 2026-05-04, name: "launch"})
+T dbg line 17: Toml.decode("port = = 80") = Err(Toml.DecodeError{message: "expected value but found '=' instead", line: 1, col: 8, offset: 7})
 T
 C json-and-dynamic.md:L56
 E 0
@@ -2913,25 +2973,25 @@ H 8edb29ad3fa5a82585349eec1056eeb77f2a018f84a67fd640ed9def17226968
 T 42
 T error: user IDs must be positive
 T
-C modules-and-imports.md:L465
+C modules-and-imports.md:L466
 E 0
 N 0
 H 902f4d30a6318ad21ab741f67b38666b0049d410161f1b813e69f49ba1e3897a
 T Hello, Ada!
 T
-C modules-and-imports.md:L529
+C modules-and-imports.md:L520
 E 0
 N 0
 H c059e0adf7079f98201b00fe223ea412bdc2030283353a6c4f1c82e862e00534
 T Total: 59.97
 T
-C modules-and-imports.md:L554
+C modules-and-imports.md:L545
 E 0
 N 0
 H e0caefe9dbd4bc56e05b379569210b208444c5bea7daadb72ef64641b8df767f
 T Buy milk.
 T
-C modules-and-imports.md:L713
+C modules-and-imports.md:L709
 E 0
 N 0
 H 4407083af216f5bc9252370a3029d7e4c7d86e595014bf4cb3b16dd3c794b4da
@@ -3274,7 +3334,14 @@ T dbg line 5: Bytes.length(raw) = 5
 T dbg line 6: raw |> Iter.map(Byte.to_int) |> Iter.to_list() = [99, 97, 102, 195, 169]
 T go:café
 T
-C scalars-and-strings.md:L430
+C scalars-and-strings.md:L434
+E 0
+N 0
+H ee6b6c74c2e52174441f3c572751b54b8562e94da5bb23b035030ec6551ed7c3
+T dbg line 14: frame |> Iter.map(Byte.to_int) |> Iter.to_list() = [0, 7, 104, 105]
+T kind 7, 2 bytes left
+T
+C scalars-and-strings.md:L472
 E 0
 N 0
 H 6b7fa18b982141013e7f33144f4ded532201bb493dbbdcea608b7e16f022455e
@@ -3282,7 +3349,7 @@ T SELECT *
 T FROM users
 T WHERE name = 'Alice'
 T
-C scalars-and-strings.md:L456
+C scalars-and-strings.md:L498
 E 0
 N 0
 H 6e0610ac3a3c4d4b78b33e733d23365a0b7af665a34bfc86fbd364392d3bed15
@@ -3292,7 +3359,7 @@ T SELECT *
 T FROM invoices
 T WHERE total > ${MIN_TOTAL}
 T
-C scalars-and-strings.md:L522
+C scalars-and-strings.md:L564
 E 0
 N 0
 H 7510b833eb70110fe08e86264bc1f36bc85ac431e9e3a2122c7184b117689ae8
@@ -3304,6 +3371,15 @@ T dbg line 11: String.split("a, b,c ,  d", Regex`\s*,\s*`) = ["a", "b", "c", "d"
 T dbg line 12: String.replace(text, Regex`\d{3,4} `, "# ") = "Order # shipped 2026-10-25, order # on 2026-10-26"
 T dbg line 13: String.replace(text, date, "$3/$2/$1") = "Order 1042 shipped 25/10/2026, order 977 on 26/10/2026"
 T dbg line 15: String.find_all(text, Regex`(?i)order \d+`) = ["Order 1042", "order 977"]
+T
+C scalars-and-strings.md:L93
+E 0
+N 0
+H 1660525d2dd2eaeedc57386843db41201ef807cdb4109feb5611ce9ed50fe9b1
+T dbg line 2: 1_000_000 = 1000000
+T dbg line 3: 0xFF = 255
+T dbg line 4: 0b1010 = 10
+T dbg line 5: 1.0e10 = 10000000000.0
 T
 C structs-enums-distinct.md:L111
 E 0

@@ -3,92 +3,11 @@ package analysis_test
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/fileuri"
 )
-
-func TestDocumentManager_SourceGoBindingsAnalyzeCleanly(t *testing.T) {
-	tmp := t.TempDir()
-	mustWrite := func(rel, content string) string {
-		full := filepath.Join(tmp, rel)
-		if err := os.MkdirAll(filepath.Dir(full), 0755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(full, []byte(content), 0644); err != nil {
-			t.Fatal(err)
-		}
-		return full
-	}
-
-	mustWrite("go.mod", `module localbindingtest
-
-go 1.26.3
-`)
-	mustWrite("nomi.toml", `[module]
-name = "localbindingtest"
-entry_points = ["main"]
-`)
-	mustWrite("binding.go", `package localbindingtest
-
-import "strings"
-
-func EchoUpper(s string) string {
-	return strings.ToUpper(s)
-	}
-`)
-	mainPath := mustWrite("main.nomi", `import std::io
-
-gopkg "localbindingtest" as ffi
-
-fn echo_upper(s: String) -> String go ffi.EchoUpper
-
-fn main()
-  io.print(echo_upper("hello"))
-end
-`)
-
-	lib := loadStd()
-	dm := analysis.NewDocumentManager()
-	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
-	src, _ := os.ReadFile(mainPath)
-	doc := dm.Open(fileuri.FromPath(mainPath), string(src))
-	if len(doc.Errors) != 0 {
-		t.Fatalf("unexpected parse errors: %+v", doc.Errors)
-	}
-	if docHasTypeErrorContaining(doc, "undefined type or variant 'IO'") {
-		t.Fatalf("std/io import after Go package handle was not visible: %+v", doc.Analysis.TypeErrors)
-	}
-	if docHasTypeErrorContaining(doc, "undefined variable 'echo_upper'") {
-		t.Fatalf("source-declared Go binding was not visible: %+v", doc.Analysis.TypeErrors)
-	}
-}
-
-func docHasTypeErrorContaining(doc *analysis.Document, needle string) bool {
-	if doc == nil || doc.Analysis == nil {
-		return false
-	}
-	for _, e := range doc.Analysis.TypeErrors {
-		if strings.Contains(e.Message, needle) {
-			return true
-		}
-	}
-	return false
-}
-
-func docHasParseErrorContaining(doc *analysis.Document, needle string) bool {
-	if doc == nil {
-		return false
-	}
-	for _, e := range doc.Errors {
-		if strings.Contains(e.Message, needle) {
-			return true
-		}
-	}
-	return false
-}
 
 // TestDocumentManager_TypeLevelCycleAcrossFiles verifies that the
 // DocumentManager (which routes through BuildProject) tolerates

@@ -1,0 +1,117 @@
+//# The `sql.Error` an error the server reports is, by its SQLSTATE: a
+//# constraint's violation names the constraint, its table and its columns,
+//# a serialization failure or a deadlock is `Serialization`, a cancelled
+//# statement `Timeout`, a broken connection `Connection`, and every other
+//# error `Database` with its code.
+
+import
+    std::sql.{self, ConstraintKind}
+    postgres::messages.Report
+end
+
+/// The `sql.Error` the server's `report` is.
+//! unique = Report{
+//!     code:       "23505",
+//!     constraint: "users_email_key",
+//!     table:      "users",
+//!     detail:     "Key (email)=(a@example.com) already exists.",
+//! }
+//!
+//! assert of_report(unique) == sql.Error.Constraint{
+//!     kind:   ConstraintKind.Unique,
+//!     name:   "users_email_key",
+//!     table:  Some("users"),
+//!     column: Some("email"),
+//! }
+//!
+//! null = Report{code: "23502", table: "users", column: "email"}
+//!
+//! assert of_report(null) == sql.Error.Constraint{
+//!     kind:   .NotNull,
+//!     name:   "users_email_not_null",
+//!     table:  Some("users"),
+//!     column: Some("email"),
+//! }
+//!
+//! missing = Report{code: "42P01", message: "relation \"missing\" does not exist"}
+//!
+//! assert of_report(missing) == sql.Error.Database{
+//!     code:    "42P01",
+//!     message: "relation \"missing\" does not exist",
+//! }
+//!
+//! assert of_report(Report{code: "57014", message: "canceling statement due to user request"})
+//!     == sql.Error.Timeout
+//
+pub fn of_report(report: Report) -> sql.Error
+    case report.code
+        "23505" ->
+            constraint(report, ConstraintKind.Unique, key_columns(report.detail))
+
+        "23503" ->
+            constraint(report, ConstraintKind.ForeignKey, key_columns(report.detail))
+
+        "23502" ->
+            constraint(report, ConstraintKind.NotNull, report.column)
+
+        "23514" ->
+            constraint(report, ConstraintKind.Check, report.column)
+
+        "23P01" ->
+            constraint(report, ConstraintKind.Exclusion, report.column)
+
+        "40001" ->
+            sql.Error.Serialization{message: report.message}
+
+        "40P01" ->
+            sql.Error.Serialization{message: report.message}
+
+        "57014" ->
+            sql.Error.Timeout
+
+        code when String.starts_with(code, "08") or String.starts_with(code, "57P") ->
+            sql.Error.Connection{message: report.message}
+
+        code ->
+            sql.Error.Database{code:, message: report.message}
+    end
+end
+
+// A violation of the constraint the report names. Postgres before 18
+// reports a not-null violation by its column alone; std/sql names it as
+// Postgres 18 names the constraint.
+fn constraint(report: Report, kind: ConstraintKind, column: String) -> sql.Error
+    named =
+        case
+            report.constraint != "" ->
+                report.constraint
+
+            kind == .NotNull and report.table != "" and column != "" ->
+                "${report.table}_${column}_not_null"
+
+            _ ->
+                ""
+        end
+
+    sql.Error.Constraint{kind:, name: named, table: present(report.table), column: present(column)}
+end
+
+fn present(text: String) -> Maybe<String>
+    if text == "" then None else Some(text)
+end
+
+/// The columns a key violation's detail names, joined with commas: `a,b`
+/// for `Key (a, b)=(1, 2) already exists.`
+//! assert key_columns("Key (a, b)=(1, 2) already exists.") == "a,b"
+//! assert key_columns("Failing row contains (1).") == ""
+//
+pub fn key_columns(detail: String) -> String
+    Some(rest) = String.strip_prefix(detail, "Key (") else
+        None -> return ""
+    end
+
+    case String.split(rest, ")=")
+        [list, _, ..] -> String.split(list, ",") |> Iter.map(String.trim) |> String.join(",")
+        _             -> ""
+    end
+end

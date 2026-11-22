@@ -431,18 +431,20 @@ func (c *infiniteIterCheck) mayStop(cb ast.Node) bool {
 }
 
 // stdFunctionKey is "Owner.name" when call's callee is one of the std
-// functions this check knows, written owner-qualified or reached through
-// an alias or a selective import, and "" otherwise.
+// functions this check knows, by the declaration it reaches (StdFuncOf):
+// written owner-qualified, or reached through an alias or a selective
+// import. It is "" otherwise, a program type's function of the same name
+// among them.
 func (s *iterSensitivity) stdFunctionKey(call *ast.Call) string {
 	sym := s.resolveIterCallbackSymbol(call.Func)
 	if sym == nil || sym.Kind != SymbolFunction {
 		return ""
 	}
-	key := sym.OwningType + "." + sym.Name
-	module, ok := infiniteIterOwners[sym.OwningType]
-	if !ok {
+	fn := s.fa.StdFuncOf(sym.Node)
+	if module, ok := infiniteIterOwners[fn.Owner]; !ok || fn.Module != module {
 		return ""
 	}
+	key := fn.Owner + "." + fn.Name
 	if _, known := infiniteIterTerminals[key]; !known {
 		if _, known := infiniteIterAdapters[key]; !known {
 			switch key {
@@ -452,22 +454,19 @@ func (s *iterSensitivity) stdFunctionKey(call *ast.Call) string {
 			}
 		}
 	}
-	if !isStdOwnerFunction(s.fa, sym, sym.OwningType, module) {
-		return ""
-	}
 	return key
 }
 
 // infiniteIterOwners maps each owner whose functions the check knows to the
 // std module that declares it.
 var infiniteIterOwners = map[string]string{
-	"Iter":       "iter",
-	"Range":      "ranges",
-	"String":     "strings",
-	"Maybe":      "maybe",
-	"Result":     "results",
-	"Task":       "tasks",
-	"Supervisor": "supervisors",
+	"Iter":       "std/iter",
+	"Range":      "std/ranges",
+	"String":     "std/strings",
+	"Maybe":      "std/maybe",
+	"Result":     "std/results",
+	"Task":       "std/tasks",
+	"Supervisor": "std/supervisors",
 }
 
 // calleeSpan is where call's callee is written: its line, its first column

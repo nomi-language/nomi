@@ -1,6 +1,6 @@
 ---
 title: Introduction
-description: What Nomi is like, how to run it, and how it relates to Go, before the tour's first chapter.
+description: What Nomi is like, how to run it, and how it is built, before the tour's first chapter.
 ---
 
 The Language Tour covers the whole language, a chapter at a time, each
@@ -40,8 +40,7 @@ start with [First Steps](/learn/values/).
 Nomi is very early. This site is the main place to try the language while the
 design is still being worked out. Expressions, types, pattern matching,
 imports, interfaces, derives, tests, collections and control flow are the most
-used and tested parts. Concurrency, calling Go, and module management are
-newer.
+used and tested parts. Concurrency and module management are newer.
 :::
 
 ## Running Nomi
@@ -73,22 +72,24 @@ Lua and Python do. Each function becomes bytecode the first time it runs:
 - `nomi build` puts it in the executable beside your program.
 - You can edit most examples on this site, and they run on the VM in your
   browser.
-- A Go application can embed it to load a Nomi program and call its
+- Another application can embed it to load a Nomi program and call its
   functions.
 
-## Where Go fits
+## How Nomi is built
 
-Nomi is written in Go. It follows Go on practical matters: garbage
-collection, builds for other platforms, shipping one file, formatting and
-tooling, and dependencies. The language itself is different from Go.
+The compiler and runtime are written in Go, and you can see it in the
+practical choices: garbage collection, builds for other platforms, one file
+to ship, a formatter and tooling that come with the language. The language
+itself is not Go and does not call Go. You don't need Go installed.
 
-- A Nomi module works like a Go module. It is a directory tree with a
-  manifest, `nomi.toml`, and it is versioned and used as one unit. Inside a
-  module, you import a file, and `pub` controls what other files can see.
-  There are no packages.
-- Nomi can [call Go code](/calling-go/) when you need a library the
-  standard library doesn't have. You don't need Go installed: Nomi's own
-  libraries that wrap Go come prebuilt, and for your own Go code `nomi`
-  uses the `go` on your `PATH` or downloads the release it was built with.
+- A module is a directory tree with a manifest, `nomi.toml`, versioned and
+  used as one unit. Inside a module you import a file, and `pub` controls
+  what other files can see.
+- A library that needs native code, such as the
+  [SQLite driver](/databases/), carries it as WebAssembly and runs it
+  through [std::wasm](/reference/wasm/).
+- Another program can host Nomi and supply functions to it, from Go
+  directly or from any language with a WebAssembly runtime. A
+  [`host fn`](/spec/host-declarations/) declares one.
 
 The tour starts with [Bindings & Expressions](/bindings-and-expressions/).

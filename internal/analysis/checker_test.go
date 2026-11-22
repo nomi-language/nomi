@@ -140,26 +140,6 @@ end
 	}
 }
 
-func TestAssertionsOutsideTestTypeCheckWithResultReturn(t *testing.T) {
-	_, errs := checkSource(`
-enum Result<T, E>
-  Ok T
-  Err E
-end
-
-host type AssertionFailure
-
-fn demo() -> Result<Unit, AssertionFailure>
-  assert 1 == 1
-  refute 1 == 2
-  Result.Ok(begin end)
-end
-`)
-	if len(errs) > 0 {
-		t.Fatalf("expected assertions in Result-returning function to type-check, got %v", errs)
-	}
-}
-
 func TestAssertionsMustHeadPipelines(t *testing.T) {
 	_, errs := checkSource(`
 enum Result<T, E>
@@ -204,27 +184,6 @@ func TestDbgExpressionTypeChecksAsInnerExpression(t *testing.T) {
 	_, errs := checkSource(`
 fn f() -> Int
   dbg 41 + 1
-end
-`)
-	expectNoErrors(t, errs)
-}
-
-func TestBoolVariantsCanReturnAsBool(t *testing.T) {
-	_, errs := checkSource(`
-host type True
-host type False
-
-enum Bool
-  embeds False
-  embeds True
-end
-
-fn implicit() -> Bool
-  True
-end
-
-fn explicit() -> Bool
-  return False
 end
 `)
 	expectNoErrors(t, errs)
@@ -3431,7 +3390,7 @@ func TestCheckRejectsNestedExternFn(t *testing.T) {
   host_thing()
 end`
 	_, errs := checkSource(src)
-	expectError(t, errs, "extern declaration must be at the top level")
+	expectError(t, errs, "a `host` declaration must be at the top level")
 }
 
 // `host fn` accepts an explicit type-param list plus a `where` clause just
@@ -3514,7 +3473,7 @@ func TestCheckRejectsNestedExternType(t *testing.T) {
   0
 end`
 	_, errs := checkSource(src)
-	expectError(t, errs, "extern declaration must be at the top level")
+	expectError(t, errs, "a `host` declaration must be at the top level")
 }
 
 func TestCheckBindingTypeFromNestedStructLit(t *testing.T) {
@@ -5968,7 +5927,7 @@ func TestCheckDeclaredParamNeedsType(t *testing.T) {
 func TestCheckTypeOnlyParam(t *testing.T) {
 	const types = "struct Request\n  path: String\nend\n\nenum Method\n  Get\n  Post\nend\n\ntype Cents Int\n\ntypealias Id Int\n\n"
 	for _, tc := range []struct{ name, src string }{
-		{"go fn", "gopkg \"example.com/app/ffi\" as ffi\n\npub fn echo_upper(String) -> String go ffi.EchoUpper\n"},
+		{"host fn", "pub host fn echo_upper(String) -> String\n"},
 		{"fn", "fn plain(Int) -> Int\n  1\nend\n"},
 		{"struct", types + "fn stats(Request) -> Int\n  1\nend\n\nfn main()\n  _ = stats(Request{path: \"/\"})\nend\n"},
 		{"multi-variant enum", types + "fn verb(Method) -> Int\n  1\nend\n\nfn main()\n  _ = verb(.Post)\nend\n"},
@@ -6046,7 +6005,7 @@ func TestCheckTypeOnlyParamNamesAType(t *testing.T) {
 // one against an expected type.
 func TestCheckDeclaredParamNamed(t *testing.T) {
 	// one against an expected type.
-	_, errs := checkSource("gopkg \"example.com/app/ffi\" as ffi\n\npub fn echo_upper(s: String) -> String go ffi.EchoUpper\n")
+	_, errs := checkSource("pub host fn echo_upper(s: String) -> String\n")
 	expectNoErrors(t, errs)
 	_, errs = checkSource("fn apply(f: ((Int, Int)) -> Int) -> Int\n  f((1, 2))\nend\n\nfn main()\n  _ = apply(fn (a, b) -> a + b)\n  _ = apply(fn _pair -> 0)\nend\n")
 	expectNoErrors(t, errs)

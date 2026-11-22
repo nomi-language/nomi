@@ -22,8 +22,7 @@ import (
 //   - This file's (a std module's own call included): lowered at the call,
 //     in the callee's scope, after the written operands (callDefaults).
 //   - An interface function's: lowered at the call under the declaring
-//     file's names, or by the declaring file's accessor
-//     (ifaceslotdefault.go), whichever file the call is in.
+//     file's names (ifaceslotdefault.go), whichever file the call is in.
 //   - An interface function's, called on an interface value: a call
 //     dispatched on the receiver for each omitted slot, which runs the
 //     accessor of the impl function the call reaches (ifaceslotdispatch.go).
@@ -31,9 +30,9 @@ import (
 //     omitted slot, over the slots before it (siblingdefault.go), the
 //     written operands held first so they run before any default. The
 //     defaults of a callee whose file builds no accessors are lowered at
-//     the call when every name in them means here what it means there
-//     (defaultNamesAgree), reading the checker's answers about their nodes
-//     from the declaring file's analysis (lowerNamesFrom).
+//     the call, reading the checker's answers about their nodes (what
+//     each name names, each expression's type) from the declaring file's
+//     analysis (lowerNamesFrom), whatever this file binds the names to.
 //
 // A default lowered at the call or in an accessor is outside the impl block
 // or interface that declares it, so a bare call of a sibling in it
@@ -180,9 +179,10 @@ func (bl *irScalarBuilder) fillDefaultRun(t *ast.Call, run defaultRun, kinds []k
 			// declines at the default.
 			sig.defaultFrame, sig.defaultTypes, _ = g.ifaceDefaultFrameAt(t, o)
 		}
-		if self := g.callTypeArgs(t)[stdIfaceDefaultSelfParam]; self != nil {
-			sig.defaultSelfType = g.checkerTypeArg(self)
-		}
+		// The implementor the defaults are filled for is the type the
+		// call's record is for, at this instance: `Shape.area(c)`'s
+		// Circle, and `T.area(x)`'s T as the instance binds it.
+		sig.defaultSelfType = g.checkerTypeArg(g.calleeOf(t).For)
 	case home.inst == nil:
 		// A generic callee no instance of which is lowered here (an impl
 		// function of a generic type's instance): its defaults are lowered
@@ -202,13 +202,13 @@ func (bl *irScalarBuilder) fillDefaultRun(t *ast.Call, run defaultRun, kinds []k
 	if byAccessor(home, omitted) {
 		return bl.fillFromAccessors(t, kinds, temps, mobile, home, through)
 	}
-	if !g.defaultsLowerHere(params, omitted, home) {
+	if !g.defaultsLowerHere(home) {
 		g.dc.note("a default naming what only its declaring file can, with no accessor for it")
 		return false
 	}
 	// The defaults are the declaring file's nodes, so what the checker
-	// recorded of them (a bare `None`'s type) is in its analysis: their
-	// names mean the same here, but their types are read there.
+	// recorded of them (what each name names, a bare `None`'s type) is in
+	// its analysis, and is read there.
 	if unit := slices.Index(g.reg.gens, owner); unit >= 0 {
 		defer g.lowerNamesFrom(unit)()
 	}
@@ -272,23 +272,13 @@ func defaultParams(rec *analysis.DefaultedCall, home defaultHome, slot int) []as
 	return params
 }
 
-// defaultsLowerHere reports whether every default of params at omitted
-// means in this file what it means in the declaring one
-// (defaultNamesAgree), so it may be lowered at the call.
-func (g *gen) defaultsLowerHere(params []ast.Param, omitted []int, home defaultHome) bool {
+// defaultsLowerHere reports whether home's defaults may be lowered at the
+// call: this file's own, or another file's whose analysis is at hand, since
+// a default is lowered from its declaring file's records (lowerNamesFrom),
+// whatever this file binds the names it mentions to.
+func (g *gen) defaultsLowerHere(home defaultHome) bool {
 	owner := home.owner
-	if owner == nil || owner == g {
-		return true
-	}
-	if owner.fa == nil || g.fa == nil {
-		return false
-	}
-	for _, s := range omitted {
-		if !defaultNamesAgree(params[s].Default, owner, g) {
-			return false
-		}
-	}
-	return true
+	return owner == nil || owner == g || (owner.fa != nil && g.fa != nil)
 }
 
 // fillFromAccessors fills each omitted slot of temps before through with a
@@ -318,8 +308,14 @@ func (bl *irScalarBuilder) fillFromAccessors(at ast.Node, params []kind, temps [
 		}
 		// params are the callee's held signature's.
 		irHeldOperand(params[slot], "a defaulted parameter")
-		sym := home.accessor(slot)
+		// A home with no accessors (implSlotHome of an impl function no
+		// accessor is built for) has none for the slot either.
+		var sym *ir.Symbol
+		if home.accessor != nil {
+			sym = home.accessor(slot)
+		}
 		if sym == nil {
+			bl.g.dc.note("a defaulted parameter with no accessor")
 			return false
 		}
 		var c *ir.Call

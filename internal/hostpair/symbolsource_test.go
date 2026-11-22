@@ -18,10 +18,9 @@ import (
 
 // WHERE THE GO SYMBOL COULD COME FROM, measured.
 //
-// No std facade carries a `go alias.Symbol` selector, so the question is
-// whether any OTHER source determines the symbol. The candidates, all closed:
+// Nomi source names no Go symbol, so the question is whether any OTHER
+// source determines it. The candidates, all closed:
 //
-//	.nomi source                TestNoStdlibHostDeclarationNamesAGoSymbol: 0 bound
 //	a mangle of the Nomi key    TestTheBoundGoSymbolIsNotAMangleOfItsNomiKey
 //	adapter signature matching  TestSignaturePairingCannotDetermineTheGoSymbol: 52%
 
@@ -42,9 +41,9 @@ func boundGoSymbol(fn any) string {
 // TestTheBoundGoSymbolIsNotAMangleOfItsNomiKey closes the last route that
 // needs no second table at all: computing the Go name from the Nomi name.
 //
-// `FFI` + PascalCase is the rule the table mostly follows, and "mostly" is the
+// `Host` + PascalCase is the rule the table mostly follows, and "mostly" is the
 // finding: 44 of 66 rows match and 22 do not. The exceptions are not typos —
-// `random.os_state` is `FFIFromOS`, `Regex.compile` drops its receiver, and
+// `random.os_state` is `HostFromOS`, `Regex.compile` drops its receiver, and
 // every `_raw` or `_state` row drops its suffix. A generator would have to
 // carry them as overrides, which is the table again.
 func TestTheBoundGoSymbolIsNotAMangleOfItsNomiKey(t *testing.T) {
@@ -71,9 +70,9 @@ func TestTheBoundGoSymbolIsNotAMangleOfItsNomiKey(t *testing.T) {
 		if !ok {
 			t.Fatalf("key %q has no dot; every row is `<module>.<fn>` or `<Receiver>.<fn>`", b.Name)
 		}
-		want := "FFI" + owner + pascal(name)
+		want := "Host" + owner + pascal(name)
 		if modules[owner] {
-			want = "FFI" + pascal(name)
+			want = "Host" + pascal(name)
 		}
 		if sym == want {
 			hit++
@@ -85,18 +84,18 @@ func TestTheBoundGoSymbolIsNotAMangleOfItsNomiKey(t *testing.T) {
 		t.Fatal("the mangling rule matches nothing at all; this probe is broken rather than the rule refuted")
 	}
 	if len(miss) == 0 {
-		t.Errorf("every one of %d rows now follows `FFI + PascalCase`. If that is deliberate and "+
+		t.Errorf("every one of %d rows now follows `Host + PascalCase`. If that is deliberate and "+
 			"enforced, the symbol half IS derivable and cmd/nomi-stdlibbindings can come back.", hit)
 	}
 	sort.Strings(miss)
-	t.Logf("`FFI + PascalCase` accounts for %d of %d rows; %d exceptions:", hit, hit+len(miss), len(miss))
+	t.Logf("`Host + PascalCase` accounts for %d of %d rows; %d exceptions:", hit, hit+len(miss), len(miss))
 	for _, m := range miss {
 		t.Logf("  %s", m)
 	}
 }
 
 // TestSignaturePairingCannotDetermineTheGoSymbol is the third measurement: if
-// every FFI-shaped exported function in an adapter package had a DISTINCT
+// every host-shaped exported function in an adapter package had a DISTINCT
 // signature, a generator could pair a Nomi declaration with its Go symbol by
 // shape and need no table at all.
 //
@@ -105,7 +104,7 @@ func TestTheBoundGoSymbolIsNotAMangleOfItsNomiKey(t *testing.T) {
 // adders — nine functions no signature can tell apart.
 //
 // WHAT IT WOULD SHOW IF THE WALK WERE BROKEN: zero functions found, hence zero
-// collisions, hence "signatures are unique". So the population and the FFI
+// collisions, hence "signatures are unique". So the population and the host-shaped
 // prefix are both asserted before the collision count is read.
 func TestSignaturePairingCannotDetermineTheGoSymbol(t *testing.T) {
 	root := moduleRoot(t)
@@ -144,11 +143,11 @@ func TestSignaturePairingCannotDetermineTheGoSymbol(t *testing.T) {
 		t.Fatal("no exported adapter functions found; the walk is broken, not the packages empty")
 	}
 
-	// FFI-shaped half only: the surface internal/stdlibbindings draws from.
+	// host-shaped half only: the surface internal/stdlibbindings draws from.
 	byShape := map[string][]string{}
 	ffiCount := 0
 	for _, f := range all {
-		if !strings.HasPrefix(f.name, "FFI") {
+		if !strings.HasPrefix(f.name, "Host") {
 			continue
 		}
 		ffiCount++
@@ -156,7 +155,7 @@ func TestSignaturePairingCannotDetermineTheGoSymbol(t *testing.T) {
 		byShape[k] = append(byShape[k], f.name)
 	}
 	if ffiCount == 0 {
-		t.Fatal("no FFI-prefixed exported function found; the prefix convention changed and this probe is measuring nothing")
+		t.Fatal("no Host-prefixed exported function found; the prefix convention changed and this probe is measuring nothing")
 	}
 
 	collisions, worst, inCollision := 0, 0, 0
@@ -173,12 +172,12 @@ func TestSignaturePairingCannotDetermineTheGoSymbol(t *testing.T) {
 		}
 	}
 	sort.Strings(shapes)
-	t.Logf("adapter packages export %d functions, %d of them FFI-shaped, in %d distinct signatures",
+	t.Logf("adapter packages export %d functions, %d of them host-shaped, in %d distinct signatures",
 		len(all), ffiCount, len(byShape))
-	t.Logf("%d signature(s) are shared by more than one function; %d of %d FFI functions (%.0f%%) sit in one; worst group has %d members",
+	t.Logf("%d signature(s) are shared by more than one function; %d of %d Host functions (%.0f%%) sit in one; worst group has %d members",
 		collisions, inCollision, ffiCount, 100*float64(inCollision)/float64(ffiCount), worst)
 	if collisions == 0 {
-		t.Errorf("every one of the %d FFI-shaped adapter functions now has a unique signature. "+
+		t.Errorf("every one of the %d host-shaped adapter functions now has a unique signature. "+
 			"If that is deliberate and enforced, pairing by shape is a derivation and the "+
 			"symbol half of internal/stdlibbindings can be generated after all.", ffiCount)
 	}

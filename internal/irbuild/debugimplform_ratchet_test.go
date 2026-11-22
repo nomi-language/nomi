@@ -13,14 +13,15 @@ import (
 // debugImplClasses) the programs TestIRGolden_RecordsMatchTheVM runs
 // reach. Each count only goes down. The counts were the same with the
 // artifact cache empty, warm and off. Over `nomi test tests` and `nomi
-// test std` the held classes had 45, 0, 11 and 8 sites: the 45 are std's
-// own `//!` lines whose typed literal's failure renders an error another
-// std module declares (literalRender).
+// test std` the held classes had 0, 0, 11 and 8 sites
+// (TestLiteralRender_StdCalendarCasesReadTheRecord holds the first for
+// std/calendar's `//!` lines).
 //
 //   - "no checker type": a part whose checker type the renderer does not
 //     have where it names the part's body, chosen by its kind.
-//   - "a type declared in a body": a part whose type no impl can name,
-//     whose universal Debug the builder writes.
+//   - "a type declared in a body": a part of a type declared in a body
+//     whose record answers structurally, with the bodies that hold its
+//     universal Debug out of the record's sight.
 //   - "an interface value's implementors": a part held as an interface
 //     value, which renders through any implementor's body.
 //   - "an Iter's sources": an `Iter<T>` part, which renders as any source
@@ -46,9 +47,9 @@ func debugImplRatchet() censusRatchet {
 	return r
 }
 
-// A type declared in a body renders through the universal Debug the
-// builder writes for it, which no record names, inside a tuple and as a
-// Maybe's payload.
+// A type declared in a body renders through the universal Debug written
+// in its block, which its record names, inside a tuple and as a Maybe's
+// payload.
 func TestNoteDebugImpl_ATypeDeclaredInABody(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "main.nomi")
 	src := `fn main()

@@ -3,7 +3,6 @@ package vmhost
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -277,22 +276,4 @@ func copyEmbedded(w io.Writer, src EmbedSource) error {
 		return fmt.Errorf("embedded file %s changed while the program was built; build it again", src.Path)
 	}
 	return nil
-}
-
-// EncodedEmbeddedSources is EmbeddedSources as the bytes an FFI project's
-// wrapper hands `nomi build` beside the image it built, which
-// DecodeEmbedSources reads back.
-func (p *Program) EncodedEmbeddedSources(image []byte) ([]byte, error) {
-	sources, err := p.EmbeddedSources(image)
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(sources)
-}
-
-// DecodeEmbedSources reads what EncodedEmbeddedSources wrote.
-func DecodeEmbedSources(data []byte) ([]EmbedSource, error) {
-	var out []EmbedSource
-	err := json.Unmarshal(data, &out)
-	return out, err
 }

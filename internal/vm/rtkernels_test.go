@@ -67,17 +67,17 @@ func TestRTKernels_RecordedRenderings(t *testing.T) {
 		{"None", noneValue, "None", "", "None", "", true},
 		{"Ok", rtVariant("results.Result", "Ok", "a"), "Ok(\"a\")", "", "Ok(\"a\")", "<results.Result impl>", true},
 		{"Err", rtVariant("results.Result", "Err", int64(2)), "Err(2)", "", "Err(2)", "<results.Result impl>", true},
-		{"Ordering", rtVariant("comparable.Ordering", "Less"), "Less", "", "refuses: Ordering.Less", "", true},
+		{"Ordering", rtVariant("comparable.Ordering", "Less"), "Less", "", "Less", "", true},
 		{"Outcome", rtVariant("tasks.Outcome", "Completed", rt.Unit{}), "Completed(Unit)", "", "Completed(Unit)", "", true},
 		{"distinct", id, "Id(5)", "", "Id(5)", "<ids.Id impl>", true},
 		{"marker", rtDistinct("status.Ready", nil), "Ready", "", "Ready", "", true},
-		{"named struct", point(1, 2), "Point{x: 1, y: 2}", "", "refuses: Point", "<shapes.Point impl>", true},
-		{"user enum", rtVariant("shapes.Shape", "Circle", 1.5), "Circle(1.5)", "", "refuses: Shape.Circle", "<shapes.Shape impl>", true},
+		{"named struct", point(1, 2), "Point{x: 1, y: 2}", "", "Point{x: 1, y: 2}", "<shapes.Point impl>", true},
+		{"user enum", rtVariant("shapes.Shape", "Circle", 1.5), "Circle(1.5)", "", "Circle(1.5)", "<shapes.Shape impl>", true},
 		{"Dynamic", rt.Dynamic{Inner: int64(1)}, "<dynamic: int64>", "", "1", "", false},
-		{"refusal inside a prelude payload", listOf([]any{some(point(1, 2))}),
-			"[Some(Point{x: 1, y: 2})]", "", "refuses: Point", "[Some(<shapes.Point impl>)]", true},
+		{"a struct inside a prelude payload", listOf([]any{some(point(1, 2))}),
+			"[Some(Point{x: 1, y: 2})]", "", "[Some(Point{x: 1, y: 2})]", "[Some(<shapes.Point impl>)]", true},
 		{"hooked elements", listOf([]any{point(1, 2), id}),
-			"[Point{x: 1, y: 2}, Id(5)]", "", "refuses: Point", "[<shapes.Point impl>, <ids.Id impl>]", true},
+			"[Point{x: 1, y: 2}, Id(5)]", "", "[Point{x: 1, y: 2}, Id(5)]", "[<shapes.Point impl>, <ids.Id impl>]", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := rt.RowText(tc.v); got != tc.row {

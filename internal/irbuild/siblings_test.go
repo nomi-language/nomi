@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/nomi-language/nomi/internal/ast"
 )
 
 // stagedProgram writes a multi-file Nomi program into a temp directory and
@@ -67,20 +69,29 @@ func TestSiblingFile_PrivateDeclarationIsNotCallable(t *testing.T) {
 		t.Fatalf("analyze: %v", err)
 	}
 	x := buildFileIndex(p, buildTypeRegistry(p))
-	var helpers *fileUnit
-	for _, u := range x.units {
+	helpers := -1
+	for i, u := range x.units {
 		if u.key == "helpers" {
-			helpers = u
+			helpers = i
 		}
 	}
-	if helpers == nil {
+	if helpers < 0 {
 		t.Fatal("no unit for helpers.nomi")
 	}
-	pub := helpers.funcs["double"]
+	// A function of helpers.nomi, by its declaration's name.
+	declared := func(name string) *fileFunc {
+		for decl, site := range x.byDecl {
+			if fd, ok := decl.(*ast.FuncDef); ok && site.unit == helpers && fd.Name == name {
+				return site.fn
+			}
+		}
+		return nil
+	}
+	pub := declared("double")
 	if pub == nil || !pub.lowerable() {
 		t.Fatalf("a pub sibling function must be callable, got %#v", pub)
 	}
-	priv := helpers.funcs["scaled"]
+	priv := declared("scaled")
 	if priv == nil {
 		t.Fatal("a private sibling declaration must be FOUND, so a call site refuses " +
 			"under the reason it was refused for rather than under 'no such function'")

@@ -39,8 +39,13 @@ func (s *Server) textDocumentHover(ctx *glsp.Context, params *protocol.HoverPara
 	if doc.Analysis == nil {
 		return nil, nil
 	}
-	// A keyword: its construct, in the place it stands (hoverdoc.KeywordAt).
+	path := uriToPath(uri)
+	inThisFile := func(p string) bool { return inFile(p, path) }
+	// A keyword: its construct, in the place it stands (hoverdoc.KeywordAt),
+	// and, for the `dbg` of a `dbg`, the call that prints, what it reaches
+	// (hoverdoc.AppendReach).
 	if content, at, n, ok := hoverdoc.KeywordAt(doc.Analysis, doc.Nodes, doc.Content, pos); ok {
+		content = hoverdoc.AppendReach(content, s.lowering.reachedIn(uri, doc.Content), inThisFile, pos, at)
 		return tokenHover(doc.Content, content, at, n), nil
 	}
 	// An `embed` pattern: what it matched (embed.go).
@@ -100,8 +105,7 @@ func (s *Server) textDocumentHover(ctx *glsp.Context, params *protocol.HoverPara
 	}
 	// What the call under pos reaches outside the machine, as the last
 	// lowerings found it (loweringChecks.reachedIn, hoverdoc.AppendReach).
-	path := uriToPath(uri)
-	content = hoverdoc.AppendReach(content, s.lowering.reachedIn(uri, doc.Content), func(p string) bool { return inFile(p, path) }, pos, tokPos)
+	content = hoverdoc.AppendReach(content, s.lowering.reachedIn(uri, doc.Content), inThisFile, pos, tokPos)
 	if isLiteral {
 		content += "\n\n---\n\n" + literal
 	}

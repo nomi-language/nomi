@@ -40,15 +40,15 @@ func (g *gen) siblingGenericInstance(ref ast.Node, to int, f *fileFunc) ([]kind,
 	if owner == nil || owner == g {
 		panic("irbuild: siblingGenericInstance: the owner unit is another file's gen")
 	}
-	sig := owner.funcs[f.decl.Name]
-	if sig == nil || sig.decl != f.decl {
-		panic("irbuild: siblingGenericInstance: the owner's funcs table holds the same declaration")
+	sig := owner.sigByDecl[f.decl]
+	if sig == nil {
+		panic("irbuild: siblingGenericInstance: the owner declares a signature for every generic fn it declares")
 	}
 	tpl := owner.irMonoTemplate(sig)
 	if tpl == nil {
 		panic("irbuild: siblingGenericInstance: a generic owner func always has a mono template")
 	}
-	here, types, ok := g.calleeTypedArgs(ref, tpl.params)
+	here, types, ok := g.calleeTypeArgs(ref, tpl.params)
 	if !ok {
 		return no()
 	}
@@ -179,7 +179,7 @@ func (bl *irScalarBuilder) siblingInstanceItemPlan(t *ast.Call, args irQualArgs,
 // member w for the call t, at the type arguments the checker instantiated
 // t at, read in this gen's kinds and imported into the owner's.
 func (g *gen) siblingMethodInstance(t *ast.Call, owner *gen, d *implDef, method string, w withheldMember) *implItem {
-	here, types, ok := g.calleeTypedArgs(t.Func, w.typeParamNames())
+	here, types, ok := g.calleeTypeArgs(t.Func, w.typeParamNames())
 	if !ok {
 		return nil
 	}

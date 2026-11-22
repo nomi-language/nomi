@@ -72,6 +72,9 @@ func (c *checker) checkSelfRecursion(fn *ast.FuncDef, impl *ast.ImplBlock) {
 		}
 		r.recvDecl = r.typeDeclOf(impl.Receiver)
 	}
+	if r.machineRendered() {
+		return
+	}
 	if errs := r.renderErrors(); len(errs) > 0 {
 		c.errors = append(c.errors, errs...)
 		return
@@ -281,6 +284,16 @@ func (r *selfRecursion) sameArgs(args []ast.Node) bool {
 func (r *selfRecursion) isSelfCall(n ast.Node) bool {
 	callee, args, ok := call(n)
 	return ok && r.isSelfCallee(callee) && r.sameArgs(args)
+}
+
+// machineRendered reports whether the function is a std host type's Debug
+// inspect, which the machine computes (internal/irbuild's machineImpls): its
+// body may render its own receiver, as a std collection's equal may be `a ==
+// b` (protocolErrors). `Type<T>`'s is `Debug.inspect(w)`, which spells the
+// type the witness names as no Nomi body can.
+func (r *selfRecursion) machineRendered() bool {
+	_, host := r.recvDecl.(*ast.ExternType)
+	return host && IsStdlibKey(r.fa.Origin) && r.iface != nil && r.iface.Name == "Debug" && r.fn.Name == "inspect"
 }
 
 // renderErrors applies the render rule to a Display `to_string` or Debug

@@ -57,12 +57,13 @@ fn main()
     // An ad-hoc `case` is an if-chain over conditions, and it is ordered too.
     n = 5
 
-    label = case
-        n > 100 -> "big"
-        n > 3   -> "medium"
-        n > 0   -> "small"
-        _       -> "other"
-    end
+    label =
+        case
+            n > 100 -> "big"
+            n > 3   -> "medium"
+            n > 0   -> "small"
+            _       -> "other"
+        end
 
     io.print(label)
 end

@@ -15,12 +15,16 @@ import (
 // types and this test fails until encode.go and decode.go carry it, and
 // FormatVersion moves.
 //
-// Module.lint is the one field deliberately not encoded: it is
-// LintModuleAdded's progress, and a decoded module starts it over.
+// Two fields are deliberately not encoded. Module.lint is LintModuleAdded's
+// progress, and a decoded module starts it over. Module.abstract marks a
+// module of abstract bodies, which the encoder refuses to write
+// (Module.SetAbstract), so every module it writes is a plain one.
 var encodedFields = map[reflect.Type]string{
-	reflect.TypeFor[ir.Image]():         "Modules Entry HostKeys HasMain Root Exports Locales Files",
+	reflect.TypeFor[ir.Image]():         "Modules Entry HostKeys HasMain Root Exports HostFns Locales Files",
 	reflect.TypeFor[ir.Export]():        "Name Func Params Result Encode",
 	reflect.TypeFor[ir.ExportParam]():   "Name Type Decode",
+	reflect.TypeFor[ir.HostFn]():        "Key Name Params Result Decode NoJSON",
+	reflect.TypeFor[ir.HostFnParam]():   "Name Type Encode",
 	reflect.TypeFor[ir.Pos]():           "file line col endLine endCol synth stdlib",
 	reflect.TypeFor[ir.Symbol]():        "name link impl",
 	reflect.TypeFor[ir.ImplFunc]():      "Type Interface Func",
@@ -30,7 +34,7 @@ var encodedFields = map[reflect.Type]string{
 	reflect.TypeFor[ir.Param]():         "Sym Temp Shape",
 	reflect.TypeFor[ir.Var]():           "Name Temp Type Scope Decl",
 	reflect.TypeFor[ir.StmtMark]():      "Index Pos Kind",
-	reflect.TypeFor[ir.Module]():        "name funcs cells tests boot mainFailure mainExit bootFailure testBoots impls unretainedImpls displays rowDebugs equates hashes lint",
+	reflect.TypeFor[ir.Module]():        "name funcs cells tests boot mainFailure mainExit bootFailure testBoots impls unretainedImpls displays rowDebugs equates hashes abstract lint",
 	reflect.TypeFor[ir.Cell]():          "owner sym ty initializer",
 	reflect.TypeFor[ir.TestCase]():      "name fn group",
 	reflect.TypeFor[ir.TestGroup]():     "Boot Startup VirtualClock BootLine BootText",
@@ -38,10 +42,10 @@ var encodedFields = map[reflect.Type]string{
 	reflect.TypeFor[ir.DisplayImpl]():   "Type Func",
 	reflect.TypeFor[ir.BootFailure]():   "Boot Render Exit",
 	reflect.TypeFor[ir.Type]():          "owner name form embeds conforms val",
-	reflect.TypeFor[ir.Table]():         "types decls syms linker imports",
-	reflect.TypeFor[ir.ValType]():       "kind sym elems names result layout",
+	reflect.TypeFor[ir.Table]():         "types syms linker imports",
+	reflect.TypeFor[ir.ValType]():       "kind sym elems names result spread layout",
 	reflect.TypeFor[ir.Layout]():        "Fields Variants",
-	reflect.TypeFor[ir.Variant]():       "Name Form Fields",
+	reflect.TypeFor[ir.Variant]():       "Name Form Fields Spread",
 	reflect.TypeFor[ir.Field]():         "Name Type",
 	reflect.TypeFor[ir.Jump]():          "pos target",
 	reflect.TypeFor[ir.Branch]():        "pos cond ifTrue ifFalse",
@@ -51,7 +55,7 @@ var encodedFields = map[reflect.Type]string{
 	reflect.TypeFor[ir.Concat]():        "pos dst parts",
 	reflect.TypeFor[ir.Defer]():         "pos id call onError",
 	reflect.TypeFor[ir.RunDefer]():      "pos id",
-	reflect.TypeFor[ir.FuncValue]():     "pos dst body self captures",
+	reflect.TypeFor[ir.FuncValue]():     "pos dst body self keeps captures",
 	reflect.TypeFor[ir.Assert]():        "pos dst subj kw text mismatch binding answer",
 	reflect.TypeFor[ir.AssertBinding](): "Name Expr Val Stages",
 	reflect.TypeFor[ir.AssertStage]():   "Text Val",
@@ -69,7 +73,7 @@ var encodedFields = map[reflect.Type]string{
 	reflect.TypeFor[ir.Make]():          "pos dst kind typ text names ops tail incl embeds",
 	reflect.TypeFor[ir.Slot]():          "pos slot ty",
 	reflect.TypeFor[ir.Store]():         "pos kind sym src",
-	reflect.TypeFor[ir.Ref]():           "pos dst kind sym",
+	reflect.TypeFor[ir.Ref]():           "pos dst kind sym keeps",
 	reflect.TypeFor[ir.Copy]():          "pos dst src",
 	reflect.TypeFor[ir.Render]():        "pos dst src kind impls erased",
 	reflect.TypeFor[ir.DebugImpl]():     "Type Inst Fn",

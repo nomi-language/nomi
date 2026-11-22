@@ -6,7 +6,7 @@ import (
 	"runtime/debug"
 
 	"github.com/nomi-language/nomi/internal/buildversion"
-	"github.com/nomi-language/nomi/internal/ffirun"
+	"github.com/nomi-language/nomi/internal/runners"
 )
 
 // Why this reads build info and carries no `-ldflags` plumbing for the revision.
@@ -29,7 +29,7 @@ import (
 // at internal/irbuild/irbuild.go's goDirective.
 //
 // One `-X` exists, for the one thing build info cannot hold: the release tag.
-// scripts/release.sh sets internal/ffirun.ReleaseVersion, because
+// scripts/release.sh sets internal/runners.ReleaseVersion, because
 // `nomi build --target` downloads the other platform's runner from the release
 // by its tag, and a commit does not name a tag. A binary built any other way
 // leaves it empty and is unaffected.
@@ -69,7 +69,7 @@ func currentVersionLine() string {
 //
 // A nil info means debug.ReadBuildInfo reported no build information.
 func versionLine(info *debug.BuildInfo) string {
-	return versionLineFor(ffirun.ReleaseVersion, info)
+	return versionLineFor(runners.ReleaseVersion, info)
 }
 
 // versionLineFor is versionLine for a binary cut as release (empty when it
@@ -90,8 +90,8 @@ func versionToken(info *debug.BuildInfo) string { return buildversion.Token(info
 // file's header: the release tag and the revision for a release, the version
 // token otherwise.
 func imageWriterVersion() string {
-	if ffirun.ReleaseVersion != "" {
-		return ffirun.ReleaseVersion + " (" + buildversion.Current() + ")"
+	if runners.ReleaseVersion != "" {
+		return runners.ReleaseVersion + " (" + buildversion.Current() + ")"
 	}
 	return buildversion.Current()
 }

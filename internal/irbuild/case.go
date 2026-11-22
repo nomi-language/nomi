@@ -2,82 +2,10 @@ package irbuild
 
 import (
 	"github.com/nomi-language/nomi/internal/ast"
-	"github.com/nomi-language/nomi/internal/ir"
 )
 
-// Pattern helpers shared by the destructuring prologue and the blocker walk:
-// reading a variant's payload, holding a value the prologue reads twice, and
-// naming the pattern kinds outside the subset.
-
-// payloadValue is the value a variant's payload is read from.
-//
-// Three rules meet here, and each of them is a wrong answer if it is missed:
-//
-//   - ZERO-SIZED MATERIALIZATION. A payload that occupies no storage gets no
-//     slot at all (see assignSlots), so there is nothing to read: the value
-//     has one inhabitant and no instruction computes it.
-//   - `embeds` OF A WRAPPING DISTINCT unwraps. The slot holds the distinct, but
-//     the pattern must see the INNER value: the checker's contract is that the
-//     variant's payload type is the wrapped type (spec §4 *Enums (Algebraic Data Types)*), so
-//     `Identifier.UserId(name)` binds a String.
-//   - A BOXED payload is behind a pointer, because its type can reach its own
-//     container.
-//
-// The last two are `ir.ProjPayload` and then `ir.ProjInner`, chained, which is
-// what the unwrap IS.
-func (g *gen) payloadValue(at ast.Node, d *typeDef, v *variantDef, i int, subj expr) (expr, bool) {
-	p := &v.payloads[i]
-	if p.slot < 0 {
-		return g.irSlotlessPayloadValue(at, p.k)
-	}
-	out := g.irProjPayload(at, subj, d, v, i, p.k)
-	if payloadUnwrapsDistinct(v) {
-		out = g.irProjInner(at, out, v.embeds, v.embeds.inner)
-	}
-	return out, true
-}
-
-// irSlotlessPayloadValue materializes a payload that has no slot from its
-// type, in the open prologue, as variantPayload does in a body: Unit, or the
-// marker itself. Another zero-sized type (an empty struct) is refused.
-func (g *gen) irSlotlessPayloadValue(at ast.Node, k kind) (expr, bool) {
-	if !irSlotlessPayload(k) {
-		g.reject("destructuring parameter", "a zero-sized payload of type "+k.nomi(), at)
-		return expr{}, false
-	}
-	var c *ir.Const
-	if k == kindUnit {
-		c = ir.NewUnit(g.irNodePos(at), g.irMint())
-	} else {
-		c = ir.NewMarker(g.irNodePos(at), g.irMint(), g.irTypeSym(k.def))
-	}
-	g.irAppend(c)
-	irSideSet(&g.irPro.sides, c.Dst(), irScalarSide{k: k})
-	return g.irBind(c.Dst(), k), true
-}
-
-// payloadUnwrapsDistinct reports whether reading this variant's payload has to
-// see through a wrapping distinct.
-func payloadUnwrapsDistinct(v *variantDef) bool {
-	// kindInvalid: marker — distinguishes a distinct WITH an inner from a marker; neither declines.
-	return v.kind == "embedded" && v.embeds.isDistinct && v.embeds.inner != kindInvalid
-}
-
-// hold copies a value the prologue reads more than once into a temporary of
-// its own, unless it is already held in one: a parameter, a binding or an
-// earlier copy (irHeldValue). `destructureTuple` holds a NESTED tuple's
-// source, which is a projection.
-//
-// A COPY AND NOT A BIND: the temporary names no Nomi declaration, and
-// `ir.Bind`'s symbol is a declaration identity.
-func (g *gen) hold(e expr) expr {
-	// kindInvalid: mechanical — nothing to hold; the refusal is recorded where it happened.
-	if e.k == kindInvalid || (e.t != ir.NoTemp && irHeldValue(g.irPro.fn, e.t, nil)) {
-		return e
-	}
-	c := g.irCopyNode(g.irPro.at, e.k, g.irHold(e))
-	return expr{t: c.Dst(), k: e.k}
-}
+// The blocker walk over a pattern: naming the pattern kinds outside the
+// subset, without the scrutinee's kind.
 
 // probePattern names every pattern kind outside the subset, without needing the
 // scrutinee's kind.

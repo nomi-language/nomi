@@ -344,13 +344,6 @@ func TestIRTestBody_RetainedCasesAgree(t *testing.T) {
 		if module == nil || len(module.Tests()) == 0 {
 			continue
 		}
-		if res, err := ffiPrepare(f.Path); err != nil || res != nil {
-			// An FFI project registers its externs through the generated
-			// wrapper, which this in-process run does not build.
-			limited++
-			t.Logf("LIMIT %s: an FFI project (%v)", f.Rel, err)
-			continue
-		}
 		var out bytes.Buffer
 		_, reason := vm.NewProgram(module, f.Res.IRModules(), &out).WithLocaleData(localesOf(f.Path)).RunTests(f.Path)
 		if reason != "" {

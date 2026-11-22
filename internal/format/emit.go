@@ -594,15 +594,24 @@ func withPipeDangling(n *ast.Binary, d Doc) Doc {
 	return Concat(parts...)
 }
 
-// withPipeDanglingAfter is withPipeDangling for a pipeline after a
-// binding's `=`, which may break onto the lines below (pipeAfterEquals). No
-// comment may come between the `=` and the pipeline, so all of them end the
-// pipeline's last line, as a comment before a one-line value ends its line.
-func withPipeDanglingAfter(n *ast.Binary, d Doc) Doc {
-	before, after := pipeDangling(n)
+// withDanglingAfter writes the dangling comments of n, a value that may
+// break onto the lines below its binding's `=` or its field's `:`
+// (belowWhenBroken), after d, the document for it: a pipeline's as
+// withPipeDangling gathers them, any other node's its own. No comment may
+// come between the `=` and the value, so all of them end the value's last
+// line, as a comment before a one-line value ends its line.
+func withDanglingAfter(n ast.Node, d Doc) Doc {
+	var before, after []ast.Trivia
+	if pipe, ok := n.(*ast.Binary); ok && pipe.Op == "|>" {
+		before, after = pipeDangling(pipe)
+	} else if h, ok := n.(ast.HasDangling); ok {
+		before, after = h.GetDanglingBefore(), h.GetDanglingAfter()
+	}
 	parts := []Doc{d}
-	for _, t := range append(before, after...) {
-		parts = append(parts, LineSuffix(t.Text))
+	for _, ts := range [][]ast.Trivia{before, after} {
+		for _, t := range ts {
+			parts = append(parts, LineSuffix(t.Text))
+		}
 	}
 	return Concat(parts...)
 }
@@ -891,8 +900,6 @@ func emitNode(n ast.Node) Doc {
 		return emitEmbedDecl(v)
 	case *ast.ExternType:
 		return emitExternType(v)
-	case *ast.ExternPackage:
-		return emitExternPackage(v)
 	case *ast.StringInterp:
 		return emitStringInterp(v)
 	case *ast.TaggedString:
@@ -947,24 +954,59 @@ func emitNode(n ast.Node) Doc {
 	panic("unimplemented: " + n.NodeType())
 }
 
-// emitBindingValue renders `target = value` for a binding and a pattern
-// binding. A pipe value breaks after `=` and indents the pipe
+// emitBindingValue renders `target = value` for a binding, a pattern
+// binding and a `once`. A pipe value breaks after `=` and indents the pipe
 // block so the source and each `|>` align one level in (a multi-stage pipe
-// always breaks; a single pipe that fits stays inline via the Group).
+// always breaks; a single pipe that fits stays inline via the Group). Any
+// other value is placed as emitValueAfter places it.
 func emitBindingValue(target Doc, value ast.Node) Doc {
+	head := Concat(target, Text(" ="))
 	if b, ok := value.(*ast.Binary); ok && b.Op == "|>" {
-		return Group(Concat(target, Text(" ="), withPipeDanglingAfter(b, pipeAfterEquals(emitPipeChain(b)))))
+		return Group(Concat(head, withDanglingAfter(b, belowWhenBroken(emitPipeChain(b)))))
 	}
-	return Concat(target, Text(" = "), emit(value))
+	return emitValueAfter(head, Nil(), value)
 }
 
-// pipeAfterEquals places a pipeline after a binding's `=`: on the `=` line
-// when the enclosing Group is flat, or on the lines below one indent in. On
-// the `=` line it gets no indent of its own, so an `if` or `case` stage's
-// block (pipeStageDoc) is indented from the binding's line, as
-// `y = case x {` is.
-func pipeAfterEquals(chain Doc) Doc {
-	return IfBroken(Concat(Text(" "), chain), Nest(defaultIndent, Concat(Line(), chain)))
+// emitValueAfter renders value after head, which ends in a binding's `=` or
+// a struct field's `:`; col is the alignment mark the value starts at on
+// that line, or Nil. A value closed by `end` (closedByEnd) that does not fit
+// on head's line moves to the lines below, one indent in, so its keyword
+// and its `end` share a column; one that fits stays on head's line. Any
+// other value stays on head's line, a bracketed one breaking inside its
+// brackets.
+func emitValueAfter(head, col Doc, value ast.Node) Doc {
+	if !closedByEnd(value) {
+		return Concat(head, Text(" "), col, emit(value))
+	}
+	return Group(Concat(head, withDanglingAfter(value, belowWhenBroken(Concat(col, emitNode(value))))))
+}
+
+// closedByEnd reports whether n is an expression whose broken form the
+// grammar closes with `end`: an `if`, a `case`, a lambda (unless its body is
+// a literal that stays on the header's line, lambdaLiteralBody), a `begin`
+// block or a `concurrent` block, alone or marked with a postfix `?` or `!`
+// (`case ... end?`), which ends the same last line.
+func closedByEnd(n ast.Node) bool {
+	switch v := n.(type) {
+	case *ast.If, *ast.Case, *ast.Block, *ast.ConcurrentBlock:
+		return true
+	case *ast.Lambda:
+		return lambdaLiteralBody(v) == nil
+	case *ast.TryOp:
+		return v.Expr != nil && closedByEnd(v.Expr)
+	case *ast.Unwrap:
+		return closedByEnd(v.Expr)
+	}
+	return false
+}
+
+// belowWhenBroken places a value after a binding's `=` or a field's `:`: on
+// that line when the enclosing Group is flat, or on the lines below one
+// indent in. On the `=` line it gets no indent of its own, so an `if` or
+// `case` stage's block (pipeStageDoc) is indented from the binding's line,
+// as `y = case x {` is.
+func belowWhenBroken(value Doc) Doc {
+	return IfBroken(Concat(Text(" "), value), Nest(defaultIndent, Concat(Line(), value)))
 }
 
 // emitPatternBinding renders `Pattern = value [else { ... }]`.
@@ -1032,7 +1074,7 @@ func holdsConditional(stmt ast.Node) bool {
 func patternBindingHead(v *ast.PatternBinding, target Doc) Doc {
 	if pipe, ok := v.Value.(*ast.Binary); ok && pipe.Op == "|>" {
 		return Group(Concat(target, Text(" ="),
-			withPipeDanglingAfter(pipe, pipeAfterEquals(emitPipeChain(pipe))),
+			withDanglingAfter(pipe, belowWhenBroken(emitPipeChain(pipe))),
 			IfBroken(Text(" "), HardLine()),
 			Text("else ")))
 	}
@@ -2678,7 +2720,7 @@ func emitStructFieldValWithLeading(f ast.StructFieldVal, it alignItem) Doc {
 		parts = append(parts, Text(f.Name+":"))
 		return Concat(parts...)
 	}
-	parts = append(parts, it.wrap(Concat(Text(f.Name), Text(": "), it.col(0), emit(f.Value))))
+	parts = append(parts, it.wrap(emitValueAfter(Text(f.Name+":"), it.col(0), f.Value)))
 	return Concat(parts...)
 }
 
@@ -3158,6 +3200,9 @@ func emitLambdaKeepingBraces(v *ast.Lambda, keepBlock bool) Doc {
 		// A body holding only comments keeps them, on their own lines.
 		return emitLambdaBlock(header, body)
 	}
+	if lit := lambdaLiteralBody(v); lit != nil {
+		return Concat(header, Text(" "), emit(lit))
+	}
 
 	if es, ok := soleExprStmt(body); ok && !statementOrBlockHasComment(body, es) && lambdaExprBodyShouldBreak(es.Expr) {
 		// An if that breaks or continues always goes below the
@@ -3177,15 +3222,6 @@ func emitLambdaKeepingBraces(v *ast.Lambda, keepBlock bool) Doc {
 		if es, ok := body.Stmts[0].(*ast.ExprStmt); ok {
 			if statementOrBlockHasComment(body, es) || isBlockExpr(es.Expr) {
 				return emitLambdaBlock(header, body)
-			}
-			if isStructLitExpr(es.Expr) || isTripleLiteral(es.Expr) {
-				// A struct literal body stays on the parameters' line and
-				// breaks itself when too wide. Read back, a broken literal
-				// is stacked, which keeps it on that line, so moving it to
-				// the next line would not survive a second format. A
-				// triple-quoted or multi-line raw literal stays there too,
-				// its body one level in (bodyFromOpenerLine).
-				return Concat(header, Text(" "), emit(es.Expr))
 			}
 			// A body too long for the parameters' line moves below them,
 			// closed by `end`, as rustfmt writes a closure in a block. Read
@@ -3208,6 +3244,26 @@ func emitLambdaKeepingBraces(v *ast.Lambda, keepBlock bool) Doc {
 
 	// Multi-statement body: always below the parameters, closed by `end`.
 	return emitLambdaBlock(header, body)
+}
+
+// lambdaLiteralBody is the body of a lambda that stays on the parameters'
+// line, or nil: a struct literal, a triple-quoted or a multi-line raw
+// literal, the body's one statement, with no comment, not written below the
+// `->`. A struct literal body breaks itself when too wide. Read back, a
+// broken literal is stacked, which keeps it on that line, so moving it to
+// the next line would not survive a second format. A triple-quoted or
+// multi-line raw literal stays there too, its body one level in
+// (bodyFromOpenerLine). Such a lambda ends with the literal's closer, not
+// `end`.
+func lambdaLiteralBody(v *ast.Lambda) ast.Node {
+	if v.Body == nil || lambdaKeepsBlock(v) {
+		return nil
+	}
+	es, ok := soleExprStmt(v.Body)
+	if !ok || statementOrBlockHasComment(v.Body, es) || !isStructLitExpr(es.Expr) && !isTripleLiteral(es.Expr) {
+		return nil
+	}
+	return es.Expr
 }
 
 // soleExprStmt returns body's statement when it is its only one and an
@@ -4787,11 +4843,11 @@ func emitStructField(f ast.StructField) Doc {
 	// the next time: none is written.
 	parts = append(parts, emitLeadingComments(withoutBlankTrivia(f.LeadingComments))...)
 	parts = append(parts, emitDocComment(f.Doc)...)
-	parts = append(parts, emitFieldHead(f)...)
+	head := Concat(emitFieldHead(f)...)
 	if f.Default != nil {
-		parts = append(parts, Text(" = "), emit(f.Default))
+		head = emitValueAfter(Concat(head, Text(" =")), Nil(), f.Default)
 	}
-	return Concat(parts...)
+	return Concat(append(parts, head)...)
 }
 
 // emitFieldHead is a field's name and its type, `name: Type`, or its name
@@ -4858,10 +4914,11 @@ func emitStructDeclField(f ast.StructField, it alignItem) Doc {
 	if f.TypeAnnotation != nil {
 		head = append(head, Text(": "), it.col(0), emitTypeExpr(f.TypeAnnotation))
 	}
+	field := Concat(head...)
 	if f.Default != nil {
-		head = append(head, Text(" = "), emit(f.Default))
+		field = emitValueAfter(Concat(field, Text(" =")), Nil(), f.Default)
 	}
-	parts = append(parts, it.wrap(Concat(head...)))
+	parts = append(parts, it.wrap(field))
 	parts = append(parts, emitSameLineComments(f.Trailing)...)
 	return Concat(parts...)
 }
@@ -5294,39 +5351,14 @@ func emitOnceBinding(v *ast.OnceBinding) Doc {
 	return Concat(parts...)
 }
 
-func emitExternPackage(v *ast.ExternPackage) Doc {
-	parts := []Doc{Text("gopkg ")}
-	parts = append(parts, Text(encodeNomiString(v.ImportPath)))
-	if v.Alias != "" && v.Alias != inferredGoPackageAlias(v.ImportPath) {
-		parts = append(parts, Text(" as "), Text(v.Alias))
-	}
-	return Concat(parts...)
-}
-
-func inferredGoPackageAlias(importPath string) string {
-	importPath = strings.TrimSuffix(importPath, "/")
-	if importPath == "" {
-		return ""
-	}
-	if idx := strings.LastIndex(importPath, "/"); idx >= 0 {
-		return importPath[idx+1:]
-	}
-	return importPath
-}
-
-// emitExternFunc renders `[pub ]host fn name(params)[: Ret]` or a Go
-// binding.
+// emitExternFunc renders `[pub ]host fn name(params)[: Ret]`.
 func emitExternFunc(v *ast.ExternFunc) Doc {
 	parts := emitDocBeforeAttachedTests(v.Doc, v.AttachedTests)
 	parts = append(parts, emitAttachedTests(v.AttachedTests)...)
 	if v.Public {
 		parts = append(parts, Text("pub "))
 	}
-	if v.ForeignAlias != "" {
-		parts = append(parts, Text("fn "), Text(v.Name), emitTypeParams(v.TypeParams))
-	} else {
-		parts = append(parts, Text("host fn "), Text(v.Name), emitTypeParams(v.TypeParams))
-	}
+	parts = append(parts, Text("host fn "), Text(v.Name), emitTypeParams(v.TypeParams))
 
 	parts = append(parts, emitParamList(v.Line, funcParamDocs(v.Params), v.Params, v.ParamsEndTrivia))
 
@@ -5334,9 +5366,6 @@ func emitExternFunc(v *ast.ExternFunc) Doc {
 		parts = append(parts, Text(" -> "), emitTypeExpr(v.ReturnTypeExpr))
 	}
 	parts = append(parts, emitWhereClause(v.WhereClauses)...)
-	if v.ForeignAlias != "" {
-		parts = append(parts, Text(" go "), Text(v.ForeignAlias), Text("."), Text(v.ForeignName))
-	}
 	return Concat(parts...)
 }
 
@@ -5371,7 +5400,7 @@ func emitEmbedDecl(v *ast.EmbedDecl) Doc {
 	return Concat(parts...)
 }
 
-// emitExternType renders `[pub ]host type Name[<T, ...>]` or a Go binding.
+// emitExternType renders `[pub ]host type Name[<T, ...>]`.
 func emitExternType(v *ast.ExternType) Doc {
 	// Doc-comment first, then decorators — see emitStructDef for the parser
 	// constraint that drives this order.
@@ -5381,15 +5410,7 @@ func emitExternType(v *ast.ExternType) Doc {
 	if v.Public {
 		parts = append(parts, Text("pub "))
 	}
-	if v.ForeignAlias != "" {
-		if v.Opaque {
-			parts = append(parts, Text("opaque "))
-		}
-		parts = append(parts, Text("type "), Text(v.Name), emitTypeParams(v.TypeParams))
-		parts = append(parts, Text(" go "), Text(v.ForeignAlias), Text("."), Text(v.ForeignName))
-	} else {
-		parts = append(parts, Text("host type "), Text(v.Name), emitTypeParams(v.TypeParams))
-	}
+	parts = append(parts, Text("host type "), Text(v.Name), emitTypeParams(v.TypeParams))
 	parts = append(parts, emitWhereClause(v.WhereClauses)...)
 	return Concat(parts...)
 }

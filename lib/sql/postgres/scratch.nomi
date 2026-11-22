@@ -1,0 +1,115 @@
+//# The scratch server: a throwaway Postgres cluster, one per process, that
+//# `database` makes a fresh empty database on for each call. It runs from
+//# the `initdb` and `postgres` on `PATH`, in a temporary directory, on a
+//# free local port, with durability off (`fsync`, `synchronous_commit` and
+//# `full_page_writes`), since nothing on it outlives the process.
+//#
+//# A shell starts the server in the background, beside a watcher that
+//# looks each second at whether the process that asked for it still runs:
+//# once it has ended, however it ended, the watcher stops the server and
+//# removes the directory. That needs a POSIX shell, so Windows has no
+//# scratch server.
+
+import
+    std::channels.{Arm, Channel}
+    std::duration.Duration
+    std::hex
+    std::instant.Instant
+    std::net
+    std::process.{self, Command, Status}
+    std::random
+    std::sql
+    postgres::config.{Config, SslMode}
+    postgres::session
+    postgres::wire
+end
+
+/// The scratch server's port, started on first use, or why it could not
+/// start.
+once server: Result<Int, String> = start()
+
+/// The URL of a fresh empty database on the process's scratch server.
+pub fn database() -> Result<String, sql.Error>
+    port = server |> Result.map_err(fn message -> sql.Error.Connection{message:})?
+    name = "scratch_${hex.encode(random.secure_bytes(6))}"
+    admin = wire.open(admin_config(port, "postgres"))?
+    defer wire.close(admin)
+    _ = session.simple(admin, "CREATE DATABASE ${name}")?
+    Ok("postgres://postgres@127.0.0.1:${port}/${name}?sslmode=disable")
+end
+
+fn admin_config(port: Int, database: String) -> Config
+    Config{host: "127.0.0.1", port:, database:, ssl_mode: SslMode.Disable}
+end
+
+// The shell that makes and starts the cluster: `$1` is the port. It
+// prints the cluster's directory, and returns once the server is starting.
+once script = `
+    set -e
+    for tool in initdb postgres; do
+        command -v "$tool" >/dev/null 2>&1 || { echo "postgres.scratch runs a throwaway server with initdb and postgres from PATH, and $tool is not on PATH" >&2; exit 2; }
+    done
+    dir=$(mktemp -d "${TMPDIR:-/tmp}/nomi-postgres-XXXXXX")
+    if ! initdb -D "$dir/data" -A trust -U postgres -E UTF8 --locale=C --no-sync >"$dir/initdb.log" 2>&1; then
+        cat "$dir/initdb.log" >&2
+        rm -rf "$dir"
+        exit 1
+    fi
+    owner=$PPID
+    (
+        postgres -D "$dir/data" -p "$1" -c listen_addresses=127.0.0.1 -c unix_socket_directories= -c fsync=off -c synchronous_commit=off -c full_page_writes=off >"$dir/log" 2>&1 &
+        pid=$!
+        while kill -0 "$owner" 2>/dev/null && kill -0 "$pid" 2>/dev/null; do sleep 1; done
+        kill -INT "$pid" 2>/dev/null
+        wait "$pid"
+        rm -rf "$dir"
+    ) </dev/null >/dev/null 2>&1 &
+    echo "$dir"
+    `
+
+// Starts the server and the watcher, and waits for the server to accept
+// connections, for 30 seconds at most.
+fn start() -> Result<Int, String>
+    port = free_port()?
+    shell = Command{program: "sh", args: ["-c", script, "sh", "${port}"]}
+
+    ran =
+        process.output(shell)
+        |> Result.map_err(fn e -> "postgres.scratch needs a POSIX shell to run its server: ${e}")?
+
+    if not Status.is_success(ran.status) then
+        return Err(
+            Bytes.to_string_lossy(ran.stderr)
+            |> String.trim()
+        )
+    end
+
+    accepting(port, Instant.now() + Duration.seconds(30))
+end
+
+// A port nothing listens on now.
+fn free_port() -> Result<Int, String>
+    listener = net.listen("127.0.0.1:0") |> Result.map_err(fn e -> "${e}")?
+    address = net.Listener.address(listener)
+    net.Listener.close(listener)
+    (_, port) = net.split_host_port(address) |> Result.map_err(fn e -> "${e}")?
+    String.to_int(port) |> Maybe.to_result("the port of ${address} is not a number")
+end
+
+// Waits for the server on `port` to accept a connection, trying each 50
+// milliseconds until `deadline`.
+fn accepting(port: Int, deadline: Instant) -> Result<Int, String>
+    case wire.open(admin_config(port, "postgres"))
+        Ok(link) ->
+            wire.close(link)
+            Ok(port)
+
+        Err(e) when Instant.is_before(Instant.now(), deadline) ->
+            _ = e
+            Channel.select([Arm.after(Duration.milliseconds(50), fn -> Unit)])
+            accepting(port, deadline)
+
+        Err(e) ->
+            Err("the scratch server did not start: ${e}")
+    end
+end

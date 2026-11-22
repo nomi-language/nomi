@@ -67,8 +67,8 @@ the operation.
 - `%` takes the sign of the dividend: `-7 / 3` is `-2` and `-7 % 3` is
   `-1`. [`Int.modulo`](/reference/int/#intmodulo) is the floored form:
   `Int.modulo(-7, 3)` is `2`.
-- `n / d` with `d` an `Int` is
-  ``` `/` divides by a NonZeroInt; `d` is an Int ```: check it first
+- `n / d` with `d` an `Int`
+  is ``` `/` divides by a NonZeroInt; `d` is an Int ```: check it first
   (`if d == 0 then ...`) or take a `NonZeroInt`. A non-zero literal
   (`n / 2`) passes, and so does a value whose range rules zero out, such
   as each `d` in `1..=n |> Iter.filter(fn d -> n % d == 0)`. The
@@ -237,7 +237,7 @@ Nomi looks at text at four levels:
   that make up text.
 - [`Bytes`](/reference/bytes/#type-bytes) is immutable binary data, and a
   [`Byte`](/reference/bytes/#type-byte) is one byte of it. Use it for UTF-8
-  encoding, file and network data, and Go's `[]byte` when calling Go.
+  encoding, and for file and network data.
 
 Most string functions count graphemes. [`String.length`](/reference/strings/#stringlength),
 [`String.slice`](/reference/strings/#stringslice) and
@@ -308,10 +308,10 @@ dbg line 14:
 
 To classify a codepoint, ask `Codepoint`:
 [`is_letter`](/reference/code_points/#codepointis_letter),
-[`is_whitespace`](/reference/code_points/#codepointis_whitespace),
-[`is_upper`](/reference/code_points/#codepointis_upper) and
-[`is_lower`](/reference/code_points/#codepointis_lower) follow Unicode, so `é`
-and `ж` are letters. [`is_digit`](/reference/code_points/#codepointis_digit)
+[`is_punctuation`](/reference/code_points/#codepointis_punctuation),
+[`is_whitespace`](/reference/code_points/#codepointis_whitespace) and the
+other categories beside them follow Unicode, so `é` and `ж` are letters and
+`«` is punctuation. [`is_digit`](/reference/code_points/#codepointis_digit)
 and [`to_digit`](/reference/code_points/#codepointto_digit) accept only ASCII
 `0` to `9`, which is what a phone number or a checksum means.
 
@@ -424,6 +424,48 @@ to 255 there is a compile error.
 Spec: [Byte literals](/spec/literals/#byte-literals).
 
 </div>
+
+A binary format is written with a
+[`Builder`](/reference/bytes/#type-builder) and read with a
+[`Cursor`](/reference/bytes/cursor/). Both are values: each push answers a
+new `Builder`, and each read answers what it read and the `Cursor` after it,
+or `None` when the bytes run out.
+
+```nomi-run
+import
+    std::bytes.Builder
+    std::bytes::cursor.Cursor
+    std::io
+end
+
+fn main()
+    frame =
+        Builder.new()
+        |> Builder.push_int16_be(7)
+        |> Builder.push_string("hi")
+        |> Builder.to_bytes()
+
+    dbg frame |> Iter.map(Byte.to_int) |> Iter.to_list()
+
+    case Cursor.read_uint16_be(Cursor.new(frame))
+        Some((kind, rest)) -> io.print("kind ${kind}, ${Cursor.remaining(rest)} bytes left")
+        None               -> io.print("too short")
+    end
+end
+```
+<!-- expect
+dbg line 14: frame |> Iter.map(Byte.to_int) |> Iter.to_list() = [0, 7, 104, 105]
+kind 7, 2 bytes left
+-->
+
+- Appending to a `Builder` costs the same per byte however long it grows,
+  so building a buffer a byte at a time takes time linear in its length.
+  `Bytes.concat` copies both sides each time.
+- `push_int16_be` writes 16 bits, most significant byte first. There are
+  writes and reads for 8, 16, 32 and 64 bits in either byte order, for
+  floats and for varints.
+- `Bytes.uint16_be_at(frame, 0)` reads the same integer at an index, for
+  code that keeps its own position.
 
 ## Triple-quoted strings
 

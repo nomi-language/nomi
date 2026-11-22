@@ -34,7 +34,7 @@ func TestRunFile_ASubdirectoryFileResolvesFromMainNomi(t *testing.T) {
 
 	cmd := exec.Command(nomiBin, "run", filepath.Join("tools", "say.nomi"))
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "NOMI_FFIRUN_CACHE_ROOT="+t.TempDir(), "NO_COLOR=1")
+	cmd.Env = append(os.Environ(), "NOMI_RUNNER_CACHE_ROOT="+t.TempDir(), "NO_COLOR=1")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("nomi run tools/say.nomi: %v\n%s", err, out)
@@ -74,7 +74,7 @@ end
 `)
 	for _, sub := range []string{"check", "run"} {
 		cmd := exec.Command(nomiBin, sub, orphans)
-		cmd.Env = append(os.Environ(), "NOMI_FFIRUN_CACHE_ROOT="+t.TempDir(), "NO_COLOR=1")
+		cmd.Env = append(os.Environ(), "NOMI_RUNNER_CACHE_ROOT="+t.TempDir(), "NO_COLOR=1")
 		out, err := cmd.CombinedOutput()
 		if err == nil {
 			t.Fatalf("nomi %s accepted orphan impls in a file outside any project:\n%s", sub, out)
@@ -106,7 +106,7 @@ fn main()
 end
 `)
 	cmd := exec.Command(nomiBin, "run", own)
-	cmd.Env = append(os.Environ(), "NOMI_FFIRUN_CACHE_ROOT="+t.TempDir(), "NO_COLOR=1")
+	cmd.Env = append(os.Environ(), "NOMI_RUNNER_CACHE_ROOT="+t.TempDir(), "NO_COLOR=1")
 	out, err := cmd.CombinedOutput()
 	if err != nil || string(out) != "mine\n" {
 		t.Fatalf("nomi run of an impl of the file's own interface: %v\n%s", err, out)

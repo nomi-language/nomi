@@ -54,11 +54,12 @@ fn main()
     io.print("start")
 
     // Two tasks race to force the same binding; its initializer runs once.
-    total = concurrent
-        a = Task.spawn(fn -> Policy.default.retries)
-        b = Task.spawn(fn -> Policy.default.retries)
-        Task.await(a) + Task.await(b)
-    end
+    total =
+        concurrent
+            a = Task.spawn(fn -> Policy.default.retries)
+            b = Task.spawn(fn -> Policy.default.retries)
+            Task.await(a) + Task.await(b)
+        end
 
     io.print(Int.to_string(total))
     io.print(Int.to_string(Policy.default.retries))

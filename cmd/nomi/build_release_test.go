@@ -2,8 +2,8 @@ package main
 
 // `nomi build` from a release: a `nomi` with no compiler source and no Go
 // toolchain, beside the prebuilt `nomi-vm` its archive ships, and
-// downloading another platform's runner from a release served locally. See
-// internal/ffirun/prebuilt.go.
+// downloading a runner it does not have from a release served locally. See
+// internal/runners/prebuilt.go.
 
 import (
 	"archive/tar"
@@ -26,7 +26,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/nomi-language/nomi/internal/ffirun"
+	"github.com/nomi-language/nomi/internal/stdlibbindings/families"
 	"github.com/nomi-language/nomi/vmrunner"
 )
 
@@ -52,11 +52,9 @@ type fakeReleaseBuild struct {
 	// wasiReactor is the wasip1 reactor the wasip1 archive ships beside
 	// its runner.
 	wasiReactor string
-	// versioned is set when nomi carries a version it would fetch the
-	// compiler module at: this checkout is clean at a tag, as a release
-	// build is. Its Go-side refusals are then the missing Go toolchain
-	// rather than the missing source tree.
-	versioned bool
+	// compiler holds the same nomi and std/compiler's lean runner, as the
+	// compiler archive unpacked beside the main one.
+	compiler string
 }
 
 var (
@@ -89,6 +87,7 @@ func releaseBuild(t *testing.T) fakeReleaseBuild {
 			install:  filepath.Join(base, "install"),
 			bare:     filepath.Join(base, "bare"),
 			mismatch: filepath.Join(base, "mismatch"),
+			compiler: filepath.Join(base, "compiler"),
 		}
 		goos, goarch := crossTarget()
 		b.cross = goos + "/" + goarch
@@ -98,7 +97,10 @@ func releaseBuild(t *testing.T) fakeReleaseBuild {
 			"wasip1/wasm": filepath.Join(base, "wasip1_wasm", "nomi-vm"),
 		}
 		b.wasiReactor = filepath.Join(base, "wasip1_wasm", "nomi-vm-reactor")
-		ldflags := "-s -w -X github.com/nomi-language/nomi/internal/ffirun.ReleaseVersion=" + releaseTestVersion
+		ldflags := "-s -w -X github.com/nomi-language/nomi/internal/runners.ReleaseVersion=" + releaseTestVersion
+		// The -nonet runners are the lean ones, built with every optional
+		// family's tag, as scripts/release.sh builds them.
+		leanTags := strings.Join(families.LeanTags(), ",")
 		steps := []struct {
 			out, pkg string
 			env      []string
@@ -106,19 +108,21 @@ func releaseBuild(t *testing.T) fakeReleaseBuild {
 		}{
 			{exe(filepath.Join(b.install, "nomi")), "./cmd/nomi", nil, []string{"-ldflags", ldflags}},
 			{exe(filepath.Join(b.install, "nomi-vm")), "./cmd/nomi-vm", nil, []string{"-ldflags", "-s -w"}},
-			{exe(filepath.Join(b.install, "nomi-vm-nonet")), "./cmd/nomi-vm", nil, []string{"-tags", "nomi_nonet", "-ldflags", "-s -w"}},
+			{exe(filepath.Join(b.install, "nomi-vm-nonet")), "./cmd/nomi-vm", nil, []string{"-tags", leanTags, "-ldflags", "-s -w"}},
 			{exe(filepath.Join(b.bare, "nomi")), "./cmd/nomi", nil, []string{"-ldflags", ldflags}},
+			{exe(filepath.Join(b.compiler, "nomi")), "./cmd/nomi", nil, []string{"-ldflags", ldflags}},
+			{exe(filepath.Join(b.compiler, "nomi-vm-compiler-nonet")), "./cmd/nomi-vm", nil, []string{"-tags", "nomi_compiler," + leanTags, "-ldflags", "-s -w"}},
 			{exe(filepath.Join(b.mismatch, "nomi")), "./cmd/nomi", nil, []string{"-ldflags", ldflags}},
 			{exe(filepath.Join(b.mismatch, "nomi-vm")), "./cmd/nomi-vm", nil, []string{"-buildvcs=false", "-ldflags", "-s -w"}},
-			{exe(filepath.Join(b.mismatch, "nomi-vm-nonet")), "./cmd/nomi-vm", nil, []string{"-buildvcs=false", "-tags", "nomi_nonet", "-ldflags", "-s -w"}},
+			{exe(filepath.Join(b.mismatch, "nomi-vm-nonet")), "./cmd/nomi-vm", nil, []string{"-buildvcs=false", "-tags", leanTags, "-ldflags", "-s -w"}},
 			{b.crossRunner, "./cmd/nomi-vm", []string{"GOOS=" + goos, "GOARCH=" + goarch}, []string{"-ldflags", "-s -w"}},
-			{b.crossRunner + "-nonet", "./cmd/nomi-vm", []string{"GOOS=" + goos, "GOARCH=" + goarch}, []string{"-tags", "nomi_nonet", "-ldflags", "-s -w"}},
+			{b.crossRunner + "-nonet", "./cmd/nomi-vm", []string{"GOOS=" + goos, "GOARCH=" + goarch}, []string{"-tags", leanTags, "-ldflags", "-s -w"}},
 			{b.wasmRunners["js/wasm"], "./cmd/nomi-vm", []string{"GOOS=js", "GOARCH=wasm"}, []string{"-ldflags", "-s -w"}},
-			{b.wasmRunners["js/wasm"] + "-nonet", "./cmd/nomi-vm", []string{"GOOS=js", "GOARCH=wasm"}, []string{"-tags", "nomi_nonet", "-ldflags", "-s -w"}},
+			{b.wasmRunners["js/wasm"] + "-nonet", "./cmd/nomi-vm", []string{"GOOS=js", "GOARCH=wasm"}, []string{"-tags", leanTags, "-ldflags", "-s -w"}},
 			{b.wasmRunners["wasip1/wasm"], "./cmd/nomi-vm", []string{"GOOS=wasip1", "GOARCH=wasm"}, []string{"-ldflags", "-s -w"}},
-			{b.wasmRunners["wasip1/wasm"] + "-nonet", "./cmd/nomi-vm", []string{"GOOS=wasip1", "GOARCH=wasm"}, []string{"-tags", "nomi_nonet", "-ldflags", "-s -w"}},
+			{b.wasmRunners["wasip1/wasm"] + "-nonet", "./cmd/nomi-vm", []string{"GOOS=wasip1", "GOARCH=wasm"}, []string{"-tags", leanTags, "-ldflags", "-s -w"}},
 			{b.wasiReactor, "./cmd/nomi-vm-reactor", []string{"GOOS=wasip1", "GOARCH=wasm"}, []string{"-buildmode=c-shared", "-ldflags", "-s -w"}},
-			{b.wasiReactor + "-nonet", "./cmd/nomi-vm-reactor", []string{"GOOS=wasip1", "GOARCH=wasm"}, []string{"-buildmode=c-shared", "-tags", "nomi_nonet", "-ldflags", "-s -w"}},
+			{b.wasiReactor + "-nonet", "./cmd/nomi-vm-reactor", []string{"GOOS=wasip1", "GOARCH=wasm"}, []string{"-buildmode=c-shared", "-tags", leanTags, "-ldflags", "-s -w"}},
 		}
 		for _, s := range steps {
 			args := append(append([]string{"build", "-trimpath"}, s.extra...), "-o", s.out, s.pkg)
@@ -130,12 +134,6 @@ func releaseBuild(t *testing.T) fakeReleaseBuild {
 				return
 			}
 		}
-		info, err := buildinfo.ReadFile(exe(filepath.Join(b.install, "nomi")))
-		if err != nil {
-			releaseErr = err
-			return
-		}
-		b.versioned = ffirun.CompilerModuleVersion(info) != ""
 		releaseBuilt = b
 	})
 	if releaseErr != nil {
@@ -145,14 +143,16 @@ func releaseBuild(t *testing.T) fakeReleaseBuild {
 }
 
 // releaseEnv is an installed machine's environment: no Go on PATH, nothing
-// inherited, an isolated cache. A module fetched into the module cache
+// inherited, an isolated cache, and a release nothing answers unless extra
+// names one in NOMI_RELEASE_BASE_URL. A module fetched into the module cache
 // under HOME stays writable (-modcacherw), so the test's temporary
 // directory can be removed.
 func releaseEnv(t *testing.T, cacheRoot string, extra ...string) []string {
 	t.Helper()
 	env := append([]string{"HOME=" + t.TempDir(), "PATH=" + noGoPath(t), "TERM=dumb",
-		"NOMI_FFIRUN_CACHE_ROOT=" + cacheRoot, "NOMI_COLOR=never", "GOFLAGS=-modcacherw"},
-		append(noManagedGoEnv(t.TempDir()), extra...)...)
+		"NOMI_RUNNER_CACHE_ROOT=" + cacheRoot, "NOMI_COLOR=never", "GOFLAGS=-modcacherw",
+		"NOMI_RELEASE_BASE_URL=" + unreachableRelease},
+		append(artifactCacheEnv(t.TempDir()), extra...)...)
 	env = withUserDirs(env)
 	probe := exec.Command("/usr/bin/env", "go", "version")
 	probe.Env = env
@@ -164,31 +164,26 @@ func releaseEnv(t *testing.T, cacheRoot string, extra ...string) []string {
 
 const releaseHello = "import std::io\n\nfn main()\n  io.print(\"hi\")\nend\n"
 
+// unreachableRelease is a release URL nothing answers.
+const unreachableRelease = "http://127.0.0.1:1/no-release-in-tests"
+
 // TestBuildFromRelease_TheInstalledRunnerBuildsEveryProgram: a release-shaped
 // `nomi` with its archive's nomi-vm beside it, no compiler source and no
 // Go, builds every whole-program corpus program, and each binary
-// matches its golden record. A program with Go FFI or importing std/compiler
-// is refused with the reason, and nothing is built from source or downloaded.
+// matches its golden record. A program importing std/compiler, whose
+// runner is in the compiler archive, is refused when that cannot be
+// downloaded, and nothing is built from source.
 func TestBuildFromRelease_TheInstalledRunnerBuildsEveryProgram(t *testing.T) {
 	t.Parallel()
 	b := releaseBuild(t)
 	cache := t.TempDir()
 	env := releaseEnv(t, cache)
-	ffi, compiler := 0, 0
-	ffiRefusal := "this project has Go bindings, and `nomi build` links them into the executable"
-	compilerRefusal := "this program imports std/compiler, whose hosts link the whole front end"
-	if b.versioned {
-		ffiRefusal = "no Go toolchain: this project has Go FFI, so `nomi build` compiles a nomi-vm"
-		compilerRefusal = "no Go toolchain: `nomi build` builds nomi-vm"
-	}
+	compiler := 0
+	compilerRefusal := "_compiler.tar.gz yourself into"
 	built := buildMatchesRecords(t, exe(filepath.Join(b.install, "nomi")), env,
 		[]recordPopulation{{"corpus", "tests"}},
 		func(stderr string) bool {
-			switch {
-			case strings.Contains(stderr, ffiRefusal):
-				ffi++
-				return true
-			case strings.Contains(stderr, compilerRefusal):
+			if strings.Contains(stderr, compilerRefusal) {
 				compiler++
 				return true
 			}
@@ -197,20 +192,19 @@ func TestBuildFromRelease_TheInstalledRunnerBuildsEveryProgram(t *testing.T) {
 	if built == 0 {
 		t.Fatal("no program was built, so this test compared nothing")
 	}
-	if ffi == 0 {
-		t.Fatal("no FFI program was refused; tests/18-ffi-and-dynamic has Go FFI projects, so the refusal went unexercised")
-	}
-	entries, err := os.ReadDir(cache)
+	// The download directory a refused std/compiler program made stays
+	// empty.
+	err := filepath.WalkDir(cache, func(path string, d os.DirEntry, err error) error {
+		if err == nil && !d.IsDir() && strings.HasPrefix(d.Name(), "nomi-vm") {
+			t.Errorf("the cache holds %s: a runner was built or downloaded instead of the installed one", path)
+		}
+		return err
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, e := range entries {
-		if _, err := os.Stat(filepath.Join(cache, e.Name(), "nomi-vm")); err == nil || e.Name() == "nomi-vm" {
-			t.Fatalf("the cache holds %s: a runner was built or downloaded instead of the installed one", e.Name())
-		}
-	}
-	t.Logf("%d programs built from the installed runner; refused: %d with Go FFI, %d importing std/compiler",
-		built, ffi, compiler)
+	t.Logf("%d programs built from the installed runner; refused: %d importing std/compiler",
+		built, compiler)
 }
 
 // TestBuildFromRelease_AVariantNamedLikeAnInterfaceBuilds: a release nomi has
@@ -270,11 +264,12 @@ func TestBuildFromRelease_AMismatchedRunnerIsRefused(t *testing.T) {
 	}
 }
 
-// TestBuildFromRelease_StdCompilerNeedsGoToBuildItsRunner: releases ship only
-// the plain runner, so with no Go a program importing std/compiler is refused
-// with why: a release build needs Go to build that runner from the compiler
-// module, and a development build without its tree cannot build it at all.
-func TestBuildFromRelease_StdCompilerNeedsGoToBuildItsRunner(t *testing.T) {
+// TestBuildFromRelease_StdCompilerUsesTheCompilerRunner: with the compiler
+// archive's runner beside it, a release `nomi` with no Go builds a program
+// importing std/compiler, and the executable runs. Without that runner, and
+// with no release to download it from, the build names the archive it
+// wanted, suggests no Go, and writes nothing.
+func TestBuildFromRelease_StdCompilerUsesTheCompilerRunner(t *testing.T) {
 	b := releaseBuild(t)
 	dir := t.TempDir()
 	entry := filepath.Join(dir, "nested.nomi")
@@ -287,57 +282,30 @@ fn main()
   io.print(Debug.inspect(compiler.check("fn main()\n  missing\nend\n")))
 end
 `)
-	out := exe(filepath.Join(t.TempDir(), "nested"))
-	got := runProcess(t, releaseEnv(t, t.TempDir()), dir, "", exe(filepath.Join(b.install, "nomi")), "build", entry, "-o", out)
-	want := []string{"this program imports std/compiler", "Releases ship only the plain nomi-vm"}
-	if b.versioned {
-		want = []string{"no Go toolchain: `nomi build` builds nomi-vm", "Install Go"}
-	}
-	if got.exit == 0 || !strings.Contains(got.stderr, want[0]) || !strings.Contains(got.stderr, want[1]) {
-		t.Fatalf("exit %d:\n%s", got.exit, got.transcript())
-	}
-	if _, err := os.Stat(out); !os.IsNotExist(err) {
-		t.Fatalf("a refused build left something at -o (%v)", err)
-	}
-}
-
-// TestBuildFromRelease_GoBindingsRefuseWithoutGo: a release-shaped `nomi`
-// on a machine with no Go refuses every command that has to compile a
-// project's Go side, exits non-zero, and says what is missing.
-//
-// What is missing depends on what this checkout stamps into the binary. Built
-// at a clean tagged commit, as a release is, it is versioned and would fetch
-// the compiler module, so the refusal is the missing Go toolchain. Built
-// anywhere else it is a development build whose tree -trimpath hides, so the
-// refusal names NOMI_COMPILER_SOURCE.
-func TestBuildFromRelease_GoBindingsRefuseWithoutGo(t *testing.T) {
-	b := releaseBuild(t)
-	nomi := exe(filepath.Join(b.install, "nomi"))
-	info, err := buildinfo.ReadFile(nomi)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := []string{"development build", "NOMI_COMPILER_SOURCE"}
-	if ffirun.CompilerModuleVersion(info) != "" {
-		want = []string{"no Go toolchain", "Install Go"}
-	}
-	project := filepath.Join(repoRoot(t), "cmd", "nomi", "testdata", "go_bindings")
-	entry := filepath.Join(project, "main.nomi")
-	for _, args := range [][]string{
-		{"run", entry},
-		{"test", project},
-		{"check", entry},
-		{"build", entry, "-o", filepath.Join(t.TempDir(), "gobindings")},
-	} {
-		// `nomi test` reports a file it cannot run as that file's failure on
-		// stdout; the other commands write stderr.
-		got := runProcess(t, releaseEnv(t, t.TempDir()), project, "", nomi, args...)
-		out := got.stdout + got.stderr
-		if got.exit == 0 || !strings.Contains(out, want[0]) || !strings.Contains(out, want[1]) {
-			t.Fatalf("nomi %s: exit %d, want a refusal naming %q and %q:\n%s",
-				args[0], got.exit, want[0], want[1], got.transcript())
+	t.Run("beside nomi", func(t *testing.T) {
+		env := releaseEnv(t, t.TempDir())
+		out := exe(filepath.Join(t.TempDir(), "nested"))
+		got := runProcess(t, env, dir, "", exe(filepath.Join(b.compiler, "nomi")), "build", entry, "-o", out)
+		if got.exit != 0 || got.stderr != "" {
+			t.Fatalf("exit %d:\n%s", got.exit, got.transcript())
 		}
-	}
+		ran := runProcess(t, env, dir, "", out)
+		if want := "[Diagnostic{line: 2, col: 3, message: \"undefined variable 'missing'\"}]\n"; ran.exit != 0 || ran.stdout != want {
+			t.Fatalf("exit %d, want %q printed:\n%s", ran.exit, want, ran.transcript())
+		}
+	})
+	t.Run("not installed and no release", func(t *testing.T) {
+		out := exe(filepath.Join(t.TempDir(), "nested"))
+		got := runProcess(t, releaseEnv(t, t.TempDir()), dir, "", exe(filepath.Join(b.install, "nomi")), "build", entry, "-o", out)
+		archive := fmt.Sprintf("%s/%s/nomi_%s_%s_%s_compiler", unreachableRelease, releaseTestVersion, releaseTestVersion, runtime.GOOS, runtime.GOARCH)
+		if got.exit == 0 || !strings.Contains(got.stderr, "no nomi-vm-compiler-nonet for "+runtime.GOOS+"/"+runtime.GOARCH+" is installed") ||
+			!strings.Contains(got.stderr, archive) || strings.Contains(got.stderr, "Install Go") || strings.Contains(got.stderr, "Go toolchain") {
+			t.Fatalf("exit %d, want the refusal to name %s and suggest no Go:\n%s", got.exit, archive, got.transcript())
+		}
+		if _, err := os.Stat(out); !os.IsNotExist(err) {
+			t.Fatalf("a refused build left something at -o (%v)", err)
+		}
+	})
 }
 
 func tarGzFiles(t *testing.T, files map[string][]byte) []byte {

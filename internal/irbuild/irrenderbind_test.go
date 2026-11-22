@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/ast"
-	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/std"
 )
 
@@ -129,33 +128,4 @@ func TestIRRender_EveryRenderingSiteHasAPosition(t *testing.T) {
 	}
 	t.Logf("%d rendering positions over %d shapes, 0 without a line: %v",
 		total, len(counts), counts)
-}
-
-// TestIRBind_TheNodePositionsComeFromTheirNodes reads the positions `ir.Bind`
-// and `ir.Copy` carry back off the nodes the production builders make, which
-// is the only thing that catches a builder attributing them to the wrong line.
-func TestIRBind_TheNodePositionsComeFromTheirNodes(t *testing.T) {
-	const file = "probe.nomi"
-	g := &gen{nomiPath: file}
-	fn := ir.NewFunc(ir.At(file, 1, 1), "probe")
-	sh := &irFuncShell{fn: fn, frame: newIRFuncFrame(fn), entry: fn.NewBlock(ir.At(file, 1, 1), "entry")}
-	g.irPro = sh
-	src := g.irNewTemp(kindInt)
-
-	bindAt := &ast.Binding{Name: "n", Line: 12, Col: 5}
-	copyAt := &ast.Break{Line: 19, Col: 7}
-
-	for _, tc := range []struct {
-		what string
-		got  ir.Pos
-		line int
-		col  int
-	}{
-		{"the Bind", g.irBindNode(bindAt, "n", src, kindInt).Pos(), 12, 5},
-		{"the Copy", g.irCopyNode(copyAt, kindInt, src).Pos(), 19, 7},
-	} {
-		if tc.got.Line() != tc.line || tc.got.Col() != tc.col {
-			t.Errorf("%s is at %s, want %s:%d:%d", tc.what, tc.got, file, tc.line, tc.col)
-		}
-	}
 }

@@ -103,8 +103,8 @@ fn swapper(a: Int, b: Int, n: Int) -> Int
 end
 
 // The dispatch TABLE still reaches the member, and the member is now an entry
-// wrapper rather than the body. `bindImpl` binds `it.goName`, the wrapper keeps
-// that name, so a table entry trampolines without knowing a cycle is there.
+// wrapper rather than the body. The table binds the member's symbol, which the
+// wrapper keeps, so a table entry trampolines without knowing a cycle is there.
 // NOT in tail position — `1 +` makes it an operand — because a tail-position
 // existential dispatch into a cycle is refused for an unrelated reason: the
 // receiver is erased, so there is no member to select.

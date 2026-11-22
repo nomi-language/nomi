@@ -1,6 +1,7 @@
 package irbuild
 
 import (
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
@@ -42,13 +43,13 @@ import (
 //
 // which mention no type parameter at all: `T` is merely IN SCOPE. Marking the
 // block generic would move those two onto `stdlib generic function`, a wrong
-// reason. They are instead admitted by `genStructSigKind`.
+// reason. Their `Range<Int>` projects to the shared instance instead.
 //
 // So the rule is the strictly narrower one: a signature that MENTIONS a type
 // parameter is generic. It is also sound in the direction that matters: it can
 // only ever move a declaration that would be refused anyway, never one that
-// lowers. `stdTypeKind` has no arm for a bare `T`, and none for a container
-// over one, so any signature mentioning a receiver type parameter has
+// lowers. A type parameter, or a container over one, has no shared kind
+// (projectShared), so any signature mentioning a receiver type parameter has
 // `kindInvalid` at that position regardless.
 //
 // The block-level test for an EXPLICIT `Generics` header stays as it is. It is
@@ -57,9 +58,9 @@ import (
 // sigNamesTypeParam reports whether any position of this signature names one of
 // the given type parameters.
 //
-// A parameter with no annotation is not a mention: `stdParamKind` already
-// refuses it as `kindInvalid` on its own terms, and calling that generic would
-// blame the dictionary for a missing annotation.
+// A parameter with no annotation is not a mention: its kind is its pattern's
+// or its default's (stdParamType), which names no type parameter of the
+// receiver.
 func sigNamesTypeParam(params []ast.Param, ret ast.TypeExpr, tp map[string]bool) bool {
 	if len(tp) == 0 {
 		return false
@@ -131,13 +132,15 @@ func typeNamesAnyOutside(te ast.TypeExpr, tp map[string]bool, skip func(*ast.Gen
 // phantom-parameter std host type (`C` in `impl Matcher for Regex<C>`). Such
 // a declaration is one function to this builder, since `Regex<X>` is one leaf
 // for every X; anything else naming one of them is generic as before.
-func phantomOnly(tp map[string]bool, anchors stdAnchors, tes []ast.TypeExpr, sigs ...stdSig) bool {
+func phantomOnly(tp map[string]bool, fa *analysis.FileAnalysis, tes []ast.TypeExpr, sigs ...stdSig) bool {
 	if len(tp) == 0 {
 		return false
 	}
+	// The row of the type the checker recorded for the written generic
+	// type, by its (Origin, Name).
 	skip := func(gt *ast.GenericType) bool {
-		i, anchored := anchors.hosts[gt.Name]
-		return anchored && len(stdHostSpecs[i].phantom) > 0
+		dt, ok := stdTypeExprType(fa, gt).(*analysis.DistinctType)
+		return ok && dt.Origin != "" && phantomHostSpec(dt.Origin, dt.Name) >= 0
 	}
 	for _, te := range tes {
 		if typeNamesAnyOutside(te, tp, skip) {

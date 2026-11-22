@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"github.com/nomi-language/nomi/internal/expectation"
 	"hash/fnv"
 	"io/fs"
 	"math/rand"
@@ -17,6 +18,9 @@ import (
 	"testing"
 	"unicode/utf8"
 
+	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/lexer"
+	"github.com/nomi-language/nomi/internal/parser"
 	"github.com/nomi-language/nomi/internal/projectgen"
 	"github.com/nomi-language/nomi/internal/rotation"
 )
@@ -34,13 +38,19 @@ import (
 // about 600 lines, whose projectgen edits it runs before the fuzzer's, and
 // every multi-file corpus directory. TestCachedBuildMatchesFreshSample
 // (about 15 seconds) runs each projectgen edit kind and a file added that a
-// leaf imports, each made and undone, nomi.toml's [capabilities] lists
+// leaf imports, each made and undone, nomi.toml's [effects] lists
 // added, narrowed and taken away with a body edit under each
-// (capabilityEdits), and the fuzzer's edits of two corpus
+// (effectEdits), and the fuzzer's edits of two corpus
 // entries; it fails unless a command relinked from file records after each
 // projectgen edit but the hub's signature edit (relinkingKinds), and prints
 // the cache's reasons when one did not. TestCachedBuildMatchesFreshRotating
-// runs two more edit sequences a day.
+// runs two more edit sequences a day. The fuzzer's and the rotating
+// sequences end with templateCacheEdits: the bodies the file lowers for
+// other files' asking (a generic function's, an impl's function's, an
+// interface default's) edited twice in a row and then put back, so a
+// relink runs over an earlier relink of the same template.
+// TestCachedBuildMatchesFreshAfterTemplateEdits runs those edits over the
+// corpus projects' files, a sample by default.
 //
 // TestArtifactCacheRebuildsWhatItCannotRead, TestFileRecordsRebuildWhatTheyCannotRead
 // and TestArtifactCacheTwoProcessesRace hold damaged records and racing
@@ -80,7 +90,7 @@ func (p cacheProject) nomiFiles() []string {
 
 // cacheProjects are the projects the harness edits, in a fixed order: a
 // generated project of about 600 lines, then every multi-file corpus
-// directory with no Go bindings and an entry (main.nomi, else its first
+// directory with an entry (main.nomi, else its first
 // test file), as the incremental fuzzer picks them.
 var cacheProjects = sync.OnceValues(func() ([]cacheProject, error) {
 	gen := projectgen.Generate(projectgen.Config{Seed: 7, Lines: 600})
@@ -95,9 +105,6 @@ var cacheProjects = sync.OnceValues(func() ([]cacheProject, error) {
 	}
 	for _, dir := range dirs {
 		if info, err := os.Stat(dir); err != nil || !info.IsDir() {
-			continue
-		}
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
 			continue
 		}
 		c := cacheProject{name: filepath.ToSlash(dir), files: map[string]string{}}
@@ -176,6 +183,102 @@ func fuzzCacheEdits(p cacheProject, rel, src string, seed int64) []cacheEdit {
 	return append(edits, cacheEdit{what: "original back", rel: rel, text: p.files[rel]})
 }
 
+// templateCacheEdits edit, in rel, the bodies a file lowers for other
+// files' asking (a generic function's, an impl's function's, an interface
+// default's): in the first two such bodies that hold a one-line string
+// literal, the literal gains a `~` after its opening quote, then a second
+// one, and then the original text comes back. Each is a body edit that
+// still checks, so the commands after it relink the program, and the
+// second edit of a body relinks over the first's relink. None when rel
+// does not parse or holds no such body.
+func templateCacheEdits(p cacheProject, rel string) []cacheEdit {
+	src := p.files[rel]
+	nodes, err := parser.Parse(lexer.Lex(src))
+	if err != nil {
+		return nil
+	}
+	var bodies []ast.Node
+	for _, n := range nodes {
+		switch d := n.(type) {
+		case *ast.FuncDef:
+			if len(d.TypeParams) > 0 && d.Body != nil {
+				bodies = append(bodies, d.Body)
+			}
+		case *ast.ImplBlock:
+			for _, item := range d.Items {
+				if fn, ok := item.(*ast.FuncDef); ok && fn.Body != nil {
+					bodies = append(bodies, fn.Body)
+				}
+			}
+		case *ast.InterfaceDef:
+			for _, m := range d.Methods {
+				if m.Body != nil {
+					bodies = append(bodies, m.Body)
+				}
+			}
+		}
+	}
+	lineStarts := []int{0}
+	for i := 0; i < len(src); i++ {
+		if src[i] == '\n' {
+			lineStarts = append(lineStarts, i+1)
+		}
+	}
+	// offset is the byte offset just inside the opening quote of a
+	// one-line literal whose span is s, or -1.
+	offset := func(s ast.Span) int {
+		if s.StartLine < 1 || s.StartLine > len(lineStarts) {
+			return -1
+		}
+		at := lineStarts[s.StartLine-1] + s.StartCol - 1
+		if at < 0 || at >= len(src) || src[at] != '"' || strings.HasPrefix(src[at:], `"""`) {
+			return -1
+		}
+		return at + 1
+	}
+	var sites []int
+	for _, body := range bodies {
+		site := -1
+		ast.Inspect(body, func(n ast.Node) bool {
+			if site >= 0 {
+				return false
+			}
+			switch lit := n.(type) {
+			case *ast.StringLit:
+				if !lit.Raw && !lit.Triple {
+					site = offset(lit.Span)
+				}
+			case *ast.StringInterp:
+				if !lit.Triple {
+					site = offset(lit.Span)
+				}
+			}
+			return site < 0
+		})
+		if site >= 0 {
+			sites = append(sites, site)
+		}
+		if len(sites) == 2 {
+			break
+		}
+	}
+	if len(sites) == 0 {
+		return nil
+	}
+	marked := func(mark string) string {
+		out := src
+		for i := len(sites) - 1; i >= 0; i-- {
+			out = out[:sites[i]] + mark + out[sites[i]:]
+		}
+		return out
+	}
+	return []cacheEdit{
+		{what: "template bodies edited", rel: rel, text: marked("~")},
+		{what: "template bodies edited again", rel: rel, text: marked("~~")},
+		{what: "template bodies back", rel: rel, text: src},
+	}
+}
+
 // genCacheEdits are projectgen's edit kinds, each made once and then
 // undone, over p's generated project, with its second impl block, which
 // leaves the program with an error about its impls, and a file added that
@@ -188,27 +291,27 @@ func genCacheEdits(p cacheProject) []cacheEdit {
 		edits = append(edits, cacheEdit{what: string(kind), rel: rel, text: text}, cacheEdit{what: string(kind) + ", undone", rel: rel, text: p.files[rel]})
 	}
 	edits = append(edits, fileAddedEdits(p, 0)...)
-	return append(edits, capabilityEdits(p)...)
+	return append(edits, effectEdits(p)...)
 }
 
-// capabilityEdits give p's manifest [capabilities] tables that allow what
+// effectEdits give p's manifest [effects] tables that allow what
 // the generated program reaches (std::io), edit a leaf's body under it and
 // undo that, take std::io out of the list so the program is refused, edit
 // the body again, and take the table away: a kept program must never
 // answer for lists other than the ones it was kept under, and a body edit
 // relinked under the lists is held to them.
-func capabilityEdits(p cacheProject) []cacheEdit {
+func effectEdits(p cacheProject) []cacheEdit {
 	manifest := p.files["nomi.toml"]
 	key, body := p.gen.Edit(projectgen.BodyLeaf, 1)
 	rel := key + ".nomi"
 	return []cacheEdit{
-		{what: "capabilities allowing std::io", rel: "nomi.toml", text: manifest + "\n[capabilities.self]\nstd = [\"std::io\"]\n\n[capabilities.deps]\nstd = [\"std::io\"]\n"},
+		{what: "effects allowing std::io", rel: "nomi.toml", text: manifest + "\n[effects.self]\nstd = [\"std::io\"]\n\n[effects.deps]\nstd = [\"std::io\"]\n"},
 		{what: "body edit under the lists", rel: rel, text: body},
 		{what: "body edit under the lists, undone", rel: rel, text: p.files[rel]},
-		{what: "capabilities allowing nothing", rel: "nomi.toml", text: manifest + "\n[capabilities.self]\nstd = []\n\n[capabilities.deps]\nstd = []\n"},
+		{what: "effects allowing nothing", rel: "nomi.toml", text: manifest + "\n[effects.self]\nstd = []\n\n[effects.deps]\nstd = []\n"},
 		{what: "body edit under an empty list", rel: rel, text: body},
 		{what: "body edit under an empty list, undone", rel: rel, text: p.files[rel]},
-		{what: "capabilities removed", rel: "nomi.toml", text: manifest},
+		{what: "effects removed", rel: "nomi.toml", text: manifest},
 	}
 }
 
@@ -239,8 +342,10 @@ type cacheRun struct {
 	report []string
 }
 
+// String is the run as two runs are compared: a supervisor's retry delay is
+// drawn at random, so it reads as the expectation records read it.
 func (r cacheRun) String() string {
-	return fmt.Sprintf("exit %d\nstdout:\n%s\nstderr:\n%s", r.exit, r.stdout, r.stderr)
+	return expectation.Normalize(fmt.Sprintf("exit %d\nstdout:\n%s\nstderr:\n%s", r.exit, r.stdout, r.stderr), "")
 }
 
 // read reports whether the command read a kept program.
@@ -303,7 +408,7 @@ func runNomiIn(t *testing.T, dir, cache string, args ...string) cacheRun {
 }
 
 // sharedStd is the directory of std's artifacts every child of this test
-// binary reads (noManagedGoEnv's cache), made by a first command if no
+// binary reads (artifactCacheEnv's cache), made by a first command if no
 // child made it yet.
 var sharedStd = sync.OnceValues(func() (string, error) {
 	root := os.Getenv("NOMI_ARTIFACT_CACHE")
@@ -355,20 +460,20 @@ func newCacheDir(t *testing.T) string {
 	return cache
 }
 
-// runFreshIn runs nomi as runNomiIn does with the programs and file records
-// cache keeps set aside, so it reads none: the command as it runs with no
-// program kept.
+// runFreshIn runs nomi as runNomiIn does with the programs, file records
+// and stored passes cache keeps set aside, so it reads none: the command as
+// it runs with no program kept.
 func runFreshIn(t *testing.T, dir, cache string, args ...string) cacheRun {
 	t.Helper()
 	var moved []string
-	for _, kind := range []string{"programs", "files"} {
+	for _, kind := range []string{"programs", "files", "passes"} {
 		kept := filepath.Join(cache, kind)
 		if os.Rename(kept, kept+".aside") == nil {
 			moved = append(moved, kept)
 		}
 	}
 	r := runNomiIn(t, dir, cache, args...)
-	for _, kind := range []string{"programs", "files"} {
+	for _, kind := range []string{"programs", "files", "passes"} {
 		if err := os.RemoveAll(filepath.Join(cache, kind)); err != nil {
 			t.Fatal(err)
 		}
@@ -385,10 +490,13 @@ func runFreshIn(t *testing.T, dir, cache string, args ...string) cacheRun {
 }
 
 // commandsFor are the commands the harness compares for an entry: check,
-// and run or test as the entry is a program or a test file.
+// and run or test as the entry is a program or a test file. A test file is
+// tested with --all, so a stored pass answers no case (vmhost's
+// testpass.go, which TestSkippedCasesWouldPass holds) and every case of the
+// kept program runs.
 func commandsFor(entry string) [][]string {
 	if strings.HasSuffix(entry, "_test.nomi") {
-		return [][]string{{"check", entry}, {"test", entry}}
+		return [][]string{{"check", entry}, {"test", "--all", entry}}
 	}
 	return [][]string{{"check", entry}, {"run", entry}}
 }
@@ -541,7 +649,7 @@ func FuzzCachedBuildMatchesFresh(f *testing.F) {
 			t.Skip()
 		}
 		p, rel := pickCacheFile(projects, project, file)
-		edits := fuzzCacheEdits(p, rel, src, cacheSeed(src))
+		edits := append(fuzzCacheEdits(p, rel, src, cacheSeed(src)), templateCacheEdits(p, rel)...)
 		if p.gen != nil {
 			// The generated project's edits of signatures, impls and files
 			// first, each undone, then the fuzzer's.
@@ -584,6 +692,50 @@ func TestCachedBuildMatchesFreshSample(t *testing.T) {
 	// and their undoing relink the program from its file records.
 	if relinked == 0 {
 		t.Fatal("no command relinked a program from its file records, so the comparisons say nothing about them")
+	}
+}
+
+// TestCachedBuildMatchesFreshAfterTemplateEdits edits, in every file of a
+// corpus project but its entry, the bodies the file lowers for other files'
+// asking (templateCacheEdits): twice in a row, then back. The second edit
+// relinks over the first's relink, which is where an instance kept outside
+// its template's file outlived the edit. It walks a sample of those files,
+// and every one under NOMI_CORPUS_WALKS=full, and fails unless a command
+// relinked after a second edit.
+func TestCachedBuildMatchesFreshAfterTemplateEdits(t *testing.T) {
+	if testing.Short() {
+		t.Skip("runs nomi several times per edit; -short")
+	}
+	projects, err := cacheProjects()
+	if err != nil {
+		t.Fatal(err)
+	}
+	type input struct {
+		p     cacheProject
+		edits []cacheEdit
+	}
+	var inputs []input
+	for _, p := range projects {
+		if p.gen != nil {
+			continue
+		}
+		for _, rel := range p.nomiFiles() {
+			if edits := templateCacheEdits(p, rel); rel != p.entry && len(edits) > 0 {
+				inputs = append(inputs, input{p, edits})
+			}
+		}
+	}
+	walk := rotation.CorpusWalk(t, 8)
+	again := 0
+	for i, in := range inputs {
+		if !walk.Takes(i) {
+			continue
+		}
+		_, _, byEdit := runCacheEditsBy(t, in.p, in.edits)
+		again += byEdit["template bodies edited again"]
+	}
+	if again == 0 {
+		t.Fatal("no command relinked a program after a second edit of its template bodies, so the comparisons say nothing about them")
 	}
 }
 
@@ -661,7 +813,7 @@ func TestCachedBuildMatchesFreshRotating(t *testing.T) {
 		rng := rand.New(rand.NewSource(seed))
 		p, rel := pickCacheFile(projects, uint(rng.Intn(len(projects))), uint(rng.Intn(1<<16)))
 		t.Logf("seed %d edits %s in %s", seed, rel, p.name)
-		edits := fuzzCacheEdits(p, rel, p.files[rel], seed)
+		edits := append(fuzzCacheEdits(p, rel, p.files[rel], seed), templateCacheEdits(p, rel)...)
 		if p.gen != nil {
 			edits = append(genCacheEdits(p), edits...)
 		}
@@ -713,9 +865,9 @@ func TestArtifactCacheRebuildsWhatItCannotRead(t *testing.T) {
 	}
 	cache := newCacheDir(t)
 	freshRun := runFreshIn(t, dir, cache, "run", p.entry)
-	freshTest := runFreshIn(t, dir, cache, "test", testFile)
+	freshTest := runFreshIn(t, dir, cache, "test", "--all", testFile)
 	runNomiIn(t, dir, cache, "run", p.entry)
-	runNomiIn(t, dir, cache, "test", testFile)
+	runNomiIn(t, dir, cache, "test", "--all", testFile)
 	records := keptRecords(t, cache)
 	if len(records) != 2 {
 		t.Fatalf("the cache holds %d records after running a program and a test file; want 2", len(records))
@@ -748,11 +900,11 @@ func TestArtifactCacheRebuildsWhatItCannotRead(t *testing.T) {
 			}
 			args, fresh := []string{"run", p.entry}, freshRun
 			if i == 1 {
-				args, fresh = []string{"test", testFile}, freshTest
+				args, fresh = []string{"test", "--all", testFile}, freshTest
 			}
 			// Which record is the program's and which the test file's
 			// is the keys' order, so try both commands' records each way.
-			for _, try := range [][]string{{"run", p.entry}, {"test", testFile}} {
+			for _, try := range [][]string{{"run", p.entry}, {"test", "--all", testFile}} {
 				want := freshRun
 				if try[0] == "test" {
 					want = freshTest
@@ -929,9 +1081,9 @@ func TestArtifactCacheTwoProcessesRace(t *testing.T) {
 // nomi.toml that takes a name out refuses the next command, one that puts
 // it back runs it, and a body edit relinked under the lists is held to
 // them.
-func TestCapabilities_TheCacheAnswersForTheListsItWasKeptUnder(t *testing.T) {
-	dir, entry := capabilityProject(t, capabilityAllowsIO+"std_in_tests = [\"std::fs\"]\n")
-	mustWrite(t, entry, strings.Replace(capabilityProgram, `    io.print(fs.read_text("notes.txt"))`+"\n", "", 1))
+func TestEffects_TheCacheAnswersForTheListsItWasKeptUnder(t *testing.T) {
+	dir, entry := effectProject(t, effectAllowsIO+"std_in_tests = [\"std::fs\"]\n")
+	mustWrite(t, entry, strings.Replace(effectProgram, `    io.print(fs.read_text("notes.txt"))`+"\n", "", 1))
 	cache := newCacheDir(t)
 	for i := 0; i < 2; i++ {
 		run := runNomiIn(t, dir, cache, "run", "main.nomi")
@@ -944,29 +1096,29 @@ func TestCapabilities_TheCacheAnswersForTheListsItWasKeptUnder(t *testing.T) {
 	}
 
 	// io taken out of the list.
-	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[capabilities.self]\nstd = []\nstd_in_tests = [\"std::fs\"]\n")
+	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = []\nstd_in_tests = [\"std::fs\"]\n")
 	for _, cmd := range []string{"run", "check"} {
 		r := runNomiIn(t, dir, cache, cmd, "main.nomi")
-		if r.exit != 1 || r.stdout != "" || !strings.Contains(r.stderr, "error: this module's own code reaches std::io, and [capabilities.self] allows it nothing outside the program") {
+		if r.exit != 1 || r.stdout != "" || !strings.Contains(r.stderr, "error: this module's own code has the effect std::io, and [effects.self] allows it no effects") {
 			t.Errorf("nomi %s with io taken out of the list:\n%s\ncache: %v", cmd, r, r.report)
 		}
 	}
 
 	// io put back: the program kept under these lists runs.
-	mustWrite(t, filepath.Join(dir, "nomi.toml"), capabilityAllowsIO+"std_in_tests = [\"std::fs\"]\n")
+	mustWrite(t, filepath.Join(dir, "nomi.toml"), effectAllowsIO+"std_in_tests = [\"std::fs\"]\n")
 	if run := runNomiIn(t, dir, cache, "run", "main.nomi"); run.exit != 0 || run.stdout != "started\n" {
 		t.Errorf("nomi run with io put back:\n%s", run)
 	}
 
 	// A body edit that reads a file, which a relink from the file records
 	// would answer, is refused.
-	mustWrite(t, entry, capabilityProgram)
+	mustWrite(t, entry, effectProgram)
 	for i, cmd := range []string{"check", "run"} {
 		r := runNomiIn(t, dir, cache, cmd, "main.nomi")
-		if r.exit != 1 || r.stdout != "" || !strings.HasPrefix(r.stderr, capabilityRefusal) {
+		if r.exit != 1 || r.stdout != "" || !strings.HasPrefix(r.stderr, effectRefusal) {
 			t.Errorf("nomi %s after a body edit reads a file:\n%s\ncache: %v", cmd, r, r.report)
 		}
-		if i == 0 && !strings.Contains(strings.Join(r.report, "\n"), "not relinked: nomi.toml's [capabilities] lists do not allow what the program reaches") {
+		if i == 0 && !strings.Contains(strings.Join(r.report, "\n"), "not relinked: nomi.toml's [effects] lists do not allow the effects the program has") {
 			t.Errorf("the edit was not refused a relink for the lists: %v", r.report)
 		}
 	}

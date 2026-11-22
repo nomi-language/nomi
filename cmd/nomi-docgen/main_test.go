@@ -321,7 +321,7 @@ type referenceTest struct {
 	Label   string
 	Body    string
 	Context string
-	// BrowserLacks is the capability classes the prompt reaches that the
+	// BrowserLacks is the effect classes the prompt reaches that the
 	// browser lacks, space-separated, when the page shows it as code it
 	// does not run; "" for a live editor.
 	BrowserLacks string
@@ -435,8 +435,8 @@ func referenceAttr(attrs, name string) string {
 // tests of the public API entries it documents, so a prompt on a private
 // function or on an `impl` block itself runs under `nomi test std` and has no
 // editor, and an editor runs re-hosted with its page's context rather than in
-// place. A prompt the page shows but does not run, since it reaches a
-// capability the browser lacks (promptClassifier), runs here too, natively,
+// place. A prompt the page shows but does not run, since it reaches an
+// effect the browser lacks (promptClassifier), runs here too, natively,
 // and its `T` line ends `[not run in the browser: <classes>]`. So a
 // dropped, added, renamed, newly failing or newly browser-less editor is a
 // diff here, and adding a `//!` example needs only
@@ -455,7 +455,7 @@ func TestReferenceInteractiveTestsOnTheVM(t *testing.T) {
 			"run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an " +
 			"editor's outcome and its label: the entry heading, its impl context, and #n " +
 			"for an entry's later editors, and `[not run in the browser: <classes>]` for a prompt " +
-			"the page shows as code since it reaches a capability the browser lacks; it runs here " +
+			"the page shows as code since it reaches an effect the browser lacks; it runs here " +
 			"natively. N is the page's editor count.",
 	}
 	bad := 0

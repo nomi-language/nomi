@@ -25,7 +25,7 @@ func (c *checker) wholeResultHint(expected, got Type, expr ast.Node) string {
 		return ""
 	}
 	switch {
-	case want.Name == "Result" && len(want.TypeArgs) == 2:
+	case isStdType(want, stdResultType) && len(want.TypeArgs) == 2:
 		if !TypesEqual(resolveTypeVar(want.TypeArgs[1]), resolveTypeVar(have.TypeArgs[1])) ||
 			TypesEqual(resolveTypeVar(want.TypeArgs[0]), resolveTypeVar(have.TypeArgs[0])) {
 			return ""
@@ -33,7 +33,7 @@ func (c *checker) wholeResultHint(expected, got Type, expr ast.Node) string {
 		return c.typef("`%s` is the whole `%s`, so its `Ok` type is still `%s`; "+
 			"to pass the error on, write `Err(e) -> Err(e)`, or propagate it with `?`",
 			id.Name, have, have.TypeArgs[0])
-	case want.Name == "Maybe" && len(want.TypeArgs) == 1:
+	case isStdType(want, stdMaybeType) && len(want.TypeArgs) == 1:
 		if TypesEqual(resolveTypeVar(want.TypeArgs[0]), resolveTypeVar(have.TypeArgs[0])) {
 			return ""
 		}
@@ -58,7 +58,7 @@ func (c *checker) unwrappedOneShortHint(expected, got Type, expr ast.Node) strin
 		return ""
 	}
 	have, ok := resolveTypeVar(got).(*EnumType)
-	if !ok || have.Name != "Maybe" || len(have.TypeArgs) != 1 {
+	if !ok || !isStdType(have, stdMaybeType) || len(have.TypeArgs) != 1 {
 		return ""
 	}
 	inner := resolveTypeVar(have.TypeArgs[0])

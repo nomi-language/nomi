@@ -132,11 +132,12 @@ test "a changed cookie reads as no session and is deleted"
     // One character in the middle, whose six bits all count.
     at = String.length(cookie.value) / 2
 
-    swapped = if String.slice(cookie.value, at, at + 1) == "A" then
-        "B"
-    else
-        "A"
-    end
+    swapped =
+        if String.slice(cookie.value, at, at + 1) == "A" then
+            "B"
+        else
+            "A"
+        end
 
     forged = String.slice(cookie.value, 0, at) + swapped + String.slice(
         cookie.value,

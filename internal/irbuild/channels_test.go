@@ -23,9 +23,9 @@ import (
 // is mutated here, one at a time, from the real declaration.
 //
 // The `pub type X Int` and `pub type X SomeStruct` rows are the two the marker
-// gate exists for: stdgenhost.go's table says a row must not lean on
-// `scalarKind(inner) == kindInvalid`, because scalarKind answers kindInvalid for
-// a NON-scalar inner just as readily as for no inner at all.
+// gate exists for: a row must not lean on the inner type having no scalar
+// kind, because a NON-scalar inner has none just as readily as no inner at
+// all.
 func TestChannelSpecShapeChecksAreLoadBearing(t *testing.T) {
 	lib := std.Load()
 	fa := lib.Files["channels"]
@@ -59,7 +59,6 @@ func TestChannelSpecShapeChecksAreLoadBearing(t *testing.T) {
 		{"an inline bound the spec does not name", func(d *ast.ExternType) {
 			d.TypeParams = []ast.TypeParam{{Name: "T", Bounds: []ast.TypeExpr{&ast.SimpleType{Name: "Hashable"}}}}
 		}},
-		{"a foreign Go binding", func(d *ast.ExternType) { d.ForeignName = "chan.Sender" }},
 		{"a decorator that is not derive", func(d *ast.ExternType) {
 			d.Decorators = []ast.Decorator{{Name: "inline"}}
 		}},
@@ -296,8 +295,8 @@ func TestStdGenHostChannelsAreAllGeneric(t *testing.T) {
 			}
 			seen++
 			if len(ef.TypeParams) == 0 {
-				t.Errorf("%s.%s is NOT generic, so it reaches the stdlib signature path "+
-					"and stdgenhost.go's stated reason for having no stdTypeKind arm does not hold",
+				t.Errorf("%s.%s is NOT generic, so stdgenhost.go's statement that every "+
+					"channel function is filed as a generic one does not hold",
 					analysis.TypeExprBaseName(ib.Receiver), ef.Name)
 			}
 		}

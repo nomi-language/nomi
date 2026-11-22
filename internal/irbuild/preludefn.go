@@ -33,9 +33,10 @@ package irbuild
 // `List.equal` shares the `==` operator's lowering, because std/lists.nomi
 // defines the method AS `a == b`. The prelude enums are the same situation
 // with the same hazard: std says `derive Equatable for Maybe<T>`, and `==` on
-// a prelude instance already lowers. So `equal` routes to containerEqualCall
-// (irequality.go), which builds the comparison `a == b` is, and nothing else.
-// A second comparator would have to agree with the operator by luck.
+// a prelude instance already lowers. So `equal`, a call of a derived impl the
+// machine computes by shape (machineImpls), is lowered by interfaceCall
+// (ifacecall.go) as the comparison `a == b` is, and nothing else. A second
+// comparator would have to agree with the operator by luck.
 //
 // The comparator carries three properties this file does not restate: Float
 // routes through rt.EqFloat, so `Maybe.equal(Some(nan), Some(nan))` is True as
@@ -66,9 +67,9 @@ type preludeFn struct {
 // preludeFns is the lowered surface, minus `equal`.
 //
 // `equal` is absent on purpose and handled separately, for the reason
-// listFuncs gives for the same omission: its lowering is containerEqualCall,
-// shared with the `==` operator, so a row here would make it a second encoding
-// of one semantics.
+// listFuncs gives for the same omission: its lowering is the `==` operator's
+// (interfaceCall), so a row here would make it a second encoding of one
+// semantics.
 //
 // Keyed `Owner.method`, because the owner is part of the identity: `with_default`
 // exists on both enums with different receivers and different tags.

@@ -139,33 +139,23 @@ func TestStdBundle_ListedDecodesToTheLowering(t *testing.T) {
 // each literal site's cell and renderer with theirs.
 func relinkListedByName(t *testing.T, k *listedStd) {
 	t.Helper()
-	l := ir.NewLinker()
-	if err := l.Add(stdlibLowering().sortedModules()...); err != nil {
+	shared := stdlibLowering().sortedModules()
+	var mods []*ir.Module
+	var funcs map[*ir.Func]*ir.Func
+	var cells map[*ir.Cell]*ir.Cell
+	err := stdBundleState.objects.linkOver(shared, func(l *ir.Linker) (err error) {
+		mods, funcs, cells, err = relinkObjects(l, k.all.mods)
+		return err
+	})
+	if err != nil {
 		t.Fatal(err)
 	}
-	funcs := map[*ir.Func]*ir.Func{}
-	cells := map[*ir.Cell]*ir.Cell{}
 	needs := map[*ir.Module][]string{}
 	for i, m := range k.all.mods {
-		data, err := ir.EncodeObject(m)
-		if err != nil {
-			t.Fatal(err)
-		}
-		im, err := ir.DecodeImage(data, ir.WithLinkedSymbols(l.Symbol))
-		if err != nil {
-			t.Fatal(err)
-		}
-		dm := im.Modules[0]
-		for j, f := range m.Funcs() {
-			funcs[f] = dm.Funcs()[j]
-		}
-		for j, c := range m.Cells() {
-			cells[c] = dm.Cells()[j]
-		}
-		l.Define(dm)
-		needs[dm] = k.needs[m]
-		k.all.mods[i] = dm
+		needs[mods[i]] = k.needs[m]
 	}
+	// In place: k.all.units is the first of k.all.mods.
+	copy(k.all.mods, mods)
 	k.needs = needs
 	for i := range k.all.literals {
 		s := &k.all.literals[i]
@@ -232,11 +222,14 @@ func TestStdBundle_RejectsAStaleOrCorruptBundle(t *testing.T) {
 	}
 	// Each case reads its records again, since a case may change them.
 	fresh := func() []*stdModuleRecord {
-		recs, err := readSharedSection(shared)
+		objects, err := readSharedSection(shared)
 		if err != nil {
 			t.Fatal(err)
 		}
-		return recs
+		if err := objects.decodeAll(); err != nil {
+			t.Fatal(err)
+		}
+		return objects.recs
 	}
 	flipped := append([]byte(nil), good...)
 	flipped[len(flipped)-10] ^= 0x40
@@ -294,6 +287,23 @@ func TestStdBundle_RejectsAStaleOrCorruptBundle(t *testing.T) {
 			t.Errorf("%s: the bundle decoded", name)
 		}
 	}
+	// A record names each function by its linkage name, so one whose
+	// module's object is not in the section does not encode.
+	func() {
+		recs := fresh()
+		for _, rec := range recs {
+			for _, c := range rec.cands {
+				if c.irBody != nil && rec.mod != nil {
+					rec.mod = nil
+					if _, err := encodeSharedSection(recs); err == nil || !strings.Contains(err.Error(), "points outside its modules") {
+						t.Errorf("a section without %s's object encoded (%v)", rec.name, err)
+					}
+					return
+				}
+			}
+		}
+		t.Error("no record names a function, so nothing was tested")
+	}()
 	// A listed section is checked when it is decoded, so a corrupt one costs
 	// only itself: the shared section still decodes.
 	all, needs := lowerListedStd()
@@ -416,6 +426,9 @@ func stdIndexDump(idx *stdlibIndex) string {
 		}
 	}
 	val := reflectDump(names)
+	// What the index was decoded from is not what it holds.
+	held := *idx
+	held.objects, held.objectsGen = nil, 0
 	var b strings.Builder
 	for _, module := range modules {
 		v := idx.views[module]
@@ -428,7 +441,7 @@ func stdIndexDump(idx *stdlibIndex) string {
 			fmt.Fprintf(&b, "once %s#%d %s\n", module, i, val(reflect.ValueOf(o).Elem()))
 		}
 	}
-	fmt.Fprintf(&b, "index %s\n", val(reflect.ValueOf(idx).Elem()))
+	fmt.Fprintf(&b, "index %s\n", val(reflect.ValueOf(held)))
 	return strings.ReplaceAll(b.String(), "; ", ";\n  ")
 }
 

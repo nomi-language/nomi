@@ -147,8 +147,8 @@ func (s *Scope) noteFailure(f Failure) {
 func EnterScope(parent *Frame) *Frame {
 	ctx, cancel := context.WithCancel(parent.ctx)
 	s := &Scope{ctx: ctx, cancel: cancel, failed: make(chan struct{})}
-	return &Frame{ctx: ctx, forcing: parent.forcing, scopedFields: parent.scopedFields, scopedContext: parent.scopedContext,
-		booted: parent.booted, scope: s, inTask: parent.inTask, underDeadline: parent.underDeadline, stop: parent.stop, park: parent.park, capture: parent.capture,
+	return &Frame{ctx: ctx, forcing: parent.forcing, app: parent.app,
+		booted: parent.booted, scope: s, inTask: parent.inTask, underDeadline: parent.underDeadline, host: parent.host, stop: parent.stop, park: parent.park, capture: parent.capture,
 		files: parent.files, processes: parent.processes, network: parent.network, debug: parent.debug}
 }
 
@@ -202,18 +202,23 @@ type canceled struct{}
 
 // raiseCanceled unwinds the current task because its context ended.
 //
-// A raise is only correct where something up the stack recovers it, and the
-// only recoverer is TaskSpawn's wrapper — so
-// raising on a frame that is not inside a task would reach the top-level
-// recover, which re-panics anything that is not an `*Error` in order to keep
-// the Go traceback for a runtime bug. That is the right answer for a runtime
-// bug and the wrong one for a program.
+// A raise is only correct where something up the stack recovers it. Two
+// things do: TaskSpawn's wrapper, and the recover at the root of an
+// activation a host started (NewHostFrame, read with Unwound). Raising on
+// any other frame outside a task would reach a top-level recover that
+// re-panics anything that is not an `*Error` in order to keep the Go
+// traceback for a runtime bug. That is the right answer for a runtime bug
+// and the wrong one for a program.
 //
-// # The `!inTask` arm has two causes
+// # The `!inTask` arm has three causes
 //
 // A frame's ctx is closed by a Scope's `cancel` (only in ScopeExit, after its
-// body has finished), by a Task's, or by `rt.EnterDeadline` (frame.go). The
-// last closes the ctx on the main goroutine, while the body runs.
+// body has finished), by a Task's, by `rt.EnterDeadline` (frame.go), or by
+// the host whose activation the main line runs in (fr.host). The last two
+// close the ctx on the main goroutine, while the body runs. A host's end is
+// read first and unwinds: an embedder that cancels its Program.Call, or
+// whose deadline passes, gets its context's error back, whatever deadline
+// the program had in force.
 //
 // Take an ordinary program: `with Prog.context =
 // Context.with_timeout(Prog.context, Duration.milliseconds(50))` followed by
@@ -227,9 +232,10 @@ type canceled struct{}
 // lowering bug, to a user whose program was merely bounded. A corpus run cannot
 // catch this, because it compares runs where every case passed.
 //
-// So the two causes are separated by `fr.underDeadline` and each gets its own
+// So the deadline is told apart by `fr.underDeadline` and gets its own
 // answer. The lowering-bug Trap is kept rather than replaced: a cancellation
-// that arrives with no task and no deadline in force still has no explanation,
+// that arrives with no task, no host's end and no deadline in force still has
+// no explanation,
 // and TestConcurrent_StrayCancellationIsAFault constructs exactly that and must
 // still see it. Reporting the deadline unconditionally would name a
 // deadline that does not exist.
@@ -246,6 +252,14 @@ const MainDeadlineFault = "deadline exceeded: the context in force when `main` b
 
 func raiseCanceled(fr *Frame) {
 	if !fr.inTask {
+		if fr.host != nil && fr.host.Err() != nil {
+			// A third cause: the host that started this activation
+			// (NewHostFrame) stopped it. It unwinds to the host's recover
+			// (Unwound), which answers the host's context error. It comes
+			// before the deadline arm, since a host's deadline also ends a
+			// deadline's context derived from it.
+			panic(canceled{})
+		}
 		if fr.underDeadline && errors.Is(fr.ctx.Err(), context.DeadlineExceeded) {
 			// Nothing else can cancel main-line code, so a
 			// cancellation arriving here is the deadline it was given. It has to
@@ -286,10 +300,11 @@ func raiseAwaitedCancel(fr *Frame) {
 // CancelIfDone raises the cancellation unwind when fr's context has already
 // ended, and does nothing otherwise.
 //
-// Exported for the blocking operations in this package that are declared in
-// other files — `TimerSleep` in opaque.go, the channel pair in channel.go — so
-// the raise has one implementation and its guard cannot be forgotten at a
-// fourth call site.
+// Every blocking operation calls it after a wait its frame's context ended:
+// `TimerSleep` in opaque.go, the channel pair in channel.go, std's adapters
+// (internal/stdprocess's wait), and an embedder's host function that waits
+// on rt.Frame.Context and should stop its task rather than answer a value.
+// So the raise has one implementation and its guard cannot be forgotten.
 func CancelIfDone(fr *Frame) {
 	select {
 	case <-fr.ctx.Done():
@@ -448,7 +463,7 @@ func spawnScopeTask[T any](fr *Frame, s *Scope, sem chan struct{}, body func(*Fr
 		// Such a task is the block's like any other: its context is the
 		// block's, so cancelling the task that spawned it does not reach it,
 		// and the block cancels and waits for it on exit.
-		t.value = body(&Frame{ctx: ctx, forcing: fr.forcing, scopedFields: fr.scopedFields, scopedContext: fr.scopedContext, booted: fr.booted, scope: s, inTask: true, stop: stopFlag(ctx), park: fr.park, capture: fr.capture, files: fr.files, processes: fr.processes, network: fr.network})
+		t.value = body(&Frame{ctx: ctx, forcing: fr.forcing, app: fr.app, booted: fr.booted, scope: s, inTask: true, stop: stopFlag(ctx), park: fr.park, capture: fr.capture, files: fr.files, processes: fr.processes, network: fr.network})
 		t.tag = TagCompleted
 	}()
 	return Task[T]{t: t}

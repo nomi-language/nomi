@@ -6,10 +6,11 @@ fn quiet(b: Bool) -> Result<Int, Quiet>
 end
 
 test "a marker payload pattern"
-    n = case quiet(True)
-        Err(Quiet) -> 0
-        Ok(v)      -> v
-    end
+    n =
+        case quiet(True)
+            Err(Quiet) -> 0
+            Ok(v)      -> v
+        end
 
     assert n == 0
     assert Err(Quiet) = quiet(True)
@@ -18,9 +19,10 @@ end
 test "a marker in a record pattern"
     r = {e: Quiet, n: 3}
 
-    m = case r
-        {e: Quiet, n:} -> n
-    end
+    m =
+        case r
+            {e: Quiet, n:} -> n
+        end
 
     assert m == 3
 end

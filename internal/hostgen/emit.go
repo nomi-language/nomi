@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/iancoleman/strcase"
+	"github.com/nomi-language/nomi/hostadapt"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/rt"
 )
@@ -22,34 +23,12 @@ import (
 // function value, and the Nomi declaration it implements.
 type Binding struct {
 	Key string
-	// Fn is the Go function value, for a table whose functions are linked
-	// into the generator (the stdlib). Go describes the function instead for
-	// one read from source (a project's FFI bindings); exactly one is set.
+	// Fn is the Go function value, linked into the generator.
 	Fn   any
-	Go   *GoFunc
 	Decl HostFunc
-	// Res resolves the declaration's types, or nil for the generator's own
-	// resolver. A binding declared in a module set of its own (one of two
-	// files that share a module name) carries that set's.
-	Res *Resolver
 	// PanicsPropagate leaves out the adapter's recover. See
 	// FuncRow.PanicsPropagate.
 	PanicsPropagate bool
-}
-
-// GoFunc is a Go function known by its declaration rather than by a linked
-// value: its package's import path ("" for the generated file's own package),
-// its name, and its type, whose Kind is reflect.Func.
-type GoFunc struct {
-	Pkg  string
-	Name string
-	Type Type
-	// Shown is the function as the binding names it (`strconv.FormatInt`),
-	// and Params its parameters' Go names ("" for an unnamed one), which a
-	// trap for a value the Go side cannot hold names. Empty, the binding's
-	// key and the declaration's parameter names stand in.
-	Shown  string
-	Params []string
 }
 
 // Generator accumulates the adapters of one generated file.
@@ -67,14 +46,6 @@ type Generator struct {
 	descs    []descField
 	descMemo map[string]string
 	entries  []entry
-
-	// ownPkg is the import path of the package the file is generated into,
-	// whose types and functions are spelled unqualified. Empty for a
-	// package of its own.
-	ownPkg string
-	// prefix names the file's top-level declarations, so a fragment can be
-	// emitted into a file that declares its own.
-	prefix string
 }
 
 type descField struct {
@@ -83,10 +54,11 @@ type descField struct {
 	tuple string // Go expression for a tuple descriptor
 }
 
+// entry is one binding: its boxed adapter's method, or its register
+// form's row.
 type entry struct {
 	key, method string
-	// parts is the binding's parts form (partsAdapter), or "".
-	parts string
+	row         *regRow
 }
 
 // New starts a generated file in package pkg. handles maps every registered
@@ -111,21 +83,14 @@ func New(pkg string, res *Resolver, handles map[string]string) *Generator {
 	return g
 }
 
-// Add generates the adapter for one binding.
-//
-// A refused binding leaves the generator as it found it, so a caller that
-// skips refusals (internal/ffirun, which turns each into an adapter answering
-// the refusal) can go on adding: a conversion method is memoized before its
-// body is written, and one a refusal abandoned half-written must not be
-// reused by a later binding.
+// Add generates the adapter for one binding. A refusal fails the whole
+// file, so the generator is not used after one.
 func (g *Generator) Add(b Binding) error {
-	restore := g.snapshot()
-	method, parts, err := g.adapter(b)
+	method, row, err := g.adapter(b)
 	if err != nil {
-		restore()
 		return fmt.Errorf("%s: %w", b.Key, err)
 	}
-	g.entries = append(g.entries, entry{key: b.Key, method: method, parts: parts})
+	g.entries = append(g.entries, entry{key: b.Key, method: method, row: row})
 	return nil
 }
 
@@ -173,55 +138,9 @@ func (g *Generator) Source(header string) ([]byte, error) {
 	return src, nil
 }
 
-// Fragment renders the file's declarations without a package clause or an
-// import block, for a file that has its own, and answers the imports they
-// need by path. A fragment's top-level names carry the generator's prefix
-// (SetPrefix): Bind is `<prefix>Bind`, and so on.
-func (g *Generator) Fragment() ([]byte, map[string]string) {
-	imports := make(map[string]string, len(g.imports))
-	for p, a := range g.imports {
-		imports[p] = a
-	}
-	return g.decls(), imports
-}
-
-// SetPrefix names the generated top-level declarations with prefix, so they
-// can share a package with other code.
-func (g *Generator) SetPrefix(prefix string) { g.prefix = prefix }
-
-// SetOwnPackage makes the generator spell types and functions of the package
-// at importPath unqualified: the package the output is compiled into.
-func (g *Generator) SetOwnPackage(importPath string) { g.ownPkg = importPath }
-
-// UseImport makes the generator refer to the package at importPath by alias,
-// and reserves names the generated code must not take as an alias.
-func (g *Generator) UseImport(importPath, alias string) {
-	g.imports[importPath] = alias
-	g.taken[alias] = true
-}
-
-// Reserve keeps names the generated code must not take as import aliases.
-func (g *Generator) Reserve(names ...string) {
-	for _, n := range names {
-		g.taken[n] = true
-	}
-}
-
-// ident is a generated top-level name. Unprefixed, it is the stdlib files'
-// spelling (bound, Specs, Names, Bind, spec_d0).
-func (g *Generator) ident(name string) string {
-	if g.prefix == "" {
-		return name
-	}
-	return g.prefix + strings.ToUpper(name[:1]) + name[1:]
-}
-
 func (g *Generator) decls() []byte {
 	var out bytes.Buffer
-	bound, spec := g.ident("bound"), g.ident("spec_")
-	if g.prefix == "" {
-		spec = "spec_"
-	}
+	const bound, spec = "bound", "spec_"
 	fmt.Fprintf(&out, "var (\n\t_ = %s.New\n\t_ = %s.Errorf\n", g.imports["errors"], g.imports["fmt"])
 	if len(g.entries) == 0 {
 		// Only adapters name rt; a file binding Go types alone has none.
@@ -240,7 +159,7 @@ func (g *Generator) decls() []byte {
 	}
 	out.WriteString("}\n\n")
 
-	fmt.Fprintf(&out, "// %s lists the descriptor specs the adapters build with, so an engine can\n// link its own descriptors for them before %s.\nfunc %s() []*hostadapt.DescSpec {\n\treturn []*hostadapt.DescSpec{\n", g.ident("Specs"), g.ident("Bind"), g.ident("Specs"))
+	fmt.Fprintf(&out, "// %s lists the descriptor specs the adapters build with, so an engine can\n// link its own descriptors for them before %s.\nfunc %s() []*hostadapt.DescSpec {\n\treturn []*hostadapt.DescSpec{\n", "Specs", "Bind", "Specs")
 	for _, d := range g.descs {
 		if d.spec != "" {
 			fmt.Fprintf(&out, "\t\t%s%s,\n", spec, d.field)
@@ -248,13 +167,13 @@ func (g *Generator) decls() []byte {
 	}
 	out.WriteString("\t}\n}\n\n")
 
-	fmt.Fprintf(&out, "// %s lists every binding this file adapts, in table order.\nfunc %s() []string {\n\treturn []string{\n", g.ident("Names"), g.ident("Names"))
+	fmt.Fprintf(&out, "// %s lists every binding this file adapts, in table order.\nfunc %s() []string {\n\treturn []string{\n", "Names", "Names")
 	for _, e := range g.entries {
 		fmt.Fprintf(&out, "\t\t%q,\n", e.key)
 	}
 	out.WriteString("\t}\n}\n\n")
 
-	fmt.Fprintf(&out, "// %s resolves every descriptor through env and answers the adapters by\n// binding name.\nfunc %s(env *hostadapt.Env) (map[string]hostadapt.Func, error) {\n\tb := &%s{env: env}\n", g.ident("Bind"), g.ident("Bind"), bound)
+	fmt.Fprintf(&out, "// %s resolves every descriptor through env and answers the adapters by\n// binding name.\nfunc %s(env *hostadapt.Env) (map[string]hostadapt.Func, error) {\n\tb := &%s{env: env}\n", "Bind", "Bind", bound)
 	if slices.ContainsFunc(g.descs, func(d descField) bool { return d.spec != "" }) {
 		out.WriteString("\tvar err error\n")
 	}
@@ -265,58 +184,78 @@ func (g *Generator) decls() []byte {
 			fmt.Fprintf(&out, "\tb.%s = %s\n", d.field, d.tuple)
 		}
 	}
-	if len(g.entries) == 0 {
+	fmt.Fprintf(&out, "\tfuncs := make(map[string]hostadapt.Func, %d)\n", len(g.entries))
+	for _, e := range g.entries {
+		if e.row == nil {
+			fmt.Fprintf(&out, "\tfuncs[%q] = b.%s\n", e.key, e.method)
+		}
+	}
+	const rows = "regRows"
+	hasRows := slices.ContainsFunc(g.entries, func(e entry) bool { return e.row != nil })
+	if hasRows {
+		fmt.Fprintf(&out, "\tif err := hostadapt.BindRows(env, b, %s[:], funcs); err != nil {\n\t\treturn nil, err\n\t}\n", rows)
+	} else {
 		out.WriteString("\t_ = b\n")
 	}
-	if slices.ContainsFunc(g.entries, func(e entry) bool { return e.parts != "" }) {
-		out.WriteString("\tif env.AddParts != nil {\n")
+	out.WriteString("\treturn funcs, nil\n}\n\n")
+	if hasRows {
+		fmt.Fprintf(&out, "// %s lists the register form of each binding that has one; its adapter\n// is that form over boxed values (hostadapt.BindRows).\nvar %s = [...]hostadapt.Row[*%s]{\n", rows, rows, bound)
 		for _, e := range g.entries {
-			if e.parts != "" {
-				fmt.Fprintf(&out, "\t\tenv.AddParts(%q, b.%s)\n", e.key, e.parts)
+			if e.row == nil {
+				continue
 			}
+			fmt.Fprintf(&out, "\t{Key: %q, Fn: (*%s).%s, In: %s, Out: %s", e.key, bound, e.row.method, slotList(e.row.in), slotList(e.row.out))
+			if e.row.whole != "" {
+				fmt.Fprintf(&out, ", Whole: %s%s", spec, e.row.whole)
+			}
+			out.WriteString("},\n")
 		}
-		out.WriteString("\t}\n")
+		out.WriteString("}\n\n")
 	}
-	out.WriteString("\treturn map[string]hostadapt.Func{\n")
-	for _, e := range g.entries {
-		fmt.Fprintf(&out, "\t\t%q: b.%s,\n", e.key, e.method)
-	}
-	out.WriteString("\t}, nil\n}\n\n")
-	methods := g.methods.String()
-	if bound != "bound" {
-		methods = strings.ReplaceAll(methods, "(b *bound)", "(b *"+bound+")")
-	}
-	out.WriteString(methods)
+	out.Write(g.methods.Bytes())
 	return out.Bytes()
 }
 
 // --- the adapter -------------------------------------------------------------
 
-func (g *Generator) adapter(b Binding) (string, string, error) {
-	var ft Type
-	var call string
-	if b.Go != nil {
-		ft = b.Go.Type
-		if ft == nil || ft.Kind() != reflect.Func {
-			return "", "", fmt.Errorf("the binding's Go type is not a function")
-		}
-		call = b.Go.Name
-		if b.Go.Pkg != "" && b.Go.Pkg != g.ownPkg {
-			call = g.alias(b.Go.Pkg) + "." + b.Go.Name
-		}
-	} else {
-		fv := reflect.ValueOf(b.Fn)
-		if !fv.IsValid() || fv.Kind() != reflect.Func {
-			return "", "", fmt.Errorf("the binding is not a function value")
-		}
-		ft = ReflectType(fv.Type())
-		var err error
-		if call, err = g.funcName(fv); err != nil {
-			return "", "", err
-		}
+// adapter writes the binding's register form and answers its row, or for
+// a binding with more operands than hostadapt.MaxSlots, writes its boxed
+// adapter and answers the method's name. The boxed adapter is built first
+// either way, so a binding is refused for what either form's conversions
+// refuse; a binding with a register form then keeps that form alone, and
+// its adapter is the form over boxed values (hostadapt.Regs.Func).
+func (g *Generator) adapter(b Binding) (string, *regRow, error) {
+	name := g.fresh("fn")
+	restore := g.snapshot()
+	c, boxed, err := g.boxed(b, name)
+	if err != nil {
+		return "", nil, err
+	}
+	if len(c.params) > hostadapt.MaxSlots {
+		g.methods.Write(boxed)
+		return name, nil, nil
+	}
+	restore()
+	// The call names the Go function's package by an alias, which the
+	// form imports again.
+	if _, _, err := g.callee(b); err != nil {
+		return "", nil, err
+	}
+	row, err := g.regAdapter(c)
+	return "", row, err
+}
+
+// boxed builds binding b's adapter over boxed values as method name, and
+// answers the text with what its register form is written from. The
+// conversions it calls are written as it goes; the text is the caller's
+// to write.
+func (g *Generator) boxed(b Binding, name string) (regCall, []byte, error) {
+	ft, call, err := g.callee(b)
+	if err != nil {
+		return regCall{}, nil, err
 	}
 	if ft.IsVariadic() {
-		return "", "", fmt.Errorf("a variadic Go function has no Nomi projection")
+		return regCall{}, nil, fmt.Errorf("a variadic Go function has no Nomi projection")
 	}
 	decl := b.Decl.Decl
 	// A Go function whose first parameter is *rt.Frame is handed the
@@ -324,30 +263,16 @@ func (g *Generator) adapter(b Binding) (string, string, error) {
 	// which is read off the signature rather than declared, as irbuild's
 	// hostFn.takesFrame is.
 	takesFrame := ft.NumIn() > 0 && isFrame(ft.In(0))
-	// A Go function whose first parameter is context.Context is handed the
-	// caller's task context (spec §19 *The task's context*): the frame's Go
-	// context, which carries the ambient deadline and ends when the task is
-	// cancelled. The declaration leaves the parameter out.
-	takesContext := ft.NumIn() > 0 && isGoContext(ft.In(0))
 	first := 0
-	if takesFrame || takesContext {
+	if takesFrame {
 		first = 1
 	}
-	for i := first; i < ft.NumIn(); i++ {
-		if isGoContext(ft.In(i)) {
-			return "", "", fmt.Errorf("%s takes a context.Context as parameter %d; only a first parameter may be a context.Context", call, i+1)
-		}
-	}
 	if len(decl.Params) != ft.NumIn()-first {
-		return "", "", fmt.Errorf("the declaration takes %d parameter(s) and %s takes %d", len(decl.Params), call, ft.NumIn()-first)
+		return regCall{}, nil, fmt.Errorf("the declaration takes %d parameter(s) and %s takes %d", len(decl.Params), call, ft.NumIn()-first)
 	}
-	res := g.res
-	if b.Res != nil {
-		res = b.Res
-	}
-	want, err := res.Shape(b.Decl.Module, decl.ReturnTypeExpr)
+	want, err := g.res.Shape(b.Decl.Module, decl.ReturnTypeExpr)
 	if err != nil {
-		return "", "", fmt.Errorf("result: %w", err)
+		return regCall{}, nil, fmt.Errorf("result: %w", err)
 	}
 	numOut := ft.NumOut()
 	hasErr := numOut > 0 && isErrorType(ft.Out(numOut-1))
@@ -357,53 +282,42 @@ func (g *Generator) adapter(b Binding) (string, string, error) {
 	}
 	for i := range numVals {
 		if isErrorType(ft.Out(i)) {
-			return "", "", fmt.Errorf("Go result %d is error; error is only supported as the final result", i)
+			return regCall{}, nil, fmt.Errorf("Go result %d is error; error is only supported as the final result", i)
 		}
 	}
 
-	// shown and paramName are the function and its parameters as a trap
-	// for a value the Go side cannot hold names them.
+	// shown is the function as a trap for a value the Go side cannot hold
+	// names it.
 	shown := b.Key
-	if b.Go != nil && b.Go.Shown != "" {
-		shown = b.Go.Shown
-	}
-	paramName := func(i int) string {
-		if gi := first + i; b.Go != nil && gi < len(b.Go.Params) && b.Go.Params[gi] != "" && b.Go.Params[gi] != "_" {
-			return b.Go.Params[gi]
-		}
-		return decl.Params[i].Name
-	}
 
-	name := g.fresh("fn")
-	var w, pre bytes.Buffer
+	var w bytes.Buffer
 	key := strconv.Quote(b.Key)
 	fmt.Fprintf(&w, "// %s adapts %s: %s(%s) -> %s\n", name, b.Key, decl.Name, paramList(decl), want)
 	fmt.Fprintf(&w, "func (b *bound) %s(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {\n", name)
-	// pre is the body up to the Go call, shared with the parts form, its
-	// failure values spelled failValues.
 	if !b.PanicsPropagate {
-		fmt.Fprintf(&pre, "\tdefer hostadapt.Recover(%s, &err)\n", key)
+		fmt.Fprintf(&w, "\tdefer hostadapt.Recover(%s, &err)\n", key)
 	}
 	n := len(decl.Params)
-	fmt.Fprintf(&pre, "\tif len(args) != %d {\n\t\treturn %s, hostadapt.Arity(%s, %d, len(args))\n\t}\n", n, failValues, key, n)
+	fmt.Fprintf(&w, "\tif len(args) != %d {\n\t\treturn nil, hostadapt.Arity(%s, %d, len(args))\n\t}\n", n, key, n)
 	var argNames []string
-	switch {
-	case takesFrame:
+	if takesFrame {
 		argNames = append(argNames, "fr")
-	case takesContext:
-		argNames = append(argNames, "fr.Context()")
 	}
+	// params are what the register form reads each operand as.
+	params := make([]regParam, n)
 	for i := range n {
-		ps, err := res.Shape(b.Decl.Module, decl.Params[i].TypeAnnotation)
+		pname := decl.Params[i].Name
+		ps, err := g.res.Shape(b.Decl.Module, decl.Params[i].TypeAnnotation)
 		if err != nil {
-			return "", "", fmt.Errorf("parameter %s: %w", decl.Params[i].Name, err)
+			return regCall{}, nil, fmt.Errorf("parameter %s: %w", pname, err)
 		}
 		conv, err := g.in(ps, ft.In(first+i))
 		if err != nil {
-			return "", "", fmt.Errorf("parameter %s (%s) to Go %s: %w", decl.Params[i].Name, ps, ft.In(first+i), err)
+			return regCall{}, nil, fmt.Errorf("parameter %s (%s) to Go %s: %w", pname, ps, ft.In(first+i), err)
 		}
 		argNames = append(argNames, fmt.Sprintf("a%d", i))
-		fmt.Fprintf(&pre, "\ta%d, err := b.%s(fr, args[%d])\n\tif err != nil {\n\t\treturn %s, hostadapt.Param(%s, %d, %q, %q, err)\n\t}\n", i, conv, i, failValues, key, i, shown, paramName(i))
+		fmt.Fprintf(&w, "\ta%d, err := b.%s(fr, args[%d])\n\tif err != nil {\n\t\treturn nil, hostadapt.Param(%s, %d, %q, %q, err)\n\t}\n", i, conv, i, key, i, shown, pname)
+		params[i] = regParam{shape: ps, goT: ft.In(first + i), name: pname}
 	}
 	results := make([]string, numOut)
 	for i := range numVals {
@@ -412,135 +326,301 @@ func (g *Generator) adapter(b Binding) (string, string, error) {
 	if hasErr {
 		results[numOut-1] = "e"
 	}
-	if numOut == 0 {
-		fmt.Fprintf(&pre, "\t%s(%s)\n", call, strings.Join(argNames, ", "))
-	} else {
-		fmt.Fprintf(&pre, "\t%s := %s(%s)\n", strings.Join(results, ", "), call, strings.Join(argNames, ", "))
+	callLine := fmt.Sprintf("\t%s(%s)\n", call, strings.Join(argNames, ", "))
+	if numOut > 0 {
+		callLine = fmt.Sprintf("\t%s := %s(%s)\n", strings.Join(results, ", "), call, strings.Join(argNames, ", "))
 	}
-	w.WriteString(strings.ReplaceAll(pre.String(), failValues, "nil"))
+	w.WriteString(callLine)
 
 	payload := want
 	if hasErr {
 		if want.Kind != SResult || want.Elems[1].Kind != SString {
-			return "", "", fmt.Errorf("%s returns a trailing error, so the declaration must return Result<_, String>, not %s", call, want)
+			return regCall{}, nil, fmt.Errorf("%s returns a trailing error, so the declaration must return Result<_, String>, not %s", call, want)
 		}
 		payload = want.Elems[0]
 		res := g.enumDesc(want)
 		fmt.Fprintf(&w, "\tif e != nil {\n\t\trec := b.%s.NewVariant(1)\n\t\trec.S[0] = e.Error()\n\t\treturn rec, nil\n\t}\n", res)
 	}
-	vals := make([]Type, numVals)
+	vals := make([]reflect.Type, numVals)
 	for i := range numVals {
 		vals[i] = ft.Out(i)
 	}
 	value, err := g.results(&w, key, shown, payload, vals)
 	if err != nil {
-		return "", "", err
+		return regCall{}, nil, err
 	}
 	if hasErr {
 		res := g.enumDesc(want)
 		fmt.Fprintf(&w, "\tok := b.%s.NewVariant(0)\n", res)
 		if err := g.store(&w, "ok", 0, payload, nil, value, true, ""); err != nil {
-			return "", "", err
+			return regCall{}, nil, err
 		}
 		value = "ok"
 	}
 	fmt.Fprintf(&w, "\treturn %s, nil\n}\n\n", value)
-	g.methods.Write(w.Bytes())
-	parts, err := g.partsAdapter(b, name+"Parts", pre.String(), want, hasErr, vals, shown)
-	if err != nil {
-		return "", "", err
-	}
-	return name, parts, nil
+	return regCall{
+		binding: b, name: name + "Regs", key: key, shown: shown, want: want,
+		params: params, callLine: callLine, hasErr: hasErr, vals: vals,
+	}, w.Bytes(), nil
 }
 
-// failValues stands for an adapter body's failure values in the text the
-// adapter and its parts form share: `nil` in the one and `nil, false` in
-// the other.
-const failValues = "\x00fail\x00"
+// callee is binding b's Go function type and the expression that calls it,
+// importing its package.
+func (g *Generator) callee(b Binding) (reflect.Type, string, error) {
+	fv := reflect.ValueOf(b.Fn)
+	if !fv.IsValid() || fv.Kind() != reflect.Func {
+		return nil, "", fmt.Errorf("the binding is not a function value")
+	}
+	call, err := g.funcName(fv)
+	return fv.Type(), call, err
+}
 
-// partsAdapter writes the parts form of a binding that answers a Maybe or
-// a Result (hostadapt.PartsFunc), and answers its name, or "" for a binding
-// whose result has no payload to hand over by itself: a Some's or an Ok's
-// payload as the value the record would hold, true; a None's or an Err's
-// record, false. An engine that takes the result apart where it lands (the
-// VM's fused Maybe, maybefuse.go) then builds no Some or Ok. pre is the
-// adapter's body up to the Go call, want the declared result, hasErr
-// whether a trailing Go error is the Err, vals the Go results that carry a
-// value.
-func (g *Generator) partsAdapter(b Binding, name, pre string, want *Shape, hasErr bool, vals []Type, shown string) (string, error) {
-	if want.Kind != SMaybe && want.Kind != SResult {
-		return "", nil
+// regParam is one operand as the register form reads it: its declared
+// shape and its Go parameter type.
+type regParam struct {
+	shape *Shape
+	goT   reflect.Type
+	name  string
+}
+
+// regCall is what the register form of one binding is written from: the
+// adapter's operands, its Go call, and its results.
+type regCall struct {
+	binding  Binding
+	name     string
+	key      string
+	shown    string
+	want     *Shape
+	params   []regParam
+	callLine string
+	hasErr   bool
+	vals     []reflect.Type
+}
+
+// regRow is a binding's register form as its table's row lists it
+// (hostadapt.Row): the method, its operands' and its answer's slot types,
+// and for an answer it takes apart, the Maybe's or Result's descriptor.
+type regRow struct {
+	method  string
+	in, out []rt.SlotType
+	whole   string
+}
+
+// regAdapter writes a binding's register form (hostadapt.RegFunc) and
+// answers its row. An answer of more parts than hostadapt.MaxSlots is
+// refused.
+//
+// Each operand is read from its slot: a scalar unboxed, converted to its Go
+// type as the adapter's conversion would, and any other value through the
+// adapter's own conversion. The answer is written unboxed by the same rule:
+// a scalar into its slot, anything else converted as the adapter converts
+// it, into R. A Maybe or a Result answers its payload's parts and true, or
+// its None or Err record in R[0] and false, so a form fails and answers as
+// the adapter does.
+func (g *Generator) regAdapter(c regCall) (*regRow, error) {
+	in := make([]rt.SlotType, len(c.params))
+	for i, p := range c.params {
+		in[i] = p.shape.Slot()
 	}
 	var w bytes.Buffer
-	fmt.Fprintf(&w, "// %s is %s taken apart: the payload and true, or the record and false.\n", name, b.Key)
-	fmt.Fprintf(&w, "func (b *bound) %s(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {\n", name)
-	w.WriteString(strings.ReplaceAll(pre, failValues, "nil, false"))
-	payload := func(s *Shape, t Type, expr string) error {
-		conv, err := g.out(s, t)
+	fmt.Fprintf(&w, "// %s is %s over slots.\n", c.name, c.binding.Key)
+	fmt.Fprintf(&w, "func (b *bound) %s(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {\n", c.name)
+	if !c.binding.PanicsPropagate {
+		fmt.Fprintf(&w, "\tdefer hostadapt.Recover(%s, &err)\n", c.key)
+	}
+	for i, p := range c.params {
+		fail := fmt.Sprintf("\tif err != nil {\n\t\treturn false, hostadapt.Param(%s, %d, %q, %q, err)\n\t}\n", c.key, i, c.shown, p.name)
+		x, fallible, err := g.slotRead(p, i)
 		if err != nil {
-			return err
+			return nil, fmt.Errorf("parameter %s: %w", p.name, err)
 		}
-		fmt.Fprintf(&w, "\tv, err := b.%s(%s)\n\tif err != nil {\n\t\treturn nil, false, hostadapt.Returned(%q, err)\n\t}\n\treturn v, true, nil\n}\n\n", conv, expr, shown)
-		return nil
+		if fallible {
+			fmt.Fprintf(&w, "\ta%d, err := %s\n%s", i, x, fail)
+		} else {
+			fmt.Fprintf(&w, "\ta%d := %s\n", i, x)
+		}
+	}
+	w.WriteString(c.callLine)
+
+	// payload and vals are the answer's carried value and the Go results
+	// that make it; carries says a Maybe or a Result is taken apart.
+	payload, vals, carries := c.want, c.vals, false
+	exprs := make([]string, len(vals))
+	for i := range vals {
+		exprs[i] = fmt.Sprintf("r%d", i)
 	}
 	switch {
-	case hasErr:
-		res := g.enumDesc(want)
-		fmt.Fprintf(&w, "\tif e != nil {\n\t\trec := b.%s.NewVariant(1)\n\t\trec.S[0] = e.Error()\n\t\treturn rec, false, nil\n\t}\n", res)
-		switch len(vals) {
-		case 0:
-			w.WriteString("\treturn rt.Unit{}, true, nil\n}\n\n")
-		case 1:
-			if err := payload(want.Elems[0], vals[0], "r0"); err != nil {
-				return "", err
-			}
-		default:
-			// A tuple payload is built where the adapter builds it.
-			return "", nil
-		}
-	case len(vals) != 1:
-		return "", nil
-	case want.Kind == SMaybe && vals[0].Kind() == reflect.Pointer && !isRtGeneric(vals[0], "Maybe", "Result"):
-		d := g.enumDesc(want)
-		fmt.Fprintf(&w, "\tif r0 == nil {\n\t\treturn b.%s.NewVariant(1), false, nil\n\t}\n", d)
-		if err := payload(want.Elems[0], vals[0].Elem(), "*r0"); err != nil {
-			return "", err
-		}
-	case isRtGeneric(vals[0], "Maybe", "Result"):
+	case c.hasErr:
+		res := g.enumDesc(c.want)
+		fmt.Fprintf(&w, "\tif e != nil {\n\t\trec := b.%s.NewVariant(1)\n\t\trec.S[0] = e.Error()\n\t\ts.R[0] = rec\n\t\treturn false, nil\n\t}\n", res)
+		payload, carries = c.want.Elems[0], true
+	case len(vals) == 1 && c.want.Kind == SMaybe && vals[0].Kind() == reflect.Pointer && !isRtGeneric(vals[0], "Maybe", "Result"):
+		fmt.Fprintf(&w, "\tif r0 == nil {\n\t\ts.R[0] = b.%s.NewVariant(1)\n\t\treturn false, nil\n\t}\n", g.enumDesc(c.want))
+		payload, vals, exprs, carries = c.want.Elems[0], []reflect.Type{vals[0].Elem()}, []string{"*r0"}, true
+	case len(vals) == 1 && isRtGeneric(vals[0], "Maybe", "Result"):
 		base, args, _ := rtGenericArgs(vals[0])
-		if (base == "Maybe") != (want.Kind == SMaybe) {
-			return "", nil
+		if (base == "Maybe") != (c.want.Kind == SMaybe) {
+			break
 		}
-		whole, err := g.out(want, vals[0])
+		whole, err := g.out(c.want, vals[0])
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		tag, field := "rt.TagSome", "Some"
 		if base == "Result" {
 			tag, field = "rt.TagOk", "Ok"
 		}
-		fmt.Fprintf(&w, "\tif r0.Tag != %s {\n\t\trec, err := b.%s(r0)\n\t\tif err != nil {\n\t\t\treturn nil, false, hostadapt.Returned(%q, err)\n\t\t}\n\t\treturn rec, false, nil\n\t}\n", tag, whole, shown)
-		if err := payload(want.Elems[0], args[0], "r0."+field); err != nil {
-			return "", err
+		fmt.Fprintf(&w, "\tif r0.Tag != %s {\n\t\trec, err := b.%s(r0)\n\t\tif err != nil {\n\t\t\treturn false, hostadapt.Returned(%q, err)\n\t\t}\n\t\ts.R[0] = rec\n\t\treturn false, nil\n\t}\n", tag, whole, c.shown)
+		payload, vals, exprs, carries = c.want.Elems[0], []reflect.Type{args[0]}, []string{"r0." + field}, true
+		if g.tupleStruct(payload, args[0]) {
+			// A tuple payload answers its components, a part each.
+			vals, exprs = make([]reflect.Type, len(payload.Elems)), make([]string, len(payload.Elems))
+			for i := range vals {
+				vals[i], exprs[i] = args[0].Field(i).Type, fmt.Sprintf("r0.%s.F%d", field, i)
+			}
 		}
-	default:
-		return "", nil
 	}
+	// parts are the payload's shapes, one per Go result that makes it.
+	var parts []*Shape
+	switch {
+	case len(vals) == 1:
+		parts = []*Shape{payload}
+	case payload.Kind == STuple && len(payload.Elems) == len(vals):
+		parts = payload.Elems
+	default:
+		return nil, fmt.Errorf("the Go function returns %d values and the declaration answers %s", len(vals), payload)
+	}
+	if len(parts) > hostadapt.MaxSlots {
+		return nil, fmt.Errorf("the answer has %d parts, and a register form holds at most %d", len(parts), hostadapt.MaxSlots)
+	}
+	out := make([]rt.SlotType, len(parts))
+	for j, s := range parts {
+		out[j] = s.Slot()
+		wrap := fmt.Sprintf("hostadapt.Returned(%q, err)", c.shown)
+		if len(parts) > 1 {
+			wrap = fmt.Sprintf("hostadapt.Returned(%q, fmt.Errorf(\"%%s: marshaling return %d: %%w\", %s, err))", c.shown, j, c.key)
+		}
+		if err := g.slotWrite(&w, j, s, vals[j], exprs[j], wrap); err != nil {
+			return nil, fmt.Errorf("result %d: %w", j, err)
+		}
+	}
+	w.WriteString("\treturn true, nil\n}\n\n")
 	g.methods.Write(w.Bytes())
-	return name, nil
+	row := &regRow{method: c.name, in: in, out: out}
+	if carries {
+		row.whole = g.enumDesc(c.want)
+	}
+	return row, nil
+}
+
+// slotRead is the Go expression reading operand i of p from slots s as p's
+// Go type, and whether it is fallible: an expression of two values, (T,
+// error).
+func (g *Generator) slotRead(p regParam, i int) (string, bool, error) {
+	if !isScalar(p.shape) {
+		conv, err := g.in(p.shape, p.goT)
+		if err != nil {
+			return "", false, err
+		}
+		return fmt.Sprintf("b.%s(fr, s.R[%d])", conv, i), true, nil
+	}
+	var x string
+	switch p.shape.Kind {
+	case SInt:
+		goT, err := g.typ(p.goT)
+		if err != nil {
+			return "", false, err
+		}
+		if isRtInt(p.goT) {
+			return fmt.Sprintf("s.Int(%d)", i), false, nil
+		}
+		if isSigned(p.goT) {
+			return fmt.Sprintf("hostadapt.SlotSigned[%s](s, %d, %q)", goT, i, p.goT.String()), true, nil
+		}
+		return fmt.Sprintf("hostadapt.SlotUnsigned[%s](s, %d, %q)", goT, i, p.goT.String()), true, nil
+	case SFloat:
+		x = fmt.Sprintf("rt.WordFloat(s.W[%d])", i)
+	case SBool:
+		x = fmt.Sprintf("rt.WordBool(s.W[%d])", i)
+	case SByte:
+		x = fmt.Sprintf("rt.WordByte(s.W[%d])", i)
+	case SString:
+		x = fmt.Sprintf("s.S[%d]", i)
+	case SBytes:
+		x = fmt.Sprintf("rt.Bytes(s.S[%d])", i)
+	}
+	return g.narrow(p.shape, p.goT, x)
+}
+
+// slotWrite writes the Go value expr of type t, the answer's part j of
+// shape s, into slots s: a scalar unboxed into its slot, anything else
+// converted as the adapter converts it into R. A failed conversion returns
+// wrap, which holds the conversion's err.
+func (g *Generator) slotWrite(w *bytes.Buffer, j int, s *Shape, t reflect.Type, expr, wrap string) error {
+	if !isScalar(s) {
+		conv, err := g.out(s, t)
+		if err != nil {
+			return err
+		}
+		v := g.fresh("w")
+		fmt.Fprintf(w, "\t%s, err := b.%s(%s)\n\tif err != nil {\n\t\treturn false, %s\n\t}\n\ts.R[%d] = %s\n", v, conv, expr, wrap, j, v)
+		return nil
+	}
+	if err := compatible(s, t); err != nil {
+		return err
+	}
+	if s.Kind == SInt {
+		switch {
+		case isRtInt(t):
+			fmt.Fprintf(w, "\ts.SetInt(%d, %s)\n", j, expr)
+		case isSigned(t):
+			fmt.Fprintf(w, "\ts.SetInt64(%d, int64(%s))\n", j, expr)
+		default:
+			fmt.Fprintf(w, "\ts.SetUint64(%d, uint64(%s))\n", j, expr)
+		}
+		return nil
+	}
+	x, err := g.widen(s, t, expr)
+	if err != nil {
+		return err
+	}
+	switch s.Kind {
+	case SFloat:
+		fmt.Fprintf(w, "\ts.W[%d] = rt.FloatWord(%s)\n", j, x)
+	case SBool:
+		fmt.Fprintf(w, "\ts.W[%d] = rt.BoolWord(%s)\n", j, x)
+	case SByte:
+		fmt.Fprintf(w, "\ts.W[%d] = rt.ByteWord(%s)\n", j, x)
+	case SString:
+		fmt.Fprintf(w, "\ts.S[%d] = %s\n", j, x)
+	case SBytes:
+		fmt.Fprintf(w, "\ts.S[%d] = string(%s)\n", j, x)
+	}
+	return nil
+}
+
+// slotList is the Go literal of a list of slot types.
+func slotList(slots []rt.SlotType) string {
+	names := map[rt.SlotType]string{
+		rt.SlotRef: "rt.SlotRef", rt.SlotInt: "rt.SlotInt", rt.SlotFloat: "rt.SlotFloat", rt.SlotBool: "rt.SlotBool",
+		rt.SlotByte: "rt.SlotByte", rt.SlotString: "rt.SlotString", rt.SlotBytes: "rt.SlotBytes",
+	}
+	parts := make([]string, len(slots))
+	for i, s := range slots {
+		parts[i] = names[s]
+	}
+	return "[]rt.SlotType{" + strings.Join(parts, ", ") + "}"
 }
 
 // results converts the value-carrying Go results r0..rN-1 into one rt.Value
-// of shape want, and answers the expression holding it: Unit for none, the
-// value for one, a tuple for more. A result Nomi cannot hold traps naming
+// of shape want, and answers the expression holding it: the value for one,
+// a tuple for more. A Go function answers at least one value; one that
+// answers Unit returns rt.Unit. A result Nomi cannot hold traps naming
 // shown, the function.
-func (g *Generator) results(w *bytes.Buffer, key, shown string, want *Shape, vals []Type) (string, error) {
+func (g *Generator) results(w *bytes.Buffer, key, shown string, want *Shape, vals []reflect.Type) (string, error) {
 	switch len(vals) {
 	case 0:
-		if want.Kind != SUnit {
-			return "", fmt.Errorf("the Go function returns no value and the declaration returns %s", want)
-		}
-		return "rt.Unit{}", nil
+		return "", fmt.Errorf("the Go function returns no value; one that answers %s returns a Go value for it", want)
 	case 1:
 		conv, err := g.out(want, vals[0])
 		if err != nil {
@@ -572,7 +652,7 @@ func (g *Generator) results(w *bytes.Buffer, key, shown string, want *Shape, val
 // converted here. wrap, when set, is the Go expression a conversion failure
 // held in `err` is returned as, so the text matches the marshaller's at the
 // same position; empty returns err itself.
-func (g *Generator) store(w *bytes.Buffer, rec string, off int, s *Shape, t Type, expr string, boxed bool, wrap string) error {
+func (g *Generator) store(w *bytes.Buffer, rec string, off int, s *Shape, t reflect.Type, expr string, boxed bool, wrap string) error {
 	if wrap == "" {
 		wrap = "err"
 	}
@@ -596,14 +676,9 @@ func (g *Generator) store(w *bytes.Buffer, rec string, off int, s *Shape, t Type
 		return nil
 	}
 	if isScalar(s) {
-		x, fallible, err := g.widen(s, t, expr)
+		x, err := g.widen(s, t, expr)
 		if err != nil {
 			return err
-		}
-		if fallible {
-			v := g.fresh("w")
-			fmt.Fprintf(w, "\t%s, err := %s\n\tif err != nil {\n\t\treturn nil, %s\n\t}\n", v, x, wrap)
-			x = v
 		}
 		switch s.Kind {
 		case SInt:
@@ -633,7 +708,7 @@ func (g *Generator) store(w *bytes.Buffer, rec string, off int, s *Shape, t Type
 // --- Nomi value -> Go value --------------------------------------------------
 
 // in answers the name of a method `func (b *bound) NAME(v rt.Value) (T, error)`.
-func (g *Generator) in(s *Shape, t Type) (string, error) {
+func (g *Generator) in(s *Shape, t reflect.Type) (string, error) {
 	key := "in|" + inShapeKey(s) + "|" + typeIdentity(t)
 	if s.Kind == SInt {
 		// Every range that fits t reads the same way, so one method
@@ -685,7 +760,7 @@ func (g *Generator) in(s *Shape, t Type) (string, error) {
 		fmt.Fprintf(&w, "\txs, err := hostadapt.List(v)\n\tif err != nil {\n%s\t}\n", fail)
 		fmt.Fprintf(&w, "\tout = make(%s, 0, hostadapt.Len(xs))\n\ti := 0\n", goT)
 		fmt.Fprintf(&w, "\tfor c := xs; c != nil; c = c.Tail {\n\t\te, err := b.%s(fr, c.Head)\n\t\tif err != nil {\n\t\t\treturn nil, fmt.Errorf(\"index %%d: %%w\", i, err)\n\t\t}\n\t\tout = append(out, e)\n\t\ti++\n\t}\n\treturn out, nil\n", elem)
-	case s.Kind == SUnit && TypeKey(t) == rtPkg+".Unit":
+	case s.Kind == SUnit && typeIdentity(t) == rtPkg+".Unit":
 		// A callback's `Result<Unit, E>` (Writer.from_fn's write): Unit
 		// carries nothing to read.
 		w.WriteString("\treturn rt.Unit{}, nil\n")
@@ -693,53 +768,18 @@ func (g *Generator) in(s *Shape, t Type) (string, error) {
 		if err := g.inRtGeneric(&w, s, t, goT); err != nil {
 			return "", err
 		}
-	case s.Kind == SMap && t.Kind() == reflect.Map && g.handles[TypeKey(t)] == "":
-		kin, err := g.in(s.Elems[0], t.Key())
-		if err != nil {
-			return "", fmt.Errorf("key: %w", err)
-		}
-		vin, err := g.in(s.Elems[1], t.Elem())
-		if err != nil {
-			return "", fmt.Errorf("value: %w", err)
-		}
-		fmt.Fprintf(&w, "\tm, ok := v.(rt.Map[any, any])\n\tif !ok {\n\t\treturn out, hostadapt.Want(%q, v)\n\t}\n", s.String())
-		fmt.Fprintf(&w, "\tents := rt.MapEntries(m)\n\tout = make(%s, len(ents))\n\tfor i, e := range ents {\n", goT)
-		fmt.Fprintf(&w, "\t\tk, err := b.%s(fr, e.Key)\n\t\tif err != nil {\n\t\t\treturn nil, fmt.Errorf(\"key %%d: %%w\", i, err)\n\t\t}\n", kin)
-		fmt.Fprintf(&w, "\t\tx, err := b.%s(fr, e.Val)\n\t\tif err != nil {\n\t\t\treturn nil, fmt.Errorf(\"value %%d: %%w\", i, err)\n\t\t}\n", vin)
-		w.WriteString("\t\tout[k] = x\n\t}\n\treturn out, nil\n")
 	case s.Kind == SMap:
-		return "", fmt.Errorf("Go %s: the adapter generator does not convert this type yet; a Map crosses as rt.Map[K, V] or a Go map", t)
+		return "", fmt.Errorf("Go %s: a Map crosses as rt.Map[K, V]", t)
 	case s.Kind == SEnum:
 		if err := g.inEnum(&w, s, t); err != nil {
 			return "", err
 		}
-	case s.Kind == SHost && goStreamFor(t) != "" && g.handles[TypeKey(t)] == "":
-		// A Reader fills a Go io.Reader or io.ReadCloser slot, and a Writer
-		// an io.Writer or io.WriteCloser one, read or written through the
-		// handle (hostadapt.GoReader, GoWriter).
-		if goStreamFor(t) != s.Name {
-			return "", fmt.Errorf("Go %s projects to %s, not %s", t, goStreamFor(t), s)
-		}
-		fmt.Fprintf(&w, "\tx, ok := v.(%s)\n\tif !ok {\n\t\treturn out, hostadapt.Want(%q, v)\n\t}\n", rtStreamType[s.Name], s.String())
-		fmt.Fprintf(&w, "\treturn hostadapt.Go%s(fr, x), nil\n", streamWord[s.Name])
-	case s.Kind == SHost && s.Name == dynamicName && isEmptyInterface(t) && g.handles[TypeKey(t)] == "":
-		// A Dynamic is an rt.Dynamic; a Go empty-interface slot takes the
-		// value it wraps.
-		fmt.Fprintf(&w, "\td, ok := v.(rt.Dynamic)\n\tif !ok {\n\t\treturn out, hostadapt.Want(%q, v)\n\t}\n\treturn d.Inner, nil\n", s.String())
-	case s.Kind == SHost && g.handles[TypeKey(t)] == "" && rtHeld[s.Name] != "":
-		if rtHeld[s.Name] != TypeKey(t) {
+	case s.Kind == SHost && g.handles[typeIdentity(t)] == "" && rtHeld[s.Name] != "":
+		if rtHeld[s.Name] != typeIdentity(t) {
 			return "", rtHeldRefusal(s, t)
 		}
 		fmt.Fprintf(&w, "\tx, ok := v.(%s)\n\tif !ok {\n\t\treturn out, hostadapt.Want(%q, v)\n\t}\n\treturn x, nil\n", goT, s.String())
-	case s.Kind == SMaybe && t.Kind() == reflect.Pointer && g.handles[TypeKey(t)] == "":
-		elem, err := g.in(s.Elems[0], t.Elem())
-		if err != nil {
-			return "", fmt.Errorf("Maybe payload: %w", err)
-		}
-		fmt.Fprintf(&w, "\tr, tag, err := hostadapt.Variant(v, %q)\n\tif err != nil {\n%s\t}\n", maybeName, fail)
-		fmt.Fprintf(&w, "\tswitch tag {\n\tcase \"None\":\n\t\treturn nil, nil\n\tcase \"Some\":\n\t\tx, err := b.%s(fr, hostadapt.Payload(r))\n\t\tif err != nil {\n\t\t\treturn nil, fmt.Errorf(\"Some: %%w\", err)\n\t\t}\n\t\treturn &x, nil\n\t}\n", elem)
-		fmt.Fprintf(&w, "\treturn nil, fmt.Errorf(\"unmarshal Maybe: unknown variant %%q\", tag)\n")
-	case s.Kind == SStruct && t.Kind() == reflect.Struct && g.handles[TypeKey(t)] == "":
+	case s.Kind == SStruct && t.Kind() == reflect.Struct && g.handles[typeIdentity(t)] == "":
 		fields, err := goFields(t)
 		if err != nil {
 			return "", err
@@ -762,23 +802,12 @@ func (g *Generator) in(s *Shape, t Type) (string, error) {
 		d := g.distinctDesc(s)
 		fmt.Fprintf(&w, "\tr, err := hostadapt.Record(v, %q)\n\tif err != nil {\n%s\t}\n", s.Name, fail)
 		switch {
-		case isTimeDuration(t) || (isRtDuration(t) && s.Name == durationName):
+		case isRtDuration(t) && s.Name == durationName:
 			// A Duration is an Int count of nanoseconds of any size, and
-			// Go's a signed 64-bit one: a length past about 292 years
-			// crosses saturated, which every Go wait takes as never
+			// rt.Duration a signed 64-bit one: a length past about 292
+			// years crosses saturated, which every Go wait takes as never
 			// (hostadapt.DurationNanos).
-			if s.Name != durationName {
-				return "", fmt.Errorf("Go time.Duration projects to Duration, not %s", s)
-			}
 			fmt.Fprintf(&w, "\tx, err := hostadapt.IntValueField(r, b.%s, 0, 0, \"\")\n\tif err != nil {\n%s\t}\n\treturn %s(hostadapt.DurationNanos(x)), nil\n", d, fail, goT)
-		case isTimeTime(t):
-			// An Instant is an Int count of nanoseconds of any size, and
-			// a time.Time holds far more than int64 nanoseconds: the moment
-			// crosses exactly (hostadapt.InstantTime).
-			if s.Name != instantName {
-				return "", fmt.Errorf("Go time.Time projects to Instant, not %s", s)
-			}
-			fmt.Fprintf(&w, "\tx, err := hostadapt.IntValueField(r, b.%s, 0, 0, \"\")\n\tif err != nil {\n%s\t}\n\treturn hostadapt.InstantTime(x), nil\n", d, fail)
 		case isRtInstant(t) && s.Name == instantName:
 			// rt.Instant is 64 bits of nanoseconds, a deadline a Go call
 			// waits for: an Instant past 2262 crosses clamped, a deadline
@@ -799,25 +828,14 @@ func (g *Generator) in(s *Shape, t Type) (string, error) {
 				fmt.Fprintf(&w, "\treturn %s, nil\n", x)
 			}
 		}
-	case s.Kind == SDistinct && len(s.Elems) == 1:
-		// A distinct over a type that is no scalar (a struct, a List,
-		// another distinct) holds its inner value in its one ref slot, and
-		// crosses as whatever that value crosses as.
-		inner, err := g.in(s.Elems[0], t)
-		if err != nil {
-			return "", fmt.Errorf("%s over %s: %w", s, s.Elems[0], err)
-		}
-		d := g.distinctDesc(s)
-		fmt.Fprintf(&w, "\tr, err := hostadapt.Record(v, %q)\n\tif err != nil {\n%s\t}\n", s.Name, fail)
-		fmt.Fprintf(&w, "\tx, err := hostadapt.RefField(r, b.%s, 0, 0, \"\")\n\tif err != nil {\n%s\t}\n\treturn b.%s(fr, x)\n", d, fail, inner)
 	case s.Kind == SHost:
-		if got := g.handles[TypeKey(t)]; got != s.Name {
+		if got := g.handles[typeIdentity(t)]; got != s.Name {
 			return "", fmt.Errorf("Go %s is not registered as host type %s (registered: %q)", t, s.Name, got)
 		}
 		fmt.Fprintf(&w, "\th, err := hostadapt.Handle(v, %q)\n\tif err != nil {\n%s\t}\n", s.Name, fail)
 		fmt.Fprintf(&w, "\tp, ok := h.(%s)\n\tif !ok {\n\t\treturn out, fmt.Errorf(\"%s handle holds %%T, not %s\", h)\n\t}\n\treturn p, nil\n", goT, s.Name, goT)
 	case s.Kind == SFunc && t.Kind() == reflect.Func:
-		if err := g.callback(&w, s, t, goT); err != nil {
+		if err := g.callback(&w, s, t); err != nil {
 			return "", fmt.Errorf("callback: %w", err)
 		}
 	default:
@@ -856,128 +874,64 @@ func (g *Generator) readField(w *bytes.Buffer, d string, i, off int, f ShapeFiel
 }
 
 // callback writes the body of an `in` method that turns a Nomi function value
-// into a Go func calling back through the Env, with the marshaller's rules for
-// what a Go callback does with the result and with a failure.
-func (g *Generator) callback(w *bytes.Buffer, s *Shape, t Type, goT string) error {
+// into a Go func calling back through the Env. The Go func takes *rt.Frame
+// first and answers one value that is not an error. It calls back on the
+// frame its caller hands it, not on the frame of the host call that made it:
+// a callback a handle keeps (Reader.from_fn's) runs later, on whichever task
+// reads the handle. It is the runtime's own (rt's), called inside a host
+// call the engine made, so a Nomi failure unwinds to that call
+// (hostadapt.Unwind) and is its failure.
+func (g *Generator) callback(w *bytes.Buffer, s *Shape, t reflect.Type) error {
 	if t.IsVariadic() {
 		return fmt.Errorf("a variadic Go callback has no Nomi projection")
 	}
-	// A Go callback whose first parameter is *rt.Frame calls back on the
-	// frame its caller hands it, not on the frame of the host call that made
-	// it: a callback a handle keeps (Reader.from_fn's) runs later, on
-	// whichever task reads the handle.
-	first := 0
-	if t.NumIn() > 0 && isFrame(t.In(0)) {
-		first = 1
+	if t.NumIn() == 0 || !isFrame(t.In(0)) {
+		return fmt.Errorf("a Go callback takes *rt.Frame first; %s does not", t)
 	}
-	if t.NumIn()-first != len(s.Elems) {
-		return fmt.Errorf("the Nomi function takes %d argument(s) and Go %s takes %d", len(s.Elems), t, t.NumIn()-first)
+	if t.NumIn()-1 != len(s.Elems) {
+		return fmt.Errorf("the Nomi function takes %d argument(s) and Go %s takes %d", len(s.Elems), t, t.NumIn()-1)
 	}
-	numOut := t.NumOut()
-	lastErr := numOut > 0 && isErrorType(t.Out(numOut-1))
-	if numOut > 2 || (numOut == 2 && !lastErr) {
-		return fmt.Errorf("a Go callback returns nothing, one value, or a value and an error; %s does not", t)
+	if t.NumOut() != 1 || isErrorType(t.Out(0)) {
+		return fmt.Errorf("a Go callback returns one value that is not an error; %s does not", t)
 	}
-	params := make([]string, 0, t.NumIn())
-	if first == 1 {
-		params = append(params, "fr *rt.Frame")
-	}
+	params := []string{"fr *rt.Frame"}
 	operands := make([]string, len(s.Elems))
 	var pre bytes.Buffer
 	for i := range len(s.Elems) {
-		pt, err := g.typ(t.In(first + i))
+		pt, err := g.typ(t.In(1 + i))
 		if err != nil {
 			return err
 		}
 		params = append(params, fmt.Sprintf("p%d %s", i, pt))
 		if isScalar(s.Elems[i]) {
-			x, fallible, err := g.widen(s.Elems[i], t.In(first+i), fmt.Sprintf("p%d", i))
+			x, err := g.widen(s.Elems[i], t.In(1+i), fmt.Sprintf("p%d", i))
 			if err != nil {
 				return fmt.Errorf("argument %d: %w", i, err)
 			}
-			if fallible {
-				fmt.Fprintf(&pre, "\t\tx%d, err := %s\n\t\tif err != nil {\n\t\t\tpanic(fmt.Sprintf(\"Nomi callback arg %d: %%v\", err))\n\t\t}\n", i, x, i)
-				operands[i] = fmt.Sprintf("x%d", i)
-			} else {
-				operands[i] = x
-			}
+			operands[i] = x
 			continue
 		}
-		conv, err := g.out(s.Elems[i], t.In(first+i))
+		conv, err := g.out(s.Elems[i], t.In(1+i))
 		if err != nil {
 			return fmt.Errorf("argument %d: %w", i, err)
 		}
 		fmt.Fprintf(&pre, "\t\tx%d, err := b.%s(p%d)\n\t\tif err != nil {\n\t\t\tpanic(fmt.Sprintf(\"Nomi callback arg %d: %%v\", err))\n\t\t}\n", i, conv, i, i)
 		operands[i] = fmt.Sprintf("x%d", i)
 	}
-	outs := make([]string, numOut)
-	zeros := make([]string, numOut)
-	for i := range numOut {
-		ot, err := g.typ(t.Out(i))
-		if err != nil {
-			return err
-		}
-		outs[i] = ot
-		zeros[i] = fmt.Sprintf("z%d", i)
+	sig, err := g.typ(t.Out(0))
+	if err != nil {
+		return err
 	}
-	sig := strings.Join(outs, ", ")
-	if numOut > 1 {
-		sig = "(" + sig + ")"
+	conv, err := g.in(s.Ret, t.Out(0))
+	if err != nil {
+		return fmt.Errorf("result: %w", err)
 	}
-	// failWith is the callbackErrorReturns rule for an error held in errExpr.
-	failWith := func(errExpr string) string {
-		if !lastErr && first == 1 {
-			// A frame-taking callback is the runtime's own (rt's), called
-			// inside a host call the engine made, so the Nomi failure
-			// unwinds to that call and is its failure.
-			return fmt.Sprintf("\t\t\tpanic(hostadapt.Unwind{Err: %s})\n", errExpr)
-		}
-		if !lastErr {
-			return fmt.Sprintf("\t\t\tpanic(hostadapt.CallbackFailure(%s, %q))\n", errExpr, t.String())
-		}
-		var b strings.Builder
-		for i := range numOut - 1 {
-			fmt.Fprintf(&b, "\t\t\tvar z%d %s\n", i, outs[i])
-		}
-		ret := append(append([]string{}, zeros[:numOut-1]...), errExpr)
-		fmt.Fprintf(&b, "\t\t\treturn %s\n", strings.Join(ret, ", "))
-		return b.String()
-	}
-
+	const unwind = "\t\t\tpanic(hostadapt.Unwind{Err: err})\n"
 	fmt.Fprintf(w, "\tif v == nil {\n\t\treturn out, fmt.Errorf(\"expected a function, got nil\")\n\t}\n")
 	fmt.Fprintf(w, "\treturn func(%s) %s {\n", strings.Join(params, ", "), sig)
 	w.Write(pre.Bytes())
-	fmt.Fprintf(w, "\t\tres, err := b.env.Call(fr, v, []rt.Value{%s})\n\t\tif err != nil {\n%s\t\t}\n", strings.Join(operands, ", "), failWith("err"))
-	switch {
-	case numOut == 0:
-		w.WriteString("\t\t_ = res\n")
-	case numOut == 1 && !lastErr:
-		conv, err := g.in(s.Ret, t.Out(0))
-		if err != nil {
-			return fmt.Errorf("result: %w", err)
-		}
-		fmt.Fprintf(w, "\t\ty, err := b.%s(fr, res)\n\t\tif err != nil {\n%s\t\t}\n\t\treturn y\n", conv, failWith("err"))
-	default:
-		// The last Go result is an error, so the Nomi function returns a
-		// Result whose Err carries a String.
-		if s.Ret.Kind != SResult || s.Ret.Elems[1].Kind != SString {
-			return fmt.Errorf("Go %s returns an error, so the Nomi function must return Result<_, String>, not %s", t, s.Ret)
-		}
-		fmt.Fprintf(w, "\t\tr, tag, err := hostadapt.Variant(res, %q)\n\t\tif err != nil {\n%s\t\t}\n", resultName, failWith("err"))
-		fmt.Fprintf(w, "\t\tif tag == \"Err\" {\n\t\t\tmsg, ok := hostadapt.Payload(r).(string)\n\t\t\tif !ok {\n%s\t\t\t}\n%s\t\t}\n",
-			indent(failWith("fmt.Errorf(\"unmarshal Result::Err: expected String payload, got %T\", hostadapt.Payload(r))")),
-			indent(failWith("errors.New(msg)")))
-		fmt.Fprintf(w, "\t\tif tag != \"Ok\" {\n%s\t\t}\n", indent(failWith("fmt.Errorf(\"unknown Result variant %q\", tag)")))
-		if numOut == 1 {
-			w.WriteString("\t\treturn nil\n")
-		} else {
-			conv, err := g.in(s.Ret.Elems[0], t.Out(0))
-			if err != nil {
-				return fmt.Errorf("result: %w", err)
-			}
-			fmt.Fprintf(w, "\t\ty, err := b.%s(fr, hostadapt.Payload(r))\n\t\tif err != nil {\n%s\t\t}\n\t\treturn y, nil\n", conv, failWith("err"))
-		}
-	}
+	fmt.Fprintf(w, "\t\tres, err := b.env.Call(fr, v, []rt.Value{%s})\n\t\tif err != nil {\n%s\t\t}\n", strings.Join(operands, ", "), unwind)
+	fmt.Fprintf(w, "\t\ty, err := b.%s(fr, res)\n\t\tif err != nil {\n%s\t\t}\n\t\treturn y\n", conv, unwind)
 	w.WriteString("\t}, nil\n")
 	return nil
 }
@@ -995,7 +949,7 @@ func indent(s string) string {
 // --- Go value -> Nomi value --------------------------------------------------
 
 // out answers the name of a method `func (b *bound) NAME(v T) (rt.Value, error)`.
-func (g *Generator) out(s *Shape, t Type) (string, error) {
+func (g *Generator) out(s *Shape, t reflect.Type) (string, error) {
 	key := "out|" + shapeKey(s) + "|" + typeIdentity(t)
 	if m, ok := g.memo[key]; ok {
 		return m, nil
@@ -1010,61 +964,38 @@ func (g *Generator) out(s *Shape, t Type) (string, error) {
 	fmt.Fprintf(&w, "// %s builds a %s from Go %s.\nfunc (b *bound) %s(v %s) (rt.Value, error) {\n", name, s, goT, name, goT)
 	switch {
 	case isScalar(s):
-		x, fallible, err := g.widen(s, t, "v")
+		x, err := g.widen(s, t, "v")
 		if err != nil {
 			return "", err
 		}
-		if fallible {
-			fmt.Fprintf(&w, "\tx, err := %s\n\tif err != nil {\n\t\treturn nil, err\n\t}\n\treturn x, nil\n", x)
-		} else {
-			fmt.Fprintf(&w, "\treturn %s, nil\n", x)
-		}
+		fmt.Fprintf(&w, "\treturn %s, nil\n", x)
 	case s.Kind == SUnit:
 		w.WriteString("\treturn rt.Unit{}, nil\n")
+	case g.tupleStruct(s, t):
+		slots := make([]rt.SlotType, len(s.Elems))
+		for i, e := range s.Elems {
+			slots[i] = e.Slot()
+		}
+		fmt.Fprintf(&w, "\ttup := b.%s.New()\n", g.tupleDesc(slots))
+		offsets := layoutOffsets(slots)
+		for i, e := range s.Elems {
+			if err := g.store(&w, "tup", offsets[i], e, t.Field(i).Type, fmt.Sprintf("v.F%d", i), false, fmt.Sprintf("fmt.Errorf(\"item %d: %%w\", err)", i)); err != nil {
+				return "", fmt.Errorf("tuple item %d: %w", i, err)
+			}
+		}
+		w.WriteString("\treturn tup, nil\n")
 	case isRtGeneric(t, "Maybe", "Result", "List", "Map"):
 		if err := g.outRtGeneric(&w, s, t); err != nil {
 			return "", err
 		}
-	case s.Kind == SMap && t.Kind() == reflect.Map && g.handles[TypeKey(t)] == "":
-		// A Go map becomes an rt.Map[any, any] over the VM's own hash and
-		// equality, as a Map literal's is. A Nomi Map keeps insertion order
-		// and Go's iteration order is random, so the entries are inserted in
-		// ascending Go key order (mapEntries).
-		entries, err := g.mapEntries(t)
-		if err != nil {
-			return "", err
-		}
-		kout, err := g.out(s.Elems[0], t.Key())
-		if err != nil {
-			return "", fmt.Errorf("key: %w", err)
-		}
-		vout, err := g.out(s.Elems[1], t.Elem())
-		if err != nil {
-			return "", fmt.Errorf("value: %w", err)
-		}
-		fmt.Fprintf(&w, "\tconv := make([]rt.MapEntry[any, any], 0, len(v))\n\tfor _, e := range %s {\n\t\tgk, gv := e.Key, e.Val\n", entries)
-		fmt.Fprintf(&w, "\t\tk, err := b.%s(gk)\n\t\tif err != nil {\n\t\t\treturn nil, fmt.Errorf(\"key %%v: %%w\", gk, err)\n\t\t}\n", kout)
-		fmt.Fprintf(&w, "\t\tx, err := b.%s(gv)\n\t\tif err != nil {\n\t\t\treturn nil, fmt.Errorf(\"value at %%v: %%w\", gk, err)\n\t\t}\n", vout)
-		w.WriteString("\t\tconv = append(conv, rt.MapEntry[any, any]{Key: k, Val: x})\n\t}\n\treturn rt.MapOf(rt.Hash, rt.Equal, conv), nil\n")
 	case s.Kind == SMap:
-		return "", fmt.Errorf("Go %s: the adapter generator does not convert this type yet; a Map crosses as rt.Map[K, V] or a Go map", t)
+		return "", fmt.Errorf("Go %s: a Map crosses as rt.Map[K, V]", t)
 	case s.Kind == SEnum:
 		if err := g.outEnum(&w, s, t); err != nil {
 			return "", err
 		}
-	case s.Kind == SHost && goStreamFor(t) != "" && g.handles[TypeKey(t)] == "":
-		// A Go io.Reader or io.Writer result is a Reader or Writer over it
-		// (hostadapt.ReaderFromGo, WriterFromGo).
-		if goStreamFor(t) != s.Name {
-			return "", fmt.Errorf("Go %s projects to %s, not %s", t, goStreamFor(t), s)
-		}
-		fmt.Fprintf(&w, "\treturn hostadapt.%sFromGo(v)\n", streamWord[s.Name])
-	case s.Kind == SHost && s.Name == dynamicName && isEmptyInterface(t) && g.handles[TypeKey(t)] == "":
-		// A Go empty-interface value becomes the Dynamic that wraps it; one
-		// that already holds an rt.Dynamic is that Dynamic.
-		w.WriteString("\tif d, ok := v.(rt.Dynamic); ok {\n\t\treturn d, nil\n\t}\n\treturn rt.Dynamic{Inner: v}, nil\n")
-	case s.Kind == SHost && g.handles[TypeKey(t)] == "" && rtHeld[s.Name] != "":
-		if rtHeld[s.Name] != TypeKey(t) {
+	case s.Kind == SHost && g.handles[typeIdentity(t)] == "" && rtHeld[s.Name] != "":
+		if rtHeld[s.Name] != typeIdentity(t) {
 			return "", rtHeldRefusal(s, t)
 		}
 		w.WriteString("\treturn v, nil\n")
@@ -1074,14 +1005,14 @@ func (g *Generator) out(s *Shape, t Type) (string, error) {
 			return "", fmt.Errorf("element: %w", err)
 		}
 		fmt.Fprintf(&w, "\tvar xs *rt.List[any]\n\tfor i := len(v) - 1; i >= 0; i-- {\n\t\tx, err := b.%s(v[i])\n\t\tif err != nil {\n\t\t\treturn nil, fmt.Errorf(\"index %%d: %%w\", i, err)\n\t\t}\n\t\txs = rt.Cons[any](x, xs)\n\t}\n\treturn xs, nil\n", elem)
-	case s.Kind == SMaybe && t.Kind() == reflect.Pointer && g.handles[TypeKey(t)] == "":
+	case s.Kind == SMaybe && t.Kind() == reflect.Pointer && g.handles[typeIdentity(t)] == "":
 		d := g.enumDesc(s)
 		fmt.Fprintf(&w, "\tif v == nil {\n\t\treturn b.%s.NewVariant(1), nil\n\t}\n\tr := b.%s.NewVariant(0)\n", d, d)
 		if err := g.store(&w, "r", 0, s.Elems[0], t.Elem(), "*v", false, ""); err != nil {
 			return "", fmt.Errorf("Maybe payload: %w", err)
 		}
 		w.WriteString("\treturn r, nil\n")
-	case s.Kind == SStruct && t.Kind() == reflect.Struct && g.handles[TypeKey(t)] == "":
+	case s.Kind == SStruct && t.Kind() == reflect.Struct && g.handles[typeIdentity(t)] == "":
 		fields, err := goFields(t)
 		if err != nil {
 			return "", err
@@ -1101,34 +1032,12 @@ func (g *Generator) out(s *Shape, t Type) (string, error) {
 	case s.Kind == SDistinct && len(s.Elems) == 1 && isScalar(s.Elems[0]):
 		d := g.distinctDesc(s)
 		fmt.Fprintf(&w, "\tr := b.%s.New()\n", d)
-		switch {
-		case isTimeDuration(t):
-			if s.Name != durationName {
-				return "", fmt.Errorf("Go time.Duration projects to Duration, not %s", s)
-			}
-			w.WriteString("\tr.W[0] = rt.IntWord(int64(v))\n")
-		case isTimeTime(t):
-			if s.Name != instantName {
-				return "", fmt.Errorf("Go time.Time projects to Instant, not %s", s)
-			}
-			w.WriteString("\tr.SetIntSlot(0, hostadapt.InstantNanos(v).Value())\n")
-		default:
-			if err := g.store(&w, "r", 0, s.Elems[0], t, "v", false, ""); err != nil {
-				return "", err
-			}
-		}
-		w.WriteString("\treturn r, nil\n")
-	case s.Kind == SDistinct && len(s.Elems) == 1:
-		// A distinct over a type that is no scalar holds the value Go's
-		// converts to in its one ref slot.
-		d := g.distinctDesc(s)
-		fmt.Fprintf(&w, "\tr := b.%s.New()\n", d)
 		if err := g.store(&w, "r", 0, s.Elems[0], t, "v", false, ""); err != nil {
-			return "", fmt.Errorf("%s over %s: %w", s, s.Elems[0], err)
+			return "", err
 		}
 		w.WriteString("\treturn r, nil\n")
 	case s.Kind == SHost:
-		if got := g.handles[TypeKey(t)]; got != s.Name {
+		if got := g.handles[typeIdentity(t)]; got != s.Name {
 			return "", fmt.Errorf("Go %s is not registered as host type %s (registered: %q)", t, s.Name, got)
 		}
 		fmt.Fprintf(&w, "\treturn rt.HostHandle{TypeName: %q, Value: v}, nil\n", s.Name)
@@ -1140,85 +1049,11 @@ func (g *Generator) out(s *Shape, t Type) (string, error) {
 	return name, nil
 }
 
-// mapEntries answers the expression that lists Go map v's entries in
-// ascending key order. A key of an ordered kind (a string, an integer, a
-// float, or a named type over one) sorts by cmp.Compare. A bool key sorts
-// false first. A struct key compares its exported fields in declaration
-// order, each by these rules, and a time.Time key or field by Time.Compare.
-// Any other key (a pointer, an interface, a channel, an array) is refused:
-// its only order is an address or a dynamic type, which would differ from
-// run to run.
-func (g *Generator) mapEntries(t Type) (string, error) {
-	k := t.Key()
-	if isOrderedKind(k.Kind()) {
-		return "hostadapt.SortedEntries(v)", nil
-	}
-	kT, err := g.typ(k)
-	if err != nil {
-		return "", err
-	}
-	c, err := g.keyCompare(k, "x", "y", k.String())
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("hostadapt.SortedEntriesFunc(v, func(x, y %s) int { return %s })", kT, c), nil
-}
-
-// keyCompare answers an int expression ordering Go values x and y of type t,
-// for mapEntries. key is the map's key type, for the refusal.
-func (g *Generator) keyCompare(t Type, x, y, key string) (string, error) {
-	switch {
-	case isTimeTime(t):
-		return fmt.Sprintf("%s.Compare(%s)", x, y), nil
-	case isOrderedKind(t.Kind()):
-		g.imports["cmp"] = "cmp"
-		return fmt.Sprintf("cmp.Compare(%s, %s)", x, y), nil
-	case t.Kind() == reflect.Bool:
-		return fmt.Sprintf("hostadapt.CompareBool(bool(%s), bool(%s))", x, y), nil
-	case t.Kind() == reflect.Struct:
-		var terms []string
-		for i := range t.NumField() {
-			f := t.Field(i)
-			if !f.Exported {
-				continue
-			}
-			c, err := g.keyCompare(f.Type, x+"."+f.Name, y+"."+f.Name, key)
-			if err != nil {
-				return "", err
-			}
-			terms = append(terms, c)
-		}
-		switch len(terms) {
-		case 0:
-			return "", fmt.Errorf("Go map key %s: struct %s has no exported field to order its keys by, and a Nomi Map keeps the order its entries were inserted in", key, t)
-		case 1:
-			return terms[0], nil
-		}
-		g.imports["cmp"] = "cmp"
-		return "cmp.Or(" + strings.Join(terms, ", ") + ")", nil
-	}
-	return "", fmt.Errorf("Go map key %s: %s has no order that is the same from run to run, and a Nomi Map keeps the order its entries were inserted in; use a key of strings, numbers, bools or structs of them", key, t)
-}
-
-// isOrderedKind reports a kind cmp.Ordered admits.
-func isOrderedKind(k reflect.Kind) bool {
-	switch k {
-	case reflect.String, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
-		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
-		reflect.Float32, reflect.Float64:
-		return true
-	}
-	return false
-}
-
 // --- scalars -----------------------------------------------------------------
 
 // rtHeldRefusal refuses an rt-held host type against Go t, which is not the
 // Go type its value is.
-func rtHeldRefusal(s *Shape, t Type) error {
-	if s.Name == dynamicName {
-		return fmt.Errorf("Dynamic crosses as a Go empty interface (any) or %s, not %s", rtHeld[s.Name], t)
-	}
+func rtHeldRefusal(s *Shape, t reflect.Type) error {
 	return fmt.Errorf("%s crosses as Go %s, not %s", s.Name, rtHeld[s.Name], t)
 }
 
@@ -1244,29 +1079,36 @@ func fieldReader(s *Shape) string {
 }
 
 // isRtInt reports whether t is rt.Int, an Int of any size.
-func isRtInt(t Type) bool { return isNamed(t, rtPkg, "Int") }
+func isRtInt(t reflect.Type) bool { return isNamed(t, rtPkg, "Int") }
 
 // isRtDuration reports whether t is rt.Duration, the Go type std's
 // Duration crosses as.
-func isRtDuration(t Type) bool { return isNamed(t, rtPkg, "Duration") }
+func isRtDuration(t reflect.Type) bool { return isNamed(t, rtPkg, "Duration") }
 
 // isRtInstant reports whether t is rt.Instant, the Go type std's Instant
 // crosses as.
-func isRtInstant(t Type) bool { return isNamed(t, rtPkg, "Instant") }
+func isRtInstant(t reflect.Type) bool { return isNamed(t, rtPkg, "Instant") }
 
-// isBigInt reports whether t is *big.Int, which an Int of any size projects
-// to.
-func isBigInt(t Type) bool {
-	return t != nil && t.Kind() == reflect.Pointer && isNamed(t.Elem(), "math/big", "Int")
+func isByteKind(t reflect.Type) bool { return t.Kind() == reflect.Uint8 }
+
+// isByteSlice reports whether t is a Go slice of the predeclared byte.
+func isByteSlice(t reflect.Type) bool {
+	return t.Kind() == reflect.Slice && t.Elem() == reflect.TypeFor[byte]()
 }
 
-func isByteKind(t Type) bool { return t.Kind() == reflect.Uint8 }
-
-// compatible is the marshaller's projection table for scalars.
-func compatible(s *Shape, t Type) error {
-	if isTimeDuration(t) || isTimeTime(t) {
-		return fmt.Errorf("Go %s projects to %s, not %s", t, map[bool]string{true: "Duration", false: "Instant"}[isTimeDuration(t)], s)
+// isSigned reports whether t is a Go signed integer.
+func isSigned(t reflect.Type) bool {
+	switch t.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return true
 	}
+	return false
+}
+
+// compatible is the projection table for scalars: an Int is rt.Int or a Go
+// integer of a fixed width (fits), a Float a float64, a Bool a bool, a
+// String a string, a Byte a uint8, and Bytes rt.Bytes or a byte slice.
+func compatible(s *Shape, t reflect.Type) error {
 	ok := false
 	switch s.Kind {
 	case SInt:
@@ -1275,9 +1117,9 @@ func compatible(s *Shape, t Type) error {
 			reflect.Uint, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
 			ok = true
 		}
-		ok = ok || isRtInt(t) || isBigInt(t)
+		ok = ok || isRtInt(t)
 	case SFloat:
-		ok = t.Kind() == reflect.Float32 || t.Kind() == reflect.Float64
+		ok = t.Kind() == reflect.Float64
 	case SBool:
 		ok = t.Kind() == reflect.Bool
 	case SString:
@@ -1285,7 +1127,7 @@ func compatible(s *Shape, t Type) error {
 	case SByte:
 		ok = t.Kind() == reflect.Uint8
 	case SBytes:
-		ok = isRtBytes(t) || (t.Kind() == reflect.Slice && isByteKind(t.Elem()))
+		ok = isRtBytes(t) || isByteSlice(t)
 	}
 	if !ok {
 		return fmt.Errorf("Go %s does not project to %s", t, s)
@@ -1295,7 +1137,7 @@ func compatible(s *Shape, t Type) error {
 
 // narrow converts x, a Nomi scalar's Go value, to Go type t. A fallible
 // conversion is an expression of two values, (T, error).
-func (g *Generator) narrow(s *Shape, t Type, x string) (string, bool, error) {
+func (g *Generator) narrow(s *Shape, t reflect.Type, x string) (string, bool, error) {
 	goT, err := g.typ(t)
 	if err != nil {
 		return "", false, err
@@ -1303,75 +1145,49 @@ func (g *Generator) narrow(s *Shape, t Type, x string) (string, bool, error) {
 	switch s.Kind {
 	case SInt:
 		// x is an Int value: an int64, or a *rt.BigInt past its range.
-		switch {
-		case isRtInt(t):
+		if isRtInt(t) {
 			return fmt.Sprintf("rt.IntOf(%s)", x), false, nil
-		case isBigInt(t):
-			return fmt.Sprintf("rt.IntBig(%s)", x), false, nil
 		}
 		if err := g.fits(s, t); err != nil {
 			return "", false, err
 		}
-		switch t.Kind() {
-		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		if isSigned(t) {
 			return fmt.Sprintf("hostadapt.ToSigned[%s](%s, %q)", goT, x, t.String()), true, nil
-		default:
-			return fmt.Sprintf("hostadapt.ToUnsigned[%s](%s, %q)", goT, x, t.String()), true, nil
 		}
-	case SFloat:
-		if t.Kind() == reflect.Float32 {
-			return fmt.Sprintf("hostadapt.ToFloat32[%s](%s, %q)", goT, x, t.String()), true, nil
-		}
+		return fmt.Sprintf("hostadapt.ToUnsigned[%s](%s, %q)", goT, x, t.String()), true, nil
+	case SFloat, SBool, SString, SByte, SBytes:
 		return fmt.Sprintf("%s(%s)", goT, x), false, nil
-	case SBool, SString, SByte:
-		return fmt.Sprintf("%s(%s)", goT, x), false, nil
-	case SBytes:
-		if isRtBytes(t) || isPredeclared(t.Elem(), "byte") {
-			return fmt.Sprintf("%s(%s)", goT, x), false, nil
-		}
-		elemT, err := g.typ(t.Elem())
-		if err != nil {
-			return "", false, err
-		}
-		return fmt.Sprintf("func() %s { out := make(%s, len(%s)); for i := range len(%s) { out[i] = %s(%s[i]) }; return out }()", goT, goT, x, x, elemT, x), false, nil
 	}
 	return "", false, fmt.Errorf("%s is not a scalar", s)
 }
 
 // widen converts x, a Go value of type t, to the Go value an rt.Value of
 // scalar shape s holds.
-func (g *Generator) widen(s *Shape, t Type, x string) (string, bool, error) {
+func (g *Generator) widen(s *Shape, t reflect.Type, x string) (string, error) {
 	if err := compatible(s, t); err != nil {
-		return "", false, err
+		return "", err
 	}
 	switch s.Kind {
 	case SInt:
 		switch {
 		case isRtInt(t):
-			return fmt.Sprintf("%s.Value()", x), false, nil
-		case isBigInt(t):
-			return fmt.Sprintf("hostadapt.FromBig(%s)", x), true, nil
+			return fmt.Sprintf("%s.Value()", x), nil
+		case isSigned(t):
+			return fmt.Sprintf("rt.Value(int64(%s))", x), nil
 		}
-		switch t.Kind() {
-		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			return fmt.Sprintf("rt.Value(int64(%s))", x), false, nil
-		}
-		return fmt.Sprintf("rt.IntFromUint64(uint64(%s))", x), false, nil
+		return fmt.Sprintf("rt.IntFromUint64(uint64(%s))", x), nil
 	case SFloat:
-		return fmt.Sprintf("float64(%s)", x), false, nil
+		return fmt.Sprintf("float64(%s)", x), nil
 	case SBool:
-		return fmt.Sprintf("bool(%s)", x), false, nil
+		return fmt.Sprintf("bool(%s)", x), nil
 	case SString:
-		return fmt.Sprintf("string(%s)", x), false, nil
+		return fmt.Sprintf("string(%s)", x), nil
 	case SByte:
-		return fmt.Sprintf("rt.Byte(%s)", x), false, nil
+		return fmt.Sprintf("rt.Byte(%s)", x), nil
 	case SBytes:
-		if isRtBytes(t) || isPredeclared(t.Elem(), "byte") {
-			return fmt.Sprintf("rt.Bytes(%s)", x), false, nil
-		}
-		return fmt.Sprintf("func() rt.Bytes { out := make([]byte, len(%s)); for i := range len(%s) { out[i] = byte(%s[i]) }; return rt.Bytes(out) }()", x, x, x), false, nil
+		return fmt.Sprintf("rt.Bytes(%s)", x), nil
 	}
-	return "", false, fmt.Errorf("%s is not a scalar", s)
+	return "", fmt.Errorf("%s is not a scalar", s)
 }
 
 // --- descriptors -------------------------------------------------------------
@@ -1399,12 +1215,9 @@ func (g *Generator) structDesc(s *Shape) string {
 	return g.addDesc("struct|"+b.String(), b.String(), "")
 }
 
+// distinctDesc is the descriptor of a distinct type over a scalar.
 func (g *Generator) distinctDesc(s *Shape) string {
-	inner := "nil"
-	if len(s.Elems) == 1 {
-		inner = fmt.Sprintf("hostadapt.Slot(%s)", slotExpr(s.Elems[0].Slot()))
-	}
-	spec := fmt.Sprintf("&hostadapt.DescSpec{Name: %q, Kind: rt.KindDistinct, Inner: %s}", s.Name, inner)
+	spec := fmt.Sprintf("&hostadapt.DescSpec{Name: %q, Kind: rt.KindDistinct, Inner: hostadapt.Slot(%s)}", s.Name, slotExpr(s.Elems[0].Slot()))
 	return g.addDesc("distinct|"+spec, spec, "")
 }
 
@@ -1429,10 +1242,6 @@ func (g *Generator) enumDesc(s *Shape) string {
 			switch {
 			case v.Shape == rt.VariantBare:
 				fmt.Fprintf(&b, "{Name: %q, Shape: rt.VariantBare}, ", v.Name)
-			case v.Err != nil:
-				// An unresolvable positional payload is still one payload,
-				// held by reference.
-				fmt.Fprintf(&b, "{Name: %q, Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotRef}}}, ", v.Name)
 			default:
 				shape := "rt.VariantPositional"
 				if v.Shape == rt.VariantFields {
@@ -1531,43 +1340,27 @@ func shapeKeyOf(s *Shape, ranges bool) string {
 // --- Go types ----------------------------------------------------------------
 
 type goField struct {
-	path string // selector path from the struct value, `A.B`
-	typ  Type
+	path string // the Go field's name, the selector from the struct value
+	typ  reflect.Type
 }
 
-// goFields is the marshaller's field walk: exported fields, embedded structs
-// flattened, `nomi:"name"` and `nomi:"-"` tags, snake_case otherwise.
-func goFields(t Type) (map[string]goField, error) {
+// goFields is a Go struct's fields by the Nomi field name each projects to,
+// its Go name in snake_case. Every field is exported, since a generated
+// adapter in another package reads and writes them all.
+func goFields(t reflect.Type) (map[string]goField, error) {
 	out := map[string]goField{}
-	var walk func(t Type, prefix string) error
-	walk = func(t Type, prefix string) error {
-		for i := range t.NumField() {
-			f := t.Field(i)
-			if !f.Exported {
-				continue
-			}
-			if f.Anonymous && f.Type.Kind() == reflect.Struct {
-				if err := walk(f.Type, prefix+f.Name+"."); err != nil {
-					return err
-				}
-				continue
-			}
-			tag := f.Tag.Get("nomi")
-			if tag == "-" {
-				continue
-			}
-			name := tag
-			if name == "" {
-				name = strcase.ToSnake(f.Name)
-			}
-			if _, dup := out[name]; dup {
-				return fmt.Errorf("embedded struct field %q collides with outer field", name)
-			}
-			out[name] = goField{path: prefix + f.Name, typ: f.Type}
+	for i := range t.NumField() {
+		f := t.Field(i)
+		if !f.IsExported() {
+			return nil, fmt.Errorf("Go %s has unexported field %s, which an adapter cannot reach", t, f.Name)
 		}
-		return nil
+		name := strcase.ToSnake(f.Name)
+		if _, dup := out[name]; dup {
+			return nil, fmt.Errorf("Go %s has two fields named %s in snake_case", t, name)
+		}
+		out[name] = goField{path: f.Name, typ: f.Type}
 	}
-	return out, walk(t, "")
+	return out, nil
 }
 
 // sameFields requires the Go struct to carry exactly the declared fields. The
@@ -1591,8 +1384,24 @@ func sameFields(s *Shape, fields map[string]goField) error {
 	return nil
 }
 
+// tupleStruct reports whether Go type t is how a binding answers tuple shape
+// s: an anonymous struct whose fields are F0, F1, ... in order, one per
+// component, which is how internal/irbuild reads an rt signature's tuple too
+// (tupleKindOfGoType). Several Go results are a tuple too (results).
+func (g *Generator) tupleStruct(s *Shape, t reflect.Type) bool {
+	if s.Kind != STuple || t.Kind() != reflect.Struct || t.Name() != "" || t.NumField() != len(s.Elems) {
+		return false
+	}
+	for i := range t.NumField() {
+		if t.Field(i).Name != fmt.Sprintf("F%d", i) {
+			return false
+		}
+	}
+	return true
+}
+
 // typ spells a Go type in the generated file, importing its package.
-func (g *Generator) typ(t Type) (string, error) {
+func (g *Generator) typ(t reflect.Type) (string, error) {
 	if base, args, ok := rtGenericArgs(t); ok {
 		spelled := make([]string, len(args))
 		for i, a := range args {
@@ -1608,7 +1417,7 @@ func (g *Generator) typ(t Type) (string, error) {
 		if strings.ContainsAny(t.Name(), "[]") {
 			return "", fmt.Errorf("Go %s is a generic instantiation; the generator does not spell those", t)
 		}
-		if t.PkgPath() == "" || (g.ownPkg != "" && t.PkgPath() == g.ownPkg) {
+		if t.PkgPath() == "" {
 			return t.Name(), nil
 		}
 		return g.alias(t.PkgPath()) + "." + t.Name(), nil
@@ -1620,14 +1429,11 @@ func (g *Generator) typ(t Type) (string, error) {
 	case reflect.Slice:
 		e, err := g.typ(t.Elem())
 		return "[]" + e, err
-	case reflect.Map:
-		k, err := g.typ(t.Key())
-		if err != nil {
-			return "", err
-		}
-		v, err := g.typ(t.Elem())
-		return "map[" + k + "]" + v, err
 	case reflect.Func:
+		// A callback, which answers one value (callback).
+		if t.NumOut() != 1 {
+			break
+		}
 		in := make([]string, t.NumIn())
 		for i := range t.NumIn() {
 			s, err := g.typ(t.In(i))
@@ -1636,27 +1442,23 @@ func (g *Generator) typ(t Type) (string, error) {
 			}
 			in[i] = s
 		}
-		out := make([]string, t.NumOut())
-		for i := range t.NumOut() {
-			s, err := g.typ(t.Out(i))
+		out, err := g.typ(t.Out(0))
+		if err != nil {
+			return "", err
+		}
+		return "func(" + strings.Join(in, ", ") + ") " + out, nil
+	case reflect.Struct:
+		// An anonymous struct: a binding's tuple (tupleStruct).
+		fields := make([]string, t.NumField())
+		for i := range t.NumField() {
+			f := t.Field(i)
+			s, err := g.typ(f.Type)
 			if err != nil {
 				return "", err
 			}
-			out[i] = s
+			fields[i] = f.Name + " " + s
 		}
-		sig := "func(" + strings.Join(in, ", ") + ")"
-		switch len(out) {
-		case 0:
-		case 1:
-			sig += " " + out[0]
-		default:
-			sig += " (" + strings.Join(out, ", ") + ")"
-		}
-		return sig, nil
-	case reflect.Interface:
-		if t.NumMethod() == 0 {
-			return "any", nil
-		}
+		return "struct{ " + strings.Join(fields, "; ") + " }", nil
 	}
 	return "", fmt.Errorf("Go %s has no spelling the generator writes", t)
 }
@@ -1682,7 +1484,7 @@ func (g *Generator) funcName(fv reflect.Value) (string, error) {
 	if f == nil {
 		return "", fmt.Errorf("the function value has no symbol")
 	}
-	full := f.Name() // nomi/stdregex.FFICompile
+	full := f.Name() // nomi/stdregex.HostCompile
 	slash := strings.LastIndex(full, "/")
 	dot := strings.Index(full[slash+1:], ".")
 	if dot < 0 {

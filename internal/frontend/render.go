@@ -17,10 +17,10 @@ import (
 // `path:line:col: message` form (Diagnostic.String); "json", which `nomi
 // check --format json` sets, has a check write `nomi check --format json`
 // records (vmhost.CheckJSON) and any other text in the short form;
-// anything else prints each diagnostic with its source line (Render). An
-// environment variable rather than a flag alone so an FFI program's
-// wrapper process, which reports its own diagnostics, reports them the
-// same way.
+// anything else prints each diagnostic with its source line (Render). It
+// is an environment variable so a user sets it once for every command
+// (docs/tooling.md, "Environment variables"), and the code that renders
+// reads it without each caller passing a flag down.
 const DiagnosticsFormatEnv = "NOMI_DIAGNOSTICS"
 
 // ShortDiagnostics reports whether the short form is selected, which json

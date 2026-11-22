@@ -10,14 +10,34 @@ import (
 // statement that always exits its block.
 const UnreachableCodeCode = "unreachable-code"
 
+// checkUnreachableCode reports, in each block of the file's nodes, the
+// first statement that follows a statement that always exits
+// (checkUnreachable). It runs once the file's bodies are checked, since
+// whether a call never returns is the call's record (NeverReturns). A block
+// is reported after the blocks it holds.
+func (c *checker) checkUnreachableCode(nodes []ast.Node) {
+	var walk func(ast.Node)
+	walk = func(n ast.Node) {
+		ast.Children(n, walk)
+		if block, ok := n.(*ast.Block); ok {
+			if te, found := checkUnreachable(c.fa, block); found {
+				c.report(te)
+			}
+		}
+	}
+	for _, n := range nodes {
+		walk(n)
+	}
+}
+
 // checkUnreachable reports the first statement of block that follows a
 // statement that always exits: a `return`, `break` or `continue`; an
-// `unreachable`, which always traps; an
-// `Iter.loop` whose callback holds no `break` (LoopNeverBreaks), which never
-// finishes; an `if` with an `else` whose every branch always exits; a `case`
-// whose every arm always exits (a `case` is exhaustive, so one of its arms
-// runs); a block statement holding a statement that always exits; or a
-// statement that always evaluates an operand that does (leaves), a
+// `unreachable`, which always traps; a call that never returns
+// (NeverReturns: an `Iter.loop` whose callback holds no `break`), which
+// never finishes; an `if` with an `else` whose every branch always exits; a
+// `case` whose every arm always exits (a `case` is exhaustive, so one of
+// its arms runs); a block statement holding a statement that always exits;
+// or a statement that always evaluates an operand that does (leaves), a
 // binding of a loop that never breaks among them. Nothing after such a
 // statement can run, and the IR builder would otherwise have to lower dead
 // code. It is an error, as an unused binding is: the analyzer has no warning
@@ -25,10 +45,8 @@ const UnreachableCodeCode = "unreachable-code"
 //
 // Two things that stop a body are not exits here. `todo` is a statement of
 // type Unit, so code after it stays legal while a function is being stubbed
-// out. A call never counts: no Nomi function is known not to return.
-//
-// It runs once the block's statements are resolved, since whether a bare
-// `loop(...)` is std's `Iter.loop` is the reference recorded at its name.
+// out. No call but a loop that never breaks counts: no Nomi function is
+// known not to return.
 func checkUnreachable(fa *FileAnalysis, block *ast.Block) (TypeError, bool) {
 	if block == nil {
 		return TypeError{}, false
@@ -141,7 +159,7 @@ func (fa *FileAnalysis) leavingRegion(n ast.Node, traps bool) exitSet {
 			return exitTrap
 		}
 	case *ast.Call:
-		if fa.LoopNeverBreaks(s) {
+		if fa.NeverReturns(s) {
 			return exitNever
 		}
 	case *ast.Block:
@@ -265,50 +283,42 @@ func stmtStart(n ast.Node) (int, int) {
 // node of fa's file.
 func (fa *FileAnalysis) AlwaysExits(stmt ast.Node) bool { return fa.leavingRegion(stmt, false) != 0 }
 
-// LoopNeverBreaks reports whether n, a node of fa's file, is a call
-// `Iter.loop(...)` whose callback cannot end it: a lambda or a capture whose
-// body holds no `break` of its own, or any other function value, a named
-// function among them, that is not an iter-sensitive function whose own
-// scope breaks (`Iter.loop(0, step)`). A `break` inside a
-// lambda or a nested `fn` in the body belongs to that callback, not to this
-// loop. In the callback `return v` and `continue` go
+// NeverReturns reports whether n, a node of fa's file, is a call the
+// checker recorded as one that never returns (ResolvedCall.NeverReturns).
+// The unreachable-code rule, a block's type and the IR builder read it.
+func (fa *FileAnalysis) NeverReturns(n ast.Node) bool {
+	call, isCall := n.(*ast.Call)
+	if !isCall || call == nil || fa == nil {
+		return false
+	}
+	rc := fa.Calls[call]
+	return rc != nil && rc.NeverReturns
+}
+
+// loopNeverBreaks decides, as the call is checked (recordPlacement),
+// whether call is std's `Iter.loop` and its callback cannot end it: a
+// lambda or a capture whose body holds no `break` of its own, or any other
+// function value, a named function among them, that is not an
+// iter-sensitive function whose own scope breaks (`Iter.loop(0, step)`). A
+// `break` inside a lambda or a nested `fn` in the body belongs to that
+// callback, not to this loop. In the callback `return v` and `continue` go
 // round again, so nothing reaches the loop's exit: a trap, the task's
 // cancellation or the end of the process stops it, and no code after it
 // runs. The loop still has its state type S, as every `Iter.loop` does; it
 // never produces a value of it.
 //
-// The callee is std's `Iter.loop` written qualified (`Iter` is a reserved
-// type name, so `Iter.loop` is always std's) or a bare name whose recorded
-// reference resolves to it: `loop` from `import std::iter.Iter.{loop}`, or
-// `forever` from `Iter.{loop as forever}`. A bare `loop` that names a local
-// function or binding is not one.
-func (fa *FileAnalysis) LoopNeverBreaks(n ast.Node) bool {
-	call, isCall := n.(*ast.Call)
-	if !isCall || call == nil || !fa.isIterLoopCallee(call.Func) {
+// The callee is std's `Iter.loop` by the declaration it reaches
+// (stdFuncNamed), however it is written: `Iter.loop`, `Seq.loop` under
+// `import std::iter.{Iter as Seq}`, or a bare `loop` or `forever` from
+// `import std::iter.Iter.{loop}` or `Iter.{loop as forever}`. A program's
+// own type imported as `Iter` has a `loop` that is not one.
+func (c *checker) loopNeverBreaks(call *ast.Call) bool {
+	if c.fa.stdFuncNamed(call.Func) != iterOwnerFunc("loop") {
 		return false
 	}
 	cb, _ := loopCallArgs(call, nil)
 	if lam, ok := cb.(*ast.Lambda); cb == nil || (ok && (lam == nil || lam.Body == nil)) {
 		return false
 	}
-	return !fa.breaksIteration(cb)
-}
-
-// isIterLoopCallee reports whether a call's callee is std's `Iter.loop`.
-func (fa *FileAnalysis) isIterLoopCallee(callee ast.Node) bool {
-	switch f := callee.(type) {
-	case *ast.FieldAccess:
-		if f == nil || f.Field == nil || f.Field.Name != "loop" {
-			return false
-		}
-		owner, isType := f.Object.(*ast.TypeIdent)
-		return isType && owner != nil && owner.Name == "Iter"
-	case *ast.Ident:
-		if f == nil || fa == nil {
-			return false
-		}
-		sym := resolvedSymbol(fa.References[Pos{Line: f.Line, Col: f.Col}])
-		return sym != nil && sym.Kind == SymbolFunction && sym.OwningType == "Iter" && sym.Name == "loop"
-	}
-	return false
+	return !c.fa.breaksIteration(cb)
 }

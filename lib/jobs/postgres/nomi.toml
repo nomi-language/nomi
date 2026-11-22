@@ -1,2 +1,6 @@
 [module]
 name = "pgjobs"
+path = "github.com/nomi-language/nomi/lib/jobs/postgres"
+
+[dependencies]
+postgres = { module = "github.com/nomi-language/nomi/lib/sql/postgres", version = "v0.0.0-20261102115722-e15c01bbc477", dir = "../../sql/postgres" }

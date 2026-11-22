@@ -1,9 +1,8 @@
-//# SQLite for `std::sql`: `sqlite.open(path)` and `sqlite.memory()` return a
-//# `Conn` to one SQLite database, over the pure-Go `modernc.org/sqlite`, so
-//# a program that uses it builds with no C compiler and cross-compiles to
-//# every target Go's SQLite port supports. A browser build runs on SQLite's
-//# official WebAssembly build instead, which the page loads as
-//# `globalThis.sqlite3` before the program opens a database (README.md).
+//# SQLite for `std::sql`: `sqlite.open(path)`, `sqlite.open_in(dir, name)`
+//# and `sqlite.memory()` return a `Conn` to one SQLite database. SQLite
+//# runs inside the program, compiled to WebAssembly and run by std::wasm;
+//# its file layer is Nomi over a std::fs `Dir`
+//# (README.md, "How it runs").
 //#
 //# Parameters are bound as `?1`, `?2`, ..., never spliced into the SQL.
 //# Values cross by SQLite's storage classes, and a column's declared type
@@ -16,10 +15,11 @@
 //# `CURRENT_TIMESTAMP`. A transaction is `BEGIN`; a transaction inside one
 //# is a savepoint. One `Conn` may be shared by every task: tasks take turns
 //# on the connection, and a transaction has it to itself until it ends, so
-//# a statement from another task waits for the transaction (as long as that
-//# task's context allows, then `Error.Timeout`) and never runs inside it. Foreign keys are enforced, and a constraint error names
-//# the constraint as Postgres does (`users_email_key`). A file database
-//# waits up to 5 seconds for a lock another connection holds.
+//# a statement from another task waits for the transaction (as long as
+//# that task runs) and never runs inside it. A statement stops when its
+//# task does. Foreign keys are enforced, and a constraint error names the
+//# constraint as Postgres does (`users_email_key`). A file database waits
+//# up to 5 seconds for a lock another connection holds.
 //#
 //# SQLite has no decimal type: it stores a `DECIMAL(p, s)` column's values
 //# as 64-bit floats, exact to 15 digits. A `Decimal` reads back from one at
@@ -29,179 +29,276 @@
 //# of the column's scale.
 
 import
-    std::calendar.{Date, NaiveDateTime, OffsetDateTime, Time}
+    std::channels.{Channel, Receiver, Sender}
     std::duration.Duration
-    std::instant.Instant
-    std::int.Int64
-    std::json.Json
-    std::sql.{self, Conn, ConstraintKind, Dialect, Row, Statement, Value}
-    std::uuid.Uuid
+    std::fs.{self, Dir}
+    std::io
+    std::path as file_path
+    std::sql.{self, Conn, Dialect, Row, Statement}
+    sqlite::internal::constraints
+    sqlite::internal::engine.{self, Cell, Engine, Failure}
+    sqlite::internal::values
+    sqlite::internal::vfs
 end
 
-gopkg "github.com/nomi-language/nomi/lib/sql/sqlite/goside"
-
-opaque type Handle go goside.Conn
-
-// A value as it crosses to Go: kind 0 null, 1 int, 2 float, 3 text,
-// 4 bytes, 5 a decimal's text.
-struct Cell
-    kind:  CellKind
-    int:   Int64
-    float: Float
-    text:  String
-    bytes: Bytes
+/// What every `Conn` of one connection shares: the engine and the
+/// connection in it, the connection's turn, and its state.
+///
+/// Tasks share a connection by taking turns. SQLite has one transaction
+/// per connection, so a statement sent through the connection while
+/// another task's transaction is open would run inside that transaction.
+/// Instead the connection has one turn: a statement sent through it holds
+/// the turn while it runs, and a transaction holds it from its begin until
+/// it ends. The statements of an open transaction and its savepoints need
+/// no turn. Each statement holds the state while it runs, so one runs at a
+/// time. A task waits for the turn before it takes the state, and nothing
+/// waits for the turn while holding the state.
+struct Shared
+    engine: Engine
+    handle: Int
+    turn:   Channel<Unit>
+    state:  Channel<State>
 end
 
-// An error as Go reports it: kind 0 none, 1 connection, 2 constraint,
-// 3 database, 4 finished, 5 closed, 6 the task's context ended.
-struct Failure
-    kind:       Int
-    code:       String
-    message:    String
-    constraint: Int
-    name:       String
-    table:      String
-    column:     String
+/// Whether the connection is closed, the token of each open level (the
+/// transaction's first, then each savepoint's), and the last token given.
+struct State
+    closed: Bool
+    stack:  List<Int>
+    last:   Int
 end
-
-struct Answer
-    columns: List<String>
-    types:   List<String>
-    rows:    List<List<Cell>>
-    changed: Int
-    failure: Failure
-end
-
-struct RawRow
-    columns: List<String>
-    types:   List<String>
-    cells:   List<Cell>
-end
-
-subtype CellKind Int when fn n -> n >= 0 and n <= 5
-
-// How deep a Conn is: 0 for the connection, 1 for a transaction and more
-// for each savepoint inside it.
-subtype Depth NonNegativeInt and Int64
-
-struct Level
-    depth:   Depth
-    token:   Int64
-    failure: Failure
-end
-
-fn open_raw(path: String) -> Result<Handle, String> go goside.Open
-
-fn run_raw(
-    h:      Handle,
-    depth:  Depth,
-    token:  Int64,
-    parts:  List<String>,
-    params: List<Cell>,
-) -> Answer go goside.Run
-
-fn exec_raw(
-    h:      Handle,
-    depth:  Depth,
-    token:  Int64,
-    parts:  List<String>,
-    params: List<Cell>,
-) -> Answer go goside.Exec
-
-fn each_row_raw(
-    h:      Handle,
-    depth:  Depth,
-    token:  Int64,
-    parts:  List<String>,
-    params: List<Cell>,
-    f:      (RawRow) -> Bool,
-) -> Failure go goside.EachRow
-
-fn begin_raw(h: Handle, depth: Depth, token: Int64) -> Level go goside.Begin
-
-fn commit_raw(h: Handle, depth: Depth, token: Int64) -> Failure go goside.Commit
-
-fn rollback_raw(h: Handle, depth: Depth, token: Int64) -> Failure go goside.Rollback
-
-fn ping_raw(h: Handle, depth: Depth, token: Int64) -> Failure go goside.Ping
-
-fn close_raw(h: Handle) -> Failure go goside.Close
 
 /// A connection to one SQLite database, or a transaction or savepoint on
-/// it: what `open` and `memory` return, and what `Conn.begin_transaction` returns on
-/// one. `depth` is 0 for the connection, 1 for a transaction and more for
-/// each savepoint inside it.
+/// it: what `open` and `memory` return, and what `Conn.begin_transaction`
+/// returns on one. `depth` is 0 for the connection, 1 for a transaction and
+/// more for each savepoint inside it; a level is open while its token is
+/// on the stack at its depth.
 pub opaque struct SqliteConn
-    handle: Handle
-    depth:  Depth
-    token:  Int64
+    shared: Shared
+    depth:  Int
+    token:  Int
 end
+
+/// How many rows `each_row` takes from SQLite at a time.
+once batch = 64
 
 /// Open the SQLite database at `path`, creating it when it does not
 /// exist. `":memory:"` is a fresh in-memory database, as `memory()` is.
-/// A path that cannot be opened is `Err(.Connection)`.
+/// A path that cannot be opened is `Err(.Connection)`. The connection opens
+/// the directory the file is in as a `Dir` of its own, as `open_in` takes
+/// one, and keeps its temporary files in `fs.temp_dir()`, or beside the
+/// database when that cannot be opened.
 pub fn open(path: String) -> Result<Conn, sql.Error>
-    case open_raw(path)
-        Ok(handle)   -> Ok(SqliteConn{handle:, depth: 0, token: 0})
-        Err(message) -> Err(sql.Error.Connection{message:})
-    end
+    if path == ":memory:" then return memory()
+
+    dir =
+        fs.open_dir(
+            file_path.parent(path)
+            |> Maybe.with_default(".")
+        )
+        |> Result.map_err(unopened)?
+
+    defer on error Dir.close(dir)
+    temp = fs.open_dir(fs.temp_dir()) |> Result.to_maybe()
+    connected(vfs.Place{dir: Some(dir), temp:, owned: True}, file_path.base(path))
+end
+
+/// Open the SQLite database `name` under `dir`, creating it when it does
+/// not exist: what a program hands a library that should reach no file but
+/// the database's. Its journal is beside it under `dir`, and its temporary
+/// files are made in `temp`, or in `dir` when `temp` is `None`. The
+/// connection reaches no other file, so a module that opens a database
+/// this way, from a `Dir` it was passed, needs no `std::fs` in an effects
+/// list. The `Dir`s stay the caller's: closing the connection leaves them
+/// open. A name that cannot be opened is `Err(.Connection)`.
+///
+/// ```nomi
+/// data = fs.open_dir("data")?
+/// defer Dir.close(data)
+///
+/// db = sqlite.open_in(data, "todos.db")?
+/// defer sql.close_quietly(db)
+/// ```
+pub fn open_in(dir: Dir, name: String, temp: Maybe<Dir> = None) -> Result<Conn, sql.Error>
+    connected(vfs.Place{dir: Some(dir), temp:}, name)
 end
 
 /// A fresh in-memory database, which lives as long as its connection:
-/// what a test opens for each case.
+/// what a test opens for each case. Its temporary files are in
+/// `fs.temp_dir()`.
 pub fn memory() -> Result<Conn, sql.Error>
-    open(":memory:")
+    temp = fs.open_dir(fs.temp_dir()) |> Result.to_maybe()
+    connected(vfs.Place{temp:, owned: True}, ":memory:")
+end
+
+fn unopened(e: io.Error) -> sql.Error
+    sql.Error.Connection{message: "unable to open database file: ${e}"}
+end
+
+/// A connection to the database `name`, whose files are in `place`.
+fn connected(place: vfs.Place, name: String) -> Result<Conn, sql.Error>
+    e = engine.start(place) |> Result.map_err(fn message -> sql.Error.Connection{message:})?
+    defer on error engine.stop(e)
+
+    handle =
+        engine.open(e, name) |> Result.map_err(fn f -> sql.Error.Connection{message: f.message})?
+
+    // A file another connection holds locked is waited for, up to 5 seconds.
+    pragmas =
+        if name == ":memory:" then
+            "PRAGMA foreign_keys = ON"
+        else
+            "PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000"
+        end
+
+    _ =
+        engine.exec(e, handle, pragmas, [])
+        |> Result.map_err(fn f -> sql.Error.Connection{message: f.message})?
+
+    turn = Channel.buffered<Unit>(1)
+    _ = Sender.send(turn.sender, Unit)
+    state = Channel.buffered<State>(1)
+    _ = Sender.send(state.sender, State{closed: False, stack: [], last: 0})
+    Ok(SqliteConn{shared: Shared{engine: e, handle:, turn:, state:}, depth: 0, token: 0})
 end
 
 impl Conn for SqliteConn
     fn query(conn: SqliteConn, statement: Statement) -> Result<List<Row>, sql.Error>
-        params = cells(statement)?
-        answer = run_raw(conn.handle, conn.depth, conn.token, statement.parts, params)
-        failed(answer.failure)?
+        params = values.params(statement)?
+        answer = run(conn, sql_text(statement.parts), params)?
         query = "${statement}"
-
-        rows =
-            answer.rows
-            |> Iter.map(fn row -> to_row(query, answer.columns, answer.types, row))
-            |> Iter.to_list()
-
-        Ok(rows)
+        answer.rows |> Iter.map(&values.row(query, answer.columns, &1)) |> Result.collect()
     end
 
     fn each_row(conn: SqliteConn, statement: Statement, f: (Row) -> Bool) -> Result<Unit, sql.Error>
+        params = values.params(statement)?
+        text = sql_text(statement.parts)
         query = "${statement}"
-        params = cells(statement)?
 
-        failure = each_row_raw(conn.handle, conn.depth, conn.token, statement.parts, params, fn raw ->
-            f(to_row(query, raw.columns, raw.types, raw.cells))
+        entered(conn, fn _ ->
+            prepared =
+                engine.prepare(conn.shared.engine, conn.shared.handle, text, params)
+                |> Result.map_err(&failure(conn.shared, &1, text, params))?
+
+            if prepared.handle == 0 then return Ok(Unit)
+            defer engine.finalize(conn.shared.engine, prepared.handle)
+            batches(conn.shared, prepared, query, f)
         end)
-
-        failed(failure)
     end
 
     fn exec(conn: SqliteConn, statement: Statement) -> Result<Int, sql.Error>
-        params = cells(statement)?
-        answer = exec_raw(conn.handle, conn.depth, conn.token, statement.parts, params)
-        failed(answer.failure)?
+        params = values.params(statement)?
+        answer = run(conn, sql_text(statement.parts), params)?
         Ok(answer.changed)
     end
 
     fn begin_transaction(conn: SqliteConn) -> Result<Conn, sql.Error>
-        level = begin_raw(conn.handle, conn.depth, conn.token)
-        failed(level.failure)?
-        Ok(SqliteConn{handle: conn.handle, depth: level.depth, token: level.token})
+        level =
+            if conn.depth == 0 then
+                begin_with_turn(conn)?
+            else
+                opened(conn)?
+            end
+
+        Ok(level)
     end
 
     fn commit(tx: SqliteConn) -> Result<Unit, sql.Error>
-        failed(commit_raw(tx.handle, tx.depth, tx.token))
+        update(tx.shared, fn state ->
+            if tx.depth == 0 then
+                return (
+                    state,
+                    Err(
+                        if state.closed then
+                            sql.Error.Closed
+                        else
+                            misuse("commit on a connection that is not a transaction")
+                        end
+                    ),
+                )
+            end
+
+            if Err(e) = usable(tx, state) then return (state, Err(e))
+
+            command =
+                if tx.depth == 1 then
+                    "COMMIT"
+                else
+                    "RELEASE SAVEPOINT sp${tx.depth}"
+                end
+
+            ended = {..state, stack: kept(state.stack, tx.depth - 1)}
+
+            // A transaction whose COMMIT failed is still open (a deferred
+            // foreign key, a lock): its rollback ends it.
+            case statement(tx.shared, command)
+                Ok(_)  -> (ended, Ok(Unit))
+                Err(e) -> (state, Err(e))
+            end
+        end)
     end
 
     fn rollback(tx: SqliteConn) -> Result<Unit, sql.Error>
-        failed(rollback_raw(tx.handle, tx.depth, tx.token))
+        update(tx.shared, fn state ->
+            if tx.depth == 0 then
+                return (
+                    state,
+                    Err(
+                        if state.closed then
+                            sql.Error.Closed
+                        else
+                            misuse("rollback on a connection that is not a transaction")
+                        end
+                    ),
+                )
+            end
+
+            case usable(tx, state)
+                Err(sql.Error.Finished) -> return (state, Ok(Unit))
+                Err(e)                  -> return (state, Err(e))
+                Ok(_)                   -> Unit
+            end
+
+            ended = {..state, stack: kept(state.stack, tx.depth - 1)}
+
+            if tx.depth == 1 then
+                // The transaction ends even when ROLLBACK fails: SQLite has
+                // then rolled it back itself (after SQLITE_FULL,
+                // SQLITE_IOERR or SQLITE_NOMEM, ROLLBACK finds no
+                // transaction), and a transaction kept open would keep the
+                // turn from every other task.
+                case engine.exec(tx.shared.engine, tx.shared.handle, "ROLLBACK", [])
+                    Err(f) when not String.contains(f.message, "no transaction is active") ->
+                        (ended, Err(failure(tx.shared, f, "", [])))
+
+                    _ ->
+                        (ended, Ok(Unit))
+                end
+            else
+                name = "sp${tx.depth}"
+
+                case statement(tx.shared, "ROLLBACK TO SAVEPOINT ${name}")
+                    Err(e) ->
+                        (state, Err(e))
+
+                    Ok(_) ->
+                        case statement(tx.shared, "RELEASE SAVEPOINT ${name}")
+                            Ok(_)  -> (ended, Ok(Unit))
+                            Err(e) -> (state, Err(e))
+                        end
+                end
+            end
+        end)
     end
 
     fn ping(conn: SqliteConn) -> Result<Unit, sql.Error>
-        failed(ping_raw(conn.handle, conn.depth, conn.token))
+        locked(conn.shared, fn state ->
+            if state.closed then
+                Err(sql.Error.Closed)
+            else
+                Ok(Unit)
+            end
+        end)
     end
 
     fn dialect(conn: SqliteConn) -> Dialect
@@ -209,241 +306,331 @@ impl Conn for SqliteConn
         Dialect.Sqlite
     end
 
+    // Closes the connection, rolling back a transaction still open.
+    // Closing it again does nothing.
     fn close(conn: SqliteConn) -> Result<Unit, sql.Error>
-        failed(close_raw(conn.handle))
+        update(conn.shared, fn state ->
+            if state.closed then return (state, Ok(Unit))
+
+            rolled =
+                if state.stack != [] then
+                    engine.exec(conn.shared.engine, conn.shared.handle, "ROLLBACK", [])
+                    |> Result.map(fn _ -> Unit)
+                else
+                    Ok(Unit)
+                end
+
+            code = engine.close(conn.shared.engine, conn.shared.handle)
+            engine.stop(conn.shared.engine)
+            closed = {..state, closed: True, stack: []}
+
+            case rolled
+                Err(f) ->
+                    (closed, Err(sql.Error.Connection{message: f.message}))
+
+                Ok(_) ->
+                    if code == 0 then
+                        (closed, Ok(Unit))
+                    else
+                        (
+                            closed,
+                            Err(
+                                sql.Error.Connection{
+                                    message: "SQLite could not close the database: ${code_name(code)}",
+                                }
+                            ),
+                        )
+                    end
+            end
+        end)
     end
 end
 
-/// `Ok` for no failure, else the `sql.Error` it is.
-fn failed(failure: Failure) -> Result<Unit, sql.Error>
-    case failure.kind
-        0 -> Ok(Unit)
-        1 -> Err(sql.Error.Connection{message: failure.message})
-        2 -> Err(constraint_error(failure))
-        4 -> Err(sql.Error.Finished)
-        5 -> Err(sql.Error.Closed)
-        6 -> Err(sql.Error.Timeout)
-        _ -> Err(sql.Error.Database{code: failure.code, message: failure.message})
-    end
-end
-
-fn constraint_error(failure: Failure) -> sql.Error
-    kind = case failure.constraint
-        0 -> ConstraintKind.Unique
-        1 -> ConstraintKind.ForeignKey
-        2 -> ConstraintKind.NotNull
-        _ -> ConstraintKind.Check
-    end
-
-    sql.Error.Constraint{
-        kind:,
-        name:   failure.name,
-        table:  present(failure.table),
-        column: present(failure.column),
-    }
-end
-
-fn present(text: String) -> Maybe<String>
-    if text == "" then None else Some(text)
-end
-
-/// The cells a statement's parameters are written as.
-fn cells(statement: Statement) -> Result<List<Cell>, sql.Error>
-    statement.params
+/// The SQL of a statement's parts, with `?1`, `?2`, ... between them.
+fn sql_text(parts: List<String>) -> String
+    parts
     |> Iter.with_index()
-    |> Iter.map(fn (position, value) -> to_cell(position + 1, value))
-    |> Result.collect()
+    |> Iter.map(fn (index, part) -> if index == 0 then part else "?${index}${part}")
+    |> String.join()
 end
 
-fn cell(kind: CellKind) -> Cell
-    Cell{kind:, int: 0, float: 0.0, text: "", bytes: Bytes.from_list([])}
+/// The first `n` tokens of `stack`.
+fn kept(stack: List<Int>, n: Int) -> List<Int>
+    stack
+    |> Iter.take(
+        NonNegativeInt.try_from(n)
+        |> Maybe.with_default(0)
+    )
+    |> Iter.to_list()
 end
 
-fn text_cell(text: String) -> Cell
-    {..cell(3), text:}
+fn misuse(message: String) -> sql.Error
+    sql.Error.Database{code: "SQLITE_MISUSE", message:}
 end
 
-/// The cell parameter `?position` is written as: what its declared type
-/// reads back. An `Int` past what an SQLite `INTEGER` holds, a signed 64-bit
-/// integer, is refused rather than written as text or a float, which would
-/// read back as another value; an `Array` is refused, since SQLite has no
-/// array type.
-fn to_cell(position: Int, value: Value) -> Result<Cell, sql.Error>
-    case value
-        .Array(_) ->
-            Err(sql.Error.Database{
-                code:    "SQLITE_MISMATCH",
-                message: "parameter ?${position} is an Array, and SQLite has no array type; bind one parameter per element, as in `IN (?1, ?2)`, or the elements as JSON text",
-            })
+/// Runs `text` on the connection at `conn`'s level.
+fn run(conn: SqliteConn, text: String, params: List<Cell>) -> Result<engine.Answer, sql.Error>
+    entered(conn, fn _ ->
+        engine.exec(conn.shared.engine, conn.shared.handle, text, params)
+        |> Result.map_err(&failure(conn.shared, &1, text, params))
+    end)
+end
 
-        .Null ->
-            Ok(cell(0))
+/// A statement of the driver's own, such as `COMMIT`, on the connection.
+fn statement(shared: Shared, text: String) -> Result<Unit, sql.Error>
+    engine.exec(shared.engine, shared.handle, text, [])
+    |> Result.map(fn _ -> Unit)
+    |> Result.map_err(&failure(shared, &1, "", []))
+end
 
-        .Int(n) ->
-            case Int64.try_from(n)
-                Some(int) ->
-                    Ok({..cell(1), int:})
+/// Runs `work` as a statement on `conn` runs: on the connection, with its
+/// turn; on a transaction or savepoint, inside the transaction that holds
+/// it. Either holds the state while it runs, and runs only on a level
+/// that may run a statement.
+fn entered<T>(conn: SqliteConn, work: (State) -> Result<T, sql.Error>) -> Result<T, sql.Error>
+    checked =
+        fn state: State ->
+            runnable(conn, state)?
+            work(state)
+        end
 
-                None ->
-                    Err(sql.Error.Database{
-                        code:    "SQLITE_MISMATCH",
-                        message: "parameter ?${position} is the Int ${n}, past the signed 64-bit range of an SQLite INTEGER; write its text as a String into a TEXT column",
-                    })
+    if conn.depth == 0 then
+        turned(conn.shared, fn -> locked(conn.shared, checked))
+    else
+        locked(conn.shared, checked)
+    end
+end
+
+/// `body` run while holding the connection's turn.
+fn turned<T>(shared: Shared, body: () -> T) -> T
+    _ = Receiver.receive(shared.turn.receiver)
+    defer give(shared)
+    body()
+end
+
+fn give(shared: Shared)
+    _ = Sender.send(shared.turn.sender, Unit)
+end
+
+/// `body` run on the connection's state, which it holds while it runs.
+fn locked<T>(shared: Shared, body: (State) -> T) -> T
+    held = take(shared)
+    defer put(shared, held)
+    body(held)
+end
+
+fn take(shared: Shared) -> State
+    case Receiver.receive(shared.state.receiver)
+        Some(state) -> state
+        None        -> unreachable "nothing closes a connection's state"
+    end
+end
+
+fn put(shared: Shared, state: State)
+    _ = Sender.send(shared.state.sender, state)
+end
+
+/// `body` run on the connection's state, which it holds while it runs, and
+/// the state it answers put back; when `body` does not return, the state it
+/// was given. A transaction that ends gives the connection's turn back.
+fn update<T>(shared: Shared, body: (State) -> (State, T)) -> T
+    after = Channel.buffered<State>(1)
+    held = take(shared)
+    defer settle(shared, after.receiver, held)
+    (next, answer) = body(held)
+    _ = Sender.send(after.sender, next)
+    answer
+end
+
+fn settle(shared: Shared, after: Receiver<State>, held: State)
+    next =
+        case Receiver.receive_within(after, Duration.seconds(0))
+            Ok(Some(answered)) -> answered
+            _                  -> held
+        end
+
+    put(shared, next)
+    if held.stack != [] and next.stack == [] then give(shared)
+end
+
+/// A transaction begun on the connection: it waits for the connection's
+/// turn and holds it until it ends.
+fn begin_with_turn(conn: SqliteConn) -> Result<Conn, sql.Error>
+    _ = Receiver.receive(conn.shared.turn.receiver)
+    defer on error give_unless_open(conn.shared)
+    opened(conn)
+end
+
+/// Gives the turn back, unless a transaction holds it.
+fn give_unless_open(shared: Shared)
+    open = locked(shared, fn state -> state.stack != [])
+    if not open then give(shared)
+end
+
+/// A transaction on the connection (depth 0), or a savepoint inside the
+/// transaction or savepoint at `conn`'s depth.
+fn opened(conn: SqliteConn) -> Result<Conn, sql.Error>
+    update(conn.shared, fn state ->
+        if Err(e) = usable(conn, state) then return (state, Err(e))
+
+        if List.length(state.stack) != conn.depth then
+            return (state, Err(misuse("a savepoint is already open inside this transaction")))
+        end
+
+        depth = conn.depth + 1
+        token = state.last + 1
+        opened = {..state, stack: List.concat(state.stack, [token]), last: token}
+
+        command =
+            if conn.depth == 0 then
+                "BEGIN"
+            else
+                "SAVEPOINT sp${depth}"
             end
 
-        .Float(x) ->
-            Ok({..cell(2), float: x})
+        case statement(conn.shared, command)
+            Ok(_)  -> (opened, Ok(SqliteConn{shared: conn.shared, depth:, token:}))
+            Err(e) -> (state, Err(e))
+        end
+    end)
+end
 
-        .Decimal(d) ->
-            Ok({..cell(5), text: "${d}"})
+/// Whether `conn`'s level may be used: `Closed` after a close, `Finished`
+/// when its transaction or savepoint has ended.
+fn usable(conn: SqliteConn, state: State) -> Result<Unit, sql.Error>
+    if state.closed then return Err(sql.Error.Closed)
+    if conn.depth == 0 then return Ok(Unit)
 
-        .Text(s) ->
-            Ok(text_cell(s))
-
-        .Bool(b) ->
-            Ok({..cell(1), int: if b then 1 else 0})
-
-        .Bytes(b) ->
-            Ok({..cell(4), bytes: b})
-
-        .Date(d) ->
-            Ok(text_cell("${d}"))
-
-        .Time(t) ->
-            Ok(text_cell("${t}"))
-
-        .Timestamp(t) ->
-            Ok(text_cell(String.replace("${t}", "T", " ")))
-
-        .Timestamptz(i) ->
-            Ok(text_cell(utc_text(i)))
-
-        .Uuid(id) ->
-            Ok(text_cell("${id}"))
-
-        .Json(j) ->
-            Ok(text_cell(Json.encode(j)))
+    case Iter.get(state.stack, conn.depth - 1)
+        Some(token) when token == conn.token -> Ok(Unit)
+        _                                    -> Err(sql.Error.Finished)
     end
 end
 
-/// An instant as SQLite's own timestamps are written, in UTC with no
-/// offset (`2026-10-24 16:59:52`, and `2026-10-24 16:59:52.5` with a
-/// fraction): `CURRENT_TIMESTAMP` writes that form, and SQLite compares
-/// timestamps as text, so an instant written any other way would not
-/// compare in time order with the database's own.
-fn utc_text(i: Instant) -> String
-    "${OffsetDateTime.from_instant(i, Duration.hours(0))!}"
-    |> String.replace("T", " ")
-    |> String.replace("+00:00", "")
-end
+/// `usable` for a statement, which must run on the innermost open
+/// transaction or savepoint: SQLite has one transaction per connection, so
+/// a statement sent through an outer transaction while a savepoint is open
+/// would belong to the savepoint, and roll back with it. (One sent through
+/// the connection waits for its turn, so no transaction is open when it
+/// runs.)
+fn runnable(conn: SqliteConn, state: State) -> Result<Unit, sql.Error>
+    usable(conn, state)?
 
-fn to_row(query: String, columns: List<String>, types: List<String>, cells: List<Cell>) -> Row
-    values =
-        Iter.zip(types, cells)
-        |> Iter.map(fn (declared, c) -> to_value(declared, c))
-        |> Iter.to_list()
-
-    Row.new(
-        query,
-        Iter.zip(columns, values)
-        |> Iter.to_list(),
-    )
-end
-
-/// The value a cell reads as, by its column's declared type: a cell the
-/// type cannot read keeps its storage class.
-fn to_value(declared: String, c: Cell) -> Value
-    plain = stored(c)
-
-    typed = case (affinity(declared), plain)
-        ("BOOL", .Int(n)) ->
-            Some(Value.Bool(n != 0))
-
-        ("DECIMAL", .Text(s)) ->
-            String.to_decimal(s) |> Maybe.map(Value.Decimal)
-
-        ("DATE", .Text(s)) ->
-            Date.parse(s) |> Result.to_maybe() |> Maybe.map(Value.Date)
-
-        ("TIME", .Text(s)) ->
-            Time.parse(s) |> Result.to_maybe() |> Maybe.map(Value.Time)
-
-        ("TIMESTAMP", .Text(s)) ->
-            NaiveDateTime.parse(s) |> Result.to_maybe() |> Maybe.map(Value.Timestamp)
-
-        ("TIMESTAMPTZ", .Text(s)) ->
-            instant(s) |> Maybe.map(Value.Timestamptz)
-
-        ("UUID", .Text(s)) ->
-            Uuid.parse(s) |> Result.to_maybe() |> Maybe.map(Value.Uuid)
-
-        ("JSON", .Text(s)) ->
-            Json.decode(s) |> Result.to_maybe() |> Maybe.map(Value.Json)
-
-        _ ->
-            None
+    if List.length(state.stack) > conn.depth then
+        return Err(
+            misuse(
+                "a savepoint is open inside this transaction; run the statement on the Conn its begin answered"
+            )
+        )
     end
 
-    Maybe.with_default(typed, plain)
+    Ok(Unit)
 end
 
-fn stored(c: Cell) -> Value
-    case c.kind
-        1 ->
-            Value.Int(c.int)
+/// Each row of the prepared statement handed to `f`, a batch at a time,
+/// until `f` returns `False` or the rows end.
+fn batches(
+    shared:   Shared,
+    prepared: engine.Prepared,
+    query:    String,
+    f:        (Row) -> Bool,
+) -> Result<Unit, sql.Error>
+    width = Iter.count(prepared.columns.names)
 
-        2 ->
-            Value.Float(c.float)
+    stepped =
+        engine.step(shared.engine, prepared.handle, batch, width)
+        |> Result.map_err(&failure(shared, &1, "", []))?
 
-        3 ->
-            Value.Text(c.text)
+    more = each(stepped.rows, query, prepared.columns, f)?
 
-        4 ->
-            Value.Bytes(c.bytes)
-
-        5 ->
-            String.to_decimal(c.text)
-            |> Maybe.map(Value.Decimal)
-            |> Maybe.with_default(Value.Text(c.text))
-
-        _ ->
-            Value.Null
+    if more and not stepped.ended then
+        batches(shared, prepared, query, f)
+    else
+        Ok(Unit)
     end
 end
 
-/// The declared type a value is read by: `BOOLEAN` and `BOOL` as `BOOL`,
-/// `DECIMAL` and `NUMERIC` (with or without a precision) as `DECIMAL`,
-/// `DATETIME` as `TIMESTAMP`, and the other names as they are.
-fn affinity(declared: String) -> String
-    upper = declared |> String.uppercase() |> String.trim()
+/// Each of `rows` handed to `f`: `False` when `f` stopped.
+fn each(
+    rows:    List<List<Cell>>,
+    query:   String,
+    columns: engine.Columns,
+    f:       (Row) -> Bool,
+) -> Result<Bool, sql.Error>
+    case rows
+        [] ->
+            Ok(True)
 
-    name = case String.split(upper, "(")
-        [first, ..] -> String.trim(first)
-        _           -> upper
-    end
+        [cells, ..rest] ->
+            row = values.row(query, columns, cells)?
 
-    case name
-        "BOOLEAN"  -> "BOOL"
-        "NUMERIC"  -> "DECIMAL"
-        "DATETIME" -> "TIMESTAMP"
-        _          -> name
+            if f(row) then
+                each(rest, query, columns, f)
+            else
+                Ok(False)
+            end
     end
 end
 
-/// The instant a timestamp's text names: SQLite's own form, with no offset,
-/// which `CURRENT_TIMESTAMP` and `utc_text` write, is UTC, and RFC 3339
-/// text with an offset is read too.
-fn instant(text: String) -> Maybe<Instant>
-    case OffsetDateTime.parse(String.replace(text, " ", "T"))
-        Ok(odt) ->
-            Some(OffsetDateTime.to_instant(odt))
+/// The `sql.Error` an SQLite failure is. A constraint error keeps the
+/// constraint, named as Postgres names it (internal/constraints.nomi); a
+/// statement its task's stop interrupted is a `Timeout`; a file that cannot
+/// be opened or read is a `Connection` error.
+fn failure(shared: Shared, f: Failure, text: String, params: List<Cell>) -> sql.Error
+    if f.code == -1 then return sql.Error.Connection{message: f.message}
 
-        Err(_) ->
-            NaiveDateTime.parse(text)
-            |> Result.to_maybe()
-            |> Maybe.flat_map(fn naive ->
-                OffsetDateTime.with_offset(naive, Duration.hours(0)) |> Result.to_maybe()
-            end)
-            |> Maybe.map(OffsetDateTime.to_instant)
+    db = constraints.Db{engine: shared.engine, handle: shared.handle}
+
+    case constraints.error(db, f.code, f.message, text, params)
+        Some(e) ->
+            e
+
+        None ->
+            case f.code &&& 0xff
+                9  -> sql.Error.Timeout
+                10 -> sql.Error.Connection{message: f.message}
+                14 -> sql.Error.Connection{message: f.message}
+                26 -> sql.Error.Connection{message: f.message}
+                _  -> sql.Error.Database{code: code_name(f.code), message: f.message}
+            end
     end
+end
+
+/// SQLite's name for a result code: `SQLITE_CONSTRAINT_UNIQUE` for 2067,
+/// the primary code's name for an extended code this does not name, or the
+/// number.
+fn code_name(code: Int) -> String
+    named =
+        fn c: Int ->
+            case c
+                1    -> Some("SQLITE_ERROR")
+                2    -> Some("SQLITE_INTERNAL")
+                3    -> Some("SQLITE_PERM")
+                4    -> Some("SQLITE_ABORT")
+                5    -> Some("SQLITE_BUSY")
+                6    -> Some("SQLITE_LOCKED")
+                7    -> Some("SQLITE_NOMEM")
+                8    -> Some("SQLITE_READONLY")
+                9    -> Some("SQLITE_INTERRUPT")
+                10   -> Some("SQLITE_IOERR")
+                11   -> Some("SQLITE_CORRUPT")
+                13   -> Some("SQLITE_FULL")
+                14   -> Some("SQLITE_CANTOPEN")
+                17   -> Some("SQLITE_SCHEMA")
+                18   -> Some("SQLITE_TOOBIG")
+                19   -> Some("SQLITE_CONSTRAINT")
+                20   -> Some("SQLITE_MISMATCH")
+                21   -> Some("SQLITE_MISUSE")
+                25   -> Some("SQLITE_RANGE")
+                26   -> Some("SQLITE_NOTADB")
+                275  -> Some("SQLITE_CONSTRAINT_CHECK")
+                787  -> Some("SQLITE_CONSTRAINT_FOREIGNKEY")
+                1299 -> Some("SQLITE_CONSTRAINT_NOTNULL")
+                1555 -> Some("SQLITE_CONSTRAINT_PRIMARYKEY")
+                2067 -> Some("SQLITE_CONSTRAINT_UNIQUE")
+                _    -> None
+            end
+        end
+
+    named(code) |> Maybe.or_else(fn -> named(code &&& 0xff)) |> Maybe.with_default("${code}")
 end

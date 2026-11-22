@@ -4,7 +4,9 @@ import (
 	"sort"
 
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/analyzedlowering"
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/hoverdoc"
 	"github.com/nomi-language/nomi/internal/semtokens"
 
 	"github.com/tliron/glsp"
@@ -37,6 +39,7 @@ var tokenTypes = []string{
 var tokenModifiers = []string{
 	string(protocol.SemanticTokenModifierReadonly), // bit 0
 	"attachedTest", // bit 1
+	"effect",       // bit 2
 }
 
 const (
@@ -46,15 +49,22 @@ const (
 	// semantic_token_rules.json; Neovim dims the lines itself and leaves the
 	// modifier's group (@lsp.mod.attachedTest.nomi) unset.
 	modAttachedTest = 1 << 1
+	// modEffect marks a token where the compiler cannot show code is pure:
+	// the callee of a call that can act, and the name of a function whose
+	// body holds one, in its declaration (hoverdoc.MarkReaching). Each
+	// editor extension draws it bold.
+	modEffect = 1 << 2
 )
 
 // encodeSemanticTokens builds the LSP semantic-tokens data array from a
-// FileAnalysis, the nodes it was built from and the text it analyzed.
+// FileAnalysis, the nodes it was built from and the text it analyzed, with
+// each token reached marks (hoverdoc.MarkReaching) carrying modEffect.
 // Identifier classification is shared with the language-tour highlighter via
 // the semtokens package; the MF2 in phrase and noun bodies is this server's
 // own (phraseBodyTokens).
-func encodeSemanticTokens(fa *analysis.FileAnalysis, nodes []ast.Node, content string) []protocol.UInteger {
-	toks := append(semtokens.Collect(fa), phraseBodyTokens(nodes)...)
+func encodeSemanticTokens(fa *analysis.FileAnalysis, nodes []ast.Node, content string, reached []analyzedlowering.Reached, inFile func(path string) bool) []protocol.UInteger {
+	toks := hoverdoc.MarkReaching(semtokens.Collect(fa), reached, inFile, content)
+	toks = append(toks, phraseBodyTokens(nodes)...)
 	return encodeTokens(content, toks, semtokens.AttachedTestLines(nodes))
 }
 
@@ -104,6 +114,9 @@ func encodeTokens(content string, toks []semtokens.Token, attached map[int]bool)
 		if attached[tok.Line] {
 			mod |= modAttachedTest
 		}
+		if tok.Effect {
+			mod |= modEffect
+		}
 		deltaLine := tok.Line - prevLine
 		deltaStartChar := tok.Col - 1 // 1-based to 0-based on a new line
 		if deltaLine == 0 {
@@ -135,6 +148,22 @@ func (s *Server) textDocumentSemanticTokensFull(ctx *glsp.Context, params *proto
 	if doc == nil {
 		return nil, nil
 	}
-	data := encodeSemanticTokens(doc.Analysis, doc.Nodes, doc.Content)
+	// The places that have effects are those a hover says so at, from the
+	// last lowering runs (loweringChecks.reachedIn); a run that finishes
+	// later asks the editor for the tokens again (refreshSemanticTokens).
+	path := uriToPath(uri)
+	data := encodeSemanticTokens(doc.Analysis, doc.Nodes, doc.Content, s.lowering.reachedIn(uri, doc.Content), func(p string) bool { return inFile(p, path) })
 	return &protocol.SemanticTokens{Data: data}, nil
+}
+
+// refreshSemanticTokens asks the editor to request every open document's
+// semantic tokens again, when it says it can (workspace/semanticTokens/refresh),
+// since a finished lowering run changes which tokens have effects. It
+// returns at once.
+func (s *Server) refreshSemanticTokens() {
+	if !s.semanticRefresh || s.call == nil {
+		return
+	}
+	// A call blocks on the editor's reply; see initialized.
+	go s.call(string(protocol.MethodWorkspaceSemanticTokensRefresh), nil, nil)
 }

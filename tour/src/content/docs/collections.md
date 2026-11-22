@@ -176,12 +176,12 @@ code guarantees the index.
 returns a `Maybe` the same way, so `Vector.set(names, 1, "Bo")!` is the new
 vector when your code guarantees the index.
 
-`xs + ys` joins two lists, or two vectors.
+`xs + ys` joins two lists, or two vectors, as do
 [`List.concat`](/reference/lists/#listconcat) and
-[`Vector.concat`](/reference/vectors/#vectorconcat) do the same thing by name.
-
-A `case` can take a vector apart from either end, as
-[Pattern Matching](/pattern-matching/#lists-vectors-and-sets) shows.
+[`Vector.concat`](/reference/vectors/#vectorconcat).
+[`Vector.slice`](/reference/vectors/#vectorslice) takes a run of items and
+[`Vector.pop`](/reference/vectors/#vectorpop) the last one, without copying.
+A `case` can take a vector apart from either end, as [Pattern Matching](/pattern-matching/#lists-vectors-and-sets) shows.
 
 ## Maps
 

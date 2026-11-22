@@ -174,8 +174,8 @@ end
 }
 
 // A std interface's function named through its module, in a file that
-// declares an interface of the same name, on a value held as the std one
-// (stdModuleIfaceCall).
+// declares an interface of the same name, on a value held as the std one:
+// the function its record names (typeQualCall, dispatchedCallPlan).
 func TestDispatchedCall_StdInterfaceThroughItsModuleWhereTheNameIsShadowed(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 import std::json

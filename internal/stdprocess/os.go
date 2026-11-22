@@ -192,7 +192,7 @@ func workingDir(fr *rt.Frame, dir string) string {
 	if fr == nil || fr.FilesHeld() {
 		return filepath.FromSlash(dir)
 	}
-	cwd := stdio.CurrentDir(fr)
+	cwd := stdio.CurrentDir(stdio.Here(fr))
 	if cwd.Tag != rt.TagOk {
 		return filepath.FromSlash(dir)
 	}

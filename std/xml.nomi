@@ -314,24 +314,45 @@ end
 //!     })
 //
 pub fn decode(text: String, allow_doctype = False) -> Result<Element, Error>
-    read(Reader.from_text(text), allow_doctype:)
+    decode_bytes(String.to_bytes(text), allow_doctype:)
 end
 
 /// The root element of the document `data`, which must be UTF-8.
 //! assert decode_bytes(String.to_bytes("<a/>")) == Ok(Element.new("a"))
 //
 pub fn decode_bytes(data: Bytes, allow_doctype = False) -> Result<Element, Error>
-    read(Reader.from_bytes(data), allow_doctype:)
+    (kinds, parts, stop, message) = host.decode(data, allow_doctype)
+
+    case failure(stop, message)
+        Some(e) -> Err(e)
+        None    -> root_of(tokens_of(kinds, parts, []))
+    end
+end
+
+// The tokens whose kinds and parts `host.decode` gives, in order.
+// `reversed` is those made so far, last first.
+fn tokens_of(
+    kinds:    List<Int>,
+    parts:    List<List<List<String>>>,
+    reversed: List<Token>,
+) -> List<Token>
+    case (kinds, parts)
+        ([kind, ..kinds], [p, ..parts]) ->
+            case token_of(kind, p)
+                Some(token) -> tokens_of(kinds, parts, [token, ..reversed])
+                None        -> tokens_of(kinds, parts, reversed)
+            end
+
+        _ ->
+            Iter.reverse(reversed)
+    end
 end
 
 /// The root element of the document `reader` holds, read to its end.
 //! assert read(Reader.from_text("<a>1</a>")) == Ok(Element.new("a", [Node.Text("1")]))
 //
 pub fn read(reader: Reader, allow_doctype = False) -> Result<Element, Error>
-    handle = host.open(reader, allow_doctype)
-    root = read_root(handle)?
-    rest(handle)?
-    Ok(root)
+    tokens(reader, allow_doctype:) |> Result.collect()? |> root_of()
 end
 
 /// Each token left in `reader`, read as the iterator runs, so a large
@@ -379,43 +400,61 @@ end
 // The next token, None at the end of the document.
 fn next_token(tokens: host.Tokens) -> Result<Maybe<Token>, Error>
     case host.next(tokens)
-        1 ->
-            Ok(
-                Some(
-                    Token.Start{
-                        name:       name_of(host.name(tokens)),
-                        attributes: attributes_of(host.attributes(tokens)),
-                        namespaces: namespaces_of(host.namespaces(tokens)),
-                    }
-                )
-            )
-
-        2 ->
-            Ok(Some(Token.End{name: name_of(host.name(tokens))}))
-
-        3 ->
-            Ok(Some(Token.Text(host.text(tokens))))
-
-        4 ->
-            Ok(Some(Token.Comment(host.text(tokens))))
-
-        5 ->
-            Ok(Some(Token.Instruction{target: host.target(tokens), data: host.text(tokens)}))
-
-        6 ->
-            Ok(Some(Token.Doctype(host.text(tokens))))
-
-        _ ->
+        0 ->
             case host.stopped(tokens)
-                [1, line, column] ->
-                    Err(Error.Syntax{message: host.message(tokens), line:, column:})
-
                 [2, ..] ->
                     Err(Error.Io{error: host.failure(tokens)})
 
-                _ ->
-                    Ok(None)
+                stop ->
+                    case failure(stop, host.message(tokens))
+                        Some(e) -> Err(e)
+                        None    -> Ok(None)
+                    end
             end
+
+        kind ->
+            Ok(token_of(kind, host.current(tokens)))
+    end
+end
+
+// The failure a stop other than the Reader's (`host.stopped`) and its
+// message describe, or None at the end of the document.
+fn failure(stop: List<Int>, message: String) -> Maybe<Error>
+    case stop
+        [1, line, column] -> Some(Error.Syntax{message:, line:, column:})
+        _                 -> None
+    end
+end
+
+// The token of `kind` whose parts `host.current` and `host.decode` give.
+fn token_of(kind: Int, parts: List<List<String>>) -> Maybe<Token>
+    case (kind, parts)
+        (1, [name, attributes, namespaces]) ->
+            Some(
+                Token.Start{
+                    name:       name_of(name),
+                    attributes: attributes_of(attributes),
+                    namespaces: namespaces_of(namespaces),
+                }
+            )
+
+        (2, [name]) ->
+            Some(Token.End{name: name_of(name)})
+
+        (3, [[text]]) ->
+            Some(Token.Text(text))
+
+        (4, [[text]]) ->
+            Some(Token.Comment(text))
+
+        (5, [[target, data]]) ->
+            Some(Token.Instruction{target:, data:})
+
+        (6, [[text]]) ->
+            Some(Token.Doctype(text))
+
+        _ ->
+            None
     end
 end
 
@@ -450,65 +489,58 @@ fn namespaces_of(flat: List<String>) -> List<Namespace>
     |> Iter.to_list()
 end
 
-// The root element, after any comments, instructions and DOCTYPE before
-// it.
-fn read_root(tokens: host.Tokens) -> Result<Element, Error>
-    case next_token(tokens)?
-        Some(.Start{name:, attributes:, namespaces:}) ->
-            read_children(tokens, Element{name:, attributes:, namespaces:}, [])
+// The root element of a whole document's tokens, after any comments,
+// instructions and DOCTYPE before it. The reader has checked every token,
+// so what follows the root is well-formed and is left out.
+fn root_of(tokens: List<Token>) -> Result<Element, Error>
+    case tokens
+        [.Start{name:, attributes:, namespaces:}, ..rest] ->
+            Ok(children_of(rest, Element{name:, attributes:, namespaces:}, []).first)
 
-        Some(_) ->
-            read_root(tokens)
+        [_, ..rest] ->
+            root_of(rest)
 
-        None ->
+        [] ->
             Err(Error.Syntax{message: "the document has no root element", line: 1, column: 1})
     end
 end
 
-// The element whose start tag was read last, with its children read up to
-// its end tag. `reversed` is the children read so far, last first.
-fn read_children(
-    tokens:   host.Tokens,
+// The element whose start tag came last, with its children up to its end
+// tag, and the tokens after that tag. `reversed` is the children so far,
+// last first.
+fn children_of(
+    tokens:   List<Token>,
     element:  Element,
     reversed: List<Node>,
-) -> Result<Element, Error>
-    case next_token(tokens)?
-        Some(.Start{name:, attributes:, namespaces:}) ->
-            child = read_children(tokens, Element{name:, attributes:, namespaces:}, [])?
-            read_children(tokens, element, [Node.Element(child), ..reversed])
+) -> (Element, List<Token>)
+    case tokens
+        [.Start{name:, attributes:, namespaces:}, ..rest] ->
+            (child, after) = children_of(rest, Element{name:, attributes:, namespaces:}, [])
+            children_of(after, element, [Node.Element(child), ..reversed])
 
-        Some(.End{}) ->
-            Ok({..element, children: Iter.reverse(reversed)})
+        [.End{}, ..rest] ->
+            ({..element, children: Iter.reverse(reversed)}, rest)
 
-        Some(.Text(text)) ->
+        [.Text(text), ..rest] ->
             case reversed
                 [.Text(before), ..others] ->
-                    read_children(tokens, element, [Node.Text(before + text), ..others])
+                    children_of(rest, element, [Node.Text(before + text), ..others])
 
                 _ ->
-                    read_children(tokens, element, [Node.Text(text), ..reversed])
+                    children_of(rest, element, [Node.Text(text), ..reversed])
             end
 
-        Some(.Comment(text)) ->
-            read_children(tokens, element, [Node.Comment(text), ..reversed])
+        [.Comment(text), ..rest] ->
+            children_of(rest, element, [Node.Comment(text), ..reversed])
 
-        Some(.Instruction{target:, data:}) ->
-            read_children(tokens, element, [Node.Instruction{target:, data:}, ..reversed])
+        [.Instruction{target:, data:}, ..rest] ->
+            children_of(rest, element, [Node.Instruction{target:, data:}, ..reversed])
 
-        Some(.Doctype(_)) ->
-            read_children(tokens, element, reversed)
+        [.Doctype(_), ..rest] ->
+            children_of(rest, element, reversed)
 
-        None ->
-            Ok(element)
-    end
-end
-
-// Reads what follows the root, so a second root or stray text is an
-// error.
-fn rest(tokens: host.Tokens) -> Result<Unit, Error>
-    case next_token(tokens)?
-        Some(_) -> rest(tokens)
-        None    -> Ok(Unit)
+        [] ->
+            (element, [])
     end
 end
 
@@ -730,11 +762,12 @@ fn element_text(
     declarations =
         scope.declared
         |> Iter.map(fn n ->
-            name = if n.prefix == "" then
-                "xmlns"
-            else
-                "xmlns:${n.prefix}"
-            end
+            name =
+                if n.prefix == "" then
+                    "xmlns"
+                else
+                    "xmlns:${n.prefix}"
+                end
 
             " ${name}=\"${host.escape_attribute(n.uri)}\""
         end)
@@ -753,12 +786,13 @@ fn element_text(
 
     indented = options.indent != "" and not inline and not mixed
 
-    children = if indented then
-        Iter.filter(element.children, fn node -> not (node is .Text(_)))
-        |> Iter.to_list()
-    else
-        element.children
-    end
+    children =
+        if indented then
+            Iter.filter(element.children, fn node -> not (node is .Text(_)))
+            |> Iter.to_list()
+        else
+            element.children
+        end
 
     texts = Iter.reduce(children, Ok([]), fn state, node ->
         case state
@@ -773,16 +807,16 @@ fn element_text(
         end
     end)?
 
-    inner = if indented then
-        pad = indentation(options, depth + 1)
+    inner =
+        if indented then
+            pad = indentation(options, depth + 1)
 
-        (texts |> Iter.map(fn text -> "\n${pad}${text}") |> String.join("")) + "\n" + indentation(
-            options,
-            depth,
-        )
-    else
-        String.join(texts, "")
-    end
+            (texts
+            |> Iter.map(fn text -> "\n${pad}${text}")
+            |> String.join("")) + "\n" + indentation(options, depth)
+        else
+            String.join(texts, "")
+        end
 
     Ok("${open}>${inner}</${element.name}>")
 end
@@ -811,11 +845,12 @@ fn attribute_text(scope: Scope, attribute: Attribute) -> Result<(Scope, String),
         written = Name{local: name.local, space: name.space, prefix:}
         check_name(written)?
 
-        bound = if prefix == "xml" then
-            scope
-        else
-            bind(scope, prefix, name.space)?
-        end
+        bound =
+            if prefix == "xml" then
+                scope
+            else
+                bind(scope, prefix, name.space)?
+            end
 
         Ok((bound, " ${written}=\"${value}\""))
     end

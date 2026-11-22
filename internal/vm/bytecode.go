@@ -34,16 +34,19 @@ package vm
 // # WHAT RUNS THROUGH A HANDLER
 //
 // The scalar core — constants, moves, Int and Float arithmetic, comparisons,
-// negation, concatenation, literal and variant tests, payload and field
-// reads, construction of structs, records, tuples and variants, struct
-// updates, direct calls and tail calls, crossings into Go, and every
-// terminator — has typed opcodes. Every other instruction compiles to
+// negation, concatenation, literal and variant tests, a list pattern's
+// length tests and its reads from the front, payload and field reads,
+// construction of structs, records, tuples and variants, struct
+// updates, direct calls and tail calls, calls through a function value or
+// an interface value, crossings into Go, and every terminator — has typed
+// opcodes. Every other instruction compiles to
 // `opIR`, which runs the instruction's handler (`Machine.irInstr`) over
 // operands boxed from their banks into rt values and unboxed back into
 // the destination's bank. Those handlers are the machine's implementations of
 // iteration, assertions, construction of collections and ranges,
 // projections, `?`, defers, once cells, app fields, Context, Debug and
-// Display rendering, and dispatched and indirect calls.
+// Display rendering, and the dispatched and indirect calls opCallV leaves
+// to them (valuecall.go).
 // The boxing seam is here so an instruction kind can move from `opIR` to a
 // typed opcode one kind at a time.
 
@@ -117,12 +120,15 @@ const (
 	opFail          // idx                a compile-time refusal, raised on arrival
 	// A Maybe a crossing answers and its uses only take apart, held as a tag
 	// and a payload in registers instead of a record (maybefuse.go).
-	opHostM // idx | tag          the crossing: payload (or None) to its ref register, 1 or 0 to tag
+	opHostM // idx | tag          the crossing: payload to its register (None to the ref register), 1 or 0 to tag
 	opTagIs // dst | tag | want   the variant test: tag == want
-	opProjM // dstT | ref | tag | idx  the payload read; the handler for a None
+	opProjM // dstT | srcT | tag | idx the payload read; the handler for a None
 	opTryM  // tag | idx          `?`: nothing for a Some, the handler for a None
 	opProjS // dstT | subj(ref) | i | idx  a tuple's component i, straight from its slot
 	opRetP  // srcT               a split tuple's return, in parts (tuplesplit.go)
+	// `Maybe.with_default` or `Result.with_default` of a fused Maybe or
+	// Result: the payload read, or for a None or an Err the default.
+	opDefaultM // dstT | srcT | tag | defT
 	// A comparison only its block's branch reads, and the branch, in one
 	// dispatch (branchCompare).
 	opBrCmpI // cond | a | b | tpc | fpc
@@ -134,6 +140,18 @@ const (
 	// (inplace.go): opCall and opTail, then the index of its moves.
 	opCallO // dstT | callee | n | args... | moves
 	opTailO // dstT | callee | n | args... | moves
+	// A function's tail call to itself as a jump (loop.go): the moves of
+	// its plan, then the body again. The opTail or opTailO after it is
+	// the call a test body makes instead.
+	opLoop // plan
+	// A list pattern's questions and reads, straight from the cells: the
+	// length test against a count (min 1: at least it), and the element at
+	// position i or the cells from i on (suffix 1).
+	opMatchL // dst | subj(ref) | count | min | idx
+	opProjL  // dstT | subj(ref) | i | suffix | idx
+	// A call through a function value or a dispatched call, its operands
+	// passed in registers (valuecall.go).
+	opCallV // idx
 	// The opcodes below are emitted only for a machine with a debugger
 	// (debug.go). A machine without one compiles none of them, and its
 	// bytecode is what it would be if they did not exist.
@@ -143,6 +161,16 @@ const (
 	// opEnter is emitted only for a machine counting entries (entries.go),
 	// at pc 0 of every function.
 	opEnter // _                 counts an entry into the function's body
+	// Calls compiled into their callers (inline.go). opInline runs the
+	// callee's view in this activation's window; opLeave is a view's
+	// return whose answer is in the call's destination already; opTailV is
+	// a view's tail call, which the view's caller makes (moves is the
+	// index of its moves plus one, or 0); opSwitch is a view's tail call
+	// whose callee's view replaces the view.
+	opInline // view
+	opLeave  // _
+	opTailV  // _ | callee | n | args... | moves
+	opSwitch // view
 )
 
 // Comparison conditions for opCmpI and opCmpF.
@@ -166,14 +194,22 @@ const (
 )
 
 // loc is where one temporary lives: its bank in the top two bits and its
-// register in the rest. An argument operand of a call is a loc too.
+// register in the rest. An argument operand of a call is a loc too. A
+// register past the thirty bits is a compile panic (compilepanic.go), never
+// a register in another bank.
 type loc uint32
 
 const locRegMask = 1<<30 - 1
 
-func mkLoc(b bank, reg int) loc { return loc(uint32(b)<<30 | uint32(reg)) }
-func (l loc) bank() bank        { return bank(l >> 30) }
-func (l loc) reg() int          { return int(l & locRegMask) }
+func mkLoc(b bank, reg int) loc {
+	if reg < 0 || reg > locRegMask {
+		panic(fmt.Sprintf("register %d is past the %d a location holds", reg, locRegMask))
+	}
+	return loc(uint32(b)<<30 | uint32(reg))
+}
+
+func (l loc) bank() bank { return bank(l >> 30) }
+func (l loc) reg() int   { return int(l & locRegMask) }
 
 // code is one compiled function.
 type code struct {
@@ -203,12 +239,15 @@ type code struct {
 	// moves are, per opCallO and opTailO, the arguments it may hand its
 	// callee as owned.
 	moves [][]move
+	// loops are the plans of the self tail calls compiled to opLoop.
+	loops []loopPlan
 	// folds are the folds that may hand their accumulator to their
 	// callback as owned (inplace.go).
 	folds map[*ir.Iter]ir.Fold
 	// callees are the direct callees, resolved at compile time and compiled
-	// on first call.
+	// on first call; vcalls the calls whose callee is a value (valuecall.go).
 	callees []*fnSlot
+	vcalls  []*valueCall
 	// irs are the instructions opIR runs; fails the errors opFail raises.
 	irs []ir.Instr
 	// packed is, per temporary, how a value kept as registers instead of a
@@ -246,6 +285,25 @@ type code struct {
 	// wordParams says every parameter is a word, at most eight of them, so
 	// a self tail call moves words only (selfTailWords).
 	wordParams bool
+	// views are the callees this code's opInline and opSwitch run, each
+	// compiled into the activation's window (inline.go). A view's parent
+	// is the code its call is in, callPC that call's pc, dst its
+	// destination, level how many views enclose it and itself, and hands
+	// the arguments the call may hand it as its own. inlined is every
+	// function a view in this code, at any depth, was compiled from.
+	views   []*code
+	parent  *code
+	callPC  int
+	dst     ir.Temp
+	level   int
+	hands   []move
+	inlined []*ir.Func
+	// refused says a view has a tail call it cannot compile as opTailV,
+	// so its call opens an activation instead. switched says the view is
+	// one a tail call switches to (opSwitch), which returns where the
+	// view it replaces does.
+	refused  bool
+	switched bool
 }
 
 // site is one instruction's entry in the line and fault table.
@@ -329,6 +387,10 @@ type compiler struct {
 	// split are the temporaries holding a tuple as its components, and each
 	// component's register (tuplesplit.go).
 	split map[ir.Temp][]loc
+	// retWrap are the Somes and Oks of a split tuple the function only
+	// returns, each with its tuple, which the return carries in parts
+	// (wrappedReturns).
+	retWrap map[ir.Temp]ir.Temp
 	// uses and writes count each temporary's reads and definitions.
 	uses, writes []int
 	// hoisted are the constants loaded at entry (consthoist.go).
@@ -341,6 +403,13 @@ type compiler struct {
 	// takes are the crossings that may write their receiver in place, with
 	// the parameters each needs owned.
 	takes map[*ir.Call]uint64
+	// site is where a view compiles into its caller, or nil for a
+	// function's own code; plans are the calls this function compiles into
+	// views, with their callees, and viewTails a view's tail calls, which
+	// its caller makes (opTailV) (inline.go).
+	site      *inlineSite
+	plans     map[*ir.Call]*ir.Func
+	viewTails map[*ir.Call]bool
 }
 
 // compile turns f into bytecode. It cannot fail: an instruction the typed
@@ -354,17 +423,34 @@ func (m *Machine) compile(f *ir.Func) (c *code) {
 	if CompileHook != nil {
 		CompileHook(f)
 	}
-	c = &code{fn: f, boot: m.isBootFunc(f)}
-	cp := &compiler{m: m, c: c, blocks: map[ir.BlockID]int{},
+	c = m.compileBody(f, nil)
+	if len(c.views) > 0 {
+		c.settleWindow()
+	}
+	return c
+}
+
+// compileBody compiles f: a function's own code, or with site, a view of f
+// compiled into its caller (inline.go). A view's registers start where the
+// caller's end, its parameters are the caller's operands' registers, its
+// tail calls replace it (opSwitch, opTailV), and it has no entry hooks.
+func (m *Machine) compileBody(f *ir.Func, site *inlineSite) *code {
+	c := &code{fn: f, boot: site == nil && m.isBootFunc(f), guard: needsExitHooks(f)}
+	cp := &compiler{m: m, c: c, site: site, blocks: map[ir.BlockID]int{},
 		ksIndex: map[string]uint32{}, kwIndex: map[uint64]uint32{}, calleeI: map[*ir.Func]uint32{}}
 	cp.assignRegisters()
+	if site == nil {
+		c.tails = ir.TailTransfers(f)
+	} else {
+		cp.viewTails = ir.TailTransfers(f)
+	}
+	cp.planInlines()
 	cp.fuseMaybes()
 	cp.splitTuples()
 	if o := m.ownership(f); o != nil {
 		cp.inPlace, cp.moves, cp.takes = o.Updates, o.Moves, o.Takes
 		c.folds = o.Folds
 	}
-	c.tails = ir.TailTransfers(f)
 	blocks := f.Blocks()
 	if len(blocks) == 0 {
 		cp.fail(f.Pos(), fmt.Errorf("vm: %s has no entry block", f.Name()))
@@ -416,7 +502,8 @@ func (m *Machine) compile(f *ir.Func) (c *code) {
 	}
 	// A jump to a return is the return: the shared exit block every arm of a
 	// value-producing `if` or `case` jumps to is one instruction. A jump to
-	// a jump is followed, so a chain ending in a return folds too.
+	// a jump is followed, so a chain ending in a return folds too, and so
+	// does one ending in a view's opLeave (inline.go).
 	for _, st := range c.sites {
 		if opcode(c.code[st.pc]&0xff) != opJmp {
 			continue
@@ -430,7 +517,7 @@ func (m *Machine) compile(f *ir.Func) (c *code) {
 		}
 		target := c.code[to]
 		switch opcode(target & 0xff) {
-		case opRet, opRetU, opRetP:
+		case opRet, opRetU, opRetP, opLeave:
 			c.code[st.pc], c.code[st.pc+1] = target, uint32(opNop)
 		}
 	}
@@ -478,6 +565,10 @@ func (cp *compiler) assignRegisters() {
 	c.types = make([]*ir.ValType, n)
 	assigned := make([]bool, n)
 	counts := [4]int{}
+	if cp.site != nil {
+		// A view's registers start where its caller's end.
+		counts = cp.site.base
+	}
 	give := func(t ir.Temp) loc {
 		ty := f.TempType(t)
 		b := classOf(ty)
@@ -491,7 +582,7 @@ func (cp *compiler) assignRegisters() {
 		assigned[t] = true
 		return c.locs[t]
 	}
-	for _, p := range f.Params() {
+	for i, p := range f.Params() {
 		if p.Temp == ir.NoTemp || int(p.Temp) >= n {
 			continue
 		}
@@ -499,7 +590,18 @@ func (cp *compiler) assignRegisters() {
 			c.params = append(c.params, c.locs[p.Temp])
 			continue
 		}
+		if cp.site != nil {
+			// A view's parameter is the register its caller's operand is
+			// in, which nothing in the view writes (inlinableBody).
+			c.locs[p.Temp], c.types[p.Temp], assigned[p.Temp] = cp.site.args[i], f.TempType(p.Temp), true
+			c.params = append(c.params, cp.site.args[i])
+			continue
+		}
 		c.params = append(c.params, give(p.Temp))
+	}
+	for _, t := range cp.answers() {
+		// A view's answer, computed straight into its call's destination.
+		c.locs[t], c.types[t], assigned[t] = cp.site.parent.loc(cp.site.call.Dst()), f.TempType(t), true
 	}
 	cp.aliased = map[ir.Instr]bool{}
 	for _, b := range f.Blocks() {
@@ -597,7 +699,18 @@ func (cp *compiler) assignRegisters() {
 
 func (cp *compiler) emit(words ...uint32) { cp.c.code = append(cp.c.code, words...) }
 
-func (cp *compiler) op(o opcode, a uint32) uint32 { return uint32(o) | a<<8 }
+// op is an instruction word: the opcode in the low eight bits and its first
+// operand in the other twenty-four. Every other operand is a word of its
+// own. An operand past twenty-four bits is a compile panic
+// (compilepanic.go), never a truncated register or table index.
+func (cp *compiler) op(o opcode, a uint32) uint32 {
+	if a > maxOpOperand {
+		panic(fmt.Sprintf("%s's operand %d is past the %d an instruction word holds", opNames[o], a, maxOpOperand))
+	}
+	return uint32(o) | a<<8
+}
+
+const maxOpOperand = 1<<24 - 1
 
 // at records the site of the instruction about to be emitted.
 func (cp *compiler) at(pos ir.Pos, faults bool, handler int) {
@@ -693,17 +806,12 @@ func (cp *compiler) instr(in ir.Instr, handler int) {
 		// constant loaded at entry.
 		return
 	}
-	switch n := in.(type) {
-	case *ir.Defer:
-		cp.c.guard = true
-	case *ir.Store:
-		if n.Kind() == ir.StoreContext {
-			cp.c.guard = true
-		}
-	}
 	cp.at(in.Pos(), ir.InstrFaults(in).Any(), handler)
 	if cp.fusedUse(in) || cp.splitUse(in) || cp.typed(in) {
 		return
+	}
+	if n, isCall := in.(*ir.Call); isCall && cp.viewTails[n] {
+		cp.c.refused = true
 	}
 	cp.viaHandler(in)
 }
@@ -841,6 +949,16 @@ func (cp *compiler) typed(in ir.Instr) bool {
 			return true
 		case n.Kind() == ir.ProjSlot:
 			cp.emit(cp.op(opProjS, uint32(n.Dst())), uint32(cp.loc(n.Subject()).reg()), uint32(n.Index()),
+				cp.handlerIndex(n))
+			return true
+		case (n.Kind() == ir.ProjElem || n.Kind() == ir.ProjSuffix) && n.Index() >= 0:
+			// A list pattern's element or tail at a position from the front;
+			// the tails counted from the back stay with the handler.
+			suffix := uint32(0)
+			if n.Kind() == ir.ProjSuffix {
+				suffix = 1
+			}
+			cp.emit(cp.op(opProjL, uint32(n.Dst())), uint32(cp.loc(n.Subject()).reg()), uint32(n.Index()), suffix,
 				cp.handlerIndex(n))
 			return true
 		case n.Kind() == ir.ProjField || n.Kind() == ir.ProjRecordField:
@@ -1048,27 +1166,48 @@ func (cp *compiler) match(n *ir.Match) bool {
 		cp.emit(cp.op(opMatchV, d), uint32(cp.loc(n.Subject()).reg()), cp.str(n.Sym().Name()), cp.str(n.Variant()),
 			cp.handlerIndex(n))
 		return true
+	case ir.MatchListLen, ir.MatchListMin:
+		if !cp.inBank(bankR, n.Subject()) {
+			return false
+		}
+		min := uint32(0)
+		if n.Kind() == ir.MatchListMin {
+			min = 1
+		}
+		cp.emit(cp.op(opMatchL, d), uint32(cp.loc(n.Subject()).reg()), uint32(n.Arity()), min, cp.handlerIndex(n))
+		return true
 	}
 	return false
 }
 
 // call compiles a direct call to a function this program retains, when every
-// argument already lives in the bank its parameter does. Every other call —
-// dispatched, indirect, crossing into Go, unresolved, or one whose arguments
-// change bank — runs through the handler over boxed operands.
+// argument already lives in the bank its parameter does, and a call through a
+// function value or a dispatched call to opCallV (valuecall.go). Every other
+// call (crossing into Go and bound to nothing, unresolved, or one whose
+// arguments change bank) runs through the handler over boxed operands.
 func (cp *compiler) call(n *ir.Call) bool {
-	if n.Form() == ir.CalleeDirect && n.Crosses() {
+	switch n.Form() {
+	case ir.CalleeIndirect, ir.CalleeDispatched:
+		return cp.valueCall(n)
+	case ir.CalleeBound:
+		// Only an abstract body holds one, which the effect walk reads and
+		// no machine runs (ir.Module.SetAbstract).
+		cp.fail(n.Pos(), errBoundCall(cp.c.fn, n))
+		return true
+	case ir.CalleeDirect:
+	default:
+		return false
+	}
+	if n.Crosses() {
 		return cp.hostCall(n)
 	}
-	if n.Form() != ir.CalleeDirect {
-		return false
+	if cp.hostCall(n) {
+		// A call of a function whose whole body is one crossing.
+		return true
 	}
 	callee, err := cp.m.resolveFunc(n.Callee(), cp.c.fn.Name())
 	if err != nil {
 		return false
-	}
-	if cp.forwardedHostCall(n, callee) {
-		return true
 	}
 	banks := paramBanks(callee)
 	if len(banks) != n.NumArgs() {
@@ -1082,27 +1221,71 @@ func (cp *compiler) call(n *ir.Call) bool {
 		}
 		args[i] = uint32(a)
 	}
+	if cp.viewTails[n] {
+		if cp.switchCall(n, cp.m.slotFor(callee).f, args) {
+			return true
+		}
+		// A view's tail call: its caller makes it, as the callee's own
+		// would make the target its caller's callee.
+		cp.emit(cp.op(opTailV, 0), cp.calleeIndex(callee), uint32(len(args)))
+		cp.emit(args...)
+		mv := uint32(0)
+		if ms := cp.moves[n]; len(ms) > 0 {
+			cp.c.moves = append(cp.c.moves, movesOf(ms))
+			mv = uint32(len(cp.c.moves))
+		}
+		cp.emit(mv)
+		return true
+	}
+	if g := cp.plans[n]; g != nil {
+		if cp.inlineCall(n, g, args) {
+			return true
+		}
+		for i := range args {
+			if cp.c.packed != nil && cp.c.packed[n.Arg(i)].kind != packNone {
+				// An operand fused for the view that did not compile: the
+				// handler rebuilds it for the call (readPacked).
+				return false
+			}
+		}
+	}
+	idx := cp.calleeIndex(callee)
+	o := opCall
+	if cp.c.tails[n] {
+		o = opTail
+	}
+	ms := cp.moves[n]
+	mv := -1
+	if len(ms) > 0 {
+		o += opCallO - opCall
+		cp.c.moves = append(cp.c.moves, movesOf(ms))
+		mv = len(cp.c.moves) - 1
+	}
+	if plan, ok := cp.loopPlanOf(n, callee, args); ok {
+		plan.moves = mv + 1
+		cp.c.loops = append(cp.c.loops, plan)
+		cp.emit(cp.op(opLoop, uint32(len(cp.c.loops)-1)))
+		// The tail call a test body makes instead, at the same site.
+		st := cp.c.sites[len(cp.c.sites)-1]
+		cp.at(st.pos, st.faults, st.handler)
+	}
+	cp.emit(cp.op(o, uint32(n.Dst())), idx, uint32(len(args)))
+	cp.emit(args...)
+	if mv >= 0 {
+		cp.emit(uint32(mv))
+	}
+	return true
+}
+
+// calleeIndex is callee's entry in the code's callee table.
+func (cp *compiler) calleeIndex(callee *ir.Func) uint32 {
 	idx, ok := cp.calleeI[callee]
 	if !ok {
 		idx = uint32(len(cp.c.callees))
 		cp.c.callees = append(cp.c.callees, cp.m.slotFor(callee))
 		cp.calleeI[callee] = idx
 	}
-	o := opCall
-	if cp.c.tails[n] {
-		o = opTail
-	}
-	ms := cp.moves[n]
-	if len(ms) > 0 {
-		o += opCallO - opCall
-	}
-	cp.emit(cp.op(o, uint32(n.Dst())), idx, uint32(len(args)))
-	cp.emit(args...)
-	if len(ms) > 0 {
-		cp.c.moves = append(cp.c.moves, movesOf(ms))
-		cp.emit(uint32(len(cp.c.moves) - 1))
-	}
-	return true
+	return idx
 }
 
 // hostCall is one opHost site: the call, what it lands on (an intrinsic,
@@ -1115,10 +1298,21 @@ type hostCall struct {
 	name string
 	args []ir.Temp
 	dst  ir.Temp
-	// fast is an opHostM crossing's fast path (maybefuse.go), and parts the
-	// adapter's parts form it calls for fastParts.
-	fast  fastMaybe
-	parts hostadapt.PartsFunc
+	// fast is an opHostM crossing's fast path (maybefuse.go), and inLoop
+	// says the dispatch loop runs it, a read of the value's storage
+	// (frame.readFused).
+	fast   fastPath
+	inLoop bool
+	// regs is the adapter's register form the crossing runs through, its
+	// operands and its answer in registers (hostSlots), or nil for one
+	// that runs the adapter over boxed values.
+	regs *hostadapt.Regs
+	// direct says every operand's register holds it as its slot does
+	// (compiler.directSlots).
+	direct bool
+	// whole says the destination keeps the register form's answer whole,
+	// built from its parts (compiler.regsAt).
+	whole bool
 	// inPlace is the in-place form of a crossing that may write its owned
 	// receiver (inplace.go), which runs when the activation owns the
 	// parameters in need; nil for any other crossing.
@@ -1128,11 +1322,16 @@ type hostCall struct {
 
 // hostCall compiles a crossing into opHost, which calls what the crossing
 // lands on with no lookup: the intrinsic of its name, else the bound adapter
-// that answers it. A name neither answers runs through the handler, which
-// reports it.
+// that answers it. n is the crossing, or a call of a function whose whole
+// body is one (hostSite). A name neither answers runs through the handler,
+// which reports it.
 func (cp *compiler) hostCall(n *ir.Call) bool {
-	name := n.Callee().Name()
-	h := hostCall{call: n, name: name, dst: n.Dst()}
+	site, args, ok := cp.hostSite(n)
+	if !ok {
+		return false
+	}
+	name := site.Callee().Name()
+	h := hostCall{call: site, name: name, args: args, dst: n.Dst()}
 	if h.intr = cp.m.hosts[name].fn; h.intr == nil {
 		fn, err := cp.m.adapter(name)
 		if err != nil || fn == nil {
@@ -1140,37 +1339,55 @@ func (cp *compiler) hostCall(n *ir.Call) bool {
 		}
 		h.fn = fn
 	}
-	h.args = make([]ir.Temp, n.NumArgs())
-	for i := range h.args {
-		h.args[i] = n.Arg(i)
-	}
 	if need, takes := cp.takes[n]; takes && h.intr != nil {
 		h.inPlace, h.need = inPlaceHost(name), need
+	}
+	if h.intr == nil {
+		cp.bindRegs(&h, false)
 	}
 	cp.c.hostCalls = append(cp.c.hostCalls, h)
 	cp.emit(cp.op(opHost, uint32(len(cp.c.hostCalls)-1)))
 	return true
 }
 
-// forwardedHostCall compiles a call to a function whose whole body is one
-// crossing over its own parameters, returned as it is, into that crossing
-// at the call site: opHost reading the caller's arguments, with no
-// activation for the callee. `String.split<String>`'s instance is one: its
-// body is `M.split_in(separator, s)`, String's host fn with the parameters
-// swapped. Without it each such call costs an activation and two more
-// instructions than the crossing it forwards to. A fault the crossing raises
-// is reported at the call.
+// hostSite is the crossing call n compiles to and the caller's operands it
+// reads: n itself when it crosses, or the one crossing the whole body of
+// the function n calls is.
+//
+// Such a body is one crossing over the function's own parameters, returned
+// as it is, and the call compiles into that crossing at the call site:
+// opHost reading the caller's arguments, with no activation for the callee.
+// `String.split<String>`'s instance is one: its body is `M.split_in(separator,
+// s)`, String's host fn with the parameters swapped, and so is
+// `Bytes.index_of`, over its private `index_of_from`. Without it each such
+// call costs an activation and two more instructions than the crossing it
+// forwards to. A fault the crossing raises is reported at the call. The
+// crossing must land on an adapter, not an intrinsic.
 //
 // A tail call in a function with deferred calls keeps its transfer, since the
 // transfer runs those calls before the callee and the crossing would run
 // them after.
-func (cp *compiler) forwardedHostCall(n *ir.Call, callee *ir.Func) bool {
+func (cp *compiler) hostSite(n *ir.Call) (*ir.Call, []ir.Temp, bool) {
+	if n.Form() != ir.CalleeDirect {
+		return nil, nil, false
+	}
+	if n.Crosses() {
+		args := make([]ir.Temp, n.NumArgs())
+		for i := range args {
+			args[i] = n.Arg(i)
+		}
+		return n, args, true
+	}
 	if cp.c.tails[n] && funcDefers(cp.c.fn) {
-		return false
+		return nil, nil, false
+	}
+	callee, err := cp.m.resolveFunc(n.Callee(), cp.c.fn.Name())
+	if err != nil {
+		return nil, nil, false
 	}
 	blocks := callee.Blocks()
 	if len(blocks) != 1 || len(callee.Params()) != n.NumArgs() {
-		return false
+		return nil, nil, false
 	}
 	// param is the caller's argument each of the callee's temporaries holds:
 	// a parameter's own, or a local read of a parameter.
@@ -1190,47 +1407,58 @@ func (cp *compiler) forwardedHostCall(n *ir.Call, callee *ir.Func) bool {
 		case *ir.Ref:
 			arg, isParam := bySym[x.Sym()]
 			if inner != nil || x.Kind() != ir.RefLocal || !isParam {
-				return false
+				return nil, nil, false
 			}
 			param[x.Dst()] = arg
 		case *ir.Call:
 			if inner != nil || x.Form() != ir.CalleeDirect || !x.Crosses() {
-				return false
+				return nil, nil, false
 			}
 			inner = x
 			result[x.Dst()] = true
 		case *ir.Copy:
 			if !result[x.Src()] {
-				return false
+				return nil, nil, false
 			}
 			result[x.Dst()] = true
 		default:
-			return false
+			return nil, nil, false
 		}
 	}
 	ret, isRet := blocks[0].Term().(*ir.Return)
 	if inner == nil || !isRet || ret.Ctl() != ir.CtlNone || !ret.HasVal() || !result[ret.Val()] {
-		return false
+		return nil, nil, false
 	}
-	name := inner.Callee().Name()
-	if cp.m.hosts[name].fn != nil {
-		return false
-	}
-	fn, err := cp.m.adapter(name)
-	if err != nil || fn == nil {
-		return false
+	if cp.m.hosts[inner.Callee().Name()].fn != nil {
+		return nil, nil, false
 	}
 	args := make([]ir.Temp, inner.NumArgs())
 	for i := range args {
 		arg, isParam := param[inner.Arg(i)]
 		if !isParam {
-			return false
+			return nil, nil, false
 		}
 		args[i] = arg
 	}
-	cp.c.hostCalls = append(cp.c.hostCalls, hostCall{call: inner, fn: fn, name: name, args: args, dst: n.Dst()})
-	cp.emit(cp.op(opHost, uint32(len(cp.c.hostCalls)-1)))
-	return true
+	return inner, args, true
+}
+
+// needsExitHooks reports whether f registers deferred calls or rebinds the
+// Context, whose activation runs exit hooks (code.guard).
+func needsExitHooks(f *ir.Func) bool {
+	for _, b := range f.Blocks() {
+		for _, in := range b.Instrs() {
+			switch n := in.(type) {
+			case *ir.Defer:
+				return true
+			case *ir.Store:
+				if n.Kind() == ir.StoreContext {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 // funcDefers reports whether f registers a deferred call anywhere.
@@ -1282,6 +1510,9 @@ func (cp *compiler) term(b *ir.Block, cmp *ir.Compare) {
 		}
 	case *ir.Return:
 		cp.at(t.Pos(), false, -1)
+		if cp.leave(t) {
+			return
+		}
 		switch {
 		case t.Ctl() != ir.CtlNone:
 			// A signalling callback's control return: the outcome and its
@@ -1291,6 +1522,13 @@ func (cp *compiler) term(b *ir.Block, cmp *ir.Compare) {
 		case !t.HasVal():
 			cp.emit(cp.op(opRetU, 0))
 		case cp.split != nil && cp.split[t.Val()] != nil:
+			cp.emit(cp.op(opRetP, uint32(t.Val())))
+		case cp.retWrap[t.Val()] != ir.NoTemp:
+			// A Some or an Ok of a split tuple, returned as the tuple's
+			// parts (wrappedReturns).
+			cp.emit(cp.op(opRetP, uint32(cp.retWrap[t.Val()])))
+		case cp.c.packed != nil && cp.c.packed[t.Val()].wrap != nil:
+			// A return slot carrying a Some or an Ok of a tuple in parts.
 			cp.emit(cp.op(opRetP, uint32(t.Val())))
 		default:
 			cp.emit(cp.op(opRet, uint32(t.Val())))
@@ -1334,9 +1572,10 @@ var opNames = [...]string{
 	opMatchV: "matchv", opProjP: "projp", opProjF: "projf", opMake: "make", opUpdate: "update",
 	opCall: "call", opTail: "tail", opJmp: "jmp", opBr: "br", opBrX: "brx",
 	opRet: "ret", opRetU: "retu", opRetCtl: "retctl", opIR: "ir", opHost: "host", opFail: "fail",
-	opHostM: "hostm", opTagIs: "tagis", opProjM: "projm", opTryM: "trym", opProjS: "projs", opRetP: "retp",
-	opBrCmpI: "brcmpi", opBrCmpF: "brcmpf", opUpdateIn: "update!", opCallO: "call!", opTailO: "tail!",
-	opStmt: "stmt", opPC: "pc", opTap: "tap", opEnter: "enter",
+	opHostM: "hostm", opTagIs: "tagis", opProjM: "projm", opTryM: "trym", opProjS: "projs", opRetP: "retp", opDefaultM: "defaultm",
+	opBrCmpI: "brcmpi", opBrCmpF: "brcmpf", opUpdateIn: "update!", opCallO: "call!", opTailO: "tail!", opLoop: "loop",
+	opMatchL: "matchl", opProjL: "projl", opCallV: "callv",
+	opStmt: "stmt", opPC: "pc", opTap: "tap", opEnter: "enter", opInline: "inline", opLeave: "leave", opTailV: "tailv", opSwitch: "switch",
 }
 
 // String disassembles c, one instruction per line: its offset, opcode, the
@@ -1364,6 +1603,19 @@ func (c *code) String() string {
 			fmt.Fprintf(&b, "  ; %s", c.irs[ins>>8])
 		case opHost, opHostM:
 			fmt.Fprintf(&b, "  ; %s", c.hostCalls[ins>>8].call)
+			if c.hostCalls[ins>>8].inLoop {
+				b.WriteString(", read in the loop")
+			}
+		case opCallV:
+			fmt.Fprintf(&b, "  ; %s", c.vcalls[ins>>8].call)
+		case opLoop:
+			fmt.Fprintf(&b, "  ; %s", c.loops[ins>>8])
+		case opInline, opSwitch:
+			v := c.views[ins>>8]
+			fmt.Fprintf(&b, "  ; %s = %s, compiled in\n", v.dst, v.fn.Name())
+			for _, line := range strings.SplitAfter(strings.TrimSuffix(v.String(), "\n"), "\n") {
+				b.WriteString("        | " + line)
+			}
 		}
 		b.WriteString("\n")
 	}

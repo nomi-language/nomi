@@ -26,8 +26,10 @@ end
 
 //# Operations on the IEEE 754 double-precision `Float` type: the special
 //# values (`nan`, `±infinity`), the constants `pi` and `e`, classification
-//# predicates, rounding, powers, roots, logarithms, trigonometry, and
-//# conversion to `Int`. Its `Equatable`, `Hashable` and `Comparable` impls
+//# predicates, rounding, powers, roots, logarithms, trigonometry,
+//# conversion to `Int`, and the IEEE 754 bit patterns of 64- and 32-bit
+//# floats (`Float.to_bits`, `Float.from_bits`, `Float.to_bits_32` and
+//# `Float.from_bits_32`) that binary formats store. Its `Equatable`, `Hashable` and `Comparable` impls
 //# give `Float` a total order and hashing that agrees with `==` (NaN equals
 //# NaN, and `-0.0` equals `0.0`).
 //#
@@ -171,7 +173,7 @@ impl Float
     //! assert Float.is_nan(Float.abs(Float.nan()))
     //
     pub fn abs(x: Float) -> Float
-        if float_bits(x) < 0 then -x else x
+        if Float.to_bits(x) < 0 then -x else x
     end
 
     /// Whether `a` and `b` differ by at most `tolerance`: `a == b`, or
@@ -371,6 +373,46 @@ impl Float
     ) -> Result<Float, NumberParseError>
         float_parse_percent_in(text, locale, lenient)
     end
+
+    /// The IEEE 754 64-bit pattern of `x` as a two's complement Int64, as
+    /// Go's `math.Float64bits` and Java's `Double.doubleToRawLongBits` give
+    /// it: the sign bit is the Int's sign, so a negative `x`, `-0.0`
+    /// included, has a negative pattern. A NaN answers its own bits.
+    /// `Float.to_bits(x) &&& 0xFFFF_FFFF_FFFF_FFFF` is the pattern read as
+    /// unsigned, and `Float.from_bits` turns either back.
+    //! assert Float.to_bits(1.0) == 0x3FF0_0000_0000_0000
+    //! assert Float.to_bits(-0.0) == -9_223_372_036_854_775_808
+    //! assert Float.from_bits(Float.to_bits(0.1)) == 0.1
+    //
+    pub host fn to_bits(x: Float) -> Int
+
+    /// The Float whose IEEE 754 64-bit pattern is the low 64 bits of
+    /// `bits`, so a signed pattern and an unsigned one give the same Float.
+    //! assert Float.from_bits(0x3FF0_0000_0000_0000) == 1.0
+    //! assert Float.from_bits(0xBFF0_0000_0000_0000) == -1.0
+    //! assert Float.from_bits(-4_616_189_618_054_758_400) == -1.0
+    //
+    pub host fn from_bits(bits: Int) -> Float
+
+    /// The IEEE 754 32-bit pattern of `x` rounded to the nearest 32-bit
+    /// float, as an unsigned Int from 0 to 4_294_967_295. The rounding is
+    /// to nearest with ties to even, as a cast to `float32` in Go or C
+    /// rounds: an `x` past the 32-bit range, about 3.4e38, becomes an
+    /// infinity of its sign, an `x` too small for it becomes a 32-bit
+    /// subnormal or zero, and a NaN stays a NaN.
+    //! assert Float.to_bits_32(1.5) == 0x3FC0_0000
+    //! assert Float.to_bits_32(-1.0) == 0xBF80_0000
+    //! assert Float.to_bits_32(1.0e39) == Float.to_bits_32(Float.positive_infinity())
+    //! assert Float.from_bits_32(Float.to_bits_32(0.1)) == 0.10000000149011612
+    //
+    pub host fn to_bits_32(x: Float) -> NonNegativeInt
+
+    /// The 32-bit float whose IEEE 754 pattern is the low 32 bits of
+    /// `bits`, widened to a Float exactly.
+    //! assert Float.from_bits_32(0x3FC0_0000) == 1.5
+    //! assert Float.from_bits_32(0xBF80_0000) == -1.0
+    //
+    pub host fn from_bits_32(bits: Int) -> Float
 end
 
 host fn float_round(x: Float, scale: Int, mode: RoundingMode) -> Float
@@ -396,12 +438,6 @@ host fn float_parse_percent_in(
     locale:  Locale,
     lenient: Bool,
 ) -> Result<Float, NumberParseError>
-
-/// Returns the IEEE 754 bit-pattern of `x` reinterpreted as an Int (as if by
-/// Go's `math.Float64bits`). Backs the `Hashable` impl. Two Float values
-/// that are `==` and not NaN agree on `float_bits`. NaN values can have
-/// multiple bit patterns; this returns the actual bits.
-host fn float_bits(x: Float) -> Int
 
 /// A Float that is not zero and not NaN, so dividing by one gives a number
 /// or an infinity, never NaN from `0.0 / 0.0`. A literal is checked when
@@ -526,11 +562,11 @@ impl Hashable for Float
     // is reflexively equal under Nomi's structural `==`, yet has many encodings).
     fn hash(x: Float) -> Int
         if Float.is_nan(x) then
-            float_bits(Float.nan())
+            Float.to_bits(Float.nan())
         else if x == 0.0 then
             0
         else
-            float_bits(x)
+            Float.to_bits(x)
         end
     end
 end
@@ -587,8 +623,8 @@ impl Comparable for Float
             a < b           -> a
             a > b           -> b
             // Equal, so either the same value or the two zeros.
-            float_bits(b) < 0 -> b
-            _                 -> a
+            Float.to_bits(b) < 0 -> b
+            _                    -> a
         end
     end
 
@@ -606,8 +642,8 @@ impl Comparable for Float
             a > b           -> a
             a < b           -> b
             // Equal, so either the same value or the two zeros.
-            float_bits(a) < 0 -> b
-            _                 -> a
+            Float.to_bits(a) < 0 -> b
+            _                    -> a
         end
     end
 

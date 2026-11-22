@@ -92,15 +92,16 @@ end
 //!
 //! echo = fn r: Request -> Response{body: Body.Text("${r.url} ${r.host}")}
 //!
-//! agree = fn secure: Bool ->
-//!     served = testing.with_server(echo, tls: secure, fn server ->
-//!         Response.text(Client.get(server.client, Url.resolve_text(server.url, "/a?b=1")!)!)!
-//!     end)
+//! agree =
+//!     fn secure: Bool ->
+//!         served = testing.with_server(echo, tls: secure, fn server ->
+//!             Response.text(Client.get(server.client, Url.resolve_text(server.url, "/a?b=1")!)!)!
+//!         end)
 //!
-//!     url = String.split(served, " ") |> List.first()!
-//!     tested = testing.request(Method.Get, url)
-//!     (served, "${tested.url} ${tested.host}")
-//! end
+//!         url = String.split(served, " ") |> List.first()!
+//!         tested = testing.request(Method.Get, url)
+//!         (served, "${tested.url} ${tested.host}")
+//!     end
 //!
 //! (plain, tested) = agree(False)
 //! assert String.starts_with(plain, "http://127.0.0.1:")
@@ -193,10 +194,11 @@ end
 //! assert testing.decompressed(sent) == Ok(String.to_bytes(page))
 //
 pub fn decompressed(response: Response) -> Result<Bytes, Error>
-    data = case response.body
-        .Produce(_) -> Iter.reduce(chunks(response), String.to_bytes(""), Bytes.concat)
-        other       -> Body.read_all(other)?
-    end
+    data =
+        case response.body
+            .Produce(_) -> Iter.reduce(chunks(response), String.to_bytes(""), Bytes.concat)
+            other       -> Body.read_all(other)?
+        end
 
     if Headers.get(response.headers, "Content-Encoding") == Some("gzip") then
         host.gunzip(data) |> Result.map_err(fn reason -> Error.Protocol{reason:})
@@ -254,42 +256,47 @@ pub fn with_server<T>(
     server:  Server = Server{},
     body:    (TestServer) -> T,
 ) -> T
-    (config, client, info) = if tls then
-        made = host.test_certificate()
+    (config, client, info) =
+        if tls then
+            made = host.test_certificate()
 
-        (cert, key) = case made
-            [c, k] -> (c, k)
-            _      -> ("", "")
+            (cert, key) =
+                case made
+                    [c, k] -> (c, k)
+                    _      -> ("", "")
+                end
+
+            certificate = Certificate.from_pem(cert, key)!
+
+            (
+                Some(ServerConfig{certificates: [certificate]}),
+                Client.new(ClientOptions{transport: {..Transport.default, force_http2: http2}})
+                |> Client.with_tls(ClientConfig{roots: Roots.Pem(cert)})!,
+                Some(Certificate.info(certificate)),
+            )
+        else if http2 then
+            (
+                None,
+                Client.new(ClientOptions{
+                    transport: {
+                        ..Transport.default,
+                        protocols: Some(
+                            Protocols{http1: False, http2: False, unencrypted_http2: True}
+                        ),
+                    },
+                }),
+                None,
+            )
+        else
+            (None, Client.new(), None)
         end
 
-        certificate = Certificate.from_pem(cert, key)!
-
-        (
-            Some(ServerConfig{certificates: [certificate]}),
-            Client.new(ClientOptions{transport: {..Transport.default, force_http2: http2}})
-            |> Client.with_tls(ClientConfig{roots: Roots.Pem(cert)})!,
-            Some(Certificate.info(certificate)),
-        )
-    else if http2 then
-        (
-            None,
-            Client.new(ClientOptions{
-                transport: {
-                    ..Transport.default,
-                    protocols: Some(Protocols{http1: False, http2: False, unencrypted_http2: True}),
-                },
-            }),
-            None,
-        )
-    else
-        (None, Client.new(), None)
-    end
-
-    protocols = case server.protocols
-        Some(chosen)    -> Some(chosen)
-        None when http2 -> Some(Protocols{http1: True, http2: True, unencrypted_http2: True})
-        None            -> Some(Protocols{http1: True, http2: False})
-    end
+    protocols =
+        case server.protocols
+            Some(chosen)    -> Some(chosen)
+            None when http2 -> Some(Protocols{http1: True, http2: True, unencrypted_http2: True})
+            None            -> Some(Protocols{http1: True, http2: False})
+        end
 
     listener = http.listen({..server, address: "127.0.0.1:0", tls: config, protocols:})!
     scheme = if tls then "https" else "http"
@@ -314,17 +321,18 @@ end
 //! import std::http::testing
 //! import std::websocket.{self, Message, WebSocket}
 //!
-//! shout = fn request: Request ->
-//!     websocket.accept(request, fn ws ->
-//!         case WebSocket.receive(ws)
-//!             Ok(Some(.Text(text))) ->
-//!                 _ = WebSocket.send_text(ws, String.uppercase(text))
+//! shout =
+//!     fn request: Request ->
+//!         websocket.accept(request, fn ws ->
+//!             case WebSocket.receive(ws)
+//!                 Ok(Some(.Text(text))) ->
+//!                     _ = WebSocket.send_text(ws, String.uppercase(text))
 //!
-//!             _ ->
-//!                 Unit
-//!         end
-//!     end)
-//! end
+//!                 _ ->
+//!                     Unit
+//!             end
+//!         end)
+//!     end
 //!
 //! got = testing.open_websocket(shout, "/", fn ws ->
 //!     _ = WebSocket.send_text(ws, "hi")
@@ -358,15 +366,17 @@ pub fn open_websocket<T>(
 
     response = ToResponse.to_response(handler({..base, headers: handshake}))
 
-    on_connection = case response.upgrade
-        Some(f) -> f
-        None    -> return Err(response)
-    end
+    on_connection =
+        case response.upgrade
+            Some(f) -> f
+            None    -> return Err(response)
+        end
 
-    (server, client) = case host.ws_pipe()
-        [a, b] -> (Connection.of_handle(a), Connection.of_handle(b))
-        _      -> unreachable "host.ws_pipe answers the two ends of one pipe"
-    end
+    (server, client) =
+        case host.ws_pipe()
+            [a, b] -> (Connection.of_handle(a), Connection.of_handle(b))
+            _      -> unreachable "host.ws_pipe answers the two ends of one pipe"
+        end
 
     protocol = Headers.get(response.headers, "Sec-WebSocket-Protocol")
 

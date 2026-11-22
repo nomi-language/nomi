@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/nomi-language/nomi/internal/ir"
+	"github.com/nomi-language/nomi/rt"
 )
 
 // # TAIL CALLS
@@ -31,6 +32,10 @@ import (
 // Context rebind the caller made is in force for the callee; the deadlines those rebinds entered stay entered until the whole chain exits,
 // because the callee runs under them. Its depth. Once-forcing lineage and the
 // cancellation context ride the runtime frame, so they are kept by keeping it.
+// A function value's body runs under the app fields the value kept, as a call
+// of it does (callValue): the transfer enters them on the frame, and a
+// deadline that entry starts joins the frame's releases, which end with the
+// chain.
 //
 // WHAT IT DROPS. Registers and the assertion trace, which belong
 // to the function that was running.
@@ -49,6 +54,9 @@ import (
 type tailTransfer struct {
 	fn   *ir.Func
 	args []any
+	// kept is the app fields a function value's body runs under, or nil to
+	// keep the frame's.
+	kept *rt.AppFields
 }
 
 // transfers reports whether n is a call this machine runs by replacing fr's
@@ -70,7 +78,7 @@ func (m *Machine) tailTarget(fr *frame, n *ir.Call, args []any, fn any) (*tailTr
 		if !ok || f.host != nil || len(args) != f.arity {
 			return nil, nil
 		}
-		return &tailTransfer{fn: f.body, args: append(args, f.captures...)}, nil
+		return &tailTransfer{fn: f.body, args: append(args, f.captures...), kept: f.kept}, nil
 	case ir.CalleeDispatched:
 		callee, err := m.dispatchTarget(fr, n, args)
 		if err != nil {

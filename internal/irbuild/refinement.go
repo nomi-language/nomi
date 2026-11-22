@@ -206,7 +206,7 @@ func (g *gen) refinementRules() []RefinementRuleSite {
 		}
 		site := RefinementRuleSite{Path: path, Line: line, Col: col, Type: name, Rule: analysis.RuleText(rule), TryFrom: tryFrom(recv)}
 		if site.TryFrom == "" || plantedMissingCheck(name) {
-			site.TryFrom, site.Unchecked = "", fmt.Sprintf("could not be found (%s)", g.declaredTryFromName(fa, name))
+			site.TryFrom, site.Unchecked = "", fmt.Sprintf("could not be found (%s)", declaredTryFromName(fa, n, name))
 		}
 		out = append(out, site)
 	}
@@ -354,10 +354,11 @@ func (g *gen) refinementSites() []RefinementSite {
 	return out
 }
 
-// declaredTryFromName is tryFromName for the refinement fa declares as
-// name.
-func (g *gen) declaredTryFromName(fa *analysis.FileAnalysis, name string) string {
-	if sym := resolvedTypeSymbol(fa, name); sym != nil && sym.Type != nil {
+// declaredTryFromName is tryFromName for the refinement decl, which fa
+// declares as name: the checker's type of the declaration.
+func declaredTryFromName(fa *analysis.FileAnalysis, decl ast.Node, name string) string {
+	line, col := nodePos(decl)
+	if sym := fa.Definitions[analysis.Pos{Line: line, Col: col}]; sym != nil && sym.Type != nil {
 		return tryFromName(sym.Type)
 	}
 	return name + ".try_from"
@@ -408,11 +409,9 @@ func (g *gen) refinementBuild(lit, value ast.Node) *ir.Func {
 	line, col := nodePos(lit)
 	name := fmt.Sprintf("refinement literal at %d:%d", line, col)
 	f := ir.NewFunc(at, name)
-	sh := &irFuncShell{fn: f, syms: map[string]*ir.Symbol{}, params: map[string]ir.Temp{}, patternOK: true}
-	sh.frame = newIRFuncFrame(f)
+	sh := &irFuncShell{fn: f, params: map[string]ir.Temp{}}
 	sh.entry = f.NewBlock(at, "entry")
-	cb := &irScalarBuilder{g: g, sh: sh, f: f, b: sh.entry,
-		bound: map[string]ir.Temp{}, boundK: map[string]kind{}}
+	cb := &irScalarBuilder{g: g, sh: sh, f: f, b: sh.entry}
 	cb.openWithScope(true)
 	var val ir.Temp
 	var k kind
@@ -439,18 +438,15 @@ func (g *gen) refinementCheckBuild(lit, check ast.Node) *ir.Func {
 	line, col := nodePos(lit)
 	name := fmt.Sprintf("refinement check at %d:%d", line, col)
 	f := ir.NewFunc(at, name)
-	sh := &irFuncShell{fn: f, syms: map[string]*ir.Symbol{}, params: map[string]ir.Temp{}, patternOK: true}
-	sh.frame = newIRFuncFrame(f)
+	sh := &irFuncShell{fn: f, params: map[string]ir.Temp{}}
 	sh.entry = f.NewBlock(at, "entry")
-	cb := &irScalarBuilder{g: g, sh: sh, f: f, b: sh.entry,
-		bound: map[string]ir.Temp{}, boundK: map[string]kind{}}
+	cb := &irScalarBuilder{g: g, sh: sh, f: f, b: sh.entry}
 	cb.openWithScope(true)
 	val, k, _, ok := cb.lower(lit)
 	if !ok || g.irTypeOf(k) == nil {
 		return nil
 	}
-	cb.bound[analysis.RefinementLiteralName] = val
-	cb.boundK[analysis.RefinementLiteralName] = k
+	cb.declareKey(refinementLiteralKey(check), val, k)
 	res, rk, _, ok := cb.lower(check)
 	if !ok || g.irTypeOf(rk) == nil {
 		return nil
@@ -468,18 +464,15 @@ func (g *gen) refinementRuleCheckBuild(td *ast.TypeDef, rc analysis.RefinementRu
 	at := g.irNodePos(td)
 	name := fmt.Sprintf("refinement rule of %s", td.Name)
 	f := ir.NewFunc(at, name)
-	sh := &irFuncShell{fn: f, syms: map[string]*ir.Symbol{}, params: map[string]ir.Temp{}, patternOK: true}
-	sh.frame = newIRFuncFrame(f)
+	sh := &irFuncShell{fn: f, params: map[string]ir.Temp{}}
 	sh.entry = f.NewBlock(at, "entry")
-	cb := &irScalarBuilder{g: g, sh: sh, f: f, b: sh.entry,
-		bound: map[string]ir.Temp{}, boundK: map[string]kind{}}
+	cb := &irScalarBuilder{g: g, sh: sh, f: f, b: sh.entry}
 	cb.openWithScope(true)
 	k := g.project(rc.Arg)
 	if g.irTypeOf(k) == nil {
 		return nil
 	}
-	cb.bound[analysis.RefinementLiteralName] = g.irAddParam(f, ir.NewSymbol("value"), k)
-	cb.boundK[analysis.RefinementLiteralName] = k
+	cb.declareKey(refinementLiteralKey(rc.Check), g.irAddParam(f, ir.NewSymbol("value"), k), k)
 	res, rk, _, ok := cb.lower(rc.Check)
 	if !ok || g.irTypeOf(rk) == nil {
 		return nil
@@ -487,6 +480,18 @@ func (g *gen) refinementRuleCheckBuild(td *ast.TypeDef, rc analysis.RefinementRu
 	cb.returnKind = rk
 	cb.b.SetTerm(ir.NewReturn(at, res))
 	return f
+}
+
+// refinementLiteralKey is the key of the value a refinement's check reads
+// (analysis.RefinementLiteralName): the checker's symbol for it stands at
+// the check call's argument, the read itself.
+func refinementLiteralKey(check ast.Node) analysis.Pos {
+	call, isCall := check.(*ast.Call)
+	if !isCall || len(call.Args) != 1 {
+		panic("irbuild: a refinement's check that is not a call of one argument")
+	}
+	line, col := nodePos(call.Args[0])
+	return analysis.Pos{Line: line, Col: col}
 }
 
 // implFuncLink is the linkage name of fd, a function of an inherent block
@@ -629,16 +634,13 @@ func (bl *irScalarBuilder) refinementCall(t *ast.Call) (v ir.Temp, k kind, mobil
 	}
 	switch fn := t.Func.(type) {
 	case *ast.TypeIdent:
-		if _, isRefinement := bl.g.refinementDecl(fn.Name); !isRefinement {
+		if !bl.g.refinementAt(fn.Line, fn.Col) {
 			return ir.NoTemp, kindInvalid, false, false, false
 		}
 	case *ast.FieldAccess:
-		mod, isModule := fn.Object.(*ast.Ident)
-		if !isModule || fn.Field == nil {
-			return ir.NoTemp, kindInvalid, false, false, false
-		}
-		qt := &ast.QualifiedType{Module: mod.Name, Member: &ast.SimpleType{Name: fn.Field.Name}}
-		if _, isRefinement := bl.g.qualifiedRefinementKind(qt); !isRefinement {
+		// `float.NonNegativeFloat(x)`.
+		_, isModule := fn.Object.(*ast.Ident)
+		if !isModule || fn.Field == nil || !bl.g.refinementAt(fn.Field.Line, fn.Field.Col) {
 			return ir.NoTemp, kindInvalid, false, false, false
 		}
 	default:
@@ -648,17 +650,27 @@ func (bl *irScalarBuilder) refinementCall(t *ast.Call) (v ir.Temp, k kind, mobil
 	return v, k, mobile, ok, true
 }
 
-// uncheckedRefinement lowers the body of a refinement's `unchecked`: a
-// distinct refinement's value is the base value itself, and a struct
-// refinement is built from the record of its fields as its call form
-// builds it.
+// uncheckedRefinement lowers the body of a refinement's `unchecked`, by the
+// type the checker gave it: a subtype's value is the base value itself, a
+// validated type is built from it as its constructor builds it, at the
+// instance the checker solved for a generic one, and a struct refinement is
+// built from the record of its fields as its call form builds it. The
+// constructors are tried as a written call tries them, and the body
+// declines here when neither builds the value.
 func (bl *irScalarBuilder) uncheckedRefinement(t *ast.UncheckedRefinement) (ir.Temp, kind, bool, bool) {
-	if _, isDistinct := bl.g.refinementDecl(t.Refinement); isDistinct {
+	ty := analysis.ResolveClosed(bl.g.checkedExprType(t))
+	if dt, ok := ty.(*analysis.DistinctType); ok && dt.Subtype {
 		return bl.lower(t.Value)
 	}
-	// The struct's call form, `Span({low: 1, high: 2})`, which builds it
-	// from the record.
-	return bl.lower(&ast.Call{Func: &ast.TypeIdent{Name: t.Refinement, Line: t.Line, Col: t.Col}, Args: []ast.Node{t.Value}, Line: t.Line, Col: t.Col})
+	if d := bl.g.nominalDef(ty); d != nil && d.isDistinct {
+		if dst, k, mobile, ok := bl.distinctMakeOf(t, []ast.Node{t.Value}, bl.g.distinctInstanceAt(d, t)); ok {
+			return dst, k, mobile, true
+		}
+	} else if dst, k, mobile, ok := bl.structCallFormOf(t, t.Value, d); ok {
+		return dst, k, mobile, true
+	}
+	bl.g.dc.note("a refinement's `unchecked` whose type's constructor does not build its value: " + ty.String())
+	return ir.NoTemp, kindInvalid, false, false
 }
 
 // irRefinementRuleHost is the VM intrinsic a generated `try_from` calls its
@@ -685,33 +697,15 @@ func (bl *irScalarBuilder) refinementRule(t *ast.RefinementRule) (ir.Temp, kind,
 	return call.Dst(), kindBool, false, true
 }
 
-// refinementDecl answers the TypeDef that declares the distinct refinement
-// name resolves to in this file's scope, when it does.
-func (g *gen) refinementDecl(name string) (*analysis.Symbol, bool) {
-	sym := resolvedTypeSymbol(g.fa, name)
+// refinementAt reports whether the checker resolved the type name written
+// at line:col to a distinct refinement.
+func (g *gen) refinementAt(line, col int) bool {
+	sym := g.checkedRef(line, col)
 	if sym == nil {
-		return nil, false
+		return false
 	}
-	if dt, ok := sym.Type.(*analysis.DistinctType); ok && dt.Subtype {
-		return sym, true
-	}
-	return nil, false
-}
-
-// qualifiedRefinementKind is refinementKind for `float.NonNegativeFloat`.
-func (g *gen) qualifiedRefinementKind(t *ast.QualifiedType) (kind, bool) {
-	qualifier, name, ok := qualifiedTypeParts(t)
-	if !ok {
-		return kindInvalid, false
-	}
-	sym := resolvedScopeSymbol(g.moduleScope(qualifier), name)
-	if sym == nil {
-		return kindInvalid, false
-	}
-	if dt, isDistinct := sym.Type.(*analysis.DistinctType); isDistinct && dt.Subtype {
-		return g.project(dt), true
-	}
-	return kindInvalid, false
+	dt, isDistinct := sym.Type.(*analysis.DistinctType)
+	return isDistinct && dt.Subtype
 }
 
 // isDistinctRefinementDecl reports whether n declares a distinct
@@ -719,120 +713,4 @@ func (g *gen) qualifiedRefinementKind(t *ast.QualifiedType) (kind, bool) {
 func isDistinctRefinementDecl(n ast.Node) bool {
 	td, ok := n.(*ast.TypeDef)
 	return ok && td.Subtype && td.InnerTypeExpr != nil
-}
-
-// stdRefinementKind is the kind a std signature's type names when it names
-// a std distinct refinement (`NonZeroInt`) or a refinement's base
-// (ast.RefinementBaseType): the base's, a scalar or a type std declares. Resolved
-// through the module's own analysis, as the names it declares are.
-func stdRefinementKind(te ast.TypeExpr, anchors stdAnchors) (kind, bool) {
-	var name string
-	var generic *ast.GenericType
-	switch t := te.(type) {
-	case *ast.RefinementBaseType:
-		name = t.Refinement
-	case *ast.SimpleType:
-		name = t.Name
-	case *ast.GenericType:
-		name, generic = t.Name, t
-	default:
-		return kindInvalid, false
-	}
-	if anchors.fa == nil {
-		return kindInvalid, false
-	}
-	sym := resolvedTypeSymbol(anchors.fa, name)
-	if sym == nil {
-		return kindInvalid, false
-	}
-	dt, ok := sym.Type.(*analysis.DistinctType)
-	if !ok || !dt.Subtype {
-		return kindInvalid, false
-	}
-	if generic != nil {
-		return stdGenericRefinementKind(dt, generic, anchors), true
-	}
-	base := analysis.RefinementBase(dt)
-	// kindInvalid: lookup — a base with no scalar kind is not a failure here; the lines below look it up as a named std type.
-	if k := scalarKindOfType(base); k != kindInvalid {
-		return k, true
-	}
-	// A base std declares, a `host type` (`Decimal`) or an opaque newtype
-	// (`Duration`): the kind its name has in a std signature.
-	if named, ok := base.(*analysis.DistinctType); ok && !named.Subtype && len(named.TypeArgs) == 0 {
-		return stdTypeKind(&ast.SimpleType{Name: named.Name}, anchors), true
-	}
-	// Any other base (a collection or a range at fixed arguments,
-	// `subtype Ratios List<Int>`, `subtype FiniteRange Range<Float>`; a
-	// struct or an enum std declares, `subtype FieldBits Bits`) is the kind
-	// of the subtype's first parent as its declaration writes it, which
-	// names only types std declares.
-	if td, ok := sym.Node.(*ast.TypeDef); ok && td.Subtype && td.InnerTypeExpr != nil {
-		return stdTypeKind(td.InnerTypeExpr, anchors), true
-	}
-	return kindInvalid, true
-}
-
-// stdGenericRefinementKind is the kind of a generic std subtype at the
-// type arguments a std signature writes, `BoundedRange<Int>` in
-// `Generator.int`: its base's kind at those arguments, `Range<Int>`. The
-// base is found through the subtype's parents with each type parameter
-// replaced by a marker, so the base's arguments say which written argument
-// each one is; a base whose arguments are anything but the subtype's own
-// parameters declines.
-func stdGenericRefinementKind(dt *analysis.DistinctType, gt *ast.GenericType, anchors stdAnchors) kind {
-	if len(dt.TypeParamDefs) == 0 || len(dt.TypeParamDefs) != len(gt.Params) {
-		return kindInvalid
-	}
-	inst := *dt
-	inst.TypeArgs = make([]analysis.Type, len(dt.TypeParamDefs))
-	markers := make(map[*analysis.TypeParam_]int, len(dt.TypeParamDefs))
-	for i, def := range dt.TypeParamDefs {
-		m := &analysis.TypeParam_{Name_: def.Name_}
-		inst.TypeArgs[i], markers[m] = m, i
-	}
-	var baseName string
-	var baseArgs []analysis.Type
-	switch b := analysis.RefinementBase(&inst).(type) {
-	case *analysis.StructType:
-		baseName, baseArgs = b.Name, b.TypeArgs
-	case *analysis.EnumType:
-		baseName, baseArgs = b.Name, b.TypeArgs
-	case *analysis.DistinctType:
-		baseName, baseArgs = b.Name, b.TypeArgs
-	default:
-		return kindInvalid
-	}
-	if len(baseArgs) == 0 {
-		return kindInvalid
-	}
-	params := make([]ast.TypeExpr, len(baseArgs))
-	for i, a := range baseArgs {
-		m, isMarker := a.(*analysis.TypeParam_)
-		at, ok := markers[m]
-		if !isMarker || !ok {
-			return kindInvalid
-		}
-		params[i] = gt.Params[at]
-	}
-	return stdTypeKind(&ast.GenericType{Name: baseName, Params: params, Line: gt.Line, Col: gt.Col}, anchors)
-}
-
-// scalarKindOfType is the kind of a scalar analysis type, kindInvalid for
-// any other.
-func scalarKindOfType(t analysis.Type) kind {
-	switch t {
-	case analysis.TypeInt:
-		return kindInt
-	case analysis.TypeFloat:
-		return kindFloat
-	case analysis.TypeString:
-		return kindString
-	case analysis.TypeDecimal:
-		return decimalKind()
-	}
-	if et, ok := t.(*analysis.EnumType); ok && et.Name == "Bool" && len(et.TypeArgs) == 0 {
-		return kindBool
-	}
-	return kindInvalid
 }

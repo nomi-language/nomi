@@ -8,8 +8,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/nomi-language/nomi/internal/ffirun"
-	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/parser"
 )
 
@@ -18,11 +16,6 @@ import (
 // a summary last. The records are for tools and agents, so every position
 // is given as a line and byte column and as a byte offset, and a fix is
 // text edits a tool applies as they are.
-//
-// An FFI program is checked in its wrapper process, which writes its
-// diagnostics' records on its stdout (ReportCheck), and `nomi check` passes
-// them through (CheckJSON.Write), so such a program's records are the ones
-// any other program's are.
 
 // checkJSONRecord is one line of `nomi check --format json`.
 type checkJSONRecord struct {
@@ -70,7 +63,7 @@ type checkJSONRelated struct {
 }
 
 // checkJSONFix is a diagnostic's fix: its edits, in File when that is not
-// the diagnostic's own file (a capability-not-allowed error's fix edits
+// the diagnostic's own file (an effect-not-allowed error's fix edits
 // nomi.toml).
 type checkJSONFix struct {
 	Title string          `json:"title"`
@@ -90,7 +83,6 @@ type CheckJSON struct {
 	w        io.Writer
 	sources  map[string][]int // a file's line start offsets, nil when unreadable
 	reported map[string]bool
-	pending  []byte // the start of a record Write has not had the end of
 	files    int
 	failed   int
 	diags    int
@@ -118,21 +110,14 @@ func (cj *CheckJSON) File(path string, err error) {
 }
 
 // Errors writes err, the failure of the check of the entry at path, as
-// diagnostic records: a record per call a capability list refuses, though
-// its text gives the first of each name; a failed `go build` of the Go the
-// program binds under ffirun.GoBuildFailedCode; and anything else that is
-// not Diagnostics as its text. A wrapper's failure whose records it wrote
-// itself (ffirun.ErrCheckReported) writes nothing more.
+// diagnostic records: a record per call an effects list refuses, though
+// its text gives the first of each name, and anything else that is not
+// Diagnostics as its text.
 func (cj *CheckJSON) Errors(path string, err error) {
-	if errors.Is(err, ffirun.ErrCheckReported) {
-		return
-	}
 	var ds Diagnostics
-	var refused *CapabilityError
+	var refused *EffectError
 	if errors.As(err, &refused) {
 		ds = refused.Diagnostics
-	} else if report, ok := ffirun.GoBuildReport(err); ok {
-		ds = Diagnostics{{Path: path, Code: ffirun.GoBuildFailedCode, Message: report}}
 	} else {
 		errors.As(err, &ds)
 	}
@@ -160,30 +145,6 @@ func (cj *CheckJSON) Warnings(ds Diagnostics) {
 	}
 }
 
-// Write passes through the records another process wrote for this run, an
-// FFI wrapper's check (ReportCheck), as this run writes its own: each
-// diagnostic once, and an error counted in the summary. A line that is no
-// record is reported as an error's text.
-func (cj *CheckJSON) Write(p []byte) (int, error) {
-	cj.pending = append(cj.pending, p...)
-	for {
-		i := bytes.IndexByte(cj.pending, '\n')
-		if i < 0 {
-			return len(p), nil
-		}
-		line := bytes.TrimSpace(cj.pending[:i])
-		cj.pending = cj.pending[i+1:]
-		if len(line) == 0 {
-			continue
-		}
-		var r checkJSONRecord
-		if err := json.Unmarshal(line, &r); err != nil || r.Type != "diagnostic" {
-			r = checkJSONRecord{Type: "diagnostic", Severity: "error", Message: string(line)}
-		}
-		cj.writeOnce(r)
-	}
-}
-
 // Through reports a file checked through the importer that loads it.
 func (cj *CheckJSON) Through(path, importer string) {
 	cj.files++
@@ -194,28 +155,6 @@ func (cj *CheckJSON) Through(path, importer string) {
 func (cj *CheckJSON) Summary() {
 	files, failed, diags := cj.files, cj.failed, cj.diags
 	cj.write(checkJSONRecord{Type: "summary", Files: &files, Failed: &failed, Diagnostics: &diags})
-}
-
-// ReportCheck is an FFI wrapper's `nomi check` of entry: Check with opts,
-// reported as frontend.DiagnosticsFormatEnv selects. Under `nomi check
-// --format json` each warning and error is a record on stdout (CheckJSON),
-// which the `nomi` that started the wrapper passes through; otherwise the
-// warnings and the failure are text on stderr, as `nomi check` prints them.
-// It answers whether the check passed.
-func ReportCheck(entry string, stdout, stderr io.Writer, opts ...Option) bool {
-	if !frontend.JSONDiagnostics() {
-		err := Check(entry, append(opts, WithWarnings(stderr))...)
-		if err != nil {
-			WriteFailure(stderr, err)
-		}
-		return err == nil
-	}
-	cj := NewCheckJSON(stdout)
-	err := Check(entry, append(opts, WithWarningsTo(cj.Warnings))...)
-	if err != nil {
-		cj.Errors(entry, err)
-	}
-	return err == nil
 }
 
 // writeOnce writes r unless the run wrote the same record before, and

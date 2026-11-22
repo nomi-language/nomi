@@ -217,7 +217,9 @@ A stream goes from the start of a file to its end. For reading and
 writing anywhere in a file, such as a record in the middle of a database
 file, `fs.open_file` opens it as an [`io.File`](/reference/io/#type-file), whose
 `File.read_at`, `File.write_at` and `File.seek` take a position in bytes.
-Close it with `defer File.close_quietly(f)`.
+Close it with `defer File.close_quietly(f)`. `File.sync` waits until the
+writes are on the disk, and `fs.lock` takes a lock on the file, or on a
+range of its bytes, that other handles respect.
 
 Standard input is a stream too. `io.stdin` is a `Reader`, so a function
 that takes a `Reader` reads standard input, a file or text alike.
@@ -390,11 +392,49 @@ secret
 ```
 <!-- expect
 Ok(home)
-Err(invalid path "../private.txt": the path leads outside the directory fs.within confines calls to)
+Err(invalid path "../private.txt": the path leads outside the directory it is confined to)
 -->
 
 On the disk the operating system enforces the confinement, so a symlink
 changed while the function runs cannot lead out either.
+
+A function can take the directory instead. `fs.open_dir` opens a `Dir`,
+and `Dir`'s functions are the ones above, each reaching only what is under
+it. The signature says what the function can touch, and a library handed
+a `Dir` needs no `std::fs` in an [effects
+list](/tooling/projects/#authority-by-handle):
+
+```nomi-run read-only:private.txt
+// FILE: main.nomi
+import
+    std::fs.{self, Dir}
+    std::io
+end
+
+// Reaches only what is under the Dir it is handed.
+fn page(site: Dir, name: String) -> Result<String, io.Error>
+    Dir.read_text(site, name) |> Result.map(String.trim)
+end
+
+fn main() -> Result<Unit, io.Error>
+    site = fs.open_dir("site")?
+    defer Dir.close(site)
+
+    io.print(page(site, "index.txt"))
+    io.print(page(site, "../private.txt"))
+    Ok(Unit)
+end
+
+// FILE: site/index.txt
+home
+
+// FILE: private.txt
+secret
+```
+<!-- expect
+Ok(home)
+Err(invalid path "../private.txt": the path leads outside the directory it is confined to)
+-->
 
 ## Testing code that uses files
 

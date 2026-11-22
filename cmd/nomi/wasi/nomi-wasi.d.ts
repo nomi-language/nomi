@@ -17,9 +17,9 @@ export interface Options {
   /** Receives stderr as it is written, in place of capturing it. */
   onStderr?: (text: string) => void;
   /**
-   * The std modules the program may reach outside itself through, such as
-   * ["std::io"]. An empty list allows nothing; without it these calls are
-   * not held. A program that reaches more is refused at the load, before it
+   * The effects the program may have, by std module, such as
+   * ["std::io"]. An empty list allows no effects; without it these calls are
+   * not held. A program that has more is refused at the load, before it
    * runs.
    */
   std?: string[];
@@ -29,6 +29,14 @@ export interface Options {
    * may call none; host alone holds only host functions.
    */
   host?: string[];
+  /**
+   * The program's own `host fn`s this host answers, by key (`greet`, or
+   * `helpers/util.greet` for one in another file): each function takes the
+   * arguments and returns the result as JSON values, and a thrown Error
+   * fails the call with its message. A `host fn` this does not answer fails
+   * the load. `host` still holds the keys.
+   */
+  hosts?: Record<string, (...args: any[]) => unknown>;
   /**
    * Milliseconds the boot, and each later call and run of main, may run
    * before it is stopped. A stopped call rejects, and the program stays

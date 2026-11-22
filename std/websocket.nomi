@@ -183,13 +183,14 @@ impl WebSocket
     //! import std::http::testing
     //! import std::websocket.{self, Message, WebSocket}
     //!
-    //! echo = fn request: Request ->
-    //!     websocket.accept(request, fn ws ->
-    //!         _ = WebSocket.each(ws, fn message ->
-    //!             _ = WebSocket.send(ws, message)
+    //! echo =
+    //!     fn request: Request ->
+    //!         websocket.accept(request, fn ws ->
+    //!             _ = WebSocket.each(ws, fn message ->
+    //!                 _ = WebSocket.send(ws, message)
+    //!             end)
     //!         end)
-    //!     end)
-    //! end
+    //!     end
     //!
     //! got = testing.open_websocket(echo, "/echo", fn ws ->
     //!     _ = WebSocket.send_text(ws, "hello")
@@ -218,10 +219,11 @@ impl WebSocket
     /// Sends `message` as one frame. Sends from several tasks go one at a
     /// time.
     pub fn send(ws: WebSocket, message: Message) -> Result<Unit, Error>
-        sent = case message
-            .Text(text)   -> http_host.ws_send(ws.handle, True, String.to_bytes(text))
-            .Binary(data) -> http_host.ws_send(ws.handle, False, data)
-        end
+        sent =
+            case message
+                .Text(text)   -> http_host.ws_send(ws.handle, True, String.to_bytes(text))
+                .Binary(data) -> http_host.ws_send(ws.handle, False, data)
+            end
 
         sent |> Result.map_err(error_of)
     end
@@ -244,11 +246,12 @@ impl WebSocket
     //! import std::http::testing
     //! import std::websocket.{self, Error, WebSocket}
     //!
-    //! leave = fn request: Request ->
-    //!     websocket.accept(request, fn ws ->
-    //!         _ = WebSocket.close(ws, 4000, "done here")
-    //!     end)
-    //! end
+    //! leave =
+    //!     fn request: Request ->
+    //!         websocket.accept(request, fn ws ->
+    //!             _ = WebSocket.close(ws, 4000, "done here")
+    //!         end)
+    //!     end
     //!
     //! got = testing.open_websocket(leave, "/", fn ws -> WebSocket.receive(ws))
     //! assert Ok(received) = got
@@ -291,11 +294,12 @@ end
 //! import std::http::testing
 //! import std::websocket.{self, AcceptOptions, WebSocket}
 //!
-//! chat = fn request: Request ->
-//!     websocket.accept(request, AcceptOptions{protocols: ["chat.v2", "chat.v1"]}, fn ws ->
-//!         _ = WebSocket.send_text(ws, "welcome")
-//!     end)
-//! end
+//! chat =
+//!     fn request: Request ->
+//!         websocket.accept(request, AcceptOptions{protocols: ["chat.v2", "chat.v1"]}, fn ws ->
+//!             _ = WebSocket.send_text(ws, "welcome")
+//!         end)
+//!     end
 //!
 //! offered = Headers[("Sec-WebSocket-Protocol", "chat.v1, chat.v2")]
 //!
@@ -326,10 +330,11 @@ pub fn accept(
             refused
 
         Ok((key, protocol)) ->
-            chosen = case protocol
-                Some(p) -> [("Sec-WebSocket-Protocol", p)]
-                None    -> []
-            end
+            chosen =
+                case protocol
+                    Some(p) -> [("Sec-WebSocket-Protocol", p)]
+                    None    -> []
+                end
 
             Headers(extra) = options.headers
 
@@ -378,13 +383,14 @@ end
 //! import std::url.Url
 //! import std::websocket.{self, Error, Message, WebSocket}
 //!
-//! echo = fn request: Request ->
-//!     websocket.accept(request, fn ws ->
-//!         _ = WebSocket.each(ws, fn message ->
-//!             _ = WebSocket.send(ws, message)
+//! echo =
+//!     fn request: Request ->
+//!         websocket.accept(request, fn ws ->
+//!             _ = WebSocket.each(ws, fn message ->
+//!                 _ = WebSocket.send(ws, message)
+//!             end)
 //!         end)
-//!     end)
-//! end
+//!     end
 //!
 //! said = testing.with_server(echo, fn server ->
 //!     ws = websocket.connect(Url.parse("ws://${server.url.host}/echo")!)!
@@ -419,16 +425,18 @@ pub fn connect(url: Url, options: ConnectOptions = ConnectOptions{}) -> Result<W
 
     address = net.join_host_port(host, port)
 
-    conn = if secure then
-        named = {
-            ..options.tls,
-            server_name: Some(Maybe.with_default(.., host)),
-        }
+    conn =
+        if secure then
+            named = {
+                ..options.tls,
+                server_name: Some(Maybe.with_default(.., host)),
+            }
 
-        tls.dial(address, named, options.dial) |> Result.map_err(fn error -> Error.Network{error:})?
-    else
-        net.dial(address, options.dial) |> Result.map_err(fn error -> Error.Network{error:})?
-    end
+            tls.dial(address, named, options.dial)
+            |> Result.map_err(fn error -> Error.Network{error:})?
+        else
+            net.dial(address, options.dial) |> Result.map_err(fn error -> Error.Network{error:})?
+        end
 
     Headers(pairs) = options.headers
     flat = Iter.reduce(pairs, [], fn acc: List<String>, (k, v) -> acc + [k, v])
@@ -446,10 +454,11 @@ pub fn connect(url: Url, options: ConnectOptions = ConnectOptions{}) -> Result<W
         )
         |> Result.map_err(error_of)?
 
-    protocol = case http_host.ws_protocol(handle)
-        ""     -> None
-        chosen -> Some(chosen)
-    end
+    protocol =
+        case http_host.ws_protocol(handle)
+            ""     -> None
+            chosen -> Some(chosen)
+        end
 
     Ok(WebSocket{handle:, protocol:})
 end

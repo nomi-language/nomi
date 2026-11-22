@@ -66,9 +66,6 @@ var keywordDocs = []keywordDoc{
 	{word: "as", context: "import", form: "import path::file as name\nimport path::file.Item as Name",
 		text: "Binds the imported file or item under another name. The alias is the import's short name; the original name is not bound.",
 		link: "/modules-and-imports/#import-syntax"},
-	{word: "as", context: "gopkg", form: `gopkg "path" as alias`,
-		text: "Names the Go package handle, which this file's `go alias.Symbol` bindings use.",
-		link: "/calling-go/#binding-the-go-standard-library"},
 	{word: "as", form: "Pattern as name",
 		text: "Matches `Pattern` and binds the whole value it matched to `name`. It never changes what matches, and binds looser than every other pattern construct, `or` included.",
 		link: "/pattern-matching/#naming-the-whole-match-with-as"},
@@ -118,7 +115,7 @@ var keywordDocs = []keywordDoc{
 		text: "Declares a top-level function that a host calls by name, such as a web page or a WASI runtime. Its arguments and result cross as JSON, through `FromJson` and `ToJson`.",
 		link: "/building-and-shipping/#calling-nomi-from-a-page"},
 	{word: "extern", form: "host fn name(params) -> Result",
-		text: "`extern` is reserved and starts nothing. A declaration implemented outside Nomi is written `host fn` or `host type`, and a Go package handle `gopkg`.",
+		text: "`extern` is reserved and starts nothing. A declaration implemented outside Nomi is written `host fn` or `host type`.",
 		link: "/spec/lexical-structure/#keywords"},
 	{word: "fn", form: "fn name(params) -> Result\n    body\nend",
 		text: "Declares a function. Every parameter has a type, the result type is written unless it is `Unit`, and the body's last expression is the result.",
@@ -221,10 +218,7 @@ var keywordDocs = []keywordDoc{
 		link: "/structs-enums-distinct/#distinct-types"},
 	{word: "type", context: "host", form: "host type Name",
 		text: "Declares a type implemented outside Nomi, with no visible fields or body. Its operations are `host fn` declarations or functions in `impl` blocks.",
-		link: "/spec/host-declarations-and-go-bindings/#host-and-foreign-declarations"},
-	{word: "type", context: "go", form: "opaque type Name go alias.Type",
-		text: "Binds a Go type to a Nomi name, from the package a `gopkg` names `alias`. It is opaque: it can be named and passed, but not constructed, unwrapped or inspected.",
-		link: "/calling-go/#binding-the-go-standard-library"},
+		link: "/spec/host-declarations/#host-declarations"},
 	{word: "typealias", form: "typealias Name Target",
 		text: "Makes `Name` another spelling of `Target` in type positions. The two are one type.",
 		link: "/structs-enums-distinct/#type-aliases"},
@@ -266,24 +260,15 @@ var keywordDocs = []keywordDoc{
 	{word: "embeds", form: "enum Name\n    embeds Type\nend",
 		text: "Makes a struct or distinct type, declared on its own, a variant of this enum. A value of the embedded type is accepted wherever the enum is expected.",
 		link: "/structs-enums-distinct/#embedding-existing-types"},
-	{word: "go", form: "fn name(params) -> Result go alias.Symbol",
-		text: "Binds an exported Go function to this Nomi name and signature, from the package a `gopkg` names `alias`.",
-		link: "/calling-go/#binding-the-go-standard-library"},
-	{word: "go", context: "type", form: "opaque type Name go alias.Type",
-		text: "Binds a Go type to this Nomi name, from the package a `gopkg` names `alias`. It can be named and passed, but not constructed, unwrapped or inspected.",
-		link: "/calling-go/#binding-the-go-standard-library"},
-	{word: "gopkg", form: `gopkg "path" as alias`,
-		text: "Declares a handle for a Go package, resolved by Go's module rules, which this file's `go alias.Symbol` bindings name.",
-		link: "/calling-go/#binding-the-go-standard-library"},
 	{word: "group", form: "group \"name\"\n    ...\nend",
 		text: "Holds tests that share a `clock`, a `boot` or a `setup`. Each test still starts fresh.",
 		link: "/testing/#groups-and-setup", existing: typedKeyword},
 	{word: "host", form: "host fn name(params) -> Result",
 		text: "Declares a function with no body, implemented outside Nomi: by the runtime for the standard library, or by the host table of a Go program that embeds Nomi.",
-		link: "/spec/host-declarations-and-go-bindings/#host-and-foreign-declarations"},
+		link: "/spec/host-declarations/#host-declarations"},
 	{word: "host", context: "type", form: "host type Name",
 		text: "Declares a type implemented outside Nomi, with no visible fields or body. Its operations are `host fn` declarations or functions in `impl` blocks.",
-		link: "/spec/host-declarations-and-go-bindings/#host-and-foreign-declarations"},
+		link: "/spec/host-declarations/#host-declarations"},
 	{word: "noun", form: "noun name `MessageFormat 2 text`",
 		text: "Declares a noun that phrases agree with, a `Noun` value. Its body is its form in the source locale, over an implicit `$count: Int`.",
 		link: "/translating-text/#nouns"},
@@ -559,12 +544,10 @@ func (k *keywordSite) context() (context, extra string, isKeyword bool) {
 	switch w := k.word(); w {
 	case "as":
 		switch k.innermost(func(n ast.Node) bool {
-			return is[*ast.AsPattern](n) || is[*ast.ImportStmt](n) || is[*ast.ImportBlock](n) || is[*ast.ExternPackage](n)
+			return is[*ast.AsPattern](n) || is[*ast.ImportStmt](n) || is[*ast.ImportBlock](n)
 		}).(type) {
 		case *ast.ImportStmt, *ast.ImportBlock:
 			return "import", "", true
-		case *ast.ExternPackage:
-			return "gopkg", "", true
 		}
 		return "", "", true
 	case "case", "if", "dbg":
@@ -621,9 +604,6 @@ func (k *keywordSite) context() (context, extra string, isKeyword bool) {
 	case "type":
 		if p := k.prev(); p.Type == token.IDENT && p.Lexeme == "host" && p.Line == k.at.Line {
 			return "host", "", true
-		}
-		if k.goBindingOnLine() {
-			return "go", "", true
 		}
 		return "", "", true
 	case "where":
@@ -691,15 +671,6 @@ func (k *keywordSite) context() (context, extra string, isKeyword bool) {
 			}
 			return 0, 0
 		})
-	case "gopkg":
-		return "", "", k.declaredAt(func(n ast.Node) (int, int) {
-			if d, ok := n.(*ast.ExternPackage); ok {
-				return d.Line, d.Col
-			}
-			return 0, 0
-		})
-	case "go":
-		return k.goContext()
 	case "concurrent":
 		return "", "", k.declaredAt(func(n ast.Node) (int, int) {
 			if d, ok := n.(*ast.ConcurrentBlock); ok {
@@ -904,44 +875,6 @@ func (k *keywordSite) selfContext() (string, string, bool) {
 		}
 	}
 	return "", "", true
-}
-
-// goContext reports whether a `go` binds a Go function or type: the
-// alias of a binding follows it.
-func (k *keywordSite) goContext() (string, string, bool) {
-	alias, dot := k.next(1), k.next(2)
-	if alias.Type != token.IDENT || dot.Type != token.DOT {
-		return "", "", false
-	}
-	context, found := "", false
-	for _, n := range k.nodes {
-		ast.Inspect(n, func(c ast.Node) bool {
-			switch d := c.(type) {
-			case *ast.ExternFunc:
-				if d.ForeignAliasLine == alias.Line && d.ForeignAliasCol == alias.Col {
-					context, found = "", true
-				}
-			case *ast.ExternType:
-				if d.ForeignAliasLine == alias.Line && d.ForeignAliasCol == alias.Col {
-					context, found = "type", true
-				}
-			}
-			return !found
-		})
-	}
-	return context, "", found
-}
-
-// goBindingOnLine reports whether a `go alias.Type` binding follows the
-// keyword on its line.
-func (k *keywordSite) goBindingOnLine() bool {
-	for j := k.i + 1; j+2 < len(k.toks) && k.toks[j].Line == k.at.Line; j++ {
-		t := k.toks[j]
-		if t.Type == token.IDENT && t.Lexeme == "go" && k.toks[j+1].Type == token.IDENT && k.toks[j+2].Type == token.DOT {
-			return true
-		}
-	}
-	return false
 }
 
 // analysisHover is the hover the analysis gives the keyword's token: an

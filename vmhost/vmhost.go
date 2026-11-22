@@ -18,6 +18,7 @@ import (
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/internal/irbuild"
+	"github.com/nomi-language/nomi/internal/progcache"
 	"github.com/nomi-language/nomi/internal/vm"
 	"github.com/nomi-language/nomi/rt"
 	"github.com/nomi-language/nomi/vmrunner"
@@ -39,6 +40,16 @@ type Program struct {
 	// stdDeclines are the declines of each stdlib module's bodies, by
 	// module, lowered when a blocker first needs them (stdDecline).
 	stdDeclines map[string][]*irbuild.Decline
+	// appTypes are the program's application types as the checks of the
+	// files it was relowered from recorded them, for a program whose entry
+	// has no check at hand (one relinked from a record's kept lowering,
+	// checklowering_stored.go); appFieldNames reads them.
+	appTypes []*analysis.StructType
+	// recordTrees and recordFiles are what the records of a program
+	// relinked from them name (filerecord.go's relink), which its modules,
+	// the entry alone, do not: inputs answers them.
+	recordTrees []progcache.Tree
+	recordFiles []string
 	// sources are the texts of the program's in-memory files by module path,
 	// which a diagnostic quotes its source line from (a file on disk is read).
 	sources map[string]string
@@ -79,6 +90,15 @@ type Program struct {
 	// hint its failure ends with (SetTestTimeout).
 	testTimeout     time.Duration
 	testTimeoutHint string
+	// passes are the stored passes Test reads and writes (UseStoredPasses),
+	// or nil for none.
+	passes *passStore
+	// kept is the sum of the kept program's record (progcache.Entry.Sum)
+	// this program was decoded from (Cache.Program), or zero.
+	kept [32]byte
+	// reaching, when set, narrows the cases Test and Cases answer to those
+	// whose code reaches the function there (SelectReaching).
+	reaching *TestLocation
 	// cfg is the configuration the program was loaded with, which a debugger
 	// expression (CompileExpr) is loaded with too.
 	cfg config
@@ -91,10 +111,10 @@ type Program struct {
 	// webEmbedded are the locales a browser build of the program embeds
 	// (analysis.Manifest.WebLocales), nil when it lists no locales.
 	webEmbedded []string
-	// capabilities is the program's nomi.toml [capabilities.self] and
-	// [capabilities.deps] tables, nil when it has neither
-	// (OutsideCallsNotAllowed).
-	capabilities *analysis.Capabilities
+	// effects is the program's nomi.toml [effects.self] and
+	// [effects.deps] tables, nil when it has neither
+	// (EffectCallsNotAllowed).
+	effects *analysis.Effects
 	// modules is each dependency whose files the program holds, by its
 	// root directory, worked out once (moduleAt).
 	modulesMu sync.Mutex
@@ -118,8 +138,7 @@ func (p *Program) localeData() *cldrdata.Data { return cldrfull.ForProgram(p.loc
 
 // HostTable is a table of host adapters: bound against a machine's Env, it
 // answers each adapter by the key the program's `host fn` crosses under. A
-// generated adapter file's Bind is one; an FFI wrapper passes the table it
-// generated for the project's Go bindings; an embedder writes one.
+// generated adapter file's Bind is one; an embedder writes one.
 type HostTable = vm.HostTable
 
 // MainError is the error Run answers when `main` returns `Err`. Its Text is
@@ -312,9 +331,9 @@ func (p *Program) run(ctx context.Context, out io.Writer, args []string, handleS
 	if mainFn == nil {
 		return p.blockedName("main")
 	}
-	// nomi.toml's [capabilities] lists, and the host's (WithCapabilities),
+	// nomi.toml's [effects] lists, and the host's (WithEffects),
 	// refuse the run before anything in it does anything.
-	if err := p.capabilityError(Roots{Exports: p.HasExports()}); err != nil {
+	if err := p.effectError(Roots{Exports: p.HasExports()}); err != nil {
 		return err
 	}
 	m := p.machine(out).WithHostEnv(hostEnv)
@@ -354,19 +373,29 @@ func (p *Program) run(ctx context.Context, out io.Writer, args []string, handleS
 // file is the absolute path a JSON report locates each case by, with the
 // case's first and last lines.
 func (p *Program) Test(out io.Writer, rep *TestReport, file string, opts TestOptions, label func(string) string) {
-	// nomi.toml's [capabilities] tables, with their std_in_tests and
-	// go_in_tests, and the host's (WithCapabilities, WithGo) refuse the
-	// file's cases before any of them runs.
-	if err := p.capabilityError(Roots{Tests: &opts}); err != nil {
+	// nomi.toml's [effects] tables, with their std_in_tests, and the
+	// host's (WithEffects) refuse the file's cases before any of them
+	// runs.
+	if err := p.effectError(Roots{Tests: &opts}); err != nil {
 		rep.FailFile(file, err)
 		return
 	}
-	for _, c := range p.heldCases(out, opts) {
-		loc := TestLocation{File: file, Line: c.Line, EndLine: c.EndLine}
-		if p.liveTests != nil && rep.Format() != TestFormatJSON {
-			// Streamed as the case wrote it (StreamTestOutput).
-			c.Output = ""
+	cases := p.heldCases(out, opts, p.passes)
+	if p.liveTests != nil && rep.Format() != TestFormatJSON {
+		// Streamed as each case wrote it (StreamTestOutput).
+		for i := range cases {
+			cases[i].Output = ""
 		}
+	}
+	reportCases(rep, file, cases, label)
+}
+
+// reportCases reports cases, a file's in source order, to rep as Test
+// does: Cache.TestUnchanged reports a file answered from its passes record
+// through it too.
+func reportCases(rep *TestReport, file string, cases []CaseResult, label func(string) string) {
+	for _, c := range cases {
+		loc := TestLocation{File: file, Line: c.Line, EndLine: c.EndLine}
 		if c.Blocked != nil {
 			if c.BlockedPath == file {
 				loc.ErrorLine = c.BlockedLine
@@ -394,6 +423,15 @@ type CaseResult struct {
 	// Subtests reports whether the test ran a `subtests` table: its ok line
 	// names its count of cases.
 	Subtests bool
+	// Decided is how Test decided whether to run the case, for a program
+	// that uses stored passes (UseStoredPasses), and "" otherwise: one of
+	// rt's Decided constants. A case rt.DecidedUnchanged did not run: it
+	// passed, with the cases its stored pass counted, and wrote nothing.
+	Decided string
+	// Effects says the case's code can have effects, as its walk found
+	// them, for a program that uses stored passes or selects by reach
+	// (SelectReaching).
+	Effects bool
 	// Output is what the case wrote while it ran: `io.print`, `io.write`,
 	// `io.inspect` and `dbg`, from its boot, setup, body, the tasks it
 	// started and the `once` initializers it forced, with `dbg` coloured as
@@ -417,7 +455,7 @@ type CaseResult struct {
 
 // Count is the cases r counts as, as a report takes them.
 func (r CaseResult) Count() CaseCount {
-	return CaseCount{Subtests: r.Subtests, Cases: r.Cases, Failed: r.FailedCases}
+	return CaseCount{Subtests: r.Subtests, Cases: r.Cases, Failed: r.FailedCases, Decided: r.Decided, Effects: r.Effects}
 }
 
 // counted sets r's case counts from the rows of `subtests` tables it ran.
@@ -448,13 +486,13 @@ func (r *CaseResult) blockedBy(b *Blocked) {
 // answers the entry's cases and then each other test file's, in block
 // order, as `nomi test` runs every test file of a project.
 //
-// The cases are held as Test holds them: when nomi.toml's [capabilities]
-// lists, with std_in_tests and go_in_tests, or the host's
-// (WithCapabilities, WithGo) do not allow what the selected cases reach,
+// The cases are held as Test holds them: when nomi.toml's [effects]
+// lists, with std_in_tests, or the host's (WithEffects) do not allow
+// what the selected cases reach,
 // Cases runs nothing and answers each selected case failed with the
-// *CapabilityError.
+// *EffectError.
 func (p *Program) Cases(out io.Writer, opts TestOptions) []CaseResult {
-	if err := p.capabilityError(Roots{Tests: &opts}); err != nil {
+	if err := p.effectError(Roots{Tests: &opts}); err != nil {
 		plan, _ := frontend.SelectTests(p.prog.Entry().Nodes, opts)
 		results := make([]CaseResult, len(plan))
 		for i, tc := range plan {
@@ -463,22 +501,29 @@ func (p *Program) Cases(out io.Writer, opts TestOptions) []CaseResult {
 		}
 		return results
 	}
-	return p.heldCases(out, opts)
+	return p.heldCases(out, opts, nil)
 }
 
 // heldCases is Cases for a program its lists allow to run the cases opts
 // selects: the entry's, then each other test file's, which Cases holds
-// on its own.
-func (p *Program) heldCases(out io.Writer, opts TestOptions) []CaseResult {
-	results := p.entryCases(out, opts)
+// on its own. With passes, an entry's case that a stored pass answers does
+// not run (entryCases).
+func (p *Program) heldCases(out io.Writer, opts TestOptions, passes *passStore) []CaseResult {
+	results := p.entryCases(out, opts, passes)
 	for _, t := range p.blockTests {
 		results = append(results, t.Cases(out, opts)...)
 	}
 	return results
 }
 
-// entryCases is Cases for the entry's own cases.
-func (p *Program) entryCases(out io.Writer, opts TestOptions) []CaseResult {
+// entryCases is Cases for the entry's own cases. With passes, a case whose
+// stored pass the walk from it matches does not run and answers that pass
+// (testpass.go), and each case that runs updates its stored pass.
+func (p *Program) entryCases(out io.Writer, opts TestOptions, passes *passStore) []CaseResult {
+	if p.debugger != nil || p.entry == nil {
+		// A debugged run stops where its breakpoints say, in every case.
+		passes = nil
+	}
 	plan, duplicates := frontend.SelectTests(p.prog.Entry().Nodes, opts)
 	if len(duplicates) > 0 {
 		results := make([]CaseResult, len(duplicates))
@@ -502,9 +547,28 @@ func (p *Program) entryCases(out io.Writer, opts TestOptions) []CaseResult {
 		blocked *Blocked
 		err     error
 		run     int // index into the runnable slice, or -1
+		// pass is the case's fingerprint and code, which a pass stores,
+		// or the stored pass that answered a case decided rt.DecidedUnchanged.
+		pass    storedPass
+		decided string
+		// skip is a case whose code does not reach the functions
+		// SelectReaching names: it is not reported.
+		skip bool
+		// effects says the case's walk found an effect, which a result
+		// says when the run keeps passes or selects by reach.
+		effects bool
 	}
 	outcomes := make([]outcome, len(plan))
 	var runnable []ir.TestCase
+	var sums *vm.CodeSums
+	if passes != nil {
+		passes.open(p.testTimeout)
+		sums = passes.sums
+	}
+	var reaching []*ir.Func
+	if p.reaching != nil && p.entry != nil {
+		reaching = vm.FuncsAt(p.res.IR, p.reaching.File, p.reaching.Line)
+	}
 	for i, tc := range plan {
 		outcomes[i].run = -1
 		if tc.Clock == frontend.InvalidClock {
@@ -520,13 +584,23 @@ func (p *Program) entryCases(out io.Writer, opts TestOptions) []CaseResult {
 			}
 			continue
 		}
-		var boots []*ir.Symbol
-		if b := c.Group().Boot; b != nil {
-			boots = append(boots, b, c.Group().Startup)
-		}
-		if found := m.Unretained([]*ir.Func{c.Fn()}, boots); len(found) > 0 {
-			outcomes[i].blocked = p.blocked(found)
+		reach := m.ReachCase(c, sums)
+		if p.reaching != nil && !reach.Reaches(reaching) {
+			outcomes[i].skip = true
 			continue
+		}
+		if len(reach.Unretained) > 0 {
+			outcomes[i].blocked = p.blocked(reach.Unretained)
+			continue
+		}
+		outcomes[i].effects = len(reach.Effects) > 0
+		if passes != nil {
+			sum := p.caseFingerprint(c, reach.Parts)
+			pass, decided := passes.decide(c.Name(), sum, reach)
+			outcomes[i].pass, outcomes[i].decided = pass, decided
+			if decided == rt.DecidedUnchanged {
+				continue
+			}
 		}
 		outcomes[i].run = len(runnable)
 		runnable = append(runnable, c)
@@ -541,10 +615,23 @@ func (p *Program) entryCases(out io.Writer, opts TestOptions) []CaseResult {
 	for i, tc := range plan {
 		o := outcomes[i]
 		results[i].Name, results[i].Line, results[i].EndLine = tc.FullName(), tc.Line, tc.LastLine()
+		if o.skip {
+			continue
+		}
+		if passes != nil || p.reaching != nil {
+			results[i].Effects = o.effects
+		}
 		if o.run >= 0 {
 			results[i].Output = outputs[o.run]
 		}
+		results[i].Decided = o.decided
+		passed := false
 		switch {
+		case o.decided == rt.DecidedUnchanged:
+			results[i].Cases, results[i].Subtests = o.pass.count.Cases, o.pass.count.Subtests
+			// Kept as decided now: verified on this program or not.
+			passes.keep(tc.FullName(), o.pass)
+			continue
 		case o.blocked != nil:
 			results[i].blockedBy(o.blocked)
 		case o.run >= 0 && limits[o.run] != "":
@@ -556,10 +643,37 @@ func (p *Program) entryCases(out io.Writer, opts TestOptions) []CaseResult {
 				timedOut.Hint = p.testTimeoutHint
 			}
 			results[i].counted(rows[o.run])
+			passed = results[i].Err == nil
 		default:
 			results[i].Err = o.err
 			results[i].counted(0)
 		}
+		if passes != nil {
+			// Only a pass is stored: a case that failed, was blocked or
+			// timed out runs again next time.
+			if passed {
+				o.pass.count = CaseCount{Subtests: results[i].Subtests, Cases: results[i].Cases}
+				passes.keep(tc.FullName(), o.pass)
+			} else {
+				passes.forget(tc.FullName())
+			}
+		}
+	}
+	if passes != nil {
+		names := make([]string, 0, len(p.entry.Tests()))
+		for _, c := range p.entry.Tests() {
+			names = append(names, c.Name())
+		}
+		passes.store(names)
+	}
+	if p.reaching != nil {
+		kept := results[:0]
+		for i, r := range results {
+			if !outcomes[i].skip {
+				kept = append(kept, r)
+			}
+		}
+		results = kept
 	}
 	return results
 }
@@ -649,9 +763,6 @@ func (p *Program) undeclined(name string) string {
 			case *ast.ExternFunc:
 				if d.Name != name {
 					continue
-				}
-				if d.ForeignName != "" {
-					return "a `go`-bound declaration (go " + d.ForeignAlias + "." + d.ForeignName + ") has no VM body"
 				}
 				return "a `host fn` with no VM body"
 			case *ast.FuncDef:

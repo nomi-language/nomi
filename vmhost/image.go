@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/nomi-language/nomi/hostadapt"
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/cldrdata"
 	"github.com/nomi-language/nomi/internal/cldrfull"
@@ -24,7 +25,7 @@ import (
 // BuildImage is what `nomi build` appends to a runner: the program's linked
 // IR (its own units, the stdlib modules and generic instances it links),
 // pruned to the functions the program can reach (vm.PruneImage), with the
-// entry, the Go-bound host keys, whether it has a `fn main`, and the
+// entry, the host keys of its own `host fn`s, whether it has a `fn main`, and the
 // project root std/compiler's hosts resolve against.
 //
 // A program the VM would block is refused here with the *Blocked `nomi run`
@@ -88,8 +89,8 @@ func (p *Program) image(withExports bool) (im ir.Image, usesCompiler bool, need 
 	if ds := p.missingEmbeds(); len(ds) > 0 {
 		return ir.Image{}, false, localeNeed{}, ds
 	}
-	// nomi.toml's [capabilities] lists hold what the image's roots reach.
-	if ds, _ := p.capabilityProblems(Roots{Exports: withExports}); len(ds) > 0 {
+	// nomi.toml's [effects] lists hold what the image's roots reach.
+	if ds, _ := p.effectProblems(Roots{Exports: withExports}); len(ds) > 0 {
 		return ir.Image{}, false, localeNeed{}, ds
 	}
 	var roots []*ir.Func
@@ -123,13 +124,58 @@ func (p *Program) image(withExports bool) (im ir.Image, usesCompiler bool, need 
 			exports = append(exports, x)
 		}
 	}
+	// A host that calls exported functions may answer the program's own
+	// `host fn`s in JSON too (a WASI reactor's nomi.host_call), so the
+	// image carries each one's conversions, kept as roots. One whose
+	// signature cannot cross, or whose conversions were not lowered, is
+	// carried without them, and a runner that is asked to answer it so
+	// refuses the program at its load.
+	var hostFns []ir.HostFn
+	if withExports {
+		for _, h := range p.res.HostFns {
+			x := ir.HostFn{Key: h.Key, Name: h.Name, NoJSON: h.NoJSON}
+			if !analysis.IsUnitType(h.Result) {
+				x.Result = h.Result.String()
+			}
+			lowered := h.Lowered()
+			if !lowered && x.NoJSON == "" {
+				x.NoJSON = "the JSON conversion of its arguments or result is not supported yet"
+			}
+			for _, prm := range h.Params {
+				hp := ir.HostFnParam{Name: prm.Name}
+				if prm.Type != nil {
+					hp.Type = prm.Type.String()
+				}
+				if lowered {
+					hp.Encode = prm.Encode
+					roots = append(roots, prm.Encode)
+				}
+				x.Params = append(x.Params, hp)
+			}
+			if lowered && h.Decode != nil {
+				x.Decode = h.Decode
+				roots = append(roots, h.Decode)
+			}
+			hostFns = append(hostFns, x)
+		}
+	}
 	var boots []*ir.Symbol
 	if p.entry != nil {
 		if boot := p.entry.Boot(); boot != nil {
 			boots = append(boots, boot)
 		}
 	}
-	if found := p.machine(io.Discard).Unretained(roots, boots); len(found) > 0 {
+	found := p.machine(io.Discard).Unretained(roots, boots)
+	if p.cfg.loaderHosts && withExports {
+		// The host that loads the image answers the program's own `host
+		// fn`s (WithLoaderHosts), and its runner checks them at the load.
+		own := map[string]bool{}
+		for _, key := range p.res.HostKeys() {
+			own[hostadapt.ProjectName(key)] = true
+		}
+		found = slices.DeleteFunc(found, func(u vm.Unretained) bool { return u.Kind == vm.NoBinding && own[u.Name] })
+	}
+	if len(found) > 0 {
 		return ir.Image{}, false, localeNeed{}, p.blocked(found)
 	}
 	// The image carries only what the program can run: the functions the
@@ -164,6 +210,7 @@ func (p *Program) image(withExports bool) (im ir.Image, usesCompiler bool, need 
 		HasMain:  p.HasMain(),
 		Root:     root,
 		Exports:  exports,
+		HostFns:  hostFns,
 	}, usesCompiler, localeNeeds(vm.ReachedCrossings(p.entry, p.res.IRModules(), roots, boots), mods), nil
 }
 

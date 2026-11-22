@@ -203,8 +203,8 @@ still runs it, to make sure it can, and the literal is the value
   the value, not a `Result`. The hint says to remove the `?`.
 - The compile error shows the `Err` through its `Display`, or its `Debug`
   when it has none.
-- A handler that doesn't finish within the compiler's step limit, or traps,
-  is refused the same way as one with effects.
+- A handler that doesn't finish within the compiler's step limit, traps,
+  or reads an app field is refused the same way as one with effects.
 - A `Regex` literal's type depends on its text. One with `${...}` can't
   know its groups, so its captures come back as a list.
 

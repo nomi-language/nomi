@@ -2,7 +2,6 @@ package analysis
 
 import (
 	"fmt"
-	"maps"
 	"sort"
 	"strings"
 
@@ -25,146 +24,17 @@ func FinalizeCoherence(fa *FileAnalysis) []TypeError {
 }
 
 // MissingImpls reports each (interface, type) pair the demanders' own
-// ImplManifests demand and no impl of program p supplies (DetectMissingImpls).
-// It reads only facts each file holds about itself, folded here: the impl
-// index's supply, every file's own Impls, and each demander's own demands.
-// Nil when p has no impl index.
-//
-// The supply is the index's, plus any file's own impls the index does not
-// hold (a module a function body's import loaded after the index was built).
-// Those pairs have no identity entry — PopulateImplsByIdentity ran over the
-// index — so they fall back to the bare-name answer; leaving them covered
-// would read a real impl as another module's.
+// ImplManifests demand and no impl of program p supplies, worked out afresh
+// as a program's kept check works it out (programDemands): the supply is
+// the impl index's, plus any file's own impls the index does not hold (a
+// module a function body's import loaded after the index was built), and
+// the demands are the demanders' with the stdlib base's when the demanders
+// hold every file of it. Nil when p has no impl index.
 func MissingImpls(p *Program, demanders []*FileAnalysis) []TypeError {
 	if p == nil || p.ImplIndex == nil {
 		return nil
 	}
-	idx := p.ImplIndex
-	demands := unionDemandsOver(demanders, p.stdBase)
-	// DetectMissingImpls reads the supply of the demanded types only, so
-	// only theirs is copied. The covered set is COPIED, not shared.
-	// Uncovering below is per-call state, and the index it comes from is
-	// held by every file of the program.
-	impls := map[string]map[string]bool{}
-	covered := map[string]map[string]bool{}
-	for _, byType := range demands {
-		for t := range byType {
-			if _, done := impls[t]; !done {
-				impls[t] = maps.Clone(idx.Impls[t])
-				covered[t] = maps.Clone(idx.implNamesWithIdentity[t])
-			}
-		}
-	}
-	// The identity index travels with the snapshot, or DetectMissingImpls'
-	// supply check has nothing to consult and every bare-name hit stands.
-	snapshot := &ProjectImplIndex{
-		Impls:                 impls,
-		ImplManifest:          demands,
-		ImplsByIdentity:       idx.ImplsByIdentity,
-		implNamesWithIdentity: covered,
-	}
-	for _, file := range p.Files() {
-		// An index laid over the stdlib's base holds every impl of the
-		// base's files.
-		if p.stdBase.Owns(file) {
-			continue
-		}
-		noteStdlibWork(file.Origin)
-		for t, ifaces := range file.Impls {
-			if _, demanded := impls[t]; !demanded {
-				continue
-			}
-			if impls[t] == nil {
-				impls[t] = make(map[string]bool, len(ifaces))
-			}
-			for i := range ifaces {
-				if !idx.Impls[t][i] {
-					snapshot.UncoverImplIdentity(t, i)
-				}
-				impls[t][i] = true
-			}
-		}
-	}
-	return DetectMissingImpls(snapshot, nil)
-}
-
-// unionDemands answers the union of files' own ImplManifests, keeping only
-// the (interface, type) buckets some recording outside the stdlib demands:
-// DetectMissingImpls reports nothing for a bucket every recording of which
-// is the stdlib's, so the stdlib's demands matter only beside a program's.
-// Each bucket's recordings are deduplicated and sorted by position, so the
-// order does not depend on the order the files were checked or given in.
-func unionDemands(files []*FileAnalysis) map[string]map[string][]Recording {
-	return unionDemandsOver(files, nil)
-}
-
-// unionDemandsOver is unionDemands that takes the demands of base's files
-// from base when files holds every one of them.
-func unionDemandsOver(files []*FileAnalysis, base *StdBase) map[string]map[string][]Recording {
-	if !base.ownsAll(files) {
-		base = nil
-	}
-	type bucket = implPair
-	var wanted []bucket
-	seen := map[bucket]bool{}
-	if base != nil {
-		for _, b := range base.wanted {
-			seen[b] = true
-			wanted = append(wanted, b)
-		}
-	}
-	for _, file := range files {
-		if base.Owns(file) {
-			continue
-		}
-		noteStdlibWork(file.Origin)
-		if isStdlibRecording(Recording{Pos: Pos{File: file.FilePath}}) {
-			// A file's checker records at the file's own path.
-			continue
-		}
-		for iface, byType := range file.ImplManifest {
-			for typeName, recs := range byType {
-				b := bucket{typeName: typeName, iface: iface}
-				if seen[b] {
-					continue
-				}
-				for _, rec := range recs {
-					if !isStdlibRecording(rec) {
-						seen[b] = true
-						wanted = append(wanted, b)
-						break
-					}
-				}
-			}
-		}
-	}
-	out := make(map[string]map[string][]Recording)
-	for _, b := range wanted {
-		var recs []Recording
-		dup := map[Recording]bool{}
-		add := func(from []Recording) {
-			for _, rec := range from {
-				if !dup[rec] {
-					dup[rec] = true
-					recs = append(recs, rec)
-				}
-			}
-		}
-		for _, file := range files {
-			if !base.Owns(file) {
-				add(file.ImplManifest[b.iface][b.typeName])
-			}
-		}
-		if base != nil {
-			add(base.demands[b.iface][b.typeName])
-		}
-		sortRecordings(recs)
-		if out[b.iface] == nil {
-			out[b.iface] = make(map[string][]Recording)
-		}
-		out[b.iface][b.typeName] = recs
-	}
-	return out
+	return newProgramDemands(p, nil, demanders).diagnostics()
 }
 
 // sortRecordings orders recordings by source location, (Pos.File, Pos.Line,
@@ -602,6 +472,12 @@ func bodyTypeHelp(iface, typeName string) string {
 // A bound declared inside a body has no impl at all (bodyInterfaceHelp).
 // An operator interface keeps missingImplHelp's block shape.
 func (c *checker) boundHelp(concrete Type, bound *InterfaceType) string {
+	if sub := c.subtypeMissing(concrete, bound); sub != nil {
+		return subtypeMakesBaseHelp(sub)
+	}
+	if help, ok := c.subtypeReadByKindHelp(concrete, bound); ok {
+		return help
+	}
 	name := fmt.Sprint(concrete)
 	if bound.Name == "Display" {
 		if _, fn := resolveTypeVar(concrete).(*FuncType); fn {
@@ -832,6 +708,14 @@ func (c *checker) dropDemandsAt(concrete Type, ifaceName string, pos Pos) {
 // reported an error; a bound an impl's own bounds leave unmet is recorded
 // as their demand instead.
 func (c *checker) boundError(line, col int, concrete Type, bound *InterfaceType, param string, over ...ast.Node) bool {
+	if sub := c.subtypeMissing(concrete, bound); sub != nil {
+		required := fmt.Sprintf("`where %s: %s`", param, c.shownInterfaceFor(concrete, bound, true))
+		if !TypesIdentical(sub, concrete) {
+			required += fmt.Sprintf(" at %s", concrete)
+		}
+		c.report(subtypeMakesBaseError(line, col, sub, bound, required))
+		return true
+	}
 	if c.implBoundsUnmetByNamedTypes(concrete, bound) {
 		// `List<Foo>` has Display only where Foo does: the demand is Foo's,
 		// and the missing-impl report names Foo with its own help.
@@ -854,9 +738,14 @@ func (c *checker) boundError(line, col int, concrete Type, bound *InterfaceType,
 			"annotate the binding this value comes from with its whole type, as in `r: Result<Int, String> = Ok(1)`, or a lambda's parameters and result, as in `f: (Int) -> Result<Int, String> = fn x -> Ok(x)`"))
 		return true
 	}
-	c.report(TypeError{Line: line, Col: col, EndLine: end.EndLine, EndCol: end.EndCol, Message: fmt.Sprintf(
+	e := TypeError{Line: line, Col: col, EndLine: end.EndLine, EndCol: end.EndCol, Message: fmt.Sprintf(
 		"%s does not implement %s (required by `where %s: %s`)",
-		concrete, c.shownInterfaceFor(concrete, boundAt(bound, param, concrete), true), param, c.shownInterfaceFor(concrete, bound, true))}.WithHint(c.boundHelp(concrete, bound)))
+		concrete, c.shownInterfaceFor(concrete, boundAt(bound, param, concrete), true), param, c.shownInterfaceFor(concrete, bound, true))}
+	if why, ok := c.withConstructionReason(e, concrete, bound); ok {
+		c.report(why)
+		return true
+	}
+	c.report(e.WithHint(c.boundHelp(concrete, bound)))
 	return true
 }
 

@@ -48,16 +48,18 @@ test "records are structural, ordered by nothing the programmer wrote"
     // Matched inside a `case`, punned and renamed. The STATEMENT form
     // `{x, y} = point` is a different construct (`struct destructuring`, which
     // is unlowered for a nominal struct too) and is deliberately not here.
-    label = case point
-        {x: 10, y:} -> "x is ten, y is ${y}"
-        _           -> "other"
-    end
+    label =
+        case point
+            {x: 10, y:} -> "x is ten, y is ${y}"
+            _           -> "other"
+        end
 
     io.print(label)
 
-    renamed = case point
-        {x: a, y: b} -> a + b
-    end
+    renamed =
+        case point
+            {x: a, y: b} -> a + b
+        end
 
     io.print(Int.to_string(renamed))
 

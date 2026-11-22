@@ -532,6 +532,19 @@ func VectorSlice[T any](v Vector[T], from, drop int) Vector[T] {
 	return Vector[T]{t: v.t, off: v.off + from, n: n}
 }
 
+// VectorSliceClamped is `Vector.slice`: the elements from index start up
+// to, not including, stop, each clamped to the vector, as `Bytes.slice`
+// and `String.slice` clamp theirs, and the empty vector when stop is at
+// or before start. It is VectorSlice's window, in O(1).
+func VectorSliceClamped[T any](v Vector[T], start, stop int64) Vector[T] {
+	n := int64(v.n)
+	start, stop = max(0, min(start, n)), max(0, min(stop, n))
+	if stop <= start {
+		return Vector[T]{}
+	}
+	return VectorSlice(v, int(start), int(n-stop))
+}
+
 // --- iteration --------------------------------------------------------------
 
 // vectorChunks yields v's elements a leaf at a time: each slice is the part of

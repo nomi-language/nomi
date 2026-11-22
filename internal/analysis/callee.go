@@ -418,6 +418,48 @@ func (fa *FileAnalysis) CalleeOf(funcNode ast.Node) Callee {
 	return fa.complete(funcNode, fa.calleeAt(funcNode))
 }
 
+// stdFuncNamed is the std function funcNode, a call's callee, names: the
+// declaration behind the reference the checker recorded at its name, by
+// its identity (StdFuncOf), as the call's record will carry it
+// (Callee.Std) for a function no impl the checker chose replaces. The
+// declaration is a `fn` or a `host fn`, at module level or in an impl, or
+// an interface's function (`Struct.update`, `Release.release`). A check
+// asks it of a call it is still checking, before the record is made; what
+// decides is the declaration, never the name the call is written with, so
+// `Seq.map` under `import std::iter.{Iter as Seq}` is `Iter.map` and
+// `Iter.map` under `import std::random.{Generator as Iter}` is not. The
+// zero StdFunc for a callee that names no std function, and for any callee
+// of a file with no program yet, whose std files it cannot read
+// (StdFuncOf): a check during the build is one.
+func (fa *FileAnalysis) stdFuncNamed(funcNode ast.Node) StdFunc {
+	base := fa.calleeDeclSymbol(funcNode)
+	if base == nil || base.SourceFile != "" {
+		// A program's own function, whose file has a path.
+		return StdFunc{}
+	}
+	return fa.StdFuncOf(base.Node)
+}
+
+// calleeDeclSymbol is the symbol of the function funcNode, a call's
+// callee, names: the declaration behind the reference the checker
+// recorded at its name, a `fn`, a `host fn` or an interface's function.
+// Nil for a callee that names no function (a local, a variant, a type).
+func (fa *FileAnalysis) calleeDeclSymbol(funcNode ast.Node) *Symbol {
+	pos, named := calleeKey(ungroupExpr(funcNode))
+	if !named {
+		return nil
+	}
+	ref := fa.References[pos]
+	if ref == nil {
+		return nil
+	}
+	base := resolveRef(ref)
+	if base.Kind != SymbolFunction && base.Kind != SymbolInterfaceMethod {
+		return nil
+	}
+	return base
+}
+
 // calleeAt is CalleeOf before the std identity is read.
 func (fa *FileAnalysis) calleeAt(funcNode ast.Node) Callee {
 	if _, self := funcNode.(*ast.SelfExpr); self {
@@ -456,19 +498,21 @@ func (fa *FileAnalysis) calleeAt(funcNode ast.Node) Callee {
 	// The impl function the checker chose for this call, which the name's
 	// own symbol does not say where a type implements a generic interface
 	// at several type arguments (`String.contains(s, Regex...)`: the
-	// name is the first impl's, the call another's). A Go-bound impl
-	// function is its `host fn`.
+	// name is the first impl's, the call another's), or where the type's
+	// own function and an impl's share the name (`Decimal.divide(a, b)`:
+	// the name is Decimal's four-parameter `host fn`, the call Divide's).
 	chosen := ref.DispatchImpl
 	chosenFn, _ := chosen.(*ast.FuncDef)
 	switch d := base.Node.(type) {
-	case *ast.FuncDef:
-		if chosen != nil && chosen != ast.ImplMethodDecl(d) {
+	case *ast.FuncDef, *ast.ExternFunc:
+		if chosen != nil && chosen != d.(ast.ImplMethodDecl) {
 			out.Kind, out.Decl, out.InProgram = CalleeImpl, chosen, fa.inProgram(chosenFn)
 			return out
 		}
-		out.Kind, out.Decl, out.InProgram = CalleeFunction, d, fa.inProgram(d)
-		return out
-	case *ast.ExternFunc:
+		if fd, ok := d.(*ast.FuncDef); ok {
+			out.Kind, out.Decl, out.InProgram = CalleeFunction, fd, fa.inProgram(fd)
+			return out
+		}
 		out.Kind, out.Decl = CalleeHost, d
 		return out
 	case *ast.InterfaceMethod:
@@ -641,6 +685,13 @@ type StdType struct {
 
 // IsZero reports whether s names nothing std declares.
 func (s StdType) IsZero() bool { return s.Module == "" }
+
+// Func is the function name of s, an interface std declares, as StdFunc
+// names an interface's own function: the interface's module, the
+// interface as Owner.
+func (s StdType) Func(name string) StdFunc {
+	return StdFunc{Module: s.Module, Owner: s.Name, Name: name}
+}
 
 // Qualifier is what the qualifier of a call written `Q.m(...)` resolves
 // to (Callee.Qualifier), by the declaration the checker bound Q to: an

@@ -43,17 +43,18 @@ fn main()
     inc = fn x: Int -> x + 1
     dbg inc(41)
 
-    describe = fn name: String, count: Int ->
-        noun = if count == 1 then "item" else "items"
-        "${name}: ${count} ${noun}"
-    end
+    describe =
+        fn name: String, count: Int ->
+            noun = if count == 1 then "item" else "items"
+            "${name}: ${count} ${noun}"
+        end
 
     dbg describe("cart", 3)
 end
 ```
 <!-- expect
 dbg line 3: inc(41) = 42
-dbg line 10: describe("cart", 3) = "cart: 3 items"
+dbg line 11: describe("cart", 3) = "cart: 3 items"
 -->
 
 A lambda is written `fn params -> body`. Several parameters are separated by

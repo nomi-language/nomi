@@ -70,6 +70,61 @@ impl Vector<T>
     //! assert Vector.next_item([]) == None
     //
     pub host fn next_item<T>(vector: Vector<T>) -> Maybe<(T, Vector<T>)>
+
+    /// The elements from index `start` up to, not including, `stop`. An
+    /// index outside the vector is clamped to it, and a `stop` at or before
+    /// `start` gives the empty vector, as `Bytes.slice` and `String.slice`
+    /// answer. O(1): the slice shares the vector's storage, and a push onto
+    /// it later copies only what that push would.
+    //! assert Vector.slice(["a", "b", "c", "d"], 1, 3) == ["b", "c"]
+    //! assert Vector.slice(["a", "b"], 1, 99) == ["b"]
+    //! assert Vector.slice(["a", "b"], 2, 1) == []
+    //
+    pub host fn slice<T>(vector: Vector<T>, start: Int, stop: Int) -> Vector<T>
+
+    /// Returns the last element and the vector without it, or None if the
+    /// vector is empty: `Vector.next_item` from the other end, which makes
+    /// a Vector a stack. O(log32 n): the rest is a slice.
+    //! assert Vector.pop([1, 2, 3]) == Some((3, [1, 2]))
+    //! assert Vector.pop([]) == None
+    //
+    pub fn pop<T>(vector: Vector<T>) -> Maybe<(T, Vector<T>)>
+        case vector
+            [..rest, last] -> Some((last, rest))
+            []             -> None
+        end
+    end
+
+    /// `Some` of a new vector with `item` at zero-based `index` and the
+    /// elements from there on after it, or None when the index is outside
+    /// `0` up to the length. At the length it is `Vector.push`, in
+    /// O(log32 n); anywhere else the elements are copied, in O(n).
+    //! assert Vector.insert(["a", "c"], 1, "b") == Some(["a", "b", "c"])
+    //! assert Vector.insert(["a"], 1, "b") == Some(["a", "b"])
+    //! assert Vector.insert(["a"], 2, "b") == None
+    //
+    pub fn insert<T>(vector: Vector<T>, index: Int, item: T) -> Maybe<Vector<T>>
+        n = Vector.length(vector)
+        if index < 0 or index > n then return None
+        before = Vector.push(Vector.slice(vector, 0, index), item)
+        Some(Vector.concat(before, Vector.slice(vector, index, n)))
+    end
+
+    /// `Some` of the vector without the element at zero-based `index`, or
+    /// None when the index is outside the vector. The first or the last
+    /// element is removed in O(1), as a slice; any other in O(n), as the
+    /// elements are copied. For an index the code knows is in range,
+    /// `Vector.remove_at(vector, index)!` returns the vector and traps on any
+    /// other index.
+    //! assert Vector.remove_at(["a", "b", "c"], 1) == Some(["a", "c"])
+    //! assert Vector.remove_at(["a", "b", "c"], 0)! == ["b", "c"]
+    //! assert Vector.remove_at(["a", "b", "c"], 3) == None
+    //
+    pub fn remove_at<T>(vector: Vector<T>, index: Int) -> Maybe<Vector<T>>
+        n = Vector.length(vector)
+        if index < 0 or index >= n then return None
+        Some(Vector.concat(Vector.slice(vector, 0, index), Vector.slice(vector, index + 1, n)))
+    end
 end
 
 impl Iter for Vector<T>

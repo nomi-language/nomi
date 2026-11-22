@@ -82,7 +82,15 @@
 //
 // A [Call] names its callee and a flat vector of operands. Named arguments,
 // defaults, evaluation order and overload selection are settled before the
-// instruction exists (call.go).
+// instruction exists (call.go). A callee is a declaration (direct), an
+// interface's function selected by one operand's run-time type
+// (dispatched), a function value (indirect), or an interface's function for
+// some type that satisfies a type parameter's bound, with no operand to
+// select it (bound, [NewBoundCall]). A bound call is what a generic
+// function's abstract body calls through its type parameter: internal/irbuild
+// lowers one only for the effect walk, into a module marked abstract
+// (Module.SetAbstract), which lint alone admits it in, the encoder never
+// writes, the linker never defines and the VM compiles to a failure.
 //
 // The front end decides which calls are in tail position and Call.Tail
 // records it. [TailTransfers] answers, from the graph, which of those calls
@@ -96,8 +104,8 @@
 // anything an instruction only has to name: a callee, a local, a `once`
 // cell, a pattern's binding (destructure.go). The [Table] (table.go) interns
 // symbols and types against the producer's own identities, one table per
-// lowering. A [Decl] there adds a signature, which Table.SelectOverload
-// needs to choose between two declarations. A function of an impl block
+// lowering. Which of two declarations a call reaches is the checker's
+// record, which the builder lowers; no table chooses. A function of an impl block
 // carries its block as an [ImplFunc] (Table.ImplSymbol), and its name is
 // the ImplFunc's, `Display.to_string for Loud`; a reader that needs the
 // type or the function's own name reads the ImplFunc and never parses the
@@ -115,8 +123,10 @@
 // NoMatch; every RefLocal names a parameter or a binding of the function;
 // operands have the shape their position accepts (shape.go); every RunDefer
 // names a registered Defer; every temporary is typed and its type agrees
-// with the graph; and the debugger's variable table and statement marks
-// (debuginfo.go) name temporaries and instructions the function has.
+// with the graph; the debugger's variable table and statement marks
+// (debuginfo.go) name temporaries and instructions the function has; and a
+// bound call stands only in an abstract module, a rule of the module that
+// Lint of a lone function does not ask.
 //
 // A violation is a producer bug, so Lint returns all of them and
 // internal/irbuild panics on the error. It lints what each module gained as
@@ -137,7 +147,9 @@
 // Symbol, a Func, a ValType, a Type and a Table are each written once and
 // referred to by index, so cycles decode to cycles. The order of writing is
 // fixed by the modules' own slices, so one program encodes to the same bytes
-// each time. [FormatVersion] changes with any change to what is written.
+// each time. [FormatVersion] changes with any change to what is written. An
+// abstract module, and a bound call anywhere, is never written: neither is
+// part of a program a machine runs.
 // TestImage_RoundTripKeepsEveryFieldAndIdentity and
 // TestImage_EncodingIsDeterministic hold both.
 //
@@ -181,11 +193,20 @@
 // encoded alone ([EncodeObject]) is an object: a [Linker] resolves every
 // linkage name to one symbol across the objects it decodes, linking a name
 // two objects define once when the bodies encode identically, and hands
-// the VM ordinary modules. [CheckLinkage] reports a symbol two modules name
-// with no linkage name, and two symbols sharing one with different code.
+// the VM ordinary modules. A linker over another ([NewLinkerOver]) links
+// against what that one linked and writes nothing into it: internal/irbuild
+// decodes each of the stdlib's objects at most once per process, when it
+// first needs the module, and the std modules declared with each program
+// over them. [CheckLinkage] reports a symbol
+// two modules name with no linkage name, and two symbols sharing one with
+// different code.
 // [Parts] encodes each function and cell of a module on its own, so two
-// lowerings of one module compare part by part. link.go's file comment
-// has the rules. TestLink_* hold the linker's rules, and
+// lowerings of one module compare part by part. [BodySum] is one
+// function's sum by the same encoder with no source position, no line a
+// field holds, no debug information and no local's name, so code that
+// only moved sums as it did: what `nomi test` fingerprints a case's code by
+// (vmhost package doc, "Stored passes"). link.go's file comment has the
+// rules. TestLink_* hold the linker's rules, and
 // internal/expectation's TestObjectsLinkToTheSameProgram runs every
 // recorded program linked through objects.
 package ir

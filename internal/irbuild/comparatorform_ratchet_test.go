@@ -8,24 +8,29 @@ import (
 	"testing"
 )
 
-// maxComparatorSites is how many distinct source sites of each class of
-// comparator not chosen from the checker's record (noteComparator,
-// comparatorClasses) the programs TestIRGolden_RecordsMatchTheVM runs
-// reach. Each count only goes down. The counts were the same with the
-// artifact cache empty, warm and off.
+// maxElemImplSites is how many distinct source sites of each class of
+// comparator and of a part's equality not chosen from the checker's
+// record (noteElemImpl, elemImplClasses) the programs
+// TestIRGolden_RecordsMatchTheVM runs reach. Each count only goes down.
+// The counts were the same with the artifact cache empty, warm and off.
+// Over `nomi test tests --all`, `nomi test std --all` and vmhost's spec,
+// tour and grid programs both classes had 0 sites.
 //
 //   - "no checker type": an element whose checker type the builder does
-//     not have where it asks for the comparator, chosen by its kind.
-var maxComparatorSites = map[string]int{
-	string(comparatorNoType): 0,
+//     not have where it asks for its impl, chosen by its kind.
+//   - "per instance, unresolved": an element whose checker type is over
+//     a type parameter its instance does not resolve, chosen by its kind.
+var maxElemImplSites = map[string]int{
+	string(elemImplNoType):      0,
+	string(elemImplPerInstance): 0,
 }
 
-// comparatorRatchet holds the comparator census to maxComparatorSites:
-// every class comparatorClasses lists that is not agreed.
-func comparatorRatchet() censusRatchet {
-	r := censusRatchet{what: "comparator sites", held: map[string]bool{}, max: maxComparatorSites,
+// elemImplRatchet holds the element impl census to maxElemImplSites:
+// every class elemImplClasses lists that is not agreed.
+func elemImplRatchet() censusRatchet {
+	r := censusRatchet{what: "element impl sites", held: map[string]bool{}, max: maxElemImplSites,
 		fix: "give the element its checker type"}
-	for class, agreed := range comparatorClasses {
+	for class, agreed := range elemImplClasses {
 		if !agreed {
 			r.held[string(class)] = true
 		}
@@ -33,7 +38,7 @@ func comparatorRatchet() censusRatchet {
 	return r
 }
 
-// A comparator chosen in a way comparatorClasses does not list fails the
+// A comparator chosen in a way elemImplClasses does not list fails the
 // lowering, naming the site and the class. With every class listed, the
 // same program lowers.
 func TestNoteComparator_AnUnlistedClassFails(t *testing.T) {
@@ -73,9 +78,9 @@ end
 	if failure := lower(); failure != "" {
 		t.Fatalf("the program does not lower with every class listed: %s", failure)
 	}
-	agreed := comparatorClasses[comparatorFromRecord]
-	delete(comparatorClasses, comparatorFromRecord)
-	defer func() { comparatorClasses[comparatorFromRecord] = agreed }()
+	agreed := elemImplClasses[elemImplFromRecord]
+	delete(elemImplClasses, elemImplFromRecord)
+	defer func() { elemImplClasses[elemImplFromRecord] = agreed }()
 	want := `main.nomi:12:18: a comparator is chosen "from the record", which no class lists`
 	if failure := lower(); !strings.Contains(failure, want) {
 		t.Fatalf("lowering with the class unlisted failed with %q, want it to name %q", failure, want)

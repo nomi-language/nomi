@@ -97,101 +97,12 @@ type concurrentScope struct {
 	errors []TypeError
 }
 
+// isTaskFunctionSymbol reports whether sym is std's `Task.<name>`, by its
+// declaration (StdFuncOf): through an alias of `Task` or a selective
+// import too, and never a program type's function of the same name.
 func isTaskFunctionSymbol(fa *FileAnalysis, sym *Symbol, name string) bool {
-	if sym == nil || sym.Kind != SymbolFunction || sym.Name != name {
-		return false
-	}
-	if sym.OwningType == "Task" && isStdOwnerFunction(fa, sym, "Task", "tasks") {
-		return true
-	}
-	if sym.OwningType != "" {
-		return false
-	}
-	if fa != nil {
-		if scope := fa.Program().StdlibModuleScopes["tasks"]; scope != nil {
-			if sameSymbolDefinition(sym, scope.LookupLocal(name)) {
-				return true
-			}
-		}
-		if isStdTasksFile(fa.FilePath) && fa.ModuleScope != nil && isTasksModuleScope(fa.ModuleScope) {
-			return fa.ModuleScope.LookupLocal(name) == sym
-		}
-	}
-	if sym.SourceFile != "" {
-		return isStdTasksFile(sym.SourceFile)
-	}
-	return false
-}
-
-// isStdOwnerFunction reports whether sym, a function owned by owner, is the
-// one std's module declares (`Task.spawn` of std/tasks), not a user type's
-// function of the same name.
-func isStdOwnerFunction(fa *FileAnalysis, sym *Symbol, owner, module string) bool {
-	if sym == nil || sym.Kind != SymbolFunction || sym.OwningType != owner {
-		return false
-	}
-	if sym.SourceFile != "" {
-		name, ok := stdlibModuleForPath(sym.SourceFile)
-		return ok && name == module
-	}
-	if fa == nil || declaredOutsideStd(fa, sym, "std/"+module) {
-		return false
-	}
-	if byName := fa.TypeMethods[owner]; sameSymbolDefinition(sym, byName[sym.Name]) {
-		return true
-	}
-	if idx := fa.Program().ImplIndex; idx != nil {
-		if byName := idx.TypeMethods[owner]; sameSymbolDefinition(sym, byName[sym.Name]) {
-			return true
-		}
-	}
-	return false
-}
-
-// declaredOutsideStd reports that sym is declared by the file fa analyses and
-// that file is not the stdlib module stdOrigin. A type's identity is
-// (declaring file, name), so a user file's own `Task` or `Supervisor` and
-// its functions are not the stdlib's, whatever they are called. The
-// file-local tables (fa.TypeMethods) are keyed by name alone and hold the
-// user's declaration there, so they cannot answer this.
-func declaredOutsideStd(fa *FileAnalysis, sym *Symbol, stdOrigin string) bool {
-	if fa == nil || sym == nil || fa.Definitions[sym.Pos] != sym {
-		return false
-	}
-	origin := declaredOrigin(fa)
-	return origin != OriginUnresolved && origin != stdOrigin
-}
-
-func sameSymbolDefinition(a, b *Symbol) bool {
-	if a == nil || b == nil {
-		return false
-	}
-	if a == b || a.Resolved == b {
-		return true
-	}
-	return a.Name == b.Name &&
-		a.Kind == b.Kind &&
-		a.OwningType == b.OwningType &&
-		a.Pos == b.Pos &&
-		a.Doc == b.Doc
-}
-
-var tasksModuleFingerprint = []string{
-	"spawn",
-	"await",
-	"spawn_all",
-	"await_all",
-	"outcome",
-	"cancel",
-}
-
-func isTasksModuleScope(scope *Scope) bool {
-	return hasAllLocal(scope, tasksModuleFingerprint)
-}
-
-func isStdTasksFile(path string) bool {
-	name, ok := stdlibModuleForPath(path)
-	return ok && name == "tasks"
+	return sym != nil && sym.Kind == SymbolFunction &&
+		fa.StdFuncOf(sym.Node) == StdFunc{Module: "std/tasks", Owner: "Task", Name: name}
 }
 
 // isTaskSpawnSymbol reports whether sym is one of the block-owned spawn

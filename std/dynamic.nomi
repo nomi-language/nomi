@@ -256,18 +256,19 @@ impl Display for Error
         // path renders as `<root>`. The path direction is "outer-to-inner"
         // (root first); reduce walks left-to-right and prepends the right
         // separator for each segment.
-        path_str = case e.path
-            [] ->
-                "<root>"
+        path_str =
+            case e.path
+                [] ->
+                    "<root>"
 
-            _ ->
-                Iter.reduce(e.path, "", fn acc, seg ->
-                    case seg
-                        .Field(name) -> if acc == "" then name else acc + "." + name
-                        .Index(i)    -> acc + "[" + Int.to_string(i) + "]"
-                    end
-                end)
-        end
+                _ ->
+                    Iter.reduce(e.path, "", fn acc, seg ->
+                        case seg
+                            .Field(name) -> if acc == "" then name else acc + "." + name
+                            .Index(i)    -> acc + "[" + Int.to_string(i) + "]"
+                        end
+                    end)
+            end
 
         "decode error at " + path_str + ": expected " + e.expected + ", got " + e.got
     end

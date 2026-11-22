@@ -85,12 +85,20 @@ func parseGOPROXY(s string) []proxyEntry {
 }
 
 // proxiesFor are the GOPROXY entries for module path: only `direct` when
-// GONOPROXY (or GOPRIVATE) matches it.
+// GONOPROXY (or GOPRIVATE) matches it (private).
 func (c config) proxiesFor(path string) []proxyEntry {
-	if c.noProxy != "" && module.MatchPrefixPatterns(c.noProxy, path) {
+	if c.private(path) {
 		return []proxyEntry{{url: "direct"}}
 	}
 	return c.proxies
+}
+
+// private reports whether GONOPROXY, else GOPRIVATE, matches module path,
+// which sends it `direct` past every proxy. GONOPROXY=none, a pattern no
+// module path matches, sends a module GOPRIVATE names to the proxies, as
+// it does for the go command.
+func (c config) private(path string) bool {
+	return c.noProxy != "" && module.MatchPrefixPatterns(c.noProxy, path)
 }
 
 // checksDB reports whether module path's checksums are checked against the

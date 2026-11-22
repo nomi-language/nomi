@@ -155,10 +155,11 @@ test "the four renderings of one value"
     // selected, so line 12 renders a value the builder stores nowhere.
     b: Bool = False
 
-    singleton = case b
-        Bool.False(x) -> Debug.inspect(x)
-        _             -> "UNREACHED"
-    end
+    singleton =
+        case b
+            Bool.False(x) -> Debug.inspect(x)
+            _             -> "UNREACHED"
+        end
 
     io.print("9 Debug.inspect(True)  = " + Debug.inspect(True))
     io.print("10 Debug.inspect(b)    = " + Debug.inspect(b))

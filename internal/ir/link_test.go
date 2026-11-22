@@ -167,3 +167,48 @@ func TestLink_TheSameCodeDefinedTwiceIsLinkedOnce(t *testing.T) {
 		t.Fatalf("%d definitions of lib.helper kept; the linker keeps the first", kept)
 	}
 }
+
+func TestLink_ALinkerOverABaseLinksAgainstItAndLeavesItAsItWas(t *testing.T) {
+	lib, app := linkFixture(ir.NewLinkedSymbol("helper", "lib.helper"), ir.NewLinkedSymbol("helper", "lib.helper"), 7)
+	encode := func(m *ir.Module) []byte {
+		data, err := ir.EncodeObject(m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return data
+	}
+	base := ir.NewLinker()
+	libIm, err := base.Decode(encode(lib))
+	if err != nil {
+		t.Fatal(err)
+	}
+	baseHelper := libIm.Modules[0].Funcs()[0].Sym()
+	// Two linkers over one base each link the app to the base's helper, and
+	// drop a copy of helper as the base's.
+	for i := range 2 {
+		l := ir.NewLinkerOver(base)
+		appIm, err := l.Decode(encode(app))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := calleeOf(t, appIm.Modules[0]); got != baseHelper {
+			t.Fatalf("linker %d: the app calls %p, not the base's helper %p", i, got, baseHelper)
+		}
+		again, err := l.Decode(encode(lib))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if n := len(again.Modules[0].Funcs()); n != 0 {
+			t.Fatalf("linker %d: kept %d copies of helper, which the base defines", i, n)
+		}
+	}
+	// A name a linker over the base links is that linker's alone.
+	other := ir.NewLinkedSymbol("other", "app.other")
+	_, app2 := linkFixture(ir.NewLinkedSymbol("unused", "lib.unused"), other, 7)
+	if _, err := ir.NewLinkerOver(base).Decode(encode(app2)); err != nil {
+		t.Fatal(err)
+	}
+	if s := ir.NewLinkerOver(base).Symbol(other); s != other {
+		t.Fatal("the base learned a name a linker over it linked")
+	}
+}

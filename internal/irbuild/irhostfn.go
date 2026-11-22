@@ -1,56 +1,34 @@
 package irbuild
 
 import (
-	"path/filepath"
-	"strings"
-
 	"github.com/nomi-language/nomi/hostadapt"
 	"github.com/nomi-language/nomi/internal/ast"
-	"github.com/nomi-language/nomi/internal/ffirun"
+	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
-// A user `host fn` bound to a Go symbol, as the VM calls it.
-//
-//	gopkg "durationffiapp" as ffi
-//	pub fn timeout() -> Duration go ffi.Timeout
+// A user file's `host fn`, as the VM calls it.
 //
 // Every call site reaches the declaration through the ordinary direct,
 // sibling and bare-sibling routes, under the declaration symbol of the shell
 // hostShellOf interns. irHostFnRetain builds an `ir.Func` under that symbol
-// whose body is one crossing into Go. So a retained caller links against it by
-// the identity it already names, and no call site learns the callee is
-// foreign.
+// whose body is one crossing into the host. So a retained caller links
+// against it by the identity it already names, and no call site learns the
+// callee is the host's.
 //
-// The crossing names the key the binding is registered under, which is what
-// the VM's host table is keyed on: the declaring file's path under its Go
-// module (ffirun.BindingModule) and the declaration's name, or the bare name
-// when the declaring file is the entry. That is ffirun's externDeclKey and
-// entryScopedKey. ffirun's wrapper
-// generates an adapter per binding (internal/ffirun/adapters.go) that does
-// the conversion.
-//
-// The VM can run it only when its host supplies the binding, and an in-process
-// host has it only if it linked the project's Go package. `nomi run` links it
-// in ffirun's wrapper binary; a test binary inside this module does not.
-//
-// A callback parameter is built: the adapter turns the VM function value into
-// a Go func that calls back through the machine's Invoker. A function RESULT
-// is not, because a Go func has no VM function value to become.
+// The crossing names the key the host registers the function under
+// (irHostBindingKey), which is what the VM's host table is keyed on. The
+// table's function takes and answers the VM's own values, so it may take a
+// function value and call it back through the machine, and may answer a
+// function value it was handed earlier: a REPL session reads a function an
+// earlier input stored (vmhost.Session).
 
-// irHostBinding is the token for a Go-bound declaration's extern key, distinct
-// from the shell's own declaration symbol.
+// irHostBinding is the token for a `host fn`'s extern key, distinct from the
+// shell's own declaration symbol.
 type irHostBinding struct{ ef *ast.ExternFunc }
 
-// irHostFnHasVMBody reports whether irHostFnRetain builds a VM body for a
-// Go-bound declaration of this signature: one that does not return a
-// function.
-func irHostFnHasVMBody(_ []kind, result kind) bool {
-	return result.tag != tagFunc
-}
-
-// irHostFnRetain builds the VM body of a Go-bound `host fn` that hostFnDecl
-// declared under sig.
+// irHostFnRetain builds the VM body of a user file's `host fn` that
+// hostFnDecl declared under sig.
 func (g *gen) irHostFnRetain(ef *ast.ExternFunc, sig *fnSig) {
 	// A std module's `host fn` gets no body here.
 	if g.stdModule != "" {
@@ -60,13 +38,6 @@ func (g *gen) irHostFnRetain(ef *ast.ExternFunc, sig *fnSig) {
 	decline := func(reason string) {
 		g.irDeclineOpen(ef.Name)
 		g.dc.note(reason)
-	}
-	// A host-table declaration's adapter answers the VM's own values, so it
-	// can return a function value it was handed earlier: a REPL session
-	// reads a function an earlier input stored (vmhost.Session).
-	if !irHostFnHasVMBody(sig.params, sig.result) && !hostTableFn(ef) {
-		decline("a `host fn` returning a function, which a Go func cannot become")
-		return
 	}
 	shell := hostShellOf(ef)
 	params := make([]kind, len(sig.params))
@@ -90,9 +61,9 @@ func (g *gen) irHostFnRetain(ef *ast.ExternFunc, sig *fnSig) {
 	g.irFileSlotDefaults(shell, sig)
 }
 
-// irHostCrossingBody fills sh, the VM function of a Go-bound declaration,
-// with its one crossing into Go under key, and adds it to the module. It
-// answers the reason when the graph does not lint.
+// irHostCrossingBody fills sh, the VM function of a `host fn`, with its one
+// crossing into the host under key, and adds it to the module. It answers
+// the reason when the graph does not lint.
 func (g *gen) irHostCrossingBody(ef *ast.ExternFunc, sh *irFuncShell, result kind, key string) string {
 	args := make([]ir.Temp, 0, len(sh.fn.Params()))
 	for _, p := range sh.fn.Params() {
@@ -117,18 +88,12 @@ func (g *gen) irHostCrossingBody(ef *ast.ExternFunc, sh *irFuncShell, result kin
 }
 
 // irHostBindingKey is the extern key a file-level `host fn` is registered
-// under: bare in the entry unit, module-qualified otherwise. A Go-bound one is
-// qualified by the declaring file's path under its Go module
-// (ffirun.BindingModule), which is how the FFI wrapper keys its adapter, so
-// a/util.nomi and b/util.nomi in one program cross under different keys. A
-// host-table one is qualified by the file's base name, the key an embedder's
-// table names it by (vmhost.WithHosts).
+// under, the key an embedder's table names it by (vmhost.WithHosts):
+// frontend.HostKey of the declaring file's module key, which the checker
+// records as the file's Origin, and bare in the entry unit.
 func (g *gen) irHostBindingKey(ef *ast.ExternFunc) string {
 	if g.fileUnit == 0 {
 		return ef.Name
 	}
-	if ef.ForeignName != "" {
-		return ffirun.BindingModule(g.nomiPath) + "." + ef.Name
-	}
-	return strings.TrimSuffix(filepath.Base(g.nomiPath), ".nomi") + "." + ef.Name
+	return frontend.HostKey(g.fa.Origin, ef.Name)
 }

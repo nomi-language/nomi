@@ -24,6 +24,10 @@ const asset = (f) => fileURLToPath(new URL(`./public/nomi/${f}`, import.meta.url
 
 // Semantic tokens (interpreter wasm).
 await import(new URL("./public/nomi/wasm_exec.js", import.meta.url).href);
+// The in-memory file system the page's worker gives Go, where a block that
+// names modules is written to be analyzed and lowered, so its tokens, and
+// the marks on what it reaches outside, are the ones its editor shows.
+await import(new URL("./public/nomi/go-memfs.js", import.meta.url).href);
 const go = new globalThis.Go();
 const { instance } = await WebAssembly.instantiate(
   gunzipSync(readFileSync(asset("nomi.wasm.gz"))), // staged gzipped; see scripts/build-tour-wasm.sh
@@ -50,9 +54,8 @@ function decode(s) {
 // highlight renders a block. A multi-file one is rendered a file at a time,
 // each in its own language as its editor tab shows it (renderFiles): a Nomi
 // file with the semantic tokens the editor gets for its tab, from the
-// analysis of the whole block; a nomi.toml or JSON file in its colours; a
-// Go file as the build highlighted it for its tab (goHtml, by name).
-function highlight(code, goHtml) {
+// analysis of the whole block; a nomi.toml or JSON file in its colours.
+function highlight(code) {
   const sections = fileSections(code);
   if (!sections) {
     const captures = query.captures(parser.parse(code).rootNode);
@@ -63,32 +66,19 @@ function highlight(code, goHtml) {
   const sem = JSON.parse(globalThis.nomiSemTokensIn(code, ...nomiFiles) || "{}");
   return renderFiles(sections, (name, lang, text) => {
     if (lang === "nomi") return render(query.captures(parser.parse(text).rootNode), sem[name] ?? [], text);
-    if (lang === "go" && goHtml[name] !== undefined) return goHtml[name];
     return renderData(lang, text);
   });
 }
 
-// goSpans is the Go files' highlighting the build put after a multi-file
-// block's <code>, one hidden span per file (rehype-shiki.mjs's
-// goFileSpans), by file name.
-function goSpans(html) {
-  const out = {};
-  for (const part of html.split(/(?=<span hidden)/)) {
-    const m = /^<span hidden(?:="")? data-nomi-file="([^"]*)">([\s\S]*)<\/span>$/.exec(part);
-    if (m) out[decode(m[1])] = m[2];
-  }
-  return out;
-}
-
-// A multi-file block's Go files and its recorded output follow its <code>
-// as hidden spans, which are kept as they are.
+// A block's recorded output follows its <code> as a hidden span, which is
+// kept as it is.
 const BLOCK = /<pre([^>]*)><code class="language-(nomi(?:-run|-test)?)"([^>]*)>([\s\S]*?)<\/code>((?:<span hidden[\s\S]*?)?)<\/pre>/g;
 function processHtml(html) {
-  const highlighted = html.replace(BLOCK, (_m, preAttrs, lang, codeAttrs, body, goFiles) => {
-    const hl = highlight(decode(body).replace(/\n$/, ""), goSpans(goFiles));
+  const highlighted = html.replace(BLOCK, (_m, preAttrs, lang, codeAttrs, body, hidden) => {
+    const hl = highlight(decode(body).replace(/\n$/, ""));
     return lang === "nomi"
       ? `<div class="nomi-chip nomi-chip-nomi"><pre class="nomi-tour nomi-code-nomi">${hl}</pre></div>`
-      : `<pre class="nomi-tour"${preAttrs}><code class="language-${lang}"${codeAttrs}>${hl}</code>${goFiles}</pre>`;
+      : `<pre class="nomi-tour"${preAttrs}><code class="language-${lang}"${codeAttrs}>${hl}</code>${hidden}</pre>`;
   });
   return highlighted.replace(
     /<pre class="nomi-tour"([^>]*)><span class="line">/g,

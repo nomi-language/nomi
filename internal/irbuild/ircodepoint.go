@@ -24,10 +24,9 @@ func (bl *irScalarBuilder) codepointLiteral(t *ast.CodepointLit) (ir.Temp, kind,
 	return m.Dst(), k, true, true
 }
 
-// codepointCaseTest tests a codepoint literal arm against a Codepoint
-// subject: the subject's Int against the literal's value, which is the VM's
-// word comparison.
-func (bl *irScalarBuilder) codepointCaseTest(pat *ast.CodepointLit, subj ir.Temp, sk kind, target, next *ir.Block) bool {
+// codepointCaseTest tests a codepoint literal pattern against a Codepoint:
+// the value's Int against the literal's, which is the VM's word comparison.
+func (bl *irScalarBuilder) codepointCaseTest(pat *ast.CodepointLit, subj ir.Temp, sk kind, next *ir.Block) bool {
 	if sk != codepointKind() {
 		return false
 	}
@@ -37,7 +36,7 @@ func (bl *irScalarBuilder) codepointCaseTest(pat *ast.CodepointLit, subj ir.Temp
 	bl.b.Append(c)
 	m := ir.NewMatchLitInto(pos, bl.f.NewTemp(), inner, c.Dst())
 	bl.b.Append(m)
-	bl.b.SetTerm(ir.NewBranch(pos, m.Dst(), target.ID(), next.ID()))
-	bl.b = target
+	bl.side(m.Dst(), irScalarSide{k: kindBool})
+	bl.passOrFail(pat, m.Dst(), next)
 	return true
 }

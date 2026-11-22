@@ -12,20 +12,23 @@ end
 test "a list pattern names its distinct through the module"
     xs = kinds.Items([1, 2])
 
-    sum = case xs
-        kinds.Items[a, b] -> a + b
-        _                 -> 0
-    end
+    sum =
+        case xs
+            kinds.Items[a, b] -> a + b
+            _                 -> 0
+        end
 
-    first = case xs
-        k2.Items[a, ..] -> a
-        _               -> 0
-    end
+    first =
+        case xs
+            k2.Items[a, ..] -> a
+            _               -> 0
+        end
 
-    second = case xs
-        Items[_, b] -> b
-        _           -> 0
-    end
+    second =
+        case xs
+            Items[_, b] -> b
+            _           -> 0
+        end
 
     assert sum == 3
     assert first == 1
@@ -35,10 +38,11 @@ end
 test "a map pattern names its distinct through the module"
     m = kinds.Kvs{"a" => 4}
 
-    got = case m
-        kinds.Kvs{"a" => v} -> v
-        _                   -> 0
-    end
+    got =
+        case m
+            kinds.Kvs{"a" => v} -> v
+            _                   -> 0
+        end
 
     assert got == 4
 end
@@ -46,24 +50,27 @@ end
 test "a vector and a set pattern name their distinct through the module"
     p = kinds.Path[1, 2, 3]
 
-    ends = case p
-        kinds.Path[a, .., z] -> a + z
-        _                    -> 0
-    end
+    ends =
+        case p
+            kinds.Path[a, .., z] -> a + z
+            _                    -> 0
+        end
 
-    has = case kinds.Tags[5]
-        kinds.Tags[5] -> True
-        _             -> False
-    end
+    has =
+        case kinds.Tags[5]
+            kinds.Tags[5] -> True
+            _             -> False
+        end
 
     assert ends == 4
     assert has
 end
 
 test "a constructor pattern names its distinct through the module"
-    sum = case kinds.Pt((1, 2))
-        kinds.Pt((a, b)) -> a + b
-    end
+    sum =
+        case kinds.Pt((1, 2))
+            kinds.Pt((a, b)) -> a + b
+        end
 
     assert sum == 3
 end

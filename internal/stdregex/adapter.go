@@ -9,13 +9,13 @@ import (
 // Regex is the opaque Go handle held by std/regex.RawRegex.
 type Regex struct {
 	re *regexp.Regexp
-	// suffix is re anchored to the end of the text, built by FFISuffixOf on
+	// suffix is re anchored to the end of the text, built by HostSuffixOf on
 	// its first call.
 	suffixOnce sync.Once
 	suffix     *regexp.Regexp
 }
 
-func FFICompile(pattern string) (*Regex, error) {
+func HostCompile(pattern string) (*Regex, error) {
 	re, err := regexp.Compile(pattern)
 	if err != nil {
 		return nil, err
@@ -44,20 +44,20 @@ func (re *Regex) GroupNames() []string {
 
 // HostKey is re's source pattern, which a Regex's equality and hash read
 // (rt.HostKeyed): two regexes are equal when their patterns are.
-func (re *Regex) HostKey() string { return FFIPattern(re) }
+func (re *Regex) HostKey() string { return HostPattern(re) }
 
-func FFIPattern(re *Regex) string {
+func HostPattern(re *Regex) string {
 	if re == nil || re.re == nil {
 		return ""
 	}
 	return re.re.String()
 }
 
-func FFIMatch(re *Regex, input string) bool {
+func HostMatch(re *Regex, input string) bool {
 	return re != nil && re.re != nil && re.re.MatchString(input)
 }
 
-func FFIFind(re *Regex, input string) *string {
+func HostFind(re *Regex, input string) *string {
 	if re == nil || re.re == nil {
 		return nil
 	}
@@ -68,24 +68,24 @@ func FFIFind(re *Regex, input string) *string {
 	return &match
 }
 
-func FFIFindAll(re *Regex, input string) []string {
+func HostFindAll(re *Regex, input string) []string {
 	if re == nil || re.re == nil {
 		return nil
 	}
 	return re.re.FindAllString(input, -1)
 }
 
-func FFISplit(re *Regex, input string) []string {
+func HostSplit(re *Regex, input string) []string {
 	if re == nil || re.re == nil {
 		return nil
 	}
 	return re.re.Split(input, -1)
 }
 
-// FFIPrefixOf reports whether a match starts at the beginning of input. The
+// HostPrefixOf reports whether a match starts at the beginning of input. The
 // leftmost match is the one with the smallest start, so a match at 0 exists
 // exactly when the leftmost match starts there.
-func FFIPrefixOf(re *Regex, input string) bool {
+func HostPrefixOf(re *Regex, input string) bool {
 	if re == nil || re.re == nil {
 		return false
 	}
@@ -93,11 +93,11 @@ func FFIPrefixOf(re *Regex, input string) bool {
 	return loc != nil && loc[0] == 0
 }
 
-// FFISuffixOf reports whether some match ends at the end of input. The
+// HostSuffixOf reports whether some match ends at the end of input. The
 // leftmost match need not be that one (`a|ab` on "ab" picks "a"), so it asks
 // a second regex, the pattern anchored to the end of the text, which is
 // compiled on first use and kept on the handle.
-func FFISuffixOf(re *Regex, input string) bool {
+func HostSuffixOf(re *Regex, input string) bool {
 	if re == nil || re.re == nil {
 		return false
 	}
@@ -107,10 +107,10 @@ func FFISuffixOf(re *Regex, input string) bool {
 	return re.suffix.MatchString(input)
 }
 
-// FFIReplace replaces every non-overlapping match with replacement, expanded
+// HostReplace replaces every non-overlapping match with replacement, expanded
 // by Go's regexp.Expand rules: `$1`, `${1}` and `${name}` are capture groups
 // and `$$` is a literal `$`.
-func FFIReplace(re *Regex, input, replacement string) string {
+func HostReplace(re *Regex, input, replacement string) string {
 	if re == nil || re.re == nil {
 		return input
 	}

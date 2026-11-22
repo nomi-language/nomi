@@ -690,13 +690,7 @@ func Route(m rt.HTTPMux, method, host, target string) *rt.List[string] {
 		out := []string{"match", strconv.Itoa(rec.match.index), x.patterns[rec.match.index]}
 		return listOf(append(out, rec.match.values...))
 	}
-	out := []string{"answer", strconv.Itoa(rec.status), rec.body.String()}
-	for name, values := range rec.header {
-		for _, v := range values {
-			out = append(out, name, v)
-		}
-	}
-	return listOf(out)
+	return answered(rec)
 }
 
 // synthetic is a request Go's helpers can answer: the method, target and
@@ -714,15 +708,10 @@ func synthetic(method, target string, headers *rt.List[string]) (*http.Request, 
 	return req, true
 }
 
-// answered is what a Go helper wrote: ["answer", status, body, name, value, ...].
+// answered is what the mux or a Go helper wrote: ["answer", status, body,
+// name, value, ...], the headers by name (flatHeader).
 func answered(rec *matchRecorder) *rt.List[string] {
-	out := []string{"answer", strconv.Itoa(rec.status), rec.body.String()}
-	for name, values := range rec.header {
-		for _, v := range values {
-			out = append(out, name, v)
-		}
-	}
-	return listOf(out)
+	return listOf(append([]string{"answer", strconv.Itoa(rec.status), rec.body.String()}, flatHeader(rec.header)...))
 }
 
 func badTarget() *rt.List[string] { return listOf([]string{"answer", "400", "invalid request URL\n"}) }
@@ -742,6 +731,16 @@ func AnswerContent(method, target string, headers *rt.List[string], name string,
 	var mod time.Time
 	if modified >= 0 {
 		mod = time.Unix(0, modified)
+	}
+	// ServeContent reads these with Go's ParseTime: each date goes to it
+	// as the IMF-fixdate httpDate reads, which Go reads the same in every
+	// zone.
+	for _, name := range []string{"If-Modified-Since", "If-Unmodified-Since", "If-Range"} {
+		for i, v := range req.Header[name] {
+			if t, err := httpDate(v); err == nil {
+				req.Header[name][i] = t.Format(http.TimeFormat)
+			}
+		}
 	}
 	rec := &matchRecorder{header: http.Header{}, status: http.StatusOK}
 	for l := set; l != nil && l.Tail != nil; l = l.Tail.Tail {
@@ -767,15 +766,37 @@ func AnswerRedirect(method, target string, headers *rt.List[string], to string, 
 // FormatTime is `std::http::host.format_time`: Go's TimeFormat in UTC.
 func FormatTime(nanos rt.Int) string { return rt.InstantTimeOf(nanos).Format(http.TimeFormat) }
 
-// ParseTime is `std::http::host.parse_time`: Go's ParseTime, in nanoseconds
-// of any size, so the `Fri, 31 Dec 9999 23:59:59 GMT` servers send as
-// "never" is that moment (rt.InstantFromTime).
+// ParseTime is `std::http::host.parse_time`: an HTTP-date in any of its
+// three forms (httpDate), in nanoseconds of any size, so the `Fri, 31 Dec
+// 9999 23:59:59 GMT` servers send as "never" is that moment
+// (rt.InstantFromTime).
 func ParseTime(text string) rt.Result[rt.Int, string] {
-	t, err := http.ParseTime(text)
+	t, err := httpDate(text)
 	if err != nil {
 		return rt.Err[rt.Int](err.Error())
 	}
 	return rt.Ok[rt.Int, string](rt.InstantFromTime(t))
+}
+
+// httpDate is Go's ParseTime read as RFC 9110 section 5.6.7 says: every form of
+// an HTTP-date is GMT, and an obsolete one naming another zone is read as
+// GMT too. Go's ParseTime reads a zone abbreviation such as EST against
+// the process's zone, so its answer would depend on the machine.
+func httpDate(text string) (time.Time, error) {
+	return gmtDate(text, http.TimeFormat, time.RFC850, time.ANSIC)
+}
+
+// gmtDate parses text with the first of layouts that takes it, as Go's
+// ParseTime tries them, and reads its clock as GMT whatever zone it names.
+// Parsing in UTC keeps time.Local out; the clock fields then drop the zero
+// or fixed offset the parse gave a named zone.
+func gmtDate(text string, layouts ...string) (t time.Time, err error) {
+	for _, layout := range layouts {
+		if t, err = time.ParseInLocation(layout, text, time.UTC); err == nil {
+			return time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), time.UTC), nil
+		}
+	}
+	return t, err
 }
 
 // LimitBody is `std::http::host.limit_body`: a reader over r that fails once more
@@ -783,6 +804,27 @@ func ParseTime(text string) rt.Result[rt.Int, string] {
 func LimitBody(fr *rt.Frame, r rt.Reader, maxArg rt.Int) rt.Reader {
 	max := maxArg.Saturated()
 	return rt.NewReader(rt.ReadSource{Name: "<request>", R: &limited{r: readerInput{fr: fr, r: r}, left: max}})
+}
+
+// ReadAtMost is `std::http::host.read_at_most`: the bytes r holds, read
+// until its end or until max are read, at most 64 KiB a read, and the
+// error a read failed with before either, beside the bytes read until
+// then. The bytes are a value, so reading a body whole makes no Writer.
+func ReadAtMost(fr *rt.Frame, r rt.Reader, maxArg rt.Int) (rt.Bytes, rt.Maybe[rt.IOError]) {
+	left := maxArg.Saturated()
+	var data []byte
+	for left > 0 {
+		chunk := rt.ReaderRead(fr, r, rt.SmallInt(min(left, 65536)))
+		if chunk.Tag != rt.TagOk {
+			return rt.Bytes(data), rt.Some(chunk.Err)
+		}
+		if chunk.Ok.Tag != rt.TagSome {
+			break
+		}
+		data = append(data, chunk.Ok.Some...)
+		left -= int64(len(chunk.Ok.Some))
+	}
+	return rt.Bytes(data), rt.None[rt.IOError]()
 }
 
 type limited struct {

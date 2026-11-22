@@ -97,10 +97,10 @@ type rtFuncsSuite struct {
 	covered map[string]int
 	golden  map[string]string
 	lines   []string
-	// parts is the adapters' parts forms, each held to its adapter's
-	// answer (sameParts); partsChecked counts the argument sets.
-	parts        map[string]hostadapt.PartsFunc
-	partsChecked int
+	// regs is the adapters' register forms, each held to its adapter's
+	// answer (sameRegs); regsChecked counts the argument sets.
+	regs        map[string]hostadapt.Regs
+	regsChecked int
 
 	calls, values, faults, panics, refusals, fastRecords int
 }
@@ -118,7 +118,7 @@ func newRtFuncsSuite(t *testing.T) *rtFuncsSuite {
 	if p.table, err = Bind(env); err != nil {
 		t.Fatalf("Bind: %v", err)
 	}
-	p.parts = partsTable(t)
+	p.regs = regsTable(t)
 	for _, spec := range Specs() {
 		if spec.Kind == rt.KindStruct || spec.Kind == rt.KindDistinct {
 			d, err := env.Desc(spec)
@@ -235,10 +235,10 @@ func (p *rtFuncsSuite) check(key string, c hostCase) {
 			p.values++
 		}
 	}
-	if sameParts(p.t, line, p.parts[key], whole, func(fn hostadapt.PartsFunc) (rt.Value, bool, error) {
-		return fn(fr, rtArgs)
-	}, c.shapeOnly) {
-		p.partsChecked++
+	if sameRegs(p.t, line, p.regs[key], whole, func(s *hostadapt.Slots) (bool, error) {
+		return p.regs[key].Fn(fr, s)
+	}, rtArgs, c.shapeOnly) {
+		p.regsChecked++
 	}
 	p.lines = append(p.lines, strconv.Quote(line)+"\t"+strconv.Quote(first))
 	p.covered[key]++
@@ -418,11 +418,14 @@ func (p *rtFuncsSuite) scalarCases() map[string][]hostCase {
 		hInt(math.MaxInt64), hInt(math.MinInt64), hBig("9223372036854775808"), hBig("-36000000000000000000000000001")}
 	// ASCII upper, lower, digit and space; Latin-1 É, é and U+00A0; Cyrillic
 	// Ж and ж; 中; title-case ǅ; U+0301 COMBINING ACUTE ACCENT; U+3000; full-width
-	// １; Arabic-Indic ٣; 🙂.
+	// １; Arabic-Indic ٣; 🙂; then for the general categories ! + $ « © ½ Ⅻ,
+	// U+2028 LINE SEPARATOR, U+0085 and U+200B ZERO WIDTH SPACE (Cf).
 	classified := []any{hCodepoint('A'), hCodepoint('a'), hCodepoint('7'), hCodepoint(' '), hCodepoint('\t'),
 		hCodepoint(0xC9), hCodepoint(0xE9), hCodepoint(0xA0), hCodepoint(0x416), hCodepoint(0x436),
 		hCodepoint(0x4E2D), hCodepoint(0x1C5), hCodepoint(0x301), hCodepoint(0x3000), hCodepoint(0xFF11),
-		hCodepoint(0x663), hCodepoint(0x1F642)}
+		hCodepoint(0x663), hCodepoint(0x1F642), hCodepoint('!'), hCodepoint('+'), hCodepoint('$'),
+		hCodepoint(0xAB), hCodepoint(0xA9), hCodepoint(0xBD), hCodepoint(0x216B), hCodepoint(0x2028),
+		hCodepoint(0x85), hCodepoint(0x200B)}
 
 	c := map[string][]hostCase{
 		"strings.String.is_contained_in": needlePairs,
@@ -488,6 +491,8 @@ func (p *rtFuncsSuite) scalarCases() map[string][]hostCase {
 		"html/host.escape":                   unary(append(strs, hStr(`<a href="x">it's & co</a>`))...),
 		"html/host.filter_url":               unary(hStr("https://example.com/a"), hStr("/posts/1"), hStr("mailto:a@b.c"), hStr("javascript:alert(1)"), hStr(" javascript:x"), hStr("a/b:c")),
 		"html/host.escape_url_path":          unary(append(strs, hStr("script:alert(1)"), hStr("a b/c"))...),
+		"html/host.unescape_references":      unary(append(strs, hStr("caf&eacute; &#233; &#xE9; &amp &copy2 &notit; &#0; &#x80; &#x; &nLt; &zzz;"))...),
+		"html/host.named_reference":          unary(hStr("eacute"), hStr("amp"), hStr("fjlig"), hStr("nLt"), hStr("notit"), hStr("AMP;"), hStr(""), hStr("#65"), hStr("zzz")),
 		"url/host.escape_query":              unary(strs...),
 		"url/host.escape_path_segment":       unary(strs...),
 		"url/host.unescape_query":            unary(hStr("tea+%26+cake"), hStr("caf%C3%A9"), hStr("100%"), hStr("%FF"), hStr("%zz"), hStr("a%2Fb")),
@@ -538,37 +543,44 @@ func (p *rtFuncsSuite) scalarCases() map[string][]hostCase {
 			args(hStr("POST"), hStr("a.example"), strList("Origin", "https://b.example"), strList()),
 			args(hStr("POST"), hStr("a.example"), strList("Sec-Fetch-Site", "", "Origin", ""), strList()),
 		),
-		"url/host.query_encode":               unary(strList(), strList("b", "x y", "a", "1", "b", "&"), strList("odd")),
-		"int.Int.to_string":                   unary(ints...),
-		"int.Int.to_float":                    unary(ints...),
-		"averageable.int_ratio_to_float":      cases(args(hInt(7), hInt(3)), args(hInt(-1), hInt(2)), args(hInt(0), hInt(5)), args(hInt(math.MaxInt64), hInt(3)), args(hBig("1000000000000000000000000000001"), hInt(1)), args(hBig("9007199254740993"), hInt(1)), args(hBig("3"), hBig("18446744073709551616")), args(hBig("-1"+strings.Repeat("0", 400)), hInt(3)), args(hInt(1), hInt(0))),
-		"int.Int.bit_count":                   unary(ints...),
-		"int.Int.bit_length":                  unary(ints...),
-		"int.Int.wrapping_add":                pairs(ints...),
-		"int.Int.wrapping_sub":                pairs(ints...),
-		"int.Int.wrapping_mul":                pairs(ints...),
-		"float.Float.to_string":               unary(floats...),
-		"float.Float.is_nan":                  unary(floats...),
-		"float.Float.floor":                   unary(floats...),
-		"float.Float.ceil":                    unary(floats...),
-		"float.Float.trunc":                   unary(floats...),
-		"float.Float.to_int":                  unary(floats...),
-		"float.float_bits":                    unary(floats...),
-		"float.Float.nan":                     cases(args()),
-		"float.Float.positive_infinity":       cases(args()),
-		"float.Float.negative_infinity":       cases(args()),
-		"decimal.Decimal.to_string":           unary(decimals...),
-		"decimal.Decimal.hash":                unary(decimals...),
-		"decimal.Decimal.equal":               pairs(decimals...),
-		"decimal.Decimal.compare":             pairs(decimals...),
-		"duration.render_nanos":               unary(durationNanos...),
-		"int.Int.to_codepoint":                unary(hInt(-1), hInt(0), hInt(65), hInt(0xD7FF), hInt(0xD800), hInt(0xDFFF), hInt(0xE000), hInt(0x10FFFF), hInt(0x110000), hInt(math.MinInt64)),
-		"code_points.Codepoint.to_string":     unary(hCodepoint(65), hCodepoint(0x1F642), hCodepoint(0xE9), hCodepoint(0)),
-		"code_points.Codepoint.is_letter":     unary(classified...),
-		"code_points.Codepoint.is_whitespace": unary(classified...),
-		"code_points.Codepoint.is_upper":      unary(classified...),
-		"code_points.Codepoint.is_lower":      unary(classified...),
-		"instant.Instant.now":                 {{args: args(), shapeOnly: true}},
+		"url/host.query_encode":                unary(strList(), strList("b", "x y", "a", "1", "b", "&"), strList("odd")),
+		"int.Int.to_string":                    unary(ints...),
+		"int.Int.to_float":                     unary(ints...),
+		"averageable.int_ratio_to_float":       cases(args(hInt(7), hInt(3)), args(hInt(-1), hInt(2)), args(hInt(0), hInt(5)), args(hInt(math.MaxInt64), hInt(3)), args(hBig("1000000000000000000000000000001"), hInt(1)), args(hBig("9007199254740993"), hInt(1)), args(hBig("3"), hBig("18446744073709551616")), args(hBig("-1"+strings.Repeat("0", 400)), hInt(3)), args(hInt(1), hInt(0))),
+		"int.Int.bit_count":                    unary(ints...),
+		"int.Int.bit_length":                   unary(ints...),
+		"int.Int.wrapping_add":                 pairs(ints...),
+		"int.Int.wrapping_sub":                 pairs(ints...),
+		"int.Int.wrapping_mul":                 pairs(ints...),
+		"float.Float.to_string":                unary(floats...),
+		"float.Float.is_nan":                   unary(floats...),
+		"float.Float.floor":                    unary(floats...),
+		"float.Float.ceil":                     unary(floats...),
+		"float.Float.trunc":                    unary(floats...),
+		"float.Float.to_int":                   unary(floats...),
+		"float.Float.to_bits":                  unary(floats...),
+		"float.Float.nan":                      cases(args()),
+		"float.Float.positive_infinity":        cases(args()),
+		"float.Float.negative_infinity":        cases(args()),
+		"decimal.Decimal.to_string":            unary(decimals...),
+		"decimal.Decimal.hash":                 unary(decimals...),
+		"decimal.Decimal.equal":                pairs(decimals...),
+		"decimal.Decimal.compare":              pairs(decimals...),
+		"duration.render_nanos":                unary(durationNanos...),
+		"int.Int.to_codepoint":                 unary(hInt(-1), hInt(0), hInt(65), hInt(0xD7FF), hInt(0xD800), hInt(0xDFFF), hInt(0xE000), hInt(0x10FFFF), hInt(0x110000), hInt(math.MinInt64)),
+		"code_points.Codepoint.to_string":      unary(hCodepoint(65), hCodepoint(0x1F642), hCodepoint(0xE9), hCodepoint(0)),
+		"code_points.Codepoint.is_letter":      unary(classified...),
+		"code_points.Codepoint.is_whitespace":  unary(classified...),
+		"code_points.Codepoint.is_upper":       unary(classified...),
+		"code_points.Codepoint.is_lower":       unary(classified...),
+		"code_points.Codepoint.is_title":       unary(classified...),
+		"code_points.Codepoint.is_mark":        unary(classified...),
+		"code_points.Codepoint.is_number":      unary(classified...),
+		"code_points.Codepoint.is_punctuation": unary(classified...),
+		"code_points.Codepoint.is_symbol":      unary(classified...),
+		"code_points.Codepoint.is_separator":   unary(classified...),
+		"code_points.Codepoint.is_control":     unary(classified...),
+		"instant.Instant.now":                  {{args: args(), shapeOnly: true}},
 	}
 	return c
 }
@@ -690,7 +702,7 @@ func (p *rtFuncsSuite) concurrencyCases() map[string][]hostCase {
 func TestRtFuncs_AdaptersReproduceTheRecordedHosts(t *testing.T) {
 	p := newRtFuncsSuite(t)
 	all := map[string][]hostCase{}
-	for _, part := range []map[string][]hostCase{p.scalarCases(), p.jsonCases(), p.concurrencyCases(), cryptoCases()} {
+	for _, part := range []map[string][]hostCase{p.scalarCases(), p.jsonCases(), p.concurrencyCases(), cryptoCases(), bytePrimitiveCases()} {
 		for k, v := range part {
 			all[k] = v
 		}
@@ -713,8 +725,8 @@ func TestRtFuncs_AdaptersReproduceTheRecordedHosts(t *testing.T) {
 	if len(p.lines) != len(p.golden) {
 		t.Errorf("%d argument sets ran and %s records %d", len(p.lines), hostGoldenPath, len(p.golden))
 	}
-	if p.partsChecked == 0 {
-		t.Errorf("no argument set reached a parts form; the comparison has stopped reaching them")
+	if p.regsChecked == 0 {
+		t.Errorf("no argument set reached a register form; the comparison has stopped reaching them")
 	}
 
 	// The rows that joined the table after the hand-written hosts were deleted
@@ -742,7 +754,7 @@ func TestRtFuncs_AdaptersReproduceTheRecordedHosts(t *testing.T) {
 		"in_remote", "in_target", "in_protocol", "in_headers", "in_trailers", "in_content_length",
 		"in_transfer_encoding", "in_close", "in_body", "respond", "produce", "finish", "answered_already",
 		"detect_content_type", "new_mux", "route", "answer_content", "answer_redirect", "format_time",
-		"parse_time", "limit_body", "cookie_text", "cookie_valid", "parse_cookie", "parse_set_cookie",
+		"parse_time", "limit_body", "read_at_most", "cookie_text", "cookie_valid", "parse_cookie", "parse_set_cookie",
 		"new_jar", "jar_cookies", "jar_set", "with_jar"} {
 		elsewhere["http/host."+k] = true
 	}
@@ -797,14 +809,23 @@ func TestRtFuncs_AdaptersReproduceTheRecordedHosts(t *testing.T) {
 	elsewhere["embed/host.read"] = true
 	elsewhere["embed/host.sum"] = true
 	// std/csv/host's and std/xml/host's readers hold a Go reader over a
-	// Reader in a handle; TestRtFuncs_CsvAndXmlReaders runs each row, and
+	// Reader in a handle, or read text whole; TestRtFuncs_CsvAndXmlReaders
+	// runs each row, and
 	// std/csv's and std/xml's attached tests run them through Nomi programs.
 	for _, k := range []string{"csv/host.open", "csv/host.next", "csv/host.line", "csv/host.stopped",
-		"csv/host.message", "csv/host.failure", "csv/host.encode", "xml/host.open", "xml/host.next",
-		"xml/host.name", "xml/host.attributes", "xml/host.namespaces", "xml/host.text", "xml/host.target",
-		"xml/host.position", "xml/host.stopped", "xml/host.message", "xml/host.failure",
+		"csv/host.message", "csv/host.failure", "csv/host.decode", "csv/host.encode", "xml/host.open", "xml/host.next",
+		"xml/host.current", "xml/host.decode", "xml/host.stopped", "xml/host.message", "xml/host.failure",
 		"xml/host.escape_text", "xml/host.escape_attribute", "xml/host.is_name"} {
 		elsewhere[k] = true
+	}
+	// std/wasm/host's rows hold a compiled module and an instance in
+	// handles, and its memory rows need a Nomi import to be handed the
+	// memory; TestRtFuncs_WasmModules runs the module and instance rows,
+	// and internal/stdwasm's tests and std/wasm's attached tests run each
+	// row over committed modules.
+	for _, k := range []string{"compile", "run", "run_on", "instantiate", "call", "read", "write", "size", "drop",
+		"memory_read", "memory_write", "memory_size"} {
+		elsewhere["wasm/host."+k] = true
 	}
 	var missing []string
 	for _, b := range stdlibbindings.RtFuncs() {
@@ -921,6 +942,8 @@ func canonText(v rt.Value, shapeOnly bool) string {
 		return fmt.Sprintf("Dynamic(%#v)", x.Inner)
 	case rt.Supervisor:
 		return "Supervisor"
+	case rt.BytesBuilder:
+		return scalar("Builder", fmt.Sprintf("%q", string(rt.BytesBuilderToBytes(x))))
 	case rt.HostHandle:
 		// The handle's Go type, not its contents: a fresh handle is a new
 		// pointer.

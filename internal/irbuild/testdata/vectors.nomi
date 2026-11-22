@@ -116,10 +116,11 @@ fn main()
     io.print("next head ${head_or(v)}")
     io.print("next empty ${head_or(none_v)}")
 
-    tail = case Vector.next_item(v)
-        Some((_, rest)) -> rest
-        None            -> Vector[]
-    end
+    tail =
+        case Vector.next_item(v)
+            Some((_, rest)) -> rest
+            None            -> Vector[]
+        end
 
     io.print("after_tail len ${Vector.length(tail)}")
     io.print("after_tail count ${Iter.count(tail)}")

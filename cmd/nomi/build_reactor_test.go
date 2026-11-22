@@ -247,7 +247,7 @@ const wasi = new WASI({
   returnOnExit: true,
 });
 const module = await WebAssembly.compile(await readFile(path));
-const instance = await WebAssembly.instantiate(module, wasi.getImportObject());
+const instance = await WebAssembly.instantiate(module, { ...wasi.getImportObject(), nomi: { host_call: () => 0n } });
 wasi.initialize(instance);
 const x = instance.exports;
 const encoder = new TextEncoder();

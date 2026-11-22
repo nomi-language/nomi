@@ -165,6 +165,68 @@ func TestInstance_CallsRoundTripStructsAndEnums(t *testing.T) {
 	}
 }
 
+const results = `import std::json.{FromJson, ToJson}
+
+struct Lookup
+    id: Int
+    answer: Result<String, String>
+end
+
+derive ToJson for Lookup
+derive FromJson for Lookup
+
+export fn halve(n: Int) -> Result<Int, String>
+    if n % 2 == 0 then Ok(n / 2) else Err("${n} is odd")
+end
+
+export fn describe(r: Result<Int, String>) -> String
+    case r
+        Ok(n)  -> "ok ${n}"
+        Err(e) -> "err ${e}"
+    end
+end
+
+export fn settle(l: Lookup) -> Lookup
+    {..l, answer: Result.map(l.answer, &String.uppercase(&1))}
+end
+`
+
+// A Result crosses an exported function as an object with one key, as a
+// derived enum's payload variant does: a result's two arms, an argument
+// read back, and a struct field derived over it. An `Err` result is a
+// value the host receives, not the call's failure. FromJson refuses an
+// object with no key, both keys or another key, and anything not an
+// object.
+func TestInstance_AResultCrossesAsAnObjectWithOneKey(t *testing.T) {
+	in, _ := start(t, results)
+	even := call(t, in, "halve", `[8]`)
+	if even != `{"Ok":4}` {
+		t.Fatalf("halve(8) answered %s", even)
+	}
+	odd := string(in.CallResult(context.Background(), "halve", []byte(`[7]`)))
+	if odd != `{"ok":{"Err":"7 is odd"}}` {
+		t.Fatalf("halve(7) answered %s", odd)
+	}
+	if got := call(t, in, "describe", `[`+even+`]`); got != `"ok 4"` {
+		t.Fatalf("describe(%s) answered %s", even, got)
+	}
+	if got := call(t, in, "describe", `[{"Err": "no"}]`); got != `"err no"` {
+		t.Fatalf("describe of an Err answered %s", got)
+	}
+	if got := call(t, in, "settle", `[{"id": 7, "answer": {"Ok": "ada"}}]`); got != `{"id":7,"answer":{"Ok":"ADA"}}` {
+		t.Fatalf("settle answered %s", got)
+	}
+	const arg = "argument `r` of `describe(r: Result<Int, String>) -> String`: "
+	const shape = `expected Result as {"Ok": value} or {"Err": error}, got `
+	callFails(t, in, "describe", `[{}]`, arg+shape+"object with no keys")
+	callFails(t, in, "describe", `[{"Ok": 1, "Err": "x"}]`, arg+shape+`object with keys "Err", "Ok"`)
+	callFails(t, in, "describe", `[{"ok": 1}]`, arg+shape+`object with keys "ok"`)
+	callFails(t, in, "describe", `[3]`, arg+shape+"int")
+	callFails(t, in, "describe", `[{"Ok": "4"}]`, arg+"Ok: expected Int, got string")
+	callFails(t, in, "settle", `[{"id": 7, "answer": {"Err": 3}}]`,
+		"argument `l` of `settle(l: Lookup) -> Lookup`: answer.Err: expected String, got int")
+}
+
 func TestInstance_EachFailureIsAnErrorAndTheNextCallRuns(t *testing.T) {
 	in, _ := start(t, hangman)
 	callFails(t, in, "divide", `[1, 0]`, "line 50: `NonZeroInt.try_from(b)` found nothing")

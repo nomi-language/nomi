@@ -56,6 +56,53 @@ func (fa *FileAnalysis) recordPatternType(node ast.Node, t Type) {
 	fa.PatternTypes[node] = t
 }
 
+// recordPatternIrrefutable notes whether a pattern matches every value of
+// the type PatternTypes records for it (FileAnalysis.IrrefutablePatterns).
+func (fa *FileAnalysis) recordPatternIrrefutable(node ast.Node, always bool) {
+	if fa == nil || node == nil {
+		return
+	}
+	if fa.IrrefutablePatterns == nil {
+		fa.IrrefutablePatterns = map[ast.Node]bool{}
+	}
+	fa.IrrefutablePatterns[node] = always
+}
+
+// PatternIrrefutable reports whether the checker recorded that pattern
+// matches every value of the type it was checked against
+// (IrrefutablePatterns). recorded is false for a pattern the checker did
+// not check against a known type.
+func (fa *FileAnalysis) PatternIrrefutable(pattern ast.Node) (always, recorded bool) {
+	if fa == nil {
+		return false, false
+	}
+	always, recorded = fa.IrrefutablePatterns[pattern]
+	return always, recorded
+}
+
+// recordBindingFallback notes the payload type a binding's `else` may fall
+// back to, nil for none (FileAnalysis.BindingFallbacks).
+func (fa *FileAnalysis) recordBindingFallback(n *ast.PatternBinding, payload Type) {
+	if fa == nil || n == nil {
+		return
+	}
+	if fa.BindingFallbacks == nil {
+		fa.BindingFallbacks = map[*ast.PatternBinding]Type{}
+	}
+	fa.BindingFallbacks[n] = payload
+}
+
+// BindingFallback is the type of the payload a path of n's `else` may fall
+// back to (BindingFallbacks): nil when every path must leave. recorded is
+// false for a binding the checker did not record, one with no `else`.
+func (fa *FileAnalysis) BindingFallback(n *ast.PatternBinding) (payload Type, recorded bool) {
+	if fa == nil {
+		return nil, false
+	}
+	payload, recorded = fa.BindingFallbacks[n]
+	return payload, recorded
+}
+
 // recordPatternVariant notes the variant head, a pattern's head, names, by
 // its declared name in the enum PatternTypes records for the pattern
 // (FileAnalysis.PatternVariants).
@@ -133,7 +180,7 @@ func (p *Program) ImplOfInterface(impl ast.Node, it *InterfaceType) bool {
 	case *ast.FuncDef:
 		origin = idx.ImplIfaceOrigin[d]
 	case *ast.ExternFunc:
-		origin = externImplIfaceOrigin(p.File(idx.ImplExternFiles[d]), it.Name)
+		origin = externImplIfaceOrigin(p.File(idx.ImplExternFiles[d]), d, it.Name)
 	}
 	return sameNominalIdentity(origin, it.Name, it.Origin, it.Name)
 }

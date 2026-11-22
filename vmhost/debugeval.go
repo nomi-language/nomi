@@ -170,8 +170,11 @@ func (p *Program) CompileExpr(file string, vars []DebugParam, expr string) (*Deb
 }
 
 // Run evaluates the expression in scope, whose variables supply its
-// parameters, under lim. Unless allowEffects, one that can reach an effect
-// is refused with *vm.EffectsError before it runs.
+// parameters, under lim, reading the app fields in force in its frame.
+// Unless allowEffects, one that can reach an effect
+// is refused with *vm.EffectsError before it runs, and one that can call a
+// function whose cost grows with an argument's value with
+// *vm.UnboundedError.
 func (e *DebugExpr) Run(scope *vm.Scope, lim EvalLimits, allowEffects bool) (Value, error) {
 	args := make([]any, len(e.Params))
 	for i, name := range e.Params {

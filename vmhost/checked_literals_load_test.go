@@ -124,6 +124,38 @@ func TestCheckedLiteral_EffectfulCheckIsOneErrorAtTheCheck(t *testing.T) {
 	}
 }
 
+// A check that calls a function whose cost grows with its argument is one
+// error at the check, as an effectful one is, and says it is unbounded,
+// not that it has effects.
+func TestCheckedLiteral_UnboundedCheckIsOneErrorAtTheCheck(t *testing.T) {
+	src := "import std::literals.{CheckedLiteral, Fragment, LiteralError}\n\n" +
+		"type Wide\n\n" +
+		"impl CheckedLiteral<String, String> for Wide\n" +
+		"    fn check(statics: List<String>) -> Result<Unit, LiteralError>\n" +
+		"        _ = String.repeat(\"ab\", Iter.count(statics))\n" +
+		"        Ok(Unit)\n" +
+		"    end\n\n" +
+		"    fn build(fragments: List<Fragment<String>>) -> String\n" +
+		"        \"${Iter.count(fragments)}\"\n" +
+		"    end\n" +
+		"end\n\n" +
+		"fn main()\n" +
+		"    _ = Wide\"a\"\n" +
+		"    _ = Wide\"b\"\n" +
+		"end\n"
+	ds := literalDiagnostics(t, src)
+	if len(ds) != 1 {
+		t.Fatalf("%d diagnostics, want 1: %v", len(ds), ds)
+	}
+	want := "Wide.check calls a function whose cost grows with its argument (CheckedLiteral.check for Wide calls strings.String.repeat); a checked literal's check runs when the program is checked, and must be bounded"
+	if ds[0].Message != want {
+		t.Errorf("message = %q, want %q", ds[0].Message, want)
+	}
+	if ds[0].Line != 6 {
+		t.Errorf("at line %d, want the check's line 6", ds[0].Line)
+	}
+}
+
 // A type implements Literal or CheckedLiteral, not both: the front end
 // refuses the CheckedLiteral impl, and the message says why.
 func TestCheckedLiteral_BothInterfacesIsAnError(t *testing.T) {

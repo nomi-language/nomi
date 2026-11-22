@@ -222,21 +222,8 @@ func (c *checker) dropValueFix(links []*ast.If, link *ast.If, at ast.Node) *pars
 // maybePayload is T when t is `Maybe<T>`, or nil.
 func maybePayload(t Type) Type {
 	et, ok := resolveTypeVar(t).(*EnumType)
-	if !ok || et.Name != "Maybe" || len(et.TypeArgs) != 1 || !isMaybeEnum(et) {
+	if !ok || !isStdType(et, stdMaybeType) || len(et.TypeArgs) != 1 {
 		return nil
 	}
 	return et.TypeArgs[0]
-}
-
-// isMaybeEnum reports whether et is the prelude's Maybe: an enum of that
-// name whose variants are `Some` with one value and a bare `None`.
-func isMaybeEnum(et *EnumType) bool {
-	if len(et.Variants) != 2 {
-		return false
-	}
-	some, none := et.Variants[0], et.Variants[1]
-	if some.Name != "Some" {
-		some, none = none, some
-	}
-	return some.Name == "Some" && some.DataType != nil && none.Name == "None" && none.DataType == nil
 }

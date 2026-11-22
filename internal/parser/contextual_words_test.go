@@ -14,9 +14,10 @@ import (
 // rejectedWords are the identifiers the parser compares a lexeme against
 // only to explain an error, never to start a construct: `implements`,
 // `derives` and `mut` from other languages, `field` in an interface or
-// type body, and `from` after a Go-backed signature.
+// type body, and `go` and `gopkg` in the forms of a Go binding, which the
+// parser refuses (atGoBinding).
 var rejectedWords = map[string]bool{
-	"derives": true, "field": true, "from": true, "implements": true, "mut": true,
+	"derives": true, "field": true, "go": true, "gopkg": true, "implements": true, "mut": true,
 }
 
 // Every word the parser recognizes by lexeme to start a construct is in

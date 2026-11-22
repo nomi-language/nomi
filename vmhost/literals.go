@@ -50,6 +50,10 @@ const (
 // InvalidLiteralCode is the Code of a typed literal's diagnostic.
 const InvalidLiteralCode = "invalid-literal"
 
+// literalWithoutApp says why a literal's handler or check that reads an
+// app field is refused.
+const literalWithoutApp = "a literal is built when the program is checked, and an app field exists only while the program runs"
+
 // literalHint closes the diagnostic of a literal, written as text, whose
 // handler could not be run: it names the call that builds the value when the
 // program runs.
@@ -144,8 +148,15 @@ func (p *Program) checkLiteral(m *vm.Machine, site irbuild.LiteralSite) (d front
 		return d, true, nil
 	}
 	label := literalLabel(site.Text)
-	if effects := m.Effects(f); len(effects) > 0 {
-		return fail(fmt.Sprintf("%s cannot be checked at compile time: its handler has effects (%s)", label, strings.Join(effects, "; ")), literalHint(site.Text))
+	found := m.Effects(f)
+	if len(found.Effects) > 0 {
+		return fail(fmt.Sprintf("%s cannot be checked at compile time: its handler has effects (%s)", label, strings.Join(found.Effects, "; ")), literalHint(site.Text))
+	}
+	if len(found.AppFields) > 0 {
+		return fail(fmt.Sprintf("%s cannot be checked at compile time: its handler reads %s: %s", label, quotedNames(p.appFieldNames(found.AppFields)), literalWithoutApp), literalHint(site.Text))
+	}
+	if len(found.Unbounded) > 0 {
+		return fail(fmt.Sprintf("%s cannot be checked at compile time: its handler calls a function whose cost grows with its argument (%s)", label, strings.Join(found.Unbounded, "; ")), literalHint(site.Text))
 	}
 	lim := vm.Limits{Steps: literalSteps, Deadline: time.Now().Add(literalTime)}
 	v, err := m.Evaluate(context.Background(), f, nil, lim)

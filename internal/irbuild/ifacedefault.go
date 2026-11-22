@@ -90,8 +90,7 @@ func (g *gen) irImplForwardDefault(d *implDef, it *implItem, fd *ast.FuncDef, pa
 		g.dc.note(why)
 		return kindInvalid, false
 	}
-	bl := &irScalarBuilder{g: g, sh: sh, f: sh.fn, b: sh.entry, returnKind: it.result, sides: sh.sides,
-		bound: map[string]ir.Temp{}, boundK: map[string]kind{}}
+	bl := &irScalarBuilder{g: g, sh: sh, f: sh.fn, b: sh.entry, returnKind: it.result}
 	pos := g.irNodePos(at)
 	call := ir.NewCall(pos, sh.fn.NewTemp(), ir.TailCall, callee, sh.paramTemps...)
 	bl.b.Append(call)
@@ -237,7 +236,7 @@ func (g *gen) declaredIface(mirror *ifaceDef, frame map[string]kind, types map[s
 		return nil
 	}
 	if tpl := mirror.instOf; tpl != nil {
-		if src := g.ifaces[tpl.Name]; src == nil || src.decl != tpl || src.foreign != "" {
+		if g.ifacesByDecl[tpl] == nil {
 			return nil
 		}
 		return g.ifaceInstAtTyped(tpl, frame, types).def
@@ -245,8 +244,8 @@ func (g *gen) declaredIface(mirror *ifaceDef, frame map[string]kind, types map[s
 	if mirror.decl == nil {
 		return nil
 	}
-	src := g.ifaces[mirror.decl.Name]
-	if src == nil || src.decl != mirror.decl || src.foreign != "" || !src.lowerable {
+	src := g.ifacesByDecl[mirror.decl]
+	if src == nil || !src.lowerable {
 		return nil
 	}
 	return src
@@ -322,19 +321,11 @@ func (g *gen) emitIfaceDefault(inst *ifaceDefaultInst) {
 		g.pushIfaceSubst(substIfaceDefault, inst.m.decl, inst.frame, inst.types)
 		defer g.popIfaceSubst()
 	}
-	g.pushScope()
-	defer g.popScope()
-	for i, p := range inst.fd.Params {
-		if p.Destructure == nil && !ast.IsDiscardName(p.Name) {
-			g.bind(p.Name, local{k: inst.params[i]})
-		}
-	}
 	g.irBodyObserve(irBodyImplFn, true)
 	g.dc.take()
 	sym := g.irImplSym(inst)
 	sig := irFuncSig{result: inst.result, decl: inst.fd, name: sym.Name(), origin: irFromImpl}
 	sh := g.irFuncShellWithCallee(inst.fd, sig, inst.params, sym)
-	g.irImplPrologue(inst.fd, sh, inst.params)
 	produced, retained := g.irScalarLower(inst.fd, sig, sh, inst.result)
 	if !retained {
 		g.unloweredBody(g.dc.take())

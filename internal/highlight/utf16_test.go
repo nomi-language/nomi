@@ -14,7 +14,7 @@ import (
 func TestSemanticTokens_ColumnsAreUTF16(t *testing.T) {
 	line := "  \"${n} °${unit} 👍🏽${n} 日本${unit}\""
 	src := "fn label(n: Int, unit: String) -> String\n" + line + "\nend\n"
-	toks := SemanticTokens(src, std.Load())
+	toks := SemanticTokens(src, std.Load(), nil, nil)
 	type at struct{ col, length int }
 	got := map[at]bool{}
 	for _, tok := range toks {

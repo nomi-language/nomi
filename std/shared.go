@@ -33,7 +33,7 @@ package std
 // diagnostics, the conformance demands its bodies and attached tests add to
 // its declarations' (its ImplManifest, which StdBase and the whole-file
 // import check fold), and each boot-only std function's first boot-only
-// call, which the boot-only check reads instead of the body (stdBootFns).
+// call, which the boot-only check reads instead of the body (stdFactsBootCalls).
 // std's functions call only std's, so which are boot-only is the same in
 // every program. Positions in the facts name a module, not a path.
 //
@@ -76,8 +76,9 @@ package std
 // NOMI_DEBUG_STD_BUNDLE=1 reports why one was not used. The facts are
 // decoded on another goroutine while the base modules build
 // (decodeFactsAhead), each module's file named under the directory a build
-// finds the stdlib in (analysis.StdlibPath); installFacts decodes them
-// again when the build put the prelude elsewhere. Building every
+// names the stdlib's files under (analysis.StdFilesDir: the one it finds
+// the stdlib in, else the relative `std`); installFacts decodes them again
+// when the build put the prelude elsewhere. Building every
 // module from interfaces takes about 53 ms, against 345 ms to analyze it
 // from source. TestShared_ModulesAreLoadsModules holds the result to Load's.
 //
@@ -313,6 +314,39 @@ func (lib *StdLib) ModuleNames() []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+// BaseModules answers the modules every stdlib built a module at a time is
+// first built with (stdBaseModules), without what they import.
+func BaseModules() []string { return slices.Clone(stdBaseModules) }
+
+// ModuleImports answers the stdlib modules module imports at any depth,
+// its bodies' and attached tests' imports included, sorted, whether or not
+// they are built: the artifact's index for a stdlib built from interfaces
+// (analysis.StdModuleImports), and otherwise the same read from lib's
+// nodes. A module the stdlib lacks imports nothing.
+func (lib *StdLib) ModuleImports(module string) []string {
+	direct := func(name string) []string {
+		if lib.core != nil {
+			return lib.core.art.imports[name]
+		}
+		return analysis.StdModuleImports(name, lib.Nodes[name])
+	}
+	seen := map[string]bool{module: true}
+	queue := slices.Clone(direct(module))
+	var out []string
+	for len(queue) > 0 {
+		name := queue[0]
+		queue = queue[1:]
+		if seen[name] {
+			continue
+		}
+		seen[name] = true
+		out = append(out, name)
+		queue = append(queue, direct(name)...)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // All is the process's stdlib with every module built: what reads the
@@ -566,9 +600,8 @@ func (c *stdCore) decodeFacts(dir string) (*analysis.StdFacts, error) {
 
 // factsAhead is the artifact's facts decoded on another goroutine while the
 // base modules build, with each module's file under dir, where a build
-// finds the stdlib (analysis.StdlibPath, asked once through stdlibRoot).
-// installFacts takes them when the build put the prelude there, and
-// decodes them again otherwise.
+// names the stdlib's files (stdBuildDir). installFacts takes them when the
+// build put the prelude there, and decodes them again otherwise.
 type factsAhead struct {
 	dir   string
 	facts *analysis.StdFacts
@@ -576,13 +609,9 @@ type factsAhead struct {
 	done  chan struct{}
 }
 
-// decodeFactsAhead starts decoding the facts (factsAhead), or answers nil
-// when the stdlib has no directory to name files under.
+// decodeFactsAhead starts decoding the facts (factsAhead).
 func (c *stdCore) decodeFactsAhead() *factsAhead {
-	dir, err := stdlibRoot()
-	if err != nil {
-		return nil
-	}
+	dir := stdBuildDir()
 	a := &factsAhead{dir: dir, done: make(chan struct{})}
 	go func() {
 		defer close(a.done)

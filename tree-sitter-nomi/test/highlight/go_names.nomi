@@ -1,0 +1,13 @@
+// `go` and `gopkg` are ordinary names. The caret lines below each line
+// name the highlight of the token they point at.
+pub fn go(gopkg: Int) -> Int
+    // ^^ function.definition
+    //    ^^^^^ variable.parameter
+    gopkg + 1
+end
+
+pub fn gopkg(go: Int) -> Int
+    // ^^^^^ function.definition
+    //       ^^ variable.parameter
+    go * 2
+end

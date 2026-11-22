@@ -218,13 +218,13 @@ func IntRatioToFloat(num, den Int) float64 {
 }
 
 // IntWrapAdd is `Int.wrapping_add`: a + b modulo 2^64, as an int64.
-func IntWrapAdd(a, b Int) int64 { return Wrap64(a.Value()) + Wrap64(b.Value()) }
+func IntWrapAdd(a, b Int) int64 { return int64(a.Low64() + b.Low64()) }
 
 // IntWrapSub is `Int.wrapping_sub`: a - b modulo 2^64, as an int64.
-func IntWrapSub(a, b Int) int64 { return Wrap64(a.Value()) - Wrap64(b.Value()) }
+func IntWrapSub(a, b Int) int64 { return int64(a.Low64() - b.Low64()) }
 
 // IntWrapMul is `Int.wrapping_mul`: a * b modulo 2^64, as an int64.
-func IntWrapMul(a, b Int) int64 { return Wrap64(a.Value()) * Wrap64(b.Value()) }
+func IntWrapMul(a, b Int) int64 { return int64(a.Low64() * b.Low64()) }
 
 // IntBitCount is `Int.bit_count`: the number of 1 bits in n. n is a
 // NonNegativeInt in Nomi; a negative one, which only rt's own callers could
@@ -293,7 +293,7 @@ func IntPow(n, exp Int) Int {
 	if !fits || e > maxShift/int64(n.Big().BitLen()-1) {
 		Trap(fmt.Sprintf("Int.pow: exponent %s is too large: the power would have more than %d bits", exp, maxShift))
 	}
-	return Int{intOwned(new(big.Int).Exp(n.Big(), big.NewInt(e), nil))}
+	return IntOf(intOwned(new(big.Int).Exp(n.Big(), big.NewInt(e), nil)))
 }
 
 // powSmall is n^exp by squaring when it fits int64 and is not BigWord's
@@ -336,7 +336,7 @@ func IntSqrt(n Int) Int {
 		}
 		return SmallInt(int64(r))
 	}
-	return Int{intOwned(new(big.Int).Sqrt(n.Big()))}
+	return IntOf(intOwned(new(big.Int).Sqrt(n.Big())))
 }
 
 // IntAsCount is std/iter's `as_count`: a count `Iter.count` or
@@ -350,7 +350,7 @@ func IntAsCount(n Int) Int {
 // negative, and 0 for gcd(0, 0).
 func IntGcd(a, b Int) Int {
 	x, y := new(big.Int).Abs(a.Big()), new(big.Int).Abs(b.Big())
-	return Int{intOwned(new(big.Int).GCD(nil, nil, x, y))}
+	return IntOf(intOwned(new(big.Int).GCD(nil, nil, x, y)))
 }
 
 // IntLcm is `Int.lcm`: the least common multiple of |a| and |b|, never
@@ -361,7 +361,7 @@ func IntLcm(a, b Int) Int {
 	}
 	x, y := new(big.Int).Abs(a.Big()), new(big.Int).Abs(b.Big())
 	g := new(big.Int).GCD(nil, nil, x, y)
-	return Int{intOwned(x.Mul(x.Quo(x, g), y))}
+	return IntOf(intOwned(x.Mul(x.Quo(x, g), y)))
 }
 
 // IntToDigits is `Int.to_digits`: n's digits in base, most significant
@@ -514,6 +514,7 @@ func FloatTan(x float64) float64 { return math.Tan(x) }
 // positive x axis, in radians from -π to π.
 func FloatAtan2(y, x float64) float64 { return math.Atan2(y, x) }
 
-// FloatBits is std/float's private `float_bits`: the IEEE-754 bit pattern as an
-// Int, backing the Float `Hashable` impl.
+// FloatBits is `Float.to_bits`: the IEEE 754 bit pattern as an Int64, two's
+// complement, so a negative Float's is negative. It backs the Float
+// `Hashable` impl too.
 func FloatBits(x float64) int64 { return int64(math.Float64bits(x)) }

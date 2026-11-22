@@ -1,6 +1,7 @@
 package doctest
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 )
@@ -22,6 +23,31 @@ func TestInfoWords(t *testing.T) {
 		if got := blocks[i].UnknownInfo(); !reflect.DeepEqual(got, want) {
 			t.Errorf("block %d: UnknownInfo() = %#v, want %#v", i, got, want)
 		}
+	}
+}
+
+func TestFences(t *testing.T) {
+	md := "a\n```\nplain\n```\n\n```tree\nx/\n```\n\n```nomi-run error\ny\n```\n"
+	var got []string
+	for _, b := range Fences(md) {
+		got = append(got, fmt.Sprintf("%s@%d:%s", b.Lang, b.Line, b.Code))
+	}
+	if want := []string{"@2:plain", "tree@6:x/", "nomi-run@10:y"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("Fences = %q, want %q", got, want)
+	}
+	if blocks := ExtractBlocks(md, "tree"); len(blocks) != 1 || blocks[0].Line != 6 {
+		t.Errorf("ExtractBlocks(tree) = %+v, want the one tree block at line 6", blocks)
+	}
+}
+
+func TestDocCommentMarkdown(t *testing.T) {
+	src := "//# Module.\n//# ```text\n//# a\n//# ```\nfn f() -> Int\n    /// ```nomi\n    ///x = 1\n    /// ```\n    1\nend\n"
+	want := "Module.\n```text\na\n```\n\n```nomi\nx = 1\n```\n\n\n"
+	if got := DocCommentMarkdown(src); got != want {
+		t.Errorf("DocCommentMarkdown = %q, want %q", got, want)
+	}
+	if blocks := Fences(DocCommentMarkdown(src)); len(blocks) != 2 || blocks[1].Lang != "nomi" || blocks[1].Line != 6 {
+		t.Errorf("Fences of the doc comments = %+v, want ```text at 2 and ```nomi at 6", blocks)
 	}
 }
 

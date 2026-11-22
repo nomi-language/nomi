@@ -26,18 +26,15 @@ package irbuild
 //     `ir.NoMatch` does the same (`irnomatch.go`), and `internal/vm` reads the
 //     line from the position.
 //
-// # What is refused
+// # The rendering is the record's
 //
-// The operand admits Int, Float, Bool, String and lists of those scalars,
-// including nested lists, and tuples/records recursively composed from these
-// values. Nominal elements are outside this fence.
-//
-// A named operand outside irDebugValueKind renders through a Debug impl
-// instead: distinctDebugPlan names one for a distinct, struct or enum, and
-// nestedDebugImpls names each nested type's impl for a container, including
-// one another file declares for its own type. A value neither covers renders
-// as `Debug.inspect(operand)` renders it (debugOver), so `dbg` accepts every
-// value Debug.inspect does and declines only where Debug.inspect would.
+// `dbg e` renders e as `Debug.inspect(e)` does, and the checker records it
+// as that use (analysis.FileAnalysis.Operators, the Debug use at e's type).
+// dbgRender reads it: an impl machineImpls lists renders by the machine,
+// naming the body each nested part's own record names (nestedDebugImpls);
+// any other impl is called; an interface value renders through every
+// implementor's body; a function value is its name-free constant; a tuple
+// or a record renders by its shape.
 //
 // # The pipe form
 //
@@ -114,7 +111,7 @@ func irDebugValueKind(k kind) bool {
 	if irConcHandleKind(k) {
 		// A channel half or a task renders as its placeholder (`<channel>`,
 		// `<task>`), rt.DebugText's Opaque arm, and a `Channel<T>` as the
-		// struct std declares around its two halves (rt's debugChannel).
+		// struct std declares around its two halves (rt.DebugText).
 		return true
 	}
 	if irStdMarkerKind(k) {
@@ -197,7 +194,10 @@ func (bl *irScalarBuilder) dbgOf(t *ast.Dbg, operand ast.Node) (ir.Temp, kind, b
 }
 
 // dbgWant is dbgOf with the type the position wants for the operand, or
-// kindInvalid for none.
+// kindInvalid for none. The operand renders as `Debug.inspect(operand)`
+// does, from the record the checker made of the `dbg` itself
+// (analysis.FileAnalysis.Operators: the Debug use at the operand's type,
+// which TestElaborationGate holds every `dbg` to; dbgRender).
 func (bl *irScalarBuilder) dbgWant(t *ast.Dbg, operand ast.Node, want kind) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	var src ir.Temp
@@ -212,38 +212,6 @@ func (bl *irScalarBuilder) dbgWant(t *ast.Dbg, operand ast.Node, want kind) (ir.
 	if !ok {
 		return no()
 	}
-	if k.tag == tagFunc && bl.g.implsByIface[stdIfaceImplKey(stdDebug)][k] == nil {
-		// A function value's Debug is a name-free constant, as
-		// `Debug.inspect` of one is (synthDebugRender).
-		txt := ir.NewString(bl.g.irNodePos(t), bl.f.NewTemp(), renderNode(operand))
-		bl.b.Append(txt)
-		r := ir.NewString(bl.g.irNodePos(t), bl.f.NewTemp(), rt.FunctionInspectText())
-		bl.b.Append(r)
-		c := ir.NewHostCall(bl.g.irPos(t.Line, t.Col), bl.f.NewTemp(), irCallSite(t),
-			bl.g.irCalleeSym(irDbgCallee{}, dbgKey), txt.Dst(), r.Dst())
-		bl.b.Append(c)
-		bl.side(c.Dst(), irScalarSide{k: kindUnit})
-		return src, k, mobile, true
-	}
-	plan, distinctDebug := bl.distinctDebugPlan(k)
-	if plan == nil && !irDebugValueKind(k) {
-		// A std type whose Debug impl is a `host fn` (`impl Debug for
-		// Dynamic`) renders through that host, as `Debug.inspect(x)` does.
-		if p := bl.stdHostDebugPlan(operand, src, k); p != nil {
-			plan, distinctDebug = p, true
-		}
-	}
-	var impls []ir.DebugImpl
-	// viaInspect: none of the shapes above names the rendering, so it is
-	// built as `Debug.inspect(operand)` builds it (debugOver). `dbg` renders
-	// every value Debug.inspect does, through the same impl.
-	viaInspect := false
-	if !irDebugValueKind(k) && !distinctDebug {
-		var ok bool
-		if impls, ok = bl.nestedDebugImpls(t, k, bl.g.operandCheckerType(operand)); !ok {
-			viaInspect = true
-		}
-	}
 	// The operand is evaluated once. `dbg` is transparent, so the operand is
 	// read by the renderer and by whatever reads the `dbg`'s value. In the
 	// graph a temporary is already one evaluation, so the second read needs
@@ -257,37 +225,14 @@ func (bl *irScalarBuilder) dbgWant(t *ast.Dbg, operand ast.Node, want kind) (ir.
 	}
 	txt := ir.NewString(bl.g.irNodePos(t), bl.f.NewTemp(), renderNode(operand))
 	bl.b.Append(txt)
-	var rendered ir.Temp
-	if viaInspect {
-		r, ok := bl.debugOver(operand, src, k, bl.g.operandCheckerType(operand))
-		if !ok {
-			return no()
-		}
-		rendered = r
-	} else if plan != nil {
-		sym := plan.sym
-		if sym == nil {
-			sym = bl.g.irCalleeSym(plan.token, plan.name)
-		}
-		var r *ir.Call
-		if plan.host {
-			r = ir.NewHostCall(bl.g.irNodePos(t), bl.f.NewTemp(), ir.OrdinaryCall, sym, src)
-		} else {
-			r = ir.NewCall(bl.g.irNodePos(t), bl.f.NewTemp(), ir.OrdinaryCall, sym, src)
-		}
-		bl.b.Append(r)
-		bl.side(r.Dst(), irScalarSide{k: kindString, deferrable: true})
-		rendered = r.Dst()
-	} else if len(impls) > 0 {
-		r := ir.NewRenderDebugWith(bl.g.irNodePos(t), bl.f.NewTemp(), src, impls)
-		bl.b.Append(r)
-		bl.side(r.Dst(), irScalarSide{k: kindString})
-		rendered = r.Dst()
-	} else {
-		r := ir.NewRenderDebug(bl.g.irNodePos(t), bl.f.NewTemp(), src)
-		bl.b.Append(r)
-		bl.side(r.Dst(), irScalarSide{k: kindString})
-		rendered = r.Dst()
+	vt := bl.g.operandCheckerType(operand)
+	rendered, by := bl.debugRender(t, ir.OrdinaryCall, src, k, vt, bl.dbgRecord(t, vt).Callee)
+	ok = by != ""
+	if !ok {
+		rendered, ok = bl.debugOver(operand, src, k, vt)
+	}
+	if !ok {
+		return no()
 	}
 	c := ir.NewHostCall(bl.g.irPos(t.Line, t.Col), bl.f.NewTemp(), irCallSite(t),
 		bl.g.irCalleeSym(irDbgCallee{}, dbgKey), txt.Dst(), rendered)
@@ -298,24 +243,123 @@ func (bl *irScalarBuilder) dbgWant(t *ast.Dbg, operand ast.Node, want kind) (ir.
 	return src, k, true, true
 }
 
+// debugRender renders src, a value of kind k and checker type kt, for the
+// Debug use at (a `dbg`, or a call of `Debug.inspect` or `io.inspect`),
+// as c, the record of the `Debug.inspect` it means, says, and answers the
+// route that decided it, "" where it declines. One rule serves every
+// spelling. Where c names an impl that machineImpls renders, the machine
+// renders the value, through the bodies the records of its parts name
+// (nestedDebugImpls). Where it names any other impl, that body is called,
+// at site (recordedDebugBodyOf). Where it leaves the call to dispatch, an
+// interface value renders through every implementor's body
+// (existentialDebugImpls), and an `Iter<T>` by its source. Where it
+// answers structurally, a function value is its name-free constant and
+// any other value renders by its shape. A record of no form here, one in
+// an instance whose frame carries no checker type for the operand
+// (OperatorPerInstance, unresolved), renders by the value's kind
+// (viaDebugNoRecord). A body named for the renderer is only ever a
+// nested part's, which has no call site of its own.
+func (bl *irScalarBuilder) debugRender(at ast.Node, site ir.CallSite, src ir.Temp, k kind, kt analysis.Type, c analysis.Callee) (ir.Temp, callRoute) {
+	pos := bl.g.irNodePos(at)
+	call, _ := at.(*ast.Call)
+	by := viaDebugRecord
+	if p := bl.g.boundStdPlan("Debug", "inspect"); p != nil && (irExistentialKind(k) || irConjKind(k)) &&
+		c.Form != analysis.OperatorByImpl && c.Form != analysis.OperatorStructural {
+		// In an abstract body, a value held as an interface, which a type
+		// parameter left open is, whose type may be any: a call through
+		// the bound of Debug's inspect, which the walk answers by every
+		// file's implementation (boundcall.go).
+		r := ir.NewBoundCall(pos, bl.f.NewTemp(), site, p.sym, src)
+		bl.b.Append(r)
+		bl.side(r.Dst(), irScalarSide{k: kindString})
+		return r.Dst(), by
+	}
+	switch c.Form {
+	case analysis.OperatorByImpl:
+		if bl.g.debugByMachine(c, kt) {
+			break
+		}
+		b := bl.recordedDebugBodyOf(c, k, kt)
+		if b.sym == nil {
+			return ir.NoTemp, ""
+		}
+		r := ir.NewCall(pos, bl.f.NewTemp(), site, b.sym, src)
+		bl.b.Append(r)
+		bl.side(r.Dst(), irScalarSide{k: kindString, deferrable: true})
+		return r.Dst(), by
+	case analysis.OperatorDispatched:
+		if heldAs(k) != heldBoxed {
+			// An `Iter<T>`: the machine renders it, by its source.
+			break
+		}
+		impls, ok := bl.existentialDebugImpls(k)
+		if !ok {
+			return ir.NoTemp, ""
+		}
+		bl.g.verifyCallForm(call, k, "debugRender", analysis.OperatorDispatched)
+		return bl.emitDebugRender(pos, src, impls), by
+	case analysis.OperatorStructural:
+		if k.tag == tagFunc {
+			// Any function value: a name-free constant
+			// (rt.FunctionInspectText). The operand was evaluated.
+			bl.g.verifyCallForm(call, k, "debugRender", analysis.OperatorStructural)
+			r := ir.NewString(pos, bl.f.NewTemp(), rt.FunctionInspectText())
+			bl.b.Append(r)
+			return r.Dst(), by
+		}
+	default:
+		by = viaDebugNoRecord
+	}
+	var impls []ir.DebugImpl
+	if !irStructuralDebugKind(k) {
+		var ok bool
+		if impls, ok = bl.nestedDebugImpls(at, k, kt); !ok {
+			return ir.NoTemp, ""
+		}
+	}
+	bl.g.verifyCallForm(call, k, "debugRender", analysis.OperatorByImpl, analysis.OperatorStructural)
+	return bl.emitDebugRender(pos, src, impls), by
+}
+
+// emitDebugRender appends the Debug rendering of src at pos, through
+// impls where there are any, and answers its String.
+func (bl *irScalarBuilder) emitDebugRender(pos ir.Pos, src ir.Temp, impls []ir.DebugImpl) ir.Temp {
+	var r *ir.Render
+	if len(impls) > 0 {
+		r = ir.NewRenderDebugWith(pos, bl.f.NewTemp(), src, impls)
+	} else {
+		r = ir.NewRenderDebug(pos, bl.f.NewTemp(), src)
+	}
+	bl.b.Append(r)
+	bl.side(r.Dst(), irScalarSide{k: kindString})
+	return r.Dst()
+}
+
+// dbgRecord is the record of `Debug.inspect(operand)` the `dbg` t means,
+// for an operand of checker type vt: the call of Debug's inspect, answered
+// as the checker answered t (its OperatorUse, at an instance's types), and
+// where that names an impl, a call of it (analysis.FileAnalysis.ImplCallee).
+// A `dbg` the checker made no record of (code it never checked) is
+// answered at vt as the builder asks it (stdIfaceCallRecord).
+func (bl *irScalarBuilder) dbgRecord(t *ast.Dbg, vt analysis.Type) *analysis.ResolvedCall {
+	use := bl.g.operatorUse(t)
+	if use == nil {
+		return bl.g.stdIfaceCallRecord(stdDebug, "inspect", 1, vt)
+	}
+	rc := bl.g.stdIfaceCallRecord(stdDebug, "inspect", 1, nil)
+	c := rc.Callee
+	if use.Form == analysis.OperatorByImpl && use.Impl != nil && !isNilNode(use.Impl.Method) {
+		impl := bl.g.instanceFA().ImplCallee(use.Impl.Method)
+		impl.Ref, impl.Qualifier, impl.Owner, impl.Method = c.Ref, c.Qualifier, c.Owner, c.Method
+		c = impl
+	}
+	c.For, c.Form = vt, use.Form
+	rc.Callee = c
+	return rc
+}
+
 // A non-final `dbg`'s value is dropped by irdiscard.go's `irStatementDrop`,
 // which also serves an explicit `_ = expr`.
-
-// stdHostDebugPlan is the host crossing a std type's `impl Debug` declares as
-// a `host fn`, selected as `Debug.inspect(operand)` selects it, or nil.
-func (bl *irScalarBuilder) stdHostDebugPlan(operand ast.Node, src ir.Temp, k kind) *irQualPlan {
-	if k.tag != tagNamed || k.def == nil || bl.g.implsByIface[stdIfaceImplKey(stdDebug)][k] != nil {
-		return nil
-	}
-	line, col := nodePos(operand)
-	call := &ast.Call{Args: []ast.Node{operand}, Line: line, Col: col}
-	args := irQualArgs{temps: []ir.Temp{src}, kinds: []kind{k}, mobile: []bool{true}, ok: true}
-	p := bl.stdIfacePlan(call, args, "Debug", "inspect")
-	if p == nil || !p.host || p.result != kindString {
-		return nil
-	}
-	return p
-}
 
 // debugImplSym is the Debug body of k, a named type: its impl in this file,
 // the impl another file's generic instance was built against, or another
@@ -375,7 +419,9 @@ func (bl *irScalarBuilder) boxedEnumDebugImpls(k kind) ([]ir.DebugImpl, bool) {
 // A value widened into an `embeds` variant keeps the embedded value's runtime
 // type, so an enum whose derived Debug delegates to its embedded values names
 // their impls too; a written enum Debug has no such delegation and declines.
-// It answers false for any leaf outside that domain or with no nominal leaf.
+// A declared type whose Debug is its shape names no body, and its fields'
+// and payloads' bodies are named (debugByShape). It answers false for any leaf
+// outside that domain or with no nominal leaf.
 // at is the `dbg`, `Debug.inspect` or `io.debug` the renderer serves, nil
 // for an interface's implementor (noteDebugImpl).
 func (bl *irScalarBuilder) nestedDebugImpls(at ast.Node, k kind, kt analysis.Type) ([]ir.DebugImpl, bool) {
@@ -409,8 +455,9 @@ func (bl *irScalarBuilder) nestedDebugImpls(at ast.Node, k kind, kt analysis.Typ
 	// body is the Debug body of the named part k: the one the checker's
 	// record of `Debug.inspect` at kt names (recordedDebugBody), and for a
 	// part with no checker type, byKind's. Where the record answers
-	// structurally, k is a type declared in a body, whose universal Debug
-	// the builder writes and its kind names.
+	// structurally, k is a type declared in a body whose file's bodies the
+	// record could not read (debugBody.structural), and its kind names
+	// the universal Debug its block holds.
 	body := func(k kind, kt analysis.Type, byKind func() debugBody) debugBody {
 		if kt == nil {
 			return byKind()
@@ -442,6 +489,53 @@ func (bl *irScalarBuilder) nestedDebugImpls(at ast.Node, k kind, kt analysis.Typ
 	// is known (partCheckerType), which a std instance it names is
 	// entered with.
 	var walk func(k kind, kt analysis.Type) bool
+	// A declared type for which neither the record nor its kind names a
+	// Debug body and whose Debug is its shape (debugByShape) renders as
+	// the literal that builds it (rt.DebugText), so only its parts are
+	// walked (parts). shaped holds the types walked so, which a recursive
+	// type reaches again.
+	shaped := map[kind]bool{}
+	parts := func(k kind, kt analysis.Type) bool {
+		if shaped[k] {
+			return true
+		}
+		shaped[k] = true
+		d := k.def
+		if d.isDistinct {
+			// kindInvalid: marker — a zero-sized marker renders as its name.
+			if d.inner == kindInvalid {
+				return true
+			}
+			var inner analysis.Type
+			if dt, ok := analysis.ResolveTypeVar(kt).(*analysis.DistinctType); ok {
+				inner = analysis.DistinctInner(dt)
+			}
+			return walk(d.inner, inner)
+		}
+		for _, f := range d.fields {
+			if !walk(f.k, declaredPartType(kt, "", f.nomi)) {
+				return false
+			}
+		}
+		for _, v := range d.variants {
+			if v.embeds != nil {
+				if !walk(named(v.embeds), embeddedVariantType(kt, v.nomi)) {
+					return false
+				}
+				continue
+			}
+			for _, p := range v.payloads {
+				pt := variantPayloadType(kt, v.nomi)
+				if p.nomi != "" {
+					pt = declaredPartType(kt, v.nomi, p.nomi)
+				}
+				if !walk(p.k, pt) {
+					return false
+				}
+			}
+		}
+		return true
+	}
 	// attempt walks k and keeps what it registered only if the walk
 	// succeeds, for a source an Iter position may or may not hold.
 	attempt := func(k kind) {
@@ -473,12 +567,18 @@ func (bl *irScalarBuilder) nestedDebugImpls(at ast.Node, k kind, kt analysis.Typ
 			}
 			return true
 		}
-		if k.tag == tagFunc || irDynamicKind(k) || irTypeWitnessKind(k) {
+		// machine: the record of `Debug.inspect` at kt names an impl the
+		// machine renders (machineImpls), so k names no body of its own
+		// and only its parts are walked. A part with no record is chosen
+		// by its kind.
+		machine := kt != nil && bl.g.debugByMachine(bl.g.stdIfaceCallRecord(stdDebug, "inspect", 1, kt).Callee, kt)
+		if !machine && (k.tag == tagFunc || irDynamicKind(k) || irContextKind(k) || irTypeWitnessKind(k)) {
 			// A function renders as rt.FunctionInspectText wherever it
 			// sits: a tuple's part, a list's element, a map's value. A
-			// Dynamic renders through rt.DynamicInspect, the host function
-			// std's `impl Debug for Dynamic` declares, which rt.DebugText
-			// calls for one in any part, and a `Type<T>` witness through
+			// Dynamic renders through rt.DynamicInspect and a Context
+			// through rt.ContextInspect, the host functions std's `impl
+			// Debug` of each declares, which rt.DebugText calls for one in
+			// any part, and a `Type<T>` witness through
 			// rt.TypeWitnessInspect.
 			return true
 		}
@@ -521,7 +621,7 @@ func (bl *irScalarBuilder) nestedDebugImpls(at ast.Node, k kind, kt analysis.Typ
 			// same hook.
 			return walk(member, partCheckerType(kt, k, 0))
 		}
-		if f := bl.stdDebugAt(k); f != nil {
+		if f := bl.stdDebugAt(k); !machine && f != nil {
 			// A std named type renders through std's own retained impl.
 			b := body(k, kt, func() debugBody {
 				if p := bl.stdDebugPlanOf(f, k); p != nil {
@@ -534,7 +634,7 @@ func (bl *irScalarBuilder) nestedDebugImpls(at ast.Node, k kind, kt analysis.Typ
 				return true
 			}
 		}
-		if _, _, isGen := genStructOf(k); isGen {
+		if _, _, isGen := genStructOf(k); !machine && isGen {
 			// An instance of a generic std struct (`Captured<Int>`) renders
 			// through std's Debug template instantiated at it.
 			if b := body(k, kt, func() debugBody { return debugBody{sym: bl.stdInstDebugSym(k, nil)} }); b.sym != nil {
@@ -545,45 +645,39 @@ func (bl *irScalarBuilder) nestedDebugImpls(at ast.Node, k kind, kt analysis.Typ
 		if k.tag == tagNamed && k.def != nil && k.def.preludeOf != nil && irRetainedEnumKind(k.def) {
 			for _, v := range k.def.variants {
 				for _, pl := range v.payloads {
-					if !walk(pl.k, preludePayloadType(kt, k, pl.k)) {
+					if !walk(pl.k, variantPayloadType(kt, v.nomi)) {
 						return false
 					}
 				}
 			}
 			return true
 		}
-		if k.tag == tagNamed && (irWrappingDistinct(k.def) || irCompositeDistinct(k.def) || irRetainedMarker(k.def)) {
+		if !machine && k.tag == tagNamed && (irWrappingDistinct(k.def) || irCompositeDistinct(k.def) || irRetainedMarker(k.def)) {
 			// A distinct or a marker in a container is a boxed value that
-			// carries its type: its synthesized non-opaque Debug is rt's
-			// structural `Meters(1)`, and any other Debug is its impl,
-			// named for the renderer.
+			// carries its type: its Debug is its impl, named for the
+			// renderer, or its shape, rt's structural `Meters(1)`.
 			b := body(k, kt, func() debugBody {
-				plan, structural := bl.distinctDebugPlan(k)
+				plan := bl.distinctDebugPlan(k)
 				if plan == nil {
-					// Structural only where the impl is synthesized
-					// (distinctDebugStructural).
-					return debugBody{synth: structural}
+					return debugBody{}
 				}
 				if plan.sym != nil {
 					return debugBody{sym: plan.sym}
 				}
 				return debugBody{sym: bl.g.irCalleeSym(plan.token, plan.name)}
 			})
-			if b.synth && distinctDebugStructural(k) {
-				return true
-			}
 			if b.sym == nil {
 				// std's own markers (`ChannelClosed`) have no impl here and
 				// render as their name, structurally.
-				return irStdMarkerKind(k)
+				return irStdMarkerKind(k) || bl.g.debugByShape(k, kt) && parts(k, kt)
 			}
 			pick(k, kt, b)
 			return true
 		}
-		if irNominalElemKind(k) {
+		if !machine && irNominalElemKind(k) {
 			synth, ok := register(k, kt)
 			if !ok {
-				return false
+				return bl.g.debugByShape(k, kt) && parts(k, kt)
 			}
 			for _, v := range k.def.variants {
 				if v.kind != "embedded" {
@@ -614,7 +708,9 @@ func (bl *irScalarBuilder) nestedDebugImpls(at ast.Node, k kind, kt analysis.Typ
 			}
 			return true
 		}
-		return irDebugValueKind(k)
+		// A part the machine renders with no parts of its own (a scalar,
+		// a marker, a Dynamic, a Context) names nothing.
+		return irDebugValueKind(k) || machine && (k.comp == nil || len(k.comp.parts) == 0)
 	}
 	if !walk(k, kt) {
 		return nil, false
@@ -622,6 +718,48 @@ func (bl *irScalarBuilder) nestedDebugImpls(at ast.Node, k kind, kt analysis.Typ
 	// Every part renders: through the impls named, or structurally (a
 	// function, a marker, a leaf), with none to name.
 	return impls, true
+}
+
+// debugByShape reports whether k, a declared type, has a Debug that is its
+// shape: it is not opaque and has no written or derived Debug, and the
+// machine renders it as the literal that builds it (rt.DebugText). kt is
+// its checker type, whose record of `Debug.inspect` answers so
+// structurally (analysis's noImplUse). With no checker type there is no
+// record to ask, and the declaration says (debugBlockless). The Debug
+// renderer asks it of a part none of whose bodies it can name
+// (nestedDebugImpls), and a box asks it of a value entering std's Debug
+// (bindsImpl).
+func (g *gen) debugByShape(k kind, kt analysis.Type) bool {
+	if k.tag != tagNamed || k.def == nil || k.def.preludeOf != nil || opaqueType(kt) {
+		return false
+	}
+	if kt != nil {
+		return g.stdIfaceCallRecord(stdDebug, "inspect", 1, kt).Callee.Form == analysis.OperatorStructural
+	}
+	return k.def.decl != nil && !declOpaque(k.def.decl) && g.debugBlockless(k.def)
+}
+
+// debugBlockless reports whether d, a declared type, has no Debug block in
+// any unit of the program this gen lowers with, its instances' among them.
+func (g *gen) debugBlockless(d *typeDef) bool {
+	gens := []*gen{g}
+	if g.reg != nil {
+		gens = append(gens, g.reg.gens...)
+	}
+	if s := g.stdInsts; s != nil {
+		gens = append(gens, s.program...)
+	}
+	for _, og := range gens {
+		if og == nil {
+			continue
+		}
+		for k := range og.implsByIface[stdIfaceImplKey(stdDebug)] {
+			if k.def != nil && (k.def.decl == d.decl || k.def.instOrigin != nil && k.def.instOrigin.decl == d.decl) {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // stdInstDebugSym is the instance of std's generic `impl Debug` for the

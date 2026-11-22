@@ -416,9 +416,8 @@ func firstBodyLine(text string) string {
 	return ""
 }
 
-// corpusProjects are the corpus directories with more than one .nomi file
-// and no Go bindings, each with its entry: main.nomi, or else its first
-// test file.
+// corpusProjects are the corpus directories with more than one .nomi file,
+// each with its entry: main.nomi, or else its first test file.
 var corpusProjects = sync.OnceValues(func() ([]incrementalProject, error) {
 	var out []incrementalProject
 	dirs, err := filepath.Glob(filepath.Join("..", "..", "tests", "*", "*"))
@@ -427,9 +426,6 @@ var corpusProjects = sync.OnceValues(func() ([]incrementalProject, error) {
 	}
 	for _, dir := range dirs {
 		if info, err := os.Stat(dir); err != nil || !info.IsDir() {
-			continue
-		}
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
 			continue
 		}
 		p, err := readProject(dir, strings.TrimPrefix(filepath.ToSlash(dir), "../../tests/"))
@@ -492,6 +488,7 @@ end
 fn main()
     item = model.make("anvil", model.default_weight)
     io.print(view.show(item))
+    io.print(NonEmptyList.first(model.sizes))
     io.print("${util.clamp(-1)} ${model.heavy(item)} ${palette.name()}")
 end
 `,
@@ -522,6 +519,8 @@ end
 pub once default_weight = util.clamp(3)
 
 pub once label = "weight ${default_weight}"
+
+pub once sizes = ["s", "m"]
 `,
 		"view": `import
     model.Item
@@ -544,8 +543,9 @@ end
 }
 
 // layeredEdits change signatures with one importer, none and many, add and
-// remove a public declaration, add an impl to the leaf, and change a
-// `once`'s value keeping its type and changing it.
+// remove a public declaration, add an impl to the leaf, change a `once`'s
+// value keeping its type and changing it, and change the literal of a
+// `once` the entry reads as a NonEmptyList to one that may be empty.
 var layeredEdits = []editStep{
 	replace("signature used by one importer [dependents]", "view", "pub fn show(item: Item) -> String", "pub fn show(item: Item, prefix: String = \"\") -> String"),
 	replace("body only, the new parameter used", "view", `"${item.name}: `, `"${prefix}${item.name}: `),
@@ -566,6 +566,10 @@ var layeredEdits = []editStep{
 	replace("once value, same type, a once of the file reads it", "model", "pub once label = \"weight ${default_weight}\"", "pub once label = \"weight: ${default_weight}\""),
 	replace("once value, new type [dependents]", "model", "pub once default_weight = util.clamp(4)", "pub once default_weight = \"four\""),
 	restore("once back [dependents]", "model"),
+	replace("once literal, non-empty to empty [dependents]", "model", `pub once sizes = ["s", "m"]`, `pub once sizes = []`),
+	restore("once literal back, non-empty [dependents]", "model"),
+	replace("once value, non-empty to one that may be empty [dependents]", "model", `pub once sizes = ["s", "m"]`, `pub once sizes = Iter.to_list(Iter.drop(["s", "m"], 2))`),
+	restore("once value back, non-empty [dependents]", "model"),
 }
 
 // dispatchProject is a project where a file the entry imports calls an impl

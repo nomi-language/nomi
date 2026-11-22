@@ -122,34 +122,47 @@ func TestElaborationGate(t *testing.T) {
 // a call leaving defaulted parameters
 // out (CallDefaults), an interpolation hole (HoleDisplays), the error a
 // failed `!` or a fixed typed literal's failing handler shows
-// (UnwrapFailures, TypedLiteral.Failure), every operator that goes
+// (UnwrapFailures, TypedLiteral.Failure), the type whose handler builds a
+// typed literal (TypedLiteral.Tag), every operator that goes
 // through an interface, a primitive's included (Operators), whose impl
 // is the operand's own type's, a value entering an interface (Coercions), a source
 // entering an `Iter<T>` (IterViews), a value converting below its top
 // (Conversions), the type every call of an interface's function is for
-// and how it is answered (Callee.For, Callee.Form, Callee.Impl), an impl block of a generic
-// interface whose header writes no type arguments (ImplTypeArgSets), a
+// and how it is answered (Callee.For, Callee.Form, Callee.Impl), the interface
+// every impl block implements and, for a generic interface, its type
+// arguments (FileAnalysis.ImplBlocks, analysis.ImplBlockTypeArgs), a
 // call of an interface function dispatched where it runs
-// (Symbol.CallInterface) and a type expression's type (TypeExprTypes).
+// (Symbol.CallInterface), a type expression's type (TypeExprTypes), a
+// pattern's type, variant and whether it always matches (PatternTypes,
+// PatternVariants, IrrefutablePatterns), what a binding's `else` may
+// fall back to (BindingFallbacks), whether a project's `host fn` crosses
+// as JSON (HostJSONForms) and the type each enum and distinct type
+// declaration builds, with every variant (DeclaredType).
 var gatedImplicit = map[string]bool{
-	analysis.ElabPlacementUnrecorded:      true,
-	analysis.ElabCalleeUnclassified:       true,
-	analysis.ElabImplUnrecorded:           true,
-	analysis.ElabDefaultsUnrecorded:       true,
-	analysis.ElabDisplayUnrecorded:        true,
-	analysis.ElabFailureDisplayUnrecorded: true,
-	analysis.ElabOperatorNominal:          true,
-	analysis.ElabOperatorStructural:       true,
-	analysis.ElabOperatorTypeParam:        true,
-	analysis.ElabOperatorForeignImpl:      true,
-	analysis.ElabBoxingUnrecorded:         true,
-	analysis.ElabIterViewUnrecorded:       true,
-	analysis.ElabConversionUnrecorded:     true,
-	analysis.ElabImplArgsUnrecorded:       true,
-	analysis.ElabCallInterfaceUnrecorded:  true,
-	analysis.ElabTypeExprUnrecorded:       true,
-	analysis.ElabPatternUnrecorded:        true,
-	analysis.ElabPatternVariantUnrecorded: true,
+	analysis.ElabPlacementUnrecorded:          true,
+	analysis.ElabCalleeUnclassified:           true,
+	analysis.ElabImplUnrecorded:               true,
+	analysis.ElabDefaultsUnrecorded:           true,
+	analysis.ElabDisplayUnrecorded:            true,
+	analysis.ElabFailureDisplayUnrecorded:     true,
+	analysis.ElabLiteralTagUnrecorded:         true,
+	analysis.ElabOperatorNominal:              true,
+	analysis.ElabOperatorStructural:           true,
+	analysis.ElabOperatorTypeParam:            true,
+	analysis.ElabOperatorForeignImpl:          true,
+	analysis.ElabBoxingUnrecorded:             true,
+	analysis.ElabIterViewUnrecorded:           true,
+	analysis.ElabConversionUnrecorded:         true,
+	analysis.ElabImplIfaceUnrecorded:          true,
+	analysis.ElabImplArgsUnrecorded:           true,
+	analysis.ElabCallInterfaceUnrecorded:      true,
+	analysis.ElabTypeExprUnrecorded:           true,
+	analysis.ElabPatternUnrecorded:            true,
+	analysis.ElabPatternVariantUnrecorded:     true,
+	analysis.ElabPatternIrrefutableUnrecorded: true,
+	analysis.ElabBindingFallbackUnrecorded:    true,
+	analysis.ElabHostJSONFormUnrecorded:       true,
+	analysis.ElabDeclaredTypeUnrecorded:       true,
 }
 
 // elabRepositoryGroups is every group of programs this repository holds,
@@ -375,7 +388,6 @@ func elabFrontendConfig(t *testing.T) frontend.Config {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fc.SourceBoundProvided = true
 	return fc
 }
 

@@ -2,7 +2,6 @@ package analysis
 
 import (
 	"fmt"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -302,7 +301,19 @@ const (
 	// with some file's own synthesized impl.
 	synthOriginPrelude
 	synthOriginEnd
+	// synthOriginBlock is the name-only Debug of an opaque type declared in
+	// a body (synthesizeBlockDebug), indexed by the declaration's place among the
+	// file's block-local types in the order its bodies are walked. It has
+	// the one slot the three regions leave over (synthSlotCount is not a
+	// multiple of synthOriginEnd), synthBlockLines lines per declaration.
+	synthOriginBlock = synthOriginEnd
 )
+
+// synthBlockLines is how many lines of the leftover slot one block-local
+// type's Debug takes: one line holds 16383 nodes. synthLineStride /
+// synthBlockLines declarations fit, and the modulo in synthSlot keeps a
+// file with more inside the band.
+const synthBlockLines = 16
 
 // synthKind names which impl is being synthesized for one site. One slot per
 // kind, so a type that derives four protocols gets four disjoint ranges and no
@@ -332,6 +343,10 @@ const synthKindCount = int(synthKindEnd)
 // synthSlot is the whole scheme: a base line that is a pure function of what
 // is being synthesized and nothing else.
 func synthSlot(origin synthOrigin, index int, k synthKind) int {
+	if origin == synthOriginBlock {
+		last := synthLineBase + (synthSlotCount-1)*synthLineStride
+		return last + (index%(synthLineStride/synthBlockLines))*synthBlockLines
+	}
 	slot := int(origin)*synthRegionSize + (index%synthIndexCap)*synthKindCount + int(k)
 	return synthLineBase + slot*synthLineStride
 }
@@ -559,18 +574,20 @@ func synthImplReceiver(fn *ast.FuncDef, ifaceName string) ast.TypeExpr {
 // Universal default Debug (auto-synthesis)
 // ---------------------------------------------------------------------------
 
-// SynthesizeUniversalDebug is the eager universal-Debug pass. After
-// LowerDerives has run (so any `derive Debug` impls are already in
-// `nodes`), this walks every top-level type declaration and
-// appends an auto-synthesized `impl Debug` block for each type that lacks ANY
-// explicit Debug — neither a hand-written `impl Debug for T` block nor an explicit
-// `@derive Debug`. The result is that every declared nominal type is
-// Debug-inspectable with no `@derive`/`impl` required (spec: universal
-// default Debug).
+// SynthesizeUniversalDebug is the universal-Debug pass. Every type
+// implements Debug (spec §12 *Display and Debug*). A struct, enum or
+// distinct type with no written or derived Debug has no block of it: a use
+// of Debug's function at it is answered by its shape (noImplUse), and the
+// machine renders it as the literal that builds it (rt.DebugText). Two
+// kinds of type render other than by their shape, and this pass appends
+// the `impl Debug` block that says how for each that lacks an explicit
+// Debug (a hand-written `impl Debug for T` or a `derive Debug`), after
+// LowerDerives has run: an opaque type, which shows its name only
+// (`<opaque T>`), and a `host type`, which shows its bare name.
 //
 // Precedence is enforced by the "skip if any explicit Debug exists" guard:
-// explicit `impl Debug` block > explicit `@derive Debug` > auto-synth. That guard
-// is also what keeps the coherence checks happy — the pass never adds a
+// explicit `impl Debug` block > explicit `@derive Debug` > this pass's. That
+// guard is also what keeps the coherence checks happy — the pass never adds a
 // second impl for an existing (Debug, T) pair, so detectImplCollisions
 // stays quiet.
 //
@@ -585,7 +602,6 @@ func synthImplReceiver(fn *ast.FuncDef, ifaceName string) ast.TypeExpr {
 // sees it via the same explicit-Debug scan and skips re-emission.
 func SynthesizeUniversalDebug(nodes []ast.Node) []ast.Node {
 	explicit := typesWithExplicitDebug(nodes)
-	wrapping := wrappingDistincts(typeDeclsInNodeList(nodes))
 	var synthesized []ast.Node
 	index := sourceIndices(nodes)
 	for i, n := range nodes {
@@ -593,14 +609,14 @@ func SynthesizeUniversalDebug(nodes []ast.Node) []ast.Node {
 		// declared host types are nominal types too — values of them
 		// reach Debug dispatch (e.g. a zero-sized extern singleton bound
 		// from an `embeds` variant pattern), so they get the name-only
-		// auto default like every other declared type, and so do the Go
-		// handles the VM holds as rt.HostHandle.
+		// default, and so do the Go handles the VM holds as rt.HostHandle.
 		typeName, ok := typeDeclName(n)
 		if !ok {
-			// Not a type decl (FuncDef, import, etc.) — universal Debug only
-			// synthesizes for declared nominal types. Non-nominal structural
-			// kinds (tuples, anon structs) and built-in value kinds are
-			// rendered structurally by rt.DebugText, not here.
+			// Not a type decl (FuncDef, import, etc.).
+			continue
+		}
+		if _, host := n.(*ast.ExternType); !host && !typeDeclIsOpaque(n) {
+			// Its Debug is its shape.
 			continue
 		}
 		if explicit[typeName] || isDistinctRefinementDecl(n) {
@@ -613,9 +629,7 @@ func SynthesizeUniversalDebug(nodes []ast.Node) []ast.Node {
 		// synthesized impl would add a duplicate-impl error at a
 		// synthesized line that says nothing about the real cause.
 		explicit[typeName] = true
-		site := synthSiteOf(index[i], n)
-		site.wrapping = wrapping
-		synthesized = append(synthesized, synthesizeAutoDebug(n, site)...)
+		synthesized = append(synthesized, synthesizeAutoDebug(n, synthSiteOf(index[i], n))...)
 	}
 	// Each refinement's `try_from` and `unchecked` (refinement_synthesis.go),
 	// in this pass because it runs wherever a file's declarations are
@@ -630,73 +644,47 @@ func SynthesizeUniversalDebug(nodes []ast.Node) []ast.Node {
 	return out
 }
 
-// UniversalDebugTypes is the type each type expression of impls resolves
-// to, where impls is what SynthesizeUniversalDebug writes for the
-// declaration named name and t is the checker's type for that
-// declaration: name is t (at the arguments written, for a generic one),
-// a type parameter of t is its TypeParam_, and a primitive's name is the
-// primitive. variants holds what PatternVariants would for its patterns:
-// each head `name.V` names t's variant V. The builder lowers that impl for
-// a type a block declares, which no impl the checker checks can name, and
-// reads these as it reads TypeExprTypes and PatternVariants.
-func UniversalDebugTypes(impls []ast.Node, name string, t Type) (types map[ast.TypeExpr]Type, variants map[ast.TypeExpr]string) {
-	params := map[string]*TypeParam_{}
-	var defs []*TypeParam_
-	switch d := t.(type) {
-	case *StructType:
-		defs = d.TypeParamDefs
-	case *EnumType:
-		defs = d.TypeParamDefs
-	case *DistinctType:
-		defs = d.TypeParamDefs
+// synthesizeBlockDebug is the universal Debug of decl, an opaque struct,
+// enum or distinct type declared in a body, which no impl can name: the
+// name-only body SynthesizeUniversalDebug writes for a module-level opaque
+// type. index is decl's place among the block-local types of its file,
+// which gives its positions (synthOriginBlock). The builder resolves it in
+// decl's block and the checker checks it there (FileBodies.BlockDebug).
+// It answers nil for every other type declared in a body, whose Debug is
+// its shape (noImplUse), which rt renders as the literal that builds it,
+// and for a distinct refinement, whose Debug is its base's.
+func synthesizeBlockDebug(decl ast.Node, index int) *ast.ImplBlock {
+	if _, ok := typeDeclName(decl); !ok || !typeDeclIsOpaque(decl) || isDistinctRefinementDecl(decl) {
+		return nil
 	}
-	for _, p := range defs {
-		params[p.Name_] = p
-	}
-	out := map[ast.TypeExpr]Type{}
-	variants = map[ast.TypeExpr]string{}
-	var resolve func(te ast.TypeExpr) Type
-	resolve = func(te ast.TypeExpr) Type {
-		var r Type
-		switch n := te.(type) {
-		case *ast.QualifiedType:
-			if member, isSimple := n.Member.(*ast.SimpleType); isSimple && n.Module == name {
-				if et, isEnum := t.(*EnumType); isEnum && findVariant(et, member.Name) != nil {
-					variants[te] = member.Name
-				}
-			}
-		case *ast.SimpleType:
-			if p, isParam := params[n.Name]; isParam {
-				r = p
-			} else if n.Name == name && len(defs) == 0 {
-				r = t
-			} else if p, isPrim := primitiveTypes[n.Name]; isPrim {
-				r = p
-			}
-		case *ast.GenericType:
-			args := make([]Type, len(n.Params))
-			for i, a := range n.Params {
-				args[i] = resolve(a)
-			}
-			if n.Name == name && len(args) == len(defs) && !slices.Contains(args, nil) {
-				r = instantiateNominal(t, args)
-			}
+	site := synthSite{origin: synthOriginBlock, index: index}
+	site.line, site.col = declPos(decl)
+	for _, n := range synthesizeAutoDebug(decl, site) {
+		if ib, ok := n.(*ast.ImplBlock); ok {
+			return ib
 		}
-		if r != nil {
-			out[te] = r
-		}
-		return r
 	}
-	for _, n := range impls {
-		ast.Inspect(n, func(m ast.Node) bool {
-			if te, ok := m.(ast.TypeExpr); ok {
-				resolve(te)
-				return false
+	return nil
+}
+
+// blockDebugImpls is the universal Debug of each type a body among nodes
+// declares (FileBodies.BlockDebug), in source order: derived bodies that
+// the checker's passes over a file's calls and VerifyElaboration cover as
+// they cover a module-level type's.
+func blockDebugImpls(fa *FileAnalysis, nodes []ast.Node) []ast.Node {
+	var out []ast.Node
+	if len(fa.BlockDebug) == 0 {
+		return nil
+	}
+	for _, top := range nodes {
+		ast.Inspect(top, func(n ast.Node) bool {
+			if impl := fa.BlockDebug[n]; impl != nil {
+				out = append(out, impl)
 			}
 			return true
 		})
 	}
-	return out, variants
+	return out
 }
 
 // builderSynthesizeUniversalDebug is the per-builder shim for the
@@ -711,15 +699,23 @@ func (b *builder) SynthesizeUniversalDebug(nodes []ast.Node) []ast.Node {
 // explicit Debug — either a hand-written `impl Debug for T { fn inspect(value: T) }`
 // block, or the `@derive Debug` decorator derive lowering stamps on the
 // type decl beside the impl block it writes (also captured here via the
-// impl-block scan). Both forms suppress auto-synthesis for that type.
+// impl-block scan). Both forms suppress auto-synthesis for that type. The
+// pass runs before the file has a scope, so a header names Debug through
+// the file's import aliases (importedAs): `impl Dbg for T` after `import
+// std::debug.{Debug as Dbg}` is an explicit Debug.
 func typesWithExplicitDebug(nodes []ast.Node) map[string]bool {
 	out := map[string]bool{}
+	aliases := importedAs(nodes)
 	for _, n := range nodes {
 		// Explicit block-form `impl Debug for T { ... }` (hand-written OR
 		// derive-/auto-synthesized — all synthesis emits blocks). A Debug block
 		// suppresses auto-synthesis for its receiver type.
 		if blk, ok := n.(*ast.ImplBlock); ok {
-			if blk.Interface != nil && TypeExprBaseName(blk.Interface) == "Debug" {
+			iface := TypeExprBaseName(blk.Interface)
+			if imported, ok := aliases[iface]; ok {
+				iface = imported
+			}
+			if blk.Interface != nil && iface == "Debug" {
 				if recv := TypeExprBaseName(blk.Receiver); recv != "" {
 					out[recv] = true
 				}
@@ -756,13 +752,13 @@ func typesWithExplicitDebug(nodes []ast.Node) map[string]bool {
 	return out
 }
 
-// synthesizeAutoDebug produces the auto/universal-default Debug `impl` block for a
-// single type declaration. It owns two degenerate-body rules:
+// synthesizeAutoDebug produces the universal Debug `impl` block of a type
+// whose Debug is not its shape, one of two name-only bodies:
 //
-//   - OPAQUE: for an opaque struct/enum/distinct type the auto-default is a
-//     name-only body `"<opaque TypeName>"` — a global structural impl would
-//     leak exactly the internals `opaque` exists to hide (spec §4, *Opaque distinct types*).
-//   - EXTERN: for a declared `host type` the auto-default is the bare type
+//   - OPAQUE: for an opaque struct/enum/distinct type the body is
+//     `"<opaque TypeName>"`, since its shape would show exactly the
+//     internals `opaque` exists to hide (spec §4, *Opaque distinct types*).
+//   - EXTERN: for a declared `host type` the body is the bare type
 //     name `"TypeName"` — the declaration carries no payload shape the
 //     synthesizer can see (internals are host-side), which is the same shape
 //     as a zero-sized distinct, and those render as their bare name. The bare
@@ -771,23 +767,15 @@ func typesWithExplicitDebug(nodes []ast.Node) map[string]bool {
 //     (`embeds True`) renders the variant as `True`, exactly like a
 //     zero-sized distinct embed.
 //
-// For every other (non-opaque, non-extern) type it delegates to the existing
-// STRUCTURAL synthesizer (synthesizeDeriveDebug), producing output
-// byte-identical to an explicit `@derive Debug`.
-//
-// The opaque branch lives here, not inside synthesizeDeriveStringify, on
-// purpose: an explicit `@derive Debug` on an opaque type is a deliberate
-// structural OVERRIDE (`NonZeroInt(5)`), so the structural synthesizer must
-// stay opacity-blind. Only this auto path goes name-only for opaque types.
+// An explicit `derive Debug` on an opaque type is a deliberate structural
+// override (`NonZeroInt(5)`), which synthesizeDeriveDebug writes.
 func synthesizeAutoDebug(typeNode ast.Node, site synthSite) []ast.Node {
 	typeNode = withoutRepeatedNames(typeNode)
 	var out []ast.Node
 	if et, ok := typeNode.(*ast.ExternType); ok {
 		out = synthesizeExternNameOnlyDebug(et, site)
-	} else if typeDeclIsOpaque(typeNode) {
-		out = synthesizeOpaqueNameOnlyDebug(typeNode, site)
 	} else {
-		out = synthesizeDeriveDebug(typeNode, site, synthKindAutoDebug)
+		out = synthesizeOpaqueNameOnlyDebug(typeNode, site)
 	}
 	// Tag every emitted impl as auto-synthesized so the coherence check can
 	// let an explicit (hand-written / @derive) Debug impl
@@ -1045,12 +1033,12 @@ func enumVariantPattern(enumName string, v ast.EnumVariant, suffix string, line,
 	case "bare":
 		return &ast.EnumPattern{Variant: variantTypeExpr, Line: line, Col: col}
 	case "positional":
-		// DataTypeExpr is either a single type or a FuncType (tuple) for
-		// arity ≥ 2. Single → one ident binding. Tuple → nested tuple
-		// pattern with one ident per arg: `Variant((a0, a1, ...))`.
-		if ft, isTuple := v.DataTypeExpr.(*ast.FuncType); isTuple && ft.Return == nil && len(ft.Params) >= 2 {
-			patterns := make([]ast.Node, len(ft.Params))
-			for i := range ft.Params {
+		// A payload written as one type binds one ident; one written as
+		// parts (writtenParts) a tuple pattern with one ident per part:
+		// `Variant((a0, a1, ...))`.
+		if ws := writtenParts(v.DataTypeExpr); ws != nil {
+			patterns := make([]ast.Node, len(ws))
+			for i := range ws {
 				name := positionalBindName(i, suffix)
 				patterns[i] = &ast.IdentPattern{Name: name, Line: line, Col: col}
 			}
@@ -1154,8 +1142,8 @@ func equatableVariantPayloadEq(v ast.EnumVariant, line, col int) ast.Node {
 		return trueLit(line, col)
 	case "positional":
 		arity := 1
-		if ft, isTuple := v.DataTypeExpr.(*ast.FuncType); isTuple && ft.Return == nil && len(ft.Params) >= 2 {
-			arity = len(ft.Params)
+		if ws := writtenParts(v.DataTypeExpr); ws != nil {
+			arity = len(ws)
 		}
 		parts := make([]ast.Node, arity)
 		for i := 0; i < arity; i++ {
@@ -1206,13 +1194,9 @@ func equatableDistinctStmts(t *ast.TypeDef, line, col int) []ast.Node {
 		distinctUnwrap(t.Name, "bv", identExpr("b", line, col), line, col),
 	}
 	// Tuple inner type → element-wise equality on `.first`, `.second`, ...
-	if ft, isTuple := t.InnerTypeExpr.(*ast.FuncType); isTuple && ft.Return == nil && len(ft.Params) >= 1 {
-		// Note: a 1-arity FuncType with Return == nil shouldn't occur from
-		// the parser (`type Name (Int)` is grouped, not a tuple), but if
-		// it ever does this still produces a single-component AND-chain
-		// which is just one Equatable.equal call — semantically correct.
-		parts := make([]ast.Node, len(ft.Params))
-		for i := range ft.Params {
+	if ws := writtenParts(t.InnerTypeExpr); ws != nil {
+		parts := make([]ast.Node, len(ws))
+		for i := range ws {
 			parts[i] = equatableEqualsCall(
 				fieldAccess(identExpr("av", line, col), tupleItemName(i), line, col),
 				fieldAccess(identExpr("bv", line, col), tupleItemName(i), line, col),
@@ -1982,12 +1966,13 @@ func checkDeriveComponentTypes(fa, into *FileAnalysis, impls *ProjectImplIndex, 
 			// requirement to the call site.
 			return
 		}
-		if base, baseFA, ok := deriveSubtypeBase(fa, fileOf, baseName); ok && ifaceName != "FromJson" {
+		if base, baseFA, ok := deriveSubtypeBase(fa, fileOf, baseName); ok {
 			// A subtype's value is its base's and has the base's impls
 			// (spec §4 *Subtypes*), so the derived body's demand is the
-			// base's: `year: Int64` is Int's Comparable. FromJson is not:
-			// the base's would build a value the subtype's rule never
-			// checked.
+			// base's: `year: Int64` is Int's Comparable. The one derivable
+			// interface that makes a value, FromJson, reads a subtype at
+			// its base and checks its rules (subtype_reads.go), so its
+			// demand is the base's too.
 			report(baseFA, componentDesc, fieldName, fieldPos, base)
 			return
 		}
@@ -2079,11 +2064,10 @@ func checkDeriveComponentTypes(fa, into *FileAnalysis, impls *ProjectImplIndex, 
 			case "bare":
 				// No payload to verify.
 			case "positional":
-				// DataTypeExpr is either a single type or a FuncType (tuple)
-				// for arity ≥ 2. Walk each arity slot independently so the
-				// error message names the slot index.
-				if ft, isTuple := v.DataTypeExpr.(*ast.FuncType); isTuple && ft.Return == nil && len(ft.Params) >= 2 {
-					for i, p := range ft.Params {
+				// A payload written as parts (writtenParts) is verified
+				// part by part, so the error message names the slot index.
+				if ws := writtenParts(v.DataTypeExpr); ws != nil {
+					for i, p := range ws {
 						report(declFA, fmt.Sprintf("variant '%s' payload[%d]", v.Name, i), fmt.Sprintf("%s[%d]", v.Name, i), variantPos, p)
 					}
 				} else if v.DataTypeExpr != nil {
@@ -2110,8 +2094,8 @@ func checkDeriveComponentTypes(fa, into *FileAnalysis, impls *ProjectImplIndex, 
 		innerPos := Pos{File: fa.FilePath, Line: t.Line, Col: t.Col}
 		// Tuple inner: verify each element. Non-tuple inner: verify the
 		// single inner type.
-		if ft, isTuple := t.InnerTypeExpr.(*ast.FuncType); isTuple && ft.Return == nil && len(ft.Params) >= 1 {
-			for i, p := range ft.Params {
+		if ws := writtenParts(t.InnerTypeExpr); ws != nil {
+			for i, p := range ws {
 				report(declFA, fmt.Sprintf("inner tuple component[%d]", i), fmt.Sprintf("inner[%d]", i), innerPos, p)
 			}
 		} else {
@@ -2137,31 +2121,45 @@ func untypedFieldDerive(fa *FileAnalysis, f ast.StructField, typeName, ifaceName
 }
 
 // structuralDeriveParts answers the parts of te when te is a tuple or
-// anonymous struct type that implements ifaceName when each part does: a
-// tuple for Equatable, Hashable, Comparable and Display, an anonymous
-// struct for all of them but Comparable, which it cannot implement, and for
-// ToJson and FromJson.
+// anonymous struct type that implements std's interface ifaceName when
+// each part implements it, as structuralNeeds decides for the type's
+// checked form (spec §12 *Tuples, anonymous structs and functions*).
 func structuralDeriveParts(te ast.TypeExpr, ifaceName string) ([]ast.TypeExpr, bool) {
+	var parts []ast.TypeExpr
+	anon := false
 	switch t := te.(type) {
 	case *ast.FuncType:
 		if t.Return != nil {
 			return nil, false
 		}
-		switch ifaceName {
-		case "Equatable", "Hashable", "Comparable", "Display":
-			return t.Params, true
-		}
+		parts = t.Params
 	case *ast.AnonStructType:
-		switch ifaceName {
-		case "Equatable", "Hashable", "Display", "ToJson", "FromJson":
-			parts := make([]ast.TypeExpr, len(t.Fields))
-			for i, f := range t.Fields {
-				parts[i] = f.TypeAnnotation
-			}
-			return parts, true
+		anon = true
+		parts = make([]ast.TypeExpr, len(t.Fields))
+		for i, f := range t.Fields {
+			parts[i] = f.TypeAnnotation
 		}
+	default:
+		return nil, false
 	}
-	return nil, false
+	iface := stdDerivedIface(ifaceName)
+	needs, meets, decided := structuralNeeds(iface, anon)
+	if !meets || !decided || len(needs) != 1 || needs[0] != iface {
+		return nil, false
+	}
+	return parts, true
+}
+
+// stdDerivedIface is std's interface a `derive` of ifaceName names, as
+// isStdInterfaceNamed and isStdJsonIface identify it.
+func stdDerivedIface(ifaceName string) *InterfaceType {
+	switch ifaceName {
+	case stdToJsonType.Name:
+		return &InterfaceType{Name: ifaceName, Origin: stdToJsonType.Module}
+	case stdFromJsonType.Name:
+		return &InterfaceType{Name: ifaceName, Origin: stdFromJsonType.Module}
+	}
+	return &InterfaceType{Name: ifaceName, Origin: "std/" + strings.ToLower(ifaceName)}
 }
 
 // jsonFieldGap answers the part of te, a field type under a derived ToJson
@@ -2345,6 +2343,11 @@ func recordDeriveTypeArg(fa, into *FileAnalysis, impls *ProjectImplIndex, fileOf
 		// Existential at the inner position — runtime resolves.
 		return nil
 	}
+	if base, baseFA, ok := deriveSubtypeBase(fa, fileOf, baseName); ok {
+		// A subtype at the inner position demands its base's impl, as one
+		// of the field itself does (checkDeriveComponentTypes).
+		return recordDeriveTypeArg(baseFA, into, impls, fileOf, ifaceName, base, ctx, typeParamSet)
+	}
 	if deriveComponentHasEquality(fa, impls, fileOf, baseName, ifaceName) {
 		var errs []TypeError
 		for _, ta := range typeArgs(te) {
@@ -2527,7 +2530,10 @@ func deriveDeclEquality(fa *FileAnalysis, impls *ProjectImplIndex, fileOf declFi
 // baseName is no such subtype. A subtype's values are its base's, so any
 // parent stands for it (spec §4 *Subtypes*). Types may not be resolved when
 // derives are checked, so it reads the declaration when the file that
-// declares it is in reach, and otherwise the resolved type.
+// declares it is in reach, and otherwise the resolved type. A generic
+// subtype (`NonEmptyList<String>`) is one too, with no parent written: its
+// parent is at the field's type arguments, which the derived body's call
+// of the interface at the field's type reaches and checks.
 func deriveSubtypeBase(fa *FileAnalysis, fileOf declFiles, baseName string) (ast.TypeExpr, *FileAnalysis, bool) {
 	if fa == nil || fa.ModuleScope == nil {
 		return nil, nil, false
@@ -2539,17 +2545,23 @@ func deriveSubtypeBase(fa *FileAnalysis, fileOf declFiles, baseName string) (ast
 	if sym.Resolved != nil {
 		sym = sym.Resolved
 	}
+	if dt, ok := sym.Type.(*DistinctType); ok && dt.Subtype && dt.Inner != nil && len(dt.TypeParams) != 0 {
+		return nil, nil, true
+	}
 	td, ok := sym.Node.(*ast.TypeDef)
 	if !ok {
 		// A symbol read from a module's interface carries its type and no
 		// declaration.
 		return subtypeBaseFromType(fa, sym)
 	}
-	if !td.Subtype || td.InnerTypeExpr == nil || len(td.TypeParams) != 0 {
+	if !td.Subtype || td.InnerTypeExpr == nil {
 		return nil, nil, false
 	}
+	if len(td.TypeParams) != 0 {
+		return nil, nil, true
+	}
 	declFA, known := declaringFile(fa, fileOf, sym)
-	if known && typeExprSymbol(declFA, td.InnerTypeExpr) != nil {
+	if known && (typeExprSymbol(declFA, td.InnerTypeExpr) != nil || isGenericTypeIn(declFA, td.InnerTypeExpr)) {
 		return td.InnerTypeExpr, declFA, true
 	}
 	if sym.Type != nil || known {
@@ -2568,6 +2580,13 @@ func deriveSubtypeBase(fa *FileAnalysis, fileOf declFiles, baseName string) (ast
 		return &ast.SimpleType{Name: st.Name}, fa, true
 	}
 	return nil, nil, false
+}
+
+// isGenericTypeIn reports whether te is a generic type fa's scope names
+// (`List<Int>`, the parent of `subtype Two List<Int> when ...`).
+func isGenericTypeIn(fa *FileAnalysis, te ast.TypeExpr) bool {
+	gt, ok := te.(*ast.GenericType)
+	return ok && fa != nil && fa.ModuleScope != nil && fa.ModuleScope.Lookup(gt.Name) != nil
 }
 
 // subtypeBaseFromType is deriveSubtypeBase from sym's resolved type: the
@@ -2984,8 +3003,8 @@ func hashableVariantBody(v ast.EnumVariant, index int, line, col int) ast.Node {
 		return idx
 	case "positional":
 		arity := 1
-		if ft, isTuple := v.DataTypeExpr.(*ast.FuncType); isTuple && ft.Return == nil && len(ft.Params) >= 2 {
-			arity = len(ft.Params)
+		if ws := writtenParts(v.DataTypeExpr); ws != nil {
+			arity = len(ws)
 		}
 		parts := make([]ast.Node, arity)
 		for i := 0; i < arity; i++ {
@@ -3023,9 +3042,9 @@ func hashableDistinctStmts(t *ast.TypeDef, line, col int) []ast.Node {
 	stmts := []ast.Node{
 		distinctUnwrap(t.Name, "inner", identExpr("value", line, col), line, col),
 	}
-	if ft, isTuple := t.InnerTypeExpr.(*ast.FuncType); isTuple && ft.Return == nil && len(ft.Params) >= 1 {
-		parts := make([]ast.Node, len(ft.Params))
-		for i := range ft.Params {
+	if ws := writtenParts(t.InnerTypeExpr); ws != nil {
+		parts := make([]ast.Node, len(ws))
+		for i := range ws {
 			parts[i] = hashableHashCall(
 				fieldAccess(identExpr("inner", line, col), tupleItemName(i), line, col),
 				line, col,
@@ -3368,8 +3387,8 @@ func comparableVariantPayload(v ast.EnumVariant, line, col int) ast.Node {
 		return orderingIdent("Equal", line, col)
 	case "positional":
 		arity := 1
-		if ft, isTuple := v.DataTypeExpr.(*ast.FuncType); isTuple && ft.Return == nil && len(ft.Params) >= 2 {
-			arity = len(ft.Params)
+		if ws := writtenParts(v.DataTypeExpr); ws != nil {
+			arity = len(ws)
 		}
 		pairs := make([]exprPair, arity)
 		for i := 0; i < arity; i++ {
@@ -3413,9 +3432,9 @@ func comparableDistinctStmts(t *ast.TypeDef, line, col int) []ast.Node {
 		distinctUnwrap(t.Name, "av", identExpr("a", line, col), line, col),
 		distinctUnwrap(t.Name, "bv", identExpr("b", line, col), line, col),
 	}
-	if ft, isTuple := t.InnerTypeExpr.(*ast.FuncType); isTuple && ft.Return == nil && len(ft.Params) >= 1 {
-		pairs := make([]exprPair, len(ft.Params))
-		for i := range ft.Params {
+	if ws := writtenParts(t.InnerTypeExpr); ws != nil {
+		pairs := make([]exprPair, len(ws))
+		for i := range ws {
 			pairs[i] = exprPair{
 				left:  fieldAccess(identExpr("av", line, col), tupleItemName(i), line, col),
 				right: fieldAccess(identExpr("bv", line, col), tupleItemName(i), line, col),
@@ -3641,8 +3660,8 @@ func stringifyVariantBody(iface string, v ast.EnumVariant, wrapping map[string]b
 		return staticString(v.Name, line, col)
 	case "positional":
 		arity := 1
-		if ft, isTuple := v.DataTypeExpr.(*ast.FuncType); isTuple && ft.Return == nil && len(ft.Params) >= 2 {
-			arity = len(ft.Params)
+		if ws := writtenParts(v.DataTypeExpr); ws != nil {
+			arity = len(ws)
 		}
 		exprs := make([]ast.Node, arity)
 		for i := 0; i < arity; i++ {
@@ -3690,9 +3709,9 @@ func stringifyDistinctStmts(iface string, t *ast.TypeDef, line, col int) []ast.N
 	stmts := []ast.Node{
 		distinctUnwrap(t.Name, "inner", identExpr("value", line, col), line, col),
 	}
-	if ft, isTuple := t.InnerTypeExpr.(*ast.FuncType); isTuple && ft.Return == nil && len(ft.Params) >= 1 {
-		exprs := make([]ast.Node, len(ft.Params))
-		for i := range ft.Params {
+	if ws := writtenParts(t.InnerTypeExpr); ws != nil {
+		exprs := make([]ast.Node, len(ws))
+		for i := range ws {
 			exprs[i] = fieldAccess(identExpr("inner", line, col), tupleItemName(i), line, col)
 		}
 		// `Pair(1, "x")`: the call that builds it.
@@ -3879,8 +3898,8 @@ func toJsonVariantExpr(v ast.EnumVariant, opts deriveOptions, line, col int) ast
 		return jsonString(v.Name, line, col)
 	case "positional":
 		arity := 1
-		if ft, isTuple := v.DataTypeExpr.(*ast.FuncType); isTuple && ft.Return == nil && len(ft.Params) >= 2 {
-			arity = len(ft.Params)
+		if ws := writtenParts(v.DataTypeExpr); ws != nil {
+			arity = len(ws)
 		}
 		var payload ast.Node
 		if arity == 1 {
@@ -3918,9 +3937,9 @@ func toJsonDistinctStmts(t *ast.TypeDef, line, col int) []ast.Node {
 	stmts := []ast.Node{
 		distinctUnwrap(t.Name, "inner", identExpr("value", line, col), line, col),
 	}
-	if ft, isTuple := t.InnerTypeExpr.(*ast.FuncType); isTuple && ft.Return == nil && len(ft.Params) >= 2 {
-		items := make([]ast.Node, len(ft.Params))
-		for i := range ft.Params {
+	if ws := writtenParts(t.InnerTypeExpr); ws != nil {
+		items := make([]ast.Node, len(ws))
+		for i := range ws {
 			items[i] = toJsonCall(fieldAccess(identExpr("inner", line, col), tupleItemName(i), line, col), line, col)
 		}
 		stmts = append(stmts, exprStmt(jsonArr(items, line, col), line, col))
@@ -3981,11 +4000,12 @@ func fromJsonBody(typeNode ast.Node, opts deriveOptions, line, col int) []ast.No
 
 // fromJsonEnumExpr decodes the shape derived ToJson writes for an enum: a
 // bare variant as the JSON string of its name, and a payload variant as an
-// object whose key is its name, holding the payload (an array for a tuple
-// payload, an object of its fields for a struct variant).
+// object whose one key is its name, holding the payload (an array for a
+// tuple payload, an object of its fields for a struct variant). std/json's
+// tagged_entry reads that object, as Result's FromJson does, and refuses
+// one with no key, several keys or a key no payload variant has.
 func fromJsonEnumExpr(e *ast.EnumDef, opts deriveOptions, line, col int) ast.Node {
 	json := func() ast.Node { return identExpr("json", line, col) }
-	var branches []ast.CaseBranch
 	var tagged []ast.EnumVariant
 	var bare []ast.CaseBranch
 	for _, v := range e.Variants {
@@ -4000,42 +4020,13 @@ func fromJsonEnumExpr(e *ast.EnumDef, opts deriveOptions, line, col int) ast.Nod
 		}
 		tagged = append(tagged, v)
 	}
-	hasBare := len(bare) > 0
-	if hasBare {
-		// An unknown name is reported with its text: `got "Purple"`.
-		unknown := errCall(&ast.StructLit{
-			TypeName: jsonVariant("ShapeError", line, col),
-			Fields: []ast.StructFieldVal{
-				{Name: "path", Value: &ast.ListLit{Line: line, Col: col}, Line: line, Col: col},
-				{Name: "expected", Value: staticString(e.Name, line, col), Line: line, Col: col},
-				{Name: "got", Value: &ast.StringInterp{Parts: []ast.StringPart{
-					ast.StringText{Value: `"`},
-					ast.StringExpr{Expr: identExpr("__tag", line, col)},
-					ast.StringText{Value: `"`},
-				}, Line: line, Col: col}, Line: line, Col: col},
-			},
-			Line: line,
-			Col:  col,
-		}, line, col)
-		bare = append(bare, ast.CaseBranch{Pattern: &ast.WildcardPattern{Line: line, Col: col}, Body: unknown, Line: line, Col: col})
-		branches = append(branches, ast.CaseBranch{
-			Pattern: &ast.EnumPattern{
-				Variant: jsonVariant("String", line, col),
-				Payload: &ast.IdentPattern{Name: "__tag", Line: line, Col: col},
-				Line:    line,
-				Col:     col,
-			},
-			Body: &ast.Case{Value: identExpr("__tag", line, col), Branches: bare, Line: line, Col: col},
-			Line: line,
-			Col:  col,
-		})
-	}
+	// rest decodes json when it is not a bare variant's string.
+	var rest ast.Node = jsonShapeErr(e.Name, json(), line, col)
 	if len(tagged) > 0 {
-		// Each payload variant's key is looked up in declaration order; an
-		// object holding none of them is the shape error.
-		var chain ast.Node = jsonShapeErr(e.Name, json(), line, col)
-		for i := len(tagged) - 1; i >= 0; i-- {
-			v := tagged[i]
+		tags := make([]ast.Node, len(tagged))
+		var arms []ast.CaseBranch
+		for i, v := range tagged {
+			tags[i] = staticString(v.Name, line, col)
 			var decoded ast.Node
 			if tupleVariant(v) {
 				// Its errors carry the variant's name already.
@@ -4051,41 +4042,84 @@ func fromJsonEnumExpr(e *ast.EnumDef, opts deriveOptions, line, col int) ast.Nod
 					Col:  col,
 				}
 			}
-			chain = &ast.Case{
-				Value: mapGetCall(identExpr("__tagged", line, col), staticString(v.Name, line, col), line, col),
-				Branches: []ast.CaseBranch{
-					{Pattern: enumBindPattern("Some", "__payload", line, col), Body: decoded, Line: line, Col: col},
-					{Pattern: &ast.EnumPattern{Variant: &ast.SimpleType{Name: "None", Line: line, Col: col}, Line: line, Col: col}, Body: chain, Line: line, Col: col},
+			// The last variant's arm takes any key: tagged_entry answers
+			// only the keys in tags, and the arms before it took the others.
+			var key ast.Node = staticString(v.Name, line, col)
+			if i == len(tagged)-1 {
+				key = &ast.WildcardPattern{Line: line, Col: col}
+			}
+			arms = append(arms, ast.CaseBranch{
+				Pattern: &ast.EnumPattern{
+					Variant: &ast.SimpleType{Name: "Ok", Line: line, Col: col},
+					Payload: &ast.TuplePattern{Patterns: []ast.Node{key, &ast.IdentPattern{Name: "__payload", Line: line, Col: col}}, Line: line, Col: col},
+					Line:    line,
+					Col:     col,
 				},
+				Body: decoded,
 				Line: line,
 				Col:  col,
-			}
+			})
 		}
-		branches = append(branches, ast.CaseBranch{
-			Pattern: &ast.EnumPattern{
-				Variant: jsonVariant("Obj", line, col),
-				Payload: &ast.IdentPattern{Name: "__tagged", Line: line, Col: col},
-				Line:    line,
-				Col:     col,
-			},
-			Body: chain,
-			Line: line,
-			Col:  col,
+		arms = append(arms, ast.CaseBranch{
+			Pattern: enumBindPattern("Err", "__err", line, col),
+			Body:    errCall(identExpr("__err", line, col), line, col),
+			Line:    line,
+			Col:     col,
 		})
+		rest = &ast.Case{
+			Value: jsonCall("tagged_entry", []ast.Node{
+				json(),
+				staticString(e.Name, line, col),
+				&ast.ListLit{Items: tags, Line: line, Col: col},
+			}, line, col),
+			Branches: arms,
+			Line:     line,
+			Col:      col,
+		}
 	}
-	branches = append(branches, ast.CaseBranch{
-		Pattern: &ast.WildcardPattern{Line: line, Col: col},
-		Body:    jsonShapeErr(e.Name, json(), line, col),
-		Line:    line,
-		Col:     col,
-	})
-	return &ast.Case{Value: json(), Branches: branches, Line: line, Col: col}
+	if len(bare) == 0 {
+		return rest
+	}
+	// An unknown name is reported with its text: `got "Purple"`.
+	unknown := errCall(&ast.StructLit{
+		TypeName: jsonVariant("ShapeError", line, col),
+		Fields: []ast.StructFieldVal{
+			{Name: "path", Value: &ast.ListLit{Line: line, Col: col}, Line: line, Col: col},
+			{Name: "expected", Value: staticString(e.Name, line, col), Line: line, Col: col},
+			{Name: "got", Value: &ast.StringInterp{Parts: []ast.StringPart{
+				ast.StringText{Value: `"`},
+				ast.StringExpr{Expr: identExpr("__tag", line, col)},
+				ast.StringText{Value: `"`},
+			}, Line: line, Col: col}, Line: line, Col: col},
+		},
+		Line: line,
+		Col:  col,
+	}, line, col)
+	bare = append(bare, ast.CaseBranch{Pattern: &ast.WildcardPattern{Line: line, Col: col}, Body: unknown, Line: line, Col: col})
+	return &ast.Case{
+		Value: json(),
+		Branches: []ast.CaseBranch{
+			{
+				Pattern: &ast.EnumPattern{
+					Variant: jsonVariant("String", line, col),
+					Payload: &ast.IdentPattern{Name: "__tag", Line: line, Col: col},
+					Line:    line,
+					Col:     col,
+				},
+				Body: &ast.Case{Value: identExpr("__tag", line, col), Branches: bare, Line: line, Col: col},
+				Line: line,
+				Col:  col,
+			},
+			{Pattern: &ast.WildcardPattern{Line: line, Col: col}, Body: rest, Line: line, Col: col},
+		},
+		Line: line,
+		Col:  col,
+	}
 }
 
 // tupleVariant reports a variant whose payload is a tuple, `V (A, B)`.
 func tupleVariant(v ast.EnumVariant) bool {
-	ft, isTuple := v.DataTypeExpr.(*ast.FuncType)
-	return v.Kind == "positional" && isTuple && ft.Return == nil && len(ft.Params) >= 2
+	return v.Kind == "positional" && writtenParts(v.DataTypeExpr) != nil
 }
 
 // fromJsonVariantPayloadExpr decodes `__payload`, the value under a payload
@@ -4123,19 +4157,19 @@ func fromJsonVariantPayloadExpr(e *ast.EnumDef, v ast.EnumVariant, opts deriveOp
 	}
 	switch v.Kind {
 	case "positional":
-		ft, isTuple := v.DataTypeExpr.(*ast.FuncType)
-		if !isTuple || ft.Return != nil || len(ft.Params) < 2 {
+		ws := writtenParts(v.DataTypeExpr)
+		if ws == nil {
 			return decodeThen(v.DataTypeExpr, payload(), "__a0", "", okCall(ctor(identExpr("__a0", line, col)), line, col))
 		}
-		items := make([]ast.Node, len(ft.Params))
-		heads := make([]ast.Node, len(ft.Params))
-		for i := range ft.Params {
+		items := make([]ast.Node, len(ws))
+		heads := make([]ast.Node, len(ws))
+		for i := range ws {
 			items[i] = identExpr(fmt.Sprintf("__a%d", i), line, col)
 			heads[i] = &ast.IdentPattern{Name: fmt.Sprintf("__j%d", i), Line: line, Col: col}
 		}
 		var body ast.Node = okCall(ctor(&ast.TupleLit{Items: items, Line: line, Col: col}), line, col)
-		for i := len(ft.Params) - 1; i >= 0; i-- {
-			body = decodeThen(ft.Params[i], identExpr(fmt.Sprintf("__j%d", i), line, col), fmt.Sprintf("__a%d", i), fmt.Sprintf("[%d]", i), body)
+		for i := len(ws) - 1; i >= 0; i-- {
+			body = decodeThen(ws[i], identExpr(fmt.Sprintf("__j%d", i), line, col), fmt.Sprintf("__a%d", i), fmt.Sprintf("[%d]", i), body)
 		}
 		return &ast.Case{
 			Value: payload(),
@@ -4154,7 +4188,7 @@ func fromJsonVariantPayloadExpr(e *ast.EnumDef, v ast.EnumVariant, opts deriveOp
 				{
 					Pattern: &ast.WildcardPattern{Line: line, Col: col},
 					Body: errCall(jsonShapePrepend(
-						jsonCall("shape_error_root", []ast.Node{staticString(ft.TypeString(), line, col), payload()}, line, col),
+						jsonCall("shape_error_root", []ast.Node{staticString(v.DataTypeExpr.TypeString(), line, col), payload()}, line, col),
 						v.Name, line, col), line, col),
 					Line: line,
 					Col:  col,
@@ -4511,10 +4545,6 @@ func jsonCall(method string, args []ast.Node, line, col int) ast.Node {
 		Line: line,
 		Col:  col,
 	}
-}
-
-func mapGetCall(m, key ast.Node, line, col int) ast.Node {
-	return qualifiedCall("Map", "get", []ast.Node{m, key}, line, col)
 }
 
 func jsonShapePrepend(err ast.Node, segment string, line, col int) ast.Node {

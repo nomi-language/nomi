@@ -11,9 +11,9 @@ import (
 
 // TestGeneratedFileIsCurrent regenerates the adapter files from the
 // binding table and the std facades and requires the checked-in files to
-// match: adapters_gen.go, and the network adapters split from it,
-// adapters_net_gen.go and adapters_nonet_gen.go, and the std names a
-// capability list may hold, internal/capability/std_names_gen.go. A row
+// match: adapters_gen.go, and each optional family's adapters split from
+// it, adapters_<key>_gen.go and adapters_no<key>_gen.go, and the std names an
+// effects list may hold, internal/effects/std_names_gen.go. A row
 // added to internal/stdlibbindings, a `host fn` signature changed in std,
 // or a std module added, removed or renamed fails here until `go generate
 // ./internal/stdlibadapters` is rerun.

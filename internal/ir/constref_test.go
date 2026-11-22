@@ -244,8 +244,7 @@ func TestRef_MobilityIsTwoIndependentQuestions(t *testing.T) {
 // `NewSymbol` gives for free because it MINTS. It says nothing about the
 // converse, and the converse is what a consumer actually needs: two reads of
 // ONE declaration must resolve to ONE symbol, or a symbol is a receipt for a
-// lookup rather than an identity. `Table.Declare`'s comment names the same
-// failure for `Decl`, and `Table.Symbol` closes it for `Symbol`.
+// lookup rather than an identity. `Table.Symbol` closes it.
 func TestTable_SymbolInterningMakesTheIdentityRuleDeliverable(t *testing.T) {
 	tab := ir.NewTable()
 	type decl struct{ n string }

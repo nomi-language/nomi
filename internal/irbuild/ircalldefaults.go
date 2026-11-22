@@ -22,14 +22,10 @@ func (bl *irScalarBuilder) callDefaultsThrough(sig *fnSig, args []ir.Temp, n int
 	if len(sig.decl.Params) != len(args) || n > len(args) {
 		panic("irbuild: callDefaultsThrough: every caller builds args at the declaration's parameter count, and a partial's slot is one of them")
 	}
-	bound, kinds, parent, defaults := bl.bound, bl.boundK, bl.parent, bl.defaultScope
-	scopes := bl.g.scopes
-	bl.bound, bl.boundK = map[string]ir.Temp{}, map[string]kind{}
-	bl.parent, bl.defaultScope = nil, true
-	bl.g.scopes = []map[string]local{scopes[0], {}}
+	parent, defaults, locals := bl.parent, bl.defaultScope, bl.locals
+	bl.parent, bl.defaultScope, bl.locals = nil, true, nil
 	defer func() {
-		bl.bound, bl.boundK, bl.parent, bl.defaultScope = bound, kinds, parent, defaults
-		bl.g.scopes = scopes
+		bl.parent, bl.defaultScope, bl.locals = parent, defaults, locals
 	}()
 	if inst := sig.instance; inst != nil {
 		// A generic callee's default is lowered at the instance's type
@@ -53,7 +49,7 @@ func (bl *irScalarBuilder) callDefaultsThrough(sig *fnSig, args []ir.Temp, n int
 				case !bound:
 					return false
 				case o.unit != bl.g.fileUnit:
-					src, _, ok = bl.ifaceSlotDefault(o, p, sig.params, frame, sig.defaultTypes, args, i)
+					src, _, ok = bl.ifaceSlotDefault(o, p, sig.params, frame, sig.defaultTypes, sig.defaultSelfType, args, i)
 				default:
 					// Lowered for the call's implementor, as the
 					// interface's default bodies are (gen.defaultSelf).
@@ -75,7 +71,9 @@ func (bl *irScalarBuilder) callDefaultsThrough(sig *fnSig, args []ir.Temp, n int
 			args[i] = src
 		}
 		if p.Destructure == nil && !ast.IsDiscardName(p.Name) {
-			bl.bound[p.Name], bl.boundK[p.Name] = args[i], sig.params[i]
+			// The default's reads of the parameter resolve to its
+			// declaration, which at this call holds the placed argument.
+			bl.declareLocal(p.Line, p.Col, args[i], sig.params[i])
 		}
 		if p.Destructure != nil && slices.Contains(args[i+1:n], ir.NoTemp) {
 			if !bl.bindParamPattern(p.Destructure, args[i], sig.params[i]) {
@@ -115,15 +113,5 @@ func (bl *irScalarBuilder) bindParamPattern(pat ast.Node, arg ir.Temp, k kind) b
 		bl.side(c.Dst(), irScalarSide{k: k, copy: irCopyHold})
 		arg = c.Dst()
 	}
-	pos := bl.g.irNodePos(pat)
-	cont := bl.f.NewBlock(pos, "parameter destructured")
-	nomatch := bl.f.NewBlock(pos, "pattern mismatch")
-	nomatch.Append(ir.NewNoMatch(pos))
-	nomatch.SetTerm(ir.NewJump(pos, cont.ID()))
-	if !bl.patternValueTest(pat, arg, k, cont, nomatch) {
-		bl.g.dc.patternFailed(pat)
-		return false
-	}
-	bl.b = cont
-	return true
+	return bl.bindPattern(pat, arg, k)
 }

@@ -49,3 +49,45 @@ func TestHTMLEscapeURLPath(t *testing.T) {
 		}
 	}
 }
+
+// TestHTMLUnescape holds the decoding to HTML5's in element content: the
+// references Go's table holds, the two it leaves out (widerReferences),
+// and a reference Go would read past a cut around them.
+func TestHTMLUnescape(t *testing.T) {
+	cases := map[string]string{
+		"plain":                             "plain",
+		"a &lt; b &amp;&amp; c":             "a < b && c",
+		"&amp &copy2 &notit;":               "& ©2 ¬it;",
+		"&#65;&#x42;&#67 &#0;":              "ABC �",
+		"&#x80;":                            "€",
+		"&fjlig;&semi;":                     "fj;",
+		"&nLt;&nGt;":                        "\u226A\u20D2\u226B\u20D2",
+		"&amp;nLt; &nLt &nLtv;":             "&nLt; &nLt \u226A\u0338",
+		"x&nLt;&lt;&n&nGt;":                 "x\u226A\u20D2<&n\u226B\u20D2",
+		"&zzz; & &; &#; &#x;":               "&zzz; & &; &#; &#x;",
+		"&CounterClockwiseContourIntegral;": "∳",
+	}
+	for in, want := range cases {
+		if got := HTMLUnescape(in); got != want {
+			t.Errorf("HTMLUnescape(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+// TestHTMLEntity holds the lookup of one name to whole names only: a
+// legacy name's prefix, a name with its `;` or `&`, a numeric reference
+// and a name the table lacks are None.
+func TestHTMLEntity(t *testing.T) {
+	found := map[string]string{"amp": "&", "semi": ";", "fjlig": "fj", "nLt": "\u226A\u20D2", "nGt": "\u226B\u20D2",
+		"NotGreaterGreater": "\u226B\u0338", "copy": "©"}
+	for name, want := range found {
+		if got := HTMLEntity(name); got != Some(want) {
+			t.Errorf("HTMLEntity(%q) = %v, want Some(%q)", name, got, want)
+		}
+	}
+	for _, name := range []string{"", "notit", "copy2", "amp;", "&amp", "#65", "x41", "Amp", "zzz", "n"} {
+		if got := HTMLEntity(name); got.Tag == TagSome {
+			t.Errorf("HTMLEntity(%q) = %v, want None", name, got)
+		}
+	}
+}

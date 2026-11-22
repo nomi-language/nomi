@@ -17,12 +17,16 @@
 // # Snapshot
 //
 // A record names the files the build read. A [Tree] is walked for the files
-// a build can read in it (`.nomi`, `.toml`, `go.mod`, `go.sum`), or for
-// every file when it is an `embed` base; hidden names and node_modules are
-// skipped in both. Above each source tree the markers that decide the
-// program's root (`nomi.toml`, `main.nomi`, `go.mod`; analysis.ProjectRoot)
-// are stat'ed too. Single files outside the trees are named on their own.
-// Each file is held by its size, times, inode and SHA-256.
+// a build can read in it (`.nomi`, `.toml`, `nomi.lock`, and `go.mod`,
+// which `nomi check` holds to the one nomi writes), or for every file when
+// it is an `embed` base; hidden names and node_modules are skipped in both.
+// Above each source tree the markers that decide the program's root
+// (`nomi.toml`, `main.nomi`; analysis.ProjectRoot) are stat'ed too. Single files outside the trees are named on their own.
+// Each file is held by its size, times, inode and SHA-256. A tree with
+// NamedSources holds its `.nomi` files by presence alone, and the record
+// names the sources the build read on their own, with their text: an edit
+// to a source the build did not read changes nothing, and a source that
+// comes or goes is a difference, since it can change what an import names.
 //
 // A lookup walks the same trees and stats the same files. A file whose stat
 // matches and was last changed more than two seconds (racyWindow) before
@@ -35,13 +39,19 @@
 // The record is made from a snapshot taken before the build starts, and is
 // written only when nothing in the snapshot changed while the build ran; a
 // tree the snapshot had not predicted (a dependency's) is kept only when
-// its files are older than two seconds. So a record never pairs a file's
-// later text with a build of earlier text.
+// its files are older than two seconds. A source a walk holds by presence
+// and the record names is held at its text then: the walk hashed it when
+// it had changed within two seconds of the snapshot, and is hashed when it
+// is stored otherwise, its stat still the walk's. So a record never pairs a
+// file's later text with a build of earlier text.
 //
 // [Entry.Sibling] opens another kind's record for the same program from the
-// same snapshot (vmhost's file records). [Entry.ChangedSources] answers the
-// `.nomi` files changed, added and removed in a tree walked for sources,
-// when nothing else differs: what a relink reads.
+// same snapshot (vmhost's file records and stored passes). A record keeps
+// its payload's SHA-256, made when it is stored, and a hit answers it
+// ([Entry.Sum]): a record of another kind names by it the payload it was
+// made from, with no hash made on the lookup. [Entry.ChangedSources] answers the
+// files whose text changed and the `.nomi` files added and removed in a
+// tree walked for sources, when nothing else differs: what a relink reads.
 //
 // A record that does not decode, is truncated or fails its checksum is a
 // miss, never an error. Writes go through a temporary file renamed into
@@ -56,7 +66,8 @@
 // its time put back, a file changed while the build ran, the environment in
 // the key, pruning, and racing writers (run them with -race).
 // TestChangedSourcesNamesSourcesAddedAndRemoved holds which files may come
-// and go. Under `go test` a process keeps no program unless the test points
+// and go, and TestANamedSourcesTreeHoldsTheTextOfTheNamedSources what a
+// tree with NamedSources holds. Under `go test` a process keeps no program unless the test points
 // NOMI_ARTIFACT_CACHE at a directory of its own (artifactcache.ProgramRoot).
 // A `nomi` a test starts is not a test process: it keeps programs under the
 // directory the test gave it, or the one artifactcache chose for the test

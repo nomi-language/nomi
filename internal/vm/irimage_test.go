@@ -274,7 +274,7 @@ func TestIRImage_DecodedProgramsMatchTheCommittedRecords(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; lowers every candidate program in four populations; -short")
 	}
-	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
+	t.Setenv("NOMI_RUNNER_CACHE_ROOT", t.TempDir())
 	saved := vmLink
 	defer func() { vmLink = saved }()
 	var linkErrs []string
@@ -335,7 +335,7 @@ func TestIRImage_PrunedProgramsMatchTheCommittedRecords(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; lowers every candidate program in two populations; -short")
 	}
-	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
+	t.Setenv("NOMI_RUNNER_CACHE_ROOT", t.TempDir())
 	saved := vmLink
 	defer func() { vmLink = saved }()
 	var linkErrs []string

@@ -41,12 +41,11 @@ var oneRuleFamilies = map[string]oneRuleFamily{
 		result: func(_, _, o string) string { return o }, called: func(_, _, o string) string { return o }},
 }
 
-// oneRuleShape is an operand type: its declarations, its type (and, for
-// an operator over two types, the right operand's and the result's), and
-// the families it takes.
+// oneRuleShape is an operand type: its type (and, for an operator over two
+// types, the right operand's and the result's), and the families it takes.
+// Every shape's declarations are oneRuleDecls.
 type oneRuleShape struct {
 	name     string
-	decls    string
 	t, r, o  string
 	families []string
 }

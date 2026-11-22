@@ -10,7 +10,7 @@
 // resolved; `PlusMonthsClamped` is the one place a shorter target month clamps;
 // `ParseDate` / `ParseTime` / `ParseNaiveDateTime` / `ParseOffsetDateTime` /
 // `ParseZonedDateTime` are the one place each spelling is accepted. The VM
-// reaches them through the FFI projection: std/calendar.nomi declares bare
+// reaches them through the host projection: std/calendar.nomi declares bare
 // `host fn`s, internal/stdlibbindings pairs each with a function here or in
 // boundary.go over rt's calendar structs, and internal/stdlibadapters generates
 // the VM's adapter for each.
@@ -20,7 +20,7 @@
 // Everything about these functions is pinned by absolute assertions in the
 // tests beside this file (the two-zones-one-instant equality, the
 // civil-versus-physical DST divergence, end-of-month clamping, and each
-// `Disambiguation` mode), and the corpus's own 02-scalars-and-time/dst_*.nomi
+// `Disambiguation` mode), and the corpus's own 05-calendar-and-time/dst_*.nomi
 // programs exercise them through the VM.
 //
 // # Why the time-zone database is linked here and not in rt
@@ -51,14 +51,22 @@
 // 9557 and Temporal write one, and every parse reads it back
 // (ISOYearText, ParseISOYear).
 //
+// # The machine's zone
+//
+// Every function here is pure but one: LocalZone, `DateTime.local_zone`,
+// reads the zone the machine is set to (TZ, /etc/localtime's link, or a
+// browser's Intl) and answers it as an IANA name the database holds, so
+// the rest take it as any other name. Go's time.Local names no zone, so
+// localzone.go recovers the name from what Go reads, and a zone with no
+// name is an error rather than UTC.
+//
 // # Two layers
 //
 // This file and years.go are the semantics, typed in rt's shapes:
 // `rt.Result[T, rt.CalendarError]`, `rt.Duration`, `rt.Int`.
-// boundary.go is the FFI-shaped surface, and every function there is a
-// projection onto one of these. The split exists because the FFI projection
-// does not carry three of rt's types; see boundary.go's header for which three
-// and why.
+// boundary.go is the surface the host projection reaches where a
+// declaration passes another shape, and every function there is a
+// projection onto one of these; see boundary.go's header for which shapes.
 package stdcalendar
 
 import (
@@ -424,8 +432,14 @@ func offsetDateTimeAt(dt rt.NaiveDateTime, offsetSeconds int64) rt.OffsetDateTim
 }
 
 // LoadZone resolves an IANA zone name, answering the `UnknownZone` error rather
-// than a Go error so every caller reports the same variant.
+// than a Go error so every caller reports the same variant. "Local" and ""
+// are not zone names: Go reads them as the machine's zone and as UTC, and a
+// program that wants the machine's zone asks for it by name (LocalZone),
+// which is an effect.
 func LoadZone(zone string) (*time.Location, rt.CalendarError, bool) {
+	if zone == "" || zone == "Local" {
+		return nil, CalendarErr(rt.TagUnknownZone, zone), false
+	}
 	loc, err := time.LoadLocation(zone)
 	if err != nil {
 		return nil, CalendarErr(rt.TagUnknownZone, zone), false

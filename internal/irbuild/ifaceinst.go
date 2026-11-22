@@ -68,67 +68,6 @@ type ifaceInstKey struct {
 	args string
 }
 
-// ifaceTemplate is the *ast.InterfaceDef of a generic interface declared in this
-// file or, when its signatures mean the same here, in a sibling file, or nil.
-//
-// Read off the interface's def rather than kept in a second map: the template
-// def already carries the declaration and the refusal every unreached mention
-// reports. A parallel registry would be a second place for "which interfaces
-// are generic" to be answered.
-func (g *gen) ifaceTemplate(name string) *ast.InterfaceDef {
-	d, _ := g.ifaceNamed(name)
-	if d == nil || d.lowerable || d.instOf != nil {
-		return nil
-	}
-	if d.why != "generic interface" || d.decl == nil {
-		return nil
-	}
-	// Exactly the shape declareIfaces put the marker on: type parameters, and
-	// no interface-level where clause. Re-derived from the DECLARATION rather
-	// than trusted from the marker, so a future arm that reuses the same `why`
-	// for a different shape cannot silently be admitted here.
-	if len(d.decl.TypeParams) == 0 || len(d.decl.WhereClauses) > 0 {
-		return nil
-	}
-	if d.foreign != "" && !g.portableSignatures(d) {
-		return nil
-	}
-	return d.decl
-}
-
-// portableSignatures reports whether a sibling file's generic interface can
-// be instantiated here: its functions' signatures are resolved in this file,
-// so every name they mention must resolve to the same declaration in both
-// files, the rule a default lowered at its call is held to
-// (defaultNamesAgree).
-func (g *gen) portableSignatures(d *ifaceDef) bool {
-	if g.reg == nil || d.unit < 0 || d.unit >= len(g.reg.gens) {
-		return false
-	}
-	owner := g.reg.gens[d.unit]
-	if owner == nil || owner.fa == nil || g.fa == nil {
-		return false
-	}
-	names := map[string]bool{}
-	for i := range d.decl.Methods {
-		im := &d.decl.Methods[i]
-		for j := range im.Params {
-			walkNames(im.Params[j].TypeAnnotation, names, pickAnyName)
-		}
-		walkNames(im.ReturnTypeExpr, names, pickAnyName)
-	}
-	for name := range names {
-		there, here := resolvedTypeSymbol(owner.fa, name), resolvedTypeSymbol(g.fa, name)
-		switch {
-		case there == nil && here == nil:
-			// A type parameter, `self`, or a name neither file binds.
-		case there == nil || here == nil || there.Node != here.Node:
-			return false
-		}
-	}
-	return true
-}
-
 // ifaceInstanceFor is the instance an impl block of a generic interface binds
 // into, or a refusal naming what stayed open.
 //
@@ -172,11 +111,9 @@ func (g *gen) ifaceInstAtTyped(tpl *ast.InterfaceDef, subst map[string]kind, typ
 		instArgs:  args,
 		unit:      -1,
 	}
-	if m := g.ifaces[tpl.Name]; m != nil && m.decl == tpl && m.foreign != "" {
+	if o := g.templateOwner(tpl); o != nil {
 		// A sibling file's template: an inherited default is lowered in
 		// that file (ifacedefault.go), which it reaches through these.
-		d.foreign, d.unit = m.foreign, m.unit
-	} else if o := g.templateOwner(tpl); o != nil {
 		d.foreign, d.unit = o.fileKey, o.unit
 	}
 	if t := g.stdProgIfaces[tpl]; t != nil {
@@ -221,10 +158,7 @@ func (g *gen) ifaceInstArgs(tpl *ast.InterfaceDef, ib *ast.ImplBlock) (map[strin
 		names = append(names, tp.Name)
 	}
 	subst := map[string]kind{}
-	rec := analysis.ImplBlockTypeArgs(g.srcFA(), ib)
-	if rec == nil && g.fa != g.srcFA() {
-		rec = analysis.ImplBlockTypeArgs(g.fa, ib)
-	}
+	rec := g.implBlockRecord(ib)
 	var types map[string]analysis.Type
 	recordType := func(i int, n string) {
 		if rec == nil || i >= len(rec.Args) || (i < len(rec.Open) && rec.Open[i]) {
@@ -387,4 +321,17 @@ func (g *gen) ifaceMethodTypeParamIsOpen(im *ast.InterfaceMethod) bool {
 		}
 	}
 	return false
+}
+
+// implBlockRecord is the checker's record of impl block ib
+// (analysis.ImplBlockTypeArgs): the interface it implements by identity,
+// its receiver and its interface type arguments, read in the file whose
+// check wrote the block (srcFA), else in this gen's. nil for the
+// name-only Debug of an opaque type declared in a body, which has none.
+func (g *gen) implBlockRecord(ib *ast.ImplBlock) *analysis.ImplTypeArgs {
+	rec := analysis.ImplBlockTypeArgs(g.srcFA(), ib)
+	if rec == nil && g.fa != g.srcFA() {
+		rec = analysis.ImplBlockTypeArgs(g.fa, ib)
+	}
+	return rec
 }

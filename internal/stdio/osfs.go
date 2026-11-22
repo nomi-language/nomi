@@ -234,7 +234,41 @@ func (d *disk) OpenFile(p string, access Access) (rt.FileSource, *rt.IOError) {
 		}
 		return info.Size(), nil
 	}
-	return rt.FileSource{Name: p, F: f, Size: size, Writable: access != AccessRead, Close: f.Close, Fail: failer(p)}, nil
+	writable := access != AccessRead
+	sync, lock, release := osFile(f, writable)
+	closeFile := func() error {
+		release()
+		return f.Close()
+	}
+	return rt.FileSource{Name: p, F: f, Size: size, Writable: writable, Close: closeFile, Fail: failer(p), Sync: sync, Lock: lock}, nil
+}
+
+// SyncDir opens the directory and syncs it, so the entries made, renamed
+// or removed in it are durable: an fsync of the directory on Linux and
+// macOS, where it does not wait for the drive's cache (osfile_darwin.go).
+// Windows has no call that flushes a directory, so
+// there it checks the directory and returns (syncDirectory).
+func (d *disk) SyncDir(p string) *rt.IOError {
+	n, e := d.native(p)
+	if e != nil {
+		return e
+	}
+	f, err := d.ops.Open(n)
+	if err != nil {
+		return d.classify("open", p, err)
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		return d.classify("stat", p, err)
+	}
+	if !info.IsDir() {
+		return errOf(rt.TagIONotADirectory, p)
+	}
+	if err := syncDirectory(f); err != nil {
+		return classify("sync", p, err)
+	}
+	return nil
 }
 
 func (d *disk) List(dir string) ([]DirEntry, *rt.IOError) {

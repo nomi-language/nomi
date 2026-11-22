@@ -36,20 +36,20 @@ func (t caseTable) lookup(r rune) (string, bool) {
 	return "", false
 }
 
-// FFIUppercaseIn is `String.uppercase_in`.
-func FFIUppercaseIn(s, locale string) string { return UpperIn(s, languageOf(locale)) }
+// HostUppercaseIn is `String.uppercase_in`.
+func HostUppercaseIn(s, locale string) string { return UpperIn(s, languageOf(locale)) }
 
-// FFILowercaseIn is `String.lowercase_in`.
-func FFILowercaseIn(s, locale string) string { return LowerIn(s, languageOf(locale)) }
+// HostLowercaseIn is `String.lowercase_in`.
+func HostLowercaseIn(s, locale string) string { return LowerIn(s, languageOf(locale)) }
 
-// FFIFoldCase is `String.fold_case`.
-func FFIFoldCase(s string) string { return FoldCase(s) }
+// HostFoldCase is `String.fold_case`.
+func HostFoldCase(s string) string { return FoldCase(s) }
 
-// FFICapitalize is `String.capitalize`.
-func FFICapitalize(s string) string { return Capitalize(s, "") }
+// HostCapitalize is `String.capitalize`.
+func HostCapitalize(s string) string { return Capitalize(s, "") }
 
-// FFICapitalizeIn is `String.capitalize_in`.
-func FFICapitalizeIn(s, locale string) string { return Capitalize(s, languageOf(locale)) }
+// HostCapitalizeIn is `String.capitalize_in`.
+func HostCapitalizeIn(s, locale string) string { return Capitalize(s, languageOf(locale)) }
 
 // languageOf is a tag's language subtag.
 func languageOf(tag string) string {

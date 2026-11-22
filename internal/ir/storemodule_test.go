@@ -14,10 +14,8 @@ func storeFile() string { return "store.nomi" }
 // TestStore_WritesADeclarationAndNotATemporary is the property that makes
 // `Store` a different node from `Copy` rather than a spelling of it.
 //
-// `internal/irbuild/irbind.go`'s table calls `ir.Copy` the rebind — `n = v`
-// writes a name that exists — and a Copy's DESTINATION is still a temporary
-// of the function's own: `irCopyNode` mints a fresh one. A Store names the
-// declaration.
+// A Copy writes a temporary of the function's own, which the builder mints
+// fresh. A Store names the declaration.
 func TestStore_WritesADeclarationAndNotATemporary(t *testing.T) {
 	tbl := NewTable()
 	field := tbl.Symbol("ctxField", "EffectsApp.context")

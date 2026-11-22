@@ -13,7 +13,7 @@ import (
 // thing, "these three guards have no reachable input", and splitting it would
 // let two rows keep passing while the third's reason expired unnoticed.
 //
-//	siblingImplSite (irqualcall.go): the RIVAL refusal, which declines rather than picking
+//	siblingImplSiteBy (irqualcall.go): the RIVAL refusal, which declines rather than picking
 //	     when two files each provide `Equatable.equal` for one receiver.
 //	     registerImpl's rule at a second site: never let ordering decide. The
 //	     front end forecloses the input. EXPIRES if the derive-collision check or

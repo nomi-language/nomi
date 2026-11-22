@@ -168,3 +168,35 @@ end
 	}
 	t.Fatalf("expected \"undefined interface 'Display'\", got %d diagnostics:\n  %s", len(errs), formatErrs(errs))
 }
+
+// A hand-written `impl Debug for T` in a prelude-less file requires
+// `Debug` in scope too, as any other interface's does: only the blocks the
+// front end synthesizes resolve the header without it. Without the import
+// the block named no declaration, and the impl was silently no Debug impl.
+// With the import the same block is accepted.
+func TestDeriveScope_PreludelessHandWrittenDebugRequiresImport(t *testing.T) {
+	const body = `pub struct P
+  x: Int
+end
+
+impl Debug for P
+  fn inspect(_value: P) -> String
+      "p"
+  end
+end
+`
+	_, errs := checkPreludeless(t, body)
+	found := false
+	for _, e := range errs {
+		if strings.Contains(e.Message, "undefined interface 'Debug'") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("a hand-written impl Debug with no import is admitted: expected \"undefined interface 'Debug'\", got %d diagnostics:\n  %s", len(errs), formatErrs(errs))
+	}
+	_, errs = checkPreludeless(t, "import debug.Debug\n\n"+body)
+	if len(errs) != 0 {
+		t.Errorf("with `import debug.Debug` the impl is rejected:\n  %s", formatErrs(errs))
+	}
+}

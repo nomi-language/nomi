@@ -358,6 +358,53 @@ end
 	}
 }
 
+// A call of std's Worker.new in a lambda and in a test body, with no
+// function of the program calling it elsewhere, is reported by the check
+// and by the reduction over stored facts alike.
+func TestStoredReductions_AStdBootOnlyCallOutsideBootIsReportedByBoth(t *testing.T) {
+	p := incrementalProject{name: "std-boot-only", entry: "main", texts: map[string]string{
+		"main": `import
+    std::io
+    std::jobs.Worker
+    std::jobs::testing.Inline
+end
+
+fn main()
+    io.print("hi")
+end
+
+pub fn later() -> List<Worker>
+    [1, 2] |> Iter.map(fn _ -> Worker.new(Inline.new(), max_running: 2)) |> Iter.to_list()
+end
+
+test "a worker"
+    queue = Inline.new()
+    w = Worker.new(queue, max_running: 2)
+    assert Worker.id(w) != ""
+end
+`,
+	}}
+	if diff := storedDiff(p, p.texts); diff != "" {
+		t.Fatal(diff)
+	}
+	dm := newManager()
+	_, _, whole, stored := dm.StoredFactsForTest(dm.CheckProgram(p.root(), p.entry, p.texts))
+	if stored == nil {
+		t.Fatal("the program is not reduced over stored facts")
+	}
+	var got []string
+	for _, e := range whole.Boot["main"] {
+		got = append(got, fmt.Sprintf("%d:%d %s", e.Line, e.Col, e.Message[:strings.Index(e.Message, " at jobs.nomi:")]))
+	}
+	want := []string{
+		"12:42 `Worker.new` creates a supervisor (`Supervisor.new`",
+		"17:19 `Worker.new` creates a supervisor (`Supervisor.new`",
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("the check reports:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
 // reductionsProject draws a diagnostic from each reduction over bodies: a
 // chain of calls to Supervisor.new across two files that main and a
 // private function nothing calls reach, a function value naming one, and
@@ -430,9 +477,44 @@ var reductionsEdits = []editStep{
 	replace("body calls a boot-only std function", "chain", "import std::supervisors.Supervisor\n", "import\n    std::supervisors.Supervisor\n    std::jobs.{Worker}\n    std::jobs::testing.{Inline}\nend\n"),
 	replace("body calls a boot-only std function", "chain", "pub fn plain() -> Int\n    2\n", "pub fn plain() -> Int\n    _ = Worker.new(Inline.new(), 1)\n    2\n"),
 	restore("body back", "chain"),
+	// A std boot-only function no function of the program calls outside a
+	// lambda is boot-only all the same.
+	replace("imports a boot-only std function", "chain", "import std::supervisors.Supervisor\n", "import\n    std::supervisors.Supervisor\n    std::jobs.{Worker}\n    std::jobs::testing.{Inline}\nend\n"),
+	replace("a lambda calls the boot-only std function", "chain", "pub fn plain() -> Int\n    2\n", "pub fn plain() -> Int\n    g = fn -> Worker.new(Inline.new(), 1)\n    _ = g\n    2\n"),
+	replace("a test body calls it", "chain", "pub fn deep() -> Int\n", "test \"a worker\"\n    _ = Worker.new(Inline.new(), 1)\nend\n\npub fn deep() -> Int\n"),
+	replace("a body names it as a value", "chain", "    _ = g\n    2\n", "    _ = g\n    h = Worker.new\n    _ = h\n    2\n"),
+	restore("body back", "chain"),
 	replace("a once calls into another file", "lib", "fn unused_private() -> Int\n", "pub once total: Int = chain.plain()\n\nfn unused_private() -> Int\n"),
 	replace("the other file imports it back", "chain", "import std::supervisors.Supervisor\n", "import\n    std::supervisors.Supervisor\n    lib\nend\n"),
 	replace("its function reads the once: a cycle", "chain", "pub fn plain() -> Int\n    2\n", "pub fn plain() -> Int\n    lib.total\n"),
 	restore("body back", "chain"),
 	restore("body back", "lib"),
+}
+
+// The reductions over stored facts read the stdlib's demands and supply
+// from the base the program is built over, which ReduceFacts takes from an
+// analysis of the program and never defaults: with no base, a program's
+// demand of a std impl reads as unmet, as `no impl of Display for String`
+// for this program's interpolation.
+func TestReduceFacts_ReadsTheStdlibOfTheProgram(t *testing.T) {
+	p := incrementalProject{name: "std-context", entry: "main", texts: map[string]string{
+		"names": "pub fn greet(name: String) -> String\n    \"hello ${name}\"\nend\n",
+		"main":  "import\n    names\nend\n\nfn main()\n    dbg names.greet(\"x\")\nend\n",
+	}}
+	dm := newManager()
+	full := dm.CheckProgram(p.root(), p.entry, p.texts)
+	requireClean(t, full, "the program")
+	red, ok, noStd := analysis.ReduceSourceFactsForTest(full, full.Files[full.Entry])
+	if !ok {
+		t.Fatal("ReduceFacts refuses a program built over the stdlib's base")
+	}
+	if !red.Clean(false) {
+		t.Fatalf("the reductions over the program's facts find something: %+v", *red)
+	}
+	if len(noStd) != 1 || !strings.Contains(noStd[0].Message, "no impl of `Display` for `String`") {
+		t.Fatalf("the facts reduced with no stdlib find %v, want the missing Display for String an empty stdlib reads; without it this test does not tell a reduction with the stdlib from one without", noStd)
+	}
+	if _, ok, _ := analysis.ReduceSourceFactsForTest(full, nil); ok {
+		t.Fatal("ReduceFacts reduces with no analysis to read the stdlib from")
+	}
 }

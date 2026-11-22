@@ -2,8 +2,6 @@ package hostgen
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"reflect"
 	"strings"
 
@@ -16,14 +14,12 @@ import (
 // under and the Go function implementing it.
 type FuncRow struct {
 	Name string
-	// Fn is the Go function value; Go describes a function read from source
-	// instead. Exactly one is set.
+	// Fn is the Go function value.
 	Fn any
-	Go *GoFunc
 	// PanicsPropagate leaves a panic in the Go function to the adapter's
 	// caller. Unset, the adapter turns every panic into its error with the
-	// marshaller's text (`<name>: panic: <value>`), which is the FFI
-	// contract. Set, a panic unwinds through the adapter untouched: an rt
+	// marshaller's text (`<name>: panic: <value>`). Set, a panic unwinds
+	// through the adapter untouched: an rt
 	// trap (*rt.Error) stays a trap the engine reports as a Nomi fault with
 	// rt's text, and a cancellation unwind (rt.TimerSleep on a cancelled
 	// frame) keeps unwinding the task. It is a property of the row, so one
@@ -32,12 +28,10 @@ type FuncRow struct {
 }
 
 // TypeRow is one registered `host type`: its qualified Nomi name and the Go
-// type behind it, as a typed nil (Prototype) or, for a type read from source,
-// as a Type (Go).
+// type behind it, as a typed nil pointer (Prototype).
 type TypeRow struct {
 	Name      string
 	Prototype any
-	Go        Type
 }
 
 // Table is everything one generated file is derived from.
@@ -82,7 +76,7 @@ func (tb Table) generator() (*Generator, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", row.Name, err)
 		}
-		bindings = append(bindings, Binding{Key: row.Name, Fn: row.Fn, Go: row.Go, Decl: hf, PanicsPropagate: row.PanicsPropagate})
+		bindings = append(bindings, Binding{Key: row.Name, Fn: row.Fn, Decl: hf, PanicsPropagate: row.PanicsPropagate})
 	}
 	g := New(tb.Package, modules.Resolver(), handles)
 	for _, b := range bindings {
@@ -106,18 +100,11 @@ func NewModules(source func(module string) ([]byte, bool)) *Modules {
 }
 
 // LoadModules starts a module set over source, with std's prelude enums
-// loaded and their tag order checked, and std's prelude and the modules it
-// re-exports from, where the source has it, so a program's declaration
-// resolves a prelude name it does not import.
+// loaded and their tag order checked.
 func LoadModules(source func(module string) ([]byte, bool)) (*Modules, error) {
 	ms := NewModules(source)
 	for _, prelude := range []string{"maybe", "results"} {
 		if _, err := ms.Load(prelude); err != nil {
-			return nil, err
-		}
-	}
-	if _, ok := source("prelude"); ok {
-		if _, err := ms.Load("prelude"); err != nil {
 			return nil, err
 		}
 	}
@@ -208,24 +195,16 @@ func FindHostFunc(ms *Modules, module, key string) (HostFunc, error) {
 }
 
 // Handles maps every registered host type's Go type, T and *T, to its
-// qualified Nomi name, by TypeKey. Each type's module is loaded.
+// qualified Nomi name, by typeIdentity. Each type's module is loaded.
 func Handles(ms *Modules, types []TypeRow) (map[string]string, error) {
 	handles := map[string]string{}
 	for _, tr := range types {
-		t := tr.Go
-		if t == nil {
-			rt := reflect.TypeOf(tr.Prototype)
-			if rt == nil {
-				return nil, fmt.Errorf("host type %s: nil prototype", tr.Name)
-			}
-			t = ReflectType(rt)
+		t := reflect.TypeOf(tr.Prototype)
+		if t == nil || t.Kind() != reflect.Pointer {
+			return nil, fmt.Errorf("host type %s: the prototype is not a typed nil pointer", tr.Name)
 		}
-		handles[TypeKey(t)] = tr.Name
-		if t.Kind() == reflect.Pointer {
-			handles[TypeKey(t.Elem())] = tr.Name
-		} else {
-			handles["*"+TypeKey(t)] = tr.Name
-		}
+		handles[typeIdentity(t)] = tr.Name
+		handles[typeIdentity(t.Elem())] = tr.Name
 		module, _, found := strings.Cut(tr.Name, ".")
 		if !found {
 			return nil, fmt.Errorf("host type %s: a registered host type name is qualified by its module", tr.Name)
@@ -235,16 +214,6 @@ func Handles(ms *Modules, types []TypeRow) (map[string]string, error) {
 		}
 	}
 	return handles, nil
-}
-
-// DirSource reads a module's Nomi source from dir/<module>.nomi, which is how
-// a caller that cannot import nomi/std (internal/ffirun, which nomi/analysis
-// imports) reads the standard library: from the compiler's source tree.
-func DirSource(dir string) func(module string) ([]byte, bool) {
-	return func(module string) ([]byte, bool) {
-		data, err := os.ReadFile(filepath.Join(dir, module+".nomi"))
-		return data, err == nil
-	}
 }
 
 // checkPreludeTags holds the tag order generated code assumes: the enum's

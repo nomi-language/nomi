@@ -1,0 +1,336 @@
+//# A `Cursor`: a position in a `Bytes`, read forward as a value, for
+//# binary formats and wire protocols. Each read answers what it read and
+//# the Cursor after it, or `None` when the bytes end first, so a decoder is
+//# a chain of reads joined by `?`:
+//#
+//# ```nomi
+//# import std::bytes::cursor.Cursor
+//#
+//# fn message(c: Cursor) -> Maybe<(Int, Bytes, Cursor)>
+//#     (kind, c) = Cursor.read_uint8(c)?
+//#     (length, c) = Cursor.read_uint32_be(c)?
+//#     (body, c) = Cursor.read_bytes(c, length)?
+//#     Some((kind, body, c))
+//# end
+//# ```
+//#
+//# The reads are those of std::bytes at an index (`Bytes.uint32_be_at` and
+//# its siblings), which code that keeps its own index calls directly, at
+//# less cost: a Cursor read builds the Cursor it answers. `Builder` in
+//# std::bytes writes what a Cursor reads.
+
+import
+    bool.Bool.{self, True}
+    bytes.{Byte, Bytes}
+    equatable.Equatable
+    float.Float
+    int.{Int, NonNegativeInt}
+    maybe.Maybe.{self, None, Some}
+    results.Result.Ok
+    strings.String
+end
+
+/// A position in a Bytes, read forward as a value: each read answers what
+/// it read and the Cursor after it, or None when the bytes end first, and
+/// leaves the Cursor it was given as it was. Its reads are the at-index
+/// reads of `Bytes` (`Bytes.uint32_be_at` and its siblings), which code
+/// that keeps its own index calls directly, at less cost.
+//! data = Bytes.from_list([0x00, 0x05, 104, 101, 108, 108, 111, 0xFF])
+//! c = Cursor.new(data)
+//! assert Some((length, c)) = Cursor.read_uint16_be(c)
+//! assert Some((name, c)) = Cursor.read_bytes(c, length)
+//! assert Bytes.to_string(name) == Ok("hello")
+//! assert Cursor.remaining(c) == 1
+//
+pub opaque struct Cursor
+    data:     Bytes
+    position: NonNegativeInt
+end
+
+derive Equatable for Cursor
+
+impl Cursor
+    /// A Cursor at the start of `data`.
+    //! assert Cursor.new(Bytes.from_list([1, 2])) |> Cursor.position() == 0
+    //
+    pub fn new(data: Bytes) -> Cursor
+        Cursor{data:, position: 0}
+    end
+
+    /// The index of the next byte the Cursor reads.
+    //! c = Cursor.new(Bytes.from_list([1, 2, 3]))
+    //! assert Cursor.skip(c, 2) |> Maybe.map(Cursor.position) == Some(2)
+    //
+    pub fn position(c: Cursor) -> NonNegativeInt
+        c.position
+    end
+
+    /// How many bytes are left to read.
+    //! assert Cursor.new(Bytes.from_list([1, 2, 3])) |> Cursor.remaining() == 3
+    //
+    pub fn remaining(c: Cursor) -> NonNegativeInt
+        Bytes.length(c.data) - c.position |> NonNegativeInt.try_from() |> Maybe.with_default(0)
+    end
+
+    /// Whether no byte is left to read.
+    //! assert Cursor.new(Bytes.from_list([])) |> Cursor.is_at_end()
+    //! refute Cursor.new(Bytes.from_list([1])) |> Cursor.is_at_end()
+    //
+    pub fn is_at_end(c: Cursor) -> Bool
+        c.position >= Bytes.length(c.data)
+    end
+
+    /// The bytes left to read, as a slice of the Cursor's bytes, not a
+    /// copy.
+    //! c = Cursor.new(Bytes.from_list([1, 2, 3]))
+    //! assert Cursor.skip(c, 1) |> Maybe.map(Cursor.rest) == Some(Bytes.from_list([2, 3]))
+    //
+    pub fn rest(c: Cursor) -> Bytes
+        Bytes.slice(c.data, c.position, Bytes.length(c.data))
+    end
+
+    /// The next byte, without reading it, or None at the end.
+    //! assert Cursor.new(Bytes.from_list([7])) |> Cursor.peek() |> Maybe.map(Byte.to_int) == Some(7)
+    //! assert Cursor.new(Bytes.from_list([])) |> Cursor.peek() == None
+    //
+    pub fn peek(c: Cursor) -> Maybe<Byte>
+        Bytes.get(c.data, c.position)
+    end
+
+    /// The Cursor `n` bytes further on, or None when fewer than `n` are
+    /// left.
+    //! c = Cursor.new(Bytes.from_list([1, 2]))
+    //! assert Cursor.skip(c, 2) |> Maybe.map(Cursor.is_at_end) == Some(True)
+    //! assert Cursor.skip(c, 3) == None
+    //
+    pub fn skip(c: Cursor, n: NonNegativeInt) -> Maybe<Cursor>
+        if n > Cursor.remaining(c) then return None
+
+        Some({..c, position: c.position + n})
+    end
+
+    /// The next byte and the Cursor after it.
+    //! assert Some((b, _)) = Cursor.read_byte(Cursor.new(Bytes.from_list([9])))
+    //! assert Byte.to_int(b) == 9
+    //
+    pub fn read_byte(c: Cursor) -> Maybe<(Byte, Cursor)>
+        advance(c, Bytes.get(c.data, c.position), 1)
+    end
+
+    /// The next `n` bytes, as a slice and not a copy, and the Cursor after
+    /// them.
+    //! c = Cursor.new(Bytes.from_list([1, 2, 3]))
+    //! assert Some((two, rest)) = Cursor.read_bytes(c, 2)
+    //! assert two == Bytes.from_list([1, 2]) and Cursor.remaining(rest) == 1
+    //! assert Cursor.read_bytes(c, 4) == None
+    //
+    pub fn read_bytes(c: Cursor, n: NonNegativeInt) -> Maybe<(Bytes, Cursor)>
+        if n > Cursor.remaining(c) then return None
+
+        Some((Bytes.slice(c.data, c.position, c.position + n), {..c, position: c.position + n}))
+    end
+
+    /// The bytes before the next `delimiter` and the Cursor after the
+    /// delimiter, or None when no delimiter is left.
+    //! c = Cursor.new(String.to_bytes("Host: a\r\nAccept: b\r\n"))
+    //! crlf = String.to_bytes("\r\n")
+    //! assert Some((line, c)) = Cursor.read_until(c, crlf)
+    //! assert line == String.to_bytes("Host: a")
+    //! assert Some((line, c)) = Cursor.read_until(c, crlf)
+    //! assert line == String.to_bytes("Accept: b") and Cursor.is_at_end(c)
+    //
+    pub fn read_until(c: Cursor, delimiter: Bytes) -> Maybe<(Bytes, Cursor)>
+        at = Bytes.index_of(c.data, delimiter, from: c.position)?
+        Some((Bytes.slice(c.data, c.position, at), {..c, position: at + Bytes.length(delimiter)}))
+    end
+
+    /// The bytes before the next `delimiter` byte and the Cursor after it,
+    /// or None when no such byte is left: a C string, read with
+    /// `delimiter` 0.
+    //! c = Cursor.new(Bytes.from_list([117, 115, 101, 114, 0, 7]))
+    //! assert Some((name, c)) = Cursor.read_until_byte(c, 0)
+    //! assert Bytes.to_string(name) == Ok("user") and Cursor.remaining(c) == 1
+    //
+    pub fn read_until_byte(c: Cursor, delimiter: Byte) -> Maybe<(Bytes, Cursor)>
+        at = Bytes.index_of_byte(c.data, delimiter, from: c.position)?
+        Some((Bytes.slice(c.data, c.position, at), {..c, position: at + 1}))
+    end
+
+    /// The next byte as an unsigned Int and the Cursor after it, as
+    /// `Bytes.uint8_at` reads it. The integer and float reads after this
+    /// one each read what their `Bytes` counterpart at an index does.
+    //! assert Some((n, _)) = Cursor.read_uint8(Cursor.new(Bytes.from_list([0xFF])))
+    //! assert n == 255
+    //
+    pub fn read_uint8(c: Cursor) -> Maybe<(NonNegativeInt, Cursor)>
+        advance(c, Bytes.uint8_at(c.data, c.position), 1)
+    end
+
+    /// The next byte as a signed Int, as `Bytes.int8_at` reads it.
+    //! assert Some((n, _)) = Cursor.read_int8(Cursor.new(Bytes.from_list([0xFF])))
+    //! assert n == -1
+    //
+    pub fn read_int8(c: Cursor) -> Maybe<(Int, Cursor)>
+        advance(c, Bytes.int8_at(c.data, c.position), 1)
+    end
+
+    /// The next unsigned 16-bit big-endian integer, as
+    /// `Bytes.uint16_be_at` reads it.
+    //! assert Some((n, _)) = Cursor.read_uint16_be(Cursor.new(Bytes.from_list([1, 2])))
+    //! assert n == 0x0102
+    //
+    pub fn read_uint16_be(c: Cursor) -> Maybe<(NonNegativeInt, Cursor)>
+        advance(c, Bytes.uint16_be_at(c.data, c.position), 2)
+    end
+
+    /// The next unsigned 16-bit little-endian integer.
+    //! assert Some((n, _)) = Cursor.read_uint16_le(Cursor.new(Bytes.from_list([1, 2])))
+    //! assert n == 0x0201
+    //
+    pub fn read_uint16_le(c: Cursor) -> Maybe<(NonNegativeInt, Cursor)>
+        advance(c, Bytes.uint16_le_at(c.data, c.position), 2)
+    end
+
+    /// The next signed 16-bit big-endian integer.
+    //! assert Some((n, _)) = Cursor.read_int16_be(Cursor.new(Bytes.from_list([0xFF, 0xFE])))
+    //! assert n == -2
+    //
+    pub fn read_int16_be(c: Cursor) -> Maybe<(Int, Cursor)>
+        advance(c, Bytes.int16_be_at(c.data, c.position), 2)
+    end
+
+    /// The next signed 16-bit little-endian integer.
+    //! assert Some((n, _)) = Cursor.read_int16_le(Cursor.new(Bytes.from_list([0xFE, 0xFF])))
+    //! assert n == -2
+    //
+    pub fn read_int16_le(c: Cursor) -> Maybe<(Int, Cursor)>
+        advance(c, Bytes.int16_le_at(c.data, c.position), 2)
+    end
+
+    /// The next unsigned 32-bit big-endian integer.
+    //! assert Some((n, _)) = Cursor.read_uint32_be(Cursor.new(Bytes.from_list([0, 0, 1, 0])))
+    //! assert n == 256
+    //
+    pub fn read_uint32_be(c: Cursor) -> Maybe<(NonNegativeInt, Cursor)>
+        advance(c, Bytes.uint32_be_at(c.data, c.position), 4)
+    end
+
+    /// The next unsigned 32-bit little-endian integer.
+    //! assert Some((n, _)) = Cursor.read_uint32_le(Cursor.new(Bytes.from_list([0, 1, 0, 0])))
+    //! assert n == 256
+    //
+    pub fn read_uint32_le(c: Cursor) -> Maybe<(NonNegativeInt, Cursor)>
+        advance(c, Bytes.uint32_le_at(c.data, c.position), 4)
+    end
+
+    /// The next signed 32-bit big-endian integer.
+    //! assert Some((n, _)) = Cursor.read_int32_be(Cursor.new(Bytes.from_list([0xFF, 0xFF, 0xFF, 0xFF])))
+    //! assert n == -1
+    //
+    pub fn read_int32_be(c: Cursor) -> Maybe<(Int, Cursor)>
+        advance(c, Bytes.int32_be_at(c.data, c.position), 4)
+    end
+
+    /// The next signed 32-bit little-endian integer.
+    //! assert Some((n, _)) = Cursor.read_int32_le(Cursor.new(Bytes.from_list([0xFE, 0xFF, 0xFF, 0xFF])))
+    //! assert n == -2
+    //
+    pub fn read_int32_le(c: Cursor) -> Maybe<(Int, Cursor)>
+        advance(c, Bytes.int32_le_at(c.data, c.position), 4)
+    end
+
+    /// The next unsigned 64-bit big-endian integer.
+    //! assert Some((n, _)) = Cursor.read_uint64_be(Cursor.new(Bytes.from_list([0, 0, 0, 0, 0, 0, 1, 0])))
+    //! assert n == 256
+    //
+    pub fn read_uint64_be(c: Cursor) -> Maybe<(NonNegativeInt, Cursor)>
+        advance(c, Bytes.uint64_be_at(c.data, c.position), 8)
+    end
+
+    /// The next unsigned 64-bit little-endian integer.
+    //! assert Some((n, _)) = Cursor.read_uint64_le(Cursor.new(Bytes.from_list([0, 1, 0, 0, 0, 0, 0, 0])))
+    //! assert n == 256
+    //
+    pub fn read_uint64_le(c: Cursor) -> Maybe<(NonNegativeInt, Cursor)>
+        advance(c, Bytes.uint64_le_at(c.data, c.position), 8)
+    end
+
+    /// The next signed 64-bit big-endian integer.
+    //! data = Bytes.from_list([0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFE])
+    //! assert Some((n, _)) = Cursor.read_int64_be(Cursor.new(data))
+    //! assert n == -2
+    //
+    pub fn read_int64_be(c: Cursor) -> Maybe<(Int, Cursor)>
+        advance(c, Bytes.int64_be_at(c.data, c.position), 8)
+    end
+
+    /// The next signed 64-bit little-endian integer.
+    //! data = Bytes.from_list([0xFE, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF])
+    //! assert Some((n, _)) = Cursor.read_int64_le(Cursor.new(data))
+    //! assert n == -2
+    //
+    pub fn read_int64_le(c: Cursor) -> Maybe<(Int, Cursor)>
+        advance(c, Bytes.int64_le_at(c.data, c.position), 8)
+    end
+
+    /// The next IEEE 754 32-bit float, big-endian, widened exactly.
+    //! assert Some((x, _)) = Cursor.read_float32_be(Cursor.new(Bytes.from_list([0x3F, 0xC0, 0, 0])))
+    //! assert x == 1.5
+    //
+    pub fn read_float32_be(c: Cursor) -> Maybe<(Float, Cursor)>
+        advance(c, Bytes.float32_be_at(c.data, c.position), 4)
+    end
+
+    /// The next IEEE 754 32-bit float, little-endian.
+    //! assert Some((x, _)) = Cursor.read_float32_le(Cursor.new(Bytes.from_list([0, 0, 0xC0, 0x3F])))
+    //! assert x == 1.5
+    //
+    pub fn read_float32_le(c: Cursor) -> Maybe<(Float, Cursor)>
+        advance(c, Bytes.float32_le_at(c.data, c.position), 4)
+    end
+
+    /// The next IEEE 754 64-bit float, big-endian.
+    //! data = Bytes.from_list([0x3F, 0xF8, 0, 0, 0, 0, 0, 0])
+    //! assert Some((x, _)) = Cursor.read_float64_be(Cursor.new(data))
+    //! assert x == 1.5
+    //
+    pub fn read_float64_be(c: Cursor) -> Maybe<(Float, Cursor)>
+        advance(c, Bytes.float64_be_at(c.data, c.position), 8)
+    end
+
+    /// The next IEEE 754 64-bit float, little-endian.
+    //! data = Bytes.from_list([0, 0, 0, 0, 0, 0, 0xF8, 0x3F])
+    //! assert Some((x, _)) = Cursor.read_float64_le(Cursor.new(data))
+    //! assert x == 1.5
+    //
+    pub fn read_float64_le(c: Cursor) -> Maybe<(Float, Cursor)>
+        advance(c, Bytes.float64_le_at(c.data, c.position), 8)
+    end
+
+    /// The next unsigned LEB128 varint, as `Bytes.uvarint_at` reads it.
+    //! assert Some((n, c)) = Cursor.read_uvarint(Cursor.new(Bytes.from_list([0xAC, 0x02])))
+    //! assert n == 300 and Cursor.is_at_end(c)
+    //
+    pub fn read_uvarint(c: Cursor) -> Maybe<(NonNegativeInt, Cursor)>
+        (value, next) = Bytes.uvarint_at(c.data, c.position)?
+        Some((value, {..c, position: next}))
+    end
+
+    /// The next zigzag varint, as `Bytes.varint_at` reads it.
+    //! assert Some((n, _)) = Cursor.read_varint(Cursor.new(Bytes.from_list([0x03])))
+    //! assert n == -2
+    //
+    pub fn read_varint(c: Cursor) -> Maybe<(Int, Cursor)>
+        (value, next) = Bytes.varint_at(c.data, c.position)?
+        Some((value, {..c, position: next}))
+    end
+end
+
+/// What a read at the Cursor's position answered, with the Cursor `width`
+/// bytes further on.
+fn advance<T>(c: Cursor, read: Maybe<T>, width: NonNegativeInt) -> Maybe<(T, Cursor)>
+    case read
+        Some(value) -> Some((value, {..c, position: c.position + width}))
+        None        -> None
+    end
+end

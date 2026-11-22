@@ -81,44 +81,55 @@ func comparatorBody(f *stdFunc) bool {
 	return f != nil && (f.irBody != nil || f.rtCall != "" && irScalarHost(f))
 }
 
-// comparatorClass is how the comparator of a site was chosen.
-type comparatorClass string
+// elemImplClass is how the impl an element or a part is ordered or
+// compared by (a comparator, recordedComparator; a part's equality,
+// partEqualBody) was chosen.
+type elemImplClass string
 
 const (
-	// comparatorFromRecord: from the checker's record at the element's
-	// type (recordedComparator).
-	comparatorFromRecord comparatorClass = "from the record"
-	// comparatorNoType: by the element's kind, which has no checker type
-	// where the builder asks for its comparator.
-	comparatorNoType comparatorClass = "no checker type"
+	// elemImplFromRecord: from the checker's record at the element's
+	// type.
+	elemImplFromRecord elemImplClass = "from the record"
+	// elemImplNoType: by the element's kind, which has no checker type
+	// where the builder asks for its impl.
+	elemImplNoType elemImplClass = "no checker type"
+	// elemImplPerInstance: by the element's kind, whose checker type is
+	// over a type parameter the record leaves to each instance and this
+	// one does not resolve.
+	elemImplPerInstance elemImplClass = "per instance, unresolved"
 )
 
-// comparatorClasses is every comparatorClass, with whether it is the
+// elemImplClasses is every elemImplClass, with whether it is the
 // record's. TestIRGolden_RecordsMatchTheVM counts the distinct sites of
-// each class that is not, and maxComparatorSites holds each count to a
+// each class that is not, and maxElemImplSites holds each count to a
 // maximum that only goes down.
-var comparatorClasses = map[comparatorClass]bool{
-	comparatorFromRecord: true,
-	comparatorNoType:     false,
+var elemImplClasses = map[elemImplClass]bool{
+	elemImplFromRecord:  true,
+	elemImplNoType:      false,
+	elemImplPerInstance: false,
 }
 
-// noteComparator counts, under substVerify, the site at of a comparator
-// chosen for an element whose checker type is kt in the comparator
-// census, by how it was chosen. A class comparatorClasses does not list
-// fails the lowering.
-func (bl *irScalarBuilder) noteComparator(at ast.Node, kt analysis.Type) {
+// noteElemImpl counts, under substVerify, the site at of what (a
+// comparator, a part's equality) chosen for an element whose checker type
+// is kt, and where the caller read it, the form of its record, in the
+// element impl census, by how it was chosen. A class elemImplClasses does
+// not list fails the lowering.
+func (bl *irScalarBuilder) noteElemImpl(at ast.Node, what string, kt analysis.Type, form analysis.OperatorForm) {
 	g := bl.g
 	if !substVerify || at == nil || g.srcFA() == nil {
 		return
 	}
 	line, col := nodePos(at)
-	class := comparatorFromRecord
-	if kt == nil {
-		class = comparatorNoType
+	class := elemImplFromRecord
+	switch {
+	case kt == nil:
+		class = elemImplNoType
+	case form == analysis.OperatorPerInstance:
+		class = elemImplPerInstance
 	}
-	if _, listed := comparatorClasses[class]; !listed {
-		g.calleeMismatch(line, col, fmt.Sprintf("a comparator is chosen %q, which no class lists", class))
+	if _, listed := elemImplClasses[class]; !listed {
+		g.calleeMismatch(line, col, fmt.Sprintf("%s is chosen %q, which no class lists", what, class))
 		return
 	}
-	comparatorCensus.note(g, string(class), line, col)
+	elemImplCensus.note(g, string(class), line, col)
 }

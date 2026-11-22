@@ -10,9 +10,9 @@
 # S <source line>, only for a record that carries its own program
 # T <transcript line>, verbatim
 population corpus
-what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the case count vmcmd.Tester.File answers, each `subtests` row a case.
-records 757
-declared-cases 4216
+what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise. N is the case count vmcmd.Tester.File answers, each `subtests` row a case.
+records 739
+declared-cases 4205
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -48,7 +48,7 @@ T
 C 01-foundations/if_else/if_else_test.nomi
 E 0
 N 15
-H fe79a34d499abb31bfe31dc593037dbf76a659e90a3ef402e5e87e5388b5bb6a
+H 58a0a0c6b61b99e5b9f3491f7ccd1fb4db7071c4371f2156c6f6b26f26a1246e
 T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if else is an expression
 T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if without else returns Unit either way
 T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: else None makes an if a Maybe
@@ -63,7 +63,7 @@ T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if pattern mismatc
 T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if pattern bindings are scoped to the then branch
 T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: else if chains select the first matching branch
 T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: a branch that ends in assert or dbg keeps the if a statement
-T   dbg line 200: n = 2
+T   dbg line 205: n = 2
 T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: an if without else whose value a statement drops says to write _ =
 T test result: ok. 15 passed, 0 failed
 T
@@ -4059,10 +4059,10 @@ T
 C 15-app-and-defer/with_overrides/with_overrides_test.nomi
 E 0
 N 5
-H 614c8ffea68a0ea84ad66e66ba77ff067908457c204057c6c1662608ce93f054
+H bb1704909e8343d8bc3dec9efdaeba6c4575308b5cd87397a492668b5f889f34
 T ok <root>/tests/15-app-and-defer/with_overrides/with_overrides_test.nomi :: with / a .Variant value takes the field's enum
 T ok <root>/tests/15-app-and-defer/with_overrides/with_overrides_test.nomi :: with / a later with line sees the overrides above it
-T ok <root>/tests/15-app-and-defer/with_overrides/with_overrides_test.nomi :: with / a closure reads the fields in force when it is called
+T ok <root>/tests/15-app-and-defer/with_overrides/with_overrides_test.nomi :: with / a closure keeps the fields in force where it is made
 T ok <root>/tests/15-app-and-defer/with_overrides/with_overrides_test.nomi :: with / a with in a branch ends with the branch
 T ok <root>/tests/15-app-and-defer/with_overrides/with_overrides_test.nomi :: with / a with in an assertion subject's arm ends with the arm
 T test result: ok. 5 passed, 0 failed
@@ -4347,221 +4347,94 @@ T ok <root>/tests/17-typed-literals/without_slots_test.nomi :: text known only a
 T ok <root>/tests/17-typed-literals/without_slots_test.nomi :: an infallible handler's literal keeps its type
 T test result: ok. 6 passed, 0 failed
 T
-C 18-ffi-and-dynamic/callback_ffi_app/ffi.nomi
-E 1
-N 0
-H 0a8c5d03c53d6a571ec736fef77d18b342882420131caf44063a896a8c10d128
-T --- stderr ---
-T nomi run: <root>/tests/18-ffi-and-dynamic/callback_ffi_app/ffi.nomi declares no `fn main`, so there is no program to run
-T
-C 18-ffi-and-dynamic/callback_ffi_app/main.nomi
-E 0
-N 0
-H aebba5eeaaad4d5655cae740b65162c4e1f35297e7eb77f51c1cf9429f2230ee
-T ha!!
-T
-C 18-ffi-and-dynamic/callback_ffi_app/main_test.nomi
+C 18-json-and-dynamic/dynamic_decoder_test.nomi
 E 0
 N 1
-H 99b5f411d2d84ba4f9b46ff3981a5c05f3ef25b082bb6166328066285df7dc8a
-T ok <root>/tests/18-ffi-and-dynamic/callback_ffi_app/main_test.nomi :: Go callback parameter can call Nomi lambda
+H f9a6747cc7ce0c6e0ee4f1c7cd8add542f263f9ca7c56fff1b04717137850aea
+T ok <root>/tests/18-json-and-dynamic/dynamic_decoder_test.nomi :: dynamic.Error display renders root field and index paths
 T test result: ok. 1 passed, 0 failed
 T
-C 18-ffi-and-dynamic/context_ffi_app/ffi.nomi
-E 1
-N 0
-H a03ed76dd6a023d526f54c9d7c5d51fd041d8b37055b2db0d706935ca17e7b24
-T --- stderr ---
-T nomi run: <root>/tests/18-ffi-and-dynamic/context_ffi_app/ffi.nomi declares no `fn main`, so there is no program to run
-T
-C 18-ffi-and-dynamic/context_ffi_app/main.nomi
-E 0
-N 0
-H 3f5265f6349f7af770e9ca6f0e2677f5af1c0828316f083ad29041d0a2870beb
-T False
-T True
-T context deadline exceeded
-T
-C 18-ffi-and-dynamic/context_ffi_app/main_test.nomi
-E 0
-N 2
-H 36246e3fce409a5b12c26ac38680c9405c4661a4534dfbf179507ec9d897ca11
-T ok <root>/tests/18-ffi-and-dynamic/context_ffi_app/main_test.nomi :: a Go function receives the task's context / no deadline reaches Go outside a bounded region
-T ok <root>/tests/18-ffi-and-dynamic/context_ffi_app/main_test.nomi :: a Go function receives the task's context / a Context.with_timeout deadline ends the Go call
-T test result: ok. 2 passed, 0 failed
-T
-C 18-ffi-and-dynamic/duration_ffi_app/ffi.nomi
-E 1
-N 0
-H 834a4da869f98331b726204231cab96065668e6757d981ad72c0213e67b91e71
-T --- stderr ---
-T nomi run: <root>/tests/18-ffi-and-dynamic/duration_ffi_app/ffi.nomi declares no `fn main`, so there is no program to run
-T
-C 18-ffi-and-dynamic/duration_ffi_app/main.nomi
-E 0
-N 0
-H f5aee7df0c39c9481508d69657ba4a0d39b7198bf97969ad11d50207a7f60228
-T 3000
-T
-C 18-ffi-and-dynamic/duration_ffi_app/main_test.nomi
-E 0
-N 2
-H 2b2a869c0bdcc0a047724da3e4005c96e379b8b1bb69e9ee29638aad6108ce1b
-T ok <root>/tests/18-ffi-and-dynamic/duration_ffi_app/main_test.nomi :: Go time.Duration projects to Nomi Duration
-T ok <root>/tests/18-ffi-and-dynamic/duration_ffi_app/main_test.nomi :: Nomi Duration passes back to Go time.Duration
-T test result: ok. 2 passed, 0 failed
-T
-C 18-ffi-and-dynamic/dynamic_decoder_test.nomi
-E 0
-N 1
-H 178e3b2a5eeae3725d85ee030cbf0365c69349f8b9b87951434827fb6cb88b7b
-T ok <root>/tests/18-ffi-and-dynamic/dynamic_decoder_test.nomi :: dynamic.Error display renders root field and index paths
-T test result: ok. 1 passed, 0 failed
-T
-C 18-ffi-and-dynamic/inline_go_block_app/ffi.nomi
-E 1
-N 0
-H 18af813622b7a32246ae60b599a85b3021b8c1453f78b3c67bb08f7a431eda54
-T --- stderr ---
-T nomi run: <root>/tests/18-ffi-and-dynamic/inline_go_block_app/ffi.nomi declares no `fn main`, so there is no program to run
-T
-C 18-ffi-and-dynamic/inline_go_block_app/main.nomi
-E 0
-N 0
-H 271860cdb285fa3ae37448a7f9b4855c0da46fd853985fa2ffce46193f0603f3
-T INLINE
-T
-C 18-ffi-and-dynamic/inline_go_block_app/main_test.nomi
-E 0
-N 2
-H 31ca40b86e95276419a7d560e35f54ec7aa5e53fba9aa770eab5797b4627352a
-T ok <root>/tests/18-ffi-and-dynamic/inline_go_block_app/main_test.nomi :: local Go package functions are available
-T ok <root>/tests/18-ffi-and-dynamic/inline_go_block_app/main_test.nomi :: local Go package types can back opaque Nomi types
-T test result: ok. 2 passed, 0 failed
-T
-C 18-ffi-and-dynamic/json_anon_struct_test.nomi
+C 18-json-and-dynamic/json_anon_struct_test.nomi
 E 0
 N 6
-H ae3fca67ee4bff842c70eca5d1278c8e67d65436a2917edd1d273eff1b05d256
-T ok <root>/tests/18-ffi-and-dynamic/json_anon_struct_test.nomi :: an anonymous struct encodes as an object of its fields
-T ok <root>/tests/18-ffi-and-dynamic/json_anon_struct_test.nomi :: a None field encodes as null
-T ok <root>/tests/18-ffi-and-dynamic/json_anon_struct_test.nomi :: an anonymous struct decodes from an object, a missing Maybe field as None
-T ok <root>/tests/18-ffi-and-dynamic/json_anon_struct_test.nomi :: a decode error names the field that does not read
-T ok <root>/tests/18-ffi-and-dynamic/json_anon_struct_test.nomi :: anonymous structs nest in each other, in containers and in a named struct
-T ok <root>/tests/18-ffi-and-dynamic/json_anon_struct_test.nomi :: an anonymous struct reads back what it writes
+H 46905d85244344699c622a864ed44c55aea7b8e681ccd03ba29919be518aa379
+T ok <root>/tests/18-json-and-dynamic/json_anon_struct_test.nomi :: an anonymous struct encodes as an object of its fields
+T ok <root>/tests/18-json-and-dynamic/json_anon_struct_test.nomi :: a None field encodes as null
+T ok <root>/tests/18-json-and-dynamic/json_anon_struct_test.nomi :: an anonymous struct decodes from an object, a missing Maybe field as None
+T ok <root>/tests/18-json-and-dynamic/json_anon_struct_test.nomi :: a decode error names the field that does not read
+T ok <root>/tests/18-json-and-dynamic/json_anon_struct_test.nomi :: anonymous structs nest in each other, in containers and in a named struct
+T ok <root>/tests/18-json-and-dynamic/json_anon_struct_test.nomi :: an anonymous struct reads back what it writes
 T test result: ok. 6 passed, 0 failed
 T
-C 18-ffi-and-dynamic/json_container_decode_test.nomi
+C 18-json-and-dynamic/json_container_decode_test.nomi
 E 0
 N 7
-H 9a0ac6a2f79ce663bd3f920559783977bb1f930db2243f9b297b675325c98654
-T ok <root>/tests/18-ffi-and-dynamic/json_container_decode_test.nomi :: scalar decode still resolves through the call-site type argument
-T ok <root>/tests/18-ffi-and-dynamic/json_container_decode_test.nomi :: List decode binds the element type from the type argument
-T ok <root>/tests/18-ffi-and-dynamic/json_container_decode_test.nomi :: Maybe decode binds the payload type and maps null to None
-T ok <root>/tests/18-ffi-and-dynamic/json_container_decode_test.nomi :: Map decode binds the value type
-T ok <root>/tests/18-ffi-and-dynamic/json_container_decode_test.nomi :: nested containers bind an inner type parameter at each level
-T ok <root>/tests/18-ffi-and-dynamic/json_container_decode_test.nomi :: container decode failures report the offending path
-T ok <root>/tests/18-ffi-and-dynamic/json_container_decode_test.nomi :: a bound type parameter carries its concrete argument into the callee
+H bcfc6808f2d6c1eba2da28d3b556ceef5d17c7aeed791aa7d1cb5316eae8646c
+T ok <root>/tests/18-json-and-dynamic/json_container_decode_test.nomi :: scalar decode still resolves through the call-site type argument
+T ok <root>/tests/18-json-and-dynamic/json_container_decode_test.nomi :: List decode binds the element type from the type argument
+T ok <root>/tests/18-json-and-dynamic/json_container_decode_test.nomi :: Maybe decode binds the payload type and maps null to None
+T ok <root>/tests/18-json-and-dynamic/json_container_decode_test.nomi :: Map decode binds the value type
+T ok <root>/tests/18-json-and-dynamic/json_container_decode_test.nomi :: nested containers bind an inner type parameter at each level
+T ok <root>/tests/18-json-and-dynamic/json_container_decode_test.nomi :: container decode failures report the offending path
+T ok <root>/tests/18-json-and-dynamic/json_container_decode_test.nomi :: a bound type parameter carries its concrete argument into the callee
 T test result: ok. 7 passed, 0 failed
 T
-C 18-ffi-and-dynamic/json_decode_error_text_test.nomi
+C 18-json-and-dynamic/json_decode_error_text_test.nomi
 E 0
 N 11
-H a5607a3de28f07bbb76a3fb9b51c1db72ccd9b13817f4e945a2ab624a00919c1
-T ok <root>/tests/18-ffi-and-dynamic/json_decode_error_text_test.nomi :: Json.decode error text (Nomi-owned contract) / an unexpected character is named, and located at itself
-T ok <root>/tests/18-ffi-and-dynamic/json_decode_error_text_test.nomi :: Json.decode error text (Nomi-owned contract) / a bad string escape reports the escaped character
-T ok <root>/tests/18-ffi-and-dynamic/json_decode_error_text_test.nomi :: Json.decode error text (Nomi-owned contract) / the position tracks lines, not just columns
-T ok <root>/tests/18-ffi-and-dynamic/json_decode_error_text_test.nomi :: Json.decode error text (Nomi-owned contract) / a truncated object reports where the input ran out
-T ok <root>/tests/18-ffi-and-dynamic/json_decode_error_text_test.nomi :: Json.decode error text (Nomi-owned contract) / a truncated array reports where the input ran out
-T ok <root>/tests/18-ffi-and-dynamic/json_decode_error_text_test.nomi :: Json.decode error text (Nomi-owned contract) / an unterminated string reports where the input ran out
-T ok <root>/tests/18-ffi-and-dynamic/json_decode_error_text_test.nomi :: Json.decode error text (Nomi-owned contract) / empty input is distinguished from a truncated value
-T ok <root>/tests/18-ffi-and-dynamic/json_decode_error_text_test.nomi :: Json.decode error text (Nomi-owned contract) / blank input is empty input
-T ok <root>/tests/18-ffi-and-dynamic/json_decode_error_text_test.nomi :: Json.decode error text (Nomi-owned contract) / trailing content is reported with its column
-T ok <root>/tests/18-ffi-and-dynamic/json_decode_error_text_test.nomi :: Json.decode error text (Nomi-owned contract) / a leading zero is rejected as trailing content
-T ok <root>/tests/18-ffi-and-dynamic/json_decode_error_text_test.nomi :: Json.decode error text (Nomi-owned contract) / a well-formed but unrepresentable number reports its lexeme
+H 2921cdcc8b0d065940de07352b55dd5a4d4f0f4c443d64816c05cda045082f8e
+T ok <root>/tests/18-json-and-dynamic/json_decode_error_text_test.nomi :: Json.decode error text (Nomi-owned contract) / an unexpected character is named, and located at itself
+T ok <root>/tests/18-json-and-dynamic/json_decode_error_text_test.nomi :: Json.decode error text (Nomi-owned contract) / a bad string escape reports the escaped character
+T ok <root>/tests/18-json-and-dynamic/json_decode_error_text_test.nomi :: Json.decode error text (Nomi-owned contract) / the position tracks lines, not just columns
+T ok <root>/tests/18-json-and-dynamic/json_decode_error_text_test.nomi :: Json.decode error text (Nomi-owned contract) / a truncated object reports where the input ran out
+T ok <root>/tests/18-json-and-dynamic/json_decode_error_text_test.nomi :: Json.decode error text (Nomi-owned contract) / a truncated array reports where the input ran out
+T ok <root>/tests/18-json-and-dynamic/json_decode_error_text_test.nomi :: Json.decode error text (Nomi-owned contract) / an unterminated string reports where the input ran out
+T ok <root>/tests/18-json-and-dynamic/json_decode_error_text_test.nomi :: Json.decode error text (Nomi-owned contract) / empty input is distinguished from a truncated value
+T ok <root>/tests/18-json-and-dynamic/json_decode_error_text_test.nomi :: Json.decode error text (Nomi-owned contract) / blank input is empty input
+T ok <root>/tests/18-json-and-dynamic/json_decode_error_text_test.nomi :: Json.decode error text (Nomi-owned contract) / trailing content is reported with its column
+T ok <root>/tests/18-json-and-dynamic/json_decode_error_text_test.nomi :: Json.decode error text (Nomi-owned contract) / a leading zero is rejected as trailing content
+T ok <root>/tests/18-json-and-dynamic/json_decode_error_text_test.nomi :: Json.decode error text (Nomi-owned contract) / a well-formed but unrepresentable number reports its lexeme
 T test result: ok. 11 passed, 0 failed
 T
-C 18-ffi-and-dynamic/json_derive_defaults_test.nomi
+C 18-json-and-dynamic/json_derive_defaults_test.nomi
 E 0
 N 4
-H c8537c4151c83aebbae38eb2caac3be3bc8cc58abbe14783ceb178b9c263ab30
-T ok <root>/tests/18-ffi-and-dynamic/json_derive_defaults_test.nomi :: a derived FromJson fills a missing field from its default
-T ok <root>/tests/18-ffi-and-dynamic/json_derive_defaults_test.nomi :: a derived FromJson decodes a present field over its default
-T ok <root>/tests/18-ffi-and-dynamic/json_derive_defaults_test.nomi :: a struct with defaulted fields round-trips through ToJson and FromJson
-T ok <root>/tests/18-ffi-and-dynamic/json_derive_defaults_test.nomi :: a derived FromJson fills a record variant's missing field from its default
+H 8140bdae630a9c640de7e0d4093d143447e1f483a1c8c4af0bbdceae205f27e7
+T ok <root>/tests/18-json-and-dynamic/json_derive_defaults_test.nomi :: a derived FromJson fills a missing field from its default
+T ok <root>/tests/18-json-and-dynamic/json_derive_defaults_test.nomi :: a derived FromJson decodes a present field over its default
+T ok <root>/tests/18-json-and-dynamic/json_derive_defaults_test.nomi :: a struct with defaulted fields round-trips through ToJson and FromJson
+T ok <root>/tests/18-json-and-dynamic/json_derive_defaults_test.nomi :: a derived FromJson fills a record variant's missing field from its default
 T test result: ok. 4 passed, 0 failed
 T
-C 18-ffi-and-dynamic/json_derive_test.nomi
+C 18-json-and-dynamic/json_derive_test.nomi
 E 0
 N 4
-H 528155bd3a3a1e6e448dbca0a460248fbc4aef93fa00ed96c6711fd644373850
-T ok <root>/tests/18-ffi-and-dynamic/json_derive_test.nomi :: JSON interface decodes primitive values through explicit targets
-T ok <root>/tests/18-ffi-and-dynamic/json_derive_test.nomi :: JSON derives encode and decode structs with options
-T ok <root>/tests/18-ffi-and-dynamic/json_derive_test.nomi :: JSON derive reports missing required fields
-T ok <root>/tests/18-ffi-and-dynamic/json_derive_test.nomi :: JSON derives round-trip nested structs through interface functions
+H c4ce535fd116a77a409703e961b7c688080dc8f60d02c3663690ed4972c175d2
+T ok <root>/tests/18-json-and-dynamic/json_derive_test.nomi :: JSON interface decodes primitive values through explicit targets
+T ok <root>/tests/18-json-and-dynamic/json_derive_test.nomi :: JSON derives encode and decode structs with options
+T ok <root>/tests/18-json-and-dynamic/json_derive_test.nomi :: JSON derive reports missing required fields
+T ok <root>/tests/18-json-and-dynamic/json_derive_test.nomi :: JSON derives round-trip nested structs through interface functions
 T test result: ok. 4 passed, 0 failed
 T
-C 18-ffi-and-dynamic/json_enum_derive_test.nomi
+C 18-json-and-dynamic/json_enum_derive_test.nomi
 E 0
 N 4
-H 920509157017968def9074f44d397511f5f5264cd6751e5e02dfbefad67625e6
-T ok <root>/tests/18-ffi-and-dynamic/json_enum_derive_test.nomi :: a derived enum's FromJson reads what its ToJson writes
-T ok <root>/tests/18-ffi-and-dynamic/json_enum_derive_test.nomi :: a derived enum's FromJson names what it could not read
-T ok <root>/tests/18-ffi-and-dynamic/json_enum_derive_test.nomi :: vectors and sets cross as JSON arrays
-T ok <root>/tests/18-ffi-and-dynamic/json_enum_derive_test.nomi :: a whole JSON number reads as a Float
+H 9e0cb879d89bc0c9826bb3f90c09f51d7395a9321802cbc90a50a8a80175f412
+T ok <root>/tests/18-json-and-dynamic/json_enum_derive_test.nomi :: a derived enum's FromJson reads what its ToJson writes
+T ok <root>/tests/18-json-and-dynamic/json_enum_derive_test.nomi :: a derived enum's FromJson names what it could not read
+T ok <root>/tests/18-json-and-dynamic/json_enum_derive_test.nomi :: vectors and sets cross as JSON arrays
+T ok <root>/tests/18-json-and-dynamic/json_enum_derive_test.nomi :: a whole JSON number reads as a Float
 T test result: ok. 4 passed, 0 failed
 T
-C 18-ffi-and-dynamic/json_test.nomi
+C 18-json-and-dynamic/json_test.nomi
 E 0
 N 4
-H 1fa66aa7540a9390f3e88137e701341729fb101764d697d832b0907e9f51a65e
-T ok <root>/tests/18-ffi-and-dynamic/json_test.nomi :: Json decode supports nested pattern matching and encode round trip
-T ok <root>/tests/18-ffi-and-dynamic/json_test.nomi :: Json values can be constructed and encoded by hand
-T ok <root>/tests/18-ffi-and-dynamic/json_test.nomi :: Json to_dynamic interops with Dynamic extractors
-T ok <root>/tests/18-ffi-and-dynamic/json_test.nomi :: Dynamic values compare and hash by their contents
+H 605d574c117f3b74135f4ef236a89cc3cc8a1bda6d3cc9cd300603cce2df686e
+T ok <root>/tests/18-json-and-dynamic/json_test.nomi :: Json decode supports nested pattern matching and encode round trip
+T ok <root>/tests/18-json-and-dynamic/json_test.nomi :: Json values can be constructed and encoded by hand
+T ok <root>/tests/18-json-and-dynamic/json_test.nomi :: Json to_dynamic interops with Dynamic extractors
+T ok <root>/tests/18-json-and-dynamic/json_test.nomi :: Dynamic values compare and hash by their contents
 T test result: ok. 4 passed, 0 failed
-T
-C 18-ffi-and-dynamic/tagged_ffi_app/ffi.nomi
-E 1
-N 0
-H 6c079c8e9a9c351e7d8782432570002d029b9e989db268634c168ecff0761dfe
-T --- stderr ---
-T nomi run: <root>/tests/18-ffi-and-dynamic/tagged_ffi_app/ffi.nomi declares no `fn main`, so there is no program to run
-T
-C 18-ffi-and-dynamic/tagged_ffi_app/main.nomi
-E 0
-N 0
-H 2ec2acf8040dbe2ed520d24e2d45e08377277414a1222416bc393e5efa74270b
-T FIXTURE
-T
-C 18-ffi-and-dynamic/tagged_ffi_app/main_test.nomi
-E 0
-N 2
-H 3bc2db0f25ae25f6933417abaa4a495bf483cfc5a12efb9903e10046e7280f3e
-T ok <root>/tests/18-ffi-and-dynamic/tagged_ffi_app/main_test.nomi :: project-local Go export is available to tests
-T ok <root>/tests/18-ffi-and-dynamic/tagged_ffi_app/main_test.nomi :: project-local Go type binding is available to tests
-T test result: ok. 2 passed, 0 failed
-T
-C 18-ffi-and-dynamic/time_ffi_app/ffi.nomi
-E 1
-N 0
-H 4ea082a7625d8fcf8f95d64f4a703e04b18d2bbde4489366f7c1cb2d377ab7d9
-T --- stderr ---
-T nomi run: <root>/tests/18-ffi-and-dynamic/time_ffi_app/ffi.nomi declares no `fn main`, so there is no program to run
-T
-C 18-ffi-and-dynamic/time_ffi_app/main.nomi
-E 0
-N 0
-H 0f6d4e23546a0d1431b6afb6990d50d80b3548b18660634b7f8cc5e02c4ab26f
-T 1700000001
-T
-C 18-ffi-and-dynamic/time_ffi_app/main_test.nomi
-E 0
-N 2
-H f6aed4f1296b2ae2d5f4c1ee9b973692d81678385d8fb423610cca4d9632996d
-T ok <root>/tests/18-ffi-and-dynamic/time_ffi_app/main_test.nomi :: Go time.Time projects to Nomi Instant
-T ok <root>/tests/18-ffi-and-dynamic/time_ffi_app/main_test.nomi :: Nomi Instant passes back to Go time.Time
-T test result: ok. 2 passed, 0 failed
 T
 C 19-locales/app_locale/app_locale_test.nomi
 E 0

@@ -27,7 +27,7 @@ func TestSelfNamedModule_ImportByModuleNameReachesTheFile(t *testing.T) {
 }
 
 // The same import from a test file, which is the shape a library's own test
-// file has (cmd/nomi/testdata/ffi_modules/sqlite/sqlite_test.nomi).
+// file has.
 func TestSelfNamedModule_TestFileImportByModuleName(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")

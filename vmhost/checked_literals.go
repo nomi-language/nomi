@@ -23,14 +23,16 @@ import (
 // checkLiteral runs a backtick literal's handler: under vm.Machine.Effects,
 // the same step budget and the same deadline. An Err is a compile error at
 // the static and offset its LiteralError names, mapped back to the source;
-// an effectful check is one error at the impl, not one per literal.
+// a check that has effects, reads an app field or is unbounded is one error
+// at the impl, not one per literal.
 
-// checkedLiteralHint closes the diagnostic of a check that has effects.
-const checkedLiteralHint = "a checked literal's check runs when the program is checked, so it may not print, read files or the clock, start tasks or read an application field"
+// checkedLiteralHint closes the diagnostic of a check that has effects,
+// reads an app field or is unbounded.
+const checkedLiteralHint = "a checked literal's check runs when the program is checked, so it may not print, read files or the clock, start tasks, read an application field or call a function whose cost grows with its argument"
 
 // checkCheckedLiteral runs one checked literal's check and answers its
 // diagnostic when the literal is a compile error. effectful holds the checks
-// already reported as effectful, which are reported once.
+// already reported as effectful or unbounded, which are reported once.
 func (p *Program) checkCheckedLiteral(m *vm.Machine, site irbuild.LiteralSite, effectful map[any]bool) (d frontend.Diagnostic, failed bool, err error) {
 	f := site.Cell.Initializer()
 	if f == nil {
@@ -54,12 +56,20 @@ func (p *Program) checkCheckedLiteral(m *vm.Machine, site irbuild.LiteralSite, e
 		// An untagged literal its position reads as a checked literal.
 		label = "`" + site.Type + "` literal " + strings.TrimPrefix(label, "typed literal ")
 	}
-	if effects := m.Effects(f); len(effects) > 0 {
+	if found := m.Effects(f); len(found.Effects) > 0 || len(found.AppFields) > 0 || len(found.Unbounded) > 0 {
 		if effectful[site.Check] {
 			return d, false, nil
 		}
 		effectful[site.Check] = true
-		msg := fmt.Sprintf("%s has effects (%s); a checked literal's check runs when the program is checked", site.CheckName, strings.Join(effects, "; "))
+		var msg string
+		switch {
+		case len(found.Effects) > 0:
+			msg = fmt.Sprintf("%s has effects (%s); a checked literal's check runs when the program is checked", site.CheckName, strings.Join(found.Effects, "; "))
+		case len(found.AppFields) > 0:
+			msg = fmt.Sprintf("%s reads %s: %s", site.CheckName, quotedNames(p.appFieldNames(found.AppFields)), literalWithoutApp)
+		default:
+			msg = fmt.Sprintf("%s calls a function whose cost grows with its argument (%s); a checked literal's check runs when the program is checked, and must be bounded", site.CheckName, strings.Join(found.Unbounded, "; "))
+		}
 		if site.CheckLine > 0 {
 			return at(site.CheckLine, site.CheckCol, msg, checkedLiteralHint)
 		}

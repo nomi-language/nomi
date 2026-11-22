@@ -43,7 +43,7 @@ import (
 // one variant at a time would show it.
 func TestFragmentSlotsAreTwoFieldsAtEveryInstantiation(t *testing.T) {
 	g := preludeGenForTest(t)
-	a := g.preludeByName["Fragment"]
+	a := preludeAnchorForTest(g, "Fragment")
 	if a == nil {
 		t.Fatal("no Fragment anchor")
 	}
@@ -77,7 +77,7 @@ func TestFragmentSlotsAreTwoFieldsAtEveryInstantiation(t *testing.T) {
 // payload type.
 func TestFragmentInternKeyCarriesTheTypeArguments(t *testing.T) {
 	g := preludeGenForTest(t)
-	a := g.preludeByName["Fragment"]
+	a := preludeAnchorForTest(g, "Fragment")
 	if a == nil {
 		t.Fatal("no Fragment anchor")
 	}
@@ -101,7 +101,7 @@ func TestFragmentInternKeyCarriesTheTypeArguments(t *testing.T) {
 	}
 	// And a nested instance, so the key is exercised at an argument that is
 	// itself interned rather than a scalar.
-	mi := g.preludeInstance(g.preludeByName["Maybe"], []kind{kindInt})
+	mi := g.preludeInstance(preludeAnchorForTest(g, "Maybe"), []kind{kindInt})
 	fm := g.preludeInstance(a, []kind{mi})
 	if got := fm.nomi(); got != "Fragment<Maybe<Int>>" {
 		t.Fatalf("Fragment<Maybe<Int>> renders as %q", got)
@@ -172,13 +172,15 @@ func TestFragmentIdentityIsNotAName(t *testing.T) {
 	}
 	g := &gen{fa: p.Modules[0].FA, types: map[string]*typeDef{}}
 	g.loadPreludes()
-	if a, found := g.preludeByName["Fragment"]; found {
-		t.Fatalf("a locally declared Fragment was anchored as std/literals' (decl %p); "+
-			"its own declaration must be refused instead", a.decl)
+	for _, n := range p.Modules[0].Nodes {
+		if ed, isEnum := n.(*ast.EnumDef); isEnum && ed.Name == "Fragment" && g.preludeByDecl[ed] != nil {
+			t.Fatalf("a locally declared Fragment was anchored as std/literals' (decl %p); "+
+				"its own declaration must be refused instead", ed)
+		}
 	}
 	// And the local declaration keeps its own identity rather than being
 	// silently redirected: a def whose declaration node is the file's own can
-	// only be the user's. `preludeByName` staying empty above is the other
+	// only be the user's. No anchor at the local declaration above is the other
 	// half.
 	g2 := lowerableGen(t, src)
 	d := g2.types["Fragment"]

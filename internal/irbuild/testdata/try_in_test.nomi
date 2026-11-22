@@ -74,11 +74,12 @@ test "`?` in pipe position"
 end
 
 test "`?` inside a lambda"
-    f = fn x: Int ->
-        v = parse(x)?
+    f =
+        fn x: Int ->
+            v = parse(x)?
 
-        Ok(v + 7)
-    end
+            Ok(v + 7)
+        end
 
     inner = f(-4)
     io.print("after the lambda")

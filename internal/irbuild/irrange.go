@@ -82,7 +82,7 @@ func (bl *irScalarBuilder) rangeCall(t *ast.Call, args irQualArgs, method string
 			// stepperSignature types a program's step_by.
 			maybeElem, shared := bl.g.sharedMaybe(elem)
 			if !shared {
-				a, anchored := bl.g.preludeNamed("Maybe")
+				a, anchored := preludeSpecAnchor(preludeSpecNamed("Maybe"))
 				if !anchored {
 					return no()
 				}
@@ -269,7 +269,7 @@ func (bl *irScalarBuilder) elemStepper(elem, by kind) (*ir.Symbol, []kind, kind,
 	if !shared {
 		return nil, nil, kindInvalid, false
 	}
-	step := g.stdIfaceFnAt("Steppable.step_by", elem, []kind{elem, by}, maybeElem)
+	step := g.stdIfaceFnAt(stdSteppable.Func("step_by"), elem, []kind{elem, by}, maybeElem)
 	if step == nil || step.irBody == nil {
 		return nil, nil, kindInvalid, false
 	}
@@ -282,7 +282,7 @@ func (g *gen) stepperSignature(params []kind, result, elem, by kind) bool {
 	if len(params) != 2 || params[0] != elem || params[1] != by {
 		return false
 	}
-	a, anchored := g.preludeNamed("Maybe")
+	a, anchored := preludeSpecAnchor(preludeSpecNamed("Maybe"))
 	return anchored && result == g.preludeInstance(a, []kind{elem})
 }
 
@@ -307,7 +307,7 @@ func (bl *irScalarBuilder) discreteRef(at ast.Node, elem kind, name string, para
 			return ref(sym, result)
 		}
 	}
-	f := bl.g.stdIfaceFnAt("Discrete."+name, elem, params, stdResult)
+	f := bl.g.stdIfaceFnAt(stdDiscrete.Func(name), elem, params, stdResult)
 	if f == nil || f.irBody == nil {
 		return ir.NoTemp, false
 	}

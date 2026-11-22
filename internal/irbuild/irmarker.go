@@ -40,12 +40,12 @@ func irStdHostMarkerDef(d *typeDef) bool {
 	return false
 }
 
-// markerValue lowers the type name at, spelled name, as its marker's one
-// value: a bare `Quiet`, or `fakes.Quiet` through a whole-file import's
-// qualifier, which namedType resolves to the same declaration.
-func (bl *irScalarBuilder) markerValue(at ast.Node, name string) (ir.Temp, kind, bool, bool) {
-	d, found := bl.g.namedType(name)
-	if !found || !irRetainedMarker(d) {
+// markerValue lowers the type name at as its marker's one value: a bare
+// `Quiet`, or `fakes.Quiet` through a whole-file import's qualifier, the
+// marker the checker typed at as.
+func (bl *irScalarBuilder) markerValue(at ast.Node) (ir.Temp, kind, bool, bool) {
+	d := bl.g.nominalDef(bl.g.checkedExprType(at))
+	if d == nil || !irRetainedMarker(d) {
 		return ir.NoTemp, kindInvalid, false, false
 	}
 	c := ir.NewMarker(bl.g.irNodePos(at), bl.f.NewTemp(), bl.g.irTypeSym(d))

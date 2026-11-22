@@ -1,0 +1,84 @@
+//# The renderer held to goldmark, which this module wrapped before it was
+//# written in Nomi: each fixture under testdata/ is a Markdown input and
+//# the HTML goldmark v1.8.7 rendered for it with its GFM extension, and
+//# each must render the same, byte for byte. testdata/NOTICE.txt says
+//# where the inputs come from and under which licence each file is.
+
+import
+    std::embed.Files
+    std::html.Html
+    std::json.{FromJson, Json}
+    markdown
+end
+
+embed fixtures `testdata`
+
+/// A fixture: a name, a Markdown input and the HTML goldmark rendered.
+struct Case
+    name:     String
+    markdown: String
+    html:     String
+end
+
+derive FromJson for Case
+
+/// The fixtures that render otherwise than goldmark rendered them, by
+/// name. Each is a known gap; one that comes to match leaves the list, and
+/// none joins it.
+once known_gaps: List<String> = []
+
+fn rendered(text: String) -> String
+    Html.to_string(markdown.render(text))
+end
+
+fn cases(file: String) -> List<Case>
+    text = Files.read_text(fixtures, "testdata/${file}")!
+    Json.decode_as<List<Case>>(text)!
+end
+
+fn checked(file: String) -> List<Case>
+    cases(file) |> Iter.reject(&(&1.name in known_gaps)) |> Iter.to_list()
+end
+
+test "the CommonMark spec's examples render as goldmark rendered them"
+    checked("commonmark.json")
+    |> subtests c, c.name
+        assert rendered(c.markdown) == c.html
+    end
+end
+
+test "goldmark's extension and extra cases render as goldmark rendered them"
+    checked("goldmark.json")
+    |> subtests c, c.name
+        assert rendered(c.markdown) == c.html
+    end
+end
+
+test "this module's cases render as goldmark rendered them"
+    checked("library.json")
+    |> subtests c, c.name
+        assert rendered(c.markdown) == c.html
+    end
+end
+
+test "documents from this repository render as goldmark rendered them"
+    checked("corpus.json")
+    |> subtests c, c.name
+        assert rendered(c.markdown) == c.html
+    end
+end
+
+test "each known gap is a fixture that still renders otherwise"
+    all =
+        ["commonmark.json", "goldmark.json", "library.json", "corpus.json"]
+        |> Iter.flat_map(cases)
+        |> Iter.map(fn c -> (c.name, c))
+        |> Iter.to_map()
+
+    assert Iter.all_match(known_gaps, fn name ->
+        case Map.get(all, name)
+            Some(c) -> rendered(c.markdown) != c.html
+            None    -> False
+        end
+    end)
+end

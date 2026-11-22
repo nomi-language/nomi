@@ -54,8 +54,12 @@ type Machine struct {
 	// name a value carries, which an erased Display rendering selects by.
 	displays map[string]*ir.Symbol
 	// rowDebugs is every module's hand-written `impl Debug` bodies by the
-	// declared type name, which assertion rows render through (rowText).
+	// declared type name, which assertion rows render through (rowText),
+	// and on an extended machine a Debug rendering too (debugImplHook).
 	rowDebugs map[string]*ir.Symbol
+	// extended says Extend linked a later lowering into this machine, as
+	// the REPL does for each input.
+	extended bool
 	// equates and hashes are every module's hand-written `impl Equatable`
 	// and `impl Hashable` bodies by declared type name, which the key
 	// kernels answer through (keys.go).
@@ -146,6 +150,10 @@ type Machine struct {
 	// copyUpdates says every struct update copies its base, as on a debug
 	// machine (inplace.go).
 	copyUpdates bool
+	// noInline says every direct call opens an activation (inline.go).
+	noInline bool
+	// noLoopJump says every self tail call runs as opTail (loop.go).
+	noLoopJump bool
 	// dvia names, on a debug machine's view, the Go-driven operation whose
 	// callbacks the view starts (`Iter.map`, a host call), which the logical
 	// call stack shows between the callback and its caller.
@@ -173,16 +181,36 @@ type hostFn func(m *Machine, pos ir.Pos, args []any) (any, error)
 // refinement rule, a typed literal's handler, a `check` or a debugger's
 // evaluation may call it (Effects). Unset, a call to it is an effect.
 //
-// world says whether a call to it is an outside call (outside.go): a pure
-// intrinsic is inside and leaves it unset, and every other one sets it,
-// which TestEveryIntrinsicDecidesItsWorld holds. An outside one names std,
-// the std module that declares it, as an import names it after `std::`
-// (`tasks` for `Task.spawn`), since its key does not always start with it.
+// held marks one that acts only through a value its operand already holds
+// (a task, a channel end, a task scope, a fake run on the frame), whose
+// effect an effects list names where the value was made: a list names no
+// call to it (effects.go). It is still an effect.
+//
+// unlisted marks an effect the walk reports and no effects list names:
+// `dbg`, which prints, and which no built program holds, since `nomi
+// build` refuses one. It is still an effect, shown where a reader looks,
+// and it names no std module (effects.go).
+//
+// world says whether a call to it acts outside the machine, the build fact
+// a target is checked by (effects.go): a pure intrinsic is inside and
+// leaves it unset, and every other one sets it, a held one inside, which
+// TestEveryIntrinsicDecidesItsWorld holds. One a
+// list names (neither pure, held nor unlisted) names std, the std module
+// that declares it, as an import names it after `std::` (`tasks` for
+// `Task.spawn`), since its key does not always start with it.
+//
+// defaults marks one that answers the payload of its first operand, a
+// Maybe's Some or a Result's Ok, and otherwise its second operand: a Maybe
+// or a Result fused in registers (maybefuse.go) takes it as one of the
+// uses that take it apart, and the call compiles to opDefaultM.
 type intrinsic struct {
-	fn    hostFn
-	pure  bool
-	world world
-	std   string
+	fn       hostFn
+	pure     bool
+	held     bool
+	unlisted bool
+	defaults bool
+	world    world
+	std      string
 }
 
 // WithHostEnv sets environment entries that override the process
@@ -369,8 +397,7 @@ func New(mod *ir.Module, out io.Writer) *Machine {
 // A SYMBOL TWO MODULES DECLARE IS RECORDED AS AMBIGUOUS RATHER THAN RESOLVED.
 // The producer cannot build one — a callee symbol is interned on a declaration
 // node and a node belongs to one unit — but a hand-built set can, and a silent
-// pick between two declarations is the failure `ir.Table.SelectOverload`
-// refuses one layer up.
+// pick between two declarations is a wrong answer nothing would report.
 func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 	m := &Machine{mod: entry, out: &syncWriter{w: out}, boot: entry.Boot(), tasks: &taskLimit{},
 		codes: &codeTable{}, embedded: rt.NewEmbeddedFiles(DiskEmbedded{})}
@@ -417,23 +444,23 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 	m.hosts = map[string]intrinsic{
 		"Result.map_err":        {fn: resultMapErrHost, pure: true},
 		"Maybe.to_result":       {fn: maybeToResultHost, pure: true},
-		"concurrent":            {fn: concurrentHost, world: inside},
+		"concurrent":            {fn: concurrentHost, world: inside, held: true},
 		"Task.spawn":            {fn: taskSpawnHost, world: outside, std: "tasks"},
-		"Task.await":            {fn: taskHost("Task.await"), world: inside},
-		"Task.cancel":           {fn: taskHost("Task.cancel"), world: inside},
-		"Task.outcome":          {fn: taskHost("Task.outcome"), world: inside},
+		"Task.await":            {fn: taskHost("Task.await"), world: inside, held: true},
+		"Task.cancel":           {fn: taskHost("Task.cancel"), world: inside, held: true},
+		"Task.outcome":          {fn: taskHost("Task.outcome"), world: inside, held: true},
 		"Task.spawn_all":        {fn: taskSpawnAllHost, world: outside, std: "tasks"},
-		"Task.await_all":        {fn: taskAwaitAllHost, world: inside},
+		"Task.await_all":        {fn: taskAwaitAllHost, world: inside, held: true},
 		"Supervisor.spawn":      {fn: supervisorSpawnHost, world: outside, std: "supervisors"},
 		"Supervisor.spawn_all":  {fn: supervisorSpawnAllHost, world: outside, std: "supervisors"},
-		"Maybe.with_default":    {fn: withDefaultHost("Some"), pure: true},
-		"Result.with_default":   {fn: withDefaultHost("Ok"), pure: true},
-		"Channel.buffered":      {fn: channelHost("Channel.buffered"), world: inside},
-		"Channel.unbuffered":    {fn: channelHost("Channel.unbuffered"), world: inside},
-		"Sender.send":           {fn: channelHost("Sender.send"), world: inside},
-		"Sender.close":          {fn: channelHost("Sender.close"), world: inside},
-		"Sender.close_on_drain": {fn: channelHost("Sender.close_on_drain"), world: inside},
-		"Receiver.receive":      {fn: channelHost("Receiver.receive"), world: inside},
+		"Maybe.with_default":    {fn: withDefaultHost("Some"), pure: true, defaults: true},
+		"Result.with_default":   {fn: withDefaultHost("Ok"), pure: true, defaults: true},
+		"Channel.buffered":      {fn: channelHost("Channel.buffered"), world: inside, std: "channels"},
+		"Channel.unbuffered":    {fn: channelHost("Channel.unbuffered"), world: inside, std: "channels"},
+		"Sender.send":           {fn: channelHost("Sender.send"), world: inside, held: true},
+		"Sender.close":          {fn: channelHost("Sender.close"), world: inside, held: true},
+		"Sender.close_on_drain": {fn: channelHost("Sender.close_on_drain"), world: inside, held: true},
+		"Receiver.receive":      {fn: channelHost("Receiver.receive"), world: inside, held: true},
 		"List.first":            {fn: listHost("List.first"), pure: true},
 		"List.tail":             {fn: listHost("List.tail"), pure: true},
 		"List.concat":           {fn: listHost("List.concat"), pure: true},
@@ -441,9 +468,9 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 		"List.remove_at":        {fn: listRemoveAtHost, pure: true},
 
 		// Waiting on several channel operations at once (channelselect).
-		"Channel.select":          {fn: channelSelectHost, world: inside},
-		"Arm.receive":             {fn: channelHost("Arm.receive"), world: inside},
-		"Arm.send":                {fn: channelHost("Arm.send"), world: inside},
+		"Channel.select":          {fn: channelSelectHost, world: inside, held: true},
+		"Arm.receive":             {fn: channelHost("Arm.receive"), world: inside, held: true},
+		"Arm.send":                {fn: channelHost("Arm.send"), world: inside, held: true},
 		"Arm.after":               {fn: channelHost("Arm.after"), world: outside, std: "channels"},
 		"Receiver.receive_within": {fn: channelHost("Receiver.receive_within"), world: outside, std: "channels"},
 
@@ -482,12 +509,13 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 		"Vector.concat":       {fn: vectorHost("Vector.concat"), pure: true},
 		"Vector.set":          {fn: vectorHost("Vector.set"), pure: true},
 		"Vector.next_item":    {fn: vectorHost("Vector.next_item"), pure: true},
+		"Vector.slice":        {fn: vectorHost("Vector.slice"), pure: true},
 		"Vector.contains":     {fn: vectorContainsHost, pure: true},
 		"Map.get":             {fn: mapHost("Map.get"), pure: true},
 		"Map.put":             {fn: mapHost("Map.put"), pure: true},
 		"Map.size":            {fn: mapHost("Map.size"), pure: true},
-		"Context.with_value":  {fn: contextWithValueHost, world: inside},
-		"Context.value":       {fn: contextValueHost, world: inside},
+		"Context.with_value":  {fn: contextWithValueHost, pure: true},
+		"Context.value":       {fn: contextValueHost, pure: true},
 		"Map.remove":          {fn: mapHost("Map.remove"), pure: true},
 		"Map.contains":        {fn: mapHost("Map.contains"), pure: true},
 		"Map.merge":           {fn: mapHost("Map.merge"), pure: true},
@@ -505,27 +533,27 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 		"io.ewrite": {fn: errorOutputHost("io.ewrite", ""), world: outside, std: "io"},
 		// `io.capture` and `io.replay`: the five above and `io.read_line` go to the
 		// capture in force on the calling frame. See capture.go.
-		captureKey: {fn: captureHost, world: inside},
-		replayKey:  {fn: replayHost, world: inside},
+		captureKey: {fn: captureHost, world: inside, held: true},
+		replayKey:  {fn: replayHost, world: inside, held: true},
 		// `Reader.from_chunks`: a reader that pulls its chunks from an
 		// Iter. See readers.go.
-		readerFromChunksKey:     {fn: readerFromChunksHost(readerFromChunksKey), world: inside},
-		readerFromTextChunksKey: {fn: readerFromChunksHost(readerFromTextChunksKey), world: inside},
+		readerFromChunksKey:     {fn: readerFromChunksHost(readerFromChunksKey), world: inside, std: "io"},
+		readerFromTextChunksKey: {fn: readerFromChunksHost(readerFromTextChunksKey), world: inside, std: "io"},
 		// `std::fs::testing.run`: std/fs calls go to the sandbox on the calling
 		// frame. See sandbox.go.
-		sandboxKey: {fn: sandboxHost, world: inside},
+		sandboxKey: {fn: sandboxHost, world: inside, held: true},
 		// `std::process::testing.run`: std/process calls go to the fake on the
 		// calling frame. See sandbox.go.
-		processFakeKey:     {fn: processFakeHost, world: inside},
-		networkFakeKey:     {fn: networkFakeHost, world: inside},
-		networkAnswerKey:   {fn: networkAnswerHost, world: inside},
-		networkRecordedKey: {fn: networkRecordedHost, world: inside},
-		networkRequestKey:  {fn: networkRequestHost, world: inside},
+		processFakeKey:     {fn: processFakeHost, world: inside, held: true},
+		networkFakeKey:     {fn: networkFakeHost, world: inside, held: true},
+		networkAnswerKey:   {fn: networkAnswerHost, world: inside, held: true},
+		networkRecordedKey: {fn: networkRecordedHost, world: inside, held: true},
+		networkRequestKey:  {fn: networkRequestHost, world: inside, held: true},
 		// `dbg` is `rt.DbgText(w, line, expr, rendered)`: rt's layout and
 		// colour rule, called rather than transcribed. See dbg.go in this
 		// package for the two facts that are this consumer's own: which
 		// writer the colour decision is made about, and the Debug rendering.
-		dbgKey: {fn: dbgHost, world: outside, std: "io"},
+		dbgKey: {fn: dbgHost, world: outside, unlisted: true},
 	}
 	if debugEveryMachine.Load() {
 		m.WithDebugger(NewDebugger())
@@ -693,14 +721,18 @@ func paramTemp(f *ir.Func, sym *ir.Symbol) (ir.Temp, bool) {
 func (m *Machine) irInstr(fr *frame, in ir.Instr) error {
 	switch n := in.(type) {
 	case *ir.FuncValue:
+		var kept *rt.AppFields
+		if n.KeepsFields() {
+			kept = rt.KeptFields(fr.runtime)
+		}
 		if n.NumCaptures() == 0 {
-			// A function value that captures nothing is the same value at
-			// every evaluation: the slot's own, built once.
-			fr.write(n.Dst(), m.slotFor(n.Body()).named())
+			// A function value that captures nothing is the same value
+			// wherever the same app fields are in force: the slot's own.
+			fr.write(n.Dst(), m.slotFor(n.Body()).keeping(kept))
 			return nil
 		}
 		captures := make([]any, n.NumCaptures())
-		fv := &functionValue{body: n.Body(), slot: m.slotFor(n.Body()), captures: captures, arity: n.Arity()}
+		fv := &functionValue{body: n.Body(), slot: m.slotFor(n.Body()), captures: captures, arity: n.Arity(), kept: kept}
 		for i := range captures {
 			if i == 0 && n.Self() {
 				// A recursive nested fn's self capture is this closure.
@@ -734,7 +766,13 @@ func (m *Machine) irInstr(fr *frame, in ir.Instr) error {
 			if err != nil {
 				return err
 			}
-			fr.write(n.Dst(), m.slotFor(callee).named())
+			// A named function the program makes a value keeps the
+			// fields in force here, as a lambda does (ir.Ref.KeepsFields).
+			var kept *rt.AppFields
+			if n.KeepsFields() {
+				kept = rt.KeptFields(fr.runtime)
+			}
+			fr.write(n.Dst(), m.slotFor(callee).keeping(kept))
 			return nil
 		}
 		if n.Kind() == ir.RefOnce {
@@ -1020,6 +1058,13 @@ func callOperands(fr *frame, n *ir.Call) ([]any, any, error) {
 	return args, fn, nil
 }
 
+// errBoundCall is the failure a call through a type parameter's bound
+// compiles to: only an abstract body holds one (ir.NewBoundCall), which the
+// effect walk reads and which reaches a machine only by a producer's bug.
+func errBoundCall(f *ir.Func, n *ir.Call) error {
+	return fmt.Errorf("vm: %s: a call through a bound, %s, is in an abstract body, which no machine runs", f.Name(), n.Callee().Name())
+}
+
 // invoke calls n's callee over operands already read. A deferred call reads
 // them at registration and invokes later.
 func (m *Machine) invoke(fr *frame, n *ir.Call, args []any, fn any) (any, error) {
@@ -1040,7 +1085,7 @@ func (m *Machine) invoke(fr *frame, n *ir.Call, args []any, fn any) (any, error)
 			}
 			return f.host(fr.runtime, args)
 		}
-		return m.activateSlot(f.fnSlot(m), args, f.captures, fr.runtime, false, fr.depth, fr.stk)
+		return m.callValue(f, args, fr.runtime, false, fr.depth, fr.stk, 0)
 	}
 	if n.Form() == ir.CalleeDispatched {
 		callee, err := m.dispatchTarget(fr, n, args)
@@ -1048,6 +1093,9 @@ func (m *Machine) invoke(fr *frame, n *ir.Call, args []any, fn any) (any, error)
 			return nil, err
 		}
 		return m.callFrom(fr, callee, args)
+	}
+	if n.Form() == ir.CalleeBound {
+		return nil, errBoundCall(fr.fn, n)
 	}
 	if n.Form() != ir.CalleeDirect {
 		return nil, fmt.Errorf("vm: %s: this machine runs no %s call", fr.fn.Name(), n.Form())
@@ -1100,24 +1148,40 @@ func (m *Machine) crossOver(fr *frame, n *ir.Call, name string, args []any) (any
 // boundAt is m as an intrinsic called from fr sees it: on fr's dynamic
 // context and at fr's depth. A host may keep the machine it is handed (a lazy
 // Iter stage calls back through it later), so the view is never changed
-// once made. fr keeps the view it made last and hands it to the next
-// crossing whose view would be the same, since a pooled activation record
-// serves one call after another at the same depth: without that, every
-// `Vector.get` or `Map.get` copied the whole machine onto the heap. A debug
-// machine names the crossing in its view, so it makes one per crossing.
+// once made. fr's stack keeps the view it made last at each depth and
+// hands it to the next crossing at that depth whose view would be the
+// same, since one activation after another runs at a depth, and a body
+// compiled into its caller (inline.go) runs at the depth its call would:
+// without that, every `Vector.get` or `Map.get` copied the whole machine
+// onto the heap. A debug machine names the crossing in its view, so it
+// makes one per crossing, and a frame of no stack (a boot's deferred call
+// run at cleanup) keeps none.
 func (m *Machine) boundAt(fr *frame, name string) *Machine {
-	if v := fr.hostView; v != nil && fr.hostViewOf == m && v.hostFrame == fr.runtime && v.depth == fr.depth {
-		return v
+	var kept *hostView
+	if s := fr.stk; s != nil && m.dbg == nil {
+		for len(s.hostViews) <= fr.depth {
+			s.hostViews = append(s.hostViews, hostView{})
+		}
+		kept = &s.hostViews[fr.depth]
+		if v := kept.view; v != nil && kept.of == m && v.hostFrame == fr.runtime {
+			return v
+		}
 	}
 	bound := *m
 	bound.hostFrame = fr.runtime
 	bound.depth = fr.depth
 	if m.dbg != nil {
 		bound.dvia = name
-		return &bound
 	}
-	fr.hostView, fr.hostViewOf = &bound, m
+	if kept != nil {
+		kept.view, kept.of = &bound, m
+	}
 	return &bound
+}
+
+// hostView is a machine boundAt made from of.
+type hostView struct {
+	view, of *Machine
 }
 
 // match answers one refutable question.
@@ -1382,6 +1446,10 @@ type functionValue struct {
 	slot     *fnSlot
 	captures []any
 	arity    int
+	// kept is the app fields in force where the value was made, which its
+	// body runs under wherever it is called (callValue), or nil where none
+	// were in force (rt.KeptFields).
+	kept *rt.AppFields
 	// host is a callable a runtime driver hands the program instead of an IR
 	// body: the `yield` rt.UserSeq passes to a user source's `each_while`.
 	host func(runtime *rt.Frame, args []any) (any, error)
@@ -1424,7 +1492,28 @@ func (m *Machine) apply(f *functionValue, args []any, runtime *rt.Frame) (any, e
 	if f.host != nil {
 		return f.host(runtime, args)
 	}
-	return m.activateSlot(f.fnSlot(m), args, f.captures, runtime, false, m.depth, nil)
+	return m.callValue(f, args, runtime, false, m.depth, nil, 0)
+}
+
+// callValue is every call of a function value with an IR body: one
+// activation of its body over args and its captures, on runtime with the
+// app fields the value kept in force (rt.EnterKeptFields). The caller's
+// frame is untouched, so its fields are back in force however the body
+// leaves: a return, a `?`, a failure or a cancellation's unwind. owned is
+// activateOwned's.
+func (m *Machine) callValue(f *functionValue, args []any, runtime *rt.Frame, testBody bool, caller int, stk *regStack, owned uint64) (any, error) {
+	runtime, release := rt.EnterKeptFields(runtime, f.kept)
+	if release != nil {
+		return m.callReleasing(release, f, args, runtime, testBody, caller, stk, owned)
+	}
+	return m.activateOwned(f.fnSlot(m), args, f.captures, runtime, testBody, caller, stk, owned)
+}
+
+// callReleasing is callValue's activation when entering the kept fields
+// started a deadline, which ends however the body leaves.
+func (m *Machine) callReleasing(release func(), f *functionValue, args []any, runtime *rt.Frame, testBody bool, caller int, stk *regStack, owned uint64) (any, error) {
+	defer release()
+	return m.activateOwned(f.fnSlot(m), args, f.captures, runtime, testBody, caller, stk, owned)
 }
 
 // fnSlot is the function table entry of f's body.

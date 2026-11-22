@@ -60,11 +60,10 @@ func (bl *irScalarBuilder) calleeSignatureDecline(n ast.Node, reason string) *Si
 	if !isCall || !strings.HasPrefix(reason, calleeNotLowerable) {
 		return nil
 	}
-	callee, direct := call.Func.(*ast.Ident)
-	if !direct {
+	if _, direct := call.Func.(*ast.Ident); !direct {
 		return nil
 	}
-	sig := bl.g.funcs[callee.Name]
+	sig := bl.g.sigByDecl[bl.g.calleeOf(call).Decl]
 	if sig == nil || sig.lowerable || sig.decl == nil {
 		return nil
 	}
@@ -145,7 +144,7 @@ func (g *gen) refusedDefs(te ast.TypeExpr) []*typeDef {
 	walk = func(te ast.TypeExpr) {
 		switch t := te.(type) {
 		case *ast.SimpleType:
-			if d, ok := g.namedType(t.Name); ok && d != nil && !d.lowerable {
+			if d := g.writtenTypeDef(t); d != nil && !d.lowerable {
 				out = append(out, d)
 			}
 		case *ast.QualifiedType:

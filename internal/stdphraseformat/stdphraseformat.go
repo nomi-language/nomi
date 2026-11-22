@@ -56,8 +56,8 @@ const (
 	argDateTime
 )
 
-// FFIFormat is `std::phrase::format.format`.
-func FFIFormat(fr *rt.Frame, table, locale string, catalogs []string, kinds []int64, numbers, keys, texts []string) string {
+// HostFormat is `std::phrase::format.format`.
+func HostFormat(fr *rt.Frame, table, locale string, catalogs []string, kinds []int64, numbers, keys, texts []string) string {
 	return Format(stdlocale.Data(fr), runtimeOf(fr), table, locale, catalogs, kinds, numbers, keys, texts)
 }
 
@@ -237,9 +237,9 @@ func pluralLocale(d *cldrdata.Data, locale, text string) string {
 	return text
 }
 
-// FFINoun is `std::phrase::format.noun_raw`: the noun table's nominative for one
+// HostNoun is `std::phrase::format.noun_raw`: the noun table's nominative for one
 // thing in locale, which a noun's Localize writes.
-func FFINoun(fr *rt.Frame, table, locale string) string {
+func HostNoun(fr *rt.Frame, table, locale string) string {
 	return Noun(stdlocale.Data(fr), runtimeOf(fr), table, locale)
 }
 

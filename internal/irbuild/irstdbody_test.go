@@ -5,15 +5,9 @@ package irbuild
 import (
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/frontend"
 )
-
-// irStdWantRetained is how many stdlib graphs the builder builds and keeps.
-// The cached modules also hold slot accessors, which
-// vm-std-retained.txt lists by name (TestIRRetainedStdPopulationRuns).
-// Re-derive it when the builder retains more or less of std, and name the
-// bodies that moved in the commit message.
-const irStdWantRetained = 374
 
 // TestIRStdFunc_ASiblingCallIsRetainedOnBothSides is the `call` audit.
 //
@@ -70,8 +64,8 @@ func lowerStdSourceOnly(t *testing.T, src string) {
 	}
 	nodes, fa := proj.Nodes, proj.FA
 	empty := &stdlibIndex{
-		byType: map[string][]*stdFunc{}, byFile: map[string]*stdFunc{},
-		byIface:   map[string]map[kind][]*stdFunc{},
+		byType:    map[string][]*stdFunc{},
+		byIface:   map[analysis.StdFunc]map[kind][]*stdFunc{},
 		modulePkg: map[string]string{},
 		byKey:     map[string]*stdFunc{},
 		byOnce:    map[string]*stdOnce{}, views: map[string]*stdModuleView{},

@@ -43,13 +43,11 @@ import (
 //     whatever that call reaches: a container family's operation, an
 //     instance of std's generic body, a retained body or a host function.
 //
-// Identity is the declaration node, reached the way a program reaches it:
-// the name resolves in this file's scope to an `*ast.InterfaceDef` whose
-// solved type's origin is a std module, after this file's own and its
-// siblings' interfaces have had their say (ifaceNamed first, as
-// stdIfaceNamed asks). `std` is unforgeable as a module name
-// (analysis/manifest.go), and a std module lowered with the program
-// (programStdModules) is excluded: its interfaces are the program's own.
+// Identity is the declaration node of the interface the checker recorded,
+// whose origin is a std module (stdProgIfaceAt). `std` is unforgeable as a
+// module name (analysis/manifest.go), and a std module lowered with the
+// program (programStdModules) is excluded: its interfaces are the
+// program's own.
 //
 // Only a program's gens build these defs: its files, the std modules
 // lowered with it, and a shared std module's own cases (stdCases). The
@@ -102,36 +100,16 @@ func (g *gen) stdProgMethodSym(d *ifaceDef, m *ifaceMethod) *ir.Symbol {
 
 // stdProgBuilds reports whether this gen has defs for std interfaces:
 // a program's own gens, the std modules lowered with it and a shared std
-// module's cases (stdCases), and a std instance built for one of those,
-// which uses its caller's (stdProgCaller); never the stdlib lowered once
-// for the process.
+// module's cases (stdCases), the gen that asks for a shared module's
+// abstract bodies (StdAbstractBodies), whose modules nothing links, and a
+// std instance built for one of those, which uses its caller's
+// (stdProgCaller); never the stdlib lowered once for the process.
 func (g *gen) stdProgBuilds() bool {
 	if g.stdProgCaller != nil {
 		return true
 	}
-	return (g.stdModule == "" || g.programStd || g.stdCases) && g.stdInstCur == nil
-}
-
-// stdProgIfaceNamed is the def of the std interface a bare name names in
-// this file, or nil.
-func (g *gen) stdProgIfaceNamed(name string) *ifaceDef {
-	if !g.stdProgBuilds() || g.fa == nil {
-		return nil
-	}
-	if d, imported := g.blockImportedIface(name); imported {
-		// A block's import binds the name (bindBlockImports).
-		if d.stdOrigin != "" {
-			return d
-		}
-		return nil
-	}
-	if _, local := g.ifaceNamed(name); local {
-		return nil
-	}
-	if _, rt := g.stdIfaceNamed(name); rt {
-		return nil
-	}
-	return g.stdProgIfaceOf(resolvedTypeSymbol(g.fa, name))
+	abstract := g.dc != nil && g.dc.abstract
+	return (g.stdModule == "" || g.programStd || g.stdCases || abstract) && g.stdInstCur == nil
 }
 
 // stdProgOwnIface is, in a std instance built for a program
@@ -168,16 +146,6 @@ func (g *gen) stdProgHere(k kind) kind {
 	return k
 }
 
-// stdProgQualifiedIface is the def of the std interface a module-qualified
-// name (`matcher.Matcher`) names, read through the qualifier's scope, or
-// nil.
-func (g *gen) stdProgQualifiedIface(qualifier, name string) *ifaceDef {
-	if !g.stdProgBuilds() {
-		return nil
-	}
-	return g.stdProgIfaceOf(resolvedScopeSymbol(g.moduleScope(qualifier), name))
-}
-
 // stdProgIfaceOf is the def of the std interface sym resolves to, built on
 // first use, or nil when sym is none. An interface with an rt table
 // (stdiface.go), std's structural `Struct` and std's `Iter` keep their own
@@ -210,8 +178,7 @@ func (g *gen) stdProgIfaceOf(sym *analysis.Symbol) *ifaceDef {
 	if d := g.stdProgIfaces[decl]; d != nil {
 		return d
 	}
-	g.loadStdIfaces()
-	if i, rt := g.stdIfaceByName[decl.Name]; rt && stdIfaceSpecs[i].module == it.Origin {
+	if stdSpecIface(analysis.StdType{Module: it.Origin, Name: decl.Name}) != nil {
 		return nil
 	}
 	d := &ifaceDef{
@@ -272,23 +239,12 @@ func (g *gen) stdProgInst(tpl *ast.InterfaceDef, subst map[string]kind, types ma
 	return g.ifaceInstAtTyped(tpl, subst, types)
 }
 
-// stdProgIfaceForImpl is the def an impl block of a std interface binds
-// into: the interface's, or for a generic one the instance at the block's
-// type arguments. nil when the block's interface is none of these.
-func (g *gen) stdProgIfaceForImpl(ib *ast.ImplBlock) *ifaceDef {
-	var d *ifaceDef
-	switch te := ib.Interface.(type) {
-	case *ast.QualifiedType:
-		if qualifier, name, ok := qualifiedTypeParts(te); ok {
-			d = g.stdProgQualifiedIface(qualifier, name)
-		} else if gt, generic := te.Member.(*ast.GenericType); generic {
-			d = g.stdProgQualifiedIface(te.Module, gt.Name)
-		}
-	default:
-		if name, named := ifaceHeaderName(te); named {
-			d = g.stdProgIfaceNamed(name)
-		}
-	}
+// stdProgIfaceForImpl is the def impl block ib of a std interface binds
+// into: the def of the interface the checker recorded for it (rec), or for
+// a generic one the instance at the block's type arguments. nil when the
+// block's interface is none of these.
+func (g *gen) stdProgIfaceForImpl(ib *ast.ImplBlock, rec *analysis.ImplTypeArgs) *ifaceDef {
+	d := g.stdProgIfaceAt(rec.Origin, rec.Interface)
 	if d == nil {
 		return nil
 	}
@@ -483,9 +439,9 @@ type stdProgThunkToken struct {
 // haveType, the checker's type have was read from (nil where the caller
 // has none), and planned as a rendering's
 // `Display.to_string(v)` is (irdisplayhole.go): the interface's container
-// family first (ifaceContainerCall), then the qualified-call planner; or,
-// where this file binds the bare name to something else, the call through
-// the declaring module (`matcher.Matcher.find_in`, stdModuleIfacePlan). So
+// family first (ifaceContainerCall), then the qualified-call planner,
+// which plans it from the function the record names whatever this file
+// binds the bare name to (`Matcher.find_in` beside a local `Matcher`). So
 // std's impl is whatever a direct call with a value of have reaches: a
 // family operation (`List.contains`), an instance of std's generic body, a
 // retained body (`Int.hash`) or a host function (`Regex.find_in`). nil when
@@ -543,12 +499,15 @@ func (g *gen) buildStdProgThunk(d *ifaceDef, m *ifaceMethod, have kind, haveType
 	// is for the held value's type, so the instances it reaches are
 	// entered with their checker types.
 	defer g.carryCall(at, g.stdIfaceCallRecord(g.stdIfaceType(d), m.name, len(operands), haveType))()
+	// The call answers what the checker types `Iface.method(x)` as for an
+	// x of the held type (InterfaceResult), which a container's operation
+	// it reaches reads as its result.
+	defer g.carryType(at, g.instanceFA().InterfaceResult(g.stdIfaceType(d), m.name, haveType))()
 	sh := g.irFuncShellAt(at, declared, irFuncSig{result: m.result}, params, sym)
 	if sh == nil {
 		return false
 	}
-	bl := &irScalarBuilder{g: g, sh: sh, f: sh.fn, b: sh.entry, returnKind: m.result,
-		bound: map[string]ir.Temp{}, boundK: map[string]kind{}}
+	bl := &irScalarBuilder{g: g, sh: sh, f: sh.fn, b: sh.entry, returnKind: m.result}
 	mobile := make([]bool, len(params))
 	for i := range mobile {
 		mobile[i] = true
@@ -574,26 +533,20 @@ func (g *gen) buildStdProgThunk(d *ifaceDef, m *ifaceMethod, have kind, haveType
 		v, rk, ok = bl.recordToJsonFieldOf(at, sh.paramTemps[0], have, haveType, m.result)
 		handled = true
 	}
-	if !handled && (g.stdProgBareNames(d) || g.stdCases) {
-		// A std container's impl is a template instantiated at the call,
-		// which a std module's cases reach under their module's own name
-		// for its interface (`ToJson` in std/json's cases) too.
-		v, rk, _, ok, handled = bl.ifaceContainerCall(at, args, d.decl.Name, m.name, haveType)
+	if !handled {
+		// A std container's impl is a template instantiated at the call.
+		v, rk, _, ok, handled = bl.ifaceContainerCall(at, args, m.name, haveType)
 	}
 	if !handled {
-		var plan *irQualPlan
-		if g.stdProgBareNames(d) {
-			plan = bl.qualImplPlan(at, args, d.decl.Name, m.name)
-		} else {
-			// This file binds the name to something else (its own
-			// `struct Matcher`): std's impl of this declaration, wherever
-			// std writes it (`impl Matcher for Regex<C>` in std/regex).
-			plan = bl.stdFuncPlan(at, args, g.stdProgImplOf(d, m, args.kinds))
-		}
+		// The call's record names std's interface, so the plan is std's
+		// impl of this declaration whatever this file binds the name to (its
+		// own `struct Matcher` beside std/regex's `impl Matcher for
+		// Regex<C>`).
+		plan := bl.qualImplPlan(at, args, d.decl.Name, m.name)
 		if plan == nil {
 			// No impl writes the method: the interface's default
 			// (`ToJson.to_json_field`), instantiated at the held kind.
-			v, rk, _, ok, handled = bl.stdIfaceDefaultCall(at, args, d.decl.Name, m.name)
+			v, rk, _, ok, handled = bl.stdIfaceDefaultCall(at, args)
 			if !handled {
 				return false
 			}
@@ -610,37 +563,6 @@ func (g *gen) buildStdProgThunk(d *ifaceDef, m *ifaceMethod, have kind, haveType
 	g.irRequireLint(sh.fn, "a std interface function over a program type")
 	g.irModule().AddFunc(sh.fn)
 	return true
-}
-
-// stdProgImplOf is std's function for interface d's method m at the
-// operand kinds: an impl whose header names d's declaration in the scope of
-// the std module that writes it, which is where the header was resolved.
-// nil when std has none.
-func (g *gen) stdProgImplOf(d *ifaceDef, m *ifaceMethod, kinds []kind) *stdFunc {
-	if g.std == nil || len(kinds) == 0 {
-		return nil
-	}
-	decl := d.decl
-	if d.instOf != nil {
-		decl = d.instOf
-	}
-	views := g.std.views
-	if g.stdInsts != nil {
-		// A std module's cases gen indexes the modules before its own;
-		// the lowering's views hold every module, its own among them.
-		views = g.stdInsts.std.views
-	}
-	var fs []*stdFunc
-	for _, f := range g.std.byIface[decl.Name+"."+m.name][kinds[m.shape.recvAt()]] {
-		v := views[f.module]
-		if v == nil {
-			continue
-		}
-		if sym := resolvedTypeSymbol(v.fa, f.iface); sym != nil && sym.Node == decl {
-			fs = append(fs, f)
-		}
-	}
-	return stdPick(fs, kinds)
 }
 
 // stdProgIsolated runs build, a function built while another body is being
@@ -682,42 +604,6 @@ func (g *gen) stdProgBoxImpls(d *ifaceDef, have kind, haveType analysis.Type, ty
 	return impls, true
 }
 
-// stdProgBareNames reports whether the bare name of std interface d's
-// declaration, as a call's qualifier in this file, names that interface:
-// it resolves to the declaration, or to nothing this file declares or
-// imports, which leaves the call to std's index.
-func (g *gen) stdProgBareNames(d *ifaceDef) bool {
-	name := d.decl.Name
-	if d.stdShared {
-		// std's Display or Debug, an interface with an rt table, which no
-		// std-program def stands for: the bare name is std's unless this
-		// file binds it to an interface of its own.
-		if _, local := g.ifaceNamed(name); local {
-			return false
-		}
-		sym := resolvedTypeSymbol(g.fa, name)
-		if sym == nil {
-			return true
-		}
-		it, isIface := sym.Type.(*analysis.InterfaceType)
-		return isIface && strings.HasPrefix(it.Origin, "std/")
-	}
-	if named := g.stdProgIfaceNamed(name); named != nil {
-		return named.decl == d.decl || named.decl == d.instOf
-	}
-	return !g.stdProgBareConflict(name)
-}
-
-// stdProgBareConflict reports whether this file binds name to something
-// other than a std interface, which a module-qualified call's bare owner
-// must then not be read as.
-func (g *gen) stdProgBareConflict(name string) bool {
-	if _, local := g.ifaceNamed(name); local {
-		return true
-	}
-	return resolvedTypeSymbol(g.fa, name) != nil
-}
-
 // stdProgSolved is the def of the std interface the checker solved for a
 // position the program does not annotate, or names through a module
 // qualifier, or nil (stdProgIfaceAt).
@@ -736,9 +622,9 @@ func (g *gen) stdProgIfaceAt(origin, name string) *ifaceDef {
 	module := strings.TrimPrefix(origin, "std/")
 	if g.fa != nil {
 		// The program's own std scope first: the declaration a file's
-		// import reaches (stdProgIfaceNamed), which may have been read from
-		// the stdlib's stored interfaces rather than the shared analysis,
-		// so the two routes reach one def.
+		// import reaches, which may have been read from the stdlib's stored
+		// interfaces rather than the shared analysis, so every route
+		// reaches one def.
 		if scope := g.fa.Program().StdlibModuleScopes[module]; scope != nil {
 			if d := g.stdProgIfaceOf(resolvedScopeSymbol(scope, name)); d != nil {
 				return d

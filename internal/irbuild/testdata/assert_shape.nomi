@@ -52,10 +52,11 @@ test "refuting a None passes and carries the None through"
 
     // Discriminated by `case`, not `empty == None`, so the block also tests
     // that the subject is carried through the assertion unchanged.
-    tag = case empty
-        Some(_) -> 1
-        None    -> 0
-    end
+    tag =
+        case empty
+            Some(_) -> 1
+            None    -> 0
+        end
 
     assert tag == 0
 end

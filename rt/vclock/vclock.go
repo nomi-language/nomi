@@ -62,7 +62,7 @@
 // changes semantics:
 //
 //   - Anything blocking on the outside world — reading stdin, a real network
-//     call through FFI — is not "durably blocked", so the clock never advances
+//     call through a host function — is not "durably blocked", so the clock never advances
 //     and the bubble reports a deadlock.
 //   - Every goroutine must finish before the test does. Background work a test
 //     starts and abandons is an error rather than a leak.

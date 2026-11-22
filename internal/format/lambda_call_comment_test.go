@@ -43,7 +43,7 @@ func TestFormat_CommentOnlyLambdaBodyKeepsItsComments(t *testing.T) {
 		},
 		{
 			name: "binding",
-			src:  "    g = fn x ->\n        // a\n        // b\n    end\n",
+			src:  "    g =\n        fn x ->\n            // a\n            // b\n        end\n",
 		},
 		{
 			name: "comment after the call too",

@@ -23,15 +23,16 @@ import (
 // construction path is where the zero-sized-payload rule and the
 // `embeds`-unwrap rule would drift, and both of those are wrong-answer bugs.
 //
-// # IDENTITY: this resolves a NAME
+// # IDENTITY: the enum the checker typed the shorthand as
 //
-// `ResolvedEnum` is the checker's `EnumType.Name` — a bare declared name, never
-// a qualified path (analysis/checker.go, six assignment sites, all
-// `= et.Name`) — resolved in the scope of the site, so a name lookup is the
-// specification here rather than a shortcut around one. `g.namedType` does
-// that lookup and reaches a sibling file's declaration through a
-// mirror, which is what makes the shorthand work for an imported enum —
-// `policy.{Backoff}` in tests/07-structs-and-enums.
+// The written node's checked type names the enum by its declaration, and
+// noteVariantOwner files it as the owner of the node qualifiedDot writes
+// (`dotOwners`). A monomorphic enum's def is the one `project` resolves
+// that type to whatever the file imports (dotEnumDef), so the shorthand
+// works for an imported enum — `policy.{Backoff}` in
+// tests/07-structs-and-enums — and for one the file never names. A generic
+// enum's template is the one the type names (genericVariant,
+// genericTemplateOf).
 //
 // An empty `ResolvedEnum` means analysis did not fire or the resolution FAILED,
 // in which case the analyzer already reported a diagnostic and the program does
@@ -47,23 +48,17 @@ import (
 // would lower while `c: Outcome<Unit> = .Cancelled` would not, though the two
 // are one value.
 //
-// So `preludeBareValue` asks by NAME before the rewrite. variantalias.go's
-// header says a positional resolver "inherits fa.References' coverage exactly" and
-// that "a caller needing an answer for a synthesized position needs a
-// non-positional route; this is the wrong door and must not be widened into
-// one" — this is that route, and `preludeByName` is the same oracle
-// iter.go, lists.go and maps.go already use for exactly the
-// no-position case. It is shadow-safe by construction: preludeAnchorsOf takes
-// the declaration `ModuleScope` resolves the name to and compares it against
-// the spec, so a module declaring its own `Outcome` gets no anchor.
+// So `preludeBareValue` reads the shorthand's checked type before the
+// rewrite: the enum instance the checker typed the dot at, by its
+// declaration's identity, whose spec names the variant. A module declaring
+// its own `Outcome` types the dot at its own enum, which is no prelude
+// instance. The same holds for every prelude spec, not only Outcome:
+// `m: Maybe<Int> = .None` takes this route too.
 //
-// The same holds for every prelude spec, not only Outcome: `m: Maybe<Int> =
-// .None` takes this route too.
-//
-// WHAT THE NAME ROUTE CANNOT DO, and it is UNREACHABLE rather than a hole:
+// WHAT THIS ROUTE CANNOT DO, and it is UNREACHABLE rather than a hole:
 // canonicalize an ALIAS. `t.Name` is the LOCAL spelling and the
-// declaration-name mapping lives only in the reference map this route exists to
-// avoid, so `import std::maybe.Maybe.{None as Nothing}` followed by `.Nothing`
+// declaration-name mapping lives only in the reference map, so
+// `import std::maybe.Maybe.{None as Nothing}` followed by `.Nothing`
 // would find no variant on the spec and decline. The analyzer refuses that
 // program first — "no variant 'Nothing' on enum Maybe" — because the dot
 // shorthand resolves against the DECLARATION's variant names and an import
@@ -84,23 +79,47 @@ import (
 // wrote it rather than at a node nobody typed.
 func (g *gen) qualifiedDot(t *ast.DotVariant) *ast.FieldAccess {
 	fa := &ast.FieldAccess{
-		Object: &ast.TypeIdent{Name: g.dotEnumName(t.ResolvedEnum), Line: t.Line, Col: t.Col},
+		Object: &ast.TypeIdent{Name: t.ResolvedEnum, Line: t.Line, Col: t.Col},
 		Field:  &ast.Ident{Name: t.Name, Line: t.Line, Col: t.Col},
 		Line:   t.Line,
 		Col:    t.Col,
 	}
-	if d := g.dotEnumDef(t, t.ResolvedEnum, t.Name); d != nil {
-		if g.dotOwners == nil {
-			g.dotOwners = map[*ast.FieldAccess]*typeDef{}
-		}
-		g.dotOwners[fa] = d
-	}
+	g.noteVariantOwner(fa, t)
 	return fa
 }
 
-// dotEnumDef is the declaration of the monomorphic enum the checker resolved a
-// `.Variant` (or `.Variant{...}`, whose node `at` is the struct literal) to,
-// found from the checked type at `at`, or nil.
+// noteVariantOwner files the enum the checker typed at, a `.Variant`
+// shorthand or a literal-attach form, as the owner of fa, the
+// `Enum.Variant` the builder writes for it (dotOwners).
+func (g *gen) noteVariantOwner(fa *ast.FieldAccess, at ast.Node) {
+	et := g.dotEnumType(at)
+	if et == nil {
+		return
+	}
+	if g.dotOwners == nil {
+		g.dotOwners = map[*ast.FieldAccess]*analysis.EnumType{}
+	}
+	g.dotOwners[fa] = et
+}
+
+// dotEnumType is the enum the checker resolved a `.Variant` (or
+// `.Variant{...}`, whose node `at` is the struct literal) to: the checked
+// type at `at`, or for a payload variant, whose checked type is the
+// constructor's function type, its result. Nil when it is no enum.
+func (g *gen) dotEnumType(at ast.Node) *analysis.EnumType {
+	ty := g.checkedExprType(at)
+	if ft, isFunc := irResolvedType(ty).(*analysis.FuncType); isFunc {
+		ty = ft.Return
+	}
+	et, isEnum := resolvedEnumType(ty)
+	if !isEnum {
+		return nil
+	}
+	return et
+}
+
+// dotEnumDef is the def of et, the monomorphic enum the checker resolved a
+// `.Variant` to (dotEnumType), when it declares variant, or nil.
 //
 // # THE NAME IS NOT IN THIS FILE'S SCOPE WHEN THE EXPECTED TYPE COMES FROM A CALLEE
 //
@@ -111,18 +130,12 @@ func (g *gen) qualifiedDot(t *ast.DotVariant) *ast.FieldAccess {
 // declares one: a wrong answer if that enum also has a `Descending`. The checked
 // type carries the declaration's (Origin, Name), which `project` resolves to
 // the right def whatever the file imports, as it does for any inferred
-// position. A payload variant's checked type is the constructor's function
-// type, whose result is the enum.
+// position.
 //
-// Generic enums keep the name route (genericVariant and the prelude anchors):
-// their instance comes from the call's checked signature or the expected kind.
-func (g *gen) dotEnumDef(at ast.Node, resolved, variant string) *typeDef {
-	ty := g.checkedExprType(at)
-	if ft, isFunc := irResolvedType(ty).(*analysis.FuncType); isFunc {
-		ty = ft.Return
-	}
-	et, isEnum := resolvedEnumType(ty)
-	if !isEnum || len(et.TypeParamDefs) > 0 || et.Name != resolved {
+// A generic enum's instance comes from the call's checked signature or the
+// expected kind, and its template from et (genericVariant).
+func (g *gen) dotEnumDef(et *analysis.EnumType, variant string) *typeDef {
+	if et == nil || len(et.TypeParamDefs) > 0 {
 		return nil
 	}
 	k := g.project(et)
@@ -130,27 +143,4 @@ func (g *gen) dotEnumDef(at ast.Node, resolved, variant string) *typeDef {
 		return nil
 	}
 	return k.def
-}
-
-// dotEnumName is the spelling `namedType` can resolve the shorthand's enum by.
-//
-// `ResolvedEnum` is a BARE declared name and the file's own tables bind only
-// what the file names. A SELECTIVE import (`import shapes.{Shape}`) puts
-// `Shape` there and the bare name resolves; a WHOLE-FILE import (`import
-// shapes`) binds only the qualifier, so for `b: shapes.Shape = .Ring{r: 7}`
-// the bare `Shape` does not resolve and the module-qualified spelling does.
-//
-// Returns the input unchanged when nothing better is found, so a refusal keeps
-// its operand and its position.
-func (g *gen) dotEnumName(resolved string) string {
-	if resolved == "" {
-		return resolved
-	}
-	if _, known := g.namedType(resolved); known {
-		return resolved
-	}
-	if spelling, qualified := g.moduleQualifiedBare(resolved); qualified {
-		return spelling
-	}
-	return resolved
 }

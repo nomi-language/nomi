@@ -1,8 +1,6 @@
 package irbuild
 
 import (
-	"maps"
-
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -30,9 +28,6 @@ func (bl *irScalarBuilder) isTest(t *ast.Is) (ir.Temp, kind, bool, bool) {
 	bl.b.Append(ir.NewSlot(pos, result, bl.g.irTypeOf(kindBool)))
 	missed := bl.f.NewBlock(pos, "is miss")
 	exit := bl.f.NewBlock(pos, "exit")
-	bound, boundK, syms := bl.bound, bl.boundK, bl.sh.syms
-	defer func() { bl.bound, bl.boundK, bl.sh.syms = bound, boundK, syms }()
-	bl.bound, bl.boundK, bl.sh.syms = maps.Clone(bound), maps.Clone(boundK), maps.Clone(syms)
 	matched, next, ok := bl.caseArmTest(t, &ast.CaseBranch{Pattern: t.Pattern, Body: t}, false, subj, sk, true, missed)
 	if !ok {
 		return no()

@@ -483,18 +483,13 @@ func (g *gen) testCase(c testCaseDecl) {
 
 	prevInTest, prevResult := g.inTest, g.result
 	g.inTest, g.result = true, kindInvalid
-	g.pushScope()
-	// The body is built before anything else binds its names: `bl.lower`
-	// asks `g.lookup`, and a name already bound in the gen's scope would
-	// resolve to an `ir.Ref` no machine can read. irTestBody declares a
-	// grouped case's body in the module's test table and queues an
+	// irTestBody declares a grouped case's body in the module's test table and queues an
 	// ungrouped one for irRetryWalkOnlyTestBodies. The decline a case it did
 	// not build left in g.dc is cleared here, so it does not leak into the
 	// next attempt. See irtestbody.go.
 	g.irTestBody(c, name)
 	g.dc.take()
 	g.irBodyObserve(irBodyTestBody, true)
-	g.popScope()
 	g.inTest, g.result = prevInTest, prevResult
 }
 

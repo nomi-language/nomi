@@ -14,10 +14,9 @@ and a trait is an `interface`. There is no ownership, no `mut`, no
 [generates code](/generating-code/) into ordinary files instead.
 
 **[Go](/from-go/).** Errors as values, structs, interfaces, one formatter,
-channels and a single executable carry over, and a Nomi program can
-[call Go packages](/calling-go/). Values never change, an error passes up
-with a postfix `?`, a type says which interfaces it implements, and tasks
-run only inside a `concurrent` block, which waits for them.
+channels and a single executable carry over. Values never change, an error
+passes up with a postfix `?`, a type says which interfaces it implements,
+and tasks run only inside a `concurrent` block, which waits for them.
 
 **[Elixir](/from-elixir/).** Immutable data, pipes, pattern matching,
 functions called through their module and supervised tasks carry over. Types

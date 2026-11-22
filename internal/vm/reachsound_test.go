@@ -17,9 +17,9 @@ import (
 // to what the machine runs: every function a run enters is in the set the
 // walk reaches from the roots that run started from. A built image keeps
 // only that set (vm.PruneImage), the pre-run check names a missing body
-// only within it (Machine.Unretained), and the capability lists and target
+// only within it (Machine.Unretained), and the effects lists and target
 // checks read only the calls in it, so a function the walk misses is one a
-// built program cannot call and an outside call no list holds.
+// built program cannot call and an effect call no list holds.
 //
 // The machine counts entries (Machine.WithEntryCounts), which sees every
 // body it ran, a lambda's and a test case's included. The inputs, each on a
@@ -28,8 +28,9 @@ import (
 //   - every corpus and tour record that is not a test report, run as
 //     vmRun runs it (boot, then main), against the walk from main, its
 //     failure renderer and the boot (vm.MainRoots);
-//   - every corpus, failure and tour record that is a test report, and
-//     every std module's attached tests, each case run on its own
+//   - every corpus, failure and tour record that is a test report (a tour
+//     block's every file that declares tests, reportFiles), and every std
+//     module's attached tests, each case run on its own
 //     (Machine.RunCases), against the walk from that case and its group's
 //     boot and startup: the walk `nomi test` checks a case with before it
 //     runs it. A case whose walk reaches a body that was not retained is
@@ -43,7 +44,7 @@ func TestReach_EveryEnteredFunctionIsReached(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; lowers and runs every program and test case of five populations; -short")
 	}
-	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
+	t.Setenv("NOMI_RUNNER_CACHE_ROOT", t.TempDir())
 	s := &soundness{t: t}
 	for _, population := range []string{"corpus", "tour"} {
 		set, err := expectation.Load(population)
@@ -76,14 +77,20 @@ func TestReach_EveryEnteredFunctionIsReached(t *testing.T) {
 			if !ok {
 				continue
 			}
-			prog, res, mod, reason := vmLowerTests(path)
-			if reason != "" {
-				s.refuse(reason)
-				continue
+			for _, file := range reportFiles(path) {
+				prog, res, mod, reason := vmLowerTests(file)
+				if reason != "" {
+					s.refuse(reason)
+					continue
+				}
+				s.files++
+				label := population + " " + id
+				if file != path {
+					label += " " + filepath.Base(file)
+				}
+				m := vmTestMachine(prog, file, mod, res.IRModules(), io.Discard).WithEntryCounts()
+				s.cases(label, m, mod.Tests())
 			}
-			s.files++
-			m := vmTestMachine(prog, path, mod, res.IRModules(), io.Discard).WithEntryCounts()
-			s.cases(population+" "+id, m, mod.Tests())
 		}
 	}
 	root, err := expectation.Root()

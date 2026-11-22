@@ -72,6 +72,10 @@ func classify(op, path string, err error) *rt.IOError {
 		return tag(rt.TagIOPermissionDenied)
 	case errors.Is(err, fs.ErrClosed):
 		return &rt.IOError{Tag: rt.TagIOClosed}
+	case errors.Is(err, os.ErrDeadlineExceeded):
+		// A read or write past a deadline the stream set: a connection's
+		// `set_read_deadline`, a pipe's.
+		return &rt.IOError{Tag: rt.TagIOTimedOut}
 	}
 	if pe != nil && pe.Op != "" {
 		op = pe.Op

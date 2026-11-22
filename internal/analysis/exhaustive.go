@@ -187,10 +187,18 @@ func withoutAsColumn(rows [][]ast.Node) [][]ast.Node {
 
 // coversColumn reports whether p, in a column whose type has the constructors
 // ctors, matches every value: a catch-all, or a pattern that fits none of the
-// constructors (a type error checkPattern reports).
+// constructors (a type error checkPattern reports). A literal or a string
+// prefix over a subtype fits: its value is its base's (spec §4
+// *Subtypes*), so `80` over a Port tests the value as it would an Int.
 func (c *checker) coversColumn(t Type, ctors []patCtor, p ast.Node) bool {
 	if isCatchAllPattern(p) {
 		return true
+	}
+	if dt, isDistinct := t.(*DistinctType); isDistinct && dt.Subtype && isUnenumerableConstraint(dt.Inner, p) {
+		return false
+	}
+	if constrainedRest(p) {
+		return false
 	}
 	for _, ctor := range ctors {
 		if _, ok := c.specializePattern(t, ctor, p); ok {
@@ -336,15 +344,39 @@ func (c *checker) patternCtors(t Type, column []ast.Node) []patCtor {
 }
 
 // seqPattern reads a list or vector pattern with no type name as its heads,
-// its tails and whether it has a `..`. ok is false for any other pattern.
+// its tails and whether it has a `..`. A rest that is itself a list
+// pattern is the elements it names (`[a, ..[b, ..]]` is `[a, b, ..]`, and
+// `[..[]]` is `[]`). ok is false for any other pattern, and for a rest
+// another pattern constrains (constrainedRest).
 func seqPattern(p ast.Node) (heads, tails []ast.Node, spread, ok bool) {
-	switch v := p.(type) {
-	case *ast.ListPattern:
-		if v.TypeName == nil {
-			return v.Heads, v.Tails, v.TailSpread != nil, true
-		}
+	v, isList := p.(*ast.ListPattern)
+	if !isList || v.TypeName != nil {
+		return nil, nil, false, false
 	}
-	return nil, nil, false, false
+	rest := ast.WithoutAs(v.Rest())
+	if rest == nil || isCatchAllPattern(rest) {
+		return v.Heads, v.Tails, v.TailSpread != nil, true
+	}
+	if len(v.Tails) > 0 {
+		return nil, nil, false, false
+	}
+	h, t, s, ok := seqPattern(rest)
+	if !ok {
+		return nil, nil, false, false
+	}
+	return append(append([]ast.Node{}, v.Heads...), h...), t, s, true
+}
+
+// constrainedRest reports whether p is a list or vector pattern whose rest
+// is a pattern seqPattern cannot read as elements (`[a, ..(xs or ys)]`): it
+// tests the rest, so it covers no length class, and is no catch-all.
+func constrainedRest(p ast.Node) bool {
+	v, isList := p.(*ast.ListPattern)
+	if !isList || v.TypeName != nil {
+		return false
+	}
+	_, _, _, ok := seqPattern(p)
+	return !ok
 }
 
 // seqCtors is a list's or a vector's constructors by length: lengths 0

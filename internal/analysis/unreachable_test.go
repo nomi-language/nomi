@@ -6,6 +6,15 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 )
 
+// unreachableCheck builds and checks src against the stdlib as it is
+// written. The unreachable-code rule runs in the check, once the file's
+// calls have their records (checkUnreachableCode).
+func unreachableCheck(t *testing.T, src string) []analysis.TypeError {
+	t.Helper()
+	_, _, errs := checkSourceAsWrittenWithStdlib(src)
+	return errs
+}
+
 func unreachableErrors(errs []analysis.TypeError) []analysis.TypeError {
 	var out []analysis.TypeError
 	for _, e := range errs {
@@ -19,7 +28,7 @@ func unreachableErrors(errs []analysis.TypeError) []analysis.TypeError {
 // Each keyword that ends a block reports the first statement after it, at
 // that statement's first token, once per block.
 func TestUnreachable_StatementAfterReturnBreakContinue(t *testing.T) {
-	errs := buildErrsWithStdlib(t, `
+	errs := unreachableCheck(t, `
 fn early(n: Int) -> Int
   return n
   _ = n + 1
@@ -68,7 +77,7 @@ end
 // A return inside a branch leaves the code after the branch reachable, and a
 // return as the last statement leaves nothing behind it.
 func TestUnreachable_ConditionalAndTrailingReturnAreClean(t *testing.T) {
-	errs := buildErrsWithStdlib(t, `
+	errs := unreachableCheck(t, `
 fn f(n: Int) -> Int
   if n > 0 then
     return n

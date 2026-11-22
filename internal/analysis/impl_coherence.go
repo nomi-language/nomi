@@ -840,7 +840,7 @@ func AttachEditedStdlibImpls(fa *FileAnalysis, nodes []ast.Node, module string, 
 		ImplBlockInterfaceKeyExtern: map[*ast.ExternFunc]string{},
 	}
 	var inherents []InherentMethodRecord
-	IndexImplBlockFuncDefs(nodes, "std/"+module, fa.Definitions, own.IfaceMethodImpls, own.IfaceMethodImplFiles,
+	IndexImplBlockFuncDefs(nodes, "std/"+module, fa.Definitions, fa.ModuleScope, own.IfaceMethodImpls, own.IfaceMethodImplFiles,
 		own.ImplBlockReceiver, own.ImplBlockInterfaceKey, own.IfaceMethodImplExterns, own.IfaceMethodImplExternFiles,
 		own.ImplBlockInterfaceKeyExtern, &inherents)
 	files := make(map[string]*FileAnalysis, len(stdlibFAs))
@@ -1720,7 +1720,9 @@ func detectInherentImplCollisions(inherents []InherentMethodRecord, pathOf func(
 // `impl Multiply<Int, Box> for Box` reached the impl's `multiply` and failed
 // "argument 2: expected Int, got Float"). The error is at the
 // inherent function's name whichever is declared first, once per inherent
-// function, naming the first clashing impl function by interface name.
+// function, naming the first clashing impl function by interface name. Every
+// type implements Debug, so a function named as one of Debug's clashes
+// with it for a type with no Debug block too.
 //
 // A type is its nominal identity, `(declaring file, name)`: an inherent
 // record's ReceiverOrigin against the origin of the impl's receiver as its
@@ -1740,7 +1742,7 @@ func detectInherentImplNameClashes(
 	primitives map[string]string,
 	pathOf func(key string) string,
 ) []TypeError {
-	if len(inherents) == 0 || len(ifaceImpls) == 0 {
+	if len(inherents) == 0 {
 		return nil
 	}
 	ifaces := make([]string, 0, len(ifaceImpls))
@@ -1793,7 +1795,12 @@ func detectInherentImplNameClashes(
 				break
 			}
 		}
-		if clash == nil {
+		if clash == nil && stdDebugDecl != nil && interfaceMethodFuncType(stdDebugDecl, rec.Method) != nil {
+			// Every type implements Debug, with a block of it or by its
+			// shape (universalDebugFor).
+			clashIface = stdDebugDecl.Name
+		}
+		if clashIface == "" {
 			continue
 		}
 		errs = append(errs, TypeError{
@@ -1880,7 +1887,7 @@ func detectInherentDefaultClashes(
 					receiver: recv,
 					origin:   origin,
 					block:    blk,
-					iface:    blk.Interface.TypeString(),
+					iface:    implInterfaceKey(f.fa.ModuleScope, blk.Interface),
 					open:     m.Open,
 				})
 			}
@@ -2007,6 +2014,64 @@ func interfaceThrough(fa *FileAnalysis, module, name string) *InterfaceType {
 	}
 	it, _ := sym.Type.(*InterfaceType)
 	return it
+}
+
+// implInterfaceName is the name of the interface declaration an impl
+// header names, read in fa, the file that writes the block (implInterfaceNameIn
+// over its scope). Every table that keys an impl by its interface keys it by
+// this name, so an impl belongs to the interface its header resolves to, not
+// to the header's spelling.
+func implInterfaceName(fa *FileAnalysis, te ast.TypeExpr) string {
+	if fa == nil {
+		return TypeExprBaseName(te)
+	}
+	return implInterfaceNameIn(fa.ModuleScope, te)
+}
+
+// implInterfaceNameIn is the name of the interface declaration te names in
+// scope: after `import std::resources.{Release as Freeable}`, `impl Freeable
+// for Lock` names Release, and `impl a.Shown for P` names the interface a
+// binds to Shown. A header the scope does not resolve to an interface keeps
+// its spelling, which the checks that report it read.
+func implInterfaceNameIn(scope *Scope, te ast.TypeExpr) string {
+	name := TypeExprBaseName(te)
+	if scope == nil || name == "" {
+		return name
+	}
+	var sym *Symbol
+	if module := implBlockInterfaceQualifier(te); module != "" {
+		mod := scope.Lookup(module)
+		for mod != nil && mod.Resolved != nil {
+			mod = mod.Resolved
+		}
+		if mod != nil && mod.Kind == SymbolModule && mod.ModuleScope != nil {
+			sym = mod.ModuleScope.Lookup(name)
+		}
+	} else if _, ownerQualified := te.(*ast.QualifiedType); !ownerQualified {
+		sym = scope.Lookup(name)
+	}
+	for sym != nil && sym.Resolved != nil {
+		sym = sym.Resolved
+	}
+	if sym == nil || sym.Kind != SymbolInterface || sym.Name == "" {
+		return name
+	}
+	return sym.Name
+}
+
+// implInterfaceKey is te's text with its head spelled as the declaration it
+// names (implInterfaceNameIn): `Release`, `From<DbError>`. The impl tables
+// that key a block by its whole header (ImplBlockInterfaceKey) read it, so
+// two headers that name one interface under two names are one key.
+func implInterfaceKey(scope *Scope, te ast.TypeExpr) string {
+	text := te.TypeString()
+	written := TypeExprBaseName(te)
+	if declared := implInterfaceNameIn(scope, te); declared != written {
+		if _, qualified := te.(*ast.QualifiedType); !qualified && strings.HasPrefix(text, written) {
+			return declared + strings.TrimPrefix(text, written)
+		}
+	}
+	return text
 }
 
 func detectInherentImplBlockCollisions(blocks []InherentImplBlockRecord, pathOf func(key string) string) []TypeError {

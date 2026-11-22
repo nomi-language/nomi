@@ -58,10 +58,11 @@ type irSlotDispatch struct {
 // irImplSlotDispatch builds or asks for the accessor of each defaulted
 // parameter of the program interface function that impl function it of d
 // implements, and notes it for the dispatch entries. Called from implFunc,
-// so a generic block's instance is under its frame.
+// so a generic block's instance is under its frame, after the function's
+// body: a gen that has retained nothing by then builds no accessor.
 func (g *gen) irImplSlotDispatch(d *implDef, it *implItem) {
 	m := g.slotDispatchMethod(d, it)
-	if m == nil {
+	if m == nil || g.irMod == nil {
 		return
 	}
 	for slot, p := range m.decl.Params {
@@ -89,10 +90,12 @@ func (g *gen) irImplSlotDispatch(d *implDef, it *implItem) {
 // slotDispatchMethod is the interface function that impl function it of d
 // implements when it has an accessor for each of that function's defaulted
 // parameters (irImplSlotDispatch): a program interface's dispatchable
-// function. Nil otherwise.
+// function. Nil otherwise. It is the declaration's answer, the same
+// whether or not g has lowered anything yet, so a call in a file lowered
+// before g's (implSlotHome) calls the accessors g builds.
 func (g *gen) slotDispatchMethod(d *implDef, it *implItem) *ifaceMethod {
 	iface := d.iface
-	if g.irMod == nil || iface == nil || iface.stdOrigin != "" || !it.lowerable {
+	if iface == nil || iface.stdOrigin != "" || !it.lowerable {
 		return nil
 	}
 	m := iface.methods[it.name]
@@ -151,7 +154,7 @@ func (g *gen) implSlotSym(d *implDef, it *implItem, slot int) (sym *ir.Symbol, o
 			frame[tp.Name] = ik
 		}
 	}
-	return owner.irIfaceSlotSym(o, theirs, frame, d.ifaceSubstTypes, key), owner, false
+	return owner.irIfaceSlotSym(o, theirs, frame, d.ifaceSubstTypes, d.recvType, key), owner, false
 }
 
 // irImplOwnSlotRetain builds sym, impl function it's accessor for slot

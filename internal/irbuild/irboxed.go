@@ -384,11 +384,11 @@ func irHoldsBoxedEnum(k kind) bool {
 // irDisplayInstanceContainer reports whether have is a std container whose
 // Display std answers with an impl instantiated at have, and whose text is
 // not structural (irDisplayErasedContainer): a Maybe, a Result or a Set.
-func (g *gen) irDisplayInstanceContainer(have kind) bool {
+func (g *gen) irDisplayInstanceContainer(have kind, haveType analysis.Type) bool {
 	if _, _, container := stdRecvParts(have); !container || g.stdModule != "" {
 		return false
 	}
-	fn, _ := g.irContainerDisplayInstance(have, nil)
+	fn, _ := g.irContainerDisplayInstance(have, haveType)
 	return fn != nil
 }
 
@@ -472,8 +472,11 @@ func (g *gen) boxedEnumDecl(d *typeDef) bool {
 // expression n becomes (analysis.FileAnalysis.Coercions), nil when it
 // becomes none. A copy of a written expression the builder lowers (a pipe
 // stage with its subject spliced in) keeps the written one's position and
-// node type, and finds the record by them.
-func (g *gen) coercionAt(n ast.Node) *analysis.Coercion {
+// node type, and finds the record by them; a stand-in for an operand a
+// named-argument call evaluated finds it at the operand (recordNode).
+func (bl *irScalarBuilder) coercionAt(n ast.Node) *analysis.Coercion {
+	g := bl.g
+	n = bl.recordNode(n)
 	fa := g.srcFA()
 	if fa == nil || n == nil || len(fa.Coercions) == 0 {
 		return nil
@@ -491,6 +494,16 @@ func (g *gen) coercionAt(n ast.Node) *analysis.Coercion {
 	}
 	line, col := nodePos(n)
 	return g.coercionsAt[irCoercionPos{line, col, n.NodeType()}]
+}
+
+// recordNode is the node the checker's records of n's value are keyed by:
+// the operand as written, for a stand-in a named-argument call placed
+// (irPlacedArg.written), else n.
+func (bl *irScalarBuilder) recordNode(n ast.Node) ast.Node {
+	if p, placed := bl.placed[n]; placed && p.written != nil {
+		return p.written
+	}
+	return n
 }
 
 // irCoercionPos finds a coercion record by its expression's position and
@@ -524,7 +537,7 @@ const (
 // The answer is irNotCoerced, with v and have, when the checker recorded
 // none, or have is already the interface's kind.
 func (bl *irScalarBuilder) coerceRecorded(at ast.Node, v ir.Temp, have, want kind) (ir.Temp, kind, irCoercion) {
-	rec := bl.g.coercionAt(at)
+	rec := bl.coercionAt(at)
 	if rec == nil {
 		return v, have, irNotCoerced
 	}
@@ -560,6 +573,10 @@ func (bl *irScalarBuilder) intoExistential(at ast.Node, v ir.Temp, want, have ki
 	var haveType analysis.Type
 	if rec != nil {
 		impl, haveType = rec.Impl, bl.g.checkerTypeArg(rec.Value)
+	} else {
+		// No coercion recorded here (a comparison's operand, an operand
+		// widened into an `embeds` variant): the value's own type.
+		haveType = bl.g.valueCheckerType(at, have)
 	}
 	if p := bl.g.irBoxPlanFor(want, have, haveType, impl); p != nil {
 		return bl.eraseBoxed(at, v, want, p), irCoercedBoxed
@@ -574,15 +591,24 @@ func (bl *irScalarBuilder) intoExistential(at ast.Node, v ir.Temp, want, have ki
 // entering want, an interface or a conjunction, at the expression at: the
 // coercion of the expression itself, or a part of its conversion
 // (analysis.FileAnalysis.Conversions: a `List<Int>` entering Display
-// inside a `Maybe<List<Int>>` converted to a `Maybe<Display>`). Nil when
-// it recorded none there. A std interface is want through either of its
-// defs (substKindsAgree): a std instance's body holds its caller's.
-func (g *gen) recordedCoercion(at ast.Node, want, have kind) *analysis.Coercion {
-	if rec := g.coercionAt(at); rec != nil && g.substKindsAgree(g.project(rec.Into()), want) {
+// inside a `Maybe<List<Int>>` converted to a `Maybe<Display>`). The
+// payload of a prelude variant built at the converted type
+// (preludePayloadValue: `Some(Vector["v"])` where a `Maybe<Show>` is
+// expected) is a part of the call's conversion, which the checker records
+// on the call. Nil when it recorded none there. A std interface is want
+// through either of its defs (substKindsAgree): a std instance's body
+// holds its caller's.
+func (bl *irScalarBuilder) recordedCoercion(at ast.Node, want, have kind) *analysis.Coercion {
+	g := bl.g
+	if rec := bl.coercionAt(at); rec != nil && g.substKindsAgree(g.project(rec.Into()), want) {
 		return rec
 	}
-	if rec := g.conversionAt(at); rec != nil {
-		for _, b := range rec.Boxes {
+	conv := bl.conversionAt(at)
+	if p := bl.payloadOf; conv == nil && p != nil && len(p.Args) == 1 && p.Args[0] == at {
+		conv = bl.conversionAt(p)
+	}
+	if conv != nil {
+		for _, b := range conv.Boxes {
 			if g.substKindsAgree(g.project(b.Into()), want) && g.project(b.Value) == have {
 				return b
 			}
@@ -593,9 +619,11 @@ func (g *gen) recordedCoercion(at ast.Node, want, have kind) *analysis.Coercion 
 
 // conversionAt is the checker's record of the conversion of the expression
 // n below its top (analysis.FileAnalysis.Conversions), nil when it has
-// none, found by position for a copy of a written expression as
-// coercionAt finds one.
-func (g *gen) conversionAt(n ast.Node) *analysis.Conversion {
+// none, found by position for a copy of a written expression, and at the
+// operand for a stand-in, as coercionAt finds one.
+func (bl *irScalarBuilder) conversionAt(n ast.Node) *analysis.Conversion {
+	g := bl.g
+	n = bl.recordNode(n)
 	fa := g.srcFA()
 	if fa == nil || n == nil || len(fa.Conversions) == 0 {
 		return nil

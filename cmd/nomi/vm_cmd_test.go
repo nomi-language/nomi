@@ -75,7 +75,7 @@ func TestRunCommand_VMRefusesABlockedProgram(t *testing.T) {
 		t.Fatalf("nomi check (%v) printed:\n%s\nnomi run printed:\n%s", err, check, out)
 	}
 	cmd := exec.Command(nomiBin, "run", entry)
-	cmd.Env = append(cmd.Environ(), "NOMI_FFIRUN_CACHE_ROOT="+t.TempDir(), "NOMI_DEBUG_LOWERING=1")
+	cmd.Env = append(cmd.Environ(), "NOMI_RUNNER_CACHE_ROOT="+t.TempDir(), "NOMI_DEBUG_LOWERING=1")
 	debug, _ := cmd.CombinedOutput()
 	if !strings.Contains(string(debug), "= help: the lowering's reason: [count] "+plantedReason+"\n") {
 		t.Fatalf("NOMI_DEBUG_LOWERING=1 nomi run did not add the lowering's reason:\n%s", debug)

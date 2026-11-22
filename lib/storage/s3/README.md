@@ -6,7 +6,7 @@ DigitalOcean Spaces, MinIO, Cloudflare R2, Backblaze B2 and AWS.
 written against `Store` runs on it unchanged. It is Nomi over `std/http`,
 with SigV4 signing over `std/hash`, and has no Go code of its own.
 
-```
+```sh
 nomi add github.com/nomi-language/nomi/lib/storage/s3
 ```
 

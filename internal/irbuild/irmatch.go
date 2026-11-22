@@ -1,6 +1,6 @@
 package irbuild
 
-// The match class. irdestructure.go sits beside it.
+// The match class.
 //
 // A pattern is not a node. `internal/ir/match.go`'s header carries the
 // argument; the short form is that this IR is linear and a pattern nests, so

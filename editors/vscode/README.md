@@ -8,12 +8,21 @@ and its forks:
   indentation, and `///`, `//!` and `//#` lines that continue themselves on
   Enter.
 - Highlighting from a TextMate grammar, refined by the language server's
-  semantic tokens.
+  semantic tokens. Code that has effects (a call that reads a file, prints
+  or uses the network, a function that can, and that function's name where
+  it is declared) carries the `effect` modifier, which the extension maps
+  to `markup.bold`, so the default themes draw it bold. To style it
+  yourself, add a rule to `settings.json`:
+  `"editor.semanticTokenColorCustomizations": { "rules": { "*.effect:nomi":
+  { "bold": true } } }`, with `"underline": true` or `"foreground"` in place
+  of `"bold"` for another look. A theme that already makes every function
+  name bold shows no mark at a declaration; the hover there still says
+  `Has effects`.
 - The language server, `nomi-lsp`: diagnostics, hover, completion,
   go-to-definition, formatting and the rest of what it serves.
 - `nomi.toml`: the client attaches `nomi-lsp` to every `nomi.toml`, for
   the errors `nomi check` reports there, as you type, and completion of std
-  module names and module paths in its `[capabilities]` lists. A quick fix
+  module names and module paths in its `[effects]` lists. A quick fix
   on a call the lists do not allow edits it. The file keeps VS Code's TOML
   highlighting.
 - Phrase catalogs: the client also attaches `nomi-lsp` to each module's
@@ -187,6 +196,8 @@ What the tests cover:
   `package.json` against `src/debugConfig.ts`: the initial configurations,
   every attribute a configuration sets being documented, the configuration
   a Debug lens starts, and what F5 with no launch.json debugs.
+- `test/unit/semanticTokens.test.ts`: the `effect` modifier is declared by
+  the server's name and mapped to `markup.bold`.
 - `test/unit/corpus.test.ts`: tokenizes every `.nomi` file under `tests/`
   and `std/` with the grammar and fails if a string, comment or
   interpolation runs past a top-level declaration or the end of a file, or if

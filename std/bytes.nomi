@@ -8,6 +8,7 @@ import
     debug.Debug
     display.Display
     equatable.Equatable
+    float.Float
     hashable.Hashable
     int.{Int, NonNegativeInt}
     iter.Iter
@@ -16,12 +17,47 @@ import
     maybe.Maybe.{None, Some}
     results.Result
     results.Result.Ok
+    strings.String
     summable.Summable
 end
 
-//# Immutable byte buffers and their `Byte` element type. `Bytes` is the FFI
-//# boundary for Go `[]byte`; convert to `List<Byte>` only when Nomi code needs
+//# Immutable byte buffers and their `Byte` element type. `Bytes` carries binary
+//# data to and from host functions; convert to `List<Byte>` only when Nomi code needs
 //# to inspect or transform individual bytes.
+//#
+//# Binary formats and wire protocols are written over three pieces:
+//#
+//# - **Reading at an index.** `Bytes.uint32_be_at(data, i)` and its siblings
+//#   read an integer of 8, 16, 32 or 64 bits, signed or unsigned, big- or
+//#   little-endian, or a 32- or 64-bit float, and `Bytes.uvarint_at` and
+//#   `Bytes.varint_at` a LEB128 varint. Each answers `None` past the end.
+//#   `Bytes.index_of`, `Bytes.split` and their siblings search, and
+//#   `Bytes.slice` takes a part without copying it.
+//# - **Reading in turn.** A `Cursor` (std::bytes::cursor) is a position in
+//#   a Bytes, as a value: each read answers what it read and the Cursor
+//#   after it.
+//# - **Writing.** A `Builder` appends bytes, integers, floats, varints and
+//#   text, as a value, in amortized constant time per byte, and
+//#   `Builder.to_bytes` ends it.
+//#
+//# ```nomi
+//# import
+//#     std::bytes.Builder
+//#     std::bytes::cursor.Cursor
+//# end
+//#
+//# fn frame(payload: Bytes) -> Bytes
+//#     Builder.new()
+//#     |> Builder.push_int32_be(Bytes.length(payload))
+//#     |> Builder.push_bytes(payload)
+//#     |> Builder.to_bytes()
+//# end
+//#
+//# fn unframe(c: Cursor) -> Maybe<(Bytes, Cursor)>
+//#     (length, c) = Cursor.read_uint32_be(c)?
+//#     Cursor.read_bytes(c, length)
+//# end
+//# ```
 //#
 //# `Bytes` implements `Contains<Byte>`, `Iter<Byte>`, `Add<Bytes, Bytes>`,
 //# `Summable`, `Display`, `Debug`, `Equatable`, `Comparable` and `Hashable`.
@@ -191,7 +227,285 @@ impl Bytes
     //! assert Bytes.from_list([255]) |> Bytes.to_string() == Result.Err("invalid UTF-8")
     //
     pub host fn to_string(data: Bytes) -> Result<String, String>
+
+    /// Decodes bytes as UTF-8 text, replacing each ill-formed part with
+    /// U+FFFD, the replacement character. A part is a maximal ill-formed
+    /// subsequence, as Unicode recommends and the WHATWG Encoding Standard
+    /// decodes: a sequence cut short is one replacement, and a byte that
+    /// begins no sequence is one each. Well-formed bytes come back as
+    /// `Bytes.to_string` gives them.
+    //! assert Bytes.from_list([104, 105]) |> Bytes.to_string_lossy() == "hi"
+    //! assert Bytes.from_list([97, 255, 98]) |> Bytes.to_string_lossy() == "a�b"
+    //! assert Bytes.from_list([97, 0xE2, 0x82]) |> Bytes.to_string_lossy() == "a�"
+    //
+    pub host fn to_string_lossy(data: Bytes) -> String
+
+    /// How many bytes at the start of `data` are well-formed UTF-8: its
+    /// length when all of it is, and otherwise the index of the first byte
+    /// that begins no well-formed sequence. `Bytes.to_string` fails exactly
+    /// when this is less than the length.
+    //! assert Bytes.valid_utf8_length(String.to_bytes("hé")) == 3
+    //! assert Bytes.valid_utf8_length(Bytes.from_list([104, 195, 169, 255, 104])) == 3
+    //
+    pub host fn valid_utf8_length(data: Bytes) -> NonNegativeInt
+
+    /// The buffers one after another, in one copy. Summing Bytes with `+`
+    /// copies the left side at each step; this copies each byte once.
+    //! a = Bytes.from_list([1, 2])
+    //! b = Bytes.from_list([3])
+    //! assert Bytes.concat_all([a, b, a]) == Bytes.from_list([1, 2, 3, 1, 2])
+    //! assert Bytes.concat_all([]) == Bytes.from_list([])
+    //
+    pub host fn concat_all(parts: List<Bytes>) -> Bytes
+
+    /// The first index at or after `from` where `needle` starts, or None.
+    /// `from` is clamped to the buffer, as `Bytes.slice`'s bounds are, and
+    /// an empty needle is found at `from`.
+    //! data = String.to_bytes("ab\r\ncd\r\n")
+    //! crlf = String.to_bytes("\r\n")
+    //! assert Bytes.index_of(data, crlf) == Some(2)
+    //! assert Bytes.index_of(data, crlf, from: 3) == Some(6)
+    //! assert Bytes.index_of(data, crlf, from: 7) == None
+    //
+    pub fn index_of(data: Bytes, needle: Bytes, from: Int = 0) -> Maybe<NonNegativeInt>
+        index_of_from(data, needle, from)
+    end
+
+    /// The first index at or after `from` that holds `b`, or None. `from`
+    /// is clamped as `Bytes.index_of`'s is.
+    //! data = Bytes.from_list([1, 0, 2, 0])
+    //! assert Bytes.index_of_byte(data, 0) == Some(1)
+    //! assert Bytes.index_of_byte(data, 0, from: 2) == Some(3)
+    //! assert Bytes.index_of_byte(data, 9) == None
+    //
+    pub fn index_of_byte(data: Bytes, b: Byte, from: Int = 0) -> Maybe<NonNegativeInt>
+        index_of_byte_from(data, b, from)
+    end
+
+    /// The first index at or after `from` that holds any byte of `set`, or
+    /// None. Each byte of `set` is one candidate, whatever text it may
+    /// encode, and an empty `set` holds none. `from` is clamped as
+    /// `Bytes.index_of`'s is. A scan that stops at a few kinds of byte (a
+    /// tokenizer passing plain text, an escaper looking for what it must
+    /// escape) jumps between them with one search each, in time linear in
+    /// the bytes passed plus the length of `set`.
+    //! data = String.to_bytes("a<b&c")
+    //! special = String.to_bytes("&<>")
+    //! assert Bytes.index_of_any(data, special) == Some(1)
+    //! assert Bytes.index_of_any(data, special, from: 2) == Some(3)
+    //! assert Bytes.index_of_any(data, String.to_bytes("xyz")) == None
+    //
+    pub fn index_of_any(data: Bytes, set: Bytes, from: Int = 0) -> Maybe<NonNegativeInt>
+        index_of_any_from(data, set, from)
+    end
+
+    /// The last index where `needle` starts, or None. An empty needle is
+    /// found at the end. To search only before an index, search a slice:
+    /// `Bytes.slice` does not copy.
+    //! data = String.to_bytes("a=b=c")
+    //! eq = String.to_bytes("=")
+    //! assert Bytes.last_index_of(data, eq) == Some(3)
+    //! assert Bytes.last_index_of(Bytes.slice(data, 0, 3), eq) == Some(1)
+    //
+    pub host fn last_index_of(data: Bytes, needle: Bytes) -> Maybe<NonNegativeInt>
+
+    /// The last index that holds `b`, or None.
+    //! assert Bytes.last_index_of_byte(Bytes.from_list([7, 1, 7]), 7) == Some(2)
+    //! assert Bytes.last_index_of_byte(Bytes.from_list([]), 7) == None
+    //
+    pub host fn last_index_of_byte(data: Bytes, b: Byte) -> Maybe<NonNegativeInt>
+
+    /// The last index that holds any byte of `set`, or None. To search only
+    /// before an index, search a slice, as for `Bytes.last_index_of`.
+    //! data = String.to_bytes("a=b;c")
+    //! assert Bytes.last_index_of_any(data, String.to_bytes("=;")) == Some(3)
+    //! assert Bytes.last_index_of_any(data, Bytes.from_list([])) == None
+    //
+    pub host fn last_index_of_any(data: Bytes, set: Bytes) -> Maybe<NonNegativeInt>
+
+    /// Whether `needle` occurs in `data`. `Bytes.contains`, the `Contains`
+    /// impl that `in` uses, looks for one byte.
+    //! data = String.to_bytes("GET / HTTP/1.1")
+    //! assert Bytes.contains_bytes(data, String.to_bytes("HTTP/"))
+    //! refute Bytes.contains_bytes(data, String.to_bytes("POST"))
+    //
+    pub host fn contains_bytes(data: Bytes, needle: Bytes) -> Bool
+
+    /// Whether `data` begins with `prefix`.
+    //! png = Bytes.from_list([0x89, 0x50, 0x4E, 0x47])
+    //! assert Bytes.starts_with(png, Bytes.from_list([0x89, 0x50]))
+    //! refute Bytes.starts_with(Bytes.from_list([0x89]), Bytes.from_list([0x89, 0x50]))
+    //
+    pub host fn starts_with(data: Bytes, prefix: Bytes) -> Bool
+
+    /// Whether `data` ends with `suffix`.
+    //! assert Bytes.ends_with(String.to_bytes("line\r\n"), String.to_bytes("\r\n"))
+    //! refute Bytes.ends_with(String.to_bytes("line\n"), String.to_bytes("\r\n"))
+    //
+    pub host fn ends_with(data: Bytes, suffix: Bytes) -> Bool
+
+    /// The parts of `data` between occurrences of `separator`, found from
+    /// the left without overlapping. Each part is a slice of `data`, not a
+    /// copy. An empty separator splits `data` into its bytes, and an empty
+    /// `data` is one empty part, as `String.split` answers.
+    //! comma = String.to_bytes(",")
+    //! lengths = Bytes.split(String.to_bytes("a,,bc"), comma) |> Iter.map(Bytes.length) |> Iter.to_list()
+    //! assert lengths == [1, 0, 2]
+    //! assert Bytes.split(Bytes.from_list([]), comma) == [Bytes.from_list([])]
+    //
+    pub host fn split(data: Bytes, separator: Bytes) -> List<Bytes>
+
+    /// How many times `needle` occurs in `data` without overlapping, found
+    /// from the left. An empty needle occurs before, between and after the
+    /// bytes: the length plus one times.
+    //! assert Bytes.count(String.to_bytes("aaaa"), String.to_bytes("aa")) == 2
+    //! assert Bytes.count(String.to_bytes("abc"), Bytes.from_list([])) == 4
+    //
+    pub host fn count(data: Bytes, needle: Bytes) -> NonNegativeInt
+
+    /// The byte at `index` as an Int from 0 to 255, or None when the index
+    /// is outside the buffer: `Bytes.get` and `Byte.to_int` in one call.
+    ///
+    /// The reads after it take an integer of another width, signedness or
+    /// byte order, or a float, from `index` on, and answer None unless all
+    /// of its bytes are inside the buffer. `be` is big-endian, most
+    /// significant byte first, as network protocols write integers; `le`
+    /// is little-endian, least significant first. A `uint` read answers 0
+    /// up to 2^bits - 1, and an `int` read the two's complement value,
+    /// -2^(bits - 1) up to 2^(bits - 1) - 1. `Builder.push_int16_be` and
+    /// its siblings write what these read, and a `Cursor` reads them in
+    /// turn.
+    //! data = Bytes.from_list([0xFF, 0x01])
+    //! assert Bytes.uint8_at(data, 0) == Some(255)
+    //! assert Bytes.uint8_at(data, 2) == None
+    //
+    pub host fn uint8_at(data: Bytes, index: Int) -> Maybe<NonNegativeInt>
+
+    /// The byte at `index` as a signed Int, -128 to 127. See
+    /// `Bytes.uint8_at`.
+    //! assert Bytes.int8_at(Bytes.from_list([0xFF, 0x01]), 0) == Some(-1)
+    //
+    pub host fn int8_at(data: Bytes, index: Int) -> Maybe<Int>
+
+    /// The unsigned 16-bit big-endian integer at `index`. See
+    /// `Bytes.uint8_at`.
+    //! assert Bytes.uint16_be_at(Bytes.from_list([0x01, 0x02]), 0) == Some(0x0102)
+    //! assert Bytes.uint16_be_at(Bytes.from_list([0x01, 0x02]), 1) == None
+    //
+    pub host fn uint16_be_at(data: Bytes, index: Int) -> Maybe<NonNegativeInt>
+
+    /// The unsigned 16-bit little-endian integer at `index`.
+    //! assert Bytes.uint16_le_at(Bytes.from_list([0x01, 0x02]), 0) == Some(0x0201)
+    //
+    pub host fn uint16_le_at(data: Bytes, index: Int) -> Maybe<NonNegativeInt>
+
+    /// The signed 16-bit big-endian integer at `index`.
+    //! assert Bytes.int16_be_at(Bytes.from_list([0xFF, 0xFE]), 0) == Some(-2)
+    //
+    pub host fn int16_be_at(data: Bytes, index: Int) -> Maybe<Int>
+
+    /// The signed 16-bit little-endian integer at `index`.
+    //! assert Bytes.int16_le_at(Bytes.from_list([0xFE, 0xFF]), 0) == Some(-2)
+    //
+    pub host fn int16_le_at(data: Bytes, index: Int) -> Maybe<Int>
+
+    /// The unsigned 32-bit big-endian integer at `index`.
+    //! assert Bytes.uint32_be_at(Bytes.from_list([0, 0xDE, 0xAD, 0xBE, 0xEF]), 1) == Some(0xDEADBEEF)
+    //
+    pub host fn uint32_be_at(data: Bytes, index: Int) -> Maybe<NonNegativeInt>
+
+    /// The unsigned 32-bit little-endian integer at `index`.
+    //! assert Bytes.uint32_le_at(Bytes.from_list([0xEF, 0xBE, 0xAD, 0xDE]), 0) == Some(0xDEADBEEF)
+    //
+    pub host fn uint32_le_at(data: Bytes, index: Int) -> Maybe<NonNegativeInt>
+
+    /// The signed 32-bit big-endian integer at `index`.
+    //! assert Bytes.int32_be_at(Bytes.from_list([0xFF, 0xFF, 0xFF, 0xFF]), 0) == Some(-1)
+    //
+    pub host fn int32_be_at(data: Bytes, index: Int) -> Maybe<Int>
+
+    /// The signed 32-bit little-endian integer at `index`.
+    //! assert Bytes.int32_le_at(Bytes.from_list([0, 0, 0, 0x80]), 0) == Some(-2_147_483_648)
+    //
+    pub host fn int32_le_at(data: Bytes, index: Int) -> Maybe<Int>
+
+    /// The unsigned 64-bit big-endian integer at `index`, up to
+    /// 18_446_744_073_709_551_615.
+    //! ones = Bytes.from_list([0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF])
+    //! assert Bytes.uint64_be_at(ones, 0) == Some(18_446_744_073_709_551_615)
+    //
+    pub host fn uint64_be_at(data: Bytes, index: Int) -> Maybe<NonNegativeInt>
+
+    /// The unsigned 64-bit little-endian integer at `index`.
+    //! assert Bytes.uint64_le_at(Bytes.from_list([1, 0, 0, 0, 0, 0, 0, 0]), 0) == Some(1)
+    //
+    pub host fn uint64_le_at(data: Bytes, index: Int) -> Maybe<NonNegativeInt>
+
+    /// The signed 64-bit big-endian integer at `index`.
+    //! ones = Bytes.from_list([0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF])
+    //! assert Bytes.int64_be_at(ones, 0) == Some(-1)
+    //
+    pub host fn int64_be_at(data: Bytes, index: Int) -> Maybe<Int>
+
+    /// The signed 64-bit little-endian integer at `index`.
+    //! data = Bytes.from_list([0xFE, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF])
+    //! assert Bytes.int64_le_at(data, 0) == Some(-2)
+    //
+    pub host fn int64_le_at(data: Bytes, index: Int) -> Maybe<Int>
+
+    /// The IEEE 754 32-bit float at `index`, big-endian, widened to a
+    /// Float exactly.
+    //! assert Bytes.float32_be_at(Bytes.from_list([0x3F, 0xC0, 0, 0]), 0) == Some(1.5)
+    //
+    pub host fn float32_be_at(data: Bytes, index: Int) -> Maybe<Float>
+
+    /// The IEEE 754 32-bit float at `index`, little-endian.
+    //! assert Bytes.float32_le_at(Bytes.from_list([0, 0, 0xC0, 0x3F]), 0) == Some(1.5)
+    //
+    pub host fn float32_le_at(data: Bytes, index: Int) -> Maybe<Float>
+
+    /// The IEEE 754 64-bit float at `index`, big-endian.
+    //! assert Bytes.float64_be_at(Bytes.from_list([0x3F, 0xF8, 0, 0, 0, 0, 0, 0]), 0) == Some(1.5)
+    //
+    pub host fn float64_be_at(data: Bytes, index: Int) -> Maybe<Float>
+
+    /// The IEEE 754 64-bit float at `index`, little-endian.
+    //! assert Bytes.float64_le_at(Bytes.from_list([0, 0, 0, 0, 0, 0, 0xF8, 0x3F]), 0) == Some(1.5)
+    //
+    pub host fn float64_le_at(data: Bytes, index: Int) -> Maybe<Float>
+
+    /// The unsigned LEB128 varint starting at `index`, and the index after
+    /// its last byte, or None when the buffer ends before the varint does.
+    /// A varint is seven bits a byte, least significant group first, each
+    /// byte but the last with its high bit set: protobuf's `uint64`
+    /// fields, WebAssembly's integers and Go's `binary.Uvarint`. The value
+    /// has any size. A protobuf `int64` field writes a negative value as
+    /// its 64-bit two's complement, which `Int.wrap_signed(n, 64)` turns
+    /// back.
+    //! data = Bytes.from_list([0xAC, 0x02, 0x07])
+    //! assert Bytes.uvarint_at(data, 0) == Some((300, 2))
+    //! assert Bytes.uvarint_at(data, 2) == Some((7, 3))
+    //! assert Bytes.uvarint_at(Bytes.from_list([0x80]), 0) == None
+    //
+    pub host fn uvarint_at(data: Bytes, index: Int) -> Maybe<(NonNegativeInt, NonNegativeInt)>
+
+    /// The zigzag varint starting at `index`, and the index after it: an
+    /// unsigned varint (`Bytes.uvarint_at`) whose 0, 1, 2, 3 stand for 0,
+    /// -1, 1, -2. It is protobuf's `sint64` and Go's `binary.Varint`.
+    //! assert Bytes.varint_at(Bytes.from_list([0x03]), 0) == Some((-2, 1))
+    //! assert Bytes.varint_at(Bytes.from_list([0x04]), 0) == Some((2, 1))
+    //
+    pub host fn varint_at(data: Bytes, index: Int) -> Maybe<(Int, NonNegativeInt)>
 end
+
+/// `Bytes.index_of` from a clamped index.
+host fn index_of_from(data: Bytes, needle: Bytes, from: Int) -> Maybe<NonNegativeInt>
+
+/// `Bytes.index_of_byte` from a clamped index.
+host fn index_of_byte_from(data: Bytes, b: Byte, from: Int) -> Maybe<NonNegativeInt>
+
+/// `Bytes.index_of_any` from a clamped index.
+host fn index_of_any_from(data: Bytes, set: Bytes, from: Int) -> Maybe<NonNegativeInt>
 
 impl Iter for Bytes
     /// Pushes each byte to `yield`, stopping when it returns False.
@@ -320,3 +634,182 @@ impl Hashable for Bytes
     //
     host fn hash(data: Bytes) -> Int
 end
+
+/// A byte buffer built by appending, as a value. Each `push` answers a new
+/// Builder and leaves the one it was given as it was, and `to_bytes` ends
+/// the building with the Bytes.
+///
+/// Appending is amortized constant time per byte, as Go's `append` and
+/// Rust's `Vec::push` are, so building a buffer a byte at a time costs
+/// time linear in its length. A Builder shares its buffer with the one it
+/// came from and writes the new bytes into the spare room after them;
+/// nothing an earlier Builder holds is ever written again, so no value
+/// changes. Appending to a Builder whose buffer something else has
+/// already appended to (the program kept an earlier Builder and pushed to
+/// it twice) copies its bytes into a buffer of its own first, so build
+/// along one line of values to keep the cost linear. `to_bytes` does not
+/// copy. `Bytes.concat` copies both sides each time, which makes appending
+/// one byte at a time quadratic.
+///
+/// A Builder has no equality; compare what `to_bytes` answers.
+//! b = Builder.new()
+//! b = b |> Builder.push(0x01) |> Builder.push_int16_be(258) |> Builder.push_string("hi")
+//! assert Builder.to_bytes(b) == Bytes.from_list([0x01, 0x01, 0x02, 104, 105])
+//
+pub host type Builder
+
+impl Builder
+    /// An empty Builder whose first buffer has room for `capacity` bytes,
+    /// a hint that saves the copies of growing to a size known ahead.
+    //! assert Builder.new() |> Builder.length() == 0
+    //! assert Builder.new(capacity: 1024) |> Builder.push(7) |> Builder.length() == 1
+    //
+    pub fn new(capacity: NonNegativeInt = 0) -> Builder
+        builder_new(capacity)
+    end
+
+    /// The number of bytes the Builder holds.
+    //! assert Builder.new() |> Builder.push_int32_le(1) |> Builder.length() == 4
+    //
+    pub host fn length(b: Builder) -> NonNegativeInt
+
+    /// The bytes the Builder holds, with no copy.
+    //! assert Builder.new() |> Builder.push(9) |> Builder.to_bytes() == Bytes.from_list([9])
+    //
+    pub host fn to_bytes(b: Builder) -> Bytes
+
+    /// `b` with the byte `x` after its bytes.
+    //! assert Builder.new() |> Builder.push(0xFF) |> Builder.to_bytes() == Bytes.from_list([0xFF])
+    //
+    pub host fn push(b: Builder, x: Byte) -> Builder
+
+    /// `b` with `data` after its bytes.
+    //! data = Bytes.from_list([1, 2])
+    //!
+    //! assert Builder.new()
+    //! |> Builder.push_bytes(data)
+    //! |> Builder.push_bytes(data)
+    //! |> Builder.to_bytes() == Bytes.from_list([1, 2, 1, 2])
+    //
+    pub host fn push_bytes(b: Builder, data: Bytes) -> Builder
+
+    /// `b` with the UTF-8 encoding of `text` after its bytes, the bytes
+    /// `String.to_bytes(text)` answers.
+    //! assert Builder.new() |> Builder.push_string("é") |> Builder.to_bytes() == Bytes.from_list(
+    //!     [0xC3, 0xA9]
+    //! )
+    //
+    pub host fn push_string(b: Builder, text: String) -> Builder
+
+    /// `b` with the low 8 bits of `n` after its bytes.
+    ///
+    /// Each integer write takes any Int and writes its low bits in two's
+    /// complement, as a machine word holds them: 255 and -1 both write as
+    /// the byte 0xFF, so the one write serves a signed field and an
+    /// unsigned one, and a larger `n` keeps only its low bits. The reads
+    /// tell the two apart: `Bytes.uint8_at` answers 255 and
+    /// `Bytes.int8_at` -1. `be` writes the most significant byte first,
+    /// `le` the least.
+    //! assert Builder.new() |> Builder.push_int8(-1) |> Builder.to_bytes() == Bytes.from_list([0xFF])
+    //! assert Builder.new() |> Builder.push_int8(0x1FF) |> Builder.to_bytes() == Bytes.from_list([0xFF])
+    //
+    pub host fn push_int8(b: Builder, n: Int) -> Builder
+
+    /// `b` with the low 16 bits of `n` after its bytes, big-endian. See
+    /// `Builder.push_int8`.
+    //! assert Builder.new() |> Builder.push_int16_be(0x0102) |> Builder.to_bytes() == Bytes.from_list(
+    //!     [1, 2]
+    //! )
+    //!
+    //! assert Builder.new() |> Builder.push_int16_be(-2) |> Builder.to_bytes() == Bytes.from_list(
+    //!     [0xFF, 0xFE]
+    //! )
+    //
+    pub host fn push_int16_be(b: Builder, n: Int) -> Builder
+
+    /// `b` with the low 16 bits of `n` after its bytes, little-endian.
+    //! assert Builder.new() |> Builder.push_int16_le(0x0102) |> Builder.to_bytes() == Bytes.from_list(
+    //!     [2, 1]
+    //! )
+    //
+    pub host fn push_int16_le(b: Builder, n: Int) -> Builder
+
+    /// `b` with the low 32 bits of `n` after its bytes, big-endian.
+    //! b = Builder.new() |> Builder.push_int32_be(0xDEADBEEF)
+    //! assert Builder.to_bytes(b) == Bytes.from_list([0xDE, 0xAD, 0xBE, 0xEF])
+    //
+    pub host fn push_int32_be(b: Builder, n: Int) -> Builder
+
+    /// `b` with the low 32 bits of `n` after its bytes, little-endian.
+    //! b = Builder.new() |> Builder.push_int32_le(0xDEADBEEF)
+    //! assert Builder.to_bytes(b) == Bytes.from_list([0xEF, 0xBE, 0xAD, 0xDE])
+    //
+    pub host fn push_int32_le(b: Builder, n: Int) -> Builder
+
+    /// `b` with the low 64 bits of `n` after its bytes, big-endian.
+    //! b = Builder.new() |> Builder.push_int64_be(-1)
+    //! assert Bytes.uint64_be_at(Builder.to_bytes(b), 0) == Some(18_446_744_073_709_551_615)
+    //
+    pub host fn push_int64_be(b: Builder, n: Int) -> Builder
+
+    /// `b` with the low 64 bits of `n` after its bytes, little-endian.
+    //! b = Builder.new() |> Builder.push_int64_le(1)
+    //! assert Builder.to_bytes(b) == Bytes.from_list([1, 0, 0, 0, 0, 0, 0, 0])
+    //
+    pub host fn push_int64_le(b: Builder, n: Int) -> Builder
+
+    /// `b` with `x` after its bytes as an IEEE 754 32-bit float,
+    /// big-endian. `x` is first rounded to the nearest 32-bit float, ties
+    /// to even, as `Float.to_bits_32` rounds it.
+    //! b = Builder.new() |> Builder.push_float32_be(1.5)
+    //! assert Builder.to_bytes(b) == Bytes.from_list([0x3F, 0xC0, 0, 0])
+    //
+    pub host fn push_float32_be(b: Builder, x: Float) -> Builder
+
+    /// `b` with `x` after its bytes as a 32-bit float, little-endian.
+    //! b = Builder.new() |> Builder.push_float32_le(1.5)
+    //! assert Builder.to_bytes(b) == Bytes.from_list([0, 0, 0xC0, 0x3F])
+    //
+    pub host fn push_float32_le(b: Builder, x: Float) -> Builder
+
+    /// `b` with `x` after its bytes as an IEEE 754 64-bit float,
+    /// big-endian, its bits as `Float.to_bits` gives them.
+    //! b = Builder.new() |> Builder.push_float64_be(1.5)
+    //! assert Builder.to_bytes(b) == Bytes.from_list([0x3F, 0xF8, 0, 0, 0, 0, 0, 0])
+    //
+    pub host fn push_float64_be(b: Builder, x: Float) -> Builder
+
+    /// `b` with `x` after its bytes as a 64-bit float, little-endian.
+    //! b = Builder.new() |> Builder.push_float64_le(1.5)
+    //! assert Builder.to_bytes(b) == Bytes.from_list([0, 0, 0, 0, 0, 0, 0xF8, 0x3F])
+    //
+    pub host fn push_float64_le(b: Builder, x: Float) -> Builder
+
+    /// `b` with `n` after its bytes as an unsigned LEB128 varint, which
+    /// `Bytes.uvarint_at` reads: seven bits a byte, least significant group
+    /// first, each byte but the last with its high bit set. `n` has any
+    /// size. To write a protobuf `int64` field's negative value, write its
+    /// 64-bit two's complement, `n &&& 0xFFFF_FFFF_FFFF_FFFF`.
+    //! assert Builder.new() |> Builder.push_uvarint(300) |> Builder.to_bytes() == Bytes.from_list(
+    //!     [0xAC, 0x02]
+    //! )
+    //!
+    //! assert Builder.new() |> Builder.push_uvarint(0) |> Builder.to_bytes() == Bytes.from_list([0])
+    //
+    pub host fn push_uvarint(b: Builder, n: NonNegativeInt) -> Builder
+
+    /// `b` with `n` after its bytes as a zigzag varint, which
+    /// `Bytes.varint_at` reads: 0, -1, 1, -2 as the unsigned varints 0, 1,
+    /// 2, 3, so a small negative number is short. It is protobuf's
+    /// `sint64` and Go's `binary.AppendVarint`.
+    //! assert Builder.new() |> Builder.push_varint(-2) |> Builder.to_bytes() == Bytes.from_list([3])
+    //!
+    //! assert Builder.new() |> Builder.push_varint(-65) |> Builder.to_bytes() == Bytes.from_list(
+    //!     [0x81, 0x01]
+    //! )
+    //
+    pub host fn push_varint(b: Builder, n: Int) -> Builder
+end
+
+/// `Builder.new`'s empty Builder with room for `capacity` bytes.
+host fn builder_new(capacity: NonNegativeInt) -> Builder

@@ -12,8 +12,7 @@ package expectation_test
 //
 // The runs go through internal/vmcmd, which is what `nomi run` and `nomi test`
 // call, so a record is the command's output by construction: a file that
-// declares tests is run as `nomi test` runs it, anything else as `nomi run`,
-// and an FFI project through its generated wrapper in both cases.
+// declares tests is run as `nomi test` runs it, anything else as `nomi run`.
 //
 // IT CANNOT SAY THE VM IS CORRECT. It says the observable output is what the
 // repo recorded. If a record was wrong when it was written, this defends it.
@@ -31,10 +30,9 @@ import (
 
 	"github.com/nomi-language/nomi/internal/doctest"
 	"github.com/nomi-language/nomi/internal/expectation"
-	"github.com/nomi-language/nomi/internal/ffirun"
 	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/frontend"
-	"github.com/nomi-language/nomi/internal/tourgo"
+	"github.com/nomi-language/nomi/internal/tourmodules"
 	"github.com/nomi-language/nomi/internal/vmcmd"
 	"github.com/nomi-language/nomi/std"
 	"github.com/nomi-language/nomi/vmhost"
@@ -61,30 +59,11 @@ func repoRoot(t *testing.T) string {
 	return dir
 }
 
-// requireFFIPreparation fails the test when the FFI wrapper for path cannot
-// be prepared.
-//
-// vmcmd reports a preparation failure as the file's own `FAIL` line, which is
-// right for `nomi test` and wrong for a recorder: written down, it reads as
-// the program's output. The usual cause is NOMI_FFIRUN_CACHE_ROOT being unset
-// or unusable, which internal/ffirun refuses under `go test` by design, so
-// that a test never reads or evicts a developer's real build cache.
-func requireFFIPreparation(t *testing.T, path string) {
-	t.Helper()
-	if _, err := ffirun.Prepare(path); err != nil {
-		t.Fatalf("preparing the FFI wrapper for %s: %v\n"+
-			"The recorder will not record a run whose wrapper could not be prepared: "+
-			"its transcript would be the preparation error, read as the program's output.",
-			path, err)
-	}
-}
-
 // runCommand runs path the way the command that owns it would: `nomi test`
 // when it declares tests, `nomi run` otherwise. It answers the cases the run
 // accounted for, 0 for a program.
 func runCommand(t *testing.T, path string) (observed, int) {
 	t.Helper()
-	requireFFIPreparation(t, path)
 	if hasTests, err := vmhost.FileDeclaresTests(path); err == nil && hasTests {
 		return runTests(t, path)
 	}
@@ -93,8 +72,11 @@ func runCommand(t *testing.T, path string) (observed, int) {
 	return observed{stdout: out.String(), stderr: errOut.String(), exit: code}, 0
 }
 
-// runTests is `nomi test <path>`, captured. The report and the cases' own
-// output share one buffer because they share one stream in `nomi test`.
+// runTests is `nomi test --all <path>`, captured. The report and the cases'
+// own output share one buffer because they share one stream in `nomi
+// test`. Every case runs, so a run through the artifact cache
+// (TestCachedRunsMatchTheRecords) records what its kept program does, not
+// what a stored pass answers.
 func runTests(t *testing.T, path string) (observed, int) {
 	t.Helper()
 	restoreEnv, err := vmhost.DefaultTestEnv()
@@ -104,7 +86,7 @@ func runTests(t *testing.T, path string) (observed, int) {
 	defer restoreEnv()
 	var out, errOut bytes.Buffer
 	rep := vmhost.NewTestReport(&out)
-	tester := &vmcmd.Tester{Out: &out, Stderr: &errOut, Stdin: bytes.NewReader(nil), Rep: rep}
+	tester := &vmcmd.Tester{Out: &out, Stderr: &errOut, Rep: rep, Runs: vmhost.RunAll}
 	cases := tester.File(path, vmhost.TestOptions{})
 	o := observed{stderr: errOut.String()}
 	if rep.Summary() {
@@ -142,66 +124,18 @@ func nomiFilesUnder(t *testing.T, root string) []string {
 
 // pinRecorderEnv fixes every environment variable that shapes a record.
 //
-// NOMI_FFIRUN_CACHE_ROOT is required: ffirun refuses the default cache root
-// under `go test`. NOMI_COLOR=never keeps escape sequences out of every
+// NOMI_COLOR=never keeps escape sequences out of every
 // transcript whatever the shell exports. NOMI_ENV is cleared, as a fresh shell
 // has it, because `nomi test` defaults it to "test" and leaves a caller's value
 // alone, and one corpus program prints it.
 func pinRecorderEnv(t *testing.T) {
 	t.Helper()
-	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
 	t.Setenv("NOMI_COLOR", "never")
 	if prior, ok := os.LookupEnv("NOMI_ENV"); ok {
 		if err := os.Unsetenv("NOMI_ENV"); err != nil {
 			t.Fatalf("clearing NOMI_ENV: %v", err)
 		}
 		t.Cleanup(func() { _ = os.Setenv("NOMI_ENV", prior) })
-	}
-}
-
-// TestExpectation_APreparationFailureIsNeverRecorded is the planted positive
-// for requireFFIPreparation: with an unusable cache root, the FFI project's
-// preparation fails, and the report vmcmd would print for it is a plausible
-// failing `nomi test` transcript that differs from the committed record. That
-// transcript is what a recorder without the check would write down.
-func TestExpectation_APreparationFailureIsNeverRecorded(t *testing.T) {
-	notADir := filepath.Join(t.TempDir(), "regular-file")
-	if err := os.WriteFile(notADir, []byte("not a directory"), 0o644); err != nil {
-		t.Fatalf("staging the unusable cache root: %v", err)
-	}
-	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", filepath.Join(notADir, "builds"))
-	t.Setenv("NOMI_COLOR", "never")
-
-	const rel = "18-ffi-and-dynamic/callback_ffi_app/main_test.nomi"
-	path := filepath.Join(repoRoot(t), "tests", filepath.FromSlash(rel))
-	if _, err := ffirun.Prepare(path); err == nil {
-		t.Fatalf("preparing %s succeeded with an unusable cache root, so this test "+
-			"measures nothing", rel)
-	}
-	root, err := expectation.Root()
-	if err != nil {
-		t.Fatal(err)
-	}
-	o, _ := runTests(t, path)
-	got := expectation.Normalize(o.transcript(), root)
-	if !expectation.IsFailing(got) || o.exit != 1 {
-		t.Errorf("the run with a failed preparation reported no failure (exit %d):\n%s", o.exit, got)
-	}
-	want, err := expectation.Load("corpus")
-	if err != nil {
-		t.Fatal(err)
-	}
-	recorded, ok := want.Lookup(rel)
-	if !ok {
-		t.Fatalf("corpus.expect has no record for %s; the population changed", rel)
-	}
-	if recorded.Transcript == got {
-		t.Errorf("the failed-preparation transcript equals the committed record for %s, "+
-			"so the wrapper makes no observable difference and this guard is vacuous", rel)
-	}
-	if recorded.Exit != 0 || recorded.Cases == 0 {
-		t.Errorf("the committed record for %s is exit %d / %d case(s); it should be a passing "+
-			"wrapper run with cases", rel, recorded.Exit, recorded.Cases)
 	}
 }
 
@@ -286,9 +220,8 @@ func TestExpectation_Corpus(t *testing.T) {
 	set := &expectation.Set{
 		Population: "corpus",
 		What: "one record per .nomi file under tests/, run as the command that owns it " +
-			"would: `nomi test` when the file declares tests, `nomi run` otherwise, through the " +
-			"generated FFI wrapper when the project needs one. N is the case count " +
-			"vmcmd.Tester.File answers, each `subtests` row a case.",
+			"would: `nomi test` when the file declares tests, `nomi run` otherwise. N is the case " +
+			"count vmcmd.Tester.File answers, each `subtests` row a case.",
 	}
 	for _, rel := range nomiFilesUnder(t, root) {
 		o, cases := runCommand(t, filepath.Join(root, rel))
@@ -391,8 +324,8 @@ func TestExpectation_Tour(t *testing.T) {
 			"of the transcript, which the hidden <!-- expect --> block does not cover. A block " +
 			"that stops on purpose (a todo reached, a trap, an Err from main) is recorded with " +
 			"exit 1 and its failure on stderr, as `nomi run` prints it. A block that imports " +
-			"a module whose Go side only the browser links (sqlite) has no record; the staged " +
-			"wasm is held to its expect block.",
+			"a tour module (sqlite) runs with the module's files attached, as the playground " +
+			"attaches them.",
 	}
 	for _, chapter := range chapters {
 		data, err := os.ReadFile(chapter)
@@ -408,13 +341,6 @@ func TestExpectation_Tour(t *testing.T) {
 			// TestTourDoctests and TestTourWasmAnswersTheTourBlocks; a
 			// no-run block's output differs per run.
 			if !b.Runs() {
-				continue
-			}
-			// A block that imports a tour module (sqlite) runs only on
-			// the module's browser build, which this binary does not
-			// link; TestTourWasmAnswersTheTourBlocks holds the staged
-			// wasm to its expect block.
-			if len(tourgo.Unlinked(b.Code)) > 0 {
 				continue
 			}
 			id := fmt.Sprintf("%s:L%d", filepath.ToSlash(rel), b.Line)
@@ -445,15 +371,10 @@ func runTourBlock(b doctest.Block) (observed, bool) {
 		return observed{stderr: err.Error() + "\n", exit: 1}, false
 	}
 	defer os.RemoveAll(dir)
-	// Its `go` bindings, answered by the Go the tour links (internal/tourgo).
 	// The modules the tour links that it imports are attached as the
-	// tour's runner attaches them (tourgo.Source).
-	src := tourgo.Source(b.Code)
-	hosts, err := tourgo.MarkedHosts(src)
-	if err != nil {
-		return observed{stderr: err.Error() + "\n", exit: 1}, false
-	}
-	p, hasTests, err := vmhost.LoadMarked(src, dir, vmhost.WithHosts(hosts))
+	// tour's runner attaches them (tourmodules.Source).
+	src := tourmodules.Source(b.Code)
+	p, hasTests, err := vmhost.LoadMarked(src, dir)
 	if err != nil {
 		return observed{stdout: out.String(), stderr: err.Error() + "\n", exit: 1}, hasTests
 	}

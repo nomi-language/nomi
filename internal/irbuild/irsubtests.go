@@ -89,17 +89,15 @@ func (bl *irScalarBuilder) subtests(t *ast.Subtests) bool {
 func (bl *irScalarBuilder) subtestsNameFunc(t *ast.Subtests, rowK kind) (ir.Temp, bool) {
 	at := bl.g.irNodePos(t.Name)
 	f := ir.NewFunc(at, "row_name")
-	sh := &irFuncShell{fn: f, syms: map[string]*ir.Symbol{}, params: map[string]ir.Temp{},
-		patternOK: true, at: t.Name}
-	sh.frame = newIRFuncFrame(f)
+	sh := &irFuncShell{fn: f, params: map[string]ir.Temp{},
+		at: t.Name}
 	sh.entry = f.NewBlock(at, "entry")
 	child := &irScalarBuilder{
 		g: bl.g, sh: sh, f: f, b: sh.entry, parent: bl,
-		bound: map[string]ir.Temp{}, boundK: map[string]kind{},
 		root: t.Name,
 	}
 	child.openWithScope(true)
-	param := bl.g.irAddParam(f, sh.localSym("|row"), rowK)
+	param := bl.g.irAddParam(f, ir.NewSymbol("|row"), rowK)
 	if !child.testDestructure(t.Pattern, param, rowK) {
 		return ir.NoTemp, false
 	}
@@ -130,18 +128,16 @@ func (bl *irScalarBuilder) subtestsRowFunc(t *ast.Subtests, rowK kind) (ir.Temp,
 	}
 	at := bl.g.irNodePos(body)
 	f := ir.NewFunc(at, "row")
-	sh := &irFuncShell{fn: f, syms: map[string]*ir.Symbol{}, params: map[string]ir.Temp{},
-		patternOK: true, at: body}
-	sh.frame = newIRFuncFrame(f)
+	sh := &irFuncShell{fn: f, params: map[string]ir.Temp{},
+		at: body}
 	sh.entry = f.NewBlock(at, "entry")
 	child := &irScalarBuilder{
 		g: bl.g, sh: sh, f: f, b: sh.entry, parent: bl,
-		bound: map[string]ir.Temp{}, boundK: map[string]kind{},
 		inTest: true, testApp: bl.testApp,
 		root: body, subtestsRow: true, deferOK: true,
 	}
 	defer bl.g.enterBlockTypes(body)()
-	param := bl.g.irAddParam(f, sh.localSym("|row"), rowK)
+	param := bl.g.irAddParam(f, ir.NewSymbol("|row"), rowK)
 	if !child.testDestructure(t.Pattern, param, rowK) {
 		return ir.NoTemp, false
 	}

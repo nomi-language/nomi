@@ -119,9 +119,9 @@ func TestOpaqueSpecsAreLoadBearing(t *testing.T) {
 // TestOpaqueGoWidthMatchesTheDeclaredInner checks the Go side of every
 // opaqueSpec row.
 //
-// `opaqueSpec.inner` is a claim about two things. matches() asserts the Nomi
-// side, `scalarKind(decl.InnerTypeExpr) == s.inner`, so a std edit to
-// `opaque type Duration Float` produces no anchor. This test asserts the Go
+// `opaqueSpec.inner` is a claim about two things. The row's written inner
+// type (`decl`), which matches() holds to std's declaration, is the Nomi
+// side, so a std edit to `opaque type Duration Float` produces no anchor. This test asserts the Go
 // side, so `type Codepoint int32` in rt fails here.
 //
 // It is not caught by output, which is why it needs a guard rather than a

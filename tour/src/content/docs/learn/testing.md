@@ -26,7 +26,7 @@ When an `assert` is `False`, the test fails, and its report shows the
 value your code made. Say `double` had a mistake, `n + 2` instead of
 `n * 2`. The same test would report:
 
-```text
+```console
 FAIL main.nomi :: double
   line 7: assertion failed
     assert double(5) == 10

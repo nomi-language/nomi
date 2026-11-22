@@ -226,14 +226,9 @@ entry_points = ["main"]
 
 [money]
 custom_currencies = ["PTS:0"]
-// FILE: app/go.mod
-module app
 
-go 1.27.0
-
-require gems v0.0.0
-
-replace gems => ../gems
+[dependencies]
+gems = { dir = "../gems" }
 // FILE: gems/shop.nomi
 import std::currency.Currency
 
@@ -244,10 +239,6 @@ name = "gems"
 
 [money]
 custom_currencies = ["GEMS:2"]
-// FILE: gems/go.mod
-module gems
-
-go 1.27.0
 `
 
 // Each module's literals answer to its own list: the application's list

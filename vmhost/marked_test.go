@@ -27,11 +27,9 @@ func ratesBlock(t *testing.T, edit func(string) string) string {
 		{"tables.nomi", edit(read("rates/tables.nomi"))},
 		{"data/rates.csv", read("rates/data/rates.csv")},
 		{"data/names.csv", read("rates/data/names.csv")},
-		{"nomi.toml", read("rates/nomi.toml")},
-		{"go.mod", strings.Replace(read("rates/go.mod"), "../csvdata", "./csvdata", 1)},
+		{"nomi.toml", strings.Replace(read("rates/nomi.toml"), "../csvdata", "./csvdata", 1)},
 		{"csvdata/csvdata.nomi", read("csvdata/csvdata.nomi")},
 		{"csvdata/nomi.toml", "[module]\nname = \"csvdata\"\n"},
-		{"csvdata/go.mod", read("csvdata/go.mod")},
 	}
 	var b strings.Builder
 	for _, s := range sections {
@@ -57,9 +55,9 @@ func siblingsBlock(t *testing.T, edit func(string) string) string {
 	var b strings.Builder
 	for _, name := range []string{
 		"rates/tables_test.nomi", "rates/main.nomi", "rates/tables.nomi", "rates/data/rates.csv",
-		"rates/data/names.csv", "rates/nomi.toml", "rates/go.mod",
+		"rates/data/names.csv", "rates/nomi.toml",
 		"csvdata/csvdata.nomi", "csvdata/tools/generate.nomi", "csvdata/tools/rows.nomi",
-		"csvdata/nomi.toml", "csvdata/go.mod",
+		"csvdata/nomi.toml",
 	} {
 		text := read(name)
 		if name == "rates/data/rates.csv" {
@@ -70,9 +68,10 @@ func siblingsBlock(t *testing.T, edit func(string) string) string {
 	return b.String()
 }
 
-// A block of two projects side by side, each with its own go.mod, runs
+// A block of two projects side by side, each with its own nomi.toml, runs
 // the project of its first file, which reaches the other through its
-// go.mod's `replace csvdata => ../csvdata` as the same files on disk do.
+// nomi.toml's `csvdata = { dir = "../csvdata" }` as the same files on disk
+// do.
 // Its tests read data/ from the project's directory, and a diagnostic
 // names a file by its path from the block's root, as its tab does.
 func TestLoadMarked_SiblingProjectsRunTheFirstFilesProject(t *testing.T) {

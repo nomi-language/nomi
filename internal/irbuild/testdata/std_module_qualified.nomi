@@ -71,10 +71,11 @@ fn main()
     io.print(Supervisor{name: "local"}.name)
     io.print(mine(Error.Mine))
 
-    n = concurrent
-        t = tasks.Task.spawn(fn -> 20 + 1)
-        twice(t)
-    end
+    n =
+        concurrent
+            t = tasks.Task.spawn(fn -> 20 + 1)
+            twice(t)
+        end
 
     io.print(n)
     ch: channels.Channel<String> = channels.Channel.buffered<String>(1)

@@ -53,14 +53,15 @@ pub fn start() -> Result<Minio, String>
         env:     {"MINIO_ROOT_USER" => "nomi-test", "MINIO_ROOT_PASSWORD" => "nomi-test-secret"},
     }
 
-    child = case process.spawn(command)
-        Ok(child) ->
-            child
+    child =
+        case process.spawn(command)
+            Ok(child) ->
+                child
 
-        Err(e) ->
-            fs.remove_all_quietly(data)
-            return Err("starting minio: ${e}")
-    end
+            Err(e) ->
+                fs.remove_all_quietly(data)
+                return Err("starting minio: ${e}")
+        end
 
     server = Minio{config:, child:, data:}
 
@@ -98,10 +99,11 @@ end
 
 // Poll MinIO's liveness endpoint every 100 ms, up to `tries` times.
 fn wait_live(endpoint: Url, tries: Int) -> Result<Unit, String>
-    live = case http.get(Url.join_path(endpoint, ["minio", "health", "live"]))
-        Ok(response) -> Status.is_success(response.status)
-        Err(_)       -> False
-    end
+    live =
+        case http.get(Url.join_path(endpoint, ["minio", "health", "live"]))
+            Ok(response) -> Status.is_success(response.status)
+            Err(_)       -> False
+        end
 
     if live then
         Ok(Unit)

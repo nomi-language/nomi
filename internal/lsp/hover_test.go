@@ -2519,16 +2519,24 @@ func TestHover_Assertion_Bool(t *testing.T) {
 	}
 }
 
+// The subject is std's Result: a program cannot declare a type of that
+// name, and the checker tells std's by its declaration.
 func TestHover_Refute_Result(t *testing.T) {
-	src := "enum Result<T, E>\n    Ok T\n    Err E\nend\n" +
-		"host type AssertionFailure\n" +
+	src := "import std::assertions.{AssertionFailure}\n" +
 		"fn validate(r: Result<Int, String>) -> Result<Result<Int, String>, AssertionFailure>\n" +
 		"  e = refute r\n" +
 		"  Result.Ok(e)\n" +
 		"end"
-	file := checkedFile(src)
+	lib := loadStd()
+	nodes, _ := parser.ParseWithRecovery(lexer.Lex(src))
+	file := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)
+	typeErrs := analysis.BuildTypes(file, nodes)
+	checkErrs := analysis.CheckTypes(file, nodes)
+	if len(typeErrs)+len(checkErrs) > 0 {
+		t.Fatalf("unexpected type errors: %v %v", typeErrs, checkErrs)
+	}
 
-	pos := analysis.Pos{Line: 7, Col: 7}
+	pos := analysis.Pos{Line: 3, Col: 7}
 	sym := file.SymbolAt(pos)
 	if sym == nil {
 		t.Fatal("expected a symbol at the `refute` keyword position")

@@ -4,41 +4,45 @@ import std::io
 // function body is, so its body and its call have types and the default
 // runs.
 struct Defaults
-    unit: Unit = begin
-        fn inner() -> Unit
-            Unit
-        end
-
-        inner()
-    end
-    twice: (Int) -> Int = begin
-        fn double(n: Int) -> Int
-            n * 2
-        end
-
-        double
-    end
-    word: String = begin
-        fn pick(n: Int) -> String
-            case n
-                1 -> "one"
-                _ -> "many"
+    unit: Unit =
+        begin
+            fn inner() -> Unit
+                Unit
             end
-        end
 
-        pick(1)
-    end
+            inner()
+        end
+    twice: (Int) -> Int =
+        begin
+            fn double(n: Int) -> Int
+                n * 2
+            end
+
+            double
+        end
+    word: String =
+        begin
+            fn pick(n: Int) -> String
+                case n
+                    1 -> "one"
+                    _ -> "many"
+                end
+            end
+
+            pick(1)
+        end
 end
 
 enum Job
     Run {
-        label: String = begin
-            fn name() -> String
-                "job"
-            end
+        label: String =
+            begin
+                fn name() -> String
+                    "job"
+                end
 
-            name()
-        end,
+                name()
+            end,
     }
     Idle
 end

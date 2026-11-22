@@ -8,7 +8,7 @@ import "github.com/nomi-language/nomi/internal/ast"
 // The checker types such a parameter by its head when it has no annotation
 // (analysis.paramPatternType), so the annotation says nothing. The rewrite
 // is syntactic: `nomi fmt` runs without analysis. It covers the parameters
-// of every `fn`, lambda, interface function and host or Go-bound function.
+// of every `fn`, lambda, interface function and host function.
 //
 // A head with nothing after it, `Label: Label`, keeps its annotation: it is
 // a variant pattern with an annotation, and without the annotation

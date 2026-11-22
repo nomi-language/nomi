@@ -23,7 +23,7 @@ func init() {
 // project's files it imports are checked under root's nomi.toml, but the
 // source itself is no file of that project, so entry_points does not place
 // it. It gets no host tables of the caller's: a project file it imports
-// that declares a `go` binding is refused as unmet.
+// that declares a `host fn` is refused as unmet.
 func runNested(source, root string, virtualFiles, hostEnv map[string]string) (string, error) {
 	opts := []Option{WithProjectRoot(root), func(c *config) { c.standalone = true }}
 	if virtualFiles != nil {

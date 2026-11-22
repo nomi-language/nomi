@@ -74,6 +74,10 @@ type typeDef struct {
 	// one. The VM holds a wrapping distinct as a record over its inner value
 	// (ir.Make's MakeDistinct).
 	isDistinct bool
+	// spread says a distinct's inner type is written as a tuple of its
+	// parts, `type Coord (Int, Int)`: the checker's record
+	// (analysis.DistinctType.WrittenAsParts; ir.ValType.SetSpread).
+	spread bool
 	// inner is a wrapping distinct's wrapped kind, kindInvalid for a
 	// zero-sized marker (`type Expired`), which has no inner at all.
 	inner kind
@@ -171,6 +175,12 @@ type typeDef struct {
 	// opaque newtype (`rt.Duration`). typeDecl replays nothing for one. See
 	// opaque.go.
 	rtDeclared bool
+	// stdOrigin is the declaring module's analyzer origin (`std/json`) of a
+	// process-wide def stdtypes.go built from a type std declares in Nomi
+	// with no spec row, and empty for every other def. Such a def is the
+	// type's one def in the process: every gen that names the type holds
+	// it, as it holds an rtDeclared one.
+	stdOrigin string
 	// rtOpaque marks a def that is a LEAF this builder may not look inside: a
 	// blessed stdlib primitive whose Go type rt declares (`rt.Bytes`). See
 	// stdhost.go.
@@ -259,6 +269,10 @@ type variantDef struct {
 	// embeds is the struct an `embeds` variant wraps, nil otherwise. It is
 	// what makes `Shape.Circle{radius: 1.0}` construct a Circle and wrap it.
 	embeds *typeDef
+	// spread says a positional payload is written as a tuple of its parts,
+	// `Node(Tree, Tree)`: the checker's record (writtenAsParts;
+	// ir.Variant.Spread).
+	spread bool
 }
 
 // payload is one value a variant carries.
@@ -467,57 +481,21 @@ func (g *gen) declareTypeShells(nodes []ast.Node) {
 				refusal{construct: "duplicate type declaration", detail: name})
 			continue
 		}
-		if td, isDistinct := n.(*ast.TypeDef); isDistinct {
-			if i := g.opaqueDeclared(td); i >= 0 {
-				// A stdlib opaque newtype. It adopts the PROCESS-WIDE def
-				// rather than getting a shell, and stays out of `order`: its
-				// representation is fixed in rt, so there is nothing for
-				// resolveDistinct to resolve and nothing for settleLowerable
-				// to retract — and a per-gen shell would give two gens two
-				// pointers for one Nomi type, which is the identity a
-				// stdFunc's kinds are compared by. See opaque.go.
-				g.types[name] = opaqueDefs()[i]
-				continue
+		d := g.adoptedStdDef(n, name)
+		if d == nil {
+			d = &typeDef{nomi: name, decl: n, line: n.LineNum(), isEnum: isEnum, isDistinct: isDistinct, // Optimistic: resolution has to resolve a field whose type is
+				// declared later in the file, and settleLowerable below retracts
+				// this for every declaration that turns out refused.
+				lowerable: true}
+			if g.stdTypesBuild {
+				// Marked before any field resolves, so a field naming it
+				// interns process-wide (stdtypes.go).
+				d.stdOrigin = g.fa.Origin
 			}
-			if i := g.stdMarkerDeclared(td); i >= 0 {
-				// A stdlib nil-inner MARKER, same rule and the same reasons.
-				// Beside the opaque arm rather than folded into it because the
-				// two tables answer about the same declaration KIND and are
-				// distinguished by whether there is an inner type at all. See
-				// stdgenhost.go.
-				g.types[name] = stdMarkerDefs()[i]
-				continue
-			}
+			order = append(order, d)
 		}
-		if sd, isStructDecl := n.(*ast.StructDef); isStructDecl {
-			// A stdlib opaque STRUCT, same rule and the same reasons: the
-			// representation is fixed in rt, so there is nothing for
-			// resolveStruct to resolve, nothing for the boxing walk to box (a
-			// field's kind is a scalar and cannot reach the container), and a
-			// per-gen shell would be a second def for one rt type. See
-			// stdstruct.go.
-			if i := g.stdStructDeclared(sd); i >= 0 {
-				g.types[name] = stdStructDefs()[i]
-				continue
-			}
-		}
-		if ed, isEnumDecl := n.(*ast.EnumDef); isEnumDecl {
-			// A monomorphic stdlib enum, same rule and the same reasons: the
-			// representation is fixed in rt, so there is nothing for
-			// resolveEnum to resolve, and a per-gen shell would be a second def
-			// for one rt type. See stdenum.go. A named payload enum
-			// (`std/tasks.Failure`) is the same: see taskoutcome.go.
-			if d := g.sharedEnumDeclared(ed); d != nil {
-				g.types[name] = d
-				continue
-			}
-		}
-		d := &typeDef{nomi: name, decl: n, line: n.LineNum(), isEnum: isEnum, isDistinct: isDistinct, // Optimistic: resolution has to resolve a field whose type is
-			// declared later in the file, and settleLowerable below retracts
-			// this for every declaration that turns out refused.
-			lowerable: true}
 		g.types[name] = d
-		order = append(order, d)
+		g.fileDef(n, d)
 	}
 	// The GENERIC struct declarations, registered before any field is resolved
 	// so a template whose field names another template (`struct Crate<T> { box:
@@ -528,6 +506,57 @@ func (g *gen) declareTypeShells(nodes []ast.Node) {
 	// declines one. See generictype.go.
 	g.collectGenericTemplates(nodes)
 	g.typeOrder = order
+}
+
+// adoptedStdDef is the PROCESS-WIDE def a std declaration of name adopts
+// instead of a shell, or nil: a spec row's, or the one stdtypes.go built
+// from the declaration. Such a def stays out of the module's `typeOrder`:
+// its representation is fixed, so there is nothing for resolution to
+// resolve and nothing for settleLowerable to retract, and a per-gen shell
+// would give two gens two pointers for one Nomi type, which is the
+// identity a stdFunc's kinds are compared by.
+func (g *gen) adoptedStdDef(n ast.Node, name string) *typeDef {
+	if d := g.adoptedSpecDef(n); d != nil {
+		return d
+	}
+	return g.adoptedStdTypeDef(name)
+}
+
+// adoptedSpecDef is adoptedStdDef's spec row, or nil.
+func (g *gen) adoptedSpecDef(n ast.Node) *typeDef {
+	switch t := n.(type) {
+	case *ast.TypeDef:
+		// A stdlib opaque newtype (opaque.go), or a nil-inner MARKER
+		// (stdgenhost.go): two tables about one declaration kind, told apart
+		// by whether there is an inner type at all.
+		if i := g.opaqueDeclared(t); i >= 0 {
+			return opaqueDefs()[i]
+		}
+		if i := g.stdMarkerDeclared(t); i >= 0 {
+			return stdMarkerDefs()[i]
+		}
+	case *ast.StructDef:
+		// A stdlib opaque STRUCT: nothing for the boxing walk to box either,
+		// since a field's kind is a scalar and cannot reach the container.
+		// See stdstruct.go.
+		if i := g.stdStructDeclared(t); i >= 0 {
+			return stdStructDefs()[i]
+		}
+	case *ast.EnumDef:
+		// A monomorphic stdlib enum (stdenum.go), or a named payload enum
+		// (`std/tasks.Failure`, taskoutcome.go).
+		return g.sharedEnumDeclared(t)
+	}
+	return nil
+}
+
+// fileDef files d as this gen's def of the declaration n (defsByDecl).
+func (g *gen) fileDef(n ast.Node, d *typeDef) {
+	if g.defsByDecl == nil {
+		// A fixture may build a gen literal and not go through newGen.
+		g.defsByDecl = map[ast.Node]*typeDef{}
+	}
+	g.defsByDecl[n] = d
 }
 
 // resolveTypeShells resolves the fields, payloads and inner types of every
@@ -618,7 +647,7 @@ func (g *gen) resolveStruct(d *typeDef, t *ast.StructDef) {
 		// PlantTypeDeclineForTest.
 		d.refusals = append(d.refusals, refusal{construct: planted, detail: d.nomi})
 	}
-	if tpl := g.genericTemplates[t.Name]; tpl != nil && tpl.decl == t && tpl.why == "" {
+	if tpl := g.templatesByDecl[t]; tpl != nil && tpl.why == "" {
 		// An admitted generic template. Its fields are resolved per
 		// instantiation, under a substitution, and no value has this def's
 		// kind (typeDecl returns early for it), so walking the fields here
@@ -721,7 +750,7 @@ func namesTypeParam(te ast.TypeExpr, tps map[string]bool) bool {
 
 func (g *gen) resolveEnum(d *typeDef, t *ast.EnumDef) {
 	g.declModifiers(d, t.Decorators, t.TypeParams, t.WhereClauses, "enum")
-	if tpl := g.genericTemplates[t.Name]; tpl != nil && tpl.decl == t && tpl.why == "" {
+	if tpl := g.templatesByDecl[t]; tpl != nil && tpl.why == "" {
 		// An admitted generic template. Its variants are resolved per
 		// instantiation, under a substitution, and no value has this def's
 		// kind (typeDecl returns early for it), so walking the variants here
@@ -767,6 +796,7 @@ func (g *gen) resolveEnumVariants(d *typeDef, t *ast.EnumDef, tps map[string]boo
 		})
 		return
 	}
+	et, _ := g.srcFA().DeclaredType(t).(*analysis.EnumType)
 	for _, v := range t.Variants {
 		vd := variantDef{nomi: v.Name, tag: len(d.variants) + 1, kind: v.Kind}
 		switch v.Kind {
@@ -802,6 +832,7 @@ func (g *gen) resolveEnumVariants(d *typeDef, t *ast.EnumDef, tps map[string]boo
 				continue
 			}
 			vd.payloads = append(vd.payloads, payload{k: k})
+			vd.spread = writtenAsParts(et, v.Name)
 
 		case "struct":
 			bad := false
@@ -860,8 +891,8 @@ func (g *gen) resolveEnumVariants(d *typeDef, t *ast.EnumDef, tps map[string]boo
 				})
 				continue
 			}
-			inner, found := g.namedType(st.Name)
-			if !found || !inner.lowerable {
+			inner := g.writtenTypeDef(st)
+			if inner == nil || !inner.lowerable {
 				d.refusals = append(d.refusals, refusal{
 					construct: "enum embeds variant",
 					detail:    d.nomi + "." + v.Name + " embeds " + st.Name + ", which is not a lowerable type",
@@ -930,7 +961,25 @@ func (g *gen) resolveDistinctInner(d *typeDef, t *ast.TypeDef, tps map[string]bo
 		return
 	}
 	d.inner = k
+	dt, _ := g.srcFA().DeclaredType(t).(*analysis.DistinctType)
+	d.spread = dt != nil && dt.WrittenAsParts
 	d.note(k)
+}
+
+// writtenAsParts is the checker's record of whether et's variant name
+// declares its payload as a tuple of its parts, `Node (Tree, Tree)`,
+// which a rendering spreads: `Node(Leaf, Leaf)`
+// (analysis.VariantDef.WrittenAsParts).
+func writtenAsParts(et *analysis.EnumType, name string) bool {
+	if et == nil {
+		return false
+	}
+	for _, v := range et.Variants {
+		if v.Name == name {
+			return v.WrittenAsParts
+		}
+	}
+	return false
 }
 
 // maxEnumTag is the largest tag a uint8 tag field can carry. Tag 0 is reserved
@@ -974,7 +1023,7 @@ func (g *gen) declModifiers(d *typeDef, decs []ast.Decorator, tps []ast.TypePara
 	}
 	// An attached `//!` test is deliberately NOT refused here. It is the
 	// `derive` argument above applied to the other kind of metadata, and it is
-	// stdStructSpec.matches' argument verbatim: the prompt is a test case of its
+	// stdStructSpec.mismatch' argument verbatim: the prompt is a test case of its
 	// own (tests.go's attachedTestCases), retained or declined as its body
 	// allows. Charging the TYPE for it would double-charge it, and the second
 	// charge cascades: the def would stop being lowerable and every mention of
@@ -1099,14 +1148,15 @@ func (g *gen) typeDecl(n ast.Node) {
 	case *ast.TypeDef:
 		name = t.Name
 	}
-	if d := g.types[name]; d != nil && d.rtDeclared {
+	d := g.defsByDecl[n]
+	if d != nil && d.rtDeclared {
 		// A stdlib opaque newtype: the process-wide def records no refusal to
 		// replay. Ahead of the identity check below because the shared def
 		// carries no declaration node; it outlives the AST that anchored it.
 		// See opaque.go.
 		return
 	}
-	if tpl := g.genericTemplates[name]; tpl != nil && tpl.why == "" {
+	if tpl := g.templatesByDecl[n]; tpl != nil && tpl.why == "" {
 		// A generic struct declaration whose instantiations lower. There is
 		// nothing to replay: the def's `generic type` refusal is the gap
 		// generictype.go closes, and reporting it here would refuse every
@@ -1114,14 +1164,14 @@ func (g *gen) typeDecl(n ast.Node) {
 		//
 		// The refusal is left ON the def rather than removed, because a bare
 		// `Box` mention (a generic name with no arguments, which is not a type)
-		// resolves through namedType to this def and needs a reason to report.
+		// resolves through this file's type table to this def and needs a
+		// reason to report.
 		// unloweredReason reads the LIST; removing the entry there would make
 		// it synthesize a placeholder instead, which is the cascade
 		// cascadereason_test.go exists to prevent. See generictype.go.
 		return
 	}
-	d := g.types[name]
-	if d == nil || d.decl != n {
+	if d == nil {
 		// A duplicate declaration: the table kept the first one and recorded
 		// the refusal there.
 		g.reject("duplicate type declaration", name, n)
@@ -1170,9 +1220,10 @@ func embedsVariant(want, from kind) (*typeDef, *variantDef, bool) {
 // than written by a programmer.
 //
 // It matters here because SynthesizeUniversalDebug appends an `impl Debug for
-// T` block for EVERY declared type, so refusing "impl block" would make every
-// struct and enum declaration unlowerable — and would blame a fabricated
-// position (the synth band is around 2^30) for a construct nobody wrote.
+// T` block for every opaque and host type, and derives write blocks too, so
+// refusing "impl block" would make those declarations unlowerable — and would
+// blame a fabricated position (the synth band is around 2^30) for a construct
+// nobody wrote.
 // Dropping them is safe only because every site that could DISPATCH to one is
 // itself refused: rendering a named value needs `impl Display`, `==` on a named
 // type needs `impl Equatable`, and a type-qualified call is refused by name. If

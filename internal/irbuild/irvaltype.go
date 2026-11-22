@@ -210,7 +210,11 @@ func (g *gen) irNamedValType(k kind) *ir.ValType {
 		if inner == nil {
 			return nil
 		}
-		return ir.NewDistinctType(g.irTypeSym(d), inner)
+		v := ir.NewDistinctType(g.irTypeSym(d), inner)
+		if d.spread && inner.Kind() == ir.KindTuple {
+			v.SetSpread()
+		}
+		return v
 	}
 	v := ir.NewStructType(g.irTypeSym(d), as...)
 	g.irValTypeMemo[k] = v
@@ -259,7 +263,7 @@ func (g *gen) irStateVariants(v *ir.ValType, d *typeDef) {
 			}
 			fields[j] = ir.Field{Name: p.nomi, Type: ty}
 		}
-		variants[i] = ir.Variant{Name: vd.nomi, Form: form, Fields: fields}
+		variants[i] = ir.Variant{Name: vd.nomi, Form: form, Fields: fields, Spread: vd.spread && form == ir.VariantPositional}
 	}
 	v.SetVariants(variants)
 }

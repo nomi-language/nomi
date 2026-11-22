@@ -80,7 +80,7 @@ func rangeHost(contains bool) hostFn {
 			if compareErr != nil {
 				return rt.Ordering{Tag: rt.TagEqual}
 			}
-			v, err := m.activate(cmp.body, []any{a, b}, cmp.captures, m.hostFrame, false, m.depth, nil)
+			v, err := m.callValue(cmp, []any{a, b}, m.hostFrame, false, m.depth, nil, 0)
 			if err != nil {
 				compareErr = err
 				return rt.Ordering{Tag: rt.TagEqual}

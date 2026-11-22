@@ -10,24 +10,24 @@ func TestFormat_AtomicBodyIgnoresDroppedParens(t *testing.T) {
 	for _, c := range []struct{ src, want string }{
 		{
 			"fn main()\n    x = concurrent\n        Task.await((g))\n    end\nend\n",
-			"fn main()\n    x = concurrent\n        Task.await(g)\n    end\nend\n",
+			"fn main()\n    x =\n        concurrent\n            Task.await(g)\n        end\nend\n",
 		},
 		{
 			"fn main()\n    x = concurrent\n        Task.await \t ((Task.spawn(g)))\n    end\nend\n",
-			"fn main()\n    x = concurrent\n        Task.await(Task.spawn(g))\n    end\nend\n",
+			"fn main()\n    x =\n        concurrent\n            Task.await(Task.spawn(g))\n        end\nend\n",
 		},
 		{
 			"fn main()\n    x = concurrent\n        ((Ok))(((y).z))\n    end\nend\n",
-			"fn main()\n    x = concurrent\n        Ok(y.z)\n    end\nend\n",
+			"fn main()\n    x =\n        concurrent\n            Ok(y.z)\n        end\nend\n",
 		},
 		{
 			"fn main()\n    x = concurrent\n        (Some(y))\n    end\nend\n",
-			"fn main()\n    x = concurrent\n        Some(y)\n    end\nend\n",
+			"fn main()\n    x =\n        concurrent\n            Some(y)\n        end\nend\n",
 		},
 		// Parentheses the formatter keeps still count.
 		{
-			"fn main()\n    x = concurrent\n        Some((a + b))\n    end\nend\n",
-			"fn main()\n    x = concurrent\n        Some((a + b))\n    end\nend\n",
+			"fn main()\n    x =\n        concurrent\n            Some((a + b))\n        end\nend\n",
+			"fn main()\n    x =\n        concurrent\n            Some((a + b))\n        end\nend\n",
 		},
 	} {
 		formatsKeepingMeaning(t, c.src, c.want)

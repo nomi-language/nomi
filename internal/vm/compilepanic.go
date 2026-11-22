@@ -54,8 +54,9 @@ func AsCompilePanic(err error) (*CompilePanic, bool) {
 	return nil, false
 }
 
-// CompileHook, when set, runs at the start of every function's compile. It
-// exists so a test can plant a compile panic; nothing else sets it.
+// CompileHook, when set, runs at the start of every compile of a function's
+// code or of a view of it (inline.go). It exists for tests, which plant a
+// compile panic or count compiles; nothing else sets it.
 var CompileHook func(f *ir.Func)
 
 // recoverCompile turns a panic out of compiling f into a body that raises it.

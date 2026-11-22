@@ -40,10 +40,10 @@ const (
 // maxCurrencyDigits are the most minor digits a custom currency may have.
 const maxCurrencyDigits = 18
 
-// FFICurrencyCheck is `currency.currency_check`: whether code (with digits,
+// HostCurrencyCheck is `currency.currency_check`: whether code (with digits,
 // or -1 for an ISO code) makes a currency, by currency_check's answers.
 // digits past int64 saturate, past maxCurrencyDigits either way.
-func FFICurrencyCheck(fr *rt.Frame, code string, digits rt.Int) int64 {
+func HostCurrencyCheck(fr *rt.Frame, code string, digits rt.Int) int64 {
 	return int64(CurrencyCheck(stdlocale.Data(fr), code, digits.Saturated()))
 }
 
@@ -108,18 +108,18 @@ func currencyCodeShaped(code string) bool {
 	return true
 }
 
-// FFICurrencyCodeOf is `currency.currency_code_of`: the code of a
+// HostCurrencyCodeOf is `currency.currency_code_of`: the code of a
 // currency's text, the part before a custom currency's `:`.
-func FFICurrencyCodeOf(text string) string {
+func HostCurrencyCodeOf(text string) string {
 	code, _, _ := strings.Cut(text, ":")
 	return code
 }
 
-// FFICurrencyDigitsOf is `currency.currency_digits_of`: the minor digits of
+// HostCurrencyDigitsOf is `currency.currency_digits_of`: the minor digits of
 // a currency's text, those after a custom currency's `:` (-1 when they are
 // not a whole number), or an ISO code's from the data, 2 for a code it does
 // not list.
-func FFICurrencyDigitsOf(fr *rt.Frame, text string) int64 {
+func HostCurrencyDigitsOf(fr *rt.Frame, text string) int64 {
 	code, digits, custom := strings.Cut(text, ":")
 	if custom {
 		n, err := strconv.ParseInt(digits, 10, 64)
@@ -224,11 +224,11 @@ func (c currencyIn) patternFor(marker string, accounting bool) *cldrdata.Pattern
 	return base
 }
 
-// FFIFormatMoney is `std::money::format.money_format_raw`: amount (a Decimal's
+// HostFormatMoney is `std::money::format.money_format_raw`: amount (a Decimal's
 // text) in the currency of code, written as display says, in the locale's
 // accounting pattern when accounting is set. digits are a Currency's, 0 to
 // maxCurrencyDigits, checked when it was made.
-func FFIFormatMoney(fr *rt.Frame, locale, amount, code string, digits rt.Int, iso bool, display int64, accounting bool) string {
+func HostFormatMoney(fr *rt.Frame, locale, amount, code string, digits rt.Int, iso bool, display int64, accounting bool) string {
 	return Money(stdlocale.Data(fr), locale, amount, code, int(digits.Saturated()), iso, int(display), accounting)
 }
 
@@ -336,9 +336,9 @@ func concrete(p *cldrdata.Pattern, marker string) *cldrdata.Pattern {
 	return &q
 }
 
-// FFIParseMoney is `std::money::format.money_parse_raw`: the amount, as a
+// HostParseMoney is `std::money::format.money_parse_raw`: the amount, as a
 // Decimal's text, that text writes in the currency of code.
-func FFIParseMoney(fr *rt.Frame, text, locale, code string, digits rt.Int, iso, lenient bool) rt.Result[string, rt.NumberParseError] {
+func HostParseMoney(fr *rt.Frame, text, locale, code string, digits rt.Int, iso, lenient bool) rt.Result[string, rt.NumberParseError] {
 	amount, err := ParseMoney(stdlocale.Data(fr), text, locale, code, int(digits.Saturated()), iso, lenient)
 	if err != nil {
 		return rt.Result[string, rt.NumberParseError]{Tag: rt.TagErr, Err: *err}

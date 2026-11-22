@@ -37,7 +37,7 @@ import (
 //     body, "Call `f()`" for a bare name used as a pipe stage, "Limit with
 //     `Iter.take`" for a pipe stage that drains an infinite iterator, and
 //     from the document's last lowering, "Allow std::fs in nomi.toml" for
-//     a call the [capabilities] lists do not allow, an edit to nomi.toml.
+//     a call the [effects] lists do not allow, an edit to nomi.toml.
 //   - in nomi.toml, "Remove std::net from std" for a name its lists hold
 //     that nothing reaches, and "Move std::fs to std_in_tests" for one only
 //     the tests reach (manifest_reach.go).

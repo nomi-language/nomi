@@ -1,0 +1,335 @@
+//# Statements on one link. `run` sends a statement with parameters
+//# through the extended protocol: the first time a link sees its SQL it is
+//# prepared as a named statement (Parse, Describe, Sync), which tells each
+//# parameter's type and each column's, and is kept; then each run binds
+//# the parameters and executes it (Bind, Execute, Sync), reading each
+//# column in the format its type is read in. Rows reach a fold one at a
+//# time, as they arrive. `simple` sends SQL with no parameters as a simple
+//# query, which may hold several statements, as a migration does.
+//# `exchange` sends any messages that end in a `Sync` and answers every
+//# message up to `ReadyForQuery`.
+//#
+//# Each of them registers `wire.abandon` first, so a task stopped before
+//# the server has answered leaves the link owing that answer, and the
+//# statement is cancelled on the server.
+
+import
+    std::sql.{self, Row, Value}
+    postgres::failures
+    postgres::messages.{self, Field, Message, Report}
+    postgres::types.{self, Codec}
+    postgres::wire.{self, Link, Prepared}
+end
+
+/// Runs `sql` with `params`, folding each row into `start` with `step`
+/// while it answers `True`, and answers the fold and the number of rows
+/// the statement changed. `label` is the SQL each `Row` names.
+pub fn run<A>(
+    link:   Link,
+    sql:    String,
+    label:  String,
+    params: List<Value>,
+    start:  A,
+    step:   (A, Row) -> (A, Bool),
+) -> Result<(A, Int), sql.Error>
+    case run_once(link, sql, label, params, start, step)
+        Err(sql.Error.Database{code:, message: _}) when stale(code)
+            and wire.status(link) == .Idle ->
+            wire.forget(link, sql)
+            run_once(link, sql, label, params, start, step)
+
+        Err(sql.Error.Database{code:, message:}) when stale(code) ->
+            wire.forget(link, sql)
+            Err(sql.Error.Database{code:, message:})
+
+        other ->
+            other
+    end
+end
+
+// Whether an error says the server no longer runs the prepared statement
+// as it was described: the schema under it changed, or it is gone.
+fn stale(code: String) -> Bool
+    code == "0A000" or code == "26000"
+end
+
+fn run_once<A>(
+    link:   Link,
+    sql:    String,
+    label:  String,
+    params: List<Value>,
+    start:  A,
+    step:   (A, Row) -> (A, Bool),
+) -> Result<(A, Int), sql.Error>
+    defer wire.abandon(link)
+    prepared = prepare(link, sql)?
+    (formats, values) = bound(prepared, params)?
+
+    wire.send(
+        link,
+        messages.bind("", prepared.name, formats, values, prepared.formats) + messages.execute(
+            "",
+            0,
+        ) + messages.sync(),
+        1,
+    )?
+
+    names = prepared.fields |> Iter.map(.name) |> Iter.to_list()
+
+    fold(
+        link,
+        prepared,
+        names,
+        label,
+        Gather{acc: start, wanting: True, failure: None, changed: 0},
+        step,
+    )
+end
+
+// What a run has gathered so far.
+struct Gather<A>
+    acc:     A
+    wanting: Bool
+    failure: Maybe<sql.Error>
+    changed: Int
+end
+
+fn fold<A>(
+    link:     Link,
+    prepared: Prepared,
+    names:    List<String>,
+    label:    String,
+    gathered: Gather<A>,
+    step:     (A, Row) -> (A, Bool),
+) -> Result<(A, Int), sql.Error>
+    batch = wire.receive(link, None)?
+
+    next =
+        batch
+        |> Iter.reduce(gathered, fn g, message ->
+            case message
+                .DataRow{values:} when g.wanting and g.failure == None ->
+                    case decoded(prepared, names, values)
+                        Ok(cells) ->
+                            (acc, wanting) = step(g.acc, Row.new(label, cells))
+                            {..g, acc:, wanting:}
+
+                        Err(reason) ->
+                            {..g, failure: Some(sql.Error.Database{code: "22000", message: reason})}
+                    end
+
+                .CommandComplete{tag:} ->
+                    {..g, changed: rows_affected(tag)}
+
+                .ErrorResponse{report:} when g.failure == None ->
+                    {..g, failure: Some(failures.of_report(report))}
+
+                _ ->
+                    g
+            end
+        end)
+
+    if not ends(batch) then return fold(link, prepared, names, label, next, step)
+
+    case next.failure
+        Some(e) -> Err(e)
+        None    -> Ok((next.acc, next.changed))
+    end
+end
+
+// A row's cells: each column's name and its value, read as its type is.
+fn decoded(
+    prepared: Prepared,
+    names:    List<String>,
+    values:   List<Maybe<Bytes>>,
+) -> Result<List<(String, Value)>, String>
+    cells(names, prepared.codecs, prepared.formats, values, [])
+end
+
+// One step a column: a loop rather than zipped iterators, since it runs
+// for every column of every row.
+fn cells(
+    names:   List<String>,
+    codecs:  List<Codec>,
+    formats: List<Int>,
+    values:  List<Maybe<Bytes>>,
+    done:    List<(String, Value)>,
+) -> Result<List<(String, Value)>, String>
+    case (names, codecs, formats, values)
+        ([name, ..n], [codec, ..c], [format, ..f], [data, ..v]) ->
+            case types.decode(codec, format, data)
+                Ok(value)   -> cells(n, c, f, v, [(name, value), ..done])
+                Err(reason) -> Err("the column `${name}` holds ${reason}")
+            end
+
+        _ ->
+            Ok(Iter.reverse(done))
+    end
+end
+
+// The format and the bytes of each parameter, as the server's type for it
+// takes them.
+fn bound(
+    prepared: Prepared,
+    params:   List<Value>,
+) -> Result<(List<Int>, List<Maybe<Bytes>>), sql.Error>
+    if Iter.count(params) != Iter.count(prepared.params) then
+        return Err(
+            sql.Error.Database{
+                code:    "08P01",
+                message: "the statement takes ${Iter.count(prepared.params)} parameters, and ${Iter.count(params)} were given",
+            }
+        )
+    end
+
+    encoded =
+        Iter.zip(params, prepared.params)
+        |> Iter.with_index()
+        |> Iter.map(fn (position, (value, oid)) ->
+            types.encode(value, oid)
+            |> Result.map_err(fn reason -> sql.Error.Database{
+                code:    "22000",
+                message: "parameter $${position + 1}: ${reason}",
+            })
+        end)
+        |> Result.collect()?
+
+    Ok(
+        (
+            encoded |> Iter.map(.first) |> Iter.to_list(),
+            encoded |> Iter.map(.second) |> Iter.to_list(),
+        )
+    )
+end
+
+/// The statement prepared for `sql` on the link, preparing and keeping it
+/// the first time.
+pub fn prepare(link: Link, sql: String) -> Result<Prepared, sql.Error>
+    case wire.prepared(link, sql)
+        Some(prepared) ->
+            Ok(prepared)
+
+        None ->
+            (name, dropped) = wire.statement_name(link)
+
+            closes =
+                dropped
+                |> Iter.map(messages.close_statement)
+                |> Iter.to_list()
+                |> Bytes.concat_all()
+
+            (params, fields) =
+                described(exchange(link, closes + parse_describe(name, sql))?)
+                |> Result.map_err(failures.of_report)?
+
+            codecs = fields |> Iter.map(fn f -> types.codec(f.type_oid)) |> Iter.to_list()
+
+            prepared = Prepared{
+                name:,
+                params:,
+                fields:,
+                codecs:,
+                formats: codecs |> Iter.map(types.result_format) |> Iter.to_list(),
+            }
+
+            wire.remember(link, sql, prepared)
+            Ok(prepared)
+    end
+end
+
+/// The messages that prepare `sql` as the statement `name` and ask for
+/// its parameters and columns.
+pub fn parse_describe(name: String, sql: String) -> Bytes
+    messages.parse(name, sql, []) + messages.describe_statement(name) + messages.sync()
+end
+
+/// The parameter types and columns a Parse and Describe answered, or the
+/// server's error.
+pub fn described(answers: List<Message>) -> Result<(List<Int>, List<Field>), Report>
+    Iter.reduce(answers, Ok(([], [])), fn found, message ->
+        case (found, message)
+            (Err(e), _)                  -> Err(e)
+            (_, .ErrorResponse{report:}) -> Err(report)
+            (Ok((_, fields)), .ParameterDescription{types:}) -> Ok((types, fields))
+            (Ok((params, _)), .RowDescription{fields:})      -> Ok((params, fields))
+            _ -> found
+        end
+    end)
+end
+
+/// Runs SQL with no parameters as a simple query, which may hold several
+/// statements, and answers how many rows the last one changed.
+pub fn simple(link: Link, sql: String) -> Result<Int, sql.Error>
+    answers = exchange(link, messages.query(sql))?
+
+    if Iter.contains(answers, Message.CopyInResponse) then
+        return Err(
+            sql.Error.Database{
+                code:    "0A000",
+                message: "COPY ... FROM STDIN is not supported: the driver sends no COPY data",
+            }
+        )
+    end
+
+    Iter.reduce(answers, Ok(0), fn changed, message ->
+        case (changed, message)
+            (Err(e), _)                  -> Err(e)
+            (_, .ErrorResponse{report:}) -> Err(failures.of_report(report))
+            (_, .CommandComplete{tag:})  -> Ok(rows_affected(tag))
+            _                            -> changed
+        end
+    end)
+end
+
+/// Sends `bytes`, messages that end in one `Sync` or one simple query, and
+/// answers every message the server sends up to its `ReadyForQuery`.
+pub fn exchange(link: Link, bytes: Bytes) -> Result<List<Message>, sql.Error>
+    defer wire.abandon(link)
+    wire.send(link, bytes, 1)?
+    until_ready(link, [])
+end
+
+fn until_ready(link: Link, done: List<Message>) -> Result<List<Message>, sql.Error>
+    batch = wire.receive(link, None)?
+
+    // A `COPY ... FROM STDIN` waits for its data, which no statement here
+    // has: it is refused, and the server answers with an error.
+    if Iter.any_match(batch, fn m -> m == Message.CopyInResponse) then
+        wire.send(link, messages.copy_fail("the Nomi driver does not send COPY data"), 0)?
+    end
+
+    all = done + batch
+
+    if ends(batch) then
+        Ok(all)
+    else
+        until_ready(link, all)
+    end
+end
+
+fn ends(batch: List<Message>) -> Bool
+    case Iter.last(batch)
+        Some(.ReadyForQuery{status: _}) -> True
+        _                               -> False
+    end
+end
+
+/// The rows a command tag says changed: the last number of `INSERT 0 3`,
+/// `UPDATE 3`, `DELETE 3`, `SELECT 3`, `MERGE 3`, `COPY 3`, `FETCH 3` or
+/// `MOVE 3`, and 0 for any other command.
+//! assert rows_affected("INSERT 0 3") == 3
+//! assert rows_affected("UPDATE 12") == 12
+//! assert rows_affected("CREATE TABLE") == 0
+//
+pub fn rows_affected(tag: String) -> Int
+    words = String.split(tag, " ")
+    counted = ["INSERT", "UPDATE", "DELETE", "SELECT", "MERGE", "COPY", "FETCH", "MOVE"]
+
+    case (List.first(words), Iter.last(words))
+        (Some(command), Some(count)) when command in counted ->
+            String.to_int(count) |> Maybe.with_default(0)
+
+        _ ->
+            0
+    end
+end

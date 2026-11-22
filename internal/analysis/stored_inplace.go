@@ -161,7 +161,7 @@ func (dm *DocumentManager) rebuildStoredBodies(sp *storedProgram, key, oldText s
 		fa.carryImports(generation)
 	}
 	if prog.Onces.reinfer(map[*FileAnalysis]bool{fa: true}) {
-		return "an unannotated once's type may have changed", true
+		return "an unannotated once's type or a resource's usual release may have changed", true
 	}
 	// The check's own diagnostics, as Check works them out.
 	c.Build = slices.Clone(fa.TypeErrors)

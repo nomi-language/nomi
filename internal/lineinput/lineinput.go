@@ -1,7 +1,7 @@
 // Package lineinput is the input std/csv's and std/xml's readers read: a
-// Nomi Reader as an io.Reader, with a leading UTF-8 byte order mark
-// dropped, and a log of the lines read so far, so that a parser's
-// position in bytes becomes a column in code points.
+// Nomi Reader, or text held whole, as an io.Reader, with a leading UTF-8
+// byte order mark dropped, and a log of the lines read so far, so that a
+// parser's position in bytes becomes a column in code points.
 //
 // Go's encoding/csv and encoding/xml report a column as a byte offset in
 // the line. std reports columns in code points, as std/json does, so the
@@ -17,12 +17,16 @@ import (
 	"github.com/nomi-language/nomi/rt"
 )
 
-// Input reads a Reader for one parser. Frame is the frame of the host call
-// that is reading, set by each call before it reads, since a Reader is
-// read on the frame of the crossing that reads it.
+// Input reads a Reader, or text held whole, for one parser. Frame is the
+// frame of the host call that is reading, set by each call before it reads
+// a Reader, since a Reader is read on the frame of the crossing that reads
+// it.
 type Input struct {
 	Frame *rt.Frame
 	r     rt.Reader
+	// whole is set when the input is text held whole: pending is all of it,
+	// and there is no Reader.
+	whole bool
 	// started is set once the first bytes were read and any byte order
 	// mark dropped.
 	started bool
@@ -37,12 +41,25 @@ func New(r rt.Reader) *Input {
 	return &Input{r: r, log: lineLog{first: 1, lines: [][]byte{nil}}}
 }
 
-// Read reads the Reader, as io.Reader says.
+// Text is an Input over data, held whole. Reading it reads no Reader, so
+// it needs no Frame.
+func Text(data rt.Bytes) *Input {
+	in := New(rt.Reader{})
+	in.whole = true
+	in.started = true
+	in.pending = bytes.TrimPrefix([]byte(data), []byte("\xef\xbb\xbf"))
+	return in
+}
+
+// Read reads the Reader, or the text, as io.Reader says.
 func (in *Input) Read(p []byte) (int, error) {
 	if len(p) == 0 {
 		return 0, nil
 	}
 	for len(in.pending) == 0 {
+		if in.whole {
+			return 0, io.EOF
+		}
 		chunk := rt.ReaderRead(in.Frame, in.r, rt.SmallInt(int64(max(len(p), 4096))))
 		if chunk.Tag != rt.TagOk {
 			e := chunk.Err

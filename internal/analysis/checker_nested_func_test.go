@@ -337,5 +337,5 @@ func TestNestedFunc_ExternIsRejectedInEveryExpressionPosition(t *testing.T) {
   end]
   assert xs == [1]
 end`
-	expectErrorContaining(t, checkWithStdlib(src), "extern declaration must be at the top level")
+	expectErrorContaining(t, checkWithStdlib(src), "a `host` declaration must be at the top level")
 }

@@ -185,14 +185,15 @@ end
 pub fn apply(conn: Conn, migrations: List<Migration>) -> Result<List<String>, Error>
     tx = Conn.begin_transaction(conn) |> Result.map_err(database)?
 
-    pending = case prepare(tx, migrations)
-        Ok(p) ->
-            p
+    pending =
+        case prepare(tx, migrations)
+            Ok(p) ->
+                p
 
-        Err(e) ->
-            _ = Conn.rollback(tx)
-            return Err(e)
-    end
+            Err(e) ->
+                _ = Conn.rollback(tx)
+                return Err(e)
+        end
 
     (ran, failure) = run(tx, pending, [])
     Conn.commit(tx) |> Result.map_err(database)?
@@ -209,9 +210,10 @@ end
 pub fn status(conn: Conn, migrations: List<Migration>) -> Result<Status, Error>
     recorded = if table_exists(conn, "nomi_migrations")? then records(conn)? else {}
 
-    paths = fn keep: (Migration) -> Bool ->
-        migrations |> Iter.filter(keep) |> Iter.map(fn m -> m.path) |> Iter.to_list()
-    end
+    paths =
+        fn keep: (Migration) -> Bool ->
+            migrations |> Iter.filter(keep) |> Iter.map(fn m -> m.path) |> Iter.to_list()
+        end
 
     versions = migrations |> Iter.map(version_of) |> Iter.to_set()
 
@@ -274,15 +276,16 @@ fn adopted(tx: Conn, migrations: List<Migration>) -> Result<List<String>, Error>
         Conn.query(tx, Sql"SELECT version, dirty FROM schema_migrations")
         |> Result.map_err(database)?
 
-    (version, dirty) = case rows
-        [] ->
-            return Ok([])
+    (version, dirty) =
+        case rows
+            [] ->
+                return Ok([])
 
-        [row, ..] ->
-            v = Row.get<Int>(row, "version") |> Result.map_err(database)?
-            d = Row.get<Bool>(row, "dirty") |> Result.map_err(database)?
-            (v, d)
-    end
+            [row, ..] ->
+                v = Row.get<Int>(row, "version") |> Result.map_err(database)?
+                d = Row.get<Bool>(row, "dirty") |> Result.map_err(database)?
+                (v, d)
+        end
 
     if dirty then
         return Err(
@@ -437,13 +440,14 @@ end
 
 // Whether the current schema has a table named `name`.
 fn table_exists(conn: Conn, name: String) -> Result<Bool, Error>
-    statement = case Conn.dialect(conn)
-        .Postgres ->
-            Sql"SELECT count(*) AS n FROM pg_tables WHERE schemaname = current_schema() AND tablename = ${name}"
+    statement =
+        case Conn.dialect(conn)
+            .Postgres ->
+                Sql"SELECT count(*) AS n FROM pg_tables WHERE schemaname = current_schema() AND tablename = ${name}"
 
-        _ ->
-            Sql"SELECT count(*) AS n FROM sqlite_master WHERE type = 'table' AND name = ${name}"
-    end
+            _ ->
+                Sql"SELECT count(*) AS n FROM sqlite_master WHERE type = 'table' AND name = ${name}"
+        end
 
     rows = Conn.query(conn, statement) |> Result.map_err(database)?
 

@@ -14,7 +14,8 @@ import (
 // hoverReach is what a hover at the first character of the occurrence of
 // needle given by nth (0 for the first) in the file named file of the
 // program at entry ends with, as an editor and the docs site show it
-// (reachedCalls, hoverdoc.AppendReach): each reach line, one per element.
+// (editorWalks, reachedCalls, hoverdoc.AppendReach): each reach line, one
+// per element.
 func hoverReach(t *testing.T, p *Program, dir, file, needle string, nth int) []string {
 	t.Helper()
 	path := filepath.Join(dir, filepath.FromSlash(file))
@@ -33,7 +34,7 @@ func hoverReach(t *testing.T, p *Program, dir, file, needle string, nth int) []s
 	line := strings.Count(text[:at], "\n") + 1
 	col := at - strings.LastIndex(text[:at], "\n")
 	pos := analysis.Pos{Line: line, Col: col}
-	shown := hoverdoc.AppendReach("", p.reachedCalls(p.walks(p.checkedRoots())), func(c string) bool { return samePathForTest(c, path) }, pos, pos)
+	shown := hoverdoc.AppendReach("", p.reachedCalls(p.editorWalks(p.walks(p.checkedRoots()))), func(c string) bool { return samePathForTest(c, path) }, pos, pos)
 	var out []string
 	for _, l := range strings.Split(shown, "\n") {
 		if l != "" {
@@ -124,31 +125,31 @@ func TestFunctionReach_OwnFunctions(t *testing.T) {
 	const module = "[module]\nname = \"app\"\nentry_points = [\"main\"]\n"
 	dir := writeProject(t, map[string]string{
 		"main.nomi": functionReachMain,
-		"nomi.toml": module + "\n[capabilities.self]\nstd = [\"std::io\"]\n",
+		"nomi.toml": module + "\n[effects.self]\nstd = [\"std::io\"]\n",
 		"go.mod":    "module example.com/app\n\ngo 1.27.0\n",
 	})
 	p, err := Load(filepath.Join(dir, "main.nomi"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	refusedFs := "`nomi.toml` does not allow in `[capabilities.self]`."
-	allowedIo := "Reaches `std::io`, which `nomi.toml` allows in `[capabilities.self]`."
-	alsoIo := "Also reaches `std::io`."
+	refusedFs := "`nomi.toml` does not allow in `[effects.self]`."
+	allowedIo := "Has effects: `std::io`, which `nomi.toml` allows in `[effects.self]`."
+	alsoIo := "Also has effects: `std::io`."
 	for _, tc := range []struct {
 		name, needle string
 		nth          int
 		want         []string
 	}{
-		{"a call two calls above the outside call", "load_config()", 1, []string{"Reaches `std::fs` through `read_settings`, which " + refusedFs}},
-		{"the declaration's name", "load_config", 0, []string{"Reaches `std::fs` through `read_settings`, which " + refusedFs}},
-		{"the function that makes the call", "read_settings(path", 0, []string{"Reaches `std::fs`, which " + refusedFs}},
-		{"two modules, the refused first", "report(text", 0, []string{"Reaches `std::fs` through `load_config`, `read_settings`, which " + refusedFs, alsoIo}},
-		{"a call of a function of two modules", "report(\"", 0, []string{"Reaches `std::fs` through `load_config`, `read_settings`, which " + refusedFs, alsoIo}},
+		{"a call two calls above the effect call", "load_config()", 1, []string{"Has effects: `std::fs` through `read_settings`, which " + refusedFs}},
+		{"the declaration's name", "load_config", 0, []string{"Has effects: `std::fs` through `read_settings`, which " + refusedFs}},
+		{"the function that makes the call", "read_settings(path", 0, []string{"Has effects: `std::fs`, which " + refusedFs}},
+		{"two modules, the refused first", "report(text", 0, []string{"Has effects: `std::fs` through `load_config`, `read_settings`, which " + refusedFs, alsoIo}},
+		{"a call of a function of two modules", "report(\"", 0, []string{"Has effects: `std::fs` through `load_config`, `read_settings`, which " + refusedFs, alsoIo}},
 		{"a pure function", "double(n", 0, nil},
 		{"a call of a pure function", "double(2", 0, nil},
-		{"a generic function's declaration holds every instance's", "shout<T>", 0, []string{"Reaches `std::fs` through `*`, `read_settings`, which " + refusedFs, alsoIo}},
+		{"a generic function's declaration holds every instance's", "shout<T>", 0, []string{"Has effects: `std::fs` through `*`, `read_settings`, which " + refusedFs, alsoIo}},
 		{"a generic function's call of one instance", "shout(1)", 0, []string{allowedIo}},
-		{"a generic function's call of another", "shout(File", 0, []string{"Reaches `std::fs` through `*`, `read_settings`, which " + refusedFs, alsoIo}},
+		{"a generic function's call of another", "shout(File", 0, []string{"Has effects: `std::fs` through `*`, `read_settings`, which " + refusedFs, alsoIo}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := hoverReach(t, p, dir, "main.nomi", tc.needle, tc.nth); !slices.EqualFunc(got, tc.want, linesMatch) {
@@ -166,12 +167,12 @@ func TestFunctionReach_ADependencysFunction(t *testing.T) {
 	for _, tc := range []struct {
 		name, app, want string
 	}{
-		{"no tables", "[module]\nname = \"app\"\nentry_points = [\"main\"]\n", "Reaches `std::fs`."},
-		{"held by deps and its entry", "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[capabilities.deps]\nstd = [\"std::fs\"]\n\n" +
-			"[capabilities.deps.modules]\n\"example.com/pricing\" = [\"std::fs\"]\n",
-			"Reaches `std::fs`, which `nomi.toml` allows in `[capabilities.deps]` and in the entry for `example.com/pricing`."},
-		{"refused by its entry", "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[capabilities.deps.modules]\n\"example.com/pricing\" = []\n",
-			"Reaches `std::fs`, which `nomi.toml` does not allow in the entry for `example.com/pricing`."},
+		{"no tables", "[module]\nname = \"app\"\nentry_points = [\"main\"]\n", "Has effects: `std::fs`."},
+		{"held by deps and its entry", "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.deps]\nstd = [\"std::fs\"]\n\n" +
+			"[effects.deps.modules]\n\"pricing\" = [\"std::fs\"]\n",
+			"Has effects: `std::fs`, which `nomi.toml` allows in `[effects.deps]` and in the entry for `pricing`."},
+		{"refused by its entry", "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.deps.modules]\n\"pricing\" = []\n",
+			"Has effects: `std::fs`, which `nomi.toml` does not allow in the entry for `pricing`."},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := writeProject(t, dependencyFiles(tc.app, ""))

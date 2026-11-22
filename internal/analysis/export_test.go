@@ -141,10 +141,22 @@ func InstalledForTest(dm *DocumentManager, uri string) BuiltForTest {
 	return out
 }
 
-// UnionDemandsForTest exposes unionDemands, the fold of files' own
-// ImplManifests that MissingImpls reads, to external _test packages.
+// UnionDemandsForTest answers the fold of files' own ImplManifests that
+// MissingImpls reads (programDemands): each bucket some recording outside
+// the stdlib demands, with its recordings each once in position order.
 func UnionDemandsForTest(files []*FileAnalysis) map[string]map[string][]Recording {
-	return unionDemands(files)
+	d := newProgramDemands(&Program{ImplIndex: &ProjectImplIndex{}, files: files}, nil, files)
+	out := map[string]map[string][]Recording{}
+	for b, bk := range d.buckets {
+		if bk.wanted == 0 {
+			continue
+		}
+		if out[b.iface] == nil {
+			out[b.iface] = map[string][]Recording{}
+		}
+		out[b.iface][b.typeName] = bk.recs
+	}
+	return out
 }
 
 // KeepStaleDemandsForTest runs f with FinalizeCoherence's cache keeping
@@ -203,6 +215,74 @@ func ProgramDemandsForTest(fa *FileAnalysis) map[string]map[string][]Recording {
 				out[iface][typeName] = append(out[iface][typeName], recs...)
 			}
 		}
+	}
+	return out
+}
+
+// ReduceSourceFactsForTest answers ReduceFacts over the facts of full's
+// project files, read from the check from source, with the program's
+// supply and over; and the reductions' missing impls over the same facts
+// and supply with no stdlib base, which ReduceFacts never runs.
+func ReduceSourceFactsForTest(full *CheckedProgram, over *FileAnalysis) (red *Reductions, ok bool, noStd []TypeError) {
+	project := map[string][]ast.Node{}
+	for key, nodes := range full.Nodes {
+		if !IsStdlibKey(key) && full.Files[key] != nil {
+			project[key] = nodes
+		}
+	}
+	namer := NewFactsNamer(project, full.Entry)
+	entry := full.Files[full.Entry]
+	facts := map[string]*FileFacts{}
+	for key, nodes := range project {
+		facts[key] = FileFactsOf(key, full.Files[key], nodes, namer, len(entry.Program().AppTypes) > 0)
+	}
+	supply := SupplyOf(entry)
+	red, ok = ReduceFacts(facts, supply, over)
+	return red, ok, reduceCoherence(facts, sortedKeys(facts), supply, stdContext{})
+}
+
+// InterfaceMakesSelfForTest reports whether the interface named name that
+// origin declares, as fa reaches it, makes a value of its implementing
+// type (subtype_impls.go). found is false when fa reaches no such
+// interface.
+func InterfaceMakesSelfForTest(fa *FileAnalysis, name, origin string) (makes, found bool) {
+	iface := fa.interfaceNamed(name, origin)
+	return interfaceMakesSelf(iface), iface != nil
+}
+
+// SubtypeReaderBreachesForTest is, for each interface that reads a subtype
+// at its base (subtypeReaders), each of its functions whose result names
+// its type, with the breach a read of a subtype answers there (zero for
+// none).
+func SubtypeReaderBreachesForTest(fa *FileAnalysis) map[string]SubtypeBreach {
+	out := map[string]SubtypeBreach{}
+	for _, s := range subtypeReaders {
+		iface := fa.stdInterface(s)
+		if iface == nil {
+			out[s.Name] = 0
+			continue
+		}
+		for _, m := range iface.Methods {
+			if m.Return != nil && typeMentionsParam(m.Return, iface.SelfParam) {
+				out[s.Name+"."+m.Name] = subtypeBreachOf(m.Return, iface.SelfParam)
+			}
+		}
+	}
+	return out
+}
+
+// PatternSiteForTest is a name a pattern binds and where (patternSite).
+type PatternSiteForTest struct {
+	Name string
+	Pos  Pos
+}
+
+// PatternSitesForTest is every name pattern binds, in source order
+// (patternSites).
+func PatternSitesForTest(pattern ast.Node) []PatternSiteForTest {
+	var out []PatternSiteForTest
+	for _, s := range patternSites(pattern) {
+		out = append(out, PatternSiteForTest{Name: s.name, Pos: s.pos})
 	}
 	return out
 }

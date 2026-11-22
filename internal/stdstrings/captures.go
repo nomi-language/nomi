@@ -2,12 +2,12 @@ package stdstrings
 
 import "github.com/nomi-language/nomi/internal/stdregex"
 
-// FFICaptures is std/strings' `capture_groups`, behind `String.captures`:
+// HostCaptures is std/strings' `capture_groups`, behind `String.captures`:
 // the capture groups of the leftmost match of re in s, group 1 onward, or
 // nil when nothing matches. A group that took part in the match is its
 // text, empty or not; one that did not is nil. `String.captures` shapes
 // them as the regex's capture type.
-func FFICaptures(s string, re *stdregex.Regex) *[]*string {
+func HostCaptures(s string, re *stdregex.Regex) *[]*string {
 	rx := re.Regexp()
 	if rx == nil {
 		return nil
@@ -20,10 +20,10 @@ func FFICaptures(s string, re *stdregex.Regex) *[]*string {
 	return &groups
 }
 
-// FFICapturesAll is `capture_groups_all`, behind `String.captures_all`:
-// FFICaptures for every non-overlapping match, left to right, the matches
+// HostCapturesAll is `capture_groups_all`, behind `String.captures_all`:
+// HostCaptures for every non-overlapping match, left to right, the matches
 // `String.find_all` returns.
-func FFICapturesAll(s string, re *stdregex.Regex) [][]*string {
+func HostCapturesAll(s string, re *stdregex.Regex) [][]*string {
 	rx := re.Regexp()
 	if rx == nil {
 		return nil

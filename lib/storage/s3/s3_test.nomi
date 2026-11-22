@@ -258,17 +258,18 @@ test "an unsigned payload is not hashed"
 end
 
 test "get reads the type, size and date from the response"
-    answer = fn _request: Request ->
-        Ok(
-            Response{
-                headers: Headers[
-                    ("Content-Type",  "image/png"),
-                    ("Last-Modified", "Fri, 24 May 2013 00:00:00 GMT"),
-                ],
-                body: Body.Bytes(String.to_bytes("png!")),
-            }
-        )
-    end
+    answer =
+        fn _request: Request ->
+            Ok(
+                Response{
+                    headers: Headers[
+                        ("Content-Type",  "image/png"),
+                        ("Last-Modified", "Fri, 24 May 2013 00:00:00 GMT"),
+                    ],
+                    body: Body.Bytes(String.to_bytes("png!")),
+                }
+            )
+        end
 
     ran = http_testing.run(answer, fn -> Store.get(store_of(config()), "a.png"))
     assert Ok(object) = ran.value
@@ -370,10 +371,11 @@ test "a missing bucket is not a missing object to delete"
 end
 
 test "network failures are Unavailable and a bad certificate is not"
-    failing = fn error: http.Error ->
-        c = {..config(), retries: 0}
-        http_testing.run(fn _ -> Err(error), fn -> Store.get(store_of(c), "a.txt")).value
-    end
+    failing =
+        fn error: http.Error ->
+            c = {..config(), retries: 0}
+            http_testing.run(fn _ -> Err(error), fn -> Store.get(store_of(c), "a.txt")).value
+        end
 
     assert failing(
         http.Error.Connect{address: "localhost:9000", reason: "refused"}
@@ -523,43 +525,45 @@ fn fake_s3(memory: Memory) -> (Request) -> Result<Response, http.Error>
             return Ok(list_response(memory, key, query))
         end
 
-        answer = case request.method
-            .Put ->
-                content_type =
-                    Headers.get(request.headers, "Content-Type") |> Maybe.with_default("")
+        answer =
+            case request.method
+                .Put ->
+                    content_type =
+                        Headers.get(request.headers, "Content-Type") |> Maybe.with_default("")
 
-                Store.put(memory, key, data, content_type)
-                |> Result.map(fn _ -> Response{status: Status.ok})
+                    Store.put(memory, key, data, content_type)
+                    |> Result.map(fn _ -> Response{status: Status.ok})
 
-            .Get ->
-                Store.get(memory, key)
-                |> Result.map(fn object ->
-                    Response{
-                        headers: Headers[
-                            ("Content-Type",  object.info.content_type),
-                            ("Last-Modified", http.format_time(object.info.modified)),
-                        ],
-                        body: Body.Bytes(object.data),
-                    }
-                end)
+                .Get ->
+                    Store.get(memory, key)
+                    |> Result.map(fn object ->
+                        Response{
+                            headers: Headers[
+                                ("Content-Type",  object.info.content_type),
+                                ("Last-Modified", http.format_time(object.info.modified)),
+                            ],
+                            body: Body.Bytes(object.data),
+                        }
+                    end)
 
-            .Head ->
-                Store.get(memory, key)
-                |> Result.map(fn object ->
-                    Response{
-                        headers: Headers[
-                            ("Content-Type",   object.info.content_type),
-                            ("Content-Length", "${object.info.size}"),
-                        ],
-                    }
-                end)
+                .Head ->
+                    Store.get(memory, key)
+                    |> Result.map(fn object ->
+                        Response{
+                            headers: Headers[
+                                ("Content-Type",   object.info.content_type),
+                                ("Content-Length", "${object.info.size}"),
+                            ],
+                        }
+                    end)
 
-            .Delete ->
-                Store.delete(memory, key) |> Result.map(fn _ -> Response{status: Status.no_content})
+                .Delete ->
+                    Store.delete(memory, key)
+                    |> Result.map(fn _ -> Response{status: Status.no_content})
 
-            _ ->
-                Ok(Response{status: Status.method_not_allowed})
-        end
+                _ ->
+                    Ok(Response{status: Status.method_not_allowed})
+            end
 
         case answer
             Ok(response) ->
@@ -626,10 +630,14 @@ fn list_response(memory: Memory, bucket: String, query: Query) -> Response
         end)
         |> Iter.to_list()
 
-    next = case listing.next
-        Some(token) -> [field("IsTruncated", "true"), field("NextContinuationToken", inner(token))]
-        None        -> [field("IsTruncated", "false")]
-    end
+    next =
+        case listing.next
+            Some(token) ->
+                [field("IsTruncated", "true"), field("NextContinuationToken", inner(token))]
+
+            None ->
+                [field("IsTruncated", "false")]
+        end
 
     root = Element{
         name:     Name{local: "ListBucketResult", space: "http://s3.amazonaws.com/doc/2006-03-01/"},
@@ -707,11 +715,12 @@ test "the store passes the conformance suite against a fake server"
     buckets: Channel<Int> = Channel.buffered(1)
     _ = Sender.send(buckets.sender, 0)
 
-    open = fn ->
-        n = Receiver.receive(buckets.receiver)!
-        _ = Sender.send(buckets.sender, n + 1)
-        s3.store({..config(), bucket: "bucket${n}"})
-    end
+    open =
+        fn ->
+            n = Receiver.receive(buckets.receiver)!
+            _ = Sender.send(buckets.sender, n + 1)
+            s3.store({..config(), bucket: "bucket${n}"})
+        end
 
     ran = http_testing.run(fake_s3(Memory.new()), fn -> storage_testing.conformance(open))
     assert ran.value == []

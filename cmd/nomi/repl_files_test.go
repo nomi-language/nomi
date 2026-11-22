@@ -61,8 +61,9 @@ func TestReplVM_ALaterInputDerivesForAnEarlierType(t *testing.T) {
 }
 
 // A redefined impl replaces the earlier one for code earlier inputs
-// compiled too: a function that called the old impl's function, directly
-// or through string interpolation, calls the new one.
+// compiled too: a function that called the old impl's function, directly,
+// through string interpolation or dispatched on an interface value it
+// already called it through, calls the new one.
 func TestReplVM_ARedefinedImplReachesEarlierFunctions(t *testing.T) {
 	replExpect(t, "struct P\n  x: Int\nend\n"+
 		"impl Display for P\n  fn to_string(p: P) -> String\n    \"one ${p.x}\"\n  end\nend\n"+
@@ -70,8 +71,28 @@ func TestReplVM_ARedefinedImplReachesEarlierFunctions(t *testing.T) {
 		"impl Display for P\n  fn to_string(p: P) -> String\n    \"two ${p.x}\"\n  end\nend\nshow(P{x: 1})\n"+
 		"impl P\n  pub fn get(p: P) -> Int\n    p.x\n  end\nend\n"+
 		"fn use_get(p: P) -> Int\n  P.get(p)\nend\nuse_get(P{x: 3})\n"+
-		"impl P\n  pub fn get(p: P) -> Int\n    p.x * 10\n  end\nend\nuse_get(P{x: 3})\n",
-		"\"one 1\"\n\"two 1\"\n3\n30\n")
+		"impl P\n  pub fn get(p: P) -> Int\n    p.x * 10\n  end\nend\nuse_get(P{x: 3})\n"+
+		"interface Shape\n  fn area(s: self) -> Int\nend\n"+
+		"impl Shape for P\n  fn area(p: P) -> Int\n    p.x\n  end\nend\n"+
+		"fn total(s: Shape) -> Int\n  Shape.area(s) + 1\nend\ntotal(P{x: 4})\n"+
+		"area_of = fn s: Shape -> Shape.area(s) + 2\np = P{x: 4}\narea_of(p)\n"+
+		"impl Shape for P\n  fn area(p: P) -> Int\n    p.x * 10\n  end\nend\ntotal(P{x: 4})\narea_of(p)\n",
+		"\"one 1\"\n\"two 1\"\n3\n30\n5\n6\n41\n42\n")
+}
+
+// An earlier function that a small impl function was compiled into (the
+// VM's inlining) calls the redefined one: get's body is in the code of
+// use_get and of twice, which g runs, and redefining get recompiles them
+// with the new body in its place. The calls are not tail calls, which are
+// never compiled in, and g's is a call through a value, which runs the
+// code twice was compiled to before the redefinition.
+func TestReplVM_ARedefinedFunctionCompiledIntoAnEarlierOneIsReplaced(t *testing.T) {
+	replExpect(t, "struct P\n  x: Int\nend\n"+
+		"impl P\n  pub fn get(p: P) -> Int\n    p.x\n  end\nend\n"+
+		"fn use_get(p: P) -> Int\n  P.get(p) + 1\nend\n"+
+		"fn twice(p: P) -> Int\n  use_get(p) * 2\nend\ng = twice\ng(P{x: 3})\n"+
+		"impl P\n  pub fn get(p: P) -> Int\n    p.x * 10\n  end\nend\ng(P{x: 3})\nuse_get(P{x: 3})\n",
+		"8\n62\n31\n")
 }
 
 // A derive in a later input for an earlier input's type replaces the impl
@@ -96,6 +117,23 @@ func TestReplVM_ALaterDeriveReplacesTheTypesImpl(t *testing.T) {
 		"enum Coin\n  Penny\n  Nickel\nend\nderive Variants for Coin\nCoin.variants()\n",
 		"R{x: 5}\n[R{x: 6}]\n\"custom 7\"\n\"R{x: 8}\"\n\"hand 1\"\n\"R{x: 2}\"\nTrue\nFalse\n"+
 			"True\nFalse\nSome(1)\nSome(2)\n\"{\\\"x\\\":1}\"\n\"{\\\"x\\\":2}\"\nOk(R{x: 3})\n[Penny, Nickel]\n")
+}
+
+// A rendering an earlier input compiled while a type's Debug was its shape
+// renders through the Debug impl a later input writes for the type, and
+// through the derive that replaces it, wherever the value sits: alone, in
+// a List, as another struct's field, in a Maybe, and under a `dbg`.
+func TestReplVM_ALaterDebugImplReachesEarlierRenderings(t *testing.T) {
+	replExpect(t, "struct R\n  x: Int\nend\nstruct S\n  r: R\nend\n"+
+		"fn show(r: R) -> String\n  Debug.inspect(r)\nend\n"+
+		"fn parts(rs: List<R>, s: S, m: Maybe<R>) -> String\n  \"${Debug.inspect(rs)} ${Debug.inspect(s)} ${Debug.inspect(m)}\"\nend\n"+
+		"fn traced(r: R) -> R\n  dbg r\nend\n"+
+		"show(R{x: 1})\n"+
+		"impl Debug for R\n  fn inspect(r: R) -> String\n    \"custom ${r.x}\"\n  end\nend\n"+
+		"show(R{x: 2})\nparts([R{x: 3}], S{r: R{x: 4}}, Some(R{x: 5}))\n_ = traced(R{x: 6})\n"+
+		"derive Debug for R\nshow(R{x: 7})\nparts([R{x: 8}], S{r: R{x: 9}}, Some(R{x: 10}))\n",
+		"\"R{x: 1}\"\n\"custom 2\"\n\"[custom 3] S{r: custom 4} Some(custom 5)\"\ndbg line 4: r = custom 6\n"+
+			"\"R{x: 7}\"\n\"[R{x: 8}] S{r: R{x: 9}} Some(R{x: 10})\"\n")
 }
 
 // An undefined name's hint offers every name the session has in scope, not

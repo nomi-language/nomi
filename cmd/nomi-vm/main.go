@@ -5,10 +5,10 @@
 // wrote that it is handed: `nomi-vm app.nomic [args...]`, or framed at the
 // start of stdin.
 //
-// `nomi build` builds it with the Go toolchain and caches it per compiler,
-// target and variant (internal/ffirun's runner.go). The build tag
-// nomi_compiler links std/compiler's hosts (compiler.go), which bring the
-// front end with them; without it the runner links no front end.
+// A release ships it prebuilt; a `nomi` built from source builds it with Go
+// and caches it per compiler, target and variant (internal/runners). The
+// build tag nomi_compiler links std/compiler's hosts (compiler.go), which
+// bring the front end with them; without it the runner links no front end.
 package main
 
 import "github.com/nomi-language/nomi/vmrunner"

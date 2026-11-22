@@ -10,12 +10,13 @@ package irbuild
 // name an ordinary binding introduced, that binding's "defined as:" block.
 //
 // The pattern is tested as a `case` arm's pattern is, and as a binding's is
-// (patternValueTest). The success edge binds the pattern's names and the
+// (patternTest). The success edge binds the pattern's names and the
 // rest of the body continues there, so later statements read them. The
 // failure edge is one `ir.NewAssertMismatch`, which always fails, followed by
-// an unreachable Unit return. A pattern whose test builds no failure edge
-// (a name, `_`, a tuple or struct of names) only binds, and its mismatch
-// block, which nothing reaches, holds the return alone. A pattern name may
+// an unreachable Unit return. A pattern the checker records as matching
+// every value (a name, `_`, a tuple or struct of names, a one-variant
+// enum's variant) only binds, and its mismatch block, which no value
+// reaches, holds the return alone. A pattern name may
 // rebind a name the body already bound: it is a fresh identity. A bare-name
 // value bound by a pipe whose `pipeline values:` stages were not recorded
 // declines.
@@ -39,12 +40,11 @@ func (bl *irScalarBuilder) patternAssert(t *ast.PatternDestructure) bool {
 		return false
 	}
 	pos := bl.g.irPos(t.Line, t.Col)
-	matched := bl.f.NewBlock(bl.g.irNodePos(t.Pattern), "pattern matched")
 	failed := bl.f.NewBlock(pos, "pattern mismatch")
-	if !bl.patternValueTest(t.Pattern, subj, sk, matched, failed) {
+	if !bl.patternTest(t.Pattern, subj, sk, failed) {
 		return false
 	}
-	if irBlockTargeted(bl.f, failed.ID()) {
+	if !bl.g.patternAlwaysMatches(t.Pattern) {
 		text := renderNode(&ast.PatternDestructure{Pattern: t.Pattern, Value: t.Value, Line: t.Line, Col: t.Col})
 		a := ir.NewAssertMismatch(pos, subj, text)
 		if def != nil {
@@ -65,7 +65,8 @@ func (bl *irScalarBuilder) assertDefinedAs(at ast.Node, val ir.Temp) (*ir.Assert
 	if !bare {
 		return nil, true
 	}
-	held, isBound := bl.bound[id.Name]
+	l, isBound := bl.boundHere(id)
+	held := l.temp
 	b := bl.testDefs[held]
 	if !isBound || b == nil {
 		// A name a pattern or a context pattern bound: debug information
@@ -82,24 +83,4 @@ func (bl *irScalarBuilder) assertDefinedAs(at ast.Node, val ir.Temp) (*ir.Assert
 		def.Stages = stages
 	}
 	return def, true
-}
-
-// irBlockTargeted reports whether any block of f branches, jumps or faults
-// to id.
-func irBlockTargeted(f *ir.Func, id ir.BlockID) bool {
-	var succ []ir.BlockID
-	for _, b := range f.Blocks() {
-		if h, faults := b.Fault(); faults && h == id {
-			return true
-		}
-		if t := b.Term(); t != nil {
-			succ = t.AppendSuccessors(succ[:0])
-			for _, s := range succ {
-				if s == id {
-					return true
-				}
-			}
-		}
-	}
-	return false
 }

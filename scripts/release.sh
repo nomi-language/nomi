@@ -8,22 +8,23 @@
 # editors/helix/languages.toml runs it by name and the Zed extension does
 # `worktree.which("nomi-lsp")` — so shipping only `nomi` would leave every
 # editor on the from-source path. `nomi build` looks for `nomi-vm` beside
-# `nomi` (internal/ffirun/prebuilt.go), and without it a release
-# could not build executables without Go. nomi-vm must come from the same
-# commit as `nomi`, which `nomi build` checks against the VCS stamp both carry;
-# this script checks it too. Only the plain nomi-vm ships: std/compiler's variant
-# links the whole front end (6.5 MB gzipped against the plain one's 3.7 MB),
-# so a program importing std/compiler has its nomi-vm built from the compiler
-# module at the release's version, with the `go` on PATH or the managed Go
-# toolchain (internal/gotoolchain).
+# `nomi` (internal/runners/prebuilt.go). A release `nomi` never builds a
+# runner, so the release ships every runner `nomi build` can
+# ask for. nomi-vm must come from the same commit as `nomi`, which `nomi build`
+# checks against the VCS stamp both carry; this script checks it too, and that
+# each runner records the build tags that name its variant.
 #
-# Built at its tag, every binary carries the tag as its main module's version,
-# and `nomi` builds Go bindings against the compiler module at that version,
-# which the Go module proxy serves once the tag is pushed to GitHub. This
-# script checks the stamp when HEAD carries the tag being released.
+# std/compiler's runners link the whole front end (6.5 MB gzipped against the
+# plain one's 3.7 MB), so they ship in an archive of their own per target, and
+# the main archives stay their size: nomi-vm-compiler and nomi-vm-compiler-nonet,
+# built with the nomi_compiler tag, and for wasip1 nomi-vm-reactor-compiler and
+# nomi-vm-reactor-compiler-nonet.
+#
+# Built at its tag, every binary carries the tag as its main module's version.
+# This script checks the stamp when HEAD carries the tag being released.
 #
 # `nomi` is stamped with the release tag
-# (`-X github.com/nomi-language/nomi/internal/ffirun.ReleaseVersion=<version>`): `nomi build --target`
+# (`-X github.com/nomi-language/nomi/internal/runners.ReleaseVersion=<version>`): `nomi build --target`
 # downloads another platform's archive from the release of that tag and
 # checks it against this script's checksum manifest.
 #
@@ -35,20 +36,6 @@
 # module a program with no `export fn` is appended to, and nomi-vm-reactor,
 # the same VM linked with -buildmode=c-shared as a WASI reactor
 # (cmd/nomi-vm-reactor), which a program with an `export fn` is appended to.
-#
-# Each native platform and js/wasm also get a lib archive, the first-party
-# lib/ modules' Go side prebuilt (internal/ffirun/libprebuilt.go): nomi-lib,
-# the FFI wrapper `nomi run`, `test` and `check` run a program of lib/ modules
-# in, and nomi-vm-lib, the runner `nomi build` appends one to (js/wasm: the
-# runner and wasm_exec.js). Both are built from the librunners/ module, whose
-# main packages `go run ./internal/ffirun/libgen` generates; this script
-# refuses stale ones. They are a separate archive because they double a
-# platform's download, and `nomi` fetches it the first time a project's Go
-# bindings are all lib/ modules' at the release's commit, which `nomi` is
-# stamped with as a pseudo-version
-# (`-X github.com/nomi-language/nomi/internal/ffirun.LibVersion=<version>`):
-# the version `nomi add` takes for a lib/ module. wasip1 has none:
-# modernc.org/sqlite does not build for it.
 #
 # Nothing else ships. The standard library is `//go:embed`ed into each binary
 # (std/std.go: `//go:embed *.nomi nomi.toml all:_fixtures`), so there
@@ -66,15 +53,17 @@
 # `version` defaults to `git describe`. Artifacts land in dist/, or in
 # $NOMI_RELEASE_DIST when it is set (a local dry run into a scratch directory):
 #
-#	dist/nomi_<version>_<os>_<arch>.tar.gz   (.zip on windows)
-#	dist/nomi_<version>_js_wasm.tar.gz       (nomi-vm, nomi-vm-nonet, wasm_exec.js)
-#	dist/nomi_<version>_wasip1_wasm.tar.gz   (nomi-vm, nomi-vm-nonet, nomi-vm-reactor, nomi-vm-reactor-nonet)
-#	dist/nomi_<version>_<os>_<arch>_lib.tar.gz   (nomi-lib, nomi-vm-lib; .zip on windows)
-#	dist/nomi_<version>_js_wasm_lib.tar.gz   (nomi-vm-lib, wasm_exec.js)
+#	dist/nomi_<version>_<os>_<arch>.tar.gz            (.zip on windows)
+#	dist/nomi_<version>_<os>_<arch>_compiler.tar.gz   (nomi-vm-compiler, nomi-vm-compiler-nonet; .zip on windows)
+#	dist/nomi_<version>_js_wasm.tar.gz                (nomi-vm, nomi-vm-nonet, wasm_exec.js)
+#	dist/nomi_<version>_js_wasm_compiler.tar.gz       (nomi-vm-compiler, nomi-vm-compiler-nonet, wasm_exec.js)
+#	dist/nomi_<version>_wasip1_wasm.tar.gz            (nomi-vm, nomi-vm-nonet, nomi-vm-reactor, nomi-vm-reactor-nonet)
+#	dist/nomi_<version>_wasip1_wasm_compiler.tar.gz   (the same four, each -compiler before any -nonet)
 #	dist/nomi_<version>_checksums.txt
 #
-# `nomi build --target` downloads another platform's archive from the release
-# and checks it against the checksum manifest.
+# `nomi build` downloads a runner that is not installed beside `nomi` from
+# the release archive that holds it and checks it against the checksum
+# manifest.
 
 set -euo pipefail
 
@@ -86,10 +75,6 @@ version="${1:-}"
 if [ -z "$version" ]; then
 	version="$(git -C "$repo_root" describe --tags --always --dirty 2>/dev/null || echo dev)"
 fi
-
-# The lib/ modules' version at this commit, as the Go module proxy names an
-# untagged commit of a nested module: v0.0.0-<UTC commit time>-<12-hex sha>.
-lib_version="v0.0.0-$(TZ=UTC git -C "$repo_root" log -1 --format=%cd --date=format-local:%Y%m%d%H%M%S)-$(git -C "$repo_root" rev-parse --short=12 HEAD)"
 
 # Whether this is the real release build: HEAD carries the tag being released.
 at_tag=false
@@ -139,21 +124,6 @@ sha256() {
 	fi
 }
 
-# With no `go` on PATH, `nomi` builds Go bindings with the Go release it was
-# built with, downloaded from go.dev and checked against a checksum compiled
-# into it (internal/gotoolchain/pinned_gen.go). A release built with a Go
-# that file does not pin could not verify its own toolchain.
-if ! go -C "$module_dir" run ./internal/gotoolchain/pingen -check; then
-	echo "release.sh: the Go building this release has no pinned archive checksums" >&2
-	exit 1
-fi
-
-# The lib runners' main packages must be what the lib/ modules generate.
-if ! go -C "$module_dir" run ./internal/ffirun/libgen -check; then
-	echo "release.sh: librunners/ is stale; run go run ./internal/ffirun/libgen" >&2
-	exit 1
-fi
-
 rm -rf "$dist_dir"
 mkdir -p "$dist_dir"
 
@@ -182,17 +152,16 @@ go run -C "$module_dir" ./internal/irbuild/stdbundlegen "$bundle_dir"
 # Every binary of the release carries one VCS stamp.
 revisions=""
 
-# build_one builds package pkg of the module in dir as stage/name for
-# $goos/$goarch, then checks what the artifact says about itself: its
-# platform, its VCS stamp (the release's one), and, when check_version is
-# true and HEAD carries the tag, its module version. Extra arguments go to
-# go build before the package.
+# build_one builds package pkg as stage/name for $goos/$goarch, then checks
+# what the artifact says about itself: its platform, its build tags, its VCS
+# stamp (the release's one), and, when HEAD carries the tag, its module
+# version. Extra arguments go to go build before the package.
 build_one() {
-	local dir="$1" stage="$2" name="$3" pkg="$4" buildmode="$5" tags="$6" ldflags="$7" check_version="$8"
-	shift 8
+	local stage="$1" name="$2" pkg="$3" buildmode="$4" tags="$5" ldflags="$6"
+	shift 6
 	echo "building $name for $goos/$goarch"
 	CGO_ENABLED=0 GOOS="$goos" GOARCH="$goarch" \
-		go build -C "$dir" -trimpath -buildmode="$buildmode" -tags "$tags" "$@" -ldflags "$ldflags" \
+		go build -C "$module_dir" -trimpath -buildmode="$buildmode" -tags "$tags" "$@" -ldflags "$ldflags" \
 		-o "$stage/$name$ext" "$pkg"
 
 	out="$stage/$name$ext"
@@ -211,6 +180,15 @@ build_one() {
 		exit 1
 	fi
 
+	# `nomi build` tells a runner's variant by the tags its build info
+	# records (internal/runners' checkRunner), so they must be the ones asked
+	# for.
+	got_tags="$(buildinfo "$out" | awk '$1 == "build" && $2 ~ /^-tags=/ { sub(/^-tags=/, "", $2); print $2 }')"
+	if [ "$got_tags" != "$tags" ]; then
+		echo "release.sh: $out records the build tags '$got_tags', wanted '$tags'" >&2
+		exit 1
+	fi
+
 	# `nomi build` refuses a nomi-vm from another commit than `nomi`, so
 	# every binary in one archive must carry the same VCS stamp.
 	stamp="$(buildinfo "$out" | awk '$1 == "build" && ($2 ~ /^vcs.revision=/ || $2 ~ /^vcs.modified=/) { print $2 }' | tr '\n' ' ')"
@@ -225,12 +203,9 @@ build_one() {
 	revisions="$stamp"
 
 	# At its tag, Go stamps the tag as the main module's version (a clean
-	# tree and VCS stamping are both required), and `nomi` builds a
-	# project's Go bindings against the compiler module at that version,
-	# fetched through the Go toolchain. A release without it would treat
-	# itself as a development build and refuse Go bindings. The lib
-	# binaries' main module is librunners/, which the tag does not name.
-	if [ "$at_tag" = "true" ] && [ "$check_version" = "true" ]; then
+	# tree and VCS stamping are both required), which `nomi --version`
+	# reports.
+	if [ "$at_tag" = "true" ]; then
 		mod_version="$(buildinfo "$out" | awk '$1 == "mod" { print $3; exit }')"
 		if [ "$mod_version" != "$version" ]; then
 			echo "release.sh: $out carries module version '$mod_version', not the tag $version; is the tree clean?" >&2
@@ -239,8 +214,26 @@ build_one() {
 	fi
 }
 
-# lib_targets get a lib archive: every native target, and js/wasm.
-lib_targets=("${targets[@]}" "js/wasm")
+# compiler_name is the file name of the std/compiler variant of the runner
+# called $1, as internal/runners' Variant.BinaryName spells it: -compiler
+# before any -nonet.
+compiler_name() {
+	case "$1" in
+	*-nonet) echo "${1%-nonet}-compiler-nonet" ;;
+	*) echo "$1-compiler" ;;
+	esac
+}
+
+# pack writes the archive called $2 from the directory $1 and removes the
+# directory.
+pack() {
+	if [ "$goos" = "windows" ]; then
+		(cd "$1" && zip -q -X "../$2.zip" ./*)
+	else
+		tar -czf "$dist_dir/$2.tar.gz" -C "$1" .
+	fi
+	rm -rf "$1"
+}
 
 all_targets=("${targets[@]}" "${vm_targets[@]}")
 built=0
@@ -252,8 +245,10 @@ for target in "${all_targets[@]}"; do
 		ext=".exe"
 	fi
 
-	stage="$dist_dir/nomi_${version}_${goos}_${goarch}"
-	mkdir -p "$stage"
+	archive_base="nomi_${version}_${goos}_${goarch}"
+	stage="$dist_dir/$archive_base"
+	compiler_stage="$dist_dir/${archive_base}_compiler"
+	mkdir -p "$stage" "$compiler_stage"
 
 	specs=("${binaries[@]}")
 	if [ "$goarch" = "wasm" ]; then
@@ -267,80 +262,56 @@ for target in "${all_targets[@]}"; do
 		pkg="${spec##*:}"
 		ldflags="-s -w"
 		if [ "$name" = "nomi" ]; then
-			ldflags="$ldflags -X github.com/nomi-language/nomi/internal/ffirun.ReleaseVersion=$version"
-			ldflags="$ldflags -X github.com/nomi-language/nomi/internal/ffirun.LibVersion=$lib_version"
+			ldflags="$ldflags -X github.com/nomi-language/nomi/internal/runners.ReleaseVersion=$version"
 		fi
 		buildmode="default"
 		case "$name" in nomi-vm-reactor*) buildmode="c-shared" ;; esac
-		# A -nonet runner is built without the network (nomi_nonet): nomi
-		# build appends a program that reaches no network crossing to it.
+		# A -nonet runner is the lean one, built with every optional
+		# family's tag (stdlibadapters.LeanTags: the network and
+		# WebAssembly modules): nomi build appends a program that reaches
+		# no family's crossing to it.
 		tags=""
 		overlay=()
 		case "$name" in
-		*-nonet) tags="nomi_nonet" ;;
+		*-nonet) tags="nomi_nonet,nomi_nowasm" ;;
 		nomi | nomi-lsp)
 			tags="nomi_stdbundle"
 			overlay=(-overlay "$bundle_dir/overlay.json")
 			;;
 		esac
-		build_one "$module_dir" "$stage" "$name" "$pkg" "$buildmode" "$tags" "$ldflags" true ${overlay[@]+"${overlay[@]}"}
+		build_one "$stage" "$name" "$pkg" "$buildmode" "$tags" "$ldflags" ${overlay[@]+"${overlay[@]}"}
+		# Each runner's std/compiler variant goes in the compiler archive:
+		# the same build with the nomi_compiler tag first, as
+		# internal/runners' Variant.buildTags writes it.
+		case "$name" in
+		nomi-vm*)
+			tags="nomi_compiler${tags:+,$tags}"
+			build_one "$compiler_stage" "$(compiler_name "$name")" "$pkg" "$buildmode" "$tags" "$ldflags"
+			;;
+		esac
 	done
 
 	if [ "$goos" = "js" ]; then
 		# The JS support file of the Go that just built nomi-vm: the same
 		# `go` in the same module directory, so a toolchain line selects the
-		# same toolchain.
+		# same toolchain. Each js/wasm archive carries its own copy.
 		goroot="$(go -C "$module_dir" env GOROOT)"
-		cp "$goroot/lib/wasm/wasm_exec.js" "$stage/wasm_exec.js"
-		chmod 0644 "$stage/wasm_exec.js"
+		for dir in "$stage" "$compiler_stage"; do
+			cp "$goroot/lib/wasm/wasm_exec.js" "$dir/wasm_exec.js"
+			chmod 0644 "$dir/wasm_exec.js"
+		done
 	fi
 
-	archive_base="nomi_${version}_${goos}_${goarch}"
-	if [ "$goos" = "windows" ]; then
-		(cd "$stage" && zip -q -X "../$archive_base.zip" ./*)
-	else
-		tar -czf "$dist_dir/$archive_base.tar.gz" -C "$stage" .
-	fi
-	rm -rf "$stage"
-	built=$((built + 1))
-
-	case " ${lib_targets[*]} " in *" $target "*) ;; *) continue ;; esac
-	lib_stage="$dist_dir/${archive_base}_lib"
-	mkdir -p "$lib_stage"
-	lib_specs=("nomi-lib:./nomi-lib" "nomi-vm-lib:./nomi-vm-lib")
-	if [ "$goarch" = "wasm" ]; then
-		lib_specs=("nomi-vm-lib:./nomi-vm-lib")
-	fi
-	for spec in "${lib_specs[@]}"; do
-		# nomi-lib runs the front end, so it embeds the std bundle as nomi
-		# does; the overlay names the compiler module's files, which
-		# librunners/ replaces with this tree.
-		if [ "${spec%%:*}" = "nomi-lib" ]; then
-			build_one "$module_dir/librunners" "$lib_stage" nomi-lib ./nomi-lib default nomi_stdbundle "-s -w" false \
-				-overlay "$bundle_dir/overlay.json"
-		else
-			build_one "$module_dir/librunners" "$lib_stage" "${spec%%:*}" "${spec##*:}" default "" "-s -w" false
-		fi
-	done
-	if [ "$goos" = "js" ]; then
-		cp "$(go -C "$module_dir" env GOROOT)/lib/wasm/wasm_exec.js" "$lib_stage/wasm_exec.js"
-		chmod 0644 "$lib_stage/wasm_exec.js"
-	fi
-	if [ "$goos" = "windows" ]; then
-		(cd "$lib_stage" && zip -q -X "../${archive_base}_lib.zip" ./*)
-	else
-		tar -czf "$dist_dir/${archive_base}_lib.tar.gz" -C "$lib_stage" .
-	fi
-	rm -rf "$lib_stage"
+	pack "$stage" "$archive_base"
+	pack "$compiler_stage" "${archive_base}_compiler"
 	built=$((built + 1))
 done
 
 # Anti-vacuity: a loop whose matrix went empty, or whose archive step silently
 # skipped, would otherwise reach the checksum step and write an empty manifest
 # that looks like a clean run.
-expected=$((${#all_targets[@]} + ${#lib_targets[@]}))
-if [ "$built" -ne "$expected" ]; then
-	echo "release.sh: built $built archive(s), expected $expected" >&2
+if [ "$built" -ne "${#all_targets[@]}" ]; then
+	echo "release.sh: built $built target(s), expected ${#all_targets[@]}" >&2
 	exit 1
 fi
 
@@ -348,11 +319,11 @@ fi
 
 archives="$(find "$dist_dir" -maxdepth 1 \( -name '*.tar.gz' -o -name '*.zip' \) | wc -l | tr -d ' ')"
 sums="$(grep -c . "$dist_dir/nomi_${version}_checksums.txt")"
-if [ "$archives" -ne "$sums" ]; then
-	echo "release.sh: $archives archive(s) but $sums checksum line(s)" >&2
+if [ "$archives" -ne "$sums" ] || [ "$archives" -ne $((2 * built)) ]; then
+	echo "release.sh: $archives archive(s) and $sums checksum line(s), expected $((2 * built)) of each" >&2
 	exit 1
 fi
 
 echo
-echo "$built archives for $version in $dist_dir"
+echo "$archives archives for $version in $dist_dir"
 cat "$dist_dir/nomi_${version}_checksums.txt"

@@ -47,6 +47,12 @@ end
 //# - **Bits.** `&&&`, `|||`, `^^^`, `~~~`, `<<<` and `>>>`, `Int.bit_count`
 //#   and `Int.bit_length`, and the 64-bit modular `Int.wrapping_add`,
 //#   `Int.wrapping_sub` and `Int.wrapping_mul`.
+//# - **Machine words.** For hashes, checksums and wire formats: the 32-bit
+//#   modular `Int.wrapping_add_32`, `Int.wrapping_sub_32` and
+//#   `Int.wrapping_mul_32`, `Int.rotate_left_32` and `Int.rotate_right_32`,
+//#   `Int.leading_zeros_32`, `Int.trailing_zeros_32`, `Int.swap_bytes_16`,
+//#   `Int.swap_bytes_32` and their 64-bit siblings, and `Int.wrap_signed`.
+//#   Each reads its operands' low bits, so any Int is an operand.
 //# - **Text for a reader.** `Int.format` and `Int.parse_in` write and read
 //#   an Int as a locale writes numbers.
 //#
@@ -155,8 +161,14 @@ impl Int
     /// scalar value: one from `0` through `0x10FFFF` that is not in the
     /// UTF-16 surrogate block, `0xD800` through `0xDFFF`.
     //! assert Int.to_codepoint(65) == Some('A')
-    //! assert Int.to_codepoint(55_296) == None
-    //! assert Int.to_codepoint(1_114_112) == None
+    //! assert Maybe.map(Int.to_codepoint(0), Codepoint.to_int) == Some(0)
+    //! assert Maybe.map(Int.to_codepoint(0xD7FF), Codepoint.to_int) == Some(0xD7FF)
+    //! assert Maybe.map(Int.to_codepoint(0xE000), Codepoint.to_int) == Some(0xE000)
+    //! assert Maybe.map(Int.to_codepoint(0x10FFFF), Codepoint.to_int) == Some(0x10FFFF)
+    //! assert Int.to_codepoint(-1) == None
+    //! assert Int.to_codepoint(0xD800) == None
+    //! assert Int.to_codepoint(0xDFFF) == None
+    //! assert Int.to_codepoint(0x110000) == None
     //
     pub host fn to_codepoint(n: Int) -> Maybe<Codepoint>
 
@@ -179,6 +191,118 @@ impl Int
     //! assert Int.wrapping_mul(9_223_372_036_854_775_807, 2) == -2
     //
     pub host fn wrapping_mul(a: Int, b: Int) -> Int
+
+    /// 32-bit modular addition: the low 32 bits of `a + b`, read as an
+    /// unsigned integer from 0 to 4_294_967_295.
+    ///
+    /// The `_32` and `_64` functions here are for hashes, checksums and
+    /// formats defined over machine words. Each reads the low 32 or 64 bits
+    /// of its Int operands in two's complement, so any Int is an operand,
+    /// and `n &&& 0xFFFF_FFFF` keeps the same bits a caller would. A `_32`
+    /// function answers the unsigned value, which an Int64 holds; a `_64`
+    /// function answers the two's complement value, as `Int.wrapping_add`
+    /// does, so it stays within 64 bits too. `n &&& 0xFFFF_FFFF_FFFF_FFFF`
+    /// reads a `_64` answer as unsigned.
+    //! assert Int.wrapping_add_32(0xFFFF_FFFF, 2) == 1
+    //! assert Int.wrapping_add_32(-1, 0) == 0xFFFF_FFFF
+    //
+    pub host fn wrapping_add_32(a: Int, b: Int) -> NonNegativeInt
+
+    /// 32-bit modular subtraction, unsigned. See `Int.wrapping_add_32`.
+    //! assert Int.wrapping_sub_32(0, 1) == 0xFFFF_FFFF
+    //
+    pub host fn wrapping_sub_32(a: Int, b: Int) -> NonNegativeInt
+
+    /// 32-bit modular multiplication, unsigned. See `Int.wrapping_add_32`.
+    //! assert Int.wrapping_mul_32(0x0100_0193, 0x811C_9DC5) == 0x050C_5D1F
+    //! assert Int.wrapping_mul_32(0x1_0000, 0x1_0000) == 0
+    //
+    pub host fn wrapping_mul_32(a: Int, b: Int) -> NonNegativeInt
+
+    /// `n`'s low 32 bits rotated left by `k`: the bits shifted out at the
+    /// top come back in at the bottom, as Go's `bits.RotateLeft32` does.
+    /// `k` is taken modulo 32, so any Int is a count, and a negative `k`
+    /// rotates right. The answer is unsigned; see `Int.wrapping_add_32`.
+    //! assert Int.rotate_left_32(0x8000_0001, 1) == 3
+    //! assert Int.rotate_left_32(3, -1) == 0x8000_0001
+    //! assert Int.rotate_left_32(1, 33) == 2
+    //
+    pub host fn rotate_left_32(n: Int, k: Int) -> NonNegativeInt
+
+    /// `n`'s low 32 bits rotated right by `k`: `Int.rotate_left_32(n, -k)`.
+    //! assert Int.rotate_right_32(3, 1) == 0x8000_0001
+    //
+    pub fn rotate_right_32(n: Int, k: Int) -> NonNegativeInt
+        rotate_left_32(n, -k)
+    end
+
+    /// `n`'s low 64 bits rotated left by `k` modulo 64, as a two's
+    /// complement Int64. See `Int.rotate_left_32` and `Int.wrapping_add_32`.
+    //! assert Int.rotate_left_64(-9_223_372_036_854_775_808, 1) == 1
+    //! assert Int.rotate_left_64(1, 63) == -9_223_372_036_854_775_808
+    //
+    pub host fn rotate_left_64(n: Int, k: Int) -> Int
+
+    /// `n`'s low 64 bits rotated right by `k`: `Int.rotate_left_64(n, -k)`.
+    //! assert Int.rotate_right_64(1, 1) == -9_223_372_036_854_775_808
+    //
+    pub fn rotate_right_64(n: Int, k: Int) -> Int
+        rotate_left_64(n, -k)
+    end
+
+    /// The 0 bits above the highest 1 bit of `n`'s low 32 bits: 32 when they
+    /// are all 0, 0 when the top one is 1.
+    //! assert Int.leading_zeros_32(1) == 31
+    //! assert Int.leading_zeros_32(0) == 32
+    //! assert Int.leading_zeros_32(-1) == 0
+    //
+    pub host fn leading_zeros_32(n: Int) -> NonNegativeInt
+
+    /// The 0 bits above the highest 1 bit of `n`'s low 64 bits.
+    //! assert Int.leading_zeros_64(1) == 63
+    //
+    pub host fn leading_zeros_64(n: Int) -> NonNegativeInt
+
+    /// The 0 bits below the lowest 1 bit of `n`'s low 32 bits: 32 when they
+    /// are all 0.
+    //! assert Int.trailing_zeros_32(8) == 3
+    //! assert Int.trailing_zeros_32(0) == 32
+    //
+    pub host fn trailing_zeros_32(n: Int) -> NonNegativeInt
+
+    /// The 0 bits below the lowest 1 bit of `n`'s low 64 bits.
+    //! assert Int.trailing_zeros_64(0) == 64
+    //
+    pub host fn trailing_zeros_64(n: Int) -> NonNegativeInt
+
+    /// `n`'s low 16 bits with their two bytes in the other order.
+    //! assert Int.swap_bytes_16(0x1234) == 0x3412
+    //
+    pub host fn swap_bytes_16(n: Int) -> NonNegativeInt
+
+    /// `n`'s low 32 bits with their four bytes in the other order, unsigned.
+    //! assert Int.swap_bytes_32(0x1234_5678) == 0x7856_3412
+    //
+    pub host fn swap_bytes_32(n: Int) -> NonNegativeInt
+
+    /// `n`'s low 64 bits with their eight bytes in the other order, as a two's
+    /// complement Int64.
+    //! assert Int.swap_bytes_64(1) == 72_057_594_037_927_936
+    //
+    pub host fn swap_bytes_64(n: Int) -> Int
+
+    /// `n` reduced modulo 2^`width` into the two's complement range of that
+    /// many bits, -2^(width - 1) to 2^(width - 1) - 1: what a signed
+    /// integer of `width` bits holds after a computation that wraps. An `n`
+    /// already in the range is the answer. `n &&& (2^width - 1)` is the
+    /// unsigned counterpart, `n &&& 0xFFFF_FFFF` at 32 bits.
+    //! assert Int.wrap_signed(255, 8) == -1
+    //! assert Int.wrap_signed(128, 8) == -128
+    //! assert Int.wrap_signed(18_446_744_073_709_551_615, 64) == -1
+    //! assert Int.wrap_signed(-5, 1000) == -5
+    //! assert -1 &&& 0xFF == 255
+    //
+    pub host fn wrap_signed(n: Int, width: PositiveInt) -> Int
 
     /// The number of 1 bits in `n`, its population count. A negative Int,
     /// read as two's complement, has endless 1 bits, so `n` is a

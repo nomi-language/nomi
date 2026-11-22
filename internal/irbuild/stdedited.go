@@ -73,9 +73,9 @@ func GenerateEditedStdlibTestIR(module string, nodes []ast.Node, fa *analysis.Fi
 // entries themselves are shared.
 func (x *stdlibIndex) filtered(keep func(module string) bool) *stdlibIndex {
 	out := &stdlibIndex{
+		byID:        map[analysis.StdFunc]*stdFunc{},
 		byType:      map[string][]*stdFunc{},
-		byFile:      map[string]*stdFunc{},
-		byIface:     map[string]map[kind][]*stdFunc{},
+		byIface:     map[analysis.StdFunc]map[kind][]*stdFunc{},
 		unlowered:   map[string]map[string]string{},
 		irModules:   map[string]*ir.Module{},
 		modulePkg:   map[string]string{},
@@ -83,6 +83,9 @@ func (x *stdlibIndex) filtered(keep func(module string) bool) *stdlibIndex {
 		byOnce:      map[string]*stdOnce{},
 		views:       map[string]*stdModuleView{},
 		earlierMods: x.earlierMods,
+		// What chooses the modules a program of the copy links
+		// (linkedShared).
+		lib: x.lib, objects: x.objects, objectsGen: x.objectsGen,
 	}
 	keepFuncs := func(fs []*stdFunc) []*stdFunc {
 		var kept []*stdFunc
@@ -93,14 +96,14 @@ func (x *stdlibIndex) filtered(keep func(module string) bool) *stdlibIndex {
 		}
 		return kept
 	}
+	for id, f := range x.byID {
+		if keep(f.module) {
+			out.byID[id] = f
+		}
+	}
 	for key, fs := range x.byType {
 		if kept := keepFuncs(fs); len(kept) > 0 {
 			out.byType[key] = kept
-		}
-	}
-	for key, f := range x.byFile {
-		if keep(f.module) {
-			out.byFile[key] = f
 		}
 	}
 	for key, byRecv := range x.byIface {

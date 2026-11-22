@@ -20,7 +20,8 @@ import "github.com/nomi-language/nomi/internal/ast"
 //
 // The stages have exactly one reader: assertDefinedAs, for an assertion
 // whose subject is the binding's BARE NAME. It reaches the binding through
-// bl.bound, so the reader must be somewhere the binding is still in scope —
+// the read's key (boundHere), so the reader must be somewhere the binding is
+// still in scope —
 // which is the remainder of the block that introduced it, nested blocks and
 // lambda bodies included. An assertion outside that extent cannot name this
 // binding at all: the name would answer with a different local or with nothing.
@@ -37,13 +38,8 @@ import "github.com/nomi-language/nomi/internal/ast"
 //   - a `testing.check(x)` argument (irtestingcheck.go)
 //   - an *ast.PatternDestructure's value (irpatternassert.go)
 //
-// `testing.check` is matched on its SPELLING: the qualifier literally
-// `testing`, or the bare name `check` a selective import binds. The bare
-// match is wider than the reader (a user `check` matches too), and recording
-// a stage nobody reads costs rows, not meaning. An aliased selective import
-// (`import std::testing.{check as verify}`) is not matched, so a pipe-bound
-// name it checks has no recorded stages and its check declines
-// (assertDefinedAs) rather than printing a wrong row.
+// A `testing.check` is the call its reader lowers as one (testingCheckCall):
+// the callee the checker recorded, however it is spelled.
 
 // assertsBareName reports whether n, anywhere inside it, names `name` as the
 // bare subject of an assertion, a `testing.check` or a pattern assertion.
@@ -51,7 +47,7 @@ import "github.com/nomi-language/nomi/internal/ast"
 // The walk is childNodes', for its reason: the alternative is a switch over
 // every node type whose only failure mode is silent, and a kind somebody forgot
 // would answer "no reader" and drop rows the report should print.
-func assertsBareName(n ast.Node, name string) bool {
+func (bl *irScalarBuilder) assertsBareName(n ast.Node, name string) bool {
 	if isNilNode(n) {
 		return false
 	}
@@ -65,12 +61,12 @@ func assertsBareName(n ast.Node, name string) bool {
 			return true
 		}
 	case *ast.Call:
-		if isTestingCheckCallee(t.Func) && len(t.Args) == 1 && isBareName(t.Args[0], name) {
+		if bl.testingCheckCall(t) && isBareName(t.Args[0], name) {
 			return true
 		}
 	}
 	for _, c := range childNodes(n) {
-		if assertsBareName(c, name) {
+		if bl.assertsBareName(c, name) {
 			return true
 		}
 	}
@@ -80,18 +76,4 @@ func assertsBareName(n ast.Node, name string) bool {
 func isBareName(n ast.Node, name string) bool {
 	ident, ok := n.(*ast.Ident)
 	return ok && ident.Name == name
-}
-
-// isTestingCheckCallee matches the spellings of `testing.check` read off the
-// syntax: the qualifier written literally `testing`, or the bare name `check`.
-func isTestingCheckCallee(n ast.Node) bool {
-	if id, bare := n.(*ast.Ident); bare {
-		return id.Name == "check"
-	}
-	fa, ok := n.(*ast.FieldAccess)
-	if !ok || fa.Field == nil || fa.Field.Name != "check" {
-		return false
-	}
-	owner, ok := ast.QualifierIdent(fa.Object)
-	return ok && owner.Name == "testing"
 }

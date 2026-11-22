@@ -38,13 +38,11 @@ import "github.com/nomi-language/nomi/internal/ast"
 //     the std bodies depends on whether an earlier caller in the process
 //     already ran it, so a count that does not separate the two populations
 //     depends on test order.
-//   - `inferResult` and `testArms` are the lambda and test-body variants of
-//     the shape; see their field comments.
+//   - `testArms` is the test-body variant of the shape; see its field
+//     comment.
 //
 // Nothing else on either record is read.
 type irFuncSig struct {
-	// inferResult lets lambda arms establish their shared result kind.
-	inferResult bool
 	// testArms lowers each arm of a test-body `if` or `case` STATEMENT as
 	// test statements, assertions included, whose values are discarded.
 	testArms bool
@@ -75,8 +73,7 @@ const (
 	irFromImpl
 )
 
-// irFuncSigOf is `funcDecl`'s producer. A bounded generic's erased body never
-// reaches it: funcDecl lowers only its instances.
+// irFuncSigOf is `funcDecl`'s producer.
 func irFuncSigOf(fd *ast.FuncDef, sig *fnSig) irFuncSig {
 	return irFuncSig{result: sig.result, decl: sig.decl, name: fd.Name, origin: irFromModule}
 }

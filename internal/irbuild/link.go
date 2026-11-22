@@ -101,7 +101,7 @@ func (g *gen) declNameOf(n ast.Node) (declName, bool) {
 		return declName{}, false
 	}
 	if fd, ok := n.(*ast.FuncDef); ok {
-		// A Go-bound `host fn` is lowered through a shell (hostShellOf).
+		// A user file's `host fn` is lowered through a shell (hostShellOf).
 		if ef, shell := hostExtOf(fd); shell {
 			n = ef
 		}
@@ -155,7 +155,9 @@ func (g *gen) linkName(token any, name string) string {
 		if t.tpl == nil {
 			return ""
 		}
-		return within(g.declLink(t.tpl.decl), "<"+portableArgsKey(t.args)+">")
+		var b strings.Builder
+		writeInstArgs(&b, t.args, t.reads)
+		return within(g.declLink(t.tpl.decl), "<"+b.String()+">")
 	case *onceDef:
 		return g.declLink(t.decl)
 	case *stdOnce:
@@ -218,15 +220,10 @@ func (g *gen) unitLinkModule() string {
 	return ""
 }
 
-// stdInstLinkArgs spells a std instance's type arguments.
+// stdInstLinkArgs spells a std instance's type arguments (writeInstArgs).
 func stdInstLinkArgs(inst *stdInst) string {
 	var b strings.Builder
-	for i, a := range inst.args {
-		if i > 0 {
-			b.WriteByte(',')
-		}
-		writePortableKind(&b, a)
-	}
+	writeInstArgs(&b, inst.args, inst.reads)
 	return b.String()
 }
 

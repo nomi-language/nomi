@@ -1,0 +1,620 @@
+//# Bytes as Markdown reads and writes them: which bytes are spaces,
+//# punctuation or digits, the code point at an index, and the escapes the
+//# HTML writer applies. Every function here is over `Bytes` and an index,
+//# read with `Bytes.uint8_at`, and writes into a `Builder`.
+
+import
+    std::bytes.Builder
+    std::html
+end
+
+/// The byte at `i`, or -1 outside `data`: what a scan compares with a byte
+/// it looks for, so that the end of the data matches nothing.
+pub fn at(data: Bytes, i: Int) -> Int
+    case Bytes.uint8_at(data, i)
+        Some(c) -> c
+        None    -> -1
+    end
+end
+
+/// Whether `c` is a space as CommonMark's parser counts one: a space, a
+/// tab, a line feed, a vertical tab, a form feed or a carriage return.
+pub fn is_space(c: Int) -> Bool
+    c == 32 or (c >= 9 and c <= 13)
+end
+
+/// Whether `c` is an ASCII punctuation character.
+pub fn is_punct(c: Int) -> Bool
+    (c >= 33 and c <= 47)
+        or (c >= 58 and c <= 64)
+        or (c >= 91 and c <= 96)
+        or (c >= 123 and c <= 126)
+end
+
+/// Whether `c` is an ASCII digit.
+pub fn is_digit(c: Int) -> Bool
+    c >= 48 and c <= 57
+end
+
+/// Whether `c` is an ASCII hexadecimal digit.
+pub fn is_hex(c: Int) -> Bool
+    is_digit(c) or (c >= 97 and c <= 102) or (c >= 65 and c <= 70)
+end
+
+/// Whether `c` is an ASCII letter or digit.
+pub fn is_alnum(c: Int) -> Bool
+    is_digit(c) or (c >= 97 and c <= 122) or (c >= 65 and c <= 90)
+end
+
+/// Every byte but an ASCII letter or digit and the bytes of a multibyte
+/// character: where a run of word bytes ends.
+pub once word_stops: Bytes =
+    0..128
+    |> Iter.reject(is_alnum)
+    |> Iter.reduce(Builder.new(), Builder.push_int8)
+    |> Builder.to_bytes()
+
+/// `word_stops` without the space: where a run of words and the spaces
+/// between them ends.
+pub once word_or_space_stops: Bytes =
+    0..128
+    |> Iter.reject(fn c -> is_alnum(c) or c == 32)
+    |> Iter.reduce(Builder.new(), Builder.push_int8)
+    |> Builder.to_bytes()
+
+/// Whether every byte of `data` from `from` up to `to` is a space.
+pub fn is_blank(data: Bytes, from: Int, to: Int) -> Bool
+    if from >= to then return True
+    if not is_space(at(data, from)) then return False
+    is_blank(data, from + 1, to)
+end
+
+/// How many bytes before `to` are spaces, counting back while they are,
+/// but not before `from`.
+pub fn trailing_spaces(data: Bytes, from: Int, to: Int) -> Int
+    if to <= from or not is_space(at(data, to - 1)) then return 0
+    1 + trailing_spaces(data, from, to - 1)
+end
+
+/// How many bytes from `from` are spaces, but not past `to`.
+pub fn leading_spaces(data: Bytes, from: Int, to: Int) -> Int
+    if from >= to or not is_space(at(data, from)) then return 0
+    1 + leading_spaces(data, from + 1, to)
+end
+
+/// The first index at or after `from`, and before `to`, whose byte is not
+/// `c`, or `to`.
+pub fn skip_byte(data: Bytes, from: Int, to: Int, c: Int) -> Int
+    if from >= to or at(data, from) != c then return from
+    skip_byte(data, from + 1, to, c)
+end
+
+/// The code point whose encoding starts at `i`, decoded from UTF-8, and 32
+/// (a space) at the end of `data`.
+pub fn rune_at(data: Bytes, i: Int) -> Int
+    c = at(data, i)
+
+    case
+        c < 0 ->
+            32
+
+        c < 0x80 ->
+            c
+
+        c < 0xE0 ->
+            ((c &&& 0x1F) <<< 6) ||| (at(data, i + 1) &&& 0x3F)
+
+        c < 0xF0 ->
+            ((c &&& 0x0F) <<< 12) ||| ((at(data, i + 1) &&& 0x3F) <<< 6) ||| (at(
+                data,
+                i + 2,
+            ) &&& 0x3F)
+
+        _ ->
+            ((c &&& 0x07) <<< 18) ||| ((at(data, i + 1) &&& 0x3F) <<< 12) ||| ((at(
+                data,
+                i + 2,
+            ) &&& 0x3F) <<< 6) ||| (at(data, i + 3) &&& 0x3F)
+    end
+end
+
+/// The code point that ends just before `i`, or a line feed at the start
+/// of `data`.
+pub fn rune_before(data: Bytes, i: Int) -> Int
+    if i <= 0 then return 10
+    rune_at(data, rune_start(data, i - 1))
+end
+
+/// The index of the first byte of the UTF-8 sequence that holds `i`.
+fn rune_start(data: Bytes, i: Int) -> Int
+    if i <= 0 or (at(data, i) &&& 0xC0) != 0x80 then return i
+    rune_start(data, i - 1)
+end
+
+/// How many bytes the UTF-8 sequence that starts with `c` takes.
+pub fn rune_length(c: Int) -> Int
+    case
+        c < 0x80 -> 1
+        c < 0xE0 -> 2
+        c < 0xF0 -> 3
+        _        -> 4
+    end
+end
+
+/// Whether the code point `r` is punctuation or a symbol, as Go's
+/// `unicode.IsPunct` and `unicode.IsSymbol` answer.
+pub fn is_punct_rune(r: Int) -> Bool
+    if r < 128 then return is_punct(r)
+
+    case Int.to_codepoint(r)
+        Some(cp) -> Codepoint.is_punctuation(cp) or Codepoint.is_symbol(cp)
+        None     -> False
+    end
+end
+
+/// Whether the code point `r` is white space, as Go's `unicode.IsSpace`
+/// answers.
+pub fn is_space_rune(r: Int) -> Bool
+    case
+        r < 128 ->
+            is_space(r)
+
+        _ ->
+            r == 0x85
+                or r == 0xA0
+                or r == 0x1680
+                or (r >= 0x2000 and r <= 0x200A)
+                or r == 0x2028
+                or r == 0x2029
+                or r == 0x202F
+                or r == 0x205F
+                or r == 0x3000
+    end
+end
+
+/// `out` with the UTF-8 encoding of the code point `r`, or of U+FFFD when
+/// `r` is 0, a surrogate or past U+10FFFF.
+pub fn push_rune(out: Builder, r: Int) -> Builder
+    r = if r <= 0 or r > 0x10FFFF or (r >= 0xD800 and r <= 0xDFFF) then 0xFFFD else r
+
+    case
+        r < 0x80 ->
+            Builder.push_int8(out, r)
+
+        r < 0x800 ->
+            out |> Builder.push_int8(0xC0 ||| (r >>> 6)) |> Builder.push_int8(0x80 ||| (r &&& 0x3F))
+
+        r < 0x10000 ->
+            out
+            |> Builder.push_int8(0xE0 ||| (r >>> 12))
+            |> Builder.push_int8(0x80 ||| ((r >>> 6) &&& 0x3F))
+            |> Builder.push_int8(0x80 ||| (r &&& 0x3F))
+
+        _ ->
+            out
+            |> Builder.push_int8(0xF0 ||| (r >>> 18))
+            |> Builder.push_int8(0x80 ||| ((r >>> 12) &&& 0x3F))
+            |> Builder.push_int8(0x80 ||| ((r >>> 6) &&& 0x3F))
+            |> Builder.push_int8(0x80 ||| (r &&& 0x3F))
+    end
+end
+
+/// The escape the HTML writer puts for byte `c`, or None for a byte it
+/// writes as it is.
+fn html_escape(c: Int) -> Maybe<String>
+    case c
+        0  -> Some("�")
+        34 -> Some("&quot;")
+        38 -> Some("&amp;")
+        60 -> Some("&lt;")
+        62 -> Some("&gt;")
+        _  -> None
+    end
+end
+
+/// `out` with `data` from `from` up to `to`, each `&`, `<`, `>` and `"`
+/// escaped and each NUL replaced: goldmark's `RawWrite`.
+pub fn write_raw(out: Builder, data: Bytes, from: Int, to: Int) -> Builder
+    if to <= from then return out
+    part = Bytes.slice(data, from, to)
+
+    case Bytes.index_of_any(part, raw_specials)
+        Some(stop) ->
+            out =
+                push_slice(out, data, from, from + stop)
+                |> Builder.push_string(html_escape(at(data, from + stop))!)
+
+            write_raw(out, data, from + stop + 1, to)
+
+        None ->
+            Builder.push_bytes(out, part)
+    end
+end
+
+/// The bytes `write_raw` escapes.
+once raw_specials: Bytes = Bytes.from_list([38, 60, 62, 34, 0])
+
+/// The bytes past which text reads as more than itself: `&`, a backslash
+/// and NUL.
+once text_specials: Bytes = Bytes.from_list([38, 92, 0])
+
+/// `out` with `n` spaces.
+pub fn push_spaces(out: Builder, n: Int) -> Builder
+    if n <= 0 then return out
+    push_spaces(Builder.push_int8(out, 32), n - 1)
+end
+
+/// `out` with all of `data` escaped as `write_raw` escapes it.
+pub fn write_raw_all(out: Builder, data: Bytes) -> Builder
+    write_raw(out, data, 0, Bytes.length(data))
+end
+
+/// `out` with the bytes of `data` from `from` up to `to`, as they are.
+pub fn push_slice(out: Builder, data: Bytes, from: Int, to: Int) -> Builder
+    if to <= from then return out
+    Builder.push_bytes(out, Bytes.slice(data, from, to))
+end
+
+/// `out` with text from `data`, `from` up to `to`: a backslash before
+/// punctuation dropped, each entity and numeric character reference
+/// replaced by its character, and the result escaped as `write_raw`
+/// escapes it. This is goldmark's `Write`, which renders text.
+pub fn write_text(out: Builder, data: Bytes, from: Int, to: Int) -> Builder
+    if to <= from then return out
+    text_run(out, data, from, from, to, False)
+end
+
+fn text_run(out: Builder, data: Bytes, start: Int, i: Int, to: Int, escaped: Bool) -> Builder
+    if i >= to then return write_raw(out, data, start, to)
+
+    // Past an escape, nothing before the next `&`, backslash or NUL reads
+    // as more than itself.
+    if not escaped then
+        skip =
+            Bytes.slice(data, i, to)
+            |> Bytes.index_of_any(text_specials)
+            |> Maybe.with_default(to - i)
+
+        if skip > 0 then return text_run(out, data, start, i + skip, to, False)
+    end
+
+    c = at(data, i)
+
+    if escaped and is_punct(c) then
+        out = write_raw(out, data, start, i - 1)
+        return text_run(out, data, i, i + 1, to, False)
+    end
+
+    case c
+        0 ->
+            out = write_raw(out, data, start, i) |> Builder.push_string("�")
+            text_run(out, data, i + 1, i + 1, to, False)
+
+        // &
+        38 ->
+            case reference_at(data, i, to, 7)
+                Some((stop, write)) ->
+                    out = write_raw(out, data, start, i) |> write()
+                    text_run(out, data, stop, stop, to, False)
+
+                None ->
+                    text_run(out, data, start, i + 1, to, False)
+            end
+
+        // \
+        92 ->
+            text_run(out, data, start, i + 1, to, True)
+
+        _ ->
+            text_run(out, data, start, i + 1, to, False)
+    end
+end
+
+/// The reference starting with the `&` at `i`, a numeric one or a named
+/// one, as the index after its `;` and what writes its character escaped;
+/// or None when there is none. `hex_limit` bounds a hexadecimal
+/// reference's digits.
+fn reference_at(data: Bytes, i: Int, to: Int, hex_limit: Int) -> Maybe<(Int, (Builder) -> Builder)>
+    next = i + 1
+
+    if next < to and at(data, next) == 35 then
+        if next + 1 >= to then return None
+        nc = at(data, next + 1)
+
+        case
+            nc == 120 or nc == 88 ->
+                start = next + 2
+                stop = scan_while(data, start, to, is_hex)
+
+                if stop > start
+                    and stop < to
+                    and at(data, stop) == 59
+                    and stop - start < hex_limit then
+                    v = digits_value(data, start, stop, 16)
+                    Some((stop + 1, fn out -> write_rune_escaped(out, v)))
+                else
+                    None
+                end
+
+            is_digit(nc) ->
+                start = next + 1
+                stop = scan_while(data, start, to, is_digit)
+
+                if stop > start and stop < to and stop - start < 8 and at(data, stop) == 59 then
+                    v = digits_value(data, start, stop, 10)
+                    Some((stop + 1, fn out -> write_rune_escaped(out, v)))
+                else
+                    None
+                end
+
+            _ ->
+                None
+        end
+    else
+        stop = scan_while(data, next, to, is_alnum)
+
+        if stop > next and stop < to and at(data, stop) == 59 then
+            name = Bytes.slice(data, next, stop) |> Bytes.to_string_lossy()
+
+            entity(name)
+            |> Maybe.map(fn chars ->
+                (stop + 1, fn out -> write_raw_all(out, String.to_bytes(chars)))
+            end)
+        else
+            None
+        end
+    end
+end
+
+/// `out` with the code point `v`, escaped when it is one of the bytes HTML
+/// escapes: goldmark's `escapeRune`.
+fn write_rune_escaped(out: Builder, v: Int) -> Builder
+    if v >= 0 and v < 256 then
+        if Some(escaped) = html_escape(v) then return Builder.push_string(out, escaped)
+    end
+
+    push_rune(out, v)
+end
+
+/// The first index at or after `from` and before `to` whose byte fails
+/// `keep`, or `to`.
+pub fn scan_while(data: Bytes, from: Int, to: Int, keep: (Int) -> Bool) -> Int
+    if from >= to or not keep(at(data, from)) then return from
+    scan_while(data, from + 1, to, keep)
+end
+
+/// The value of the digits from `from` up to `to` in base `base`, held to
+/// what a 32-bit unsigned number holds, as Go's `strconv.ParseUint` holds
+/// a number too large for its size.
+fn digits_value(data: Bytes, from: Int, to: Int, base: Int) -> Int
+    v = Iter.reduce(from..to, 0, fn n, i -> n * base + digit_value(at(data, i)))
+    if v > 0xFFFFFFFF then -1 else v
+end
+
+/// The value of decimal digits as Go's `strconv.ParseUint(s, 0, 32)` reads
+/// them, which `URLEscape` calls: digits after a leading 0 are octal, and
+/// digits it cannot read are 0.
+fn prefixed_value(data: Bytes, from: Int, to: Int) -> Int
+    if at(data, from) != 48 or to - from == 1 then return digits_value(data, from, to, 10)
+    if Iter.any_match(from..to, fn i -> at(data, i) >= 56) then return 0
+    digits_value(data, from + 1, to, 8)
+end
+
+fn digit_value(c: Int) -> Int
+    case
+        c <= 57 -> c - 48
+        c <= 70 -> c - 55
+        _       -> c - 87
+    end
+end
+
+/// `data` with each backslash before punctuation dropped, each numeric
+/// character reference and each named one replaced by its character, the
+/// three steps in turn as goldmark's `URLEscape` takes them.
+fn resolve_references(data: Bytes) -> Bytes
+    data
+    |> unescape_punctuation()
+    |> resolve_numeric()
+    |> resolve_named()
+end
+
+fn unescape_punctuation(data: Bytes) -> Bytes
+    unescape_run(Builder.new(), data, 0, 0, Bytes.length(data)) |> Builder.to_bytes()
+end
+
+fn unescape_run(out: Builder, data: Bytes, start: Int, i: Int, to: Int) -> Builder
+    if i >= to then return push_slice(out, data, start, to)
+
+    if i < to - 1 and at(data, i) == 92 and is_punct(at(data, i + 1)) then
+        out = push_slice(out, data, start, i)
+        return unescape_run(out, data, i + 1, i + 2, to)
+    end
+
+    unescape_run(out, data, start, i + 1, to)
+end
+
+fn resolve_numeric(data: Bytes) -> Bytes
+    numeric_run(Builder.new(), data, 0, 0, Bytes.length(data)) |> Builder.to_bytes()
+end
+
+fn numeric_run(out: Builder, data: Bytes, start: Int, i: Int, to: Int) -> Builder
+    if i >= to then return push_slice(out, data, start, to)
+
+    if at(data, i) == 38 and at(data, i + 1) == 35 and i + 2 < to then
+        nc = at(data, i + 2)
+
+        case
+            nc == 120 or nc == 88 ->
+                from = i + 3
+                stop = scan_while(data, from, to, is_hex)
+
+                if stop > from and stop < to and at(data, stop) == 59 then
+                    out =
+                        push_slice(out, data, start, i)
+                        |> push_rune(digits_value(data, from, stop, 16))
+
+                    return numeric_run(out, data, stop + 1, stop + 1, to)
+                end
+
+            is_digit(nc) ->
+                from = i + 2
+                stop = scan_while(data, from, to, is_digit)
+
+                if stop > from and stop < to and stop - from < 8 and at(data, stop) == 59 then
+                    out =
+                        push_slice(out, data, start, i)
+                        |> push_rune(prefixed_value(data, from, stop))
+
+                    return numeric_run(out, data, stop + 1, stop + 1, to)
+                end
+
+            _ ->
+                Unit
+        end
+    end
+
+    numeric_run(out, data, start, i + 1, to)
+end
+
+fn resolve_named(data: Bytes) -> Bytes
+    named_run(Builder.new(), data, 0, 0, Bytes.length(data)) |> Builder.to_bytes()
+end
+
+fn named_run(out: Builder, data: Bytes, start: Int, i: Int, to: Int) -> Builder
+    if i >= to then return push_slice(out, data, start, to)
+
+    if at(data, i) == 38 and at(data, i + 1) != 35 then
+        stop = scan_while(data, i + 1, to, is_alnum)
+
+        if stop > i + 1 and stop < to and at(data, stop) == 59 then
+            name = Bytes.slice(data, i + 1, stop) |> Bytes.to_string_lossy()
+
+            if Some(chars) = entity(name) then
+                out = push_slice(out, data, start, i) |> Builder.push_string(chars)
+                return named_run(out, data, stop + 1, stop + 1, to)
+            end
+        end
+    end
+
+    named_run(out, data, start, i + 1, to)
+end
+
+/// What the named reference `&name;` stands for, as goldmark v1.8.7
+/// resolves it: every name of the HTML5 table but `Abreve`, which its
+/// table leaves out.
+fn entity(name: String) -> Maybe<String>
+    if name == "Abreve" then
+        None
+    else
+        html.entity(name)
+    end
+end
+
+/// Whether goldmark's `URLEscape` keeps byte `c` as it is.
+fn url_safe(c: Int) -> Bool
+    case c
+        // ! # $ & ' ( ) * + , - . / : ; = ? @ _ ~
+        33 or
+            35 or
+            36 or
+            38 or
+            39 or
+            40 or
+            41 or
+            42 or
+            43 or
+            44 or
+            45 or
+            46 or
+            47 or
+            58 or
+            59 or
+            61 or
+            63 or
+            64 or
+            95 or
+            126 ->
+            True
+
+        _ ->
+            is_alnum(c)
+    end
+end
+
+/// `url` as goldmark's `URLEscape` writes it: with `resolve`, its
+/// backslash escapes and character references resolved first; then each
+/// space as `%20` and each other byte a URL does not hold as it is
+/// percent-encoded, keeping an existing `%XX`.
+pub fn url_escape(url: Bytes, resolve: Bool) -> Bytes
+    url = if resolve then resolve_references(url) else url
+    url_run(Builder.new(), url, 0, 0, Bytes.length(url)) |> Builder.to_bytes()
+end
+
+fn url_run(out: Builder, data: Bytes, start: Int, i: Int, to: Int) -> Builder
+    if i >= to then return push_slice(out, data, start, to)
+    c = at(data, i)
+
+    case
+        url_safe(c) ->
+            url_run(out, data, start, i + 1, to)
+
+        c == 37 and i + 2 < to and is_hex(at(data, i + 1)) and is_hex(at(data, i + 2)) ->
+            url_run(out, data, start, i + 3, to)
+
+        c == 32 ->
+            out = push_slice(out, data, start, i) |> Builder.push_string("%20")
+            url_run(out, data, i + 1, i + 1, to)
+
+        _ ->
+            size = Int.min(rune_length(c), to - i)
+
+            out = Iter.reduce(i..(i + size), push_slice(out, data, start, i), fn o, j ->
+                percent(o, at(data, j))
+            end)
+
+            url_run(out, data, i + size, i + size, to)
+    end
+end
+
+fn percent(out: Builder, c: Int) -> Builder
+    out
+    |> Builder.push_int8(37)
+    |> Builder.push_int8(hex_digit(c >>> 4))
+    |> Builder.push_int8(hex_digit(c &&& 15))
+end
+
+fn hex_digit(n: Int) -> Int
+    if n < 10 then 48 + n else 55 + n
+end
+
+/// Whether goldmark's HTML renderer leaves a link to `url` out: a
+/// `javascript:`, `vbscript:`, `file:` or `data:` URL, except a PNG, GIF,
+/// JPEG or WebP image as data.
+pub fn is_dangerous_url(url: Bytes) -> Bool
+    if has_prefix_folded(url, 0, "data:image/") and Bytes.length(url) >= 11 then
+        return not (has_prefix_folded(url, 11, "png;")
+            or has_prefix_folded(url, 11, "gif;")
+            or has_prefix_folded(url, 11, "jpeg;")
+            or has_prefix_folded(url, 11, "webp;"))
+    end
+
+    has_prefix_folded(url, 0, "javascript:")
+        or has_prefix_folded(url, 0, "vbscript:")
+        or has_prefix_folded(url, 0, "file:")
+        or has_prefix_folded(url, 0, "data:")
+end
+
+/// Whether `data` from `from` starts with `prefix`, ASCII letters compared
+/// without case.
+pub fn has_prefix_folded(data: Bytes, from: Int, prefix: String) -> Bool
+    p = String.to_bytes(prefix)
+    n = Bytes.length(p)
+
+    Bytes.length(data) - from >= n
+        and Iter.all_match(0..n, fn k -> lower(at(data, from + k)) == lower(at(p, k)))
+end
+
+/// `c` with an ASCII capital letter made small.
+pub fn lower(c: Int) -> Int
+    if c >= 65 and c <= 90 then c + 32 else c
+end

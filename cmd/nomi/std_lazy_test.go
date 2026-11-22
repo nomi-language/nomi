@@ -28,7 +28,7 @@ import (
 // phrase catalog, embedded files.
 var stdLazyFixed = []string{
 	"tests/01-foundations/standard_streams/streams.nomi",
-	"tests/18-ffi-and-dynamic/context_ffi_app/main.nomi",
+	"tests/19-locales/app_locale/main.nomi",
 	"tests/19-locales/phrase_functions_test.nomi",
 	"tests/14-modules-and-packaging/embedded_files/embedded_files_test.nomi",
 	"std/json.nomi",
@@ -131,7 +131,7 @@ func runStdLazy(t *testing.T, seed, cache, dir string, whole bool, args ...strin
 	}
 	cmd := exec.Command(nomiBin, args...)
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "NOMI_ARTIFACT_CACHE="+cache, "NOMI_FFIRUN_CACHE_ROOT="+t.TempDir(), "NOMI_COLOR=never")
+	cmd.Env = append(os.Environ(), "NOMI_ARTIFACT_CACHE="+cache, "NOMI_RUNNER_CACHE_ROOT="+t.TempDir(), "NOMI_COLOR=never")
 	if whole {
 		cmd.Env = append(cmd.Env, "NOMI_STD_WHOLE=1")
 	}

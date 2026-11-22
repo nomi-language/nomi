@@ -60,9 +60,10 @@ end
 test "the inferred argument is the field's type, not the declaration's"
     h = shapes.Holder.Of{value: 9}
 
-    got = case h
-        shapes.Holder.Of{value:} -> value + 1
-    end
+    got =
+        case h
+            shapes.Holder.Of{value:} -> value + 1
+        end
 
     assert got == 10
 end

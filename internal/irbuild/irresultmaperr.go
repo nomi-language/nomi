@@ -6,7 +6,7 @@ func (bl *irScalarBuilder) resultMapErrPlan(t *ast.Call, args irQualArgs) *irQua
 	if !args.ok || len(args.kinds) != 2 {
 		return nil
 	}
-	anchor, _ := bl.g.preludeNamed("Result")
+	anchor, _ := preludeSpecAnchor(preludeSpecNamed("Result"))
 	recv, cb := args.kinds[0], args.kinds[1]
 	if anchor == nil || recv.tag != tagNamed || recv.def.preludeOf == nil || recv.def.preludeOf.spec != anchor.spec || !irRetainedEnumKind(recv.def) {
 		return nil

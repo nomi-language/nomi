@@ -344,31 +344,32 @@ impl Queue for Table
     fn settle(t: Table, worker: String, job: Claimed, how: Settle) -> Result<Bool, sql.Error>
         id = id_of(job.id)
 
-        statement = case how
-            .Completed -> Sql"""
-                UPDATE nomi_jobs SET state = 'completed', finished_at = now(), locked_by = NULL, locked_until = NULL
-                WHERE id = ${id} AND attempt = ${job.attempt} AND locked_by = ${worker} AND state = 'running'
-                """
+        statement =
+            case how
+                .Completed -> Sql"""
+                    UPDATE nomi_jobs SET state = 'completed', finished_at = now(), locked_by = NULL, locked_until = NULL
+                    WHERE id = ${id} AND attempt = ${job.attempt} AND locked_by = ${worker} AND state = 'running'
+                    """
 
-            .Retry{at:, error:} -> Sql"""
-                UPDATE nomi_jobs SET state = 'available', run_at = ${at}, locked_by = NULL, locked_until = NULL,
-                    errors = errors || jsonb_build_array(jsonb_build_object('attempt', attempt, 'at', now(), 'error', ${error}::text))
-                WHERE id = ${id} AND attempt = ${job.attempt} AND locked_by = ${worker} AND state = 'running'
-                """
+                .Retry{at:, error:} -> Sql"""
+                    UPDATE nomi_jobs SET state = 'available', run_at = ${at}, locked_by = NULL, locked_until = NULL,
+                        errors = errors || jsonb_build_array(jsonb_build_object('attempt', attempt, 'at', now(), 'error', ${error}::text))
+                    WHERE id = ${id} AND attempt = ${job.attempt} AND locked_by = ${worker} AND state = 'running'
+                    """
 
-            .Snoozed{at:, error:} -> Sql"""
-                UPDATE nomi_jobs SET state = 'available', run_at = ${at}, attempt = attempt - 1,
-                    locked_by = NULL, locked_until = NULL,
-                    errors = errors || jsonb_build_array(jsonb_build_object('attempt', attempt, 'at', now(), 'error', ${error}::text))
-                WHERE id = ${id} AND attempt = ${job.attempt} AND locked_by = ${worker} AND state = 'running'
-                """
+                .Snoozed{at:, error:} -> Sql"""
+                    UPDATE nomi_jobs SET state = 'available', run_at = ${at}, attempt = attempt - 1,
+                        locked_by = NULL, locked_until = NULL,
+                        errors = errors || jsonb_build_array(jsonb_build_object('attempt', attempt, 'at', now(), 'error', ${error}::text))
+                    WHERE id = ${id} AND attempt = ${job.attempt} AND locked_by = ${worker} AND state = 'running'
+                    """
 
-            .Discarded(error) -> Sql"""
-                UPDATE nomi_jobs SET state = 'discarded', finished_at = now(), locked_by = NULL, locked_until = NULL,
-                    errors = errors || jsonb_build_array(jsonb_build_object('attempt', attempt, 'at', now(), 'error', ${error}::text))
-                WHERE id = ${id} AND attempt = ${job.attempt} AND locked_by = ${worker} AND state = 'running'
-                """
-        end
+                .Discarded(error) -> Sql"""
+                    UPDATE nomi_jobs SET state = 'discarded', finished_at = now(), locked_by = NULL, locked_until = NULL,
+                        errors = errors || jsonb_build_array(jsonb_build_object('attempt', attempt, 'at', now(), 'error', ${error}::text))
+                    WHERE id = ${id} AND attempt = ${job.attempt} AND locked_by = ${worker} AND state = 'running'
+                    """
+            end
 
         changed = Conn.exec(t.db, in_table(t.table, statement))?
         Ok(changed == 1)
@@ -508,10 +509,11 @@ end
 // again after a pause; the worker also claims on a timer, so a notification
 // lost meanwhile costs at most a poll.
 fn listen(t: Table, wake: Sender<Unit>, stop: Receiver<Unit>)
-    stopped = case postgres.listen(t.url, t.table)
-        Ok(listener) -> relay(listener, wake, stop)
-        Err(_)       -> False
-    end
+    stopped =
+        case postgres.listen(t.url, t.table)
+            Ok(listener) -> relay(listener, wake, stop)
+            Err(_)       -> False
+        end
 
     if stopped then return
 

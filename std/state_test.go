@@ -4,11 +4,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/ast"
 )
 
 // inFreshProcess runs the test named in a child process whose stdlib is
@@ -58,7 +60,10 @@ func TestStdState_AProcessReadsIt(t *testing.T) {
 // TestStdState_ReadsBackAsTheBuild holds the stdlib's state, written and
 // read back under another directory, to the base modules' build it was
 // written from: every field of every object reachable from it
-// (analysis.CheckStdStateRoundTrip).
+// (analysis.CheckStdStateRoundTrip), and every function a module's tree
+// declares has the identity it has in the build (stdTreeFuncs), so a
+// declaration the builder reads from the tree is the one the analysis
+// names.
 func TestStdState_ReadsBackAsTheBuild(t *testing.T) {
 	if !inFreshProcess(t, "TestStdState_ReadsBackAsTheBuild", "NOMI_STD_STATE=off") {
 		return
@@ -75,10 +80,20 @@ func TestStdState_ReadsBackAsTheBuild(t *testing.T) {
 	}
 	t.Logf("%d modules, %d bytes, encoded in %v", len(st.Files), len(data), time.Since(start))
 	start = time.Now()
-	if _, err := analysis.DecodeStdState(data, dir, nil); err != nil {
+	got, err := analysis.DecodeStdState(data, dir, nil)
+	if err != nil {
 		t.Fatal(err)
 	}
 	t.Logf("decoded in %v", time.Since(start))
+	built, read := stdTreeFuncs(st), stdTreeFuncs(got)
+	for id, n := range built {
+		if read[id] != n {
+			t.Errorf("%v: the build's trees declare it %d times, the state's %d", id, n, read[id])
+		}
+	}
+	if len(read) != len(built) {
+		t.Errorf("the state's trees declare %d std functions, the build's %d", len(read), len(built))
+	}
 	// Each encoding walks the maps in another order, so what is written
 	// first, and where a slice written before is named, differs: a shared
 	// slice named near the end once failed a length check that assumed
@@ -105,8 +120,11 @@ func TestStdState_ReadsBackAsTheBuild(t *testing.T) {
 // reads the state on its first stdlib build. Its base modules are then
 // held to Load's, as TestShared_ModulesAreLoadsModules holds a build's. A
 // state another binary's codec wrote, or one of another artifact, is
-// refused, and the grandchild builds the base modules instead.
-// vmhost's TestTourWasmReadsItsEmbeddedStdState holds the tour's wasm to
+// refused, and the grandchild builds the base modules instead. A copy of
+// this test built with -trimpath and run outside the tree finds no stdlib
+// directory, as the browser and a release find none: it reads the state
+// and builds every other module over it, each named beside the state's
+// prelude (analysis.StdFilesDir). vmhost's TestTourWasmReadsItsEmbeddedStdState holds the tour's wasm to
 // the same.
 func TestStdState_TheEmbeddedStateIsRead(t *testing.T) {
 	const name = "TestStdState_TheEmbeddedStateIsRead"
@@ -160,6 +178,36 @@ func TestStdState_TheEmbeddedStateIsRead(t *testing.T) {
 		}
 		requireLoadsModules(t, lib, Load())
 		return
+	case "nodir":
+		if root, err := analysis.StdlibPath(); err == nil {
+			t.Fatalf("this process finds the stdlib at %s, so it cannot stand for one that finds none", root)
+		}
+		var err error
+		if embeddedStdInterfaces, err = os.ReadFile(iface); err != nil {
+			t.Fatal(err)
+		}
+		if embeddedStdState, err = os.ReadFile(state); err != nil {
+			t.Fatal(err)
+		}
+		lib := Shared()
+		if got := sharedCore().stateFrom; got != "embedded" {
+			t.Fatalf("the base modules were read from %q, not the embedded state", got)
+		}
+		if want := filepath.Join(stdBuildDir(), "prelude.nomi"); lib.Files["prelude"].FilePath != want {
+			t.Fatalf("the state's prelude is at %s, not %s", lib.Files["prelude"].FilePath, want)
+		}
+		// Every module beyond the base, built over the state.
+		c := sharedCore()
+		c.mu.Lock()
+		all, err := c.ensureLocked(c.names)
+		c.mu.Unlock()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(all.Files) <= len(lib.Files) {
+			t.Fatalf("building every module added none to the %d the state holds", len(lib.Files))
+		}
+		return
 	}
 	dir = t.TempDir()
 	art, err := StdArtifact()
@@ -183,4 +231,49 @@ func TestStdState_TheEmbeddedStateIsRead(t *testing.T) {
 			t.Errorf("a stale embedded state was refused without a word:\n%s", out)
 		}
 	}
+	if testing.Short() {
+		return
+	}
+	// The browser and a release find no stdlib directory, so a build names
+	// the stdlib's files under a relative one, and so must the state read
+	// back there. This test binary finds the in-tree stdlib through
+	// runtime.Caller; a copy built with -trimpath, run outside the tree,
+	// finds none.
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("no go toolchain to build a trimmed copy of this test with")
+	}
+	trimmed := filepath.Join(t.TempDir(), "std.test")
+	if runtime.GOOS == "windows" {
+		trimmed += ".exe"
+	}
+	build := exec.Command("go", "test", "-c", "-trimpath", "-o", trimmed, ".")
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("building a trimmed copy of this test: %v\n%s", err, out)
+	}
+	cmd := exec.Command(trimmed, "-test.run=^"+name+"$", "-test.count=1", "-test.v")
+	cmd.Dir = t.TempDir()
+	cmd.Env = append(os.Environ(), "NOMI_STD_EMBED_STEP=nodir", "NOMI_STD_EMBED_DIR="+dir, "NOMI_ARTIFACT_CACHE=off", "NOMI_STD_PATH=")
+	out, err := cmd.CombinedOutput()
+	if err != nil || !strings.Contains(string(out), "--- PASS: "+name) {
+		t.Fatalf("the step with no stdlib directory failed: %v\n%s", err, out)
+	}
+}
+
+// stdTreeFuncs counts, by identity, the functions the modules' trees
+// declare: each node of a module's tree its analysis files a std function
+// under (analysis.FileAnalysis.StdFuncs).
+func stdTreeFuncs(s analysis.StdState) map[analysis.StdFunc]int {
+	out := map[analysis.StdFunc]int{}
+	for module, fa := range s.Files {
+		ids := fa.StdFuncs()
+		for _, n := range s.Nodes[module] {
+			ast.Inspect(n, func(m ast.Node) bool {
+				if id, ok := ids[m]; ok {
+					out[id]++
+				}
+				return true
+			})
+		}
+	}
+	return out
 }

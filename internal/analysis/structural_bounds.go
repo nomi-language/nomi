@@ -16,10 +16,18 @@ import (
 //   - a tuple is Equatable, Hashable, Comparable and Display when every
 //     element is;
 //   - an anonymous struct is Equatable, Hashable, Display, and std/json's
-//     ToJson and FromJson when every field is, and Struct always; it is
-//     never Comparable;
+//     ToJson and FromJson when every field is, std/parse's ParseFields when
+//     every field is Parse and Display, and Struct always; it is never
+//     Comparable;
 //   - a function is none of these;
 //   - every type is Debug.
+//
+// What a tuple or an anonymous struct asks of its parts is said once
+// (structuralDemands). The bound checks ask each part through it
+// (structuralConformance), and a demand of the whole is recorded as its
+// parts' (recordConformanceRecording), so a part that is an interface value
+// or a type parameter is held to what it guarantees (existential_demand.go,
+// type_param_bound.go) and a part of a declared type to its impls.
 //
 // Struct, Debug, Display and Comparable are decided before this is asked
 // (typeImplementsInterface), and an anonymous struct's Comparable is left
@@ -28,31 +36,93 @@ import (
 // reject `(1, fn x -> x)` at the call rather than accepting it and leaving
 // the IR builder to decline the body.
 
-// structuralConformance answers whether t meets iface when t is a tuple, an
-// anonymous struct or a function type, asking part for each element or
-// field; decided is false for every other type, which its impls decide.
-func structuralConformance(t Type, iface *InterfaceType, part func(Type) bool) (implements, decided bool) {
+// partDemand is an interface one part of a tuple or an anonymous struct
+// implements for the whole to implement one.
+type partDemand struct {
+	t     Type
+	iface *InterfaceType
+}
+
+// parseFieldNeeds are the interfaces each field of an anonymous struct
+// implements for the struct to be std/parse's ParseFields: a field is read
+// from its text and written as its text.
+var parseFieldNeeds = []*InterfaceType{
+	{Name: "Parse", Origin: "std/parse"},
+	{Name: "Display", Origin: "std/display"},
+}
+
+// structuralDemands is what t, a tuple or an anonymous struct, asks of its
+// parts to implement iface: iface of each part for Equatable, Hashable and
+// Display, for a tuple's Comparable and for an anonymous struct's ToJson
+// and FromJson, and parseFieldNeeds of each field for an anonymous struct's
+// ParseFields, in the order of the type's parts. meets is false, with no
+// demands, for an interface t cannot implement. decided is false for every
+// other type, and for an anonymous struct's Comparable.
+func structuralDemands(t Type, iface *InterfaceType) (demands []partDemand, meets, decided bool) {
 	resolved := resolveTypeVar(t)
-	switch resolved.(type) {
-	case *FuncType:
-		return false, true
-	case *TupleType, *AnonStructType:
-	default:
-		return false, false
+	parts, ok := displayParts(resolved)
+	if !ok {
+		return nil, false, false
 	}
 	_, anon := resolved.(*AnonStructType)
+	needs, meets, decided := structuralNeeds(iface, anon)
+	if !meets {
+		return nil, false, decided
+	}
+	for _, p := range parts {
+		for _, need := range needs {
+			demands = append(demands, fieldDemand(p, need))
+		}
+	}
+	return demands, true, true
+}
+
+// fieldDemand is what a part p of a tuple or anonymous struct asks of its
+// type for the whole to meet need. A field of a subtype asks Parse, which a
+// record read from texts (ParseFields) reads each field with, of the
+// subtype's base: the record's reader reads the base and checks the
+// subtype's rules (subtype_reads.go). Any other part asks need of p.
+func fieldDemand(p Type, need *InterfaceType) partDemand {
+	if dt := refinementOf(p); dt != nil && dt.Inner != nil && isStdInterfaceNamed(need, "Parse") {
+		return partDemand{t: RefinementBase(p), iface: need}
+	}
+	return partDemand{t: p, iface: need}
+}
+
+// structuralNeeds is what a tuple, or an anonymous struct when anon is
+// set, asks each of its parts to implement for it to implement iface
+// (structuralDemands): iface itself, or for an anonymous struct's
+// ParseFields, parseFieldNeeds. meets is false for an interface it cannot
+// implement, and decided false for an anonymous struct's Comparable.
+func structuralNeeds(iface *InterfaceType, anon bool) (needs []*InterfaceType, meets, decided bool) {
 	switch {
 	case isStdInterfaceNamed(iface, "Equatable"), isStdInterfaceNamed(iface, "Hashable"), isStdInterfaceNamed(iface, "Display"):
 	case isStdInterfaceNamed(iface, "Comparable") && !anon:
 	case isStdInterfaceNamed(iface, "Comparable"):
-		return false, false
+		return nil, false, false
 	case anon && isStdJsonIface(iface):
+	case anon && isParseFields(iface):
+		return parseFieldNeeds, true, true
 	default:
+		return nil, false, true
+	}
+	return []*InterfaceType{iface}, true, true
+}
+
+// structuralConformance answers whether t meets iface when t is a tuple, an
+// anonymous struct or a function type, asking part whether each part meets
+// what structuralDemands asks of it; decided is false for every other type,
+// which its impls decide.
+func structuralConformance(t Type, iface *InterfaceType, part func(Type, *InterfaceType) bool) (implements, decided bool) {
+	if _, fn := resolveTypeVar(t).(*FuncType); fn {
 		return false, true
 	}
-	parts, _ := displayParts(resolved)
-	for _, p := range parts {
-		if !part(p) {
+	demands, meets, decided := structuralDemands(t, iface)
+	if !decided || !meets {
+		return false, decided
+	}
+	for _, d := range demands {
+		if !part(d.t, d.iface) {
 			return false, true
 		}
 	}
@@ -114,8 +184,8 @@ func structuralEqualityConformance(t Type, iface *InterfaceType, hasImpl func(t 
 // its own is none: only a bound takes one by its equality, so here the
 // parts are held to the impl tables, at any depth of tuples and records.
 func partMeetsInterfaceValue(p Type, iface *InterfaceType, impls []ImplTables, implTypeArgs []map[string]map[string][]*ImplTypeArgs) bool {
-	if implements, decided := structuralConformance(p, iface, func(q Type) bool {
-		return containsTypeVar(q) || partMeetsInterfaceValue(q, iface, impls, implTypeArgs)
+	if implements, decided := structuralConformance(p, iface, func(q Type, need *InterfaceType) bool {
+		return containsTypeVar(q) || partMeetsInterfaceValue(q, need, impls, implTypeArgs)
 	}); decided {
 		return implements
 	}
@@ -160,27 +230,16 @@ func (c *checker) hasOwnEqualityImpl(t Type, iface string) bool {
 }
 
 // isStdInterfaceNamed reports whether iface is std's interface name, declared
-// in std/<lowercased name>.nomi. An unknown origin is std's, as
-// isStdDistinct reads it.
+// in std/<lowercased name>.nomi (isStdType).
 func isStdInterfaceNamed(iface *InterfaceType, name string) bool {
-	if iface == nil || iface.Name != name {
-		return false
-	}
-	switch iface.Origin {
-	case "", "std/" + strings.ToLower(name):
-		return true
-	}
-	return false
+	return isStdType(iface, StdType{Module: "std/" + strings.ToLower(name), Name: name})
 }
 
 // isStdJsonIface reports whether iface is std/json's ToJson or FromJson,
 // which an anonymous struct meets through its fields: its JSON is an object
 // keyed by its field names (internal/irbuild/irrecordjson.go).
 func isStdJsonIface(iface *InterfaceType) bool {
-	if iface == nil || iface.Name != "ToJson" && iface.Name != "FromJson" {
-		return false
-	}
-	return iface.Origin == "" || iface.Origin == "std/json"
+	return isStdType(iface, stdToJsonType) || isStdType(iface, stdFromJsonType)
 }
 
 // structuralBoundHelp is boundHelp for a tuple, an anonymous struct or a

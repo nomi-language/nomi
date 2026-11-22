@@ -141,7 +141,7 @@ func (bl *irScalarBuilder) genericMethodItem(t *ast.Call, d *implDef, method str
 	if !ok {
 		return nil
 	}
-	args, types, ok := bl.g.calleeTypedArgs(t.Func, w.typeParamNames())
+	args, types, ok := bl.g.calleeTypeArgs(t.Func, w.typeParamNames())
 	if !ok {
 		return nil
 	}
@@ -185,7 +185,11 @@ func (g *gen) methodInstance(d *implDef, method string, w withheldMember, own []
 		}
 		args = append(args, own[i].key())
 	}
-	key := fmt.Sprintf("%p\x00%s\x00%s", d, method, strings.Join(args, "\x00"))
+	names := w.typeParamNames()
+	reads := subtypeReads(names, ownTypes, func() map[string][]*analysis.InterfaceType {
+		return analysis.DeclTypeParamBounds(g.srcFA(), w.decl, d.decl)
+	})
+	key := fmt.Sprintf("%p\x00%s\x00%s", d, method, strings.Join(args, "\x00")) + subtypeReadsKey(reads)
 	if mi := g.methodInsts[key]; mi != nil {
 		return mi.it
 	}
@@ -243,6 +247,11 @@ func (g *gen) methodInstance(d *implDef, method string, w withheldMember, own []
 		if it.result != kindUnit && !irCallableValueKind(it.result) {
 			return nil
 		}
+	}
+	if reads != nil {
+		// An instance that reads a subtype is named apart from the one at
+		// its base (subtypeinst.go).
+		it.instKey += "!" + strings.Join(reads, ",")
 	}
 	if g.methodInsts == nil {
 		g.methodInsts = map[string]*methodInst{}
@@ -365,7 +374,8 @@ func (g *gen) expansiveImplItem(d *implDef, fd *ast.FuncDef) bool {
 	expansive = func(te ast.TypeExpr) bool {
 		switch t := te.(type) {
 		case *ast.GenericType:
-			if named, _, ok := g.genericTemplateNamed(t.Name, nil); ok && named == tpl {
+			rec, _ := g.recordedTypeExpr(t)
+			if named, _, ok := g.genericTemplateOf(rec); ok && named == tpl {
 				for _, a := range t.Params {
 					if _, bare := a.(*ast.SimpleType); !bare && mentions(a) {
 						return true

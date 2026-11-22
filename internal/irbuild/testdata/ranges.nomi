@@ -56,10 +56,11 @@ fn show_ints(xs: List<Int>) -> String
             "."
 
         Some(x) ->
-            rest = case List.tail(xs)
-                Some(more) -> show_ints(more)
-                None       -> "."
-            end
+            rest =
+                case List.tail(xs)
+                    Some(more) -> show_ints(more)
+                    None       -> "."
+                end
 
             "${x}-${rest}"
     end

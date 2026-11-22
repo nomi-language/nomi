@@ -180,16 +180,12 @@ func (c *stdCore) fromState() bool {
 }
 
 // stdBuildDir is the directory a build of the stdlib in this process
-// names its files under: the one the process finds the stdlib in, else,
-// with none (the browser, a release with no std beside it), the relative
-// one a build resolves `std/prelude` to with no project root
-// (analysis.BuildStdDeclarations). A module built over the state is named
-// under it too, so the state's paths must be.
+// names its files under (analysis.StdFilesDir of the one the process finds
+// the stdlib in). A module built over the state is named under it, so the
+// state's paths and the facts' are read back under it too.
 func stdBuildDir() string {
-	if dir, err := stdlibRoot(); err == nil {
-		return dir
-	}
-	return filepath.Dir(analysis.ResolveModulePath("", []string{"std", "prelude"}))
+	root, _ := stdlibRoot()
+	return analysis.StdFilesDir(root)
 }
 
 func (c *stdCore) readState(data []byte) error {

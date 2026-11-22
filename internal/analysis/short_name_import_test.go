@@ -13,19 +13,24 @@ import (
 	"github.com/nomi-language/nomi/std"
 )
 
-// shortNameProject writes module app, whose go.mod requires module `greet`
-// (example.com/greet), and answers app's root and its entry. depDir, when
-// set, is greet's directory and app replaces greet with it; otherwise greet
-// is read from the module cache.
+// shortNameProject writes module app, whose nomi.toml names module
+// example.com/greet `greet`, and answers app's root and its entry. depDir,
+// when set, is greet's directory, which the entry names; otherwise greet is
+// read from the module cache.
 func shortNameProject(t *testing.T, mainSrc, depDir string) (root, entry string) {
 	t.Helper()
+	return namedProject(t, mainSrc, "greet", depDir)
+}
+
+// namedProject is shortNameProject with app naming greet name.
+func namedProject(t *testing.T, mainSrc, name, depDir string) (root, entry string) {
+	t.Helper()
 	root = filepath.Join(t.TempDir(), "app")
-	goMod := "module example.com/app\n\ngo 1.22\n\nrequire example.com/greet v0.1.0\n"
+	dep := name + " = { module = \"example.com/greet\", version = \"v0.1.0\""
 	if depDir != "" {
-		goMod += "\nreplace example.com/greet => " + depDir + "\n"
+		dep += ", dir = " + fmt.Sprintf("%q", depDir)
 	}
-	writeTestFile(t, filepath.Join(root, "go.mod"), goMod)
-	writeTestFile(t, filepath.Join(root, "nomi.toml"), "[module]\nname = \"app\"\nentry_points = [\"main\"]\n")
+	writeTestFile(t, filepath.Join(root, "nomi.toml"), "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[dependencies]\n"+dep+" }\n")
 	entry = filepath.Join(root, "main.nomi")
 	writeTestFile(t, entry, mainSrc)
 	return root, entry
@@ -34,8 +39,7 @@ func shortNameProject(t *testing.T, mainSrc, depDir string) (root, entry string)
 // greetModule writes module greet's files into dir.
 func greetModule(t *testing.T, dir string, withRootFile bool) {
 	t.Helper()
-	writeTestFile(t, filepath.Join(dir, "go.mod"), "module example.com/greet\n\ngo 1.22\n")
-	writeTestFile(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"greet\"\n")
+	writeTestFile(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"greet\"\npath = \"example.com/greet\"\n")
 	writeTestFile(t, filepath.Join(dir, "words.nomi"), "pub fn word() -> String\n    \"hello\"\nend\n")
 	if withRootFile {
 		writeTestFile(t, filepath.Join(dir, "greet.nomi"),
@@ -130,7 +134,7 @@ func TestShortNameImport_FromTheModuleCacheAndMissingFromIt(t *testing.T) {
 	if len(errs) == 0 {
 		t.Fatal("the front end admits an import of a module the cache does not hold")
 	}
-	hint := "go.mod requires module example.com/greet v0.1.0, which is not in the module cache; run `nomi fetch` to download it"
+	hint := "the project needs module example.com/greet v0.1.0, which is not in the module cache; run `nomi fetch` to download it"
 	if !strings.Contains(errs[0], "no module `greet`") || !strings.Contains(errs[0], hint) {
 		t.Errorf("the missing module's error:\n  %s\nwant one with the hint %q", strings.Join(errs, "\n  "), hint)
 	}
@@ -143,5 +147,52 @@ func TestShortNameImport_FromTheModuleCacheAndMissingFromIt(t *testing.T) {
 	writeTestFile(t, filepath.Join(cache, "cache", "download", "example.com", "greet", "@v", "v0.1.0.ziphash"), "h1:x\n")
 	if errs := projectErrors(t, root, entry); len(errs) != 0 {
 		t.Errorf("with greet in the module cache:\n  %s", strings.Join(errs, "\n  "))
+	}
+}
+
+// The project's name for a dependency is the one its imports use; the
+// dependency's own [module].name is not a name in the project. greet's own
+// files still import themselves as greet.
+func TestShortNameImport_TheProjectsNameForADependency(t *testing.T) {
+	dep := filepath.Join(t.TempDir(), "greet")
+	greetModule(t, dep, true)
+	src := "import\n    hi::greet\n    std::io\nend\n\nfn main()\n    io.print(greet.hello(\"you\"))\nend\n"
+	root, entry := namedProject(t, src, "hi", dep)
+	if errs := projectErrors(t, root, entry); len(errs) != 0 {
+		t.Errorf("an import through the project's name for greet:\n  %s", strings.Join(errs, "\n  "))
+	}
+	src = "import\n    greet::words\nend\n\nfn main()\n    _ = words.word()\nend\n"
+	root, entry = namedProject(t, src, "hi", dep)
+	errs := projectErrors(t, root, entry)
+	if len(errs) == 0 {
+		t.Fatal("the front end admits an import through greet's own name, which the project does not give it")
+	}
+	if !strings.Contains(errs[0], "no module `greet::words`") {
+		t.Errorf("an import through greet's own name:\n  %s", strings.Join(errs, "\n  "))
+	}
+}
+
+// A dependency's imports resolve through its own [dependencies]: greet's
+// file imports `fmt`, the name greet gives a module the project names
+// `format`, and the project's `fmt`, another module, is not what it reaches.
+func TestShortNameImport_ADependencysImportsAreItsOwn(t *testing.T) {
+	tmp := t.TempDir()
+	greet, words, other := filepath.Join(tmp, "greet"), filepath.Join(tmp, "words"), filepath.Join(tmp, "other")
+	writeTestFile(t, filepath.Join(greet, "nomi.toml"), "[module]\nname = \"greet\"\npath = \"example.com/greet\"\n\n[dependencies]\n"+
+		"fmt = { module = \"example.com/words\", version = \"v0.1.0\", dir = \"../words\" }\n")
+	writeTestFile(t, filepath.Join(greet, "greet.nomi"), "import fmt::words\n\npub fn hello() -> String\n    words.word()\nend\n")
+	writeTestFile(t, filepath.Join(words, "nomi.toml"), "[module]\nname = \"fmt\"\npath = \"example.com/words\"\n")
+	writeTestFile(t, filepath.Join(words, "words.nomi"), "pub fn word() -> String\n    \"hello\"\nend\n")
+	writeTestFile(t, filepath.Join(other, "nomi.toml"), "[module]\nname = \"fmt\"\n")
+	writeTestFile(t, filepath.Join(other, "words.nomi"), "pub fn other() -> Int\n    1\nend\n")
+	root := filepath.Join(tmp, "app")
+	writeTestFile(t, filepath.Join(root, "nomi.toml"), "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[dependencies]\n"+
+		"fmt = { dir = \"../other\" }\n"+
+		"format = { module = \"example.com/words\", version = \"v0.1.0\", dir = \"../words\" }\n"+
+		"greet = { module = \"example.com/greet\", version = \"v0.1.0\", dir = \"../greet\" }\n")
+	entry := filepath.Join(root, "main.nomi")
+	writeTestFile(t, entry, "import\n    greet\n    fmt::words\n    std::io\nend\n\nfn main()\n    io.print(greet.hello())\n    _ = words.other()\nend\n")
+	if errs := projectErrors(t, root, entry); len(errs) != 0 {
+		t.Errorf("each module's imports through its own names:\n  %s", strings.Join(errs, "\n  "))
 	}
 }

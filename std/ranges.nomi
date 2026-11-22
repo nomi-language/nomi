@@ -253,26 +253,28 @@ impl Iter for StepByRange<T, S> where T: Comparable and Steppable<S>
 
         // The walk goes the way the step goes: down to the end when it moves
         // the start down, up to it otherwise.
-        down = case step
-            Some(next) -> next < r.start
-            None       -> False
-        end
+        down =
+            case step
+                Some(next) -> next < r.start
+                None       -> False
+            end
 
-        in_bounds = case r.stop
-            Some(e) ->
-                if down and r.inclusive then
-                    r.start >= e
-                else if down then
-                    r.start > e
-                else if r.inclusive then
-                    r.start <= e
-                else
-                    r.start < e
-                end
+        in_bounds =
+            case r.stop
+                Some(e) ->
+                    if down and r.inclusive then
+                        r.start >= e
+                    else if down then
+                        r.start > e
+                    else if r.inclusive then
+                        r.start <= e
+                    else
+                        r.start < e
+                    end
 
-            None ->
-                True
-        end
+                None ->
+                    True
+            end
 
         if in_bounds == False then
             True
@@ -331,10 +333,11 @@ impl Iter for Range<T> where T: Discrete
     end
 
     fn each_while(r: Range<T>, yield: (T) -> Bool) -> Bool
-        done = case r.stop
-            Some(e) -> if r.inclusive then r.start > e else r.start >= e
-            None    -> False
-        end
+        done =
+            case r.stop
+                Some(e) -> if r.inclusive then r.start > e else r.start >= e
+                None    -> False
+            end
 
         if done then
             True

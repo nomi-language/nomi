@@ -56,7 +56,7 @@ var sweepTypes = []sweepType{
 func sweepHand(t sweepType) bool { return t.name == "Hand" }
 
 // sweepConstruct is one construct: a case body over $A, $B and $T (the
-// type's spelling), and the capability it needs.
+// type's spelling), and the effect it needs.
 type sweepConstruct struct {
 	name  string
 	needs func(sweepType) bool

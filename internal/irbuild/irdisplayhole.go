@@ -20,12 +20,13 @@ import (
 // declaration the record names (displayImpl).
 //
 // A value of a type parameter is recorded as such: in an instance its
-// rendering is the checker's at the instance's types (displayAt). Where a
-// frame has no checker type, and for a value no record describes, the
-// builder renders the value by its kind (kindDisplay), as a hole of its
-// type would be: `io.print(x)`, `Display.to_string` over a tuple, a
-// field's text for ParseFields and the error `main` returns. Such a
-// rendering names no impl, so its impl is the one the kind's name
+// rendering is the checker's at the instance's types (displayAt). A value
+// no record describes (`io.print(x)`, `Display.to_string` over a tuple,
+// the error `main` returns) renders as the checker renders its type
+// (displayOf, analysis.FileAnalysis.DisplayOf), as a hole of that type
+// would. Where a frame has no checker type (a field's text for
+// ParseFields), the builder renders the value by its kind (kindDisplay);
+// such a rendering names no impl, so its impl is the one the kind's name
 // selects.
 
 // holeDisplay is the checker's record of how the interpolation hole at
@@ -99,10 +100,23 @@ func byKind(r *analysis.DisplayRender) bool {
 }
 
 // displayValue renders an already-lowered value of kind k as its
-// interpolation would (kindDisplay). vt is the value's checker type at
+// interpolation would (displayOf). vt is the value's checker type at
 // this instance, or nil.
 func (bl *irScalarBuilder) displayValue(at ast.Node, src ir.Temp, k kind, vt analysis.Type) (ir.Temp, bool) {
-	return bl.renderDisplay(at, src, k, kindDisplay(k), vt)
+	return bl.renderDisplay(at, src, k, bl.g.displayOf(vt, k), vt)
+}
+
+// displayOf is how a value of checker type vt, lowered at kind k, renders
+// by Display where no record of the program's describes it: the checker's
+// rendering of vt (analysis.FileAnalysis.DisplayOf), read against the
+// program whose impls an instance's types have, as a hole of that type
+// records it; where the frame has no checker type, the rendering of k
+// (kindDisplay).
+func (g *gen) displayOf(vt analysis.Type, k kind) *analysis.DisplayRender {
+	if rec := g.instanceFA().DisplayOf(vt); rec != nil {
+		return g.displayAt(rec, k)
+	}
+	return kindDisplay(k)
 }
 
 // renderDisplay lowers rec, the rendering of src, a value of kind k, into
@@ -196,7 +210,7 @@ func (bl *irScalarBuilder) displayImpl(at ast.Node, src ir.Temp, k kind, rec *an
 	}
 	defer bl.g.carryCall(call, carried)()
 	args := irQualArgs{temps: []ir.Temp{src}, kinds: []kind{k}, mobile: []bool{true}, ok: true}
-	if v, rk, _, ok, handled := bl.ifaceContainerCall(call, args, "Display", "to_string", vt); handled {
+	if v, rk, _, ok, handled := bl.ifaceContainerCall(call, args, "to_string", vt); handled {
 		return v, ok && rk == kindString
 	}
 	if k.tag != tagNamed || k.def == nil {

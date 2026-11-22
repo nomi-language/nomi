@@ -1,5 +1,7 @@
 package irbuild
 
+import "github.com/nomi-language/nomi/internal/ast"
+
 // A stdlib METHOD named without being called — the `Codepoint.to_int` in
 // `Iter.map(Codepoint.to_int)`.
 //
@@ -15,8 +17,8 @@ package irbuild
 // here, before the variant resolver sees it.
 //
 // A CALL of the same method is a different path and lowers:
-// `assert Codepoint.to_int(a) == 65` lowers with no refusal
-// (stdMethodCallPlan).
+// `assert Codepoint.to_int(a) == 65` lowers with no refusal, from the
+// function the call's record names (recordedCallPlan).
 //
 // # Why a NON-LOWERABLE callee keeps its own reason instead
 //
@@ -43,56 +45,35 @@ package irbuild
 // with no captures over a private body that forwards its parameters to the
 // host (irHostForward, irstdmethodref.go).
 //
-// Two shapes stay refused and are named: a std function with defaulted
-// parameters, whose plain function value would not carry the defaults, and a
-// spelling with several declarations behind it (`NaiveDateTime.add` is eleven
-// `impl Add<X, NaiveDateTime>` blocks), which selects one by argument kinds at
-// a call and selects nothing at a reference.
+// The function is the one the checker resolved the reference to, among
+// several declarations of one spelling too (`String.contains`). One shape
+// stays refused and is named: a std function with defaulted parameters,
+// whose plain function value would not carry the defaults.
 
-// stdMethodRefTarget selects the function a reference names and builds
-// nothing.
-func (g *gen) stdMethodRefTarget(owner, member string) (*stdFunc, string, string, bool) {
-	if g.std == nil {
+// stdMethodRefTarget selects the std function the reference at names, as
+// the checker resolved it (stdFuncAtRef), and builds nothing.
+func (g *gen) stdMethodRefTarget(at *ast.FieldAccess) (*stdFunc, string, string, bool) {
+	f := g.stdFuncByID(g.stdFuncAtRef(at))
+	if f == nil {
 		return nil, "", "", false
 	}
-	fs := g.std.byType[owner+"."+member]
-	if len(fs) == 0 {
+	// An owner the checker resolved to this module's own declaration
+	// resolves against this module's tables. Declining rather than refusing
+	// keeps that site's answer the one its declaration deserves.
+	if g.ownOwner(at) {
 		return nil, "", "", false
-	}
-	// A local declaration of the same NAME owns the qualifier and resolves
-	// against this module's tables. Declining rather than refusing
-	// keeps that site's answer the one the local declaration deserves: a type
-	// identity matched by name is a silent wrong answer.
-	if _, localType := g.types[owner]; localType {
-		return nil, "", "", false
-	}
-	if _, localIface := g.ifaces[owner]; localIface {
-		return nil, "", "", false
-	}
-	// A reference selects nothing, so an overload set cannot be narrowed here.
-	// If ANY candidate lowers, a function with this spelling exists and the
-	// reference is the sole obstacle. If none does, the callee is the obstacle
-	// and the reference is moot, so the first candidate's own reason is the
-	// honest report — see the file comment.
-	var only *stdFunc
-	lowerable := 0
-	for _, f := range fs {
-		if f.lowerable() {
-			lowerable++
-			only = f
-		}
 	}
 	switch {
-	case lowerable == 0:
-		return nil, fs[0].why, fs[0].key, true
-	case lowerable > 1:
-		return nil, "ambiguous stdlib method reference", owner + "." + member, true
-	// callDefaultFill, not `only.defaultFill`: a sibling snapshot freezes the
+	case !f.lowerable():
+		// The callee is the obstacle and the reference is moot, so its own
+		// reason is the honest report — see the file comment.
+		return nil, f.why, f.key, true
+	// callDefaultFill, not `f.defaultFill`: a sibling snapshot freezes the
 	// field before the lowering pass sets it, so reading it directly would miss
 	// a trailing default whose accessor IS built. See stdFunc.canon.
-	case callDefaultFill(only, len(only.params)-1):
-		return nil, "function reference with a defaulted parameter", only.key, true
+	case callDefaultFill(f, len(f.params)-1):
+		return nil, "function reference with a defaulted parameter", f.key, true
 	default:
-		return only, "", "", true
+		return f, "", "", true
 	}
 }

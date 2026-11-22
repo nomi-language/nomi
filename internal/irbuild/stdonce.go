@@ -93,7 +93,7 @@ func (o *stdOnce) nomiName() string {
 // hold only `fn` / `host fn` implementation items", asserted by
 // once_bindings_test.nomi), so the qualification would change nothing on checked
 // input and adding it would be a second place for that rule to live.
-func collectStdOnces(module string, nodes []ast.Node, fa *analysis.FileAnalysis, anchors stdAnchors) []*stdOnce {
+func collectStdOnces(module string, nodes []ast.Node, fa *analysis.FileAnalysis) []*stdOnce {
 	var out []*stdOnce
 	add := func(recv string, ob *ast.OnceBinding) {
 		o := &stdOnce{
@@ -113,14 +113,14 @@ func collectStdOnces(module string, nodes []ast.Node, fa *analysis.FileAnalysis,
 			o.why = "once binding without a value"
 		case ob.TypeAnnotation == nil:
 			// The checker's solved type, which the module's FileAnalysis
-			// records at the declaration. Same keys declareOnces uses.
-			o.k = stdInferredOnceKind(fa, ob)
+			// records at the declaration, projected with no gen.
+			o.k = projectShared(onceSymbolType(fa, ob))
 			// kindInvalid: no-position — classifies a stdlib declaration into o.why; no Nomi position.
 			if o.k == kindInvalid {
 				o.why = "once binding without a determinable type"
 			}
 		default:
-			o.k = stdTypeKind(ob.TypeAnnotation, anchors)
+			o.k = projectShared(stdTypeExprType(fa, ob.TypeAnnotation))
 			// The annotation names a type with no representation, exactly as a
 			// signature position would.
 			// kindInvalid: no-position — classifies a stdlib declaration into o.why; no Nomi position.
@@ -146,62 +146,21 @@ func collectStdOnces(module string, nodes []ast.Node, fa *analysis.FileAnalysis,
 	return out
 }
 
-// stdInferredOnceKind is the kind of an unannotated stdlib `once`: the type
-// the checker solved for it (checkOnce records it on the declaration's
-// symbol), projected as stdTypeKind's scalar arm projects an annotation.
-// Nothing else, as there: a stdlib once of any other type would need its own
-// representation here, and refusing it names that.
-func stdInferredOnceKind(fa *analysis.FileAnalysis, ob *ast.OnceBinding) kind {
-	if fa == nil {
-		return kindInvalid
-	}
-	sym, found := fa.Definitions[analysis.Pos{Line: ob.Line, Col: ob.Col}]
-	if !found || sym.Kind != analysis.SymbolOnce || sym.Name != ob.Name {
-		return kindInvalid
-	}
-	t := sym.Type
-	for {
-		tv, isVar := t.(*analysis.TypeVar)
-		if !isVar || tv.Resolved == nil {
-			break
-		}
-		t = tv.Resolved
-	}
-	// A subtype is its base at run time: `once pi = 3.14...` is a
-	// PositiveFloat (its value's range, analysis/ranges.go) held as a Float.
-	switch analysis.RefinementBase(t) {
-	case analysis.TypeInt:
-		return kindInt
-	case analysis.TypeFloat:
-		return kindFloat
-	case analysis.TypeString:
-		return kindString
-	case analysis.TypeBool:
-		return kindBool
-	case analysis.TypeUnit:
-		return kindUnit
-	}
-	return kindInvalid
-}
-
 // addOnce files a binding under the type-qualified spelling a reference site
 // writes.
 //
 // One slot rather than byType's overload set: a `once` takes no arguments, so
 // there is nothing for a reference to select on.
 //
-// A collision KEEPS THE FIRST rather than refusing both, which is the opposite
-// of addOverload and deliberately so. addOverload refuses because two functions
-// with the same parameter kinds are genuinely indistinguishable at a call site,
-// so picking one would answer by map arrival order. Here a collision is not
-// reachable at all: two `once`s of one name in one impl block is an analyzer
-// error, and two modules cannot share a spelling because the spelling carries
-// the receiver TYPE and a type is declared in one module. So an `ambiguous
-// stdlib once binding` key would be a refusal with a structurally empty
-// population — a name in the report that nothing can ever produce — and this
-// repo has already paid for one guard that could not fire. Keeping the first is
-// declareOnces' own answer for the same unreachable case, and it leaves one
-// binding per spelling.
+// A collision KEEPS THE FIRST, in lowering order. Within one module there is
+// none: two `once`s of one name in one impl block is an analyzer error. Two
+// modules can collide, because the spelling carries the receiver type's NAME
+// and several modules declare a type of one name (18 declare an `Error`;
+// std/http and std/process each declare a `Status`). No two std modules
+// declare a `once` of one spelling today, and nothing holds that: if two did,
+// a reference to the later module's binding would read the earlier one's.
+// Functions are found by identity (stdlibIndex.byID), which carries the
+// module; a type-qualified `once` is still found by spelling.
 func (x *stdlibIndex) addOnce(o *stdOnce) {
 	if x.byOnce == nil {
 		return
@@ -256,17 +215,13 @@ func closeStdOnces(onces []*stdOnce) {
 // stack and the same refusals any other body gets.
 func (g *gen) emitStdOnce(o *stdOnce) {
 	g.at(o.decl.Line)
-	// The RHS is its own body, so no enclosing result or lambda result
-	// inference reaches it. Saved rather than
-	// assumed for onceDecl's reason: this also runs under speculate while
-	// something else is being walked.
-	prevResult, prevInfer := g.result, g.inferResult
-	g.result, g.inferResult = o.k, nil
-	defer func() {
-		g.result, g.inferResult = prevResult, prevInfer
-	}()
+	// The RHS is its own body, so no enclosing result reaches it. Saved
+	// rather than assumed for onceDecl's reason: this also runs under
+	// speculate while something else is being walked.
+	prevResult := g.result
+	g.result = o.k
+	defer func() { g.result = prevResult }()
 
-	g.pushScope()
 	sym := g.irTypes().Symbol(o, o.nomiName())
 	produced, retained := g.irOnceCellLower(o.decl, o.k, sym, o.nomiName())
 	if !retained {
@@ -288,23 +243,26 @@ func (g *gen) emitStdOnce(o *stdOnce) {
 		g.reject("once binding type mismatch",
 			o.key+" is "+o.k.nomi()+" but its value is "+produced.nomi(), o.decl)
 	}
-	g.popScope()
 }
 
-// stdOnceValue reads a stdlib `once` whose initializer the declaring module
-// retained as an IR lazy cell.
+// stdOnceValue reads a stdlib `once` an owner declares (`Locale.root`),
+// whose initializer the declaring module retained as an IR lazy cell: the
+// one the checker resolved the name to (stdOnceOf).
 func (bl *irScalarBuilder) stdOnceValue(t *ast.FieldAccess) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	g := bl.g
-	owner, ok := t.Object.(*ast.TypeIdent)
-	if !ok || t.Field == nil {
+	if _, ok := t.Object.(*ast.TypeIdent); !ok || t.Field == nil {
 		return no()
 	}
-	key := owner.Name + "." + t.Field.Name
-	o := g.stdOnces[key]
-	if o == nil && g.std != nil {
-		o = g.std.byOnce[key]
+	sym := g.checkedRef(t.Field.Line, t.Field.Col)
+	if sym == nil || sym.Kind != analysis.SymbolOnce {
+		return no()
 	}
+	ob, isOnce := sym.Node.(*ast.OnceBinding)
+	if !isOnce {
+		return no()
+	}
+	o := g.stdOnceOf(ob)
 	if o == nil || !o.settled || o.irCell == nil || !irOnceKind(o.k) {
 		return no()
 	}
@@ -312,6 +270,24 @@ func (bl *irScalarBuilder) stdOnceValue(t *ast.FieldAccess) (ir.Temp, kind, bool
 	bl.b.Append(n)
 	bl.side(n.Dst(), irScalarSide{k: o.k})
 	return n.Dst(), o.k, false, true
+}
+
+// stdOnceOf is the std `once` ob declares: this std gen's own, or one the
+// std index holds; nil for none.
+func (g *gen) stdOnceOf(ob *ast.OnceBinding) *stdOnce {
+	for _, c := range g.stdOnces {
+		if c.decl == ob {
+			return c
+		}
+	}
+	if g.std != nil {
+		for _, c := range g.std.byOnce {
+			if c.decl == ob {
+				return c
+			}
+		}
+	}
+	return nil
 }
 
 // stdFileOnceValue reads a file-level stdlib `once` (`io.stdout`, or bare
@@ -336,19 +312,7 @@ func (bl *irScalarBuilder) stdFileOnceValue(at ast.Node, line, col int) (ir.Temp
 	if !isOnce {
 		return no()
 	}
-	var o *stdOnce
-	for _, c := range g.stdOnces {
-		if c.decl == ob {
-			o = c
-		}
-	}
-	if o == nil && g.std != nil {
-		for _, c := range g.std.byOnce {
-			if c.decl == ob {
-				o = c
-			}
-		}
-	}
+	o := g.stdOnceOf(ob)
 	if o == nil && fa.Definitions[analysis.Pos{Line: ob.Line, Col: ob.Col}] == sym {
 		// The module's own binding read bare in its source checked anew
 		// (a reference editor's `stdout` in std/io, vmhost.StdlibReference):

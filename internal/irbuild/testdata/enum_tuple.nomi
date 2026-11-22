@@ -133,10 +133,11 @@ fn main()
     wrapped = Some(Point.Pos(3, 4))
     io.print(Debug.inspect(wrapped))
 
-    inner = case wrapped
-        Some(.Pos(a, b)) -> a * b
-        _                -> 0
-    end
+    inner =
+        case wrapped
+            Some(.Pos(a, b)) -> a * b
+            _                -> 0
+        end
 
     io.print("${inner}")
 

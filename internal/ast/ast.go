@@ -2399,29 +2399,6 @@ type ImportBlock struct {
 func (*ImportBlock) NodeType() string { return "ImportBlock" }
 func (n *ImportBlock) LineNum() int   { return n.Line }
 
-// ExternPackage declares a compile-time Go package handle for source-level
-// FFI bindings:
-//
-//	gopkg "example.com/app/ffi" as ffi
-//
-// The alias is compile-time-only; it may be referenced by Go binding
-// selectors, but it is not a runtime Nomi value.
-type ExternPackage struct {
-	TriviaCarrier
-	SpanCarrier
-	ImportPath     string
-	ImportPathLine int
-	ImportPathCol  int
-	Alias          string
-	Line           int
-	Col            int
-	AliasLine      int
-	AliasCol       int
-}
-
-func (*ExternPackage) NodeType() string { return "ExternPackage" }
-func (n *ExternPackage) LineNum() int   { return n.Line }
-
 // ImportNodeName extracts the string name from an import node (*Ident or *TypeIdent).
 func ImportNodeName(n Node) string {
 	switch v := n.(type) {
@@ -2738,19 +2715,13 @@ type ExternFunc struct {
 	Doc             string
 	// ImplIface records the interface this extern function implements. Mirrors
 	// FuncDef.ImplIface.
-	ImplIface        TypeExpr
-	Line             int
-	Col              int
-	DefinitionFile   string
-	DefinitionLine   int
-	DefinitionCol    int
-	DefinitionSpan   int
-	ForeignAlias     string
-	ForeignName      string
-	ForeignAliasLine int
-	ForeignAliasCol  int
-	ForeignNameLine  int
-	ForeignNameCol   int
+	ImplIface      TypeExpr
+	Line           int
+	Col            int
+	DefinitionFile string
+	DefinitionLine int
+	DefinitionCol  int
+	DefinitionSpan int
 }
 
 func (*ExternFunc) NodeType() string { return "ExternFunc" }
@@ -2775,26 +2746,19 @@ func (*ExternFunc) isImplMethodDecl() {}
 type ExternType struct {
 	TriviaCarrier
 	SpanCarrier
-	Name             string
-	Public           bool
-	Opaque           bool
-	TypeParams       []TypeParam
-	WhereClauses     []WhereConstraint
-	AttachedTests    []AttachedTest // prompt tests attached to this declaration
-	Decorators       []Decorator    // `derive` decorators the derive lowering adds; nil when none
-	Doc              string
-	Line             int
-	Col              int
-	DefinitionFile   string
-	DefinitionLine   int
-	DefinitionCol    int
-	DefinitionSpan   int
-	ForeignAlias     string
-	ForeignName      string
-	ForeignAliasLine int
-	ForeignAliasCol  int
-	ForeignNameLine  int
-	ForeignNameCol   int
+	Name           string
+	Public         bool
+	TypeParams     []TypeParam
+	WhereClauses   []WhereConstraint
+	AttachedTests  []AttachedTest // prompt tests attached to this declaration
+	Decorators     []Decorator    // `derive` decorators the derive lowering adds; nil when none
+	Doc            string
+	Line           int
+	Col            int
+	DefinitionFile string
+	DefinitionLine int
+	DefinitionCol  int
+	DefinitionSpan int
 }
 
 func (*ExternType) NodeType() string { return "ExternType" }

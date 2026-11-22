@@ -1,22 +1,21 @@
 package irbuild
 
-// Tests for the builder's half of the shared IR's type and declaration table
-// (irtable.go).
+// Tests for the builder's half of the shared IR's type table (irtable.go).
 //
 // Three properties, all of which can fail:
 //
-//  1. THE SUBTYPING AND FIT RULE LIVES IN `internal/ir`, not here. A package
-//     that built the table and kept scoring candidates itself would pass the
-//     corpus while the IR declaration was only a receipt for a decision made
-//     elsewhere. So no production source may name the builder's own subtyping
-//     or fit rule, and the check is over the SOURCE because that is where the
-//     claim lives.
-//  2. NO DECL-TO-implItem MAP EXISTS. The realization travels beside the node;
-//     a field or package-level map of that shape is an AST-keyed side table
-//     under a new key. A map local to a function body keeps nothing.
+//  1. NO SUBTYPING OR FIT RULE LIVES IN THE BUILDER. Which function a call
+//     or an operator reaches is the checker's record, which the builder
+//     lowers; a package that scored candidates by fit would pass the corpus
+//     while making a decision the checker already made. So no production
+//     source may name a subtyping or fit rule, and the check is over the
+//     SOURCE because that is where the claim lives.
+//  2. NO SYMBOL-TO-implItem MAP EXISTS. The realization travels beside the
+//     node; a field or package-level map of that shape is an AST-keyed side
+//     table under a new key. A map local to a function body keeps nothing.
 //  3. IR TYPE IDENTITY IS KIND EQUALITY, for every kind and not only for the
-//     well-formed ones, because candidate selection compares `kind` values
-//     with `==` semantics.
+//     well-formed ones, because the builder compares `kind` values with `==`
+//     semantics wherever it would compare their IR types.
 
 import (
 	"go/ast"
@@ -32,12 +31,10 @@ import (
 
 // irEmitterRuleNames are the names a builder-side subtyping and candidate-fit
 // rule would carry: the fit tier, its three levels, the two scoring entry
-// points and the subtyping predicate. The rule lives in `internal/ir`.
+// points and the subtyping predicate.
 //
-// Exact identifiers, never prefixes. `widensAll` (collections.go) is a
-// DIFFERENT question, the widest element kind a list literal's members share,
-// asked through `embedsVariant`, and a prefix match would fail this test for
-// it.
+// Exact identifiers, never prefixes. A near name such as `widensAll` is a
+// DIFFERENT question, and a prefix match would fail this test for it.
 var irEmitterRuleNames = map[string]bool{
 	"implFit":      true,
 	"fitNone":      true,
@@ -48,8 +45,8 @@ var irEmitterRuleNames = map[string]bool{
 	"widens":       true,
 }
 
-// TestIRTable_NoSubtypingRuleLivesInTheEmitter is the behavioural test of the
-// difference between a table and a receipt.
+// TestIRTable_NoSubtypingRuleLivesInTheEmitter holds that the builder
+// chooses no function by fit.
 //
 // The detector's positive is planted on a SYNTHETIC source, so it shows the
 // detector works without requiring the defect to be present in production.
@@ -75,11 +72,9 @@ func TestIRTable_NoSubtypingRuleLivesInTheEmitter(t *testing.T) {
 		}
 	}
 	for file, names := range found {
-		t.Errorf("%s names the builder's own subtyping or fit rule %v. The rule is "+
-			"`ir.Table.Accepts` over `ir.Table.Widens`, selected by "+
-			"`ir.Table.SelectOverload`, and this package supplies only the candidate "+
-			"SET. A second copy here makes the IR declaration a receipt for a decision "+
-			"this package still makes.",
+		t.Errorf("%s names a subtyping or fit rule %v. Which function a call or an "+
+			"operator reaches is the checker's record, which this package lowers; a "+
+			"rule here makes again a decision the checker already made.",
 			file, names)
 	}
 
@@ -141,13 +136,13 @@ func irRuleNamesIn(f *ast.File) []string {
 	return out
 }
 
-// TestIRTable_NoDeclToRealizationMapExists pins the other half.
+// TestIRTable_NoSymbolToRealizationMapExists pins the second property.
 //
-// The chosen `*ir.Decl` and the `*implItem` that realizes it are returned
-// together from one call and paired in a local variable. A PERSISTENT map of
-// that shape, on the gen or at package scope, is an AST-keyed side table with
-// a new key, and it is what would let a consumer recover the
-// realization from the node instead of from the selection.
+// A callee's `*ir.Symbol` and the `*implItem` that realizes it are found
+// together from the checker's record and paired in a local variable. A
+// PERSISTENT map of that shape, on the gen or at package scope, is an
+// AST-keyed side table with a new key, and it is what would let a consumer
+// recover the realization from the IR entity instead of from the record.
 //
 // Checked over the source rather than over behaviour, because the defect is a
 // FIELD nobody has to read for it to be wrong: the moment one exists, the
@@ -159,7 +154,7 @@ func irRuleNamesIn(f *ast.File) []string {
 // encoder numbers each cell by its symbol while it writes a section, and the
 // per-file link harness collects the symbols a set of modules defines; there
 // is no AST node in either, and neither map leaves its function.
-func TestIRTable_NoDeclToRealizationMapExists(t *testing.T) {
+func TestIRTable_NoSymbolToRealizationMapExists(t *testing.T) {
 	fset := token.NewFileSet()
 	for _, name := range emitterGoFiles(t) {
 		f, err := parser.ParseFile(fset, name, nil, 0)
@@ -181,22 +176,22 @@ func TestIRTable_NoDeclToRealizationMapExists(t *testing.T) {
 	// flags what the rule allows.
 	const planted = `package irbuild
 
-type gen struct{ realized map[*ir.Decl]*implItem }
+type gen struct{ realized map[*ir.Symbol]*implItem }
 
 var bySym = map[*ir.Symbol]int{}
 
 func local() {
 	seen := map[*ir.Symbol]bool{}
 	_ = seen
-	_ = func() { _ = map[*ir.Decl]int{} }
+	_ = func() { _ = map[*ir.Symbol]int{} }
 }
 `
 	pf, err := parser.ParseFile(token.NewFileSet(), "planted.go", planted, 0)
 	if err != nil {
 		t.Fatalf("parse the planted source: %v", err)
 	}
-	if got := irPersistentIRKeyedMaps(pf); strings.Join(got, ",") != "Decl,Symbol" {
-		t.Errorf("the detector found %v in the planted source, want the field's Decl and the "+
+	if got := irPersistentIRKeyedMaps(pf); strings.Join(got, ",") != "Symbol,Symbol" {
+		t.Errorf("the detector found %v in the planted source, want the field's and the "+
 			"package variable's Symbol and nothing from the function body", got)
 	}
 }
@@ -230,10 +225,10 @@ func irPersistentIRKeyedMaps(f *ast.File) []string {
 }
 
 // irKeyedMap names the IR entity keying n when n is a map type keyed on an
-// `ir.Decl` or `ir.Symbol`.
+// `ir.Symbol`.
 func irKeyedMap(n ast.Node) []string {
 	m, isMap := n.(*ast.MapType)
-	if !isMap || (!irTableTypeMentions(m.Key, "Decl") && !irTableTypeMentions(m.Key, "Symbol")) {
+	if !isMap || !irTableTypeMentions(m.Key, "Symbol") {
 		return nil
 	}
 	return []string{irTableTypeText(m.Key)}
@@ -263,21 +258,18 @@ func emitterGoFiles(t *testing.T) []string {
 // TestIRTable_TypeIdentityIsKindEquality is the third property.
 //
 // irtable.go's header claims IR type identity and `kind` equality are the same
-// relation by construction. That must hold for malformed kinds too: two EQUAL
-// kinds are an exact fit before the subtyping relation is asked anything, so
-// an `irTypeOf` that answered nil for a malformed kind would decline a
-// parameter and an argument that are equal malformed kinds.
+// relation by construction. That must hold for malformed kinds too: an
+// `irTypeOf` that answered nil for a malformed kind would leave a slot of
+// that kind with no type where two equal kinds must have one.
 //
 // Both directions are asserted, because either alone is satisfiable by a
-// degenerate mapping. Equal kinds returning different pointers would make a
-// candidate decline where kind equality chooses it; unequal kinds returning
-// one pointer would make it choose where kind equality declines, which is the
-// direction irtable.go's header calls the one that cannot happen silently.
+// degenerate mapping: equal kinds returning different pointers, or unequal
+// kinds returning one pointer, would make IR type identity a different
+// relation from kind equality.
 func TestIRTable_TypeIdentityIsKindEquality(t *testing.T) {
 	g := &gen{}
 	if got := g.irTypeOf(kindInvalid); got != nil {
-		t.Errorf("irTypeOf(kindInvalid) = %v, want nil: a refused operand is not a candidate, "+
-			"which is what ir.Table.Accepts reads a nil argument type as", got)
+		t.Errorf("irTypeOf(kindInvalid) = %v, want nil: a refused operand has no type", got)
 	}
 
 	// The three malformed shapes besides tagInvalid. Each is a bug in this
@@ -295,7 +287,7 @@ func TestIRTable_TypeIdentityIsKindEquality(t *testing.T) {
 		first := g.irTypeOf(m.k)
 		if first == nil {
 			t.Errorf("%s has no IR type, so kind equality and IR type identity are not the "+
-				"same relation for it, and equal kinds must be an EXACT fit", m.name)
+				"same relation for it", m.name)
 			continue
 		}
 		if again := g.irTypeOf(m.k); again != first {
@@ -311,8 +303,7 @@ func TestIRTable_TypeIdentityIsKindEquality(t *testing.T) {
 			continue
 		}
 		if prev, dup := seen[ty]; dup {
-			t.Errorf("%s and %s share one IR type; unequal kinds must be two types, or a "+
-				"candidate is chosen where kind equality declines it", m.name, prev)
+			t.Errorf("%s and %s share one IR type; unequal kinds must be two types", m.name, prev)
 		}
 		seen[ty] = m.name
 	}
@@ -329,7 +320,7 @@ func TestIRTable_TypeIdentityIsKindEquality(t *testing.T) {
 }
 
 // irTableTypeMentions reports whether a type expression names sel as a
-// selector — `ir.Decl` for "Decl", `*ir.Symbol` for "Symbol".
+// selector — `*ir.Symbol` for "Symbol".
 func irTableTypeMentions(e ast.Expr, sel string) bool {
 	found := false
 	ast.Inspect(e, func(n ast.Node) bool {

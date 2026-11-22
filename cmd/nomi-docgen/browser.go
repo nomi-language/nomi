@@ -17,7 +17,7 @@ import (
 const browserGOOS, browserGOARCH = "js", "wasm"
 
 // promptClassifier answers, for each `//!` prompt of one stdlib module,
-// the capability classes it reaches that the browser lacks
+// the effect classes it reaches that the browser lacks
 // (vmhost.TargetLacks for js/wasm): a prompt that listens on a socket,
 // dials one, looks a name up or starts a program. The walk is the one
 // `nomi build --target js/wasm` refuses a program by, run from the
@@ -47,7 +47,7 @@ func newPromptClassifier(std *stdProgram) *promptClassifier {
 // class the walk found.
 func (c *promptClassifier) browserLacks(test ast.AttachedTest, body, context string) []string {
 	var walked []string
-	for _, u := range c.std.program().TestCapabilityUses(vmhost.TestOptions{Line: test.Line, LineSet: true}) {
+	for _, u := range c.std.program().TestClassUses(vmhost.TestOptions{Line: test.Line, LineSet: true}) {
 		if slices.Contains(c.lacks, u.Class) && !slices.Contains(walked, u.Class) {
 			walked = append(walked, u.Class)
 		}

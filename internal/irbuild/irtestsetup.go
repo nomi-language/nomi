@@ -25,7 +25,6 @@ func (bl *irScalarBuilder) testSetupChain(c testCaseDecl) bool {
 		if s.body == nil {
 			continue
 		}
-		bound, boundK, syms := bl.testScopeSave()
 		var v ir.Temp
 		var k kind
 		var ok bool
@@ -34,7 +33,6 @@ func (bl *irScalarBuilder) testSetupChain(c testCaseDecl) bool {
 		} else {
 			v, k, ok = bl.testSetupBody(s.body)
 		}
-		bl.bound, bl.boundK, bl.sh.syms = bound, boundK, syms
 		if !ok {
 			return false
 		}
@@ -63,24 +61,6 @@ func (bl *irScalarBuilder) testBindRow(r *testRow) bool {
 		return false
 	}
 	return bl.testDestructure(r.rows.Pattern, v, k)
-}
-
-// testScopeSave copies the builder's name tables, so a setup's names can be
-// dropped when it ends.
-func (bl *irScalarBuilder) testScopeSave() (map[string]ir.Temp, map[string]kind, map[string]*ir.Symbol) {
-	bound := make(map[string]ir.Temp, len(bl.bound))
-	for n, v := range bl.bound {
-		bound[n] = v
-	}
-	boundK := make(map[string]kind, len(bl.boundK))
-	for n, k := range bl.boundK {
-		boundK[n] = k
-	}
-	syms := make(map[string]*ir.Symbol, len(bl.sh.syms))
-	for n, s := range bl.sh.syms {
-		syms[n] = s
-	}
-	return bound, boundK, syms
 }
 
 // testSetupBody lowers a group's `setup` body: its leading statements as a
@@ -139,56 +119,15 @@ func (bl *irScalarBuilder) testSetupUnit(at ast.Node) (ir.Temp, kind, bool) {
 	return u.Dst(), kindUnit, true
 }
 
-// testDestructure binds a case's pattern from its group's setup value: any
-// irrefutable pattern, as a destructuring parameter binds one. The checker
-// has rejected a refutable pattern.
-//
-// The projections and binds are built where the setup left the cursor, by the
-// parameter destructuring (gen.destructure) a lambda's prologue uses, with
-// the cursor's block standing in for the prologue's.
+// testDestructure binds a case's pattern from its group's setup value: a
+// pattern the checker records as matching every value, bound as a binding
+// with no `else` binds one.
 func (bl *irScalarBuilder) testDestructure(pat ast.Node, ctx ir.Temp, k kind) bool {
 	if ctx == ir.NoTemp {
 		bl.g.dc.note("a test pattern over a setup with no value")
 		return false
 	}
-	g, sh := bl.g, bl.sh
-	entry, at, prologue, patternOK, orParams := sh.entry, sh.at, sh.prologue, sh.patternOK, sh.orParams
-	defer func() { sh.orParams = orParams }()
-	sh.entry = bl.b
-	if sh.at == nil {
-		sh.at = pat
-	}
-	start := len(bl.b.Instrs())
-	mark := len(g.errs)
-	g.pushScope()
-	closePrologue := g.irPrologueOpen(sh)
-	ok := g.destructure(pat, expr{t: ctx, k: k}, pat)
-	closePrologue(ok)
-	g.popScope()
-	sh.entry, sh.at, sh.prologue, sh.patternOK = entry, at, prologue, patternOK
-	if len(g.errs) != mark {
-		// A refusal g.destructure recorded is this case's decline.
-		g.errs = g.errs[:mark]
-		ok = false
-	}
-	if !ok {
-		bl.g.dc.atPattern(pat, "a test pattern the builder did not destructure")
-		return false
-	}
-	for _, in := range bl.b.Instrs()[start:] {
-		b, isBind := in.(*ir.Bind)
-		if !isBind {
-			continue
-		}
-		bk := sh.frame.kindOf(b.Dst())
-		// A part of the setup's value; a Unit setup binds as any Unit value
-		// does (`u = io.print("a")`).
-		irHeldOperand(bk, "a test pattern's name")
-		bl.side(b.Dst(), irScalarSide{k: bk})
-		bl.bound[b.Sym().Name()], bl.boundK[b.Sym().Name()] = b.Dst(), bk
-		bl.declareBind(b, bk)
-	}
-	return bl.orParamTests()
+	return bl.bindPattern(pat, ctx, k)
 }
 
 // irSetupExit is where a group's `setup` that holds a `return` leaves: the

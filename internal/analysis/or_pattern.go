@@ -85,19 +85,6 @@ func (c *checker) checkOrPattern(n *ast.OrPattern, expectedTy Type) {
 			sym.Type = f.ty
 		}
 	}
-	if expectedTy != nil && c.patternsExhaustiveOver(expectedTy, n.Alternatives) {
-		if c.fa.CoveringOrPatterns == nil {
-			c.fa.CoveringOrPatterns = map[*ast.OrPattern]bool{}
-		}
-		c.fa.CoveringOrPatterns[n] = true
-	}
-}
-
-// OrPatternCovers reports whether the alternatives of or, a pattern of fa's
-// file, together match every value of the type at its position
-// (CoveringOrPatterns).
-func (fa *FileAnalysis) OrPatternCovers(or *ast.OrPattern) bool {
-	return fa != nil && fa.CoveringOrPatterns[or]
 }
 
 // DefinitionSites returns every position sym is defined at in fa, in source

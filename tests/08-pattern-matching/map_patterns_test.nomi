@@ -66,50 +66,59 @@ test "map patterns match composite expression keys"
     base = 1
     numbers = {2 => "computed"}
 
-    by_bool = case flags
-        {True => v} -> v
-        _           -> "?"
-    end
+    by_bool =
+        case flags
+            {True => v} -> v
+            _           -> "?"
+        end
 
-    by_color = case colors
-        {Color.Green => v} -> v
-        _                  -> "?"
-    end
+    by_color =
+        case colors
+            {Color.Green => v} -> v
+            _                  -> "?"
+        end
 
-    by_payload = case options
-        {Some(2) => v} -> v
-        _              -> "?"
-    end
+    by_payload =
+        case options
+            {Some(2) => v} -> v
+            _              -> "?"
+        end
 
-    by_tuple = case points
-        {(3, 4) => v} -> v
-        _             -> "?"
-    end
+    by_tuple =
+        case points
+            {(3, 4) => v} -> v
+            _             -> "?"
+        end
 
-    by_list = case lists
-        {[1, 2] => v} -> v
-        _             -> "?"
-    end
+    by_list =
+        case lists
+            {[1, 2] => v} -> v
+            _             -> "?"
+        end
 
-    by_struct = case struct_keyed
-        {Point{x: 1, y: 2} => v} -> v
-        _                        -> "?"
-    end
+    by_struct =
+        case struct_keyed
+            {Point{x: 1, y: 2} => v} -> v
+            _                        -> "?"
+        end
 
-    by_id = case ids
-        {Id(5) => v} -> v
-        _            -> "?"
-    end
+    by_id =
+        case ids
+            {Id(5) => v} -> v
+            _            -> "?"
+        end
 
-    by_computed = case numbers
-        {base + 1 => v} -> v
-        _               -> "?"
-    end
+    by_computed =
+        case numbers
+            {base + 1 => v} -> v
+            _               -> "?"
+        end
 
-    fallthrough = case flags
-        {Color.Blue => v} -> v
-        _                 -> "fallthrough"
-    end
+    fallthrough =
+        case flags
+            {Color.Blue => v} -> v
+            _                 -> "fallthrough"
+        end
 
     assert by_bool == "yes"
     assert by_color == "g"

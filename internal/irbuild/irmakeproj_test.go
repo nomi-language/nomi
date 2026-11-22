@@ -6,7 +6,7 @@ import (
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
-// Tests for the `make` and `proj` classes (irmake.go, irproj.go).
+// Tests for the `make` and `proj` classes (irmake.go and the pattern tests).
 
 // TestProj_FaultsIsTheOnlyPredicateAndItDiscriminates plants a positive on the
 // one predicate this class has.

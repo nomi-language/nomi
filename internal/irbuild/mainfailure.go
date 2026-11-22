@@ -52,7 +52,7 @@ func (g *gen) irBuildMainFailure() {
 		return
 	}
 	result := g.typeOf(main.ReturnTypeExpr)
-	anchor, _ := g.preludeNamed("Result")
+	anchor, _ := preludeSpecAnchor(preludeSpecNamed("Result"))
 	if anchor == nil || result.tag != tagNamed || result.def == nil || result.def.preludeOf == nil ||
 		result.def.preludeOf.spec != anchor.spec || len(result.def.preludeArgs) != 2 {
 		return
@@ -153,7 +153,8 @@ func (g *gen) irBuildFailureRender(decl *ast.FuncDef, key any, name string, errK
 // the caller has none. shown is the checker's record of how the
 // error renders by Display (analysis.TypedLiteral.Failure,
 // analysis.FileAnalysis.UnwrapFailures), nil for main's error, which no
-// record describes and which renders by its kind (kindDisplay). ok is
+// record describes and which renders as the checker renders errType
+// (displayOf). ok is
 // false when that rendering does not lower: no Display impl for errK, or a
 // kind this builder cannot render.
 func (g *gen) irErrorRenderFunc(node ast.Node, name string, sym *ir.Symbol, errK kind, errType analysis.Type, shown *analysis.DisplayRender, at ast.Node, debug bool) (*ir.Func, bool) {
@@ -164,8 +165,7 @@ func (g *gen) irErrorRenderFunc(node ast.Node, name string, sym *ir.Symbol, errK
 	if sh == nil {
 		return nil, false
 	}
-	bl := &irScalarBuilder{g: g, sh: sh, f: sh.fn, b: sh.entry, returnKind: kindString, sides: sh.sides,
-		bound: map[string]ir.Temp{}, boundK: map[string]kind{}}
+	bl := &irScalarBuilder{g: g, sh: sh, f: sh.fn, b: sh.entry, returnKind: kindString}
 	src := sh.paramTemps[0]
 	pos := g.irNodePos(at)
 	var text ir.Temp
@@ -189,7 +189,7 @@ func (g *gen) irErrorRenderFunc(node ast.Node, name string, sym *ir.Symbol, errK
 		bl.side(r.Dst(), irScalarSide{k: kindString})
 		text = r.Dst()
 	default:
-		rec := kindDisplay(errK)
+		rec := g.displayOf(errType, errK)
 		if shown != nil {
 			rec = g.displayAt(shown, errK)
 		}

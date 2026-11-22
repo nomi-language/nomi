@@ -60,7 +60,7 @@ func TestExtractVariable_Refused(t *testing.T) {
 		// Out of a lambda's body.
 		"lambda body": "n = Iter.map([1], fn x -> Int.to_str‸ing(x))\nio.inspect(Iter.to_list(n))\n",
 		// A case arm runs only when its pattern matches.
-		"case arm": "m = String.to_int(\"1\")\nn = case m\n    Some(v) -> Int.to_str‸ing(v)\n    None -> \"\"\nend\n\nio.inspect(n)\n",
+		"case arm": "m = String.to_int(\"1\")\n\nn =\n    case m\n        Some(v) -> Int.to_str‸ing(v)\n        None    -> \"\"\n    end\n\nio.inspect(n)\n",
 		// The right side of `and` runs only when the left is true.
 		"and": "xs = [1]\nok = Iter.is_empty(xs) and Iter.count‸(xs) > 0\nio.inspect(ok)\n",
 		// A pipe stage is not a value.
@@ -95,6 +95,71 @@ func TestInlineVariable(t *testing.T) {
 	got = checkRefactor(t, src, "Inline variable 'k'", inline)
 	if want := fnMain("n = Iter.map([1], fn x -> x * 2)\nio.inspect(Iter.to_list(n))\n"); got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
+	}
+}
+
+// A `case` moved into a binding's value goes on the line below the name,
+// and one moved out of it into an argument goes on the lines between the
+// brackets, as `nomi fmt` writes each.
+func TestExtractVariable_ACaseMovesUnderItsBinding(t *testing.T) {
+	src := fnMain(`x = 3
+
+io.print(
+    «case
+        x > 10 -> "big"
+        _      -> "other"
+    end»
+)`)
+	got := checkRefactor(t, src, "Extract variable 'value'", extract)
+	want := fnMain(`x = 3
+
+value =
+    case
+        x > 10 -> "big"
+        _      -> "other"
+    end
+
+io.print(value)`)
+	if got != want {
+		t.Fatalf("got\n%s\nwant\n%s", got, want)
+	}
+}
+
+func TestInlineVariable_ACaseKeepsTheFormattersLayout(t *testing.T) {
+	bound := `x = 3
+
+la‸bel =
+    case
+        x > 10 -> "big"
+        _      -> "other"
+    end
+
+`
+	for name, c := range map[string]struct{ read, want string }{
+		"into a binding": {"message = label\nio.print(message)", `x = 3
+
+message =
+    case
+        x > 10 -> "big"
+        _      -> "other"
+    end
+
+io.print(message)`},
+		"into an argument": {"io.print(label)", `x = 3
+
+io.print(
+    case
+        x > 10 -> "big"
+        _      -> "other"
+    end
+)`},
+	} {
+		t.Run(name, func(t *testing.T) {
+			got := checkRefactor(t, fnMain(bound+c.read), "Inline variable 'label'", inline)
+			if want := fnMain(c.want); got != want {
+				t.Fatalf("got\n%s\nwant\n%s", got, want)
+			}
+		})
 	}
 }
 

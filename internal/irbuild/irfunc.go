@@ -23,32 +23,6 @@ import (
 // report and a probe agree on the name.
 const irScalarArithShape = "scalar arithmetic body"
 
-// irFuncFrame is the builder's kind for each temporary a destructuring
-// prologue names in one function.
-type irFuncFrame struct {
-	kinds []kind
-}
-
-func newIRFuncFrame(f *ir.Func) *irFuncFrame {
-	return &irFuncFrame{kinds: make([]kind, f.NumTemps()+1)}
-}
-
-// kindOf is the kind the prologue recorded for t, or kindInvalid.
-func (fr *irFuncFrame) kindOf(t ir.Temp) kind {
-	if int(t) >= len(fr.kinds) {
-		return kindInvalid
-	}
-	return fr.kinds[t]
-}
-
-// setKind records the kind t holds.
-func (fr *irFuncFrame) setKind(t ir.Temp, k kind) {
-	for int(t) >= len(fr.kinds) {
-		fr.kinds = append(fr.kinds, kindInvalid)
-	}
-	fr.kinds[t] = k
-}
-
 // --- observation ------------------------------------------------------------
 
 // irFuncObserved is a test-only hook, nil in production, called once per
@@ -125,6 +99,9 @@ func (g *gen) irScalarLower(fd *ast.FuncDef, sig irFuncSig, sh *irFuncShell, wan
 	p, ok := g.irScalarBuild(fd, sig, sh)
 	if !ok {
 		g.dc.close()
+		if g.dc.abstract {
+			g.dc.declinedFns = append(g.dc.declinedFns, fd)
+		}
 		if irFuncObserved != nil {
 			irFuncObserved(sig.origin, sig.name, nil)
 		}

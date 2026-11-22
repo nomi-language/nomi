@@ -24,8 +24,15 @@ func TestProjectionChecksNominalIdentity(t *testing.T) {
 	meters := &typeDef{nomi: "Meters", isDistinct: true, lowerable: true}
 	broken := &typeDef{nomi: "Broken"} // refused: lowerable is false
 	g := &gen{
-		fa:    &analysis.FileAnalysis{Origin: analysis.OriginEntry},
+		fa:    &analysis.FileAnalysis{Origin: analysis.OriginEntry, ModuleScope: analysis.NewScope(nil)},
 		types: map[string]*typeDef{"Point": point, "Shape": shape, "Meters": meters, "Broken": broken},
+	}
+	// Each declaration in the module's scope, as the checker binds it, and
+	// its def by the declaration, as declareTypeShells files it.
+	for _, d := range []*typeDef{point, shape, meters, broken} {
+		d.decl = &ast.StructDef{Name: d.nomi}
+		g.fa.ModuleScope.Define(&analysis.Symbol{Name: d.nomi, Node: d.decl})
+		g.fileDef(d.decl, d)
 	}
 
 	cases := []struct {
@@ -111,7 +118,6 @@ end
 		t.Fatalf("analyze: %v", err)
 	}
 	g := &gen{nomiPath: "main.nomi", fa: p.Modules[0].FA, funcs: map[string]*fnSig{}, types: map[string]*typeDef{}, ifaces: map[string]*ifaceDef{}}
-	g.pushScope()
 	g.buildTypes(p.Modules[0].Nodes)
 
 	// The annotation path and the projection path, run over the same

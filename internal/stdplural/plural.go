@@ -35,9 +35,9 @@ func Rules(d *cldrdata.Data, locale string, ordinal bool) *cldrdata.RuleSet {
 	return cldrdata.NewRuleSet(nil, nil)
 }
 
-// FFICardinalTag is the cardinal category of value in locale. value is a
+// HostCardinalTag is the cardinal category of value in locale. value is a
 // Decimal's Display text, whose fraction digits are the visible ones.
-func FFICardinalTag(fr *rt.Frame, locale, value string) int64 {
+func HostCardinalTag(fr *rt.Frame, locale, value string) int64 {
 	ops, err := cldrdata.ParseOperands(value)
 	if err != nil {
 		return int64(cldrdata.Other)
@@ -45,8 +45,8 @@ func FFICardinalTag(fr *rt.Frame, locale, value string) int64 {
 	return int64(Rules(stdlocale.Data(fr), locale, false).Select(ops))
 }
 
-// FFIOrdinalTag is the ordinal category of value in locale.
-func FFIOrdinalTag(fr *rt.Frame, locale string, value rt.Int) int64 {
+// HostOrdinalTag is the ordinal category of value in locale.
+func HostOrdinalTag(fr *rt.Frame, locale string, value rt.Int) int64 {
 	ops, err := cldrdata.ParseOperands(value.String())
 	if err != nil {
 		return int64(cldrdata.Other)
@@ -54,13 +54,13 @@ func FFIOrdinalTag(fr *rt.Frame, locale string, value rt.Int) int64 {
 	return int64(Rules(stdlocale.Data(fr), locale, true).Select(ops))
 }
 
-// FFICardinalTags lists the cardinal categories locale's rules can select.
-func FFICardinalTags(fr *rt.Frame, locale string) []int64 {
+// HostCardinalTags lists the cardinal categories locale's rules can select.
+func HostCardinalTags(fr *rt.Frame, locale string) []int64 {
 	return tags(Rules(stdlocale.Data(fr), locale, false))
 }
 
-// FFIOrdinalTags lists the ordinal categories locale's rules can select.
-func FFIOrdinalTags(fr *rt.Frame, locale string) []int64 {
+// HostOrdinalTags lists the ordinal categories locale's rules can select.
+func HostOrdinalTags(fr *rt.Frame, locale string) []int64 {
 	return tags(Rules(stdlocale.Data(fr), locale, true))
 }
 

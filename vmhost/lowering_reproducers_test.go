@@ -564,19 +564,6 @@ end
 `,
 	},
 	{
-		name: "gapGoFnDefaultedParam",
-		src: `import std::io
-
-gopkg "strings" as strs
-
-fn upper(s: String = "abc") -> String go strs.ToUpper
-
-fn main()
-    io.print(upper())
-end
-`,
-	},
-	{
 		name: "gapInterfaceInFnBody",
 		src: `import std::io
 

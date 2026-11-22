@@ -40,10 +40,11 @@ test "a vector pattern takes a vector apart from either end"
 end
 
 test "a vector pattern's rest is the elements between its heads and tails"
-    result = case Vector[1, 2, 3, 4, 5]
-        [a, ..mid, z] -> (a, mid, z)
-        _             -> (0, Vector[], 0)
-    end
+    result =
+        case Vector[1, 2, 3, 4, 5]
+            [a, ..mid, z] -> (a, mid, z)
+            _             -> (0, Vector[], 0)
+        end
 
     assert result == (1, [2, 3, 4], 5)
     [first, ..rest] = Vector[9, 8] else return
@@ -52,12 +53,13 @@ test "a vector pattern's rest is the elements between its heads and tails"
 end
 
 test "an exact vector pattern matches only its own length"
-    pair = fn v: Vector<Int> ->
-        case v
-            [a, b] -> a + b
-            _      -> -1
+    pair =
+        fn v: Vector<Int> ->
+            case v
+                [a, b] -> a + b
+                _      -> -1
+            end
         end
-    end
 
     assert pair([2, 3]) == 5
     assert pair([2, 3, 4]) == -1
@@ -72,20 +74,22 @@ test "vector patterns nest and combine with or and as"
         _            -> ""
     end == "1a"
 
-    small = fn v: Vector<Int> ->
-        case v
-            [] or [_] -> True
-            _         -> False
+    small =
+        fn v: Vector<Int> ->
+            case v
+                [] or [_] -> True
+                _         -> False
+            end
         end
-    end
 
     assert small([1])
     refute small([1, 2])
 
-    whole = case Vector[4, 5]
-        [4, ..] as v -> Vector.length(v)
-        _            -> 0
-    end
+    whole =
+        case Vector[4, 5]
+            [4, ..] as v -> Vector.length(v)
+            _            -> 0
+        end
 
     assert whole == 2
 
@@ -120,13 +124,14 @@ test "a set pattern tests membership"
 end
 
 test "a set pattern without a rest matches exactly its elements"
-    exact = fn s: Set<Int> ->
-        case s
-            [2, 1] -> "both"
-            [1]    -> "one"
-            _      -> "other"
+    exact =
+        fn s: Set<Int> ->
+            case s
+                [2, 1] -> "both"
+                [1]    -> "one"
+                _      -> "other"
+            end
         end
-    end
 
     assert exact([1, 2]) == "both"
     assert exact([1]) == "one"
@@ -137,10 +142,11 @@ test "a set pattern's elements are constants, and a guard tests a value in scope
     who = "user"
     roles = Set["user", "guest"]
 
-    found = case roles
-        [..others] when Set.contains(others, who) -> Set.remove(others, who)
-        _ -> []
-    end
+    found =
+        case roles
+            [..others] when Set.contains(others, who) -> Set.remove(others, who)
+            _ -> []
+        end
 
     assert found == ["guest"]
 

@@ -59,8 +59,8 @@ type StdBase struct {
 	// interface) pairs.
 	demands map[string]map[string][]Recording
 	pairs   map[implPair]bool
-	// wanted is the buckets of demands unionDemands keeps: those some
-	// recording outside the stdlib demands.
+	// wanted is the buckets of demands the missing-impl check reads: those
+	// some recording outside the stdlib demands.
 	wanted []implPair
 }
 
@@ -178,7 +178,7 @@ func (b *StdBase) lookupNames() map[string]bool {
 
 // stdDemands answers the union of files' own ImplManifests, each bucket's
 // recordings deduplicated in the order files gives, the set of their (type,
-// interface) pairs, and the buckets unionDemands keeps for them: those some
+// interface) pairs, and the buckets the missing-impl check reads: those some
 // recording outside the stdlib demands.
 func stdDemands(files []*FileAnalysis) (map[string]map[string][]Recording, map[implPair]bool, []implPair) {
 	type bucketRec struct {

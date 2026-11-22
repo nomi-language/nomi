@@ -30,20 +30,18 @@ type siblingInstKey struct {
 }
 
 // siblingImplTemplate is the other file's template an impl block's receiver
-// names, when it names one.
+// names, when it names one: by the type the checker recorded for the
+// receiver (receiverTemplate).
 func (g *gen) siblingImplTemplate(ib *ast.ImplBlock) (*genericTemplate, bool) {
 	gt, generic := ib.Receiver.(*ast.GenericType)
 	if !generic || len(gt.Params) == 0 || ib.Interface == nil {
 		return nil, false
 	}
-	if g.blockLocalTemplate(gt.Name, nil) != nil || g.genericTemplates[gt.Name] != nil {
+	tpl, foreign, ok := g.receiverTemplate(ib)
+	if !ok || !foreign || tpl.why != "" {
 		return nil, false
 	}
-	ref, found := g.foreignTemplate(gt.Name)
-	if !found || ref.tpl.why != "" {
-		return nil, false
-	}
-	return ref.tpl, true
+	return tpl, true
 }
 
 // registerSiblingTemplateImpl records ib, an impl over another file's

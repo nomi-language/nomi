@@ -2,5 +2,15 @@
   {
     "token_modifiers": ["attachedTest"],
     "style": ["comment"]
+  },
+  {
+    "token_type": "function",
+    "token_modifiers": ["effect"],
+    "style": ["function"],
+    "font_weight": "bold"
+  },
+  {
+    "token_modifiers": ["effect"],
+    "font_weight": "bold"
   }
 ]

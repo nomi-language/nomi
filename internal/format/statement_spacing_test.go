@@ -47,10 +47,11 @@ end
 			want: `fn f(xs: List<Int>) -> Int
     first = 1
 
-    total = case xs
-        [] -> 0
-        _  -> 1
-    end
+    total =
+        case xs
+            [] -> 0
+            _  -> 1
+        end
 
     total + first
 end
@@ -72,10 +73,11 @@ end
 end
 `,
 			want: `fn f(x: Int) -> Int
-    y = case x
-        0 -> 1
-        _ -> x
-    end
+    y =
+        case x
+            0 -> 1
+            _ -> x
+        end
 
     z = y + 1
 
@@ -133,15 +135,17 @@ end
 end
 `,
 			want: `fn f(x: Int) -> Int
-    a = case x
-        0 -> 1
-        _ -> 2
-    end
+    a =
+        case x
+            0 -> 1
+            _ -> 2
+        end
 
-    b = case x
-        1 -> 3
-        _ -> 4
-    end
+    b =
+        case x
+            1 -> 3
+            _ -> 4
+        end
 
     a + b
 end
@@ -162,10 +166,11 @@ end
     a = 1
 
     // pick one
-    b = case x
-        0 -> a
-        _ -> 2
-    end
+    b =
+        case x
+            0 -> a
+            _ -> 2
+        end
 
     b
 end
@@ -189,10 +194,11 @@ end
     if x > 0 then
         y = x + 1
 
-        z = case y
-            1 -> 0
-            _ -> y
-        end
+        z =
+            case y
+                1 -> 0
+                _ -> y
+            end
 
         z
     else
@@ -217,10 +223,11 @@ end
     Iter.reduce(xs, 0, fn acc, x ->
         y = x * 2
 
-        z = case y
-            4 -> y
-            _ -> 0
-        end
+        z =
+            case y
+                4 -> y
+                _ -> 0
+            end
 
         acc + z
     end)
@@ -242,10 +249,11 @@ end
     a = 1
     assert a == 1
 
-    b = case a
-        1 -> 2
-        _ -> 3
-    end
+    b =
+        case a
+            1 -> 2
+            _ -> 3
+        end
 
     assert b == 2
 end
@@ -286,10 +294,11 @@ fn f() -> Int
     1
 end
 `,
-			want: `//! label = case 1
-//!     1 -> "one"
-//!     _ -> "many"
-//! end
+			want: `//! label =
+//!     case 1
+//!         1 -> "one"
+//!         _ -> "many"
+//!     end
 //!
 //! assert label == "one"
 fn f() -> Int
@@ -536,10 +545,11 @@ end
 end
 `,
 			want: `fn f(n: Int) -> Int
-    g = fn x ->
-        y = x |> Int.abs()
-        y + 1
-    end
+    g =
+        fn x ->
+            y = x |> Int.abs()
+            y + 1
+        end
 
     case n
         0 ->

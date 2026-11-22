@@ -70,11 +70,12 @@ test "float debug boundaries use the intended notation"
 end
 
 test "block expressions return their final value"
-    result = begin
-        a = 10
-        b = 20
-        a + b
-    end
+    result =
+        begin
+            a = 10
+            b = 20
+            a + b
+        end
 
     assert result == 30
 end

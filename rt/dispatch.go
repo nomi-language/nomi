@@ -41,22 +41,3 @@ var (
 	TIDString = TypeID{Nomi: "String"}
 	TIDBool   = TypeID{Nomi: "Bool"}
 )
-
-// Method names one stdlib interface function. internal/irbuild's stdlib
-// interface specs hold the variables in stdiface.go as identities: a spec
-// whose variable is one of them is an interface the builder gives a complete
-// method shape. Nothing calls through a Method; the VM dispatches from its
-// own tables (internal/vm/dispatch.go).
-//
-// F is the method's shape: `*Frame` first, every self-typed position `any`,
-// everything else as rt represents it.
-type Method[F any] struct {
-	// key is the Nomi spelling `Iface.method`. It also keeps the struct from
-	// being zero-sized, so two Methods never share an address.
-	key string
-}
-
-// NewMethod declares one.
-func NewMethod[F any](key string) *Method[F] {
-	return &Method[F]{key: key}
-}

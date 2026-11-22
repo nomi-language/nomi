@@ -37,11 +37,16 @@ type Fields map[string]any
 // Any other argument must already be the VM's Value.
 //
 // The error is a *Blocked when the program reaches something the VM cannot
-// run, a *CapabilityError when the function or the boot reaches an outside
-// call nomi.toml's [capabilities] lists or the host's (WithCapabilities) do
+// run, a *EffectError when the function or the boot reaches an outside
+// call nomi.toml's [effects] lists or the host's (WithEffects) do
 // not allow, and otherwise the program's own failure (a fault or a failed
 // assertion), which WriteFailure renders. A function that returns a Result
 // answers its Err as a value, not as an error.
+//
+// ctx's end stops the call: a wait (std's timer.sleep, a channel, a task, a
+// host function that calls rt.CancelIfDone) wakes, a computing step stops at
+// its next call or loop iteration, and the call answers ctx's error itself,
+// so errors.Is(err, context.Canceled) or context.DeadlineExceeded holds.
 func (p *Program) Call(ctx context.Context, name string, args ...any) (Value, error) {
 	f, err := p.callable(name)
 	if err != nil {
@@ -60,8 +65,8 @@ func (p *Program) Call(ctx context.Context, name string, args ...any) (Value, er
 		converted[i] = v
 	}
 	// The lists the program is held to, nomi.toml's and the host's
-	// (WithCapabilities), refuse the call before the boot runs.
-	if err := p.capabilityError(Roots{Func: name}); err != nil {
+	// (WithEffects), refuse the call before the boot runs.
+	if err := p.effectError(Roots{Func: name}); err != nil {
 		return nil, err
 	}
 	m := p.machine(p.out)
@@ -73,6 +78,10 @@ func (p *Program) Call(ctx context.Context, name string, args ...any) (Value, er
 		return nil, p.blocked(found)
 	}
 	result, err := m.Call(ctx, f, converted)
+	if vm.IsStop(err) {
+		// ctx ended and unwound the call: its error, as it is.
+		return nil, err
+	}
 	failure, limit := programFailure(err)
 	if limit {
 		return nil, &Blocked{Reasons: []string{machineLimit(failure)}}

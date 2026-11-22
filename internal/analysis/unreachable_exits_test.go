@@ -6,7 +6,7 @@ import "testing"
 // `else` whose every branch exits, a `case` whose every arm exits, and a block
 // that exits. The first statement after it is reported, with a hint.
 func TestUnreachable_StatementAfterAStatementThatAlwaysExits(t *testing.T) {
-	errs := buildErrsWithStdlib(t, `
+	errs := unreachableCheck(t, `
 fn choose(flag: Bool)
   if flag then
     _ = 1
@@ -89,7 +89,7 @@ end
 // through, and a `todo`, which is a Unit statement so that code after a stub
 // stays legal while it is written.
 func TestUnreachable_APathThatFallsThroughIsClean(t *testing.T) {
-	errs := buildErrsWithStdlib(t, `
+	errs := unreachableCheck(t, `
 fn f(n: Int) -> Int
   if n > 0 then
     return 1

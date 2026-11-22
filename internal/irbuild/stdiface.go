@@ -30,8 +30,8 @@ import (
 // adds exactly one arm to the qualified call, for the ERASED receiver, and leaves every
 // other route untouched.
 //
-// `foreignIfaceOwner` looks a name up in `typeRegistry`, which
-// `buildTypeRegistry` fills from the USER's modules. A stdlib
+// `typeRegistry`, which the cross-file mirrors read, is filled by
+// `buildTypeRegistry` from the USER's modules. A stdlib
 // `*ast.InterfaceDef` is not a key there, so the cross-file mechanism (mirrors,
 // private and cycle refusals, one table named from wherever) does not reach a
 // stdlib owner; this file does.
@@ -108,15 +108,14 @@ type stdIfaceSpec struct {
 type stdIfaceMethodSpec struct {
 	name   string
 	params []stdIfaceParamSpec
-	// result is the Nomi name of the declared return type; "" means the
-	// declaration must have none. A self-typed return is deliberately not
-	// expressible: it erases to `any` in the table and only a dictionary-driven
-	// call can re-box it, which is dict.go's surface and not this one.
+	// result is the declared return type as std writes it (typeText); ""
+	// means the declaration must have none. A self-typed return is
+	// deliberately not expressible: it erases to `any` in the table and only a
+	// dictionary-driven call can re-box it, which is dict.go's surface and not
+	// this one.
 	result string
-	// resultKind is the kind that name must resolve to in the anchoring
-	// module, checked through stdTypeKind — the same function a stdlib
-	// SIGNATURE resolves through, so there is one answer to "is this the std
-	// type" rather than two.
+	// resultKind is the kind the shared def's method returns.
+	// TestStdSpecSpellingsAreTheirKinds holds it to the type std writes.
 	resultKind func() kind
 }
 
@@ -127,6 +126,8 @@ type stdIfaceParamSpec struct {
 	// position has no kind until an implementing type supplies one, exactly as
 	// resolveIface records for a declared interface.
 	self bool
+	// nomi is a non-self parameter's type as std writes it (typeText), and
+	// kind the kind the shared def's method takes there.
 	nomi string
 	kind func() kind
 }
@@ -172,11 +173,11 @@ type stdIfaceParamSpec struct {
 // arm that names a function statically has declined, so a CONCRETE receiver takes the
 // direct call and the table is consulted only at positions that would
 // otherwise refuse: `fn f(v: Named) { Debug.inspect(v) }` over an erased
-// value, and `fn f<T>(v: T) where T: Debug` at the dictionary seam in
-// `dictBoundIface`.
+// value, and `fn f<T>(v: T) where T: Debug` at the dictionary seam
+// (`boundIfaces`).
 //
 // If an arm ABOVE the erased one in that chain ever routes a
-// statically-known receiver through `rt.MDebugInspect`, this row stops being
+// statically-known receiver through the erased arm's table, this row stops being
 // additive. Nothing asserts that a concrete receiver lowers to a direct call:
 // the rendered output is identical either way, so no differential fixture can
 // see it.
@@ -327,8 +328,7 @@ func (g *gen) stdIfaceType(d *ifaceDef) analysis.StdType {
 // --- anchoring -------------------------------------------------------------
 
 // stdIfaceAnchors resolves the specs against one module's analysis: the
-// declaration NODE each spec was reached through, and the spec index under the
-// Nomi name.
+// declaration NODE each spec was reached through, with its spec index.
 //
 // A free function rather than a gen method, on opaqueAnchors' and
 // stdEnumAnchors' footing: one implementation of "is this the std interface",
@@ -336,31 +336,15 @@ func (g *gen) stdIfaceType(d *ifaceDef) analysis.StdType {
 //
 // A module analyzed without an analysis library gets no anchors and every
 // mention refuses.
-// It resolves against the base anchors — every family but this one — because
-// stdAnchorsOf consults THIS function and the two would otherwise call each
-// other forever (a stack overflow, not a subtle wrong answer).
-// The restriction is real and fail-safe rather than accidental: a spec method
-// that named another stdlib interface in a parameter or result would find
-// kindInvalid there, fail stdIfaceNames, and produce NO anchor, so every
-// mention of that interface refuses loudly instead of lowering against a table
-// typed on a kind the base pass could not build. No spec row names one.
-func stdIfaceAnchors(fa *analysis.FileAnalysis) (map[*ast.InterfaceDef]int, map[string]int) {
-	return stdIfaceAnchorsWith(fa, stdAnchorsOf(fa))
-}
-
-// stdIfaceAnchorsWith is stdIfaceAnchors against anchors the caller already
-// built, which is how stdAnchorsOf reaches it without recursing.
-func stdIfaceAnchorsWith(fa *analysis.FileAnalysis, anchors stdAnchors) (map[*ast.InterfaceDef]int, map[string]int) {
+//
+// The shape check reads std's declaration, which is the same node whichever
+// module reached it, and compares its written types by spelling, so an
+// anchor does not depend on which other names the anchoring module imports.
+func stdIfaceAnchors(fa *analysis.FileAnalysis) map[*ast.InterfaceDef]int {
 	byDecl := map[*ast.InterfaceDef]int{}
-	byName := map[string]int{}
 	if fa == nil || fa.ModuleScope == nil {
-		return byDecl, byName
+		return byDecl
 	}
-	// The non-self parameter and result types resolve through the same anchors
-	// a stdlib SIGNATURE resolves through, so `Ordering` means the shared rt
-	// enum here or it means nothing. A module that cannot name `Ordering`
-	// therefore cannot anchor `Comparable`, which is the fail-safe direction:
-	// the method's result kind would not resolve there.
 	for i := range stdIfaceSpecs {
 		s := &stdIfaceSpecs[i]
 		sym := fa.ModuleScope.Lookup(s.nomi)
@@ -379,23 +363,21 @@ func stdIfaceAnchorsWith(fa *analysis.FileAnalysis, anchors stdAnchors) (map[*as
 			res = res.Resolved
 		}
 		decl, isDecl := res.Node.(*ast.InterfaceDef)
-		if !isDecl || !s.matches(decl, anchors) {
+		if !isDecl || !s.matches(decl) {
 			continue
 		}
 		byDecl[decl] = i
-		byName[s.nomi] = i
 	}
-	return byDecl, byName
+	return byDecl
 }
 
 // stdIfaceOfDecl is the shared def of the std interface decl, which std
-// module origin declares, when a spec describes it, or nil. It is
-// stdIfaceAnchorsWith's identity check for a declaration reached through a
-// block's import (importedIfaceDef) rather than through the module scope.
+// module origin declares, when a spec describes it, or nil: stdIfaceAnchors'
+// identity check for a declaration, whatever scope reached it.
 func (g *gen) stdIfaceOfDecl(origin string, decl *ast.InterfaceDef) *ifaceDef {
 	for i := range stdIfaceSpecs {
 		s := &stdIfaceSpecs[i]
-		if s.module == origin && s.nomi == decl.Name && s.matches(decl, stdAnchorsOf(g.srcFA())) {
+		if s.module == origin && s.nomi == decl.Name && s.matches(decl) {
 			return stdIfaceDefs()[i]
 		}
 	}
@@ -476,8 +458,8 @@ func stdImporterOf(fa *analysis.FileAnalysis, sym *analysis.Symbol) string {
 // detect: a shape drift is a wrong answer, not a refusal.
 //
 // An attached `//!` test is deliberately NOT a disqualifier — see
-// stdStructSpec.matches.
-func (s *stdIfaceSpec) matches(decl *ast.InterfaceDef, anchors stdAnchors) bool {
+// stdStructSpec.mismatch.
+func (s *stdIfaceSpec) matches(decl *ast.InterfaceDef) bool {
 	switch {
 	case decl.Name != s.nomi, !decl.Public:
 		return false
@@ -503,7 +485,7 @@ func (s *stdIfaceSpec) matches(decl *ast.InterfaceDef, anchors stdAnchors) bool 
 		return false
 	}
 	for i := range s.methods {
-		if !s.methods[i].matches(required[i], anchors) {
+		if !s.methods[i].matches(required[i]) {
 			return false
 		}
 	}
@@ -540,7 +522,7 @@ func stdIfaceNomiDefault(im *ast.InterfaceMethod) bool {
 	return im.Body != nil && !im.Extern
 }
 
-func (ms *stdIfaceMethodSpec) matches(im *ast.InterfaceMethod, anchors stdAnchors) bool {
+func (ms *stdIfaceMethodSpec) matches(im *ast.InterfaceMethod) bool {
 	switch {
 	case im.Name != ms.name:
 		return false
@@ -568,7 +550,7 @@ func (ms *stdIfaceMethodSpec) matches(im *ast.InterfaceMethod, anchors stdAnchor
 			}
 			continue
 		}
-		if !stdIfaceNames(got.TypeAnnotation, p.nomi, p.kind(), anchors) {
+		if typeText(got.TypeAnnotation) != p.nomi {
 			return false
 		}
 	}
@@ -578,25 +560,7 @@ func (ms *stdIfaceMethodSpec) matches(im *ast.InterfaceMethod, anchors stdAnchor
 	if _, selfReturn := im.ReturnTypeExpr.(*ast.SelfType); selfReturn {
 		return false
 	}
-	return stdIfaceNames(im.ReturnTypeExpr, ms.result, ms.resultKind(), anchors)
-}
-
-// stdIfaceNames reports whether te spells `nomi` AND resolves to exactly the
-// kind the spec declares.
-//
-// Both halves, deliberately. The SPELLING is what a reader checks against the
-// std source by eye. The KIND is what the shared def's method was built
-// with, resolved through stdTypeKind, the same function stdlib signatures go
-// through, so an `Ordering` that is some other module's `Ordering` produces no
-// anchor rather than a def typed on the wrong kind.
-func stdIfaceNames(te ast.TypeExpr, nomi string, want kind, anchors stdAnchors) bool {
-	st, isSimple := te.(*ast.SimpleType)
-	if !isSimple || st.Name != nomi {
-		return false
-	}
-	// kindInvalid: lookup — an unanchored name answers kindInvalid, which
-	// cannot equal a spec's kind, so the comparison is the whole check.
-	return stdTypeKind(te, anchors) == want
+	return typeText(im.ReturnTypeExpr) == ms.result
 }
 
 // loadStdIfaces resolves the specs against this gen's module, once.
@@ -615,107 +579,22 @@ func stdIfaceNames(te ast.TypeExpr, nomi string, want kind, anchors stdAnchors) 
 // reader it could serve.
 //
 // WHAT THAT LEAVES UNGUARDED: `std/display`, `std/debug` and `std/comparable`
-// each DECLARE
-// the interface a spec row describes, `declareIfaces` mints an ordinary
-// per-gen `*ifaceDef` for it with `stdShared` unset, and `stdIfaceNamed`
-// prefers that local def by design (a user declaration must win). None of
+// each DECLARE the interface a spec row describes, and `declareIfaces` mints
+// an ordinary per-gen `*ifaceDef` for it with `stdShared` unset, which an
+// impl block of the module resolves to (solvedIface), while a type the
+// checker solved as it projects to the shared def (stdSharedIface). None of
 // the three names its own interface in a lowered signature, so nothing
-// reaches it. Closing it would need an anchor that does NOT require an
-// import, which is a different resolution rule from this one.
+// reaches the difference.
 func (g *gen) loadStdIfaces() {
 	if g.stdIfacesLoaded {
 		return
 	}
 	g.stdIfacesLoaded = true
-	var byDecl map[*ast.InterfaceDef]int
-	byDecl, g.stdIfaceByName = stdIfaceAnchors(g.fa)
+	byDecl := stdIfaceAnchors(g.fa)
 	g.stdIfaceDecls = make(map[int]*ast.InterfaceDef, len(byDecl))
 	for decl, i := range byDecl {
 		g.stdIfaceDecls[i] = decl
 	}
-	g.structIfaceOK = structIfaceAnchored(g.fa)
-}
-
-// stdIfaceNamed resolves a type NAME to the shared def, for a module that
-// MENTIONS a stdlib interface.
-//
-// A USER declaration of the same name always wins, and the check is HERE
-// rather than in the anchor because the analyzer's module scope is not a
-// shadow oracle for interfaces: a file declaring its own
-// `pub interface Display` still resolves `Display` in `fa.ModuleScope` to
-// STD's declaration through the prelude auto-prepend — the local declaration
-// is simply not there under that name, because `defineInterface` does not
-// register it the way `defineStruct` does. So the anchor alone says "std
-// declares a Display this module can see", which is true and is not the
-// question.
-//
-// `ifaceNamed` is this package's own answer to WHICH Display, and it is the
-// one every other resolution path reads: this module's declaration first, then
-// a sibling file's mirror. Asking it here is what makes the preference
-// uniform, and it is what keeps `projectStdIface` — whose input is a solved
-// type carrying only a NAME — from adopting rt's table for a user's interface,
-// which would be a wrong answer rather than a refusal.
-// qualifiedStdIface reports whether a module-qualified name such as
-// `calendar.DateParts` names a std interface, read through the qualifier's
-// scope as qualifiedStdKind reads a type, so a file's own interface of the
-// same name does not shadow it as it shadows the bare name in
-// stdIfaceNamed. def is the interface's dispatch table, nil for one with
-// none.
-func (g *gen) qualifiedStdIface(te ast.TypeExpr) (def *ifaceDef, ok bool) {
-	qt, isQualified := te.(*ast.QualifiedType)
-	if !isQualified {
-		return nil, false
-	}
-	qualifier, name, named := qualifiedTypeParts(qt)
-	if !named {
-		return nil, false
-	}
-	sym := resolvedScopeSymbol(g.moduleScope(qualifier), name)
-	if sym == nil {
-		return nil, false
-	}
-	it, isIface := sym.Type.(*analysis.InterfaceType)
-	if !isIface || !strings.HasPrefix(it.Origin, "std/") {
-		return nil, false
-	}
-	g.loadStdIfaces()
-	if i, anchored := g.stdIfaceByName[name]; anchored {
-		def = stdIfaceDefs()[i]
-	}
-	return def, true
-}
-
-func (g *gen) stdIfaceNamed(name string) (*ifaceDef, bool) {
-	if d, imported := g.blockImportedIface(name); imported {
-		// A block's import binds the name (bindBlockImports), which the
-		// module scope's anchors may not hold at all.
-		if _, shared := stdIfaceOf(d); shared {
-			return d, true
-		}
-		return nil, false
-	}
-	if _, user := g.ifaceNamed(name); user {
-		return nil, false
-	}
-	g.loadStdIfaces()
-	if name == structIfaceName {
-		// The universal structural marker, whose def is NOT a row in this
-		// file's table because it is not a dispatch table. Asked here rather
-		// than beside the table so every consumer of `stdIfaceNamed` —
-		// `typeOf`, `projectStdIface`, `resolveImplDef`, `dictBoundIface`,
-		// `sigreason` — reaches it through the one function, which is what
-		// keeps the user-declaration-wins check above from having a second
-		// copy. See structiface.go.
-		if !g.structIfaceOK {
-			return nil, false
-		}
-		return structIfaceDef(), true
-	}
-	i, anchored := g.stdIfaceByName[name]
-	if !anchored {
-		return nil, false
-	}
-	return stdIfaceDefs()[i], true
 }
 
 // projectStdIface is inferred.go's projection for a stdlib interface: the
@@ -737,11 +616,78 @@ func (g *gen) projectStdIface(ty *analysis.InterfaceType) (kind, bool) {
 	if len(ty.TypeArgs) > 0 || len(ty.TypeParams) > 0 {
 		return kindInvalid, false
 	}
-	d, anchored := g.stdIfaceNamed(ty.Name)
-	if !anchored {
+	d := g.stdSharedIface(analysis.StdType{Module: ty.Origin, Name: ty.Name})
+	if d == nil {
 		return kindInvalid, false
 	}
 	return existential(d), true
 }
+
+// projectSharedStdIface is projectStdIface with no gen (projectShared): the
+// existential of the row whose (module, name) is the solved type's
+// (Origin, Name), when std declares it in the row's shape. The Origin is the
+// identity, as projectStdOpaque's is, so no module's scope is asked and a
+// program's own `Display` (another Origin) never answers.
+func projectSharedStdIface(ty *analysis.InterfaceType) kind {
+	if len(ty.TypeArgs) > 0 || len(ty.TypeParams) > 0 {
+		return kindInvalid
+	}
+	if d := stdSpecIface(analysis.StdType{Module: ty.Origin, Name: ty.Name}); d != nil {
+		return existential(d)
+	}
+	return kindInvalid
+}
+
+// stdSpecIface is the shared def of the stdIfaceSpecs row whose (module,
+// name) is id, when std declares it in the row's shape, or nil.
+func stdSpecIface(id analysis.StdType) *ifaceDef {
+	declared := stdIfaceDeclaredInStd()
+	for i := range stdIfaceSpecs {
+		if stdIfaceSpecs[i].module == id.Module && stdIfaceSpecs[i].nomi == id.Name && declared[i] {
+			return stdIfaceDefs()[i]
+		}
+	}
+	return nil
+}
+
+// stdSharedIface is the process-wide def of std interface id, found by its
+// identity: a stdIfaceSpecs row's (stdSpecIface), or the universal
+// structural marker's when std declares `Struct` in its shape
+// (structIfaceMatches). nil for any other interface, and for the zero id.
+func (g *gen) stdSharedIface(id analysis.StdType) *ifaceDef {
+	if id.IsZero() {
+		return nil
+	}
+	if id.Module == structIfaceModule && id.Name == structIfaceName {
+		if decl := stdInterfaceDecl(g.fa, id); decl != nil && structIfaceMatches(decl) {
+			return structIfaceDef()
+		}
+		return nil
+	}
+	return stdSpecIface(id)
+}
+
+// stdIfaceDeclaredInStd is, per spec, whether the spec's declaring std module
+// declares it in the spec's shape, asked of std's own analysis once per std
+// snapshot, as opaqueDeclaredInStd asks it for opaque rows.
+var stdIfaceDeclaredInStd = perStd(func() []bool {
+	lib := stdAnchorLib()
+	ok := make([]bool, len(stdIfaceSpecs))
+	for i := range stdIfaceSpecs {
+		s := &stdIfaceSpecs[i]
+		fa := lib.Files[strings.TrimPrefix(s.module, "std/")]
+		if fa == nil || fa.ModuleScope == nil {
+			continue
+		}
+		sym := resolveSymbol(fa.ModuleScope.Lookup(s.nomi))
+		if sym == nil {
+			continue
+		}
+		it, isIface := sym.Type.(*analysis.InterfaceType)
+		decl, isDecl := sym.Node.(*ast.InterfaceDef)
+		ok[i] = isIface && it.Origin == s.module && isDecl && s.matches(decl)
+	}
+	return ok
+})
 
 // --- the erased-receiver call ------------------------------------------------

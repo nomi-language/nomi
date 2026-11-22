@@ -24,13 +24,10 @@ func i6FrontEndError(t *testing.T, src string) string {
 
 func TestListElement_GenuineMismatchStillRefuses(t *testing.T) {
 	// THE PAIRED NEGATIVE, and it lands in the FRONT END rather than in the
-	// builder. widensAll passes an untyped literal against ANY
-	// candidate, so `[None, [1]]` would pick `List<Int>` and rely on the coerce
-	// loop to reject. The checker rejects the program first, so the builder
-	// never sees it. The claim under test is
-	// therefore "the mis-selection window is unreachable from source", and it is
-	// asserted HERE so an analyzer that later admitted the program produces a
-	// red test instead of a silent guess.
+	// builder, which builds a list literal at the type the checker recorded
+	// for it. The checker rejects `[None, [1]]`, so the builder never sees
+	// it, and it is asserted HERE so an analyzer that later admitted the
+	// program produces a red test.
 	const src = `import
   std::io
 end
@@ -42,9 +39,7 @@ end
 `
 	if msg := i6FrontEndError(t, src); !strings.Contains(msg, "list element type mismatch") {
 		t.Fatalf("the front end rejected `[None, [1]]` for %q; the expected reason is its own "+
-			"list element type mismatch. If this becomes ACCEPTED, elementKind's coerce "+
-			"loop is the gate and must report `list element type mismatch` rather than "+
-			"emitting a discharge that cannot happen.", msg)
+			"list element type mismatch.", msg)
 	}
 }
 

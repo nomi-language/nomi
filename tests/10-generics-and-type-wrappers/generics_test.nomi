@@ -30,10 +30,11 @@ test "generic structs enums interfaces and functions preserve types"
     p2 = make_pair(10, 20)
     nested = wrap_list([1, 2, 3])
 
-    wrapped = case w
-        .Wrapped(v) -> v
-        .Empty      -> 0
-    end
+    wrapped =
+        case w
+            .Wrapped(v) -> v
+            .Empty      -> 0
+        end
 
     assert p.first == 1
     assert p.second == "hello"

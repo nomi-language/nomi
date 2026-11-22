@@ -1,3 +1,8 @@
+import
+    debug.Debug
+    strings.String
+end
+
 /// A type passed as a value.
 ///
 /// A type name is a `Type<T>` value only where a `Type<T>` is expected, as
@@ -6,3 +11,15 @@
 /// Two witnesses are equal when they name the same type, and a witness
 /// inspects as `Type<TraceId>`.
 pub host type Type<T>
+
+impl Debug for Type<T>
+    /// `Type<TraceId>`: the type the witness names. No Nomi body can spell
+    /// that type, so the witness renders here as the machine renders it
+    /// wherever it is a part.
+    //! witness: Type<Int> = Int
+    //! assert Type.inspect(witness) == "Type<Int>"
+    //
+    fn inspect(w: Type<T>) -> String
+        Debug.inspect(w)
+    end
+end

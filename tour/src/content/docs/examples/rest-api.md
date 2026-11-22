@@ -88,14 +88,15 @@ impl RestApi
     pub fn get(api: RestApi, url: String, payload: Maybe<String> = None) -> Result<String, Error>
         if url != "/users" then return Err(.NotFound(url))
 
-        names = case payload
-            Some(text) ->
-                query: UserNames = Json.decode_as(text) |> Result.map_err(Error.InvalidJson)?
-                query.users
+        names =
+            case payload
+                Some(text) ->
+                    query: UserNames = Json.decode_as(text) |> Result.map_err(Error.InvalidJson)?
+                    query.users
 
-            None ->
-                Map.keys(api.users)
-        end
+                None ->
+                    Map.keys(api.users)
+            end
 
         users = names |> Iter.map(&find(api, &1)) |> Result.collect()?
         Ok(Json.encode_as(Users{users: Iter.sort_by(users, .name)}))

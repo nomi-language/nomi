@@ -1,5 +1,7 @@
 package analysis
 
+import "github.com/nomi-language/nomi/internal/ast"
+
 // Nominal identity on the missing-impl SUPPLY side.
 //
 // `DetectMissingImpls` asks "is there an impl of Iface for T" by indexing
@@ -37,8 +39,9 @@ package analysis
 // Every interface impl, a FuncDef in `IfaceMethodImpls` or a `host fn` in
 // `IfaceMethodImplExterns`, under its receiver's declaring origin and base
 // name, and its interface's declaring origin and name as those maps,
-// `Impls` and `ImplManifest` spell it: the bare name, with no type
-// arguments. So `impl Add<Days, Date> for Date` is (std/calendar, Date,
+// `Impls` and `ImplManifest` spell it: the declaration's bare name
+// (implInterfaceName, so an import alias in the header names the interface
+// it imports), with no type arguments. So `impl Add<Days, Date> for Date` is (std/calendar, Date,
 // std/add, Add), the key a `+` on a Date asks by, and `impl a.Show for
 // User` supplies no demand of b's Show. Each impl is keyed with an
 // unresolved interface origin too, the bottom a demand that knows only
@@ -221,7 +224,7 @@ func recordImplsByIdentity(idx *ProjectImplIndex, filesByKey map[string]*FileAna
 			for _, ex := range exs {
 				if ex != nil {
 					home := idx.ImplExternFiles[ex]
-					record(home, "", idx.ImplBlockReceiverExtern[ex], externImplIfaceOrigin(filesByKey[home], iface), iface)
+					record(home, "", idx.ImplBlockReceiverExtern[ex], externImplIfaceOrigin(filesByKey[home], ex, iface), iface)
 				}
 			}
 		}
@@ -230,11 +233,15 @@ func recordImplsByIdentity(idx *ProjectImplIndex, filesByKey map[string]*FileAna
 	return covered, blocked
 }
 
-// externImplIfaceOrigin is the origin of the interface named iface that an
-// impl block of `host fn`s in home implements: the declaration home's scope
-// binds the name to, as declaringOriginOfImplInterface finds a `fn`'s
-// unqualified header (the extern maps keep no header qualifier).
-func externImplIfaceOrigin(home *FileAnalysis, iface string) string {
+// externImplIfaceOrigin is the origin of the interface named iface that
+// ex, an item of an impl block of `host fn`s in home, implements: the
+// declaration home's scope binds the header's name to, as
+// declaringOriginOfImplInterface finds a `fn`'s unqualified header (the
+// extern maps keep no header qualifier).
+func externImplIfaceOrigin(home *FileAnalysis, ex *ast.ExternFunc, iface string) string {
+	if ex.ImplIface != nil {
+		iface = TypeExprBaseName(ex.ImplIface)
+	}
 	return declaringOriginOfInterface(home, iface)
 }
 

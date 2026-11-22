@@ -1,35 +1,425 @@
 //# Markdown for std::html: `markdown.render(text)` is `text` rendered as
 //# HTML, an `Html` a template can insert as it is.
 //#
-//# The renderer is goldmark: CommonMark with GitHub's extensions (tables,
-//# strikethrough, task lists, and a bare URL as a link). Raw HTML in the
-//# text is left out, and a link whose URL has a dangerous scheme, such as
-//# `javascript:`, gets an empty one, so text a user wrote renders safely.
+//# It renders CommonMark 0.31.2 with GitHub's extensions (tables,
+//# strikethrough, task lists, and a bare URL or email address as a link),
+//# byte for byte as goldmark renders it with its GFM extension. Raw HTML in
+//# the text is left out, and a link whose URL has a dangerous scheme, such
+//# as `javascript:`, gets an empty one, so text a user wrote renders
+//# safely. It is pure Nomi: rendering reads nothing and writes nothing.
+//#
+//# The work is in three steps. `internal/block.nomi` reads the lines into
+//# a tree of blocks, `internal/inline.nomi` reads each block's text into
+//# inline nodes, and this file writes the HTML.
 //#
 //# ```nomi
-//# import {
-//#     markdown
+//# import
 //#     std::html.Html
-//# }
+//#     markdown
+//# end
 //#
-//# fn post(title: String, body: String) -> Html {
+//# fn post(title: String, body: String) -> Html
 //#     Html"""
 //#         <article>
 //#           <h1>${title}</h1>
 //#           ${markdown.render(body)}
 //#         </article>
 //#         """
-//# }
+//# end
 //# ```
 
-import std::html.Html
-
-gopkg "github.com/nomi-language/nomi/lib/markdown/goside"
-
-fn to_html(source: String) -> String go goside.ToHTML
+import
+    std::bytes.Builder
+    std::html.Html
+    markdown::internal::block.{self, Doc}
+    markdown::internal::inline.{self, Ist}
+    markdown::internal::reader.{Lines, Seg}
+    markdown::internal::text
+end
 
 /// `text` rendered as HTML: trusted markup, since the renderer escapes
 /// text and leaves raw HTML and dangerous URLs out.
+//! assert Html.to_string(render("Some *text*.")) == "<p>Some <em>text</em>.</p>\n"
+//
 pub fn render(text: String) -> Html
     Html.trusted(to_html(text))
+end
+
+/// `source` rendered as HTML text.
+fn to_html(source: String) -> String
+    doc = source |> String.to_bytes() |> block.parse()
+
+    Builder.new()
+    |> render_children(doc, 0)
+    |> Builder.to_bytes()
+    |> Bytes.to_string_lossy()
+end
+
+fn render_children(out: Builder, doc: Doc, id: Int) -> Builder
+    render_each(out, doc, block.children(doc, id))
+end
+
+fn render_each(out: Builder, doc: Doc, ids: List<Int>) -> Builder
+    case ids
+        []           -> out
+        [id, ..rest] -> render_each(render_block(out, doc, id, rest != []), doc, rest)
+    end
+end
+
+/// `out` with block `id`, which `has_next` when a block follows it in its
+/// parent.
+fn render_block(out: Builder, doc: Doc, id: Int, has_next: Bool) -> Builder
+    n = block.node(doc, id)
+
+    case n.kind
+        .Document ->
+            render_children(out, doc, id)
+
+        .Paragraph ->
+            out
+            |> Builder.push_string("<p>")
+            |> render_inline_block(doc, id)
+            |> Builder.push_string("</p>\n")
+
+        .TextBlock ->
+            ist = inline_of(doc, id)
+            out = render_inlines(out, ist, ist.first, [])
+            if ist.first >= 0 and has_next then Builder.push_string(out, "\n") else out
+
+        .Heading{level:} ->
+            out
+            |> Builder.push_string("<h${level}>")
+            |> render_inline_block(doc, id)
+            |> Builder.push_string("</h${level}>\n")
+
+        .ThematicBreak ->
+            Builder.push_string(out, "<hr>\n")
+
+        .Blockquote ->
+            out
+            |> Builder.push_string("<blockquote>\n")
+            |> render_children(doc, id)
+            |> Builder.push_string("</blockquote>\n")
+
+        .CodeBlock ->
+            out
+            |> Builder.push_string("<pre><code>")
+            |> write_lines(doc, n.lines)
+            |> Builder.push_string("</code></pre>\n")
+
+        .FencedCode{info:} ->
+            out = Builder.push_string(out, "<pre><code")
+
+            out =
+                case info
+                    Some(seg) ->
+                        language = Seg.value(seg, doc.src)
+
+                        stop =
+                            Bytes.index_of_byte(language, 32)
+                            |> Maybe.with_default(Bytes.length(language))
+
+                        out
+                        |> Builder.push_string(" class=\"language-")
+                        |> text.write_text(language, 0, stop)
+                        |> Builder.push_string("\"")
+
+                    None ->
+                        out
+                end
+
+            out
+            |> Builder.push_string(">")
+            |> write_lines(doc, n.lines)
+            |> Builder.push_string("</code></pre>\n")
+
+        .HtmlBlock{closed:} ->
+            out = Builder.push_string(out, "<!-- raw HTML omitted -->\n")
+            if closed then Builder.push_string(out, "<!-- raw HTML omitted -->\n") else out
+
+        .ListBlock{marker:, start:} ->
+            ordered = marker == 46 or marker == 41
+            tag = if ordered then "ol" else "ul"
+
+            open =
+                if ordered and start != 1 then
+                    "<ol start=\"${start}\">\n"
+                else
+                    "<${tag}>\n"
+                end
+
+            out
+            |> Builder.push_string(open)
+            |> render_children(doc, id)
+            |> Builder.push_string("</${tag}>\n")
+
+        .ListItem{} ->
+            out = Builder.push_string(out, "<li>")
+
+            out =
+                case block.children(doc, id)
+                    [first, ..] when not (block.node(doc, first).kind is .TextBlock) ->
+                        Builder.push_string(out, "\n")
+
+                    _ ->
+                        out
+                end
+
+            out
+            |> render_children(doc, id)
+            |> Builder.push_string("</li>\n")
+
+        .Definition ->
+            out
+
+        .Table ->
+            out
+            |> Builder.push_string("<table>\n")
+            |> render_children(doc, id)
+            |> Builder.push_string("</table>\n")
+
+        .TableHeader ->
+            out =
+                out
+                |> Builder.push_string("<thead>\n<tr>\n")
+                |> render_children(doc, id)
+                |> Builder.push_string("</tr>\n</thead>\n")
+
+            if has_next then Builder.push_string(out, "<tbody>\n") else out
+
+        .TableRow ->
+            out =
+                out
+                |> Builder.push_string("<tr>\n")
+                |> render_children(doc, id)
+                |> Builder.push_string("</tr>\n")
+
+            if has_next then
+                out
+            else
+                Builder.push_string(out, "</tbody>\n")
+            end
+
+        .TableCell{align:, escapes:} ->
+            header = block.node(doc, n.parent).kind is .TableHeader
+            tag = if header then "th" else "td"
+
+            style =
+                case align
+                    .Left      -> " style=\"text-align:left\""
+                    .Center    -> " style=\"text-align:center\""
+                    .Right     -> " style=\"text-align:right\""
+                    .Unaligned -> ""
+                end
+
+            ist = inline_of(doc, id)
+            origin = Vector.get(ist.lines.origins, 0) |> Maybe.with_default(0)
+
+            positions =
+                escapes
+                |> Iter.map(&(&1 - origin))
+                |> Iter.sort()
+
+            out
+            |> Builder.push_string("<${tag}${style}>")
+            |> render_inlines(ist, ist.first, positions)
+            |> Builder.push_string("</${tag}>\n")
+    end
+end
+
+fn write_lines(out: Builder, doc: Doc, lines: List<Seg>) -> Builder
+    Iter.reduce(Iter.reverse(lines), out, fn out, seg ->
+        out = out |> text.push_spaces(seg.padding) |> text.write_raw(doc.src, seg.start, seg.stop)
+        ends = seg.stop > seg.start and text.at(doc.src, seg.stop - 1) == 10
+        if seg.newline and Seg.length(seg) > 0 and not ends then Builder.push_int8(out, 10) else out
+    end)
+end
+
+/// The inline nodes of block `id`.
+fn inline_of(doc: Doc, id: Int) -> Ist
+    n = block.node(doc, id)
+
+    check_box =
+        case block.node(doc, n.parent).kind
+            .ListItem{} -> List.first(block.children(doc, n.parent)) == Some(id)
+            _           -> False
+        end
+
+    inline.parse(Lines.of(Iter.reverse(n.lines), doc.src), doc.refs, check_box)
+end
+
+fn render_inline_block(out: Builder, doc: Doc, id: Int) -> Builder
+    ist = inline_of(doc, id)
+    render_inlines(out, ist, ist.first, [])
+end
+
+/// `out` with the inline node `id` and those after it. `escapes` are the
+/// places a table cell's code spans leave a backslash out.
+fn render_inlines(out: Builder, ist: Ist, id: Int, escapes: List<Int>) -> Builder
+    if id < 0 then return out
+    n = inline.get(ist, id)
+    out = render_inline(out, ist, n, escapes)
+    render_inlines(out, ist, n.next, escapes)
+end
+
+fn render_inline(out: Builder, ist: Ist, n: inline.INode, escapes: List<Int>) -> Builder
+    buf = ist.lines.buf
+
+    case n.kind
+        .Text{start:, stop:, soft:, hard:} ->
+            out = text.write_text(out, buf, start, stop)
+
+            case
+                hard -> Builder.push_string(out, "<br>\n")
+                soft -> Builder.push_string(out, "\n")
+                _    -> out
+            end
+
+        .Code{parts:} ->
+            out = Builder.push_string(out, "<code>")
+
+            out = Iter.reduce(parts, out, fn out, (a, b) ->
+                if b > a and text.at(buf, b - 1) == 10 then
+                    out
+                    |> code_part(buf, a, b - 1, escapes)
+                    |> Builder.push_string(" ")
+                else
+                    code_part(out, buf, a, b, escapes)
+                end
+            end)
+
+            Builder.push_string(out, "</code>")
+
+        .Emphasis{level:} ->
+            tag = if level == 2 then "strong" else "em"
+
+            out
+            |> Builder.push_string("<${tag}>")
+            |> render_inlines(ist, n.first, escapes)
+            |> Builder.push_string("</${tag}>")
+
+        .Strike ->
+            out
+            |> Builder.push_string("<del>")
+            |> render_inlines(ist, n.first, escapes)
+            |> Builder.push_string("</del>")
+
+        .Link{destination:, title:} ->
+            out
+            |> Builder.push_string("<a href=\"")
+            |> href(text.url_escape(destination, True))
+            |> Builder.push_string("\"")
+            |> title_attribute(title)
+            |> Builder.push_string(">")
+            |> render_inlines(ist, n.first, escapes)
+            |> Builder.push_string("</a>")
+
+        .Image{destination:, title:} ->
+            out
+            |> Builder.push_string("<img src=\"")
+            |> href(text.url_escape(destination, True))
+            |> Builder.push_string("\" alt=\"")
+            |> alt_text(ist, n.first, escapes)
+            |> Builder.push_string("\"")
+            |> title_attribute(title)
+            |> Builder.push_string(">")
+
+        .AutoLink{email:, www:, start:, stop:} ->
+            value = Bytes.slice(buf, start, stop)
+            url = if www then String.to_bytes("http://") + value else value
+            url = text.url_escape(url, False)
+            out = Builder.push_string(out, "<a href=\"")
+
+            out =
+                if email and not text.has_prefix_folded(url, 0, "mailto:") then
+                    Builder.push_string(out, "mailto:")
+                else
+                    out
+                end
+
+            out
+            |> href(url)
+            |> Builder.push_string("\">")
+            |> text.write_raw_all(value)
+            |> Builder.push_string("</a>")
+
+        .RawHtml ->
+            Builder.push_string(out, "<!-- raw HTML omitted -->")
+
+        .CheckBox{checked:} ->
+            if checked then
+                Builder.push_string(out, "<input checked=\"\" disabled=\"\" type=\"checkbox\"> ")
+            else
+                Builder.push_string(out, "<input disabled=\"\" type=\"checkbox\"> ")
+            end
+
+        .Delimiter{start:, length:} ->
+            text.write_text(out, buf, start, start + length)
+
+        .Label{start:, stop:} ->
+            text.write_text(out, buf, start, stop)
+    end
+end
+
+/// `out` with a link's URL, left out when it is dangerous.
+fn href(out: Builder, url: Bytes) -> Builder
+    if text.is_dangerous_url(url) then
+        out
+    else
+        text.write_raw_all(out, url)
+    end
+end
+
+fn title_attribute(out: Builder, title: Maybe<Bytes>) -> Builder
+    case title
+        Some(t) ->
+            out
+            |> Builder.push_string(" title=\"")
+            |> text.write_text(t, 0, Bytes.length(t))
+            |> Builder.push_string("\"")
+
+        None ->
+            out
+    end
+end
+
+/// `out` with a code span's part from `a` up to `b`, leaving out the bytes
+/// at `escapes`.
+fn code_part(out: Builder, buf: Bytes, a: Int, b: Int, escapes: List<Int>) -> Builder
+    case escapes
+        [e, ..rest] when e < a -> code_part(out, buf, a, b, rest)
+        [e, ..rest] when e < b -> code_part(text.write_raw(out, buf, a, e), buf, e + 1, b, rest)
+        _                      -> text.write_raw(out, buf, a, b)
+    end
+end
+
+/// `out` with an image's text: the text of the nodes from `id` on, and of
+/// their children, as goldmark writes an `alt` attribute.
+fn alt_text(out: Builder, ist: Ist, id: Int, escapes: List<Int>) -> Builder
+    if id < 0 then return out
+    n = inline.get(ist, id)
+    buf = ist.lines.buf
+
+    out =
+        case n.kind
+            .Text{start:, stop:, soft:, hard:} ->
+                out = text.write_text(out, buf, start, stop)
+
+                case
+                    hard -> Builder.push_string(out, "<br>\n")
+                    soft -> Builder.push_string(out, "\n")
+                    _    -> out
+                end
+
+            .Code{parts:} ->
+                Iter.reduce(parts, out, fn out, (a, b) -> code_part(out, buf, a, b, escapes))
+
+            .Emphasis{} or .Strike or .Link{} or .Image{} ->
+                alt_text(out, ist, n.first, escapes)
+
+            _ ->
+                out
+        end
+
+    alt_text(out, ist, n.next, escapes)
 end

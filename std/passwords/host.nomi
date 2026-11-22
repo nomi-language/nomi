@@ -1,0 +1,70 @@
+//# The Go-backed half of std::passwords: the Argon2id and scrypt key
+//# derivations and bcrypt (internal/stdpasswords, over golang.org/x/crypto).
+//# It is internal; a program imports std::passwords.
+
+import
+    bool.Bool
+    bytes.Bytes
+    int.Int
+    maybe.Maybe
+    results.Result
+    strings.String
+end
+
+/// How many passes Argon2id makes over its memory, in the range RFC 9106
+/// allows.
+pub subtype Passes Int when fn n -> n >= 1 and n <= 4_294_967_295
+
+/// Argon2id's memory in KiB, in the range RFC 9106 allows. It is also at
+/// least 8 KiB per lane, which std::passwords checks.
+pub subtype Kib Int when fn n -> n >= 8 and n <= 4_294_967_295
+
+/// How many lanes Argon2id splits its memory into.
+pub subtype Lanes Int when fn n -> n >= 1 and n <= 255
+
+/// A derived key's length in bytes.
+pub subtype HashLength Int when fn n -> n >= 4 and n <= 1024
+
+/// log2 of scrypt's CPU and memory cost N.
+pub subtype LogCost Int when fn n -> n >= 1 and n <= 62
+
+/// scrypt's block size r and its parallelism p, each below 2^30. Their
+/// product must be below 2^30 too, which std::passwords checks.
+pub subtype ScryptFactor Int when fn n -> n >= 1 and n <= 1_073_741_823
+
+/// A bcrypt cost: each step doubles the work.
+pub subtype Cost Int when fn n -> n >= 4 and n <= 31
+
+/// RFC 9106's Argon2id, version 19, of `password` and `salt`, `length`
+/// bytes long, with `passes` passes over `memory_kib` KiB in `lanes` lanes.
+pub host fn argon2id(
+    password:   Bytes,
+    salt:       Bytes,
+    passes:     Passes,
+    memory_kib: Kib,
+    lanes:      Lanes,
+    length:     HashLength,
+) -> Bytes
+
+/// RFC 7914's scrypt of `password` and `salt`, `length` bytes long, with
+/// N = 2^`log_cost`, block size `block_size` and `parallelism`, or why
+/// those cannot derive a key.
+pub host fn scrypt(
+    password:    Bytes,
+    salt:        Bytes,
+    log_cost:    LogCost,
+    block_size:  ScryptFactor,
+    parallelism: ScryptFactor,
+    length:      HashLength,
+) -> Result<Bytes, String>
+
+/// `password` hashed by bcrypt at `cost` with a random salt, as `$2a$...`,
+/// or why it cannot be.
+pub host fn bcrypt_hash(password: Bytes, cost: Cost) -> Result<String, String>
+
+/// Whether `password` is the one `stored` was made from, or why `stored` is
+/// not a bcrypt hash.
+pub host fn bcrypt_verify(password: Bytes, stored: String) -> Result<Bool, String>
+
+/// The cost `stored` was made at, or `None` when it is not a bcrypt hash.
+pub host fn bcrypt_cost(stored: String) -> Maybe<Int>

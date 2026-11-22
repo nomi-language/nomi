@@ -150,6 +150,41 @@ impl List<T>
     //
     pub host fn remove_at<T>(list: List<T>, index: Int) -> Maybe<List<T>>
 
+    /// `Some` of the list with `item` at zero-based `index` and the elements
+    /// from there on after it, or None when the index is outside `0` up to
+    /// the length. O(index): the elements before `index` are copied, and
+    /// the ones after it are shared, so inserting at the front is
+    /// `[item, ..list]`.
+    //! assert List.insert(["a", "c"], 1, "b") == Some(["a", "b", "c"])
+    //! assert List.insert(["a"], 1, "b") == Some(["a", "b"])
+    //! assert List.insert(["a"], 2, "b") == None
+    //
+    pub fn insert<T>(list: List<T>, index: Int, item: T) -> Maybe<List<T>>
+        if index < 0 then return None
+        insert_run(list, index, item, [])
+    end
+
+    /// The elements from index `start` up to, not including, `stop`. An
+    /// index outside the list is clamped to it, and a `stop` at or before
+    /// `start` gives the empty list, as `Vector.slice` answers. A slice that
+    /// runs to the end is the list's own tail, shared, in O(start); any
+    /// other copies its elements, in O(stop). `Iter.drop` and `Iter.take`
+    /// give the same elements lazily, for any iterable.
+    //! assert List.slice(["a", "b", "c", "d"], 1, 3) == ["b", "c"]
+    //! assert List.slice(["a", "b"], 1, 99) == ["b"]
+    //! assert List.slice(["a", "b"], 2, 1) == []
+    //
+    pub fn slice<T>(list: List<T>, start: Int, stop: Int) -> List<T>
+        rest = drop_front(list, start)
+        count = stop - Int.max(start, 0)
+
+        if count >= List.length(rest) then
+            rest
+        else
+            take_front(rest, count, [])
+        end
+    end
+
     /// The list without the first element `==` to `value`, or the same list
     /// when no element is. O(n).
     //! assert List.remove([1, 2, 3, 2], 2) == [1, 3, 2]
@@ -228,6 +263,31 @@ fn split_run<T>(list: List<T>, pred: (T) -> Bool, taken: List<T>) -> (List<T>, L
 
         [] ->
             (Iter.reverse(taken), list)
+    end
+end
+
+// `list` with `item` at `index`, after `before` reversed.
+fn insert_run<T>(list: List<T>, index: Int, item: T, before: List<T>) -> Maybe<List<T>>
+    if index == 0 then return Some(List.concat(Iter.reverse(before), [item, ..list]))
+
+    case list
+        [x, ..rest] -> insert_run(rest, index - 1, item, [x, ..before])
+        []          -> None
+    end
+end
+
+// The first `n` elements of `list`, after `taken` reversed.
+fn take_front<T>(list: List<T>, n: Int, taken: List<T>) -> List<T>
+    case list
+        [x, ..rest] ->
+            if n > 0 then
+                take_front(rest, n - 1, [x, ..taken])
+            else
+                Iter.reverse(taken)
+            end
+
+        [] ->
+            Iter.reverse(taken)
     end
 end
 

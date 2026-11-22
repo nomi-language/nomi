@@ -157,9 +157,10 @@ test "Result.partition"
 end
 
 test "Task.spawn_all"
-    tasks = concurrent
-        hide(Iter.repeat(1)) |> Task.spawn_all(&(&1 * 2), max_running: 2) |> Task.await_all()
-    end
+    tasks =
+        concurrent
+            hide(Iter.repeat(1)) |> Task.spawn_all(&(&1 * 2), max_running: 2) |> Task.await_all()
+        end
 
     assert tasks == []
 end

@@ -188,19 +188,21 @@ fn named_literals() -> (Path, Tags, Int)
 end
 
 fn shape_arms(v: Vector<Int>, s: Set<String>) -> Int
-    from_v = case v
-        [a, ..] -> a
-        // <- type
-        //    ^ type
-        _ -> 0
-    end
+    from_v =
+        case v
+            [a, ..] -> a
+            // <- type
+            //    ^ type
+            _ -> 0
+        end
 
-    from_s = case s
-        ["a", ..] -> 1
-        // <- type
-        //      ^ type
-        _ -> 0
-    end
+    from_s =
+        case s
+            ["a", ..] -> 1
+            // <- type
+            //      ^ type
+            _ -> 0
+        end
 
     from_v + from_s
 end
@@ -314,31 +316,34 @@ fn else_bindings(found: Maybe<(Int, List<Int>)>, r: Result<{a: Int}, String>) ->
 end
 
 fn case_arms(r: Result<(Int, Point), String>, v: List<Int>, m: Map<String, Int>) -> Int
-    from_r = case r
-        Ok((0, Point{x:, y:})) -> x + y
-        // ^ type
-        //          ^ type
-        //                 ^ type
-        //                  ^ type
-        Ok((n, _)) -> n
-        // ^ type
-        //      ^ type
-        Err(_) -> 0
-    end
+    from_r =
+        case r
+            Ok((0, Point{x:, y:})) -> x + y
+            // ^ type
+            //          ^ type
+            //                 ^ type
+            //                  ^ type
+            Ok((n, _)) -> n
+            // ^ type
+            //      ^ type
+            Err(_) -> 0
+        end
 
-    from_v = case v
-        [a, b] -> a + b
-        // <- type
-        //   ^ type
-        _ -> 0
-    end
+    from_v =
+        case v
+            [a, b] -> a + b
+            // <- type
+            //   ^ type
+            _ -> 0
+        end
 
-    from_m = case m
-        {"k" => k} -> k
-        // <- type
-        //       ^ type
-        _ -> 0
-    end
+    from_m =
+        case m
+            {"k" => k} -> k
+            // <- type
+            //       ^ type
+            _ -> 0
+        end
 
     from_r + from_v + from_m
 end
@@ -487,21 +492,23 @@ fn constructor_patterns(input: String, r: Result<Int, String>, s: Shape) -> Int
         return 0
     end
 
-    from_r = case r
-        Result.Ok(n) -> n
-        //       ^ type
-        //         ^ type
-        Result.Err(_) -> 0
-        //        ^ type
-        //          ^ type
-    end
+    from_r =
+        case r
+            Result.Ok(n) -> n
+            //       ^ type
+            //         ^ type
+            Result.Err(_) -> 0
+            //        ^ type
+            //          ^ type
+        end
 
-    from_s = case s
-        .Circle(c) -> c
-        //     ^ type
-        //       ^ type
-        _ -> 0
-    end
+    from_s =
+        case s
+            .Circle(c) -> c
+            //     ^ type
+            //       ^ type
+            _ -> 0
+        end
 
     number + from_r + from_s
 end
@@ -509,33 +516,35 @@ end
 // A variant a pattern names through its file: the file is a module, the
 // names between it and the variant the variant's type.
 fn module_variant_patterns(r: Result<Int, json.Json>, c: json.Json.Case) -> Int
-    from_r = case r
-        Err(json.Json.Null) -> 1
-        //  ^ module
-        //       ^ type
-        //            ^ constructor
-        Err(json.Json.Int(n)) -> n
-        //  ^ module
-        //            ^ constructor
-        //               ^ type
-        //                 ^ type
-        Err(json.Json.Arr[_first, .._rest]) -> 2
-        //               ^ type
-        //                               ^ type
-        _ -> 0
-    end
+    from_r =
+        case r
+            Err(json.Json.Null) -> 1
+            //  ^ module
+            //       ^ type
+            //            ^ constructor
+            Err(json.Json.Int(n)) -> n
+            //  ^ module
+            //            ^ constructor
+            //               ^ type
+            //                 ^ type
+            Err(json.Json.Arr[_first, .._rest]) -> 2
+            //               ^ type
+            //                               ^ type
+            _ -> 0
+        end
 
-    from_c = case c
-        json.Json.Case.Snake -> 1
-        // <- module
-        //   ^ type
-        //        ^ type
-        //             ^ constructor
-        json.Json.Case.Camel or json.Json.Case.Kebab -> 2
-        //                      ^ module
-        //                                     ^ constructor
-        _ -> 0
-    end
+    from_c =
+        case c
+            json.Json.Case.Snake -> 1
+            // <- module
+            //   ^ type
+            //        ^ type
+            //             ^ constructor
+            json.Json.Case.Camel or json.Json.Case.Kebab -> 2
+            //                      ^ module
+            //                                     ^ constructor
+            _ -> 0
+        end
 
     if Err(json.Json.Bool(b)) = r then
         // ^ module

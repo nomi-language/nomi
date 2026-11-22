@@ -12,9 +12,9 @@ import (
 // how a call is spelled: a comparison of the owner's name (`ti.Name`) or
 // the method's with a string literal, and a lookup of the owner's name in
 // this file's tables to see that a program's type does not shadow std's
-// (`namedType(...)`, `g.types[...]`). A std route is keyed by what the
+// (`g.types[...]`). A std route is keyed by what the
 // call's record says it is qualified with instead (stdQualRoutes,
-// qualRoute), and the count only goes down.
+// recordedQualRoute), and the count only goes down.
 const maxTypeQualCallNameTests = 0
 
 // TestTypeQualCallNameTestsOnlyGoDown counts typeQualCall's tests of a
@@ -55,10 +55,6 @@ func TestTypeQualCallNameTestsOnlyGoDown(t *testing.T) {
 		case *ast.BinaryExpr:
 			if (n.Op == token.EQL || n.Op == token.NEQ) &&
 				(spelled(n.X) && literal(n.Y) || literal(n.X) && spelled(n.Y)) {
-				found = append(found, fset.Position(n.Pos()).String())
-			}
-		case *ast.CallExpr:
-			if sel, ok := n.Fun.(*ast.SelectorExpr); ok && sel.Sel.Name == "namedType" {
 				found = append(found, fset.Position(n.Pos()).String())
 			}
 		case *ast.IndexExpr:

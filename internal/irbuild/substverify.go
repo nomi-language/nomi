@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/nomi-language/nomi/internal/analysis"
 )
 
 // substVerify holds, in a test binary, each checker type an instance's
@@ -33,6 +35,12 @@ func (g *gen) verifySubst(entry substEntry, owner any, f substFrame) {
 		t, ok := f.checked[name]
 		if !ok {
 			substCensusNote(g, entry, owner, f, name)
+			continue
+		}
+		if openInstKey(g.dc, "", []analysis.Type{t}) != "" {
+			// A type parameter an abstract body leaves open, which the
+			// frame binds to the kind of its bounds where the body was
+			// opened, a kind of that gen's interfaces (abstract.go).
 			continue
 		}
 		if pk := in.project(t); !in.substKindsAgree(pk, k) {

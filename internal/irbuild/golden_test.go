@@ -54,24 +54,13 @@ func goldenRecord(t *testing.T, population, id string) (expectation.Case, bool) 
 	return goldenSet(t, population).Lookup(id)
 }
 
-func goldenMismatchText(want expectation.Case, text string, exit int) string {
-	switch {
-	case text != want.Transcript:
-		return fmt.Sprintf("output differs from the golden record (exit %d, golden %d)\n%s",
-			exit, want.Exit, expectation.LineDiff(want.Transcript, text))
-	case exit != want.Exit:
-		return fmt.Sprintf("exit status %d, golden %d", exit, want.Exit)
-	}
-	return ""
-}
-
 // THE IRBUILD POPULATION: golden outputs for every program this package's tests
 // compare the VM against, whether it is a fixture in the
 // repository or a program a test writes to a temp directory.
 //
 // A record is keyed by the PROGRAM, not by the test: the entry file plus every
 // user module the front end loads for it, plus each module directory's
-// nomi.toml, go.mod, go.sum and Go files. The key is
+// nomi.toml, nomi.lock, go.mod, go.sum and Go files. The key is
 //
 //	<entry>@<sha256(key)[:16]>
 //
@@ -143,7 +132,7 @@ func goldenProgramFiles(entry string) []string {
 			if e.IsDir() {
 				continue
 			}
-			if name == "nomi.toml" || name == "go.mod" || name == "go.sum" ||
+			if name == "nomi.toml" || name == "nomi.lock" || name == "go.mod" || name == "go.sum" ||
 				(strings.HasSuffix(name, ".go") && !strings.HasSuffix(name, "_test.go")) {
 				files[filepath.Join(dir, name)] = true
 			}
@@ -418,6 +407,29 @@ func unpackGoldenArchive(archive, dir, root string) (map[string]string, error) {
 	return out, nil
 }
 
+// goldenCaseEntry is the entry file of c's program: a repository program's
+// file in place, or a temp program unpacked from its stored archive into a
+// fresh directory.
+func goldenCaseEntry(t *testing.T, c expectation.Case, root string) (string, error) {
+	t.Helper()
+	entryName, _, _ := strings.Cut(c.ID, "@")
+	if c.Source == "" {
+		path := filepath.Join(root, filepath.FromSlash(entryName))
+		if _, err := os.Stat(path); err != nil {
+			return "", fmt.Errorf("its program is gone from the repository; regenerate with\n  %s", irbuildGoldenCommand)
+		}
+		return path, nil
+	}
+	files, err := unpackGoldenArchive(c.Source, t.TempDir(), root)
+	if err != nil {
+		return "", err
+	}
+	if files[entryName] == "" {
+		return "", fmt.Errorf("the stored archive has no entry %s", entryName)
+	}
+	return files[entryName], nil
+}
+
 // TestIRGolden_RecordsMatchTheVM runs every irbuild record's program on the VM
 // as its command would (vmReference) and requires the result to be the
 // record. A temp program is unpacked from its stored archive into a fresh
@@ -432,11 +444,12 @@ func TestIRGolden_RecordsMatchTheVM(t *testing.T) {
 	regenerate := expectation.RegenerateRequested()
 	census := openSubstCensus()
 	operators := operatorCensus.start()
-	localReads := localReadCensus.start()
-	comparators := comparatorCensus.start()
+	elemImpls := elemImplCensus.start()
 	debugImpls := debugImplCensus.start()
+	irrefutables := irrefutableCensus.start()
 	exprKinds := exprKindCensus.start()
 	stdExprKinds := stdExprKindCensus.start()
+	callRoutes, stdCallRoutes := callRouteCensus.start(), stdCallRouteCensus.start()
 	set := goldenSet(t, irbuildGoldenPopulation)
 	if len(set.Cases) == 0 {
 		t.Fatal("irbuild.expect holds no records, so this package's comparisons have no answers")
@@ -447,28 +460,15 @@ func TestIRGolden_RecordsMatchTheVM(t *testing.T) {
 	}
 	inRepo, temp := 0, 0
 	for _, c := range set.Cases {
-		entryName, _, _ := strings.Cut(c.ID, "@")
-		var path string
 		if c.Source == "" {
 			inRepo++
-			path = filepath.Join(root, filepath.FromSlash(entryName))
-			if _, err := os.Stat(path); err != nil {
-				t.Errorf("%s: its program is gone from the repository; regenerate with\n  %s",
-					c.ID, irbuildGoldenCommand)
-				continue
-			}
 		} else {
 			temp++
-			files, err := unpackGoldenArchive(c.Source, t.TempDir(), root)
-			if err != nil {
-				t.Errorf("%s: %v", c.ID, err)
-				continue
-			}
-			path = files[entryName]
-			if path == "" {
-				t.Errorf("%s: the stored archive has no entry %s", c.ID, entryName)
-				continue
-			}
+		}
+		path, err := goldenCaseEntry(t, c, root)
+		if err != nil {
+			t.Errorf("%s: %v", c.ID, err)
+			continue
 		}
 		g := goldenProgramOf(t, path)
 		if g.id != c.ID && regenerate && c.Source == "" {
@@ -516,10 +516,11 @@ func TestIRGolden_RecordsMatchTheVM(t *testing.T) {
 		"%d temp programs", len(set.Cases), inRepo, temp)
 	checkSubstCensus(t, census())
 	checkSiteCensus(t, operatorRatchet(), operators())
-	checkSiteCensus(t, localReadRatchet(), localReads())
-	checkSiteCensus(t, comparatorRatchet(), comparators())
+	checkSiteCensus(t, elemImplRatchet(), elemImpls())
 	checkSiteCensus(t, debugImplRatchet(), debugImpls())
+	checkSiteCensus(t, irrefutableRatchet(), irrefutables())
 	checkExprKindCensus(t, exprKinds(), stdExprKinds())
+	checkCallRouteCensus(t, callRoutes(), stdCallRoutes())
 }
 
 // corpusGoldenRoot is the worktree root, for putting `<root>` back into a

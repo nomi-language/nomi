@@ -1,4 +1,4 @@
-// Package osreach counts, per capability class, the host function calls
+// Package osreach counts, per effect class, the host function calls
 // that went on to the operating system: a process started, a socket
 // listened on or dialed, a name looked up. A classed crossing a fake
 // answers (std::process::testing's, installed on the frame) never gets this far,

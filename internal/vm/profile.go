@@ -224,6 +224,10 @@ func (p *Profiler) take(fr *frame, pc int, host string, pos ir.Pos) {
 	}
 	for f, depth := fr, 0; f != nil && f.c != nil && depth < 512; depth++ {
 		nodes = append(nodes, p.funcNode(f.fn))
+		for v := f.c.parent; v != nil; v = v.parent {
+			// The callers a view of f.fn was compiled into (inline.go).
+			nodes = append(nodes, p.funcNode(v.fn))
+		}
 		if f.stdEntry != nil && f.stdCaller != nil {
 			// A tail call from the program into the stdlib replaced the
 			// program's function; the profile keeps it under the stdlib's.

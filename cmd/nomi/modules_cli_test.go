@@ -18,21 +18,20 @@ import (
 )
 
 // A pure-Nomi dependency is fetched through the module proxy with no Go
-// toolchain: `nomi add` requires and downloads it, `nomi run` and `nomi
-// check` use it by its short name, `--offline` refuses a cold module cache by
-// naming the module, and `nomi fetch` fills the cache so `--offline` works.
-// The proxy is a directory and PATH holds no `go`.
+// toolchain and no go.mod: `nomi add` names it in nomi.toml, downloads it
+// and locks it in nomi.lock, `nomi run` and `nomi check` use it by its
+// name, `--offline` refuses a cold module cache by naming the module, and
+// `nomi fetch` fills the cache so `--offline` works. The proxy is a
+// directory and PATH holds no `go`.
 func TestModules_APureNomiDependencyNeedsNoGo(t *testing.T) {
 	tmp := t.TempDir()
 	proxy := filepath.Join(tmp, "proxy")
 	publishFiles(t, proxy, "example.com/strings2", "v1.2.0", map[string]string{
-		"go.mod":        "module example.com/strings2\n\ngo 1.22\n",
-		"nomi.toml":     "[module]\nname = \"strings2\"\n",
+		"nomi.toml":     "[module]\nname = \"strings2\"\npath = \"example.com/strings2\"\n",
 		"strings2.nomi": "import strings2::twice\n\npub fn shout(s: String) -> String\n    twice.twice(String.uppercase(s))\nend\n",
 		"twice.nomi":    "pub fn twice(s: String) -> String\n    \"${s}${s}\"\nend\n",
 	})
 	app := filepath.Join(tmp, "app")
-	mustWrite(t, filepath.Join(app, "go.mod"), "module example.com/app\n\ngo 1.27.0\n")
 	mustWrite(t, filepath.Join(app, "nomi.toml"), "[module]\nname = \"app\"\nentry_points = [\"main\"]\n")
 	mustWrite(t, filepath.Join(app, "main.nomi"), "import\n    std::io\n    strings2\nend\n\nfn main()\n    io.print(strings2.shout(\"hey\"))\nend\n")
 
@@ -45,8 +44,7 @@ func TestModules_APureNomiDependencyNeedsNoGo(t *testing.T) {
 		"HOME=" + filepath.Join(tmp, "home"),
 		"PATH=" + emptyPath,
 		"NOMI_COLOR=never",
-		"NOMI_FFIRUN_CACHE_ROOT=" + filepath.Join(tmp, "nomi-cache"),
-		"NOMI_TOOLCHAIN_ROOT=" + filepath.Join(tmp, "toolchains"),
+		"NOMI_RUNNER_CACHE_ROOT=" + filepath.Join(tmp, "nomi-cache"),
 		"GOPROXY=" + fileuri.FromPath(proxy),
 		"GOSUMDB=off",
 		"GOMODCACHE=" + cache,
@@ -83,7 +81,7 @@ func TestModules_APureNomiDependencyNeedsNoGo(t *testing.T) {
 
 	// The program already imports the module, so add also says what its own
 	// code reaches: nothing.
-	if out := must("add", "example.com/strings2"); out != "added example.com/strings2 v1.2.0 (module strings2; import strings2)\n\nmodules\n  example.com/strings2\n    nothing" {
+	if out := must("add", "example.com/strings2"); out != "added strings2, example.com/strings2 v1.2.0 (import strings2)\n\nmodules\n  strings2\n    no effects" {
 		t.Fatalf("nomi add printed %q", out)
 	}
 	if out := must("run", "main.nomi"); out != "HEYHEY" {
@@ -119,12 +117,16 @@ func TestModules_APureNomiDependencyNeedsNoGo(t *testing.T) {
 		t.Fatalf("nomi run main.nomi --offline printed %q", out)
 	}
 
-	// No go.mod: nomi add says what to create.
+	if _, err := os.Stat(filepath.Join(app, "go.mod")); err == nil {
+		t.Errorf("a pure-Nomi project has a go.mod")
+	}
+
+	// No nomi.toml: nomi add says what to create.
 	bare := filepath.Join(tmp, "bare")
 	mustWrite(t, filepath.Join(bare, "main.nomi"), "fn main() end\n")
 	_, stderr, err = nomi(bare, "add", "example.com/strings2")
-	if err == nil || !strings.Contains(stderr, "no go.mod") {
-		t.Fatalf("nomi add with no go.mod: %v\n%s", err, stderr)
+	if err == nil || !strings.Contains(stderr, "no nomi.toml") {
+		t.Fatalf("nomi add with no nomi.toml: %v\n%s", err, stderr)
 	}
 }
 
@@ -132,14 +134,6 @@ func TestModules_APureNomiDependencyNeedsNoGo(t *testing.T) {
 // at proxy.
 func publishFiles(t *testing.T, proxy, path, version string, files map[string]string) {
 	t.Helper()
-	enc, err := module.EscapePath(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	dir := filepath.Join(proxy, filepath.FromSlash(enc), "@v")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		t.Fatal(err)
-	}
 	names := make([]string, 0, len(files))
 	for name := range files {
 		names = append(names, name)
@@ -153,12 +147,33 @@ func publishFiles(t *testing.T, proxy, path, version string, files map[string]st
 	if err := modzip.Create(&zipBuf, module.Version{Path: path, Version: version}, zf); err != nil {
 		t.Fatal(err)
 	}
+	goMod := files["go.mod"]
+	if goMod == "" {
+		// The proxy serves a module with no go.mod a synthesized one.
+		goMod = "module " + path + "\n"
+	}
+	publishZip(t, proxy, path, version, goMod, zipBuf.Bytes())
+}
+
+// publishZip writes path@version to the file module proxy at proxy as a
+// proxy serves it: its zip, its go.mod and its info, and the version in
+// its list.
+func publishZip(t *testing.T, proxy, path, version, goMod string, zip []byte) {
+	t.Helper()
+	enc, err := module.EscapePath(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(proxy, filepath.FromSlash(enc), "@v")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	list, _ := os.ReadFile(filepath.Join(dir, "list"))
 	for name, data := range map[string][]byte{
 		"list":            append(list, []byte(version+"\n")...),
 		version + ".info": []byte(`{"Version":"` + version + `","Time":"2026-01-01T00:00:00Z"}`),
-		version + ".mod":  []byte(files["go.mod"]),
-		version + ".zip":  zipBuf.Bytes(),
+		version + ".mod":  []byte(goMod),
+		version + ".zip":  zip,
 	} {
 		if err := os.WriteFile(filepath.Join(dir, name), data, 0o644); err != nil {
 			t.Fatal(err)

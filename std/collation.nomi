@@ -137,20 +137,22 @@ impl Collator
         case_first:         CaseFirst = CaseFirst.Default,
         ignore_punctuation: Bool = False,
     ) -> Collator
-        strength_tag: Int64 = case strength
-            Strength.Primary    -> 1
-            Strength.Secondary  -> 2
-            Strength.Tertiary   -> 3
-            Strength.Quaternary -> 4
-            Strength.Identical  -> 5
-        end
+        strength_tag: Int64 =
+            case strength
+                Strength.Primary    -> 1
+                Strength.Secondary  -> 2
+                Strength.Tertiary   -> 3
+                Strength.Quaternary -> 4
+                Strength.Identical  -> 5
+            end
 
-        case_tag: Int64 = case case_first
-            CaseFirst.Default -> 1
-            CaseFirst.Upper   -> 2
-            CaseFirst.Lower   -> 3
-            CaseFirst.Off     -> 4
-        end
+        case_tag: Int64 =
+            case case_first
+                CaseFirst.Default -> 1
+                CaseFirst.Upper   -> 2
+                CaseFirst.Lower   -> 3
+                CaseFirst.Off     -> 4
+            end
 
         Collator(collator_new_raw(locale, strength_tag, numeric, case_tag, ignore_punctuation))
     end

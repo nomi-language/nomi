@@ -107,7 +107,7 @@ func (bl *irScalarBuilder) assertableFailure(k kind) *assertableImpl {
 // stdAssertableFailure is a std type's `impl Assertable`, selected by the
 // subject kind (stdlibImplOf), or nil.
 func (bl *irScalarBuilder) stdAssertableFailure(k kind) *assertableImpl {
-	f := bl.g.stdlibImplOf("Assertable.failure", k, k)
+	f := bl.g.stdlibImplOf(stdAssertable.Func("failure"), k, k)
 	if f == nil || !irMaybeKind(f.result) {
 		return nil
 	}

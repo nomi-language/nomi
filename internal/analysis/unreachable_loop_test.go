@@ -3,10 +3,7 @@ package analysis_test
 import (
 	"testing"
 
-	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
-	"github.com/nomi-language/nomi/internal/lexer"
-	"github.com/nomi-language/nomi/internal/parser"
 )
 
 // An `Iter.loop` whose callback holds no `break` never finishes, so a
@@ -14,7 +11,7 @@ import (
 // `case` whose every branch runs one or leaves, and after a block holding
 // one. The hint names the `break` that would end it.
 func TestUnreachable_StatementAfterALoopThatNeverBreaks(t *testing.T) {
-	errs := buildErrsWithStdlib(t, `
+	errs := unreachableCheck(t, `
 fn worker()
   Iter.loop(fn ->
     _ = 1
@@ -98,7 +95,7 @@ end
 // so the outer loop still never breaks. A loop that never breaks is legal
 // as a body's last statement, bound or not, since nothing follows it.
 func TestUnreachable_ALoopThatCanStopIsClean(t *testing.T) {
-	errs := buildErrsWithStdlib(t, `
+	errs := unreachableCheck(t, `
 fn guarded()
   Iter.loop(0, fn n ->
     if n > 3 then break
@@ -146,18 +143,27 @@ end
 		{"Iter.loop(fn ->\n case 1\n  1 -> break\n  _ -> Unit\n end\nend)", false},
 		{"Iter.map([1], fn x -> x)", false},
 	} {
-		nodes, err := parser.Parse(lexer.Lex("fn f()\n" + c.src + "\nend\n"))
-		if err != nil || len(nodes) != 1 {
-			t.Fatalf("%s: %v", c.src, err)
+		fa, nodes, _ := checkSourceAsWrittenWithStdlib("fn f()\n" + c.src + "\nend\n")
+		var fd *ast.FuncDef
+		for _, n := range nodes {
+			if d, ok := n.(*ast.FuncDef); ok && d.Name == "f" {
+				fd = d
+			}
 		}
-		body := nodes[0].(*ast.FuncDef).Body.Stmts
+		if fd == nil || fd.Body == nil || len(fd.Body.Stmts) == 0 {
+			t.Fatalf("%s: no body for f", c.src)
+		}
+		body := fd.Body.Stmts
 		expr := body[len(body)-1]
 		if es, ok := expr.(*ast.ExprStmt); ok {
 			expr = es.Expr
 		}
-		// No file analysis: only the qualified spelling is recognized.
-		if got := (*analysis.FileAnalysis)(nil).LoopNeverBreaks(expr); got != c.never {
-			t.Errorf("LoopNeverBreaks(%s) = %v, want %v", c.src, got, c.never)
+		call, _ := expr.(*ast.Call)
+		if call == nil || fa.Calls[call] == nil {
+			t.Fatalf("%s: the check recorded no call", c.src)
+		}
+		if got := fa.NeverReturns(call); got != c.never {
+			t.Errorf("NeverReturns(%s) = %v, want %v", c.src, got, c.never)
 		}
 	}
 }

@@ -59,19 +59,10 @@ end
 [module]
 name = "app"
 entry_points = ["main"]
-// FILE: app/go.mod
-module app
 
-go 1.27.0
-
-require (
-	fx v0.0.0
-	shares v0.0.0
-)
-
-replace fx => ../fx
-
-replace shares => ../shares
+[dependencies]
+fx = { dir = "../fx" }
+shares = { dir = "../shares" }
 // FILE: fx/rate.nomi
 pub struct Rate
     per_unit: Decimal
@@ -97,10 +88,6 @@ end
 // FILE: fx/nomi.toml
 [module]
 name = "fx"
-// FILE: fx/go.mod
-module fx
-
-go 1.27.0
 // FILE: shares/count.nomi
 pub struct Shares
     count: Int
@@ -114,10 +101,6 @@ end
 // FILE: shares/nomi.toml
 [module]
 name = "shares"
-// FILE: shares/go.mod
-module shares
-
-go 1.27.0
 `
 
 // Each impl a library writes for a std receiver at its own type runs, by

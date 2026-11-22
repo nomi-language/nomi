@@ -13,9 +13,10 @@ import (
 // instantiation. `g.implsByIface[iface][kind]` is keyed on the `*typeDef`
 // pointer, so an instance def is a new pointer, and an impl registered only on
 // the generic receiver would leave the map empty for every instance. That
-// would be a wrong answer with no diagnostic: noEquatableImpl(k) would answer
-// that no impl Equatable exists, and `==` would take the structural fallback
-// while a hand-written `impl Equatable for Box<T>` sat unused.
+// would be a wrong answer with no diagnostic: the key table would record no
+// `equal` for the instance (irRecordKeyImpls), and a Map key or a Set element
+// of it would compare by shape while a hand-written `impl Equatable for Box<T>`
+// sat unused.
 //
 // So this file registers each impl block once per instance, under the
 // template's substitution frame, so Describe's entry for `Wrapped<Point>` in
@@ -43,12 +44,13 @@ import (
 // operand is; `Span.new(1, 5)`, whose operands name no instance, selects the
 // one the checker's solved signature names (templateCallInstance).
 //
-// # The universal Debug
+// # Debug
 //
-// The front end's synthesized `impl Debug for Box<T>` is registered per
-// instance like any other block. `Debug.inspect(b)`, `io.inspect(b)` and
-// `dbg b` over a `Box<Int>` read `implsByIface[stdIfaceImplKey(stdDebug)]` and call its body,
-// as they do for a non-generic struct's.
+// A generic type's derived or written `impl Debug for Box<T>`, and an opaque
+// one's name-only block, is registered per instance like any other block.
+// `Debug.inspect(b)`, `io.inspect(b)` and `dbg b` over a `Box<Int>` read
+// `implsByIface[stdIfaceImplKey(stdDebug)]` and call its body, as they do for
+// a non-generic struct's. A `Box` with no Debug block renders by its shape.
 //
 // # Type-parameter dispatch falls out
 //
@@ -103,12 +105,6 @@ func (g *gen) collectGenericImpls(tpl *genericTemplate, nodes []ast.Node) (strin
 		if !isImpl || implReceiverBaseName(ib.Receiver) != tpl.nomi {
 			continue
 		}
-		if ib.Interface == nil && implAllHostBound(ib) {
-			// An inherent block of Go-bound functions only: none of them
-			// depends on T, so a call crosses to its Go function directly.
-			tpl.hostImpls = append(tpl.hostImpls, ib)
-			continue
-		}
 		it := &genericImplTemplate{decl: ib}
 		if !implWhereNamesTemplateParams(ib, tpl) {
 			// A constraint whose SUBJECT is not one of the template's own
@@ -119,19 +115,6 @@ func (g *gen) collectGenericImpls(tpl *genericTemplate, nodes []ast.Node) (strin
 		tpl.impls = append(tpl.impls, it)
 	}
 	return "", ""
-}
-
-// implAllHostBound reports whether every item of ib is a Go-bound function.
-func implAllHostBound(ib *ast.ImplBlock) bool {
-	if len(ib.Items) == 0 {
-		return false
-	}
-	for _, item := range ib.Items {
-		if ef, isExt := item.(*ast.ExternFunc); !isExt || !hostBoundImplFn(ef) {
-			return false
-		}
-	}
-	return true
 }
 
 // unboundTypeParams reports whether any of tps is a type parameter the builder
@@ -328,8 +311,8 @@ func (g *gen) instanceMeetsWhere(ib *ast.ImplBlock, tpl *genericTemplate, d *typ
 //
 // # Why this arm has to exist
 //
-// genericRefusal already has an arm for a WALLED template (`tpl.why != ""`) and
-// one for a failing type ARGUMENT (genericArgRefusal). Per-instance impl
+// recordedTypeRefusal already has an arm for a WALLED template (`tpl.why !=
+// ""`) and one for a failing type ARGUMENT (partRefusal). Per-instance impl
 // registration creates a third case neither answers: every argument resolves,
 // the template is admitted, and the INSTANCE still declined -- because one of its
 // impl blocks did.
@@ -366,16 +349,17 @@ func (g *gen) genericInstRefusal(t *ast.GenericType, tpl *genericTemplate) (stri
 }
 
 // isGenericImplTemplate reports whether ib is an impl block this file owns --
-// one whose receiver names a generic template that admitted it.
+// one whose receiver names, by the type the checker recorded for it
+// (receiverTemplate), this file's generic template, which admitted it.
 //
 // Asked by implDecl, which must lower and refuse nothing for such a block. The
 // membership test is the template's own `impls` list and not a re-derivation
-// from the receiver spelling, because the two could disagree: a template walled
+// from the receiver, because the two could disagree: a template walled
 // by collectGenericImpls keeps its blocks out of the list, and those blocks must
-// keep reporting at their own position. A spelling test would silence them.
+// keep reporting at their own position. A receiver test would silence them.
 func (g *gen) isGenericImplTemplate(ib *ast.ImplBlock) bool {
-	tpl := g.genericTemplates[implReceiverBaseName(ib.Receiver)]
-	if tpl == nil || tpl.why != "" {
+	tpl, foreign, ok := g.receiverTemplate(ib)
+	if !ok || foreign || tpl.why != "" {
 		return false
 	}
 	for _, it := range tpl.impls {
@@ -474,7 +458,7 @@ func (g *gen) templateCallInstance(og *gen, t *ast.Call, tpl *genericTemplate, m
 	var types []analysis.Type
 	for _, it := range tpl.impls {
 		for _, item := range it.decl.Items {
-			f, ok := implItemFunc(item)
+			f, ok := item.(*ast.FuncDef)
 			if !ok || f.Name != method {
 				continue
 			}
@@ -505,31 +489,24 @@ func (g *gen) templateCallInstance(og *gen, t *ast.Call, tpl *genericTemplate, m
 	return k, true
 }
 
-// implRecvTypeArgs is the type arguments of impl block ib's receiver at the
-// call whose callee is ref, n of them, as og, the gen that declares ib,
-// names them: a position the receiver writes as one of the block's type
+// implRecvTypedArgs is the type arguments of impl block ib's receiver at
+// the call whose callee is ref, n of them, as og, the gen that declares ib,
+// names them, with each argument the call instantiated as the checker's
+// type too: a position the receiver writes as one of the block's type
 // parameters (`T` of `impl Box<T>`) is the argument the checker
 // instantiated the call at (calleeTypeArgs, imported into og), and a
-// concrete one (`impl Box<Int>`) is itself.
-func (g *gen) implRecvTypeArgs(og *gen, ref ast.Node, ib *ast.ImplBlock, n int) ([]kind, bool) {
-	ks, _, ok := g.implRecvTypedArgs(og, ref, ib, n)
-	return ks, ok
-}
-
-// implRecvTypedArgs is implRecvTypeArgs with each argument the call
-// instantiated as the checker's type too (calleeTypedArgs); a concrete
-// one the receiver writes has none.
+// concrete one (`impl Box<Int>`) is itself, with no checker type.
 func (g *gen) implRecvTypedArgs(og *gen, ref ast.Node, ib *ast.ImplBlock, n int) ([]kind, []analysis.Type, bool) {
 	gt, ok := ib.Receiver.(*ast.GenericType)
 	if !ok || len(gt.Params) != n {
 		return nil, nil, false
 	}
-	names := analysis.ReceiverTypeParamNames(ib.Receiver, og.declaresTypeName)
+	names := og.receiverTypeParamNames(ib)
 	out := make([]kind, n)
 	var types []analysis.Type
 	for i, p := range gt.Params {
 		if i < len(names) && names[i] != "" {
-			ks, ts, ok := g.calleeTypedArgs(ref, names[i:i+1])
+			ks, ts, ok := g.calleeTypeArgs(ref, names[i:i+1])
 			if !ok {
 				return nil, nil, false
 			}

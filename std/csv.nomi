@@ -197,7 +197,7 @@ end
 //!     })
 //
 pub fn decode(text: String, options: Options = Options{}) -> Result<List<List<String>>, Error>
-    records(Reader.from_text(text), options) |> Result.collect()
+    decode_bytes(String.to_bytes(text), options)
 end
 
 /// Every record in `data`, which must be UTF-8.
@@ -210,7 +210,7 @@ end
 //!     })
 //
 pub fn decode_bytes(data: Bytes, options: Options = Options{}) -> Result<List<List<String>>, Error>
-    records(Reader.from_bytes(data), options) |> Result.collect()
+    whole(data, options) |> Result.map(.first)
 end
 
 /// The records of `text` after its first, each a `Row` under the header
@@ -220,7 +220,7 @@ end
 //! assert decode_rows("name,age\n") == Ok([])
 //
 pub fn decode_rows(text: String, options: Options = Options{}) -> Result<List<Row>, Error>
-    rows(Reader.from_text(text), options) |> Result.collect()
+    whole(String.to_bytes(text), options) |> Result.map(rows_of)
 end
 
 /// Each record left in `reader`, read as the iterator runs, so a large
@@ -259,28 +259,70 @@ pub fn rows(reader: Reader, options: Options = Options{}) -> Iter<Result<Row, Er
 end
 
 fn open(reader: Reader, options: Options) -> host.Records
-    fields = case options.fields
-        .SameAsFirst -> 0
-        .Any         -> -1
-        .Exactly(n)  -> if n < 0 then -2 else n
-    end
-
     host.open(
         reader,
         options.delimiter,
         options.comment,
         options.trim_leading_space,
         options.lazy_quotes,
-        fields,
+        field_count(options),
     )
+end
+
+// Every record of `data`, read whole by the reader `open` makes, each with
+// the line it starts on.
+fn whole(data: Bytes, options: Options) -> Result<(List<List<String>>, List<Int>), Error>
+    (records, lines, stop, message) = host.decode(
+        data,
+        options.delimiter,
+        options.comment,
+        options.trim_leading_space,
+        options.lazy_quotes,
+        field_count(options),
+    )
+
+    case failure(stop, message)
+        Some(e) -> Err(e)
+        None    -> Ok((records, lines))
+    end
+end
+
+// The records after the first, each a `Row` under the first.
+fn rows_of(decoded: (List<List<String>>, List<Int>)) -> List<Row>
+    case decoded
+        ([header, ..records], [_, ..lines]) ->
+            Iter.zip(records, lines)
+            |> Iter.map(fn (fields, line) -> Row{header:, fields:, line:})
+            |> Iter.to_list()
+
+        _ ->
+            []
+    end
+end
+
+// The field count `host.open` and `host.decode` take.
+fn field_count(options: Options) -> Int
+    case options.fields
+        .SameAsFirst -> 0
+        .Any         -> -1
+        .Exactly(n)  -> if n < 0 then -2 else n
+    end
 end
 
 // Why reading stopped, or None at the end of the input.
 fn stopped(records: host.Records) -> Maybe<Error>
     case host.stopped(records)
-        [1, line, column] -> Some(Error.Syntax{message: host.message(records), line:, column:})
-        [2, ..]           -> Some(Error.Io{error: host.failure(records)})
-        [3, ..]           -> Some(Error.InvalidOptions{message: host.message(records)})
+        [2, ..] -> Some(Error.Io{error: host.failure(records)})
+        stop    -> failure(stop, host.message(records))
+    end
+end
+
+// The failure a stop other than the Reader's (`host.stopped`) and its
+// message describe, or None at the end of the input.
+fn failure(stop: List<Int>, message: String) -> Maybe<Error>
+    case stop
+        [1, line, column] -> Some(Error.Syntax{message:, line:, column:})
+        [3, ..]           -> Some(Error.InvalidOptions{message:})
         _                 -> None
     end
 end

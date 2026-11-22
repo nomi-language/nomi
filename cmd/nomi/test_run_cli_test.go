@@ -176,36 +176,3 @@ func TestTestCommand_RunSkipsFilesItSelectsNothingIn(t *testing.T) {
 		t.Errorf("want only the top-level test:\n%s", stdout)
 	}
 }
-
-// `--run` reaches the wrapper process a test file with Go bindings runs in.
-func TestFFI_TestRunSelectsCases(t *testing.T) {
-	if testing.Short() {
-		t.Skip("integration; builds FFI wrappers; -short")
-	}
-	dir := t.TempDir()
-	if goModAbove(dir) {
-		t.Skip("a go.mod above the temp directory")
-	}
-	env := buildEnv(t.TempDir())
-	tests := filepath.Join(dir, "upper_test.nomi")
-	mustWrite(t, tests, `gopkg "strings" as strings
-
-fn upper(s: String) -> String go strings.ToUpper
-
-test "upper"
-  assert upper("hi") == "HI"
-end
-
-test "fails"
-  assert upper("hi") == "hi"
-end
-`)
-	r := runProcess(t, env, t.TempDir(), "", nomiBin, "test", tests, "--run", "^upper$")
-	if r.exit != 0 || !strings.Contains(r.stdout, "1 passed, 0 failed") || strings.Contains(r.stdout, "fails") {
-		t.Fatalf("want only `upper` to run:\n%s", r.transcript())
-	}
-	r = runProcess(t, env, t.TempDir(), "", nomiBin, "test", tests, "--run", "fails", "--format", "json")
-	if r.exit == 0 || !strings.Contains(r.stdout, `"passed":0,"failed":1`) || strings.Contains(r.stdout, `"name":"`+tests+` :: upper"`) {
-		t.Fatalf("json: want only `fails` to run:\n%s", r.transcript())
-	}
-}

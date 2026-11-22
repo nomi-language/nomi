@@ -1,0 +1,662 @@
+//# The messages of Postgres's frontend/backend protocol, version 3, as
+//# bytes: a function per message the driver sends, each answering the bytes
+//# of one message, and `decode`, which reads one message the server sent.
+//# Every message after the first carries a kind letter and a 32-bit length
+//# that counts itself; `frame_at` finds where one ends in bytes that may
+//# hold several, or a part of one. Nothing here reads or writes a
+//# connection.
+
+import std::bytes.Builder
+
+/// The protocol version a startup message asks for: 3.0.
+once protocol_version = 196_608
+
+/// A message the server sends.
+pub enum Message
+    AuthenticationOk
+    AuthenticationCleartext
+    AuthenticationMd5 {salt: Bytes}
+    AuthenticationSasl {mechanisms: List<String>}
+    AuthenticationSaslContinue {data: String}
+    AuthenticationSaslFinal {data: String}
+    /// An authentication method the driver does not speak, by its code.
+    AuthenticationOther {code: Int}
+    /// What a cancel request names this connection by.
+    BackendKeyData {process: Int, secret: Bytes}
+    ParameterStatus {name: String, value: String}
+    ReadyForQuery {status: TxStatus}
+    RowDescription {fields: List<Field>}
+    /// A row's values in column order, `None` for NULL.
+    DataRow {values: List<Maybe<Bytes>>}
+    /// A statement's end, with its tag: `INSERT 0 1`, `UPDATE 3`, `CREATE TABLE`.
+    CommandComplete {tag: String}
+    EmptyQueryResponse
+    ErrorResponse {report: Report}
+    NoticeResponse {report: Report}
+    ParseComplete
+    BindComplete
+    CloseComplete
+    NoData
+    PortalSuspended
+    /// The type of each parameter of a prepared statement, by OID.
+    ParameterDescription {types: List<Int>}
+    NotificationResponse {process: Int, channel: String, payload: String}
+    CopyInResponse
+    CopyOutResponse
+    CopyData {data: Bytes}
+    CopyDone
+    NegotiateProtocolVersion {minor: Int, unrecognized: List<String>}
+    /// A kind the protocol does not define, by its letter's code.
+    Unknown {kind: Int}
+end
+
+derive Equatable for Message
+
+/// Where a session stands, as each `ReadyForQuery` says.
+pub enum TxStatus
+    /// No transaction block is open.
+    Idle
+    /// A transaction block is open.
+    InTransaction
+    /// A transaction block is open and a statement in it failed, so every
+    /// statement but a rollback is refused until it ends.
+    Failed
+end
+
+derive Equatable for TxStatus
+
+/// A result column, as a `RowDescription` describes it.
+pub struct Field
+    name: String
+    /// The table the column reads, by OID, and its attribute number there;
+    /// 0 and 0 for an expression.
+    table:     Int
+    attribute: Int
+    /// The column's type, by OID, and its modifier (-1 for none).
+    type_oid:      Int
+    type_size:     Int
+    type_modifier: Int
+    /// 0 for text, 1 for binary.
+    format: Int
+end
+
+derive Equatable for Field
+
+/// An error or a notice: its fields, `""` where the server sent none.
+/// `position` is the 1-based character the error is at in the statement's
+/// text, 0 for none.
+pub struct Report
+    severity:   String = ""
+    code:       String = ""
+    message:    String = ""
+    detail:     String = ""
+    hint:       String = ""
+    position:   Int = 0
+    schema:     String = ""
+    table:      String = ""
+    column:     String = ""
+    data_type:  String = ""
+    constraint: String = ""
+end
+
+derive Equatable for Report
+
+/// The startup message: the protocol version, then each setting's name
+/// and value.
+//! bytes = startup([("user", "ann")])
+//!
+//! assert Bytes.to_list(bytes) |> Iter.map(Byte.to_int) |> Iter.to_list() == [
+//!     0, 0, 0, 18, 0, 3, 0, 0, 117, 115, 101, 114, 0, 97, 110, 110, 0, 0,
+//! ]
+//
+pub fn startup(settings: List<(String, String)>) -> Bytes
+    body =
+        settings
+        |> Iter.reduce(Builder.new()
+        |> Builder.push_int32_be(protocol_version), fn b, (name, value) ->
+            b |> c_string(name) |> c_string(value)
+        end)
+        |> Builder.push(0)
+        |> Builder.to_bytes()
+
+    untyped(body)
+end
+
+/// The request that asks the server whether it speaks TLS.
+//! assert Bytes.to_list(ssl_request()) |> Iter.map(Byte.to_int) |> Iter.to_list() == [
+//!     0, 0, 0, 8, 4, 210, 22, 47,
+//! ]
+//
+pub fn ssl_request() -> Bytes
+    untyped(
+        Builder.new()
+        |> Builder.push_int32_be(80_877_103)
+        |> Builder.to_bytes()
+    )
+end
+
+/// The request, sent on a connection of its own, that cancels what the
+/// connection `process` with `secret` is running.
+//! bytes = cancel_request(1234, Bytes.from_list([0, 0, 0, 7]))
+//! assert Bytes.length(bytes) == 16
+//! assert Bytes.int32_be_at(bytes, 4) == Some(80_877_102)
+//! assert Bytes.int32_be_at(bytes, 8) == Some(1234)
+//
+pub fn cancel_request(process: Int, secret: Bytes) -> Bytes
+    Builder.new()
+    |> Builder.push_int32_be(80_877_102)
+    |> Builder.push_int32_be(process)
+    |> Builder.push_bytes(secret)
+    |> Builder.to_bytes()
+    |> untyped()
+end
+
+/// A password, in clear or as an MD5 hash's text.
+//! assert password("pw") == Bytes.from_list([112, 0, 0, 0, 7, 112, 119, 0])
+//
+pub fn password(text: String) -> Bytes
+    typed(
+        "p",
+        Builder.new()
+        |> c_string(text)
+        |> Builder.to_bytes(),
+    )
+end
+
+/// The first SASL message: the mechanism chosen and the client's first
+/// message.
+pub fn sasl_initial(mechanism: String, data: String) -> Bytes
+    body =
+        Builder.new()
+        |> c_string(mechanism)
+        |> Builder.push_int32_be(Bytes.length(String.to_bytes(data)))
+        |> Builder.push_string(data)
+        |> Builder.to_bytes()
+
+    typed("p", body)
+end
+
+/// A later SASL message.
+pub fn sasl_response(data: String) -> Bytes
+    typed("p", String.to_bytes(data))
+end
+
+/// A simple query: one or more statements, with no parameters.
+//! bytes = query("SELECT 1")
+//!
+//! assert Bytes.to_list(bytes) |> Iter.map(Byte.to_int) |> Iter.to_list() == [
+//!     81, 0, 0, 0, 13, 83, 69, 76, 69, 67, 84, 32, 49, 0,
+//! ]
+//
+pub fn query(sql: String) -> Bytes
+    typed(
+        "Q",
+        Builder.new()
+        |> c_string(sql)
+        |> Builder.to_bytes(),
+    )
+end
+
+/// Prepares `sql` as the statement `name` (`""` for the unnamed one), with
+/// the parameter types given by OID, 0 to let the server infer one.
+//! bytes = parse("s1", "SELECT $1", [])
+//! assert Bytes.to_string(Bytes.slice(bytes, 5, 7)) == Ok("s1")
+//! assert Bytes.length(bytes) == 1 + 4 + 3 + 10 + 2
+//
+pub fn parse(name: String, sql: String, types: List<Int>) -> Bytes
+    start =
+        Builder.new() |> c_string(name) |> c_string(sql) |> Builder.push_int16_be(Iter.count(types))
+
+    typed(
+        "P",
+        Iter.reduce(types, start, Builder.push_int32_be)
+        |> Builder.to_bytes(),
+    )
+end
+
+/// Binds `statement`'s parameters into the portal `portal`: each
+/// parameter's format (0 text, 1 binary) and value (`None` for NULL), and
+/// each result column's format.
+//! bytes = bind("", "s1", [0], [Some(String.to_bytes("7")), None], [1])
+//!
+//! assert Bytes.to_list(bytes) |> Iter.map(Byte.to_int) |> Iter.to_list() == [
+//!     66, 0, 0, 0, 27, 0, 115, 49, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 1, 55, 255, 255, 255, 255, 0, 1, 0,
+//!     1,
+//! ]
+//
+pub fn bind(
+    portal:         String,
+    statement:      String,
+    param_formats:  List<Int>,
+    params:         List<Maybe<Bytes>>,
+    result_formats: List<Int>,
+) -> Bytes
+    start =
+        Builder.new()
+        |> c_string(portal)
+        |> c_string(statement)
+        |> Builder.push_int16_be(Iter.count(param_formats))
+
+    with_formats = Iter.reduce(param_formats, start, Builder.push_int16_be)
+
+    with_params =
+        params
+        |> Iter.reduce(with_formats
+        |> Builder.push_int16_be(Iter.count(params)), fn b, param ->
+            case param
+                Some(data) ->
+                    b |> Builder.push_int32_be(Bytes.length(data)) |> Builder.push_bytes(data)
+
+                None ->
+                    b |> Builder.push_int32_be(-1)
+            end
+        end)
+
+    body =
+        result_formats
+        |> Iter.reduce(
+            with_params
+            |> Builder.push_int16_be(Iter.count(result_formats)),
+            Builder.push_int16_be,
+        )
+        |> Builder.to_bytes()
+
+    typed("B", body)
+end
+
+/// Asks for a prepared statement's parameter types and result columns.
+pub fn describe_statement(name: String) -> Bytes
+    typed(
+        "D",
+        Builder.new()
+        |> Builder.push_string("S")
+        |> c_string(name)
+        |> Builder.to_bytes(),
+    )
+end
+
+/// Runs the portal `portal`, answering at most `max_rows` rows (0 for
+/// all) before it suspends.
+pub fn execute(portal: String, max_rows: Int) -> Bytes
+    typed(
+        "E",
+        Builder.new()
+        |> c_string(portal)
+        |> Builder.push_int32_be(max_rows)
+        |> Builder.to_bytes(),
+    )
+end
+
+/// Ends a pipeline of extended-protocol messages: the server answers what
+/// it has, then `ReadyForQuery`.
+//! assert sync() == Bytes.from_list([83, 0, 0, 0, 4])
+//
+pub fn sync() -> Bytes
+    typed("S", Bytes.from_list([]))
+end
+
+/// Asks the server to send what it has answered so far, with no
+/// `ReadyForQuery`.
+pub fn flush() -> Bytes
+    typed("H", Bytes.from_list([]))
+end
+
+/// Drops the prepared statement `name`.
+pub fn close_statement(name: String) -> Bytes
+    typed(
+        "C",
+        Builder.new()
+        |> Builder.push_string("S")
+        |> c_string(name)
+        |> Builder.to_bytes(),
+    )
+end
+
+/// Refuses a `COPY ... FROM STDIN` the server started, with a reason.
+pub fn copy_fail(reason: String) -> Bytes
+    typed(
+        "f",
+        Builder.new()
+        |> c_string(reason)
+        |> Builder.to_bytes(),
+    )
+end
+
+/// Ends the session.
+pub fn terminate() -> Bytes
+    typed("X", Bytes.from_list([]))
+end
+
+/// The message whose kind letter starts at `at` in `data`: its kind's
+/// code, its body and where the next one starts, or `None` when `data`
+/// does not hold all of it yet.
+//! data = Bytes.from_list([90, 0, 0, 0, 5, 73, 90, 0, 0])
+//! assert frame_at(data, 0) == Some((90, Bytes.from_list([73]), 6))
+//! assert frame_at(data, 6) == None
+//
+pub fn frame_at(data: Bytes, at: Int) -> Maybe<(Int, Bytes, Int)>
+    kind = Bytes.uint8_at(data, at)?
+    length = Bytes.int32_be_at(data, at + 1)?
+    stop = at + 1 + length
+
+    if stop > Bytes.length(data) or length < 4 then return None
+
+    Some((kind, Bytes.slice(data, at + 5, stop), stop))
+end
+
+/// How many bytes the message starting at `at` in `data` takes, once its
+/// header is there: what a read waits for.
+//! assert frame_length(Bytes.from_list([68, 0, 1, 0, 0]), 0) == Some(65_537)
+//! assert frame_length(Bytes.from_list([68, 0]), 0) == None
+//
+pub fn frame_length(data: Bytes, at: Int) -> Maybe<Int>
+    Bytes.int32_be_at(data, at + 1) |> Maybe.map(&(&1 + 1))
+end
+
+/// The message of kind `kind` with body `body`, or why it does not read as
+/// one.
+//! assert decode(90, Bytes.from_list([84])) == Ok(Message.ReadyForQuery{status: .InTransaction})
+//! assert decode(82, Bytes.from_list([0, 0, 0, 0])) == Ok(Message.AuthenticationOk)
+//!
+//! row = Bytes.from_list([0, 2, 0, 0, 0, 1, 55, 255, 255, 255, 255])
+//!
+//! assert decode(68, row) == Ok(Message.DataRow{
+//!         values: [Some(Bytes.from_list([55])), None],
+//!     })
+//!
+//! tag = String.to_bytes("INSERT 0 1") + Bytes.from_list([0])
+//! assert decode(67, tag) == Ok(Message.CommandComplete{tag: "INSERT 0 1"})
+//
+pub fn decode(kind: Int, body: Bytes) -> Result<Message, String>
+    decoded =
+        case kind
+            // D
+            68 ->
+                data_row(body)
+
+            // C
+            67 ->
+                c_string_at(body, 0) |> Maybe.map(fn (tag, _) -> Message.CommandComplete{tag:})
+
+            // Z
+            90 ->
+                Bytes.uint8_at(body, 0)
+                |> Maybe.flat_map(tx_status)
+                |> Maybe.map(fn status -> Message.ReadyForQuery{status:})
+
+            // T
+            84 ->
+                row_description(body)
+
+            // R
+            82 ->
+                authentication(body)
+
+            // E
+            69 ->
+                Some(Message.ErrorResponse{report: report(body)})
+
+            // N
+            78 ->
+                Some(Message.NoticeResponse{report: report(body)})
+
+            // S
+            83 ->
+                parameter_status(body)
+
+            // K
+            75 ->
+                backend_key(body)
+
+            // 1
+            49 ->
+                Some(Message.ParseComplete)
+
+            // 2
+            50 ->
+                Some(Message.BindComplete)
+
+            // 3
+            51 ->
+                Some(Message.CloseComplete)
+
+            // n
+            110 ->
+                Some(Message.NoData)
+
+            // s
+            115 ->
+                Some(Message.PortalSuspended)
+
+            // I
+            73 ->
+                Some(Message.EmptyQueryResponse)
+
+            // t
+            116 ->
+                parameter_description(body)
+
+            // A
+            65 ->
+                notification(body)
+
+            // G
+            71 ->
+                Some(Message.CopyInResponse)
+
+            // H
+            72 ->
+                Some(Message.CopyOutResponse)
+
+            // d
+            100 ->
+                Some(Message.CopyData{data: body})
+
+            // c
+            99 ->
+                Some(Message.CopyDone)
+
+            // v
+            118 ->
+                negotiate(body)
+
+            _ ->
+                Some(Message.Unknown{kind:})
+        end
+
+    decoded |> Maybe.to_result("a message of kind ${kind} that does not read as one")
+end
+
+fn untyped(body: Bytes) -> Bytes
+    Builder.new()
+    |> Builder.push_int32_be(Bytes.length(body) + 4)
+    |> Builder.push_bytes(body)
+    |> Builder.to_bytes()
+end
+
+fn typed(kind: String, body: Bytes) -> Bytes
+    Builder.new()
+    |> Builder.push_string(kind)
+    |> Builder.push_int32_be(Bytes.length(body) + 4)
+    |> Builder.push_bytes(body)
+    |> Builder.to_bytes()
+end
+
+fn c_string(b: Builder, text: String) -> Builder
+    b |> Builder.push_string(text) |> Builder.push(0)
+end
+
+// The text of the NUL-ended string at `at`, and where the next field
+// starts.
+fn c_string_at(body: Bytes, at: Int) -> Maybe<(String, Int)>
+    stop = Bytes.index_of_byte(body, 0, from: at)?
+    Some((Bytes.to_string_lossy(Bytes.slice(body, at, stop)), stop + 1))
+end
+
+fn tx_status(code: Int) -> Maybe<TxStatus>
+    case code
+        // I
+        73 -> Some(TxStatus.Idle)
+        // T
+        84 -> Some(TxStatus.InTransaction)
+        // E
+        69 -> Some(TxStatus.Failed)
+        _  -> None
+    end
+end
+
+fn data_row(body: Bytes) -> Maybe<Message>
+    count = Bytes.int16_be_at(body, 0)?
+    values = row_values(body, 2, count, [])?
+    Some(Message.DataRow{values:})
+end
+
+// The `left` values from `at` on, each a length (-1 for NULL) and its
+// bytes, after `done`, which holds the ones read so far newest first.
+fn row_values(
+    body: Bytes,
+    at:   Int,
+    left: Int,
+    done: List<Maybe<Bytes>>,
+) -> Maybe<List<Maybe<Bytes>>>
+    if left <= 0 then return Some(Iter.reverse(done))
+
+    length = Bytes.int32_be_at(body, at)?
+
+    if length < 0 then
+        row_values(body, at + 4, left - 1, [None, ..done])
+    else
+        stop = at + 4 + length
+        if stop > Bytes.length(body) then return None
+        row_values(body, stop, left - 1, [Some(Bytes.slice(body, at + 4, stop)), ..done])
+    end
+end
+
+fn row_description(body: Bytes) -> Maybe<Message>
+    count = Bytes.int16_be_at(body, 0)?
+    fields = row_fields(body, 2, count, [])?
+    Some(Message.RowDescription{fields:})
+end
+
+fn row_fields(body: Bytes, at: Int, left: Int, done: List<Field>) -> Maybe<List<Field>>
+    if left <= 0 then return Some(Iter.reverse(done))
+
+    (name, after) = c_string_at(body, at)?
+
+    field = Field{
+        name:,
+        table:         Bytes.uint32_be_at(body, after)?,
+        attribute:     Bytes.int16_be_at(body, after + 4)?,
+        type_oid:      Bytes.uint32_be_at(body, after + 6)?,
+        type_size:     Bytes.int16_be_at(body, after + 10)?,
+        type_modifier: Bytes.int32_be_at(body, after + 12)?,
+        format:        Bytes.int16_be_at(body, after + 16)?,
+    }
+
+    row_fields(body, after + 18, left - 1, [field, ..done])
+end
+
+fn authentication(body: Bytes) -> Maybe<Message>
+    code = Bytes.int32_be_at(body, 0)?
+    rest = Bytes.slice(body, 4, Bytes.length(body))
+
+    case code
+        0  -> Some(Message.AuthenticationOk)
+        3  -> Some(Message.AuthenticationCleartext)
+        5  -> Some(Message.AuthenticationMd5{salt: rest})
+        10 -> Some(Message.AuthenticationSasl{mechanisms: c_strings(rest, 0, [])})
+        11 -> Some(Message.AuthenticationSaslContinue{data: Bytes.to_string_lossy(rest)})
+        12 -> Some(Message.AuthenticationSaslFinal{data: Bytes.to_string_lossy(rest)})
+        _  -> Some(Message.AuthenticationOther{code:})
+    end
+end
+
+// The NUL-ended strings from `at` on, up to an empty one or the end.
+fn c_strings(body: Bytes, at: Int, done: List<String>) -> List<String>
+    case c_string_at(body, at)
+        Some((text, next)) when text != "" -> c_strings(body, next, [text, ..done])
+        _                                  -> Iter.reverse(done)
+    end
+end
+
+fn parameter_status(body: Bytes) -> Maybe<Message>
+    (name, after) = c_string_at(body, 0)?
+    (value, _) = c_string_at(body, after)?
+    Some(Message.ParameterStatus{name:, value:})
+end
+
+fn backend_key(body: Bytes) -> Maybe<Message>
+    process = Bytes.int32_be_at(body, 0)?
+    Some(Message.BackendKeyData{process:, secret: Bytes.slice(body, 4, Bytes.length(body))})
+end
+
+fn parameter_description(body: Bytes) -> Maybe<Message>
+    count = Bytes.int16_be_at(body, 0)?
+
+    types =
+        0..count
+        |> Iter.map(fn i -> Bytes.uint32_be_at(body, 2 + 4 * i))
+        |> Maybe.collect()?
+
+    Some(Message.ParameterDescription{types:})
+end
+
+fn notification(body: Bytes) -> Maybe<Message>
+    process = Bytes.int32_be_at(body, 0)?
+    (channel, after) = c_string_at(body, 4)?
+    (payload, _) = c_string_at(body, after)?
+    Some(Message.NotificationResponse{process:, channel:, payload:})
+end
+
+fn negotiate(body: Bytes) -> Maybe<Message>
+    minor = Bytes.int32_be_at(body, 0)?
+    Some(Message.NegotiateProtocolVersion{minor:, unrecognized: c_strings(body, 8, [])})
+end
+
+// The fields of an ErrorResponse or a NoticeResponse: each a code letter
+// and a NUL-ended value, up to a 0 byte.
+fn report(body: Bytes) -> Report
+    report_from(body, 0, Report{})
+end
+
+fn report_from(body: Bytes, at: Int, done: Report) -> Report
+    case Bytes.uint8_at(body, at)
+        Some(code) when code != 0 ->
+            case c_string_at(body, at + 1)
+                Some((value, next)) -> report_from(body, next, with_field(done, code, value))
+                None                -> done
+            end
+
+        _ ->
+            done
+    end
+end
+
+fn with_field(report: Report, code: Int, value: String) -> Report
+    case code
+        // S, V: the severity, localized and not
+        83 -> if report.severity == "" then {..report, severity: value} else report
+        86 -> {..report, severity: value}
+        // C
+        67 -> {..report, code: value}
+        // M
+        77 -> {..report, message: value}
+        // D
+        68 -> {..report, detail: value}
+        // H
+        72 -> {..report, hint: value}
+        // P
+        80 -> {..report, position: String.to_int(value) |> Maybe.with_default(0)}
+        // s
+        115 -> {..report, schema: value}
+        // t
+        116 -> {..report, table: value}
+        // c
+        99 -> {..report, column: value}
+        // d
+        100 -> {..report, data_type: value}
+        // n
+        110 -> {..report, constraint: value}
+        _   -> report
+    end
+end

@@ -52,10 +52,13 @@ func stdModuleContext(module, path, pkg string, nodes []ast.Node, fa *analysis.F
 	// See lowerStdlibModule, which is where the measurement behind it lives.
 	analysis.MarkTailCalls(nodes)
 
-	anchors := stdAnchorsOf(fa)
 	v := &stdModuleView{module: module, path: path, pkg: pkg, nodes: nodes, fa: fa}
-	v.cands = collectStdCandidates(module, nodes, anchors)
-	v.onces = collectStdOnces(module, nodes, fa, anchors)
+	v.cands = collectStdCandidates(module, nodes, fa)
+	ids := fa.StdFuncs()
+	for _, c := range v.cands {
+		c.f.id = ids[c.f.node]
+	}
+	v.onces = collectStdOnces(module, nodes, fa)
 	v.settled = stdSettle(v.cands, v.onces)
 	closeStdOnces(v.onces)
 	return v

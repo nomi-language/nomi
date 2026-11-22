@@ -38,6 +38,6 @@ func (g *gen) debugScalarInspects(k kind) bool {
 	if g.std == nil {
 		return false
 	}
-	f := stdPick(g.std.byIface["Debug.inspect"][k], []kind{k})
+	f := stdPick(g.std.stdIfaceImpls(stdDebug.Func("inspect"), k), []kind{k})
 	return f != nil && f.why == "" && len(f.params) == 1 && f.params[0] == k && f.result == kindString
 }

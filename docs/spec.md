@@ -194,13 +194,13 @@ word is for and offers another name.
 `extern fn` is the error
 ``runtime-provided declarations use `host fn`, not `extern fn` ``, and
 `extern` before any other declaration is
-`` unexpected 'extern'; runtime-provided declarations use `host`, and Go package handles use `gopkg` ``.
+`` unexpected 'extern'; runtime-provided declarations use `host` ``.
 
 These words have a meaning only where their construct stands, and are
-ordinary names elsewhere: `host`, `gopkg` and `go` (§19), `open` and
-`derive` (§12), `embeds` (§4), `on` and `error` (§9),
-`phrase`, `noun` and `embed` (§18), `concurrent` (§16), and `group`,
-`clock`, `boot`, `setup` and `subtests` (§17), and `todo` (§11).
+ordinary names elsewhere: `host` (§19), `open` and `derive` (§12),
+`embeds` (§4), `on` and `error` (§9), `phrase`, `noun` and `embed` (§18),
+`concurrent` (§16), and `group`, `clock`, `boot`, `setup` and `subtests`
+(§17), and `todo` (§11).
 
 `todo` names anything a name can: a parameter, a binding, a field, a
 function, a pattern's binding, an import. Read as a value, a bare `todo` is
@@ -220,10 +220,10 @@ that imports it by name. A module named `todo` (a file `todo.nomi`) is not
 a value, so it leaves a bare `todo` the placeholder; `todo.create(...)`
 still names its member.
 
-`derive`, `gopkg` and `go` may name a parameter or a binding, but a
-statement that begins with one of them always starts that declaration. So
-`derive + 1` is an error (`` expected interface name after `derive` ``)
-even inside `fn f(derive: Int)`.
+`derive` may name a parameter or a binding, but a statement that begins
+with it always starts a declaration. So `derive + 1` is an error
+(`` expected interface name after `derive` ``) even inside
+`fn f(derive: Int)`.
 
 ### Operators and punctuation
 
@@ -959,7 +959,7 @@ except as noted (§12).
 **`Int`** is the one integer type: signed and exact at any size, with no
 largest or smallest value. There are no sized or unsigned variants.
 Arithmetic never overflows; the value grows (§8). Where an `Int` meets a
-fixed number of bits (a Go binding, a database column), a
+fixed number of bits (a host function, a database column), a
 value that does not fit is an error there. The bitwise operators work on
 `Int`s of any size (§8).
 
@@ -999,8 +999,12 @@ such as `where T: Hashable` accepts a `Result<Int, Infallible>`. It is what
 a lambda's result leaves open against an interface (§7 *Lambdas*).
 
 **`Codepoint`** is a Unicode scalar value, with a literal for ASCII (§3
-*Codepoint literals*). There is no character type: one character of text is
-a `String` of length 1.
+*Codepoint literals*). std declares it as an opaque validated type,
+`pub opaque type Codepoint Int64 when ...` (*Validated types*), whose rule
+admits `0` through `0x10FFFF` except the surrogates `0xD800` through
+`0xDFFF`, so every Codepoint is one: `Int.to_codepoint(n)` answers `None`
+for an Int the rule refuses. There is no character type: one character of text is a
+`String` of length 1.
 
 **`Byte`** is a value from 0 to 255, and `Bytes` an immutable byte sequence,
 the boundary type for Go's `[]byte`. `Byte` is not a number: it has no
@@ -2043,12 +2047,19 @@ functions. These are rejected:
 | Outside the defining file | |
 |---|---|
 | `PositiveInt(5)`, `Date{...}`, `Status.Active` (construction) | rejected |
+| `Percent.try_from(n)`, `Percent.unchecked(n)` (construction through a provided function) | rejected |
 | `PositiveInt(n) = p`, a `case` on its variants (destructuring) | rejected |
 | `d.year`, a named tuple's `p.first` (field and item access) | rejected |
 | `Struct.update(d, {year: 1})`, `{..d, year: 1}` (a patch naming a field) | rejected |
 
 Inside the defining file every form works. An opaque enum's variants are
 unreachable outside it for construction, matching and payload access alike.
+The `try_from` and `unchecked` the compiler provides for a type with a rule
+in its chain (*Validated types*) build a value of it, so for an opaque type
+they are construction too: outside its file a call of either, or either
+named as a value, is ``` `Percent.try_from` constructs the opaque type 'Percent', whose construction is private to its defining module — use an exported constructor function ```.
+A `try_from` the file writes in an `impl TryFrom<E>` of its own is a
+public function like any other.
 
 ```nomi
 // positive.nomi
@@ -2066,6 +2077,15 @@ end
 Opacity restricts these operations and nothing else. An opaque type
 satisfies every interface a transparent one would, at bounds and as an
 interface value: `Struct`, `Distinct<T>`, `Debug`, `Display`, `Equatable`.
+The one exception is the `TryFrom` the compiler provides for it, which
+builds a value and so is construction: outside the file it counts toward
+no bound, so a generic call bounded by `TryFrom<Int>` at the type, an
+impl whose `where` needs it, a conversion to a `TryFrom<Int>` value and
+`TryFrom.try_from(n)` where the type is expected are each an error that
+the type lacks the impl, at a bound
+``Percent does not implement TryFrom<Int> (required by `where T: TryFrom<Int>`)``,
+with the help ``'Percent' is opaque, and its construction is private to its defining module: the `try_from` its rule provides builds a value, so its `TryFrom` impl counts only there; use an exported constructor function``.
+A `TryFrom` impl the file writes itself counts everywhere.
 Its automatic `Debug` renders `<opaque T>`, inside and outside its file. An
 interface default that takes `self` apart or builds one does not apply to an
 opaque type implemented outside its file; that impl writes the function
@@ -2129,9 +2149,12 @@ validated struct's rule takes the struct. A `when` after the struct's
 ``a struct's `when` rule goes inside its body, after its fields``, and one
 above a field is ``a struct's `when` rule comes after every field``.
 The rule is a pure function of
-its value: it may call pure functions and read a `once` with no effects,
+its value alone: it may call pure functions and read a `once` with no effects,
 and a rule that reaches an effect (§19 *Effects*) is an error at the declaration,
 ``the rule of Noisy has effects (loud calls io.print): a rule is a pure function of the value it checks``.
+So is a rule that reads an app field, since the compiler checks it with the value alone:
+``the rule of Bounded reads `App.limit`: a rule is checked with the value alone, and an app field exists only while the program runs``.
+So is a rule that reaches a pure function whose cost grows with its argument, such as `String.repeat`, which §19 *Effects* calls unbounded.
 A subtype is declared at the top of a file. It cannot be `opaque`, since its point is that its base is visible:
 ``a subtype cannot be opaque: `Secret`'s values are values of its parent, which every file sees; drop `opaque`, or declare a new type, `opaque type Secret ...`, and check values in its constructor``.
 
@@ -2227,10 +2250,106 @@ or `ShiftRight` may take a subtype there, which states the operands the
 operator takes, as std's `impl Divide<NonZeroInt, Int> for Int` does
 (§8 *Integer division and remainder*). An operand of a subtype is its
 base's value: `p + 1.0` is a `Float`, `port == 80` compares Ints, and a
-literal pattern matches a narrowed value. The std numeric subtypes are
+literal pattern matches a narrowed value as it matches the base's, one
+value of it, so a `case` over a `Port` whose arms are literals needs a
+`_` or `Port(n)` arm. The std numeric subtypes are
 the one exception: an operation on them is the subtype its value's range proves (*Value ranges*). An enum cannot embed a
 subtype. A validated struct is a struct: it converts to nothing, and
 its rule only constrains how values are built.
+
+A subtype does not have its base's impl of an interface that makes a
+value of its type: one with a function whose result names `self` and
+whose body each impl writes. In std these are `Parse`, `ParseFields`,
+`FromJson`, `FromSql`, `Summable`, `Productable`, `Discrete`,
+`Steppable`, `From`, `TryFrom`, `Variants` and `Struct`. The base's
+impl makes a value of the base, which no rule of the subtype has
+checked. So `Parse.parse<Port>(text)` is the error
+``Port has no impl of Parse (required by `Parse.parse`): Port is a subtype of Int, and Int's `Parse.parse` makes an Int that Port's rule has not checked``
+with the help
+``make an Int and check it with `Port.try_from(...)`, which is `Some` when it satisfies `fn port -> port >= 1 and port <= 65535` and `None` when not``,
+and so is `Summable.empty_sum<Port>()`.
+
+A reader is the exception: an interface function that makes a value from
+outside data and reports a failure the compiler can build reads a
+subtype at its base and checks the subtype's rules, a value that breaks
+one being the read's failure. `FromJson` is the one: `from_json` at a
+`Port` is Int's `from_json` and then `Port.try_from` of the Int, and a
+breach is the `Json.ShapeError` that expects the subtype and got the
+value, `port: expected Port, got 0`. So `Json.decode_as<Port>(text)`,
+`Json.decode_as<List<Port>>(text)`, `Json.decode_as<{port: Port}>(text)`
+and a `derive FromJson` for a struct with a `Map<String, Port>` field
+each read Ints and check them, an intersection against each member's
+rules and a subtype of a subtype against every rule its `try_from`
+checks. A record read from texts, std::parse's `ParseFields`, reads a
+field of a subtype with its base's `Parse` and checks it the same way, a
+breach the record's `None`: `parse.read_fields<{v: Port}>({"v" => "0"})`
+is `None`, and a route's `{id: Port}` parameter that breaks the rule
+answers no route (404). `Parse.parse<Port>(text)` stays the error above,
+since a breach would need an error of Parse's `E`, which each impl
+chooses. Inside a generic type, std::json's own impls read a subtype
+(`List`, `Vector`, `Set`, `Maybe`, `Result` and `Map<String, V>`). Any
+other generic type, the program's or another std module's, has one impl
+for every instance of one kind, so its `where T: FromJson` reads no
+subtype: with `struct Box<T>` deriving FromJson,
+`Json.decode_as<Box<Port>>(text)` is
+``Box<Port> does not implement FromJson (required by `where T: FromJson`)``
+with the help
+``Box<Port> is read through an impl of FromJson that one generic type's instances share, which would read Port as its base; read Box<Int> and check the value with `Port.try_from(...)` ``.
+
+A generic call whose arguments solve a type parameter to a subtype,
+under a bound of an interface that makes a value, is called at the base
+instead: with `ports` a `List<Port>`,
+`Iter.sum(ports)` is an `Int` and `Discrete.next(p)` a `Maybe<Int>`, so
+`total: Port = Iter.sum(ports)` is ``type mismatch: expected Port, got Int``,
+checked with `Port.try_from` as any Int is. A range iterates through
+`Discrete`, so a `Range<NonNegativeInt>` is no `Iter`; `0..n` ranges
+over Ints, and its elements keep their range. An interface whose
+functions that name `self` in their result are all defaults it writes
+still serves a subtype, since such a default answers a value it was
+given: `Comparable`'s `min`, `max` and `clamp`, so `Iter.max(ports)` is
+a `Maybe<Port>` and `Iter.sort(ports)` a `List<Port>`. `Display`,
+`Debug`, `ToJson`, `Equatable` and `Hashable` take a value and make
+none.
+
+```nomi
+import std::parse.Parse
+
+subtype Port Int when fn port -> port >= 1 and port <= 65535
+
+fn read_port(text: String) -> Maybe<Port>
+    case Parse.parse<Int>(text)
+        Ok(n)  -> Port.try_from(n)
+        Err(_) -> None
+    end
+end
+
+fn main()
+    ports: List<Port> = [80, 443]
+    dbg Iter.sum(ports)   // 523, an Int
+    dbg Iter.max(ports)   // Some(443), a Maybe<Port>
+    dbg read_port("0")    // None
+    dbg read_port("8080") // Some(8080)
+end
+```
+
+```nomi
+import std::json.{FromJson, Json}
+
+subtype Port Int when fn port -> port >= 1 and port <= 65535
+
+struct Server
+    host:  String
+    ports: List<Port>
+end
+
+derive FromJson for Server
+
+fn main()
+    dbg Json.decode_as<Server>(`{"host": "a", "ports": [80]}`) |> Result.is_ok() // True
+    bad = Json.decode_as<Server>(`{"host": "a", "ports": [80, 0]}`)
+    dbg bad |> Result.map_err(&Display.to_string(&1)) // Err("ports.[1]: expected Port, got 0")
+end
+```
 
 #### Intersections of subtypes
 
@@ -2258,10 +2377,8 @@ end
 The order of the members does not matter, and a member that is an
 ancestor of another adds nothing: `NonNegativeInt and NonZeroInt` and `NonZeroInt and NonNegativeInt`
 are one type, and `PositiveInt and NonZeroInt` is `PositiveInt`. Members
-of different bases are an error,
-``` `and` intersects subtypes of one type, and NonEmptyString is a String where NonNegativeInt is an Int ```,
-and so is a member that is neither an interface nor a subtype,
-``` `and` joins interfaces or subtypes, and Int is neither ```. An
+of different bases are an error, ``` `and` intersects subtypes of one type, and NonEmptyString is a String where NonNegativeInt is an Int ```,
+and so is a member that is neither an interface nor a subtype, ``` `and` joins interfaces or subtypes, and Int is neither ```. An
 interface beside subtypes is one their base must implement:
 `NonNegativeInt and Display` is a `NonNegativeInt`, and with `interface
 Named` that Int lacks, `NonNegativeInt and Named` is
@@ -2354,15 +2471,19 @@ A value enters a subtype three ways:
   A list, vector, set or map literal where `NonEmptyList`,
   `NonEmptyVector`, `NonEmptySet` or `NonEmptyMap` is expected needs no
   literal elements when its shape proves it holds something: it writes
-  an element or an entry, or spreads a value of one of those types (or a
-  subtype of one). `[a, b]`, `Vector[f(x)]`, `Set[x]`, `{k => v}`,
+  an element or an entry, or spreads a value that holds something: one
+  of those types (or a subtype of one), or a binding that holds
+  something (below). `[a, b]`, `Vector[f(x)]`, `Set[x]`, `{k => v}`,
   `[..xs, y]` and `[..xs, ..ys]` with `ys` a `NonEmptyList` are each one, with
   each element checked against the element type as usual. A literal
   made only of spreads of collections that may be empty, `[..xs]` with
-  `xs` a `List`, is the error ``` `[..xs]` may be empty, and a NonEmptyList holds something: none of its spreads is of a non-empty type, and it writes no element ```,
+  `xs` a `List`, is the error ``` `[..xs]` may be empty, and a NonEmptyList holds something: none of its spreads holds something, and it writes no element ```,
   and an empty one, `[]`, breaks the rule. A subtype declared over one
   of them keeps its own rule, so its literal's elements are literals. A
-  literal headed by a collection's name, `Vector[...]` or `Set[...]`,
+  string literal where a `NonEmptyString` is expected holds something by
+  its shape when it writes any text, whatever its `${...}` parts are:
+  `"n=${n}"` is one. One made only of `${...}` parts, `"${name}"`, may
+  be empty. A literal headed by a collection's name, `Vector[...]` or `Set[...]`,
   builds a subtype of that collection where one is expected, as the
   unnamed literal does.
   A range literal whose endpoints are both literals is one where a subtype
@@ -2396,8 +2517,55 @@ A value enters a subtype three ways:
   (adding two non-negative values gives a non-negative one); elsewhere it
   is ``` `Port.unchecked` builds a Port without checking its rule, and only the file that declares Port may call it ```.
 
+A binding with no type written keeps what its value proves about holding
+something, as it keeps a number's range (*Value ranges*). A List,
+Vector, Set, Map or String value holds something when it is of a
+non-empty type, a literal that holds something by its shape as above, a
+read of a binding that holds something, a block whose last expression
+holds something, or an `if` with an `else` or a `case` whose every
+branch that finishes holds something. With `names = ["a", "b"]`, `names`
+and `[..names]` pass where a `NonEmptyList<String>` is expected, with
+nothing run when the program does; `names` is still a `List<String>`
+wherever else it is read, as `x = 3` is an Int. With `label = "n=${n}"`,
+`label` passes where a `NonEmptyString` is expected the same way. An
+unannotated `once` whose value holds something is the non-empty subtype:
+`once words = ["a"]` is a `NonEmptyList<String>` and `once title =
+"Nomi"` a `NonEmptyString` in every file that reads it. A binding with a
+type written, a parameter and a field hold what their type states, and a
+value a function computes holds what its result type states:
+`Iter.to_list(xs)` is a `List`, `NonEmptyList.push(xs, y)` a
+`NonEmptyList`, and `String.trim(s)` a `String`. With `flag` a Bool, `if
+flag then ["a"] else []` may be empty, and so may `""` and `"${s}"`.
+
+```nomi
+once words = ["nomi", "pipeline"]
+
+once title = "Nomi"
+
+fn first_word(xs: NonEmptyList<String>) -> String
+    NonEmptyList.first(xs)
+end
+
+fn initial(s: NonEmptyString) -> String
+    String.take(s, 1)
+end
+
+fn main()
+    local = ["map", "filter"]
+    both = [..local, ..words]
+    n = 2
+    label = "n=${n}"
+    dbg first_word(words) // "nomi"
+    dbg first_word(local) // "map"
+    dbg first_word(both)  // "map"
+    dbg initial(title)    // "N"
+    dbg initial(label)    // "n"
+end
+```
+
 Any other value of the base where a subtype is expected, unless a check
-narrowed it (*Narrowing*) or its range proves the rule (*Value ranges*), is an error that names `try_from`: with `n: Int`, `p: Port = n` is
+narrowed it (*Narrowing*), its range proves the rule (*Value ranges*) or
+it holds something (above), is an error that names `try_from`: with `n: Int`, `p: Port = n` is
 `type mismatch: expected Port, got Int` with the help
 ``Port is a subtype of Int; check the value with `Port.try_from(...)`, which is `Some` when it satisfies `fn port -> port >= 1 and port <= 65535` and `None` when not``,
 and `Port(n)` is
@@ -2533,8 +2701,11 @@ A range comes from:
   `microseconds`, `milliseconds`, `seconds`, `minutes` and `hours`: the
   argument's range in nanoseconds, so `Duration.minutes(p)` with `p` a
   `PositiveInt` is a `PositiveDuration`; `String.length`, `List.length`,
-  `Vector.length`, `Map.size`, `Set.size` and `Iter.count` of a
-  non-empty subtype: positive; `Int.max(a, b)`, `Decimal.max` and
+  `Vector.length`, `Map.size`, `Set.size` and `Iter.count` of a value
+  that holds something (*Literals, `try_from` and `unchecked`*), as a
+  value of a non-empty subtype does and a binding with no type written
+  of `["a"]` does: positive, so with `names = ["a"]`,
+  `List.length(names)` is a `PositiveInt`; `Int.max(a, b)`, `Decimal.max` and
   `Duration.max`: at least the higher of the arguments' lowest values
   and at most the higher of their highest, and `min` the other way
   round, so `Int.max(1, n)` is a `PositiveInt`; `Int.clamp(v, a..=b)`,
@@ -2743,7 +2914,9 @@ checked when the program is compiled as a subtype's literal is
 (``"nope" is not an Email: `is_email` is false``, ``0 is not a UserId:
 UserId wraps PositiveInt, which is a subtype of NonZeroInt, and
 NonZeroInt's rule `fn n -> n != 0` is false``); through `T.try_from(x)`
-on a value of the base; through `T.unchecked(x)` in the declaring file;
+on a value of the base, which for an opaque type is private to its file
+as its call form is (*Opaque distinct types*); through `T.unchecked(x)`
+in the declaring file;
 and, for a `type` over a subtype with no rule of its own, from a value
 already of that subtype, `UserId(p)` with `p` a `PositiveInt`. Any other
 argument of the call form is an error that names `try_from` on it:
@@ -2977,7 +3150,10 @@ only `impl a.Show for User`, the call `b.Show.show(u)` is the error
 ``no impl of `b.Show` for `User` (required via call site)``, and a bound
 `where T: b.Show` or a value `s: b.Show = u` is rejected the same way. A
 call, a bound and a value find only impls of the interface they name,
-however the program spells it.
+however the program spells it. An impl is likewise of the interface its
+header names: after `import std::resources.{Release as Freeable}`, `impl
+Freeable for Lock` is Lock's `Release`, and beside an `impl Release for
+Lock` it is a duplicate impl.
 
 A tuple type and an anonymous struct type are structural: two of the same
 shape are one type (§4 *Built-in Types*). A function type is structural. A
@@ -3902,8 +4078,7 @@ parameter order, once per call. A default may read earlier parameters and
 the declaring file's functions. A default is checked against its parameter's
 type: `width: Int = "wide"` is
 `default value for parameter 'width' is String, expected Int`. A `host fn`'s
-and a `go` binding's default is Nomi code like a `fn`'s, evaluated before
-the call leaves Nomi.
+default is Nomi code like a `fn`'s, evaluated before the call leaves Nomi.
 
 ```nomi
 fn connect(host: String, port: Int = 8080, timeout: Int = 30) -> String
@@ -4209,10 +4384,11 @@ body, closed by `end`, and `fn -> end` is the empty body:
 
 ```nomi
 fn main()
-    shout = fn s: String ->
-        loud = String.uppercase(s)
-        "${loud}!"
-    end
+    shout =
+        fn s: String ->
+            loud = String.uppercase(s)
+            "${loud}!"
+        end
 
     dbg [1, 2]
     |> Iter.map(fn n ->
@@ -4609,7 +4785,7 @@ iteration ran.
 At most 100,000 calls may be in progress at once on one task. The call that
 would start one more is a trap at its line:
 
-```
+```console
 line 4: stack overflow: more than 100000 nested calls
 ```
 
@@ -4675,7 +4851,7 @@ end
   is `` `export` applies to top-level functions only ``, and in an `impl`
   block
   ``a function in an `impl Type` block cannot be exported: `export fn` declares a top-level function``.
-  A `host fn` and a `go` binding have no body to export
+  A `host fn` has no body to export
   (``a `host fn` is supplied by the host and cannot be exported; an `export fn` has a body``).
 - **Not `pub`.** `pub` makes a function visible to the program's other
   files; `export` makes it callable from outside the program.
@@ -4717,8 +4893,9 @@ Values cross as `ToJson` writes them and `FromJson` reads them:
 | `List<T>`, `Vector<T>`, `Set<T>` | array | array |
 | `Map<String, V>` | object | object |
 | struct | object, as `derive ToJson` writes it | object |
-| enum | a bare variant's name as a string; `{"Variant": payload}` for one with a payload | string or object |
+| enum | a bare variant's name as a string; `{"Variant": payload}`, an object with that one key, for one with a payload | string or object |
 | `Maybe<T>` | the value, or `null` for `None` | the value or `null` |
+| `Result<T, E>` | `{"Ok": value}` or `{"Err": error}`, as an enum's variant with a payload | object |
 | `Unit` (a result only) | nothing | `undefined` |
 
 A `Float` parameter reads a whole number too, since JavaScript writes `2.0`
@@ -4849,7 +5026,14 @@ end
 
 `Int.wrapping_add`, `Int.wrapping_sub` and `Int.wrapping_mul` return the low
 64 bits of the exact result as a signed 64-bit `Int`, for arithmetic defined
-over 64 bits (a hash, a checksum). `derive Hashable` mixes with them.
+over 64 bits (a hash, a checksum). `derive Hashable` mixes with them. Their
+32-bit siblings (`Int.wrapping_add_32` and the rest), and the rotations, zero
+counts and byte swaps at 32 and 64 bits (`Int.rotate_left_32`,
+`Int.leading_zeros_64`, `Int.swap_bytes_32`), read the low bits of their
+operands in two's complement, so any `Int` is an operand. A 32-bit one
+answers the unsigned value and a 64-bit one the signed value, so each answer
+fits 64 bits. `Int.wrap_signed(n, width)` reduces `n` into the signed range
+of `width` bits, and `n &&& 0xFFFF_FFFF` keeps its low 32 bits unsigned.
 
 Where a value must fit a machine integer, the boundary says so:
 
@@ -4857,14 +5041,6 @@ Where a value must fit a machine integer, the boundary says so:
   `Iter.get(xs, Int.pow(10, 30))` is `None`, `Iter.take(xs, n)` with `n`
   past 64 bits takes all of `xs`, and `Vector.get(v, Int.pow(10, 30))!` traps as any index
   out of range does.
-- A Go function bound with `go` (§19) that takes `int64`, `int` or a narrower
-  integer declares a parameter type whose every value it holds: `Int64`, or
-  a subtype whose rule bounds it within the Go type's range. A plain `Int`
-  there is an error at the binding (§19 *How Nomi types project to Go*), so
-  `Int64.try_from(n)` checks a computed value before the call. A Go
-  `uint64` result past 64 signed bits is an exact `Int`. A Go `*big.Int`
-  parameter or result takes any `Int`, and a nil `*big.Int` result traps
-  (`` `pkg.F` returned a nil *big.Int, which is not an Int ``).
 - A library type with a 64-bit range says so in its reference: a
   database driver refuses an `Int` its engine cannot store. A
   [`Duration`](/reference/duration/) is an `Int` of nanoseconds with no
@@ -4893,8 +5069,7 @@ sign of the dividend, so `(a / b) * b + (a % b) == a`: `-7 / 3 == -2` and `-7
   `NonZeroInt` or below it, or when its range proves it off zero (§4 *Value
   ranges*): a binding checked first (§4 *Narrowing*), `n + 1` with `n` a
   `NonNegativeInt`, `Duration.minutes(15)`. Any other divisor is an error at
-  the divisor that says how to make it one:
-  ``` `/` divides by a NonZeroInt; `elapsed` is an Int ``` with the help
+  the divisor that says how to make it one: ``` `/` divides by a NonZeroInt; `elapsed` is an Int ``` with the help
   ``check it first (`if elapsed == 0 then ...`) or take a NonZeroInt``.
   A divisor that is always zero is
   `division by zero: the divisor is the literal 0`, or with `zero = 0`,
@@ -4911,9 +5086,9 @@ fn average(total: Int, n: PositiveInt) -> Int
 end
 
 fn main()
-    dbg per_hour(120, 4)                             // 30
-    dbg average(10, 4)                               // 2
-    dbg 7 % 3                                        // 1
+    dbg per_hour(120, 4) // 30
+    dbg average(10, 4)   // 2
+    dbg 7 % 3            // 1
     dbg Int.divide(9, NonZeroInt.try_from(3 - 1)!) // 4
 end
 ```
@@ -5107,8 +5282,7 @@ end
   one.
 - The count is a `NonNegativeInt` (`impl ShiftLeft<NonNegativeInt, Int> for
   Int`), held to it as a divisor is to `NonZeroInt` (§8 *Integer division
-  and remainder*): with `n` an `Int`, `1 <<< n` is
-  ``` `<<<` shifts by a NonNegativeInt; `n` is an Int ``` with the help
+  and remainder*): with `n` an `Int`, `1 <<< n` is ``` `<<<` shifts by a NonNegativeInt; `n` is an Int ``` with the help
   ``check it first (`if n < 0 then ...`) or take a NonNegativeInt``. A left
   shift whose result would not fit in memory traps.
 - `Byte` has `&&&`, `|||`, `^^^` and `~~~`, whose results stay within 8 bits
@@ -5153,6 +5327,8 @@ passing as values (`Iter.reduce(flags, 0, Int.bitwise_or)`).
 - `<`, `>`, `<=` and `>=` need the operand type to implement `Comparable`,
   through `derive Comparable` or an impl. Without one they are an error:
   ``no impl of `Comparable` for `P` (required via ordering operator `<`)``.
+  An operand held as an interface value has no order, `Comparable` itself
+  included (§12 *Interface values*).
 - The operands are a determining position for each other (§5): `k == .Deposit`
   resolves `.Deposit` against `k`'s enum.
 
@@ -5566,11 +5742,12 @@ empty block, whose value is `Unit`.
 
 ```nomi
 fn main()
-    total = begin
-        x = 2
-        y = 3
-        x + y
-    end
+    total =
+        begin
+            x = 2
+            y = 3
+            x + y
+        end
 
     dbg total // 5
 end
@@ -5982,8 +6159,9 @@ type's usual release or commit: `impl Release for Writer` calls
 `Writer.close(w)`. In std, `Reader` releases with `Reader.close_quietly`,
 `Writer` with `Writer.discard` and commits with `Writer.close`, `File` with
 `File.close_quietly`, `Child` with `Child.kill`, `http.StreamedResponse`
-(what `http.stream` returns) with `StreamedResponse.close`, and `sql.Conn`
-with `sql.close_quietly`. A type of the program's own may implement either.
+(what `http.stream` returns) with `StreamedResponse.close`, `wasm.Instance`
+with `Instance.drop`, and `sql.Conn` with `sql.close_quietly`. A type of the
+program's own may implement either.
 
 **An acquisition must be released.** An acquisition is a call whose result is
 a value of a Release type, or a `Result` with one in its `Ok`, and which
@@ -6111,15 +6289,16 @@ end
 ```
 ```nomi
 fn open_app(kind: String, path: String) -> Result<App, sql.Error>
-    store = case kind
-        "sqlite" ->
-            db = sqlite_store.open(path)?
-            defer sql.close_quietly(db.conn) // error: `db` leaves the block as its value
-            db
+    store =
+        case kind
+            "sqlite" ->
+                db = sqlite_store.open(path)?
+                defer sql.close_quietly(db.conn) // error: `db` leaves the block as its value
+                db
 
-        _ ->
-            memory_store()
-    end
+            _ ->
+                memory_store()
+        end
 
     Ok(App{store:})
 end
@@ -6459,6 +6638,9 @@ end
 - A list pattern is refutable. Coverage is by length (*Exhaustiveness
   checking*): `[1, .., 3]` can fail, so as a binding it takes an `else`, and
   alone in a `case` it is ``non-exhaustive case on List<Int>: missing []``.
+  A rest that is a list pattern covers the elements it names, so `[a,
+  ..[b]]` covers the lists of two elements, as `[a, b]` does; a rest any
+  other pattern constrains covers no length.
 - Over a value that is no list, vector or set it is the error `list pattern
   requires a list, vector or set, got Int`.
 - `+` patterns are for strings only (*String Prefix Patterns*).
@@ -7064,10 +7246,11 @@ it. A body whose last expression is `Ok(...)` fixes only the success type.
 
 ```nomi
 // outcome: Result<Int, String>; String comes from `Task.await(t)?`
-outcome = concurrent
-    t = Task.spawn(fn -> fetch()) // fetch(): Result<Int, String>
-    Ok(Task.await(t)?)
-end
+outcome =
+    concurrent
+        t = Task.spawn(fn -> fetch()) // fetch(): Result<Int, String>
+        Ok(Task.await(t)?)
+    end
 ```
 
 - `?` sites with different error types in one boundary are the error ``
@@ -7121,7 +7304,7 @@ end
   implements `Display`, and by its `Debug` otherwise. A `None` says it found
   nothing:
 
-  ```text
+  ```console
   line 7: `half(3)` failed: 3 is odd
   line 4: `Date.new(2024, 13, 1)` failed: invalid value: month out of range: 13
   line 3: `Map.get(counts, "z")` found nothing
@@ -7345,7 +7528,9 @@ end
   interface, as `Square.area(sq)` needs none, wherever the interface and the
   impl are declared. An import of the interface that only such a call would
   use is unused, and so an error. The interface-qualified call
-  `Shape.describe(sq)` names the interface and needs it in scope.
+  `Shape.describe(sq)` names the interface and needs it in scope. Named as a
+  value through the type, `f = Square.describe`, it is a function of the
+  type's values, `(Square) -> String`.
 - A default's body calls the interface's other functions bare.
 - A Nomi-bodied default may give its trailing parameters default values
   (`fn announce(value: self, loud: Bool = False) -> String`). A required
@@ -7725,7 +7910,10 @@ end
   Multiply<Int, Box> for Box`, an inherent `fn multiply` is the error ``
   `Box.multiply` is already `Multiply<Int, Box>`'s `multiply` for `Box`, and
   Nomi does not overload, so a call `Box.multiply(...)` would name both; give
-  this function another name `` at the inherent function's name.
+  this function another name `` at the inherent function's name. Every type
+  implements `Debug`, so an inherent `fn inspect` is this error for every
+  type, with an `impl Debug` or none: `` `Point.inspect` is already
+  `Debug`'s `inspect` for `Point` ``.
 - The same holds for a default the type gets from an interface whose impl
   does not write it. Beside `impl Ord2 for Odd`, where `Ord2` declares `open fn
   least`, an inherent `fn least` is the error `` `Odd.least` shadows the
@@ -7849,7 +8037,8 @@ an interface the program declares. What each implements of std's:
 - An anonymous struct implements `Struct` and `Debug`, and `Equatable`,
   `Hashable` and `Display` when every field does. It implements std::parse's
   `ParseFields`, which reads named texts into its fields and writes them
-  back, when every field implements `Parse` and `Display`. It implements
+  back, when every field implements `Parse` and `Display`, a field of a
+  subtype read with its base's `Parse` and checked (§4 *Subtypes*). It implements
   std::json's `ToJson` and `FromJson` when every field does, as a struct
   that derives them with no options: an object keyed by its field names as
   written, keys it has no field for ignored, and a missing key read as the
@@ -7857,6 +8046,12 @@ an interface the program declares. What each implements of std's:
   `Response.json({error: "no todo 99"})` sends `{"error":"no todo 99"}`
   and `Json.decode_as<{title: String, order: Maybe<Int>}>(text)` reads a
   request body. A tuple implements neither.
+- A part implements an interface as any value of its type does. A part of
+  an interface type, an `Iter` among them, has only what that interface
+  guarantees (*Interface values*), and a part of a type parameter only what
+  the parameter's bounds say. So `{v: x}`, with `x: T` and `where T:
+  Display`, is not `ParseFields`, and `{v: Iter.from(1)}` is neither
+  `ParseFields` nor `ToJson`.
 - A function implements only `Debug`.
 
 The same rule decides a bound and an interface-typed position (*Interface
@@ -8107,15 +8302,40 @@ a `Scale` value can be used at are `Scale`, `Debug`, `Equatable` and
   no equality.
 - A call through the interface needs only the receiver to be the implementor.
   A function whose result is `self`, that takes a second `self` or a value
-  holding `self`, cannot be called on an interface value: `` `Sized.same`
-  cannot be called on `e`, a `Sized`: its result is `self`, the implementor's
-  own type, and a `Sized` value does not say which implementor it holds ``. A
-  function with no `self` parameter called through the interface is an error
-  unless the expected type names the implementor (`p: Pot = Sized.make(1)`) or
-  the call is in one of the interface's defaults: `` `Sized.make` has no `self`
+  holding `self`, cannot be called on an interface value, or on a conjunction
+  that has the interface as a member: `` `Sized.same` cannot be called on
+  `e`, a `Sized`: its result is `self`, the implementor's own type, and a
+  `Sized` value does not say which implementor it holds ``. A function with
+  no `self` parameter called through the interface is an error unless the
+  expected type names the implementor (`p: Pot = Sized.make(1)`) or the call
+  is in one of the interface's defaults: `` `Sized.make` has no `self`
   parameter, so this call does not say which implementor of Sized runs ``.
   Through the implementing type or a bounded type parameter every such call is
   accepted.
+- An ordering is a call of `Comparable.compare`, which takes two `self`
+  arguments, so `<`, `<=`, `>` and `>=` with an operand held as `Comparable`,
+  or as a conjunction holding it, are an error, whatever the other operand
+  is: `` `<` cannot compare `a`, a `Comparable`: its two operands must be one
+  implementing type, and `Comparable` values may hold different ones ``,
+  whose hint writes a type parameter instead: `fn less<T>(a: T, b: T) -> Bool
+  where T: Comparable`. `==` and `!=` are no such use, since every interface
+  value has equality (above).
+- An interface type meets a bound `T: I` when a generic body could call
+  every function of `I` on its values: the language defines `I` across
+  implementors, as it does `Debug`, and `Equatable` and `Hashable` by
+  comparing and hashing the held values (above), or the type holds `I` and
+  no function of `I` needs the implementor's own type by the rule above.
+  `Display` is met by a `Display` value. `Comparable` is met by no interface
+  type, since `compare` takes two `self` arguments: with `fn lt<T>(a: T, b:
+  T) -> Bool where T: Comparable`, `lt(x, y)` over two `Comparable` values,
+  `[x] < [y]` (List's ordering is bounded by its elements') and `Iter.sort`
+  over a `List<Comparable>` are each an error at the instantiation: ``
+  `Comparable` does not meet the bound `Comparable`, since
+  `Comparable.compare` cannot be called on a `Comparable` value: its 2
+  `self` arguments must be one implementing type, and `Comparable` values
+  may hold different ones ``, whose help orders values of one type or by a
+  key of one type (`Iter.sort_by`). An interface of the program's with a
+  function of two `self` arguments is met by no interface type the same way.
 - A generic function that instantiates itself at an ever-growing type (`fn
   grow<T>(x: T)` calling `grow(Box{inner: x})`) is a compile error at that call
   (§4 *Generics*).
@@ -8252,6 +8472,10 @@ end
 A `type` with no rule anywhere, `type Plain Int`, has no `TryFrom`:
 `load` at a `Plain` is
 ``Plain does not implement TryFrom<Int> (required by `where T: TryFrom<Int>`)``.
+For an opaque type the impl the compiler supplies is construction, so it
+counts only in the type's file and its partner test (§4 *Opaque distinct
+types*); outside them, `load` at a `Codepoint` is
+``Codepoint does not implement TryFrom<Int> (required by `where T: TryFrom<Int>`)``.
 
 ### Display and Debug
 
@@ -8282,8 +8506,13 @@ or anonymous struct has `Display` when each part has it.
 
 **`Debug` is universal.** Every type implements it, with no derive and no
 impl, so there is no `where T: Debug` bound to write, and type variables and
-interface values inspect. Precedence, highest first: a hand-written `impl
-Debug`, then `derive Debug`, then the synthesized impl.
+interface values inspect. A value of any type is a `Debug` value: `xs:
+List<Debug> = [Point{x: 1}, (2, "a")]`. `Debug.inspect(x)` and `T.inspect(x)`
+render `x` alike for every type `T`, a type declared inside a function body
+included, and `T.inspect` named as a value is a function of `T`'s values
+(`Iter.map(points, Point.inspect)`). Precedence, highest first: a hand-written
+`impl Debug`, then `derive Debug`, then the rendering the table below gives a
+type with neither.
 
 | Construct | `Display` | `Debug` without an impl |
 |---|---|---|
@@ -8302,7 +8531,7 @@ Debug`, then `derive Debug`, then the synthesized impl.
   structure (*Derive*).
 - **Host types** get the bare type name: `Bool`'s `embeds True` inspects as
   `True`, and `Unit` as `Unit`. A host type whose values are Go handles (std's
-  `Regex`, a `go`-bound type) renders by its own `impl Debug` when it declares
+  `Regex`) renders by its own `impl Debug` when it declares
   one, at the top level and nested, and otherwise by its name. `Regex`'s
   renders the typed literal that builds it (``Regex`\d+` ``).
 - **A lazy `Iter`** inspects as `<iter>`, nested too (`[<iter>]`), and is left
@@ -8390,7 +8619,7 @@ end
   `std::json` ``. Names in `with` options are uses too, spelled as the
   interface is (`json.ToJson.Options{...}`). `Debug` needs no import. Names
   only the synthesized code uses (`Ordering`, `True`, the recursive calls,
-  `Map.get` in `derive FromJson`) need none, and mean std's whatever the
+  `Ok` in `derive FromJson`) need none, and mean std's whatever the
   file binds.
 - **Identity.** A derive names its interface by identity: the name must
   resolve to the std interface of that name in the table below. A file
@@ -8476,7 +8705,7 @@ Variants ``.
 | `Debug` | `std::debug` | The literal shape: `Point{x: 3, y: 4}`, `Circle(5.0)` (the variant, with no enum prefix). |
 | `Display` | `std::display` | `Debug`'s shape with nested strings unquoted: `C{name: bob}` where `Debug` gives `C{name: "bob"}`. |
 | `ToJson` | `std::json` | Fields as object keys, each written as its type's `ToJson.to_json_field` answers: `Some(json)` writes the key, `None` leaves it out. The default is `Some(to_json(v))`, so a `None` field is `null`; `Presence<T>`'s leaves an `Absent` field out. A distinct type through its inner value; a bare variant as its name, a payload variant as an object keyed by its name. `ToJson.Options{rename_all: ...}` sets the key case. |
-| `FromJson` | `std::json` | The inverse of derived `ToJson`. A missing key reads as its field type's `FromJson.from_missing()`: `Some(v)` is the field's value, as `Maybe<T>`'s `None` and `Presence<T>`'s `Absent` are. The default answers `None`, and then a defaulted field takes its default and any other is the error `title: expected String, got missing`. A mismatch names the variant and field. Every shape error names the Nomi type it expected and the JSON kind it got (`Json.kind`): `title: expected String, got null`, `expected Todo, got array`. `FromJson.Options{rename_all: ...}` sets the key case. |
+| `FromJson` | `std::json` | The inverse of derived `ToJson`. A missing key reads as its field type's `FromJson.from_missing()`: `Some(v)` is the field's value, as `Maybe<T>`'s `None` and `Presence<T>`'s `Absent` are. The default answers `None`, and then a defaulted field takes its default and any other is the error `title: expected String, got missing`. A bare variant reads only its name as a string. A payload variant reads only an object with exactly one key, its name, as `Result`'s `{"Ok": value}`: an object with no key, several keys or a key no payload variant has is an error naming its keys, `expected Shape, got object with keys "Circle", "Rect"`. A mismatch names the variant and field. Every shape error names the Nomi type it expected and the JSON kind it got (`Json.kind`): `title: expected String, got null`, `expected Todo, got array`. `FromJson.Options{rename_all: ...}` sets the key case. |
 | `Variants` | `std::variants` | Only for an enum without type parameters whose variants carry no data. `variants()` lists every variant in declaration order: `Coin.variants() == [Coin.Penny, Coin.Nickel]`. |
 
 - The `Hashable` mix collides easily: `Hashable.hash(Point{x: 0, y: 31}) ==
@@ -8502,7 +8731,9 @@ Variants ``.
   (`User.from_json(value)`), an explicit type argument
   (`FromJson.from_json<User>(value)`) or an expected type. `Json.encode_as` and
   `Json.decode_as` convert and encode or decode in one call
-  ([std::json](/reference/json/)).
+  ([std::json](/reference/json/)). A field of a subtype is read at its
+  base and checked against the subtype's rules, a value that breaks one
+  the shape error `port: expected Port, got 0` (§4 *Subtypes*).
 - std implements `ToJson` and `FromJson` for `Map<String, V>` alone, since a
   JSON object's keys are strings, and a tuple implements neither (*Tuples,
   anonymous structs and functions*). A derive over a field that holds either,
@@ -8613,7 +8844,7 @@ A terminal that has to reach the end of its source (`to_list`, `count`,
 `sort`, `sum`, ...) asks `is_infinite` first and traps on `True`, naming the
 terminal and the source, at the program's line:
 
-```text
+```console
 line 6: `Iter.to_list` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
 ```
 
@@ -8848,7 +9079,7 @@ A fold or loop takes its starting value before the callback:
   parameter, or `Iter.reduce` after a starting value for two whose first parameter's type
   is its result's:
 
-  ```text
+  ```console
   `keep` uses `continue`, so it cannot be called: pass it as an iteration callback itself, as in `Iter.map(xs, keep)`
   `add_until_zero` uses `break`, so it cannot be called: pass it as an iteration callback itself, as in `Iter.reduce(xs, <start>, add_until_zero)`
   ```
@@ -8868,7 +9099,7 @@ A fold or loop takes its starting value before the callback:
 
 Taught in [Modules & Imports](/modules-and-imports/#files-and-modules).
 
-A **file** is one `.nomi` source file. It is the unit of import, scope and visibility. A **Nomi module** is the directory tree rooted at a `nomi.toml`, with a `go.mod` when it is distributed. It is what ships together, and it is the unit the orphan rule (§12) checks. Projects, `nomi.toml` and dependencies are in the [tooling reference](/tooling/modules-and-dependencies/).
+A **file** is one `.nomi` source file. It is the unit of import, scope and visibility. A **Nomi module** is the directory tree rooted at a `nomi.toml`, whose `[dependencies]` table names the modules it uses. It is what ships together, and it is the unit the orphan rule (§12) checks. Projects, `nomi.toml` and dependencies are in the [tooling reference](/tooling/modules-and-dependencies/).
 
 A file's import path is its path from the module root, without `.nomi`, with `::` between directories. Nothing in the file declares it, so renaming the file renames the path.
 
@@ -8882,7 +9113,7 @@ File names are snake_case. A file cannot be reopened or split across files. Impo
 
 A **file API object** is the qualifier a path-only import binds: `import http::request` binds `request`, and `request.get(...)` calls its `pub fn get`. Inside a file, the last segment of its own path is also that file's qualifier when no top-level declaration of the file has that name: `users.nomi` may call its own `pub fn new` as `users.new(...)`. In `main.nomi`, `fn main` owns the name, so there is no `main` qualifier.
 
-**Import paths across modules.** Within a module, a path names a file of that module. A file may also start the path with its own module's short name, the `name` in its `nomi.toml` (`import my_app::models::user` inside `my_app`). A path into another module starts with that module's short name: `import sqlite::driver` names `driver.nomi` at the root of module `sqlite`. An import that is a short name alone is an ordinary path inside its own module: inside `sqlite`, `import sqlite` names `sqlite.nomi` at the root, and with no such file and no directory `sqlite/`, the module's root directory (*Directory imports* below). From another module, a dependency's short name alone names the file of that name at the dependency's root, so `import sqlite` is `import sqlite::sqlite` when the module holds `sqlite.nomi`, and binds `sqlite` either way. A dependency's name wins over a file of the same name in the importing module. A module with no such file is its root directory under its short name alone: `import sqlite`, then `sqlite::driver.open(path)`. A file inside an `internal/` directory can be imported only by files under that directory's parent: `import a::internal::x` from `main.nomi` at the root is the error `cannot import "a::internal::x" from "main": outside the parent subtree of a/internal/`.
+**Import paths across modules.** Within a module, a path names a file of that module. A file may also start the path with its own module's short name, the `name` in its `nomi.toml` (`import my_app::models::user` inside `my_app`). A path into another module starts with the name the importing module gives it: the key of its entry in the importing module's `[dependencies]`. With `sqlite = { module = "github.com/nomi-language/nomi/lib/sql/sqlite", version = "v0.4.0" }`, `import sqlite::driver` names `driver.nomi` at the root of that module. The name is the importer's, so each module's files import through its own `[dependencies]`: a dependency's own files never see the names its consumer chose, and two dependencies with the same `[module].name` can both be used under different keys. An import that is a short name alone is an ordinary path inside its own module: inside `sqlite`, `import sqlite` names `sqlite.nomi` at the root, and with no such file and no directory `sqlite/`, the module's root directory (*Directory imports* below). From another module, a dependency's name alone names the file of that name at the dependency's root, so `import sqlite` is `import sqlite::sqlite` when the module holds `sqlite.nomi`, and binds `sqlite` either way. A dependency's name wins over a file of the same name in the importing module. A module with no such file is its root directory under its name alone: `import sqlite`, then `sqlite::driver.open(path)`. A file inside an `internal/` directory can be imported only by files under that directory's parent: `import a::internal::x` from `main.nomi` at the root is the error `cannot import "a::internal::x" from "main": outside the parent subtree of a/internal/`.
 
 ### Import forms
 
@@ -9009,9 +9240,11 @@ Taught in [Modules & Imports](/modules-and-imports/#declaration-order-and-cycles
 
 Files may import each other in a cycle. Names resolve across the whole program, so the order of imports and declarations never matters. A parent file may import a child and the child the parent:
 
-```
-http.nomi           // imports http/request; declares HttpRequest
-http/request.nomi   // imports http.HttpRequest
+```tree
+my_project/
+├── http.nomi  # imports http/request; declares HttpRequest
+└── http/
+    └── request.nomi  # imports http.HttpRequest
 ```
 
 A `once` whose initializer reads its own value is a compile error at its declaration, `` cyclic 'once' binding: `a` depends on itself: it reads `once a` (main.nomi:1) ``. A cycle closed through a function value traps when the read re-enters (§6 *`once` Bindings*).
@@ -9027,11 +9260,11 @@ An import path that names no file is an error at the path, in every import form,
 | No such file | ``no module `lib`: no file lib.nomi in this file's directory`` |
 | No such file in a directory | ``no module `utils::inner`: no file inner.nomi in utils/`` |
 | No such std module | ``no module `std::nosuch`: the standard library has no nosuch.nomi`` |
-| No file, no directory, and no `require` in `go.mod` | ``no module `csvdata`: no file csvdata.nomi in this file's directory, and go.mod has no `require` line for `csvdata` `` |
-| A `replace` with no `require` | `` go.mod replaces `csvdata` with ../csvdata but does not require it; run `nomi add ../csvdata` `` |
-| A required module with no `nomi.toml` | ``no module `csvdata`: go.mod replaces `csvdata` with ./generators/csvdata, which has no nomi.toml`` |
+| No file, no directory, and no dependency of that name | ``no module `csvdata`: no file csvdata.nomi in this file's directory, and nomi.toml has no dependency named `csvdata` `` |
+| A dependency whose directory has no `nomi.toml` | ``no module `csvdata`: [dependencies] csvdata is the directory ./generators/csvdata, which has no nomi.toml`` |
+| A published dependency with no `nomi.toml` | ``no module `csvdata`: module `example.com/csvdata` has no nomi.toml, so it is not a Nomi module`` |
 
-A hint names a sibling file the path misspells (``did you mean 'helpers'?``), or, for an import that selects names from a path that is a directory, a file inside it (`` `sub` is a directory; import a file in it, such as `sub::inner` ``). When `go.mod` requires a module the Go module cache does not hold, the hint says to run `nomi fetch`. When the first name is neither a file nor a directory and `go.mod` does not require it, the hint says to run `nomi add`, with the directory when exactly one directory under the project root (at most three levels down) or beside it holds a Nomi module of that name (`` run `nomi add ../csvdata` to add the module in that directory ``), and with a module path or directory otherwise.
+A hint names a sibling file the path misspells (``did you mean 'helpers'?``), or, for an import that selects names from a path that is a directory, a file inside it (`` `sub` is a directory; import a file in it, such as `sub::inner` ``). When the project needs a module the module cache does not hold, the hint says to run `nomi fetch` (`` the project needs module example.com/greet v0.1.0, which is not in the module cache; run `nomi fetch` to download it ``). When the first name is neither a file nor a directory and `nomi.toml` has no dependency of that name, the hint says to run `nomi add`, with the directory when exactly one directory under the project root (at most three levels down) or beside it holds a Nomi module of that name (`` run `nomi add ../csvdata` to add the module in that directory ``), and otherwise `` run `nomi add <module path>` to add a published module, or `nomi add <directory>` for one on disk ``.
 
 A selected name the file does not export is an error at the name: `file 'std::io' has no exported name 'nosuchname'`.
 
@@ -9296,7 +9529,13 @@ end
 | A target that is not an application field | `` `with` replaces an application field, such as `MyApp.logger`; `Point.x` is not one `` |
 | A value of the wrong type | `` `App.port` replacement expects Int, got String `` |
 
-An override changes the fields in force; it does not change values already computed. A closure reads the fields in force when it is called, not when it was created. A task started with `Task.spawn` takes a snapshot of the fields in force when it starts.
+An override changes the fields in force; it does not change values already computed.
+
+#### Closures and tasks
+
+Code runs with the app fields in force where it was written. A call passes them on, and a closure and a task keep them. An app field is an argument the program does not write: a call passes it to the callee, and a closure captures it as it captures any other value in scope (§7 *Closures*).
+
+A lambda, a capture, a nested `fn` and a named function used as a value each keep every field in force where the function value is made, replaced or not. The body runs under those fields wherever and whenever the value is called, and the caller's fields are back in force when it returns, however it leaves. A `with` in the body replaces a field for the rest of its block, as anywhere else. A task's body is a closure, so a task started with `Task.spawn` runs under the fields its body kept.
 
 ```nomi
 import std::io
@@ -9321,9 +9560,15 @@ end
 
 fn main()
     later = quiet_greeter()
-    io.print(later()) // hello, world
+    io.print(later()) // psst, world: the closure keeps the field it was made under
 end
 ```
+
+Anything lazy that holds closures follows from this: an `Iter` pipeline built in a block with a `with` and consumed after it runs its callbacks under the fields where they were written. A type's own `impl Iter` is not a closure. The code that consumes the value calls its `each_while` and passes on its own fields.
+
+A closure made where no application exists yet keeps nothing, and its body runs with the fields in force where it is called. That is a closure made while boot runs, and one made while a `once` initializer runs. Written out, such a closure would take the application from its caller as a parameter, since nothing in force where it was written could supply one.
+
+The `Context` field is an app field like the others: a closure keeps the context in force where it was made, its values and its deadline. Calling the closure puts its fields in force as `with` lines would, so a deadline in force at the call still bounds the body, as one does when a program replaces its context field (*Context* below). A supervised task keeps its body's fields and drops their deadline, since the task outlives the work that started it.
 
 #### Which boot code runs under
 
@@ -9440,11 +9685,12 @@ fn square(n: Int) -> Int
 end
 
 fn main()
-    total = concurrent
-        a = Task.spawn(fn -> square(3))
-        b = Task.spawn(fn -> square(4))
-        Task.await(a) + Task.await(b)
-    end
+    total =
+        concurrent
+            a = Task.spawn(fn -> square(3))
+            b = Task.spawn(fn -> square(4))
+            Task.await(a) + Task.await(b)
+        end
 
     io.print("${total}") // 25
 end
@@ -9475,10 +9721,11 @@ concurrent
 
     u = Task.await(a)? // an Err leaves the block and cancels b
 
-    o = case Task.await(b)
-        Ok(order) -> order
-        Err(_)    -> default_order // handled here; nothing is cancelled
-    end
+    o =
+        case Task.await(b)
+            Ok(order) -> order
+            Err(_)    -> default_order // handled here; nothing is cancelled
+        end
 
     Ok((u, o))
 end
@@ -9510,7 +9757,7 @@ end
 
 A **safe point** is every function call, tail calls included; every loop iteration (an `Iter.loop` step, and each element an iteration passes along, including one with no callback); and every operation that waits (`timer.sleep`, `Sender.send`, `Receiver.receive`, `Task.await`, a read of standard input). Waiting operations also wait on the context, so cancellation and deadlines reach a task blocked in one.
 
-A task that was cancelled, or whose deadline has passed, stops at the first safe point it reaches, so pure computation stops too. A single call into Go (a host function or a Go binding) is not interrupted; the work stops at the next safe point after it returns. A program must not depend on which safe point a stop lands on.
+A task that was cancelled, or whose deadline has passed, stops at the first safe point it reaches, so pure computation stops too. A single call into Go (a host function) is not interrupted; the work stops at the next safe point after it returns. A program must not depend on which safe point a stop lands on.
 
 ### Channels
 
@@ -9548,15 +9795,16 @@ end
 fn main() -> Unit
     ch: Channel<Int> = Channel.buffered(4)
 
-    total = concurrent
-        p1 = Task.spawn(fn -> produce(ch.sender, 10))
-        p2 = Task.spawn(fn -> produce(ch.sender, 20))
-        cons = Task.spawn(fn -> consume(ch.receiver))
-        Task.await(p1)
-        Task.await(p2)
-        Sender.close(ch.sender)
-        Task.await(cons)
-    end
+    total =
+        concurrent
+            p1 = Task.spawn(fn -> produce(ch.sender, 10))
+            p2 = Task.spawn(fn -> produce(ch.sender, 20))
+            cons = Task.spawn(fn -> consume(ch.receiver))
+            Task.await(p1)
+            Task.await(p2)
+            Sender.close(ch.sender)
+            Task.await(cons)
+        end
 
     io.print("total=${total}") // total=30
 end
@@ -9764,7 +10012,7 @@ Taught in [Testing](/testing/#attached-tests).
 
 An **attached test** is a run of `//!` lines immediately before a declaration. It runs under `nomi test` like a `test`, and its lines are checked in the scope of the declaration that follows. Its lines hold what a test body holds, `subtests` included, and it too needs an assertion: `attached test must contain at least one assert or refute`.
 
-```
+```text
 attached-test      = attached-test-line+
 attached-test-line = "//!" [statement]
 ```
@@ -9809,7 +10057,7 @@ assert "Ada Lovelace"
     |> String.contains("Ada")
 ```
 
-**`testing.check`.** `testing.check(expr)`, from `std::testing`, takes the subjects `assert` takes and returns `Result<Subject, AssertionFailure>` instead of leaving: `Ok` of the assertion's value, or `Err` of its failure.
+**`testing.check`.** `testing.check(expr)`, from `std::testing`, takes the subjects `assert` takes and returns `Result<Subject, AssertionFailure>` instead of leaving: `Ok` of the assertion's value, or `Err` of its failure. It is std's `check` under any name the file gives the module (`t.check(expr)` after `import std::testing as t`). A project's own file named `testing` is not `std::testing`, and its `check` is an ordinary function.
 
 **A final `Err(AssertionFailure)` fails the test.** A test body or a `setup` whose final value is `Err(AssertionFailure)` fails with that failure's report. The rule reaches through a final `if`, `case` or block to the arm that ran, and applies to `return value`. A body whose final statement is itself an assertion is judged by the assertion. The body still needs an assertion of its own (*Tests* above).
 
@@ -9888,7 +10136,7 @@ end
 
 **Reports.** After the last row, when any row failed, the statement fails with a report that lists each failed row: the row rendered as a `values:` row renders a value, or its name as a String literal, then that row's assertion report, then the count. Passing rows are not listed. Two rows may share a name.
 
-```text
+```console
 FAIL palindrome_test.nomi :: determines palindromes
   subtest ("abc", True): line 5: assertion failed
     assert is_palindrome(line) == known_palindrome
@@ -9904,7 +10152,7 @@ FAIL palindrome_test.nomi :: determines palindromes
 
 A row whose name trapped is listed under the rendered row with `its name trapped:` and the trap's text (without its own `line N:` when the trap is on the name's line), then the name as written:
 
-```text
+```console
   subtest 0: line 12: its name trapped: `NonZeroInt.try_from(n)` found nothing
     "${10 / NonZeroInt.try_from(n)!}"
 ```
@@ -10015,7 +10263,7 @@ The prefix is a type, found by ordinary name lookup, and its `Literal` or `Check
 
 **One `from_fragments` per prefix.** A typed literal names no interface, so its prefix type may declare `from_fragments` only once. When another of its impls, or its inherent block, also declares `from_fragments`, the literal is an error at the prefix that names the rival declaration:
 
-```text
+```console
 typed literal 'Pick"..."' is ambiguous: `impl Other for Pick` also declares `from_fragments`, at line 16, and a typed literal has no way to say which one it means — rename one of them, or drop `impl Other for Pick`
 ```
 
@@ -10051,7 +10299,7 @@ A typed literal with no `${...}` slot, written with double quotes, triple quotes
 - `Ok(v)`: the literal is that `T`. `Date"2026-05-04"` is a `Date` and ``Regex`\d+` `` is a `Regex<Unit>`; neither needs a `?`, and ``once letters = Regex`[A-Za-z]+` `` works at the top level of a file.
 - `Err(e)`: the literal is a compile error carrying the handler's message (`e`'s `Display`, or its `Debug` when it has none): ``typed literal Regex`[` is invalid: error parsing regexp: missing closing ]: `[` ``.
 
-A handler that returns `T` itself gives the type `T`, and it runs at compile time too. Any handler that reaches an effect (§19 *Effects*), traps, or does not finish within the compiler's step limit cannot be run at compile time, and the literal is an error that says so: ``typed literal Loud"x" cannot be checked at compile time: its handler has effects (Literal.from_fragments for Loud calls io.print)``, with the help ``a typed literal without `${...}` slots is checked at compile time; to build the value when the program runs, call one of `Loud`'s functions instead, such as its `parse`, and handle its result``. A text known only when the program runs goes through such a function, `Date.parse(text)`, or into a slot.
+A handler that returns `T` itself gives the type `T`, and it runs at compile time too. Any handler that reaches an effect (§19 *Effects*), reads an app field, traps, or does not finish within the compiler's step limit cannot be run at compile time, and the literal is an error that says so: ``typed literal Loud"x" cannot be checked at compile time: its handler has effects (Literal.from_fragments for Loud calls io.print)``, with the help ``a typed literal without `${...}` slots is checked at compile time; to build the value when the program runs, call one of `Loud`'s functions instead, such as its `parse`, and handle its result``. A text known only when the program runs goes through such a function, `Date.parse(text)`, or into a slot.
 
 A `?` on a literal without slots is the ordinary error `` `?` requires a Result or Maybe, got Regex<Unit> ``, whose hint says to remove the `?`.
 
@@ -10092,7 +10340,7 @@ end
 
 Its literals are checked literals. A checked literal's type is `T` in every quote style, with or without slots; it is never a `Result`:
 
-- `check` runs while the program is checked, once per literal, on the literal's static text: the `n + 1` pieces around its `n` slots, in order, empty ones included. It follows the rules of a handler run at compile time: a `check` that reaches an effect (§19 *Effects*) is one error at the check, ``Url.check has effects (...); a checked literal's check runs when the program is checked``, and one that does not finish within the step limit is an error at the literal.
+- `check` runs while the program is checked, once per literal, on the literal's static text: the `n + 1` pieces around its `n` slots, in order, empty ones included. It follows the rules of a handler run at compile time: a `check` that reaches an effect (§19 *Effects*) is one error at the check, ``Url.check has effects (...); a checked literal's check runs when the program is checked``, so is one that reads an app field, and one that does not finish within the step limit is an error at the literal.
 - What the compiler runs is `check_type`, whose default is `check`. It gets the statics and a description of the literal's type: each of its type arguments as Nomi spells it, in order, after the expected type solved them (§18 *Literals typed by their position*). A `Route<{id: Uuid}>` literal gets `["{id: Uuid}"]`, a `Url` literal `[]`. The description is text, not the types; nothing in it is a value of the type. A type whose text must agree with its type arguments, as a route's wildcards agree with its parameters, writes `check_type`; it follows `check`'s rules, and an effect in it is reported as `Route.check_type has effects (...)`.
 - A generic type's impl, `impl CheckedLiteral<String, Route<P>> for Route<P>`, gives each literal fresh type arguments, which the expected type solves as it solves a generic call's.
 - std::http's `Route<P>` is the one checked literal whose type follows from its text when nothing else gives it, as a `Regex` literal's captures do: with no expected type, or one that leaves `P` open once the arguments that solve it on their own are checked (§18 *Literals typed by their position*), `Route"GET /users/{id}"` is a `Route<{id: String}>`, a `String` field per wildcard (`{rest...}` included), and a route with none is a `Route<Unit>`. Its `check_type` holds the wildcards to `P`'s fields, ``the pattern has `{id}`, but `{post_id: Uuid}` has no field `id` `` at the wildcard, and the checker holds each field's type to `Parse` and `Display`: ``a route's parameters are read from its path and written into links as text: each field's type implements `Parse` and `Display`, and `Bool`, the type of `id`, does not implement `Parse` ``.
@@ -10293,7 +10541,7 @@ A raw body, ``Html`...` ``, is a template with no slots under the same rules.
 
 **How it is built.** The literal is read once, when the program is checked; nothing is parsed when it runs. It stands for a call of std::html's `assemble` over the static text and one call per slot. The slot's context picks that function, and in element content the value's type does too (`slot_text` for a `ToHtml`, `slot_text_display` for another `Display`), as it does for a `Maybe` in a context that takes a `Display` (`slot_attribute_maybe`); the function's parameter type is the slot's type rule:
 
-```text
+```nomi
 html.assemble(["<p class=\"", html.slot_attribute(c), "\">", html.slot_text(x), "</p>"])
 ```
 
@@ -10303,7 +10551,7 @@ The slot expressions are the program's own, so hovering and errors inside a slot
 
 A top-level declaration that starts with a keyword and a name is a **keyword declaration**:
 
-```
+```text
 [pub] keyword name [(params)] [-> type] [raw body]
 ```
 
@@ -10403,7 +10651,7 @@ Each check is an error at the declaration, in its text, or in the catalog entry 
 6. **Enum selectors.** A `:string` selector over an enum has an arm for each variant and no other key, as `case` does: ``en: `m` has no `Pending` arm; `.match $s` needs an arm for every variant of `Status` ``.
 7. **Freshness.** An entry's `source` is the declaration's current text, compared as MF2 data models, so layout and declaration order do not count. A stale entry in `locales` is an error:
 
-   ```
+   ```console
    pl: `cart_items` was translated from an older English text
      was: {$count :integer} items
      now: {$count :integer} items in your cart
@@ -10420,7 +10668,7 @@ Taught in [Building & Shipping](/building-and-shipping/#executables).
 
 An `embed` declaration names files a program carries inside itself:
 
-```
+```text
 [pub] embed name `pattern ...`
 ```
 
@@ -10476,9 +10724,9 @@ The body is one or more patterns, separated by white space; a pattern that holds
 
 Nomi differs from Go in five things: a pattern names files from the module root, where Go's names them from the declaring file's directory; `**` is an error rather than a pattern matching like `*`, since naming a directory embeds its whole tree; `\` is an error rather than an escape, so a pattern reads the same on every system; a quoted pattern takes no escapes; and a file's modification time is the Unix epoch, since an `Instant` cannot hold Go's zero time.
 
-## 19. Host declarations and Go bindings
+## 19. Host declarations
 
-### Host and foreign declarations
+### Host declarations
 
 A `host` declaration gives a signature whose implementation is outside Nomi:
 
@@ -10494,91 +10742,25 @@ host fn abs(n: Int) -> Int
 - `host fn name(params) -> R` declares a function with no body. It may also be an item of an `impl` block, where its host key is `module.Type.function`.
 - Host declarations take doc comments like any declaration.
 
-**`host` for the standard library, `go` for user bindings.** Every std declaration whose implementation is Go is a `host fn` or `host type`, whichever Go package implements it, so importing any std module, `std::regex` included, needs no Go toolchain. A user binds Go code with `gopkg` and `go` (*Binding Go packages* below); there is no Go-side registration function. Why std does not use `go` is in [the `std` package doc](../std/doc.go).
+**`host` for the standard library and for embedders.** Every std declaration whose implementation is Go is a `host fn` or `host type`, whichever Go package implements it, so importing any std module, `std::regex` included, needs no Go toolchain. Why std's Go lives behind `host` declarations is in [the `std` package doc](../std/doc.go).
+
+**Nomi source binds no Go code.** `go` and `gopkg` are ordinary names. A `gopkg "strings"` handle, a `go strs.ToUpper` after a function's or a type's header, a `go { ... }` block and a `go "net/http"` import are each the error `` Nomi source does not bind Go code: there is no `gopkg` handle and no `go` binding ``, at its `gopkg` or `go`. Code outside Nomi is reached through the standard library, through a WebAssembly module std::wasm runs, or from a Go program that embeds Nomi and implements its `host fn` declarations (below).
 
 #### `host` declarations and embedders
 
-A Go program that embeds Nomi implements the `host fn`s its Nomi program declares from a host table it passes in ([the `vmhost` package doc](../vmhost/doc.go) covers the Go API).
+A Go program that embeds Nomi implements the `host fn`s its Nomi program declares from a host table it passes in ([the `vmhost` package doc](../vmhost/doc.go) covers the Go API). A program built as a WASI reactor has its `host fn`s answered by the program that loads the reactor, in any language, through the reactor's one import, `nomi.host_call` (the tooling reference's *Calling exported functions*). There each argument crosses as JSON by its type's `ToJson` and the answer by the result's `FromJson`, as an `export fn`'s do the other way, so a `host fn` whose parameter is a function value, an opaque `host type` or another type with no JSON form has no JSON host and is answered only from Go.
 
 - A plain `host type` in such a program is an opaque handle. The table's functions create and read its values; Nomi code passes them around and stores them. The type needs no registration.
-- A table implements each function by its declaration's key: its name in the entry file, `module.name` in another file.
-- A program's own host functions never implement a std call, nor the reverse, even when a file of the program has a Go-backed std module's name: a project's `regex.nomi` may bind a Go function named `compile` and use it beside `std::regex`'s.
+- A table implements each function by its declaration's key: its name in the entry file, and in another file the file's path within its module, `/`-separated and without `.nomi`, then `.` and the name. `helpers/util.nomi`'s `host fn greet` is `helpers/util.greet`, a file at the module's root gives `util.greet`, and a dependency's file is under the dependency's name in the program: `lib/sub/thing.nomi` of the dependency `lib` gives `lib/sub/thing.ping`. Two files with one base name never share a key.
+- A program's own host functions never implement a std call, nor the reverse, even when a file of the program has a Go-backed std module's name: a project's `regex.nomi` may declare a `host fn` named `compile` beside `std::regex`'s.
+- A `host fn`'s default is Nomi code like a `fn`'s, evaluated before the call leaves Nomi.
 
 ### Effects
 
-Some code runs where nothing may act on the world: a subtype's or validated type's rule (§4 *Subtypes*, §4 *Validated types*), a typed literal's handler run at compile time and a checked literal's `check` (§18 *Typed literals*), and an expression a debugger evaluates. Such code may not reach an effect. An effect is one of:
+A function is pure when its result depends only on its inputs and nothing else happens. Its inputs are its arguments and the app fields it reads (§15 *Scoped application fields*). An effect is a call into Go whose declaration does not mark it pure: output, files, the network, the clock, the system's entropy, tasks and channels. Reading an app field is not an effect, and neither is replacing one with `with`, which rebinds an input for the rest of a block as a local binding shadows another. An effect reached through a field's value still counts: a function that calls `App.logger` and so reaches std::io has std::io's effect.
 
-- a call into Go whose declaration does not mark it pure: output, files, the network, the clock, randomness, tasks, channels and the `Context`;
-- a read or write of the running app's fields, its `Context` or its scope.
+Some code must be pure: a subtype's or validated type's rule (§4 *Subtypes*, §4 *Validated types*), a typed literal's handler run at compile time and a checked literal's `check` (§18 *Typed literals*), and an expression a debugger evaluates. The compiler runs the first three with no app: it calls a rule with the value it checks and a handler with the literal's parts, and has no other value to pass. So they may read no app field, as they may use no other value that exists only while the program runs: ``the rule of Bounded reads `App.limit`: a rule is checked with the value alone, and an app field exists only while the program runs``. A debugger's expression runs in a running program and reads the app fields in force where it stopped.
 
-A std `host fn` is marked pure where the standard library binds it to Go, when it computes its answer from its operands alone and acts on nothing outside the program. `String.uppercase`, `Map.get` and `Date.to_string` are pure. A function whose one call costs more as an operand's value grows, rather than its size, is not marked, so a bounded evaluation never makes it: `String.repeat` and `Decimal.divide` are effects here. A user's `go` binding (*Binding Go packages* below), and a function an embedder's host table implements, is always an effect. Code reaches an effect when its body, or any function it may call, has one; a call through an interface counts every implementation of the method.
+A std `host fn` is marked pure where the standard library binds it to Go, when it computes its answer from its operands alone and acts on nothing outside the program. `String.uppercase`, `Map.get` and `Date.to_string` are pure. A function whose one call costs more as an operand's value grows, rather than its size, is pure and also marked unbounded, and is refused where evaluation must be bounded, as in all four places above, since a call into Go cannot be stopped partway: `String.repeat` and `Decimal.divide` are unbounded. A function an embedder's host table implements is always an effect. Code reaches an effect when its body, or any function it may call, has one; a call through an interface counts every implementation of the method.
 
-### Binding Go packages: `gopkg` and `go`
-
-Taught in [Calling Go](/calling-go/#binding-the-go-standard-library).
-
-`gopkg "path" as alias` declares a handle for a Go package, resolved by Go's module rules. A Go function binding gives an exported Go function a Nomi name and signature, `fn name(params) -> R go alias.Symbol`, and is called like any function of its file. After `gopkg "strings" as strs`, `fn upper(s: String) -> String go strs.ToUpper` binds Go's `strings.ToUpper` as `upper`. A Go type binding gives a Go type a Nomi name: `opaque type Name go alias.Type`.
-
-- The path is a valid Go import path: `gopkg "callback:= f(s": not a valid Go import path: invalid char ':'`.
-- A Go standard library package needs no `go.mod` and no Go code of the project's own; its source is the Go toolchain's. A package internal to the standard library is an error: `gopkg "internal/abi": internal to the Go standard library, which no other module may import`.
-- Any other path is provided by the nearest `go.mod` above the declaring file: a package of the project's own module, or of a module that `go.mod` requires or replaces. A path outside those is an error at the path.
-- A file held in memory rather than on disk (one an embedder passes with the source it loads) has no `go.mod`. Its bindings are implemented by the host table its program is loaded with, and one the table does not implement is a load error naming it.
-- A `gopkg` is a top-level declaration: `` a `gopkg` declaration belongs at the top level of a file, beside the `go` bindings that use it; it cannot appear inside a body ``.
-- The alias in `go alias.Symbol` is one a `gopkg` of the same file declares: `` `go t.ToUpper`: no `gopkg` in this file declares the alias t ``.
-- A Go type binding is opaque: `type B go s.Builder` is ``Go type binding B must be declared with `opaque type` ``. It may be private, a raw handle behind a Nomi facade (`opaque type RawConn go ffi.Conn`), or public (`pub opaque type Regex go ffi.Regex`); either way it can be named and passed but not constructed, unwrapped or inspected.
-
-**The task's context.** A Go function whose first parameter is `context.Context` receives the calling task's context there, and the binding leaves that parameter out: `func Fetch(ctx context.Context, url string) (string, error)` binds as `fn fetch(url: String) -> Result<String, String> go web.Fetch`. The context carries the deadline of the `Context` in force (`with App.context = Context.with_timeout(...)`) and ends when the task is cancelled, so a Go call that honours it stops then. A `context.Context` at any other position is an error at the binding: ``Go function "Late" in package "example.com/web" takes a context.Context as parameter 2; only a first parameter may be a context.Context, where Go receives the calling task's context``. Nomi's `Context` value itself does not cross.
-
-Building and running a program with Go bindings is in the [tooling reference](/tooling/go-bindings/).
-
-### How Nomi types project to Go
-
-Taught in [Calling Go](/calling-go/#go-and-nomi-types).
-
-A binding's Nomi types project to Go types:
-
-| Nomi | Go |
-|---|---|
-| `String` | `string` |
-| `Bool` | `bool` |
-| `Int` | `*big.Int`; a result also `int64`, `int`, the sized signed widths and the unsigned widths other than `uint8` |
-| `Int64`, or a subtype of `Int` within the Go type's range | `int64`, `int`, the sized signed widths and the unsigned widths other than `uint8` |
-| `Byte` | `uint8` |
-| `Float` | `float64`; also `float32` |
-| `Bytes` | `[]byte` |
-| std::io's `Reader` | `io.Reader` or `io.ReadCloser` |
-| std::io's `Writer` | `io.Writer` or `io.WriteCloser` |
-| `Duration` | `time.Duration` |
-| `Instant` | `time.Time` |
-| `List<T>` | `[]T` |
-| `Map<K, V>` | `map[K]V` |
-| `Maybe<T>` | `*T` (except `*big.Int`, which is `Int`) |
-| a declared Nomi struct | a Go struct with the matching exported fields |
-| `Dynamic` | a Go empty interface (`any`, `interface{}`, or a named type over one), or `rt.Dynamic` |
-| a bound opaque Go type | its Go pointer type |
-| a callback `(A, ...) -> R` | `func(A, ...) R` |
-| a distinct type | what its inner type projects to |
-
-- **Int.** An `Int` is exact at any size, so a fixed-width Go integer that receives one (a parameter, a struct field or element it reaches, a callback's result) takes a type whose every value it holds: std::int's `Int64` for `int64` and `int`, an intersection such as `NonNegativeInt and Int64` for `uint64`, or a subtype whose `when` rule bounds it (`subtype Int32 Int when fn n -> n >= -2147483648 and n <= 2147483647`). The bounds are read from rules that compare the value with Int literals joined by `and`, through a subtype's parents and an intersection's members; a conjunct of another form narrows the values further and is not read. A type that admits a value past the width is an error at the binding, naming the type to declare: ``Go function "Repeat" in package "strings": parameter count (Int) to Go int: Go int holds an Int in -9223372036854775808..9223372036854775807, and Int admits Ints past that: declare it `Int64` (std::int), or a subtype whose `when` bounds it within that range; a Go function that takes an Int of any size takes *big.Int``. A Go function that defines what a larger `Int` means takes `*big.Int`, which holds any `Int`. A Go integer result is an `Int` whatever its width, a `uint64` past 2^63 - 1 included.
-- **Byte.** `Byte` is its own type: an `Int` does not fill a `uint8` parameter, and a `Byte` does not fill an `int64` one.
-- **Float.** A `float32` slot is range-checked. `NaN` and `±Inf` cross unchanged, and `NaN` stays equal to itself under Nomi's equality.
-- **Streams.** A Go stream a function returns becomes a `Reader` or `Writer` over it, closed through the Go value's `Close` when it has one; a `Writer` hands Go each write as it is made. A stream passed to Go is read or written through the handle's own buffer and lock, so Go reads what the program would read next, and writes in order with it. The Go type must be the interface itself: a function that returns `*gzip.Reader` is bound through one that returns `io.Reader`, and a type that is both a reader and a writer, such as `io.ReadWriter` or `net.Conn`, has no projection.
-- **Duration.** A `Duration` is an `Int` of nanoseconds of any size, and a `time.Duration` 64 bits of them, about 292 years either way. A longer `Duration` crosses as the longest `time.Duration`, which a Go wait takes as never ending, and a more negative one as the most negative, already passed.
-- **Instant.** An `Instant` is an `Int` of nanoseconds since the Unix epoch of any size. One crosses to a `time.Time` exactly, clamped only past about 146 billion years from 1970. A `time.Time` of any year crosses back as its exact `Instant`, read from its Unix seconds rather than `UnixNano`, which wraps outside the years 1677 to 2262; Go's zero time is the year 1. An `Instant` returns to Go in UTC, with no zone and no monotonic reading, so two round-tripped times are `Equal` but not `==`.
-- **Map.** The projected key is a valid Go map key. A Go map projects with its keys in ascending order: strings and numbers in their natural order, `false` before `true`, a struct by its exported fields in declaration order. A Go key type with no such order, such as a pointer or an interface, is refused at the binding. Two keys that would become one on either side fail the conversion rather than drop an entry.
-- **Structs.** Field names are snake_case unless a `nomi:"..."` tag says otherwise. The Nomi type of a struct value always comes from the declaration at that position (the declared result of the binding, or the declared parameter type of the Nomi function being called), never from the Go type; only the fields are compared, at every depth. So a Go `func(Row) bool` binds a Nomi `(RawRow) -> Bool`. The Go struct may be the bound package's, or one of another package it imports that the project's `go.mod` provides, named directly (`model.User`) or through an alias the bound package declares (`type Cell = core.Cell`). A struct of a Go standard library package crosses only from a bound standard library package.
-- **Dynamic.** A Go empty interface holds the value the `Dynamic` wraps. A `Dynamic` from `Json.to_dynamic` holds what `encoding/json` decodes to: `map[string]any`, `[]any`, `string`, `float64` or `int64`, `bool`, `nil`. `rt.Dynamic` from `github.com/nomi-language/nomi/rt` is the `Dynamic` itself. Nothing else takes a `Dynamic`; declare the type the Go value has.
-- **Aliases.** A Go type alias (`type ID = core.ID`) projects as its target.
-- **Enums.** A declared Nomi `enum` has no projection. The only enums that cross are `Result`, `Maybe` and `Bool`, as a trailing Go `error`, `*T` and `bool`, matched by the std type's identity: a same-named type of another module is rejected.
-- **Results.** The Go signature decides the result. With `N` results that are not `error`, `N == 0` projects to `Unit`, `N == 1` to that value, and `N >= 2` to the tuple `(A, B, ...)`. A trailing `error` wraps that in `Result<_, String>`: `error` alone is `Result<Unit, String>`, `(T, error)` is `Result<T, String>`, and `(A, B, error)` is `Result<(A, B), String>`.
-- **Tuples** project in result position only, since Go has no tuple type to take as a parameter. A Go struct against a Nomi struct of the same shape carries several values both ways.
-- **Distinct types.** A distinct type, opaque or not, crosses as its inner type, at every depth: `type Id Int64` as `int64`, `type Ids List<Int64>` as `[]int64`, a distinct over a struct as a Go struct with that struct's fields, and `type Outer Inner` over `type Inner Int64` as `int64`. The value Go returns is wrapped in the declared type again. std's `Instant` and `Duration` are opaque types over `Int`, an integer of any size, so one fills a `time.Time` slot and the other a `time.Duration` slot, and neither fills an `int64` one. A marker type (`type Expired`) holds no value and has no projection.
-
-**The check.** Bindings are checked against Go source before the program loads: the project's own packages, packages of required modules in the Go module cache or a local `replace`, the packages a bound package's signatures and struct fields name, and bound standard library packages, read from the toolchain's GOROOT with this platform's build constraints. A missing name, a generic Go function and a signature mismatch are errors that point at the binding:
-
-```text
-Go function "Index" in package "slices" is generic, and a binding needs one concrete signature; write a non-generic Go function that calls it and bind that
-signature mismatch for Go function "ToUpper" in package "strings": parameter 1 "x" projects to String, but Nomi declares Int
-```
-
-The check runs forward only. For each declared Nomi type, it computes the Go type the Nomi type projects to and compares it with the Go type the bound declaration has: a scalar by its row above; `Dynamic` against a Go empty interface or `rt.Dynamic`; a `List`, `Maybe`, `Map`, `Result`, tuple or callback by its structure; an opaque binding by the Go type it binds; a struct of the binding's file field by field; a distinct type of the binding's file, and std's `Duration` and `Instant`, through the inner type; and a subtype of a scalar, or an intersection of subtypes, as its base. A subtype is resolved where the binding's file finds it: declared in that file, in a file it imports (`import std::int.Int64`, `import units.{Pixels}`), or in the prelude (`NonNegativeInt`). Another name declared in another file fills a Go struct slot on trust, its fields held to the Go struct's when the binding is built, and fills no other slot, so a binding that passes a distinct type declares it in the binding's file. Whether an `Int` subtype's range fits its Go integer is checked when the binding is built, before the program runs (*Int* above). The inverse is not checked, because a Go type does not determine its Nomi type (`int64` is `Int64` and every distinct type over it), so an inverse check would reject bindings that work.
+An effects list in `nomi.toml` names a program's effects, by the std module the program's code called (`std::fs`), and an empty list allows none. A `dbg` (§8 *`dbg`*) prints and is an effect, but no list names it, since `nomi build` refuses a program that holds one. Using a value already made, such as reading from a reader, sending on a channel end or awaiting a task, is named where the value was made: opening the file, making the channel, starting the task. A std::fs `Dir` is such a value: `fs.open_dir` is the call a list names `std::fs`, and a call through the `Dir`, which reaches only what is under its directory, is named by none. A call through an interface value is one such use when the implementation it reaches is std's and only std code makes values of its type: `Store.put` on a store from `storage.local` is named `std::storage` at the `storage.local` call, and names nothing where the store is used. What a call costs is not an effect, and neither is failing.

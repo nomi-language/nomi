@@ -51,10 +51,11 @@ test "a parameter, a result, a list element, a field and a payload"
     assert Show.show(h.s) == "[i8 i9]"
     m: Maybe<Show> = Some(Vector["v"])
 
-    shown = case m
-        Some(s) -> Show.show(s)
-        None    -> "none"
-    end
+    shown =
+        case m
+            Some(s) -> Show.show(s)
+            None    -> "none"
+        end
 
     assert shown == "Vector['v']"
 end

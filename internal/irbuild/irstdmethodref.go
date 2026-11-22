@@ -1,14 +1,14 @@
 package irbuild
 
 import (
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
 func (bl *irScalarBuilder) stdMethodRef(t *ast.FieldAccess) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	owner, ok := t.Object.(*ast.TypeIdent)
-	if !ok || t.Field == nil {
+	if _, ok := t.Object.(*ast.TypeIdent); !ok || t.Field == nil {
 		return no()
 	}
 	// These value categories precede methods in bareVariant. Leave their
@@ -18,11 +18,10 @@ func (bl *irScalarBuilder) stdMethodRef(t *ast.FieldAccess) (ir.Temp, kind, bool
 			return no()
 		}
 	}
-	key := owner.Name + "." + t.Field.Name
-	if bl.g.stdOnces[key] != nil || (bl.g.std != nil && bl.g.std.byOnce[key] != nil) {
+	if sym := bl.g.checkedRef(t.Field.Line, t.Field.Col); sym != nil && sym.Kind == analysis.SymbolOnce {
 		return no()
 	}
-	f, why, _, handled := bl.g.stdMethodRefTarget(owner.Name, t.Field.Name)
+	f, why, _, handled := bl.g.stdMethodRefTarget(t)
 	if !handled || why != "" || f == nil {
 		return no()
 	}
@@ -37,12 +36,12 @@ func (bl *irScalarBuilder) stdMethodRef(t *ast.FieldAccess) (ir.Temp, kind, bool
 		return no()
 	}
 	if f.rtCall != "" {
-		n := ir.NewFuncValue(bl.g.irNodePos(t), bl.f.NewTemp(), bl.irHostForward(t, f))
+		n := ir.NewFuncValue(bl.g.irNodePos(t), bl.f.NewTemp(), bl.irHostForward(t, f)).KeepFields()
 		bl.b.Append(n)
 		bl.side(n.Dst(), irScalarSide{k: fk})
 		return n.Dst(), fk, true, true
 	}
-	n := ir.NewRefFunc(bl.g.irNodePos(t), bl.f.NewTemp(), f.irBody.Sym())
+	n := ir.NewRefFunc(bl.g.irNodePos(t), bl.f.NewTemp(), f.irBody.Sym()).KeepFields()
 	bl.b.Append(n)
 	bl.side(n.Dst(), irScalarSide{k: fk})
 	return n.Dst(), fk, true, true

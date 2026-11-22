@@ -66,8 +66,11 @@ function renderChar(ch, isTrailingWhitespace) {
   return '<span class="nomi-trailing-space">·</span>';
 }
 
-// semClass maps an analyzer semantic-token type to a token CSS class.
+// semClass maps an analyzer semantic-token type to a token CSS class. A
+// keyword's token is the `dbg` of a `dbg`, the call that prints, which
+// hoverdoc.MarkReaching gives a token so it can be marked.
 const SEM_CLASS = {
+  keyword: "tok-kw",
   function: "tok-fn",
   struct: "tok-type",
   enum: "tok-type",
@@ -153,10 +156,13 @@ function applyRegexLiteralOverlay(code, cls) {
 
 // render produces highlighted HTML by layering, exactly as an editor does:
 // tree-sitter `captures` form the base (keywords/strings/numbers/punctuation),
-// then the analyzer's `semTokens` (each {line, col, len, type}, 1-based, col
-// and len in UTF-16 code units, which is how `code` indexes)
+// then the analyzer's `semTokens` (each {line, col, len, type, effect},
+// 1-based, col and len in UTF-16 code units, which is how `code` indexes)
 // override identifiers (so a module reads as a module, a parameter as a
 // parameter, etc.) — the same syntax-plus-semantic-tokens model Zed uses.
+// A token marked `effect`, where the code has effects as its hover says,
+// also gets the class tok-effect, which the page draws bold, as the
+// language server's `effect` modifier is in an editor.
 export function render(captures, semTokens, code, options = {}) {
   const n = code.length;
   const cls = new Array(n).fill("");
@@ -188,7 +194,8 @@ export function render(captures, semTokens, code, options = {}) {
       const base = starts[t.line];
       if (base === undefined) continue;
       const s = base + t.col - 1;
-      for (let i = s; i < s + t.len && i < n; i++) cls[i] = c;
+      const k = t.effect ? c + " tok-effect" : c;
+      for (let i = s; i < s + t.len && i < n; i++) cls[i] = k;
     }
   }
   return emit(code, cls, options);
@@ -216,22 +223,24 @@ function emit(code, cls, options) {
   return out;
 }
 
-// A multi-file block's `// FILE: <name>.<ext>` line, as the Go side's
-// SplitMultiFile reads it: a directive on a line of its own.
-const FILE_MARKER = /^\s*\/\/\s*FILE:\s*([A-Za-z0-9_.\-/]+\.[A-Za-z0-9]+)\s*$/;
+// A multi-file block's `// FILE: <name>.<ext>` line, a directive on a
+// line of its own, with ` (base64)` after the name for a file that is not
+// text, whose section holds its bytes in base64. It is the Go side's
+// virtualproject.FileMarker, which TestFileMarkersMatch holds it to.
+const FILE_MARKER = /^\s*\/\/\s*FILE:\s*([A-Za-z0-9_.\-/]+\.[A-Za-z0-9]+)(\s+\(base64\))?\s*$/;
 
 // fileSections cuts a block at its `// FILE:` lines, or answers null when
 // it has none (a single-file block): `head`, the lines before the first
-// marker, which no run reads, and each file's name, marker line and the
-// lines up to the next marker. The block is every line of these, in order,
-// joined by line breaks.
+// marker, which no run reads, and each file's name, whether its section is
+// base64, its marker line and the lines up to the next marker. The block
+// is every line of these, in order, joined by line breaks.
 export function fileSections(source) {
   const lines = source.split("\n");
   const head = [];
   const files = [];
   for (const line of lines) {
     const m = FILE_MARKER.exec(line);
-    if (m) files.push({ name: m[1], marker: line, lines: [] });
+    if (m) files.push({ name: m[1], base64: !!m[2], marker: line, lines: [] });
     else if (files.length) files[files.length - 1].lines.push(line);
     else head.push(line);
   }
@@ -244,27 +253,27 @@ export function fileText(file) {
   return file.lines.join("\n").replace(/^\n+/, "").replace(/\n+$/, "");
 }
 
-// splitFiles is each file of a multi-file block, [{ name, body }], or null
-// for a single-file block.
+// splitFiles is each file of a multi-file block, [{ name, base64, body }],
+// or null for a single-file block. A base64 file's body is its section's
+// base64 text.
 export function splitFiles(source) {
   const sections = fileSections(source);
-  return sections && sections.files.map((f) => ({ name: f.name, body: fileText(f) }));
+  return sections && sections.files.map((f) => ({ name: f.name, base64: f.base64, body: fileText(f) }));
 }
 
 // fileLanguage names the language a multi-file example's tab holds, by its
 // file name: "nomi" for a Nomi source, "toml" for a manifest or phrase
-// catalog, "json" for JSON data, "go" for a Go file the example binds, and
-// "text" for anything else (`notes.txt`, `go.mod`), shown uncoloured.
+// catalog, "json" for JSON data, and "text" for anything else
+// (`notes.txt`, `go.mod`), shown uncoloured.
 export function fileLanguage(name) {
   if (name.endsWith(".nomi")) return "nomi";
-  if (name.endsWith(".go")) return "go";
   if (name.endsWith(".json")) return "json";
   return name.endsWith(".toml") ? "toml" : "text";
 }
 
-// renderData highlights a file whose language (fileLanguage) is neither
-// Nomi nor Go, both of which need a parse the caller has: TOML and JSON in
-// their colours, anything else uncoloured.
+// renderData highlights a file whose language (fileLanguage) is not Nomi,
+// which needs a parse the caller has: TOML and JSON in their colours,
+// anything else uncoloured.
 export function renderData(lang, code, options = {}) {
   if (lang === "toml") return renderToml(code, options);
   if (lang === "json") return renderJson(code, options);
@@ -289,7 +298,10 @@ export function renderFiles(sections, file) {
   if (sections.head.length) out.push(part("", "nomi", sections.head));
   for (const f of sections.files) {
     out.push(`<span class="tok-comment">${escapeHtml(f.marker)}</span>`);
-    if (f.lines.length) out.push(part(f.name, fileLanguage(f.name), f.lines));
+    // A base64 section's text stays in the block, which the editor reads
+    // its source from, and is not shown.
+    if (f.base64) out.push(`<span hidden>${escapeHtml(f.lines.join("\n"))}</span>`);
+    else if (f.lines.length) out.push(part(f.name, fileLanguage(f.name), f.lines));
   }
   return out.join("\n");
 }

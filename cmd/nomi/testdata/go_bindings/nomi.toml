@@ -1,3 +1,0 @@
-[module]
-name = "go_bindings"
-entry_points = ["main"]

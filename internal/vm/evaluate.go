@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -20,15 +21,16 @@ import (
 // types, to report a literal its handler rejects. It must not run anything
 // that acts on the world, and it must not hang. Effects answers the first
 // question before anything runs; Evaluate runs under Limits, which answer the
-// second.
+// second, with the crossings Effects reports as unbounded refused too.
 
 // Limits bounds one Evaluate. Steps counts the activations the evaluation
 // starts (calls, tail transfers, callbacks from Go), the backward branches it
 // takes and the elements its iterations pass along, which are the ways a
 // program repeats work. Deadline is a wall-clock backstop, read every 1024
 // steps; zero means none. A single crossing into Go is not interrupted, so
-// only crossings whose cost follows from the size of their operands are
-// marked pure (pureCrossing), and the steps bound that size.
+// the steps bound a pure crossing's cost only when it follows from the size
+// of its operands; one whose cost grows with an operand's value is marked
+// unbounded (unboundedCrossing), and Effects reports a call into it.
 type Limits struct {
 	Steps    int64
 	Deadline time.Time
@@ -189,12 +191,23 @@ func (m *Machine) metered(seq rt.Seq[any]) rt.Seq[any] {
 
 // Evaluate calls f with args under lim, on a fresh rt frame of ctx and
 // without booting the program: there is no app, so a function that reads an
-// app field cannot be evaluated (Effects reports the read). It answers f's
-// result, ErrLimit when lim ran out, or the program's own failure.
+// app field cannot be evaluated (Effects reports the fields it reads). It
+// answers f's result, ErrLimit when lim ran out, or the program's own
+// failure.
 func (m *Machine) Evaluate(ctx context.Context, f *ir.Func, args []any, lim Limits) (result any, err error) {
+	return m.evaluate(ctx, f, args, lim, nil)
+}
+
+// evaluate is Evaluate with the app app's lineage reads in force, when app
+// is not nil: a debugger's evaluation reads the app of the frame it stopped
+// in (Scope.Run).
+func (m *Machine) evaluate(ctx context.Context, f *ir.Func, args []any, lim Limits, app *rt.Frame) (result any, err error) {
 	run := *m
 	run.fuel = newFuel(lim)
 	fr := rt.NewFrame(run.withDiagnostics(ctx))
+	if app != nil {
+		fr = rt.WithAppOf(fr, app)
+	}
 	run.hostFrame = fr
 	defer func() {
 		if r := recover(); r != nil {
@@ -232,18 +245,50 @@ func (m *Machine) pureCrossing(name string) bool {
 	return stdlibadapters.Pure(name)
 }
 
+// unboundedCrossing reports whether a pure crossing into Go named name
+// costs more as an operand's value grows, rather than its size: a stdlib
+// adapter whose internal/stdlibbindings row is marked Unbounded. No
+// intrinsic is.
+func (m *Machine) unboundedCrossing(name string) bool {
+	if _, ok := m.hosts[name]; ok {
+		return false
+	}
+	return stdlibadapters.Unbounded(name)
+}
+
+// Effects is what Machine.Effects found the functions it walked reach,
+// each list sorted.
+type Effects struct {
+	// Effects is each effect: a crossing into Go its declaration does not
+	// mark pure (output, files, the network, the clock, the system's
+	// entropy, tasks, channels), "F calls K", and a declaration this
+	// machine could not run.
+	Effects []string
+	// Unbounded is each call into a pure crossing whose cost grows with an
+	// operand's value (unboundedCrossing), "F calls K". An evaluation's
+	// steps do not bound it.
+	Unbounded []string
+	// AppFields is each app field the functions read or replace with
+	// `with`, the Context field among them, by its name in the app type
+	// (`limit` for `App.limit`). Reading an app field is reading an input
+	// the caller did not write, so it is no effect, but code run with no
+	// app (an editor's evaluation, a rule, a literal) has none to read.
+	AppFields []string
+}
+
 // Effects walks everything the functions fs can reach, as Unretained does,
-// and answers what stops them being evaluated for an editor, sorted: each
-// crossing into Go its declaration does not mark pure (output, files, the
-// network, the clock, randomness, tasks, channels, the Context), each read
-// or write of the running app's fields, Context or scope, and each
-// declaration this machine could not run. Nil means each computes its result from its operands alone.
+// and answers what stops them being evaluated for an editor, a rule or a
+// literal: their effects, their calls whose cost no step limit bounds, and
+// the app fields they read. All three empty means each computes its result
+// from its operands alone, at a cost the steps bound. Each caller decides
+// which it refuses.
 //
 // It over-approximates as the reachability walk does: a dispatched call
 // reaches every implementation of its method, and a function value reaches
 // every body the evaluation creates a value of.
-func (m *Machine) Effects(fs ...*ir.Func) []string {
-	w := reachWalk{m: m, seen: map[*ir.Func]bool{}, found: map[string]Unretained{}, effects: map[string]bool{}}
+func (m *Machine) Effects(fs ...*ir.Func) Effects {
+	w := reachWalk{m: m, seen: map[*ir.Func]bool{}, found: map[string]Unretained{}, effects: map[string]bool{}, unbounded: map[string]bool{},
+		uses: map[*ir.Func][]string{}}
 	for _, f := range fs {
 		w.push(f, EdgeRoot)
 	}
@@ -255,39 +300,74 @@ func (m *Machine) Effects(fs ...*ir.Func) []string {
 	for _, u := range w.found {
 		w.effects[fmt.Sprintf("%s cannot run here (reached from %s)", u.Name, u.From)] = true
 	}
-	if len(w.effects) == 0 {
+	fields := map[string]bool{}
+	for _, used := range w.uses {
+		for _, field := range used {
+			fields[field] = true
+		}
+	}
+	return Effects{Effects: sortedKeys(w.effects), Unbounded: sortedKeys(w.unbounded), AppFields: sortedKeys(fields)}
+}
+
+// sortedKeys is set's keys, sorted, or nil for none.
+func sortedKeys(set map[string]bool) []string {
+	if len(set) == 0 {
 		return nil
 	}
-	out := make([]string, 0, len(w.effects))
-	for e := range w.effects {
+	out := make([]string, 0, len(set))
+	for e := range set {
 		out = append(out, e)
 	}
 	sort.Strings(out)
 	return out
 }
 
-// effectOf is the effect one instruction has on m, or "".
-func (m *Machine) effectOf(in ir.Instr, from string) string {
+// appFieldOf is the app field one instruction reads or replaces, by its
+// name in the app type, or "": a read of a field or of the Context field,
+// and a `with` that replaces one. The save and restore of the scope around
+// a `with` (RefScope, StoreScope) name no field; the replacement does.
+func appFieldOf(in ir.Instr) string {
+	var field *ir.Symbol
 	switch n := in.(type) {
 	case *ir.Ref:
-		switch n.Kind() {
-		case ir.RefAppField, ir.RefContext, ir.RefScope:
-			name := ""
-			if n.Sym() != nil {
-				name = " " + n.Sym().Name()
-			}
-			return fmt.Sprintf("%s reads the running app (%s%s)", from, n.Kind(), name)
+		if k := n.Kind(); k == ir.RefAppField || k == ir.RefContext {
+			field = n.Sym()
 		}
 	case *ir.Store:
-		return fmt.Sprintf("%s writes the running app", from)
-	case *ir.Call:
-		if n.Crosses() && !m.pureCrossing(n.Callee().Name()) {
-			return fmt.Sprintf("%s calls %s", from, n.Callee().Name())
-		}
-	case *ir.Defer:
-		if c := n.Call(); c != nil && c.Crosses() && !m.pureCrossing(c.Callee().Name()) {
-			return fmt.Sprintf("%s calls %s", from, c.Callee().Name())
+		if k := n.Kind(); k == ir.StoreAppField || k == ir.StoreContext {
+			field = n.Sym()
 		}
 	}
-	return ""
+	if field == nil {
+		return ""
+	}
+	return strings.TrimPrefix(field.Name(), "$")
+}
+
+// effectOf is the effect one instruction has on m, or "". unbounded says
+// the instruction is a call into a pure crossing whose cost grows with an
+// operand's value, which effect then names.
+func (m *Machine) effectOf(in ir.Instr, from string) (effect string, unbounded bool) {
+	switch n := in.(type) {
+	case *ir.Call:
+		if n.Crosses() {
+			return m.crossingEffect(n.Callee().Name(), from)
+		}
+	case *ir.Defer:
+		if c := n.Call(); c != nil && c.Crosses() {
+			return m.crossingEffect(c.Callee().Name(), from)
+		}
+	}
+	return "", false
+}
+
+// crossingEffect is what a crossing into name from from is to effectOf.
+func (m *Machine) crossingEffect(name, from string) (effect string, unbounded bool) {
+	switch {
+	case !m.pureCrossing(name):
+		return fmt.Sprintf("%s calls %s", from, name), false
+	case m.unboundedCrossing(name):
+		return fmt.Sprintf("%s calls %s", from, name), true
+	}
+	return "", false
 }

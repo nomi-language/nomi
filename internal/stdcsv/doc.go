@@ -3,15 +3,18 @@
 // lowered with each program, over it; internal/hostgen/stdtable's
 // alsoImplements names this package as std/csv/host's.
 //
-// A reader is a handle (rt.CsvRecords) over a csv.Reader that reads a
-// lineinput.Input over the program's Reader, so a string, a file and a
-// stream are one path: `csv.decode(text)` is `csv.records` over
-// `Reader.from_text`, and a stream is read a record at a time. The input
-// drops a leading UTF-8 byte order mark and keeps the lines read since the
-// oldest one an error may still name, so an error's column is in code
-// points, as std/json reports it, rather than Go's byte column.
+// One reader reads every input: a csv.Reader over a lineinput.Input. Over
+// the program's Reader it is a handle (rt.CsvRecords), and a stream is read
+// a record at a time, a crossing each (Next). Over text held whole
+// (lineinput.Text) it is Decode, which `csv.decode`, `decode_bytes` and
+// `decode_rows` call: it reads every record in one crossing, reads no
+// Reader and makes no handle, so its row is Pure, and it reports a stop
+// as Stopped and Message do. The input drops a leading UTF-8 byte order
+// mark and keeps the lines read since the oldest one an error may still
+// name, so an error's column is in code points, as std/json reports it,
+// rather than Go's byte column.
 //
-// Each crossing sets the input's frame before it reads, since a Reader is
+// Each crossing over a Reader sets the input's frame before it reads, since a Reader is
 // read on the frame of the crossing that reads it. A read that unwinds goes
 // through Go's parser as a panic, and the handle is not used again.
 //

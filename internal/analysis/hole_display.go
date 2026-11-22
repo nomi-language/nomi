@@ -50,8 +50,9 @@ type DisplayRender struct {
 	Method ast.ImplMethodDecl
 	// File is the home module key of Method's file (Program.ImplMethodFile).
 	File string
-	// Parts is, for DisplayParts, each item's or field's record, in the
-	// type's order.
+	// Parts is, for DisplayParts, each item's record in the tuple's order,
+	// or each field's in the order of the fields' names
+	// (AnonStructType.FieldsByName).
 	Parts []*DisplayRender
 }
 
@@ -152,6 +153,19 @@ func (fa *FileAnalysis) ImplCallee(m ast.ImplMethodDecl) Callee {
 	return fa.withStd(fa.withDeclaringFile(out))
 }
 
+// DisplayOf is how a value of type t renders by Display, read against
+// fa's program, whose impls t's types have: what the checker records for
+// an interpolation hole of that type. The IR builder asks it for a value
+// it renders by Display where nothing written records one (`io.print(x)`,
+// `Display.to_string(x)`, the error `main` returns), as it asks
+// InterfaceCallee for a call it writes. Nil for a nil fa or t.
+func (fa *FileAnalysis) DisplayOf(t Type) *DisplayRender {
+	if fa == nil || t == nil {
+		return nil
+	}
+	return fa.displayRenderOf(t, 0)
+}
+
 // displayRenderOf is how a value of type t renders by Display.
 func (fa *FileAnalysis) displayRenderOf(t Type, depth int) *DisplayRender {
 	t = ResolveClosed(t)
@@ -175,7 +189,7 @@ func (fa *FileAnalysis) displayRenderOf(t Type, depth int) *DisplayRender {
 			return r
 		}
 	case *EnumType:
-		if tt.Name == "Bool" && len(tt.TypeArgs) == 0 && isStdBool(tt) {
+		if isStdType(tt, stdBoolType) && len(tt.TypeArgs) == 0 {
 			r.Form = DisplayScalar
 			return r
 		}
@@ -213,7 +227,7 @@ func (fa *FileAnalysis) displayRenderOf(t Type, depth int) *DisplayRender {
 			return r
 		}
 		r.Form = DisplayParts
-		for _, f := range tt.Fields {
+		for _, f := range tt.FieldsByName() {
 			r.Parts = append(r.Parts, fa.displayRenderOf(f.Type, depth+1))
 		}
 		return r
@@ -230,14 +244,6 @@ func (fa *FileAnalysis) displayRenderOf(t Type, depth int) *DisplayRender {
 	return r
 }
 
-// isStdBool reports whether e is the prelude's Bool.
-func isStdBool(e *EnumType) bool {
-	if b, ok := TypeBool.(*EnumType); ok && b == e {
-		return true
-	}
-	return len(e.Variants) == 2 && e.Variants[0].Name == "False" && e.Variants[1].Name == "True"
-}
-
 // textDisplay reports whether t renders as the machine's structural
 // text: an Int, a Float, a Bool or a String, or a tuple, an anonymous
 // struct, a List, a Map or a Vector of such values at any depth.
@@ -250,7 +256,7 @@ func textDisplay(t Type, depth int) bool {
 	case *PrimitiveType:
 		return tt.Name_ == "Int" || tt.Name_ == "Float" || tt.Name_ == "String"
 	case *EnumType:
-		return tt.Name == "Bool" && len(tt.TypeArgs) == 0 && isStdBool(tt)
+		return isStdType(tt, stdBoolType) && len(tt.TypeArgs) == 0
 	case *TupleType:
 		for _, e := range tt.Elems {
 			if !textDisplay(e, depth+1) {

@@ -17,7 +17,7 @@
 -> variables {"variablesReference":1}
 <- response variables {"variables":[{"name":"first","type":"Int","value":"1","variablesReference":0},{"name":"second","type":"String","value":"\"uno\"","variablesReference":0}]}
 -> evaluate {"context":"watch","expression":"span","frameId":1}
-<- response evaluate {"namedVariables":2,"result":"Span((3, 9))","type":"Span","variablesReference":2}
+<- response evaluate {"namedVariables":2,"result":"Span(3, 9)","type":"Span","variablesReference":2}
 -> variables {"variablesReference":2}
 <- response variables {"variables":[{"name":"first","type":"Int","value":"3","variablesReference":0},{"name":"second","type":"Int","value":"9","variablesReference":0}]}
 -> evaluate {"context":"watch","expression":"wide","frameId":1}

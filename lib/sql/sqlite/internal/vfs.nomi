@@ -1,0 +1,672 @@
+//# SQLite's file layer, which the engine's imports call (engine/shim.c):
+//# the files of one connection, through the `Dir`s its `Place` holds, and
+//# the clock, the machine's time zone, entropy and sleep, each the std
+//# function's own effect. A name
+//# the engine passes is a path under the database's `Dir`, and a temporary
+//# file is one the temporary `Dir` makes, so the layer reaches no file
+//# outside them. A file is a number the engine names it by, and `Files`
+//# holds each open one. A database's lock
+//# is SQLite's own byte-range locks on the file (`fs.lock`), so another
+//# program's SQLite on the same file, the system's `sqlite3` among them,
+//# waits for this one as it waits for itself.
+
+import
+    std::calendar.DateTime
+    std::channels.{Channel, Receiver, Sender}
+    std::duration.Duration
+    std::fs.{self, Access, Dir, Kind, LockAttempt, LockMode}
+    std::instant.Instant
+    std::io.{Error, File}
+    std::path
+    std::random
+    std::timer
+    std::wasm.{self, Import, Memory, Value}
+end
+
+/// The files one connection has open. One task at a time runs the
+/// engine's calls, so the table is a channel of one slot that a call takes
+/// and puts back.
+pub opaque struct Files
+    slot:  Channel<Table>
+    place: Place
+end
+
+/// Where a connection's files are: its database's names under `dir`, and
+/// its temporary files in `temp`, else in `dir`. With neither, no file
+/// opens (an engine that only describes statements). `owned` says the
+/// connection opened the two itself, so stopping it closes them.
+pub struct Place
+    dir:   Maybe<Dir> = None
+    temp:  Maybe<Dir> = None
+    owned: Bool = False
+end
+
+struct Table
+    next:   Int
+    opened: Map<Int, Opened>
+end
+
+/// An open file: the handle, the directory it is in and its path there,
+/// and whether it is deleted when it is closed (a temporary file).
+struct Opened
+    file:      File
+    dir:       Dir
+    path:      String
+    temporary: Bool
+end
+
+/// SQLite's open flags this layer reads (sqlite3.h).
+once open_readwrite = 0x2
+
+once open_create = 0x4
+
+once open_delete_on_close = 0x8
+
+/// No files open, in `place`.
+pub fn files(place: Place) -> Files
+    slot = Channel.buffered<Table>(1)
+    _ = Sender.send(slot.sender, Table{next: 1, opened: {}})
+    Files{slot:, place:}
+end
+
+fn take(files: Files) -> Table
+    case Receiver.receive(files.slot.receiver)
+        Some(table) -> table
+        None        -> unreachable "nothing closes the files' channel"
+    end
+end
+
+fn put(files: Files, table: Table)
+    _ = Sender.send(files.slot.sender, table)
+end
+
+/// The open file `fd` names.
+fn opened(files: Files, fd: Int) -> Maybe<Opened>
+    table = take(files)
+    defer put(files, table)
+    Map.get(table.opened, fd)
+end
+
+/// `opened` added, and the number it is given.
+fn add(files: Files, entry: Opened) -> Int
+    table = take(files)
+
+    defer put(
+        files,
+        {..table, next: table.next + 1, opened: Map.put(table.opened, table.next, entry)},
+    )
+
+    table.next
+end
+
+/// The file `fd` names, taken out.
+fn remove(files: Files, fd: Int) -> Maybe<Opened>
+    table = take(files)
+    defer put(files, {..table, opened: Map.remove(table.opened, fd)})
+    Map.get(table.opened, fd)
+end
+
+/// Every file still open closed, a temporary one deleted: what is left
+/// when an engine stops before SQLite closed them. The place's directories
+/// are closed too when the connection opened them.
+pub fn close_all(files: Files)
+    table = take(files)
+    defer put(files, {..table, opened: {}})
+    Iter.each(table.opened, fn (_, entry) -> closed(entry))
+
+    if files.place.owned then
+        Iter.each(Maybe.values([files.place.dir, files.place.temp]), Dir.close)
+    end
+end
+
+fn closed(entry: Opened) -> Bool
+    shut = File.close(entry.file) |> Result.is_ok()
+
+    if entry.temporary then
+        _ = Dir.remove(entry.dir, entry.path)
+    end
+
+    shut
+end
+
+/// The imports the engine calls, over `files`.
+pub fn imports(files: Files) -> List<Import>
+    [
+        answering("open", [.I32, .I32, .I32], [.I32], fn memory, args ->
+            case args
+                [.I32(at), .I32(length), .I32(flags)] ->
+                    [.I32(open(files, memory, at, length, flags))]
+
+                _ ->
+                    []
+            end
+        end),
+        answering("close", [.I32], [.I32], fn _, args ->
+            case args
+                [.I32(fd)] ->
+                    done = remove(files, fd) |> Maybe.map(closed) |> Maybe.with_default(False)
+                    [.I32(if done then 0 else -1)]
+
+                _ ->
+                    []
+            end
+        end),
+        answering("read", [.I32, .I32, .I32, .I64], [.I32], fn memory, args ->
+            case args
+                [.I32(fd), .I32(at), .I32(amount), .I64(offset)] ->
+                    [.I32(read(files, memory, fd, at, amount, offset))]
+
+                _ ->
+                    []
+            end
+        end),
+        answering("write", [.I32, .I32, .I32, .I64], [.I32], fn memory, args ->
+            case args
+                [.I32(fd), .I32(at), .I32(amount), .I64(offset)] ->
+                    [.I32(write(files, memory, fd, at, amount, offset))]
+
+                _ ->
+                    []
+            end
+        end),
+        answering("truncate", [.I32, .I64], [.I32], fn _, args ->
+            case args
+                [.I32(fd), .I64(size)] ->
+                    [
+                        .I32(
+                            on_file(files, fd, fn f ->
+                                File.truncate(f.file, NonNegativeInt.try_from(size)?)
+                                |> Result.to_maybe()
+                            end)
+                        ),
+                    ]
+
+                _ ->
+                    []
+            end
+        end),
+        answering("sync", [.I32, .I32], [.I32], fn _, args ->
+            case args
+                [.I32(fd), .I32(how)] -> [.I32(on_file(files, fd, fn f -> sync(f, how)))]
+                _                     -> []
+            end
+        end),
+        answering("size", [.I32], [.I64], fn _, args ->
+            size =
+                case args
+                    [.I32(fd)] ->
+                        opened(files, fd)
+                        |> Maybe.flat_map(fn f -> File.size(f.file) |> Result.to_maybe())
+
+                    _ ->
+                        None
+                end
+
+            [.I64(Maybe.with_default(size, -1))]
+        end),
+        answering("lock", [.I32, .I32, .I32], [.I64], fn _, args ->
+            case args
+                [.I32(fd), .I32(level), .I32(wanted)] -> [.I64(locked(files, fd, level, wanted))]
+                _                                     -> []
+            end
+        end),
+        answering("unlock", [.I32, .I32, .I32], [.I32], fn _, args ->
+            case args
+                [.I32(fd), .I32(level), .I32(wanted)] ->
+                    [.I32(moved(files, fd, level, wanted, lower))]
+
+                _ ->
+                    []
+            end
+        end),
+        answering("reserved", [.I32, .I32], [.I32], fn _, args ->
+            case args
+                [.I32(fd), .I32(level)] ->
+                    [
+                        .I32(
+                            opened(files, fd)
+                            |> Maybe.map(fn f -> reserved(f.file, level))
+                            |> Maybe.with_default(-1)
+                        ),
+                    ]
+
+                _ ->
+                    []
+            end
+        end),
+        answering("delete", [.I32, .I32, .I32], [.I32], fn memory, args ->
+            case args
+                [.I32(at), .I32(length), .I32(sync_dir)] ->
+                    [.I32(delete(files, memory, at, length, sync_dir != 0))]
+
+                _ ->
+                    []
+            end
+        end),
+        answering("access", [.I32, .I32, .I32], [.I32], fn memory, args ->
+            case args
+                [.I32(at), .I32(length), .I32(flags)] ->
+                    [.I32(access(files, memory, at, length, flags))]
+
+                _ ->
+                    []
+            end
+        end),
+        answering("random", [.I32, .I32], [.I32], fn memory, args ->
+            case args
+                [.I32(at), .I32(length)] ->
+                    data = random.secure_bytes(
+                        NonNegativeInt.try_from(length)
+                        |> Maybe.with_default(0)
+                    )
+
+                    [.I32(if Memory.write(memory, at, data) is Ok(_) then 0 else -1)]
+
+                _ ->
+                    []
+            end
+        end),
+        // While the task is stopping a sleep ends at once: the busy handler
+        // that sleeps gives up sooner, and the statement ends.
+        {
+            ..answering("sleep", [.I32], [.I32], fn _, args ->
+                case args
+                    [.I32(micros)] ->
+                        timer.sleep(Duration.microseconds(micros))
+                        [.I32(0)]
+
+                    _ ->
+                        []
+                end
+            end),
+            stopping: Some([.I32(0)]),
+        },
+        answering("now", [], [.I64], fn _, _ ->
+            [.I64(Instant.as_nanos(Instant.now()) / 1_000_000)]
+        end),
+        answering("local_offset", [.I64], [.I32], fn _, args ->
+            case args
+                [.I64(seconds)] -> [.I32(local_offset(seconds))]
+                _               -> []
+            end
+        end),
+        // SQLite's progress handler: a statement stops when its task does.
+        {
+            ..answering("stop", [], [.I32], fn _, _ -> [.I32(0)]),
+            stopping: Some([.I32(1)]),
+        },
+    ]
+end
+
+/// The UTC offset, in seconds, of the zone the machine is set to at
+/// `seconds` since the epoch, which follows its daylight saving; the least
+/// I32 when the machine's zone has no name (`DateTime.local_zone`).
+fn local_offset(seconds: Int) -> Int
+    DateTime.local_zone()
+    |> Result.flat_map(&DateTime.from_instant_in(Instant.from_seconds(seconds), &1))
+    |> Result.map(&Duration.as_seconds(DateTime.offset(&1)))
+    |> Result.with_default(-2_147_483_648)
+end
+
+/// The import `vfs.name`, whose function answers its results; an answer
+/// that is not its results traps the call.
+fn answering(
+    name:    String,
+    params:  List<wasm.ValueType>,
+    results: List<wasm.ValueType>,
+    answer:  (Memory, List<Value>) -> List<Value>,
+) -> Import
+    Import{
+        module: "vfs",
+        name:,
+        params:,
+        results:,
+        run: fn memory, args -> Ok(answer(memory, args)),
+    }
+end
+
+/// The `length` bytes of the module's memory at `at` as text: a name.
+fn name(memory: Memory, at: Int, length: Int) -> Maybe<String>
+    Memory.read(memory, at, length)
+    |> Result.to_maybe()
+    |> Maybe.flat_map(fn data -> Bytes.to_string(data) |> Result.to_maybe())
+end
+
+/// The file `fd` names, `run` on it: 0 for done, -1 for a failure.
+fn on_file(files: Files, fd: Int, run: (Opened) -> Maybe<Unit>) -> Int
+    case opened(files, fd) |> Maybe.flat_map(run)
+        Some(_) -> 0
+        None    -> -1
+    end
+end
+
+/// Opens the file named at `at` under the database's directory, or a
+/// fresh temporary file for a name of no bytes: its number, negative when
+/// it is open only to read, or 0 when it cannot be opened. A file that may
+/// not be written is opened to read, as SQLite asks of its Unix layer.
+fn open(files: Files, memory: Memory, at: Int, length: Int, flags: Int) -> Int
+    temporary = length == 0
+
+    named =
+        if temporary then
+            Maybe.or_else(files.place.temp, fn -> files.place.dir)
+            |> Maybe.flat_map(fn d ->
+                Dir.make_temp_file(d) |> Result.to_maybe() |> Maybe.map(fn n -> (d, n))
+            end)
+        else
+            files.place.dir
+            |> Maybe.flat_map(fn d -> name(memory, at, length) |> Maybe.map(fn n -> (d, n)))
+        end
+
+    case named
+        None ->
+            0
+
+        Some((d, p)) ->
+            access =
+                if (flags &&& open_create) != 0 then
+                    Access.Create
+                else if temporary or (flags &&& open_readwrite) != 0 then
+                    Access.ReadWrite
+                else
+                    Access.Read
+                end
+
+            deleted = temporary or (flags &&& open_delete_on_close) != 0
+
+            case Dir.open_file(d, p, access:)
+                Ok(file) ->
+                    add(files, Opened{file:, dir: d, path: p, temporary: deleted})
+
+                Err(Error.PermissionDenied{}) when access != Access.Read ->
+                    case Dir.open_file(d, p, access: Access.Read)
+                        Ok(file) -> -add(files, Opened{file:, dir: d, path: p, temporary: deleted})
+                        Err(_)   -> 0
+                    end
+
+                Err(_) ->
+                    0
+            end
+    end
+end
+
+/// Reads `amount` bytes at `offset` of the file `fd` names into the
+/// module's memory at `at`: the number read, fewer at the end of the
+/// file, or -1.
+fn read(files: Files, memory: Memory, fd: Int, at: Int, amount: Int, offset: Int) -> Int
+    if offset < 0 then return -1
+    if amount < 1 then return if opened(files, fd) is Some(_) then 0 else -1
+
+    case opened(files, fd)
+        None ->
+            -1
+
+        Some(f) ->
+            case File.read_at(f.file, offset, max: amount)
+                Ok(None) ->
+                    0
+
+                Ok(Some(data)) ->
+                    if Memory.write(memory, at, data) is Ok(_) then Bytes.length(data) else -1
+
+                Err(_) ->
+                    -1
+            end
+    end
+end
+
+/// Writes the `amount` bytes of the module's memory at `at` into the file
+/// `fd` names at `offset`: 0, or -1 for a failure.
+fn write(files: Files, memory: Memory, fd: Int, at: Int, amount: Int, offset: Int) -> Int
+    on_file(files, fd, fn f ->
+        data = Memory.read(memory, at, amount) |> Result.to_maybe()?
+        position = NonNegativeInt.try_from(offset)?
+        File.write_at(f.file, position, data) |> Result.to_maybe()
+    end)
+end
+
+/// Syncs the file `f` as SQLite's Unix layer does: `File.sync_data` for
+/// an ordinary sync, and `File.sync`, which on macOS waits for the drive's
+/// cache, for `how` 1, a sync `PRAGMA fullfsync` or
+/// `checkpoint_fullfsync` asks for. With `how` 2 it syncs the file's
+/// directory too, which a new journal needs to outlast a crash.
+fn sync(f: Opened, how: Int) -> Maybe<Unit>
+    synced =
+        if (how &&& 1) != 0 then
+            File.sync(f.file)
+        else
+            File.sync_data(f.file)
+        end
+
+    _ = synced |> Result.to_maybe()?
+
+    if (how &&& 2) != 0 then
+        Dir.sync_dir(
+            f.dir,
+            path.parent(f.path)
+            |> Maybe.with_default("."),
+        )
+        |> Result.to_maybe()
+    else
+        Some(Unit)
+    end
+end
+
+/// SQLite's lock bytes, as every build of SQLite places them, so a
+/// database this driver has open excludes the system's `sqlite3` as it
+/// excludes itself: the PENDING byte, the RESERVED byte after it, and the
+/// 510 SHARED bytes after that.
+once pending_byte: NonNegativeInt = 0x40000000
+
+once reserved_byte: NonNegativeInt = 0x40000001
+
+once shared_first: NonNegativeInt = 0x40000002
+
+once shared_size: PositiveInt = 510
+
+/// SQLite's lock levels.
+once level_shared = 1
+
+once level_reserved = 2
+
+once level_pending = 3
+
+once level_exclusive = 4
+
+/// The file `fd` names locked from `level` up to `wanted`, as `moved`
+/// answers it, and when that takes it from no lock to SHARED, its size
+/// plus 1, times 256, beside: SQLite reads a database's size as each read
+/// transaction starts, and no other handle changes it while this one
+/// holds SHARED, so the engine keeps it until it writes or lets go of its
+/// lock. 0 there is no size.
+fn locked(files: Files, fd: Int, level: Int, wanted: Int) -> Int
+    answer = moved(files, fd, level, wanted, raise)
+    if level != 0 or answer != level_shared * 4 then return answer
+
+    size =
+        opened(files, fd)
+        |> Maybe.flat_map(fn f -> File.size(f.file) |> Result.to_maybe())
+        |> Maybe.map(fn n -> (n + 1) * 256)
+        |> Maybe.with_default(0)
+
+    answer + size
+end
+
+/// The file `fd` names moved from the lock `level` to `wanted` by `move`:
+/// the level reached times 4, plus 0 when done, 1 when another handle's
+/// lock is in the way, and 2 for a failure.
+fn moved(
+    files:  Files,
+    fd:     Int,
+    level:  Int,
+    wanted: Int,
+    move:   (File, Int, Int) -> (Int, Int),
+) -> Int
+    case opened(files, fd)
+        Some(f) ->
+            (reached, status) = move(f.file, level, wanted)
+            reached * 4 + status
+
+        None ->
+            level * 4 + 2
+    end
+end
+
+/// A lock on `length` bytes from `start`: `mode` 0 lets go, 1 is shared
+/// and 2 exclusive. 0 is done, 1 is another handle's lock in the way, 2 a
+/// failure.
+fn range_lock(f: File, mode: Int, start: NonNegativeInt, length: PositiveInt) -> Int
+    attempt =
+        case mode
+            0 ->
+                fs.unlock(f, start:, length: Some(length))
+                |> Result.map(fn _ -> LockAttempt.Acquired)
+
+            1 ->
+                fs.try_lock(f, LockMode.Shared, start:, length: Some(length))
+
+            _ ->
+                fs.try_lock(f, LockMode.Exclusive, start:, length: Some(length))
+        end
+
+    case attempt
+        Ok(LockAttempt.Acquired) -> 0
+        Ok(LockAttempt.Busy)     -> 1
+        Err(_)                   -> 2
+    end
+end
+
+/// SQLite's Unix locking up from `level` to `wanted`, as os_unix.c's
+/// unixLock takes it: SHARED reads the SHARED bytes, once the PENDING byte
+/// shows no writer waits; RESERVED writes the RESERVED byte; EXCLUSIVE
+/// writes the PENDING byte, so no new reader starts, then the SHARED bytes,
+/// once the readers have gone. A range is let go of before another lock on
+/// it, for a platform whose locks change only that way.
+fn raise(f: File, level: Int, wanted: Int) -> (Int, Int)
+    if wanted == level_shared then
+        waiting = range_lock(f, 1, pending_byte, 1)
+        if waiting != 0 then return (level, waiting)
+
+        got = range_lock(f, 1, shared_first, shared_size)
+        released = range_lock(f, 0, pending_byte, 1)
+        status = if got != 0 then got else released
+        (if status == 0 then level_shared else level, status)
+    else if wanted == level_reserved then
+        got = range_lock(f, 2, reserved_byte, 1)
+        (if got == 0 then level_reserved else level, got)
+    else
+        if level < level_pending then
+            got = range_lock(f, 2, pending_byte, 1)
+            if got != 0 then return (level, got)
+        end
+
+        dropped = range_lock(f, 0, shared_first, shared_size)
+        if dropped != 0 then return (level_pending, dropped)
+
+        got = range_lock(f, 2, shared_first, shared_size)
+
+        if got != 0 then
+            // The readers keep their locks: back to SHARED's read lock,
+            // keeping PENDING so no new reader starts.
+            again = range_lock(f, 1, shared_first, shared_size)
+            return (level_pending, if again == 0 then got else 2)
+        end
+
+        (level_exclusive, 0)
+    end
+end
+
+/// SQLite's Unix locking down from `level` to `wanted`, SHARED or none, as
+/// os_unix.c's unixUnlock lets go of it.
+fn lower(f: File, level: Int, wanted: Int) -> (Int, Int)
+    status =
+        [
+            if level == level_exclusive then range_lock(f, 0, shared_first, shared_size) else 0,
+            if level == level_exclusive and wanted == level_shared then
+                range_lock(f, 1, shared_first, shared_size)
+            else
+                0
+            end,
+            if level >= level_pending then range_lock(f, 0, pending_byte, 1) else 0,
+            if level >= level_reserved then range_lock(f, 0, reserved_byte, 1) else 0,
+            if wanted == 0 and level >= level_shared and level < level_exclusive then
+                range_lock(f, 0, shared_first, shared_size)
+            else
+                0
+            end,
+        ]
+        |> Iter.find(fn s -> s != 0)
+        |> Maybe.with_default(0)
+
+    (if status == 0 then wanted else level, if status == 0 then 0 else 2)
+end
+
+/// 1 when a handle holds the RESERVED lock of `f`, this one at `level` or
+/// another, 0 when none does, -1 for a failure.
+fn reserved(f: File, level: Int) -> Int
+    if level >= level_reserved then return 1
+
+    case range_lock(f, 1, reserved_byte, 1)
+        0 -> if range_lock(f, 0, reserved_byte, 1) == 0 then 0 else -1
+        1 -> 1
+        _ -> -1
+    end
+end
+
+/// Deletes the file named at `at` under the database's directory, syncing
+/// its directory after when `sync_dir`: 0 for done, 1 for no such file, -1
+/// for a failure.
+fn delete(files: Files, memory: Memory, at: Int, length: Int, sync_dir: Bool) -> Int
+    case (files.place.dir, name(memory, at, length))
+        (Some(d), Some(p)) ->
+            case Dir.remove(d, p)
+                Err(Error.NotFound{}) ->
+                    1
+
+                Err(_) ->
+                    -1
+
+                Ok(_) ->
+                    if not sync_dir then return 0
+
+                    case Dir.sync_dir(
+                        d,
+                        path.parent(p)
+                        |> Maybe.with_default("."),
+                    )
+                        Ok(_)  -> 0
+                        Err(_) -> -1
+                    end
+            end
+
+        _ ->
+            -1
+    end
+end
+
+/// Whether the file named at `at` under the database's directory is there
+/// and not empty (`flags` 0) or there and writable (`flags` 1): 1 or 0, as
+/// SQLite's Unix layer answers.
+fn access(files: Files, memory: Memory, at: Int, length: Int, flags: Int) -> Int
+    found =
+        files.place.dir
+        |> Maybe.flat_map(fn d ->
+            name(memory, at, length)
+            |> Maybe.flat_map(fn p -> Dir.metadata(d, p) |> Result.to_maybe())
+        end)
+
+    case found
+        None ->
+            0
+
+        Some(m) ->
+            there =
+                if flags == 0 then
+                    m.kind != Kind.File or m.size > 0
+                else
+                    (m.mode &&& 0o200) != 0
+                end
+
+            if there then 1 else 0
+    end
+end

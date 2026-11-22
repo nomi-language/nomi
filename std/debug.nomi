@@ -79,12 +79,12 @@ import strings.String
 /// For `Int`, `Float`, and `Bool`, `Debug.inspect` is the same text as
 /// `Display.to_string`, because the literal is the user-facing form.
 ///
-/// Every value has a `Debug` form, with no `derive` and no impl. The
-/// compiler writes a structural `Debug` for any declared type that does not
-/// supply one, so an `impl Debug` is only for changing how a type renders.
+/// Every value has a `Debug` form, with no `derive` and no impl. A declared
+/// type that supplies none renders by its structure, as the literal that
+/// builds it, so an `impl Debug` is only for changing how a type renders.
 ///
 /// Precedence, highest first: a hand-written `impl Debug`, then `derive
-/// Debug`, then the structural impl the compiler writes.
+/// Debug`, then the rendering by structure.
 ///
 /// An opaque type inspects as its name only, `<opaque T>`, since a
 /// structural form would show the internals `opaque` hides; write an `impl

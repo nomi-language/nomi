@@ -89,6 +89,24 @@ fn main()
     down(%d, [("zero", 1000), ("one", 2000), ("two", 3000)] |> Iter.to_map(), keys) |> io.print()
 end
 `},
+		{"Bytes.get, indexes past 255", `import std::io
+
+fn down(n: Int, data: Bytes) -> Int
+    if n < 1 then
+        0
+    else
+        x = case Bytes.get(data, 1000 + n %% 4)
+            Some(b) -> Byte.to_int(b)
+            None -> 0
+        end
+        down(n - 1, data) + x
+    end
+end
+
+fn main()
+    down(%d, String.to_bytes(String.repeat("ab", 501))) |> io.print()
+end
+`},
 		{"?", `import std::io
 
 fn get(v: Vector<Int>, i: Int) -> Maybe<Int>

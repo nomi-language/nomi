@@ -45,7 +45,7 @@ func TestFormat_EndBodies(t *testing.T) {
 		{
 			"begin blocks",
 			"fn f(n: Int) -> Int\n    x = begin\n        y = n\n        y + 1\n    end\n    z = begin end\n    x\nend\n",
-			"fn f(n: Int) -> Int\n    x = begin\n        y = n\n        y + 1\n    end\n\n    z = begin end\n    x\nend\n",
+			"fn f(n: Int) -> Int\n    x =\n        begin\n            y = n\n            y + 1\n        end\n\n    z = begin end\n    x\nend\n",
 		},
 		{
 			"comments after a header and before end",

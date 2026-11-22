@@ -34,6 +34,15 @@ import (
 // so a test of 9 rows of which 1 failed adds 8 and 1; `blocked` counts
 // tests, one for a blocked test whatever its tables hold.
 //
+// A runner that keeps stored passes (`nomi test` over a program the
+// artifact cache holds) marks each test record that ran or passed with how
+// it decided to run it, `decided`: "unchanged" for a passed test that did
+// not run, since a stored pass holds its code, and for one that ran, why:
+// "new" (no stored pass), "changed" (its code or settings differ), "moved"
+// (an assertion whose failure is a value moved), "effects" (it has
+// effects) or "all" (`--all`). The summary counts the unchanged cases,
+// which `passed` includes, in `unchanged`, left out when there are none.
+//
 // A "file" record is a failure that stopped a file's tests from running at all
 // (a load or type error): the text report's `FAIL <file>: <error>` line.
 //
@@ -128,6 +137,8 @@ func (r *TestReporter) ResultAt(loc TestLocation, name string, err error, output
 		Status:  TestStatusPassed,
 		Cases:   count.Cases,
 		Output:  stripANSI(output),
+		Decided: count.Decided,
+		Effects: count.Effects,
 	}
 	if err != nil {
 		rec.Status = TestStatusFailed
@@ -169,6 +180,11 @@ type testRecord struct {
 	ErrorLine   int    `json:"error_line,omitempty"`
 	Output      string `json:"output,omitempty"`
 	Report      string `json:"report"`
+	// Decided is how a runner that keeps stored passes decided whether to
+	// run the test (CaseCount.Decided).
+	Decided string `json:"decided,omitempty"`
+	// Effects says the test's code can have effects (CaseCount.Effects).
+	Effects bool `json:"effects,omitempty"`
 }
 
 type testSummaryRecord struct {
@@ -176,6 +192,8 @@ type testSummaryRecord struct {
 	Passed  int    `json:"passed"`
 	Failed  int    `json:"failed"`
 	Blocked int    `json:"blocked"`
+	// Unchanged is how many of the passed cases did not run.
+	Unchanged int `json:"unchanged,omitempty"`
 }
 
 func (r *TestReporter) writeFileFailure(file, name string, err error) {
@@ -191,7 +209,7 @@ func (r *TestReporter) writeFileFailure(file, name string, err error) {
 }
 
 func (r *TestReporter) writeSummary() {
-	r.writeRecord(testSummaryRecord{Type: "summary", Passed: r.passed, Failed: r.failed, Blocked: r.blocked})
+	r.writeRecord(testSummaryRecord{Type: "summary", Passed: r.passed, Failed: r.failed, Blocked: r.blocked, Unchanged: r.unchanged})
 }
 
 func (r *TestReporter) writeRecord(v any) {

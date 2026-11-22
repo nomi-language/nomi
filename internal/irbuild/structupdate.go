@@ -1,5 +1,10 @@
 package irbuild
 
+import (
+	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/ast"
+)
+
 // `Struct.update(original, {field: value})` — the universal struct patch.
 //
 // # Why this is a CALL-SITE lowering and not an anchor
@@ -45,23 +50,17 @@ package irbuild
 // surviving field would make `Struct.update(expensive(), {x: 1})` a call per
 // field, which is a different program.
 
-// stdStructUpdateIsStds reports whether `Struct.update` resolves to
-// std/structs' declaration in the stdlib index.
-//
-// Asked of the INDEX rather than of module scope because the index is what
-// records where a declaration came from, and `structs.Struct.update` is filed
-// under the interface name in the receiver slot — the key of a `host fn`
-// declared inside an `interface`. See stdlib.go's collectStdCandidates.
-func (g *gen) stdStructUpdateIsStds() bool {
-	if g.std == nil {
+// stdStructUpdateCalled reports whether t calls std/structs' `Struct.update`:
+// the std function the call's record names (Callee.Std) is that `host fn`
+// (analysis.StdStructUpdate), and the std index holds it by that identity
+// with no Nomi body.
+func (g *gen) stdStructUpdateCalled(t *ast.Call) bool {
+	id := g.routeCallee(t).Std
+	if id != analysis.StdStructUpdate {
 		return false
 	}
-	for _, f := range g.std.byType["Struct.update"] {
-		if f.module == "structs" && f.recv == "Struct" && f.decl == nil {
-			return true
-		}
-	}
-	return false
+	f := g.stdFuncByID(id)
+	return f != nil && f.decl == nil
 }
 
 // updateField resolves one field name against the receiver's kind, for both

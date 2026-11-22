@@ -64,14 +64,13 @@ import (
 // boundary is the test" would end the case at a `?` that only unwinds the
 // block.
 //
-// The two views are cross-checked, and on both bits rather than one: the
-// `lambda` bit against `g.inferResult != nil`, and the `test` bit against
-// `g.inTest`. A disagreement is refused at the `?`'s own position, so a drift
-// between them can never be a wrong answer.
+// The two views are cross-checked on the `test` bit, against `g.inTest`. A
+// disagreement is refused at the `?`'s own position, so a drift between
+// them can never be a wrong answer.
 //
 // Three of the four lower; one is refused:
 //
-//   - A `fn`'s declared result and a LAMBDA's inferred one both take the
+//   - A `fn`'s declared result and a LAMBDA's recorded one both take the
 //     ordinary guard, which propagates a value — see tryValue.
 //
 //   - A TEST body takes a DIFFERENT guard, because what it propagates is not a

@@ -129,7 +129,7 @@ func (g *gen) irErases(want, have kind, haveType analysis.Type) (erases bool) {
 		// through its own retained impl (vm.displayStructural).
 		return true
 	}
-	if irStdDisplayExistential(want) && g.irDisplayInstanceContainer(have) {
+	if irStdDisplayExistential(want) && g.irDisplayInstanceContainer(have, haveType) {
 		// Any other std container with a Display (`e: Display = Some(3)`):
 		// its box names std's impl instantiated at its kind (irStdBoxPlan).
 		return true
@@ -139,6 +139,12 @@ func (g *gen) irErases(want, have kind, haveType analysis.Type) (erases bool) {
 		// lowering records no impl under this instance's key, so the value
 		// enters boxed, naming a thunk that calls its Display (irStdBoxPlan).
 		return false
+	}
+	if irExistentialKind(want) && isStdDebug(want.iface) && (irRetainedTupleKind(have) || irRetainedRecordKind(have)) {
+		// Every type implements Debug: a tuple or an anonymous record held
+		// as std's Debug renders by its shape, its parts through the bodies
+		// their types name (existentialDebugImpls).
+		return true
 	}
 	if irStdStructExistential(want) {
 		// std's universal Struct: every declared struct and anonymous
@@ -288,7 +294,7 @@ func (g *gen) irDisplayErasedNamed(want, have kind) bool {
 	if g.std == nil {
 		return false
 	}
-	f := stdPick(g.std.byIface["Display.to_string"][have], []kind{have})
+	f := stdPick(g.std.stdIfaceImpls(stdDisplay.Func("to_string"), have), []kind{have})
 	if f != nil && f.canon != nil {
 		f = f.canon
 	}
@@ -327,15 +333,10 @@ func (g *gen) irBootRetain(fd *ast.FuncDef) {
 		g.dc.note("a boot result whose fields are not all retained values: " + app.nomi())
 		return
 	}
-	g.pushScope()
-	defer g.popScope()
 	params := make([]kind, len(fd.Params))
 	for i, p := range fd.Params {
 		k := g.typeOf(p.TypeAnnotation)
 		params[i] = k
-		if !ast.IsDiscardName(p.Name) {
-			g.bind(p.Name, local{k: k})
-		}
 	}
 	sig := irFuncSig{result: result, decl: fd, name: fd.Name, origin: irFromModule}
 	sh := g.irFuncShellWithCallee(fd, sig, params, g.irCalleeSym(fd, fd.Name))
@@ -354,7 +355,7 @@ func (g *gen) irBootRetain(fd *ast.FuncDef) {
 // irBootResultParts splits a boot's declared result, `Result<App, E>`, into
 // the application kind and the error kind. ok is false for any other kind.
 func (g *gen) irBootResultParts(result kind) (app, errK kind, ok bool) {
-	anchor, _ := g.preludeNamed("Result")
+	anchor, _ := preludeSpecAnchor(preludeSpecNamed("Result"))
 	if anchor == nil || result.tag != tagNamed || result.def == nil || result.def.preludeOf == nil ||
 		result.def.preludeOf.spec != anchor.spec || len(result.def.preludeArgs) != 2 {
 		return kindInvalid, kindInvalid, false
@@ -606,7 +607,7 @@ func (g *gen) irRecordDisplayImpls() {
 // irRecordRowDebugImpls records every retained HAND-WRITTEN `impl Debug` body
 // of a user's declared, non-generic type (ir.Module.ImplementRowDebug), which
 // an assertion's `values:` rows render such a value through. A derived or
-// universal Debug is synthesized and not recorded, and neither is a std
+// name-only Debug is synthesized and not recorded, and neither is a std
 // type's: those values keep their structural row (a Decimal reads `1.50`, not
 // Debug's `1.50d`).
 func (g *gen) irRecordRowDebugImpls() {

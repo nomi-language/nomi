@@ -14,11 +14,19 @@ import "fmt"
 // consumer fills it with the new value when it builds it, so the self
 // reference is the closure's own identity and exists only once the closure
 // is complete.
+//
+// A function value the program writes keeps the app fields in force where
+// it is made, and its body runs under them wherever it is called
+// (KeepsFields). One the builder makes to run the program's own impl
+// functions on a caller's behalf, such as a user source's `each_while` in
+// an Iter view or a comparator, keeps none: its calls run under the fields
+// of the code that makes them, as a dispatched call does.
 type FuncValue struct {
 	pos      Pos
 	dst      Temp
 	body     *Func
 	self     bool
+	keeps    bool
 	captures []Temp
 }
 
@@ -48,6 +56,18 @@ func newFuncValue(pos Pos, dst Temp, body *Func, self bool, captures []Temp) *Fu
 
 func (n *FuncValue) Body() *Func { return n.body }
 
+// KeepFields marks n as a function value the program wrote: a lambda, a
+// capture, a nested fn or an accessor, which keeps the app fields in force
+// where it is made (spec §15 *Scoped application fields*). It answers n.
+func (n *FuncValue) KeepFields() *FuncValue {
+	n.keeps = true
+	return n
+}
+
+// KeepsFields reports whether the value keeps the app fields in force where
+// it is made (KeepFields).
+func (n *FuncValue) KeepsFields() bool { return n.keeps }
+
 // Self reports whether the first capture is the closure itself.
 func (n *FuncValue) Self() bool { return n.self }
 
@@ -76,10 +96,14 @@ func (n *FuncValue) Pos() Pos                     { return n.pos }
 func (n *FuncValue) Dst() Temp                    { return n.dst }
 func (n *FuncValue) AppendUses(dst []Temp) []Temp { return append(dst, n.captures...) }
 func (n *FuncValue) String() string {
-	if n.self {
-		return fmt.Sprintf("%s = function %s captures self %v", n.dst, n.body.Name(), n.captures)
+	keeps := ""
+	if n.keeps {
+		keeps = " keeping fields"
 	}
-	return fmt.Sprintf("%s = function %s captures %v", n.dst, n.body.Name(), n.captures)
+	if n.self {
+		return fmt.Sprintf("%s = function %s captures self %v%s", n.dst, n.body.Name(), n.captures, keeps)
+	}
+	return fmt.Sprintf("%s = function %s captures %v%s", n.dst, n.body.Name(), n.captures, keeps)
 }
 func (*FuncValue) irNode()  {}
 func (*FuncValue) irInstr() {}

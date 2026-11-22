@@ -1,0 +1,823 @@
+//# Constraint names. SQLite does not report a constraint's name: its
+//# message names the columns of a UNIQUE, PRIMARY KEY or NOT NULL
+//# constraint, the expression (or the name) of a CHECK, and nothing of a
+//# foreign key. So a constraint error is named here as Postgres names the
+//# constraint: the schema's own name when it gives one (`CONSTRAINT name`,
+//# or a unique index's name), else Postgres's default name: `<table>_pkey`,
+//# `<table>_<columns>_key`, `<table>_<columns>_fkey`,
+//# `<table>_<column>_not_null`, and `<table>_<column>_check` for a CHECK
+//# that reads one column or `<table>_check` for one that reads several.
+//# Postgres also cuts a default name to 63 bytes, which this does not.
+
+import
+    std::sql.{self, ConstraintKind}
+    sqlite::internal::engine.{self, Cell, Engine}
+end
+
+/// SQLite's extended codes of the constraints it names.
+once constraint_check = 275
+
+once constraint_foreign_key = 787
+
+once constraint_not_null = 1299
+
+once constraint_primary_key = 1555
+
+once constraint_unique = 2067
+
+/// A connection, for the queries that look a constraint up.
+pub struct Db
+    engine: Engine
+    handle: Int
+end
+
+/// The constraint error SQLite's `code` and `message` are, for the
+/// statement `query` that failed with `params`, or `None` when the code is
+/// no constraint this names.
+pub fn error(
+    db:      Db,
+    code:    Int,
+    message: String,
+    query:   String,
+    params:  List<Cell>,
+) -> Maybe<sql.Error>
+    if code == constraint_unique or code == constraint_primary_key then
+        (table, columns) = constrained(message)
+
+        Some(
+            failure(
+                ConstraintKind.Unique,
+                unique_name(db, table, columns, code == constraint_primary_key),
+                table,
+                String.join(columns, ","),
+            )
+        )
+    else if code == constraint_not_null then
+        (table, columns) = constrained(message)
+
+        name =
+            case columns
+                [column] -> not_null_name(db, table, column)
+                _        -> ""
+            end
+
+        Some(failure(ConstraintKind.NotNull, name, table, String.join(columns, ",")))
+    else if code == constraint_foreign_key then
+        case foreign_key_violation(db, query, params)
+            Some(v) ->
+                Some(
+                    failure(
+                        ConstraintKind.ForeignKey,
+                        foreign_key_name(db, v),
+                        v.table,
+                        String.join(v.columns, ","),
+                    )
+                )
+
+            None ->
+                Some(failure(ConstraintKind.ForeignKey, "", "", ""))
+        end
+    else if code == constraint_check then
+        reported =
+            case String.split(message, "CHECK constraint failed: ")
+                [_, after, ..] -> String.trim(after)
+                _              -> ""
+            end
+
+        (name, table, column) = check_name(db, reported, target(query))
+        Some(failure(ConstraintKind.Check, name, table, column))
+    else
+        None
+    end
+end
+
+fn failure(kind: ConstraintKind, name: String, table: String, column: String) -> sql.Error
+    sql.Error.Constraint{kind:, name:, table: present(table), column: present(column)}
+end
+
+fn present(text: String) -> Maybe<String>
+    if text == "" then None else Some(text)
+end
+
+/// The rows of a query on the connection, as text, or none when it fails.
+fn rows(db: Db, sql: String, params: List<Cell>) -> List<List<String>>
+    case engine.exec(db.engine, db.handle, sql, params)
+        Ok(answer) ->
+            answer.rows
+            |> Iter.map(fn row -> row |> Iter.map(text) |> Iter.to_list())
+            |> Iter.to_list()
+
+        Err(_) ->
+            []
+    end
+end
+
+fn text(c: Cell) -> String
+    case c
+        .Integer(n) -> "${n}"
+        .Real(x)    -> "${x}"
+        .Text(s)    -> s
+        .Blob(b)    -> Bytes.to_string_lossy(b)
+        .Null       -> ""
+    end
+end
+
+/// One constraint of a table as its CREATE TABLE statement declares it: its
+/// kind (`pkey`, `key`, `fkey`, `not_null` or `check`), its name (`""` when
+/// the schema names none), its columns, and a CHECK's expression as
+/// written.
+struct Declared
+    kind:    String
+    name:    String
+    columns: List<String>
+    check:   String
+end
+
+/// One token of SQL text: a word, a quoted name (unquoted), a string
+/// literal, or one punctuation character, and its bytes in the text.
+struct Token
+    text:   String
+    word:   Bool
+    quoted: Bool
+    start:  Int
+    stop:   Int
+end
+
+/// The tokens of SQL text, leaving out space and comments.
+fn tokenize(text: String) -> Vector<Token>
+    data = String.to_bytes(text)
+    tokens(data, 0, Vector[])
+end
+
+fn byte(data: Bytes, i: Int) -> Int
+    Bytes.uint8_at(data, i) |> Maybe.with_default(0)
+end
+
+fn is_word_byte(c: Int) -> Bool
+    c == 95
+        or c == 36
+        or (c >= 48 and c <= 57)
+        or (c >= 97 and c <= 122)
+        or (c >= 65 and c <= 90)
+        or c >= 128
+end
+
+fn slice_text(data: Bytes, start: Int, stop: Int) -> String
+    Bytes.to_string_lossy(Bytes.slice(data, start, stop))
+end
+
+fn tokens(data: Bytes, i: Int, out: Vector<Token>) -> Vector<Token>
+    n = Bytes.length(data)
+    if i >= n then return out
+
+    c = byte(data, i)
+
+    if c == 32 or c == 9 or c == 10 or c == 13 then
+        tokens(data, i + 1, out)
+    else if c == 45 and byte(data, i + 1) == 45 then
+        tokens(data, line_end(data, i), out)
+    else if c == 47 and byte(data, i + 1) == 42 then
+        tokens(data, comment_end(data, i + 2), out)
+    else if c == 39 then
+        stop = quote_end(data, i + 1, 39, True)
+
+        tokens(
+            data,
+            stop,
+            Vector.push(
+                out,
+                Token{text: slice_text(data, i, stop), word: False, quoted: True, start: i, stop:},
+            ),
+        )
+    else if c == 34 or c == 96 or c == 91 then
+        closer = if c == 91 then 93 else c
+        stop = quote_end(data, i + 1, closer, closer != 93)
+
+        inner = slice_text(
+            data,
+            i + 1,
+            if byte(data, stop - 1) == closer and stop - 1 > i then stop - 1 else stop,
+        )
+
+        quote = if closer == 34 then "\"" else "`"
+        name = if closer != 93 then String.replace(inner, "${quote}${quote}", quote) else inner
+
+        tokens(
+            data,
+            stop,
+            Vector.push(out, Token{text: name, word: True, quoted: False, start: i, stop:}),
+        )
+    else if is_word_byte(c) then
+        stop = word_end(data, i)
+
+        tokens(
+            data,
+            stop,
+            Vector.push(
+                out,
+                Token{text: slice_text(data, i, stop), word: True, quoted: False, start: i, stop:},
+            ),
+        )
+    else
+        tokens(
+            data,
+            i + 1,
+            Vector.push(
+                out,
+                Token{
+                    text:   slice_text(data, i, i + 1),
+                    word:   False,
+                    quoted: False,
+                    start:  i,
+                    stop:   i + 1,
+                },
+            ),
+        )
+    end
+end
+
+fn line_end(data: Bytes, i: Int) -> Int
+    if i >= Bytes.length(data) or byte(data, i) == 10 then
+        i
+    else
+        line_end(data, i + 1)
+    end
+end
+
+fn comment_end(data: Bytes, i: Int) -> Int
+    if i + 1 >= Bytes.length(data) then
+        Bytes.length(data)
+    else if byte(data, i) == 42 and byte(data, i + 1) == 47 then
+        i + 2
+    else
+        comment_end(data, i + 1)
+    end
+end
+
+/// The byte after the quote that closes one opened before `i`; a doubled
+/// closer is part of the text when `doubles`.
+fn quote_end(data: Bytes, i: Int, closer: Int, doubles: Bool) -> Int
+    if i >= Bytes.length(data) then
+        Bytes.length(data)
+    else if byte(data, i) == closer then
+        if doubles and byte(data, i + 1) == closer then
+            quote_end(data, i + 2, closer, doubles)
+        else
+            i + 1
+        end
+    else
+        quote_end(data, i + 1, closer, doubles)
+    end
+end
+
+fn word_end(data: Bytes, i: Int) -> Int
+    if i < Bytes.length(data) and is_word_byte(byte(data, i)) then word_end(data, i + 1) else i
+end
+
+fn token(tokens: Vector<Token>, i: Int) -> Maybe<Token>
+    Vector.get(tokens, i)
+end
+
+fn keyword(t: Maybe<Token>, word: String) -> Bool
+    case t
+        Some(tok) -> tok.word and String.uppercase(tok.text) == word
+        None      -> False
+    end
+end
+
+fn punct(t: Maybe<Token>, text: String) -> Bool
+    case t
+        Some(tok) -> not tok.word and not tok.quoted and tok.text == text
+        None      -> False
+    end
+end
+
+/// The index of the `)` that closes the `(` at `open`.
+fn closing(tokens: Vector<Token>, open: Int) -> Int
+    closing_from(tokens, open, 0)
+end
+
+fn closing_from(tokens: Vector<Token>, i: Int, depth: Int) -> Int
+    case token(tokens, i)
+        None ->
+            Vector.length(tokens) - 1
+
+        Some(t) ->
+            if punct(Some(t), "(") then
+                closing_from(tokens, i + 1, depth + 1)
+            else if punct(Some(t), ")") then
+                if depth == 1 then
+                    i
+                else
+                    closing_from(tokens, i + 1, depth - 1)
+                end
+            else
+                closing_from(tokens, i + 1, depth)
+            end
+    end
+end
+
+/// The parenthesized list of names at `open`: `(a, b)`.
+fn name_list(tokens: Vector<Token>, open: Int) -> List<String>
+    if not punct(token(tokens, open), "(") then return []
+
+    stop = closing(tokens, open)
+
+    if stop <= open + 1 then return []
+
+    (open + 1)..stop
+    |> Iter.flat_map(fn i ->
+        case token(tokens, i)
+            Some(t) when t.word and (i == open + 1 or punct(token(tokens, i - 1), ",")) -> [t.text]
+            _ -> []
+        end
+    end)
+    |> Iter.to_list()
+end
+
+/// The constraints a CREATE TABLE statement declares.
+fn constraints_of(create: String) -> List<Declared>
+    tokens = tokenize(create)
+
+    open = 0..Vector.length(tokens) |> Iter.find(fn i -> punct(token(tokens, i), "("))
+
+    case open
+        None ->
+            []
+
+        Some(o) ->
+            stop = closing(tokens, o)
+            definitions(create, tokens, o + 1, o + 1, 0, stop, [])
+    end
+end
+
+/// Each definition between top-level commas, from `start`, read up to the
+/// `)` at `stop`.
+fn definitions(
+    text:   String,
+    tokens: Vector<Token>,
+    i:      Int,
+    start:  Int,
+    depth:  Int,
+    stop:   Int,
+    out:    List<Declared>,
+) -> List<Declared>
+    if i > stop then return out
+
+    t = token(tokens, i)
+
+    deeper =
+        if punct(t, "(") then
+            depth + 1
+        else if punct(t, ")") then
+            depth - 1
+        else
+            depth
+        end
+
+    if (punct(t, ",") and depth == 0) or i == stop then
+        found = definition(
+            text,
+            tokens
+            |> Iter.drop(
+                NonNegativeInt.try_from(start)
+                |> Maybe.with_default(0)
+            )
+            |> Iter.take(
+                NonNegativeInt.try_from(i - start)
+                |> Maybe.with_default(0)
+            )
+            |> Iter.to_vector(),
+        )
+
+        definitions(text, tokens, i + 1, i + 1, deeper, stop, List.concat(out, found))
+    else
+        definitions(text, tokens, i + 1, start, deeper, stop, out)
+    end
+end
+
+/// One column definition's constraints, or one table constraint.
+fn definition(text: String, tokens: Vector<Token>) -> List<Declared>
+    first = token(tokens, 0)
+    if first is None then return []
+
+    leads = keyword(first, "CONSTRAINT")
+        or keyword(first, "PRIMARY")
+        or keyword(first, "UNIQUE")
+        or keyword(first, "CHECK")
+        or keyword(first, "FOREIGN")
+
+    column =
+        if leads then
+            ""
+        else
+            first |> Maybe.map(.text) |> Maybe.with_default("")
+        end
+
+    clauses(text, tokens, if leads then 0 else 1, column, "", [])
+end
+
+fn clauses(
+    text:   String,
+    tokens: Vector<Token>,
+    i:      Int,
+    column: String,
+    name:   String,
+    out:    List<Declared>,
+) -> List<Declared>
+    t = token(tokens, i)
+    if t is None then return out
+
+    one =
+        fn kind: String, columns: List<String> ->
+            List.concat(out, [Declared{kind:, name:, columns:, check: ""}])
+        end
+
+    if keyword(t, "CONSTRAINT") and token(tokens, i + 1) is Some(_) then
+        clauses(
+            text,
+            tokens,
+            i + 2,
+            column,
+            token(tokens, i + 1)
+            |> Maybe.map(.text)
+            |> Maybe.with_default(""),
+            out,
+        )
+    else if keyword(t, "PRIMARY") then
+        cols =
+            if column == "" then
+                name_list(tokens, i + 2)
+            else
+                [column]
+            end
+
+        clauses(text, tokens, i + 1, column, "", one("pkey", cols))
+    else if keyword(t, "UNIQUE") then
+        cols =
+            if column == "" then
+                name_list(tokens, i + 1)
+            else
+                [column]
+            end
+
+        clauses(text, tokens, i + 1, column, "", one("key", cols))
+    else if keyword(t, "NOT") and keyword(token(tokens, i + 1), "NULL") and column != "" then
+        clauses(text, tokens, i + 2, column, "", one("not_null", [column]))
+    else if keyword(t, "REFERENCES") and column != "" then
+        clauses(text, tokens, i + 1, column, "", one("fkey", [column]))
+    else if keyword(t, "FOREIGN") and column == "" then
+        clauses(text, tokens, i + 1, column, "", one("fkey", name_list(tokens, i + 2)))
+    else if keyword(t, "CHECK") and punct(token(tokens, i + 1), "(") then
+        stop = closing(tokens, i + 1)
+
+        expr =
+            case (token(tokens, i + 2), token(tokens, stop - 1))
+                (Some(a), Some(b)) when stop > i + 2 ->
+                    Bytes.to_string_lossy(Bytes.slice(String.to_bytes(text), a.start, b.stop))
+
+                _ ->
+                    ""
+            end
+
+        clauses(text, tokens, stop + 1, column, "", List.concat(out, [
+                Declared{kind: "check", name:, columns: [], check: expr},
+            ]))
+    else if punct(t, "(") then
+        // A type's precision, a default's expression, a references list:
+        // nothing in it declares a constraint.
+        clauses(text, tokens, closing(tokens, i) + 1, column, name, out)
+    else
+        clauses(text, tokens, i + 1, column, name, out)
+    end
+end
+
+/// The CREATE TABLE statement of `table`, a temporary table's first, as the
+/// schema keeps it.
+fn table_sql(db: Db, table: String) -> String
+    ["sqlite_temp_schema", "sqlite_schema"]
+    |> Iter.find_map(fn schema ->
+        case rows(
+            db,
+            "SELECT sql FROM ${schema} WHERE type = 'table' AND name = ?1 COLLATE NOCASE",
+            [.Text(table)],
+        )
+            [[sql], ..] when sql != "" -> Some(sql)
+            _                          -> None
+        end
+    end)
+    |> Maybe.with_default("")
+end
+
+fn same_columns(a: List<String>, b: List<String>) -> Bool
+    Iter.count(a) == Iter.count(b)
+        and Iter.zip(a, b)
+        |> Iter.all_match(fn (x, y) -> String.lowercase(x) == String.lowercase(y))
+end
+
+/// The name the schema gives `table`'s constraint of `kind` over
+/// `columns`, or `""`.
+fn declared_name(db: Db, table: String, kind: String, columns: List<String>) -> String
+    constraints_of(table_sql(db, table))
+    |> Iter.find(fn d -> d.kind == kind and d.name != "" and same_columns(d.columns, columns))
+    |> Maybe.map(.name)
+    |> Maybe.with_default("")
+end
+
+/// Postgres's name for a constraint of `kind` on `columns` of `table` that
+/// the schema does not name.
+fn default_name(table: String, kind: String, columns: List<String>) -> String
+    if kind == "pkey" then
+        "${table}_pkey"
+    else
+        String.join([table, ..columns, kind], "_")
+    end
+end
+
+/// The name a UNIQUE or PRIMARY KEY violation over `columns` of `table`
+/// has: the unique index over exactly those columns when the schema made
+/// one with CREATE UNIQUE INDEX, the constraint's name when the schema
+/// gives one, else Postgres's default.
+fn unique_name(db: Db, table: String, columns: List<String>, primary: Bool) -> String
+    index = unique_index(db, table, columns)
+    if index != "" then return index
+
+    kind = if primary then "pkey" else "key"
+    named = declared_name(db, table, kind, columns)
+
+    if named != "" then
+        named
+    else
+        default_name(table, kind, columns)
+    end
+end
+
+/// The name of the unique index of `table` over exactly `columns` that the
+/// schema made with CREATE UNIQUE INDEX, or `""` (SQLite makes its own,
+/// `sqlite_autoindex_...`, for a UNIQUE or PRIMARY KEY clause).
+fn unique_index(db: Db, table: String, columns: List<String>) -> String
+    if table == "" then return ""
+
+    rows(db, "SELECT name, \"unique\" FROM pragma_index_list(?1)", [.Text(table)])
+    |> Iter.flat_map(fn row ->
+        case row
+            [name, "1"] when not String.starts_with(name, "sqlite_autoindex_") -> [name]
+            _ -> []
+        end
+    end)
+    |> Iter.find(fn index ->
+        got =
+            rows(db, "SELECT name FROM pragma_index_info(?1) ORDER BY seqno", [.Text(index)])
+            |> Iter.flat_map(&Iter.take(&1, 1))
+            |> Iter.to_list()
+
+        same_columns(got, columns)
+    end)
+    |> Maybe.with_default("")
+end
+
+/// The name of a NOT NULL violation of `table`'s `column`.
+fn not_null_name(db: Db, table: String, column: String) -> String
+    named = declared_name(db, table, "not_null", [column])
+
+    if named != "" then
+        named
+    else
+        default_name(table, "not_null", [column])
+    end
+end
+
+/// The name of a CHECK violation SQLite reported as `reported` (the
+/// constraint's name, or its expression when it has none), with the table
+/// it is on and the one column it reads (or `""`). It looks in `target`,
+/// the table the statement writes, first, then in every table.
+fn check_name(db: Db, reported: String, target: String) -> (String, String, String)
+    every =
+        rows(
+            db,
+            "SELECT name FROM sqlite_temp_schema WHERE type = 'table' UNION ALL SELECT name FROM sqlite_schema WHERE type = 'table'",
+            [],
+        )
+        |> Iter.flat_map(&Iter.take(&1, 1))
+        |> Iter.to_list()
+
+    tables = if target != "" then [target, ..every] else every
+    want = squash(reported)
+
+    found =
+        tables
+        |> Iter.find_map(fn t ->
+            columns = column_names(db, t)
+
+            constraints_of(table_sql(db, t))
+            |> Iter.find(fn d ->
+                d.kind == "check"
+                    and (if d.name != "" then
+                        d.name == reported
+                    else
+                        squash(d.check) == want
+                    end)
+            end)
+            |> Maybe.map(fn d ->
+                one =
+                    case read_columns(d.check, columns)
+                        [only] -> only
+                        _      -> ""
+                    end
+
+                if d.name != "" then
+                    (d.name, t, one)
+                else if one != "" then
+                    ("${t}_${one}_check", t, one)
+                else
+                    ("${t}_check", t, "")
+                end
+            end)
+        end)
+
+    Maybe.with_default(found, (reported, "", ""))
+end
+
+/// SQL text with its runs of space made one space.
+fn squash(text: String) -> String
+    String.words(text) |> String.join(" ")
+end
+
+/// `table`'s columns.
+fn column_names(db: Db, table: String) -> List<String>
+    rows(db, "SELECT name FROM pragma_table_info(?1)", [.Text(table)])
+    |> Iter.flat_map(&Iter.take(&1, 1))
+    |> Iter.to_list()
+end
+
+/// The columns an expression reads, each once, in the order they appear.
+fn read_columns(expr: String, columns: List<String>) -> List<String>
+    tokenize(expr)
+    |> Iter.filter(.word)
+    |> Iter.reduce([], fn out: List<String>, t ->
+        columns
+        |> Iter.filter(fn c ->
+            String.lowercase(c) == String.lowercase(t.text) and not Iter.contains(out, c)
+        end)
+        |> Iter.reduce(out, fn acc, c -> List.concat(acc, [c]))
+    end)
+end
+
+/// The table a statement writes: INSERT INTO t, REPLACE INTO t, UPDATE t,
+/// DELETE FROM t (with OR ... and a schema allowed), or `""`.
+fn target(query: String) -> String
+    tokens = tokenize(query)
+    first = token(tokens, 0)
+
+    at =
+        if keyword(first, "INSERT") or keyword(first, "REPLACE") then
+            0..Vector.length(tokens) |> Iter.find(fn i -> keyword(token(tokens, i), "INTO"))
+        else if keyword(first, "UPDATE") then
+            Some(if keyword(token(tokens, 1), "OR") then 2 else 0)
+        else if keyword(first, "DELETE") then
+            Some(1)
+        else
+            None
+        end
+
+    case Maybe.map(at, fn i -> i + 1)
+        Some(i) ->
+            case (token(tokens, i), token(tokens, i + 1), token(tokens, i + 2))
+                (Some(schema), Some(dot), Some(name)) when schema.word
+                    and punct(Some(dot), ".")
+                    and name.word ->
+                    name.text
+
+                (Some(name), _, _) when name.word ->
+                    name.text
+
+                _ ->
+                    ""
+            end
+
+        None ->
+            ""
+    end
+end
+
+/// A foreign key a row breaks: the child table and the columns of its
+/// foreign key that point at the missing row.
+struct Violation
+    table:   String
+    columns: List<String>
+end
+
+/// The foreign key a failed statement broke. SQLite says only that one
+/// was: the deferred violations of an open transaction are listed by
+/// foreign_key_check, and an immediate one is found by running the
+/// statement again in a savepoint with the foreign keys deferred, listing
+/// what it would break, and rolling it back.
+fn foreign_key_violation(db: Db, query: String, params: List<Cell>) -> Maybe<Violation>
+    case foreign_key_check(db)
+        Some(v) ->
+            Some(v)
+
+        None when query == "" ->
+            None
+
+        None ->
+            deferred =
+                case rows(db, "PRAGMA defer_foreign_keys", [])
+                    [[d], ..] -> d
+                    _         -> return None
+                end
+
+            if engine.exec(db.engine, db.handle, "SAVEPOINT nomi_foreign_key", []) is Err(_) then
+                return None
+            end
+
+            defer restore(db, deferred)
+
+            if engine.exec(
+                db.engine,
+                db.handle,
+                "PRAGMA defer_foreign_keys = ON",
+                [],
+            ) is Err(_) then
+                return None
+            end
+
+            if engine.exec(db.engine, db.handle, query, params) is Err(_) then return None
+
+            foreign_key_check(db)
+    end
+end
+
+fn restore(db: Db, deferred: String)
+    _ = engine.exec(db.engine, db.handle, "ROLLBACK TO SAVEPOINT nomi_foreign_key", [])
+    _ = engine.exec(db.engine, db.handle, "RELEASE SAVEPOINT nomi_foreign_key", [])
+
+    if deferred == "0" then
+        _ = engine.exec(db.engine, db.handle, "PRAGMA defer_foreign_keys = OFF", [])
+    end
+end
+
+/// The first row foreign_key_check lists, in the main database or the
+/// temporary one.
+fn foreign_key_check(db: Db) -> Maybe<Violation>
+    ["main", "temp"]
+    |> Iter.find_map(fn schema ->
+        case rows(db, "PRAGMA ${schema}.foreign_key_check", [])
+            [[table, _, _, fkid], ..] ->
+                columns =
+                    rows(
+                        db,
+                        "SELECT \"from\" FROM pragma_foreign_key_list(?1) WHERE id = ?2 ORDER BY seq",
+                        [
+                            .Text(table),
+                            .Integer(
+                                String.to_int(fkid)
+                                |> Maybe.with_default(-1)
+                            ),
+                        ],
+                    )
+                    |> Iter.flat_map(&Iter.take(&1, 1))
+                    |> Iter.to_list()
+
+                Some(Violation{table:, columns:})
+
+            _ ->
+                None
+        end
+    end)
+end
+
+/// The name of a broken foreign key: the schema's name for it, or
+/// Postgres's default.
+fn foreign_key_name(db: Db, v: Violation) -> String
+    named = declared_name(db, v.table, "fkey", v.columns)
+
+    if named != "" then
+        named
+    else
+        default_name(v.table, "fkey", v.columns)
+    end
+end
+
+/// The table and columns of "UNIQUE constraint failed: users.email,
+/// users.name".
+fn constrained(message: String) -> (String, List<String>)
+    case String.split(message, "constraint failed: ")
+        [_, list, ..] ->
+            pairs =
+                String.split(list, ",")
+                |> Iter.flat_map(fn item ->
+                    case String.split(String.trim(item), ".")
+                        [t, col, ..] -> [(t, col)]
+                        _            -> []
+                    end
+                end)
+                |> Iter.to_list()
+
+            table = pairs |> Iter.last() |> Maybe.map(.first) |> Maybe.with_default("")
+            (table, pairs |> Iter.map(.second) |> Iter.to_list())
+
+        _ ->
+            ("", [])
+    end
+end

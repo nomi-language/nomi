@@ -67,6 +67,7 @@ var builtinCheckedRows = map[string]bool{
 // contextCheckedRows are held to rt directly.
 var contextCheckedRows = map[string]bool{
 	"context.Context.deadline": true, "context.Context.deadline_remaining": true, "context.Context.with_deadline": true,
+	"context.Context.inspect": true,
 	// Reads the frame's input: TestRtFuncs_ReadLineReadsTheFramesInput.
 	"io.read_line": true,
 	// The standard streams: TestRtFuncs_StreamsReachTheFramesStreams.
@@ -87,11 +88,14 @@ var contextCheckedRows = map[string]bool{
 	"fs/host.open": true, "fs/host.create": true, "fs/host.temp_dir": true,
 	"fs/host.make_temp_dir": true, "fs/host.current_dir": true, "fs/host.new_sandbox": true,
 	"fs/host.sandbox_fail": true, "fs/host.sandbox_files": true, "fs/host.sandbox_log": true, "fs/host.sandbox_open": true,
-	// A File on the disk and in a sandbox, and fs.within's crossings:
-	// TestRtFuncs_FilesAndWithin.
+	// A File on the disk and in a sandbox, and a Dir's crossings and
+	// fs.within's: TestRtFuncs_FilesAndWithin, whose calls on a frame are
+	// handed its file system (onFrame), as `here` answers it.
+	"fs/host.here": true, "fs/host.make_temp": true,
 	"fs/host.open_file": true, "fs/host.within": true, "fs/host.release": true, "io.file_read": true,
 	"io.File.read_at": true, "io.File.write": true, "io.File.write_at": true, "io.File.seek": true,
 	"io.File.position": true, "io.File.size": true, "io.File.truncate": true, "io.File.close": true,
+	"io.File.sync": true, "io.File.sync_data": true, "fs/host.lock": true, "fs/host.sync_dir": true,
 	// Starting programs and the fake: TestRtFuncs_ProcessesAndTheFake.
 	"process/host.start": true, "process/host.child_stdin": true, "process/host.child_stdout": true,
 	"process/host.child_stderr": true, "process/host.wait": true, "process/host.captured": true,
@@ -463,7 +467,12 @@ func TestRtFuncs_NewRowsReproduceTheirRecordedOutcomes(t *testing.T) {
 				skipped++
 				continue
 			}
-			got := classify(func() (rt.Value, error) { return fn(rt.NewFrame(context.Background()), args) })
+			// A file crossing acts on the frame's file system, which the
+			// label leaves out (onFrame).
+			got := classify(func() (rt.Value, error) {
+				fr := rt.NewFrame(context.Background())
+				return fn(fr, onFrame(fr, key, args))
+			})
 			text := strings.ReplaceAll(goldenOutcome(got, false), dir, "<dir>")
 			lines = append(lines, strconv.Quote(label)+"\t"+strconv.Quote(text))
 			want, recorded := golden[label]
@@ -510,9 +519,9 @@ func TestRtFuncs_NewRowsReproduceTheirRecordedOutcomes(t *testing.T) {
 	}
 }
 
-// TestRtFuncs_ContextRowsConvertRtsContext: the three Context rows pass the
+// TestRtFuncs_ContextRowsConvertRtsContext: the Context rows pass the
 // machine's rt.Context through and build Instant and Duration records as the
-// VM reads them.
+// VM reads them, and inspect answers the text rt renders a Context as.
 func TestRtFuncs_ContextRowsConvertRtsContext(t *testing.T) {
 	table, err := Bind(&hostadapt.Env{})
 	if err != nil {
@@ -522,6 +531,9 @@ func TestRtFuncs_ContextRowsConvertRtsContext(t *testing.T) {
 	root := rt.ContextRoot()
 	if got, err := table["context.Context.deadline"](fr, []rt.Value{root}); err != nil || canonText(got, false) != "maybe.Maybe/4.None{}" {
 		t.Errorf("deadline(root) answered %s, %v", canonText(got, false), err)
+	}
+	if got, err := table["context.Context.inspect"](fr, []rt.Value{root}); err != nil || got != "<context>" {
+		t.Errorf("inspect(root) answered %#v, %v, want %q", got, err, "<context>")
 	}
 	at := rt.InstantNow() + rt.Instant(time.Hour)
 	instantDesc := rt.NewDistinctDesc("instant.Instant", hostadapt.Slot(rt.SlotInt))

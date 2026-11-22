@@ -129,16 +129,17 @@ type stdEnumVariantSpec struct {
 	// default value, and folding it into the singular pair would put two empty
 	// strings on every existing row to describe a shape none of them has.
 	fields []stdEnumFieldSpec
-	// declType is the Nomi type NAME a payloadScalar variant's declaration must
-	// spell when its payload is not one of the five scalars — `UpTo Duration`.
-	// Empty for a payload the `scalarKind` comparison can check by itself.
+	// decl is the payload's type as std's declaration writes it (typeText),
+	// for payloadScalar and payloadStructScalar: the scalar's own name, or
+	// the std newtype's (`UpTo Duration`). The container and std-struct forms
+	// spell the row `ref` names instead (payloadDecl).
 	//
 	// Its own field rather than a reuse of `nomiField`, which is empty for
 	// every positional row and would therefore have been available: the two
 	// answer different questions, and a reader who found a TYPE name in a field
 	// documented as "the NOMI field name a struct-shaped variant declares"
 	// would be right to distrust everything around it.
-	declType string
+	decl string
 }
 
 // stdEnumPayloadForm is the closed set of payload shapes this family admits.
@@ -241,10 +242,9 @@ type stdEnumFieldSpec struct {
 	// opaque is the opaqueSpecs INDEX of a std newtype field, or -1. See
 	// payloadStructFields' point 2 for why an index rather than a kind.
 	opaque int
-	// declType is the Nomi type name the declaration must spell for an opaque
-	// field, checked against the annotation. Empty for a scalar field, whose
-	// annotation is checked by `scalarKind` instead.
-	declType string
+	// decl is the field's type as std's declaration writes it (typeText): the
+	// scalar's own name, or the std newtype's.
+	decl string
 	// deflt is the value that fills this field when a literal omits it, an rt
 	// constant, or nil for a field with no default. An Int, or the Int a
 	// wrapping distinct such as Duration holds. Its agreement with std's
@@ -267,9 +267,11 @@ func bareVariant(name string) stdEnumVariantSpec {
 }
 
 // scalarVariant is the common carrying row: a payload whose kind is a fixed
-// scalar, stored in rt's `field`.
+// scalar, stored in rt's `field`. A scalar is written as its own name, which
+// is the kind's (kind.nomi), so the row's spelling is derived rather than
+// stated twice; std writes no subtype in an enum payload.
 func scalarVariant(name, field string, k kind) stdEnumVariantSpec {
-	return stdEnumVariantSpec{nomi: name, form: payloadScalar, scalar: k, ref: -1, field: field}
+	return stdEnumVariantSpec{nomi: name, form: payloadScalar, scalar: k, decl: k.nomi(), ref: -1, field: field}
 }
 
 // listOfEnumVariant is a payload holding `List<the enum spec at index i>`.
@@ -311,6 +313,7 @@ func structScalarVariant(name, nomiField, goField string, k kind) stdEnumVariant
 		nomi:      name,
 		form:      payloadStructScalar,
 		scalar:    k,
+		decl:      k.nomi(),
 		ref:       -1,
 		field:     goField,
 		nomiField: nomiField,
@@ -334,19 +337,20 @@ func structFieldsVariant(name string, fields ...stdEnumFieldSpec) stdEnumVariant
 }
 
 // scalarField and opaqueField are the two field shapes structFieldsVariant
-// admits. `deflt` is nil for a field with no default.
+// admits. `deflt` is nil for a field with no default. A scalar field is
+// spelled as scalarVariant's payload is.
 func scalarField(nomi, goField string, k kind, deflt *int64) stdEnumFieldSpec {
-	return stdEnumFieldSpec{nomi: nomi, field: goField, scalar: k, opaque: -1, deflt: deflt}
+	return stdEnumFieldSpec{nomi: nomi, field: goField, scalar: k, decl: k.nomi(), opaque: -1, deflt: deflt}
 }
 
 // opaqueField names a std newtype by its opaqueSpecs INDEX and by the Nomi
-// spelling the declaration must use. Both, because the index decides the KIND
-// and the spelling is what the shape check holds std's annotation to — deriving
-// one from the other would make a std rename anchor against a stale name.
-func opaqueField(nomi, goField string, opaqueIdx int, declType string, deflt *int64) stdEnumFieldSpec {
+// spelling the declaration must use. The index decides the KIND and the
+// spelling is what the shape check holds std's annotation to;
+// TestStdSpecSpellingsAreTheirKinds holds the two together.
+func opaqueField(nomi, goField string, opaqueIdx int, decl string, deflt *int64) stdEnumFieldSpec {
 	return stdEnumFieldSpec{
 		nomi: nomi, field: goField, scalar: kindInvalid,
-		opaque: opaqueIdx, declType: declType, deflt: deflt,
+		opaque: opaqueIdx, decl: decl, deflt: deflt,
 	}
 }
 
@@ -384,61 +388,37 @@ func (v *stdEnumVariantSpec) payloadKind(defs []*typeDef) kind {
 	return kindInvalid
 }
 
-// declaredShapeOK reports whether std's declared payload ANNOTATION is the type
-// payloadKind produces.
+// payloadDecl is the payload's type as std's declaration must write it
+// (typeText), for the positional forms.
 //
-// Deliberately NOT routed through stdTypeKind, which is how
-// stdStructSpec.matches checks a field, and the asymmetry is forced rather than
-// chosen: stdTypeKind resolves a name through `stdAnchors`, and validating
-// `Json.Arr List<Json>` needs the `Json` anchor that this very check is what
-// builds. So the annotation is compared STRUCTURALLY. That is no weaker for the
-// purpose — a widened `List<String>` fails on the element name exactly as it
-// would fail on an interned kind — and it is self-contained, which breaks the
-// cycle honestly instead of by ordering luck.
-//
-// The element type's name is DERIVED from the row `ref` names rather than retyped
-// beside it, so a renamed row fails here instead of anchoring against a stale
-// spelling.
-func (v *stdEnumVariantSpec) declaredShapeOK(te ast.TypeExpr, specs []stdEnumSpec) bool {
+// The container and std-struct forms spell the row `ref` names, DERIVED from
+// it rather than retyped beside it, so a renamed row fails the check instead
+// of anchoring against a stale spelling. The scalar form states its own.
+func (v *stdEnumVariantSpec) payloadDecl(specs []stdEnumSpec) string {
 	switch v.form {
 	case payloadScalar:
-		if v.declType != "" {
-			// A payload whose type is an opaque std newtype. `scalarKind`
-			// answers kindInvalid for one, so the NAME is what the declaration
-			// is held to — and holding it to a name is no weaker here than
-			// elsewhere in this function, which compares element names for both
-			// container forms for the same reason.
-			return simpleTypeName(te) == v.declType
-		}
-		return scalarKind(te) == v.scalar
+		return v.decl
 	case payloadListOfEnum:
-		gt, generic := te.(*ast.GenericType)
-		if !generic || gt.Name != "List" || len(gt.Params) != 1 {
-			return false
-		}
-		return simpleTypeName(gt.Params[0]) == specs[v.ref].nomi
+		return "List<" + specs[v.ref].nomi + ">"
 	case payloadMapStringToEnum:
-		gt, generic := te.(*ast.GenericType)
-		if !generic || gt.Name != "Map" || len(gt.Params) != 2 {
-			return false
-		}
-		return scalarKind(gt.Params[0]) == kindString &&
-			simpleTypeName(gt.Params[1]) == specs[v.ref].nomi
+		return "Map<String, " + specs[v.ref].nomi + ">"
 	case payloadStdStruct:
-		// The struct row's own name, dotted (`Json.DecodeError`) or not, so
-		// a renamed row fails here rather than anchoring a stale spelling.
-		want := stdStructSpecs[v.ref].nomi
-		return simpleTypeName(te) == want || stdNestedTypeName(te) == want
+		return stdStructSpecs[v.ref].nomi
 	}
-	// payloadBare: a bare variant has no annotation to accept.
-	//
-	// payloadStructScalar: a struct-shaped variant has FIELDS rather than a
-	// single annotation, so there is no `te` to hand this function. `matches`
-	// checks it through declaredStructShapeOK instead, and reaching here with
-	// that form is a caller bug, not a wide declaration — which is why this
-	// returns false rather than growing a case that could not be given the
-	// field list.
-	return false
+	// payloadBare has no annotation, and the two struct-shaped forms have
+	// FIELDS rather than one annotation: `matches` checks those through
+	// declaredStructShapeOK and declaredStructFieldsOK.
+	return ""
+}
+
+// declaredShapeOK reports whether std's declared payload ANNOTATION is the type
+// this variant carries, by its written spelling (payloadDecl). A spelling
+// resolves no name, so validating `Json.Arr List<Json>` needs no `Json`
+// anchor, which this very check is what builds; a widened `List<String>`
+// fails on the element name exactly as it would fail on an interned kind.
+func (v *stdEnumVariantSpec) declaredShapeOK(te ast.TypeExpr, specs []stdEnumSpec) bool {
+	want := v.payloadDecl(specs)
+	return want != "" && typeText(te) == want
 }
 
 // declaredStructShapeOK reports whether std's STRUCT-SHAPED variant declaration
@@ -456,7 +436,7 @@ func (v *stdEnumVariantSpec) declaredStructShapeOK(fields []ast.StructField) boo
 		return false
 	}
 	f := fields[0]
-	return f.Name == v.nomiField && f.Default == nil && scalarKind(f.TypeAnnotation) == v.scalar
+	return f.Name == v.nomiField && f.Default == nil && typeText(f.TypeAnnotation) == v.decl
 }
 
 // declaredStructFieldsOK reports whether std's N-FIELD variant declaration is
@@ -489,13 +469,7 @@ func (v *stdEnumVariantSpec) declaredStructFieldsOK(fields []ast.StructField) bo
 		if (got.Default != nil) != (want.deflt != nil) {
 			return false
 		}
-		if want.opaque >= 0 {
-			if simpleTypeName(got.TypeAnnotation) != want.declType {
-				return false
-			}
-			continue
-		}
-		if scalarKind(got.TypeAnnotation) != want.scalar {
+		if typeText(got.TypeAnnotation) != want.decl {
 			return false
 		}
 	}
@@ -727,10 +701,8 @@ var stdEnumSpecs = []stdEnumSpec{{
 	// `UpTo Duration` is a positional payload whose type is not a scalar. The
 	// FORM is still payloadScalar: `payloadKind` returns `v.scalar` verbatim and
 	// nothing downstream of it asks whether the kind is scalar, so an opaque
-	// kind flows through the def builder unchanged. The SHAPE CHECK,
-	// `declaredShapeOK`, compares `scalarKind(te)`, which is kindInvalid for
-	// `Duration`, so the row states the declared type NAME and the check
-	// compares that instead, as both container arms of the same function do.
+	// kind flows through the def builder unchanged. The row states the
+	// spelling std writes, `Duration`, which the shape check compares.
 	origin:   "std/supervisors",
 	nomi:     "Wait",
 	goType:   reflect.TypeFor[rt.Wait](),
@@ -976,8 +948,8 @@ var stdEnumSpecs = []stdEnumSpec{{
 //
 // An index rather than a name lookup, for stdEnumOrdering's reason. A row
 // inserted above it in opaqueSpecs repoints both payloads at `Instant`, which
-// the shape check does not catch: it compares the declared type name and not
-// the kind.
+// the shape check does not catch, since it compares the declared spelling;
+// TestStdSpecSpellingsAreTheirKinds does.
 const opaqueDuration = 0
 
 // opaqueLocale indexes the `Locale` row of opaqueSpecs, the type of
@@ -1004,18 +976,16 @@ func stdStructVariant(name, field string, structIdx int) stdEnumVariantSpec {
 // opaque std newtype rather than one of the five scalars.
 //
 // The FORM is still payloadScalar, because `payloadKind` returns `v.scalar`
-// verbatim and nothing downstream of it cares whether the kind is scalar. What
-// had to move is the SHAPE CHECK: `declaredShapeOK`'s payloadScalar arm compares
-// `scalarKind(te)`, which answers kindInvalid for `Duration`. So the spec
-// carries the declared type NAME and the check compares that instead.
-func opaquePositionalVariant(name, goField string, opaqueIdx int, declType string) stdEnumVariantSpec {
+// verbatim and nothing downstream of it cares whether the kind is scalar. The
+// row states the spelling std writes (`Duration`), as opaqueField does.
+func opaquePositionalVariant(name, goField string, opaqueIdx int, decl string) stdEnumVariantSpec {
 	return stdEnumVariantSpec{
-		nomi:     name,
-		form:     payloadScalar,
-		scalar:   opaqueKind(opaqueIdx),
-		ref:      -1,
-		field:    goField,
-		declType: declType,
+		nomi:   name,
+		form:   payloadScalar,
+		scalar: opaqueKind(opaqueIdx),
+		decl:   decl,
+		ref:    -1,
+		field:  goField,
 	}
 }
 
@@ -1180,19 +1150,12 @@ func stdEnumKindOfGoType(t reflect.Type) kind {
 // declaration NODE each spec was reached through, and the spec index under the
 // Nomi name.
 //
-// A free function rather than a gen method for opaqueAnchors' reason: the
-// STDLIB SIGNATURE pass (collectStdCandidates, via stdTypeKind) runs before any
-// gen exists and has to know whether the `Ordering` in `Int.compare(a: Int, b:
-// Int): Ordering` is a representable type. Two implementations of "is this the
-// std type" is the drift the identity rules exist to prevent, so there is one.
-//
 // A module analyzed without an analysis library gets no anchors and every
-// mention refuses, which is what happened before this file existed.
-func stdEnumAnchors(fa *analysis.FileAnalysis) (map[*ast.EnumDef]int, map[string]int) {
+// mention refuses.
+func stdEnumAnchors(fa *analysis.FileAnalysis) map[*ast.EnumDef]int {
 	byDecl := map[*ast.EnumDef]int{}
-	byName := map[string]int{}
 	if fa == nil || fa.ModuleScope == nil {
-		return byDecl, byName
+		return byDecl
 	}
 	for i := range stdEnumSpecs {
 		s := &stdEnumSpecs[i]
@@ -1204,73 +1167,8 @@ func stdEnumAnchors(fa *analysis.FileAnalysis) (map[*ast.EnumDef]int, map[string
 			continue
 		}
 		byDecl[decl] = i
-		byName[s.nomi] = i
 	}
-	return byDecl, byName
-}
-
-// stdEnumSynthAnchors is the enum specs a DERIVE-SYNTHESIZED signature in fa may
-// name, indexed under the Nomi name — the COMPILER-KNOWN route, resolved against
-// each spec's OWN declaring module rather than against fa.
-//
-// # Why a synthesized declaration needs its own route
-//
-// stdEnumAnchors above resolves through `fa.ModuleScope`, i.e. through the
-// deriving file's IMPORTS, and for a hand-written declaration that is exactly
-// right: `Int.compare(a: Int, b: Int) -> Ordering` is written in std/int.nomi,
-// which imports `std/comparable.Ordering`, and a file that did not import it
-// could not write that signature at all.
-//
-// A DERIVE-SYNTHESIZED declaration is not written in the file and does not
-// resolve like one. analysis/derive_synthesis.go says so in as many words about
-// this exact name: "the `Ordering` enum (Comparable signatures + the qualifier
-// of `Ordering.Less` value/pattern refs) ... Synthesized code is compiler output
-// — these names resolve through the compiler-known route, never through the
-// deriving file's imports". So `derive Comparable for Codepoint` yields
-// `compare(a: Codepoint, b: Codepoint) -> Ordering` in a file that never mentions
-// `Ordering`, and the module-scope lookup answers nil.
-//
-// Four std files derive Comparable, and three of them (std/bool,
-// std/code_points, std/duration) never mention `Ordering` in their own source.
-// Without this route each would refuse as `stdlib function outside the scalar
-// subset` for a signature every element of which has a representation, a key
-// naming a missing representation where the cause is a missing IMPORT.
-//
-// # Why this cannot be a blanket relaxation, and what keeps it narrow
-//
-// The module-scope rule is the identity rule: a file declaring its OWN
-// `Ordering` must not have std's substituted for it, and that failure is a wrong
-// ANSWER rather than a compile error. So this admits a spec only when
-// `fa.ModuleScope.Lookup` binds the name to NOTHING AT ALL. When it binds to
-// anything — std's own `Ordering` or a local one — stdEnumAnchors has already
-// decided, correctly, and this map is silent on that name. The two are therefore
-// disjoint by construction, which is what lets stdAnchors.forSynthesized union
-// them without either overriding the other.
-//
-// Applied ONLY to a synthesized declaration, which is a property of the AST node
-// (ast.ImplBlock.SynthOriginLine, "Zero on every hand-written block") rather
-// than an inference from the name. A hand-written std signature naming an
-// unimported type keeps refusing, because that program does not exist: the front
-// end rejects it.
-func stdEnumSynthAnchors(fa *analysis.FileAnalysis) map[string]int {
-	byName := map[string]int{}
-	if fa == nil || fa.ModuleScope == nil {
-		return byName
-	}
-	declared := stdEnumDeclaredInStd()
-	for i := range stdEnumSpecs {
-		s := &stdEnumSpecs[i]
-		if fa.ModuleScope.Lookup(s.nomi) != nil {
-			// The ordinary path has an answer for this name — yes or no — and
-			// it is the authoritative one. See the header.
-			continue
-		}
-		if !declared[i] {
-			continue
-		}
-		byName[s.nomi] = i
-	}
-	return byName
+	return byDecl
 }
 
 // stdEnumDeclaredInStd is, per spec, whether the spec's declaring std module
@@ -1280,7 +1178,7 @@ func stdEnumSynthAnchors(fa *analysis.FileAnalysis) map[string]int {
 // Once is sound because the answer is a function of the embedded stdlib and the
 // spec table, both fixed per binary, and only a bool leaves: no declaration
 // pointer from this analysis reaches the caller. A std.Load per call would
-// make stdEnumSynthAnchors nearly every load that lowering hello world runs.
+// make this nearly every load that lowering hello world runs.
 var stdEnumDeclaredInStd = perStd(func() []bool {
 	lib := stdAnchorLib()
 	ok := make([]bool, len(stdEnumSpecs))
@@ -1345,7 +1243,7 @@ func (s *stdEnumSpec) matches(decl *ast.EnumDef) bool {
 	if len(decl.TypeParams) > 0 || len(decl.WhereClauses) > 0 {
 		return false
 	}
-	// An attached `//!` test is not checked: see stdStructSpec.matches.
+	// An attached `//!` test is not checked: see stdStructSpec.mismatch.
 	for _, dec := range decl.Decorators {
 		// `derive` is the one decorator that is not a gap: std/comparable
 		// carries `derive Display for Ordering`, which the analyzer also
@@ -1396,17 +1294,7 @@ func (g *gen) loadStdEnums() {
 		return
 	}
 	g.stdEnumsLoaded = true
-	g.stdEnumByDecl, g.stdEnumByName = stdEnumAnchors(g.fa)
-	if g.programStd {
-		// A std module lowered with the program (`derive Comparable for
-		// Coin` in std/presence, which never names `Ordering`): its derived
-		// code names the enums the compiler knows, as a shared module's does
-		// (stdEnumSynthAnchors). The file binds none of these names, so
-		// nothing it writes can name one, and every mention is synthesized.
-		for name, i := range stdEnumSynthAnchors(g.fa) {
-			g.stdEnumByName[name] = i
-		}
-	}
+	g.stdEnumByDecl = stdEnumAnchors(g.fa)
 }
 
 // stdEnumDeclared reports the spec index for an enum declaration this module
@@ -1419,23 +1307,6 @@ func (g *gen) stdEnumDeclared(decl *ast.EnumDef) int {
 		return i
 	}
 	return -1
-}
-
-// stdEnumNamed resolves a type NAME to the shared def, for a module that
-// MENTIONS one of these types without declaring it.
-//
-// The anchor was established through the module's own scope, which is what the
-// checker resolves a bare type name through, so no per-mention re-check is
-// needed — opaqueNamed's reasoning exactly. A module declaring its own
-// `Ordering` never reaches this: namedType and typeOf consult g.types first,
-// and buildTypes put the local declaration there.
-func (g *gen) stdEnumNamed(name string) (*typeDef, bool) {
-	g.loadStdEnums()
-	i, anchored := g.stdEnumByName[name]
-	if !anchored {
-		return nil, false
-	}
-	return stdEnumDefs()[i], true
 }
 
 // stdEnumDef reports whether d is one of the shared defs, and which spec.
@@ -1463,8 +1334,6 @@ func stdEnumDef(d *typeDef) (int, bool) {
 // that imports only `Date`, and an anchor keyed on this file's scope refused
 // the parameter there while lowering it once the file imported `Error`. The
 // Origin keeps a user's own `Error` out, since its origin is the user's file.
-// Unlike projectPreludeEnum there is no empty-Origin case to accommodate: an
-// Ordering is never produced by instantiating anything.
 func (g *gen) projectStdEnum(ty *analysis.EnumType) (kind, bool) {
 	if len(ty.TypeArgs) > 0 || ty.Origin == "" {
 		return kindInvalid, false
@@ -1563,8 +1432,8 @@ func (g *gen) stdEnumVariantAt(variant string, line, col int) (*typeDef, *varian
 // gets nothing; TestStdEnumSpecOfSymbolChecksBothHalves holds that.
 //
 // Deliberately NOT written into g.stdEnumByDecl. That table is the module's
-// anchor set and other readers ask it whether a type is NAMEABLE here —
-// stdEnumNamed for a bare type name and projectStdEnum for a solved type. A variant-only import does not make the type
+// anchor set and other readers ask it whether a type is NAMEABLE here, as
+// projectStdEnum does for a solved type. A variant-only import does not make the type
 // nameable, so seeding the table from one would answer yes to a question whose
 // answer is no, and `m: RoundingMode` would lower in a file that never imported
 // the name.
@@ -1664,7 +1533,7 @@ func (g *gen) stdCompareAt(k, ord kind) *stdFunc {
 	if g.std == nil {
 		return nil
 	}
-	f := stdPick(g.std.byIface["Comparable.compare"][k], []kind{k, k})
+	f := stdPick(g.std.stdIfaceImpls(stdComparable.Func("compare"), k), []kind{k, k})
 	if f == nil || f.result != ord || !compareSignature(f, k) {
 		return nil
 	}

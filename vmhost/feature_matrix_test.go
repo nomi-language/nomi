@@ -77,7 +77,7 @@ import (
 // type its position must supply is tagged (tagUntyped, tagExpects,
 // tagPartial), and each wrapping context says what it gives that type
 // (mxTyping). mxCheckerRules lists the rejections outside that walk, each
-// with its reason, and the checker holes the matrix pins as accepted.
+// with its reason.
 //
 // A failure a known gap explains is excused: a decline whose reasons a
 // knownLoweringGaps entry names, a panic, an untyped expression or a crash
@@ -672,6 +672,15 @@ var mxWraps = append([]*mxContext{
 		b.decls = append(b.decls, fmt.Sprintf("fn named%d(k: Int, a: %s) -> %s\n    _ = k\n    a\nend", n, b.typ, b.typ))
 		b.expr = fmt.Sprintf("named%d(a: %s, k: 0)", n, b.expr)
 	}),
+	// A qualified call's named arguments are evaluated first and passed by
+	// stand-ins, which read the checker's records of each written operand
+	// (an interface value it becomes, a conversion). The function is
+	// `pub`, as an inherent function another file calls must be: a
+	// placement may move the call to lib.nomi.
+	wrapCtx("qualified named argument", false, mxGives, func(b *mxBuild, n int) {
+		b.decls = append(b.decls, fmt.Sprintf("struct Qual%d\n    k: Int\nend\n\nimpl Qual%d\n    pub fn named(k: Int, a: %s) -> %s\n        _ = k\n        a\n    end\nend", n, n, b.typ, b.typ))
+		b.expr = fmt.Sprintf("Qual%d.named(a: %s, k: 0)", n, b.expr)
+	}),
 	wrapCtx("function result", false, mxGives, func(b *mxBuild, n int) {
 		b.decls = append(b.decls, fmt.Sprintf("fn make%d() -> %s\n%s\nend", n, b.typ, mxIndent(b.expr)))
 		b.expr = fmt.Sprintf("make%d()", n)
@@ -1115,7 +1124,12 @@ var mxStdImports = []struct{ name, module, item string }{
 }
 
 var (
-	mxIdent         = regexp.MustCompile(`[A-Za-z_][A-Za-z0-9_]*`)
+	mxIdent = regexp.MustCompile(`[A-Za-z_][A-Za-z0-9_]*`)
+	// mxSubtypeDecl is a subtype a feature declares, its name and parent;
+	// mxStdSubtypes are the prelude's subtypes, which JSON reads as their
+	// bases.
+	mxSubtypeDecl   = regexp.MustCompile(`(?m)^subtype (\w+)(?:<([^>]*)>)? (\S+) when`)
+	mxStdSubtypes   = regexp.MustCompile(`\b(NonNegativeInt|NonZeroInt|PositiveInt|NonNegativeFloat|NonZeroFloat|PositiveFloat|NonEmptyString|NonEmptyList|NonEmptyVector|NonEmptySet|NonEmptyMap)\b`)
 	mxDeclName      = regexp.MustCompile(`(?m)^(?:struct|enum|type|subtype|interface|fn|once|typealias|phrase) ([A-Za-z_][A-Za-z0-9_]*)`)
 	mxValidatedType = regexp.MustCompile(`(?m)^(?:pub )?type [A-Za-z0-9_]+ [^\n]* when `)
 	mxPubDecl       = regexp.MustCompile(`(?m)^(struct|enum|type|subtype|interface|fn|once|typealias|phrase) `)
@@ -1541,12 +1555,8 @@ type mxCheckerRule struct {
 	before bool
 	// match, when set, decides instead of feature, context and before.
 	match func(c mxCell) bool
-	// hole marks a program the checker accepts though the spec rejects
-	// it: the cell must be accepted and run, and a fix that rejects it
-	// removes the rule.
-	hole bool
-	want string
-	why  string
+	want  string
+	why   string
 }
 
 func (r mxCheckerRule) applies(c mxCell) bool {
@@ -1585,7 +1595,7 @@ var mxCheckerRules = []mxCheckerRule{
 		want: "no impl of `Equatable`|does not require Equatable",
 		why:  "a derived Equatable needs every field Equatable, and a function or an Iter is not"},
 	{match: func(c mxCell) bool {
-		return mxHasWrap(c, "derived JSON") && !mxJsonable(c.f.typ) && !strings.Contains(c.f.decls, "derive FromJson for "+c.f.typ)
+		return mxHasWrap(c, "derived JSON") && !mxJsonable(c.f.typ, c.f.decls) && !strings.Contains(c.f.decls, "derive FromJson for "+c.f.typ)
 	},
 		want: "no impl of `(ToJson|FromJson|Equatable)`|does not require (ToJson|FromJson|Equatable)|has no member '(from|to)_json'",
 		why:  "a derived ToJson and FromJson need every field to implement them"},
@@ -1603,10 +1613,26 @@ func mxHasWrap(c mxCell, name string) bool {
 
 // mxJsonable reports whether the checker admits a field of type typ in a
 // struct deriving ToJson and FromJson: std's scalars and containers of
-// them, a Map keyed by String, and an anonymous struct of them. A tuple
+// them, a Result of them, a Map keyed by String, an anonymous struct of
+// them, and a subtype of one of them, std's or one decls declares, which
+// FromJson reads at its base and checks (spec §4 *Subtypes*). A tuple
 // implements neither (spec §12 *Tuples, anonymous structs and functions*),
 // and std's impls are for Map<String, V> alone.
-func mxJsonable(typ string) bool {
+func mxJsonable(typ, decls string) bool {
+	for _, m := range mxSubtypeDecl.FindAllStringSubmatch(decls, -1) {
+		parent := m[3]
+		for _, param := range strings.Split(m[2], ",") {
+			if param = strings.TrimSpace(param); param != "" {
+				parent = regexp.MustCompile(`\b`+param+`\b`).ReplaceAllString(parent, "Int")
+			}
+		}
+		if !mxJsonable(parent, "") {
+			continue
+		}
+		typ = regexp.MustCompile(`\b`+m[1]+`\b`).ReplaceAllString(typ, "Int")
+	}
+	typ = mxStdSubtypes.ReplaceAllString(typ, "Int")
+	typ = strings.ReplaceAll(typ, " and ", ", ")
 	if strings.Contains(typ, "->") || strings.Contains(typ, "(") {
 		return false
 	}
@@ -1619,9 +1645,7 @@ func mxJsonable(typ string) bool {
 	t = strings.ReplaceAll(t, "Map<String, ", "Map<")
 	for _, id := range mxIdent.FindAllString(t, -1) {
 		switch id {
-		case "Int", "Float", "Decimal", "String", "Bool", "List", "Vector", "Set", "Map", "Maybe", "and",
-			// The prelude's subtypes are their bases' values.
-			"NonNegativeInt", "NonZeroInt", "PositiveInt":
+		case "Int", "Float", "Decimal", "String", "Bool", "List", "Vector", "Set", "Map", "Maybe", "Result":
 		default:
 			return false
 		}

@@ -21,9 +21,8 @@ func TestStdIface_NomiDefaultKeepsTheAnchor(t *testing.T) {
 	if !ok {
 		t.Fatal("Display does not resolve to its declaration")
 	}
-	anchors := stdAnchorsOf(g.fa)
 	spec := &stdIfaceSpecs[0]
-	if spec.nomi != "Display" || !spec.matches(decl, anchors) {
+	if spec.nomi != "Display" || !spec.matches(decl) {
 		t.Fatal("std's own Display does not anchor, so the cases below say nothing")
 	}
 	shout := ast.InterfaceMethod{
@@ -34,14 +33,14 @@ func TestStdIface_NomiDefaultKeepsTheAnchor(t *testing.T) {
 	nomi := shout
 	nomi.Body, nomi.Open = &ast.Block{}, true
 	withDefault.Methods = append([]ast.InterfaceMethod{nomi}, decl.Methods...)
-	if !spec.matches(&withDefault, anchors) {
+	if !spec.matches(&withDefault) {
 		t.Error("a Nomi-bodied default ahead of to_string dropped Display's anchor")
 	}
 	withHost := *decl
 	host := shout
 	host.Extern = true
 	withHost.Methods = append(append([]ast.InterfaceMethod{}, decl.Methods...), host)
-	if spec.matches(&withHost, anchors) {
+	if spec.matches(&withHost) {
 		t.Error("a host-backed default kept Display's anchor")
 	}
 }

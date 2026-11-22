@@ -20,9 +20,11 @@
 // in the spec's precedence table, and the spec's notes on which operators
 // do not chain, are those of internal/token's precedence table.
 //
-// outside_calls_test.go: docs/tooling.md's table of the std functions that
-// are outside calls is the one the binding rows, the VM's intrinsics and
-// std/compiler's hosts give (vm.OutsideCrossings).
+// fence_languages_test.go: every fenced block in an authored Markdown file
+// and in a std doc comment has a language, one the site's block renderer
+// (tour/src/lib/rehype-shiki.mjs) gives a form, read from the renderer
+// itself. A file only GitHub renders may use the few more languages listed
+// there with their reasons.
 //
 // zed_highlights_test.go: Zed's highlights.scm is what
 // scripts/sync-zed-highlights.sh generates from the canonical query.
@@ -42,4 +44,10 @@
 // repository's guides (AGENTS.md, docs/, the editor, tour and grammar
 // READMEs) names a file that exists. The implementation's design notes live
 // in package docs, so these hold the pointers to them.
+//
+// agents_names_test.go: every test or fuzz target AGENTS.md names is
+// declared, or begins a declared one's name; every repository path it
+// names exists, is ignored by git (a generated page, a build's output) or
+// lies under a package; and every NOMI_ variable it names is read or set
+// by tracked code.
 package docscheck

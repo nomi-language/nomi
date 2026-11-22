@@ -30,8 +30,9 @@ import (
 // files, the first of them the entry; without, it is one file, main.nomi.
 // The files are written to a fresh directory and checked there as
 // `nomi check <entry>` checks a file (Check), so sibling imports, nested
-// directories, nomi.toml and `go` bindings resolve as they do on disk.
-// Nothing runs.
+// directories and nomi.toml resolve as they do on disk.
+// Nothing runs but what `nomi check` runs: the handlers of the typed
+// literals checked at compile time (Program.checkLiterals).
 //
 // FuzzFrontEndAcceptsSoItLowers mutates the seeds and the generated programs
 // (lowering_gen_test.go) byte by byte. Under plain `go test`,
@@ -158,11 +159,41 @@ func splitInput(src string) (names []string, files map[string]string, ok bool) {
 const lowerReasonHint = "the lowering's reason: "
 
 // checkLowers writes src's files under dir and checks the entry as `nomi
-// check` does (Check): the front end, then the lowering, then
-// Program.Unsupported. NOMI_DEBUG_LOWERING must be set for the builder's
-// reasons to be recorded.
+// check` does (Check): the front end, then the lowering, then the
+// typed literals' compile-time check, then Program.Unsupported.
+// NOMI_DEBUG_LOWERING must be set for the builder's reasons to be
+// recorded.
 func checkLowers(dir, src string) lowerOutcome {
 	return checkLowersKeeping(dir, src, nil)
+}
+
+// A typed literal without slots whose handler refuses its text is
+// rejected, with the message `nomi check` gives, and its program is not
+// kept to run: run, the literal's compile-time unwrap would trap with "no
+// matching case branch". The same literal with a time the handler reads
+// is accepted and runs.
+func TestCheckLowers_ALiteralItsHandlerRefusesIsRejected(t *testing.T) {
+	program := func(text string) string {
+		return "import\n    std::calendar.Time\n    std::io\nend\n\nfn main()\n    io.print(Debug.inspect(Time\"" + text + "\"))\nend\n"
+	}
+	dir := t.TempDir()
+	var kept *Program
+	out := checkLowersKeeping(dir, program("10:30"), &kept)
+	want := `typed literal Time"10:30" is invalid: invalid format: expected HH:MM:SS[.fff…], got "10:30"`
+	if out.accepted || kept != nil {
+		t.Fatalf("Time\"10:30\" is accepted (rejection %q), so its program would run to a trap", out.rejection)
+	}
+	if !strings.Contains(out.rejection, want) {
+		t.Fatalf("Time\"10:30\" is rejected with %q, want %q", out.rejection, want)
+	}
+	dir = t.TempDir()
+	out = checkLowersKeeping(dir, program("10:30:00"), &kept)
+	if !out.accepted || kept == nil || len(out.declines) > 0 {
+		t.Fatalf("Time\"10:30:00\" does not lower: %+v", out)
+	}
+	if run := runOnce(kept, mxPlan(kept), dir, nil); run.class != runOK || !strings.HasPrefix(run.transcript, "10:30:00\n") {
+		t.Fatalf("Time\"10:30:00\" runs as %v: %q %s", run.class, run.transcript, run.crash)
+	}
 }
 
 // checkLowersKeeping is checkLowers that also stores the lowered program in
@@ -186,7 +217,6 @@ func checkLowersKeeping(dir, src string, keep **Program) (out lowerOutcome) {
 	if err != nil {
 		return lowerOutcome{rejection: err.Error()}
 	}
-	fc.SourceBoundProvided = true
 	var analyzed *irbuild.Program
 	p, err := lower(cfg, func() (*irbuild.Program, error) {
 		prog, err := irbuild.AnalyzeFile(entry, fc)
@@ -194,6 +224,16 @@ func checkLowersKeeping(dir, src string, keep **Program) (out lowerOutcome) {
 		return prog, err
 	})
 	if err != nil {
+		var ie *InternalError
+		if errors.As(err, &ie) {
+			return lowerOutcome{accepted: true, internal: fmt.Sprintf("%v\n%s", ie.Panic, ie.Stack)}
+		}
+		return lowerOutcome{rejection: err.Error()}
+	}
+	if err := p.checkLiterals(); err != nil {
+		// A typed literal without slots whose handler refuses its text is a
+		// compile error `nomi check` reports once the program lowers, as it
+		// reports one the front end finds.
 		var ie *InternalError
 		if errors.As(err, &ie) {
 			return lowerOutcome{accepted: true, internal: fmt.Sprintf("%v\n%s", ie.Panic, ie.Stack)}
@@ -278,7 +318,6 @@ func seedUnresolved(dir, src string, fc frontend.Config) (reports []string) {
 			reports = nil
 		}
 	}()
-	fc.SourceBoundProvided = true
 	prog, err := irbuild.AnalyzeFile(entry, fc)
 	if err != nil {
 		return nil

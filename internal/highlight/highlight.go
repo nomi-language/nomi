@@ -1,6 +1,8 @@
 // Package highlight provides the analyzer-derived semantic tokens used to
 // highlight a Nomi snippet (via internal/semtokens, the same classifier the LSP
-// uses). It is exposed to the browser as nomiSemTokens (cmd/nomi-wasm); the
+// uses), with the tokens of calls that can act marked from a
+// lowering of the snippet's program as the language server marks them
+// (hoverdoc.MarkReaching). It is exposed to the browser as nomiSemTokens (cmd/nomi-wasm); the
 // shared JS highlighter (tour/src/lib/highlight.mjs) overlays these
 // tokens onto the tree-sitter grammar's syntactic captures to render HTML, the
 // same two-layer model Zed uses. Both the static tour and the live playground
@@ -73,10 +75,13 @@ func AnalyzeNodes(code string, lib *std.StdLib) (*analysis.FileAnalysis, []ast.N
 
 // SemanticTokens analyzes a snippet and returns its analyzer-derived semantic
 // tokens (the overlay layer), with columns and lengths in UTF-16 code units:
-// the browser indexes the snippet as a JavaScript string. Best-effort: a
-// snippet that fails to parse/analyze (e.g. a fragment, or lib == nil)
-// yields none.
-func SemanticTokens(code string, lib *std.StdLib) (toks []semtokens.Token) {
+// the browser indexes the snippet as a JavaScript string. A token the
+// lowering marked, a call that can act, is marked Effect
+// (hoverdoc.MarkReaching): reached is what a lowering of the snippet's
+// program found (vmhost.ReachedMarked), and inFile names the snippet's file
+// as reached names it (InFile). Best-effort: a snippet that fails to
+// parse/analyze (e.g. a fragment, or lib == nil) yields none.
+func SemanticTokens(code string, lib *std.StdLib, reached []analyzedlowering.Reached, inFile func(path string) bool) (toks []semtokens.Token) {
 	defer func() {
 		if recover() != nil {
 			toks = nil
@@ -86,7 +91,17 @@ func SemanticTokens(code string, lib *std.StdLib) (toks []semtokens.Token) {
 	if fa == nil {
 		return nil
 	}
-	return semtokens.UTF16(code, semtokens.Collect(fa))
+	toks = hoverdoc.MarkReaching(semtokens.Collect(fa), reached, inFile, code)
+	return semtokens.UTF16(code, toks)
+}
+
+// InFile reports whether a path a lowering of a block names a file by
+// (vmhost.ReachedMarked) is the file its tab names name (`cart.nomi`; a
+// single-file block's is `main.nomi`).
+func InFile(name string) func(path string) bool {
+	return func(path string) bool {
+		return virtualproject.NormalizeModuleName(path) == virtualproject.NormalizeModuleName(name)
+	}
 }
 
 // ByteCol converts a 1-based column the browser counts in UTF-16 code units
@@ -270,7 +285,7 @@ func analyzeAlone(src string, lib *std.StdLib) (fa *analysis.FileAnalysis, nodes
 
 // HoverIn answers the hover markdown at (line, col) in the file name names,
 // both 1-based and col in UTF-16 code units, or "" when there is nothing
-// to show. reached is the outside calls a lowering of the program found
+// to show. reached is the effect calls a lowering of the program found
 // (vmhost.ReachedMarked), each file named as the tabs name it, whose line
 // a hover on the call ends with (hoverdoc.AppendReach); nil for none.
 func (p *Program) HoverIn(name string, line, col int, reached []analyzedlowering.Reached) (md string) {
@@ -283,14 +298,13 @@ func (p *Program) HoverIn(name string, line, col int, reached []analyzedlowering
 			md = ""
 		}
 	}()
-	return hoverdoc.AtReaching(f.FA, f.Nodes, f.Source, analysis.Pos{Line: line, Col: ByteCol(f.Source, line, col)}, reached, func(path string) bool {
-		return virtualproject.NormalizeModuleName(path) == virtualproject.NormalizeModuleName(name)
-	})
+	return hoverdoc.AtReaching(f.FA, f.Nodes, f.Source, analysis.Pos{Line: line, Col: ByteCol(f.Source, line, col)}, reached, InFile(name))
 }
 
 // SemanticTokensIn answers the semantic tokens of the file name names, as
-// SemanticTokens answers them for a snippet.
-func (p *Program) SemanticTokensIn(name string) (toks []semtokens.Token) {
+// SemanticTokens answers them for a snippet, with the tokens reached marks
+// in the file marked Effect, as HoverIn reads reached.
+func (p *Program) SemanticTokensIn(name string, reached []analyzedlowering.Reached) (toks []semtokens.Token) {
 	f, ok := p.File(name)
 	if !ok {
 		return nil
@@ -300,5 +314,6 @@ func (p *Program) SemanticTokensIn(name string) (toks []semtokens.Token) {
 			toks = nil
 		}
 	}()
-	return semtokens.UTF16(f.Source, semtokens.Collect(f.FA))
+	toks = hoverdoc.MarkReaching(semtokens.Collect(f.FA), reached, InFile(name), f.Source)
+	return semtokens.UTF16(f.Source, toks)
 }

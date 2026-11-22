@@ -3,8 +3,6 @@ package hostgen
 import (
 	"strings"
 	"testing"
-
-	"github.com/nomi-language/nomi/internal/ast"
 )
 
 type drifted struct {
@@ -13,12 +11,12 @@ type drifted struct {
 }
 
 func withMap(map[string]float64) int64 { return 0 }
+func withSlice([]float64) int64        { return 0 }
 func drift(drifted) int64              { return 0 }
 func intToInt(int64) int64             { return 0 }
 func withError(int64) (int64, error)   { return 0, nil }
 func intToPtr(int64) *int64            { return nil }
 func twoInts(int64, int64) int64       { return 0 }
-func ptrKeys() map[*int64]int64        { return nil }
 
 // TestUnadaptableBindingsFailGenerationByName plants each way a binding and
 // its declaration can disagree and requires generation to refuse, naming the
@@ -41,7 +39,6 @@ pub host fn wrong_scalar(x: Float) -> Int
 pub host fn hidden_error(x: Int64) -> Int
 pub host fn short(x: Int64, y: Int64) -> Int
 pub host fn user_enum(x: Int64) -> Maybe<Maybe<Int>>
-pub host fn ptr_keys() -> Map<Maybe<Int>, Int>
 `
 	// A closure has no name a generated file can call.
 	closure := func(int64, int64) int64 { return 0 }
@@ -50,16 +47,14 @@ pub host fn ptr_keys() -> Map<Maybe<Int>, Int>
 		fn   any
 		want string
 	}{
-		{"t.with_map", withMap, "value: Go float64 does not project to Int"},
+		{"t.with_map", withMap, "Go map[string]float64 has no spelling the generator writes"},
+		{"t.with_map", withSlice, "a Map crosses as rt.Map[K, V]"},
 		{"t.drift", drift, "declares field z and the Go struct has no field"},
 		{"t.wrong_scalar", intToInt, "Go int64 does not project to Float"},
 		{"t.hidden_error", withError, "must return Result<_, String>, not Int"},
 		{"t.short", intToInt, "the declaration takes 2 parameter(s)"},
 		{"t.user_enum", intToPtr, "no conversion from Go int64 to Maybe<Int>"},
 		{"t.short", closure, "is not a top-level function"},
-		// A Nomi Map keeps insertion order, and a pointer has no order that
-		// is the same from run to run to insert by.
-		{"t.ptr_keys", ptrKeys, "Go map key *int64: *int64 has no order that is the same from run to run"},
 	}
 	for _, c := range cases {
 		tb := Table{
@@ -97,88 +92,5 @@ pub host fn ptr_keys() -> Map<Maybe<Int>, Int>
 	}
 	if _, err := Generate(tb); err != nil {
 		t.Fatalf("a matching binding is refused: %v", err)
-	}
-}
-
-// TestARefusedBindingLeavesNoHalfWrittenConversion: a refusal rolls the
-// generator back, so a later binding needing the conversion the refusal
-// abandoned is refused too, rather than accepted with a call to a method that
-// was memoized and never written. internal/ffirun generates on after a
-// refusal; without the rollback its wrapper failed to compile
-// (`b.out6 undefined`).
-func TestARefusedBindingLeavesNoHalfWrittenConversion(t *testing.T) {
-	const source = `import
-  int.Int64
-end
-
-pub host fn first(x: Int64) -> Maybe<Maybe<Int>>
-pub host fn second(x: Int64) -> Maybe<Maybe<Int>>
-pub host fn fine(x: Int64, y: Int64) -> Int
-`
-	ms, err := LoadModules(func(m string) ([]byte, bool) {
-		if m == "t" {
-			return []byte(source), true
-		}
-		return stdSource(m)
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	var bindings []Binding
-	for _, row := range []FuncRow{{Name: "t.first", Fn: intToPtr}, {Name: "t.second", Fn: intToPtr}, {Name: "t.fine", Fn: twoInts}} {
-		hf, err := FindHostFunc(ms, "t", row.Name)
-		if err != nil {
-			t.Fatal(err)
-		}
-		bindings = append(bindings, Binding{Key: row.Name, Fn: row.Fn, Decl: hf})
-	}
-	g := New("x", ms.Resolver(), nil)
-	var refused []string
-	for _, b := range bindings {
-		if err := g.Add(b); err != nil {
-			refused = append(refused, b.Key)
-		}
-	}
-	if strings.Join(refused, " ") != "t.first t.second" {
-		t.Fatalf("refused %v, want t.first and t.second", refused)
-	}
-	if _, err := g.Source(""); err != nil {
-		t.Fatalf("the file after two refusals does not format: %v", err)
-	}
-}
-
-// Structure writes a recursive type out once and names it after, so it
-// terminates; and with Unloaded set, a name no loaded module declares is a
-// leaf rather than an error, so the declared fields around it still count.
-func TestStructureOfARecursiveTypeOverAnUnloadedName(t *testing.T) {
-	src := "pub struct Node\n    label: String\n    wait: Duration\n    next: Maybe<Node>\nend\n"
-	ms := NewModules(func(module string) ([]byte, bool) {
-		if module == "tree" {
-			return []byte(src), true
-		}
-		return nil, false
-	})
-	mod, err := ms.Load("tree")
-	if err != nil {
-		t.Fatal(err)
-	}
-	node := &ast.SimpleType{Name: "Node"}
-	if _, err := ms.Resolver().Shape(mod, node); err == nil {
-		t.Fatal("Duration resolved with no std loaded, so the Unloaded case below tests nothing")
-	}
-	res := ms.Resolver()
-	res.Unloaded = true
-	s, err := res.Shape(mod, node)
-	if err != nil {
-		t.Fatalf("Shape: %v", err)
-	}
-	got := s.Structure()
-	for _, want := range []string{`"label"`, `"wait"`, `"?tree:Duration"`, `"next"`} {
-		if !strings.Contains(got, want) {
-			t.Errorf("Structure %s lacks %s", got, want)
-		}
-	}
-	if n := strings.Count(got, `"tree.Node"`); n != 2 {
-		t.Errorf("Structure %s names tree.Node %d times, want 2 (written out, then named)", got, n)
 	}
 }

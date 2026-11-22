@@ -1,8 +1,6 @@
 package irbuild
 
-import (
-	"github.com/nomi-language/nomi/internal/ast"
-)
+import ()
 
 // `concurrent { }` and `std/tasks` — the structured-concurrency surface.
 //
@@ -65,27 +63,6 @@ func taskElem(k kind) (kind, bool) {
 }
 
 // --- Supervisor.spawn ---------------------------------------------------------
-
-// --- the unsolved channel constructor ----------------------------------------
-
-// channelWantedInstance is the `Channel<T>` a node's coercion target names, for
-// a constructor call the checker recorded no instantiation for.
-//
-// Claims ONLY a Channel, by spec pointer through channelElem, and only when the
-// owner it reads off the kind is `Channel`. A wanted `Sender<Int>` is not a
-// constructor's result, and answering one would build a channel at a position
-// that cannot hold it.
-func (g *gen) channelWantedInstance(t *ast.Call) (kind, bool) {
-	want, found := g.wantOf[t]
-	// kindInvalid: lookup — asks whether a coercion target exists at all; a miss leaves the caller's own refusal to name the gap.
-	if !found || want == kindInvalid {
-		return kindInvalid, false
-	}
-	if _, owner, isChannel := channelElem(want); !isChannel || owner != "Channel" {
-		return kindInvalid, false
-	}
-	return want, true
-}
 
 // taskHandleKind is the kind of `Task<payload>`.
 //

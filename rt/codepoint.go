@@ -7,31 +7,39 @@ import "unicode"
 //
 // # Why this is an int64 and not an int32
 //
-// std declares `pub opaque type Codepoint Int`, so the Nomi type's inner type is
-// `Int`, which is int64 everywhere in this project. A Go `int32`/`rune` here
-// would be a narrower representation than the declaration, and internal/irbuild's
-// opaque spec asserts the inner kind is `Int` — so the two would disagree, and a
-// `Codepoint(n)` built from an int64 expression would silently truncate. The
-// domain fits in 21 bits either way; matching the declaration is what stops the
-// two widths from being two facts.
+// std declares `pub opaque type Codepoint Int64`, so the Nomi type's inner
+// type is an Int, which is int64 everywhere in this project. A Go
+// `int32`/`rune` here would be a narrower representation than the
+// declaration, and internal/irbuild's opaque spec asserts the inner kind is
+// `Int`, so the two would disagree, and a Codepoint built from an int64
+// expression would silently truncate. The domain fits in 21 bits either way;
+// matching the declaration is what stops the two widths from being two facts.
 //
-// Nominally its own type, structurally int64 — the same shape rt/opaque.go gives
-// Duration and Instant, and for the same reason: a Go defined type is exactly
-// what a Nomi distinct type maps to, and rt is linked by everything, so a type
-// declared here is package-neutral.
+// Nominally its own type, structurally int64: the same shape rt/opaque.go
+// gives Duration and Instant, and for the same reason. A Go defined type is
+// exactly what a Nomi distinct type maps to, and rt is linked by everything,
+// so a type declared here is package-neutral.
 //
 // # Validation
 //
-// IntToCodepoint is `Int.to_codepoint`, the one constructor outside
-// std/code_points.nomi, and the one place the domain is checked. It is a host
-// function rather than a Nomi body because std/int is lowered before
-// std/code_points and cannot build the opaque type there. Inside
-// std/code_points.nomi, `next` and `step_by` reach new values through it too.
+// The declaration's rule is the domain: `0` through `0x10FFFF`, outside the
+// surrogate block `0xD800` through `0xDFFF`. Every way to build a Codepoint
+// either checks it or yields only scalar values:
 //
-// So every Codepoint reaching CodepointToString is a scalar value (a codepoint
-// literal is ASCII), which is what makes `string(rune(cp))` total: the
-// surrogate range D800–DFFF and everything above 0x10FFFF are unconstructible
-// from Nomi.
+//   - IntToCodepoint is `Int.to_codepoint`, the constructor outside
+//     std/code_points.nomi, and checks the domain itself. It is a host
+//     function because std/int cannot build the opaque type, and Codepoint's
+//     provided `try_from` is private to std/code_points.nomi.
+//   - Codepoint's provided `try_from` checks the rule. `Steppable.step_by`
+//     reaches new values through `Int.to_codepoint`.
+//   - StringToCodepoints decodes a Go string, whose runes are scalar values
+//     (an invalid byte decodes as U+FFFD), and CodepointRangeSeq and
+//     `Discrete.next` step from a scalar value over the surrogate block, so
+//     neither checks again (`next` builds with `unchecked`).
+//   - A codepoint literal is ASCII.
+//
+// So every Codepoint reaching CodepointToString is a scalar value, which is
+// what makes `string(rune(cp))` total.
 type Codepoint int64
 
 // IntToCodepoint is `Int.to_codepoint`: Some for 0 through 0x10FFFF outside
@@ -68,6 +76,34 @@ func CodepointIsUpper(cp Codepoint) bool { return unicode.IsUpper(rune(cp)) }
 // CodepointIsLower is `Codepoint.is_lower`: general category Ll, Go's
 // unicode.IsLower. Title case (Lt, `ǅ`) and Other_Lowercase (`ª`) are not Ll.
 func CodepointIsLower(cp Codepoint) bool { return unicode.IsLower(rune(cp)) }
+
+// CodepointIsTitle is `Codepoint.is_title`: general category Lt, Go's
+// unicode.IsTitle.
+func CodepointIsTitle(cp Codepoint) bool { return unicode.IsTitle(rune(cp)) }
+
+// CodepointIsMark is `Codepoint.is_mark`: general category M (Mn, Mc, Me),
+// Go's unicode.IsMark.
+func CodepointIsMark(cp Codepoint) bool { return unicode.IsMark(rune(cp)) }
+
+// CodepointIsNumber is `Codepoint.is_number`: general category N (Nd, Nl,
+// No), Go's unicode.IsNumber.
+func CodepointIsNumber(cp Codepoint) bool { return unicode.IsNumber(rune(cp)) }
+
+// CodepointIsPunctuation is `Codepoint.is_punctuation`: general category P
+// (Pc, Pd, Ps, Pe, Pi, Pf, Po), Go's unicode.IsPunct.
+func CodepointIsPunctuation(cp Codepoint) bool { return unicode.IsPunct(rune(cp)) }
+
+// CodepointIsSymbol is `Codepoint.is_symbol`: general category S (Sm, Sc,
+// Sk, So), Go's unicode.IsSymbol.
+func CodepointIsSymbol(cp Codepoint) bool { return unicode.IsSymbol(rune(cp)) }
+
+// CodepointIsSeparator is `Codepoint.is_separator`: general category Z (Zs,
+// Zl, Zp). Go's unicode package has the table and no Is function for it.
+func CodepointIsSeparator(cp Codepoint) bool { return unicode.Is(unicode.Z, rune(cp)) }
+
+// CodepointIsControl is `Codepoint.is_control`: general category Cc, the C0
+// and C1 controls, Go's unicode.IsControl.
+func CodepointIsControl(cp Codepoint) bool { return unicode.IsControl(rune(cp)) }
 
 // StringToCodepoints is `String.to_codepoints`: the string's Unicode scalar
 // values in order, as a `List<Codepoint>`.

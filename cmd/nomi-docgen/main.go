@@ -120,8 +120,8 @@ func renderModuleWithLinks(lib *std.StdLib, name string, globalLinks referenceLi
 	}
 	fmt.Fprintf(&b, "Import with `import std::%s`.\n\n", stdImportPath(name))
 	program := stdProgramOf(name)
-	if names := program.outsideNames(entries); len(names) > 0 {
-		b.WriteString(outsideOverview(names) + "\n\n")
+	if names := program.effectNames(entries); len(names) > 0 {
+		b.WriteString(effectOverview(names) + "\n\n")
 	}
 	if summary := renderExportsSummary(name, entries); summary != "" {
 		b.WriteString(summary)
@@ -314,15 +314,7 @@ func sharedImplHeadings(moduleName string, entries []apiEntry) map[string]bool {
 		if entry.RendersAsGroupHeading() {
 			continue
 		}
-		label := implHeadingLabel(moduleName, entry)
-		if label == "" {
-			if owner := entryHeadingOwner(moduleName, entry); owner != "" {
-				label = owner + "." + entry.Sym.Name
-			} else {
-				label = entry.Sym.Name
-			}
-		}
-		count[label]++
+		count[entryLabel(moduleName, entry)]++
 	}
 	shared := make(map[string]bool)
 	for label, n := range count {
@@ -331,6 +323,22 @@ func sharedImplHeadings(moduleName string, entries []apiEntry) map[string]bool {
 		}
 	}
 	return shared
+}
+
+// entryLabel is the heading an entry's section carries, as plain text,
+// without the interface a shared heading adds: `fs.read_text`,
+// `Seed.from_os`, `Instant.subtract`.
+func entryLabel(moduleName string, entry apiEntry) string {
+	if entry.RendersAsGroupHeading() {
+		return groupHeadingLabel(moduleName, entry.Group)
+	}
+	if label := implHeadingLabel(moduleName, entry); label != "" {
+		return label
+	}
+	if owner := entryHeadingOwner(moduleName, entry); owner != "" {
+		return owner + "." + entry.Sym.Name
+	}
+	return entry.Sym.Name
 }
 
 func renderEntryHeading(b *strings.Builder, moduleName string, entry apiEntry, shared map[string]bool) {
@@ -519,8 +527,8 @@ func renderAPIEntry(b *strings.Builder, moduleName string, fa *analysis.FileAnal
 		return
 	}
 	body = linkImplReference(body, s, implLinks)
-	if name := prompts.std.outsideCall(s); name != "" {
-		body = withOutsideLine(body, outsideHTML(name))
+	if name := prompts.std.effectName(s); name != "" {
+		body = withEffectLine(body, effectHTML(name))
 	}
 	// Reference code is highlighted but not runnable (it's signatures, not
 	// programs) — plain nomi fences, which tour-client.mjs highlights statically.

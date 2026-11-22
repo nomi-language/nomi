@@ -76,7 +76,7 @@ func TestIRRetainedStdPopulationRuns(t *testing.T) {
 
 	if len(fns) == 0 {
 		t.Fatal("the cached modules contain no retained std function, so the list " +
-			"comparison below is vacuous; see irStdWantRetained in irstdbody_test.go")
+			"comparison below is vacuous")
 	}
 
 	shapes := map[string]int{}
@@ -131,7 +131,7 @@ func TestIRRetainedStdPopulationRuns(t *testing.T) {
 			lines = append(lines, key+"\tran")
 			continue
 		}
-		class := vmFailureClass(lastErr, nil)
+		class := vmFailureClass(lastErr)
 		failures[class] = append(failures[class], key)
 		lines = append(lines, key+"\t"+class)
 	}

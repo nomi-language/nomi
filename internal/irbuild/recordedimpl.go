@@ -15,7 +15,7 @@ import (
 // unit registered (sym, planned as a call of it is: recordedItemPlan), a
 // std generic container's template (template), or std's own function by
 // its identity (std). synth says the program's impl function is one the
-// front end synthesized (a derive or the universal Debug). The zero value
+// front end synthesized (a derive or a name-only Debug). The zero value
 // when the record names none of these.
 type recordedIfaceFn struct {
 	structural bool
@@ -31,8 +31,13 @@ type recordedIfaceFn struct {
 // answering result. A sort's comparator (recordedComparator) and a
 // renderer's nested Debug body (recordedDebugSym) read it.
 func (bl *irScalarBuilder) recordedIfaceFnAt(iface analysis.StdType, method string, k kind, kt analysis.Type, params []kind, result kind) recordedIfaceFn {
+	return bl.recordedIfaceFnOf(bl.g.stdIfaceCallRecord(iface, method, len(params), kt).Callee, iface, method, k, kt, params, result)
+}
+
+// recordedIfaceFnOf is recordedIfaceFnAt answered by c, the record of the
+// call: a `dbg`'s own (dbgRecord).
+func (bl *irScalarBuilder) recordedIfaceFnOf(c analysis.Callee, iface analysis.StdType, method string, k kind, kt analysis.Type, params []kind, result kind) recordedIfaceFn {
 	g := bl.g
-	c := g.stdIfaceCallRecord(iface, method, len(params), kt).Callee
 	if c.Form == analysis.OperatorStructural {
 		return recordedIfaceFn{structural: true}
 	}
@@ -64,7 +69,7 @@ func (bl *irScalarBuilder) recordedIfaceFnAt(iface analysis.StdType, method stri
 // analysis.OperatorUse.Impl.Method; a call's analysis.Callee.Decl) is
 // reached from the declaration the record names: a program's `fn` through
 // the gens' implItemsByDecl, a std function through its identity
-// (analysis.StdFunc) among the std index's functions of its owner. Neither
+// (analysis.StdFunc, stdFuncByID). Neither
 // lookup asks which impl a receiver's kind or an owner's name selects.
 
 // recordedImplItem is the item of the impl function decl at receiver kind
@@ -255,7 +260,7 @@ func (bl *irScalarBuilder) recordedCallee(t *ast.Call, args irQualArgs) (analysi
 
 // recordedImplPlan is recordedCallPlan for a program's function, or a std
 // module's lowered with this gen: the item a gen registered for the
-// declaration it lowers (recordedImplItem), its `fn` or Go-bound `host fn`,
+// declaration it lowers (recordedImplItem), its `fn`,
 // or for a default the record's block (Callee.Impl) inherits, the
 // interface's function; at the receiver an operand of the call is, else,
 // with no operand of its receiver, the owner function or the instance the
@@ -310,9 +315,17 @@ func (bl *irScalarBuilder) recordedImplPlan(t *ast.Call, args irQualArgs, key st
 	if p := bl.recordedWithheldPlan(t, args, decl, block, key); p != nil {
 		return p
 	}
-	if ef, ok := decl.(*ast.ExternFunc); ok {
-		if p := bl.hostTemplateImplPlan(t, args, ef); p != nil {
-			return p
+	if ib, ok := c.Impl.(*ast.ImplBlock); ok {
+		// `List.from_sql(value)`: a block over a std container called with
+		// no operand of it, at the instance the record is for.
+		if kt := bl.g.checkerTypeArg(c.For); kt != nil {
+			k := bl.g.project(kt)
+			if _, _, container := stdRecvParts(k); container {
+				bl.g.stdRecvRecordedAt(ib, k, kt)
+				if og, it := bl.g.recordedImplItem(decl, block, k); it != nil {
+					return bl.recordedItemPlan(t, args, og, it, key)
+				}
+			}
 		}
 	}
 	return nil
@@ -356,7 +369,7 @@ func (bl *irScalarBuilder) recordedWithheldPlan(t *ast.Call, args irQualArgs, de
 			return nil
 		}
 		if og != g {
-			if d.ifaceName == "" && private {
+			if fileOwnFunc(d, !private) {
 				return nil
 			}
 			return bl.siblingMethodPlan(t, args, og, d, name)

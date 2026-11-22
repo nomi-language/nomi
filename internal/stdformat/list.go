@@ -24,11 +24,11 @@ func listType(style, width int64) string {
 	return base
 }
 
-// FFIJoinList is `String.join_list`: items joined with locale's list
+// HostJoinList is `String.join_list`: items joined with locale's list
 // pattern for style and width, composed from the end as CLDR describes
 // (UTS #35 Part 6, "List Patterns"): the last two by the end pattern, each
 // earlier item by the middle pattern, the first by the start pattern.
-func FFIJoinList(fr *rt.Frame, locale string, items []string, style, width int64) string {
+func HostJoinList(fr *rt.Frame, locale string, items []string, style, width int64) string {
 	return JoinList(stdlocale.Data(fr), locale, items, listType(style, width))
 }
 

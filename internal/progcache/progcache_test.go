@@ -2,6 +2,7 @@ package progcache
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"os"
 	"path/filepath"
 	"slices"
@@ -65,6 +66,31 @@ func lookup(t *testing.T, root string) string {
 	t.Helper()
 	e := Open("load", filepath.Join(root, "main.nomi"), []Tree{{Dir: root}})
 	return string(e.Payload())
+}
+
+// TestAHitAnswersItsPayloadsSum holds Entry.Sum: a hit answers the SHA-256
+// of the payload it holds, a sibling's hit its own, a miss none, and a
+// record stored with another payload another sum.
+func TestAHitAnswersItsPayloadsSum(t *testing.T) {
+	useCache(t)
+	root := project(t)
+	entry := filepath.Join(root, "main.nomi")
+	if _, ok := Open("load", entry, []Tree{{Dir: root}}).Sum(); ok {
+		t.Fatal("a miss answers a sum")
+	}
+	keep(t, root, "image")
+	e := Open("load", entry, []Tree{{Dir: root}})
+	if sum, ok := e.Sum(); !ok || sum != sha256.Sum256([]byte("image")) {
+		t.Fatalf("a hit answers the sum %x, %v; want the payload's", sum, ok)
+	}
+	e.Sibling("passes").Store(nil, nil, []byte("passes"))
+	if sum, ok := Open("load", entry, []Tree{{Dir: root}}).Sibling("passes").Sum(); !ok || sum != sha256.Sum256([]byte("passes")) {
+		t.Fatalf("a sibling's hit answers the sum %x, %v; want its payload's", sum, ok)
+	}
+	keep(t, root, "another image")
+	if sum, _ := Open("load", entry, []Tree{{Dir: root}}).Sum(); sum != sha256.Sum256([]byte("another image")) {
+		t.Fatalf("a record stored again answers the sum %x; want its new payload's", sum)
+	}
 }
 
 func TestARecordIsReadUntilAFileItReadChanges(t *testing.T) {
@@ -315,10 +341,10 @@ func TestPruneRemovesRecordsNothingRead(t *testing.T) {
 	}
 }
 
-// TestChangedNamesTheFilesWhoseTextChanged holds Changed, Previous and
-// Sibling: an edit of a file the record tracks is named with the record's
-// payload still at hand, a file added or removed is not an edit Changed
-// answers, and a sibling record is read from the same snapshot.
+// TestChangedNamesTheFilesWhoseTextChanged holds ChangedSources, Previous
+// and Sibling: an edit of a file the record tracks is named with the
+// record's payload still at hand, and a sibling record is read from the
+// same snapshot.
 func TestChangedNamesTheFilesWhoseTextChanged(t *testing.T) {
 	useCache(t)
 	root := project(t)
@@ -335,25 +361,90 @@ func TestChangedNamesTheFilesWhoseTextChanged(t *testing.T) {
 	if string(e.Previous()) != "image" {
 		t.Fatalf("the previous record holds %q", e.Previous())
 	}
-	changed, ok := e.Changed()
+	changed, _, _, ok := e.ChangedSources()
 	if !ok || len(changed) != 1 || changed[0] != filepath.Join(root, "lib", "util.nomi") {
-		t.Fatalf("Changed answers %v, %v", changed, ok)
+		t.Fatalf("ChangedSources answers %v, %v", changed, ok)
 	}
 	s := e.Sibling("files")
 	if s.Payload() != nil || string(s.Previous()) != "files" {
 		t.Fatalf("the sibling answers %q, previous %q", s.Payload(), s.Previous())
 	}
-	if c, ok := s.Changed(); !ok || len(c) != 1 {
-		t.Fatalf("the sibling's Changed answers %v, %v", c, ok)
+	if c, _, _, ok := s.ChangedSources(); !ok || len(c) != 1 {
+		t.Fatalf("the sibling's ChangedSources answers %v, %v", c, ok)
 	}
 	if trees, files := s.Inputs(); len(trees) != 1 || len(files) != 0 {
 		t.Fatalf("the sibling's inputs are %v and %v", trees, files)
 	}
+}
 
-	write(t, filepath.Join(root, "lib", "more.nomi"), "pub fn two() -> Int\n    2\nend\n")
-	e = Open("load", main, []Tree{{Dir: root}})
-	if _, ok := e.Changed(); ok {
-		t.Fatal("Changed answered for a file added")
+// TestANamedSourcesTreeHoldsTheTextOfTheNamedSources holds a tree with
+// NamedSources, as a kept program's record walks its project: an edit to a
+// source the record does not name is a hit; an edit to one it names, a
+// source added and a named source removed are each a miss ChangedSources
+// answers; an edit to a manifest, whose text the tree holds, is a miss.
+// A source named just after it was written is stored, from the snapshot's
+// hash of it.
+func TestANamedSourcesTreeHoldsTheTextOfTheNamedSources(t *testing.T) {
+	useCache(t)
+	root := project(t)
+	main := filepath.Join(root, "main.nomi")
+	util := filepath.Join(root, "lib", "util.nomi")
+	other := filepath.Join(root, "other.nomi")
+	write(t, other, "pub fn two() -> Int\n    2\nend\n")
+	trees := []Tree{{Dir: root, NamedSources: true}}
+	store := func(what string, files ...string) {
+		t.Helper()
+		_, before := Counts()
+		Open("load", main, trees).Store(trees, files, []byte("image"))
+		if _, after := Counts(); after != before+1 {
+			t.Fatalf("%s, the record naming %v was not written", what, files)
+		}
+	}
+	answer := func() (string, []string, []string, []string, bool) {
+		e := Open("load", main, trees)
+		c, a, r, ok := e.ChangedSources()
+		return string(e.Payload()), c, a, r, ok
+	}
+	// util.nomi is written just now: the snapshot hashes it, and the store
+	// takes that hash.
+	write(t, util, "pub fn one() -> Int\n    10\nend\n")
+	store("with a source written just now", main, util)
+	if got, _, _, _, _ := answer(); got != "image" {
+		t.Fatalf("the record reads back as %q", got)
+	}
+
+	write(t, other, "pub fn two() -> Int\n    3\nend\n")
+	if got, _, _, _, _ := answer(); got != "image" {
+		t.Fatalf("after an edit to a source the record does not name, it reads %q", got)
+	}
+
+	write(t, util, "pub fn one() -> Int\n    11\nend\n")
+	if got, c, a, r, ok := answer(); got != "" || !ok || !slices.Equal(c, []string{util}) || len(a)+len(r) != 0 {
+		t.Fatalf("after an edit to a named source, the lookup reads %q and ChangedSources answers %v, %v, %v, %v", got, c, a, r, ok)
+	}
+	store("after an edit", main, util)
+
+	more := filepath.Join(root, "lib", "more.nomi")
+	write(t, more, "pub fn three() -> Int\n    3\nend\n")
+	if got, c, a, r, ok := answer(); got != "" || !ok || len(c)+len(r) != 0 || !slices.Equal(a, []string{more}) {
+		t.Fatalf("after a source was added, the lookup reads %q and ChangedSources answers %v, %v, %v, %v", got, c, a, r, ok)
+	}
+	if err := os.Remove(more); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.Remove(util); err != nil {
+		t.Fatal(err)
+	}
+	if got, c, a, r, ok := answer(); got != "" || !ok || len(c)+len(a) != 0 || !slices.Equal(r, []string{util}) {
+		t.Fatalf("after a named source was removed, the lookup reads %q and ChangedSources answers %v, %v, %v, %v", got, c, a, r, ok)
+	}
+	write(t, util, "pub fn one() -> Int\n    11\nend\n")
+	store("with the source back", main, util)
+
+	write(t, filepath.Join(root, "nomi.toml"), "[module]\nname = \"other\"\n")
+	if got, _, _, _, _ := answer(); got != "" {
+		t.Fatalf("after an edit to the manifest, the record reads %q", got)
 	}
 }
 

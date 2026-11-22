@@ -71,7 +71,7 @@ func irSiblingLinkFixture(t *testing.T) string {
 // that matched while `FuncFor` declined would mean the function was never
 // added to its module.
 func TestIRSiblingLink_ACrossUnitCalleeAndItsDeclarationShareOneSymbol(t *testing.T) {
-	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
+	t.Setenv("NOMI_RUNNER_CACHE_ROOT", t.TempDir())
 	prog, err := Analyze(irSiblingLinkFixture(t))
 	if err != nil {
 		t.Fatalf("analysing the two-file program: %v", err)

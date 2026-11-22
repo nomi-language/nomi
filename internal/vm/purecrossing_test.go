@@ -44,17 +44,65 @@ func TestPureCrossing_ReadsTheDeclarations(t *testing.T) {
 		t.Fatal("no stdlib adapter is marked Pure")
 	}
 	for _, name := range []string{
-		// Output, tasks, channels and the Context.
-		"io.print", "Task.spawn", "Sender.send", "Context.value",
+		// Output, tasks and channels.
+		"io.print", "Task.spawn", "Sender.send",
 		// The clock, randomness and files.
-		"instant.Instant.now", "random.os_state", "fs/host.read",
-		// Pure, but each call's cost follows an operand's value.
-		"strings.String.repeat", "decimal.Decimal.divide",
-		// A project's own `go` binding.
+		"instant.Instant.now", "context.Context.with_timeout", "random.os_state", "fs/host.read",
+		// A project's own `host fn`, which an embedder answers.
 		"mylib.double",
 	} {
 		if m.pureCrossing(name) {
 			t.Errorf("%s counts as pure", name)
 		}
+	}
+	for _, name := range []string{
+		// A Context's values and deadline are read from the value passed.
+		"Context.value", "Context.with_value", "context.Context.root", "context.Context.with_deadline",
+		// Parsers and checks over their operands.
+		"strings.String.is_upper", "signatures/host.public_from_pem", "http/host.parse_cookie",
+		// A seeded generator's draw is a function of the seed.
+		"random.between_state",
+		// Pure, though each call's cost follows an operand's value.
+		"strings.String.repeat", "decimal.Decimal.divide",
+	} {
+		if !m.pureCrossing(name) {
+			t.Errorf("%s does not count as pure", name)
+		}
+	}
+}
+
+// TestUnboundedCrossing_ReadsTheDeclarations holds unboundedCrossing to the
+// rows it reads: a stdlib adapter is unbounded exactly when its row is
+// marked Unbounded, which only a Pure row is, and no intrinsic is.
+func TestUnboundedCrossing_ReadsTheDeclarations(t *testing.T) {
+	m := New(ir.NewModule("unbounded"), io.Discard)
+	for name := range m.hosts {
+		if m.unboundedCrossing(name) {
+			t.Errorf("intrinsic %s counts as unbounded", name)
+		}
+	}
+	funcs, err := stdlibadapters.Bind(&hostadapt.Env{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	unbounded := 0
+	for name := range funcs {
+		if m.unboundedCrossing(name) != stdlibadapters.Unbounded(name) {
+			t.Errorf("adapter %s: unboundedCrossing disagrees with its row", name)
+		}
+		if stdlibadapters.Unbounded(name) {
+			unbounded++
+			if !m.pureCrossing(name) {
+				t.Errorf("adapter %s is unbounded and not pure", name)
+			}
+		}
+	}
+	for _, name := range []string{"strings.String.repeat", "decimal.Decimal.divide", "decimal.Decimal.pow", "hash.pbkdf2_sha256", "http/host.gunzip"} {
+		if !m.unboundedCrossing(name) {
+			t.Errorf("%s does not count as unbounded", name)
+		}
+	}
+	if unbounded == 0 {
+		t.Fatal("no stdlib adapter is marked Unbounded")
 	}
 }

@@ -11,16 +11,20 @@ import (
 	"unicode"
 )
 
-// ImplTypeArgs is the type-argument template for an `impl Iface for T<...>` or
-// `impl Iface<...> for T<...>`. `TypeParamDefs` are the impl'd type's formal
-// type-param pointers (e.g. List's `T`); `Args` are the interface's type
-// arguments expressed in terms of those pointers. Args may be written in the
-// impl header (`Add<Days, Day>`) or solved from method signatures (`Iter<T>`
-// from `next`). To get the concrete interface type args for a use site like
-// `List<Int>`, substitute TypeParamDefs[i] -> use-site TypeArgs[i] into each
-// Args entry by pointer identity. The unifier consults this (via
-// unifyInterfaceAgainstConcrete) to bind any generic interface's type
-// parameters from a concrete receiver.
+// ImplTypeArgs is the record of one interface impl block: the interface it
+// implements (Interface and Origin), its resolved receiver, and the
+// interface's type arguments, for `impl Iface for T<...>` and `impl
+// Iface<...> for T<...>` alike. Every impl block the file writes, derives
+// or has synthesized has one (FileAnalysis.ImplBlocks, ImplBlockTypeArgs).
+// `TypeParamDefs` are the impl'd type's formal type-param pointers (e.g.
+// List's `T`); `Args` are the interface's type arguments expressed in terms
+// of those pointers, nil for an interface with none. Args may be written in
+// the impl header (`Add<Days, Day>`) or solved from method signatures
+// (`Iter<T>` from `next`). To get the concrete interface type args for a
+// use site like `List<Int>`, substitute TypeParamDefs[i] -> use-site
+// TypeArgs[i] into each Args entry by pointer identity. The unifier
+// consults this (via unifyInterfaceAgainstConcrete) to bind any generic
+// interface's type parameters from a concrete receiver.
 type ImplTypeArgs struct {
 	TypeParamDefs []*TypeParam_
 	Args          []Type
@@ -35,9 +39,12 @@ type ImplTypeArgs struct {
 	// type arguments leaves unsolved: no item's signature names it, and
 	// its Args entry is the interface's own parameter. nil when none is.
 	Open []bool
-	// Origin is the interface declaration's build key, so impls of two
-	// same-named interfaces are never candidates for one call.
-	Origin string
+	// Interface is the name of the interface declaration the header
+	// resolved to (`Release` for `impl Freeable for Lock`), and Origin is
+	// that declaration's build key: together the interface's identity, so
+	// impls of two same-named interfaces are never candidates for one call.
+	Interface string
+	Origin    string
 	// File is the Origin of the file that writes the impl: "std/lists" for
 	// std's `impl Contains<T> for List<T>`.
 	File string
@@ -93,11 +100,14 @@ type InherentImplBlockRecord struct {
 //
 // `receivers` is also populated for inherent methods so a single receiver
 // lookup covers both. `modulePath` is the import-form key ("" for the entry).
-// fileDefs is the file's Definitions map, used to recover each item's Symbol.
+// fileDefs is the file's Definitions map, used to recover each item's
+// Symbol, and scope the file's scope, in which each header names its
+// interface (implInterfaceNameIn).
 func IndexImplBlockFuncDefs(
 	nodes []ast.Node,
 	modulePath string,
 	fileDefs map[Pos]*Symbol,
+	scope *Scope,
 	index map[string]map[string][]*ast.FuncDef,
 	files map[*ast.FuncDef]string,
 	receivers map[*ast.FuncDef]string,
@@ -117,12 +127,13 @@ func IndexImplBlockFuncDefs(
 			continue
 		}
 		if blk.Interface != nil {
-			ifaceName := TypeExprBaseName(blk.Interface)
+			ifaceName := implInterfaceNameIn(scope, blk.Interface)
 			if ifaceName == "" {
 				continue
 			}
+			ifaceKey := implInterfaceKey(scope, blk.Interface)
 			for _, fn := range implBlockFuncDefs(blk) {
-				if !implItemClaimsInterface(fn, ifaceName) {
+				if !implItemClaimsInterface(scope, fn, ifaceName) {
 					continue
 				}
 				if index[ifaceName] == nil {
@@ -132,14 +143,14 @@ func IndexImplBlockFuncDefs(
 				files[fn] = modulePath
 				receivers[fn] = recv
 				if interfaceKeys != nil {
-					interfaceKeys[fn] = blk.Interface.TypeString()
+					interfaceKeys[fn] = ifaceKey
 				}
 			}
 			// `host fn` interface impls feed the parallel extern index +
 			// files so go-to-def / hover can navigate to them; the receiver
 			// is recorded per-file in defineImplBlockAnnotations.
 			for _, ext := range implBlockExternFuncs(blk) {
-				if !implItemClaimsInterface(ext, ifaceName) {
+				if !implItemClaimsInterface(scope, ext, ifaceName) {
 					continue
 				}
 				if externIndex[ifaceName] == nil {
@@ -148,7 +159,7 @@ func IndexImplBlockFuncDefs(
 				externIndex[ifaceName][ext.Name] = append(externIndex[ifaceName][ext.Name], ext)
 				externFiles[ext] = modulePath
 				if externInterfaceKeys != nil {
-					externInterfaceKeys[ext] = blk.Interface.TypeString()
+					externInterfaceKeys[ext] = ifaceKey
 				}
 			}
 		} else {
@@ -295,12 +306,12 @@ func implBlockReceiverIsTypeVar(blk *ast.ImplBlock) bool {
 	return false
 }
 
-func implItemClaimsInterface(item ast.Node, ifaceName string) bool {
+func implItemClaimsInterface(scope *Scope, item ast.Node, ifaceName string) bool {
 	switch it := item.(type) {
 	case *ast.FuncDef:
-		return TypeExprBaseName(it.ImplIface) == ifaceName
+		return implInterfaceNameIn(scope, it.ImplIface) == ifaceName
 	case *ast.ExternFunc:
-		return TypeExprBaseName(it.ImplIface) == ifaceName
+		return implInterfaceNameIn(scope, it.ImplIface) == ifaceName
 	default:
 		return false
 	}
@@ -939,11 +950,15 @@ type builder struct {
 	blockImports      map[*ast.ImportStmt]bool // imports at the top of a block, which bind only inside it
 	loader            FileLoader
 	projectRoot       string
-	currentModuleName string                   // [module].name from nomi.toml; "" when no manifest
-	moduleIndex       ModuleIndex              // cross-module short-name -> filesystem root; nil/empty when no deps
-	cache             map[string]*FileAnalysis // shared cache for resolved modules
-	loading           map[string]bool          // cycle detection: modules currently being loaded
-	moduleAlias       string                   // implicit file import alias (usually the file basename)
+	currentModuleName string      // the program's own [module].name from nomi.toml; "" when no manifest
+	moduleIndex       ModuleIndex // the modules the program's files import by name
+	// inModule is the key name of the module this file is in ("" for the
+	// program's own), whose names its imports resolve through
+	// (ModuleIndex.target).
+	inModule    string
+	cache       map[string]*FileAnalysis // shared cache for resolved modules
+	loading     map[string]bool          // cycle detection: modules currently being loaded
+	moduleAlias string                   // implicit file import alias (usually the file basename)
 	// stdlibFAs is the stdlib FA map handed in by the caller (typically
 	// std.Load()'s StdLib.Files, keyed by short name — "int", "list", ...).
 	// Threaded through BuildProject(WithCache) for the stdlib-globals
@@ -1074,42 +1089,33 @@ func (b *builder) validateInlineOpaqueDecls(nodes []ast.Node) {
 //   - any file whose FilePath doesn't sit under projectRoot (raw
 //     BuildFile callers / tests) yields "".
 func (b *builder) importerModRel() string {
-	if b.file == nil || b.file.FilePath == "" || b.projectRoot == "" {
+	if b.file == nil {
 		return ""
 	}
-	// filepath.Rel rather than a prefix: the root and the file may spell
-	// the separator differently (`/project` beside `\project\tools\seed.nomi`
-	// on Windows).
-	rel, err := filepath.Rel(b.projectRoot, b.file.FilePath)
-	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return ""
-	}
-	rel = strings.TrimSuffix(rel, ".nomi")
-	// importeeModRel is always "/"-joined (importsOf walks segments and
-	// joins with "/"). On Windows, b.file.FilePath uses backslashes — normalize
-	// here so the two sides compare correctly in checkInternalAccess.
-	return filepath.ToSlash(rel)
+	rel, _ := modRelUnder(b.projectRoot, b.file.FilePath)
+	return rel
 }
 
 // resolveImport attempts to resolve a user module import via the loader.
 // Returns the module's scope and the resolved file path, or nil if unresolved.
 //
-// Cross-module routing: when modulePath's head matches a sibling-module
-// short-name in b.moduleIndex, the load target is rerouted to that
-// module's filesystem root with the rest-of-path. A self-name head
-// (matches the current module's manifest name) is stripped and treated
-// as an intra-module import from the project root. A `std/...` path is
-// not resolved here; resolveStdlibImport owns it.
+// What the path names is ModuleIndex.target's answer for the module this
+// file is in: a first name that names a module (the program's own by its
+// name, or a dependency by a name this file's module gives it) leads into
+// that module's root; any other path is a file of this file's module. A
+// `std/...` path is not resolved here; resolveStdlibImport owns it.
 //
-// The cache key follows the user-facing import path (strings.Join of
-// modulePath as written) so two different sites importing the same
-// module via the same spelling share one cache entry. The
-// self-name-stripping case keys under the bare rest-of-path so a
-// self-named import and a bare-named one of the same module
-// deduplicate.
+// The cache key is the file's key (importDest.key), which every spelling
+// of an import of the file computes alike, so they share one cache entry.
 func (b *builder) resolveImport(modulePath []string) (*Scope, string) {
 	scope, path, _ := b.resolveImportOrMiss(modulePath)
 	return scope, path
+}
+
+// importDest is what path, an import path written in this file, names
+// (ModuleIndex.target).
+func (b *builder) importDest(path []string) importDest {
+	return b.moduleIndex.target(b.inModule, b.currentModuleName, b.projectRoot, path)
 }
 
 // resolveImportOrMiss is resolveImport that also says, when it finds no
@@ -1120,41 +1126,25 @@ func (b *builder) resolveImportOrMiss(modulePath []string) (*Scope, string, *imp
 	if b.loader == nil {
 		return nil, "", nil
 	}
-	modulePath = ShortNameImport(b.stdlibSiblingPath(modulePath), b.moduleIndex, b.currentModuleName)
-	loadRoot := b.projectRoot
-	loadPath := modulePath
-	cacheKey := strings.Join(modulePath, "/")
+	modulePath = b.stdlibSiblingPath(modulePath)
+	t := b.importDest(modulePath)
+	loadRoot, loadPath, cacheKey := t.root, t.rest, t.key
+	// dep is the module name the path starts with, for a path into
+	// another module, std, or a module's root directory.
 	dep := ""
-	if len(modulePath) > 0 {
-		head := modulePath[0]
-		if rest, self := SelfNameImport(modulePath, b.currentModuleName); self {
-			// Self-name reference. Strip the head and resolve against
-			// the current root; the cache key follows the stripped
-			// form so it dedups with bare-name imports of the same
-			// module.
-			loadPath = rest
-			cacheKey = strings.Join(loadPath, "/")
-		} else if otherRoot, ok := b.moduleIndex[head]; ok {
-			// Cross-module reference: route to the dep's root.
-			loadRoot = otherRoot
-			loadPath = modulePath[1:]
-			dep = head
-		}
-	}
-	if len(modulePath) == 1 && modulePath[0] == "std" {
-		dep = "std"
-		loadPath = nil
+	if t.named && (t.module != b.inModule || t.module == "std" || len(loadPath) == 0) {
+		dep = modulePath[0]
 	}
 	if len(loadPath) == 0 {
 		if dep != "" {
-			// The path is a module's short name and nothing below it:
-			// `import std`, or `import std.io`, which selects `io` from a
-			// file `std`. A module is a directory, so there is no file.
-			return nil, "", &importMiss{root: loadRoot, dep: dep, std: dep == "std"}
+			// The path is a module's name and nothing below it: `import
+			// std`, or `import std.io`, which selects `io` from a file
+			// `std`. A module is a directory, so there is no file.
+			return nil, "", &importMiss{root: loadRoot, dep: dep, std: t.module == "std"}
 		}
 		return nil, "", nil
 	}
-	filePath := ResolveModulePath(loadRoot, loadPath)
+	filePath := t.file()
 
 	// Check cache first
 	if cached, ok := b.cache[cacheKey]; ok {
@@ -1184,15 +1174,9 @@ func (b *builder) resolveImportOrMiss(modulePath []string) (*Scope, string, *imp
 		return nil, "", miss
 	}
 
-	// Create a sub-builder sharing cache and loading sets. The sub-
-	// builder inherits the entry's moduleIndex/currentModuleName: this
-	// matches the rule that the entry's go.mod is the
-	// single source of cross-module truth (siblings don't get their
-	// own per-file index). For files inside a sibling module, that
-	// means transitive intra-sibling imports work via the sibling's
-	// own root (loadRoot here) AND any short-name in the entry's
-	// index keeps resolving — the documented out-of-scope is a
-	// sibling reaching a dep that's only in the sibling's go.mod.
+	// Create a sub-builder sharing cache and loading sets. Its file is in
+	// the module the import leads into, so its own imports resolve
+	// through that module's names.
 	moduleScope := NewScope(nil)
 	sub := &builder{
 		file: &FileAnalysis{
@@ -1209,6 +1193,7 @@ func (b *builder) resolveImportOrMiss(modulePath []string) (*Scope, string, *imp
 		moduleAlias:       moduleAliasForFile(cacheKey, filePath),
 		currentModuleName: b.currentModuleName,
 		moduleIndex:       b.moduleIndex,
+		inModule:          t.module,
 		cache:             b.cache,
 		loading:           b.loading,
 	}
@@ -1412,13 +1397,10 @@ func (b *builder) buildModule(nodes []ast.Node, scope *Scope) {
 	// Errors are internal parser-regression guards only.
 	nodes, lowerErrs := LowerDerives(nodes)
 	b.file.TypeErrors = append(b.file.TypeErrors, lowerErrs...)
-	// Universal default Debug: after derive lowering, eagerly synthesize an
-	// `impl Debug` block for every declared type that lacks ANY explicit Debug
-	// (impl or derive). Opaque types get a name-only `<opaque T>` body;
-	// every other type gets the structural derive body. This makes Debug a
-	// universal interface — `io.inspect(x)` works for any value with no
-	// `@derive`/explicit-impl required — and is what lets `where T: Debug` bounds drop.
-	// Runs per-file so the orphan rule
+	// Universal Debug: after derive lowering, synthesize the name-only
+	// `impl Debug` block of every opaque type (`<opaque T>`) and host type
+	// (`T`) that lacks an explicit Debug (impl or derive). Every other type
+	// with none renders by its shape (noImplUse). Runs per-file so the orphan rule
 	// attributes each auto-impl to its receiver type's home module. The
 	// "skip if explicit" guard inside the pass enforces precedence and keeps
 	// detectImplCollisions quiet.
@@ -2489,20 +2471,14 @@ func (b *builder) defineSymbolStub(node ast.Node, scope *Scope) {
 		b.define(sym.Pos, sym)
 
 	case *ast.ExternType:
-		sourceFile := ""
-		if n.Opaque {
-			sourceFile = b.file.FilePath
-		}
 		sym := &Symbol{
-			Name:       n.Name,
-			Kind:       SymbolType,
-			Pos:        Pos{Line: n.Line, Col: n.Col},
-			Public:     n.Public,
-			Opaque:     n.Opaque,
-			Doc:        n.Doc,
-			Node:       n,
-			SourceFile: sourceFile,
-			Members:    make(map[string]*Symbol),
+			Name:    n.Name,
+			Kind:    SymbolType,
+			Pos:     Pos{Line: n.Line, Col: n.Col},
+			Public:  n.Public,
+			Doc:     n.Doc,
+			Node:    n,
+			Members: make(map[string]*Symbol),
 		}
 		applyNodeDefinitionOverride(sym, n)
 		if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
@@ -2526,19 +2502,6 @@ func (b *builder) defineSymbolStub(node ast.Node, scope *Scope) {
 
 	case *ast.ImportBlock:
 		// Same rationale as ImportStmt — handled in defineSymbolAnnotations.
-
-	case *ast.ExternPackage:
-		pos := Pos{Line: n.AliasLine, Col: n.AliasCol}
-		sym := &Symbol{
-			Name: n.Alias,
-			Kind: SymbolModule,
-			Pos:  pos,
-			Node: n,
-		}
-		if !b.checkRedeclareInScope(scope, n.Alias, n.AliasLine, n.AliasCol) {
-			scope.Define(sym)
-		}
-		b.define(pos, sym)
 
 	case *ast.Binding:
 		// Bindings are NOT defined in pass 1 — they need sequential visibility
@@ -2589,7 +2552,6 @@ func (b *builder) defineSymbolAnnotations(node ast.Node, scope *Scope) {
 		b.defineInterfaceAnnotations(n, scope)
 
 	case *ast.ExternFunc:
-		b.defineForeignBindingRefs(n, scope)
 		inner := b.defineTypeParams(n.TypeParams, scope)
 		for _, p := range n.Params {
 			b.walkTypeExpr(p.TypeAnnotation, inner)
@@ -2598,7 +2560,6 @@ func (b *builder) defineSymbolAnnotations(node ast.Node, scope *Scope) {
 		b.walkWhereClauses(n.WhereClauses, inner)
 
 	case *ast.ExternType:
-		b.defineForeignBindingRefs(n, scope)
 		// Internal synthetic derive markers are the only annotations an extern
 		// type declaration carries.
 		inner := b.defineTypeParams(n.TypeParams, scope)
@@ -2768,27 +2729,6 @@ func applyDefinitionOverride(sym *Symbol, file string, line, col, span int) {
 	sym.DefinitionLine = line
 	sym.DefinitionCol = col
 	sym.DefinitionSpan = span
-}
-
-func (b *builder) defineForeignBindingRefs(node ast.Node, scope *Scope) {
-	var alias string
-	var pos Pos
-	switch n := node.(type) {
-	case *ast.ExternFunc:
-		alias = n.ForeignAlias
-		pos = Pos{Line: n.ForeignAliasLine, Col: n.ForeignAliasCol}
-	case *ast.ExternType:
-		alias = n.ForeignAlias
-		pos = Pos{Line: n.ForeignAliasLine, Col: n.ForeignAliasCol}
-	default:
-		return
-	}
-	if alias == "" || pos.Line <= 0 || pos.Col <= 0 {
-		return
-	}
-	if sym := scope.Lookup(alias); sym != nil {
-		b.file.References[pos] = sym
-	}
 }
 
 // defineStructAnnotations walks field type annotations and field defaults
@@ -3118,10 +3058,6 @@ func (b *builder) defineImplBlockStub(n *ast.ImplBlock, scope *Scope) {
 		return // unkeyable receiver; annotations pass reports the error
 	}
 	isInterface := n.Interface != nil
-	ifaceName := ""
-	if isInterface {
-		ifaceName = TypeExprBaseName(n.Interface)
-	}
 	if scope == nil {
 		scope = b.fileScope
 	}
@@ -3219,7 +3155,6 @@ func (b *builder) defineImplBlockStub(n *ast.ImplBlock, scope *Scope) {
 				ownerSym.Members[name] = sym
 			}
 		}
-		_ = ifaceName
 	}
 }
 
@@ -3268,7 +3203,7 @@ func (b *builder) defineImplBlockAnnotations(n *ast.ImplBlock, scope *Scope) {
 		// user-implementable: a hand-written `impl Struct for T` can't change
 		// what satisfies `Struct` (the structural check decides) and would be
 		// silently inert, so reject it explicitly.
-		if TypeExprBaseName(n.Interface) == "Struct" {
+		if implInterfaceNameIn(scope, n.Interface) == "Struct" {
 			b.file.TypeErrors = append(b.file.TypeErrors, TypeError{
 				Line: n.Line, Col: n.Col,
 				Message: fmt.Sprintf(
@@ -3278,7 +3213,7 @@ func (b *builder) defineImplBlockAnnotations(n *ast.ImplBlock, scope *Scope) {
 		}
 		// `Distinct<T>` is decided the same way: every distinct type
 		// satisfies it for the type it wraps.
-		if TypeExprBaseName(n.Interface) == "Distinct" {
+		if implInterfaceNameIn(scope, n.Interface) == "Distinct" {
 			b.file.TypeErrors = append(b.file.TypeErrors, TypeError{
 				Line: n.Line, Col: n.Col,
 				Message: fmt.Sprintf(
@@ -3313,7 +3248,6 @@ func (b *builder) defineImplBlockAnnotations(n *ast.ImplBlock, scope *Scope) {
 			b.walkTypeExpr(it.ReturnTypeExpr, itemInner)
 			b.walkWhereClauses(it.WhereClauses, itemInner)
 			b.walkTypeExpr(it.ImplIface, itemInner)
-			b.defineForeignBindingRefs(it, scope)
 		}
 	}
 
@@ -3325,7 +3259,7 @@ func (b *builder) defineImplBlockAnnotations(n *ast.ImplBlock, scope *Scope) {
 	}
 	ifaceKey := ""
 	if n.Interface != nil {
-		ifaceKey = n.Interface.TypeString()
+		ifaceKey = implInterfaceKey(scope, n.Interface)
 	}
 	module := ""
 	if q, qualified := n.Receiver.(*ast.QualifiedType); qualified && !ast.IsPublic(q.Module) {
@@ -3377,8 +3311,9 @@ func (b *builder) defineImplBlockAnnotations(n *ast.ImplBlock, scope *Scope) {
 	}
 
 	// Interface-impl block: resolve + validate the interface, then record the
-	// (recv, iface) dispatch into the shared dispatch structures.
-	ifaceName := TypeExprBaseName(n.Interface)
+	// (recv, iface) dispatch into the shared dispatch structures, under the
+	// name of the declaration the header names (implInterfaceNameIn).
+	ifaceName := implInterfaceNameIn(scope, n.Interface)
 	if ifaceName == "" {
 		b.file.TypeErrors = append(b.file.TypeErrors, TypeError{
 			Line: n.Line, Col: n.Col,
@@ -3389,16 +3324,17 @@ func (b *builder) defineImplBlockAnnotations(n *ast.ImplBlock, scope *Scope) {
 	// A qualified header names its interface in the module it qualifies it
 	// with, and nowhere else: `impl a.Show` beside this file's own `Show`,
 	// where a declares none, is undefined, not this file's.
-	ifaceLookupName := ifaceName
+	written := TypeExprBaseName(n.Interface)
+	ifaceLookupName := written
 	if n.Interface != nil {
 		if _, ok := n.Interface.(*ast.QualifiedType); ok {
 			ifaceLookupName = n.Interface.TypeString()
 		}
 	}
-	shownName := ifaceName
+	shownName := written
 	ifaceSym := scope.Lookup(ifaceLookupName)
 	if q, ok := n.Interface.(*ast.QualifiedType); ok && ifaceSym == nil {
-		shownName = q.Module + "." + ifaceName
+		shownName = q.Module + "." + written
 		if owner := scope.Lookup(q.Module); owner != nil {
 			realOwner := owner
 			if realOwner.Resolved != nil {
@@ -3406,33 +3342,29 @@ func (b *builder) defineImplBlockAnnotations(n *ast.ImplBlock, scope *Scope) {
 			}
 			if realOwner.ModuleScope != nil {
 				// The member's name: `scale_a.Scale<Int>` names Scale.
-				ifaceSym = realOwner.ModuleScope.Lookup(ifaceName)
+				ifaceSym = realOwner.ModuleScope.Lookup(written)
 			}
 		}
 	}
-	// Compiler-known header routes — an impl header resolves without the
-	// interface name being in file scope in exactly two cases:
-	//
-	//   - Debug, on ANY block: the checker treats every type as
-	//     Debug-conformant, DetectMissingImpls exempts it, and registration
-	//     is eager/universal. Universal auto-synthesis plants an `impl Debug`
-	//     block in EVERY file that declares a type, imports or no imports
-	//     (stdlib files get no prelude; bare single-file builds get no
-	//     stdlib at all), so the header must not depend on `std/debug`
-	//     being imported.
-	//   - Any derivable protocol, on a SYNTHESIZED block (position in the
-	//     synth band): derive synthesis is compiler machinery, so its output
-	//     resolves like compiler output. Its header is the derive's
-	//     interface as written, which checkDeriveInScope holds to scope
-	//     above, so a missing import surfaces once, with the import to add.
-	//     Hand-written blocks (top-level or nested; both keep real source
-	//     positions) still require the interface in scope.
+	// Compiler-known header routes: a SYNTHESIZED block (position in the
+	// synth band) resolves without the interface name being in file scope
+	// when it is Debug's or a derivable protocol's. Universal
+	// auto-synthesis plants an `impl Debug` block in every file that
+	// declares a type, imports or no imports (stdlib files get no prelude;
+	// bare single-file builds get no stdlib at all), and a derive's block
+	// names the derive's interface as written, which checkDeriveInScope
+	// holds to scope above, so a missing import surfaces once, with the
+	// import to add. Both are compiler output and resolve like it
+	// (declaringOriginOfImplInterface). A hand-written block, top-level or
+	// nested, Debug's included, requires the interface in scope: a std
+	// module's `impl Debug for T` with no `debug.Debug` import would
+	// otherwise name no declaration, and its body would be no Debug impl.
 	//
 	// All five protocols are `pub interface`s; with no scope symbol to read
 	// visibility from, methods are stamped public directly.
 	ifacePublic := true
 	if ifaceSym == nil {
-		if ifaceName != "Debug" && !(IsSynthesizedLine(n.Line) && deriveSupported[ifaceName]) {
+		if !(IsSynthesizedLine(n.Line) && (ifaceName == "Debug" || deriveSupported[ifaceName])) {
 			b.file.TypeErrors = append(b.file.TypeErrors, TypeError{
 				Line: n.Line, Col: n.Col,
 				Message: fmt.Sprintf("impl block: undefined interface '%s'", shownName),
@@ -3478,7 +3410,7 @@ func (b *builder) defineImplBlockAnnotations(n *ast.ImplBlock, scope *Scope) {
 		}
 		methodDeclared := ifaceSym == nil || interfaceSymbolHasMethod(ifaceSym, name)
 		if explicitIface != nil {
-			if TypeExprBaseName(explicitIface) != ifaceName {
+			if implInterfaceNameIn(scope, explicitIface) != ifaceName {
 				continue
 			}
 			if !methodDeclared {
@@ -3850,18 +3782,23 @@ func (b *builder) stampsSourceFile() bool {
 // path (not std's), from this file, when it is inside an `internal/`
 // directory this file is outside of; nil when it may.
 func (b *builder) internalAccessError(checkPath []string) error {
-	head := checkPath[0]
-	sameModule := true
-	importeeModRel := strings.Join(checkPath, "/")
-	if rest, self := SelfNameImport(checkPath, b.currentModuleName); self {
-		// Self-name spelling: strip the head for the check's
-		// importeeModRel so it compares like a bare intra-module
-		// import. sameModule stays true.
-		importeeModRel = strings.Join(rest, "/")
-	} else if _, ok := b.moduleIndex[head]; ok {
-		sameModule = false
+	t := b.importDest(checkPath)
+	return checkInternalAccess(b.importerModRel(), strings.Join(t.rest, "/"), t.module == b.inModule)
+}
+
+// modRelUnder is file's path under root, slash-separated and without its
+// extension, and whether file is inside root. It is filepath.Rel, not a
+// prefix test: the root and the file may spell the separator differently
+// on Windows, and an importee's path is always "/"-joined.
+func modRelUnder(root, file string) (string, bool) {
+	if root == "" || file == "" {
+		return "", false
 	}
-	return checkInternalAccess(b.importerModRel(), importeeModRel, sameModule)
+	rel, err := filepath.Rel(root, file)
+	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", false
+	}
+	return filepath.ToSlash(strings.TrimSuffix(rel, ".nomi")), true
 }
 
 func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
@@ -4422,7 +4359,7 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 
 	switch n := node.(type) {
 	case *ast.ExternFunc:
-		// A `host fn` or `go` binding has no body, but its defaults are
+		// A `host fn` has no body, but its defaults are
 		// code: one may name the file's functions and an earlier
 		// parameter, as a `fn`'s default may.
 		inner := b.defineTypeParams(n.TypeParams, scope)
@@ -5001,7 +4938,7 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 	case *ast.IntLit, *ast.FloatLit, *ast.DecimalLit, *ast.CodepointLit, *ast.Placeholder, *ast.PlaceholderParam,
 		*ast.WildcardPattern,
 		*ast.IdentPattern, *ast.AsPattern, *ast.OrPattern, *ast.EnumPattern, *ast.StructPattern,
-		*ast.TuplePattern, *ast.ListPattern, *ast.MapPattern, *ast.ExternPackage:
+		*ast.TuplePattern, *ast.ListPattern, *ast.MapPattern:
 		// nothing to walk
 	}
 }
@@ -5184,13 +5121,6 @@ func (b *builder) walkBlockWithEnd(block *ast.Block, scope *Scope, endLine, endC
 	if block == nil {
 		return scope
 	}
-	// After the statements are walked, so a bare callee's reference is
-	// recorded (LoopNeverBreaks).
-	defer func() {
-		if te, ok := checkUnreachable(b.file, block); ok {
-			b.file.TypeErrors = append(b.file.TypeErrors, te)
-		}
-	}()
 	for _, stmt := range block.Stmts {
 		switch s := stmt.(type) {
 		case *ast.Binding:
@@ -5251,7 +5181,67 @@ func (b *builder) walkBlockWithEnd(block *ast.Block, scope *Scope, endLine, endC
 			b.walkNode(stmt, scope)
 		}
 	}
+	b.walkBlockDebug(block, scope)
 	return scope
+}
+
+// walkBlockDebug writes the name-only Debug of each opaque struct, enum and
+// distinct type block declares (synthesizeBlockDebug, FileBodies.BlockDebug)
+// and resolves it in the block's scope, where the type's name and its
+// siblings' resolve, after the statements, so a declaration later in the
+// block is seen: its function's symbol, as defineImplBlockStub defines a
+// module-level impl's, then its parameter and body (walkImplBlockBodies).
+// A block walked again keeps the impl it was given.
+func (b *builder) walkBlockDebug(block *ast.Block, scope *Scope) {
+	binds := blockTypeDeclsBinding(block)
+	var debugScope *Scope
+	for _, stmt := range block.Stmts {
+		if _, done := b.file.BlockDebug[stmt]; done || !binds[stmt] {
+			continue
+		}
+		impl := synthesizeBlockDebug(stmt, len(b.file.BlockDebug))
+		if impl == nil {
+			continue
+		}
+		if b.file.BlockDebug == nil {
+			b.file.BlockDebug = map[ast.Node]*ast.ImplBlock{}
+		}
+		b.file.BlockDebug[stmt] = impl
+		from := len(b.file.TypeErrors)
+		recv := TypeExprBaseName(impl.Receiver)
+		for _, fn := range implBlockFuncDefs(impl) {
+			setImplItemInterface(fn, impl.Interface)
+			pos := Pos{Line: fn.Line, Col: fn.Col}
+			b.define(pos, &Symbol{Name: fn.Name, Kind: SymbolFunction, Pos: pos, Node: fn, OwningType: recv})
+		}
+		if debugScope == nil {
+			debugScope = b.blockDebugScope(scope)
+		}
+		b.walkImplBlockBodies(impl, debugScope)
+		repointSynthErrors(impl, b.file.TypeErrors[from:])
+	}
+}
+
+// blockDebugScope is the scope the universal Debug of a type a block
+// declares is resolved in: the block's, where the type and its siblings
+// resolve, except that a name a block binds to an enum variant it declares
+// (`enum Level { Debug }` binds `Debug` for the rest of its block) names
+// what the file binds it to. The synthesized body names the protocol
+// interfaces and never a variant bare, as at module level, where a
+// variant never takes a name the prelude binds (variantMayTakeScopeSlot).
+func (b *builder) blockDebugScope(scope *Scope) *Scope {
+	out := NewScope(scope)
+	for s := scope; s != nil && s != b.fileScope; s = s.Parent {
+		for name, sym := range s.Symbols {
+			if !isLocalVariant(sym) || out.LookupLocal(name) != nil {
+				continue
+			}
+			if outer := b.fileScope.Lookup(name); outer != nil {
+				out.Define(outer)
+			}
+		}
+	}
+	return out
 }
 
 // defineAssertedPattern binds the names of `assert Pattern = value`, a

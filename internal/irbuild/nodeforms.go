@@ -140,7 +140,6 @@ var nodeForms = map[string]nodeForm{
 	"AttachedTest":    formDecl,
 	"EmbedDecl":       formDecl,
 	"ExternFunc":      formDecl,
-	"ExternPackage":   formDecl,
 	"ExternType":      formDecl,
 	"GroupSubtests":   formDecl,
 	"ImplBlock":       formDecl,

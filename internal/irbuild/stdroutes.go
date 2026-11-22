@@ -8,11 +8,11 @@ import (
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
-// std's own functions are keyed by their identity, the (module, owner,
-// name) triple of analysis.StdFunc that a call's record carries. A
-// program's functions are keyed by their declaration node. The std bundle
-// keeps no declaration for a `host fn`, so the triple, which the bundle
-// builds from names it holds, is the key every std lookup takes.
+// std's own functions are keyed by their identity, the analysis.StdFunc
+// (module, owner, impl, name) that a call's record carries. A program's
+// functions are keyed by their declaration node. The std bundle keeps no
+// declaration for a `host fn`, so the identity, which names no node, is the
+// key a record's lookup takes (stdlibIndex.byID).
 
 // stdShortModule is the name the std lowering keys a module by
 // (`fs/host`), from the module key a StdFunc carries (`std/fs/host`).
@@ -29,26 +29,34 @@ func stdHostKey(id analysis.StdFunc) string {
 	return stdShortModule(id.Module) + "." + id.Owner + "." + id.Name
 }
 
-// stdFuncByID is the std function id names among those the std index
-// files under its owner and name (stdlibIndex.byType, the overload set
-// of every declaration of that spelling), told apart by identity: its
-// impl's interface and type arguments, which id carries. Nil for the zero
-// id and for one the index holds no function of.
+// stdFuncAtRef is the std function the checker resolved ref to: a
+// FieldAccess's last name (`io.print`, `String.contains`) or a bare
+// identifier. The zero StdFunc when it resolved to none.
+func (g *gen) stdFuncAtRef(ref ast.Node) analysis.StdFunc {
+	var sym *analysis.Symbol
+	switch t := ref.(type) {
+	case *ast.FieldAccess:
+		if t.Field != nil {
+			sym = g.checkedRef(t.Field.Line, t.Field.Col)
+		}
+	case *ast.Ident:
+		sym = g.checkedRef(t.Line, t.Col)
+	}
+	if sym == nil || g.srcFA() == nil {
+		return analysis.StdFunc{}
+	}
+	return g.srcFA().StdFuncOf(sym.Node)
+}
+
+// stdFuncByID is the std function id names, the one the std index files
+// under that identity (stdlibIndex.byID): a module-level function or an
+// impl's, of any module the index holds. Nil for the zero id and for one
+// the index holds no function of.
 func (g *gen) stdFuncByID(id analysis.StdFunc) *stdFunc {
-	if g.std == nil || id.IsZero() || id.Owner == "" {
+	if g.std == nil || id.IsZero() {
 		return nil
 	}
-	var found *stdFunc
-	for _, f := range g.std.byType[id.Owner+"."+id.Name] {
-		if isNilNode(f.node) || g.stdFuncIn(id, f.node) != id {
-			continue
-		}
-		if found != nil && found != f {
-			return nil
-		}
-		found = f
-	}
-	return found
+	return g.std.byID[id]
 }
 
 // stdInstFuncOf is the std function id names that a program instantiates
@@ -78,6 +86,7 @@ var (
 	stdHashable       = analysis.StdType{Module: "std/hashable", Name: "Hashable"}
 	stdToJson         = analysis.StdType{Module: "std/json", Name: "ToJson"}
 	stdFromJson       = analysis.StdType{Module: "std/json", Name: "FromJson"}
+	stdParse          = analysis.StdType{Module: "std/parse", Name: "Parse"}
 	stdDebug          = analysis.StdType{Module: "std/debug", Name: "Debug"}
 	stdAssertable     = analysis.StdType{Module: "std/assertions", Name: "Assertable"}
 	stdDisplay        = analysis.StdType{Module: "std/display", Name: "Display"}
@@ -88,7 +97,6 @@ var (
 	stdSteppable      = analysis.StdType{Module: "std/steppable", Name: "Steppable"}
 	stdFrom           = analysis.StdType{Module: "std/convert", Name: "From"}
 	stdCheckedLiteral = analysis.StdType{Module: "std/literals", Name: "CheckedLiteral"}
-	stdParse          = analysis.StdType{Module: "std/parse", Name: "Parse"}
 	stdAdd            = analysis.StdType{Module: "std/add", Name: "Add"}
 	stdMultiply       = analysis.StdType{Module: "std/multiply", Name: "Multiply"}
 )
@@ -152,29 +160,18 @@ const (
 	// routeContextValue is `Context.with_value` and `Context.value`
 	// (contextValueCall).
 	routeContextValue
-	// routeContainerEqual is a container's or prelude enum's `equal`
-	// (containerEqualCall); routeContainerCompare a List's or Vector's
-	// `compare` (containerCompareAny).
-	routeContainerEqual
+	// routeContainerCompare is a List's or Vector's `compare`
+	// (containerCompareAny).
 	routeContainerCompare
-	// routeHash is `Hashable.hash`: a tuple's (tupleHashCall), an
-	// interface value's (existentialHashCall), or that of a type that
-	// meets Hashable by its equality (structuralHashCall).
-	routeHash
 	// routeToJson is `ToJson.to_json` and `to_json_field` over a record
 	// (recordToJsonCall).
 	routeToJson
-	// routeCompare is `Comparable.compare` over tuples (tupleCompareCall).
-	routeCompare
-	// routeEquatableEqual is `Equatable.equal`: a container's in a std
-	// body (containerEqualCall), and over interface values, tuples,
-	// records and types equal by `==` (structuralEqualCall).
-	routeEquatableEqual
 	// routePreludePredicate is a prelude enum's variant test
 	// (preludePredicates, preludePredicateCall).
 	routePreludePredicate
-	// routeScalarText is a scalar's `to_string` (scalarTextCall), and
-	// routeDisplay `Display.to_string`, rendered by the operand's kind.
+	// routeScalarText is a scalar's `to_string`, and routeDisplay
+	// `Display.to_string`, rendered as the form of the call's record says
+	// (displayCall).
 	routeScalarText
 	routeDisplay
 	// routeEachWhile is `Bytes.each_while` and `String.each_while`, and
@@ -230,28 +227,26 @@ type stdQualKey struct {
 
 // The std types and interfaces stdQualRoutes names.
 var (
-	stdIterType       = analysis.StdType{Module: "std/iter", Name: "Iter"}
-	stdStructType     = analysis.StdType{Module: "std/structs", Name: "Struct"}
-	stdContextType    = analysis.StdType{Module: "std/context", Name: "Context"}
-	stdComparableType = analysis.StdType{Module: "std/comparable", Name: "Comparable"}
-	stdEquatableType  = analysis.StdType{Module: "std/equatable", Name: "Equatable"}
-	stdDisplayType    = analysis.StdType{Module: "std/display", Name: "Display"}
-	stdIntType        = analysis.StdType{Module: "std/int", Name: "Int"}
-	stdFloatType      = analysis.StdType{Module: "std/float", Name: "Float"}
-	stdBoolType       = analysis.StdType{Module: "std/bool", Name: "Bool"}
-	stdStringType     = analysis.StdType{Module: "std/strings", Name: "String"}
-	stdBytesType      = analysis.StdType{Module: "std/bytes", Name: "Bytes"}
-	stdMaybeType      = analysis.StdType{Module: "std/maybe", Name: "Maybe"}
-	stdResultType     = analysis.StdType{Module: "std/results", Name: "Result"}
-	stdListType       = analysis.StdType{Module: "std/lists", Name: "List"}
-	stdVectorType     = analysis.StdType{Module: "std/vectors", Name: "Vector"}
-	stdMapType        = analysis.StdType{Module: "std/maps", Name: "Map"}
-	stdRangeType      = analysis.StdType{Module: "std/ranges", Name: "Range"}
-	stdSetType        = analysis.StdType{Module: "std/sets", Name: "Set"}
+	stdIterType    = analysis.StdType{Module: "std/iter", Name: "Iter"}
+	stdStructType  = analysis.StdType{Module: "std/structs", Name: "Struct"}
+	stdContextType = analysis.StdType{Module: "std/context", Name: "Context"}
+	stdDisplayType = analysis.StdType{Module: "std/display", Name: "Display"}
+	stdIntType     = analysis.StdType{Module: "std/int", Name: "Int"}
+	stdFloatType   = analysis.StdType{Module: "std/float", Name: "Float"}
+	stdBoolType    = analysis.StdType{Module: "std/bool", Name: "Bool"}
+	stdStringType  = analysis.StdType{Module: "std/strings", Name: "String"}
+	stdBytesType   = analysis.StdType{Module: "std/bytes", Name: "Bytes"}
+	stdMaybeType   = analysis.StdType{Module: "std/maybe", Name: "Maybe"}
+	stdResultType  = analysis.StdType{Module: "std/results", Name: "Result"}
+	stdListType    = analysis.StdType{Module: "std/lists", Name: "List"}
+	stdVectorType  = analysis.StdType{Module: "std/vectors", Name: "Vector"}
+	stdMapType     = analysis.StdType{Module: "std/maps", Name: "Map"}
+	stdRangeType   = analysis.StdType{Module: "std/ranges", Name: "Range"}
+	stdSetType     = analysis.StdType{Module: "std/sets", Name: "Set"}
 )
 
 // stdQualRoutes are the std functions typeQualCall lowers by a route of
-// its own, keyed by what the call is qualified with (qualRoute): an
+// its own, keyed by what the call is qualified with (recordedQualRoute): an
 // exact key for one function, else the owner's key with no method. A
 // program's type or interface of the same name has no std identity, so it
 // never reaches an entry.
@@ -263,18 +258,10 @@ func stdQualRouteTable() map[stdQualKey]stdRoute {
 		{stdStructType, "update"}:       routeStructUpdate,
 		{stdContextType, "with_value"}:  routeContextValue,
 		{stdContextType, "value"}:       routeContextValue,
-		{stdListType, "equal"}:          routeContainerEqual,
-		{stdMaybeType, "equal"}:         routeContainerEqual,
-		{stdResultType, "equal"}:        routeContainerEqual,
-		{stdVectorType, "equal"}:        routeContainerEqual,
-		{stdMapType, "equal"}:           routeContainerEqual,
 		{stdListType, "compare"}:        routeContainerCompare,
 		{stdVectorType, "compare"}:      routeContainerCompare,
-		{stdHashable, "hash"}:           routeHash,
 		{stdToJson, "to_json"}:          routeToJson,
 		{stdToJson, "to_json_field"}:    routeToJson,
-		{stdComparableType, "compare"}:  routeCompare,
-		{stdEquatableType, "equal"}:     routeEquatableEqual,
 		{stdIntType, "to_string"}:       routeScalarText,
 		{stdFloatType, "to_string"}:     routeScalarText,
 		{stdBoolType, "to_string"}:      routeScalarText,
@@ -303,26 +290,34 @@ func stdQualRouteTable() map[stdQualKey]stdRoute {
 	return routes
 }
 
-// qualRoute is the route typeQualCall lowers t, `ti.method(...)`, by: the
-// entry of stdQualRoutes for what the call's record says it is qualified
-// with and the method, else the owner-wide entry, or 0. The key answered
-// names the method either way.
+// recordedQualRoute is the route typeQualCall lowers t, a call of method,
+// by: the entry of stdQualRoutes for what the call's record says it is
+// qualified with and the method, else the owner-wide entry, or 0. The key
+// answered names the method either way, and no spelling of the owner is
+// read. A call written `Iter.loop(...)` and a bare `loop(...)` a selective
+// import names, whose record names std's Iter.loop, both route as
+// routeIterLoop.
 //
-// A copy the builder respelled with a concrete owner (stdKindQualCall's
-// `Int.to_string` for `T.to_string`) carries a record qualified with that
-// owner (respelledCallOf). Code the checker never checked
-// (markUnchecked) has no record, and is reached by the owner the builder
-// wrote, resolved in this file's scope.
-func (bl *irScalarBuilder) qualRoute(t *ast.Call, ti *ast.TypeIdent, method string) (stdRoute, stdQualKey) {
-	g := bl.g
+// A qualifier that is a type parameter the instance binds to a scalar is
+// that scalar's std type (`T.to_string(x)` at an Int routes as
+// `Int.to_string(x)`): stdKindQualCall lowers every other binding by a
+// route of its own. A copy the builder respelled with a concrete owner
+// (stdKindQualCall's `Map.contains` for `C.contains`) carries a record
+// qualified with that owner (respelledCallOf).
+func (g *gen) recordedQualRoute(t *ast.Call, method string) (stdRoute, stdQualKey) {
 	owner := g.routeCallee(t).RouteOwner()
-	if g.isUnchecked(t) {
-		if _, local := g.blockLocalNamed(ti.Name); local {
-			return 0, stdQualKey{}
+	if owner.Kind == analysis.QualTypeParam && owner.Param != nil {
+		if k, bound := g.genericSubstKind(owner.Param.Name); bound && irScalarLeafKind(k) {
+			owner = g.kindQualifier(k)
 		}
-		fa := g.srcFA()
-		owner = fa.QualifierOfSymbol(resolvedTypeSymbol(fa, ti.Name))
 	}
+	return stdQualRouteOf(owner, method)
+}
+
+// stdQualRouteOf is the entry of stdQualRoutes for method of the std type
+// or interface owner, else owner's entry with no method, or 0. The key
+// answered names the method either way.
+func stdQualRouteOf(owner analysis.Qualifier, method string) (stdRoute, stdQualKey) {
 	if owner.Std.IsZero() {
 		return 0, stdQualKey{}
 	}

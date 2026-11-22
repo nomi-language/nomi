@@ -190,7 +190,7 @@ type literalTarget struct {
 	// a sibling handler whose sym is nil.
 	unit int
 	// sym is a sibling handler's retained body, interned in the declaring
-	// unit's table as qualSiblingImplPlan interns it; nil when unknown.
+	// unit's table as siblingSitePlan interns it; nil when unknown.
 	sym *ir.Symbol
 	// item is the instance's impl item for a handler of a generic type
 	// this file declares, and inst the std instance for a std one
@@ -268,11 +268,22 @@ func (g *gen) literalImpl(t *ast.TaggedString) (literalTarget, bool) {
 	return g.literalImplFor(t, fd)
 }
 
+// literalTagDef is this gen's def of the type whose handler builds the
+// typed literal t, as the checker recorded it (TypedLiteral.Tag): the type
+// its tag names, or the type an untagged literal's position expects.
+func (g *gen) literalTagDef(t *ast.TaggedString) *typeDef {
+	rec := g.srcFA().TypedLiterals[t]
+	if rec == nil {
+		return nil
+	}
+	return g.nominalDef(rec.Tag)
+}
+
 // literalImplFor is literalImpl for the handler function fd of t's tag: its
 // `from_fragments` or `build`, or a CheckedLiteral's `check`.
 func (g *gen) literalImplFor(t *ast.TaggedString, fd *ast.FuncDef) (literalTarget, bool) {
 	label := t.Tag + "." + fd.Name
-	rivalled := g.literalHandlerRivals(t.Tag, fd.Name)
+	rivalled := g.literalHandlerRivals(t, fd.Name)
 	for _, d := range g.implOrder {
 		if !d.lowerable || d.decl == nil || !implBlockDeclares(d.decl, fd) {
 			continue
@@ -291,11 +302,12 @@ func (g *gen) literalImplFor(t *ast.TaggedString, fd *ast.FuncDef) (literalTarge
 		h.rivalled = rivalled
 		return h, true
 	}
-	return g.stdLiteralImpl(t.Tag, fd, label)
+	return g.stdLiteralImpl(t, fd, label)
 }
 
-// literalHandlerRivals reports whether MORE THAN ONE written impl block
-// provides `method` for the tag's type, anywhere in the program.
+// literalHandlerRivals reports whether MORE THAN ONE impl block of the best
+// precedence (writtenImplMembers) provides `method` for the tag's type,
+// anywhere in the program.
 //
 // PROGRAM-wide, through the sibling impl index (siblingimpl.go): the orphan
 // rule admits `impl I for T` in T's module, a Nomi module is several files,
@@ -309,22 +321,23 @@ func (g *gen) literalImplFor(t *ast.TaggedString, fd *ast.FuncDef) (literalTarge
 // The local scan is the fallback for a gen with no file index. Either way a
 // route that could not count would have to answer "no rivals", and that is
 // the answer that lowers the call.
-func (g *gen) literalHandlerRivals(tag, method string) bool {
-	d, isNamed := g.namedType(tag)
-	if !isNamed || d == nil {
+func (g *gen) literalHandlerRivals(t *ast.TaggedString, method string) bool {
+	d := g.literalTagDef(t)
+	if d == nil {
 		return false
 	}
 	if g.files != nil && d.decl != nil {
 		sites := g.files.implMembers[implMemberKey{recv: d.decl, method: method}]
 		return len(writtenImplMembers(sites)) > 1
 	}
-	k, n := named(d), 0
+	k := named(d)
+	var sites []implMemberSite
 	for _, b := range g.implOrder {
-		if b.recv == k && !b.synth && b.items[method] != nil {
-			n++
+		if b.recv == k && b.items[method] != nil {
+			sites = append(sites, implMemberSite{block: b.decl})
 		}
 	}
-	return n > 1
+	return len(writtenImplMembers(sites)) > 1
 }
 
 // siblingLiteralImpl is the sibling half of literalImpl: the handler the
@@ -341,10 +354,10 @@ func (g *gen) siblingLiteralImpl(t *ast.TaggedString, fd *ast.FuncDef, label str
 	if g.files == nil || g.fileUnit < 0 {
 		return literalTarget{}, false
 	}
-	// namedType and not the analyzer alone: a mirror this builder REFUSES — a
-	// type closing a type cycle — is already reported at its own position.
-	d, isNamed := g.namedType(t.Tag)
-	if !isNamed || d == nil || !d.lowerable || d.decl == nil {
+	// A mirror this builder REFUSES (a type closing a type cycle) is
+	// already reported at its own position.
+	d := g.literalTagDef(t)
+	if d == nil || !d.lowerable || d.decl == nil {
 		return literalTarget{}, false
 	}
 	for _, s := range g.files.implMembers[implMemberKey{recv: d.decl, method: fd.Name}] {
@@ -440,18 +453,16 @@ func (g *gen) importLiteralSig(f *fileFunc) ([]kind, kind, bool) {
 // A tag whose name this unit's scope does not anchor (a std attached test that
 // imports `std/regex.Regex` inside its own block) is still std's when the
 // handler the checker resolved is the index's declaration itself.
-func (g *gen) stdLiteralImpl(tag string, fd *ast.FuncDef, label string) (literalTarget, bool) {
+func (g *gen) stdLiteralImpl(t *ast.TaggedString, fd *ast.FuncDef, label string) (literalTarget, bool) {
 	if g.std == nil {
 		return literalTarget{}, false
 	}
-	method := fd.Name
-	d, isNamed := g.namedType(tag)
-	anchored := isNamed && d.rtDeclared
-	// stdSole, not a pick: the desugaring has no argument kinds yet — it is
-	// deciding what the handler's parameter type IS — so a spelling several
-	// declarations answer to has nothing here to choose between them with, and
-	// declining keeps the caller's refusal naming the handler.
-	f := stdSole(g.std.byType[tag+"."+method])
+	tag, method := t.Tag, fd.Name
+	d := g.literalTagDef(t)
+	anchored := d != nil && d.rtDeclared
+	// The std function of the handler the checker resolved, by its
+	// declaration's identity.
+	f := g.stdFuncByID(g.srcFA().StdFuncOf(fd))
 	if f == nil || !f.lowerable() || (!anchored && f.decl != fd) {
 		return literalTarget{}, false
 	}
@@ -517,7 +528,7 @@ func (g *gen) genericLiteralImpl(t *ast.TaggedString, fd *ast.FuncDef, label str
 	if g.std == nil || g.stdInsts == nil {
 		return literalTarget{}, false
 	}
-	f := stdSole(g.std.byType[t.Tag+"."+fd.Name])
+	f := g.stdFuncByID(g.srcFA().StdFuncOf(fd))
 	if f == nil || !stdGenericTemplateUsable(f) {
 		return literalTarget{}, false
 	}
@@ -529,7 +540,14 @@ func (g *gen) genericLiteralImpl(t *ast.TaggedString, fd *ast.FuncDef, label str
 	if !ok {
 		return literalTarget{}, false
 	}
-	inst, why := g.stdInsts.instantiate(f, tps, args, g)
+	var types []analysis.Type
+	if byName := g.stdInsts.stdRecvTypes(f, ib, ty); byName != nil {
+		types = make([]analysis.Type, len(tps))
+		for i, n := range tps {
+			types[i] = byName[n]
+		}
+	}
+	inst, why := g.stdInsts.instantiateTyped(f, tps, args, types, g)
 	if inst == nil {
 		if why != "" {
 			g.dc.note("a generic typed literal's handler: " + why)

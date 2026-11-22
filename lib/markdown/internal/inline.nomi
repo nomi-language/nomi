@@ -1,0 +1,1490 @@
+//# The inline phase: one block's lines read into inline nodes, as
+//# goldmark's parser reads them. A character that can start an inline
+//# element (a backtick, a bracket, `<`, a delimiter, a space) is offered to
+//# the parsers it triggers, in goldmark's order; text between such places
+//# becomes text nodes. Emphasis and strikethrough delimiters wait on a
+//# list until a link closes or the block ends, and are then matched.
+//#
+//# The nodes are a vector, linked to their neighbours by index, so that
+//# wrapping a run of nodes in an emphasis or a link is constant work: the
+//# run's first and last node become the new node's children where they
+//# stand.
+
+import
+    markdown::internal::block.Ref
+    markdown::internal::reader.{self, Cursor, Lines}
+    markdown::internal::text
+end
+
+/// An inline node. Text and code positions are into the block's text.
+pub enum Inline
+    /// Text from `start` to `stop`, then a line break: `soft` for a line
+    /// feed, `hard` for `<br>`.
+    Text {start: Int, stop: Int, soft: Bool, hard: Bool}
+    /// A code span's parts, one per line it covers, as written.
+    Code {parts: List<(Int, Int)>}
+    Emphasis {level: Int}
+    Strike
+    Link {destination: Bytes, title: Maybe<Bytes>}
+    Image {destination: Bytes, title: Maybe<Bytes>}
+    /// A URL or an email address shown as itself, from `start` to `stop`;
+    /// `www` when it needs `http://` before it.
+    AutoLink {email: Bool, www: Bool, start: Int, stop: Int}
+    RawHtml
+    CheckBox {checked: Bool}
+    /// A run of `*`, `_` or `~` still waiting for its match.
+    Delimiter {char: Int, length: Int, original: Int, can_open: Bool, can_close: Bool, start: Int}
+    /// A `[` or `![` still waiting for its `]`; `links` counts the links
+    /// made before it.
+    Label {start: Int, stop: Int, image: Bool, links: Int}
+end
+
+/// A node, its neighbours and, for a node that holds others, its first and
+/// last child; a delimiter also has its neighbours on the delimiter list.
+pub struct INode
+    kind:  Inline
+    prev:  Int = -1
+    next:  Int = -1
+    first: Int = -1
+    last:  Int = -1
+    dprev: Int = -1
+    dnext: Int = -1
+end
+
+/// The inline phase's state.
+pub struct Ist
+    lines:  Lines
+    buf:    Bytes
+    c:      Cursor
+    refs:   Map<String, Ref>
+    nodes:  Vector<INode>
+    first:  Int = -1
+    last:   Int = -1
+    dfirst: Int = -1
+    dlast:  Int = -1
+    /// The open labels, newest first, and where the oldest starts.
+    labels:      List<Int> = []
+    label_start: Int = 0
+    /// Each open label's bottom: the last delimiter before it, or -1.
+    bottoms: List<Int> = []
+    links:   Int = 0
+    escaped: Bool = False
+    /// Whether a task list check box may start the block.
+    check_box: Bool
+    /// Where a search for the end of a comment, a processing instruction,
+    /// a declaration or a CDATA section found none, from where it started.
+    comment_failed: Int = -1
+    pi_failed:      Int = -1
+    decl_failed:    Int = -1
+    cdata_failed:   Int = -1
+    /// The next `@` at or after where linkify last looked for one, or past
+    /// the end when there is none.
+    next_sign: Int = -1
+    /// The block's runs of backticks, by length, each list in order from
+    /// the first run a code span may still close on; built when the first
+    /// code span opens.
+    ticks: Maybe<Map<Int, List<Int>>> = None
+    /// For each closing character of a link title or label, where a search
+    /// for it reached the end of the block: one from there or later cannot
+    /// find it either.
+    closures_failed: Map<Int, Int> = {}
+end
+
+/// The inline nodes of a block whose text is `lines`.
+pub fn parse(lines: Lines, refs: Map<String, Ref>, check_box: Bool) -> Ist
+    st = Ist{lines:, buf: lines.buf, c: Cursor{}, refs:, nodes: Vector[], check_box:}
+    st = line_loop(st)
+    st = process_delimiters(st, -1)
+    Iter.reduce(st.labels, {..st, bottoms: []}, label_to_text)
+end
+
+/// The node `id`.
+pub fn get(st: Ist, id: Int) -> INode
+    Vector.get(st.nodes, id)!
+end
+
+fn put(st: Ist, id: Int, n: INode) -> Ist
+    {..st, nodes: Vector.set(st.nodes, id, n)!}
+end
+
+fn set_kind(st: Ist, id: Int, kind: Inline) -> Ist
+    put(st, id, {..get(st, id), kind:})
+end
+
+fn at(st: Ist, i: Int) -> Int
+    text.at(st.buf, i)
+end
+
+/// `kind` added after the last top-level node.
+fn append(st: Ist, kind: Inline) -> (Ist, Int)
+    id = Vector.length(st.nodes)
+    st = {..st, nodes: Vector.push(st.nodes, INode{kind:, prev: st.last})}
+
+    st =
+        if st.last >= 0 then
+            put(st, st.last, {..get(st, st.last), next: id})
+        else
+            {..st, first: id}
+        end
+
+    ({..st, last: id}, id)
+end
+
+/// Text from `start` to `stop` added, joined to the text before it when
+/// that ends where it starts on the same line, as goldmark's
+/// `MergeOrAppendTextSegment` joins it.
+fn append_text(st: Ist, start: Int, stop: Int) -> Ist
+    if st.last >= 0 then
+        n = get(st, st.last)
+
+        if .Text{start: from, stop: end_, soft: False, hard: False} = n.kind then
+            if end_ == start then
+                return put(
+                    st,
+                    st.last,
+                    {..n, kind: .Text{start: from, stop:, soft: False, hard: False}},
+                )
+            end
+        end
+    end
+
+    append(st, .Text{start:, stop:, soft: False, hard: False}).first
+end
+
+fn move_to(st: Ist, pos: Int) -> Ist
+    {..st, c: {.., pos:}}
+end
+
+fn advance(st: Ist, n: Int) -> Ist
+    {..st, c: Cursor.advance(st.c, st.lines, n)}
+end
+
+// The line loop.
+fn line_loop(st: Ist) -> Ist
+    case Cursor.peek_line(st.c, st.lines)
+        None         -> st
+        Some((s, e)) -> scan(st, line_breaks(st, s, e), 0, s, s)
+    end
+end
+
+/// What the scan of a line keeps fixed: where it starts, its length
+/// without the hard line break that ends it, and whether it ends with one,
+/// with a backslash one, or with a soft one.
+struct LineEnd
+    s:       Int
+    length:  Int
+    hard:    Bool
+    visible: Bool
+    soft:    Bool
+end
+
+fn line_breaks(st: Ist, s: Int, e: Int) -> LineEnd
+    n = e - s
+    newline = at(st, e - 1) == 10
+
+    backslash = (n >= 3 and at(st, e - 2) == 92 and at(st, e - 3) != 92)
+        or (n == 2 and at(st, e - 2) == 92)
+
+    backslash_cr = (n >= 4 and at(st, e - 3) == 92 and at(st, e - 2) == 13 and at(st, e - 4) != 92)
+        or (n == 3 and at(st, e - 3) == 92 and at(st, e - 2) == 13)
+
+    case
+        newline and backslash ->
+            LineEnd{s:, length: n - 2, hard: True, visible: True, soft: False}
+
+        newline and backslash_cr ->
+            LineEnd{s:, length: n - 3, hard: True, visible: True, soft: False}
+
+        newline and n >= 3 and at(st, e - 3) == 32 and at(st, e - 2) == 32 ->
+            LineEnd{s:, length: n - 3, hard: True, visible: False, soft: False}
+
+        newline
+            and n >= 4
+            and at(st, e - 4) == 32
+            and at(st, e - 3) == 32
+            and at(st, e - 2) == 13 ->
+            LineEnd{s:, length: n - 4, hard: True, visible: False, soft: False}
+
+        _ ->
+            LineEnd{s:, length: n, hard: False, visible: False, soft: newline}
+    end
+end
+
+/// The scan of a line from byte `i`. `text_start` is where the text not
+/// yet added starts, and `split` the last place past it where goldmark
+/// would have cut that text to try a parser that then failed: the text is
+/// added in one piece up to there, and only what follows has its trailing
+/// spaces trimmed at the end of the line.
+fn scan(st: Ist, line: LineEnd, i: Int, text_start: Int, split: Int) -> Ist
+    p = line.s + i
+    if i >= line.length then return end_line(st, line, p, text_start, split)
+    c = Bytes.uint8_at(st.buf, p)!
+
+    // A letter, a digit or a byte of a multibyte character starts nothing
+    // past the start of a line, and ends an escape: the scan passes the
+    // whole run of them in one search.
+    if i > 0
+        and ((c >= 97 and c <= 122)
+            or (c >= 65 and c <= 90)
+            or (c >= 48 and c <= 57)
+            or c >= 128) then
+        stop = run_end(st, line, p, text.word_stops)
+
+        return scan(
+            if st.escaped then {..st, escaped: False} else st,
+            line,
+            stop - line.s,
+            text_start,
+            split,
+        )
+    end
+
+    if c == 10 then return end_line(st, line, p, text_start, split)
+
+    // Most spaces start nothing: linkify, the one parser they try, can
+    // tell from two bytes.
+    if c == 32 and i > 0 and linkify_cannot(st, p) then
+        return pass_words(if st.escaped then {..st, escaped: False} else st, line, p, text_start)
+    end
+
+    is_space = text.is_space(c) and c != 13
+    is_punct = text.is_punct(c)
+    tries = (is_punct and not st.escaped) or is_space or i == 0
+    trigger = if is_space or (i == 0 and not is_punct) then 32 else c
+
+    (st, rejected) =
+        if tries and (trigger == 32 or trigger == 40) then
+            linkify_rejects(st, p)
+        else
+            (st, False)
+        end
+
+    split = if rejected and i != 0 then p else split
+
+    if tries and not rejected and triggers(trigger) then
+        st = move_to(st, p)
+        st = if i != 0 then append_text(st, text_start, p) else st
+        text_start = if i != 0 then p else text_start
+        (st, taken) = try_parsers(st, trigger)
+        if taken then return line_loop(st)
+        return step(move_to(st, p), line, i, c, text_start, text_start)
+    end
+
+    step(st, line, i, c, text_start, split)
+end
+
+/// The first index after `p` whose byte is one of `stops`, or the end of
+/// the line.
+fn run_end(st: Ist, line: LineEnd, p: Int, stops: Bytes) -> Int
+    e = line.s + line.length
+
+    case Bytes.index_of_any(st.buf, stops, from: p + 1)
+        Some(stop) -> Int.min(stop, e)
+        None       -> e
+    end
+end
+
+/// The scan past the space at `p`, which starts nothing. When no space in
+/// the run of words and spaces after it can start anything either, the
+/// scan passes the whole run in a few searches, as if it had passed each
+/// space by one at a time: a label is open, which keeps linkify out, or
+/// the next `@` is too far for an address and no space comes before
+/// `http`, `ftp:` or `www.`.
+fn pass_words(st: Ist, line: LineEnd, p: Int, text_start: Int) -> Ist
+    q = run_end(st, line, p, text.word_or_space_stops)
+
+    if q > p + 1
+        and (st.labels != [] or (st.next_sign > q + 65 and not url_after_space(st, p, q))) then
+        run = Bytes.slice(st.buf, p, q)
+
+        split =
+            case Bytes.last_index_of_byte(run, 32)
+                Some(k) -> p + k
+                None    -> p
+            end
+
+        return scan(st, line, q - line.s, text_start, split)
+    end
+
+    scan(st, line, p + 1 - line.s, text_start, p)
+end
+
+/// Whether a space from `p` up to `q` comes before what may start a URL.
+fn url_after_space(st: Ist, p: Int, q: Int) -> Bool
+    run = Bytes.slice(st.buf, p, q + 4)
+    Iter.any_match(url_starts, fn start -> Bytes.contains_bytes(run, start))
+end
+
+/// A space and what `may_be_url` takes for the start of a URL.
+once url_starts: List<Bytes> =
+    [" http", " ftp:", " www."] |> Iter.map(String.to_bytes) |> Iter.to_list()
+
+fn step(st: Ist, line: LineEnd, i: Int, c: Int, text_start: Int, split: Int) -> Ist
+    case
+        st.escaped -> scan({..st, escaped: False}, line, i + 1, text_start, split)
+        c == 92    -> scan({..st, escaped: True}, line, i + 1, text_start, split)
+        _          -> scan(st, line, i + 1, text_start, split)
+    end
+end
+
+fn end_line(st: Ist, line: LineEnd, p: Int, text_start: Int, split: Int) -> Ist
+    (st, text_start) =
+        if split > text_start then
+            (append_text(st, text_start, split), split)
+        else
+            (st, text_start)
+        end
+
+    stop =
+        if line.hard and line.visible then
+            p
+        else
+            p - text.trailing_spaces(st.buf, text_start, p)
+        end
+
+    kind = Inline.Text{start: text_start, stop:, soft: line.soft, hard: line.hard}
+    (st, _) = append(move_to(st, p), kind)
+    line_loop({..st, c: Cursor.advance_line(st.c, st.lines)})
+end
+
+/// Whether some inline parser starts at `c`.
+fn triggers(c: Int) -> Bool
+    case c
+        // [ ! ] ` < * _ ~ space (
+        91 or 33 or 93 or 96 or 60 or 42 or 95 or 126 or 32 or 40 -> True
+        _ -> False
+    end
+end
+
+/// The parsers `c` triggers, tried in goldmark's order: whether one took
+/// the input there. A parser that takes it adds its nodes and moves the
+/// cursor past them.
+fn try_parsers(st: Ist, c: Int) -> (Ist, Bool)
+    case c
+        // [
+        91 ->
+            (st, taken) = check_box(st)
+
+            if taken then
+                (st, True)
+            else
+                open_label(st, False)
+            end
+
+        // !
+        33 ->
+            if at(st, st.c.pos + 1) == 91 then
+                open_label(advance(st, 1), True)
+            else
+                (st, False)
+            end
+
+        // ]
+        93 ->
+            close_label(st)
+
+        // `
+        96 ->
+            code_span(st)
+
+        // <
+        60 ->
+            (st, taken) = autolink(st)
+            if taken then (st, True) else raw_html(st)
+
+        // * and _
+        42 or 95 ->
+            delimiter(st, False)
+
+        // ~
+        126 ->
+            (st, taken) = delimiter(st, True)
+            if taken then (st, True) else linkify(st)
+
+        _ ->
+            linkify(st)
+    end
+end
+
+// Delimiters.
+fn delimiter(st: Ist, strike: Bool) -> (Ist, Bool)
+    before = Cursor.before(st.c, st.lines)
+    (s, e) = Cursor.peek_line(st.c, st.lines)!
+    c = at(st, s)
+    j = text.skip_byte(st.lines.buf, s, e, c)
+    count = j - s
+    if strike and (count > 2 or before == 126) then return (st, False)
+    after = if j != e then text.rune_at(st.lines.buf, j) else 32
+    before_punct = text.is_punct_rune(before)
+    before_space = text.is_space_rune(before)
+    after_punct = text.is_punct_rune(after)
+    after_space = text.is_space_rune(after)
+    left = not after_space and (not after_punct or before_space or before_punct)
+    right = not before_space and (not before_punct or after_space or after_punct)
+    can_open = if c == 95 then left and (not right or before_punct) else left
+    can_close = if c == 95 then right and (not left or after_punct) else right
+
+    kind = Inline.Delimiter{
+        char:     c,
+        length:   count,
+        original: count,
+        can_open:,
+        can_close:,
+        start: s,
+    }
+
+    (st, id) = append(st, kind)
+    st = put(st, id, {..get(st, id), dprev: st.dlast})
+
+    st =
+        if st.dlast >= 0 then
+            put(st, st.dlast, {..get(st, st.dlast), dnext: id})
+        else
+            {..st, dfirst: id}
+        end
+
+    (advance({..st, dlast: id}, count), True)
+end
+
+/// The delimiter `id` taken off the list, and what is left of it made
+/// text.
+fn remove_delimiter(st: Ist, id: Int) -> Ist
+    n = get(st, id)
+
+    st =
+        if n.dprev >= 0 then
+            put(st, n.dprev, {..get(st, n.dprev), dnext: n.dnext})
+        else
+            {..st, dfirst: n.dnext}
+        end
+
+    st =
+        if n.dnext >= 0 then
+            put(st, n.dnext, {..get(st, n.dnext), dprev: n.dprev})
+        else
+            {..st, dlast: n.dprev}
+        end
+
+    kind =
+        case n.kind
+            .Delimiter{start:, length:} ->
+                Inline.Text{start:, stop: start + length, soft: False, hard: False}
+
+            other ->
+                other
+        end
+
+    put(st, id, {..get(st, id), kind:, dprev: -1, dnext: -1})
+end
+
+fn delimiter_of(st: Ist, id: Int) -> (Int, Int, Int, Bool, Bool, Int)
+    case get(st, id).kind
+        .Delimiter{char:, length:, original:, can_open:, can_close:, start:} ->
+            (char, length, original, can_open, can_close, start)
+
+        _ ->
+            (0, 0, 0, False, False, 0)
+    end
+end
+
+/// The delimiters after `bottom` (all of them for -1) matched into
+/// emphasis and strikethrough, and the rest made text. A closer looks
+/// back for the nearest opener of its character; where one class of
+/// closer found none, the next closer of that class looks no further back,
+/// which keeps the matching linear.
+fn process_delimiters(st: Ist, bottom: Int) -> Ist
+    if st.dlast < 0 then return st
+
+    closer =
+        if bottom < 0 then
+            st.dfirst
+        else
+            get(st, bottom).dnext
+        end
+
+    st = match_loop(st, closer, bottom, {})
+    clear_delimiters(st, bottom)
+end
+
+fn clear_delimiters(st: Ist, bottom: Int) -> Ist
+    if st.dlast < 0 or st.dlast == bottom then return st
+    clear_delimiters(remove_delimiter(st, st.dlast), bottom)
+end
+
+fn match_loop(st: Ist, closer: Int, bottom: Int, floors: Map<Int, Int>) -> Ist
+    if closer < 0 then return st
+    (char, length, original, can_open, can_close, _) = delimiter_of(st, closer)
+    if not can_close then return match_loop(st, get(st, closer).dnext, bottom, floors)
+    key = char * 8 + (if can_open then 4 else 0) + original % 3
+    floor = Map.get(floors, key) |> Maybe.with_default(bottom)
+
+    case find_opener(st, get(st, closer).dprev, bottom, floor, char, length, original, can_open)
+        None ->
+            next = get(st, closer).dnext
+            floors = Map.put(floors, key, get(st, closer).dprev)
+
+            st =
+                if can_open then
+                    st
+                else
+                    remove_delimiter(st, closer)
+                end
+
+            match_loop(st, next, bottom, floors)
+
+        Some((opener, consume)) ->
+            st = matched(st, opener, closer, consume)
+            (_, left, _, _, _, _) = delimiter_of(st, closer)
+
+            if left == 0 then
+                next = get(st, closer).dnext
+                match_loop(remove_delimiter(st, closer), next, bottom, floors)
+            else
+                match_loop(st, closer, bottom, floors)
+            end
+    end
+end
+
+fn find_opener(
+    st:           Ist,
+    opener:       Int,
+    bottom:       Int,
+    floor:        Int,
+    char:         Int,
+    length:       Int,
+    original:     Int,
+    closer_opens: Bool,
+) -> Maybe<(Int, Int)>
+    if opener < 0 or opener == bottom or opener == floor then return None
+    (c, olength, ooriginal, ocan_open, ocan_close, _) = delimiter_of(st, opener)
+
+    if ocan_open and c == char then
+        consume =
+            case
+                (ocan_close or closer_opens)
+                    and (ooriginal + original) % 3 == 0
+                    and original % 3 != 0 ->
+                    0
+
+                olength >= 2 and length >= 2 ->
+                    2
+
+                _ ->
+                    1
+            end
+
+        if consume > 0 then return Some((opener, consume))
+    end
+
+    find_opener(st, get(st, opener).dprev, bottom, floor, char, length, original, closer_opens)
+end
+
+/// `consume` characters of `opener` and `closer` taken, and the nodes
+/// between them wrapped in the emphasis or strikethrough they make.
+fn matched(st: Ist, opener: Int, closer: Int, consume: Int) -> Ist
+    st = consume_delimiter(st, opener, consume)
+    st = consume_delimiter(st, closer, consume)
+    (char, _, _, _, _, _) = delimiter_of(st, opener)
+
+    kind =
+        if char == 126 then
+            Inline.Strike
+        else
+            Inline.Emphasis{level: consume}
+        end
+
+    o = get(st, opener)
+    c = get(st, closer)
+    first = if o.next != closer then o.next else -1
+    last = if c.prev != opener then c.prev else -1
+    id = Vector.length(st.nodes)
+
+    st = {
+        ..st,
+        nodes: Vector.push(st.nodes, INode{kind:, prev: opener, next: closer, first:, last:}),
+    }
+
+    st = st |> unlink_ends(first, last)
+    st = put(st, opener, {..get(st, opener), next: id})
+    st = put(st, closer, {..get(st, closer), prev: id})
+    st = remove_between(st, get(st, opener).dnext, closer)
+    (_, left, _, _, _, _) = delimiter_of(st, opener)
+    if left == 0 then remove_delimiter(st, opener) else st
+end
+
+/// The run `first` to `last` cut from its neighbours, as a new parent's
+/// children.
+fn unlink_ends(st: Ist, first: Int, last: Int) -> Ist
+    if first < 0 then return st
+    st = put(st, first, {..get(st, first), prev: -1})
+    put(st, last, {..get(st, last), next: -1})
+end
+
+fn remove_between(st: Ist, d: Int, closer: Int) -> Ist
+    if d < 0 or d == closer then return st
+    next = get(st, d).dnext
+    remove_between(remove_delimiter(st, d), next, closer)
+end
+
+fn consume_delimiter(st: Ist, id: Int, n: Int) -> Ist
+    case get(st, id).kind
+        .Delimiter{char:, length:, original:, can_open:, can_close:, start:} ->
+            set_kind(
+                st,
+                id,
+                .Delimiter{char:, length: length - n, original:, can_open:, can_close:, start:},
+            )
+
+        _ ->
+            st
+    end
+end
+
+// Links and images.
+fn open_label(st: Ist, image: Bool) -> (Ist, Bool)
+    p = st.c.pos
+    start = if image then p - 1 else p
+    st = {..st, bottoms: [st.dlast, ..st.bottoms]}
+    st = if st.labels == [] then {..st, label_start: start} else st
+    (st, id) = append(st, .Label{start:, stop: p + 1, image:, links: st.links})
+    (advance({..st, labels: [id, ..st.labels]}, 1), True)
+end
+
+fn pop_bottom(st: Ist) -> (Ist, Int)
+    case st.bottoms
+        [b, ..rest] -> ({..st, bottoms: rest}, b)
+        []          -> (st, -1)
+    end
+end
+
+fn label_to_text(st: Ist, id: Int) -> Ist
+    case get(st, id).kind
+        .Label{start:, stop:} -> set_kind(st, id, .Text{start:, stop:, soft: False, hard: False})
+        _                     -> st
+    end
+end
+
+/// A failed `]`: the label made text and its bottom dropped.
+fn give_up(st: Ist, label: Int) -> (Ist, Bool)
+    (st, _) = pop_bottom(label_to_text(st, label))
+    (st, False)
+end
+
+fn close_label(st: Ist) -> (Ist, Bool)
+    case st.labels
+        [] ->
+            (st, False)
+
+        [last, ..rest] ->
+            close_at = st.c.pos
+            st = advance({..st, labels: rest}, 1)
+            (_, label_stop, image, links_before) = label_of(st, last)
+
+            too_long =
+                case rest
+                    [newest, ..] -> label_of(st, newest).second - st.label_start > 998
+                    []           -> False
+                end
+
+            if too_long then return give_up(st, last)
+            if not image and st.links > links_before then return give_up(st, last)
+            after_label = st.c
+
+            (st, formed) =
+                case at(st, st.c.pos)
+                    // (
+                    40 ->
+                        inline_link(st, last)
+
+                    // [
+                    91 ->
+                        (st, formed, has_value) = reference_link(st, last, label_stop)
+                        if not formed and has_value then return give_up(st, last)
+                        (st, formed)
+
+                    _ ->
+                        (st, False)
+                end
+
+            if formed then return (st, True)
+            st = {..st, c: after_label}
+            reference = Bytes.slice(st.lines.buf, label_stop, close_at)
+            if Bytes.length(reference) > 999 then return give_up(st, last)
+
+            case Map.get(st.refs, reader.reference_key(reference))
+                None    -> give_up(st, last)
+                Some(r) -> (make_link(st, last, r.destination, r.title), True)
+            end
+    end
+end
+
+fn label_of(st: Ist, id: Int) -> (Int, Int, Bool, Int)
+    case get(st, id).kind
+        .Label{start:, stop:, image:, links:} -> (start, stop, image, links)
+        _                                     -> (0, 0, False, 0)
+    end
+end
+
+/// The label `id` made the link or image it opens: the delimiters after
+/// its bottom matched, and every node after it its children.
+fn make_link(st: Ist, id: Int, destination: Bytes, title: Maybe<Bytes>) -> Ist
+    (st, bottom) = pop_bottom(st)
+    st = process_delimiters(st, bottom)
+    (_, _, image, _) = label_of(st, id)
+    n = get(st, id)
+    first = n.next
+    last = if first >= 0 then st.last else -1
+    st = if first >= 0 then put(st, first, {..get(st, first), prev: -1}) else st
+
+    kind =
+        if image then
+            Inline.Image{destination:, title:}
+        else
+            Inline.Link{destination:, title:}
+        end
+
+    st = put(st, id, {..get(st, id), kind:, next: -1, first:, last:})
+    st = {..st, last: id}
+    if image then st else {..st, links: st.links + 1}
+end
+
+fn inline_link(st: Ist, label: Int) -> (Ist, Bool)
+    st = advance(st, 1)
+    (c, _, _) = Cursor.skip_spaces(st.c, st.lines)
+    st = {..st, c:}
+
+    if at(st, st.c.pos) == 41 and Cursor.peek(st.c, st.lines) == 41 then
+        return (make_link(advance(st, 1), label, Bytes.from_list([]), None), True)
+    end
+
+    case Cursor.destination(st.c, st.lines)
+        None ->
+            (st, False)
+
+        Some((destination, c)) ->
+            (c, _, _) = Cursor.skip_spaces(c, st.lines)
+
+            if Cursor.peek(c, st.lines) == 41 then
+                return (
+                    make_link({..st, c: Cursor.advance(c, st.lines, 1)}, label, destination, None),
+                    True,
+                )
+            end
+
+            (st, title) = link_title(st, c)
+
+            case title
+                None ->
+                    (st, False)
+
+                Some((title, c)) ->
+                    (c, _, _) = Cursor.skip_spaces(c, st.lines)
+                    if Cursor.peek(c, st.lines) != 41 then return (st, False)
+
+                    (
+                        make_link(
+                            {..st, c: Cursor.advance(c, st.lines, 1)},
+                            label,
+                            destination,
+                            Some(title),
+                        ),
+                        True,
+                    )
+            end
+    end
+end
+
+fn link_title(st: Ist, c: Cursor) -> (Ist, Maybe<(Bytes, Cursor)>)
+    (c, _, _) = Cursor.skip_spaces(c, st.lines)
+    opener = Cursor.peek(c, st.lines)
+    if opener != 34 and opener != 39 and opener != 40 then return (st, None)
+    closer = if opener == 40 then 41 else opener
+    (st, found) = closure(st, Cursor.advance(c, st.lines, 1), opener, closer)
+    (st, found |> Maybe.map(fn ((a, b), c) -> (Bytes.slice(st.buf, a, b), c)))
+end
+
+/// `Cursor.find_closure`, except where a search for `closer` already
+/// reached the end of the block from an earlier place: goldmark searches
+/// again each time, which makes a run of unclosed titles quadratic.
+fn closure(st: Ist, c: Cursor, opener: Int, closer: Int) -> (Ist, Maybe<((Int, Int), Cursor)>)
+    failed = Map.get(st.closures_failed, closer) |> Maybe.with_default(Lines.limit(st.lines) + 1)
+    if c.pos >= failed then return (st, None)
+    (found, stop) = Cursor.closure_end(c, st.lines, opener, closer)
+    if found then return (st, Some(((c.pos, stop), Cursor.advance(c, st.lines, stop + 1 - c.pos))))
+    if stop < Lines.limit(st.lines) then return (st, None)
+    ({..st, closures_failed: Map.put(st.closures_failed, closer, c.pos)}, None)
+end
+
+/// A full or collapsed reference link after a label: whether it made one,
+/// and whether a second label was there at all.
+fn reference_link(st: Ist, label: Int, label_stop: Int) -> (Ist, Bool, Bool)
+    open_at = st.c.pos
+
+    (st, found) = closure(st, Cursor.advance(st.c, st.lines, 1), 91, 93)
+
+    case found
+        None ->
+            (st, False, False)
+
+        Some(((a, b), c)) ->
+            st = {..st, c:}
+            reference = Bytes.slice(st.lines.buf, a, b)
+
+            reference =
+                if text.is_blank(reference, 0, Bytes.length(reference)) then
+                    Bytes.slice(st.lines.buf, label_stop, open_at - 1)
+                else
+                    reference
+                end
+
+            if Bytes.length(reference) > 999 then return (st, False, True)
+
+            case Map.get(st.refs, reader.reference_key(reference))
+                None    -> (st, False, True)
+                Some(r) -> (make_link(st, label, r.destination, r.title), True, True)
+            end
+    end
+end
+
+// Task list check boxes.
+fn check_box(st: Ist) -> (Ist, Bool)
+    if not st.check_box or st.first >= 0 then return (st, False)
+    p = st.c.pos
+    mark = at(st, p + 1)
+    is_mark = re_space(mark) or mark == 120 or mark == 88
+    if not is_mark or at(st, p + 2) != 93 then return (st, False)
+    (s, e) = Cursor.peek_line(st.c, st.lines)!
+    stop = re_spaces_end(st, p + 3, e)
+    (st, _) = append(st, .CheckBox{checked: mark == 120 or mark == 88})
+    (advance(st, stop - s), True)
+end
+
+fn re_space(c: Int) -> Bool
+    c == 9 or c == 10 or c == 12 or c == 13 or c == 32
+end
+
+fn re_spaces_end(st: Ist, i: Int, e: Int) -> Int
+    if i < e and re_space(at(st, i)) then re_spaces_end(st, i + 1, e) else i
+end
+
+// Code spans.
+fn code_span(st: Ist) -> (Ist, Bool)
+    s = st.c.pos
+    e = Lines.stop(st.lines, st.c.line)
+    opener = text.skip_byte(st.buf, s, e, 96) - s
+    after = s + opener
+    ticks = st.ticks |> Maybe.or_else(fn -> Some(tick_runs(st.buf, 0, {})))!
+    runs = Map.get(ticks, opener) |> Maybe.with_default([]) |> runs_from(after)
+    st = {..st, ticks: Some(Map.put(ticks, opener, runs))}
+
+    case runs
+        [] ->
+            (st, _) = append(st, .Text{start: s, stop: after, soft: False, hard: False})
+            (advance(st, opener), True)
+
+        [close, ..] ->
+            parts = parts_between(st, st.c.line, after, close)
+            (st, _) = append(st, .Code{parts: trim_code(st, parts)})
+            (advance(st, close + opener - s), True)
+    end
+end
+
+/// The runs of backticks in `buf` from `i`, by length, each list newest
+/// first while it is built and in order when done. A code span closes on
+/// the first run of its opener's length after it: goldmark scans the rest
+/// of the block for it, and these lists find it without scanning again.
+fn tick_runs(buf: Bytes, i: Int, runs: Map<Int, List<Int>>) -> Map<Int, List<Int>>
+    case Bytes.index_of_byte(buf, 96, from: i)
+        None ->
+            Map.map_values(runs, fn starts -> Iter.reverse(starts))
+
+        Some(t) ->
+            j = text.skip_byte(buf, t, Bytes.length(buf), 96)
+            tick_runs(buf, j, Map.update(runs, j - t, [], fn starts -> [t, ..starts]))
+    end
+end
+
+fn runs_from(runs: List<Int>, from: Int) -> List<Int>
+    case runs
+        [r, ..rest] when r < from -> runs_from(rest, from)
+        _                         -> runs
+    end
+end
+
+/// A code span's parts from `from` up to `close`: the rest of each line it
+/// covers, then the part of the last line before its closing run.
+fn parts_between(st: Ist, line: Int, from: Int, close: Int) -> List<(Int, Int)>
+    stop = Lines.stop(st.lines, line)
+    if close < stop then return if close > from then [(from, close)] else []
+    [(from, stop), ..parts_between(st, line + 1, Lines.start(st.lines, line + 1), close)]
+end
+
+/// A code span's parts with one space or line feed taken from each end,
+/// when both ends have one and the span is not all spaces.
+fn trim_code(st: Ist, parts: List<(Int, Int)>) -> List<(Int, Int)>
+    blank = Iter.all_match(parts, fn (a, b) -> text.is_blank(st.lines.buf, a, b))
+    if blank or parts == [] then return parts
+    (fa, fb) = List.first(parts)!
+    (la, lb) = parts |> Iter.reverse() |> List.first()!
+
+    trims = fb > fa
+        and space_or_newline(at(st, fa))
+        and lb > la
+        and space_or_newline(at(st, lb - 1))
+
+    if not trims then return parts
+    n = List.length(parts)
+
+    parts
+    |> Iter.with_index()
+    |> Iter.map(fn (k, (a, b)) ->
+        a = if k == 0 then a + 1 else a
+        b = if k == n - 1 then b - 1 else b
+        (a, b)
+    end)
+    |> Iter.to_list()
+end
+
+fn space_or_newline(c: Int) -> Bool
+    c == 32 or c == 10
+end
+
+// Autolinks.
+fn autolink(st: Ist) -> (Ist, Bool)
+    (s, e) = Cursor.peek_line(st.c, st.lines)!
+    email = email_end(st, s + 1, e)
+
+    (stop, is_email) =
+        if email >= 0 then
+            (email, True)
+        else
+            (url_end(st, s + 1, e), False)
+        end
+
+    if stop < 0 or stop >= e or at(st, stop) != 62 then return (st, False)
+    (st, _) = append(st, .AutoLink{email: is_email, www: False, start: s + 1, stop:})
+    (advance(st, stop + 1 - s), True)
+end
+
+fn email_local(c: Int) -> Bool
+    case c
+        // ! # $ % & ' * + - . / = ? ^ _ ` { | } ~
+        33 or
+            35 or
+            36 or
+            37 or
+            38 or
+            39 or
+            42 or
+            43 or
+            45 or
+            46 or
+            47 or
+            61 or
+            63 or
+            94 or
+            95 or
+            96 or
+            123 or
+            124 or
+            125 or
+            126 ->
+            True
+
+        _ ->
+            text.is_alnum(c)
+    end
+end
+
+/// Where an email address that starts at `from` ends, before `e`, or -1:
+/// goldmark's `FindEmailIndex`.
+fn email_end(st: Ist, from: Int, e: Int) -> Int
+    local = local_end(st, from, Int.min(e, from + 64))
+    if local == from or local >= e or at(st, local) != 64 then return -1
+    domain = local + 1
+    if domain >= e then return -1
+    limit = Int.min(e, domain + 256)
+    stop = domain_end(st, domain, limit)
+    if stop < 0 or stop - domain > 255 then -1 else stop
+end
+
+fn local_end(st: Ist, i: Int, limit: Int) -> Int
+    if i < limit and email_local(at(st, i)) then local_end(st, i + 1, limit) else i
+end
+
+/// The end of goldmark's email domain expression from `i`, held before
+/// `limit`, or -1 when no label starts there.
+fn domain_end(st: Ist, i: Int, limit: Int) -> Int
+    stop = domain_label_end(st, i, limit)
+    if stop < 0 then return -1
+    more_labels(st, stop, limit)
+end
+
+fn more_labels(st: Ist, i: Int, limit: Int) -> Int
+    if i + 1 < limit and at(st, i) == 46 then
+        stop = domain_label_end(st, i + 1, limit)
+        if stop >= 0 then return more_labels(st, stop, limit)
+    end
+
+    i
+end
+
+/// The end of one domain label from `i`: an ASCII letter or digit, then up
+/// to 62 more letters, digits and hyphens ending in a letter or digit.
+fn domain_label_end(st: Ist, i: Int, limit: Int) -> Int
+    if i >= limit or not text.is_alnum(at(st, i)) then return -1
+    run = hyphen_run_end(st, i + 1, Int.min(limit, i + 63))
+    last_alnum(st, i + 1, run)
+end
+
+fn hyphen_run_end(st: Ist, i: Int, limit: Int) -> Int
+    if i < limit and (text.is_alnum(at(st, i)) or at(st, i) == 45) then
+        hyphen_run_end(st, i + 1, limit)
+    else
+        i
+    end
+end
+
+fn last_alnum(st: Ist, from: Int, i: Int) -> Int
+    if i <= from then return from
+
+    if text.is_alnum(at(st, i - 1)) then
+        i
+    else
+        last_alnum(st, from, i - 1)
+    end
+end
+
+/// Where a URL that starts at `from` ends, before `e`, or -1: a scheme of
+/// 2 to 32 characters, `:`, then anything but spaces, controls, `<` and
+/// `>`: goldmark's `FindURLIndex`.
+fn url_end(st: Ist, from: Int, e: Int) -> Int
+    if from >= e or not is_letter(at(st, from)) then return -1
+    i = scheme_end(st, from + 1, e)
+    if i == from + 1 or i - from > 33 or i >= e or at(st, i) != 58 then return -1
+    url_rest_end(st, i + 1, e)
+end
+
+fn is_letter(c: Int) -> Bool
+    (c >= 97 and c <= 122) or (c >= 65 and c <= 90)
+end
+
+fn scheme_end(st: Ist, i: Int, e: Int) -> Int
+    c = at(st, i)
+
+    if i < e and (text.is_alnum(c) or c == 43 or c == 45 or c == 46) then
+        scheme_end(st, i + 1, e)
+    else
+        i
+    end
+end
+
+fn url_rest_end(st: Ist, i: Int, e: Int) -> Int
+    c = at(st, i)
+    if i < e and c > 32 and c != 60 and c != 62 then url_rest_end(st, i + 1, e) else i
+end
+
+// Raw HTML.
+fn raw_html(st: Ist) -> (Ist, Bool)
+    (s, e) = Cursor.peek_line(st.c, st.lines)!
+    c1 = at(st, s + 1)
+    c2 = at(st, s + 2)
+
+    case
+        e - s > 1 and text.is_alnum(c1) ->
+            html_tag(st, open_tag_end(st, s + 1))
+
+        e - s > 2 and c1 == 47 and text.is_alnum(c2) ->
+            html_tag(st, close_tag_end(st, s + 2))
+
+        starts_with(st, s, "<!--") ->
+            comment(st, s)
+
+        starts_with(st, s, "<?") ->
+            until(st, s, "?>", st.pi_failed, fn st, at -> {..st, pi_failed: at})
+
+        e - s > 2 and c1 == 33 and c2 >= 65 and c2 <= 90 ->
+            until(st, s, ">", st.decl_failed, fn st, at -> {..st, decl_failed: at})
+
+        starts_with(st, s, "<![CDATA[") ->
+            until(st, s, "]]>", st.cdata_failed, fn st, at -> {..st, cdata_failed: at})
+
+        _ ->
+            (st, False)
+    end
+end
+
+fn starts_with(st: Ist, i: Int, prefix: String) -> Bool
+    Bytes.starts_with(Bytes.slice(st.lines.buf, i, Lines.limit(st.lines)), String.to_bytes(prefix))
+end
+
+fn html_tag(st: Ist, stop: Int) -> (Ist, Bool)
+    if stop < 0 then return (st, False)
+    (st, _) = append(st, .RawHtml)
+    (advance(st, stop - st.c.pos), True)
+end
+
+fn comment(st: Ist, s: Int) -> (Ist, Bool)
+    if starts_with(st, s, "<!-->") then return html_tag(st, s + 5)
+    if starts_with(st, s, "<!--->") then return html_tag(st, s + 6)
+    if s < st.comment_failed then return (st, False)
+
+    case Bytes.index_of(st.lines.buf, String.to_bytes("-->"), from: s + 4)
+        Some(i) -> html_tag(st, i + 3)
+        None    -> ({..st, comment_failed: Lines.limit(st.lines)}, False)
+    end
+end
+
+fn until(st: Ist, s: Int, closer: String, failed: Int, record: (Ist, Int) -> Ist) -> (Ist, Bool)
+    if s < failed then return (st, False)
+
+    case Bytes.index_of(st.lines.buf, String.to_bytes(closer), from: s)
+        Some(i) -> html_tag(st, i + Bytes.length(String.to_bytes(closer)))
+        None    -> (record(st, Lines.limit(st.lines)), False)
+    end
+end
+
+/// Where an open tag whose name starts at `i` ends, or -1: goldmark's
+/// open tag expression.
+fn open_tag_end(st: Ist, i: Int) -> Int
+    if not is_letter(at(st, i)) then return -1
+    k = tag_name_end(st, i + 1)
+    a = attributes_end(st, k)
+    w = tag_spaces_end(st, a)
+    w = if at(st, w) == 47 then w + 1 else w
+    if at(st, w) == 62 then w + 1 else -1
+end
+
+fn close_tag_end(st: Ist, i: Int) -> Int
+    if not is_letter(at(st, i)) then return -1
+    w = tag_spaces_end(st, tag_name_end(st, i + 1))
+    if at(st, w) == 62 then w + 1 else -1
+end
+
+fn tag_name_end(st: Ist, i: Int) -> Int
+    c = at(st, i)
+    if text.is_alnum(c) or c == 45 then tag_name_end(st, i + 1) else i
+end
+
+/// The end of the spaces, tabs and line breaks from `i`, as the open tag
+/// expression's `(?:[ \t]|(?:\r\n|\n){0,1})*` takes them.
+fn tag_spaces_end(st: Ist, i: Int) -> Int
+    c = at(st, i)
+
+    case
+        c == 32 or c == 9 or c == 10    -> tag_spaces_end(st, i + 1)
+        c == 13 and at(st, i + 1) == 10 -> tag_spaces_end(st, i + 2)
+        _                               -> i
+    end
+end
+
+fn is_attribute_space(c: Int) -> Bool
+    c == 13 or c == 10 or c == 32 or c == 9
+end
+
+fn attribute_spaces_end(st: Ist, i: Int) -> Int
+    if is_attribute_space(at(st, i)) then attribute_spaces_end(st, i + 1) else i
+end
+
+fn attributes_end(st: Ist, k: Int) -> Int
+    w = attribute_spaces_end(st, k)
+    c = at(st, w)
+    if w == k or not (is_letter(c) or c == 95 or c == 58) then return k
+    n = attribute_name_end(st, w + 1)
+    attributes_end(st, attribute_value_end(st, n))
+end
+
+fn attribute_name_end(st: Ist, i: Int) -> Int
+    c = at(st, i)
+
+    if text.is_alnum(c) or c == 58 or c == 46 or c == 95 or c == 45 then
+        attribute_name_end(st, i + 1)
+    else
+        i
+    end
+end
+
+fn attribute_value_end(st: Ist, n: Int) -> Int
+    e = attribute_spaces_end(st, n)
+    if at(st, e) != 61 then return n
+    w = attribute_spaces_end(st, e + 1)
+    c = at(st, w)
+
+    if c == 39 or c == 34 then
+        case Bytes.index_of_byte(st.lines.buf, Int.to_byte(c)!, from: w + 1)
+            Some(q) -> q + 1
+            None    -> n
+        end
+    else
+        u = unquoted_end(st, w)
+        if u > w then u else n
+    end
+end
+
+fn unquoted_end(st: Ist, i: Int) -> Int
+    c = at(st, i)
+    keep = c > 32 and c != 34 and c != 39 and c != 61 and c != 60 and c != 62 and c != 96
+    if keep then unquoted_end(st, i + 1) else i
+end
+
+// Bare URLs and email addresses.
+fn linkify(st: Ist) -> (Ist, Bool)
+    if st.labels != [] then return (st, False)
+    (s, e) = Cursor.peek_line(st.c, st.lines)!
+    c = at(st, s)
+    consumes = if c == 32 or c == 42 or c == 95 or c == 126 or c == 40 then 1 else 0
+    start = s + consumes
+
+    first = at(st, start)
+
+    // h, f
+    url = if first == 104 or first == 102 then web_url_end(st, start, e) else -1
+
+    // w
+    (stop, www) =
+        if url < 0 and first == 119 and starts_with(st, start, "www.") then
+            (www_url_end(st, start, e), True)
+        else
+            (url, False)
+        end
+
+    if stop >= 0 then return linked(st, s, consumes, start, stop, False, www)
+    if not email_local(first) then return (st, False)
+    st = if st.next_sign < start then {..st, next_sign: next_sign(st, start)} else st
+    if st.next_sign >= e or st.next_sign > start + 64 then return (st, False)
+
+    case bare_email(st, start, e)
+        Some(stop) -> linked(st, s, consumes, start, stop, True, False)
+        None       -> (st, False)
+    end
+end
+
+/// Whether linkify, the only parser a space or `(` starts, cannot take the
+/// input at `p`, decided from two bytes and where the next `@` is: what
+/// lets the scan pass most spaces by. A parser that fails changes
+/// nothing, so passing it by is as trying it.
+fn linkify_rejects(st: Ist, p: Int) -> (Ist, Bool)
+    if st.labels != [] then return (st, True)
+    c = at(st, p)
+    start = if c == 32 or c == 42 or c == 95 or c == 126 or c == 40 then p + 1 else p
+    first = at(st, start)
+    if may_be_url(st, start) then return (st, False)
+    st = if st.next_sign < start then {..st, next_sign: next_sign(st, start)} else st
+    (st, st.next_sign > start + 64 or not email_local(first))
+end
+
+/// Whether `linkify_rejects` would reject at `p` with the state as it is,
+/// without a new search for the next `@`: False when it cannot tell.
+fn linkify_cannot(st: Ist, p: Int) -> Bool
+    if st.labels != [] then return True
+    first = at(st, p + 1)
+    if st.next_sign < p + 1 or may_be_url(st, p + 1) then return False
+    st.next_sign > p + 65 or not email_local(first)
+end
+
+/// Whether a URL linkify takes may start at `i`: `http`, `ftp:` or `www.`.
+fn may_be_url(st: Ist, i: Int) -> Bool
+    case at(st, i)
+        // h
+        104 -> at(st, i + 1) == 116 and at(st, i + 2) == 116 and at(st, i + 3) == 112
+        // f
+        102 -> at(st, i + 1) == 116 and at(st, i + 2) == 112 and at(st, i + 3) == 58
+        // w
+        119 -> at(st, i + 1) == 119 and at(st, i + 2) == 119 and at(st, i + 3) == 46
+        _   -> False
+    end
+end
+
+fn next_sign(st: Ist, from: Int) -> Int
+    Bytes.index_of_byte(st.buf, 64, from:) |> Maybe.with_default(Lines.limit(st.lines))
+end
+
+/// The bare URL or address from `start` to `stop` made an autolink, after
+/// the space or punctuation that triggered it, when it took one.
+fn linked(
+    st:       Ist,
+    s:        Int,
+    consumes: Int,
+    start:    Int,
+    stop:     Int,
+    email:    Bool,
+    www:      Bool,
+) -> (Ist, Bool)
+    st = if consumes != 0 then append_text(st, s, s + 1) else st
+    end_ = trim_url(st, start, stop)
+    (st, _) = append(st, .AutoLink{email:, www:, start:, stop: end_})
+    (advance(st, consumes + end_ - start), True)
+end
+
+/// The end of a bare email address at `start`, as goldmark's linkify
+/// takes one, or None.
+fn bare_email(st: Ist, start: Int, e: Int) -> Maybe<Int>
+    if start < e and text.is_punct(at(st, start)) then return None
+    stop = email_end(st, start, e)
+    if stop < 0 then return None
+    sign = Bytes.index_of_byte(st.lines.buf, 64, from: start)!
+    if not Iter.any_match(sign..(stop - 1), fn i -> at(st, i) == 46) then return None
+    stop = if at(st, stop - 1) == 46 then stop - 1 else stop
+
+    if stop < e and (at(st, stop) == 45 or at(st, stop) == 95) then
+        None
+    else
+        Some(stop)
+    end
+end
+
+/// The end of the link left when trailing punctuation goldmark's linkify
+/// leaves out is taken off: `?!.,:*_~`, a `)` without its `(`, and an
+/// entity reference.
+fn trim_url(st: Ist, start: Int, stop: Int) -> Int
+    opening = Iter.count(Iter.filter(start..stop, fn i -> at(st, i) == 40))
+    closing = Iter.count(Iter.filter(start..stop, fn i -> at(st, i) == 41))
+    trim_loop(st, start, stop, opening, closing)
+end
+
+fn trim_loop(st: Ist, start: Int, i: Int, opening: Int, closing: Int) -> Int
+    if i - start <= 1 then return i
+    c = at(st, i - 1)
+
+    case c
+        // ? ! . , : * _ ~
+        63 or 33 or 46 or 44 or 58 or 42 or 95 or 126 ->
+            trim_loop(st, start, i - 1, opening, closing)
+
+        // )
+        41 ->
+            if closing <= opening then
+                i
+            else
+                trim_loop(st, start, i - 1, opening, closing - 1)
+            end
+
+        // ;
+        59 ->
+            j = entity_name_start(st, start, i - 2)
+
+            if j == i - 2 or at(st, j) != 38 then
+                i
+            else
+                trim_loop(st, start, j, opening, closing)
+            end
+
+        _ ->
+            i
+    end
+end
+
+fn entity_name_start(st: Ist, start: Int, j: Int) -> Int
+    if j > start and text.is_alnum(at(st, j)) then entity_name_start(st, start, j - 1) else j
+end
+
+fn domain_char(c: Int) -> Bool
+    case c
+        // - @ : % . _ + ~ # =
+        45 or 64 or 58 or 37 or 46 or 95 or 43 or 126 or 35 or 61 -> True
+        _ -> text.is_alnum(c)
+    end
+end
+
+fn path_char(c: Int, dollar: Bool) -> Bool
+    case c
+        // - @ : % _ + . ~ # ! ? & / = ( ) ; , ' " > ^ { } [ ] `
+        45 or
+            64 or
+            58 or
+            37 or
+            95 or
+            43 or
+            46 or
+            126 or
+            35 or
+            33 or
+            63 or
+            38 or
+            47 or
+            61 or
+            40 or
+            41 or
+            59 or
+            44 or
+            39 or
+            34 or
+            62 or
+            94 or
+            123 or
+            125 or
+            91 or
+            93 or
+            96 ->
+            True
+
+        36 ->
+            dollar
+
+        _ ->
+            text.is_alnum(c)
+    end
+end
+
+/// The end of goldmark's linkify URL expression at `start`, or -1.
+fn web_url_end(st: Ist, start: Int, e: Int) -> Int
+    after =
+        case
+            starts_with(st, start, "http://")  -> start + 7
+            starts_with(st, start, "https://") -> start + 8
+            starts_with(st, start, "ftp://")   -> start + 6
+            _                                  -> -1
+        end
+
+    if after < 0 then return -1
+    q = host_end(st, after, e)
+    if q < 0 then return -1
+
+    q =
+        if at(st, q) == 58 and text.is_digit(at(st, q + 1)) then
+            text.scan_while(st.lines.buf, q + 1, e, text.is_digit)
+        else
+            q
+        end
+
+    path_end(st, q, e, True)
+end
+
+fn www_url_end(st: Ist, start: Int, e: Int) -> Int
+    q = host_end(st, start + 4, e)
+    if q < 0 then return -1
+    path_end(st, q, e, False)
+end
+
+/// The end of `[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-z]+` from `from`, or -1:
+/// the longest run of host characters that a dot and a small letter
+/// follow.
+fn host_end(st: Ist, from: Int, e: Int) -> Int
+    run = text.scan_while(st.lines.buf, from, Int.min(e, from + 256), domain_char)
+    dot = last_dot(st, from, run)
+    if dot < 0 then return -1
+    text.scan_while(st.lines.buf, dot + 1, e, is_small)
+end
+
+fn is_small(c: Int) -> Bool
+    c >= 97 and c <= 122
+end
+
+fn last_dot(st: Ist, from: Int, k: Int) -> Int
+    if k <= from then return -1
+
+    if at(st, k) == 46 and is_small(at(st, k + 1)) then
+        k
+    else
+        last_dot(st, from, k - 1)
+    end
+end
+
+fn path_end(st: Ist, q: Int, e: Int, dollar: Bool) -> Int
+    c = at(st, q)
+    if q < e and (c == 47 or c == 35 or c == 63) then scan_path(st, q + 1, e, dollar) else q
+end
+
+fn scan_path(st: Ist, i: Int, e: Int, dollar: Bool) -> Int
+    if i < e and path_char(at(st, i), dollar) then scan_path(st, i + 1, e, dollar) else i
+end

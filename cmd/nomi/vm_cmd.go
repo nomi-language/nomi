@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/nomi-language/nomi/internal/cpuprofile"
 	"github.com/nomi-language/nomi/internal/frontend"
@@ -66,14 +65,16 @@ func runEntry(path string) (string, error) {
 // runTestVM is `nomi test` on the VM. Every file's cases that can run, run;
 // a case the VM cannot run is reported BLOCKED with its reasons, and the
 // command exits non-zero when anything failed or was blocked.
-func runTestVM(root string, opts vmhost.TestOptions, format vmhost.TestFormat, timeout time.Duration) error {
-	return testVM(context.Background(), root, opts, format, timeout, os.Stdout, os.Stderr, os.Stdin)
+func runTestVM(parsed testArgs) error {
+	return testVM(context.Background(), parsed, os.Stdout, os.Stderr, os.Stdin)
 }
 
 // testVM is runTestVM with the streams supplied. When stop is set, the cases
-// running in process end when it does (vmcmd.Tester.Stop). timeout is how
-// long each case may run, or zero for no limit (vmcmd.Tester.Timeout).
-func testVM(stop context.Context, root string, opts vmhost.TestOptions, format vmhost.TestFormat, timeout time.Duration, stdout, stderr io.Writer, stdin io.Reader) error {
+// running in process end when it does (vmcmd.Tester.Stop). parsed.timeout
+// is how long each case may run, or zero for no limit (vmcmd.Tester.Timeout),
+// and parsed.runs which cases a stored pass answers (vmcmd.Tester.Runs).
+func testVM(stop context.Context, parsed testArgs, stdout, stderr io.Writer, stdin io.Reader) error {
+	root, opts, format := parsed.root, parsed.opts, parsed.format
 	restoreEnv, err := vmhost.DefaultTestEnv()
 	if err != nil {
 		return fmt.Errorf("nomi test: %w", err)
@@ -135,9 +136,21 @@ func testVM(stop context.Context, root string, opts vmhost.TestOptions, format v
 		}
 		files = selecting
 	}
-	tester := &vmcmd.Tester{Out: out, ReportOut: stdout, Stderr: stderr, Stdin: stdin, Rep: rep, Format: format, Stop: stop, Timeout: timeout}
+	tester := &vmcmd.Tester{Out: out, Stderr: stderr, Rep: rep, Format: format, Stop: stop, Timeout: parsed.timeout, Runs: parsed.runs, Reaching: parsed.reaching}
+	cases := 0
 	for _, file := range files {
-		tester.File(file, fileOpts)
+		cases += tester.File(file, fileOpts)
+	}
+	if _, failed := rep.Counts(); parsed.reaching != nil && cases == 0 && failed == 0 {
+		// As for --run, a selection of nothing is an error, not an empty
+		// pass; a file that failed to load already fails the run.
+		err := fmt.Errorf("no test reaches %s:%d", vmhost.DisplayPath(parsed.reaching.File), parsed.reaching.Line)
+		if format != vmhost.TestFormatJSON {
+			return fmt.Errorf("nomi test: %w", err)
+		}
+		rep.FailFile(parsed.reaching.File, err)
+		rep.Summary()
+		return errTestsFailed
 	}
 	if rep.Summary() {
 		return errTestsFailed

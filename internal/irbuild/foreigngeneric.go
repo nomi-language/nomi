@@ -1,10 +1,6 @@
 package irbuild
 
-import (
-	"strings"
-
-	"github.com/nomi-language/nomi/internal/analysis"
-)
+import "github.com/nomi-language/nomi/internal/analysis"
 
 // A monomorphized instance of another file's generic template: `Holder<Int>`
 // where `pub enum Holder<T>` is declared in a sibling file.
@@ -114,62 +110,11 @@ func (g *gen) instanceOwner(src *typeDef) *typeOwner {
 	}
 }
 
-// genericTemplateNamed resolves a generic template by the name a use site
-// spells, local or module-qualified, together with the function that
-// instantiates it. typed is the type the checker gave the use, nil where
-// the caller has none: it decides between a block's template and the
-// module's of one name (blockLocalTemplate).
-//
-// One resolver and one instantiator handed back together, in place of a
-// local/foreign branch at each of the four use sites (a type annotation, a
-// struct literal, a variant call, a variant literal). Those four already
-// shared one body per construction shape, and a second copy of each for the
-// qualified spelling would drift from the first.
-//
-// The instantiator differs because the gen that builds the instance differs:
-// a local template's instance is built in this gen, and an imported one's in
-// the owner's gen and mirrored here (instantiateForeign).
-func (g *gen) genericTemplateNamed(name string, typed analysis.Type) (*genericTemplate, typeInstantiator, bool) {
-	tpl := g.blockLocalTemplate(name, typed)
-	if tpl == nil {
-		tpl = g.genericTemplates[name]
-	}
-	if tpl != nil {
-		return tpl, func(args []kind, types []analysis.Type) (kind, bool) { return g.genericInstance(tpl, args, types) }, true
-	}
-	ref, found := g.foreignTemplate(name)
-	if !found {
-		return nil, nil, false
-	}
-	return ref.tpl, func(args []kind, types []analysis.Type) (kind, bool) { return g.instantiateForeignAt(ref, args, types) }, true
-}
-
 // foreignTemplateRef is one imported module's generic template plus everything
 // needed to build an instance of it there and name it here.
 type foreignTemplateRef struct {
 	src *gen
 	tpl *genericTemplate
-}
-
-// foreignTemplate resolves `<qualifier>.<Name>` to the template the qualified
-// module declares under that name, and a bare `Name` to the template a
-// selective import (`import span.Span`) binds it to.
-//
-// Through `moduleQualifiedOwner` and `foreignOwner`, the same doors a
-// non-generic type goes through, so an ALIASED import and a re-export facade
-// reach the template by the declaration the analyzer resolved rather than by
-// the spelling — modulequaltype.go's rule, applied to a generic declaration.
-func (g *gen) foreignTemplate(name string) (foreignTemplateRef, bool) {
-	if g.reg == nil {
-		return foreignTemplateRef{}, false
-	}
-	var o *typeOwner
-	if dot := strings.LastIndex(name, "."); dot < 0 {
-		o = g.foreignOwner(name)
-	} else if dot > 0 && dot < len(name)-1 {
-		o = g.moduleQualifiedOwner(name[:dot], name[dot+1:])
-	}
-	return g.foreignTemplateOf(o)
 }
 
 // foreignTemplateAt resolves the template another user file declares as
@@ -182,28 +127,12 @@ func (g *gen) foreignTemplateAt(origin, name string) (foreignTemplateRef, bool) 
 	if g.reg == nil || origin == "" {
 		return foreignTemplateRef{}, false
 	}
-	for unit, src := range g.reg.gens {
-		if src == nil || src.fa == nil || src.fa.Origin != origin {
-			continue
-		}
-		if !g.reg.ensureTypes(unit) {
-			return foreignTemplateRef{}, false
-		}
-		tpl := src.genericTemplates[name]
-		if tpl == nil || tpl.decl == nil {
-			return foreignTemplateRef{}, false
-		}
-		o := g.reg.byDecl[tpl.decl]
-		if o == nil || o.unit != unit {
-			return foreignTemplateRef{}, false
-		}
-		return g.foreignTemplateOf(o)
-	}
-	return foreignTemplateRef{}, false
+	return g.foreignTemplateOf(g.siblingDecl(origin, name))
 }
 
 // foreignTemplateOf is the template the owner o names, when o is another
-// file's declaration, a co-tenant's included (instanceOwner).
+// file's declaration, a co-tenant's included (instanceOwner), found in the
+// declaring gen by the declaration (templatesByDecl).
 func (g *gen) foreignTemplateOf(o *typeOwner) (foreignTemplateRef, bool) {
 	if o == nil || o.unit == g.fileUnit {
 		return foreignTemplateRef{}, false
@@ -215,27 +144,22 @@ func (g *gen) foreignTemplateOf(o *typeOwner) (foreignTemplateRef, bool) {
 	if src == nil {
 		panic("irbuild: foreignTemplateOf: every unit has a gen in the registry after ensureTypes succeeds")
 	}
-	tpl := src.genericTemplates[o.nomi]
+	tpl := src.templatesByDecl[o.decl]
 	if tpl == nil {
 		return foreignTemplateRef{}, false
 	}
 	return foreignTemplateRef{src: src, tpl: tpl}, true
 }
 
-// instantiateForeign builds `tpl<args>` in the OWNER's gen and mirrors the
-// result here.
+// instantiateForeignAt builds `tpl<args>` in the OWNER's gen and mirrors the
+// result here, with types, the checker's types for args or nil, which the
+// owner's instance carries.
 //
 // The arguments are this gen's kinds, so each is handed to the owner through
 // importKind, as a cross-file generic function's arguments are
 // (siblinggeneric.go): a scalar is itself there, and `Box<Inner>` over this
 // file's own `Inner` is the owner's mirror of `Inner`, which importKind
 // resolves back to this file's def when the instance's fields come home.
-func (g *gen) instantiateForeign(ref foreignTemplateRef, args []kind) (kind, bool) {
-	return g.instantiateForeignAt(ref, args, nil)
-}
-
-// instantiateForeignAt is instantiateForeign with types, the checker's types
-// for args or nil, which the owner's instance carries.
 func (g *gen) instantiateForeignAt(ref foreignTemplateRef, args []kind, types []analysis.Type) (kind, bool) {
 	there := make([]kind, len(args))
 	for i, a := range args {
@@ -249,7 +173,13 @@ func (g *gen) instantiateForeignAt(ref foreignTemplateRef, args []kind, types []
 		}
 		there[i] = k
 	}
-	k, built := ref.src.genericInstance(ref.tpl, there, types)
+	return g.instantiateThere(ref, there, types)
+}
+
+// instantiateThere is instantiateForeignAt for args that are already the
+// owner's kinds.
+func (g *gen) instantiateThere(ref foreignTemplateRef, args []kind, types []analysis.Type) (kind, bool) {
+	k, built := ref.src.genericInstance(ref.tpl, args, types)
 	if !built || k.def == nil {
 		return kindInvalid, false
 	}

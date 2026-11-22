@@ -56,7 +56,7 @@ func TestHostCall_AWrongOperandIsRefused(t *testing.T) {
 
 // TestHostCall_ATableCallsBackIntoTheMachine: a table a host adds with
 // WithHosts is bound against the machine's Env, whose Invoker calls a VM
-// function value — the callback path a project's Go binding takes.
+// function value: the callback path an embedder's host function takes.
 func TestHostCall_ATableCallsBackIntoTheMachine(t *testing.T) {
 	at := ir.At("callback.nomi", 1, 1)
 	mod := ir.NewModule("callback")

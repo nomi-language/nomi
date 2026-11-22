@@ -2,12 +2,11 @@ package irbuild
 
 import "testing"
 
-// TestUnsupported_DestructureShapesStillRefused covers the parameter patterns
-// destructure's `default:` arm would receive. Only list and map patterns reach
-// it, and both are refutable (a list pattern's arity is not in its type, a map
-// pattern's keys may be absent), so the checker rejects both in a parameter
-// with "refutable pattern in parameter; bind the parameter and use a `case` in
-// the body".
+// TestUnsupported_DestructureShapesStillRefused covers the list and map
+// patterns in a parameter. Both are refutable (a list pattern's arity is not
+// in its type, a map pattern's keys may be absent), so the checker rejects
+// both with "refutable pattern in parameter; bind the parameter and use a
+// `case` in the body".
 //
 // The rows record which diagnostic catches each shape, and the assertion is on
 // the diagnostic text: if one of those checks is relaxed, the row starts

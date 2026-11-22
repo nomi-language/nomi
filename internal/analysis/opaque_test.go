@@ -72,47 +72,6 @@ pub type Foo Internal`
 	expectError(t, errs, "private type")
 }
 
-func TestForeignTypeBinding_MustBeOpaque(t *testing.T) {
-	src := `gopkg "example.com/app/ffi" as ffi
-
-type RawBox go ffi.Box`
-	_, errs := checkSource(src)
-	expectError(t, errs, "must be declared with `opaque type`")
-}
-
-func TestForeignTypeBinding_PublicOpaqueAccepted(t *testing.T) {
-	src := `gopkg "example.com/app/ffi" as ffi
-
-pub opaque type RawBox go ffi.Box`
-	fa, errs := checkSource(src)
-	expectNoErrors(t, errs)
-	sym := fa.ModuleScope.Lookup("RawBox")
-	if sym == nil {
-		t.Fatal("RawBox symbol not found")
-	}
-	if !sym.Public || !sym.Opaque {
-		t.Fatalf("expected public opaque RawBox, got public=%v opaque=%v", sym.Public, sym.Opaque)
-	}
-}
-
-func TestForeignTypeBinding_PrivateOpaqueAccepted(t *testing.T) {
-	src := `gopkg "example.com/app/ffi" as ffi
-
-opaque type RawBox go ffi.Box`
-	fa, errs := checkSource(src)
-	expectNoErrors(t, errs)
-	sym := fa.ModuleScope.Lookup("RawBox")
-	if sym == nil {
-		t.Fatal("RawBox symbol not found")
-	}
-	if sym.Public {
-		t.Error("expected RawBox to be private")
-	}
-	if !sym.Opaque {
-		t.Error("expected RawBox to be opaque")
-	}
-}
-
 // ---------------------------------------------------------------------------
 // Inline opaque declarations (`pub opaque type ...` / `opaque type ...`).
 // Plan A.9: validation moves from the export-block site to the type

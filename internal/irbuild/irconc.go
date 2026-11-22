@@ -32,12 +32,18 @@ func (bl *irScalarBuilder) concurrent(t *ast.ConcurrentBlock) (ir.Temp, kind, bo
 	lead, body := bl.g.irScalarBlock(t.Body)
 	at := bl.g.irNodePos(t)
 	f := ir.NewFunc(at, "concurrent")
-	sh := &irFuncShell{fn: f, syms: map[string]*ir.Symbol{}, params: map[string]ir.Temp{}, patternOK: true}
-	sh.frame = newIRFuncFrame(f)
+	sh := &irFuncShell{fn: f, params: map[string]ir.Temp{}}
 	sh.entry = f.NewBlock(at, "entry")
+	// The body's result is the checker's type for the block (valueKind),
+	// which every `return` in it answers too.
+	result, recorded := bl.valueKind("concurrent", t)
+	if !recorded {
+		bl.g.dc.note("a `concurrent` block with no type in the checker's records")
+		return no()
+	}
 	var tries []irPendingTry
-	child := &irScalarBuilder{g: bl.g, sh: sh, f: f, b: sh.entry, parent: bl, bound: map[string]ir.Temp{},
-		boundK: map[string]kind{}, inferReturn: &resultInference{}, concTries: &tries, tryBoundary: "concurrent"}
+	child := &irScalarBuilder{g: bl.g, sh: sh, f: f, b: sh.entry, parent: bl,
+		returnKind: result, concTries: &tries, tryBoundary: "concurrent"}
 	child.root = t
 	// A `defer` in the body runs when the body's activation ends, at each of
 	// its exits, as one in a lambda's body does. The checker holds every task
@@ -48,8 +54,7 @@ func (bl *irScalarBuilder) concurrent(t *ast.ConcurrentBlock) (ir.Temp, kind, bo
 	if !child.leading(lead) {
 		return no()
 	}
-	sig := irFuncSig{inferResult: true}
-	block := t
+	sig := irFuncSig{result: result}
 	var k kind
 	var ok bool
 	// A body ending in a block whose tail leaves: its statements, then its
@@ -72,34 +77,26 @@ func (bl *irScalarBuilder) concurrent(t *ast.ConcurrentBlock) (ir.Temp, kind, bo
 	default:
 		if bl.g.neverFinishes(body) {
 			// An `Iter.loop` with no `break` never answers: the body's
-			// result is what its returns settled, or the checker's type for
-			// the block.
-			if _, ok = child.endlessLoop(body); ok {
-				// kindInvalid: sentinel — no `return v` settled it.
-				if k = child.returnKind; k == kindInvalid && bl.g.fa != nil {
-					if ty := bl.g.srcFA().ExprTypes[block]; ty != nil {
-						k = bl.g.project(ty)
-					}
-				}
-			}
+			// result is the block's, which its returns answer.
+			_, ok = child.endlessLoop(body)
+			k = result
 			break
 		}
 		var answer ir.Temp
-		answer, k, _, ok = child.lower(body)
+		answer, k, _, ok = child.lowerWant(body, result)
 		if ok {
 			child.b.SetTerm(ir.NewReturn(bl.g.irNodePos(body), answer))
 		}
 	}
 	if ok && k == kindDiverged {
-		// Every arm of the tail region returned: the body's result is what
-		// those returns settled.
-		k = child.returnKind
+		// A body that is a `return todo` traps and returns nothing.
+		k = result
 	}
 	if !ok {
 		return no()
 	}
 	irHeldOperand(k, "a `concurrent` body's result")
-	if _, agree := child.inferReturn.settle(k); !agree || !child.settleConcurrentTries(tries, k) {
+	if !child.settleConcurrentTries(tries, k) {
 		return no()
 	}
 	bl.g.irRequireLint(f, "a `concurrent` body graph")
@@ -112,9 +109,9 @@ func (bl *irScalarBuilder) concurrent(t *ast.ConcurrentBlock) (ir.Temp, kind, bo
 	return call.Dst(), k, true, true
 }
 
-// taskCall lowers the `std/tasks` calls this producer retains. Its owner
-// resolved to std's `Task` declaration (stdIntrinsicOwner), so a user `Task`
-// never reaches here.
+// taskCall lowers the `std/tasks` calls this producer retains: its record
+// names std's function Task.method (intrinsicArm), so a user `Task` never
+// reaches here.
 func (bl *irScalarBuilder) taskCall(t *ast.Call, method string) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if method == "spawn_all" {

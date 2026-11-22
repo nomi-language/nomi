@@ -38,25 +38,29 @@ import (
 // `f = Worker.new`) is refused where it is named: a function value may be
 // called anywhere, which no check can follow.
 //
+// The graph holds the program's own functions. A call into std carries
+// its callee's depth and chain in std's own graph, which is closed, since
+// std's functions call only std's (stdBootFact): so a call of std's
+// Worker.new in a test body is reported whether or not any function of the
+// program calls Worker.new.
+//
 // No body is read here. Each file's bodies are read once per body part
 // into its summary (bootSummaryOf), and the program's graph is built once
 // from the summaries and kept until one of them changes (programBootGraph),
-// so a file's report reads its summary and the graph.
+// so a file's report reads its summary and the graph. A summary is read as
+// BootFacts keyed by declaration here and by DeclRef in a file's stored
+// facts (bootReading), and both graphs are built and reported by the same
+// code (bootGraphOf, bootGraph.report): a check and a reduction over stored
+// facts (reduceBoot) differ only in their keys.
 //
 // The runtime guard in rt.SupervisorNewExact stays as the backstop, with the
 // same message.
 func CheckBootScope(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 	bootMu.Lock()
 	defer bootMu.Unlock()
-	g := programBootGraph(fa)
-	r := &bootReport{g: g, fa: fa, s: fa.bootSummaryOf(), reported: map[Pos]bool{}, covered: map[*ast.FuncDef]bool{}}
-	for _, node := range nodes {
-		r.seedTestBoots(node)
-	}
-	for _, node := range nodes {
-		r.visit(node)
-	}
-	return r.errors
+	g, std := programBootGraph(fa)
+	s := fa.bootSummaryOf()
+	return g.report(BootFacts[*ast.FuncDef]{Fns: s.facts, Visits: checkReading(fa, s, std).visits(nodes, s.facts)})
 }
 
 // bootMu guards the boot-only check's summaries and graphs, which the check
@@ -78,6 +82,10 @@ type bootSummary struct {
 	// testBoots is the functions each test group's boot calls, nested
 	// groups' included.
 	testBoots map[*ast.TestDecl][]*Symbol
+	// facts is fns as a check's graph reads them (checkReading), once read
+	// says the graph has read them.
+	facts []BootFnFact[*ast.FuncDef]
+	read  bool
 }
 
 // bootFnSummary is one function's share of its file's summary.
@@ -232,49 +240,281 @@ func (s *bootSummary) testBootsOf(fa *FileAnalysis, td *ast.TestDecl) []*Symbol 
 	return syms
 }
 
-// bootFn is one function's calls, read once.
-type bootFn struct {
-	fd  *ast.FuncDef
+// bootReading reads a file's summary as BootFacts keyed by K. key names a
+// function the file's bodies call or name, and says whether it is a
+// function of the program's own files; a function key does not claim is
+// std's when std declares it (std, nil when std's own graph is read), and
+// is named by the key otherwise.
+type bootReading[K comparable] struct {
 	fa  *FileAnalysis
-	sym *Symbol
-	// calls are the calls in its body outside any lambda, each to a
-	// function the program declares or to Supervisor.new.
-	calls []bootCall
+	s   *bootSummary
+	key func(*ast.FuncDef) (K, bool)
+	std func(*ast.FuncDef) *FileAnalysis
 }
 
-type bootCall struct {
-	call   *ast.Call
-	callee *ast.FuncDef // nil for Supervisor.new
-	sym    *Symbol
+// target is the function sym names: a project function by its key, or a
+// std function by its depth and chain in std's own graph.
+func (r bootReading[K]) target(sym *Symbol) BootTarget[K] {
+	fd := funcDefOf(sym)
+	t := BootTarget[K]{Display: bootName(sym, fd)}
+	k, own := r.key(fd)
+	if !own && r.std != nil && r.std(fd) != nil {
+		t.Std = true
+		t.StdDepth, t.StdSteps = stdBootFact(fd, r.std)
+		return t
+	}
+	t.Fn = k
+	return t
 }
 
-// bootCallsOf is refs as the graph reads them: each call's callee is the
-// function its symbol declares now.
-func bootCallsOf(refs []bootRef) []bootCall {
-	calls := make([]bootCall, 0, len(refs))
+func (r bootReading[K]) calls(refs []bootRef) []BootCallFact[K] {
+	out := make([]BootCallFact[K], 0, len(refs))
 	for _, ref := range refs {
-		if ref.supervisor {
-			calls = append(calls, bootCall{call: ref.call, sym: ref.sym})
-		} else if fd := funcDefOf(ref.sym); fd != nil {
-			calls = append(calls, bootCall{call: ref.call, callee: fd, sym: ref.sym})
+		c := BootCallFact[K]{Line: ref.call.Line, Col: ref.call.Col, Supervisor: ref.supervisor}
+		if !ref.supervisor {
+			c.Target = r.target(ref.sym)
+		}
+		out = append(out, c)
+	}
+	return out
+}
+
+func (r bootReading[K]) values(vs []bootValue) []BootValueFact[K] {
+	out := make([]BootValueFact[K], 0, len(vs))
+	for _, v := range vs {
+		out = append(out, BootValueFact[K]{Line: v.pos.Line, Col: v.pos.Col, Target: r.target(v.sym)})
+	}
+	return out
+}
+
+// fns is each function the file defines with a body, with its calls
+// outside lambdas and the project functions it calls.
+func (r bootReading[K]) fns() []BootFnFact[K] {
+	out := make([]BootFnFact[K], 0, len(r.s.fns))
+	boots := r.fa.Program().BootFunctions
+	for fd, fn := range r.s.fns {
+		k, _ := r.key(fd)
+		bf := BootFnFact[K]{Key: k, Entry: boots[fd], Calls: r.calls(fn.body.calls)}
+		seen := map[K]bool{}
+		for _, sym := range fn.called {
+			if t := r.target(sym); !t.Std && !seen[t.Fn] {
+				seen[t.Fn] = true
+				bf.Called = append(bf.Called, t.Fn)
+			}
+		}
+		out = append(out, bf)
+	}
+	return out
+}
+
+// visits is each function and test body of nodes, the file's, in the order
+// its report visits them, with fns its functions.
+func (r bootReading[K]) visits(nodes []ast.Node, fns []BootFnFact[K]) []BootVisit[K] {
+	fnIndex := make(map[K]int, len(fns))
+	for i, bf := range fns {
+		fnIndex[bf.Key] = i + 1
+	}
+	covered := map[*ast.FuncDef]bool{}
+	for _, node := range nodes {
+		if td, ok := node.(*ast.TestDecl); ok {
+			for _, sym := range r.s.testBootsOf(r.fa, td) {
+				if fd := funcDefOf(sym); fd != nil {
+					covered[fd] = true
+				}
+			}
 		}
 	}
-	return calls
+	visit := func(body *bootBody) BootVisit[K] {
+		return BootVisit[K]{Calls: r.calls(body.calls), LambdaCalls: r.calls(body.lambdaCalls), Values: r.values(body.values)}
+	}
+	var out []BootVisit[K]
+	var walk func(items []ast.Node)
+	walk = func(items []ast.Node) {
+		for _, node := range items {
+			switch n := node.(type) {
+			case *ast.FuncDef:
+				if n.Body == nil {
+					continue
+				}
+				v := visit(r.s.bodyOf(r.fa, n, n.Body))
+				v.Key, _ = r.key(n)
+				if i := fnIndex[v.Key]; i > 0 && r.s.fns[n] != nil {
+					v.Fn, v.Calls = i, nil
+				}
+				v.Main, v.Public = n.Name == "main", n.Public
+				v.Boot = n.Name == "boot" || covered[n] || r.fa.Program().BootFunctions[n]
+				out = append(out, v)
+			case *ast.TestDecl:
+				if n.Body != nil {
+					v := visit(r.s.bodyOf(r.fa, n, n.Body))
+					v.Test = true
+					out = append(out, v)
+				}
+			case *ast.ImplBlock:
+				walk(n.Items)
+			}
+		}
+	}
+	walk(nodes)
+	return out
 }
 
-// bootGraph is the program's functions, which of them are boot-only and
-// why, and which are called or named as values anywhere in the program's
-// own files.
-type bootGraph struct {
-	fns map[*ast.FuncDef]*bootFn
-	// why is each boot-only function's boot-only call, and depth the length
-	// of the chain from it to Supervisor.new (bootDepths); absent for a
-	// function that is not boot-only.
-	why   map[*ast.FuncDef]bootCall
-	depth map[*ast.FuncDef]int
+// checkReading is a check's reading of f's summary s: each function keyed
+// by its declaration, f's own claimed as the program's.
+func checkReading(f *FileAnalysis, s *bootSummary, std func(*ast.FuncDef) *FileAnalysis) bootReading[*ast.FuncDef] {
+	return bootReading[*ast.FuncDef]{fa: f, s: s, std: std, key: func(fd *ast.FuncDef) (*ast.FuncDef, bool) {
+		return fd, s.fns[fd] != nil
+	}}
+}
+
+// bootFile is one file's functions as the boot-only graph reads them: its
+// name, and each function it defines, keyed by K.
+type bootFile[K comparable] struct {
+	base string
+	fns  []BootFnFact[K]
+}
+
+// bootGraph is a program's functions, keyed by K, which of them are
+// boot-only and why, and which are called anywhere in the program's own
+// files.
+type bootGraph[K comparable] struct {
+	// base is the name of each function's file, and entry holds the entry
+	// boots.
+	base  map[K]string
+	entry map[K]bool
 	// called holds every function some function or lambda of the program's
 	// own files calls.
-	called map[*ast.FuncDef]bool
+	called map[K]bool
+	// depth is the length of the chain from each boot-only function to
+	// Supervisor.new, and why its first call along a shortest one
+	// (bootDepthsOf); a function that is not boot-only has neither.
+	depth map[K]int
+	why   map[K]BootCallFact[K]
+}
+
+// bootGraphOf builds the graph of files' functions, the first of each key.
+// A call into std counts at its callee's depth in std's own graph.
+func bootGraphOf[K comparable](files []bootFile[K]) *bootGraph[K] {
+	g := &bootGraph[K]{base: map[K]string{}, entry: map[K]bool{}, called: map[K]bool{}}
+	calls := map[K][]BootCallFact[K]{}
+	for _, f := range files {
+		for i := range f.fns {
+			fn := &f.fns[i]
+			if _, dup := g.base[fn.Key]; dup {
+				continue
+			}
+			g.base[fn.Key] = f.base
+			calls[fn.Key] = fn.Calls
+			if fn.Entry {
+				g.entry[fn.Key] = true
+			}
+			for _, c := range fn.Called {
+				g.called[c] = true
+			}
+		}
+	}
+	g.depth, g.why = bootDepthsOf(calls, func(c BootCallFact[K], depth map[K]int) (int, bool) {
+		switch {
+		case c.Supervisor:
+			return 0, true
+		case c.Target.Std:
+			return c.Target.StdDepth, c.Target.StdDepth > 0
+		}
+		d, ok := depth[c.Target.Fn]
+		return d, ok
+	})
+	return g
+}
+
+// bootOnly reports whether t is a boot-only function.
+func (g *bootGraph[K]) bootOnly(t BootTarget[K]) bool {
+	if t.Std {
+		return t.StdDepth > 0
+	}
+	_, ok := g.depth[t.Fn]
+	return ok
+}
+
+// steps names the chain of calls from t down to its Supervisor.new, one
+// step per boot-only function: "`g` at file.nomi:12", ending
+// "`Supervisor.new` at file.nomi:40".
+func (g *bootGraph[K]) steps(t BootTarget[K]) []string {
+	if t.Std {
+		return t.StdSteps
+	}
+	var out []string
+	seen := map[K]bool{}
+	for k := t.Fn; !seen[k]; {
+		seen[k] = true
+		c, ok := g.why[k]
+		if !ok {
+			break
+		}
+		at := fmt.Sprintf("%s:%d", g.base[k], c.Line)
+		if c.Supervisor {
+			out = append(out, "`Supervisor.new` at "+at)
+			break
+		}
+		out = append(out, "`"+c.Target.Display+"` at "+at)
+		if c.Target.Std {
+			out = append(out, c.Target.StdSteps...)
+			break
+		}
+		k = c.Target.Fn
+	}
+	return out
+}
+
+// report is the boot-only errors of the file f reads: each call a root
+// makes to a boot-only function, its lambdas' included, each call any
+// function's lambdas make, and each boot-only function named as a value.
+// A function that is no root has its own calls reported where its callers
+// make them.
+func (g *bootGraph[K]) report(f BootFacts[K]) []TypeError {
+	var errs []TypeError
+	reported := map[Pos]bool{}
+	add := func(line, col int, msg string) {
+		pos := Pos{Line: line, Col: col}
+		if reported[pos] {
+			return
+		}
+		reported[pos] = true
+		errs = append(errs, TypeError{Line: line, Col: col, Message: msg})
+	}
+	call := func(c BootCallFact[K]) {
+		if c.Supervisor {
+			add(c.Line, c.Col, supervisorHereMessage)
+			return
+		}
+		if !g.bootOnly(c.Target) || !c.Target.Std && g.entry[c.Target.Fn] {
+			// A test's call of an entry boot runs it as boot: the call is
+			// where the app value is built (CheckAppRoots refuses one
+			// outside a test).
+			return
+		}
+		add(c.Line, c.Col, bootCallMessage(becauseText(c.Target.Display, g.steps(c.Target))))
+	}
+	for i := range f.Visits {
+		v := &f.Visits[i]
+		if v.Test || !v.Boot && (v.Main || !g.called[v.Key] && !v.Public) {
+			calls := v.Calls
+			if v.Fn > 0 {
+				calls = f.Fns[v.Fn-1].Calls
+			}
+			for _, c := range calls {
+				call(c)
+			}
+		}
+		for _, c := range v.LambdaCalls {
+			call(c)
+		}
+		for _, val := range v.Values {
+			if g.bootOnly(val.Target) {
+				add(val.Line, val.Col, bootValueMessage(becauseText(val.Target.Display, g.steps(val.Target))))
+			}
+		}
+	}
+	return errs
 }
 
 // bootGraphCache is a program's graph and what it was built from: the
@@ -283,39 +523,41 @@ type bootGraph struct {
 type bootGraphCache struct {
 	all   []*FileAnalysis
 	isStd []bool
+	std   map[*FileAnalysis]bool
 	files []*FileAnalysis
 	sums  []*bootSummary
-	g     *bootGraph
+	g     *bootGraph[*ast.FuncDef]
 }
-
-// stdBootFns caches a std function's calls, read once per process: std's
-// analysis is shared and never changes.
-var stdBootFns sync.Map // *ast.FuncDef -> *bootFn
 
 // programBootGraph is the graph of fa's program: its own files' functions,
 // read from their summaries, with fa's among them even when fa is a std
-// file (a std module checked on its own), and each std function they reach.
-// It is built when the file list or a summary it was built from changes,
-// and kept on the program otherwise, so the files' reports share one graph.
-// Telling std's files from the program's is kept with it: every file's
-// report asks for the graph, and reading each path again per report grows
-// with the square of the file count.
-func programBootGraph(fa *FileAnalysis) *bootGraph {
+// file (a std module checked on its own), and the program's std files, in
+// which a call into std finds its callee's depth. It is built when the file
+// list or a summary it was built from changes, and kept on the program
+// otherwise, so the files' reports share one graph. Telling std's files
+// from the program's is kept with it: every file's report asks for the
+// graph, and reading each path again per report grows with the square of
+// the file count.
+func programBootGraph(fa *FileAnalysis) (*bootGraph[*ast.FuncDef], func(*ast.FuncDef) *FileAnalysis) {
 	p := fa.Program()
 	all := p.Files()
 	c := p.bootGraph
 	var isStd []bool
+	var stdFiles map[*FileAnalysis]bool
 	if c != nil && slices.Equal(c.all, all) {
-		isStd = c.isStd
+		isStd, stdFiles = c.isStd, c.std
 	} else {
 		isStd = make([]bool, len(all))
+		stdFiles = map[*FileAnalysis]bool{}
 		for i, f := range all {
-			if f != nil {
-				_, isStd[i] = stdlibModuleForPath(f.FilePath)
+			if f != nil && isStdFile(f) {
+				isStd[i] = true
+				stdFiles[f] = true
 			}
 		}
 	}
-	var files, std []*FileAnalysis
+	std := stdFnsIn(stdFiles)
+	var files []*FileAnalysis
 	own := false
 	for i, f := range all {
 		if f == nil {
@@ -324,7 +566,6 @@ func programBootGraph(fa *FileAnalysis) *bootGraph {
 		if f == fa {
 			own = true
 		} else if isStd[i] {
-			std = append(std, f)
 			continue
 		}
 		files = append(files, f)
@@ -337,125 +578,135 @@ func programBootGraph(fa *FileAnalysis) *bootGraph {
 		sums[i] = f.bootSummaryOf()
 	}
 	if c != nil && slices.Equal(c.all, all) && slices.Equal(c.files, files) && slices.Equal(c.sums, sums) {
-		return c.g
+		return c.g, std
 	}
-	g := newBootGraph(files, sums, std)
-	p.bootGraph = &bootGraphCache{all: slices.Clone(all), isStd: isStd, files: files, sums: sums, g: g}
-	return g
-}
-
-// newBootGraph builds the graph of the functions files define, from their
-// summaries sums, and of each function of the std files std they reach.
-func newBootGraph(files []*FileAnalysis, sums []*bootSummary, std []*FileAnalysis) *bootGraph {
 	noteBootGraph()
-	g := &bootGraph{fns: map[*ast.FuncDef]*bootFn{}, called: map[*ast.FuncDef]bool{}}
+	read := make([]bootFile[*ast.FuncDef], len(files))
 	for i, f := range files {
-		for fd, s := range sums[i].fns {
-			if g.fns[fd] != nil {
-				continue
-			}
-			g.fns[fd] = &bootFn{fd: fd, fa: f, sym: s.sym, calls: bootCallsOf(s.body.calls)}
-			for _, sym := range s.called {
-				if callee := funcDefOf(sym); callee != nil {
-					g.called[callee] = true
-				}
-			}
+		s := sums[i]
+		if !s.read {
+			s.facts, s.read = checkReading(f, s, std).fns(), true
 		}
+		read[i] = bootFile[*ast.FuncDef]{base: filepath.Base(f.FilePath), fns: s.facts}
 	}
-	// A std function enters the graph when the program's code reaches it,
-	// with what it reaches in turn.
-	stdIndex := map[*ast.FuncDef]*FileAnalysis{}
-	for _, f := range std {
-		for _, sym := range f.Definitions {
-			if fd, ok := sym.Node.(*ast.FuncDef); ok && sym.Kind == SymbolFunction && fd.Body != nil {
-				stdIndex[fd] = f
-			}
-		}
-	}
-	var queue []*ast.FuncDef
-	for _, fn := range g.fns {
-		for _, c := range fn.calls {
-			if c.callee != nil && g.fns[c.callee] == nil {
-				queue = append(queue, c.callee)
-			}
-		}
-	}
-	for len(queue) > 0 {
-		fd := queue[0]
-		queue = queue[1:]
-		if g.fns[fd] != nil {
-			continue
-		}
-		f := stdIndex[fd]
-		if f == nil {
-			continue
-		}
-		var fn *bootFn
-		if cached, ok := stdBootFns.Load(fd); ok {
-			fn = cached.(*bootFn)
-		} else if facts, ok := stdFactsBootFn(f, fd); ok {
-			fn = facts
-			stdBootFns.Store(fd, fn)
-		} else {
-			fn = &bootFn{fd: fd, fa: f, sym: f.Definitions[Pos{Line: fd.Line, Col: fd.Col}]}
-			fn.calls = bootCallsOf(readBootRefs(f, fd.Body, func(*Symbol) {}))
-			stdBootFns.Store(fd, fn)
-		}
-		g.fns[fd] = fn
-		for _, c := range fn.calls {
-			if c.callee != nil && g.fns[c.callee] == nil {
-				queue = append(queue, c.callee)
-			}
-		}
-	}
-	g.depth, g.why = bootDepths(g.fns)
-	return g
+	g := bootGraphOf(read)
+	p.bootGraph = &bootGraphCache{all: slices.Clone(all), isStd: isStd, std: stdFiles, files: files, sums: sums, g: g}
+	return g, std
 }
 
-// bootDepths works out which of fns are boot-only. A function's depth is
-// one more than the least depth among its calls' callees, Supervisor.new's
-// being 0, to a fixed point, and its why is its first call in order to a
-// callee of that least depth: the first step of a shortest chain to
-// Supervisor.new. Neither depends on the order the functions are visited
-// in, so the boot-only check over stored facts (stored_facts.go), which
-// keys functions by declaration name, reports the same chain.
-func bootDepths(fns map[*ast.FuncDef]*bootFn) (map[*ast.FuncDef]int, map[*ast.FuncDef]bootCall) {
-	depth := map[*ast.FuncDef]int{}
-	calleeDepth := func(c bootCall) (int, bool) {
-		if c.callee == nil {
-			return 0, true
-		}
-		d, ok := depth[c.callee]
-		return d, ok
-	}
+// bootDepthsOf works out which of the functions calls holds, keyed by K,
+// are boot-only. A function's depth is one more than the least depth among
+// its calls' callees (calleeDepth, from the depths so far: Supervisor.new's
+// is 0, and a callee not boot-only has none), to a fixed point, and its why
+// is its first call in order to a callee of that least depth: the first step
+// of a shortest chain to Supervisor.new. Neither depends on the order the
+// functions are visited in, so a check, keyed by declaration, and the
+// boot-only check over stored facts (reduceBoot), keyed by declaration name,
+// report the same chain.
+func bootDepthsOf[K comparable, C any](calls map[K][]C, calleeDepth func(C, map[K]int) (int, bool)) (map[K]int, map[K]C) {
+	depth := map[K]int{}
 	for changed := true; changed; {
 		changed = false
-		for fd, fn := range fns {
+		for k, cs := range calls {
 			best := -1
-			for _, c := range fn.calls {
-				if d, ok := calleeDepth(c); ok && (best < 0 || d < best) {
+			for _, c := range cs {
+				if d, ok := calleeDepth(c, depth); ok && (best < 0 || d < best) {
 					best = d
 				}
 			}
 			if best < 0 {
 				continue
 			}
-			if d, ok := depth[fd]; !ok || best+1 < d {
-				depth[fd] = best + 1
+			if d, ok := depth[k]; !ok || best+1 < d {
+				depth[k] = best + 1
 				changed = true
 			}
 		}
 	}
-	why := make(map[*ast.FuncDef]bootCall, len(depth))
-	for fd, d := range depth {
-		for _, c := range fns[fd].calls {
-			if at, ok := calleeDepth(c); ok && at == d-1 {
-				why[fd] = c
+	why := make(map[K]C, len(depth))
+	for k, d := range depth {
+		for _, c := range calls[k] {
+			if at, ok := calleeDepth(c, depth); ok && at == d-1 {
+				why[k] = c
 				break
 			}
 		}
 	}
 	return depth, why
+}
+
+// stdBootFns caches a std function's reading, by its declaration, read once
+// per process: std's analysis is shared and never changes.
+var stdBootFns sync.Map // *ast.FuncDef -> bootFile[*ast.FuncDef]
+
+// stdBootFacts caches stdBootFact's answers: std's graph is closed, since
+// std's functions call only std's, so a std function's depth and chain are
+// the same in every program.
+var stdBootFacts sync.Map // *ast.FuncDef -> stdBootAnswer
+
+type stdBootAnswer struct {
+	depth int
+	steps []string
+}
+
+// stdBootFact answers fd's depth from Supervisor.new (0 when it is not
+// boot-only) and its chain's steps, in the graph of the std functions std
+// declares that fd reaches.
+func stdBootFact(fd *ast.FuncDef, std func(*ast.FuncDef) *FileAnalysis) (int, []string) {
+	if a, ok := stdBootFacts.Load(fd); ok {
+		ans := a.(stdBootAnswer)
+		return ans.depth, ans.steps
+	}
+	var files []bootFile[*ast.FuncDef]
+	seen := map[*ast.FuncDef]bool{}
+	queue := []*ast.FuncDef{fd}
+	for len(queue) > 0 {
+		next := queue[0]
+		queue = queue[1:]
+		if seen[next] {
+			continue
+		}
+		f := std(next)
+		if f == nil {
+			continue
+		}
+		seen[next] = true
+		file := stdBootFnOf(f, next)
+		files = append(files, file)
+		for _, c := range file.fns[0].Calls {
+			if !c.Supervisor && !seen[c.Target.Fn] {
+				queue = append(queue, c.Target.Fn)
+			}
+		}
+	}
+	g := bootGraphOf(files)
+	ans := stdBootAnswer{depth: g.depth[fd], steps: g.steps(BootTarget[*ast.FuncDef]{Fn: fd})}
+	stdBootFacts.Store(fd, ans)
+	return ans.depth, ans.steps
+}
+
+// stdBootFnOf is the std function fd of f as std's own graph reads it: its
+// first boot-only call when f takes its boot facts from the stdlib's facts
+// (stdFactsBootCalls), else its calls, read from its body.
+func stdBootFnOf(f *FileAnalysis, fd *ast.FuncDef) bootFile[*ast.FuncDef] {
+	if cached, ok := stdBootFns.Load(fd); ok {
+		return cached.(bootFile[*ast.FuncDef])
+	}
+	fn := BootFnFact[*ast.FuncDef]{Key: fd}
+	if calls, ok := stdFactsBootCalls(f, fd); ok {
+		fn.Calls = calls
+	} else {
+		fn.Calls = stdReading(f, nil).calls(readBootRefs(f, fd.Body, func(*Symbol) {}))
+	}
+	file := bootFile[*ast.FuncDef]{base: filepath.Base(f.FilePath), fns: []BootFnFact[*ast.FuncDef]{fn}}
+	stdBootFns.Store(fd, file)
+	return file
+}
+
+// stdReading is the reading of std's own graph, which is closed: every
+// function f's bodies call is keyed by its declaration, std's included.
+func stdReading(f *FileAnalysis, s *bootSummary) bootReading[*ast.FuncDef] {
+	return bootReading[*ast.FuncDef]{fa: f, s: s, key: func(fd *ast.FuncDef) (*ast.FuncDef, bool) { return fd, true }}
 }
 
 // readBootRefs is body's calls outside lambdas, each to a function the
@@ -530,148 +781,27 @@ func resolveCalleeSym(f *FileAnalysis, fn ast.Node) *Symbol {
 	return resolvedSymbol(sym)
 }
 
-// bootReport reports one file's roots' calls to boot-only functions and its
-// boot-only function values, from its summary.
-type bootReport struct {
-	g        *bootGraph
-	fa       *FileAnalysis
-	s        *bootSummary
-	covered  map[*ast.FuncDef]bool
-	reported map[Pos]bool
-	errors   []TypeError
+// supervisorHereMessage is the error at a call of Supervisor.new a root
+// makes.
+const supervisorHereMessage = "a supervisor here would be a new one every time this runs, and each " +
+	"is kept for the life of the program with a `max_running` of its " +
+	"own — so the bound would be per call rather than per downstream. " +
+	"Create it while `boot` builds the app value: in boot, or in " +
+	"something boot calls"
+
+// bootCallMessage is the error at a root's call of a boot-only function,
+// because saying why it is one (becauseText).
+func bootCallMessage(because string) string {
+	return because + ", so it can only be called while `boot` builds " +
+		"the app value, in boot or in something boot calls: a supervisor made here would be a new one every time " +
+		"this runs, so the bound would be per call rather than per downstream"
 }
 
-// seedTestBoots marks each function a test group's boot calls as running
-// inside boot.
-func (r *bootReport) seedTestBoots(node ast.Node) {
-	td, ok := node.(*ast.TestDecl)
-	if !ok {
-		return
-	}
-	for _, sym := range r.s.testBootsOf(r.fa, td) {
-		if fd := funcDefOf(sym); fd != nil {
-			r.covered[fd] = true
-		}
-	}
-}
-
-func (r *bootReport) visit(node ast.Node) {
-	switch n := node.(type) {
-	case *ast.FuncDef:
-		r.function(n)
-	case *ast.TestDecl:
-		if n.Body != nil {
-			r.root(r.s.bodyOf(r.fa, n, n.Body))
-		}
-	case *ast.ImplBlock:
-		r.visitAll(n.Items)
-	}
-}
-
-func (r *bootReport) visitAll(items []ast.Node) {
-	for _, item := range items {
-		r.visit(item)
-	}
-}
-
-// function reports fd's calls when it is a root, and in any case its
-// lambdas' calls and the boot-only functions it names as values.
-func (r *bootReport) function(fd *ast.FuncDef) {
-	if fd.Body == nil {
-		return
-	}
-	body := r.s.bodyOf(r.fa, fd, fd.Body)
-	boot := fd.Name == "boot" || r.covered[fd] || r.fa.Program().BootFunctions[fd]
-	isRoot := !boot && (fd.Name == "main" || (!r.g.called[fd] && !fd.Public))
-	if isRoot {
-		r.root(body)
-		return
-	}
-	// Not a root: its own calls run where its callers do. Its lambdas
-	// run wherever they are called, and its function values likewise.
-	r.lambdasAndValues(body)
-}
-
-// root reports every call in body to a boot-only function, its lambdas'
-// included, and the boot-only functions it names as values.
-func (r *bootReport) root(body *bootBody) {
-	for _, c := range bootCallsOf(body.calls) {
-		r.reportCall(c)
-	}
-	r.lambdasAndValues(body)
-}
-
-// lambdasAndValues reports the calls to boot-only functions in body's
-// lambdas, which run whenever they are called, and the boot-only functions
-// body names as values.
-func (r *bootReport) lambdasAndValues(body *bootBody) {
-	for _, c := range bootCallsOf(body.lambdaCalls) {
-		r.reportCall(c)
-	}
-	for _, v := range body.values {
-		fd := funcDefOf(v.sym)
-		if fd == nil {
-			continue
-		}
-		if _, bootOnly := r.g.why[fd]; !bootOnly {
-			continue
-		}
-		r.add(v.pos, fmt.Sprintf("%s, so it cannot be passed as a value: a function value may be called anywhere, "+
-			"and a supervisor can only be created while `boot` builds the app value. Call it in boot instead",
-			r.because(bootCall{callee: fd, sym: v.sym})))
-	}
-}
-func (r *bootReport) reportCall(c bootCall) {
-	if c.callee == nil {
-		r.add(Pos{Line: c.call.Line, Col: c.call.Col}, "a supervisor here would be a new one every time this runs, and each "+
-			"is kept for the life of the program with a `max_running` of its "+
-			"own — so the bound would be per call rather than per downstream. "+
-			"Create it while `boot` builds the app value: in boot, or in "+
-			"something boot calls")
-		return
-	}
-	if _, bootOnly := r.g.why[c.callee]; !bootOnly {
-		return
-	}
-	if r.fa.Program().BootFunctions[c.callee] {
-		// A test's call of an entry boot runs it as boot: the call is
-		// where the app value is built (CheckAppRoots refuses one outside
-		// a test).
-		return
-	}
-	r.add(Pos{Line: c.call.Line, Col: c.call.Col}, fmt.Sprintf("%s, so it can only be called while `boot` builds "+
-		"the app value, in boot or in something boot calls: a supervisor made here would be a new one every time "+
-		"this runs, so the bound would be per call rather than per downstream", r.because(c)))
-}
-
-// because is "`f` creates a supervisor (...)", naming the chain of calls
-// from c's callee down to its Supervisor.new.
-func (r *bootReport) because(c bootCall) string {
-	return becauseText(bootName(c.sym, c.callee), bootSteps(r.g, c.callee))
-}
-
-// bootSteps names the chain of calls from fd down to its Supervisor.new,
-// one step per boot-only function: "`g` at file.nomi:12", ending
-// "`Supervisor.new` at file.nomi:40".
-func bootSteps(g *bootGraph, fd *ast.FuncDef) []string {
-	var steps []string
-	seen := map[*ast.FuncDef]bool{}
-	for fd != nil && !seen[fd] {
-		seen[fd] = true
-		why, ok := g.why[fd]
-		fn := g.fns[fd]
-		if !ok || fn == nil {
-			break
-		}
-		at := fmt.Sprintf("%s:%d", filepath.Base(fn.fa.FilePath), why.call.Line)
-		if why.callee == nil {
-			steps = append(steps, "`Supervisor.new` at "+at)
-			break
-		}
-		steps = append(steps, "`"+bootName(why.sym, why.callee)+"` at "+at)
-		fd = why.callee
-	}
-	return steps
+// bootValueMessage is the error where a boot-only function is named as a
+// value, because saying why it is one (becauseText).
+func bootValueMessage(because string) string {
+	return because + ", so it cannot be passed as a value: a function value may be called anywhere, " +
+		"and a supervisor can only be created while `boot` builds the app value. Call it in boot instead"
 }
 
 // becauseText is the reason a call to the function named name, whose chain
@@ -695,38 +825,9 @@ func bootName(sym *Symbol, fd *ast.FuncDef) string {
 	return name
 }
 
-func (r *bootReport) add(pos Pos, msg string) {
-	if r.reported[pos] {
-		return
-	}
-	r.reported[pos] = true
-	r.errors = append(r.errors, TypeError{Line: pos.Line, Col: pos.Col, Message: msg})
-}
-
+// isSupervisorNewSymbol reports whether sym is std's `Supervisor.new`, by
+// its declaration (StdFuncOf), and never a program type's `new`.
 func isSupervisorNewSymbol(fa *FileAnalysis, sym *Symbol) bool {
-	if sym == nil || sym.Kind != SymbolFunction || sym.Name != "new" || sym.OwningType != "Supervisor" {
-		return false
-	}
-	if sym.SourceFile != "" {
-		return isStdSupervisorsFile(sym.SourceFile)
-	}
-	if declaredOutsideStd(fa, sym, "std/supervisors") {
-		return false
-	}
-	if fa != nil {
-		if byName := fa.TypeMethods["Supervisor"]; sameSymbolDefinition(sym, byName["new"]) {
-			return true
-		}
-		if fa.Program().ImplIndex != nil {
-			if byName := fa.Program().ImplIndex.TypeMethods["Supervisor"]; sameSymbolDefinition(sym, byName["new"]) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func isStdSupervisorsFile(path string) bool {
-	name, ok := stdlibModuleForPath(path)
-	return ok && name == "supervisors"
+	return sym != nil && sym.Kind == SymbolFunction &&
+		fa.StdFuncOf(sym.Node) == StdFunc{Module: "std/supervisors", Owner: "Supervisor", Name: "new"}
 }

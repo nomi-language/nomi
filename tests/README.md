@@ -223,11 +223,11 @@ channels, cancellation, timeouts, and pipeline/concurrency examples.
 Typed literals and literal handlers: `Toml`, fragments, multi-literal modules,
 SQL fragments, and type-attached literals.
 
-### 18-ffi-and-dynamic
+### 18-json-and-dynamic
 
-Boundary values and decoding fixtures: `Dynamic`, JSON, and FFI-shaped examples.
-`tagged_ffi_app/` is a browsable `nomi run` and `nomi test` fixture for
-Nomi-side Go FFI binding discovery.
+JSON and `Dynamic`: encoding and decoding through derived and written
+impls, anonymous structs, containers, defaults, enums, decode errors and
+their text, and `Dynamic` decoders.
 
 ### 19-locales
 

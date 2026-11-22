@@ -50,15 +50,17 @@ test "bare variants resolve in pattern position and owner selector imports"
     hand_built = Json.Obj{"name" => JStr("Ada"), "age" => JInt(36)}
     null_jv: Json = Json.Null
 
-    json_pattern = case hand_built
-        .Obj(_) -> "got-obj"
-        _       -> "no"
-    end
+    json_pattern =
+        case hand_built
+            .Obj(_) -> "got-obj"
+            _       -> "no"
+        end
 
-    classified = case classify(7)
-        Ok(s)  -> "good: ${s}"
-        Err(e) -> "bad: ${e}"
-    end
+    classified =
+        case classify(7)
+            Ok(s)  -> "good: ${s}"
+            Err(e) -> "bad: ${e}"
+        end
 
     assert area(VariantShape.Square(3.0)) == 9.0
     assert area(make_shape()) == 12.56
@@ -133,18 +135,20 @@ test "dot-leading variants resolve from contextual enum types"
 
     c4: DotColor = id_color(.Green)
 
-    hit3: Int = case c1
-        .Red   -> 10
-        .Green -> 20
-        .Blue  -> 30
-    end
+    hit3: Int =
+        case c1
+            .Red   -> 10
+            .Green -> 20
+            .Blue  -> 30
+        end
 
-    hit4: Float = case s1
-        .Circle(r)      -> r
-        .Square(_)      -> 0.0
-        .Rect{w:, h: _} -> w
-        .Origin         -> -1.0
-    end
+    hit4: Float =
+        case s1
+            .Circle(r)      -> r
+            .Square(_)      -> 0.0
+            .Rect{w:, h: _} -> w
+            .Origin         -> -1.0
+        end
 
     theme =
         themes

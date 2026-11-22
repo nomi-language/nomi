@@ -9,9 +9,13 @@ import (
 
 // verifyCallForm fails, under substVerify, when the builder lowers t, a
 // qualified call of an interface's function whose receiver it holds as a
-// value of kind recv, by routine, which answers it as one of want, and the
-// checker's record of how the call is answered (analysis.Callee.Form, at
-// the instance's types: calleeAt) is none of them. A dispatched record is
+// value of kind recv, by routine, a routine chosen by the operand's kind
+// (a rendering, a std container's generic impl), which
+// answers it as one of want, and the checker's record of how the call is
+// answered (analysis.Callee.Form, at the instance's types: calleeAt) is
+// none of them. A call of an operator interface's function the record
+// answers otherwise than by an impl it calls is lowered by the record's
+// form itself (interfaceCall), and none of these routines sees it. A dispatched record is
 // answered by a routine that dispatches (want holds OperatorDispatched)
 // on a value held boxed, and by any routine on a value whose kind names
 // what it holds, an Iter's view of its source or a std value held unboxed
@@ -80,14 +84,4 @@ func formName(f analysis.OperatorForm) string {
 		return "per instance"
 	}
 	return "none"
-}
-
-// recordNamesImpl reports whether the checker answered t, a qualified
-// interface call, by an impl of its operand's type (analysis.Callee.Form,
-// at the instance's types). Such a call is not structural, whether or not
-// the impl's function is in scope yet: in an import cycle's first pass a
-// std module is lowered before the members whose impls it calls
-// (lowerStdUnit), so the scope cannot say whether an impl exists.
-func (g *gen) recordNamesImpl(t *ast.Call) bool {
-	return g.calleeAt(t).Form == analysis.OperatorByImpl
 }

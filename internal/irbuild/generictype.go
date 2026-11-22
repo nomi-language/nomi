@@ -15,10 +15,10 @@ import (
 // that need five different things:
 //
 //	A  a generic DECLARATION             types.go declModifiers
-//	B  an instantiation at CONCRETE args  sigreason.go genericRefusal
-//	C  an instantiation at a TYPE PARAM   sigreason.go genericRefusal
+//	B  an instantiation at CONCRETE args  sigreason.go recordedTypeRefusal
+//	C  an instantiation at a TYPE PARAM   sigreason.go recordedTypeRefusal
 //	D  a BARE type parameter              sigreason.go
-//	E  a STDLIB generic named type        sigreason.go genericRefusal
+//	E  a STDLIB generic named type        sigreason.go recordedTypeRefusal
 //
 // This file is A and B. D is a generic FUNCTION's type parameter and belongs to
 // the dictionary seam dict.go implements. E is `Channel<Int>` and
@@ -90,8 +90,7 @@ import (
 //
 // The def in `g.types` keeps declModifiers' `generic type` refusal, so a BARE
 // `Box` mention (a generic name used without arguments, which is not a type)
-// reports it. Only an INSTANTIATION is routed here, so `namedType` has no arm
-// for a template.
+// reports it. Only an INSTANTIATION is routed here.
 //
 // # ONE `decl` FIELD FOR TWO DECLARATION KINDS, NOT TWO FIELDS
 //
@@ -121,10 +120,6 @@ type genericTemplate struct {
 	// registered ONCE PER INSTANCE under the substitution frame. See
 	// genericimpl.go, which owns the mechanism and the reasoning.
 	impls []*genericImplTemplate
-	// hostImpls are the inherent blocks on this template whose every item is
-	// a Go-bound function. They register nowhere: a call to one of them
-	// crosses to the one Go function whatever T is (hostTemplateImplPlan).
-	hostImpls []*ast.ImplBlock
 	// scope is the block that declares a block-local template, nil for a
 	// module-level one. Its instances are resolved, and their impls built,
 	// with that block's declarations visible, as its fields may name them.
@@ -191,8 +186,11 @@ func (g *gen) collectGenericTemplates(nodes []ast.Node) {
 		}
 		if g.genericTemplates == nil {
 			g.genericTemplates = map[string]*genericTemplate{}
+			g.templatesByDecl = map[ast.Node]*genericTemplate{}
 		}
-		g.genericTemplates[name] = g.newGenericTemplate(n, name, tps, nodes)
+		tpl := g.newGenericTemplate(n, name, tps, nodes)
+		g.genericTemplates[name] = tpl
+		g.templatesByDecl[n] = tpl
 	}
 }
 
@@ -300,7 +298,7 @@ func (g *gen) genericInstance(tpl *genericTemplate, args []kind, types []analysi
 		if a.tag == tagTypeParam {
 			// Population C. `Box<T>` inside a generic FUNCTION has no concrete
 			// argument, so there is nothing to monomorphize at. Declining
-			// leaves genericRefusal's `generic type` to name it.
+			// leaves recordedTypeRefusal's `generic type` to name it.
 			return kindInvalid, false
 		}
 	}
@@ -586,6 +584,10 @@ func (g *gen) popSubst() {
 // so one insertion point covers the container and function spellings without an
 // arm of their own. That is the same property dict.go claims for its own arm.
 func (g *gen) genericSubstKind(name string) (kind, bool) {
+	if g == nil {
+		// No gen (projectShared), so no instance's frame.
+		return kindInvalid, false
+	}
 	for i := len(g.genericSubst) - 1; i >= 0; i-- {
 		if k, found := g.genericSubst[i].kinds[name]; found {
 			return k, true
@@ -643,6 +645,16 @@ func (g *gen) operandCheckerType(n ast.Node) analysis.Type {
 	return g.checkerTypeArg(g.checkedExprType(n))
 }
 
+// valueCheckerType is operandCheckerType of n where it is the type of a
+// value of kind k, the value n lowered to: nil where the checker recorded
+// for n a type of another kind (the type it converts to), or none.
+func (g *gen) valueCheckerType(n ast.Node, k kind) analysis.Type {
+	if t := g.operandCheckerType(n); t != nil && g.project(t) == k {
+		return t
+	}
+	return nil
+}
+
 // firstOperandType is operandCheckerType of t's first operand, the
 // receiver of each call that asks, or for an operand the builder wrote,
 // which has no type of its own, the type the call's record is for
@@ -673,66 +685,10 @@ func (g *gen) checkerTypeArgs(typeArgs []analysis.Type) []analysis.Type {
 }
 
 // typeInstantiator builds the instance of a generic type template at args,
-// with types the checker's types for them or nil (genericTemplateNamed).
+// with types the checker's types for them or nil (genericTemplateOf).
 type typeInstantiator func(args []kind, types []analysis.Type) (kind, bool)
 
-// isBoundTypeParam reports whether name is a type parameter of the instance
-// being built (`Struct` in `fn bump<Struct>(p: Struct)`), which a qualified
-// call spells as that instance's argument, never as the std name it
-// shadows (`Struct.update`).
-func (g *gen) isBoundTypeParam(name string) bool {
-	_, bound := g.genericSubstKind(name)
-	return bound
-}
-
 // --- reading an annotation, an inferred type and a literal -------------------
-
-// userGenericTypeOf reads the annotation `Box<Inner>`, declining when the name
-// is not a user generic declaration so `Foo<Bar>` keeps falling through to its
-// own refusal.
-//
-// A type ARGUMENT is resolved by the ordinary g.typeOf, so `Box<List<Int>>`
-// works and `Box<SomeUnrepresentableType>` declines on the kindInvalid gate in
-// genericInstance rather than admitting a def with a field this package cannot
-// represent.
-//
-// It takes the NAME and the arguments rather than the node, because the two
-// spellings put the qualifier in different places: `Box<Inner>` is one
-// *ast.GenericType, and `shapes.Holder<Int>` is an *ast.QualifiedType whose
-// MEMBER is one. Passing the joined name is what lets both reach
-// genericTemplateNamed, which is the single resolver for a template named
-// locally or through a module. The instance's checker types are the types
-// the checker recorded for the arguments (typeExprTypes).
-func (g *gen) userGenericTypeOf(name string, params []ast.TypeExpr) (kind, bool) {
-	_, instantiate, isTemplate := g.genericTemplateNamed(name, nil)
-	if !isTemplate {
-		return kindInvalid, false
-	}
-	args := make([]kind, len(params))
-	for i, p := range params {
-		args[i] = g.typeOf(p)
-	}
-	return instantiate(args, g.typeExprTypes(params))
-}
-
-// typeExprTypes is the checker's types for tes, the type arguments an
-// annotation writes: the type the checker recorded for each
-// (analysis.FileAnalysis.TypeExprTypes), with each enclosing instance's
-// type parameters it names put as that instance's types (checkerTypeArg).
-// Nil when one has none: a default argument written in the declaring
-// file, or a parameter an enclosing frame binds with no checker type.
-func (g *gen) typeExprTypes(tes []ast.TypeExpr) []analysis.Type {
-	if g.fa == nil || len(tes) == 0 {
-		return nil
-	}
-	out := make([]analysis.Type, len(tes))
-	for i, te := range tes {
-		if out[i] = g.checkerTypeArg(g.fa.TypeExprTypes[te]); out[i] == nil {
-			return nil
-		}
-	}
-	return out
-}
 
 // kindParts is a composite kind's component kinds, positionally, or nil.
 //
@@ -763,50 +719,20 @@ func kindParts(k kind) []kind {
 	return k.def.genStructArgs
 }
 
-// projectGenericInstance is userGenericTypeOf for a type the CHECKER solved
-// rather than the program wrote — an unannotated lambda parameter, a binding.
+// projectGenericInstance is the instance of a generic type the checker
+// solved, written (`b: Box<Inner>`, whose type expression's record is
+// projected) or not (an unannotated lambda parameter, a binding), so an
+// annotation and an inference over one value are one answer.
 //
-// An annotated `b: Box<Inner>` lowering while an inferred `fn b ->` over the same
-// value refuses would not be a smaller subset, it would be two answers to one
-// question. inferred.go's Map, Distinct and AnonStruct arms exist for the same
-// reason.
-//
-// Identity is the analyzer's own `(Origin, Name)` rule and not a name match, so
-// a sibling module's same-named `Box` answers only for its own origin: this
-// file's templates for this file's origin, and the declaring file's for
-// another's (foreignTemplateAt). A block-local template is found first by
-// params, the declaration's own type parameters, which every instance of it
-// shares, so an instance that escapes the block declaring it is still
-// found where its name does not resolve (blockLocalTemplateOf).
+// The template is the one the checker's type names (templateAt).
 func (g *gen) projectGenericInstance(params []*analysis.TypeParam_, origin, name string, typeArgs []analysis.Type) (kind, bool) {
-	// An empty Origin is the checker's on a type argument inside a variant
-	// constructor's instantiated result (`Wrapper<Wrapper<Int>>`); the name
-	// resolves among this module's own templates, as a type a body of this
-	// file declares (analysis.BodyOrigin) does.
-	if g.fa == nil {
+	// With no gen (projectShared) there are no templates.
+	if g == nil || g.fa == nil {
 		return kindInvalid, false
 	}
-	var instantiate typeInstantiator
-	if origin != "" && !analysis.IsBodyOrigin(origin) && origin != g.fa.Origin {
-		// Another file's template: the instance is built there and
-		// mirrored here, as a spelled `span.Span<Int>` is.
-		ref, found := g.foreignTemplateAt(origin, name)
-		if !found {
-			return kindInvalid, false
-		}
-		instantiate = func(args []kind, types []analysis.Type) (kind, bool) { return g.instantiateForeignAt(ref, args, types) }
-	} else {
-		tpl := g.blockLocalTemplateOf(params)
-		if tpl == nil {
-			tpl = g.blockLocalTemplate(name, nil)
-		}
-		if tpl == nil {
-			tpl = g.genericTemplates[name]
-		}
-		if tpl == nil {
-			return kindInvalid, false
-		}
-		instantiate = func(args []kind, types []analysis.Type) (kind, bool) { return g.genericInstance(tpl, args, types) }
+	_, instantiate, ok := g.templateAt(params, origin, name)
+	if !ok {
+		return kindInvalid, false
 	}
 	args := make([]kind, len(typeArgs))
 	for i, a := range typeArgs {
@@ -815,11 +741,122 @@ func (g *gen) projectGenericInstance(params []*analysis.TypeParam_, origin, name
 	return instantiate(args, g.checkerTypeArgs(typeArgs))
 }
 
-// templateInstanceOf is the instance of a template already resolved by name
-// (instantiate, from genericTemplateNamed) at the type arguments of t, a type
-// the checker solved for a construction of it. The template is the caller's
-// resolution, so t's Origin is not consulted: the checker leaves it unset on
-// a variant constructor's instantiated result.
+// genericTemplateOf is the template of the generic declaration the
+// checker's nominal type t names, an instance's or the declaration's own
+// type, with the function that instantiates it (templateAt). ok is false
+// for a type of no program file's generic declaration. Every caller lowers
+// a checked body, so the gen has its file's analysis.
+func (g *gen) genericTemplateOf(t analysis.Type) (*genericTemplate, typeInstantiator, bool) {
+	switch ty := analysis.ResolveClosed(t).(type) {
+	case *analysis.StructType:
+		return g.templateAt(ty.TypeParamDefs, ty.Origin, ty.Name)
+	case *analysis.EnumType:
+		return g.templateAt(ty.TypeParamDefs, ty.Origin, ty.Name)
+	case *analysis.DistinctType:
+		return g.templateAt(ty.TypeParamDefs, ty.Origin, ty.Name)
+	}
+	return nil, nil, false
+}
+
+// templateAt is the template of the generic declaration the checker names
+// (origin, name), whose type parameters are params, with the function that
+// instantiates it. Identity is the analyzer's own `(Origin, Name)` rule and
+// not a name match, so a sibling module's same-named `Box` answers only for
+// its own origin. A block-local template is found by params, which every
+// instance of it shares, so an instance that escapes the block declaring it
+// is found where its name does not resolve (blockLocalTemplateOf). Then
+// this module's (ownTemplate), whose instance is built in this gen; an
+// empty origin is this module's, the checker's on a type argument inside a
+// variant constructor's instantiated result (`Wrapper<Wrapper<Int>>`).
+// Another program file's is instantiated in the declaring gen and mirrored
+// here (foreignTemplateAt), as a spelled `span.Span<Int>` is.
+func (g *gen) templateAt(params []*analysis.TypeParam_, origin, name string) (*genericTemplate, typeInstantiator, bool) {
+	if len(params) == 0 {
+		return nil, nil, false
+	}
+	if g.otherFileOrigin(origin) {
+		ref, found := g.foreignTemplateAt(origin, name)
+		if !found {
+			return nil, nil, false
+		}
+		return ref.tpl, func(args []kind, types []analysis.Type) (kind, bool) { return g.instantiateForeignAt(ref, args, types) }, true
+	}
+	tpl := g.blockLocalTemplateOf(params)
+	if tpl == nil {
+		tpl = g.ownTemplate(origin, name)
+	}
+	if tpl == nil {
+		return nil, nil, false
+	}
+	return tpl, func(args []kind, types []analysis.Type) (kind, bool) { return g.genericInstance(tpl, args, types) }, true
+}
+
+// otherFileOrigin reports whether origin, a checker type's declaring
+// origin, is another program file's than this gen's: not empty (this
+// module's), not a body's, and not this file's own.
+func (g *gen) otherFileOrigin(origin string) bool {
+	return origin != "" && !analysis.IsBodyOrigin(origin) && origin != g.fa.Origin
+}
+
+// receiverTemplate is the template of the generic declaration impl block
+// ib's receiver names, by the type the checker recorded for the receiver
+// (genericTemplateOf), and whether another program file declares it. ok is
+// false for a receiver of no program file's generic declaration.
+func (g *gen) receiverTemplate(ib *ast.ImplBlock) (tpl *genericTemplate, foreign, ok bool) {
+	rec, _ := g.recordedTypeExpr(ib.Receiver)
+	if tpl, _, ok = g.genericTemplateOf(rec); !ok {
+		return nil, false, false
+	}
+	return tpl, g.otherFileOrigin(originOfType(analysis.ResolveClosed(rec))), true
+}
+
+// receiverTypeParamNames is the type parameter each of impl block ib's
+// receiver's type arguments is, by argument position: the name where the
+// checker recorded the argument as a type parameter of the block (`T` of
+// `impl Box<T>`), "" where it is a type (`Int` of `impl Box<Int>`). nil
+// when the receiver has no type arguments.
+func (g *gen) receiverTypeParamNames(ib *ast.ImplBlock) []string {
+	recv := ib.Receiver
+	if qt, qualified := recv.(*ast.QualifiedType); qualified {
+		recv = qt.Member
+	}
+	gt, generic := recv.(*ast.GenericType)
+	if !generic || len(gt.Params) == 0 {
+		return nil
+	}
+	out := make([]string, len(gt.Params))
+	for i, arg := range gt.Params {
+		rec, _ := g.recordedTypeExpr(arg)
+		if tp, isParam := rec.(*analysis.TypeParam_); isParam {
+			out[i] = tp.Name_
+		}
+	}
+	return out
+}
+
+// ownTemplate is the template of the declaration (origin, name) names in
+// this module, or nil. An empty origin is this module's (the checker's on a
+// variant constructor's instantiated result), and a body's origin names no
+// module-level declaration.
+func (g *gen) ownTemplate(origin, name string) *genericTemplate {
+	if origin == "" {
+		origin = g.fa.Origin
+	}
+	if analysis.IsBodyOrigin(origin) {
+		return nil
+	}
+	n := g.declNode(origin, name)
+	if isNilNode(n) {
+		return nil
+	}
+	return g.templatesByDecl[n]
+}
+
+// templateInstanceOf is the instance of a template the caller already has
+// (instantiate, from genericTemplateOf) at the type arguments of t, a type
+// the checker solved for a construction of it. The template is the caller's,
+// so t's Origin is not consulted: the checker leaves it unset on a variant
+// constructor's instantiated result.
 func (g *gen) templateInstanceOf(instantiate typeInstantiator, t analysis.Type) kind {
 	if tv, isVar := t.(*analysis.TypeVar); isVar {
 		if tv.Resolved == nil {

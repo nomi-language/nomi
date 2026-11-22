@@ -252,11 +252,3 @@ func ReceiverReceiveWithin[T any](fr *Frame, r Receiver[T], wait Duration) Resul
 	}
 	return Ok[Maybe[T], TimedOut](Some(got.Value.(T)))
 }
-
-// Arm is Nomi's `std/channels.Arm<R>`: one case of a select and its handler.
-// R is the handler's result; the handler is the embedder's value, which rt
-// holds without calling.
-type Arm[R any] struct {
-	Case    SelectCase
-	Handler any
-}

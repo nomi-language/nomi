@@ -36,18 +36,19 @@ fn double(n: Int) -> Int
 end
 
 fn main()
-    total = concurrent
-        a = Task.spawn(fn -> double(10))
-        b = Task.spawn(fn -> double(20))
-        c = Task.spawn(fn -> double(30))
-        Task.await(a) + Task.await(b) + Task.await(c)
-    end
+    total =
+        concurrent
+            a = Task.spawn(fn -> double(10))
+            b = Task.spawn(fn -> double(20))
+            c = Task.spawn(fn -> double(30))
+            Task.await(a) + Task.await(b) + Task.await(c)
+        end
 
     dbg total
 end
 ```
 <!-- expect
-dbg line 15: total = 120
+dbg line 16: total = 120
 -->
 
 - `concurrent` ... `end` owns every task started inside it. Its value is its
@@ -120,25 +121,26 @@ end
 fn main()
     ch = Channel.buffered<Int>(4)
 
-    total = concurrent
-        p1 = Task.spawn(fn -> produce(ch.sender, 10))
-        p2 = Task.spawn(fn -> produce(ch.sender, 20))
-        p3 = Task.spawn(fn -> produce(ch.sender, 30))
-        cons = Task.spawn(fn -> consume(ch.receiver))
+    total =
+        concurrent
+            p1 = Task.spawn(fn -> produce(ch.sender, 10))
+            p2 = Task.spawn(fn -> produce(ch.sender, 20))
+            p3 = Task.spawn(fn -> produce(ch.sender, 30))
+            cons = Task.spawn(fn -> consume(ch.receiver))
 
-        // Wait for the producers, then close so the consumer's loop ends on None.
-        Task.await(p1)
-        Task.await(p2)
-        Task.await(p3)
-        Sender.close(ch.sender)
-        Task.await(cons)
-    end
+            // Wait for the producers, then close so the consumer's loop ends on None.
+            Task.await(p1)
+            Task.await(p2)
+            Task.await(p3)
+            Sender.close(ch.sender)
+            Task.await(cons)
+        end
 
     dbg total
 end
 ```
 <!-- expect
-dbg line 40: total = 60
+dbg line 41: total = 60
 -->
 
 [`Receiver.receive`](/reference/channels/#receiverreceive) waits until a
@@ -182,22 +184,23 @@ fn main()
     replies = Channel.buffered<String>(1)
     failures = Channel.buffered<Int>(1)
 
-    answer = concurrent
-        worker = Task.spawn(fn -> Sender.send(failures.sender, 503))
-        _ = Task.await(worker)
+    answer =
+        concurrent
+            worker = Task.spawn(fn -> Sender.send(failures.sender, 503))
+            _ = Task.await(worker)
 
-        Channel.select([
-            Arm.receive(replies.receiver, fn reply -> Maybe.with_default(reply, "closed")),
-            Arm.receive(failures.receiver, fn code -> "failed: ${Maybe.with_default(code, 0)}"),
-            Arm.after(Duration.seconds(1), fn -> "timed out"),
-        ])
-    end
+            Channel.select([
+                Arm.receive(replies.receiver, fn reply -> Maybe.with_default(reply, "closed")),
+                Arm.receive(failures.receiver, fn code -> "failed: ${Maybe.with_default(code, 0)}"),
+                Arm.after(Duration.seconds(1), fn -> "timed out"),
+            ])
+        end
 
     dbg answer
 end
 ```
 <!-- expect
-dbg line 22: answer = "failed: 503"
+dbg line 23: answer = "failed: 503"
 -->
 
 When several arms are ready at once, the first one listed wins. For one
@@ -249,19 +252,20 @@ fn long_sleep() -> Result<Int, String>
 end
 
 fn main()
-    outcome = concurrent
-        short = Task.spawn(short_fail)
-        long = Task.spawn(long_sleep)
-        n = Task.await(short)?
-        _ = Task.await(long)?
-        Ok(n)
-    end
+    outcome =
+        concurrent
+            short = Task.spawn(short_fail)
+            long = Task.spawn(long_sleep)
+            n = Task.await(short)?
+            _ = Task.await(long)?
+            Ok(n)
+        end
 
     dbg outcome
 end
 ```
 <!-- expect
-dbg line 26: outcome = Err("boom")
+dbg line 27: outcome = Err("boom")
 -->
 
 The block returns after about 10 ms. The five-second sleep is cancelled; it
@@ -346,11 +350,12 @@ fn words(path: String) -> Result<Int, io.Error>
 end
 
 fn main()
-    counts = concurrent
-        ["b.txt", "a.txt", "missing.txt"]
-        |> Task.spawn_all(words, max_running: 8)
-        |> Task.await_all()
-    end
+    counts =
+        concurrent
+            ["b.txt", "a.txt", "missing.txt"]
+            |> Task.spawn_all(words, max_running: 8)
+            |> Task.await_all()
+        end
 
     dbg counts
 end
@@ -363,7 +368,7 @@ on the mat
 a dog
 ```
 <!-- expect
-dbg line 23: counts = [Ok(2), Ok(6), Err(NotFound{path: "missing.txt"})]
+dbg line 24: counts = [Ok(2), Ok(6), Err(NotFound{path: "missing.txt"})]
 -->
 
 At most eight run at a time, however many inputs you pass. With ten
@@ -407,11 +412,12 @@ did. A task that returns `Err` still finished normally, so it doesn't stop
 the batch. You decide what to do when some succeed and some don't:
 
 ```nomi
-outcomes = concurrent
-    ids
-    |> Task.spawn_all(fetch_user, max_running: 8)
-    |> Task.await_all()
-end
+outcomes =
+    concurrent
+        ids
+        |> Task.spawn_all(fetch_user, max_running: 8)
+        |> Task.await_all()
+    end
 
 failures = Iter.filter(outcomes, Result.is_err)
 ```
@@ -440,19 +446,20 @@ fn serve_conn() -> Int
 end
 
 fn main()
-    outcome = concurrent
-        conn = Task.spawn(serve_conn)
-        Task.cancel(conn)
-        // `Task.await` on a cancelled task would cancel this block too;
-        // `Task.outcome` reports it instead.
-        Task.outcome(conn)
-    end
+    outcome =
+        concurrent
+            conn = Task.spawn(serve_conn)
+            Task.cancel(conn)
+            // `Task.await` on a cancelled task would cancel this block too;
+            // `Task.outcome` reports it instead.
+            Task.outcome(conn)
+        end
 
     dbg outcome
 end
 ```
 <!-- expect
-dbg line 22: outcome = Cancelled
+dbg line 23: outcome = Cancelled
 -->
 
 This returns immediately, even though the task was in a 30-second sleep.
@@ -524,10 +531,11 @@ fn attempt() -> String
     // Broken: the deadline covers the `case` too, so the `case` never runs.
     with Config.context = Context.with_timeout(Config.context, Duration.seconds(1))
 
-    outcome = concurrent
-        t = Task.spawn(slow)
-        Task.outcome(t)
-    end
+    outcome =
+        concurrent
+            t = Task.spawn(slow)
+            Task.outcome(t)
+        end
 
     case outcome
         .Completed(v) -> "got ${v}"
@@ -567,23 +575,25 @@ fn slow_bounded() -> Int
 end
 
 fn main()
-    outcome = concurrent
-        t = Task.spawn(slow_bounded)
-        Task.outcome(t)
-    end
+    outcome =
+        concurrent
+            t = Task.spawn(slow_bounded)
+            Task.outcome(t)
+        end
 
     // Reached because `Task.outcome` sits outside the deadline.
-    result = case outcome
-        .Completed(v) -> "got ${v}"
-        .Cancelled    -> "timed out, falling back"
-        .Failed(_)    -> "broke"
-    end
+    result =
+        case outcome
+            .Completed(v) -> "got ${v}"
+            .Cancelled    -> "timed out, falling back"
+            .Failed(_)    -> "broke"
+        end
 
     dbg result
 end
 ```
 <!-- expect
-dbg line 39: result = "timed out, falling back"
+dbg line 41: result = "timed out, falling back"
 -->
 
 The five-minute sleep ends after 50 milliseconds, and the caller gets an
@@ -592,7 +602,7 @@ ordinary value to `case` on.
 ## When a task fails
 
 So far, tasks ended because they finished or because you stopped them. A
-task can also break: a bug, a bad FFI call, an index past the end.
+task can also break: a bug, a `todo` it reaches, an index past the end.
 
 A task ends in one of three ways:
 
@@ -642,4 +652,5 @@ Nomi values are immutable, so a task that dies halfway can't leave in-memory
 data half written. Writes it made outside the program, to a file or a
 database, stay made.
 
-[Calling Go](/calling-go/) is next. It calls functions from Go packages.
+[Generating Code](/generating-code/) is next. It shows how a tool writes
+Nomi code from data, as sqlkit does in [Databases](/databases/).

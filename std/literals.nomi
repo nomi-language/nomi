@@ -80,9 +80,9 @@ end
 /// prefix type picks the handler.
 ///
 /// A literal without slots is checked when the program is checked, so its
-/// handler may not have effects, and when the handler returns `Result<T, E>`
-/// the literal is a `T`. A literal with a slot is the `Result`, built when
-/// the program runs.
+/// handler may not have effects or read an app field, and when the handler
+/// returns `Result<T, E>` the literal is a `T`. A literal with a slot is the
+/// `Result`, built when the program runs.
 ///
 /// ```nomi
 /// impl Literal for Date
@@ -102,7 +102,7 @@ end
 ///   the literal's static text: the `n + 1` pieces around its `n` slots, in
 ///   order, empty ones included. An `Err` is a compile error at the
 ///   character its `LiteralError` names. `check` may not have effects
-///   (output, files, the clock, tasks, an application field).
+///   (output, files, the clock, tasks) or read an app field.
 /// - `check_type` is what the compiler runs, in `check`'s place: the same
 ///   statics, and a description of the literal's type: each of its type
 ///   arguments as Nomi spells it, in order. A `Route<{id: Uuid}>` literal

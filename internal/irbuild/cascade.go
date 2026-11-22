@@ -131,23 +131,3 @@ func appendPatternField(out []string, f ast.StructPatternField) []string {
 	}
 	return append(out, name)
 }
-
-// bindPatternNamesInvalid binds the names of a PARAMETER's pattern this
-// builder refused at kindInvalid.
-//
-// A destructuring parameter this builder refused still
-// puts its names in the body's scope in the source, so leaving them unbound
-// reports the refusal again at every use: `fn scale_point({x, y}: Point)`
-// would report one refused pattern three times.
-func (g *gen) bindPatternNamesInvalid(pat ast.Node) {
-	for _, name := range patternBinders(pat) {
-		if ast.IsDiscardName(name) {
-			continue
-		}
-		// kindInvalid: cascade — the refused parameter pattern is reported once, at the pattern.
-		if l, bound := g.top()[name]; bound && l.k != kindInvalid {
-			continue
-		}
-		g.bind(name, local{k: kindInvalid})
-	}
-}

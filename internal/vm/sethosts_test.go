@@ -28,7 +28,7 @@ func TestSetHostsValidateOperands(t *testing.T) {
 }
 
 func TestSetDebugPropagatesUnsupportedElement(t *testing.T) {
-	s := newSet([]any{rtStruct("Point", "x", int64(1))})
+	s := newSet([]any{complex(1, 2)})
 	if _, err := debugText(s); err == nil || !strings.Contains(err.Error(), "unrepresented") {
 		t.Fatalf("unsupported child: %v", err)
 	}

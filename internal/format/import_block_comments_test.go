@@ -56,30 +56,3 @@ func TestFormat_BlankBeforeCommentInPubImportBlock(t *testing.T) {
 		t.Errorf("blank line before comment in a `pub import` block was not preserved:\ngot:\n%s\nwant:\n%s", got, src)
 	}
 }
-
-func TestFormat_GoPackageHandleInImportRegion(t *testing.T) {
-	src := "gopkg \"modernc.org/sqlite\"\n"
-	want := "gopkg \"modernc.org/sqlite\"\n"
-	got, err := Format(src)
-	if err != nil {
-		t.Fatalf("Format: %v", err)
-	}
-	if got != want {
-		t.Errorf("unexpected formatted Go import block:\ngot:\n%s\nwant:\n%s", got, want)
-	}
-}
-
-func TestFormat_GoPackageHandleStaysSeparateFromNomiImports(t *testing.T) {
-	src := "gopkg \"database/sql\"\n" +
-		"import std::results.Result\n"
-	want := "gopkg \"database/sql\"\n" +
-		"\n" +
-		"import std::results.Result\n"
-	got, err := Format(src)
-	if err != nil {
-		t.Fatalf("Format: %v", err)
-	}
-	if got != want {
-		t.Errorf("Go imports should stay in a separate block:\ngot:\n%s\nwant:\n%s", got, want)
-	}
-}

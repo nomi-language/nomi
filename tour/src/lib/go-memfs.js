@@ -1,11 +1,10 @@
 // An in-memory file system for the Go runtime in the tour's worker, so the
 // compiler in nomi.wasm can read a project of files as it reads them from
-// disk. A tour block that names modules (a `// FILE: go.mod` section, a
-// generator's module under it, or several projects side by side, each a
-// top-level directory with its go.mod) is written here by
-// vmhost.LoadMarked and loaded from here: go.mod's requirements and each
-// module's nomi.toml are
-// files the front end reads with Go's `os` package, and a tool reads and
+// disk. A tour block that names modules (a nomi.toml whose [dependencies]
+// name a generator's module under it, or several projects side by side,
+// each a top-level directory with its nomi.toml) is written here by
+// vmhost.LoadMarked and loaded from here: each module's nomi.toml is
+// a file the front end reads with Go's `os` package, and a tool reads and
 // writes the block's files here too.
 //
 // Go's js/wasm `os` calls the Node-style `globalThis.fs` (syscall/fs_js.go):

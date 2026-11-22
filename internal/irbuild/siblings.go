@@ -91,11 +91,9 @@ type fileFunc struct {
 	// (siblingdefault.go), and a function value of it declines.
 	defaults bool
 	// params0 is the callee's parameter AST, carried so a SHORT call can read
-	// the default EXPRESSIONS rather than only know they exist. Needed because
-	// filling a cross-file default is admissible exactly when every name the
-	// expression mentions resolves to the same declaration from both files —
-	// defaultNamesAgree's question, asked here over a file function's
-	// parameters.
+	// the default EXPRESSIONS rather than only know they exist: a call whose
+	// callee's file builds no accessor lowers them at the call, from the
+	// declaring file's records (lowerNamesFrom).
 	params0 []ast.Param
 	// generic marks a generic declaration. Its `why` stays set, because no
 	// monomorphic signature exists to call; a call site builds an instance
@@ -160,8 +158,7 @@ type fileUnit struct {
 	scope *analysis.Scope
 	// fa is the file's analysis, which the partner-test rule reads its path
 	// from. Nil when scope is.
-	fa    *analysis.FileAnalysis
-	funcs map[string]*fileFunc
+	fa *analysis.FileAnalysis
 }
 
 // fileSite is one sibling declaration located by its DECLARATION NODE: which
@@ -183,7 +180,7 @@ type fileSite struct {
 	unit int
 	fn   *fileFunc
 	once *ast.OnceBinding
-	// host marks a Go-bound `host fn`, whose fn is hostShellOf's shell.
+	// host marks a user file's `host fn`, whose fn is hostShellOf's shell.
 	host bool
 }
 
@@ -192,9 +189,10 @@ type fileIndex struct {
 	units   []*fileUnit
 	byScope map[*analysis.Scope]int
 	// byDecl locates a top-level `fn` or `once` by the node that declares it,
-	// which is how a BARE mention — a selective import, aliased or not —
-	// finds its declaring unit. A qualified mention resolves through byScope
-	// instead, because it names the file rather than the declaration.
+	// which is how a mention finds its declaring unit and what it may do with
+	// the declaration: a bare one (a selective import, aliased or not) and a
+	// qualified one (`file.name`, whose member the checker resolves to the
+	// declaration; siblingFuncAt) alike.
 	byDecl map[ast.Node]fileSite
 	// implMembers locates every impl function in the PROGRAM by the
 	// declaration of the type it is for. A type-qualified call in one file
@@ -219,7 +217,7 @@ func buildFileIndex(p *Program, reg *typeRegistry) *fileIndex {
 	}
 	for i := range p.Modules {
 		m := &p.Modules[i]
-		u := &fileUnit{key: m.Name, funcs: map[string]*fileFunc{}}
+		u := &fileUnit{key: m.Name}
 		if m.FA != nil {
 			u.scope = m.FA.ModuleScope
 			u.fa = m.FA
@@ -230,13 +228,9 @@ func buildFileIndex(p *Program, reg *typeRegistry) *fileIndex {
 			}
 			switch d := n.(type) {
 			case *ast.FuncDef:
-				shell := fileFuncShell(reg, d, strings.HasPrefix(m.Name, "std/"))
-				u.funcs[d.Name] = shell
-				// One declaration, one entry. A duplicate `fn` name in one
-				// file is an analyzer error, so the name-keyed table above
-				// cannot lose an entry either — but this map is keyed on the
-				// node and so cannot collide at all.
-				x.byDecl[d] = fileSite{unit: i, fn: shell}
+				// One declaration, one entry: keyed on the node, so two
+				// declarations cannot collide.
+				x.byDecl[d] = fileSite{unit: i, fn: fileFuncShell(reg, d, strings.HasPrefix(m.Name, "std/"))}
 			case *ast.OnceBinding:
 				// No shell: a `once`'s kind is settled in declareOnces, which
 				// runs after this index exists, and the declaring gen's own
@@ -254,17 +248,15 @@ func buildFileIndex(p *Program, reg *typeRegistry) *fileIndex {
 				}
 
 			case *ast.ExternFunc:
-				// A Go-bound `host fn` is a callable a sibling file may name,
+				// A `host fn` is a callable a sibling file may name,
 				// so it belongs in this index exactly as a `fn` does. Keyed on
 				// the EXTERN node, because that is what the analyzer resolves
 				// a reference to; the shell is what the signature and the Go
 				// name are read off. See hostpkg.go.
-				if !hostCallable(d) {
+				if !hostTableFn(d) {
 					continue
 				}
-				shell := fileFuncShell(reg, hostShellOf(d), false)
-				u.funcs[d.Name] = shell
-				x.byDecl[d] = fileSite{unit: i, fn: shell, host: true}
+				x.byDecl[d] = fileSite{unit: i, fn: fileFuncShell(reg, hostShellOf(d), false), host: true}
 			}
 		}
 		x.units[i] = u
@@ -319,13 +311,13 @@ func (x *fileIndex) indexEditedStdTwins(p *Program) {
 // The kinds produced belong to the DECLARING gen and
 // are translated at the call site through importKind.
 func (x *fileIndex) resolveSignatures(gens []*gen) {
-	for i, u := range x.units {
+	for i := range x.units {
 		g := gens[i]
 		for _, n := range g.nodes {
 			if isSynthesized(n) {
 				continue
 			}
-			// A Go-bound `host fn`'s signature is typed here too, through the
+			// A `host fn`'s signature is typed here too, through the
 			// SAME shell buildFileIndex indexed — so the cross-file kinds and
 			// the declaring gen's own `g.funcs` entry are resolved from one
 			// declaration rather than from two independently built ones. See
@@ -335,14 +327,14 @@ func (x *fileIndex) resolveSignatures(gens []*gen) {
 			case *ast.FuncDef:
 				fd = d
 			case *ast.ExternFunc:
-				if !hostCallable(d) {
+				if !hostTableFn(d) {
 					continue
 				}
 				fd = hostShellOf(d)
 			default:
 				continue
 			}
-			f := u.funcs[fd.Name]
+			f := x.byDecl[n].fn
 			if f == nil || f.why != "" {
 				continue
 			}
@@ -389,7 +381,7 @@ func fileFuncShell(reg *typeRegistry, fd *ast.FuncDef, inStd bool) *fileFunc {
 		f.why, f.generic = "generic sibling file function", true
 		return f
 	}
-	// A Go-bound `host fn` has no Body and IS lowerable, so the body clause is
+	// A `host fn` has no Body and IS lowerable, so the body clause is
 	// asked about the shell rather than about the shape. Everything else here
 	// still applies to one: it must be `pub` to be reachable and it must not be
 	// generic. Its unit builds the accessors a call that omits a defaulted
@@ -499,6 +491,25 @@ func (x *fileIndex) lookupBare(fa *analysis.FileAnalysis, id *ast.Ident) (fileSi
 	return site, ok
 }
 
+// siblingFuncAt is unit to's function that field, the member of a call or
+// reference `file.name`, names: the declaration the checker resolved it to
+// (its reference at field, fileIndex.byDecl). Nil when that is no function
+// of that unit.
+func (g *gen) siblingFuncAt(to int, field *ast.Ident) *fileFunc {
+	if g.files == nil || field == nil {
+		return nil
+	}
+	sym := resolveSymbol(g.identRef(field))
+	if sym == nil {
+		return nil
+	}
+	site, ok := g.files.byDecl[sym.Node]
+	if !ok || site.unit != to {
+		return nil
+	}
+	return site.fn
+}
+
 // moduleScopeOf follows a name to the member scope of the file API object it
 // is bound to, or nil when it is not bound to one. Only a file import binds
 // one: a file is never re-exported, so a selective import's proxy never
@@ -508,81 +519,6 @@ func moduleScopeOf(fa *analysis.FileAnalysis, name string) *analysis.Scope {
 		return nil
 	}
 	return symbolModuleScope(fa.ModuleScope.Lookup(name))
-}
-
-// moduleScope is the file a qualifier names where this gen is lowering: the
-// innermost visible block's `import` of it first (the blocks being lowered,
-// visibleBlockModule), which shadows the file's binding for the rest of its
-// block as it does for the checker (`import std::xml as fmt` over the
-// file's `import std::csv as fmt`), then the module scope's (moduleScopeOf).
-// A type named through it (`json.Json.Null`, `json.Json` in an annotation)
-// reaches that file's scope by name. Outside the blocks being lowered, a
-// name only blocks bind, and two of them to different files, resolves to
-// nothing, so its uses decline rather than pick one.
-func (g *gen) moduleScope(name string) *analysis.Scope {
-	if g.fa == nil || g.fa.ModuleScope == nil {
-		return nil
-	}
-	if scope := g.visibleBlockModule(name); scope != nil {
-		return scope
-	}
-	if scope := moduleScopeOf(g.fa, name); scope != nil {
-		return scope
-	}
-	if g.blockImports == nil {
-		g.blockImports = map[string]*analysis.Scope{}
-		for _, sym := range g.fa.Definitions {
-			if sym == nil {
-				continue
-			}
-			if _, isImport := sym.Node.(*ast.ImportStmt); !isImport || g.fa.ModuleScope.Lookup(sym.Name) != nil {
-				continue
-			}
-			scope := symbolModuleScope(sym)
-			if prev, seen := g.blockImports[sym.Name]; seen && prev != scope {
-				scope = nil
-			}
-			g.blockImports[sym.Name] = scope
-		}
-	}
-	return g.blockImports[name]
-}
-
-// visibleBlockModule is the file the innermost visible block's `import`
-// binds name to (enterTypeScope makes a block visible while it is
-// lowered), or nil.
-func (g *gen) visibleBlockModule(name string) *analysis.Scope {
-	for i := len(g.typeScopes) - 1; i >= 0; i-- {
-		for _, imp := range g.typeScopes[i].imports {
-			if scope := g.importBindings(imp)[name]; scope != nil {
-				return scope
-			}
-		}
-	}
-	return nil
-}
-
-// importBindings is the files an `import` statement of this gen's file
-// binds, by the name each is bound under, as the checker defined them.
-func (g *gen) importBindings(imp *ast.ImportStmt) map[string]*analysis.Scope {
-	if g.importScopes == nil {
-		g.importScopes = map[*ast.ImportStmt]map[string]*analysis.Scope{}
-		for _, sym := range g.fa.Definitions {
-			if sym == nil {
-				continue
-			}
-			n, isImport := sym.Node.(*ast.ImportStmt)
-			scope := symbolModuleScope(sym)
-			if !isImport || scope == nil {
-				continue
-			}
-			if g.importScopes[n] == nil {
-				g.importScopes[n] = map[string]*analysis.Scope{}
-			}
-			g.importScopes[n][sym.Name] = scope
-		}
-	}
-	return g.importScopes[imp]
 }
 
 func symbolModuleScope(sym *analysis.Symbol) *analysis.Scope {
@@ -601,8 +537,9 @@ func symbolModuleScope(sym *analysis.Symbol) *analysis.Scope {
 // It answers nil for an identifier the builder wrote itself (madeIdent):
 // such an identifier often stands at a written node's position, where
 // References names that node's symbol and not the name the builder wrote,
-// so its record is never read. A nil answer leaves the caller to the
-// name's spelling (moduleScopeOf, boundBySpelling), and nothing else does.
+// so its record is never read. Such an identifier that reads a local
+// carries its key (madeRead); a qualifier of one that names no local is
+// resolved by its spelling (moduleScopeOf), and nothing else is.
 func (g *gen) identRef(id *ast.Ident) *analysis.Symbol {
 	if g.unchecked[id] {
 		return nil
@@ -649,15 +586,14 @@ func scopeOfRef(fa *analysis.FileAnalysis, ref *analysis.Symbol, name string) *a
 	return moduleScopeOf(fa, name)
 }
 
-// namesLocal reports whether id names a value a body binds (bodyBinding):
-// a qualifier that does is a value whose field a call reads, never a file,
-// and a callee that does is called through the value. An identifier the
-// builder wrote goes by the bindings of its spelling (boundBySpelling).
+// namesLocal reports whether id names a value a body binds: a qualifier
+// that does is a value whose field a call reads, never a file, and a
+// callee that does is called through the value. It is whether id has a
+// local's key (readKey): the checker resolved it to a body's binding
+// (bodyBinding), or the builder wrote it to read one of its own.
 func (bl *irScalarBuilder) namesLocal(id *ast.Ident) bool {
-	if ref := bl.g.identRef(id); ref != nil {
-		return bodyBinding(bl.g.srcFA(), ref)
-	}
-	return bl.boundBySpelling(id.Name)
+	_, local, _ := bl.readKey(id)
+	return local
 }
 
 // bodyBinding reports whether sym, a reference the checker recorded in fa,
@@ -677,24 +613,6 @@ func bodyBinding(fa *analysis.FileAnalysis, sym *analysis.Symbol) bool {
 		return top == nil || top.Node != fd
 	}
 	return false
-}
-
-// boundBySpelling reports whether name is bound in this body or one
-// enclosing it, or is a parameter: the answer for an identifier the
-// builder wrote, which has no reference to read (identRef).
-func (bl *irScalarBuilder) boundBySpelling(name string) bool {
-	for scope := bl; scope != nil; scope = scope.parent {
-		if _, bound := scope.boundK[name]; bound {
-			return true
-		}
-		if scope.sh != nil {
-			if _, param := scope.sh.params[name]; param {
-				return true
-			}
-		}
-	}
-	_, bound := bl.g.lookup(name)
-	return bound
 }
 
 // lookupQualifier resolves a file qualifier to a unit index: the file

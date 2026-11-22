@@ -970,11 +970,12 @@ better once the pattern has a payload, a wildcard or an `or`
 names:
 
 ```nomi
-label = if Some(name) = maybe_name then
-    name
-else
-    "unknown"
-end
+label =
+    if Some(name) = maybe_name then
+        name
+    else
+        "unknown"
+    end
 ```
 
 Write a `case` when every outcome continues with work of its own, when there
@@ -1056,23 +1057,25 @@ An `if` chain that picks a value from three or more branches is the same
 choice, so it is this `case` too:
 
 ```nomi
-size = case
-    bytes < 1_024     -> "${bytes} B"
-    bytes < 1_048_576 -> "${bytes / 1_024} KB"
-    _                 -> "${bytes / 1_048_576} MB"
-end
+size =
+    case
+        bytes < 1_024     -> "${bytes} B"
+        bytes < 1_048_576 -> "${bytes / 1_024} KB"
+        _                 -> "${bytes / 1_048_576} MB"
+    end
 ```
 
 not
 
 ```nomi
-size = if bytes < 1_024 then
-    "${bytes} B"
-else if bytes < 1_048_576 then
-    "${bytes / 1_024} KB"
-else
-    "${bytes / 1_048_576} MB"
-end
+size =
+    if bytes < 1_024 then
+        "${bytes} B"
+    else if bytes < 1_048_576 then
+        "${bytes / 1_024} KB"
+    else
+        "${bytes / 1_048_576} MB"
+    end
 ```
 
 A plain `if`/`else` of two branches stays an `if`, and so does a chain
@@ -2038,9 +2041,12 @@ prelude's `NonEmptyList` (or `NonEmptyVector`, `NonEmptyMap`,
 `NonEmptySet`) and returns its answer, rather than taking a `List` and
 returning a `Maybe` that every caller who already knows the list has
 elements must unwrap. Return a `Maybe` when emptiness comes from data the
-caller does not control, as `Iter.first` on any iterable does. A caller
-holding a List checks it once, with `NonEmptyList.try_from`, where the
-list is made:
+caller does not control, as `Iter.first` on any iterable does. A literal
+with an element needs no check, and neither does a binding of one with
+no type written. A function that needs a name or a key takes a
+`NonEmptyString` the same way, and a string literal with any text, or a
+binding of one, needs no check. A caller holding a List computed when the program runs
+checks it once, with `NonEmptyList.try_from`, where the list is made:
 
 ```nomi
 fn average(xs: NonEmptyList<Float>) -> Float
@@ -2182,7 +2188,7 @@ end
 ```
 
 The other pairs: `fs.open` and `Reader.close_quietly`, `fs.open_file` and
-`File.close_quietly`, `fs.make_temp_dir` and `fs.remove_all_quietly`,
+`File.close_quietly`, `fs.open_dir` and `Dir.close`, `fs.make_temp_dir` and `fs.remove_all_quietly`,
 `process.spawn` and `Child.kill`, `http.stream` and `StreamedResponse.close`, and a
 driver's open and `sql.close_quietly`.
 
@@ -2223,3 +2229,26 @@ your own enters its interface unboxed, so the two forms cost the same.
 
 `nomi check` and the editor suggest this rewrite, with a fix, for a type
 parameter used once as a parameter's type under one bound.
+
+### 53. Pass a handle, or hold it in an app field, rather than a `once`
+
+A function that writes to a stream, a file or a database takes the handle
+as a parameter, or reads it from an app field that `boot` opens. A test
+then hands it a writer into memory or a fake, through the argument or with
+`with App.field = ...`, and the editor draws bold each call that acts
+through the handle, up to `main`
+([The language server](/tooling/editors-and-debugger/#the-language-server)):
+
+```nomi
+import std::io.{Error, Writer}
+
+fn report(to: Writer, count: Int) -> Result<Unit, Error>
+    to |> Writer.print("${count} items")
+end
+```
+
+A `once` that opens a handle hides it: every caller shares the one handle,
+a test cannot replace it, and a read of it is a value, which the editor does
+not mark. `io.stdout`, `io.stderr` and `io.stdin` are the exceptions: the
+standard streams are std's `once` values, and a program reads them where it
+starts, as in `report(io.stdout, 3)`.

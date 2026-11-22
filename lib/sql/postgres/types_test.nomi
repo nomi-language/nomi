@@ -1,0 +1,65 @@
+import
+    std::calendar.{NaiveDateTime, Time}
+    std::instant.Instant
+    std::sql.Value
+    std::uuid.Uuid
+    postgres::types.{self, Codec, Kind}
+end
+
+test "a binary int8[] with a NULL reads as an Array"
+    // ndim 1, has NULLs, element type 20; one dimension of 3 from 1; then
+    // 8 bytes of 1, a NULL, 8 bytes of 3.
+    data = Bytes.from_list([
+        0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 20, 0, 0, 0, 3, 0, 0, 0, 1, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0,
+        0, 1, 255, 255, 255, 255, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 3,
+    ])
+
+    assert types.decode(types.codec(1016), 1, Some(data))
+        == Ok(Value.Array([Value.Int(1), Value.Null, Value.Int(3)]))
+
+    assert types.decode(
+        types.codec(1016),
+        1,
+        Some(Bytes.from_list([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20])),
+    ) == Ok(Value.Array([]))
+end
+
+test "binary times, timestamps and uuids read as their values"
+    noon = Bytes.from_list([0, 0, 0, 10, 122, 137, 110, 96])
+    assert types.binary_value(Kind.Time, noon) == Ok(Value.Time(Time"12:30:05.5"))
+
+    // 2026-10-19 12:30:05.5, in microseconds from 2000.
+    at = Bytes.from_list([0, 3, 1, 47, 113, 67, 238, 96])
+
+    assert types.binary_value(Kind.Timestamp, at)
+        == Ok(Value.Timestamp(NaiveDateTime"2026-10-19T12:30:05.5"))
+
+    id = Uuid"0192f4c8-6f0e-7b39-9d6a-3c1f2b5e8a10"
+    assert types.binary_value(Kind.Uuid, Uuid.to_bytes(id)) == Ok(Value.Uuid(id))
+end
+
+test "a timestamp written in binary reads back as itself"
+    t = NaiveDateTime"2026-10-19T12:30:05.5"
+    assert Ok((1, Some(data))) = types.encode(Value.Timestamp(t), 1114)
+    assert types.binary_value(Kind.Timestamp, data) == Ok(Value.Timestamp(t))
+end
+
+test "numerics in binary read exactly, with their scale"
+    // 0.0001: one digit group of 1, weight -1, scale 4.
+    small = Bytes.from_list([0, 1, 255, 255, 0, 0, 0, 4, 0, 1])
+    assert types.numeric_value(small) == Some(Value.Decimal(0.0001d))
+
+    // 123456789012345678901: groups 1, 2345, 6789, 123, 4567, 8901 from weight 5.
+    big = Bytes.from_list([0, 6, 0, 5, 0, 0, 0, 0, 0, 1, 9, 41, 26, 133, 0, 123, 17, 215, 34, 197])
+    assert types.numeric_value(big) == Some(Value.Decimal(123456789012345678901d))
+end
+
+test "a parameter of a type the server reads in text is sent as its text"
+    assert types.encode(Value.Decimal(12.25d), 1700) == Ok((0, Some(String.to_bytes("12.25"))))
+    assert types.encode(Value.Text("a"), 0) == Ok((0, Some(String.to_bytes("a"))))
+
+    assert types.encode(Value.Timestamptz(Instant.from_seconds(0)), 25)
+        == Ok((0, Some(String.to_bytes("1970-01-01 00:00:00+00"))))
+
+    assert types.codec(1043) == Codec{kind: .Text}
+end

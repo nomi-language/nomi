@@ -70,10 +70,11 @@ pub fn of(declared: String) -> Maybe<Family>
             Unit
     end
 
-    name = case String.split(upper, "(")
-        [first, ..] -> String.trim(first)
-        _           -> upper
-    end
+    name =
+        case String.split(upper, "(")
+            [first, ..] -> String.trim(first)
+            _           -> upper
+        end
 
     calendar = Some("std::calendar")
 
@@ -201,18 +202,20 @@ pub fn postgres(type_name: String) -> Maybe<String>
 
     // A precision (`timestamp(3)`, `time(0)`) does not change the family;
     // a numeric's does, as its scale.
-    base = case String.split(name, "(")
-        [head, ..rest] ->
-            tail = case rest
-                [args] -> String.split(args, ")") |> Iter.drop(1) |> String.join(")")
-                _      -> ""
-            end
+    base =
+        case String.split(name, "(")
+            [head, ..rest] ->
+                tail =
+                    case rest
+                        [args] -> String.split(args, ")") |> Iter.drop(1) |> String.join(")")
+                        _      -> ""
+                    end
 
-            String.trim(head + tail)
+                String.trim(head + tail)
 
-        _ ->
-            name
-    end
+            _ ->
+                name
+        end
 
     case base
         "smallint" or "integer" or "bigint" -> Some(String.uppercase(base))

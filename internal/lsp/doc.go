@@ -53,12 +53,12 @@
 // A lowering's error carries its fix the same way (frontend.Diagnostic's
 // Fix): a run keeps the errors of the document that have one
 // (loweringChecks.fixesOf), and the code action offers them. A call
-// nomi.toml's [capabilities] lists do not allow carries the edit to
+// nomi.toml's [effects] lists do not allow carries the edit to
 // nomi.toml that adds what its help says to add (vmhost's allowFix,
-// analysis.AllowCapabilities), so its edits are in another file
+// analysis.AllowEffects), so its edits are in another file
 // (parser.Fix's Path): the action is a WorkspaceEdit of nomi.toml, read as
 // the server reads it (contentForURI), and it is never the preferred fix,
-// since it widens what the program may reach. A refused call in a
+// since it widens the effects the program may have. A refused call in a
 // dependency's file is shown in the document at each place the project's
 // code leads there (the diagnostic's Related, vmhost's leadsTo), headed
 // by what the place says, with the dependency's call as its
@@ -81,26 +81,28 @@
 // file's own text, parsed as the front end parses it
 // (analysis.ParseManifestIn), with its error at its line
 // (analysis.ManifestErrorAt); and each open document's last lowering,
-// whose errors about the [capabilities] lists are in the file
+// whose errors about the [effects] lists are in the file
 // (manifestDiagnostics). The lists' errors therefore follow the programs
 // of the open documents, as `nomi check` of those files reports them.
 // Completion in nomi.toml offers std module names inside a list of std
-// names (capability.StdNames). Inside [capabilities.deps]' `go` and
-// `go_in_tests` it offers the dependencies whose code binds Go, and as a
-// key under [capabilities.deps.modules] each dependency with its whole
-// entry, what its own files reach, in the text the fix of a missing entry
-// writes (analysis.ModuleEntryText over vmhost.Reach.Tightest), from what
-// the project's programs reach (projectReaches, below): the modules they
-// load Nomi files from (vmhost.Reach's Modules), less those the list or
-// table already names (manifestCompletion).
+// names (effects.StdNames), and as a key in a table of entries
+// (analysis.EntryLists: under [effects.self.modules] or
+// [effects.deps.modules]) each module of the project or dependency with
+// its whole entry, the effects its own
+// files have, in the text the fix of a missing entry writes
+// (analysis.ModuleEntryText over vmhost.Reach.Entries), from the effects
+// the project's programs have (projectReaches, below): the keys they load
+// files from (vmhost.Reach.EntryKeys), less those the table already names
+// (manifestCompletion). The code for the two tables is one, given which
+// table the place is in (manifestPlace.entries).
 // Completion, hover and references find what the cursor is on the same way
 // (manifestPlaceAt): the table, the key whose value holds it, and the
 // string under it.
 //
-// # What a project reaches, in nomi.toml
+// # The effects a project has, in nomi.toml
 //
-// Hover and references on a std name in a capability list answer from
-// what the project's programs reach, worked out as `nomi capabilities`
+// Hover and references on a std name in an effects list answer from
+// the effects the project's programs have, worked out as `nomi effects`
 // works it out: the programs `nomi check` checks in the module's root
 // (frontend.CheckedFiles), each reached and added (vmhost.ReachedAll), from
 // the Nomi files on disk and the editor's text of nomi.toml
@@ -112,59 +114,77 @@
 // program that does not check has no answer.
 //
 // A hover on a std name shows the calls that list holds it for, as `nomi
-// capabilities --why` prints them (vmhost.Reach.Why and WriteWhy), at most
+// effects --why` prints them (vmhost.Reach.Why and WriteWhy), at most
 // maxHoverCalls with a count of the rest: the project's own calls under
-// [capabilities.self], the dependencies' under [capabilities.deps], and the
-// module's own under its entry (neededBy). A name none of them reaches says
+// [effects.self], the dependencies' under [effects.deps], and the
+// module's own under its entry (neededBy). A name none of them has says
 // so (nothingReaches). References answer the same calls, at their callees.
 //
 // Each open nomi.toml has a hint, tagged unnecessary, at each std name its
-// lists hold that `nomi capabilities --check` reports unused: the changes
-// from its tables to the tightest ones (analysis.CapabilityChanges) that
+// lists hold that `nomi effects --check` reports unused: the changes
+// from its tables to the tightest ones (analysis.EffectChanges) that
 // --check holds them to (vmhost.HeldChanges), each a removal of a name
 // from a list of std names (unusedHints). The message says why: nothing
-// the list holds reaches it, only the tests reach a name std holds, or std
+// the list holds has the effect, only the tests have a name std holds, or std
 // already allows a name std_in_tests holds. Its fix, offered from the
 // code actions in nomi.toml (manifestFixes), writes the tables without the
-// name with the writer `nomi capabilities --write` uses
-// (analysis.CapabilitiesFix), moving a name only the tests reach to
+// name with the writer `nomi effects --write` uses
+// (analysis.EffectsFix), moving a name only the tests have to
 // std_in_tests. The hints are published under their own source
 // (unusedSource) after each change (reachChanged), the newest refresh
 // winning, and cleared when the file closes. A project with a program
 // that does not check has none.
 //
-// A hover on a dependency's path, in [capabilities.deps]' go and
-// go_in_tests and as a key under [capabilities.deps.modules], shows what
-// the module's own files reach as `nomi add` prints it
-// (vmhost.Reach.ModuleReaches, vmhost.WriteModuleReach), or that no program
-// imports it yet. The error entries_required reports for a dependency with
-// no entry carries its fix from where vmhost builds it (entryFix): the
-// entry with what the module reaches in the lowered program, written as
+// A hover on a key under [effects.self.modules] or
+// [effects.deps.modules] shows the effects the module's own files
+// have as `nomi add` prints them (vmhost.Reach.EntryReaches, vmhost.WriteModuleReach),
+// or that no program imports it yet. The error entries_required reports,
+// in either table, for a module with no entry carries its fix from where
+// vmhost builds it (entryFix): the
+// entry with the effects the module has in the lowered program, written as
 // `nomi add` writes it. The lowering keeps the fixes of its errors in a
 // nomi.toml beside them (manifestDiagnostics, loweringChecks.manifestFixes),
 // and the code actions in the file offer them with the hints' fixes.
 //
-// # What a call reaches
+// # The effects a call has
 //
 // A lowering run keeps, beside the document's diagnostics and fixes and
-// under the same key, the outside calls its program reaches
+// under the same key, the effect calls its program reaches
 // (analyzedlowering.Found's Reached) with the text it lowered. They come
-// from the walk `nomi check` holds to nomi.toml's [capabilities] lists,
+// from the walk `nomi check` holds to nomi.toml's [effects] lists,
 // from main, the boot, the exported functions and the tests, which every
-// lowering runs once, lists or not (vmhost's loweringProblems): each call
+// lowering runs once, lists or not, and then from the same walk started
+// at every function of the program and its dependencies that the first
+// does not reach (vmhost's loweringProblems and editorWalks), so a
+// function nothing calls yet is marked too. The second walk only adds
+// lines where the first left none, its calls are held to the lists
+// outside tests, and no diagnostic comes from it. Its lines are marked
+// Fills (analyzedlowering.Reached), and a hover shows one only where no
+// other lowering's line is, so a dependency's file open on its own reads
+// as the program that reaches it says. Each call is
 // at its callee, where the diagnostics point (shownSpan), with the line
-// hover shows (capability.ReachedLine), refused or allowed as the lists'
+// hover shows ("Has effects: `std::fs`.", effects.ReachedLine), refused or allowed as the lists'
 // one rule decides (standingsOf), naming the table of nomi.toml that
-// allows or refuses it, or saying that no table holds it; a site that is
-// no call, a `go` binding's declaration, is a point, which the token
-// starting there shows. The same walk says what each function of the
-// program and its dependencies can reach (vm.OutsideWalk.Reaches, vmhost's
-// reachedFuncs): its name, and each call of it outside std, says the one
-// name it can reach in full, through the functions on the way, or of
+// allows or refuses it, or saying that no table holds it. A read of a std
+// `once` whose initializer has effects (`io.stdout`) is such a call, which
+// the walk takes to the initializer: a qualified read is shown from its dot
+// to the end of the name it reads, and a site that is no call or qualified
+// read (a bare once read, a `host fn`'s declaration) is a point, which
+// the token starting there shows. The same walks say which effects each
+// function of the program and its dependencies can have, a `once`'s
+// initializer among them (vm.EffectWalk.Reaches, vmhost's reachedFuncs):
+// its name, a once's name, and each call of it, or read of the once,
+// outside std, says the one
+// effect it can have in full, through the functions on the way, or of
 // several each refused one in full, four at most, and the rest in one
-// line by name (capability.FunctionReach); a generic function's
-// name holds what any of its instances can reach, and a function that
-// reaches nothing, or that the walk never reaches, has none. A call in a
+// line by name (effects.FunctionReach); a generic function's
+// name holds the effects any of its instances can have, and a function
+// with no effects has none. So does a generic function no call
+// instantiates, which has no instance to walk, and a body the builder
+// declines, which is not lowered. At the same
+// places, a function that reads or replaces app fields, itself or through
+// what it can reach, has a line naming them (vm.EffectWalk.Uses,
+// effects.UsesLine), which no list holds and no token marks. A call in a
 // file whose syntax the lowered program does not hold, as in a lowering
 // relinked from kept objects, is placed at its callee in that file's text
 // (vmhost's Program.syntaxOf). The memo
@@ -177,12 +197,28 @@
 // lowered the text shown, then another open document's run's in the file,
 // whose program reaches it, when the file is as on disk, which that
 // lowering read.
-// Hover does not wait for a run, as the published diagnostics do not: a
-// hover before the run of the text shown has finished has no line, and
-// the first hover after it has one. Another document of a program opened
-// from its record, whose run the record answers without lowering
-// (DocumentManager.StoredLoweredClean), keeps no calls of its own, and its
-// calls have the lines of the entry's run.
+// A call that can act and reaches no effect call, through a handle it is
+// passed, says so ("Has effects on what it is passed.", effects.HeldLine),
+// and a call through an interface only some of whose implementations can
+// act says it may (effects.MayLine).
+// Semantic tokens read the same calls: hoverdoc.MarkReaching gives the
+// `effect` modifier (modEffect), which each editor draws bold, to the
+// token at each place the lowering marked (analyzedlowering.Reached's
+// Marked): the last token of the callee of a call the compiler cannot show
+// is pure, and the name of a function whose body holds one. The `dbg` of a
+// `dbg` is the callee of the call that prints, and a keyword has no token
+// of its own, so MarkReaching gives it a keyword token, marked; a hover on
+// it ends with its line after the keyword's text. A read of a
+// once, a once's name and a function named as a value keep their hover
+// line and no mark. The tour's highlighter marks its tokens the same way. Hover and the tokens do not wait for a run, as the published
+// diagnostics do not: before the run of the text shown has finished a
+// hover has no line and no token is marked. A run that finishes with calls
+// other than the document's last run found asks the editor to request
+// every document's tokens again (workspace/semanticTokens/refresh), when
+// the editor says it can (refreshSemanticTokens). Another document of a
+// program opened from its record, whose run the record answers without
+// lowering (DocumentManager.StoredLoweredClean), keeps no calls of its
+// own, and its calls have the lines and marks of the entry's run.
 //
 // # Annotations a default decides
 //
@@ -239,10 +275,10 @@
 // as Nomi code, one to three sentences from the spec, and the page that
 // teaches it. KeywordAt lexes only when the word under the cursor is in
 // lexer.ReservedWords or lexer.ContextualWords, then reads the context from
-// neighbouring tokens and enclosing nodes: `as` in an import, `gopkg` or
+// neighbouring tokens and enclosing nodes: `as` in an import or
 // pattern; `case`, `if` and `dbg` after `|>`; a binding's `else`
 // (ast.BindingElse); `or` in an ast.OrPattern; `for` and `with` on a
-// `derive` line; `type` after `host` or before a `go` binding; `where
+// `derive` line; `type` after `host`; `where
 // self`.
 //
 // A contextual word is a keyword only where an AST node records its

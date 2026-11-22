@@ -1,6 +1,7 @@
 package highlight_test
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -9,13 +10,14 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/highlight"
 	"github.com/nomi-language/nomi/internal/hoverdoc"
+	"github.com/nomi-language/nomi/internal/semtokens"
 	"github.com/nomi-language/nomi/internal/virtualproject"
 	"github.com/nomi-language/nomi/std"
 	"github.com/nomi-language/nomi/vmhost"
 )
 
 // TestProgramOfModulesAnswersEachTab holds a block that names modules (a
-// project whose go.mod requires the csvdata module under
+// project whose nomi.toml names the csvdata module under
 // csvdata/, as testdata/tools lays it out)
 // to an analysis of its files as written under a directory: a call in
 // main.nomi into the table the generator wrote hovers with its function,
@@ -31,11 +33,9 @@ func TestProgramOfModulesAnswersEachTab(t *testing.T) {
 	src := "// FILE: main.nomi\n" + read("rates/main.nomi") +
 		"\n// FILE: tables.nomi\n" + read("rates/tables.nomi") +
 		"\n// FILE: data/rates.csv\n" + read("rates/data/rates.csv") +
-		"\n// FILE: nomi.toml\n" + read("rates/nomi.toml") +
-		"\n// FILE: go.mod\n" + strings.Replace(read("rates/go.mod"), "../csvdata", "./csvdata", 1) +
+		"\n// FILE: nomi.toml\n" + strings.Replace(read("rates/nomi.toml"), "../csvdata", "./csvdata", 1) +
 		"\n// FILE: csvdata/csvdata.nomi\n" + read("csvdata/csvdata.nomi") +
-		"\n// FILE: csvdata/nomi.toml\n[module]\nname = \"csvdata\"\n" +
-		"\n// FILE: csvdata/go.mod\n" + read("csvdata/go.mod")
+		"\n// FILE: csvdata/nomi.toml\n[module]\nname = \"csvdata\"\n"
 	prog := highlight.AnalyzeProgram(src, t.TempDir(), std.Shared())
 
 	got := prog.HoverIn("main.nomi", 7, colOf(t, prog, "main.nomi", 7, "rates"), nil)
@@ -43,7 +43,7 @@ func TestProgramOfModulesAnswersEachTab(t *testing.T) {
 		t.Errorf("hover on tables.rates in main.nomi = %q; want the function the generator wrote", got)
 	}
 	for _, name := range []string{"main.nomi", "tables.nomi", "csvdata/csvdata.nomi"} {
-		if toks := prog.SemanticTokensIn(name); len(toks) == 0 {
+		if toks := prog.SemanticTokensIn(name, nil); len(toks) == 0 {
 			t.Errorf("%s has no semantic tokens", name)
 		}
 	}
@@ -139,7 +139,7 @@ func TestProgramHoverResolvesAcrossFiles(t *testing.T) {
 	if got := prog.HoverIn("nomi.toml", 1, 2, nil); got != "" {
 		t.Errorf("hover in nomi.toml = %q; want none", got)
 	}
-	if toks := prog.SemanticTokensIn("main.nomi"); len(toks) == 0 {
+	if toks := prog.SemanticTokensIn("main.nomi", nil); len(toks) == 0 {
 		t.Error("main.nomi has no semantic tokens")
 	}
 }
@@ -155,8 +155,8 @@ func TestProgramHoverSurvivesAnError(t *testing.T) {
 	}
 }
 
-// reachSrc is a block whose one outside call nomi.toml's
-// [capabilities.self] allows.
+// reachSrc is a block whose one effect call nomi.toml's
+// [effects.self] allows.
 const reachSrc = `// FILE: main.nomi
 import
     std::fs
@@ -176,7 +176,7 @@ Buy milk.
 name = "notes"
 entry_points = ["main"]
 
-[capabilities.self]
+[effects.self]
 std = ["std::io", "std::fs"]
 `
 
@@ -194,11 +194,11 @@ func TestProgramHoverEndsWithWhatACallReaches(t *testing.T) {
 		t.Fatal(err)
 	}
 	prog := highlight.AnalyzeProgram(reachSrc, t.TempDir(), std.Shared())
-	const fsLine = "\n\nReaches `std::fs`, which `nomi.toml` allows in `[capabilities.self]`."
+	const fsLine = "\n\nHas effects: `std::fs`, which `nomi.toml` allows in `[effects.self]`."
 	if got := prog.HoverIn("main.nomi", 7, colOf(t, prog, "main.nomi", 7, "read_text"), reached); !strings.HasSuffix(got, fsLine) || !strings.Contains(got, "fn read_text") {
 		t.Errorf("hover on fs.read_text = %q; want its signature, then %q", got, fsLine)
 	}
-	if got := prog.HoverIn("main.nomi", 8, colOf(t, prog, "main.nomi", 8, "notes"), reached); strings.Contains(got, "Reaches") {
+	if got := prog.HoverIn("main.nomi", 8, colOf(t, prog, "main.nomi", 8, "notes"), reached); strings.Contains(got, "Has effects") {
 		t.Errorf("hover on the binding notes = %q; want no line about what it reaches", got)
 	}
 
@@ -209,7 +209,7 @@ func TestProgramHoverEndsWithWhatACallReaches(t *testing.T) {
 	}
 	fa, nodes := highlight.AnalyzeNodes(snippet, std.Shared())
 	inEntry := func(path string) bool { return virtualproject.NormalizeModuleName(path) == "main" }
-	if got := hoverdoc.AtReaching(fa, nodes, snippet, analysis.Pos{Line: 4, Col: 9}, reached, inEntry); !strings.HasSuffix(got, "\n\nReaches `std::io`.") {
+	if got := hoverdoc.AtReaching(fa, nodes, snippet, analysis.Pos{Line: 4, Col: 9}, reached, inEntry); !strings.HasSuffix(got, "\n\nHas effects: `std::io`.") {
 		t.Errorf("hover on io.print in a single-file block = %q; want it to end with what it reaches", got)
 	}
 }
@@ -245,7 +245,7 @@ Buy milk.
 name = "notes"
 entry_points = ["main"]
 
-[capabilities.self]
+[effects.self]
 std = ["std::io", "std::fs"]
 `
 
@@ -260,12 +260,83 @@ func TestProgramHoverEndsWithWhatAFunctionReaches(t *testing.T) {
 		t.Fatal(err)
 	}
 	prog := highlight.AnalyzeProgram(functionReachSrc, t.TempDir(), std.Shared())
-	const line = "\n\nReaches `std::fs` through `read`, which `nomi.toml` allows in `[capabilities.self]`."
+	const line = "\n\nHas effects: `std::fs` through `read`, which `nomi.toml` allows in `[effects.self]`."
 	if got := prog.HoverIn("main.nomi", 7, colOf(t, prog, "main.nomi", 7, "load"), reached); !strings.HasSuffix(got, line) {
 		t.Errorf("hover on store.load = %q; want it to end with %q", got, line)
 	}
 	if got := prog.HoverIn("store.nomi", 3, colOf(t, prog, "store.nomi", 3, "load"), reached); !strings.HasSuffix(got, line) {
 		t.Errorf("hover on fn load = %q; want it to end with %q", got, line)
+	}
+}
+
+// appFieldSrc is a block whose entry calls a function of another tab that
+// reads an app field through a function of its own, and reaches std::fs.
+const appFieldSrc = `// FILE: main.nomi
+import
+    std::io
+    app.App
+    store
+end
+
+pub fn boot() -> Result<App, String>
+    Ok(App{dir: "notes", limit: 3})
+end
+
+fn main()
+    io.print(store.load("notes.txt"))
+end
+
+// FILE: app.nomi
+pub struct App
+    dir: String
+    limit: Int
+end
+
+// FILE: store.nomi
+import
+    std::fs
+    app.App
+end
+
+pub fn load(path: String) -> String
+    read(path) |> String.trim()
+end
+
+fn read(path: String) -> String
+    fs.read_text("${App.dir}/${path}") |> Result.with_default("")
+end
+
+// FILE: notes/notes.txt
+Buy milk.
+`
+
+// The tour's editors end a hover on a function that reads an app field,
+// and on a call of one, with the fields it uses, after what it reaches, as
+// the language server does, and mark no token for it: the call that
+// reaches std::fs is marked for that, and nothing else is.
+func TestProgramHoverSaysWhichAppFieldsAFunctionUses(t *testing.T) {
+	if testing.Short() {
+		t.Skip("lowers the stdlib; -short")
+	}
+	reached, err := vmhost.ReachedMarked(appFieldSrc, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	prog := highlight.AnalyzeProgram(appFieldSrc, t.TempDir(), std.Shared())
+	const lines = "\n\nHas effects: `std::fs` through `read`.\n\nUses `App.dir`."
+	if got := prog.HoverIn("main.nomi", 12, colOf(t, prog, "main.nomi", 12, "load"), reached); !strings.HasSuffix(got, lines) {
+		t.Errorf("hover on store.load = %q; want it to end with %q", got, lines)
+	}
+	if got := prog.HoverIn("store.nomi", 6, colOf(t, prog, "store.nomi", 6, "load"), reached); !strings.HasSuffix(got, lines) {
+		t.Errorf("hover on fn load = %q; want it to end with %q", got, lines)
+	}
+	if got := prog.HoverIn("main.nomi", 7, colOf(t, prog, "main.nomi", 7, "boot"), reached); strings.Contains(got, "Uses") {
+		t.Errorf("hover on fn boot = %q; want no line of app fields", got)
+	}
+	f, _ := prog.File("store.nomi")
+	got := effectTokens(f.Source, prog.SemanticTokensIn("store.nomi", reached))
+	if want := map[[2]int]string{{6, 8}: "load", {7, 5}: "read", {10, 4}: "read", {11, 8}: "read_text"}; fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Errorf("store.nomi marks %v as having effects; want %v", got, want)
 	}
 }
 
@@ -286,4 +357,115 @@ func TestProgramHoverReachCost(t *testing.T) {
 		}
 	}
 	t.Logf("vmhost.ReachedMarked of a tour block: %v a run", time.Since(start)/runs)
+}
+
+// effectTokens is each token of toks, by its 1-based line and column,
+// that is marked as having effects, with the text it covers.
+func effectTokens(src string, toks []semtokens.Token) map[[2]int]string {
+	lines := strings.Split(src, "\n")
+	out := map[[2]int]string{}
+	for _, tok := range toks {
+		if tok.Effect {
+			out[[2]int{tok.Line, tok.Col}] = lines[tok.Line-1][tok.Col-1 : tok.Col-1+tok.Length]
+		}
+	}
+	return out
+}
+
+// The tour's editors mark the tokens that reach outside the machine where
+// a hover says so, as the language server does (hoverdoc.MarkReaching):
+// in each tab of a multi-file block, the callee of an effect call, of a
+// call of a function that reaches one and such a function's name (`main`
+// among them), and in a single-file block the same. A qualifier, a pure
+// call and a function that reaches nothing are not marked, and with
+// nothing reached nothing is.
+func TestProgramTokensMarkWhatHasEffects(t *testing.T) {
+	if testing.Short() {
+		t.Skip("lowers the stdlib; -short")
+	}
+	reached, err := vmhost.ReachedMarked(functionReachSrc, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	prog := highlight.AnalyzeProgram(functionReachSrc, t.TempDir(), std.Shared())
+	for name, want := range map[string]map[[2]int]string{
+		"main.nomi":  {{6, 4}: "main", {7, 8}: "print", {7, 20}: "load"},
+		"store.nomi": {{3, 8}: "load", {4, 5}: "read", {7, 4}: "read", {8, 8}: "read_text"},
+	} {
+		f, _ := prog.File(name)
+		got := effectTokens(f.Source, prog.SemanticTokensIn(name, reached))
+		if fmt.Sprint(got) != fmt.Sprint(want) {
+			t.Errorf("%s marks %v as having effects; want %v", name, got, want)
+		}
+		if got := effectTokens(f.Source, prog.SemanticTokensIn(name, nil)); len(got) > 0 {
+			t.Errorf("%s marks %v with nothing reached", name, got)
+		}
+	}
+
+	snippet := "import std::io\n\nfn twice(n: Int) -> Int\n    n * 2\nend\n\nfn main()\n    io.print(\"${twice(2)}\")\nend\n"
+	reached, err = vmhost.ReachedMarked(snippet, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := effectTokens(snippet, highlight.SemanticTokens(snippet, std.Shared(), reached, highlight.InFile("main.nomi")))
+	if want := map[[2]int]string{{7, 4}: "main", {8, 8}: "print"}; fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Errorf("a single-file block marks %v as having effects; want %v", got, want)
+	}
+}
+
+// dbgReachSrc is a block under effects lists that holds a `dbg` in main,
+// in a function nothing calls, in a generic function nothing instantiates
+// and in a test.
+const dbgReachSrc = `// FILE: main.nomi
+import std::io
+
+fn draft(n: Int) -> Int
+    dbg n
+end
+
+fn first<T>(xs: List<T>) -> Maybe<T>
+    xs |> dbg |> List.first()
+end
+
+fn main()
+    io.print("${dbg 1 + 1}")
+end
+
+test "two"
+    assert dbg 2 == 2
+end
+
+// FILE: nomi.toml
+[module]
+name = "notes"
+entry_points = ["main"]
+
+[effects.self]
+std = ["std::io"]
+`
+
+// The tour's editors mark the keyword of each `dbg`, the call that prints,
+// as the language server does, and its hover keeps the keyword's text and
+// ends with what it reaches, which no list names and every list allows.
+func TestProgramTokensAndHoverMarkADbg(t *testing.T) {
+	if testing.Short() {
+		t.Skip("lowers the stdlib; -short")
+	}
+	reached, err := vmhost.ReachedMarked(dbgReachSrc, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	prog := highlight.AnalyzeProgram(dbgReachSrc, t.TempDir(), std.Shared())
+	f, _ := prog.File("main.nomi")
+	got := effectTokens(f.Source, prog.SemanticTokensIn("main.nomi", reached))
+	want := map[[2]int]string{{3, 4}: "draft", {4, 5}: "dbg", {7, 4}: "first", {8, 11}: "dbg", {11, 4}: "main", {12, 8}: "print", {12, 17}: "dbg", {16, 12}: "dbg"}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Errorf("main.nomi marks %v as having effects; want %v", got, want)
+	}
+	for _, line := range []int{4, 8, 12, 16} {
+		hover := prog.HoverIn("main.nomi", line, colOf(t, prog, "main.nomi", line, "dbg")+1, reached)
+		if !strings.Contains(hover, "Debug rendering") || !strings.HasSuffix(hover, "\n\nHas effects: `dbg`.") {
+			t.Errorf("hover on the dbg on line %d = %q; want the keyword's text, then what it reaches", line, hover)
+		}
+	}
 }

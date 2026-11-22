@@ -53,11 +53,20 @@ func (bl *irScalarBuilder) listCallPlan(t *ast.Call, args irQualArgs, method str
 		args.temps[i], args.kinds[i] = v, got
 	}
 	if method != "concat" {
-		if _, anchored := bl.g.preludeNamed("Maybe"); !anchored {
+		if _, anchored := preludeSpecAnchor(preludeSpecNamed("Maybe")); !anchored {
 			return nil
 		}
 	}
-	result, ok := bl.g.listResultKind(fn.result, lk.comp.parts[0], lk, t)
+	// The result is the call's record. A call the builder writes for no
+	// source node carries the type the checker gives it (a std interface's
+	// thunk for a held type, stdProgThunk, carries InterfaceResult's); one
+	// for a value held by its kind alone carries none, its result is the
+	// row's, and noteUnrecordedKind counts it.
+	result, ok := bl.g.recordedKind(t)
+	if !ok {
+		bl.noteUnrecordedKind("List result", t)
+		result, ok = bl.g.listResultKind(fn.result, lk.comp.parts[0], lk, t)
+	}
 	if !ok || !(irRetainedValueKind(result) || bl.g.irValType(result) != nil) {
 		bl.g.dc.note("a List function result outside the retained domain: " + result.nomi())
 		return nil

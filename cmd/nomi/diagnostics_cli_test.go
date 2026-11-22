@@ -16,7 +16,7 @@ func TestDiagnostics_NameTheirFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	env := append(os.Environ(), "NOMI_FFIRUN_CACHE_ROOT="+t.TempDir(), "NOMI_COLOR=never", "NOMI_DIAGNOSTICS=")
+	env := append(os.Environ(), "NOMI_RUNNER_CACHE_ROOT="+t.TempDir(), "NOMI_COLOR=never", "NOMI_DIAGNOSTICS=")
 	dir := t.TempDir()
 	mustWrite(t, filepath.Join(dir, "main.nomi"),
 		"import std::io\nimport other\n\nfn main()\n  x: Int = \"s\"\n  io.print(other.f())\nend\n")
@@ -98,7 +98,7 @@ func TestDiagnostics_ImportedFileBuildErrors(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	// The short form, which names each file on each line.
-	env := append(os.Environ(), "NOMI_FFIRUN_CACHE_ROOT="+t.TempDir(), "NOMI_DIAGNOSTICS=short")
+	env := append(os.Environ(), "NOMI_RUNNER_CACHE_ROOT="+t.TempDir(), "NOMI_DIAGNOSTICS=short")
 	const manifest = "[module]\nname = \"app\"\nentry_points = [\"main\"]\n"
 	const main = "import std::io\nimport helper\n\nfn main()\n  io.print(helper.greet())\nend\n"
 	const test = "import helper\n\ntest \"greet\"\n  assert helper.greet() == \"hi\"\nend\n"
@@ -164,7 +164,7 @@ func TestDiagnostics_MissingImportIsAnErrorAtTheImport(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	env := append(os.Environ(), "NOMI_FFIRUN_CACHE_ROOT="+t.TempDir(), "NOMI_COLOR=never", "NOMI_DIAGNOSTICS=")
+	env := append(os.Environ(), "NOMI_RUNNER_CACHE_ROOT="+t.TempDir(), "NOMI_COLOR=never", "NOMI_DIAGNOSTICS=")
 	const lib = `error: no module ` + "`lib`" + `: no file lib.nomi in this file's directory
  --> main.nomi:1:8
   |
@@ -230,7 +230,7 @@ func TestDiagnostics_GroupedImportPath(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	env := append(os.Environ(), "NOMI_FFIRUN_CACHE_ROOT="+t.TempDir(), "NOMI_COLOR=never", "NOMI_DIAGNOSTICS=")
+	env := append(os.Environ(), "NOMI_RUNNER_CACHE_ROOT="+t.TempDir(), "NOMI_COLOR=never", "NOMI_DIAGNOSTICS=")
 	dir := t.TempDir()
 	mustWrite(t, filepath.Join(dir, "main.nomi"), "import std::{io, regex.Regex}\n\nfn main()\n  io.print(\"x\")\nend\n")
 	want := "error: braces select names from one file, as in `std::regex.{Regex, Match}`\n" +
@@ -276,7 +276,7 @@ func TestCommands_ReportAnUnusablePathPlainly(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	env := append(os.Environ(), "NOMI_FFIRUN_CACHE_ROOT="+t.TempDir())
+	env := append(os.Environ(), "NOMI_RUNNER_CACHE_ROOT="+t.TempDir())
 	dir := t.TempDir()
 	mustWrite(t, filepath.Join(dir, "notes.txt"), "hello\n")
 	mustWrite(t, filepath.Join(dir, "bad.nomi"), "fn f( {\n")
@@ -313,7 +313,7 @@ func TestDiagnostics_ASyntaxErrorInAnImportedFileNamesIt(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	env := append(os.Environ(), "NOMI_FFIRUN_CACHE_ROOT="+t.TempDir(), "NOMI_DIAGNOSTICS=short")
+	env := append(os.Environ(), "NOMI_RUNNER_CACHE_ROOT="+t.TempDir(), "NOMI_DIAGNOSTICS=short")
 	dir := t.TempDir()
 	mustWrite(t, filepath.Join(dir, "main.nomi"),
 		"import std::io\nimport other\n\nfn main()\n  io.print(other.f())\nend\n")
@@ -337,7 +337,7 @@ func TestDiagnostics_ProgramErrorsNameTheirFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	env := append(os.Environ(), "NOMI_FFIRUN_CACHE_ROOT="+t.TempDir(), "NOMI_COLOR=never", "NOMI_DIAGNOSTICS=")
+	env := append(os.Environ(), "NOMI_RUNNER_CACHE_ROOT="+t.TempDir(), "NOMI_COLOR=never", "NOMI_DIAGNOSTICS=")
 	dir := t.TempDir()
 	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"shop\"\n")
 	mustWrite(t, filepath.Join(dir, "main.nomi"), `import
@@ -448,13 +448,11 @@ func TestDiagnostics_AnOrphanImplInAnotherModuleNamesItsFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	env := append(os.Environ(), "NOMI_FFIRUN_CACHE_ROOT="+t.TempDir(), "NOMI_DIAGNOSTICS=short")
+	env := append(os.Environ(), "NOMI_RUNNER_CACHE_ROOT="+t.TempDir(), "NOMI_DIAGNOSTICS=short")
 	dir := t.TempDir()
-	mustWrite(t, filepath.Join(dir, "app", "nomi.toml"), "[module]\nname = \"app\"\nentry_points = [\"main\"]\n")
-	mustWrite(t, filepath.Join(dir, "app", "go.mod"), "module app\n\ngo 1.27.0\n\nrequire fx v0.0.0\n\nreplace fx => ../fx\n")
+	mustWrite(t, filepath.Join(dir, "app", "nomi.toml"), "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[dependencies]\nfx = { dir = \"../fx\" }\n")
 	mustWrite(t, filepath.Join(dir, "app", "main.nomi"), "import\n    std::io\n    fx::rate.Rate\nend\n\nfn main()\n    io.inspect(Rate{per_unit: 4})\nend\n")
 	mustWrite(t, filepath.Join(dir, "fx", "nomi.toml"), "[module]\nname = \"fx\"\n")
-	mustWrite(t, filepath.Join(dir, "fx", "go.mod"), "module fx\n\ngo 1.27.0\n")
 	mustWrite(t, filepath.Join(dir, "fx", "rate.nomi"), "pub struct Rate\n    per_unit: Int\nend\n\nimpl Display for Bool\n    fn to_string(_b: Bool) -> String\n        \"b\"\n    end\nend\n")
 
 	// The file is printed as a path of the system, the module by its name.

@@ -152,11 +152,11 @@ end
 // An interface an import at the top of a test body binds, which the file
 // itself does not import, resolves there as a type: in a `//!` prompt and in
 // a `test` declaration, a sibling file's interface and a std one, as an
-// annotation and as a call's type argument (bindBlockImports'
-// importedIfaces). The name-keyed lookups read the module scope, which the
-// body's import does not reach, so each such body declined. std's `//!`
-// prompts reach it the same way: std/literals/testing's `build_each<Display,
-// Url>(...)` names `Display`, which that module does not import.
+// annotation and as a call's type argument: the interface the checker
+// recorded at the position, whatever the module scope binds the name to.
+// std's `//!` prompts reach it the same way: std/literals/testing's
+// `build_each<Display, Url>(...)` names `Display`, which that module does
+// not import.
 func TestBlockImport_AnInterfaceOnlyATestImports(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")

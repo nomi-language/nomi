@@ -1,7 +1,6 @@
 package irbuild
 
 import (
-	"reflect"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/analysis"
@@ -35,11 +34,12 @@ import (
 // typeOf runs for every annotation in every module, including the ones that
 // resolve; threading a reason through it would allocate on the hot path to
 // carry a string almost nothing reads. This walk runs only after typeOf has
-// already answered kindInvalid, so it costs nothing on a file that lowers. The
-// duplication is the real risk, and it is pinned rather than trusted:
+// already answered kindInvalid, so it costs nothing on a file that lowers.
+// It reads the record typeOf reads, the type the checker recorded for each
+// written type (TypeExprTypes), and asks typeOf at each leaf before naming a
+// reason, so the two agree about which types are outside the subset:
 // TestSigReason_NamesAReasonForExactlyWhatTypeOfRefuses drives both over the
-// same annotations and fails if they ever disagree about which are outside the
-// subset.
+// same annotations.
 
 // namespacedType resolves a dotted type name to the declaration it names,
 // under either of the two readings a dotted spelling has in TYPE position.
@@ -52,16 +52,14 @@ import (
 // *ast.QualifiedType, which this reads.
 //
 // SECOND, a MODULE QUALIFIER and a member — `sqlite.Conn`, where `sqlite` is a
-// whole-file import and `Conn` is a type the imported file declares. See
-// modulequaltype.go for why that spelling needs its own path beside `import
-// sqlite/sqlite.{Conn}` plus a bare `Conn`.
+// whole-file import and `Conn` is a type the imported file declares.
 //
 // The declaration-name reading is asked FIRST: the second arm runs only where
 // the first found nothing. The two cannot both answer for one spelling anyway —
 // a qualifier is bound to a `SymbolModule` and a namespaced declaration is not
-// — but the order is fixed rather than left to that, because it is the same
-// local-wins precedence namedType states for a name a file both declares and
-// imports.
+// — but the order is fixed rather than left to that, because a name a file
+// both declares and imports is the local declaration, as the checker resolves
+// it.
 //
 // Neither reading can be confused with the `Enum.Variant` reading the same
 // syntax has in value position, and the reason is positional rather
@@ -73,15 +71,13 @@ import (
 func (g *gen) namespacedType(t *ast.QualifiedType) (*typeDef, bool) {
 	qualifier, name, ok := qualifiedTypeParts(t)
 	if !ok {
-		// A nil member, or `Probe.Reading<T>` — a generic instantiation of a
-		// namespaced type. Its own gap, refused under `generic type` by
-		// typeRefusal below.
 		return nil, false
 	}
-	if d, found := g.namedType(qualifier + "." + name); found {
-		return d, true
+	d := g.writtenTypeDef(t)
+	if d == nil || d.foreign == "" && d.nomi != qualifier+"."+name {
+		return nil, false
 	}
-	return g.moduleQualifiedType(qualifier, name)
+	return d, true
 }
 
 // rejectTypeAnnotation reports the narrowest reason te is outside the subset,
@@ -105,86 +101,34 @@ func (g *gen) rejectTypeAnnotation(te ast.TypeExpr, subject string, at ast.Node)
 
 // typeRefusal is rejectTypeAnnotation's decision, without the reporting.
 //
-// It walks the same four naming forms typeOf does, in the same order, and
-// descends into a composite to find the LEAF that failed — `List<Diagnostic>`
-// reports `Diagnostic`, not `List<Diagnostic>`, because the list is fine and
-// the element is the work.
+// It descends into a composite to find the LEAF that failed —
+// `List<Diagnostic>` reports `Diagnostic`, not `List<Diagnostic>`, because
+// the list is fine and the element is the work — and names a leaf's reason
+// by the type the checker recorded for it, as typeOf reads it
+// (writtenTypeRefusal).
 func (g *gen) typeRefusal(te ast.TypeExpr) (construct, detail string, ok bool) {
 	switch t := te.(type) {
 	case *ast.FuncType:
 		// One node, two types: a nil Return is a tuple and an arrow is a
 		// function. Both are structural and both fail only through a part.
-		for _, p := range t.Params {
-			if c, d, bad := g.typeRefusal(p); bad {
-				return c, d, true
-			}
-		}
-		if t.Return != nil {
-			if c, d, bad := g.typeRefusal(t.Return); bad {
-				return c, d, true
-			}
-		}
-		return "", "", false
-
-	case *ast.GenericType:
-		return g.genericRefusal(t)
-
-	case *ast.QualifiedType:
-		if t.Member == nil {
-			return "namespaced type name", te.TypeString(), true
-		}
-		if gt, isGeneric := t.Member.(*ast.GenericType); isGeneric {
-			// `shapes.Holder<Int>` — typeOf resolves this through
-			// genericTemplateNamed, so this walk has to agree or
-			// TestSigReason_NamesAReasonForExactlyWhatTypeOfRefuses fires.
-			// The reason for a MISS is the generic family's own, reached by
-			// the joined name so the refusal reads as the instantiation the
-			// programmer wrote.
-			// kindInvalid: reports — an instantiation typeOf declines is named below.
-			if k, built := g.userGenericTypeOf(t.Module+"."+gt.Name, gt.Params); built && k != kindInvalid {
-				return "", "", false
-			}
-			return "generic type", te.TypeString(), true
-		}
-		if d, found := g.namespacedType(t); found {
-			if d.lowerable {
-				return "", "", false
-			}
-			return unloweredReason(d)
-		}
-		// Mirrors typeOf's qualified-interface arm, in the same position.
-		if d, isIface := g.moduleQualifiedIface(t); isIface {
-			if d.lowerable {
-				return "", "", false
-			}
-			return ifaceReason(d)
-		}
-		// A dotted name nothing in this program declares. It is the same
-		// question a bare unknown name asks, one segment longer, so it routes
-		// through the same resolution rather than getting a key of its own —
-		// a `json.Json.DecodeError` annotation is a STDLIB type and must not
-		// read as a namespacing gap.
-		return g.unresolvedRefusal(te.TypeString())
+		return g.partRefusal(append(append([]ast.TypeExpr{}, t.Params...), t.Return))
 
 	case *ast.AnonStructType:
 		// A RECORD lowers (anonstruct.go), so it fails only through a FIELD —
 		// the same shape the FuncType arm above has, and reported the same
 		// way: `{items: Map<Bad, Int>}` names the Bad, because the record is
 		// fine and the field is the work.
-		names := make([]string, len(t.Fields))
-		for i, f := range t.Fields {
-			names[i] = f.Name
-			if c, d, bad := g.typeRefusal(f.TypeAnnotation); bad {
-				return c, d, true
-			}
-		}
 		if len(t.Fields) == 0 {
 			// A record with no fields. The one remaining shape with no
 			// representation, and it keeps the key rather than falling
 			// through to a reason about a field that does not exist.
 			return "anonymous struct type", te.TypeString(), true
 		}
-		return "", "", false
+		fields := make([]ast.TypeExpr, len(t.Fields))
+		for i, f := range t.Fields {
+			fields[i] = f.TypeAnnotation
+		}
+		return g.partRefusal(fields)
 
 	case *ast.SelfType:
 		// `self` outside an interface body reaches nothing; inside one the
@@ -193,63 +137,274 @@ func (g *gen) typeRefusal(te ast.TypeExpr) (construct, detail string, ok bool) {
 		// shows up in the tally instead of vanishing.
 		return "self type", te.TypeString(), true
 
-	case *ast.SimpleType:
-		return g.simpleRefusal(t)
+	case *ast.SimpleType, *ast.GenericType, *ast.QualifiedType:
+		return g.writtenTypeRefusal(te)
 	}
 	return "type reference", typeText(te), true
 }
 
-// genericRefusal names why a `Name<...>` annotation is outside the subset.
-func (g *gen) genericRefusal(t *ast.GenericType) (string, string, bool) {
-	// The three generic spellings the builder represents. Asked in typeOf's
-	// own order so a `Maybe<Bad>` reports `Bad` rather than being read as an
-	// unrepresentable container.
-	if _, _, isPrelude := g.preludeAt(t.Line, t.Col); isPrelude {
-		return g.genericArgRefusal(t)
-	}
-	if t.Name == "Map" && len(t.Params) == 2 {
-		return g.genericArgRefusal(t)
-	}
-	if (t.Name == "List" || t.Name == "Iter") && len(t.Params) == 1 {
-		// `Iter<T>` is typeOf's lowered sequence, so it too fails
-		// only through its element.
-		return g.genericArgRefusal(t)
-	}
-	if tpl := g.genericTemplates[t.Name]; tpl != nil && tpl.why != "" {
-		// A USER generic struct whose instantiations are WALLED, reporting the
-		// wall's own reason rather than the family's name, so a struct LITERAL
-		// and a SIGNATURE mentioning the same instantiation report the same
-		// reason. See generictype.go.
-		return tpl.why, tpl.whyDetail, true
-	}
-	if tpl := g.genericTemplates[t.Name]; tpl != nil {
-		// An ADMITTED template whose instantiation still did not build. Asked in
-		// two steps, and the ORDER is the point: the INSTANCE's own recorded
-		// reason first, then the argument.
-		//
-		// The instance arm exists because per-instance impl registration created
-		// a case neither of the other two answers — every argument resolves, the
-		// template is admitted, and the instance declined anyway because one of
-		// its impl blocks did. Without it genericArgRefusal returns no-reason and
-		// the use site reports its fallback. See genericimpl.go.
-		if c, d, bad := g.genericInstRefusal(t, tpl); bad {
+// partRefusal is the first refusal among parts, the parts of a composite
+// type in order (a nil part is a function type's absent return).
+func (g *gen) partRefusal(parts []ast.TypeExpr) (string, string, bool) {
+	for _, p := range parts {
+		if p == nil {
+			continue
+		}
+		if c, d, bad := g.typeRefusal(p); bad {
 			return c, d, true
 		}
-		// The ARGUMENT is the answer: `Box<Vector<Int>>` refuses at
-		// `Vector<Int>`, exactly as the prelude, Map and List arms above name
-		// their argument rather than their container.
-		return g.genericArgRefusal(t)
 	}
-	// A generic interface held as a value (`Literal<Int, Int>`) is a boxed
-	// existential typeOf builds, so it has no reason.
-	// kindInvalid: reports — a generic type typeOf declines is named below.
-	if g.typeOf(t) != kindInvalid {
+	return "", "", false
+}
+
+// writtenTypeRefusal names why te, a type written by its name (`Point`,
+// `Box<Int>`, `shapes.Shape`), is outside the subset, by the type the
+// checker recorded for it (recordedTypeExpr), as typeOf reads it: nothing
+// when typeOf represents it, else recordedTypeRefusal's reason. A
+// transparent alias names its target, so the target's own reason is the
+// one a programmer can act on, and the alias's name is carried into the
+// detail: a reader looking at `p: Stream` needs to know that `Iter<Int>`
+// is what `Stream` is. A bound alias names a conjunction of interfaces,
+// not a type, and keeps the key its declaration uses.
+func (g *gen) writtenTypeRefusal(te ast.TypeExpr) (string, string, bool) {
+	written := te.TypeString()
+	if qt, qualified := te.(*ast.QualifiedType); qualified && qt.Member == nil {
+		return "namespaced type name", written, true
+	}
+	// kindInvalid: reports — a written type typeOf declines is named below.
+	if g.typeOf(te) != kindInvalid {
 		return "", "", false
 	}
-	// Everything else instantiates a GENERIC DECLARATION — `Fragment<String>`,
-	// `Pair<E>`, `Channel<Int>`, `Set<Int>` — that no arm above represents, so
-	// it lands on the key the generic family uses rather than a new one.
-	return "generic type", t.TypeString(), true
+	rec, _ := g.recordedTypeExpr(te)
+	rec = analysis.ResolveClosed(rec)
+	var alias *ast.TypeAlias
+	if sym := g.writtenTypeSymbol(te); sym != nil {
+		alias, _ = sym.Node.(*ast.TypeAlias)
+	}
+	if alias == nil {
+		return g.recordedTypeRefusal(te, rec)
+	}
+	target := alias.TargetTypeExpr
+	if target == nil {
+		return "type alias", written, true
+	}
+	var key, detail string
+	var reported bool
+	if _, here := g.recordedTypeExpr(target); here {
+		key, detail, reported = g.typeRefusal(target)
+	} else {
+		// An alias another file declares: its target is the type this
+		// use's record names.
+		key, detail, reported = g.aliasTargetRefusal(target, rec)
+	}
+	if !reported {
+		return "", "", false
+	}
+	return key, written + " is " + detail, true
+}
+
+// aliasTargetRefusal is the reason te, the target another file's alias
+// declares, is outside the subset where a use of the alias recorded rec:
+// te's parts are read with rec's, since the records of te are that file's.
+func (g *gen) aliasTargetRefusal(te ast.TypeExpr, rec analysis.Type) (string, string, bool) {
+	// kindInvalid: reports — a part the use's record does not represent is named below.
+	if g.project(rec) != kindInvalid {
+		return "", "", false
+	}
+	if ft, isFunc := te.(*ast.FuncType); isFunc {
+		var parts []analysis.Type
+		switch t := rec.(type) {
+		case *analysis.FuncType:
+			parts = append(append(parts, t.Params...), t.Return)
+		case *analysis.TupleType:
+			parts = t.Elems
+		}
+		written := append(append([]ast.TypeExpr{}, ft.Params...), ft.Return)
+		for i, p := range written {
+			if p == nil || i >= len(parts) {
+				continue
+			}
+			if c, d, bad := g.aliasTargetRefusal(p, analysis.ResolveClosed(parts[i])); bad {
+				return c, d, true
+			}
+		}
+		return "", "", false
+	}
+	return g.recordedTypeRefusal(te, rec)
+}
+
+// recordedTypeRefusal is the reason te, written by its name, is outside
+// the subset, where the checker recorded rec for it (nil for no type):
+//
+//   - a container the builder represents (a List, a Map, an Iter, a
+//     prelude enum) fails only through an argument: `List<Diagnostic>`
+//     reports `Diagnostic`;
+//   - a name with no type is one nothing in the program declares, or one
+//     only a declaration nested in a block declares, whose own refusal is
+//     the reason (nestedTypeDeclKey);
+//   - a type parameter needs the type-parameter dictionary;
+//   - a program's interface or type reports its declaration's own recorded
+//     refusal (ifaceReason, unloweredReason), and a program's generic type
+//     its template's wall, then its instance's refusal, then its failing
+//     argument; another file's generic type is named as written;
+//   - a type no program file declares reports the key of its family:
+//     `stdlib interface`, `generic type` or `stdlib type`.
+func (g *gen) recordedTypeRefusal(te ast.TypeExpr, rec analysis.Type) (string, string, bool) {
+	written, name, args := te.TypeString(), writtenTypeName(te, rec), writtenTypeArgs(te)
+	if len(args) > 0 && g.representedContainer(te, rec) {
+		return g.partRefusal(args)
+	}
+	switch t := rec.(type) {
+	case nil:
+		if key, nested := g.nestedTypeDeclKey(written); nested {
+			return key, written, true
+		}
+		return "non-local type", written, true
+	case *analysis.TypeParam_:
+		return "generic type", written, true
+	case *analysis.InterfaceType:
+		if d, program := g.solvedIface(t.Origin, t.Name); program {
+			if d.lowerable {
+				return "", "", false
+			}
+			return ifaceReason(d)
+		}
+		return "stdlib interface", qualifyOrigin(t.Origin, name), true
+	}
+	origin := originOfType(rec)
+	if tpl, _, isTemplate := g.genericTemplateOf(rec); isTemplate {
+		switch {
+		case g.otherFileOrigin(origin):
+			return "generic type", written, true
+		case tpl.why != "":
+			// A program's generic type whose instantiations are WALLED,
+			// reporting the wall's own reason rather than the family's
+			// name, so a struct LITERAL and a SIGNATURE mentioning the
+			// same instantiation report the same reason. See
+			// generictype.go.
+			return tpl.why, tpl.whyDetail, true
+		}
+		// An ADMITTED template whose instantiation still did not build:
+		// the INSTANCE's own recorded reason first (genericimpl.go), then
+		// the argument.
+		if gt := writtenGeneric(te); gt != nil {
+			if c, d, bad := g.genericInstRefusal(gt, tpl); bad {
+				return c, d, true
+			}
+		}
+		return g.partRefusal(args)
+	}
+	if d := g.nominalDef(rec); d != nil {
+		if d.lowerable {
+			return "", "", false
+		}
+		return unloweredReason(d)
+	}
+	switch {
+	case analysis.IsBodyOrigin(origin):
+		if key, nested := g.nestedTypeDeclKey(written); nested {
+			return key, written, true
+		}
+		return "non-local type", written, true
+	case len(args) > 0:
+		return "generic type", written, true
+	case len(typeParamDefsOf(rec)) > 0:
+		return "generic type", qualifyOrigin(origin, name), true
+	}
+	return "stdlib type", qualifyOrigin(origin, name), true
+}
+
+// representedContainer reports whether te, written with type arguments, is
+// a container the builder represents whatever its arguments, by the type
+// the checker recorded for it, rec: a List, a Map, an Iter, or a prelude
+// enum (preludeAt).
+func (g *gen) representedContainer(te ast.TypeExpr, rec analysis.Type) bool {
+	switch t := rec.(type) {
+	case *analysis.ListType, *analysis.MapType:
+		return true
+	case *analysis.InterfaceType:
+		return t.Origin == stdIter.Module && t.Name == stdIter.Name
+	}
+	gt := writtenGeneric(te)
+	if gt == nil {
+		return false
+	}
+	_, _, isPrelude := g.preludeAt(gt.Line, gt.Col)
+	return isPrelude
+}
+
+// writtenTypeName is the name a refusal gives te, a type written by its
+// name whose type the checker recorded as rec, without arguments: the
+// bare name it is written with (`Box` of `Box<Int>`), and for a qualified
+// one the name its declaration has (`Shape` of `shapes.Shape`,
+// `Toml.Value` of `Toml.Value`).
+func writtenTypeName(te ast.TypeExpr, rec analysis.Type) string {
+	switch t := te.(type) {
+	case *ast.QualifiedType:
+		switch ty := rec.(type) {
+		case *analysis.StructType:
+			return ty.Name
+		case *analysis.EnumType:
+			return ty.Name
+		case *analysis.DistinctType:
+			return ty.Name
+		case *analysis.InterfaceType:
+			return ty.Name
+		}
+		return writtenTypeName(t.Member, rec)
+	case *ast.GenericType:
+		return t.Name
+	case *ast.SimpleType:
+		return t.Name
+	}
+	return typeText(te)
+}
+
+// writtenTypeArgs is the type arguments te is written with, nil for none.
+func writtenTypeArgs(te ast.TypeExpr) []ast.TypeExpr {
+	if gt := writtenGeneric(te); gt != nil {
+		return gt.Params
+	}
+	return nil
+}
+
+// writtenGeneric is te's `Name<...>`, itself or a qualified type's member,
+// or nil.
+func writtenGeneric(te ast.TypeExpr) *ast.GenericType {
+	if qt, qualified := te.(*ast.QualifiedType); qualified {
+		te = qt.Member
+	}
+	gt, _ := te.(*ast.GenericType)
+	return gt
+}
+
+// writtenTypeSymbol is the declaration the checker resolved te's name to,
+// or nil.
+func (g *gen) writtenTypeSymbol(te ast.TypeExpr) *analysis.Symbol {
+	if qt, qualified := te.(*ast.QualifiedType); qualified {
+		te = qt.Member
+	}
+	switch t := te.(type) {
+	case *ast.SimpleType:
+		return g.checkedRef(t.Line, t.Col)
+	case *ast.GenericType:
+		return g.checkedRef(t.Line, t.Col)
+	}
+	return nil
+}
+
+// typeParamDefsOf is the type parameters of the declaration the nominal
+// type t names, nil for none.
+func typeParamDefsOf(t analysis.Type) []*analysis.TypeParam_ {
+	switch ty := t.(type) {
+	case *analysis.StructType:
+		return ty.TypeParamDefs
+	case *analysis.EnumType:
+		return ty.TypeParamDefs
+	case *analysis.DistinctType:
+		return ty.TypeParamDefs
+	}
+	return nil
 }
 
 // declRefusal is the reason a DECLARATION was not lowered, followed through
@@ -335,16 +490,15 @@ func mirrorWhy(d *typeDef) string {
 
 // ifaceReason is unloweredReason for an interface existential.
 //
-// A separate key from `unlowered type` for the reason foreignIfaceOwner is a
-// separate accessor from foreignOwner: an interface has no layout, no variant
-// tags and no mirror, so it is a different amount of work and must not be
-// counted with the types.
+// A separate key from `unlowered type`: an interface has no layout, no
+// variant tags and no type mirror, so it is a different amount of work and
+// must not be counted with the types.
 //
 // The DETAIL is made total here, which is the same argument mirrorWhy makes for
 // the construct half one function down: a channel that can carry an empty
 // string will. `blockedIface` composes a detail for every mirror, and
 // `declareIfaces` composes none at all, so without this `interface Holder<T>`
-// would report `generic interface` with NO OPERAND. `simpleRefusal` reaches
+// would report `generic interface` with NO OPERAND. `recordedTypeRefusal` reaches
 // this for the annotation `h: Holder<Int>`.
 //
 // A bare `d.nomi` rather than a qualified name: a mirror's own `whyDetail` is
@@ -358,139 +512,6 @@ func ifaceReason(d *ifaceDef) (string, string, bool) {
 		return d.why, d.nomi, true
 	}
 	return "unlowered interface", d.nomi, true
-}
-
-// genericArgRefusal finds the failing ARGUMENT of a container the builder can
-// represent, so `List<Diagnostic>` is reported as `Diagnostic`.
-func (g *gen) genericArgRefusal(t *ast.GenericType) (string, string, bool) {
-	for _, p := range t.Params {
-		if c, d, bad := g.typeRefusal(p); bad {
-			return c, d, true
-		}
-	}
-	// Every argument resolved, so the container did too and the caller should
-	// not have asked. Reported as no-reason rather than guessed at.
-	return "", "", false
-}
-
-// simpleRefusal names why a bare type name is outside the subset.
-//
-// The order mirrors typeOf's exactly, because a name that typeOf resolves at
-// step 3 must not be classified here by step 5's rule.
-func (g *gen) simpleRefusal(t *ast.SimpleType) (string, string, bool) {
-	switch t.Name {
-	case "Int", "Float", "String", "Bool", "Unit":
-		return "", "", false
-	}
-	if d, found := g.types[t.Name]; found {
-		if d.lowerable {
-			return "", "", false
-		}
-		return unloweredReason(d)
-	}
-	if _, isOpaque := g.opaqueNamed(t.Name); isOpaque {
-		return "", "", false
-	}
-	if _, isStdEnum := g.stdEnumNamed(t.Name); isStdEnum {
-		return "", "", false
-	}
-	if _, isStdStruct := g.stdStructNamed(t.Name); isStdStruct {
-		return "", "", false
-	}
-	if _, isStdHost := g.stdHostNamed(t.Name); isStdHost {
-		return "", "", false
-	}
-	if _, isMarker := g.stdMarkerNamed(t.Name); isMarker {
-		return "", "", false
-	}
-	if d, found := g.ifaces[t.Name]; found {
-		if d.lowerable {
-			return "", "", false
-		}
-		return ifaceReason(d)
-	}
-	if d, isForeign := g.foreignIface(t.Name); isForeign {
-		if d.lowerable {
-			return "", "", false
-		}
-		return ifaceReason(d)
-	}
-	// Mirrors typeOf's stdlib-interface arm, in the same position relative to
-	// the sibling-file lookup. An anchored stdlib interface is representable,
-	// so there is no reason to name; an UNANCHORED one falls through to
-	// unresolvedRefusal below and keeps `stdlib interface`. That fall-through
-	// is what makes the refusal EVALUATE its precondition instead of citing
-	// it: the key is reported only after the anchor machinery has been
-	// asked and answered no. See stdiface.go.
-	if _, isStd := g.stdIfaceNamed(t.Name); isStd {
-		return "", "", false
-	}
-	if d, isForeign := g.foreignType(t.Name); isForeign {
-		if d.lowerable {
-			return "", "", false
-		}
-		return unloweredReason(d)
-	}
-	if g.isTypeParamRef(t) {
-		// A type PARAMETER the enclosing generic header introduced — the
-		// receiver's `T` in `impl Ranked for Holder<T>`, whose method returns
-		// it. Nothing declares it, so the resolution below would call it
-		// `non-local type` ("no such type here"), which is the wrong claim
-		// about the right position: it exists, it is a type variable, and it
-		// needs the type-parameter dictionary.
-		return "generic type", t.Name, true
-	}
-	return g.unresolvedRefusal(t.Name)
-}
-
-// isTypeParamRef reports whether this name is a type VARIABLE some declaration
-// in the module introduced.
-//
-// A NAME set, gathered once by reflection over every `TypeParams []ast.TypeParam`
-// field any declaration carries. Reflection for the same reason childNodes uses
-// it: seven AST node types carry that field, a switch over them would
-// fail SILENTLY when an eighth appears, and the failure would be a type
-// variable quietly reported as "no such type here".
-//
-// A name set is safe HERE and would not be safe at a use site, because
-// simpleRefusal has already asked every table that could hold a real type of
-// this name — local, opaque, interface, foreign interface, foreign type — and
-// found nothing. What is left cannot be a type that shadows the parameter.
-func (g *gen) isTypeParamRef(t *ast.SimpleType) bool {
-	if g.typeParamNames == nil {
-		g.typeParamNames = map[string]bool{}
-		collectTypeParamNames(reflect.ValueOf(g.nodes), g.typeParamNames)
-	}
-	return g.typeParamNames[t.Name]
-}
-
-var typeParamType = reflect.TypeOf(ast.TypeParam{})
-
-func collectTypeParamNames(v reflect.Value, out map[string]bool) {
-	switch v.Kind() {
-	case reflect.Interface, reflect.Pointer:
-		if !v.IsNil() {
-			collectTypeParamNames(v.Elem(), out)
-		}
-	case reflect.Slice, reflect.Array:
-		for i := range v.Len() {
-			collectTypeParamNames(v.Index(i), out)
-		}
-	case reflect.Struct:
-		if v.Type() == typeParamType {
-			out[v.Interface().(ast.TypeParam).Name] = true
-			return
-		}
-		if v.Type() == triviaCarrierType {
-			return
-		}
-		tp := v.Type()
-		for i := range tp.NumField() {
-			if tp.Field(i).IsExported() {
-				collectTypeParamNames(v.Field(i), out)
-			}
-		}
-	}
 }
 
 // nestedTypeDeclKey is the tally key a name's OWN DECLARATION carries, when the
@@ -585,99 +606,6 @@ func typeDeclName(n ast.Node) string {
 	return ""
 }
 
-// unresolvedRefusal classifies a type name nothing in the PROGRAM declares, by
-// following it through the analyzer to the declaration that owns it.
-//
-// Three populations, and they are three different amounts of work — which is
-// the whole reason they get three keys rather than sharing `non-local type`:
-//
-//   - a STDLIB type. `Diagnostic`, `Ordering`, `Json`, `AssertionFailure`. The
-//     builder has no table for a stdlib type at all: irbuild.Analyze carries only
-//     the user files (irbuild.go's own comment says so), and stdlib reaches the
-//     builder through stdlib.go's FUNCTION index, which registers no type.
-//     It gets a name that says what it needs.
-//   - a stdlib INTERFACE. Same miss, different work: an existential over one
-//     needs the interface's method shape and a dispatch table living in an
-//     unlowered module, not a data layout.
-//   - a GENERIC declaration, stdlib or otherwise. `Fragment<T>`, `Set<T>`,
-//     under the key the generic family uses.
-//
-// Anything that resolves to nothing at all keeps `non-local type`, which is
-// what that key means: no such type here.
-//
-// Reached from a CONSTRUCTION site as well as from an annotation, and that is
-// the point rather than reuse: `Project{...}` and `p: Project` are one
-// obstacle and report it under one name.
-func (g *gen) unresolvedRefusal(name string) (string, string, bool) {
-	sym := resolvedTypeSymbol(g.fa, name)
-	if sym == nil || sym.Node == nil {
-		if key, nested := g.nestedTypeDeclKey(name); nested {
-			return key, name, true
-		}
-		return "non-local type", name, true
-	}
-	switch sym.Node.(type) {
-	case *ast.InterfaceDef:
-		return "stdlib interface", qualifyOrigin(originOfType(sym.Type), name), true
-	case *ast.TypeAlias:
-		// A TRANSPARENT synonym, which RESOLVES (typealias.go) — so
-		// reaching here means the alias's TARGET is what this position cannot
-		// represent, and the target's own reason is the one a programmer can
-		// act on. Reporting `type alias` here instead would say only that a
-		// synonym was involved, which is true of every use of every alias and
-		// distinguishes nothing.
-		//
-		// THE KEY THEREFORE COUNTS DECLARATIONS AND NOT USES. `type alias` is
-		// raised once, by moduleAliasDecl at the declaration, and three
-		// parameters annotated with one bad alias report the target's gap three
-		// times under the target's key rather than the alias's four times under
-		// the alias's. That is the same split blocklocaltype.go states for the
-		// block-local form: the declaration is the position a programmer acts
-		// on, and a use is a consequence of it.
-		//
-		// The alias name is carried into the detail, because a reader looking
-		// at `p: Stream` needs to know that `Iter<Int>` is what `Stream` is.
-		if d, ok := sym.Node.(*ast.TypeAlias); ok && d.TargetTypeExpr != nil {
-			key, detail, reported := g.typeRefusal(d.TargetTypeExpr)
-			if !reported {
-				// THE TARGET IS FINE, SO THE ALIAS IS FINE, and this function
-				// must say so rather than name a reason. `typeOf` lowers
-				// `Handler` to `(String) -> String`; a reason returned here for
-				// a type that HAS none is not merely noise — it fires the
-				// moment any caller consults the reason before the kind. That
-				// is exactly what
-				// TestSigReason_NamesAReasonForExactlyWhatTypeOfRefuses exists
-				// to catch, and it caught this one.
-				return "", "", false
-			}
-			return key, name + " is " + detail, true
-		}
-		// A BOUND alias: it names a conjunction of interfaces rather than a
-		// type, so there is no target to point at and the alias keeps the key
-		// its declaration uses.
-		return "type alias", name, true
-	}
-	if isGenericDecl(sym.Node) {
-		return "generic type", qualifyOrigin(originOfType(sym.Type), name), true
-	}
-	return "stdlib type", qualifyOrigin(originOfType(sym.Type), name), true
-}
-
-// isGenericDecl reports whether a declaration carries type parameters, so a
-// mention of `Fragment` sizes with the generic family rather than with the
-// stdlib data types an ordinary mirror would cover.
-func isGenericDecl(n ast.Node) bool {
-	switch d := n.(type) {
-	case *ast.StructDef:
-		return len(d.TypeParams) > 0
-	case *ast.EnumDef:
-		return len(d.TypeParams) > 0
-	case *ast.TypeDef:
-		return false
-	}
-	return false
-}
-
 // originOfType is a nominal type's declaring-file build key, or "".
 //
 // Read off the analyzer's own type rather than off the symbol's SourceFile,
@@ -706,15 +634,4 @@ func qualifyOrigin(origin, name string) string {
 		return name
 	}
 	return origin + "." + name
-}
-
-// --- the inferred channel ---------------------------------------------------
-
-// preludeNamed is the prelude anchor for a name, after the table is loaded.
-// Every builder arm reads the table through it, so a gen built without
-// newGen or newStdGen (a unit test's) cannot read it unloaded either.
-func (g *gen) preludeNamed(name string) (*preludeAnchor, bool) {
-	g.loadPreludes()
-	a, ok := g.preludeByName[name]
-	return a, ok
 }

@@ -41,20 +41,22 @@ pub fn delivery_date(
             Ok(end_of_week(today))
 
         .Month(month) ->
-            due_year = if Date.month(today) < month then
-                year
-            else
-                year + 1
-            end
+            due_year =
+                if Date.month(today) < month then
+                    year
+                else
+                    year + 1
+                end
 
             Ok(at(first_workday(due_year, month), 8))
 
         .Quarter(quarter) ->
-            due_year = if Date.month(today) |> quarter_of() <= quarter then
-                year
-            else
-                year + 1
-            end
+            due_year =
+                if Date.month(today) |> quarter_of() <= quarter then
+                    year
+                else
+                    year + 1
+                end
 
             Ok(at(last_workday_of_quarter(due_year, quarter), 8))
     end

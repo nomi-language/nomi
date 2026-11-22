@@ -1,3 +1,6 @@
 [module]
 name = "todo"
 entry_points = ["main"]
+
+[dependencies]
+stringkit = { dir = "../stringkit" }

@@ -42,6 +42,8 @@ func (bl *irScalarBuilder) nativeArithmetic(t *ast.Binary, op ir.ArithOp, lhs, r
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if t.Op == "+" && (lk.tag == tagList || rk.tag == tagList) {
 		call := &ast.Call{Line: t.Line, Col: t.Col, Args: []ast.Node{t.Left, t.Right}}
+		// The call stands for the operator: it carries the operator's type.
+		defer bl.g.carryType(call, bl.g.recordedType(t))()
 		args := irQualArgs{temps: []ir.Temp{lhs, rhs}, kinds: []kind{lk, rk}, mobile: []bool{true, true}, ok: true}
 		p := bl.listCallPlan(call, args, "concat")
 		if p == nil {

@@ -141,43 +141,44 @@ fn at_scale(query: String, row: Row, position: Int, scale: Int) -> Result<Row, s
     column = Iter.get(columns, position) |> Maybe.with_default("")
     place = "the column `${column}` of `${query}`, read at scale ${scale},"
 
-    scaled = case value
-        .Int(n) ->
-            d = Decimal.round(Int.to_decimal(n), scale, RoundingMode.HalfEven)
+    scaled =
+        case value
+            .Int(n) ->
+                d = Decimal.round(Int.to_decimal(n), scale, RoundingMode.HalfEven)
 
-            if digits(d) <= exact_digits() then
-                Ok(d)
-            else
-                Err(
-                    "${place} holds ${n}, of ${digits(
-                        d
-                    )} digits at that scale, more than the ${exact_digits()} SQLite keeps exactly"
-                )
-            end
-
-        .Float(x) ->
-            case exact(x, scale)
-                Some(d) ->
+                if digits(d) <= exact_digits() then
                     Ok(d)
-
-                None ->
+                else
                     Err(
-                        "${place} holds the float ${x}, which is not exactly a decimal of that scale and at most ${exact_digits()} digits: SQLite computes with DECIMAL values as 64-bit floats; keep amounts you add up in SQL as INTEGER minor units (cents) to add them exactly"
+                        "${place} holds ${n}, of ${digits(
+                            d
+                        )} digits at that scale, more than the ${exact_digits()} SQLite keeps exactly"
                     )
-            end
+                end
 
-        .Decimal(d) ->
-            rounded = Decimal.round(d, scale, RoundingMode.HalfEven)
+            .Float(x) ->
+                case exact(x, scale)
+                    Some(d) ->
+                        Ok(d)
 
-            if rounded == d then
-                Ok(rounded)
-            else
-                Err("${place} holds ${d}, which has more decimals than that")
-            end
+                    None ->
+                        Err(
+                            "${place} holds the float ${x}, which is not exactly a decimal of that scale and at most ${exact_digits()} digits: SQLite computes with DECIMAL values as 64-bit floats; keep amounts you add up in SQL as INTEGER minor units (cents) to add them exactly"
+                        )
+                end
 
-        _ ->
-            return Ok(row)
-    end
+            .Decimal(d) ->
+                rounded = Decimal.round(d, scale, RoundingMode.HalfEven)
+
+                if rounded == d then
+                    Ok(rounded)
+                else
+                    Err("${place} holds ${d}, which has more decimals than that")
+                end
+
+            _ ->
+                return Ok(row)
+        end
 
     case scaled
         Ok(d) ->

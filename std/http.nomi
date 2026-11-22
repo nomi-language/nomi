@@ -52,7 +52,7 @@ import
     html.Html
     http::host as http_host
     instant.Instant
-    int.{Int, NonNegativeInt, PositiveInt}
+    int.{Int, NonNegativeInt}
     io
     io.{Reader, Writer}
     iter.Iter
@@ -623,14 +623,14 @@ once max_multipart_body = 33_554_432
 fn read_capped(body: Body, max: Int, limit: Maybe<Int>) -> Result<Bytes, Error>
     case body
         .Stream(r) ->
-            (copied, data) = Writer.collect(fn w -> copy_capped(r, w, max + 1))
+            (data, failed) = http_host.read_at_most(r, max + 1)
             got = Bytes.length(data)
 
-            case copied
-                Ok(_) when got > max           -> Err(Error.BodyTooLarge{limit: max})
-                Ok(_)                          -> Ok(data)
-                Err(_) when limit == Some(got) -> Err(Error.BodyTooLarge{limit: got})
-                Err(error)                     -> Err(Error.Body{error:})
+            case failed
+                None when got > max             -> Err(Error.BodyTooLarge{limit: max})
+                None                            -> Ok(data)
+                Some(_) when limit == Some(got) -> Err(Error.BodyTooLarge{limit: got})
+                Some(error)                     -> Err(Error.Body{error:})
             end
 
         other ->
@@ -640,24 +640,6 @@ fn read_capped(body: Body, max: Int, limit: Maybe<Int>) -> Result<Bytes, Error>
                 Err(Error.BodyTooLarge{limit: max})
             else
                 Ok(data)
-            end
-    end
-end
-
-/// Copies at most `left` bytes of `r` to `w`.
-fn copy_capped(r: Reader, w: Writer, left: Int) -> Result<Unit, io.Error>
-    case PositiveInt.try_from(Int.min(left, 65_536))
-        None ->
-            Ok(Unit)
-
-        Some(max) ->
-            case Reader.read(r, max:)?
-                Some(chunk) ->
-                    Writer.write(w, chunk)?
-                    copy_capped(r, w, left - Bytes.length(chunk))
-
-                None ->
-                    Ok(Unit)
             end
     end
 end
@@ -775,15 +757,16 @@ impl Request
     //! import std::http.{Body, Method, Request}
     //! import std::http::testing
     //!
-    //! posted = fn size: Int ->
-    //!     {
-    //!         ..testing.request(Method.Post, "/"),
-    //!         headers: Headers[("Content-Type", "application/x-www-form-urlencoded")],
-    //!         body: Body.Stream(
-    //!             Reader.from_text("a=${String.repeat("x", NonNegativeInt.try_from(size - 2)!)}")
-    //!         ),
-    //!     }
-    //! end
+    //! posted =
+    //!     fn size: Int ->
+    //!         {
+    //!             ..testing.request(Method.Post, "/"),
+    //!             headers: Headers[("Content-Type", "application/x-www-form-urlencoded")],
+    //!             body: Body.Stream(
+    //!                 Reader.from_text("a=${String.repeat("x", NonNegativeInt.try_from(size - 2)!)}")
+    //!             ),
+    //!         }
+    //!     end
     //!
     //! assert Request.post_form(Request.limit_body(posted(8), 8)) |> Result.is_ok()
     //!
@@ -834,20 +817,25 @@ impl Request
     //! import std::http.{Body, FormPart, Method, Request}
     //! import std::http::testing
     //!
-    //! file = fn text: String ->
-    //!     FormPart.File{field: "doc", filename: "a", content: String.to_bytes(text)}
-    //! end
+    //! file =
+    //!     fn text: String ->
+    //!         FormPart.File{field: "doc", filename: "a", content: String.to_bytes(text)}
+    //!     end
     //!
-    //! upload = fn size: Int ->
-    //!     overhead = Bytes.length(FormPart.encode([file("")]).body)
-    //!     encoded = FormPart.encode([file(String.repeat("x", NonNegativeInt.try_from(size - overhead)!))])
+    //! upload =
+    //!     fn size: Int ->
+    //!         overhead = Bytes.length(FormPart.encode([file("")]).body)
     //!
-    //!     {
-    //!         ..testing.request(Method.Post, "/upload"),
-    //!         headers: Headers[("Content-Type", encoded.content_type)],
-    //!         body:    Body.Stream(Reader.from_bytes(encoded.body)),
-    //!     }
-    //! end
+    //!         encoded = FormPart.encode(
+    //!             [file(String.repeat("x", NonNegativeInt.try_from(size - overhead)!))]
+    //!         )
+    //!
+    //!         {
+    //!             ..testing.request(Method.Post, "/upload"),
+    //!             headers: Headers[("Content-Type", encoded.content_type)],
+    //!             body:    Body.Stream(Reader.from_bytes(encoded.body)),
+    //!         }
+    //!     end
     //!
     //! assert Request.multipart_form(upload(1000)) |> Result.is_ok()
     //! assert Request.multipart_form(Request.limit_body(upload(1000), 1000)) |> Result.is_ok()
@@ -942,10 +930,11 @@ impl Request
     //! todo = Request.json_as<{title: String, order: Maybe<Int>}>(posted(`{"title": "milk"}`))
     //! assert todo == Ok({title: "milk", order: None})
     //!
-    //! create = fn request: Request ->
-    //!     fields = Request.json_as<Map<String, String>>(request)?
-    //!     Ok(Response{status: Status.created, body: Body.Text("${Map.get(fields, "title")}")})
-    //! end
+    //! create =
+    //!     fn request: Request ->
+    //!         fields = Request.json_as<Map<String, String>>(request)?
+    //!         Ok(Response{status: Status.created, body: Body.Text("${Map.get(fields, "title")}")})
+    //!     end
     //!
     //! answer = fn text: String -> ToResponse.to_response(create(posted(text)))
     //! assert answer(`{"title": "milk"}`).status == Status.created
@@ -1015,10 +1004,11 @@ impl Request
     /// `body_limit`, which replaces the form defaults, so an upload route
     /// can raise them; a second limit only lowers the first.
     pub fn limit_body(request: Request, max: NonNegativeInt) -> Request
-        body_limit = case request.body_limit
-            Some(earlier) -> Int.min(earlier, max)
-            None          -> max
-        end
+        body_limit =
+            case request.body_limit
+                Some(earlier) -> Int.min(earlier, max)
+                None          -> max
+            end
 
         {
             ..request,
@@ -1097,10 +1087,11 @@ impl Request
 
         (head, headers, trailers, encoding) = wire_parts_of(message)
 
-        (method, target, major, minor, host, length, close) = case head
-            [m, t, a, b, h, n, c, _] -> (m, t, a, b, h, n, c)
-            _                        -> ("GET", "/", "1", "1", "", "-1", "false")
-        end
+        (method, target, major, minor, host, length, close) =
+            case head
+                [m, t, a, b, h, n, c, _] -> (m, t, a, b, h, n, c)
+                _                        -> ("GET", "/", "1", "1", "", "-1", "false")
+            end
 
         url =
             Url.parse(target)
@@ -1224,10 +1215,11 @@ impl Response
 
         (head, headers, trailers, encoding) = wire_parts_of(message)
 
-        (major, minor, length, close, status) = case head
-            [_, _, a, b, _, n, c, s] -> (a, b, n, c, s)
-            _                        -> ("1", "1", "-1", "false", "200")
-        end
+        (major, minor, length, close, status) =
+            case head
+                [_, _, a, b, _, n, c, s] -> (a, b, n, c, s)
+                _                        -> ("1", "1", "-1", "false", "200")
+            end
 
         Ok(Response{
             status: Status(
@@ -1522,10 +1514,11 @@ impl Response
                 Ok(None)
 
             Some(text) ->
-                parsed = case response.url
-                    Some(base) -> Url.resolve_text(base, text)
-                    None       -> Url.parse(text)
-                end
+                parsed =
+                    case response.url
+                        Some(base) -> Url.resolve_text(base, text)
+                        None       -> Url.parse(text)
+                    end
 
                 parsed
                 |> Result.map(Some)
@@ -1627,25 +1620,26 @@ end
 //
 impl ToResponse for Error
     fn to_response(error: Error) -> Response
-        status = case error
-            .BodyTooLarge{limit: _}             -> Status.request_entity_too_large
-            .CrossOrigin{reason: _}             -> Status.forbidden
-            .MalformedBody{reason: _}           -> Status.bad_request
-            .Form{reason: _}                    -> Status.bad_request
-            .MissingFile{field: _}              -> Status.bad_request
-            .Body{error: _}                     -> Status.bad_request
-            .Timeout{during: _}                 -> Status.gateway_timeout
-            .HandlerTimeout                     -> Status.service_unavailable
-            .InvalidUrl{url: _, reason: _}      -> Status.bad_gateway
-            .Dns{host: _, reason: _}            -> Status.bad_gateway
-            .Connect{address: _, reason: _}     -> Status.bad_gateway
-            .Tls{reason: _}                     -> Status.bad_gateway
-            .Canceled                           -> Status.bad_gateway
-            .TooManyRedirects{count: _}         -> Status.bad_gateway
-            .RedirectRefused{url: _, reason: _} -> Status.bad_gateway
-            .Protocol{reason: _}                -> Status.bad_gateway
-            _                                   -> Status.internal_server_error
-        end
+        status =
+            case error
+                .BodyTooLarge{limit: _}             -> Status.request_entity_too_large
+                .CrossOrigin{reason: _}             -> Status.forbidden
+                .MalformedBody{reason: _}           -> Status.bad_request
+                .Form{reason: _}                    -> Status.bad_request
+                .MissingFile{field: _}              -> Status.bad_request
+                .Body{error: _}                     -> Status.bad_request
+                .Timeout{during: _}                 -> Status.gateway_timeout
+                .HandlerTimeout                     -> Status.service_unavailable
+                .InvalidUrl{url: _, reason: _}      -> Status.bad_gateway
+                .Dns{host: _, reason: _}            -> Status.bad_gateway
+                .Connect{address: _, reason: _}     -> Status.bad_gateway
+                .Tls{reason: _}                     -> Status.bad_gateway
+                .Canceled                           -> Status.bad_gateway
+                .TooManyRedirects{count: _}         -> Status.bad_gateway
+                .RedirectRefused{url: _, reason: _} -> Status.bad_gateway
+                .Protocol{reason: _}                -> Status.bad_gateway
+                _                                   -> Status.internal_server_error
+            end
 
         if Status.code(status) < 500 then
             Response.error(status, "${error}")
@@ -1997,11 +1991,12 @@ impl Client
     pub fn new(options: ClientOptions = ClientOptions{}) -> Client
         t = options.transport
 
-        (proxy, proxy_url) = case t.proxy
-            .FromEnvironment -> (0, "")
-            .Direct          -> (1, "")
-            .Fixed(u)        -> (2, "${u}")
-        end
+        (proxy, proxy_url) =
+            case t.proxy
+                .FromEnvironment -> (0, "")
+                .Direct          -> (1, "")
+                .Fixed(u)        -> (2, "${u}")
+            end
 
         handle = http_host.new_client(
             nanos(options.timeout),
@@ -2051,10 +2046,11 @@ impl Client
             Maybe.is_some(t.http2.on_error_count),
         )
 
-        handle = case options.cookies
-            Some(jar) -> http_host.with_jar(handle, jar.handle)
-            None      -> handle
-        end
+        handle =
+            case options.cookies
+                Some(jar) -> http_host.with_jar(handle, jar.handle)
+                None      -> handle
+            end
 
         Client{handle:, options:}
     end
@@ -2223,19 +2219,20 @@ fn send(
 ) -> Result<http_host.Exchange, Error>
     headers = typed(request.headers, request.body)
 
-    (kind, data, input) = case request.body
-        .Empty ->
-            (0, String.to_bytes(""), Reader.from_bytes(String.to_bytes("")))
+    (kind, data, input) =
+        case request.body
+            .Empty ->
+                (0, String.to_bytes(""), None)
 
-        .Stream(r) ->
-            (2, String.to_bytes(""), r)
+            .Stream(r) ->
+                (2, String.to_bytes(""), Some(r))
 
-        .Produce(_) ->
-            return Err(Error.InvalidRequest{reason: "a request body cannot be Body.Produce"})
+            .Produce(_) ->
+                return Err(Error.InvalidRequest{reason: "a request body cannot be Body.Produce"})
 
-        other ->
-            (1, Body.bytes_of(other), Reader.from_bytes(String.to_bytes("")))
-    end
+            other ->
+                (1, Body.bytes_of(other), None)
+        end
 
     http_host.send(
         handle,
@@ -2251,25 +2248,22 @@ fn send(
         flat(request.trailers),
         stream,
         Maybe.with_default(max_body, -1),
-        case request.trace
-            Some(t) -> t.handle
-            None    -> http_host.new_tracer()
-        end,
-        Maybe.is_some(request.trace),
+        Maybe.map(request.trace, fn t -> t.handle),
     )
     |> Result.map_err(Error.from_parts)
 end
 
 // headers with the Content-Type body implies, unless they set one.
 fn typed(headers: Headers, body: Body) -> Headers
-    content_type = case body
-        .Text(_)          -> Some("text/plain; charset=utf-8")
-        .Json(_)          -> Some("application/json")
-        .Html(_)          -> Some("text/html; charset=utf-8")
-        .Form(_)          -> Some("application/x-www-form-urlencoded")
-        .Multipart(parts) -> Some(FormPart.encode(parts).content_type)
-        _                 -> None
-    end
+    content_type =
+        case body
+            .Text(_)          -> Some("text/plain; charset=utf-8")
+            .Json(_)          -> Some("application/json")
+            .Html(_)          -> Some("text/html; charset=utf-8")
+            .Form(_)          -> Some("application/x-www-form-urlencoded")
+            .Multipart(parts) -> Some(FormPart.encode(parts).content_type)
+            _                 -> None
+        end
 
     case content_type
         Some(t) ->
@@ -2303,15 +2297,17 @@ fn send_following(
 ) -> Result<http_host.Exchange, Error>
     exchange = send(handle, request, stream, max_body)?
 
-    decide = case redirects
-        .Decide(f) -> f
-        _          -> return Ok(exchange)
-    end
+    decide =
+        case redirects
+            .Decide(f) -> f
+            _          -> return Ok(exchange)
+        end
 
-    following = case redirected(request, response_of(exchange, Body.Empty))?
-        Some(next) -> next
-        None       -> return Ok(exchange)
-    end
+    following =
+        case redirected(request, response_of(exchange, Body.Empty))?
+            Some(next) -> next
+            None       -> return Ok(exchange)
+        end
 
     sent = [..via, request]
 
@@ -2336,46 +2332,50 @@ end
 /// be sent twice. Headers that carry credentials are dropped when the host
 /// changes. `None` for any other response, as for one with no `Location`.
 fn redirected(request: Request, response: Response) -> Result<Maybe<Request>, Error>
-    target = case Response.location(response)?
-        Some(url) -> url
-        None      -> return Ok(None)
-    end
+    target =
+        case Response.location(response)?
+            Some(url) -> url
+            None      -> return Ok(None)
+        end
 
     code = Status.code(response.status)
     method = request.method
 
-    (next_method, keeps_body) = if code == 301 or code == 302 then
-        (
-            if method == Method.Post then Method.Get else method,
-            False,
-        )
-    else if code == 303 then
-        (
-            if method == Method.Get or method == Method.Head then method else Method.Get,
-            False,
-        )
-    else if code == 307 or code == 308 then
-        (method, True)
-    else
-        return Ok(None)
-    end
+    (next_method, keeps_body) =
+        if code == 301 or code == 302 then
+            (
+                if method == Method.Post then Method.Get else method,
+                False,
+            )
+        else if code == 303 then
+            (
+                if method == Method.Get or method == Method.Head then method else Method.Get,
+                False,
+            )
+        else if code == 307 or code == 308 then
+            (method, True)
+        else
+            return Ok(None)
+        end
 
     if keeps_body then
         if Body.Stream(_) = request.body then return Ok(None)
     end
 
-    headers = if keeps_body then
-        request.headers
-    else
-        Headers.remove(request.headers, "Content-Type")
-    end
+    headers =
+        if keeps_body then
+            request.headers
+        else
+            Headers.remove(request.headers, "Content-Type")
+        end
 
-    headers = if Url.hostname(target) == Url.hostname(request.url) then
-        headers
-    else
-        ["Authorization", "Www-Authenticate", "Cookie", "Cookie2"]
-        |> Iter.reduce(headers, Headers.remove)
-    end
+    headers =
+        if Url.hostname(target) == Url.hostname(request.url) then
+            headers
+        else
+            ["Authorization", "Www-Authenticate", "Cookie", "Cookie2"]
+            |> Iter.reduce(headers, Headers.remove)
+        end
 
     Ok(Some({
             ..request,
@@ -2389,10 +2389,11 @@ fn redirected(request: Request, response: Response) -> Result<Maybe<Request>, Er
 end
 
 fn response_of(exchange: http_host.Exchange, body: Body) -> Response
-    (major, minor) = case http_host.protocol(exchange)
-        [a, b] -> (a, b)
-        _      -> (1, 1)
-    end
+    (major, minor) =
+        case http_host.protocol(exchange)
+            [a, b] -> (a, b)
+            _      -> (1, 1)
+        end
 
     length = http_host.content_length(exchange)
 
@@ -2517,10 +2518,11 @@ pub fn listen(server: Server = Server{}) -> Result<Listener, Error>
     limits = [server.max_header_bytes, Maybe.with_default(server.max_header_value_count, 0)]
     flags = [server.keep_alives, server.answer_options_star, server.client_priority]
 
-    on_state = case server.on_connection_state
-        Some(told) -> fn address: String, code: Int -> told(address, conn_state(code))
-        None       -> fn _: String, _: Int -> Unit
-    end
+    on_state =
+        case server.on_connection_state
+            Some(told) -> fn address: String, code: Int -> told(address, conn_state(code))
+            None       -> fn _: String, _: Int -> Unit
+        end
 
     on_error = Maybe.with_default(server.on_error, ignore_text)
     on_shutdown = Maybe.with_default(server.on_shutdown, fn -> Unit)
@@ -2583,9 +2585,9 @@ end
 /// once. Returns when the calling task is stopped, as at shutdown, after
 /// shutting the listener down.
 ///
-/// A handler runs under the request's context: the context in force here,
-/// with the server's `request_timeout` as a deadline. The app's `Context`
-/// field reads it while the handler runs, and `request.context` holds it.
+/// `request.context` is the context in force here with `request_timeout`
+/// as a deadline. A handler keeps the app's `Context` field it was made
+/// under, as any closure does, held to that deadline while it runs.
 /// The handler's task is stopped when the client goes away. A handler that
 /// traps sends a 500. Use a supervisor that does not restart its tasks
 /// (`Restart.Temporary`, the default); a restarted handler sends nothing.
@@ -2621,10 +2623,11 @@ fn answer(listener: Listener, incoming: http_host.Incoming, handler: Handler) ->
             Err(_) -> return respond(incoming, Response{status: Status.bad_request})
         end
 
-        limited = case listener.server.max_body
-            Some(max) -> Request.limit_body(request, max)
-            None      -> request
-        end
+        limited =
+            case listener.server.max_body
+                Some(max) -> Request.limit_body(request, max)
+                None      -> request
+            end
 
         respond(incoming, ToResponse.to_response(handler(limited)))
     end)
@@ -2633,10 +2636,11 @@ end
 // The served request, or the error for a target std::url does not read,
 // which the caller answers 400 to before the handler runs.
 fn request_of(incoming: http_host.Incoming, context: Context) -> Result<Request, url.UrlError>
-    (major, minor) = case http_host.in_protocol(incoming)
-        [a, b] -> (a, b)
-        _      -> (1, 1)
-    end
+    (major, minor) =
+        case http_host.in_protocol(incoming)
+            [a, b] -> (a, b)
+            _      -> (1, 1)
+        end
 
     method = http_host.in_method(incoming)
     target = http_host.in_target(incoming)
@@ -2971,10 +2975,11 @@ impl Route<P>
 
         Entry{
             pattern:,
-            serve: fn request ->
-                params = parse.read_fields<P>(request.path_values)
-                Maybe.map(params, fn p -> ToResponse.to_response(handler(request, p)))
-            end,
+            serve:
+                fn request ->
+                    params = parse.read_fields<P>(request.path_values)
+                    Maybe.map(params, fn p -> ToResponse.to_response(handler(request, p)))
+                end,
         }
     end
 end
@@ -3012,11 +3017,12 @@ fn method_rule(text: String) -> Maybe<String>
     else
         upper = String.uppercase(word)
 
-        guess = if Iter.any_match(route_methods(), &(&1 == upper)) then
-            Some(upper)
-        else
-            Iter.find(route_methods(), &one_edit_apart(upper, &1))
-        end
+        guess =
+            if Iter.any_match(route_methods(), &(&1 == upper)) then
+                Some(upper)
+            else
+                Iter.find(route_methods(), &one_edit_apart(upper, &1))
+            end
 
         case guess
             Some(m) ->
@@ -3121,16 +3127,17 @@ fn fields_rule<P>(text: String, names: List<String>) -> Result<Route<P>, Error>
     else
         have = wildcards |> Iter.map(fn n -> "{${n}}") |> Iter.to_list()
 
-        reason = case (have, names)
-            ([], _) ->
-                "the pattern has no wildcards, and the parameters' fields are ${String.join(names, ", ")}"
+        reason =
+            case (have, names)
+                ([], _) ->
+                    "the pattern has no wildcards, and the parameters' fields are ${String.join(names, ", ")}"
 
-            (_, []) ->
-                "the pattern's wildcards are ${String.join(have, ", ")}, and the parameters have no fields"
+                (_, []) ->
+                    "the pattern's wildcards are ${String.join(have, ", ")}, and the parameters have no fields"
 
-            _ ->
-                "the pattern's wildcards are ${String.join(have, ", ")}, and the parameters' fields are ${String.join(names, ", ")}"
-        end
+                _ ->
+                    "the pattern's wildcards are ${String.join(have, ", ")}, and the parameters' fields are ${String.join(names, ", ")}"
+            end
 
         Err(Error.Pattern{pattern: text, reason:})
     end
@@ -3140,13 +3147,14 @@ end
 fn route_path(text: String) -> String
     spaced = String.replace(text, "\t", " ")
 
-    after_method = case String.split(spaced, " ")
-        [word, ..rest] when rest != [] and not String.contains(word, "/") ->
-            String.join(rest, " ") |> String.trim()
+    after_method =
+        case String.split(spaced, " ")
+            [word, ..rest] when rest != [] and not String.contains(word, "/") ->
+                String.join(rest, " ") |> String.trim()
 
-        _ ->
-            spaced
-    end
+            _ ->
+                spaced
+        end
 
     case String.split(after_method, "/")
         [_, ..segments] -> "/" + String.join(segments, "/")
@@ -3180,10 +3188,11 @@ fn route_wildcards(text: String) -> List<(String, Bool, Int)>
     (_, found) = Iter.reduce(String.split(path, "/"), (start, []), fn acc, segment ->
         (at, found) = acc
 
-        found = case wildcard_of(segment)
-            Some((name, rest)) -> [..found, (name, rest, at)]
-            None               -> found
-        end
+        found =
+            case wildcard_of(segment)
+                Some((name, rest)) -> [..found, (name, rest, at)]
+                None               -> found
+            end
 
         (at + String.length(segment) + 1, found)
     end)
@@ -3529,10 +3538,11 @@ end
 pub fn strip_prefix(handler: Handler, prefix: String) -> (Request) -> Response
     fn request ->
         // An escaped path must lose the prefix too, as Go's does.
-        raw = case request.url.raw_path
-            Some(r) -> String.strip_prefix(r, prefix) |> Maybe.map(Some)
-            None    -> Some(None)
-        end
+        raw =
+            case request.url.raw_path
+                Some(r) -> String.strip_prefix(r, prefix) |> Maybe.map(Some)
+                None    -> Some(None)
+            end
 
         case (String.strip_prefix(request.url.path, prefix), raw)
             (Some(rest), Some(raw_path)) ->
@@ -3560,13 +3570,14 @@ end
 //
 pub fn allow_query_semicolons(handler: Handler) -> (Request) -> Response
     fn request ->
-        rewritten = case request.url.query
-            Some(q) when String.contains(q, ";") ->
-                {..request, url: {.., query: Some(String.replace(q, ";", "&"))}}
+        rewritten =
+            case request.url.query
+                Some(q) when String.contains(q, ";") ->
+                    {..request, url: {.., query: Some(String.replace(q, ";", "&"))}}
 
-            _ ->
-                request
-        end
+                _ ->
+                    request
+            end
 
         ToResponse.to_response(handler(rewritten))
     end
@@ -3580,10 +3591,11 @@ end
 //! import std::http::testing
 //! import std::timer
 //!
-//! sleepy = fn _: Request ->
-//!     timer.sleep(Duration.seconds(5))
-//!     Response{body: Body.Text("late")}
-//! end
+//! sleepy =
+//!     fn _: Request ->
+//!         timer.sleep(Duration.seconds(5))
+//!         Response{body: Body.Text("late")}
+//!     end
 //!
 //! slow = sleepy |> http.timeout(Duration.milliseconds(20), "too slow")
 //! assert slow(testing.request(Method.Get, "/")).status == Status.service_unavailable
@@ -3809,15 +3821,16 @@ end
 //! import std::http.{self, Body, Method, Request, Response, Route, Router, Status}
 //! import std::http::testing
 //!
-//! require_token = fn handler: Handler ->
-//!     fn request: Request ->
-//!         if Headers.get(request.headers, "Authorization") == Some("Bearer s3cret") then
-//!             ToResponse.to_response(handler(request))
-//!         else
-//!             Response.error(Status.unauthorized, "unauthorized")
+//! require_token =
+//!     fn handler: Handler ->
+//!         fn request: Request ->
+//!             if Headers.get(request.headers, "Authorization") == Some("Bearer s3cret") then
+//!                 ToResponse.to_response(handler(request))
+//!             else
+//!                 Response.error(Status.unauthorized, "unauthorized")
+//!             end
 //!         end
 //!     end
-//! end
 //!
 //! home = fn _: Request -> Response{body: Body.Text("home")}
 //! users = fn _: Request -> Response{body: Body.Text("users")}
@@ -3931,10 +3944,14 @@ pub fn cors(handler: Handler, options: Cors) -> (Request) -> Response
     fn request ->
         origin = Headers.get(request.headers, "Origin")
 
-        allowed = case origin
-            Some(o) -> options.any_origin or Iter.any_match(options.origins, fn a -> "${a}" == o)
-            None    -> False
-        end
+        allowed =
+            case origin
+                Some(o) ->
+                    options.any_origin or Iter.any_match(options.origins, fn a -> "${a}" == o)
+
+                None ->
+                    False
+            end
 
         preflight = request.method == Method.Options
             and origin != None
@@ -3957,27 +3974,29 @@ pub fn cors(handler: Handler, options: Cors) -> (Request) -> Response
                 |> Headers.set("Access-Control-Allow-Methods", methods)
                 |> set_listed("Access-Control-Allow-Headers", options.allowed_headers)
 
-            age = case options.max_age
-                Some(d) ->
-                    Headers.set(headers, "Access-Control-Max-Age", "${Duration.as_seconds(d)}")
+            age =
+                case options.max_age
+                    Some(d) ->
+                        Headers.set(headers, "Access-Control-Max-Age", "${Duration.as_seconds(d)}")
 
-                None ->
-                    headers
-            end
+                    None ->
+                        headers
+                end
 
             return Response{status: Status.no_content, headers: age}
         end
 
         response = ToResponse.to_response(handler(request))
 
-        headers = case origin
-            Some(o) when allowed ->
-                cors_origin(response.headers, options, o)
-                |> set_listed("Access-Control-Expose-Headers", options.exposed_headers)
+        headers =
+            case origin
+                Some(o) when allowed ->
+                    cors_origin(response.headers, options, o)
+                    |> set_listed("Access-Control-Expose-Headers", options.exposed_headers)
 
-            _ ->
-                response.headers
-        end
+                _ ->
+                    response.headers
+            end
 
         {..response, headers: Headers.add(headers, "Vary", "Origin")}
     end
@@ -4039,10 +4058,11 @@ pub fn log_requests(handler: Handler, logger: Logger) -> (Request) -> Response
         response = ToResponse.to_response(handler(request))
         took = Instant.between(started, Instant.now())
 
-        size = case response.content_length
-            Some(n) -> Some(n)
-            None    -> known_length(response.body)
-        end
+        size =
+            case response.content_length
+                Some(n) -> Some(n)
+                None    -> known_length(response.body)
+            end
 
         id = Headers.get(request.headers, "X-Request-Id")
 
@@ -4053,15 +4073,17 @@ pub fn log_requests(handler: Handler, logger: Logger) -> (Request) -> Response
             log.float("duration_ms", Int.to_float(Duration.as_micros(took)) / 1000.0),
         ]
 
-        sized = case size
-            Some(n) -> fields + [log.int("bytes", n)]
-            None    -> fields
-        end
+        sized =
+            case size
+                Some(n) -> fields + [log.int("bytes", n)]
+                None    -> fields
+            end
 
-        tagged = case id
-            Some(i) -> sized + [log.string("request_id", i)]
-            None    -> sized
-        end
+        tagged =
+            case id
+                Some(i) -> sized + [log.string("request_id", i)]
+                None    -> sized
+            end
 
         log.info(logger, "request", tagged)
         response
@@ -4105,13 +4127,14 @@ end
 //! import std::http.{self, Body, Method, Request, Response, SecurityHeaders}
 //! import std::http::testing
 //!
-//! page = fn r: Request ->
-//!     if r.url.path == "/embed" then
-//!         Response{headers: Headers[("X-Frame-Options", "SAMEORIGIN")]}
-//!     else
-//!         Response{body: Body.Text("page")}
+//! page =
+//!     fn r: Request ->
+//!         if r.url.path == "/embed" then
+//!             Response{headers: Headers[("X-Frame-Options", "SAMEORIGIN")]}
+//!         else
+//!             Response{body: Body.Text("page")}
+//!         end
 //!     end
-//! end
 //!
 //! app = page |> http.security_headers()
 //! plain = app(testing.request(Method.Get, "/"))
@@ -4191,17 +4214,19 @@ pub fn request_id(
     trust_incoming: Bool = True,
 ) -> (Request) -> Response
     fn request ->
-        incoming = if trust_incoming then
-            Headers.get(request.headers, header)
-            |> Maybe.filter(is_request_id)
-        else
-            None
-        end
+        incoming =
+            if trust_incoming then
+                Headers.get(request.headers, header)
+                |> Maybe.filter(is_request_id)
+            else
+                None
+            end
 
-        id = case incoming
-            Some(given) -> Some(given)
-            None        -> Uuid.v4() |> Result.to_maybe() |> Maybe.map(fn u -> "${u}")
-        end
+        id =
+            case incoming
+                Some(given) -> Some(given)
+                None        -> Uuid.v4() |> Result.to_maybe() |> Maybe.map(fn u -> "${u}")
+            end
 
         case id
             Some(text) ->
@@ -4266,10 +4291,11 @@ end
 //! page = String.repeat("<p>hello</p>", 200)
 //! app = (fn _: Request -> Response{body: Body.Text(page)}) |> http.compress()
 //!
-//! asking = fn accept: String ->
-//!     r = testing.request(Method.Get, "/")
-//!     {..r, headers: Headers[("Accept-Encoding", accept)]}
-//! end
+//! asking =
+//!     fn accept: String ->
+//!         r = testing.request(Method.Get, "/")
+//!         {..r, headers: Headers[("Accept-Encoding", accept)]}
+//!     end
 //!
 //! zipped = app(asking("gzip, br"))
 //! assert Headers.get(zipped.headers, "Content-Encoding") == Some("gzip")
@@ -4311,10 +4337,11 @@ fn compressed(request: Request, response: Response, options: Compress) -> Respon
 
     if skip then return varied
 
-    short = case response.content_length
-        Some(n) -> n < options.min_size
-        None    -> False
-    end
+    short =
+        case response.content_length
+            Some(n) -> n < options.min_size
+            None    -> False
+        end
 
     if short then return varied
     headers = typed(varied.headers, varied.body)
@@ -4350,11 +4377,12 @@ fn compressed(request: Request, response: Response, options: Compress) -> Respon
         other ->
             data = Body.bytes_of(other)
 
-            sniffed = if Headers.has(headers, "Content-Type") then
-                headers
-            else
-                Headers.set(headers, "Content-Type", detect_content_type(data))
-            end
+            sniffed =
+                if Headers.has(headers, "Content-Type") then
+                    headers
+                else
+                    Headers.set(headers, "Content-Type", detect_content_type(data))
+                end
 
             if Bytes.length(data) < options.min_size or not compressible(sniffed) then
                 varied
@@ -4455,18 +4483,20 @@ end
 //! import std::http.{self, Body, Method, Request, Response, Status}
 //! import std::http::testing
 //!
-//! same = fn given: String, expected: String ->
-//!     hash.equal_in_constant_time(
-//!         hash.sha256(String.to_bytes(given)),
-//!         hash.sha256(String.to_bytes(expected)),
-//!     )
-//! end
+//! same =
+//!     fn given: String, expected: String ->
+//!         hash.equal_in_constant_time(
+//!             hash.sha256(String.to_bytes(given)),
+//!             hash.sha256(String.to_bytes(expected)),
+//!         )
+//!     end
 //!
-//! admin_only = fn user: String, password: String ->
-//!     user_ok = same(user, "admin")
-//!     password_ok = same(password, "s3cret")
-//!     user_ok and password_ok
-//! end
+//! admin_only =
+//!     fn user: String, password: String ->
+//!         user_ok = same(user, "admin")
+//!         password_ok = same(password, "s3cret")
+//!         user_ok and password_ok
+//!     end
 //!
 //! hello = fn r: Request -> Response{body: Body.Text("hello ${Request.basic_auth(r)!.first}")}
 //! app = hello |> http.basic_auth("admin", admin_only)
@@ -4527,9 +4557,10 @@ end
 //!
 //! app = Router.handler(router) |> http.method_override()
 //!
-//! form = fn target: String, fields: List<(String, String)> ->
-//!     testing.form_request(Method.Post, target, fields)
-//! end
+//! form =
+//!     fn target: String, fields: List<(String, String)> ->
+//!         testing.form_request(Method.Post, target, fields)
+//!     end
 //!
 //! assert Response.text(app(form("/posts/7", [("_method", "delete")]))) == Ok("deleted")
 //!
@@ -4555,12 +4586,13 @@ pub fn method_override(handler: Handler) -> (Request) -> Response
                     |> Maybe.flat_map(fn q -> Query.get(q, "_method"))
                     |> Maybe.map(String.uppercase)
 
-                method = case asked
-                    Some("PUT")    -> Method.Put
-                    Some("PATCH")  -> Method.Patch
-                    Some("DELETE") -> Method.Delete
-                    _              -> Method.Post
-                end
+                method =
+                    case asked
+                        Some("PUT")    -> Method.Put
+                        Some("PATCH")  -> Method.Patch
+                        Some("DELETE") -> Method.Delete
+                        _              -> Method.Post
+                    end
 
                 ToResponse.to_response(handler({..request, method:, body: Body.Bytes(data)}))
 
@@ -4901,10 +4933,11 @@ end
 //!     immutable:   ["assets/**"],
 //! )
 //!
-//! visit = fn target: String ->
-//!     r = testing.request(Method.Get, target)
-//!     {..r, headers: Headers.set(.., "Accept", "text/html,*/*;q=0.8")}
-//! end
+//! visit =
+//!     fn target: String ->
+//!         r = testing.request(Method.Get, target)
+//!         {..r, headers: Headers.set(.., "Accept", "text/html,*/*;q=0.8")}
+//!     end
 //!
 //! assert Response.text(app(visit("/settings/profile"))) == Ok("<div id=root></div>")
 //!
@@ -4953,10 +4986,11 @@ end
 //! import std::http.Method
 //! import std::http::testing
 //!
-//! asked = fn method: Method, target: String, accept: String ->
-//!     r = testing.request(method, target)
-//!     {..r, headers: Headers.set(.., "Accept", accept)}
-//! end
+//! asked =
+//!     fn method: Method, target: String, accept: String ->
+//!         r = testing.request(method, target)
+//!         {..r, headers: Headers.set(.., "Accept", accept)}
+//!     end
 //!
 //! html = "text/html,application/xhtml+xml,*/*;q=0.8"
 //! assert is_page_route(asked(Method.Get, "/settings/profile", html))
@@ -5012,26 +5046,29 @@ fn embedded_file(request: Request, files: Files, file: String, immutable: List<S
         |> Maybe.map(fn (coding, sibling) -> (sibling, Some(coding)))
         |> Maybe.with_default((file, None))
 
-    cache = if Iter.any_match(immutable, fn pattern -> immutable_match(pattern, file)) then
-        "public, max-age=31536000, immutable"
-    else
-        "no-cache"
-    end
+    cache =
+        if Iter.any_match(immutable, fn pattern -> immutable_match(pattern, file)) then
+            "public, max-age=31536000, immutable"
+        else
+            "no-cache"
+        end
 
     case Files.read(files, sent)
         Ok(data) ->
             sum = Files.sum(files, sent) |> Result.with_default("")
 
-            vary = if Iter.is_empty(siblings) then
-                []
-            else
-                [("Vary", "Accept-Encoding")]
-            end
+            vary =
+                if Iter.is_empty(siblings) then
+                    []
+                else
+                    [("Vary", "Accept-Encoding")]
+                end
 
-            encoding = case coding
-                Some(c) -> [("Content-Encoding", c)]
-                None    -> []
-            end
+            encoding =
+                case coding
+                    Some(c) -> [("Content-Encoding", c)]
+                    None    -> []
+                end
 
             headers = Headers(
                 [[("ETag", "\"${sum}\""), ("Cache-Control", cache)], vary, encoding]
@@ -5133,10 +5170,10 @@ pub fn format_time(at: Instant) -> String
     http_host.format_time(Instant.as_nanos(at))
 end
 
-/// A date in any of the three formats HTTP allows: the one `format_time`
-/// writes, RFC 850's and ANSI C's `asctime`, of any year, such as the
-/// `Fri, 31 Dec 9999 23:59:59 GMT` servers send for "never". Text in none
-/// of them is `Error.Protocol`.
+/// A date in any of the three formats HTTP allows, the one `format_time`
+/// writes, RFC 850's and `asctime`'s, of any year, such as the `Fri, 31 Dec
+/// 9999 23:59:59 GMT` sent for "never". Each is GMT, whatever zone it names.
+/// Text in none of them is `Error.Protocol`.
 pub fn parse_time(text: String) -> Result<Instant, Error>
     http_host.parse_time(text)
     |> Result.map(Instant.from_nanos)
@@ -5206,8 +5243,8 @@ impl Cookie
         |> Result.map_err(fn reason -> Error.Protocol{reason:})
     end
 
-    /// The cookie of a `Set-Cookie` header's value, as Go's
-    /// `ParseSetCookie`.
+    /// The cookie of a `Set-Cookie` header's value, as Go's `ParseSetCookie`,
+    /// with its `expires` in UTC whatever zone the date names.
     //! import std::http.{Cookie, MaxAge}
     //!
     //! c = Cookie.parse_set_cookie("id=7; Path=/; Max-Age=60; Secure")!
@@ -5238,19 +5275,21 @@ impl Cookie
     fn parts(cookie: Cookie) -> List<String>
         text = fn m: Maybe<String> -> Maybe.with_default(m, "")
 
-        max_age = case cookie.max_age
-            .Unset      -> ""
-            .DeleteNow  -> "-1"
-            .Seconds(n) -> "${n}"
-        end
+        max_age =
+            case cookie.max_age
+                .Unset      -> ""
+                .DeleteNow  -> "-1"
+                .Seconds(n) -> "${n}"
+            end
 
-        same_site = case cookie.same_site
-            .Unset   -> ""
-            .Default -> "default"
-            .Lax     -> "lax"
-            .Strict  -> "strict"
-            .None    -> "none"
-        end
+        same_site =
+            case cookie.same_site
+                .Unset   -> ""
+                .Default -> "default"
+                .Lax     -> "lax"
+                .Strict  -> "strict"
+                .None    -> "none"
+            end
 
         [
             cookie.name,
@@ -5285,28 +5324,30 @@ impl Cookie
                     domain:      some(domain),
                     expires:     String.to_int(expires) |> Maybe.map(Instant.from_nanos),
                     raw_expires: some(raw_expires),
-                    max_age: case max_age
-                        "" ->
-                            MaxAge.Unset
+                    max_age:
+                        case max_age
+                            "" ->
+                                MaxAge.Unset
 
-                        "-1" ->
-                            MaxAge.DeleteNow
+                            "-1" ->
+                                MaxAge.DeleteNow
 
-                        n ->
-                            MaxAge.Seconds(
-                                String.to_int(n)
-                                |> Maybe.with_default(0)
-                            )
-                    end,
+                            n ->
+                                MaxAge.Seconds(
+                                    String.to_int(n)
+                                    |> Maybe.with_default(0)
+                                )
+                        end,
                     secure:    secure == "true",
                     http_only: http_only == "true",
-                    same_site: case same_site
-                        "default" -> SameSite.Default
-                        "lax"     -> SameSite.Lax
-                        "strict"  -> SameSite.Strict
-                        "none"    -> SameSite.None
-                        _         -> SameSite.Unset
-                    end,
+                    same_site:
+                        case same_site
+                            "default" -> SameSite.Default
+                            "lax"     -> SameSite.Lax
+                            "strict"  -> SameSite.Strict
+                            "none"    -> SameSite.None
+                            _         -> SameSite.Unset
+                        end,
                     partitioned: partitioned == "true",
                     raw:         some(raw),
                     unparsed:,
@@ -5430,11 +5471,12 @@ impl ProxyRequest
         out = proxy.outgoing
         incoming_url = out.url
 
-        query = case (target.query, incoming_url.query)
-            (Some(a), Some(b)) when a != "" and b != "" -> Some("${a}&${b}")
-            (Some(a), _) when a != ""                   -> Some(a)
-            (_, b)                                      -> b
-        end
+        query =
+            case (target.query, incoming_url.query)
+                (Some(a), Some(b)) when a != "" and b != "" -> Some("${a}&${b}")
+                (Some(a), _) when a != ""                   -> Some(a)
+                (_, b)                                      -> b
+            end
 
         url = {
             ..incoming_url,
@@ -5609,11 +5651,12 @@ fn forward(options: ReverseProxy, outgoing: Request) -> Result<Response, Error>
     streaming = Maybe.is_none(head.content_length)
         or String.starts_with(content_type, "text/event-stream")
 
-    every = case options.flush_interval
-        Some(d)             -> Some(d)
-        None when streaming -> Some(Duration.nanoseconds(0))
-        None                -> None
-    end
+    every =
+        case options.flush_interval
+            Some(d)             -> Some(d)
+            None when streaming -> Some(Duration.nanoseconds(0))
+            None                -> None
+        end
 
     Ok({
         ..head,
@@ -5638,10 +5681,14 @@ fn pump(r: Reader, w: Writer, every: Maybe<Duration>, flushed: Instant) -> Resul
             Writer.write(w, chunk)?
             now = Instant.now()
 
-            due = case every
-                Some(d) -> Duration.as_nanos(Instant.between(flushed, now)) >= Duration.as_nanos(d)
-                None    -> False
-            end
+            due =
+                case every
+                    Some(d) ->
+                        Duration.as_nanos(Instant.between(flushed, now)) >= Duration.as_nanos(d)
+
+                    None ->
+                        False
+                end
 
             if due then
                 Writer.flush(w)?

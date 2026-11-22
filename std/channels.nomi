@@ -49,6 +49,7 @@
 //# ```
 
 import
+    debug.Debug
     duration.Duration
     int.{Int, PositiveInt}
     lists.NonEmptyList
@@ -119,12 +120,13 @@ impl Channel<T>
     /// the task hangs.
     //! ch = Channel.unbuffered<Int>()
     //!
-    //! sent = concurrent
-    //!     w = Task.spawn(fn -> Sender.send(ch.sender, 7))
-    //!     got = Receiver.receive(ch.receiver)
-    //!     _ = Task.await(w)
-    //!     got
-    //! end
+    //! sent =
+    //!     concurrent
+    //!         w = Task.spawn(fn -> Sender.send(ch.sender, 7))
+    //!         got = Receiver.receive(ch.receiver)
+    //!         _ = Task.await(w)
+    //!         got
+    //!     end
     //!
     //! assert sent == Maybe.Some(7)
     //
@@ -206,6 +208,17 @@ impl Sender<T>
     pub host fn close_on_drain<T>(sender: Sender<T>) -> Unit
 end
 
+impl Debug for Sender<T>
+    /// `<channel>`, the same for either half, with the values left out:
+    /// reading them would take them off the channel.
+    //! ch = Channel.buffered<Int>(1)
+    //! assert Sender.inspect(ch.sender) == "<channel>"
+    //
+    fn inspect(_sender: Sender<T>) -> String
+        "<channel>"
+    end
+end
+
 impl Receiver<T>
     /// Receive the next value from the channel. Blocks until a value arrives,
     /// the channel is closed and drained (returns `None`), or the enclosing
@@ -236,6 +249,17 @@ impl Receiver<T>
         receiver: Receiver<T>,
         wait:     Duration,
     ) -> Result<Maybe<T>, TimedOut>
+end
+
+impl Debug for Receiver<T>
+    /// `<channel>`, the same for either half, with the values left out:
+    /// reading them would take them off the channel.
+    //! ch = Channel.buffered<Int>(1)
+    //! assert Receiver.inspect(ch.receiver) == "<channel>"
+    //
+    fn inspect(_receiver: Receiver<T>) -> String
+        "<channel>"
+    end
 end
 
 /// One way a `Channel.select` can finish, with the handler that turns its
@@ -280,6 +304,16 @@ impl Arm<R>
     //! assert got == "nothing yet"
     //
     pub host fn after<R>(wait: Duration, handle: () -> R) -> Arm<R>
+end
+
+impl Debug for Arm<R>
+    /// `<arm>`, with its channel and handler left out.
+    //! ch = Channel.buffered<Int>(1)
+    //! assert Arm.inspect(Arm.receive(ch.receiver, fn value -> value)) == "<arm>"
+    //
+    fn inspect(_arm: Arm<R>) -> String
+        "<arm>"
+    end
 end
 
 /// Returned by `Sender.send` when the channel was closed at the time

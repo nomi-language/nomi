@@ -79,7 +79,7 @@ func TestAsPattern_RenameEditsTheNameAndItsUse(t *testing.T) {
 func TestAsPattern_SemanticTokensMarkTheNameAVariable(t *testing.T) {
 	nodes, _ := parser.ParseWithRecovery(lexer.Lex(asPatternSource))
 	fa := buildFile(nodes)
-	data := encodeSemanticTokens(fa, nodes, asPatternSource)
+	data := encodeSemanticTokens(fa, nodes, asPatternSource, nil, nil)
 	line, col := 1, 1
 	for i := 0; i+4 < len(data); i += 5 {
 		line += int(data[i])

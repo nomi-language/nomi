@@ -104,13 +104,14 @@ fn card(text: String) -> Maybe<Card>
 
     if not suit in ["S", "H", "D", "C"] then return None
 
-    rank = case String.slice(text, 0, length - 1)
-        "J"    -> Some(11)
-        "Q"    -> Some(12)
-        "K"    -> Some(13)
-        "A"    -> Some(14)
-        digits -> pip_rank(digits)
-    end
+    rank =
+        case String.slice(text, 0, length - 1)
+            "J"    -> Some(11)
+            "Q"    -> Some(12)
+            "K"    -> Some(13)
+            "A"    -> Some(14)
+            digits -> pip_rank(digits)
+        end
 
     Some(Card{rank: rank?, suit:})
 end

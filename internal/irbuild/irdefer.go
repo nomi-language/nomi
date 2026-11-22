@@ -3,7 +3,6 @@ package irbuild
 import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
-	"maps"
 )
 
 // irDeferScope is one lexical block's deferred calls, in registration order.
@@ -107,9 +106,6 @@ func (bl *irScalarBuilder) scopedBlock(block *ast.Block) bool {
 	defer bl.keepOpenDefers()()
 	defer bl.g.enterBlockTypes(block)()
 	lead, tail := bl.g.irScalarBlock(block)
-	bound, boundK, syms := bl.bound, bl.boundK, bl.sh.syms
-	bl.bound, bl.boundK, bl.sh.syms = maps.Clone(bound), maps.Clone(boundK), maps.Clone(syms)
-	defer func() { bl.bound, bl.boundK, bl.sh.syms = bound, boundK, syms }()
 	scope := bl.openDeferScope(block)
 	ws := bl.openWithScope(false)
 	if !bl.leading(append(lead, tail)) {

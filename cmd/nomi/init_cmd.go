@@ -14,27 +14,21 @@ import (
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
-	"github.com/nomi-language/nomi/internal/gotoolchain"
 	"github.com/nomi-language/nomi/internal/lexer"
+	"github.com/nomi-language/nomi/internal/modfetch"
 	"github.com/nomi-language/nomi/internal/parser"
 )
 
 const initUsage = "usage: nomi init [module path]"
 
 // manifestText is the nomi.toml `nomi new` and `nomi init` write: the
-// module's name and its entry points.
-func manifestText(name string, entries []string) string {
+// module's name, its path and its entry points.
+func manifestText(name, path string, entries []string) string {
 	quoted := make([]string, len(entries))
 	for i, e := range entries {
 		quoted[i] = fmt.Sprintf("%q", e)
 	}
-	return fmt.Sprintf("[module]\nname = %q\nentry_points = [%s]\n", name, strings.Join(quoted, ", "))
-}
-
-// goModText is the go.mod `nomi new` and `nomi init` write: the module
-// path and the go line of the Go release nomi pins.
-func goModText(path string) string {
-	return fmt.Sprintf("module %s\n\ngo %s\n", path, gotoolchain.GoLine())
+	return fmt.Sprintf("[module]\nname = %q\npath = %q\nentry_points = [%s]\n", name, path, strings.Join(quoted, ", "))
 }
 
 // checkModulePath refuses a path that is not a module path or whose last
@@ -51,13 +45,13 @@ func checkModulePath(cmd, path string) (string, error) {
 }
 
 // runInit is `nomi init [module path]`: make the current directory a Nomi
-// project by writing what it lacks of nomi.toml and go.mod, never
-// replacing either. The module path is the go.mod's when there is one, and
-// the argument otherwise: a module path is the module's address, which the
-// directory's name does not give. nomi.toml's entry_points lists every file
-// of the module with a top-level `fn main` other than its tools, which are
-// entry points without being listed, or `main` when none has one. It writes
-// no source file.
+// project by writing its nomi.toml, never replacing one. The module path is
+// the argument, else the `module` line of a go.mod already there: a module
+// path is the module's address, which the directory's name does not give.
+// nomi.toml's entry_points lists every file of the module with a top-level
+// `fn main` other than its tools, which are entry points without being
+// listed, or `main` when none has one. It writes the go.mod nomi keeps
+// (modfetch.WriteGoMod) and no source file.
 func runInit(args []string) error {
 	var pos []string
 	for _, arg := range args {
@@ -69,11 +63,10 @@ func runInit(args []string) error {
 	if len(pos) > 1 {
 		return errors.New(initUsage)
 	}
-	hasManifest := isRegular("nomi.toml")
-	hasGoMod := isRegular("go.mod")
-	if hasManifest && hasGoMod {
-		return errors.New("nomi init: this directory is already a Nomi project: it holds nomi.toml and go.mod")
+	if isRegular("nomi.toml") {
+		return errors.New("nomi init: this directory is already a Nomi project: it holds nomi.toml")
 	}
+	hasGoMod := isRegular("go.mod")
 	path := ""
 	if len(pos) == 1 {
 		path = pos[0]
@@ -93,47 +86,36 @@ func runInit(args []string) error {
 		path = own
 	}
 	if path == "" {
-		what := "this directory"
-		if hasManifest {
-			what = "this directory's nomi.toml"
-		}
-		return fmt.Errorf("nomi init: give the module path %s needs for its go.mod, such as `nomi init github.com/you/project`; "+
-			"a module path is usually its repository's address", what)
+		return errors.New("nomi init: give the module path this directory needs, such as `nomi init github.com/you/project`; " +
+			"a module path is usually its repository's address")
 	}
 	name, err := checkModulePath("init", path)
 	if err != nil {
 		return err
 	}
-	var wrote, kept []string
-	if hasManifest {
-		kept = append(kept, "nomi.toml")
-	} else {
-		entries, err := entryFiles(".")
-		if err != nil {
-			return fmt.Errorf("nomi init: %w", err)
-		}
-		if err := os.WriteFile("nomi.toml", []byte(manifestText(name, entries)), 0o644); err != nil {
-			return fmt.Errorf("nomi init: %w", err)
-		}
-		wrote = append(wrote, "nomi.toml")
+	entries, err := entryFiles(".")
+	if err != nil {
+		return fmt.Errorf("nomi init: %w", err)
 	}
-	if hasGoMod {
-		kept = append(kept, "go.mod")
-	} else {
-		if err := os.WriteFile("go.mod", []byte(goModText(path)), 0o644); err != nil {
-			return fmt.Errorf("nomi init: %w", err)
-		}
+	if err := os.WriteFile("nomi.toml", []byte(manifestText(name, path, entries)), 0o644); err != nil {
+		return fmt.Errorf("nomi init: %w", err)
+	}
+	wrote := []string{"nomi.toml"}
+	wroteGoMod, err := modfetch.WriteGoMod(".")
+	if err != nil {
+		return fmt.Errorf("nomi init: %w", err)
+	}
+	if wroteGoMod {
 		wrote = append(wrote, "go.mod")
 	}
 	fmt.Printf("wrote %s\n", joinAnd(wrote))
-	if len(kept) > 0 {
-		fmt.Printf("kept %s, which was already there\n", kept[0])
+	if !wroteGoMod && hasGoMod {
+		fmt.Println("kept go.mod, which was already there")
 	}
-	if !hasManifest {
-		if entries, err := entryFiles("."); err == nil && len(entries) > 0 && isRegular(entries[0]+".nomi") {
-			fmt.Printf("next: nomi run %s.nomi\n", entries[0])
-		}
+	if len(entries) > 0 && isRegular(entries[0]+".nomi") {
+		fmt.Printf("next: nomi run %s.nomi\n", entries[0])
 	}
+	noteUnreadGoFiles(os.Stderr, ".")
 	return nil
 }
 

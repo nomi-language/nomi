@@ -186,7 +186,7 @@ type Symbol struct {
 	Members    map[string]*Symbol // child symbols (e.g., interface methods)
 	// DefinitionFile/Line/Col/Span override go-to-definition for symbols whose
 	// Nomi declaration is synthetic but whose true editable source lives
-	// elsewhere, such as generated host declarations for Go bindings.
+	// elsewhere.
 	DefinitionFile string
 	DefinitionLine int
 	DefinitionCol  int

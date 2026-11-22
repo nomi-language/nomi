@@ -228,17 +228,19 @@ pub fn with_smtp_server<T>(
     listener = net.listen("127.0.0.1:0")!
     (host, port) = net.split_host_port(Listener.address(listener))!
 
-    (server_tls, client_tls) = if starttls then
-        (cert, key) = case http_host.test_certificate()
-            [c, k] -> (c, k)
-            _      -> ("", "")
-        end
+    (server_tls, client_tls) =
+        if starttls then
+            (cert, key) =
+                case http_host.test_certificate()
+                    [c, k] -> (c, k)
+                    _      -> ("", "")
+                end
 
-        certificate = Certificate.from_pem(cert, key)!
-        (Some(ServerConfig{certificates: [certificate]}), ClientConfig{roots: Roots.Pem(cert)})
-    else
-        (None, ClientConfig{})
-    end
+            certificate = Certificate.from_pem(cert, key)!
+            (Some(ServerConfig{certificates: [certificate]}), ClientConfig{roots: Roots.Pem(cert)})
+        else
+            (None, ClientConfig{})
+        end
 
     state: Channel<State> = Channel.buffered(1)
     _ = Sender.send(state.sender, State{sent: [], received: []})
@@ -310,10 +312,11 @@ fn read(peer: Peer) -> Maybe<String>
 end
 
 fn converse(peer: Peer, rules: Rules)
-    line = case read(peer)
-        Some(l) -> l
-        None    -> return
-    end
+    line =
+        case read(peer)
+            Some(l) -> l
+            None    -> return
+        end
 
     verb = String.uppercase(
         String.split(line, " ")
@@ -323,117 +326,126 @@ fn converse(peer: Peer, rules: Rules)
 
     argument = String.drop(line, String.length(verb) + 1)
 
-    next = case verb
-        "EHLO" ->
-            offers =
-                [
-                    if rules.tls is Some(_) and not peer.tls then ["STARTTLS"] else [],
-                    if rules.credentials is Some(_) then ["AUTH PLAIN LOGIN"] else [],
-                    ["8BITMIME"],
-                ]
-                |> Iter.flatten()
+    next =
+        case verb
+            "EHLO" ->
+                offers =
+                    [
+                        if rules.tls is Some(_) and not peer.tls then ["STARTTLS"] else [],
+                        if rules.credentials is Some(_) then ["AUTH PLAIN LOGIN"] else [],
+                        ["8BITMIME"],
+                    ]
+                    |> Iter.flatten()
 
-            _ = reply(peer, "250-127.0.0.1")
-            lines = Iter.count(offers)
+                _ = reply(peer, "250-127.0.0.1")
+                lines = Iter.count(offers)
 
-            ok =
-                offers
-                |> Iter.with_index()
-                |> Iter.all_match(fn (i, offer) ->
-                    reply(
-                        peer,
-                        if i == lines - 1 then
-                            "250 ${offer}"
-                        else
-                            "250-${offer}"
-                        end,
-                    )
-                end)
+                ok =
+                    offers
+                    |> Iter.with_index()
+                    |> Iter.all_match(fn (i, offer) ->
+                        reply(
+                            peer,
+                            if i == lines - 1 then
+                                "250 ${offer}"
+                            else
+                                "250-${offer}"
+                            end,
+                        )
+                    end)
 
-            if ok then Some(peer) else None
+                if ok then Some(peer) else None
 
-        "HELO" ->
-            answer(peer, "250 127.0.0.1")
+            "HELO" ->
+                answer(peer, "250 127.0.0.1")
 
-        "STARTTLS" ->
-            case rules.tls
-                Some(config) when not peer.tls ->
-                    _ = reply(peer, "220 ready to start TLS")
+            "STARTTLS" ->
+                case rules.tls
+                    Some(config) when not peer.tls ->
+                        _ = reply(peer, "220 ready to start TLS")
 
-                    case tls.server(peer.conn, config)
-                        Ok(conn) ->
-                            Some(Peer{conn:, tls: True, username: None, from: None, recipients: []})
+                        case tls.server(peer.conn, config)
+                            Ok(conn) ->
+                                Some(
+                                    Peer{
+                                        conn:,
+                                        tls:        True,
+                                        username:   None,
+                                        from:       None,
+                                        recipients: [],
+                                    }
+                                )
 
-                        Err(_) ->
-                            None
-                    end
+                            Err(_) ->
+                                None
+                        end
 
-                _ ->
-                    answer(peer, "502 STARTTLS is not offered")
-            end
+                    _ ->
+                        answer(peer, "502 STARTTLS is not offered")
+                end
 
-        "AUTH" ->
-            authenticate(peer, rules, argument)
+            "AUTH" ->
+                authenticate(peer, rules, argument)
 
-        "MAIL" ->
-            if rules.credentials is Some(_) and peer.username is None then
-                answer(peer, "530 authentication required")
-            else
-                from = path(argument, "FROM:")
-                answer({..peer, from: Some(from), recipients: []}, "250 sender ok")
-            end
+            "MAIL" ->
+                if rules.credentials is Some(_) and peer.username is None then
+                    answer(peer, "530 authentication required")
+                else
+                    from = path(argument, "FROM:")
+                    answer({..peer, from: Some(from), recipients: []}, "250 sender ok")
+                end
 
-        "RCPT" ->
-            to = path(argument, "TO:")
+            "RCPT" ->
+                to = path(argument, "TO:")
 
-            if peer.from is None then
-                answer(peer, "503 MAIL FROM first")
-            else if String.starts_with(to, "reject") then
-                answer(peer, "550 no such user ${to}")
-            else
-                answer({..peer, recipients: List.concat(.., [to])}, "250 recipient ok")
-            end
+                if peer.from is None then
+                    answer(peer, "503 MAIL FROM first")
+                else if String.starts_with(to, "reject") then
+                    answer(peer, "550 no such user ${to}")
+                else
+                    answer({..peer, recipients: List.concat(.., [to])}, "250 recipient ok")
+                end
 
-        "DATA" ->
-            case peer.from
-                Some(from) when not Iter.is_empty(peer.recipients) ->
-                    _ = reply(peer, "354 end with a line holding a dot")
+            "DATA" ->
+                case peer.from
+                    Some(from) when not Iter.is_empty(peer.recipients) ->
+                        _ = reply(peer, "354 end with a line holding a dot")
 
-                    case read_data(peer, [])
-                        Some(data) ->
-                            received = Received{
-                                from:,
-                                recipients: peer.recipients,
-                                data:,
-                                tls:      peer.tls,
-                                username: peer.username,
-                            }
+                        case read_data(peer, [])
+                            Some(data) ->
+                                received = Received{
+                                    from:,
+                                    recipients: peer.recipients,
+                                    data:,
+                                    tls:      peer.tls,
+                                    username: peer.username,
+                                }
 
-                            s = take(rules.state)
-                            put(rules.state, {..s, received: List.concat(.., [received])})
-                            answer({..peer, from: None, recipients: []}, "250 queued")
+                                s = take(rules.state)
+                                put(rules.state, {..s, received: List.concat(.., [received])})
+                                answer({..peer, from: None, recipients: []}, "250 queued")
 
-                        None ->
-                            None
-                    end
+                            None ->
+                                None
+                        end
 
-                _ ->
-                    answer(peer, "503 no sender or recipient yet")
-            end
+                    _ ->
+                        answer(peer, "503 no sender or recipient yet")
+                end
 
-        "RSET" ->
-            answer({..peer, from: None, recipients: []}, "250 reset")
+            "RSET" ->
+                answer({..peer, from: None, recipients: []}, "250 reset")
 
-        "NOOP" ->
-            answer(peer, "250 ok")
+            "NOOP" ->
+                answer(peer, "250 ok")
 
-        "QUIT" ->
-            _ = reply(peer, "221 bye")
-            None
+            "QUIT" ->
+                _ = reply(peer, "221 bye")
+                None
 
-        _ ->
-            answer(peer, "502 not implemented")
-    end
+            _ ->
+                answer(peer, "502 not implemented")
+        end
 
     case next
         Some(p) -> converse(p, rules)
@@ -475,40 +487,42 @@ fn authenticate(peer: Peer, rules: Rules, argument: String) -> Maybe<Peer>
         |> Maybe.with_default("")
     )
 
-    pair = case mechanism
-        "PLAIN" ->
-            token = case Iter.get(words, 1)
-                Some(t) ->
-                    Some(t)
+    pair =
+        case mechanism
+            "PLAIN" ->
+                token =
+                    case Iter.get(words, 1)
+                        Some(t) ->
+                            Some(t)
 
-                None ->
-                    _ = reply(peer, "334 ")
-                    read(peer)
-            end
+                        None ->
+                            _ = reply(peer, "334 ")
+                            read(peer)
+                    end
 
-            token
-            |> Maybe.flat_map(decode)
-            |> Maybe.flat_map(fn text ->
-                case String.split(text, "\u{0}")
-                    [_, user, password] -> Some((user, password))
-                    _                   -> None
+                token
+                |> Maybe.flat_map(decode)
+                |> Maybe.flat_map(fn text ->
+                    case String.split(text, "\u{0}")
+                        [_, user, password] -> Some((user, password))
+                        _                   -> None
+                    end
+                end)
+
+            "LOGIN" ->
+                _ = reply(peer, "334 VXNlcm5hbWU6")
+                user = read(peer) |> Maybe.flat_map(decode)
+                _ = reply(peer, "334 UGFzc3dvcmQ6")
+                password = read(peer) |> Maybe.flat_map(decode)
+
+                case (user, password)
+                    (Some(u), Some(p)) -> Some((u, p))
+                    _                  -> None
                 end
-            end)
 
-        "LOGIN" ->
-            _ = reply(peer, "334 VXNlcm5hbWU6")
-            user = read(peer) |> Maybe.flat_map(decode)
-            _ = reply(peer, "334 UGFzc3dvcmQ6")
-            password = read(peer) |> Maybe.flat_map(decode)
-
-            case (user, password)
-                (Some(u), Some(p)) -> Some((u, p))
-                _                  -> None
-            end
-
-        _ ->
-            None
-    end
+            _ ->
+                None
+        end
 
     case (rules.credentials, pair)
         (Some(expected), Some((user, password))) when expected.username == user
@@ -564,10 +578,11 @@ end
 /// headers in order, and an attachment.
 //! import std::mail
 //!
-//! memory = fn ->
-//!     m = Memory.new()
-//!     Opened{mailer: m, received: fn -> Memory.received(m)}
-//! end
+//! memory =
+//!     fn ->
+//!         m = Memory.new()
+//!         Opened{mailer: m, received: fn -> Memory.received(m)}
+//!     end
 //!
 //! assert conformance(memory) == []
 //!

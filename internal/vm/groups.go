@@ -156,14 +156,25 @@ const (
 type packedTemp struct {
 	kind packKind
 	// tag is a fused Maybe's tag register, and result says the fused value
-	// is a Result rather than a Maybe.
-	tag    uint32
-	result bool
+	// is a Result rather than a Maybe. payload is the register its Some's or
+	// Ok's payload is in: a word or string register of its own, of type
+	// ptype, or the temporary's own reference register, which holds a None
+	// or an Err (maybefuse.go). A payload that is a tuple is in parts
+	// instead, as a split tuple's components are.
+	tag     uint32
+	result  bool
+	payload loc
+	ptype   *ir.ValType
 	// desc, parts and types are a split tuple's descriptor, its components'
-	// registers and their stored types, in component order.
+	// registers and their stored types, in component order: a split tuple's
+	// own, or a fused Maybe's tuple payload's.
 	desc  *rt.TypeDesc
 	parts []loc
 	types []*ir.ValType
+	// wrap is the Maybe's or Result's descriptor for a split tuple the
+	// function returns as the payload of its Some or Ok (wrappedReturns),
+	// which its return carries in parts with the tag, building neither.
+	wrap *rt.TypeDesc
 }
 
 // pack records how t holds its value.
@@ -183,28 +194,44 @@ func (fr *frame) readPacked(t ir.Temp) (any, error) {
 	p := &c.packed[t]
 	switch p.kind {
 	case packMaybe:
-		v := fr.stk.r[fr.rb+c.locs[t].reg()]
-		if v == nil {
-			break
-		}
 		if fr.stk.w[fr.wb+int(p.tag)] != 0 {
+			var v any
+			if p.parts != nil {
+				v = fr.boxParts(p)
+			} else {
+				v = fr.boxLoc(p.payload, p.ptype)
+			}
+			if v == nil {
+				break
+			}
 			if p.result {
 				return okValue(v), nil
 			}
 			return some(v), nil
 		}
+		v := fr.stk.r[fr.rb+c.locs[t].reg()]
+		if v == nil {
+			break
+		}
 		return v, nil
 	case packTuple:
-		vals := make([]any, len(p.parts))
-		for i, l := range p.parts {
-			vals[i] = fr.boxLoc(l, p.types[i])
-			if vals[i] == nil {
-				return nil, fmt.Errorf("vm: %s: %s is read before anything wrote it; "+
-					"ir.Lint's temp-defined-before-use rule should have caught this", fr.fn.Name(), t)
-			}
+		if v := fr.boxParts(p); v != nil {
+			return v, nil
 		}
-		return p.desc.Make(vals...), nil
 	}
 	return nil, fmt.Errorf("vm: %s: %s is read before anything wrote it; "+
 		"ir.Lint's temp-defined-before-use rule should have caught this", fr.fn.Name(), t)
+}
+
+// boxParts is the tuple p's parts hold in fr's window, built: a split
+// tuple, or a fused Maybe's tuple payload. It is nil when a part was never
+// written.
+func (fr *frame) boxParts(p *packedTemp) any {
+	vals := make([]any, len(p.parts))
+	for i, l := range p.parts {
+		if vals[i] = fr.boxLoc(l, p.types[i]); vals[i] == nil {
+			return nil
+		}
+	}
+	return p.desc.Make(vals...)
 }

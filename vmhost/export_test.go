@@ -144,10 +144,10 @@ end
 			"add `derive FromJson for Outcome`", 18},
 		{"tuple", "export fn add(p: (Int, Int)) -> Int\n    p.first + p.second\nend\n",
 			"parameter `p` of exported function `add` cannot cross as JSON: `(Int, Int)` does not implement `FromJson`",
-			"a parameter's type must implement `FromJson` and a result's `ToJson`: std implements both for Int, Float, String, Bool, List, Vector, Set, Maybe and Map with String keys, and a struct or enum the program declares can derive them", 18},
+			"a parameter's type must implement `FromJson` and a result's `ToJson`: std implements both for Int, Float, String, Bool, List, Vector, Set, Maybe, Result and Map with String keys, and a struct or enum the program declares can derive them", 18},
 		{"map with Int keys", "export fn size(m: Map<Int, String>) -> Int\n    Map.size(m)\nend\n",
 			"parameter `m` of exported function `size` cannot cross as JSON: `Map<Int, String>` does not implement `FromJson`",
-			"a parameter's type must implement `FromJson` and a result's `ToJson`: std implements both for Int, Float, String, Bool, List, Vector, Set, Maybe and Map with String keys, and a struct or enum the program declares can derive them", 19},
+			"a parameter's type must implement `FromJson` and a result's `ToJson`: std implements both for Int, Float, String, Bool, List, Vector, Set, Maybe, Result and Map with String keys, and a struct or enum the program declares can derive them", 19},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

@@ -96,8 +96,8 @@ pre.nomi-tour {
   line-height: 1.5;
   white-space: pre;
 }
-/* Every other fenced block (```text output, error messages) scrolls inside
-   its box like the highlighted ones, rather than spilling past its border. */
+/* A fence the renderer has no form for (rehype-shiki.mjs) scrolls inside
+   its box like the others, rather than spilling past its border. */
 .sl-markdown-content pre:not(.nomi-tour) {
   max-width: 100%;
   overflow-x: auto;
@@ -208,6 +208,9 @@ pre.nomi-tour {
 }
 .sl-markdown-content .nomi-filetree li:last-child::after { display: none; }
 .nomi-filetree .tree-dir { font-weight: 600; }
+/* A note after an entry's name; its left margin puts every note of a
+   tree in one column (treeBlock in rehype-shiki.mjs). */
+.nomi-filetree .tree-note { color: var(--tok-comment); }
 .nomi-code-gomod .tok-kw { color: var(--tok-kw); }
 .nomi-code-gomod .tok-num { color: var(--tok-num); }
 .nomi-code-gomod .tok-comment { color: var(--tok-comment); }
@@ -281,6 +284,14 @@ pre.nomi-tour {
 .nomi-tour .tok-ns      { color: var(--tok-type); }
 .nomi-tour .tok-param   { color: var(--tok-prop); }
 .nomi-tour .tok-var     { color: var(--tok-plain); }
+/* Code that has effects (files, the network, output), as its hover says:
+   the language server's `effect` modifier. Bold in the token's own
+   colour, from the JetBrains Mono 700 face loaded above, so a marked
+   token keeps the width of every other. */
+.nomi-tour .tok-effect {
+  font-weight: 700;
+  text-decoration: none;
+}
 .nomi-tour .nomi-trailing-space {
   color: var(--tok-comment);
   opacity: 0.55;
@@ -588,9 +599,9 @@ pre.nomi-tour {
   color: var(--sl-color-gray-3);
   font-size: var(--sl-text-sm);
 }
-/* Under the signature of a stdlib function a call to which reaches
-   outside the program, naming what a capability list must allow
-   (cmd/nomi-docgen outsideHTML). */
+/* Under the signature of a stdlib function a call to which has an
+   effect, naming what an effects list must allow (cmd/nomi-docgen
+   effectHTML). */
 .sl-markdown-content .nomi-ref-reach {
   margin-top: 0.4rem;
   color: var(--sl-color-gray-2);
@@ -769,19 +780,21 @@ pre.nomi-tour {
   min-width: 0;
   background: var(--tour-bg);
 }
-/* How to leave an editor by keyboard (tabKeys in tour-client.mjs): shown
-   in the editor's bottom right corner while an editable one has focus. It
-   stays rendered when hidden, so a screen reader hears it change. */
+/* How to leave an editor by keyboard (tabKeys in tour-client.mjs): in the
+   editor's header, in the free space before its controls, shown while an
+   editable editor has focus. Where that space holds the sentence it shows
+   the sentence; where it does not, a "?" whose tooltip is the sentence. It
+   never sits over the code and adds no line. It stays rendered when hidden,
+   so a screen reader hears it change. */
 .nomi-tab-hint {
-  display: block;
-  position: absolute;
-  right: 0.5em;
-  bottom: 0.35em;
-  z-index: 2;
-  max-width: calc(100% - 1em);
-  padding: 0.1em 0.5em;
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--tour-out-bg) 92%, transparent);
+  flex: 999 1 0;
+  align-self: center;
+  min-width: 1.6em;
+  container-type: inline-size;
+  overflow: hidden;
+  padding: 0 0.6em;
+  text-align: right;
+  white-space: nowrap;
   color: color-mix(in srgb, var(--tour-fg) 72%, transparent);
   font-family: "JetBrains Mono", var(--sl-font-mono, ui-monospace), monospace;
   font-size: 0.7em;
@@ -790,8 +803,44 @@ pre.nomi-tour {
   pointer-events: none;
   transition: opacity 120ms ease-out;
 }
+/* The header's other parts are appended as the block is built, in any
+   order: the hint comes after them and the controls last. */
+.nomi-bar > .nomi-tab-hint {
+  order: 1;
+}
+.nomi-bar > .nomi-live-controls {
+  order: 2;
+}
+/* Clipped, not removed, so the editor's description still reads it. */
+.nomi-tab-hint-text {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.nomi-tab-hint-mark {
+  display: inline-block;
+  width: 1.5em;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  text-align: center;
+  cursor: help;
+}
+@container (min-width: 37em) {
+  .nomi-tab-hint-text {
+    position: static;
+    width: auto;
+    height: auto;
+    clip-path: none;
+  }
+  .nomi-tab-hint-mark {
+    display: none;
+  }
+}
 .nomi-main:has(textarea.nomi-src:focus:not([readonly])) .nomi-tab-hint {
   opacity: 1;
+  pointer-events: auto;
 }
 /* The frame Esc moves focus to (leaveEditor in tour-client.mjs). */
 .nomi-main:focus-visible {

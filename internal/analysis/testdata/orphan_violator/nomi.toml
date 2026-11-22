@@ -1,3 +1,6 @@
 [module]
 name = "orphan_violator"
 entry_points = ["main"]
+
+[dependencies]
+orphan_dep = { dir = "../orphan_dep" }

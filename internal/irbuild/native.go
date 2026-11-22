@@ -228,15 +228,6 @@ func (k kind) nomi() string {
 	return "an unsupported type"
 }
 
-// expr is a value a destructuring prologue works on: the temporary that holds
-// it, when it is held in one yet, and its kind. `t` is ir.NoTemp for a value
-// no instruction computes (a zero-sized payload, a refused value), which
-// irHold names with a fresh temporary.
-type expr struct {
-	t ir.Temp
-	k kind
-}
-
 // fnSig is a module function as its call sites see it.
 type fnSig struct {
 	params []kind
@@ -293,30 +284,19 @@ type fnSig struct {
 	defaultFrame map[string]kind
 	defaultTypes map[string]analysis.Type
 	// defaultSelfType is, for a call filling an interface function's
-	// defaults, the checker's type of the implementor its `self` is (the
-	// call's type argument for the interface's SelfParam), nil where the
-	// call has no record of it (an accessor a dispatch reaches).
+	// defaults, the checker's type of the implementor its `self` is: the
+	// type the call's record is for (analysis.Callee.For), or for an
+	// accessor, the implementing block's (implDef.recvType). Nil where
+	// neither is recorded.
 	defaultSelfType analysis.Type
-}
-
-// local is a Nomi name in scope, with its kind.
-type local struct {
-	k kind
 }
 
 type gen struct {
 	// dc is the decline census of the lowering this gen builds in, which
 	// every gen of that lowering shares and no other lowering does.
-	dc *declineCensus
-	// synthTypeExprs holds the types of the type expressions of code the
-	// builder writes for a block-local declaration and the checker never
-	// checks (noteSynthTypeExprs), which recordedTypeExpr reads beside the
-	// checker's own records.
-	synthTypeExprs map[ast.TypeExpr]analysis.Type
-	// synthPatternVariants is PatternVariants for the same code.
-	synthPatternVariants map[ast.TypeExpr]string
-	nomiPath             string
-	pkg                  string
+	dc       *declineCensus
+	nomiPath string
+	pkg      string
 	// stdUnlowered names, for a stdlib gen, each function whose body the IR
 	// did not lower, with the reason. See irnative.go.
 	stdUnlowered map[string]string
@@ -361,6 +341,9 @@ type gen struct {
 	// stdlib positions, as a shared std module's are, so a trap inside it is
 	// reported at the program's call (ownPos).
 	programStd bool
+	// stdTypesBuild is set on the gen that builds a std module's types for
+	// the process (stdtypes.go), which lowers no body.
+	stdTypesBuild bool
 	// stdCases is set on the gen that lowers a shared std module's own
 	// `//!` and `test` cases (stdtests.go): those are a program, which holds
 	// std interfaces as values through its own defs (stdProgBuilds), though
@@ -380,20 +363,12 @@ type gen struct {
 	// or an interface signature read here. A bare name that file binds to
 	// a `once` reads that file's cell (onceValue). See lowerNamesFrom.
 	namesFrom int
-	// blockImports is the module scope each qualifier an `import` at the top
-	// of a block binds, built on first use by moduleScope; a name two blocks
-	// bind to different files maps to nil.
-	blockImports map[string]*analysis.Scope
-	// importScopes is the files each `import` statement binds, by name,
-	// built on first use by importBindings.
-	importScopes map[*ast.ImportStmt]map[string]*analysis.Scope
 
 	// nomiLine is the Nomi line the next lowered statement is attributed to.
 	nomiLine int
 
-	tmp    int
-	scopes []map[string]local
-	funcs  map[string]*fnSig
+	tmp   int
+	funcs map[string]*fnSig
 	// sigByDecl is the same signatures under the declaration each is of
 	// (declareFunc): what a call the checker resolved to a declaration
 	// looks its callee up by.
@@ -427,7 +402,7 @@ type gen struct {
 	// above — and its function list cannot grow on a discarded run anyway,
 	// because `irScalarBuild` declines while `g.probing > 0`.
 	irMod *ir.Module
-	// irHostKeys are the extern keys this unit's Go-bound `host fn` bodies
+	// irHostKeys are the extern keys this unit's `host fn` bodies
 	// cross under. See irhostfn.go.
 	irHostKeys []string
 	// irTestBoots are the `group` boots this unit has offered for VM
@@ -439,12 +414,6 @@ type gen struct {
 	// irBoot is set while irBootRetain builds the program boot's body. That
 	// body admits Context values.
 	irBoot bool
-	// irPro is the shell whose destructuring prologue is being lowered, or
-	// nil. While it is installed the lowering of an irrefutable parameter
-	// pattern is recorded into the retained function: `irHold` mints from
-	// the function's namespace and `irAppend` puts each node in the entry
-	// block. See irparam.go.
-	irPro *irFuncShell
 	// irTable is the shared IR's type and declaration table for this
 	// compilation unit: the interning arena that gives a Nomi type and a Nomi
 	// declaration an identity the representation itself can compare, so a
@@ -494,10 +463,17 @@ type gen struct {
 	// bangRenders holds the function that renders a failed `!` call's error,
 	// by the error's kind (unwrap.go); nil for a kind with no rendering.
 	bangRenders map[kind]*ir.Symbol
-	// types is the module's struct and enum declarations, by Nomi name. The
-	// *typeDef a name resolves to IS the type's identity everywhere downstream
-	// (see types.go), so this map is the only place a type NAME is looked up.
+	// types is, by the name it was reached by, each struct, enum and
+	// distinct type the module declares (or the process-wide def of a std
+	// declaration it adopts). The *typeDef IS the type's identity
+	// everywhere downstream (see types.go).
 	types map[string]*typeDef
+	// defsByDecl is, by its declaration node, the def of each type this
+	// module declares: every def `types` holds under the declaration's own
+	// name, and each block-local declaration's (blocklocaltype.go). It holds
+	// no mirror. Another gen finds a declaration's def here through the
+	// registry (typeRegistry.defOf).
+	defsByDecl map[ast.Node]*typeDef
 	// typeOrder is the declarations in source order, for the size probe.
 	typeOrder []*typeDef
 	// The type declarations written INSIDE a body. blockTypes is one entry per
@@ -507,8 +483,7 @@ type gen struct {
 	//
 	// Kept OUT of `types` above, which is keyed on the bare name and therefore
 	// cannot hold two bodies' `Point`. typeScopes is the active overlay stack,
-	// pushed and popped with the block being lowered; namedType and typeOf
-	// consult it ahead of `types`. See blocklocaltype.go.
+	// pushed and popped with the block being lowered. See blocklocaltype.go.
 	blockTypes      map[*ast.Block]*blockTypeDecls
 	blockTypeOrder  []*ast.Block
 	blockLocalOrder []*typeDef
@@ -539,6 +514,10 @@ type gen struct {
 	// instance's field kinds are this gen's defs, so an instance cannot be
 	// shared across gens. See generictype.go.
 	genericTemplates map[string]*genericTemplate
+	// templatesByDecl is, by its declaration node, each template
+	// genericTemplates holds. Another gen finds a declaration's template
+	// here (foreignTemplateOf).
+	templatesByDecl  map[ast.Node]*genericTemplate
 	genericInsts     map[string][]*typeDef
 	genericInstOrder []*typeDef
 	// genericImplQueue is one implDef per (impl block, instance) pair, drained
@@ -592,12 +571,20 @@ type gen struct {
 	// for something the checker recorded under another node, or whose
 	// arguments the builder wrote at their slots (carryCall).
 	carriedCalls map[*ast.Call]*analysis.ResolvedCall
+	// carriedRefs is the reference at the callee of each call the builder
+	// made whose record names one (Callee.Ref), where the checker recorded
+	// none (carryCall).
+	carriedRefs map[ast.Node]*analysis.Symbol
+	// carriedPatterns is whether each pattern the builder made in place of
+	// a checked one always matches (carryPattern).
+	carriedPatterns map[ast.Node]bool
 	// carriedOperators is the record of each operator the builder wrote
-	// for a call the checker recorded (carryOperator).
-	carriedOperators map[*ast.Binary]*analysis.OperatorUse
-	// respelledRecords are the records respelledCallOf wrote, each the
-	// record of a copy the builder respelled with a concrete owner.
-	respelledRecords map[*analysis.ResolvedCall]bool
+	// for a call the checker recorded, or with a record of its own
+	// (carryOperatorUse).
+	carriedOperators map[ast.Node]*analysis.OperatorUse
+	// carriedTypes is the checker's type of the source node each node the
+	// builder made stands for (carryType), which recordedType reads.
+	carriedTypes map[ast.Node]analysis.Type
 	// synthDefaults is the record each call callFuncValueOf is lowering
 	// fills from: the default-filled function value's, or the copied
 	// function's.
@@ -640,8 +627,8 @@ type gen struct {
 	// existential itself does not walk it again.
 	debugImplsVisiting map[kind]bool
 	// holeFor maps a name the builder binds in place of a written
-	// expression it has lowered already (a pipe prefix's held value,
-	// pipeStageValues) to that expression, whose records it reads.
+	// expression (a pipe prefix's held value, pipeStageValues; a partial
+	// capture's `&N`, openArg) to that expression, whose records it reads.
 	holeFor map[ast.Node]ast.Node
 	// stdProgCaller is, in a std instance gen, the program's gen whose call
 	// asked for the instance. A std interface held as a value in the
@@ -670,6 +657,9 @@ type gen struct {
 	monoQueue []*monoInst
 	monoSig   *fnSig
 	monoDepth int
+	// abstractQueue is each generic function the lowering answers for
+	// every type on first use, through its abstract body (abstract.go).
+	abstractQueue []abstractBody
 	// stdInstName overrides the function name emitStdFunc uses, for the
 	// length of one instance's lowering.
 	//
@@ -689,13 +679,10 @@ type gen struct {
 	comps map[string][]*compKind
 	// The prelude enums, resolved against this module's analysis. See
 	// prelude.go: preludeByDecl is keyed by the *ast.EnumDef the analyzer
-	// resolved to, which IS the identity; preludeByName is the same anchors
-	// under their Nomi spelling, for a pattern head's qualifier. preludeInsts
-	// interns one *typeDef per instantiation and preludeOrder keeps them in
+	// resolved to, which IS the identity. preludeInsts interns one *typeDef per instantiation and preludeOrder keeps them in
 	// creation order so unlowerability propagates deterministically.
 	preludesLoaded bool
 	preludeByDecl  map[*ast.EnumDef]*preludeAnchor
-	preludeByName  map[string]*preludeAnchor
 	preludeInsts   map[string][]*typeDef
 	preludeOrder   []*typeDef
 	// The generic std types' per-gen instances: `Channel<Request>`,
@@ -714,24 +701,21 @@ type gen struct {
 	genHostOrder   []*typeDef
 	// The stdlib opaque newtypes, resolved against this module's analysis. See
 	// opaque.go: opaqueByDecl is keyed by the *ast.TypeDef the analyzer
-	// resolved to, which IS the identity, and opaqueByName is the same anchors
-	// under their Nomi spelling for a module that MENTIONS one without
-	// declaring it. Both values are an index into opaqueSpecs; the *typeDef
-	// itself is process-wide rather than per-gen, because a stdFunc's kinds are
-	// built once and compared by pointer from a different gen.
+	// resolved to, which IS the identity, and its value is an index into
+	// opaqueSpecs; the *typeDef itself is process-wide rather than per-gen,
+	// because a stdFunc's kinds are built once and compared by pointer from a
+	// different gen.
 	opaquesLoaded bool
 	opaqueByDecl  map[*ast.TypeDef]int
-	opaqueByName  map[string]int
 	// The monomorphic stdlib enums, resolved against this module's analysis.
-	// Same two maps and the same process-wide-def reasoning as the opaque
+	// The same map and the same process-wide-def reasoning as the opaque
 	// anchors above, keyed on *ast.EnumDef instead. See stdenum.go.
 	stdEnumsLoaded bool
 	stdEnumByDecl  map[*ast.EnumDef]int
-	stdEnumByName  map[string]int
-	// dotOwners is the enum each `Enum.Variant` that qualifiedDot synthesized
-	// for a `.Variant` shorthand names, from the checked type rather than the
-	// name. See dotvariant.go.
-	dotOwners map[*ast.FieldAccess]*typeDef
+	// dotOwners is the enum each `Enum.Variant` the builder writes for a
+	// `.Variant` shorthand or a literal-attach form names: the type the
+	// checker gave the written node. See dotvariant.go.
+	dotOwners map[*ast.FieldAccess]*analysis.EnumType
 	// funcValueRefs holds each reference callFuncValue is building the
 	// function value of. Its body is the call of the same reference, so a
 	// call the builder cannot lower would otherwise lower the callee as a
@@ -743,7 +727,6 @@ type gen struct {
 	// scalar, so the shape check has to pin the field set. See stdstruct.go.
 	stdStructsLoaded bool
 	stdStructByDecl  map[*ast.StructDef]int
-	stdStructByName  map[string]int
 	// The GENERIC stdlib structs (`Set<T>`), resolved against this module's
 	// analysis. ONE map, by Nomi name, and no `loaded` flag beside it: a nil map
 	// IS the unloaded state, because stdGenStructAnchorsOf never returns nil.
@@ -751,46 +734,26 @@ type gen struct {
 	// per-gen fallback, so there is no per-gen order to keep either. See
 	// stdgenstruct.go.
 	genStructs map[string]*stdGenStructAnchor
-	// The GENERIC stdlib HOST types (`Sender<T>`, `Receiver<T>`), resolved
-	// against this module's analysis. ONE map by Nomi name, and no `loaded`
-	// flag, for genStructs' reason exactly. See stdgenhost.go.
-	genHosts map[string]*stdGenHostAnchor
-	// The stdlib nil-inner MARKERS (`ChannelClosed`). Two maps and the same
+	// The stdlib nil-inner MARKERS (`ChannelClosed`). The same map and the same
 	// process-wide-def reasoning as the opaque anchors above, keyed on
 	// *ast.TypeDef — the SAME declaration kind, distinguished by having no
 	// inner type at all rather than a scalar one. See stdgenhost.go.
 	stdMarkersLoaded bool
 	stdMarkerByDecl  map[*ast.TypeDef]int
-	stdMarkerByName  map[string]int
-	// The BLESSED stdlib primitives (`Byte`, `Bytes`), resolved against this
-	// module's analysis. ONE map where the three families above have two,
-	// because there is no declaration node to key on: the type is an analyzer
-	// singleton and the builder has no path for the `pub host type` surface
-	// declaration at all. See stdhost.go.
-	stdHostsLoaded bool
-	stdHostByName  map[string]int
-	// The stdlib INTERFACE anchors. ONE map, where the four families above
-	// have two, and deliberately: this family's anchor is gated on an IMPORT of
-	// the declaring std module, so a declaration-keyed index could only ever hold
-	// a node some OTHER module carries. The declaration-node question its four
-	// siblings answer ("is the declaration in front of buildTypes one of these")
-	// is therefore unanswerable from it. See stdiface.go.
+	// stdIfaceDecls is the declaration each spec this module anchors (an
+	// import of the declaring std module reaches it) was reached through,
+	// by spec index, for the defaults it declares beside its table
+	// (stdIfaceOverride). See stdiface.go.
 	stdIfacesLoaded bool
-	stdIfaceByName  map[string]int
-	// stdIfaceDecls is the declaration each anchored spec was reached
-	// through, by spec index, for the defaults it declares beside its
-	// table (stdIfaceOverride).
-	stdIfaceDecls map[int]*ast.InterfaceDef
-	// structIfaceOK is whether this module reaches std's `Struct` — the
-	// universal structural marker, which has no spec row because it is no
-	// dispatch table. Loaded beside the anchors above so one `loadStdIfaces`
-	// answers for the whole family. See structiface.go.
-	structIfaceOK bool
+	stdIfaceDecls   map[int]*ast.InterfaceDef
 	// ifaces is the module's interface declarations, by Nomi name. The
 	// *ifaceDef a name resolves to IS the interface's identity, which is what
 	// keeps `Greeter.greet` and `Farewell.greet` two different tables on a
 	// type implementing both. See impl.go.
 	ifaces map[string]*ifaceDef
+	// ifacesByDecl is defsByDecl for the module's interface declarations
+	// (typeRegistry.ifaceDefOf).
+	ifacesByDecl map[ast.Node]*ifaceDef
 	// ifaceOrder is those declarations in source order, so signature
 	// resolution and lowering never depend on map iteration order.
 	ifaceOrder []*ifaceDef
@@ -804,7 +767,8 @@ type gen struct {
 	// dict.go.
 	dict *dictSeam
 	// implOrder is every impl block in source order, and implsByIface indexes
-	// them by (interface spelling, receiver kind) for dispatch.
+	// them by (interface identity, receiver kind) for dispatch: the
+	// interface's origin and name (implDef.ifaceKey).
 	implOrder    []*implDef
 	implsByIface map[string]map[kind]*implDef
 	// instImpls holds the impls of a generic interface a receiver implements
@@ -833,14 +797,12 @@ type gen struct {
 	// (std/calendar ships twelve `Add` impls for NaiveDateTime), so that map
 	// collapses them and refuses all of them as duplicates.
 	//
-	// A second index rather than a wider shared key, and the argument is about
-	// one consultation site rather than about effort: `noEquatableImpl` reads
-	// `implsByIface[stdIfaceImplKey(stdEquatable)][k]` to decide whether `==` may take the
-	// STRUCTURAL fallback, and under a widened key a lookup that lost its
-	// existential over the rhs axis would answer "no impl" for a type that has
-	// one — a wrong answer on a comparison that lowers, not a refusal.
-	// Nothing operator-shaped is registered in implsByIface at all, so every
-	// lookup in it is unaffected by construction. See operimpl.go.
+	// A second index rather than a wider shared key: every lookup in
+	// implsByIface asks for one receiver's impl of an interface, and under a
+	// widened key a lookup that lost its existential over the rhs axis would
+	// answer "no impl" for a type that has one. Nothing operator-shaped is
+	// registered in implsByIface at all, so every lookup in it is unaffected
+	// by construction. See operimpl.go.
 	//
 	// Used for the duplicate rule; an operator reaches its impl by its
 	// record (recordedOperatorImpl).
@@ -855,9 +817,6 @@ type gen struct {
 	// an interface's default one per block that inherits it. Filed by
 	// addImplItem, which every registration of an item goes through.
 	implItemsByDecl map[ast.Node][]*implItem
-	// operAnchors memoizes "is this name the stdlib operator interface", per
-	// module. Nil until the first impl block asks.
-	operAnchors map[string]*operIfaceSpec
 	// implBlock is the USER impl block whose function body is being lowered
 	// right now, or nil outside one. It exists for exactly one question: a
 	// bare `each_while(left, yield)` inside `impl Iter for Tree` names a
@@ -882,44 +841,8 @@ type gen struct {
 	// existential dispatch.
 	tids map[kind]bool
 
-	// result is the result kind of the function being lowered: the declared
-	// one for a `fn`, and for a lambda the one inferred so far (see lambda.go
-	// — a lambda declares no return type, so its `return`s and its final
-	// expression establish it between them).
+	// result is the declared result kind of the function being lowered.
 	result kind
-	// inferResult is non-nil while a lambda body is being lowered, and is
-	// what makes `return` lambda-scoped rather than function-scoped: it
-	// carries the innermost lambda's result inference, so a `return` checks
-	// against the lambda's answer and not the enclosing `fn`'s.
-	inferResult *resultInference
-	// wantOf is the coercion target an expression will be CHECKED AGAINST at its
-	// own position, keyed by that expression's NODE.
-	//
-	// It is not a general expected-type channel and must not become one. What
-	// keeps it from being one is the two properties below, and the ENUMERATION —
-	// which is the safety argument, so adding a writer or a reader is an edit to
-	// this comment. A stale enumeration reads as a completed audit.
-	//
-	//	WRITERS  irOnceCellLower          — a `once` initializer's tail, at the
-	//	                                    binding's kind (ironce.go)
-	//	         lowerTypedOperand        — a call lowered against a wanted
-	//	                                    `Channel<T>` (irlist.go)
-	//	READERS  channelWantedInstance    — `Channel.unbuffered()`, which records
-	//	                                    no instantiation (concurrent.go)
-	//
-	// PROPERTY 1, NODE-KEYED. Identity on the node rather than a current
-	// expectation, which is pipedCall's and pipedCase's discipline: no scope to
-	// push, no boundary to clear, and no way for a nested lowering to resolve
-	// against an outer expectation by accident.
-	//
-	// PROPERTY 2, A READER MAY ONLY CLOSE WHAT THE BUILDER WOULD HAVE GUESSED.
-	// Every reader uses it to type a value the builder cannot type on its own —
-	// an unbound channel instantiation — and never to overrule something it
-	// CAN. That is what makes the two writers interchangeable: each publishes
-	// exactly the kind its value is about to be coerced to and compared
-	// against. So a wrong want costs a refusal at the same position and never a
-	// silently different lowering.
-	wantOf map[ast.Node]kind
 	// lambdaWantFor is the lambda a binding is lowering and lambdaWant the
 	// result type the checker solved for it (lambdaResultWant). One slot:
 	// the binding lowers its own lambda before anything else can ask.
@@ -927,7 +850,7 @@ type gen struct {
 	lambdaWant    kind
 	// holeSubst names, while a capture's body lowers, the parameter each
 	// of its `&N`s is read as (capture.go).
-	holeSubst map[ast.Node]string
+	holeSubst map[ast.Node]madeName
 	// unitFnLambda is the lambda a nested Unit `fn` is lowering as: its
 	// body may end in a `dbg` observation, whose value is discarded.
 	unitFnLambda *ast.Lambda
@@ -971,7 +894,17 @@ type gen struct {
 	// unchecked holds the nodes of code the builder writes and lowers
 	// without the checker having checked it (markUnchecked).
 	unchecked map[ast.Node]bool
-	implSelf  string
+	// madeRefs is the key of the local each identifier the builder wrote
+	// reads (madeRead), and madeKeys how many keys madeLocal has handed
+	// out: a local the builder declares has no source declaration, so its
+	// key is a position no source holds (irlocals.go).
+	madeRefs map[*ast.Ident]analysis.Pos
+	madeKeys int
+	// madeParams is the key of each parameter of a lambda the builder
+	// makes (a capture's, a partial application's, a wrapper's), whose
+	// parameters stand at one written node's position (madeLambda).
+	madeParams map[*ast.Lambda][]analysis.Pos
+	implSelf   string
 	// defaultSelf is set while an interface default is lowered for one
 	// implementor: the interface, and the implementor's kind every `self`
 	// position takes. See inheritDefaults.
@@ -1026,26 +959,15 @@ type gen struct {
 	// of this file alone when it is on no cycle; nil until the build starts
 	// and for a stdlib module. See typecycle.go.
 	building *typeGroup
-	// funcsDone marks declareFuncs having finished, which is the earliest this
-	// gen's impl table is complete. A cross-file question about whether
-	// the program declares an impl at all — noEquatableImpl's foreign arm —
-	// answers "unknown" while any gen is short of it rather than reading a
-	// half-built table, and unknown over-refuses. See foreign.go.
-	funcsDone bool
 	// nodes is the module's checked AST, held so the type table can be built
 	// on demand from another file's resolution rather than only in order.
 	nodes []ast.Node
-	// typeParamNames is every TYPE VARIABLE any declaration in this module
-	// introduces, gathered lazily and only when a refusal has to decide
-	// whether an unresolvable name is a type parameter or a typo. Nil until
-	// then, because most modules never ask. See sigreason.go.
-	typeParamNames map[string]bool
 	// nestedTypeKeys maps a type name this module declares in a NESTED position
 	// — inside a `test` body, a function body, any block — onto the tally key
 	// that declaration's OWN refusal carries, and "" when two nested
-	// declarations of one name disagree on it. Gathered lazily beside
-	// typeParamNames and only when an unresolvable type name has to be told
-	// apart from a name nothing declares at all. See sigreason.go.
+	// declarations of one name disagree on it. Gathered lazily, and only
+	// when an unresolvable type name has to be told apart from a name
+	// nothing declares at all. See sigreason.go.
 	nestedTypeKeys map[string]string
 	// implEmitting is the impl block whose item `implFunc` is currently
 	// lowering, or nil outside one.
@@ -1082,13 +1004,11 @@ type gen struct {
 	// so a module without the protocol asks once. See iter.go.
 	iter       *iterAnchor
 	iterLoaded bool
-	// hostPkgs is this module's `gopkg` declarations by NOMI alias, and
-	// hostTypes its Go-bound `host type` declarations by Nomi name. Both nil
-	// for a module with no FFI, which is nearly all of them — a nil map reads
-	// as the empty one, so no `loaded` flag is needed beside either. The
-	// *typeDef values are process-wide, because a `host fn`'s kinds are
-	// compared by pointer from another gen. See hostpkg.go.
-	hostPkgs  map[string]*hostPkg
+	// hostTypes is a user file's `host type` declarations by Nomi name, nil
+	// for a module that declares none, which is nearly all of them (a nil
+	// map reads as the empty one). The *typeDef values are process-wide,
+	// because a `host fn`'s kinds are compared by pointer from another gen.
+	// See hostpkg.go.
 	hostTypes map[string]*typeDef
 }
 
@@ -1111,7 +1031,6 @@ func newGen(m *Module, pkg string, std *stdlibIndex, files *fileIndex, unit int,
 	// depends on whether an earlier expression happened to load them
 	// (TestPreludeAnchorsDoNotDependOnOrder).
 	g.loadPreludes()
-	g.pushScope()
 	return g
 }
 
@@ -1124,13 +1043,11 @@ func (g *gen) declareTypes() {
 	if g.typesDone {
 		return
 	}
-	// FFI handles FIRST, ahead of the interface shells: a `gopkg`-bound
+	// Host handles FIRST, ahead of the interface shells: a user file's
 	// `host type` is a named type a struct field or an interface function's
 	// parameter may hold, and it resolves through no table any later wave
-	// builds. It reads only `*ast.ExternPackage` and `*ast.ExternType` nodes,
-	// so a module with no FFI pays one walk over its own declarations and
-	// records nothing. See hostpkg.go.
-	g.collectHostPkgs()
+	// builds. See hostpkg.go.
+	g.collectHostTypes()
 
 	// Interface SHELLS before types: a struct field or an enum payload may be
 	// interface-typed — an existential — and typeOf can only answer that once
@@ -1165,13 +1082,13 @@ func (g *gen) declareFuncs() {
 		}
 		g.declareFunc(fd, fd.Name, g.signature(fd))
 	}
-	// A Go-bound `host fn`, on the same footing as a `fn` and for the reason
-	// that matters: a call site resolves it through `g.funcs` like any other,
-	// so the call lowering, the named-argument walk and the arity check all
-	// run unchanged against a foreign callee. See hostpkg.go.
+	// A user file's `host fn`, on the same footing as a `fn` and for the
+	// reason that matters: a call site resolves it through `g.funcs` like any
+	// other, so the call lowering, the named-argument walk and the arity
+	// check all run unchanged against a host callee. See hostpkg.go.
 	for _, n := range g.nodes {
 		ef, isExtern := n.(*ast.ExternFunc)
-		if !isExtern || !(hostBoundFn(ef) || (g.stdModule == "" && hostTableFn(ef))) {
+		if !isExtern || g.stdModule != "" || !hostTableFn(ef) {
 			continue
 		}
 		g.declareFunc(ef, ef.Name, g.hostSignature(ef))
@@ -1186,7 +1103,6 @@ func (g *gen) declareFuncs() {
 	// registered here; settleImpls lowers the synthesized ones once every
 	// file's impls are registered and indexed.
 	g.buildImpls(g.nodes)
-	g.funcsDone = true
 }
 
 // settleImpls lowers the module's synthesized impl blocks speculatively.
@@ -1243,9 +1159,10 @@ func (g *gen) emitModule(m *Module) ([]Unsupported, []Suppression) {
 		// interleave for one node.
 		g.attachedTestDecls(byOwner[n])
 		if ib, isImpl := n.(*ast.ImplBlock); isImpl {
-			// Includes the universal-default `impl Debug for T` the front end
-			// appends for every declared type; implDecl drops a synthesized
-			// block rather than blaming a fabricated position for it.
+			// Includes the name-only `impl Debug for T` the front end
+			// appends for every opaque and host type; implDecl drops a
+			// synthesized block rather than blaming a fabricated position
+			// for it.
 			g.implDecl(ib)
 			// Owner-level `once` bindings lower on their own, whatever
 			// happened to the block's functions: a `once` takes no receiver
@@ -1308,11 +1225,6 @@ func (g *gen) emitModule(m *Module) ([]Unsupported, []Suppression) {
 			g.testDecl(byOwner[n])
 		case *ast.OnceBinding:
 			g.onceDecl(t)
-		case *ast.ExternPackage:
-			// `gopkg "example.com/app/ffi" as ffi`. Declares nothing; a
-			// declaration whose module could not be located is refused here.
-			// See hostpkg.go.
-			g.hostPkgDecl(t)
 		case *ast.ExternFunc:
 			g.hostFnDecl(t)
 		case *ast.ExternType:
@@ -1400,21 +1312,6 @@ func (g *gen) rejectWhole(construct, detail string, n ast.Node) {
 }
 
 // --- scopes ----------------------------------------------------------------
-
-func (g *gen) pushScope()            { g.scopes = append(g.scopes, map[string]local{}) }
-func (g *gen) popScope()             { g.scopes = g.scopes[:len(g.scopes)-1] }
-func (g *gen) top() map[string]local { return g.scopes[len(g.scopes)-1] }
-
-func (g *gen) bind(name string, l local) { g.top()[name] = l }
-
-func (g *gen) lookup(name string) (local, bool) {
-	for i := len(g.scopes) - 1; i >= 0; i-- {
-		if l, ok := g.scopes[i][name]; ok {
-			return l, true
-		}
-	}
-	return local{}, false
-}
 
 // --- declarations ----------------------------------------------------------
 
@@ -1558,8 +1455,10 @@ func (g *gen) funcDecl(fd *ast.FuncDef) {
 	// known. That is cascade.go's discipline — refuse where the answer is —
 	// and it is why the declaration itself is not refused. A template nobody
 	// calls builds nothing. Ahead of the generic clause because `genericWhy` is
-	// still recorded on it.
+	// still recorded on it. Its effects for every type are its abstract
+	// body's (abstract.go).
 	case sig.mono != nil:
+		g.queueAbstract(fd, sig)
 		return
 	// The generic clause is `sig.dict == nil && sig.genericWhy != ""`: two
 	// arms of one decision, both settled in the SIGNATURE and reported here
@@ -1635,50 +1534,16 @@ func (g *gen) funcDecl(fd *ast.FuncDef) {
 		ok = false
 	}
 	if !ok {
-		// The body is probed inside a scope holding the names any destructuring
-		// parameter declared, bound at an invalid kind: the names are in scope
-		// whether or not this builder resolved the pattern, so
-		// leaving them out reports one parameter's gap once per mention in the
-		// body. See cascade.go.
-		g.pushScope()
-		for _, p := range fd.Params {
-			if p.Destructure != nil {
-				g.bindPatternNamesInvalid(p.Destructure)
-			}
-		}
-		g.popScope()
 		return
 	}
 	if sig.dict != nil {
-		// A bounded generic's erased body has no IR: a type parameter has no
-		// representation there. Nothing names it either: a call and a function
-		// value each lower an instance of the template irMonoTemplate derives,
-		// and another file's call instantiates it in its own file
-		// (siblinggeneric.go). Lowering the erased body would only record a
-		// decline for a function no program can reach (std/parse's
-		// `read_fields`, lowered with every listed module that imports it).
+		// A bounded generic's own body runs nowhere: a call and a function
+		// value each lower an instance of the template irMonoTemplate
+		// derives, and another file's call instantiates it in its own file
+		// (siblinggeneric.go). Its effects for every type are its abstract
+		// body's, lowered once the program is (abstract.go).
+		g.queueAbstract(fd, sig)
 		return
-	}
-
-	g.pushScope()
-	// A destructuring parameter's names come out of the parameter's value in
-	// the function's prologue; a plain parameter's name is bound here.
-	type destructuring struct {
-		pat ast.Node
-		at  int
-	}
-	var patterns []destructuring
-	for i, p := range fd.Params {
-		if p.Destructure != nil {
-			// The synthesized `__destr_<line>_<col>` name the parser gave this
-			// parameter is not spellable in Nomi, so nothing can read it and
-			// nothing binds it — only the pattern's own names reach the body.
-			patterns = append(patterns, destructuring{p.Destructure, i})
-			continue
-		}
-		if !ast.IsDiscardName(p.Name) {
-			g.bind(p.Name, local{k: sig.params[i]})
-		}
 	}
 
 	prev := g.result
@@ -1686,30 +1551,19 @@ func (g *gen) funcDecl(fd *ast.FuncDef) {
 	// The function's result slot and its parameters belong to the retained
 	// `ir.Func` this shell opens. See irslot.go.
 	shell := g.irFuncShellWithCallee(fd, irFuncSigOf(fd, sig), sig.params, g.irFunctionCallee(sig))
-	// The names a destructuring parameter introduces are read out of the
-	// parameter's value in the function's prologue, before the body, so they
-	// are in scope for it. See irparam.go.
-	destructured := true
-	if len(patterns) > 0 {
-		closePrologue := g.irPrologueOpen(shell)
-		for _, d := range patterns {
-			if !g.destructure(d.pat, shell.paramValue(d.at, sig.params[d.at]), fd) {
-				destructured = false
-				g.bindPatternNamesInvalid(d.pat)
-			}
-		}
-		closePrologue(destructured)
-	}
 	// A body the builder declines retains nothing, and the VM reports it as
 	// blocked if a program reaches it (unloweredBody, irnative.go).
 	g.irBodyObserve(irBodyModuleFn, true)
 	produced, retained := g.irScalarLower(fd, irFuncSigOf(fd, sig), shell, sig.result)
 	if !retained {
+		if sig.tps != nil {
+			// A bound-free generic's erased body, which reads a value of a
+			// type parameter: its abstract body answers for every type
+			// (abstract.go).
+			g.queueAbstract(fd, sig)
+		}
 		g.unloweredBody(irDeclined{})
 		produced = sig.result
-	}
-	if !destructured {
-		produced = kindInvalid
 	}
 	switch {
 	case produced == kindInvalid:
@@ -1727,7 +1581,6 @@ func (g *gen) funcDecl(fd *ast.FuncDef) {
 		}
 	}
 	g.result = prev
-	g.popScope()
 	// Another file's call that omits a defaulted parameter calls this file's
 	// accessor for it (siblingdefault.go).
 	g.irFileSlotDefaults(fd, sig)

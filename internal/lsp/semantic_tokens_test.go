@@ -5,8 +5,8 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -19,7 +19,7 @@ func TestSemanticTokens_BasicFunction(t *testing.T) {
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	fa := buildFile(nodes)
 
-	data := encodeSemanticTokens(fa, nodes, src)
+	data := encodeSemanticTokens(fa, nodes, src, nil, nil)
 
 	if len(data)%5 != 0 {
 		t.Fatalf("encoded data length %d is not a multiple of 5", len(data))
@@ -101,7 +101,7 @@ end
 	if sym := fa.References[analysis.Pos{Line: 5, Col: 12}]; sym == nil || sym.Name != "ready_label" {
 		t.Fatalf("expected attached test call to keep analysis reference, got %#v", sym)
 	}
-	toks := decodeSemanticTokenData(encodeSemanticTokens(fa, nodes, src))
+	toks := decodeSemanticTokenData(encodeSemanticTokens(fa, nodes, src, nil, nil))
 
 	// 1-based (line, col) of each identifier, and whether it is on a `//!` line.
 	want := []struct {
@@ -145,47 +145,20 @@ end
 	}
 }
 
-// TestSemanticTokens_LegendNamesAttachedTest pins the modifier's legend name
-// and bit: editors match the name (Zed's semantic_token_rules.json, Neovim's
-// @lsp.mod.attachedTest), and the encoder sets the bit at that name's index.
-func TestSemanticTokens_LegendNamesAttachedTest(t *testing.T) {
-	for i, name := range tokenModifiers {
-		if name == "attachedTest" {
-			if 1<<i != modAttachedTest {
-				t.Fatalf("attachedTest is legend index %d but modAttachedTest is %d", i, modAttachedTest)
-			}
-			return
+// TestSemanticTokens_LegendNamesTheModifiers pins each modifier's legend
+// name and bit: editors match the name (Zed's semantic_token_rules.json,
+// Neovim's @lsp.mod.attachedTest and @lsp.mod.effect, VS Code's
+// semanticTokenModifiers), and the encoder sets the bit at that name's
+// index.
+func TestSemanticTokens_LegendNamesTheModifiers(t *testing.T) {
+	for name, bit := range map[string]int{"attachedTest": modAttachedTest, "effect": modEffect} {
+		i := slices.Index(tokenModifiers, name)
+		if i < 0 {
+			t.Errorf("legend %v has no %s modifier", tokenModifiers, name)
+			continue
 		}
-	}
-	t.Fatalf("legend %v has no attachedTest modifier", tokenModifiers)
-}
-
-func TestSemanticTokens_SourceGoBindingDoesNotPaintImportLine(t *testing.T) {
-	root := stageGoFFIDefinitionProject(t)
-	mainPath := filepath.Join(root, "main.nomi")
-	src := `import std::io
-
-gopkg "example.com/binding/ffi" as ffi
-
-fn echo_upper(s: String) -> String go ffi.EchoUpper
-
-fn main()
-  io.print(echo_upper("fixture"))
-end
-`
-	if err := os.WriteFile(mainPath, []byte(src), 0o644); err != nil {
-		t.Fatalf("write main.nomi: %v", err)
-	}
-
-	s := NewServer()
-	uri := pathToURI(mainPath)
-	doc := s.docs.Open(uri, src)
-	data := encodeSemanticTokens(doc.Analysis, doc.Nodes, doc.Content)
-	toks := decodeSemanticTokenData(data)
-
-	for _, tok := range toks {
-		if tok.line == 0 {
-			t.Fatalf("semantic token leaked into import line: %+v; all tokens: %+v", tok, toks)
+		if 1<<i != bit {
+			t.Errorf("%s is legend index %d but its bit is %d", name, i, bit)
 		}
 	}
 }
@@ -221,7 +194,7 @@ end
 	}
 	lines := strings.Split(src, "\n")
 	spelled := map[[2]int]string{}
-	for _, tok := range decodeSemanticTokenData(encodeSemanticTokens(doc.Analysis, doc.Nodes, doc.Content)) {
+	for _, tok := range decodeSemanticTokenData(encodeSemanticTokens(doc.Analysis, doc.Nodes, doc.Content, nil, nil)) {
 		line := lines[tok.line]
 		end := min(tok.col+tok.length, len(line))
 		text := line[tok.col:end]
@@ -276,7 +249,7 @@ end`
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	fa := buildFile(nodes)
 
-	data := encodeSemanticTokens(fa, nodes, src)
+	data := encodeSemanticTokens(fa, nodes, src, nil, nil)
 
 	if len(data)%5 != 0 {
 		t.Fatalf("encoded data length %d is not a multiple of 5", len(data))
@@ -292,7 +265,7 @@ func TestSemanticTokens_EmptyFile(t *testing.T) {
 		References:  map[analysis.Pos]*analysis.Symbol{},
 	}
 
-	data := encodeSemanticTokens(fa, nil, "")
+	data := encodeSemanticTokens(fa, nil, "", nil, nil)
 
 	if len(data) != 0 {
 		t.Fatalf("expected empty data for empty file, got %d elements", len(data))

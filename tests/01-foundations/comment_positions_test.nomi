@@ -88,23 +88,25 @@ test "comments are accepted around declarations and expressions"
     ]
 
     // Map and list patterns exercise the same comment paths on destructuring.
-    first = case m
-        {
-            "first" => v,
-            // Trailing comment inside map pattern body.
-        } -> v
-        _ -> 0
-    end
+    first =
+        case m
+            {
+                "first" => v,
+                // Trailing comment inside map pattern body.
+            } -> v
+            _ -> 0
+        end
 
-    list_first = case l
-        [
-            head,
-            _,
-            _,
-            // Trailing comment inside list pattern body.
-        ] -> head
-        _ -> 0
-    end
+    list_first =
+        case l
+            [
+                head,
+                _,
+                _,
+                // Trailing comment inside list pattern body.
+            ] -> head
+            _ -> 0
+        end
 
     assert add(p.x, p.y) == 7
     assert first == 1

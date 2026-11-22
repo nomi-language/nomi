@@ -5,7 +5,11 @@
 // each question: `nomi check --format json` and `nomi test --format json`
 // run as child processes of the same binary, the language server answers
 // types, definitions and references in process, internal/format formats, and
-// the stdlib's analyzed declarations answer searches.
+// the stdlib's analyzed declarations answer searches. run_tests and
+// tests_reaching (`nomi test --reaching`) share their reading of the test
+// records (Server.test): a test a stored pass answered unchanged is a count
+// unless asked for, and each decided test says whether it is pure, from
+// the record's `effects`, so a run over a large suite stays a few records.
 package mcp
 
 import (

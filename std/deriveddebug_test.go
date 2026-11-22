@@ -7,17 +7,16 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// TestDerivedDebugCallsRecordTheirImpl: a std module that does not import
-// Debug still registers the universal and derived Debug blocks the
-// compiler writes for its types, under std's own Debug, so each
-// `Debug.inspect` such a block's body calls on a field of a named type
-// records the block it reaches (Callee.Impl), as the same call in a
-// program does. A field of a function type has no block, and one of a
-// type parameter is resolved by each instance. std/http and std/sessions
-// write no `import std::debug`.
+// TestDerivedDebugCallsRecordTheirImpl: each `Debug.inspect` a derived
+// Debug body in a std module calls on a field of a named type records how
+// it is answered, as the same call in a program does: the block it reaches
+// (Callee.Impl) for a type with a Debug block, under std's own Debug, and
+// its shape for a type with none. A field of a function type has no
+// block, and one of a type parameter is resolved by each instance.
+// std/xml's Attribute holds a Name, whose Debug is derived too.
 func TestDerivedDebugCallsRecordTheirImpl(t *testing.T) {
 	lib := All()
-	for _, name := range []string{"http", "sessions"} {
+	for _, name := range []string{"storage", "xml"} {
 		if err := lib.Bodies(name); err != nil {
 			t.Fatalf("std/%s: %v", name, err)
 		}
@@ -25,7 +24,7 @@ func TestDerivedDebugCallsRecordTheirImpl(t *testing.T) {
 		if fa == nil {
 			t.Fatalf("std has no module %q", name)
 		}
-		calls := 0
+		calls, byImpl := 0, 0
 		for n, rc := range fa.Calls {
 			call, ok := n.(*ast.Call)
 			if !ok || rc == nil || !analysis.IsSynthesizedLine(call.Line) {
@@ -39,12 +38,16 @@ func TestDerivedDebugCallsRecordTheirImpl(t *testing.T) {
 				continue
 			}
 			calls++
-			if ce.Impl == nil {
-				t.Errorf("std/%s: a derived `Debug.inspect` of a %s records no impl block", name, ce.For)
+			switch {
+			case ce.Form == analysis.OperatorByImpl && ce.Impl != nil:
+				byImpl++
+			case ce.Form == analysis.OperatorStructural && ce.Impl == nil:
+			default:
+				t.Errorf("std/%s: a derived `Debug.inspect` of a %s is Form %d with impl %v, want its block or its shape", name, ce.For, ce.Form, ce.Impl)
 			}
 		}
-		if calls == 0 {
-			t.Fatalf("std/%s: no derived `Debug.inspect` call of a named type found, so this test checks nothing", name)
+		if calls == 0 || byImpl == 0 {
+			t.Fatalf("std/%s: %d derived `Debug.inspect` calls of a named type found, %d of a type with a block, so this test checks nothing", name, calls, byImpl)
 		}
 	}
 }

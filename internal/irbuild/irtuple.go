@@ -41,43 +41,49 @@ func irCompositePartKind(k kind) bool {
 }
 
 func (bl *irScalarBuilder) tupleMake(t *ast.TupleLit) (ir.Temp, kind, bool, bool) {
-	// `(1, [])` whose set a later use fixes (`Hold{v: (1, []).second}` with
-	// `v: Set<Int>`): the checker's type of the tuple types each component,
-	// as a list literal's checked element does (literalParts).
-	if k := bl.g.project(bl.g.checkedExprType(t)); k.tag == tagTuple && k.comp != nil && len(k.comp.parts) == len(t.Items) &&
-		irNestedCollection(k) && irFullyTyped(k) {
-		return bl.tupleMakeWant(t, k)
-	}
-	// kindInvalid: sentinel — no expected tuple type.
+	// kindInvalid: sentinel — no position's kind; the tuple's record gives its kind.
 	return bl.tupleMakeWant(t, kindInvalid)
 }
 
-// tupleMakeWant is tupleMake with the position's expected tuple type, which
-// types each component: `(0, [])` against `(Int, List<Int>)` builds its empty
-// list at `List<Int>`.
+// tupleMakeWant builds the tuple literal t at its kind: the type the
+// checker recorded for it, or want, the kind of the position, where the
+// builder made it (a constructor's tuple payload, `Pair(1, "x")`). Each item
+// is lowered against its part: `(0, [])` recorded as `(Int, List<Int>)`
+// builds its empty list at `List<Int>`. A tuple with neither, which only a
+// body the front end writes holds, is its items' own kinds, and
+// noteUnrecordedKind counts it.
 func (bl *irScalarBuilder) tupleMakeWant(t *ast.TupleLit, want kind) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if len(t.Items) < 2 {
 		panic("irbuild: tupleMakeWant: the parser builds no tuple of fewer than two items")
 	}
-	typed := want.tag == tagTuple && want.comp != nil && len(want.comp.parts) == len(t.Items)
+	typed := func(k kind) bool {
+		return k.tag == tagTuple && k.comp != nil && len(k.comp.parts) == len(t.Items) && irFullyTyped(k)
+	}
+	k, recorded := bl.g.convertedKind(t)
+	if !recorded || !typed(k) {
+		k = want
+	}
+	if !typed(k) {
+		bl.noteUnrecordedKind("tuple", t)
+	}
 	parts := make([]kind, len(t.Items))
 	values := make([]ir.Temp, len(t.Items))
 	for i, item := range t.Items {
 		var v ir.Temp
-		var k kind
+		var pk kind
 		var ok bool
-		if typed {
-			v, k, _, ok = bl.lowerWant(item, want.comp.parts[i])
+		if typed(k) {
+			v, pk, _, ok = bl.lowerWant(item, k.comp.parts[i])
 		} else {
-			v, k, _, ok = bl.lower(item)
+			v, pk, _, ok = bl.lower(item)
 		}
-		if !ok || !irCompositePartKind(k) {
+		if !ok || !irCompositePartKind(pk) {
 			return no()
 		}
-		values[i], parts[i] = v, k
+		values[i], parts[i] = v, pk
 	}
-	k := bl.g.tupleKind(parts)
+	k = bl.g.tupleKind(parts)
 	n := ir.NewMakeTuple(bl.g.irNodePos(t), bl.f.NewTemp(), values)
 	bl.b.Append(n)
 	bl.side(n.Dst(), irScalarSide{k: k})

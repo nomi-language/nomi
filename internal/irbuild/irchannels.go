@@ -5,8 +5,8 @@ package irbuild
 // Channel.buffered, Channel.unbuffered, Sender.send, Sender.close and
 // Receiver.receive are host crossings named `Owner.method`, spelled with an
 // `rt` target and the checker's solved signature; a constructor whose
-// signature the checker did not solve takes it from the coercion target (see
-// channelCtorFromTarget). A `Channel<T>`'s `sender` and `receiver` are field
+// signature the checker did not solve takes it from the type the checker
+// recorded for the call (see channelCtorFromTarget). A `Channel<T>`'s `sender` and `receiver` are field
 // projections spelled `(ch).Sender`. The VM runs an `rt` channel and holds a
 // Channel as std's `channels.Channel` struct of its two halves.
 
@@ -57,30 +57,29 @@ func irHandleFieldKind(k kind) bool {
 			return false
 		}
 	}
-	return irHandleElemEnds(elem, nil, 0) && irConcHandleKind(k)
+	return irHandleElemEnds(elem, nil) && irConcHandleKind(k)
 }
 
 // irHandleElemEnds reports whether a handle's element elem holds no handle
-// that leads back to self (nil outside a declaration's walk), within a small
-// depth: Unit, a leaf, a structural composite (`Map<String, Int>`,
-// `List<List<Int>>`, `(Int, String)`) whose parts end, or a named
-// declaration other than self whose own handles end. A function element
-// ends when its parameters and result do.
-func irHandleElemEnds(elem kind, self *typeDef, depth int) bool {
-	if depth > 8 {
-		return false
-	}
-	if elem == kindUnit || irRetainedLeafKind(elem) {
+// that leads back to a declaration on path, the declarations whose walk is
+// open (nil outside one): Unit, a leaf, a structural composite
+// (`Map<String, Int>`, `List<List<Int>>`, `(Int, String)`) whose parts end,
+// or a named declaration off the path whose own handles end. A function
+// element ends when its parameters and result do. However deep the element
+// nests, the walk ends: each named declaration it enters joins the path,
+// and one already on it ends the walk there.
+func irHandleElemEnds(elem kind, path typePath) bool {
+	if elem == kindUnit || irRetainedLeafKind(elem) || irHeldKind(elem) {
 		return true
 	}
 	if elem.tag == tagNamed && elem.def != nil {
-		return elem.def != self && !irReachesNominalChannel(elem.def, depth+1)
+		return !path.on(elem.def) && !irReachesNominalChannel(elem.def, path)
 	}
 	if elem.comp == nil {
 		return false
 	}
 	for _, p := range elem.comp.parts {
-		if !irHandleElemEnds(p, self, depth+1) {
+		if !irHandleElemEnds(p, path) {
 			return false
 		}
 	}
@@ -90,11 +89,14 @@ func irHandleElemEnds(elem kind, self *typeDef, depth int) bool {
 // irReachesNominalChannel reports whether d, through its unboxed fields,
 // variant payloads, embedded types and a distinct's inner value, holds a
 // channel or task handle whose element does not end (irHandleElemEnds): a
-// handle of d itself, or a chain of handles that comes back round. It
-// answers true past a small depth, which only declines.
-func irReachesNominalChannel(d *typeDef, depth int) bool {
-	if depth > 8 {
-		return true
+// handle of d itself, or a chain of handles that comes back round. A
+// declaration it reaches that is already on path, other than d itself
+// through its own fields, is such a chain or a cycle of declarations the
+// handle check would follow round, and answers true, which declines.
+func irReachesNominalChannel(d *typeDef, path typePath) bool {
+	path = append(path, d)
+	reaches := func(e *typeDef) bool {
+		return path.on(e) || irReachesNominalChannel(e, path)
 	}
 	var visit func(k kind) bool
 	visit = func(k kind) bool {
@@ -108,10 +110,10 @@ func irReachesNominalChannel(d *typeDef, depth int) bool {
 			// turn: `reply: Channel<Result<Int, String>>` inside the
 			// element of `inbox: Channel<Request>`. One that leads back
 			// to d is a cycle the check would follow forever.
-			return !irHandleElemEnds(elem, d, depth+1)
+			return !irHandleElemEnds(elem, path)
 		}
 		if k.tag == tagNamed && k.def != nil && k.def != d {
-			return irReachesNominalChannel(k.def, depth+1)
+			return reaches(k.def)
 		}
 		// A structural composite's parts: `Both (Channel<E>, Int)`.
 		for _, p := range kindParts(k) {
@@ -136,7 +138,7 @@ func irReachesNominalChannel(d *typeDef, depth int) bool {
 				return true
 			}
 		}
-		if e := d.variants[i].embeds; e != nil && irReachesNominalChannel(e, depth+1) {
+		if e := d.variants[i].embeds; e != nil && reaches(e) {
 			return true
 		}
 	}
@@ -158,9 +160,9 @@ func irStdMarkerKind(k kind) bool {
 	return false
 }
 
-// channelCall lowers one `std/channels` call. Its owner resolved to std's
-// declaration (stdIntrinsicOwner), so a local type of the same name never
-// reaches here.
+// channelCall lowers one `std/channels` call: its record names std's
+// function owner.method (intrinsicArm), so a local type of the same name
+// never reaches here.
 func (bl *irScalarBuilder) channelCall(t *ast.Call, owner, method string) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if bl.rowsUnrecorded(t) || namedArgNode(t.Args) != nil {
@@ -206,19 +208,19 @@ func (bl *irScalarBuilder) channelCall(t *ast.Call, owner, method string) (ir.Te
 	return bl.concHostEmit(t, owner+"."+method, result, args.temps...)
 }
 
-// channelCtorFromTarget lowers a channel constructor whose instantiation the
-// checker did not record. It takes the instantiation from the coercion target
-// published for the call, and its capacity is std's declared Int.
+// channelCtorFromTarget lowers a channel constructor whose callee's
+// instantiation the checker did not record. It is the `Channel<T>` the
+// checker recorded as the call's type (recordedKind), and its capacity is
+// std's declared Int.
 func (bl *irScalarBuilder) channelCtorFromTarget(t *ast.Call, fn channelFn, owner, method string) (ir.Temp, kind, bool, bool) {
-	want, wanted := bl.g.channelWantedInstance(t)
-	if fn.owner != "Channel" || !wanted {
+	want, recorded := bl.g.recordedKind(t)
+	if fn.owner != "Channel" || !recorded {
 		return ir.NoTemp, kindInvalid, false, false
 	}
-	// The kind a typed position wants, which the position's type held.
-	irHeldOperand(want, "a channel constructor's target")
-	_, got, isChannel := channelElem(want)
-	if !isChannel || got != "Channel" {
-		panic("irbuild: channelCtorFromTarget: channelWantedInstance answers a Channel instance for a Channel constructor")
+	if _, got, isChannel := channelElem(want); !isChannel || got != "Channel" || !irConcHandleKind(want) {
+		// The checker types a Channel constructor's call as the Channel<T>
+		// std declares it to answer.
+		panic("irbuild: channelCtorFromTarget: a Channel constructor recorded as " + want.nomi())
 	}
 	args := bl.irQualLowerArgs(t)
 	if !args.ok || len(args.kinds) != fn.args {

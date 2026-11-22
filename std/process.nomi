@@ -308,11 +308,12 @@ end
 // program's 1, captured 2, piped 3), and its input piped when piped is
 // set, else as the command says.
 fn start(command: Command, stdout: Int64, stderr: Int64, piped: Bool) -> Result<Child, Error>
-    (mode, input) = if piped then
-        piped_stdin()
-    else
-        stdin_of(command.stdin)
-    end
+    (mode, input) =
+        if piped then
+            piped_stdin()
+        else
+            stdin_of(command.stdin)
+        end
 
     handle = host.start(
         command.program,

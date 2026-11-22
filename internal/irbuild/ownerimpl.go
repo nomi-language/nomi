@@ -67,8 +67,8 @@ func (g *gen) ownerBlockParams(ib *ast.ImplBlock) (map[string]bool, bool) {
 	if ib.Interface != nil {
 		return nil, false
 	}
-	base := implReceiverBaseName(ib.Receiver)
-	if _, isRefinement := g.refinementDecl(base); isRefinement {
+	rec, _ := g.recordedTypeExpr(ib.Receiver)
+	if dt, isDistinct := analysis.ResolveClosed(rec).(*analysis.DistinctType); isDistinct && dt.Subtype {
 		// A distinct refinement has no receiver kind of its own, so its
 		// functions, the generated ones included, are its owner's
 		// (refinement.go).
@@ -77,33 +77,20 @@ func (g *gen) ownerBlockParams(ib *ast.ImplBlock) (map[string]bool, bool) {
 	if isSynthesized(ib) {
 		return nil, false
 	}
-	_, isIface := g.ifaces[base]
-	if g.genericTemplates[base] == nil && !isIface {
+	// The owner is the type the checker recorded for the receiver: this
+	// file's generic template (receiverTemplate), or an interface.
+	_, foreign, isTemplate := g.receiverTemplate(ib)
+	_, isIface := analysis.ResolveClosed(rec).(*analysis.InterfaceType)
+	if (!isTemplate || foreign) && !isIface {
 		return nil, false
 	}
 	block := map[string]bool{}
-	for _, n := range analysis.ReceiverTypeParamNames(ib.Receiver, g.declaresTypeName) {
+	for _, n := range g.receiverTypeParamNames(ib) {
 		if n != "" {
 			block[n] = true
 		}
 	}
 	return block, true
-}
-
-// declaresTypeName reports whether name is a type here, which a receiver's
-// type argument is when it is not one of the block's parameters. It reads
-// declarations only, never a substitution frame, so a block is classified
-// the same way inside an instance as outside one.
-func (g *gen) declaresTypeName(name string) bool {
-	switch name {
-	case "Int", "Float", "String", "Bool", "Unit":
-		return true
-	}
-	if _, isIface := g.ifaceNamed(name); isIface {
-		return true
-	}
-	_, isType := g.namedType(name)
-	return isType
 }
 
 // ownerFunc reports whether fd is an owner function of ib: a function of an
@@ -131,7 +118,7 @@ func (g *gen) registerOwnerImpl(d *implDef, ib *ast.ImplBlock) bool {
 		return false
 	}
 	d.owner = implReceiverBaseName(ib.Receiver)
-	_, isIface := g.ifaces[d.owner]
+	_, isIface := g.receiverOwnerDecl(ib).(*ast.InterfaceDef)
 	for _, item := range ib.Items {
 		fd, isFn := item.(*ast.FuncDef)
 		if !isFn {
@@ -161,20 +148,31 @@ func (g *gen) registerOwnerImpl(d *implDef, ib *ast.ImplBlock) bool {
 	return true
 }
 
-// ownerDecl is the declaration of owner, a generic type or an interface this
-// file declares, which keys its owner functions program-wide
-// (fileIndex.ownerMembers), or nil.
-func (g *gen) ownerDecl(owner string) ast.Node {
-	if tpl := g.genericTemplates[owner]; tpl != nil && tpl.decl != nil {
-		return tpl.decl
+// receiverOwnerDecl is the declaration the type the checker recorded for
+// ib's receiver names (declNode): the generic type, interface or
+// refinement whose owner functions ib holds, which keys them program-wide
+// (fileIndex.ownerMembers), or nil for a receiver that names none.
+func (g *gen) receiverOwnerDecl(ib *ast.ImplBlock) ast.Node {
+	rec, _ := g.recordedTypeExpr(ib.Receiver)
+	t := analysis.ResolveClosed(rec)
+	var name string
+	switch ty := t.(type) {
+	case *analysis.StructType:
+		name = ty.Name
+	case *analysis.EnumType:
+		name = ty.Name
+	case *analysis.DistinctType:
+		name = ty.Name
+	case *analysis.InterfaceType:
+		name = ty.Name
+	default:
+		return nil
 	}
-	if d, isIface := g.ifaces[owner]; isIface && d != nil && d.decl != nil {
-		return d.decl
+	n := g.declNode(originOfType(t), name)
+	if isNilNode(n) {
+		return nil
 	}
-	if sym, isRefinement := g.refinementDecl(owner); isRefinement && sym.Node != nil {
-		return sym.Node
-	}
-	return nil
+	return n
 }
 
 // siblingOwnerSites is the owner functions other files declare under method
@@ -254,31 +252,4 @@ func (bl *irScalarBuilder) siblingOwnerPlanFor(t *ast.Call, args irQualArgs, dec
 	p := &irQualPlan{token: f, name: g.files.units[site.unit].key + "." + owner + "." + method, result: result, args: filled}
 	p.sym = owning.irImplSym(site.item)
 	return p
-}
-
-// siblingOwnerSpelling answers `mod.Owner` when qual spells it, mod qualifies
-// another user file, and Owner is an interface or generic type for which
-// another file declares an owner function named method: `boxes.Shape.twice(3)`.
-// The three-segment route finds a type owner by the dotted name of its mirror
-// and an interface by its interface mirror (qualDottedOwner); a generic type
-// has neither, so without this the call would be read as a call through a
-// value. The call's record names the owner function (recordedCallPlan).
-func (bl *irScalarBuilder) siblingOwnerSpelling(qual ast.Node, method string) (string, bool) {
-	inner, isFA := qual.(*ast.FieldAccess)
-	if !isFA || inner.Field == nil {
-		return "", false
-	}
-	mod, isIdent := ast.QualifierIdent(inner.Object)
-	if !isIdent || bl.namesLocal(mod) {
-		return "", false
-	}
-	scope := bl.g.qualifierScope(mod)
-	if scope == nil {
-		panic("irbuild: siblingOwnerSpelling: a module the program imports has a scope")
-	}
-	sym := resolvedScopeSymbol(scope, inner.Field.Name)
-	if sym == nil || sym.Node == nil || len(bl.g.siblingOwnerSites(sym.Node, method)) == 0 {
-		return "", false
-	}
-	return mod.Name + "." + inner.Field.Name, true
 }

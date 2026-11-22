@@ -23,11 +23,12 @@ fn fill(
 
     grid = set_cell(grid, position, value)
 
-    heading = if is_empty(grid, step(position, heading)) then
-        heading
-    else
-        turn(heading)
-    end
+    heading =
+        if is_empty(grid, step(position, heading)) then
+            heading
+        else
+            turn(heading)
+        end
 
     fill(grid, step(position, heading), heading, value + 1, last)
 end

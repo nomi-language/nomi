@@ -261,12 +261,13 @@ impl Queue for Inline
     fn rescue(inline: Inline) -> Result<Int, sql.Error>
         now = Instant.now()
 
-        expired = fn job: StoredJob ->
-            case job.locked_until
-                Some(until) -> job.state == .Running and Instant.is_before(until, now)
-                None        -> False
+        expired =
+            fn job: StoredJob ->
+                case job.locked_until
+                    Some(until) -> job.state == .Running and Instant.is_before(until, now)
+                    None        -> False
+                end
             end
-        end
 
         Ok(
             change_where(inline, expired, fn job ->
@@ -292,12 +293,13 @@ impl Queue for Inline
         cutoff = Instant.now() - inline.retention
         state = take(inline)
 
-        old = fn job: StoredJob ->
-            case job.finished_at
-                Some(at) -> Instant.is_before(at, cutoff)
-                None     -> False
+        old =
+            fn job: StoredJob ->
+                case job.finished_at
+                    Some(at) -> Instant.is_before(at, cutoff)
+                    None     -> False
+                end
             end
-        end
 
         kept = state.jobs |> Iter.filter(fn job -> not old(job)) |> Iter.to_list()
         put(inline, {..state, jobs: kept})
@@ -322,10 +324,11 @@ impl Queue for Inline
     ) -> Result<Maybe<Enqueued>, sql.Error>
         state = take(inline)
 
-        later = case Map.get(state.ticks, schedule)
-            Some(recorded) -> Instant.is_before(recorded, tick)
-            None           -> True
-        end
+        later =
+            case Map.get(state.ticks, schedule)
+                Some(recorded) -> Instant.is_before(recorded, tick)
+                None           -> True
+            end
 
         if later then
             put(inline, {..state, ticks: Map.put(.., schedule, tick)})
@@ -343,10 +346,11 @@ fn store(inline: Inline, job: NewJob) -> Enqueued
     now = Instant.now()
     state = take(inline)
 
-    holder = case job.unique_key
-        Some(key) -> Iter.find(state.jobs, fn stored -> holds(stored, key))
-        None      -> None
-    end
+    holder =
+        case job.unique_key
+            Some(key) -> Iter.find(state.jobs, fn stored -> holds(stored, key))
+            None      -> None
+        end
 
     case holder
         Some(stored) ->
@@ -446,10 +450,11 @@ fn run_due(
 
     case Queue.claim(queue, "run_queued", queues, kinds, 1, Duration.hours(1))
         Ok([claimed, ..]) ->
-            answer = case Map.get(by_kind, claimed.kind)
-                Some(handler) -> jobs.run_one(handler, claimed.args)
-                None          -> Err(jobs.Failure.Discard("no handler for ${claimed.kind}"))
-            end
+            answer =
+                case Map.get(by_kind, claimed.kind)
+                    Some(handler) -> jobs.run_one(handler, claimed.args)
+                    None          -> Err(jobs.Failure.Discard("no handler for ${claimed.kind}"))
+                end
 
             _ = Queue.settle(
                 queue,
@@ -528,10 +533,11 @@ pub fn conformance(
     checks()
     |> Iter.filter(fn (rule, _) -> transactional or not Iter.contains(rolled_back_rules(), rule))
     |> Iter.flat_map(fn (rule, check) ->
-        outcome = case open()
-            Ok(opened) -> check(opened)
-            Err(e)     -> Err("cannot open a queue: ${e}")
-        end
+        outcome =
+            case open()
+                Ok(opened) -> check(opened)
+                Err(e)     -> Err("cannot open a queue: ${e}")
+            end
 
         case outcome
             Ok(_)        -> []
@@ -764,11 +770,12 @@ fn checks() -> List<(String, (Opened) -> Result<Unit, String>)>
                     _ = put_job(o, n)
                 end)
 
-                ids = concurrent
-                    first = Task.spawn(fn -> claim(o, "w1", limit: 6))
-                    second = Task.spawn(fn -> claim(o, "w2", limit: 6))
-                    (Task.await(first), Task.await(second))
-                end
+                ids =
+                    concurrent
+                        first = Task.spawn(fn -> claim(o, "w1", limit: 6))
+                        second = Task.spawn(fn -> claim(o, "w2", limit: 6))
+                        (Task.await(first), Task.await(second))
+                    end
 
                 (one, two) = ids
                 got = one? + two?
@@ -1039,11 +1046,12 @@ fn checks() -> List<(String, (Opened) -> Result<Unit, String>)>
         (
             "two unique enqueues at once store one job",
             fn o ->
-                both = concurrent
-                    first = Task.spawn(fn -> put_unique(o, 1, "k"))
-                    second = Task.spawn(fn -> put_unique(o, 2, "k"))
-                    (Task.await(first), Task.await(second))
-                end
+                both =
+                    concurrent
+                        first = Task.spawn(fn -> put_unique(o, 1, "k"))
+                        second = Task.spawn(fn -> put_unique(o, 2, "k"))
+                        (Task.await(first), Task.await(second))
+                    end
 
                 (one, two) = both
                 a = one?
@@ -1141,12 +1149,13 @@ fn held(
     claimed: Claimed,
     change:  (StoredJob) -> StoredJob,
 ) -> Result<Bool, sql.Error>
-    holds = fn job: StoredJob ->
-        job.id == claimed.id
-            and job.state == .Running
-            and job.attempt == claimed.attempt
-            and job.locked_by == Some(worker)
-    end
+    holds =
+        fn job: StoredJob ->
+            job.id == claimed.id
+                and job.state == .Running
+                and job.attempt == claimed.attempt
+                and job.locked_by == Some(worker)
+        end
 
     Ok(change_where(inline, holds, change) == 1)
 end

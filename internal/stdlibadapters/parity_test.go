@@ -240,6 +240,8 @@ func calendarCases() map[string][]argSet {
 			a(zones[0], rt.IntFromBig(new(big.Int).Lsh(big.NewInt(1), 100)))),
 		"calendar.zoned_with_zone_raw": sets(
 			a(zones[0], s("Asia/Tokyo")), a(zones[1], s("America/Los_Angeles")), a(zones[0], s("Mars/Olympus"))),
+		// The machine's zone, under the TZ the suite sets.
+		"calendar.local_zone_raw": sets(a()),
 	}
 	var inZone []argSet
 	for _, n := range naives {
@@ -310,8 +312,9 @@ func pluralCases() map[string][]argSet {
 }
 
 // tomlCases covers a Toml literal's check over placed and misplaced slots
-// and text that is not TOML, its build over key and value slots, and the
-// quoting and float text its values write.
+// and text that is not TOML, its build over key and value slots, the
+// quoting and float text its values write, and a document's decode and its
+// refusals.
 func tomlCases() map[string][]argSet {
 	return map[string][]argSet{
 		"toml/host.check": sets(a(strs("a = ", "")), a(strs("", " = 1")), a(strs("a = \"", "\"")),
@@ -320,6 +323,27 @@ func tomlCases() map[string][]argSet {
 			a(strs("x = [", ", ", "]"), strs("1", `"two"`))),
 		"toml/host.quote": sets(a(s("")), a(s("plain")), a(s("x\"\nadmin = true")), a(s("tab\t\u0001\\"))),
 		"toml/host.float": sets(a(0.0), a(2.0), a(-2.5), a(1e21), a(math.Inf(1)), a(math.NaN())),
+		"toml/host.decode": sets(a(s("")), a(s("b = 1\na = 'x'\n[t]\nd = 2026-05-04\nxs = [1.5, true]\n")),
+			a(s("[[p]]\nn = 1\n[[p]]\nn = 2\n")), a(s("title = ")), a(s("a = 'é'\nb = = 1\n"))),
+	}
+}
+
+// passwordsCases covers std::passwords' kernels: the reference
+// implementation's Argon2id and RFC 7914's scrypt vectors, parameters
+// x/crypto refuses, bcrypt's "U*U" vector and a malformed hash, and a fresh
+// bcrypt hash by shape, since its salt is random.
+func passwordsCases() map[string][]argSet {
+	b := func(text string) any { return rt.Bytes(text) }
+	const uu = "$2a$05$CCCCCCCCCCCCCCCCCCCCC.E5YPO9kmyuRGyh0XouQYb4YMJKvyOeW"
+	return map[string][]argSet{
+		"passwords/host.argon2id": sets(a(b("password"), b("somesalt"), i(2), i(256), i(1), i(32)),
+			a(b("password"), b("somesalt"), i(2), i(256), i(2), i(32))),
+		"passwords/host.scrypt": sets(a(b(""), b(""), i(4), i(1), i(1), i(64)),
+			a(b("x"), b("y"), i(4), i(32768), i(32768), i(32))),
+		"passwords/host.bcrypt_hash": {{args: a(b("hunter2"), i(4)), shapeOnly: true},
+			{args: a(b(strings.Repeat("x", 73)), i(4))}},
+		"passwords/host.bcrypt_verify": sets(a(b("U*U"), s(uu)), a(b("U*V"), s(uu)), a(b("x"), s("not bcrypt"))),
+		"passwords/host.bcrypt_cost":   sets(a(s(uu)), a(s("not bcrypt"))),
 	}
 }
 
@@ -487,10 +511,10 @@ type parity struct {
 	failures    int // a recorded failure reproduced
 	errResults  int // a recorded Result.Err reproduced
 	fastRecords int // record operands laid onto the adapters' own descriptors
-	// parts is the adapters' parts forms, each held to its adapter's
-	// answer (sameParts); partsChecked counts the argument sets.
-	parts        map[string]hostadapt.PartsFunc
-	partsChecked int
+	// regs is the adapters' register forms, each held to its adapter's
+	// answer (sameRegs); regsChecked counts the argument sets.
+	regs        map[string]hostadapt.Regs
+	regsChecked int
 }
 
 func newParity(t *testing.T) *parity {
@@ -506,7 +530,7 @@ func newParity(t *testing.T) *parity {
 	if p.table, err = Bind(p.env); err != nil {
 		t.Fatalf("Bind: %v", err)
 	}
-	p.parts = partsTable(t)
+	p.regs = regsTable(t)
 	for _, spec := range Specs() {
 		if spec.Kind == rt.KindStruct || spec.Kind == rt.KindDistinct {
 			d, err := p.env.Desc(spec)
@@ -594,10 +618,10 @@ func (p *parity) check(name string, set argSet) {
 		got := classify(func() (rt.Value, error) { return fn(nil, args) })
 		p.calls++
 		p.compare(key, got, set.shapeOnly, layout)
-		if layout == "by offset" && sameParts(p.t, key, p.parts[name], got, func(fn hostadapt.PartsFunc) (rt.Value, bool, error) {
-			return fn(nil, args)
-		}, set.shapeOnly) {
-			p.partsChecked++
+		if layout == "by offset" && sameRegs(p.t, key, p.regs[name], got, func(s *hostadapt.Slots) (bool, error) {
+			return p.regs[name].Fn(nil, s)
+		}, args, set.shapeOnly) {
+			p.regsChecked++
 		}
 	}
 	p.covered[name]++
@@ -655,6 +679,8 @@ func (p *parity) regex() {
 }
 
 func TestParity_EveryBindingReproducesItsRecordedOutcomes(t *testing.T) {
+	// calendar.local_zone_raw reads the machine's zone, which TZ names.
+	t.Setenv("TZ", "Asia/Tokyo")
 	p := newParity(t)
 	p.run(calendarCases())
 	p.run(randomCases())
@@ -663,6 +689,7 @@ func TestParity_EveryBindingReproducesItsRecordedOutcomes(t *testing.T) {
 	p.run(formatCases())
 	p.run(moneyDateCases())
 	p.run(tomlCases())
+	p.run(passwordsCases())
 	p.regex()
 
 	updateOutcomes(t, funcsGoldenPath, p.lines)
@@ -685,8 +712,8 @@ func TestParity_EveryBindingReproducesItsRecordedOutcomes(t *testing.T) {
 	t.Logf("%d of %d bindings covered, %d argument sets, %d adapter calls; %d recorded failures, "+
 		"%d recorded Result.Err answers, %d record operands read by offset",
 		len(p.covered), len(stdlibbindings.Funcs()), sets, p.calls, p.failures/2, p.errResults/2, p.fastRecords)
-	if p.partsChecked == 0 {
-		t.Errorf("no argument set reached a parts form; the comparison has stopped reaching them")
+	if p.regsChecked == 0 {
+		t.Errorf("no argument set reached a register form; the comparison has stopped reaching them")
 	}
 	if p.failures == 0 || p.errResults == 0 || p.fastRecords == 0 {
 		t.Errorf("a population is empty (failures %d, Err answers %d, by-offset records %d); "+

@@ -12,8 +12,9 @@ import (
 // because a test depends on the spelling `nomi fmt` would change. Each entry
 // needs a reason; a file that is formatter-clean must not be listed.
 var unformattedAllowed = map[string]string{
-	"internal/irbuild/testdata/dbg_shapes.nomi": "runs the keyword-prefixed stage `5 |> dbg double()`, which nomi fmt rewrites to `5 |> double() |> dbg`",
-	"internal/irbuild/testdata/normalize.nomi":  "spells composed and decomposed strings as `\\u{...}` escapes, which nomi fmt decodes into identical-looking text",
+	"internal/irbuild/testdata/dbg_shapes.nomi":   "runs the keyword-prefixed stage `5 |> dbg double()`, which nomi fmt rewrites to `5 |> double() |> dbg`",
+	"internal/irbuild/testdata/normalize.nomi":    "spells composed and decomposed strings as `\\u{...}` escapes, which nomi fmt decodes into identical-looking text",
+	"tree-sitter-nomi/test/highlight/bodies.nomi": "asserts the highlight of `begin` in `x = begin` with a `// ^` comment in the block's body; nomi fmt moves the block under the binding, where no comment in the body can point at the keyword",
 }
 
 // TestTrackedNomiFilesAreFormatted formats every tracked .nomi file and fails

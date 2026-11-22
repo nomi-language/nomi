@@ -395,7 +395,7 @@ func entersAsItself(it *InterfaceType, have Type) bool {
 	if carriesOwnType(have) {
 		return true
 	}
-	if it.Name == "Struct" && isStdOrigin(it.Origin) {
+	if isStdType(it, stdStructType) {
 		_, record := have.(*AnonStructType)
 		return record
 	}
@@ -445,7 +445,7 @@ func displayReadsOff(display *InterfaceType, t Type) bool {
 		}
 		return true
 	case *DistinctType:
-		if h.Name == "Vector" && isStdOrigin(h.Origin) && len(h.TypeArgs) == 1 {
+		if isStdType(h, stdVectorType) && len(h.TypeArgs) == 1 {
 			return all(h.TypeArgs[0])
 		}
 	case *EnumType:

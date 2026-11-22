@@ -53,10 +53,11 @@ test "channel halves in containers"
     assert Some(ch.sender) is Some(_)
     slot: Slot = .Has(ch.receiver)
 
-    out = case slot
-        .Has(r) -> r
-        .Empty  -> ch.receiver
-    end
+    out =
+        case slot
+            .Has(r) -> r
+            .Empty  -> ch.receiver
+        end
 
     assert Receiver.receive(out) == Some(4)
     assert Iter.count(Vector[ch.receiver]) == 1
@@ -73,10 +74,11 @@ end
 test "a Context in a Maybe and a task's outcome"
     assert Some(Context.root()) is Some(_)
 
-    n = concurrent
-        t = Task.spawn(fn -> Context.root())
-        Iter.count([Task.outcome(t)])
-    end
+    n =
+        concurrent
+            t = Task.spawn(fn -> Context.root())
+            Iter.count([Task.outcome(t)])
+        end
 
     assert n == 1
 end
@@ -97,10 +99,11 @@ test "Debug of a tuple holding a List of functions"
 end
 
 test "interface values in tasks and channels"
-    d = concurrent
-        t = Task.spawn(fn -> (7 as Display))
-        Task.await(t)
-    end
+    d =
+        concurrent
+            t = Task.spawn(fn -> (7 as Display))
+            Task.await(t)
+        end
 
     assert Display.to_string(d) == "7"
     ch = Channel.buffered<Display>(1)

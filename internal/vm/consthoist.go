@@ -11,6 +11,12 @@ import "github.com/nomi-language/nomi/internal/ir"
 // constants on every iteration. Every other entry (a call, a transfer, a
 // restarted frame) starts at pc 0 and loads them.
 //
+// Only a function with a direct tail call to itself hoists: the restart past
+// the loads is the whole gain, and a function with no such call would load
+// at every entry the constants of arms it does not take (a `case` over many
+// string literals loads two of them where it is defined and all of them
+// hoisted).
+//
 // A machine counting entries restarts a self tail call at pc 0, where the
 // count is (entries.go), and loads the constants again.
 
@@ -18,6 +24,12 @@ import "github.com/nomi-language/nomi/internal/ir"
 // restarts at. It runs after the entry count and before the first block.
 func (cp *compiler) hoistConstants() {
 	c := cp.c
+	if !cp.hasSelfTail() {
+		if !cp.m.countEntries {
+			c.selfEntry = len(c.code)
+		}
+		return
+	}
 	owners := map[loc]int{}
 	for t := 1; t < len(c.locs); t++ {
 		if c.locs[t].bank() != bankNone {
@@ -58,4 +70,20 @@ func (cp *compiler) hoistConstants() {
 // which compiles to nothing where the graph defines it.
 func (cp *compiler) isHoisted(in ir.Instr) bool {
 	return cp.hoisted != nil && cp.hoisted[in]
+}
+
+// hasSelfTail reports whether the function makes a direct tail call to
+// itself, the call a restart past the hoisted loads serves.
+func (cp *compiler) hasSelfTail() bool {
+	c := cp.c
+	for n := range c.tails {
+		if n.Form() != ir.CalleeDirect || n.Crosses() {
+			continue
+		}
+		callee, err := cp.m.resolveFunc(n.Callee(), c.fn.Name())
+		if err == nil && cp.m.slotFor(callee).f == c.fn {
+			return true
+		}
+	}
+	return false
 }

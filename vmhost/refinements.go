@@ -41,6 +41,13 @@ const UncheckedRefinementCode = "unchecked-literal"
 // compiler lost.
 const internalCheckHint = "this is a bug in Nomi, not in your program; please report it at https://github.com/nomi-language/nomi/issues"
 
+// ruleWithoutApp says why a rule that reads an app field is refused.
+const ruleWithoutApp = "a rule is checked with the value alone, and an app field exists only while the program runs"
+
+// ruleHint closes the diagnostic of a rule that cannot run when the program
+// is compiled.
+const ruleHint = "a rule runs when the program is compiled, on each literal checked as the type; it may call pure functions whose cost its value's size bounds and read an effect-free `once`, and nothing else"
+
 // checkRefinements answers the diagnostics of the refinement literals that
 // fail their rules, in source order.
 func (p *Program) checkRefinements(m *vm.Machine) (frontend.Diagnostics, error) {
@@ -122,17 +129,26 @@ func (p *Program) checkRefinements(m *vm.Machine) (frontend.Diagnostics, error) 
 			// declaration's check, which did not lower.
 			continue
 		}
-		if effects := m.Effects(checks...); len(effects) > 0 {
-			impure[rule.TryFrom] = true
-			if rule.Key != "" {
-				impure[rule.Key] = true
-			}
-			d := frontend.NewDiagnostic(rule.Path, p.sources[rule.Path], rule.Line, rule.Col,
-				fmt.Sprintf("the rule of %s has effects (%s): a rule is a pure function of the value it checks", rule.Type, strings.Join(effects, "; ")))
-			d.Hints = append(d.Hints, "a rule runs when the program is compiled, on each literal checked as the type; it may call pure functions and read an effect-free `once`, and nothing else")
-			d.Code = InvalidRefinementCode
-			out = append(out, d)
+		found := m.Effects(checks...)
+		var msg string
+		switch {
+		case len(found.Effects) > 0:
+			msg = fmt.Sprintf("the rule of %s has effects (%s): a rule is a pure function of the value it checks", rule.Type, strings.Join(found.Effects, "; "))
+		case len(found.AppFields) > 0:
+			msg = fmt.Sprintf("the rule of %s reads %s: %s", rule.Type, quotedNames(p.appFieldNames(found.AppFields)), ruleWithoutApp)
+		case len(found.Unbounded) > 0:
+			msg = fmt.Sprintf("the rule of %s calls a function whose cost grows with its argument (%s): a rule must be bounded", rule.Type, strings.Join(found.Unbounded, "; "))
+		default:
+			continue
 		}
+		impure[rule.TryFrom] = true
+		if rule.Key != "" {
+			impure[rule.Key] = true
+		}
+		d := frontend.NewDiagnostic(rule.Path, p.sources[rule.Path], rule.Line, rule.Col, msg)
+		d.Hints = append(d.Hints, ruleHint)
+		d.Code = InvalidRefinementCode
+		out = append(out, d)
 	}
 	for _, site := range p.res.Refinements {
 		if len(site.Steps) > 0 {
@@ -226,10 +242,20 @@ func (p *Program) checkRefinement(m *vm.Machine, funcs map[string]*ir.Func, site
 		if found := m.Unretained([]*ir.Func{f}, nil); len(found) > 0 {
 			return unrunnable(found)
 		}
-		if effects := m.Effects(f); len(effects) > 0 {
+		found := m.Effects(f)
+		if len(found.Effects) > 0 {
 			return fail(fmt.Sprintf("%s cannot be checked as %s %s when the program is compiled: its rule `%s` has effects (%s)",
-				site.Text, analysis.ArticleFor(step.Type), step.Type, step.Rule, strings.Join(effects, "; ")),
+				site.Text, analysis.ArticleFor(step.Type), step.Type, step.Rule, strings.Join(found.Effects, "; ")),
 				"a rule must be a pure function of its value")
+		}
+		if len(found.AppFields) > 0 {
+			return fail(fmt.Sprintf("%s cannot be checked as %s %s when the program is compiled: its rule `%s` reads %s: %s",
+				site.Text, analysis.ArticleFor(step.Type), step.Type, step.Rule, quotedNames(p.appFieldNames(found.AppFields)), ruleWithoutApp))
+		}
+		if len(found.Unbounded) > 0 {
+			return fail(fmt.Sprintf("%s cannot be checked as %s %s when the program is compiled: its rule `%s` calls a function whose cost grows with its argument (%s)",
+				site.Text, analysis.ArticleFor(step.Type), step.Type, step.Rule, strings.Join(found.Unbounded, "; ")),
+				"a rule must be bounded")
 		}
 		lim := vm.Limits{Steps: literalSteps, Deadline: time.Now().Add(literalTime)}
 		v, err := m.Evaluate(context.Background(), f, args, lim)

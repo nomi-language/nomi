@@ -104,19 +104,25 @@ func (m *Machine) Call(ctx context.Context, f *ir.Func, args []any) (any, error)
 	})
 }
 
-// entry is Main and Call: boot, body, shutdown.
+// entry is Main and Call: boot, body, shutdown. The activation runs on a
+// host's frame of ctx (rt.NewHostFrame), so ctx's end unwinds its main line
+// as a cancellation unwinds a task, and the activation answers ctx's error.
 func (m *Machine) entry(ctx context.Context, args []string, handleSignals bool, body func(*Machine) (any, error)) (result any, err error) {
-	fr := rt.NewFrame(m.withDiagnostics(ctx))
+	fr := rt.NewHostFrame(m.withDiagnostics(ctx))
 	if m.dbg != nil {
 		m.dbg.adopt(fr)
 	}
 	defer func() {
 		if r := recover(); r != nil {
 			e, isFault := r.(*rt.Error)
-			if !isFault {
+			switch {
+			case isFault:
+				err = &Fault{err: e}
+			case rt.Unwound(r):
+				result, err = nil, stoppedBy(ctx)
+			default:
 				panic(r)
 			}
-			err = &Fault{err: e}
 		}
 		rt.DrainSupervisors()
 		func() {

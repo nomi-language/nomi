@@ -10,7 +10,7 @@ package irbuild
 // The update that owns the position reads the old value there and records it
 // for the `..` (bl.current) before it lowers the literal, which then lowers as
 // the update it is: a struct spread (structSpread), a map spread (mapUpdate),
-// a set spread (setUpdate) or a list spread (listMake), each with the old
+// a set spread (setUpdate) or a list spread (listMakeOf), each with the old
 // value as its base. There is no second lowering of any of them. A `..`
 // operand in the value (`visits: .. + 1`, `street: rename(..)`) reads the
 // same record, so the base is evaluated once however many `..`s there are;
@@ -113,7 +113,7 @@ func (bl *irScalarBuilder) captureCurrent(t *ast.CurrentValue) (ir.Temp, kind, b
 		// field kind a lowerable struct holds, Unit handled above.
 		panic("captureCurrent: a current value of kind " + k.nomi() + ", outside the callable domain")
 	}
-	dst := bl.g.irAddParam(bl.f, bl.sh.localSym(".."+strconv.Itoa(t.Line)+":"+strconv.Itoa(t.Col)), k)
+	dst := bl.g.irAddParam(bl.f, ir.NewSymbol(".."+strconv.Itoa(t.Line)+":"+strconv.Itoa(t.Col)), k)
 	bl.captures = append(bl.captures, src)
 	if bl.capturedCurrent == nil {
 		bl.capturedCurrent = map[*ast.CurrentValue]irLambdaCapture{}
@@ -282,14 +282,11 @@ func (bl *irScalarBuilder) setUpdate(t *ast.ListLit) (ir.Temp, kind, bool, bool)
 		// `[..maybe]`: the Iter made a Set is the literal.
 		return base, bk, false, true
 	}
+	// The elements, a copy of the literal without its spread, are a set of
+	// the base's kind, the literal's (collectSpread).
 	items := *t
 	items.Spreads = nil
-	// kindInvalid: sentinel — an open base gives the elements no kind.
-	elem := kindInvalid
-	if e, isSet := setElem(bk); isSet {
-		elem = e
-	}
-	lit, lk, _, ok := bl.setMakeOf(&items, elem)
+	lit, lk, _, ok := bl.setMakeOf(&items, bk)
 	if !ok {
 		return no()
 	}
@@ -392,16 +389,14 @@ func (bl *irScalarBuilder) vectorUpdate(t *ast.ListLit) (ir.Temp, kind, bool, bo
 		// `[..maybe]`: the Iter made a Vector is the literal.
 		return base, bk, false, true
 	}
-	// kindInvalid: sentinel — an open base gives the elements no kind.
-	elem := kindInvalid
-	if e, isVector := vectorElem(bk); isVector {
-		elem = e
-	} else {
+	if _, isVector := vectorElem(bk); !isVector {
 		return no()
 	}
+	// The elements, a copy of the literal without its spread, are a vector
+	// of the spread's kind, the literal's (collectSpread).
 	items := *t
 	items.Spreads = nil
-	lit, lk, _, ok := bl.vectorMakeOf(&items, elem)
+	lit, lk, _, ok := bl.vectorMakeOf(&items, bk)
 	if !ok {
 		return no()
 	}

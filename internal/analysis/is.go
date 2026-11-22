@@ -23,7 +23,7 @@ func (c *checker) checkIs(n *ast.Is) Type {
 	}
 	before := len(c.errors)
 	c.checkPattern(n.Pattern, valueTy)
-	if !bound && len(c.errors) == before && c.patternsExhaustiveOver(valueTy, []ast.Node{n.Pattern}) {
+	if !bound && len(c.errors) == before && c.patternIrrefutable(n.Pattern) {
 		c.report(TypeError{Line: n.Line, Col: n.Col, Message: c.typef(
 			"`%s` matches every value of type %s, so this test is always True", patternSource(n.Pattern), valueTy)})
 	}

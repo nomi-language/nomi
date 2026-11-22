@@ -14,7 +14,7 @@ for that file's types, and the derive exists only while the tests run.
 its `ok` or `FAIL` line. `nomi test --watch` runs the tests again each time
 you save a `.nomi` file under the path, or a file the tests import.
 `nomi test --run 'parses'` runs only the tests whose names the regular
-expression matches, as the report prints them.
+expression matches, as the report prints them. A test with no effects whose code has not changed since it last passed is not run again: it is reported as `ok ... (unchanged)`, and `nomi test --all` runs every test ([Unchanged tests](/tooling/running-tests/#unchanged-tests)).
 
 ## Assertions
 

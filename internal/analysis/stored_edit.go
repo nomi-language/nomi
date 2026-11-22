@@ -218,7 +218,8 @@ func (dm *DocumentManager) advanceStored(sp *storedProgram, changed map[string]s
 	checks := map[string]*FileCheck{}
 	factsMoved := false
 	bodies := map[string][32]byte{}
-	var std StdContext
+	// over is a check of the program, whose stdlib the reductions read.
+	var over *FileAnalysis
 	for _, key := range slices.Sorted(maps.Keys(recheck)) {
 		var c *FileCheck
 		if inst := sp.installed[key]; key == building && inst != nil && !ifaceChanged[key] && sp.current(inst, key) {
@@ -309,10 +310,10 @@ func (dm *DocumentManager) advanceStored(sp *storedProgram, changed map[string]s
 		if !sameFactsButPositions(facts[key], was) {
 			factsMoved = true
 		}
-		var ok bool
-		if std, ok = StdContextOf(c.FA); !ok {
+		if _, ok := stdContextOf(c.FA); !ok {
 			return "the program is not built over the stdlib's base"
 		}
+		over = c.FA
 		checks[key] = c
 	}
 	supply := rec.Supply
@@ -350,7 +351,10 @@ func (dm *DocumentManager) advanceStored(sp *storedProgram, changed map[string]s
 				all[key] = f
 			}
 		}
-		red = ReduceFacts(all, supply, std)
+		var ok bool
+		if red, ok = ReduceFacts(all, supply, over); !ok {
+			return "the program is not built over the stdlib's base"
+		}
 		switch {
 		case len(red.Coherence) > 0:
 			// The entry reports every missing impl, and each file those its

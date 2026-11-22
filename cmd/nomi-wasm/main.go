@@ -12,17 +12,14 @@
 //	nomiHover(source, line, col) -> string (markdown)               // LSP hover
 //	nomiHoverIn(source, file, line, col) -> string (markdown)       // hover in one tab of a multi-file source
 //	nomiSemTokensIn(source, ...files) -> string (JSON {file: tokens}) // semantic tokens per tab
-//	nomiTourModules(source)     -> string (JSON [name])             // modules the tour links that source imports
 //
 // both running entirely client-side — the engine behind an interactive language
 // tour (no server). The stdlib is //go:embed'd into the binary, so
 // `import std::io` and friends work in the browser with no filesystem.
 //
-//	GOWORK=$PWD/internal/tourgo/tour.work GOOS=js GOARCH=wasm go build -o nomi.wasm ./cmd/nomi-wasm
+//	GOOS=js GOARCH=wasm go build -o nomi.wasm ./cmd/nomi-wasm
 //
-// The workspace adds the tour modules under lib/ (the sqlite driver), whose
-// Go side internal/tourgo links and the compiler's go.mod does not require;
-// scripts/build-tour-wasm.sh builds it so.
+// scripts/build-tour-wasm.sh builds it so, with the std bundle embedded.
 package main
 
 import (
@@ -30,6 +27,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"syscall/js"
@@ -39,8 +38,7 @@ import (
 	"github.com/nomi-language/nomi/internal/highlight"
 	"github.com/nomi-language/nomi/internal/hoverdoc"
 	"github.com/nomi-language/nomi/internal/semtokens"
-	"github.com/nomi-language/nomi/internal/tourgo"
-	"github.com/nomi-language/nomi/internal/virtualproject"
+	"github.com/nomi-language/nomi/internal/tourmodules"
 	"github.com/nomi-language/nomi/std"
 	"github.com/nomi-language/nomi/vmhost"
 )
@@ -79,12 +77,12 @@ func run(this js.Value, args []js.Value) (res any) {
 	}
 	// A block that imports a module the tour links (`import sqlite`) gets
 	// the module's files attached, as a project that names modules
-	// (tourgo.Source).
-	src := tourgo.Source(args[0].String())
+	// (tourmodules.Source).
+	src := tourmodules.Source(args[0].String())
 
 	// Multi-file convention: `// FILE: <name>` markers split the source
 	// into files (an optional `// FILE: nomi.toml` manifest, catalogs,
-	// data files, and with a `go.mod` modules of its own); with no markers
+	// data files, and with a [dependencies] table modules of its own); with no markers
 	// the input is a single-file program named "main" (vmhost.LoadMarked).
 	// The VM runs the block: one front-end pass and one IR lowering serve
 	// both the program and its tests, as `nomi run` and `nomi test` do.
@@ -93,14 +91,7 @@ func run(this js.Value, args []js.Value) (res any) {
 	// (`// FILE: notes.txt`) seed an in-memory file system of its own, which
 	// its std/fs calls reach, so every run starts from the files the block
 	// shows.
-	// Its `go` bindings are answered by the Go this binary links for the
-	// tour's examples (internal/tourgo); one it does not link is an error
-	// at the binding.
-	hosts, err := tourgo.MarkedHosts(src)
-	if err != nil {
-		return failed("", err.Error(), stageCompile)
-	}
-	p, hasTests, err := vmhost.LoadMarked(src, projectDir, vmhost.WithHosts(hosts), vmhost.WithErrorOutput(&buf))
+	p, hasTests, err := vmhost.LoadMarked(src, projectDir, vmhost.WithErrorOutput(&buf))
 	if err != nil {
 		return failed("", err.Error(), stageCompile)
 	}
@@ -150,12 +141,8 @@ func tool(this js.Value, args []js.Value) (res any) {
 		return result("", "source, module and tool name required")
 	}
 	src := args[0].String()
-	attached := tourgo.Source(src)
-	hosts, err := tourgo.ToolHosts(attached, args[2].String())
-	if err != nil {
-		return failed("", err.Error(), stageCompile)
-	}
-	written, err := vmhost.ToolMarked(attached, projectDir, args[1].String(), args[2].String(), &buf, vmhost.WithHosts(hosts), vmhost.WithErrorOutput(&buf))
+	attached := tourmodules.Source(src)
+	written, err := vmhost.ToolMarked(attached, projectDir, args[1].String(), args[2].String(), &buf, vmhost.WithErrorOutput(&buf))
 	if err != nil {
 		if vmhost.LoadFailed(err) {
 			return failed("", err.Error(), stageCompile)
@@ -246,16 +233,30 @@ func formatRunError(err error) string { return vmhost.FormatFailure(err) }
 
 // semToken is the JSON shape the browser highlighter consumes for the semantic
 // overlay layer. Line and Col are 1-based; Col and Len count UTF-16 code
-// units, as the browser indexes the source string.
+// units, as the browser indexes the source string. Effect marks a token
+// where the code has effects, as a hover there says
+// (hoverdoc.MarkReaching), which the page draws bold.
 type semToken struct {
-	Line int    `json:"line"`
-	Col  int    `json:"col"`
-	Len  int    `json:"len"`
-	Type string `json:"type"`
+	Line   int    `json:"line"`
+	Col    int    `json:"col"`
+	Len    int    `json:"len"`
+	Type   string `json:"type"`
+	Effect bool   `json:"effect,omitempty"`
+}
+
+// semTokensOf is toks in the JSON shape the browser reads.
+func semTokensOf(toks []semtokens.Token) []semToken {
+	out := make([]semToken, 0, len(toks))
+	for _, t := range toks {
+		out = append(out, semToken{Line: t.Line, Col: t.Col, Len: t.Length, Type: t.Type, Effect: t.Effect})
+	}
+	return out
 }
 
 // semTokensSrc returns the analyzer's semantic tokens for args[0] as a JSON
-// array, for the browser to overlay on tree-sitter's syntactic highlighting.
+// array, for the browser to overlay on tree-sitter's syntactic highlighting,
+// with the tokens that have effects marked from what a hover
+// there reads (reachedOf).
 func semTokensSrc(this js.Value, args []js.Value) (res any) {
 	defer func() {
 		if recover() != nil {
@@ -267,18 +268,14 @@ func semTokensSrc(this js.Value, args []js.Value) (res any) {
 	}
 	src := args[0].String()
 	var toks []semtokens.Token
-	if tourgo.Source(src) != src {
+	if tourmodules.Source(src) != src {
 		// A block that imports a module the tour links is analyzed as the
 		// project nomiRun loads, so the module's names resolve.
-		toks = programOf(src).SemanticTokensIn(attachedEntry)
+		toks = programOf(src).SemanticTokensIn(attachedEntry, reachedOf(src))
 	} else {
-		toks = highlight.SemanticTokens(src, std.Shared())
+		toks = highlight.SemanticTokens(src, std.Shared(), reachedOf(src), highlight.InFile(attachedEntry))
 	}
-	out := make([]semToken, 0, len(toks))
-	for _, t := range toks {
-		out = append(out, semToken{Line: t.Line, Col: t.Col, Len: t.Length, Type: t.Type})
-	}
-	data, err := json.Marshal(out)
+	data, err := json.Marshal(semTokensOf(toks))
 	if err != nil {
 		return "[]"
 	}
@@ -293,7 +290,7 @@ func semTokensSrc(this js.Value, args []js.Value) (res any) {
 // project). It does not call lsp.HoverAt — the LSP framework is deliberately
 // out of this binary — and the agreement with Zed holds only for a snippet:
 // there are no sibling files here and no filesystem to read them from. A
-// call's hover ends with what it reaches outside the machine, as the LSP's
+// call's hover ends with the effects it has, as the LSP's
 // does (reachedOf, hoverdoc.AppendReach).
 func hoverSrc(this js.Value, args []js.Value) (res any) {
 	defer func() {
@@ -305,7 +302,7 @@ func hoverSrc(this js.Value, args []js.Value) (res any) {
 		return ""
 	}
 	src := args[0].String()
-	if tourgo.Source(src) != src {
+	if tourmodules.Source(src) != src {
 		return programOf(src).HoverIn(attachedEntry, args[1].Int(), args[2].Int(), reachedOf(src))
 	}
 	fa, nodes := highlight.AnalyzeNodes(src, std.Shared())
@@ -313,37 +310,35 @@ func hoverSrc(this js.Value, args []js.Value) (res any) {
 		return ""
 	}
 	line := args[1].Int()
-	inEntry := func(path string) bool {
-		return virtualproject.NormalizeModuleName(path) == virtualproject.NormalizeModuleName(attachedEntry)
-	}
-	return hoverdoc.AtReaching(fa, nodes, src, analysis.Pos{Line: line, Col: highlight.ByteCol(src, line, args[2].Int())}, reachedOf(src), inEntry)
+	return hoverdoc.AtReaching(fa, nodes, src, analysis.Pos{Line: line, Col: highlight.ByteCol(src, line, args[2].Int())}, reachedOf(src), highlight.InFile(attachedEntry))
 }
 
-// lastReach is what the program of the last source a hover asked about
-// reaches outside the machine (reachedOf). Every hover after a run asks
-// about the same source, so the source's program is loaded once for them
-// all until the visitor edits a tab.
-var lastReach struct {
-	source string
-	done   bool
-	calls  []vmhost.ReachedCall
-}
+// reaches is the effects the programs of the sources the page last asked
+// about have (reachedOf), by source. A block's tokens are
+// asked for when it scrolls into view, and its hovers after, so each
+// block's program is loaded once for its tokens and every hover until the
+// visitor edits a tab. It keeps maxReaches sources, and starts again when
+// it holds more.
+var reaches = map[string][]vmhost.ReachedCall{}
 
-// reachedOf is each outside call the program of src, a block, reaches,
-// with the line a hover on the call ends with (vmhost.ReachedMarked,
-// hoverdoc.AppendReach), as the language server shows it; nil when the
-// block does not load.
+// maxReaches is how many sources reaches keeps: more than a page's blocks.
+const maxReaches = 64
+
+// reachedOf is each effect call the program of src, a block, reaches,
+// and each function that can reach one, with the line a hover there ends
+// with and the token the page marks (vmhost.ReachedMarked,
+// hoverdoc.AppendReach, hoverdoc.MarkReaching), as the language server
+// shows them; nil when the block does not load.
 func reachedOf(src string) []vmhost.ReachedCall {
-	if lastReach.done && lastReach.source == src {
-		return lastReach.calls
+	if calls, done := reaches[src]; done {
+		return calls
 	}
-	lastReach.source, lastReach.done, lastReach.calls = src, true, nil
-	hosts, err := tourgo.MarkedHosts(src)
-	if err != nil {
-		return nil
+	if len(reaches) >= maxReaches {
+		clear(reaches)
 	}
-	lastReach.calls, _ = vmhost.ReachedMarked(src, projectDir, vmhost.WithHosts(hosts))
-	return lastReach.calls
+	calls, _ := vmhost.ReachedMarked(src, projectDir)
+	reaches[src] = calls
+	return calls
 }
 
 // lastProgram is the analysis of the last multi-file source nomiHoverIn or
@@ -361,34 +356,14 @@ var lastProgram struct {
 func programOf(src string) *highlight.Program {
 	if lastProgram.prog == nil || lastProgram.source != src {
 		lastProgram.source = src
-		lastProgram.prog = highlight.AnalyzeProgram(tourgo.Source(src), projectDir, std.Shared())
+		lastProgram.prog = highlight.AnalyzeProgram(tourmodules.Source(src), projectDir, std.Shared())
 	}
 	return lastProgram.prog
 }
 
-// attachedEntry is a single-file block's file once tourgo.Source has
+// attachedEntry is a single-file block's file once tourmodules.Source has
 // attached the modules it imports.
 const attachedEntry = "main.nomi"
-
-// tourModules answers the names of the modules the tour links that the
-// source args[0] imports, as a JSON array: the worker loads what a
-// module's Go side needs in the page (SQLite's WebAssembly build for
-// sqlite) before it runs the source.
-func tourModules(this js.Value, args []js.Value) (res any) {
-	defer func() {
-		if recover() != nil {
-			res = "[]"
-		}
-	}()
-	if len(args) < 1 {
-		return "[]"
-	}
-	data, err := json.Marshal(tourgo.Imported(args[0].String()))
-	if err != nil {
-		return "[]"
-	}
-	return string(data)
-}
 
 // hoverInSrc is hoverSrc for one tab of a multi-file source (args[0], the
 // tabs stitched with `// FILE:` markers): the hover markdown at (args[2],
@@ -409,7 +384,8 @@ func hoverInSrc(this js.Value, args []js.Value) (res any) {
 
 // semTokensInSrc answers the semantic tokens of every Nomi tab of a
 // multi-file source (args[0]) as a JSON object from the tab's file name
-// (args[1..], `cart.nomi`) to its tokens, positions in the tab's own text.
+// (args[1..], `cart.nomi`) to its tokens, positions in the tab's own text,
+// marked as semTokensSrc marks them.
 func semTokensInSrc(this js.Value, args []js.Value) (res any) {
 	defer func() {
 		if recover() != nil {
@@ -420,14 +396,10 @@ func semTokensInSrc(this js.Value, args []js.Value) (res any) {
 		return "{}"
 	}
 	prog := programOf(args[0].String())
+	reached := reachedOf(args[0].String())
 	out := map[string][]semToken{}
 	for _, name := range args[1:] {
-		toks := prog.SemanticTokensIn(name.String())
-		list := make([]semToken, 0, len(toks))
-		for _, t := range toks {
-			list = append(list, semToken{Line: t.Line, Col: t.Col, Len: t.Length, Type: t.Type})
-		}
-		out[name.String()] = list
+		out[name.String()] = semTokensOf(prog.SemanticTokensIn(name.String(), reached))
 	}
 	data, err := json.Marshal(out)
 	if err != nil {
@@ -439,7 +411,8 @@ func semTokensInSrc(this js.Value, args []js.Value) (res any) {
 // warmOnce lowers the whole standard library, which every run's lowering
 // reads (vmhost.Warm). The page shows a block's recorded output and asks only
 // for its semantic tokens and hovers until the reader edits it, and those
-// need the analysis alone, so the lowering waits for the first run: the
+// need the block's own analysis and lowering (reachedOf), not the whole
+// standard library's, so its lowering waits for the first run: the
 // worker calls nomiWarm before it posts that run's start, inside the load
 // allowance (LOAD_BUDGET_MS) and outside the run's own budget.
 var warmOnce sync.Once
@@ -459,7 +432,17 @@ func failed(output, errStr, stage string) any {
 	return map[string]any{"output": output, "error": errStr, "stage": stage}
 }
 
+// softMemoryLimit is the heap the collector aims to stay under in a page
+// that sets no GOMEMLIMIT. A wasm memory never shrinks and is capped at
+// 1 GiB here, and with the default target (twice the live heap) a run of
+// many programs in one page grew past the cap between collections; under
+// this limit the same run peaks near 700 MiB.
+const softMemoryLimit = 700 << 20
+
 func main() {
+	if os.Getenv("GOMEMLIMIT") == "" {
+		debug.SetMemoryLimit(softMemoryLimit)
+	}
 	// The analysis vmhost's front end and lowering read too, so the page
 	// analyzes the stdlib once.
 	std.Shared()
@@ -472,7 +455,6 @@ func main() {
 	js.Global().Set("nomiHover", js.FuncOf(hoverSrc))
 	js.Global().Set("nomiHoverIn", js.FuncOf(hoverInSrc))
 	js.Global().Set("nomiSemTokensIn", js.FuncOf(semTokensInSrc))
-	js.Global().Set("nomiTourModules", js.FuncOf(tourModules))
 	js.Global().Set("nomiWarm", js.FuncOf(warm))
 	// Keep the Go runtime alive so the exported functions stay callable.
 	select {}

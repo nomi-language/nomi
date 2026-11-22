@@ -54,19 +54,21 @@ end
 test "a map pattern in an if inside a test body"
     config = {"mode" => "debug", "level" => "2"}
 
-    found = if {"mode" => mode, "level" => level} = config then
-        "${mode}/${level}"
-    else
-        "none"
-    end
+    found =
+        if {"mode" => mode, "level" => level} = config then
+            "${mode}/${level}"
+        else
+            "none"
+        end
 
     assert found == "debug/2"
 
-    missing = if {"missing" => value} = config then
-        value
-    else
-        "none"
-    end
+    missing =
+        if {"missing" => value} = config then
+            value
+        else
+            "none"
+        end
 
     assert missing == "none"
 end

@@ -11,8 +11,8 @@ package rt
 // # This file holds a type and no rules, deliberately
 //
 // std/random's generators are ordinary Nomi source over three externs
-// (`below_state`, `unit_float_state`, `os_state`), all of which are co-located
-// FFI adapters in std/random/random.go rather than language primitives. So
+// (`below_state`, `unit_float_state`, `os_state`), all of which are Go
+// functions in internal/stdrandom rather than language primitives. So
 // there is nothing here for rt to implement, and adding a splitmix64 step
 // beside the adapter's would be two implementations of one sequence — the
 // divergence rt/opaque.go's header warns about, over a generator where

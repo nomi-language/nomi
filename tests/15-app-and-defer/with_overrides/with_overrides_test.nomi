@@ -44,12 +44,12 @@ group "with"
         assert App.n == 1
     end
 
-    test "a closure reads the fields in force when it is called"
+    test "a closure keeps the fields in force where it is made"
         read = labeller()
 
-        assert read() == "base"
+        assert read() == "made"
         with App.label = "caller"
-        assert read() == "caller"
+        assert read() == "made"
     end
 
     test "a with in a branch ends with the branch"

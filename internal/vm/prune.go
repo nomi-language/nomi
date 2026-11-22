@@ -59,7 +59,7 @@ type CrossingSite struct {
 
 // ReachedCrossingSites is every direct call into Go in the functions
 // PruneImage keeps for roots and boots whose host key keep accepts, in
-// position order: what `nomi build` checks against its target's capability
+// position order: what `nomi build` checks against its target's effect
 // classes. Like the walk, it over-approximates: a call in a branch the
 // program never takes counts.
 func ReachedCrossingSites(entry *ir.Module, mods []*ir.Module, roots []*ir.Func, boots []*ir.Symbol, keep func(name string) bool) []CrossingSite {

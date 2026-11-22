@@ -24,10 +24,11 @@ fn guarded(x: Int) -> Int
     if x > 0 then
         if x > 5 then io.print("big")
 
-        y = case x
-            7 -> 70
-            _ -> 0
-        end
+        y =
+            case x
+                7 -> 70
+                _ -> 0
+            end
 
         if y > 100 then return 2
         return y + 1
@@ -106,13 +107,14 @@ fn with_local_interface(x: Int) -> Int
         fn size(v: self) -> Int
     end
 
-    y = begin
-        interface Named
-            fn name(v: self) -> String
-        end
+    y =
+        begin
+            interface Named
+                fn name(v: self) -> String
+            end
 
-        x + 1
-    end
+            x + 1
+        end
 
     if y > 0 then
         interface Ranked
@@ -203,7 +205,7 @@ test "a case subject in a function reports its rows"
     assert Err(failure) = case_subject(1)
 
     assert AssertionFailure.format(failure) == """
-        line 129: assertion failed
+        line 131: assertion failed
           assert case x
               1 -> False
               _ -> x > 0
@@ -222,7 +224,7 @@ test "a Type witness is a row"
     assert Err(failure) = testing.check(has(Context.root(), t))
 
     assert AssertionFailure.format(failure) == """
-        line 222: check failed
+        line 224: check failed
           check has(Context.root(), t)
           values:
             Context.root()
@@ -235,17 +237,18 @@ end
 test "a nested block may rebind a name, and the outer one keeps its definition"
     ok = id(1) == 2
 
-    z = begin
-        ok = id(2) == 2
-        assert ok
-        ok
-    end
+    z =
+        begin
+            ok = id(2) == 2
+            assert ok
+            ok
+        end
 
     assert z
     assert Err(failure) = testing.check(ok)
 
     assert AssertionFailure.format(failure) == """
-        line 245: check failed
+        line 248: check failed
           check ok
           defined as:
             id(1) == 2
@@ -266,7 +269,7 @@ test "a pipe binding whose stage holds a pipe records its spine"
     assert Err(failure) = testing.check(ok)
 
     assert AssertionFailure.format(failure) == """
-        line 266: check failed
+        line 269: check failed
           check ok
           defined as:
             [1, 2] |> Iter.any_match(fn x: Int -> x |> double() > 10)
@@ -297,10 +300,11 @@ end
 
 group "a setup binding whose every arm returns"
     setup begin
-        _v = case id(1)
-            1 -> return 5
-            _ -> return 6
-        end
+        _v =
+            case id(1)
+                1 -> return 5
+                _ -> return 6
+            end
     end
 
     test "the setup's value is the returned one", v

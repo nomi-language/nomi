@@ -5,7 +5,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 	"testing"
@@ -15,6 +14,7 @@ import (
 	"github.com/nomi-language/nomi/internal/format"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
+	"github.com/nomi-language/nomi/internal/virtualproject"
 )
 
 // TestDocExamplesAreFormatted holds every Nomi example a reader sees to the
@@ -212,9 +212,6 @@ func (d *docTally) write(t *testing.T) {
 	}
 }
 
-// docFileMarker is the tour client's FILE_MARKER.
-var docFileMarker = regexp.MustCompile(`^\s*//\s*FILE:\s*([A-Za-z0-9_.\-/]+\.[A-Za-z0-9]+)\s*$`)
-
 // checkBlock checks one fenced block whose fence is line of file; wrap turns
 // a line of the block into the source line that holds it.
 func (d *docTally) checkBlock(t *testing.T, file string, line int, code string, wrap func(string) string) {
@@ -234,8 +231,8 @@ func (d *docTally) checkBlock(t *testing.T, file string, line int, code string, 
 	}
 	var parts []*part
 	for i, l := range lines {
-		if m := docFileMarker.FindStringSubmatch(l); m != nil {
-			parts = append(parts, &part{name: m[1], line: i + 2})
+		if name, _, ok := virtualproject.Marker(l); ok {
+			parts = append(parts, &part{name: name, line: i + 2})
 			continue
 		}
 		if len(parts) > 0 {

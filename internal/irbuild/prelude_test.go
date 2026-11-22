@@ -56,13 +56,17 @@ func TestPreludeShapeMatchesStdSource(t *testing.T) {
 		t.Fatalf("this test spells out %d specs, preludeSpecs has %d — a spec nobody checks against std can lower against a layout nobody wrote",
 			len(want), len(preludeSpecs))
 	}
-	if len(g.preludeByName) != len(want) {
+	anchored := map[*preludeSpec]bool{}
+	for _, a := range g.preludeByDecl {
+		anchored[a.spec] = true
+	}
+	if len(anchored) != len(want) {
 		t.Fatalf("anchored %d prelude enums, want %d — std does not have the shape prelude.go assumes, so every construct over the missing one is silently refused",
-			len(g.preludeByName), len(want))
+			len(anchored), len(want))
 	}
 	for name, w := range want {
-		a, found := g.preludeByName[name]
-		if !found {
+		a := preludeAnchorForTest(g, name)
+		if a == nil {
 			t.Fatalf("no anchor for %s", name)
 		}
 		if len(a.decl.TypeParams) != len(w.params) {
@@ -240,21 +244,21 @@ func TestPreludeLayoutMatchesRT(t *testing.T) {
 	// Some, a program would be right only when the value never crossed the
 	// boundary, and silently wrong when it did.
 	g := preludeGenForTest(t)
-	m := g.preludeInstance(g.preludeByName["Maybe"], []kind{kindInt}).def
+	m := g.preludeInstance(preludeAnchorForTest(g, "Maybe"), []kind{kindInt}).def
 	if got := m.variant("Some").tag; got != int(rt.TagSome) {
 		t.Fatalf("the builder assigns Some tag %d, rt says %d", got, rt.TagSome)
 	}
 	if got := m.variant("None").tag; got != int(rt.TagNone) {
 		t.Fatalf("the builder assigns None tag %d, rt says %d", got, rt.TagNone)
 	}
-	r := g.preludeInstance(g.preludeByName["Result"], []kind{kindInt, kindString}).def
+	r := g.preludeInstance(preludeAnchorForTest(g, "Result"), []kind{kindInt, kindString}).def
 	if got := r.variant("Ok").tag; got != int(rt.TagOk) {
 		t.Fatalf("the builder assigns Ok tag %d, rt says %d", got, rt.TagOk)
 	}
 	if got := r.variant("Err").tag; got != int(rt.TagErr) {
 		t.Fatalf("the builder assigns Err tag %d, rt says %d", got, rt.TagErr)
 	}
-	f := g.preludeInstance(g.preludeByName["Fragment"], []kind{kindInt}).def
+	f := g.preludeInstance(preludeAnchorForTest(g, "Fragment"), []kind{kindInt}).def
 	if got := f.variant("Static").tag; got != int(rt.TagStatic) {
 		t.Fatalf("the builder assigns Static tag %d, rt says %d", got, rt.TagStatic)
 	}
@@ -296,7 +300,7 @@ func TestPreludeLayoutMatchesRT(t *testing.T) {
 // or a value built at one mention would not be assignable at the other.
 func TestPreludeInstancesAreDistinctTypes(t *testing.T) {
 	g := preludeGenForTest(t)
-	a := g.preludeByName["Maybe"]
+	a := preludeAnchorForTest(g, "Maybe")
 	mi := g.preludeInstance(a, []kind{kindInt})
 	mi2 := g.preludeInstance(a, []kind{kindInt})
 	ms := g.preludeInstance(a, []kind{kindString})
@@ -312,7 +316,7 @@ func TestPreludeInstancesAreDistinctTypes(t *testing.T) {
 	if got := ms.nomi(); got != "Maybe<String>" {
 		t.Fatalf("Maybe<String> reports itself as %q", got)
 	}
-	r := g.preludeByName["Result"]
+	r := preludeAnchorForTest(g, "Result")
 	ris := g.preludeInstance(r, []kind{kindInt, kindString})
 	rsi := g.preludeInstance(r, []kind{kindString, kindInt})
 	if ris == rsi {
@@ -337,6 +341,16 @@ func TestPreludeInstancesAreDistinctTypes(t *testing.T) {
 // observable difference between the prelude proper and the other specs, and
 // TestPreludeShapeMatchesStdSource asserts all FOUR anchor here so a spec that
 // silently stops anchoring cannot pass as "nothing to check".
+// preludeAnchorForTest is g's anchor of the prelude spec named name, or nil.
+func preludeAnchorForTest(g *gen, name string) *preludeAnchor {
+	for _, a := range g.preludeByDecl {
+		if a.spec.nomi == name {
+			return a
+		}
+	}
+	return nil
+}
+
 func preludeGenForTest(t *testing.T) *gen {
 	t.Helper()
 	const src = "import\n  std::literals.Fragment\n  std::tasks.Outcome\nend\n\n" +
@@ -383,13 +397,9 @@ end
 	}
 	g := &gen{fa: p.Modules[0].FA, types: map[string]*typeDef{}}
 	g.loadPreludes()
-	a, found := g.preludeByName["Maybe"]
-	if !found {
-		return
-	}
-	// If an anchor exists it must be the STD declaration, never the local one.
+	// An anchor is the STD declaration, never the local one.
 	for _, n := range p.Modules[0].Nodes {
-		if ed, isEnum := n.(*ast.EnumDef); isEnum && ed.Name == "Maybe" && ed == a.decl {
+		if ed, isEnum := n.(*ast.EnumDef); isEnum && ed.Name == "Maybe" && g.preludeByDecl[ed] != nil {
 			t.Fatal("a locally declared Maybe was anchored as the prelude one")
 		}
 	}

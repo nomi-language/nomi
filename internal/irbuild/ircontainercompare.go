@@ -6,16 +6,15 @@ import (
 )
 
 // containerCompareAny lowers `List.compare(a, b)` / `Vector.compare(a, b)`
-// through containerCompare where the element comparator is one it can name,
-// and otherwise through std's `impl Comparable for List<T>` (or Vector's)
-// instantiated at the element type, as `Comparable.compare(a, b)` is: that
-// body's element comparison dispatches in turn, so a List of Lists, of Bools
-// or of tuples compares by std's own lexicographic body.
+// through containerCompare where the element type's compare is one a
+// comparator can be made of, and otherwise through std's `impl Comparable
+// for List<T>` (or Vector's) instantiated at the element type, as
+// `Comparable.compare(a, b)` is.
 func (bl *irScalarBuilder) containerCompareAny(t *ast.Call, args irQualArgs, owner string) (ir.Temp, kind, bool, bool) {
 	if v, k, mobile, ok := bl.containerCompare(t, args, owner); ok {
 		return v, k, mobile, ok
 	}
-	if v, k, mobile, ok, handled := bl.ifaceContainerCall(t, args, "Comparable", "compare", bl.g.firstOperandType(t)); handled {
+	if v, k, mobile, ok, handled := bl.ifaceContainerCall(t, args, "compare", bl.g.firstOperandType(t)); handled {
 		return v, k, mobile, ok
 	}
 	return ir.NoTemp, kindInvalid, false, false
@@ -23,9 +22,11 @@ func (bl *irScalarBuilder) containerCompareAny(t *ast.Call, args irQualArgs, own
 
 // containerCompare lowers `List.compare(a, b)` and `Vector.compare(a, b)`:
 // std's lexicographic body, whose `Comparable.compare(ha, hb)` on the
-// elements is the element type's impl. That impl is passed to the machine
-// intrinsic as a function value, as Iter.sort passes it, so the element
-// order is the element type's own body and not a second implementation.
+// elements is the element type's impl. That impl, the one the checker's
+// record of `Comparable.compare` at the element's type names
+// (sortComparator), is passed to the machine intrinsic as a function value
+// (comparatorOperand), as Iter.sort passes it, so the element order is the
+// element type's own body and not a second implementation.
 func (bl *irScalarBuilder) containerCompare(t *ast.Call, args irQualArgs, owner string) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if !args.ok || len(args.kinds) != 2 {
@@ -50,31 +51,16 @@ func (bl *irScalarBuilder) containerCompare(t *ast.Call, args irQualArgs, owner 
 		}
 		elem = e
 	}
-	ordering := stdEnumKind(stdEnumOrdering)
-	var ref *ir.Ref
-	if irNominalElemKind(elem) {
-		local := bl.localCompareItem(elem)
-		if local == nil {
-			return no()
-		}
-		ref = ir.NewRefFunc(bl.g.irNodePos(t), bl.f.NewTemp(), bl.g.irImplSym(local))
-		bl.b.Append(ref)
-		bl.side(ref.Dst(), irScalarSide{k: funcKindIn(bl.g, local.params, local.result)})
-	} else {
-		if elem != kindInt && elem != kindFloat && elem != kindString && elem != kindBool {
-			return no()
-		}
-		cmp := bl.g.stdCompareAt(elem, ordering)
-		if cmp == nil || cmp.irBody == nil {
-			return no()
-		}
-		ref = ir.NewRefFunc(bl.g.irNodePos(t), bl.f.NewTemp(), cmp.irBody.Sym())
-		bl.b.Append(ref)
-		bl.side(ref.Dst(), irScalarSide{k: funcKindIn(bl.g, cmp.params, cmp.result)})
+	elemType := partCheckerType(bl.g.firstOperandType(t), args.kinds[0], 0)
+	p, ok := bl.sortComparator(elem, elemType)
+	if !ok {
+		return no()
 	}
+	ref := bl.comparatorOperand(t, elem, elemType, p)
+	ordering := stdEnumKind(stdEnumOrdering)
 	name := owner + ".compare"
 	c := ir.NewHostCall(bl.g.irPos(t.Line, t.Col), bl.f.NewTemp(), irCallSite(t), bl.g.irCalleeSym(name, name),
-		args.temps[0], args.temps[1], ref.Dst())
+		args.temps[0], args.temps[1], ref)
 	bl.b.Append(c)
 	bl.side(c.Dst(), irScalarSide{k: ordering, deferrable: true})
 	return c.Dst(), ordering, false, true

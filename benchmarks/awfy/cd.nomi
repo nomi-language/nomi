@@ -450,20 +450,22 @@ fn is_in_voxel(voxel: Vector2D, motion: Motion) -> Bool
         low_x = (v_x - r - x0) / xv
         high_x = (v_x + v_s + r - x0) / xv
 
-        (low_x, high_x) = if xv < 0.0 then
-            (high_x, low_x)
-        else
-            (low_x, high_x)
-        end
+        (low_x, high_x) =
+            if xv < 0.0 then
+                (high_x, low_x)
+            else
+                (low_x, high_x)
+            end
 
         low_y = (v_y - r - y0) / yv
         high_y = (v_y + v_s + r - y0) / yv
 
-        (low_y, high_y) = if yv < 0.0 then
-            (high_y, low_y)
-        else
-            (low_y, high_y)
-        end
+        (low_y, high_y) =
+            if yv < 0.0 then
+                (high_y, low_y)
+            else
+                (low_y, high_y)
+            end
 
         in_x = xv == 0.0 and v_x <= x0 + r and x0 - r <= v_x + v_s
             or low_x <= 1.0 and 1.0 <= high_x

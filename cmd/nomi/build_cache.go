@@ -11,8 +11,8 @@ import (
 	"github.com/nomi-language/nomi/vmhost"
 )
 
-// keptBuild is what `nomi build` keeps in the artifact cache for a program
-// with no Go bindings: everything the build made from the program before it
+// keptBuild is what `nomi build` keeps in the artifact cache for a
+// program: everything the build made from the program before it
 // picks a runner, so a build of unchanged files for the same target only
 // writes the runner and the image again.
 type keptBuild struct {
@@ -21,10 +21,11 @@ type keptBuild struct {
 	// build writes it (vmhost.Program.EmbeddedSources).
 	Sources      []vmhost.EmbedSource
 	UsesCompiler bool
-	// Reactor says the program is built as a wasip1 reactor, and NoNetwork
-	// that it reaches no network crossing (ffirun.Variant).
-	Reactor   bool
-	NoNetwork bool
+	// Reactor says the program is built as a wasip1 reactor, and Families
+	// is the optional families it reaches (vmhost.Program.UsesFamilies),
+	// which decide its runner (runners.Variant).
+	Reactor  bool
+	Families []string
 	// Decls and LocaleFiles are --web's nomi.d.ts and locale files.
 	Decls       string
 	LocaleFiles map[string][]byte
@@ -57,8 +58,7 @@ func decodeKeptBuild(data []byte) (keptBuild, bool) {
 	return k, true
 }
 
-// buildInProcess makes the image of the program at absPath, which has no Go
-// bindings, for b's target, and keeps it in cache. A refusal is written to
+// buildInProcess makes the image of the program at absPath for b's target, and keeps it in cache. A refusal is written to
 // stderr and answered as errBuildRefused.
 func buildInProcess(b buildArgs, absPath string, stderr io.Writer, cache *vmhost.Cache) (keptBuild, error) {
 	var k keptBuild
@@ -70,7 +70,13 @@ func buildInProcess(b buildArgs, absPath string, stderr io.Writer, cache *vmhost
 	p, relinked := load.Relinked()
 	var err error
 	if !relinked {
-		if p, err = vmhost.Load(absPath, vmhost.WithCache(load)); err != nil {
+		opts := []vmhost.Option{vmhost.WithCache(load)}
+		if b.noVM || b.target == wasip1 && !b.web {
+			// A reactor's host answers the program's own `host fn`s, in
+			// JSON, when it loads the program.
+			opts = append(opts, vmhost.WithLoaderHosts())
+		}
+		if p, err = vmhost.Load(absPath, opts...); err != nil {
 			vmhost.WriteFailure(stderr, err)
 			return k, errBuildRefused
 		}
@@ -122,7 +128,7 @@ func buildInProcess(b buildArgs, absPath string, stderr io.Writer, cache *vmhost
 		k.Decls = p.WebDeclarations()
 	}
 	if !b.noVM {
-		k.NoNetwork = !p.UsesNetwork(b.web || k.Reactor)
+		k.Families = p.UsesFamilies(b.web || k.Reactor)
 	}
 	k.Notes = notes.String()
 	cache.Keep(p, k.encode())

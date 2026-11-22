@@ -107,6 +107,11 @@ func TestFromPipe_Stages(t *testing.T) {
 			"fn f() -> Int\n    case parse(\"4\")\n        Ok(n)  -> n\n        Err(_) -> 0\n    end\nend\n",
 		},
 		{
+			"case stage bound to a name",
+			"fn f() -> Int\n    n = \"4\" |> case pa‸rse()\n        Ok(v)  -> v\n        Err(_) -> 0\n    end\n\n    n + 1\nend\n",
+			"fn f() -> Int\n    n =\n        case parse(\"4\")\n            Ok(v)  -> v\n            Err(_) -> 0\n        end\n\n    n + 1\nend\n",
+		},
+		{
 			"bare case stage",
 			"fn f() -> Int\n    parse(\"4\")\n    |> ca‸se\n        Ok(n)  -> n\n        Err(_) -> 0\n    end\nend\n",
 			"fn f() -> Int\n    case parse(\"4\")\n        Ok(n)  -> n\n        Err(_) -> 0\n    end\nend\n",

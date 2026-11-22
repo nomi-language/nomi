@@ -24,14 +24,15 @@ fn on_each<T>(body: (Conn) -> Result<T, Error>) -> List<(String, Result<T, Error
 
     opens
     |> Iter.map(fn (name, open) ->
-        result = case open()
-            Ok(db) ->
-                defer sql.close_quietly(db)
-                body(db)
+        result =
+            case open()
+                Ok(db) ->
+                    defer sql.close_quietly(db)
+                    body(db)
 
-            Err(error) ->
-                Err(Error.Database{error:})
-        end
+                Err(error) ->
+                    Err(Error.Database{error:})
+            end
 
         (name, result)
     end)
@@ -107,11 +108,12 @@ test "read lists a directory's migrations in name order, without down files or s
 end
 
 test "read refuses a directory that does not exist"
-    refused = case migrate.read("no/such/migrations")
-        Err(Error.Read{path:, message: _}) -> path
-        Err(e)                             -> "${e}"
-        Ok(_)                              -> "Ok"
-    end
+    refused =
+        case migrate.read("no/such/migrations")
+            Err(Error.Read{path:, message: _}) -> path
+            Err(e)                             -> "${e}"
+            Ok(_)                              -> "Ok"
+        end
 
     assert refused == "no/such/migrations"
 end
@@ -193,11 +195,12 @@ test "a failing migration keeps the ones before it and leaves itself and the res
     broken = {..orders, sql: "CREATE TABL orders (id INTEGER)"}
 
     answers = on_each(fn db ->
-        failed = case migrate.apply(db, [users, broken, seed])
-            Err(Error.Failed{path:, error: _}) -> path
-            Err(e)                             -> "${e}"
-            Ok(ran)                            -> "ran ${ran}"
-        end
+        failed =
+            case migrate.apply(db, [users, broken, seed])
+                Err(Error.Failed{path:, error: _}) -> path
+                Err(e)                             -> "${e}"
+                Ok(ran)                            -> "ran ${ran}"
+            end
 
         after_failure = recorded(db)?
         fixed = migrate.apply(db, [users, orders, seed])?
@@ -340,11 +343,12 @@ test "two processes that migrate one Postgres database at once run each migratio
         m("2_row.sql",  "INSERT INTO t VALUES (1)"),
     ]
 
-    runs = concurrent
-        a = Task.spawn(fn -> apply_at(url, slow))
-        b = Task.spawn(fn -> apply_at(url, slow))
-        [Task.await(a), Task.await(b)]
-    end
+    runs =
+        concurrent
+            a = Task.spawn(fn -> apply_at(url, slow))
+            b = Task.spawn(fn -> apply_at(url, slow))
+            [Task.await(a), Task.await(b)]
+        end
 
     // One run did both; the other waited for its lock and found nothing to do.
     assert runs |> Iter.all_match(fn r -> Result.is_ok(r))

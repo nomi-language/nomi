@@ -108,37 +108,3 @@ func appendInlineDefs(out []*typeDef, k kind) []*typeDef {
 	}
 	return out
 }
-
-// --- literals ---------------------------------------------------------------
-
-// elementCandidate picks a list literal's element kind from its items' kinds:
-// the first item's kind that every other item already is or widens into,
-// or kindInvalid when there is none. It appends no IR; the caller
-// then converts every item to the chosen kind (convertTo).
-func (g *gen) elementCandidate(items []kind) kind {
-	for _, cand := range items {
-		if g.widensAll(items, cand) {
-			return cand
-		}
-	}
-	// kindInvalid: sentinel — no item kind takes the others; the caller declines.
-	return kindInvalid
-}
-
-// widensAll reports whether every element is already `want` or widens into
-// `want`.
-//
-// It asks embedsVariant and not convertTo, because convertTo appends IR
-// and this question is asked once per candidate. The caller's convertTo
-// loop converts each element to the chosen kind.
-func (g *gen) widensAll(items []kind, want kind) bool {
-	for _, k := range items {
-		if k == want {
-			continue
-		}
-		if _, _, widens := embedsVariant(want, k); !widens {
-			return false
-		}
-	}
-	return true
-}

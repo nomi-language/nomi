@@ -152,8 +152,11 @@ func (g *gen) leavesDefaults(t *ast.Call, params int) bool {
 
 // carryCall makes rec the record of call, a call the builder made, until
 // done is called: the record of the stage or function value it stands for,
-// or the slots the builder wrote its arguments at. A call that lives as
-// long as the body it is in never calls done. A nil rec carries nothing.
+// or the slots the builder wrote its arguments at. A record whose callee
+// names its reference (Callee.Ref, which carries a generic callee's type
+// arguments) is the reference at the call's callee too (calleeRef). A call
+// that lives as long as the body it is in never calls done. A nil rec
+// carries nothing.
 func (g *gen) carryCall(call *ast.Call, rec *analysis.ResolvedCall) (done func()) {
 	if rec == nil {
 		return func() {}
@@ -162,7 +165,26 @@ func (g *gen) carryCall(call *ast.Call, rec *analysis.ResolvedCall) (done func()
 		g.carriedCalls = map[*ast.Call]*analysis.ResolvedCall{}
 	}
 	g.carriedCalls[call] = rec
-	return func() { delete(g.carriedCalls, call) }
+	if ref := rec.Callee.Ref; ref != nil && call.Func != nil {
+		if g.carriedRefs == nil {
+			g.carriedRefs = map[ast.Node]*analysis.Symbol{}
+		}
+		g.carriedRefs[call.Func] = ref
+	}
+	return func() {
+		delete(g.carriedCalls, call)
+		delete(g.carriedRefs, call.Func)
+	}
+}
+
+// calleeRef is the reference at ref, a call's callee: the one the record
+// of a call the builder made carries (carryCall), else the checker's.
+func (g *gen) calleeRef(ref ast.Node) *analysis.Symbol {
+	if sym := g.carriedRefs[ref]; sym != nil {
+		return sym
+	}
+	line, col := calleeRefPos(ref)
+	return g.srcFA().References[analysis.Pos{Line: line, Col: col}]
 }
 
 // callsProgramFunc reports whether the checker resolved call t to a `fn` one
@@ -238,7 +260,7 @@ func (g *gen) verifyDispatched(t *ast.Call) {
 	}
 }
 
-// shellSource is the declaration n stands for: the Go-bound `host fn` a
+// shellSource is the declaration n stands for: the `host fn` a
 // shell is (hostShellOf), else n.
 func shellSource(n ast.Node) ast.Node {
 	if fd, ok := n.(*ast.FuncDef); ok {
@@ -271,23 +293,6 @@ func sameImplBlock(a, b *ast.ImplBlock) bool {
 	}
 	return a.Line == b.Line && a.Col == b.Col && a.Interface != nil && b.Interface != nil && a.Receiver != nil && b.Receiver != nil &&
 		a.Interface.TypeString() == b.Interface.TypeString() && a.Receiver.TypeString() == b.Receiver.TypeString()
-}
-
-// verifyImplUse fails when a route lowers the operator or interpolation
-// hole at as a call of another function than want, the impl function the
-// checker recorded for it (analysis.OperatorUse.Impl, DisplayRender.Method),
-// as verifyCallee does for a call.
-func (g *gen) verifyImplUse(at ast.Node, want ast.ImplMethodDecl, got ast.Node) {
-	if !calleeVerify || isNilNode(at) || isNilNode(want) || isNilNode(got) || g.srcFA() == nil {
-		return
-	}
-	got = shellSource(got)
-	id := g.srcFA().StdFuncOf(want)
-	if want == got || sameDecl(want, got, id, g.stdFuncIn(id, got)) {
-		return
-	}
-	line, col := nodePos(at)
-	g.calleeMismatch(line, col, fmt.Sprintf("an impl the checker resolved to %s is lowered as a call of %s", declLabel(want), declLabel(got)))
 }
 
 // sitePos is line:col of the file being lowered, for a verifier's report:
@@ -382,16 +387,20 @@ func (g *gen) calleeOf(t *ast.Call) analysis.Callee {
 // the generic body (analysis.CalleeInterface, For naming the parameter),
 // the record at the instance's type arguments, as the checker answers it
 // (analysis.FileAnalysis.CalleeAt) from the checker's types the frames
-// carry (genericSubstType). A parameter with no checker type, and a call
-// outside an instance, keeps its record. A std instance asks through the
+// carry (genericSubstType), and in an abstract body the record at its type
+// parameter's bound (recordTypes). A parameter with no checker type, and a
+// call outside both, keeps its record. A std instance asks through the
 // program file whose call made it (stdProgCaller), whose impls are the
 // ones its type arguments have.
 func (g *gen) calleeAt(t *ast.Call) analysis.Callee {
 	c := g.calleeOf(t)
-	if c.Kind != analysis.CalleeInterface || c.For == nil || !g.inInstance() {
+	if c.Kind != analysis.CalleeInterface || c.For == nil {
 		return c
 	}
-	return g.instanceFA().CalleeAt(c, g.genericSubstType_)
+	if by, at := g.recordTypes(); at {
+		return g.instanceFA().CalleeAt(c, by)
+	}
+	return c
 }
 
 // instanceFA is the file whose program's impls an instance's type
@@ -432,14 +441,34 @@ func (g *gen) genericSubstType_(p *analysis.TypeParam_) (analysis.Type, bool) {
 // instance being built: for an operator over a type parameter
 // (OperatorPerInstance), the record at the instance's type arguments as
 // the checker answers it (analysis.FileAnalysis.OperatorUseAt), the
-// record an operator written at those types has. resolved is false, and the record
-// t's own, outside an instance and where a parameter has no checker type.
+// record an operator written at those types has, and in an abstract body
+// the record at its type parameter's bound (recordTypes). resolved is
+// false, and the record t's own, outside both and where a parameter has
+// no checker type.
 func (g *gen) operatorUseAt(t ast.Node) (use *analysis.OperatorUse, resolved bool) {
 	use = g.operatorRecord(t)
-	if use == nil || use.Form != analysis.OperatorPerInstance || !g.inInstance() {
+	if use == nil || use.Form != analysis.OperatorPerInstance {
 		return use, false
 	}
-	return g.instanceFA().OperatorUseAt(g.srcFA(), t, g.genericSubstType_)
+	if by, at := g.recordTypes(); at {
+		return g.instanceFA().OperatorUseAt(g.srcFA(), t, by)
+	}
+	return use, false
+}
+
+// recordTypes is the checker's type each type parameter a per-instance
+// record names stands for in the body being built (calleeAt,
+// operatorUseAt): an instance's type argument (genericSubstType_), and in
+// an abstract lowering, for a type parameter left open, the interface it
+// is held as (abstractRecordType). False outside an instance.
+func (g *gen) recordTypes() (func(*analysis.TypeParam_) (analysis.Type, bool), bool) {
+	switch {
+	case !g.inInstance():
+		return nil, false
+	case g.dc != nil && g.dc.abstract:
+		return g.abstractRecordType, true
+	}
+	return g.genericSubstType_, true
 }
 
 // verifyCalleeAt fails, under substVerify, when a route lowers t, a call
@@ -506,22 +535,7 @@ func (g *gen) respelledCallOf(t *ast.Call, q analysis.Qualifier) *analysis.Resol
 	}
 	out := *rec
 	out.Callee.Qualifier = q
-	if g.respelledRecords == nil {
-		g.respelledRecords = map[*analysis.ResolvedCall]bool{}
-	}
-	g.respelledRecords[&out] = true
 	return &out
-}
-
-// isRespelled reports whether t is a copy the builder respelled with a
-// concrete owner and carries the record respelledCallOf wrote for it. Its
-// owner is the name the builder wrote, which the builder chose as one
-// its own tables bind (irKindOwnerName, a container's base, a bound
-// interface, a type argument): a std module that imports no Float still
-// reaches `Float.empty_sum` by that name.
-func (g *gen) isRespelled(t *ast.Call) bool {
-	rec := g.carriedCalls[t]
-	return rec != nil && g.respelledRecords[rec]
 }
 
 // routeCallee is the callee of t as the checker classified it, for the
@@ -550,8 +564,8 @@ func (g *gen) routeCallee(t *ast.Call) analysis.Callee {
 }
 
 // markUnchecked marks every node of n, code the builder writes and lowers
-// without the checker having checked it: its calls have no record, and
-// qualOwner reaches their owners by the names the builder wrote. Each caller is one such site, and
+// without the checker having checked it: its calls have no record. Each
+// caller is one such site, and
 // TestUncheckedSynthesizedBodiesOnlyGoDown counts them (irbuild package
 // doc, "Calls").
 func (g *gen) markUnchecked(n ast.Node) {
@@ -564,16 +578,4 @@ func (g *gen) markUnchecked(n ast.Node) {
 		}
 		return true
 	})
-}
-
-// isUnchecked reports whether the call t, or the field it names, is part
-// of code markUnchecked marked: a copy of such a call keeps its field.
-func (g *gen) isUnchecked(t *ast.Call) bool {
-	if g.unchecked[t] {
-		return true
-	}
-	if fa, ok := t.Func.(*ast.FieldAccess); ok && fa.Field != nil {
-		return g.unchecked[fa.Field]
-	}
-	return false
 }

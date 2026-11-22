@@ -27,7 +27,7 @@ import (
 //   - A type (toTypes) is the declarations it needs, any statements that
 //     must run before its value can be written (a captured binding, a
 //     channel), an expression of the type, the type written out, which
-//     interfaces it has (equality, Display), and an observation that turns
+//     interfaces it has (equality, Display, Parse), and an observation that turns
 //     a value of it into text with the text it must print. The type of a
 //     type parameter is one entry: its cell's body runs inside a generic
 //     function, at T = Int.
@@ -37,7 +37,7 @@ import (
 //     and take it back out as `out`. $E is the type's expression, $T the
 //     type, $P the type parameters a declaration over $T needs ("<T>" for
 //     the type parameter's cell, else nothing). An operation that needs
-//     equality or Display says so.
+//     equality, Display or Parse says so.
 //
 // A cell is a type and an operation: one small program whose `main` builds
 // the value, runs the operation, and prints the observation of `out`. A
@@ -76,7 +76,7 @@ import (
 // reported in order.
 //
 // To extend it, add a toType or a toOp. An operation a type cannot take
-// for a reason other than equality or Display gets a toRule.
+// for a reason other than equality, Display or Parse gets a toRule.
 
 // toType is one value type.
 type toType struct {
@@ -103,6 +103,20 @@ type toType struct {
 	// inspect is the type's Debug.inspect text; empty means want, which
 	// is Debug.inspect's when obs is empty.
 	inspect string
+	// parses marks a type that implements Parse and Display, so an
+	// anonymous struct with a field of it is ParseFields, as a route's
+	// parameters are.
+	parses bool
+	// subtype marks a subtype, which has its base's impls save those of an
+	// interface that makes a value of its type (spec §4 *Subtypes*).
+	subtype bool
+	// json marks a type that implements ToJson and FromJson, a subtype's
+	// read at its base and checked.
+	json bool
+	// badJSON and badText are, for a subtype, a value of its base that
+	// breaks its rule: as JSON, and as the text Parse reads. Empty for a
+	// type with no rule to break.
+	badJSON, badText string
 	// generic runs the cell's body in `fn run<T>(seed: T)` at T = Int.
 	generic bool
 	// core puts every cell of the type in the default sample.
@@ -114,6 +128,13 @@ type toNeeds int
 const (
 	needEq toNeeds = 1 << iota
 	needDisplay
+	needParse
+	// needJSON is an operation that writes and reads the value as JSON,
+	// and needBreach one that reads a value that breaks a subtype's rule
+	// (toType.badJSON, toType.badText). A type without either is no cell
+	// of the operation (toCells).
+	needJSON
+	needBreach
 )
 
 // toOp is one operation over a value.
@@ -139,13 +160,22 @@ const (
 	toNamed       = "interface Named\n    fn name(value: self) -> String\nend\n\nstruct Pt\n    x: Int\nend\n\nimpl Named for Pt\n    fn name(p: Pt) -> String\n        \"pt${p.x}\"\n    end\nend"
 	toNamedTagged = toNamed + "\n\ninterface Tagged\n    fn tag(value: self) -> String\nend\n\nimpl Tagged for Pt\n    fn tag(p: Pt) -> String\n        \"t${p.x}\"\n    end\nend"
 	toChans       = "std::channels.Channel std::channels.Sender std::channels.Receiver"
+	// A program's distinct type read from text and written as text, as a
+	// route parameter's type is.
+	toCode = "type Code Int\n\n" +
+		"impl Parse<String> for Code\n    fn parse(text: String) -> Result<Code, String>\n        Int.parse(text) |> Result.map(Code)\n    end\nend\n\n" +
+		"impl Display for Code\n    fn to_string(code: Code) -> String\n        Code(n) = code\n        \"${n}\"\n    end\nend"
 )
 
 var toTypes = []toType{
-	{name: "int", typ: "Int", expr: "42", want: "42", shown: "42", core: true},
+	{name: "int", typ: "Int", expr: "42", want: "42", shown: "42", parses: true, core: true},
 	{name: "float", typ: "Float", expr: "1.5", want: "1.5", shown: "1.5"},
 	{name: "decimal", typ: "Decimal", expr: "2.25d", want: "2.25d", shown: "2.25"},
-	{name: "string", typ: "String", expr: `"hi"`, want: `"hi"`, shown: "hi", core: true},
+	{name: "string", typ: "String", expr: `"hi"`, want: `"hi"`, shown: "hi", parses: true, core: true},
+	{name: "uuid", imports: []string{"std::uuid.Uuid"}, typ: "Uuid", expr: "Uuid.nil()",
+		want: `Uuid"00000000-0000-0000-0000-000000000000"`, shown: "00000000-0000-0000-0000-000000000000", parses: true},
+	{name: "parsed distinct", decls: toCode, imports: []string{"std::parse.Parse"}, typ: "Code", expr: "Code(3)",
+		want: "Code(3)", shown: "3", parses: true},
 	{name: "bool", typ: "Bool", expr: "True", want: "True", shown: "True"},
 	{name: "unit", typ: "Unit", expr: "Unit", want: "Unit", core: true},
 	{name: "bytes", typ: "Bytes", expr: `String.to_bytes("ab")`, want: "<<97, 98>>", shown: "Bytes(2)"},
@@ -174,6 +204,11 @@ var toTypes = []toType{
 	{name: "result err enum", decls: toPoint + "\n\n" + toColor, typ: "Result<Point, Color>", expr: "Err(Color.Red)", want: "Err(Red)"},
 	{name: "result unit marker", typ: "Result<Unit, ChannelClosed>", expr: "Err(ChannelClosed)", want: "Err(ChannelClosed)",
 		imports: []string{"std::channels.ChannelClosed"}},
+	// A prelude enum with a payload that is no type argument (`Failed
+	// Failure`), whose type has no Debug block, beside one that renders
+	// through a declared type's Debug.
+	{name: "outcome struct", decls: toPoint, imports: []string{"std::tasks.Outcome"}, typ: "Outcome<Point>",
+		expr: "Outcome.Completed(Point{x: 1, y: 2})", want: "Completed(Point{x: 1, y: 2})"},
 	{name: "list int", typ: "List<Int>", expr: "[1, 2]", want: "[1, 2]", shown: "[1, 2]", core: true},
 	{name: "list maybe", typ: "List<Maybe<Int>>", expr: "[Some(1), None]", want: "[Some(1), None]", shown: "[Some(1), None]"},
 	{name: "list fn", inspect: "[<function>, <function>]", decls: toInc, typ: "List<(Int) -> Int>", expr: "[inc, inc]", obs: "Debug.inspect(Iter.map($v, fn f -> f(1)) |> Iter.to_list())", want: "[2, 2]", noEq: true},
@@ -203,6 +238,11 @@ var toTypes = []toType{
 	{name: "regex", imports: []string{"std::regex.Regex"}, typ: "Regex<Unit>", expr: "Regex\"a+b\"", want: "Regex\"a+b\"", shown: "a+b"},
 	{name: "generic struct", decls: "struct Bx<A>\n    v: A\nend", typ: "Bx<Int>", expr: "Bx{v: 1}", want: "Bx{v: 1}"},
 	{name: "nested anonymous struct", typ: "{p: {q: Int}}", expr: "{p: {q: 1}}", want: "{p: {q: 1}}", shown: "{p: {q: 1}}"},
+	// Fields written out of the order of their names, one of them rendered
+	// through std's impl: the record's parts are its fields by name.
+	{name: "anonymous struct out of name order", typ: "{tags: Set<String>, inner: {v: Vector<Int>}, errors: Map<String, List<String>>}",
+		expr: `{tags: Set["t"], inner: {v: Vector[1]}, errors: {"a" => ["x"]}}`, want: `{errors: {"a" => ["x"]}, inner: {v: Vector[1]}, tags: Set["t"]}`,
+		shown: "{errors: {a => [x]}, inner: {v: Vector[1]}, tags: Set[t]}", core: true},
 	{name: "maybe maybe", typ: "Maybe<Maybe<Int>>", expr: "Some(Some(1))", want: "Some(Some(1))", shown: "Some(Some(1))"},
 	{name: "list unit", typ: "List<Unit>", expr: "[Unit, Unit]", want: "[Unit, Unit]"},
 	{name: "tuple with fn", inspect: "(1, <function>)", decls: toInc, typ: "(Int, (Int) -> Int)", expr: "(1, inc)", obs: "Debug.inspect($v.second(1))", want: "2", noEq: true},
@@ -234,30 +274,30 @@ var toTypes = []toType{
 	{name: "string distinct", decls: "type Name String", typ: "Name", expr: `Name("a")`, want: `Name("a")`},
 	{name: "validated type", decls: "type Tag String when fn s -> String.length(s) > 0", typ: "Tag", expr: `Tag("a")`, want: `Tag("a")`},
 	{name: "type over a subtype", decls: "type UserId PositiveInt", typ: "UserId", expr: "UserId(3)", want: "UserId(3)"},
-	{name: "intersection of subtypes", typ: "NonNegativeInt and NonZeroInt", expr: "3", want: "3", shown: "3"},
-	{name: "refinement", decls: "subtype Port Int when fn p -> p >= 1", typ: "Port", expr: "Port(3)", want: "3", shown: "3", core: true},
-	{name: "refinement chain", decls: "subtype NonNeg Float when fn x -> x >= 0.0\n\nsubtype Pos NonNeg when fn x -> x > 0.0", typ: "Pos", expr: "Pos(2.5)", want: "2.5", shown: "2.5"},
-	{name: "refinement of two parents", decls: "subtype NonNeg Int when fn n -> n >= 0\n\nsubtype NonZ Int when fn n -> n != 0\n\nsubtype Pos NonNeg and NonZ when fn n -> n > 0", typ: "Pos", expr: "Pos(3)", want: "3", shown: "3"},
-	{name: "decimal refinement", typ: "PositiveDecimal", expr: "PositiveDecimal(2.25d)", want: "2.25d", shown: "2.25"},
-	{name: "duration refinement", imports: []string{"std::duration.Duration", "std::duration.PositiveDuration"}, typ: "PositiveDuration", expr: `PositiveDuration(Duration"2s")`, want: "2s", shown: "2s"},
-	{name: "string refinement", decls: "subtype Tag String when fn s -> String.length(s) > 0", typ: "Tag", expr: `Tag("a")`, want: `"a"`, shown: "a"},
+	{name: "intersection of subtypes", subtype: true, typ: "NonNegativeInt and NonZeroInt", expr: "3", want: "3", shown: "3", parses: true, json: true, badJSON: "0", badText: "0"},
+	{name: "refinement", subtype: true, decls: "subtype Port Int when fn p -> p >= 1", typ: "Port", expr: "Port(3)", want: "3", shown: "3", parses: true, core: true, json: true, badJSON: "0", badText: "0"},
+	{name: "refinement chain", subtype: true, decls: "subtype NonNeg Float when fn x -> x >= 0.0\n\nsubtype Pos NonNeg when fn x -> x > 0.0", typ: "Pos", expr: "Pos(2.5)", want: "2.5", shown: "2.5", json: true, badJSON: "-1.5"},
+	{name: "refinement of two parents", subtype: true, decls: "subtype NonNeg Int when fn n -> n >= 0\n\nsubtype NonZ Int when fn n -> n != 0\n\nsubtype Pos NonNeg and NonZ when fn n -> n > 0", typ: "Pos", expr: "Pos(3)", want: "3", shown: "3", parses: true, json: true, badJSON: "0", badText: "0"},
+	{name: "decimal refinement", subtype: true, typ: "PositiveDecimal", expr: "PositiveDecimal(2.25d)", want: "2.25d", shown: "2.25"},
+	{name: "duration refinement", subtype: true, imports: []string{"std::duration.Duration", "std::duration.PositiveDuration"}, typ: "PositiveDuration", expr: `PositiveDuration(Duration"2s")`, want: "2s", shown: "2s"},
+	{name: "string refinement", subtype: true, decls: "subtype Tag String when fn s -> String.length(s) > 0", typ: "Tag", expr: `Tag("a")`, want: `"a"`, shown: "a", parses: true, json: true, badJSON: `""`, badText: ""},
 	{name: "struct refinement", decls: "struct Span\n    low: Int\n    high: Int\n    when fn s -> s.low <= s.high\nend", typ: "Span", expr: "Span{low: 1, high: 2}", want: "Span{low: 1, high: 2}"},
 	// A refinement of a collection is its base at run time: the value
 	// is walked as its base, a List's view for a List refinement.
-	{name: "list refinement", inspect: "[3, 4]", decls: "subtype Two List<Int> when fn xs -> List.length(xs) == 2", typ: "Two", expr: "Two([3, 4])",
-		obs: "Debug.inspect(Iter.map($v, &(&1 * 10)) |> Iter.to_list())", want: "[30, 40]", shown: "[3, 4]", core: true},
-	{name: "map refinement", inspect: `{"a" => 1}`, decls: "subtype Some1 Map<String, Int> when fn m -> Map.size(m) > 0", typ: "Some1", expr: `Some1({"a" => 1})`,
-		obs: "Debug.inspect(Iter.map($v, .second) |> Iter.to_list())", want: "[1]", shown: "{a => 1}"},
-	{name: "vector refinement", inspect: "Vector[1, 2]", decls: "subtype Row Vector<Int> when fn v -> Vector.length(v) > 0", typ: "Row", expr: "Row([1, 2])",
-		obs: "Debug.inspect(Iter.sum($v))", want: "3", shown: "Vector[1, 2]"},
-	{name: "set refinement", inspect: "Set[1, 2]", decls: "subtype Few Set<Int> when fn s -> Set.size(s) > 0", typ: "Few", expr: "Few([1, 2])",
-		obs: "Debug.inspect(Iter.sort(Iter.to_list($v)))", want: "[1, 2]", shown: "Set[1, 2]"},
-	{name: "generic refinement", inspect: "[3, 4]", decls: "subtype Many<A> List<A> when fn xs -> not Iter.is_empty(xs)", typ: "Many<Int>", expr: "Many.try_from([3, 4])!",
-		obs: "Debug.inspect(Iter.map($v, &(&1 * 10)) |> Iter.to_list())", want: "[30, 40]", shown: "[3, 4]"},
-	{name: "std NonEmptyList", inspect: "[3, 4]", typ: "NonEmptyList<Int>", expr: "NonEmptyList.of(3, [4])",
-		obs: "Debug.inspect(Iter.max($v))", want: "Some(4)", shown: "[3, 4]"},
-	{name: "string refinement walked", inspect: `"ab"`, decls: "subtype Tag String when fn s -> String.length(s) > 0", typ: "Tag", expr: `Tag("ab")`,
-		obs: `String.join($v, "-")`, want: "a-b", shown: "ab"},
+	{name: "list refinement", subtype: true, inspect: "[3, 4]", decls: "subtype Two List<Int> when fn xs -> List.length(xs) == 2", typ: "Two", expr: "Two([3, 4])",
+		obs: "Debug.inspect(Iter.map($v, &(&1 * 10)) |> Iter.to_list())", want: "[30, 40]", shown: "[3, 4]", core: true, json: true, badJSON: "[1]"},
+	{name: "map refinement", subtype: true, inspect: `{"a" => 1}`, decls: "subtype Some1 Map<String, Int> when fn m -> Map.size(m) > 0", typ: "Some1", expr: `Some1({"a" => 1})`,
+		obs: "Debug.inspect(Iter.map($v, .second) |> Iter.to_list())", want: "[1]", shown: "{a => 1}", json: true, badJSON: "{}"},
+	{name: "vector refinement", subtype: true, inspect: "Vector[1, 2]", decls: "subtype Row Vector<Int> when fn v -> Vector.length(v) > 0", typ: "Row", expr: "Row([1, 2])",
+		obs: "Debug.inspect(Iter.sum($v))", want: "3", shown: "Vector[1, 2]", json: true, badJSON: "[]"},
+	{name: "set refinement", subtype: true, inspect: "Set[1, 2]", decls: "subtype Few Set<Int> when fn s -> Set.size(s) > 0", typ: "Few", expr: "Few([1, 2])",
+		obs: "Debug.inspect(Iter.sort(Iter.to_list($v)))", want: "[1, 2]", shown: "Set[1, 2]", json: true, badJSON: "[]"},
+	{name: "generic refinement", subtype: true, inspect: "[3, 4]", decls: "subtype Many<A> List<A> when fn xs -> not Iter.is_empty(xs)", typ: "Many<Int>", expr: "Many.try_from([3, 4])!",
+		obs: "Debug.inspect(Iter.map($v, &(&1 * 10)) |> Iter.to_list())", want: "[30, 40]", shown: "[3, 4]", json: true, badJSON: "[]"},
+	{name: "std NonEmptyList", subtype: true, inspect: "[3, 4]", typ: "NonEmptyList<Int>", expr: "NonEmptyList.of(3, [4])",
+		obs: "Debug.inspect(Iter.max($v))", want: "Some(4)", shown: "[3, 4]", json: true, badJSON: "[]"},
+	{name: "string refinement walked", subtype: true, inspect: `"ab"`, decls: "subtype Tag String when fn s -> String.length(s) > 0", typ: "Tag", expr: `Tag("ab")`,
+		obs: `String.join($v, "-")`, want: "a-b", shown: "ab", parses: true},
 	{name: "list distinct", decls: "type Ids List<Int>", typ: "Ids", expr: "Ids[1]", want: "Ids([1])"},
 	{name: "tuple distinct", decls: "type Pair (Int, String)", typ: "Pair", expr: "Pair(1, \"a\")", want: "Pair(1, \"a\")"},
 	{name: "map distinct", decls: "type Kvs Map<String, Int>", typ: "Kvs", expr: "Kvs{\"a\" => 1}", want: "Kvs({\"a\" => 1})"},
@@ -292,6 +332,9 @@ const (
 	toHeld   = "enum Held<A>\n    One A\n    No\nend"
 	toRec    = "enum Rec$P\n    Has {f: $T, n: Int}\n    Empty\nend"
 	toDuo    = "enum Duo$P\n    Both ($T, Int)\n    Neither\nend"
+	// toJsonField is a struct of one field of $T, read and written as JSON
+	// by its derived impls.
+	toJsonField = "struct Jf\n    v: $T\nend\n\nderive FromJson for Jf\n\nderive ToJson for Jf"
 )
 
 var toOps = []toOp{
@@ -324,6 +367,31 @@ var toOps = []toOp{
 	{name: "interpolation", body: "s = \"<${$E}>\"\nassert s == \"<$S>\"\nout = $E", needs: needDisplay, core: true},
 	{name: "inspect", body: "assert Debug.inspect($E) == \"$I\"\nassert Debug.inspect([$E]) == \"[$I]\"\nout = $E", core: true},
 	{name: "display to_string", body: "assert Display.to_string($E) == \"$S\"\nout = $E", needs: needDisplay},
+	// A record of the value written as named texts and read back, as a
+	// route writes its parameters into a link and reads them from a path.
+	{name: "parse fields", imports: []string{"std::parse"},
+		body: "texts = parse.write_fields({v: $E})\nassert texts == [(\"v\", \"$S\")]\nout = parse.read_fields<{v: $T}>(Iter.to_map(texts))!.v", needs: needParse},
+	// A value of the type made by its Parse impl: a subtype has none.
+	{name: "parse at the type", imports: []string{"std::parse.Parse"}, body: "out = Parse.parse<$T>(\"$S\")!", needs: needParse},
+	// A record whose field's text breaks a subtype's rule reads as None.
+	{name: "parse fields breach", imports: []string{"std::parse"},
+		body: "assert parse.read_fields<{v: $T}>({\"v\" => \"$X\"}) == None\nout = $E", needs: needParse | needBreach},
+	// The value written as JSON and read back, in a record's field, in a
+	// derived struct's field and at the top; a subtype is read at its base
+	// and checked (spec §4 *Subtypes*), and JSON that breaks its rule is
+	// the read's error.
+	{name: "json record field", imports: []string{"std::json.Json"},
+		body: "out = Json.decode_as<{v: $T}>(Json.encode_as({v: $E}))!.v", needs: needJSON},
+	{name: "json record field breach", imports: []string{"std::json.Json"},
+		body: "assert Err(_) = Json.decode_as<{v: $T}>(`{\"v\": $J}`)\nout = $E", needs: needJSON | needBreach},
+	{name: "json derived field", imports: []string{"std::json.FromJson", "std::json.Json", "std::json.ToJson"}, decls: toJsonField,
+		body: "out = Json.decode_as<Jf>(Json.encode_as(Jf{v: $E}))!.v", needs: needJSON},
+	{name: "json derived field breach", imports: []string{"std::json.FromJson", "std::json.Json", "std::json.ToJson"}, decls: toJsonField,
+		body: "assert Err(_) = Json.decode_as<Jf>(`{\"v\": $J}`)\nout = $E", needs: needJSON | needBreach},
+	{name: "json at the type", imports: []string{"std::json.Json"},
+		body: "out = Json.decode_as<$T>(Json.encode_as($E))!", needs: needJSON},
+	{name: "json in a list breach", imports: []string{"std::json.Json"},
+		body: "assert Err(_) = Json.decode_as<List<$T>>(`[$J]`)\nout = $E", needs: needJSON | needBreach},
 	{name: "generic identity", decls: "fn ident<A>(x: A) -> A\n    x\nend", body: "out = ident($E)", core: true},
 	{name: "generic list", decls: "fn first_of<A>(xs: List<A>) -> A\n    List.first(xs)!\nend", body: "out = first_of([$E])"},
 	{name: "generic equatable", decls: "fn same<A>(a: A, b: A) -> Bool where A: Equatable\n    a == b\nend", body: "assert same($E, $E)\nout = $E", needs: needEq},
@@ -468,7 +536,7 @@ func toFill(s string, t *toType) string {
 	}
 	// $I is the inspect text as the body of a String literal.
 	lit := strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(inspect)
-	return strings.NewReplacer("$E", t.expr, "$T", t.typ, "$P", p, "$S", t.shown, "$I", lit).Replace(s)
+	return strings.NewReplacer("$E", t.expr, "$T", t.typ, "$P", p, "$S", t.shown, "$I", lit, "$J", t.badJSON, "$X", t.badText).Replace(s)
 }
 
 func toIndent(s, by string) string {
@@ -511,15 +579,20 @@ func (c toCell) source() (src, transcript string) {
 }
 
 // toImports is the import block for items, each "std::mod" or
-// "std::mod.Name", keeping only the names main uses.
+// "std::mod.Name", keeping only the names main uses. A module listed
+// alone (std::io, std::parse) is imported itself.
 func toImports(main string, items []string) string {
 	byMod := map[string][]string{}
+	whole := map[string]bool{}
 	var mods []string
 	for _, it := range items {
 		mod, name, _ := strings.Cut(it, ".")
 		if _, ok := byMod[mod]; !ok {
 			mods = append(mods, mod)
 			byMod[mod] = nil
+		}
+		if name == "" {
+			whole[mod] = true
 		}
 		if name != "" && regexp.MustCompile(`\b`+name+`\b`).MatchString(main) && !toContains(byMod[mod], name) {
 			byMod[mod] = append(byMod[mod], name)
@@ -529,7 +602,7 @@ func toImports(main string, items []string) string {
 	for _, mod := range mods {
 		names := byMod[mod]
 		switch {
-		case mod == "std::io":
+		case whole[mod]:
 			// The module itself (io.print), and any type it declares.
 			lines = append(lines, mod)
 			for _, n := range names {
@@ -561,6 +634,11 @@ type toRule struct {
 }
 
 var toRules = []toRule{
+	{
+		match:  func(c toCell) bool { return c.t.subtype && c.t.parses && c.op.name == "parse at the type" },
+		reject: "has no impl of Parse \\(required by `Parse.parse`\\)",
+		why:    "a subtype has no Parse of its base's, whose parse makes a value no rule of the subtype has checked (spec §4 *Subtypes*)",
+	},
 	{
 		match: func(c toCell) bool {
 			partial := strings.HasPrefix(c.t.expr, "Ok(") || strings.HasPrefix(c.t.expr, "Err(")
@@ -605,16 +683,36 @@ func toRejection(c toCell) (want, why string) {
 	if c.op.needs&needDisplay != 0 && c.t.shown == "" {
 		return toNoDisplay, "the operation needs Display, which " + c.t.typ + " lacks"
 	}
+	if c.op.needs&needParse != 0 && !c.t.parses {
+		return toNoParse, "the operation needs Parse and Display, which " + c.t.typ + " lacks"
+	}
 	return "", ""
 }
 
 // The checker's texts for a value with no equality (`==` cannot compare
 // it, a Set element or Map key cannot be one, an Equatable or Hashable
-// bound or impl it does not meet) and for one with no Display.
+// bound or impl it does not meet), for one with no Display, and for a
+// record whose field does not implement Parse and Display: the bound's
+// error, or the demand of a field that is an interface value or a type
+// parameter.
 const (
 	toNoEquality = "cannot compare|cannot be a (Set element|Map key)|(implement|impl of|require) `?(Equatable|Hashable)"
 	toNoDisplay  = "(implement|impl of|require) `?Display"
+	toNoParse    = "does not implement Parse|require (Parse|Display) of|no impl of `Parse`"
 )
+
+// takes reports whether t is a cell of op: a type with no JSON is no cell
+// of an operation that needs JSON, and one with no rule to break no cell
+// of one that reads a breach of it.
+func (t *toType) takes(op *toOp) bool {
+	if op.needs&needJSON != 0 && !t.json {
+		return false
+	}
+	if op.needs&needBreach != 0 && (op.needs&needJSON != 0 && t.badJSON == "" || op.needs&needParse != 0 && !t.subtype) {
+		return false
+	}
+	return true
+}
 
 // The default run checks every cell of a core type under a core operation,
 // and one in toSample of the rest.
@@ -626,6 +724,9 @@ func toCells(full bool) []toCell {
 	for i := range toTypes {
 		for j := range toOps {
 			c := toCell{&toTypes[i], &toOps[j]}
+			if !c.t.takes(c.op) {
+				continue
+			}
 			if full || (c.t.core && c.op.core) || n%toSample == 0 {
 				cells = append(cells, c)
 			}

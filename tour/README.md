@@ -29,7 +29,7 @@ make deploy-tour
 
 The deployable static site is written to:
 
-```txt
+```text
 tour/dist
 ```
 
@@ -64,7 +64,7 @@ words, expect blocks, the Examples pages) are in the repository's
 `AGENTS.md`. The Go side is documented in the packages that run blocks:
 `vmhost.LoadMarked` and `vmhost.BlockFiles` (a block's files, data files,
 modules and sibling projects), `vmhost.ToolMarked` (`tool:` steps),
-`internal/tourgo` (Go bindings and the `lib/` modules the tour links) and
+`internal/tourmodules` (the `lib/` modules the tour links) and
 `cmd/nomi-docgen` (the stdlib reference's editors). This section is the
 browser side.
 
@@ -95,7 +95,11 @@ page's load allowance (`LOAD_BUDGET_MS`) and outside the run's budget; tokens,
 hovers and the formatter need only the analysis, so a page that is only read
 never lowers it. The wasm reaches nothing outside the worker: std/fs goes to
 an in-memory file system (`src/lib/go-memfs.js`), and the stdlib has no
-networking module there. Memory is capped at 1 GiB and call depth at 1,000.
+networking module there. A std::wasm module, such as the SQLite driver's
+engine, runs on the browser's own WebAssembly engine, which the worker
+allows to compile a module of any size synchronously (internal/stdwasm
+package doc, "Engines"); `'wasm-unsafe-eval'` covers it. Memory is capped
+at 1 GiB and call depth at 1,000.
 The worker starts the wasm with `GODEBUG=gcstoptheworld=1`, for the reason its
 comment gives: js/wasm has one thread and no preemption, so without it a busy
 machine lets the heap grow without bound.
@@ -108,14 +112,17 @@ back, so its edits and output carry over. In the large view a block's files
 can be split into two groups of tabs, and the output can move below the code.
 A block that is a solution and its test opens the first time, in a large view
 at least 1100px wide, with the two side by side. A file is editable only when
-an edit can change what the block prints (`readOnlyReason`): Go files,
-`go.mod`, `go.sum`, a `nomi.toml` whose only table is `[module]`, and data
-files a `read-only:` word marks are locked. Highlighting, hovers and runs use
+an edit can change what the block prints (`readOnlyReason`): a
+`nomi.toml` whose only table is `[module]`, data
+files a `read-only:` word marks, and binary files are locked. A binary
+file is a `// FILE: <path> (base64)` section: its tab shows one line with
+its size, the run sends the section's base64 as the block holds it, and
+the static rendering keeps the base64 in the page, hidden, since the
+editor reads its source from there. Highlighting, hovers and runs use
 the same grammar, queries, analyzer and VM the editors use, compiled to wasm.
 Each file is highlighted in its own language (`fileLanguage` in
 `src/lib/highlight.mjs`): Nomi by the grammar, a `nomi.toml` or catalog as
-TOML, JSON as JSON, Go as the build highlighted it, and anything else
-(`go.mod`, data) uncoloured. The build's static rendering of a block, which
+TOML, JSON as JSON, and anything else (data) uncoloured. The build's static rendering of a block, which
 the page shows until the editor opens (`prehighlight.mjs`), colours each file
 the same way (`renderFiles`).
 
@@ -127,7 +134,7 @@ Chrome tests skip without Chrome or the staged `public/nomi/`).
 ## Cloudflare Pages
 
 Cloudflare Pages settings:
-```txt
+```text
 Framework preset: None
 Build command: make deploy-tour
 Build output directory: tour/dist
@@ -136,7 +143,7 @@ Root directory: /
 
 Environment variables:
 
-```txt
+```text
 NODE_VERSION=22
 GO_VERSION=1.27.0
 ```
@@ -156,7 +163,7 @@ both the Go module at the root and the Astro site under `tour/`.
 only a build warning when `site` is unset, and the sitemap's URLs use it. Set
 the variable only to build for another origin:
 
-```txt
+```text
 SITE_URL=https://example.org
 ```
 

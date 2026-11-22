@@ -8,7 +8,7 @@
 // register reinterpreted as an int64, never a numeric change.
 //
 // A draw produces two results (the value and the advanced state), which the
-// FFI boundary carries as a Nomi tuple: a Go multiple return projects
+// host projection carries as a Nomi tuple: a Go multiple return projects
 // element-by-element onto the tuple the Nomi declaration spells.
 package stdrandom
 
@@ -32,12 +32,12 @@ func splitmix64(state uint64) (out uint64, next uint64) {
 	return z, state
 }
 
-// FFIBetween returns an unbiased integer in the inclusive range [from, to]
+// HostBetween returns an unbiased integer in the inclusive range [from, to]
 // and the advanced state. The caller's range is a BoundedRange, so from <=
 // to. A range whose bounds fit int64 is drawn by
 // between64; a wider one by bigBetween. A reversed range answers from with
 // the state unchanged rather than inventing a value.
-func FFIBetween(seed, from, to rt.Int) (value rt.Int, next int64) {
+func HostBetween(seed, from, to rt.Int) (value rt.Int, next int64) {
 	state := register(seed)
 	f, fromFits := from.Int64()
 	t, toFits := to.Int64()
@@ -78,7 +78,7 @@ func bigBetween(state int64, lo, hi *big.Int) (rt.Int, int64) {
 	}
 }
 
-// between64 is FFIBetween for int64 bounds. The span is counted in uint64, so
+// between64 is HostBetween for int64 bounds. The span is counted in uint64, so
 // a range wider than int64 can hold, up to all of it, draws without
 // overflow: a range of all 2^64 values takes the raw output, and any other
 // draws an offset below its width by rejection sampling, which removes modulo
@@ -108,15 +108,15 @@ func below(s, n uint64) (uint64, uint64) {
 	}
 }
 
-// FFIUnitFloat returns a float in [0.0, 1.0) and the advanced state, using the
+// HostUnitFloat returns a float in [0.0, 1.0) and the advanced state, using the
 // top 53 bits (the float64 mantissa width).
-func FFIUnitFloat(seed rt.Int) (value float64, next int64) {
+func HostUnitFloat(seed rt.Int) (value float64, next int64) {
 	z, advanced := splitmix64(uint64(register(seed)))
 	return float64(z>>11) / float64(uint64(1)<<53), int64(advanced)
 }
 
-// FFIFromOS reads a fresh generator state from OS entropy.
-func FFIFromOS() (int64, error) {
+// HostFromOS reads a fresh generator state from OS entropy.
+func HostFromOS() (int64, error) {
 	var b [8]byte
 	if _, err := rand.Read(b[:]); err != nil {
 		return 0, fmt.Errorf("OS entropy unavailable: %w", err)
@@ -124,13 +124,13 @@ func FFIFromOS() (int64, error) {
 	return int64(binary.LittleEndian.Uint64(b[:])), nil
 }
 
-// FFISecureBytes is std/random's `secure_bytes`: count bytes from the
+// HostSecureBytes is std/random's `secure_bytes`: count bytes from the
 // operating system's cryptographically secure source. crypto/rand.Read does
 // not fail since Go 1.24, so the result needs no error. std declares count a
 // NonNegativeInt.
 //
 // A count past int64 is more bytes than memory holds, and traps naming it.
-func FFISecureBytes(count rt.Int) rt.Bytes {
+func HostSecureBytes(count rt.Int) rt.Bytes {
 	n, ok := count.Int64()
 	if !ok {
 		rt.Trap(fmt.Sprintf("random.secure_bytes: %s bytes are more than memory holds", count))

@@ -40,5 +40,5 @@ func (bl *irScalarBuilder) stdGenericOperatorCall(at *ast.Binary, left, right ir
 	call, done := bl.operatorCall(at)
 	defer done()
 	args := irQualArgs{temps: []ir.Temp{left, right}, kinds: []kind{lk, rk}, mobile: []bool{true, true}, ok: true}
-	return bl.ifaceContainerCall(call, args, spec.nomi, spec.method, bl.g.operandCheckerType(at.Left))
+	return bl.ifaceContainerCall(call, args, spec.method, bl.g.operandCheckerType(at.Left))
 }

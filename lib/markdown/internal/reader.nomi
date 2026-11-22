@@ -1,0 +1,378 @@
+//# A block's lines read as one text: each line's bytes, its padding spaces
+//# first, one after another in a `Bytes`, and a `Cursor` that moves through
+//# them. The inline phase reads a paragraph, a heading or a table cell
+//# this way, and the block phase reads a paragraph's link reference
+//# definitions so.
+
+import
+    std::bytes.Builder
+    markdown::internal::text
+end
+
+/// A part of a line of the source: the bytes from `start` up to `stop`,
+/// after `padding` spaces that stand for the rest of a tab a container
+/// took part of. `newline` asks for a line feed after it when it does not
+/// end with one, as a code block's last line at the end of the document
+/// needs.
+pub struct Seg
+    start:   Int
+    stop:    Int
+    padding: Int = 0
+    newline: Bool = False
+end
+
+impl Seg
+    /// How many bytes the segment stands for, its padding included.
+    pub fn length(s: Seg) -> Int
+        s.stop - s.start + s.padding
+    end
+
+    /// `s` with the spaces at its start left out, its padding with them.
+    pub fn trim_left(s: Seg, src: Bytes) -> Seg
+        Seg{start: s.start + text.leading_spaces(src, s.start, s.stop), stop: s.stop}
+    end
+
+    /// `s` with the spaces at its end left out, or an empty segment at its
+    /// start when it is all spaces.
+    pub fn trim_right(s: Seg, src: Bytes) -> Seg
+        n = text.trailing_spaces(src, s.start, s.stop)
+
+        if n == s.stop - s.start then
+            Seg{start: s.start, stop: s.start}
+        else
+            {..s, stop: s.stop - n, newline: False}
+        end
+    end
+
+    /// `out` with the bytes `s` stands for.
+    pub fn push(s: Seg, src: Bytes, out: Builder) -> Builder
+        out =
+            out
+            |> text.push_spaces(s.padding)
+            |> text.push_slice(src, s.start, s.stop)
+
+        if s.newline
+            and length(s) > 0
+            and (s.stop <= s.start or text.at(src, s.stop - 1) != 10) then
+            Builder.push_int8(out, 10)
+        else
+            out
+        end
+    end
+
+    /// The bytes `s` stands for.
+    pub fn value(s: Seg, src: Bytes) -> Bytes
+        if s.padding == 0 and not s.newline then return Bytes.slice(src, s.start, s.stop)
+        push(s, src, Builder.new()) |> Builder.to_bytes()
+    end
+end
+
+/// A block's lines as one text. `starts` holds where each line starts,
+/// then the end of the last; `before` holds, for each line, the code point
+/// the source has just before it, which is what comes before the line's
+/// first character.
+pub struct Lines
+    buf:    Bytes
+    starts: Vector<Int>
+    count:  Int
+    before: Vector<Int>
+    /// Where each line's first byte is in the source, less its padding.
+    origins: Vector<Int>
+end
+
+impl Lines
+    /// The lines `segs` stands for, in order, over the source `src`.
+    pub fn of(segs: List<Seg>, src: Bytes) -> Lines
+        empty = Lines{buf: Bytes.from_list([]), starts: [0], count: 0, before: [], origins: []}
+
+        (lines, out) = Iter.reduce(segs, (empty, Builder.new()), fn (lines, out), s ->
+            before =
+                case
+                    s.padding > 0                    -> 32
+                    lines.count == 0 or s.start <= 0 -> 10
+                    _                                -> text.rune_before(src, s.start)
+                end
+
+            out = Seg.push(s, src, out)
+
+            next = {
+                ..lines,
+                starts:  Vector.push(lines.starts, Builder.length(out)),
+                count:   lines.count + 1,
+                before:  Vector.push(lines.before, before),
+                origins: Vector.push(lines.origins, s.start - s.padding),
+            }
+
+            (next, out)
+        end)
+
+        {..lines, buf: Builder.to_bytes(out)}
+    end
+
+    /// Where line `n` starts.
+    pub fn start(lines: Lines, n: Int) -> Int
+        Vector.get(lines.starts, n) |> Maybe.with_default(Bytes.length(lines.buf))
+    end
+
+    /// Where line `n` stops, after its line feed.
+    pub fn stop(lines: Lines, n: Int) -> Int
+        start(lines, n + 1)
+    end
+
+    /// The end of the text.
+    pub fn limit(lines: Lines) -> Int
+        Bytes.length(lines.buf)
+    end
+
+    /// The byte at `i`, or -1 outside the text.
+    pub fn at(lines: Lines, i: Int) -> Int
+        text.at(lines.buf, i)
+    end
+end
+
+/// A position in a block's lines: the line it is on and the index of its
+/// byte in the text.
+pub struct Cursor
+    line: Int = 0
+    pos:  Int = 0
+end
+
+impl Cursor
+    /// The rest of the current line, from the cursor to just after its
+    /// line feed, as a start and a stop; None past the last line.
+    pub fn peek_line(c: Cursor, lines: Lines) -> Maybe<(Int, Int)>
+        if c.line < lines.count and c.pos < Lines.limit(lines) then
+            Some((c.pos, Lines.stop(lines, c.line)))
+        else
+            None
+        end
+    end
+
+    /// The byte at the cursor, or -1 past the last line.
+    pub fn peek(c: Cursor, lines: Lines) -> Int
+        if c.line < lines.count and c.pos < Lines.limit(lines) then Lines.at(lines, c.pos) else -1
+    end
+
+    /// The cursor `n` bytes on, onto the lines after when it passes the
+    /// end of one.
+    pub fn advance(c: Cursor, lines: Lines, n: Int) -> Cursor
+        settle({..c, pos: c.pos + n}, lines)
+    end
+
+    fn settle(c: Cursor, lines: Lines) -> Cursor
+        if c.line + 1 < lines.count and c.pos >= Lines.stop(lines, c.line) then
+            settle({..c, line: c.line + 1}, lines)
+        else
+            c
+        end
+    end
+
+    /// The cursor at the start of the next line.
+    pub fn advance_line(c: Cursor, lines: Lines) -> Cursor
+        line = c.line + 1
+
+        Cursor{
+            line:,
+            pos:
+                if line < lines.count then
+                    Lines.start(lines, line)
+                else
+                    Lines.limit(lines)
+                end,
+        }
+    end
+
+    /// The cursor at the line feed that ends its line, or after the line's
+    /// last byte when it has none.
+    pub fn advance_to_eol(c: Cursor, lines: Lines) -> Cursor
+        stop = Lines.stop(lines, c.line)
+        {..c, pos: if Lines.at(lines, stop - 1) == 10 then stop - 1 else stop}
+    end
+
+    /// The code point just before the cursor, which decides whether a
+    /// delimiter there can open or close.
+    pub fn before(c: Cursor, lines: Lines) -> Int
+        if c.pos == Lines.start(lines, c.line) then
+            Vector.get(lines.before, c.line) |> Maybe.with_default(10)
+        else
+            text.rune_before(lines.buf, c.pos)
+        end
+    end
+
+    /// The cursor after the spaces at it, across lines, how many it
+    /// passed, and whether a byte that is not a space follows.
+    pub fn skip_spaces(c: Cursor, lines: Lines) -> (Cursor, Int, Bool)
+        skip_counting(c, lines, 0)
+    end
+
+    fn skip_counting(c: Cursor, lines: Lines, n: Int) -> (Cursor, Int, Bool)
+        b = peek(c, lines)
+
+        case
+            b < 0            -> (c, n, False)
+            text.is_space(b) -> skip_counting(advance(c, lines, 1), lines, n + 1)
+            _                -> (c, n, True)
+        end
+    end
+
+    /// Where `closer` closes what the cursor is just inside of, across
+    /// lines, skipping a backslash-escaped one: the text from the cursor up
+    /// to the closer, and the cursor after it. None when it does not
+    /// close, or when `opener` (when it differs from `closer`) comes first.
+    pub fn find_closure(
+        c:      Cursor,
+        lines:  Lines,
+        opener: Int,
+        closer: Int,
+    ) -> Maybe<((Int, Int), Cursor)>
+        (found, stop) = closure_scan(lines, c.pos, opener, closer)
+        if found then Some(((c.pos, stop), advance(c, lines, stop + 1 - c.pos))) else None
+    end
+
+    /// Where goldmark's reader is left after `find_closure` found no
+    /// closer: at the end of the lines, or at the start of the line where
+    /// an opener stopped the search, or where it was when that is its own
+    /// line.
+    pub fn failed_closure(c: Cursor, lines: Lines, opener: Int, closer: Int) -> Cursor
+        (_, stop) = closure_scan(lines, c.pos, opener, closer)
+        if stop >= Lines.limit(lines) then return Cursor{line: lines.count, pos: Lines.limit(lines)}
+        line = line_of(lines, c.line, stop)
+
+        if line == c.line then
+            c
+        else
+            Cursor{line:, pos: Lines.start(lines, line)}
+        end
+    end
+
+    fn line_of(lines: Lines, line: Int, i: Int) -> Int
+        if line + 1 < lines.count and Lines.stop(lines, line) <= i then
+            line_of(lines, line + 1, i)
+        else
+            line
+        end
+    end
+
+    /// Whether `closer` closes from the cursor, as `find_closure` looks for
+    /// it, and the index where the search stopped: at the closer, at an
+    /// `opener` that came first, or at the end.
+    pub fn closure_end(c: Cursor, lines: Lines, opener: Int, closer: Int) -> (Bool, Int)
+        closure_scan(lines, c.pos, opener, closer)
+    end
+
+    fn closure_scan(lines: Lines, i: Int, opener: Int, closer: Int) -> (Bool, Int)
+        if i >= Lines.limit(lines) then return (False, i)
+        b = Lines.at(lines, i)
+
+        case
+            b == 92 and i + 1 < Lines.limit(lines) and text.is_punct(Lines.at(lines, i + 1)) ->
+                closure_scan(lines, i + 2, opener, closer)
+
+            b == closer ->
+                (True, i)
+
+            b == opener ->
+                (False, i)
+
+            _ ->
+                closure_scan(lines, i + 1, opener, closer)
+        end
+    end
+
+    /// A link destination at the cursor, after any spaces, and the cursor
+    /// after it: the text between `<` and `>` on the line, or the bytes up
+    /// to a space or an unbalanced `)`. None for an unclosed `<` or an
+    /// empty destination. The text is as written, escapes and all.
+    pub fn destination(c: Cursor, lines: Lines) -> Maybe<(Bytes, Cursor)>
+        (c, _, _) = skip_spaces(c, lines)
+        (s, e) = peek_line(c, lines) |> Maybe.with_default((c.pos, c.pos))
+
+        if peek(c, lines) == 60 then
+            stop = angle_end(lines, s + 1, e)
+            if stop < 0 then return None
+            return Some((Bytes.slice(lines.buf, s + 1, stop), advance(c, lines, stop + 1 - s)))
+        end
+
+        stop = bare_end(lines, s, e, 0)
+        if stop == s then return None
+        Some((Bytes.slice(lines.buf, s, stop), advance(c, lines, stop - s)))
+    end
+
+    fn angle_end(lines: Lines, i: Int, e: Int) -> Int
+        if i >= e then return -1
+        b = Lines.at(lines, i)
+
+        case
+            b == 92 and i < e - 1 and text.is_punct(Lines.at(lines, i + 1)) ->
+                angle_end(lines, i + 2, e)
+
+            b == 62 ->
+                i
+
+            _ ->
+                angle_end(lines, i + 1, e)
+        end
+    end
+
+    fn bare_end(lines: Lines, i: Int, e: Int, opened: Int) -> Int
+        if i >= e then return i
+        b = Lines.at(lines, i)
+
+        case
+            b == 92 and i < e - 1 and text.is_punct(Lines.at(lines, i + 1)) ->
+                bare_end(lines, i + 2, e, opened)
+
+            b == 40 ->
+                bare_end(lines, i + 1, e, opened + 1)
+
+            b == 41 ->
+                if opened - 1 < 0 then
+                    i
+                else
+                    bare_end(lines, i + 1, e, opened - 1)
+                end
+
+            text.is_space(b) ->
+                i
+
+            _ ->
+                bare_end(lines, i + 1, e, opened)
+        end
+    end
+end
+
+/// The key a link label is found by: its spaces at each end left out,
+/// each run of spaces inside it one space, and its case folded.
+pub fn reference_key(label: Bytes) -> String
+    n = Bytes.length(label)
+    from = text.leading_spaces(label, 0, n)
+    to = n - text.trailing_spaces(label, from, n)
+
+    collapse(Builder.new(), label, from, to, False)
+    |> Builder.to_bytes()
+    |> Bytes.to_string_lossy()
+    |> String.fold_case()
+end
+
+fn collapse(out: Builder, data: Bytes, i: Int, to: Int, in_space: Bool) -> Builder
+    if i >= to then return out
+    c = text.at(data, i)
+
+    case
+        text.is_space(c) ->
+            collapse(
+                if in_space then
+                    out
+                else
+                    Builder.push_int8(out, 32)
+                end,
+                data,
+                i + 1,
+                to,
+                True,
+            )
+
+        _ ->
+            collapse(Builder.push_int8(out, c), data, i + 1, to, False)
+    end
+end

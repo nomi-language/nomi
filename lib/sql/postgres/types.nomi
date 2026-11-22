@@ -1,0 +1,596 @@
+//# Values on the wire: how each Postgres type a `Value` has a variant for
+//# is read and written, by its OID. `codec` is the one table: it names the
+//# kind of each type the driver knows and of each array of one, and the
+//# format a column is asked for in. A column of a known type is read in
+//# Postgres's binary format, which is exact and does not depend on the
+//# session's settings (`DateStyle`, `TimeZone`); any other type (an
+//# interval, an enum, `inet`, `citext`) in text, as its text. A parameter
+//# is sent as text, which the server reads as the type it inferred for it,
+//# except where binary is exact and text is not: a float, and a calendar
+//# value of the type the server asks for.
+
+import
+    std::bytes.Builder
+    std::calendar.{Date, Days, NaiveDateTime, Time}
+    std::hex
+    std::instant.Instant
+    std::json.Json
+    std::sql.Value
+    std::uuid.Uuid
+end
+
+/// 2000-01-01 00:00 UTC, which Postgres's binary dates and times count
+/// from, in microseconds from the Unix epoch.
+once epoch_micros = 946_684_800_000_000
+
+once epoch_date = Date"2000-01-01"
+
+/// The first and the last microsecond a `timestamptz` holds, from 2000:
+/// 4714-11-24 BC and the end of 294276 AD.
+once first_micros = -211_813_488_000_000_000
+
+once end_micros = 9_223_371_331_200_000_000
+
+/// What a type's values are, for reading and writing them.
+pub enum Kind
+    Bool
+    Int16
+    Int32
+    Int64
+    Oid
+    Float32
+    Float64
+    Numeric
+    /// `text`, `varchar`, `char(n)` and `name`.
+    Text
+    Bytea
+    Json
+    Jsonb
+    Uuid
+    Date
+    Time
+    Timestamp
+    Timestamptz
+    /// A type the driver reads as its text.
+    Other
+end
+
+derive Equatable for Kind
+derive Display for Kind
+
+/// How a column or a parameter of one type crosses: its kind, and whether
+/// it is a one-dimensional array of that kind.
+pub struct Codec
+    kind:  Kind
+    array: Bool = False
+end
+
+derive Equatable for Codec
+
+/// The codec of the type `oid`.
+//! assert codec(20) == Codec{kind: .Int64}
+//! assert codec(1016) == Codec{kind: .Int64, array: True}
+//! assert codec(1186) == Codec{kind: .Other}
+//
+pub fn codec(oid: Int) -> Codec
+    case oid
+        16   -> Codec{kind: .Bool}
+        17   -> Codec{kind: .Bytea}
+        19   -> Codec{kind: .Text}
+        20   -> Codec{kind: .Int64}
+        21   -> Codec{kind: .Int16}
+        23   -> Codec{kind: .Int32}
+        25   -> Codec{kind: .Text}
+        26   -> Codec{kind: .Oid}
+        114  -> Codec{kind: .Json}
+        700  -> Codec{kind: .Float32}
+        701  -> Codec{kind: .Float64}
+        1042 -> Codec{kind: .Text}
+        1043 -> Codec{kind: .Text}
+        1082 -> Codec{kind: .Date}
+        1083 -> Codec{kind: .Time}
+        1114 -> Codec{kind: .Timestamp}
+        1184 -> Codec{kind: .Timestamptz}
+        1700 -> Codec{kind: .Numeric}
+        2950 -> Codec{kind: .Uuid}
+        3802 -> Codec{kind: .Jsonb}
+        199  -> Codec{kind: .Json, array: True}
+        1000 -> Codec{kind: .Bool, array: True}
+        1001 -> Codec{kind: .Bytea, array: True}
+        1003 -> Codec{kind: .Text, array: True}
+        1005 -> Codec{kind: .Int16, array: True}
+        1007 -> Codec{kind: .Int32, array: True}
+        1009 -> Codec{kind: .Text, array: True}
+        1014 -> Codec{kind: .Text, array: True}
+        1015 -> Codec{kind: .Text, array: True}
+        1016 -> Codec{kind: .Int64, array: True}
+        1021 -> Codec{kind: .Float32, array: True}
+        1022 -> Codec{kind: .Float64, array: True}
+        1028 -> Codec{kind: .Oid, array: True}
+        1115 -> Codec{kind: .Timestamp, array: True}
+        1182 -> Codec{kind: .Date, array: True}
+        1183 -> Codec{kind: .Time, array: True}
+        1185 -> Codec{kind: .Timestamptz, array: True}
+        1231 -> Codec{kind: .Numeric, array: True}
+        2951 -> Codec{kind: .Uuid, array: True}
+        3807 -> Codec{kind: .Jsonb, array: True}
+        _    -> Codec{kind: .Other}
+    end
+end
+
+/// The format a column of `codec` is asked for in: 1, binary, for a type
+/// the driver reads exactly that way and every array of one; 0, text, for
+/// the text types, `json`, and a type read as its text.
+//! assert result_format(codec(1184)) == 1
+//! assert result_format(codec(25)) == 0
+//! assert result_format(codec(1009)) == 1
+//
+pub fn result_format(codec: Codec) -> Int
+    case (codec.kind, codec.array)
+        (.Other, _) -> 0
+        (_, True)   -> 1
+        (.Text, _)  -> 0
+        (.Json, _)  -> 0
+        _           -> 1
+    end
+end
+
+/// The value a column of `codec` holds, from its bytes in `format`, or
+/// why they do not read as one.
+//! assert decode(codec(23), 1, Some(Bytes.from_list([0, 0, 1, 0]))) == Ok(Value.Int(256))
+//! assert decode(codec(25), 0, Some(String.to_bytes("hi"))) == Ok(Value.Text("hi"))
+//! assert decode(codec(1186), 0, Some(String.to_bytes("1 day"))) == Ok(Value.Text("1 day"))
+//! assert decode(codec(16), 1, None) == Ok(Value.Null)
+//
+pub fn decode(codec: Codec, format: Int, data: Maybe<Bytes>) -> Result<Value, String>
+    Some(bytes) = data else
+        None -> return Ok(Value.Null)
+    end
+
+    case
+        format == 0 -> Ok(text_value(codec.kind, Bytes.to_string_lossy(bytes)))
+        codec.array -> array_value(codec.kind, bytes)
+        _           -> binary_value(codec.kind, bytes)
+    end
+end
+
+// A value sent as text: `json` parses, and every other type is its text.
+fn text_value(kind: Kind, text: String) -> Value
+    case kind
+        .Json ->
+            Json.decode(text) |> Result.map(Value.Json) |> Result.with_default(Value.Text(text))
+
+        _ ->
+            Value.Text(text)
+    end
+end
+
+/// The value of one element or column of `kind` in binary.
+//! assert binary_value(.Float64, Bytes.from_list([0x40, 0x04, 0, 0, 0, 0, 0, 0]))
+//!     == Ok(Value.Float(2.5))
+//!
+//! assert binary_value(.Bool, Bytes.from_list([1])) == Ok(Value.Bool(True))
+//! assert binary_value(.Date, Bytes.from_list([0, 0, 0x26, 0xB2])) == Ok(Value.Date(Date"2027-02-14"))
+//! assert binary_value(.Date, Bytes.from_list([0x7F, 0xFF, 0xFF, 0xFF])) == Ok(Value.Text("infinity"))
+//!
+//! assert binary_value(.Timestamptz, Bytes.from_list([0, 0, 0, 0, 0, 0, 0, 1]))
+//!     == Ok(Value.Timestamptz(Instant.from_nanos(946_684_800_000_001_000)))
+//!
+//! assert binary_value(.Jsonb, Bytes.from_list([1, 91, 49, 93])) == Ok(Value.Json(Json.decode("[1]")!))
+//
+pub fn binary_value(kind: Kind, data: Bytes) -> Result<Value, String>
+    read =
+        case kind
+            .Bool ->
+                Bytes.uint8_at(data, 0) |> Maybe.map(fn b -> Value.Bool(b != 0))
+
+            .Int16 ->
+                Bytes.int16_be_at(data, 0) |> Maybe.map(Value.Int)
+
+            .Int32 ->
+                Bytes.int32_be_at(data, 0) |> Maybe.map(Value.Int)
+
+            .Int64 ->
+                Bytes.int64_be_at(data, 0) |> Maybe.map(Value.Int)
+
+            .Oid ->
+                Bytes.uint32_be_at(data, 0) |> Maybe.map(Value.Int)
+
+            .Float32 ->
+                Bytes.float32_be_at(data, 0) |> Maybe.map(Value.Float)
+
+            .Float64 ->
+                Bytes.float64_be_at(data, 0) |> Maybe.map(Value.Float)
+
+            .Numeric ->
+                numeric_value(data)
+
+            .Text ->
+                Some(Value.Text(Bytes.to_string_lossy(data)))
+
+            .Other ->
+                Some(Value.Text(Bytes.to_string_lossy(data)))
+
+            .Bytea ->
+                Some(Value.Bytes(data))
+
+            .Json ->
+                Some(text_value(.Json, Bytes.to_string_lossy(data)))
+
+            .Jsonb ->
+                Some(
+                    text_value(
+                        .Json,
+                        Bytes.to_string_lossy(Bytes.slice(data, 1, Bytes.length(data))),
+                    )
+                )
+
+            .Uuid ->
+                Uuid.from_bytes(data) |> Result.to_maybe() |> Maybe.map(Value.Uuid)
+
+            .Date ->
+                Bytes.int32_be_at(data, 0) |> Maybe.map(date_value)
+
+            .Time ->
+                Bytes.int64_be_at(data, 0) |> Maybe.map(time_value)
+
+            .Timestamp ->
+                Bytes.int64_be_at(data, 0) |> Maybe.map(timestamp_value)
+
+            .Timestamptz ->
+                Bytes.int64_be_at(data, 0) |> Maybe.map(timestamptz_value)
+        end
+
+    read |> Maybe.to_result("a value of ${Bytes.length(data)} bytes that does not read as ${kind}")
+end
+
+fn date_value(days: Int) -> Value
+    case days
+        2_147_483_647  -> Value.Text("infinity")
+        -2_147_483_648 -> Value.Text("-infinity")
+        _              -> Value.Date(epoch_date + Days(days))
+    end
+end
+
+// A time of day; 24:00:00, which Postgres allows, is its text.
+fn time_value(micros: Int) -> Value
+    second = micros / 1_000_000
+    nanos = (micros % 1_000_000) * 1000
+
+    case Time.new(second / 3600, (second / 60) % 60, second % 60, nanos)
+        Ok(time) -> Value.Time(time)
+        Err(_)   -> Value.Text("24:00:00")
+    end
+end
+
+fn timestamp_value(micros: Int) -> Value
+    case micros
+        9_223_372_036_854_775_807  -> Value.Text("infinity")
+        -9_223_372_036_854_775_808 -> Value.Text("-infinity")
+        _                          -> Value.Timestamp(NaiveDateTime.from_instant(instant(micros)))
+    end
+end
+
+fn timestamptz_value(micros: Int) -> Value
+    case micros
+        9_223_372_036_854_775_807  -> Value.Text("infinity")
+        -9_223_372_036_854_775_808 -> Value.Text("-infinity")
+        _                          -> Value.Timestamptz(instant(micros))
+    end
+end
+
+fn instant(micros: Int) -> Instant
+    Instant.from_nanos((micros + epoch_micros) * 1000)
+end
+
+/// A `numeric` in binary: a `Decimal` when one holds it, its text when it
+/// has more digits than a `Decimal` keeps, and a `Float` for `NaN` and the
+/// infinities, which a `Decimal` does not hold. The format is base-10000
+/// digits: their count, the weight of the first, the sign and the number
+/// of decimal digits.
+//! twelve = Bytes.from_list([0, 2, 0, 0, 0, 0, 0, 2, 0, 12, 9, 196])
+//! assert numeric_value(twelve) == Some(Value.Decimal(12.25d))
+//! big = Bytes.from_list([0, 2, 0, 2, 0x40, 0, 0, 0, 0, 1, 0, 2])
+//! assert numeric_value(big) == Some(Value.Decimal(-100020000d))
+//!
+//! assert numeric_value(Bytes.from_list([0, 0, 0, 0, 0xC0, 0, 0, 0])) |> Maybe.map(Value.kind) == Some(
+//!     "Float"
+//! )
+//
+pub fn numeric_value(data: Bytes) -> Maybe<Value>
+    count = Bytes.int16_be_at(data, 0)?
+    weight = Bytes.int16_be_at(data, 2)?
+    sign = Bytes.uint16_be_at(data, 4)?
+    scale = Bytes.uint16_be_at(data, 6)?
+
+    case sign
+        0xC000 -> return Some(Value.Float(Float.nan()))
+        0xD000 -> return Some(Value.Float(Float.positive_infinity()))
+        0xF000 -> return Some(Value.Float(Float.negative_infinity()))
+        _      -> Unit
+    end
+
+    // The digits as one integer, and the power of 10000 it is scaled by.
+    whole = numeric_digits(data, 0, count, 0)?
+    shift = weight - count + 1
+    text = place_point(whole, shift * 4, scale)
+    signed = if sign == 0x4000 then "-" + text else text
+
+    Some(
+        String.to_decimal(signed)
+        |> Maybe.map(Value.Decimal)
+        |> Maybe.with_default(Value.Text(signed))
+    )
+end
+
+// The base-10000 digits from the `at`th on, after `whole`, as one integer.
+fn numeric_digits(data: Bytes, at: Int, count: Int, whole: Int) -> Maybe<Int>
+    if at >= count then return Some(whole)
+    digit = Bytes.int16_be_at(data, 8 + 2 * at)?
+    numeric_digits(data, at + 1, count, whole * 10_000 + digit)
+end
+
+// `whole` × 10^`exponent` as decimal text with `scale` digits after the
+// point.
+fn place_point(whole: Int, exponent: Int, scale: NonNegativeInt) -> String
+    if exponent >= 0 then
+        integer = "${whole}" + String.repeat("0", exponent)
+        if scale > 0 then integer + "." + String.repeat("0", scale) else integer
+    else
+        fraction_digits = -exponent
+        digits = String.pad_start("${whole}", fraction_digits + 1, "0")
+        cut = String.length(digits) - fraction_digits
+        integer = String.slice(digits, 0, cut)
+        fraction = String.slice(digits, cut, String.length(digits))
+
+        kept =
+            if String.length(fraction) >= scale then
+                String.slice(fraction, 0, scale)
+            else
+                String.pad_end(fraction, scale, "0")
+            end
+
+        if scale > 0 then integer + "." + kept else integer
+    end
+end
+
+// A one-dimensional array of `kind` in binary: its dimensions, then each
+// element's length (-1 for NULL) and bytes.
+fn array_value(kind: Kind, data: Bytes) -> Result<Value, String>
+    malformed = "an array that does not read as one"
+    dimensions = Bytes.int32_be_at(data, 0) |> Maybe.to_result(malformed)?
+
+    case dimensions
+        0 ->
+            Ok(Value.Array([]))
+
+        1 ->
+            count = Bytes.int32_be_at(data, 12) |> Maybe.to_result(malformed)?
+            elements(kind, data, 20, count, []) |> Result.map(Value.Array)
+
+        _ ->
+            Err("an array of more than one dimension, which has no Nomi form")
+    end
+end
+
+fn elements(
+    kind: Kind,
+    data: Bytes,
+    at:   Int,
+    left: Int,
+    done: List<Value>,
+) -> Result<List<Value>, String>
+    if left <= 0 then return Ok(Iter.reverse(done))
+
+    length = Bytes.int32_be_at(data, at) |> Maybe.to_result("an array that ends too soon")?
+
+    if length < 0 then
+        elements(kind, data, at + 4, left - 1, [Value.Null, ..done])
+    else
+        value = binary_value(kind, Bytes.slice(data, at + 4, at + 4 + length))?
+        elements(kind, data, at + 4 + length, left - 1, [value, ..done])
+    end
+end
+
+/// A parameter of the server's type `oid` holding `value`: its format and
+/// its bytes, `None` for NULL, or why it cannot be sent.
+//! assert encode(Value.Int(7), 20) == Ok((0, Some(String.to_bytes("7"))))
+//! assert encode(Value.Null, 25) == Ok((0, None))
+//! assert encode(Value.Bool(True), 16) == Ok((0, Some(String.to_bytes("true"))))
+//!
+//! assert encode(Value.Float(2.5), 701)
+//!     == Ok((1, Some(Bytes.from_list([0x40, 0x04, 0, 0, 0, 0, 0, 0]))))
+//!
+//! assert encode(Value.Bytes(String.to_bytes("hi")), 25) == Ok((0, Some(String.to_bytes("\\x6869"))))
+//!
+//! assert encode(Value.Date(Date"2027-02-14"), 1082)
+//!     == Ok((1, Some(Bytes.from_list([0, 0, 0x26, 0xB2]))))
+//!
+//! assert encode(Value.Array([Value.Int(1), Value.Null]), 1016)
+//!     == Ok((0, Some(String.to_bytes("{\"1\",NULL}"))))
+//!
+//! assert encode(Value.Array([Value.Int(1), Value.Text("a")]), 1016)
+//!     == Err("an Array's elements must all be of one kind")
+//
+pub fn encode(value: Value, oid: Int) -> Result<(Int, Maybe<Bytes>), String>
+    kind = codec(oid).kind
+
+    case value
+        .Null ->
+            Ok((0, None))
+
+        .Float(x) when kind == .Float64 ->
+            Ok(
+                (
+                    1,
+                    Some(
+                        Builder.new()
+                        |> Builder.push_float64_be(x)
+                        |> Builder.to_bytes()
+                    ),
+                )
+            )
+
+        .Float(x) when kind == .Float32 ->
+            Ok(
+                (
+                    1,
+                    Some(
+                        Builder.new()
+                        |> Builder.push_float32_be(x)
+                        |> Builder.to_bytes()
+                    ),
+                )
+            )
+
+        .Bytes(b) when kind == .Bytea ->
+            Ok((1, Some(b)))
+
+        .Date(d) when kind == .Date ->
+            days = Date.days_between(epoch_date, d)
+
+            if days < -2_147_483_647 or days > 2_147_483_646 then
+                return Err("the Date ${d} is past what a date holds")
+            end
+
+            Ok(
+                (
+                    1,
+                    Some(
+                        Builder.new()
+                        |> Builder.push_int32_be(days)
+                        |> Builder.to_bytes()
+                    ),
+                )
+            )
+
+        .Time(t) when kind == .Time ->
+            Ok(
+                (
+                    1,
+                    Some(
+                        Builder.new()
+                        |> Builder.push_int64_be(time_micros(t))
+                        |> Builder.to_bytes()
+                    ),
+                )
+            )
+
+        .Timestamp(t) when kind == .Timestamp ->
+            Ok((1, Some(micros_bytes(NaiveDateTime.to_instant(t))?)))
+
+        .Timestamptz(at) when kind == .Timestamptz ->
+            Ok((1, Some(micros_bytes(at)?)))
+
+        .Array(values) ->
+            Ok((0, Some(String.to_bytes(array_text(values)?))))
+
+        _ ->
+            Ok((0, Some(String.to_bytes(text(value)))))
+    end
+end
+
+fn time_micros(t: Time) -> Int
+    ((Time.hour(t) * 60 + Time.minute(t)) * 60 + Time.second(t)) * 1_000_000 + Time.nanosecond(
+        t
+    ) / 1000
+end
+
+// An instant as a timestamp's microseconds from 2000, truncated to the
+// microsecond, or why a timestamp does not hold it.
+fn micros_bytes(at: Instant) -> Result<Bytes, String>
+    micros = Int.floor_div(Instant.as_nanos(at), 1000) - epoch_micros
+
+    if micros < first_micros or micros >= end_micros then
+        return Err(
+            "the Instant ${Instant.as_nanos(at)}ns from the epoch is past what a timestamptz holds, 4713 BC to 294276 AD"
+        )
+    end
+
+    Ok(
+        Builder.new()
+        |> Builder.push_int64_be(micros)
+        |> Builder.to_bytes()
+    )
+end
+
+/// A value that is not an array as Postgres reads it in text.
+//! assert text(Value.Date(Date"2026-10-19")) == "2026-10-19"
+//! assert text(Value.Date(Date.new(-44, 3, 15)!)) == "0045-03-15 BC"
+//! assert text(Value.Timestamptz(Instant.from_seconds(0))) == "1970-01-01 00:00:00+00"
+//! assert text(Value.Float(Float.nan())) == "NaN"
+//
+pub fn text(value: Value) -> String
+    case value
+        .Null           -> ""
+        .Int(n)         -> "${n}"
+        .Float(x)       -> float_text(x)
+        .Decimal(d)     -> "${d}"
+        .Text(s)        -> s
+        .Bool(b)        -> if b then "true" else "false"
+        .Bytes(b)       -> "\\x" + hex.encode(b)
+        .Date(d)        -> civil_text(d, "")
+        .Time(t)        -> "${t}"
+        .Timestamp(t)   -> civil_text(NaiveDateTime.to_date(t), " ${NaiveDateTime.to_time(t)}")
+        .Timestamptz(i) -> text(Value.Timestamp(NaiveDateTime.from_instant(i))) + "+00"
+        .Uuid(id)       -> "${id}"
+        .Json(j)        -> Json.encode(j)
+        .Array(values)  -> array_text(values) |> Result.with_default("{}")
+    end
+end
+
+fn float_text(x: Float) -> String
+    case
+        Float.is_nan(x)                -> "NaN"
+        x == Float.positive_infinity() -> "Infinity"
+        x == Float.negative_infinity() -> "-Infinity"
+        _                              -> "${x}"
+    end
+end
+
+// A date and what follows it, as Postgres writes them: a year before 1 AD
+// as `BC` after the rest.
+fn civil_text(date: Date, after: String) -> String
+    year = Date.year(date)
+    month = String.pad_start("${Date.month(date)}", 2, "0")
+    day = String.pad_start("${Date.day(date)}", 2, "0")
+
+    if year > 0 then
+        "${String.pad_start("${year}", 4, "0")}-${month}-${day}${after}"
+    else
+        "${String.pad_start("${1 - year}", 4, "0")}-${month}-${day}${after} BC"
+    end
+end
+
+/// An array as Postgres reads one in text, each element quoted: one kind
+/// of element, and no array inside it.
+//! assert array_text([Value.Text("a\"b"), Value.Null]) == Ok("{\"a\\\"b\",NULL}")
+//! assert array_text([]) == Ok("{}")
+//
+pub fn array_text(values: List<Value>) -> Result<String, String>
+    kinds =
+        values
+        |> Iter.reject(fn v -> v == Value.Null)
+        |> Iter.map(Value.kind)
+        |> Iter.to_set()
+
+    if "Array" in kinds then return Err("an Array of Arrays, and only one-dimensional arrays cross")
+    if Iter.count(kinds) > 1 then return Err("an Array's elements must all be of one kind")
+
+    items =
+        values
+        |> Iter.map(fn v ->
+            case v
+                .Null -> "NULL"
+                _     -> quoted(text(v))
+            end
+        end)
+        |> String.join(",")
+
+    Ok("{${items}}")
+end
+
+fn quoted(element: String) -> String
+    escaped = element |> String.replace("\\", "\\\\") |> String.replace("\"", "\\\"")
+    "\"${escaped}\""
+end

@@ -1,10 +1,11 @@
 //# The Go-backed half of std::xml: a reader of XML tokens over a
-//# `Reader`, and the escaping and name check its writer uses
-//# (internal/stdxml, over Go's encoding/xml). It is internal; a program
-//# imports std::xml.
+//# `Reader` or over text held whole, and the escaping and name check its
+//# writer uses (internal/stdxml, over Go's encoding/xml). It is internal; a
+//# program imports std::xml.
 
 import
     bool.Bool
+    bytes.Bytes
     int.Int
     io.{Error, Reader}
     lists.List
@@ -23,26 +24,14 @@ pub host fn open(reader: Reader, allow_doctype: Bool) -> Tokens
 /// 0 once reading stopped (`stopped` says why).
 pub host fn next(tokens: Tokens) -> Int
 
-/// The current tag's prefix, local name and namespace.
-pub host fn name(tokens: Tokens) -> List<String>
-
-/// The current start tag's attributes, four items each: prefix, local
-/// name, namespace and value.
-pub host fn attributes(tokens: Tokens) -> List<String>
-
-/// The current start tag's namespace declarations, two items each: the
-/// prefix (empty for the default) and the namespace.
-pub host fn namespaces(tokens: Tokens) -> List<String>
-
-/// The current text, comment, instruction data or DOCTYPE.
-pub host fn text(tokens: Tokens) -> String
-
-/// The current instruction's target.
-pub host fn target(tokens: Tokens) -> String
-
-/// The line and column where the current token starts, as `[line,
-/// column]`.
-pub host fn position(tokens: Tokens) -> List<Int>
+/// The parts of the token `next` read last, by its kind: a start tag's
+/// name, attributes and namespace declarations, an end tag's name, an
+/// instruction's `[target, data]`, and `[text]` for text, a comment or a
+/// DOCTYPE. A name is its prefix, local name and namespace; attributes are
+/// four items each, prefix, local name, namespace and value; namespace
+/// declarations are two items each, the prefix (empty for the default) and
+/// the namespace.
+pub host fn current(tokens: Tokens) -> List<List<String>>
 
 /// Why reading stopped, as `[kind, line, column]`: kind 0 at the end (or
 /// not yet), 1 a syntax error at the line and column, 2 the reader failed
@@ -54,6 +43,14 @@ pub host fn message(tokens: Tokens) -> String
 
 /// The reader's error, once `stopped` says 2.
 pub host fn failure(tokens: Tokens) -> Error
+
+/// Every token of the XML in `data`, read whole by the reader `open`
+/// makes: each token's kind, its parts as `current` gives them, why reading
+/// stopped as `stopped` says it (never 2), and its message.
+pub host fn decode(
+    data:          Bytes,
+    allow_doctype: Bool,
+) -> (List<Int>, List<List<List<String>>>, List<Int>, String)
 
 /// `text` as XML character data.
 pub host fn escape_text(text: String) -> String

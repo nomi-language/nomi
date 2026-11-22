@@ -17,7 +17,7 @@ failing 54
 C anon_struct.nomi
 E 1
 N 1
-H 1764b3d76a0f29bf6baa0da553100100b895da3d793dd038c42145e05caa4bba
+H a905b570d28b04ae890a2b5ca26d82367e75a1d2ef83ccceab1edce9de050c67
 T FAIL <root>/internal/irbuild/testdata/anon_struct.nomi :: records are structural, ordered by nothing the programmer wrote
 T   30
 T   Hi Bob, you are 42
@@ -27,7 +27,7 @@ T   {count: 3, outer: {inner: 1, label: hi}}
 T   1
 T   x is ten, y is 20
 T   30
-T   line 65: assertion failed
+T   line 67: assertion failed
 T     assert no({a: 1, a0: 2})
 T     values:
 T       {a: 1, a0: 2}
@@ -80,7 +80,7 @@ T
 C assert_shape.nomi
 E 1
 N 8
-H 6b68e71ea9f402bad23bd413787168296fb87a9ca860e77ce53f7741da890835
+H 0ed52d252c0c03b2d9543c7ca650f86a4905fc619c8f26c79dce04f5e92e9f13
 T FAIL <root>/internal/irbuild/testdata/assert_shape.nomi :: a Maybe subject that is None fails
 T   line 37: assertion failed
 T     assert find(2)
@@ -92,16 +92,16 @@ T     refute find(1)
 T     actual: Some("Ada")
 T ok <root>/internal/irbuild/testdata/assert_shape.nomi :: refuting a None passes and carries the None through
 T FAIL <root>/internal/irbuild/testdata/assert_shape.nomi :: a Result subject that is Err fails
-T   line 64: assertion failed
+T   line 65: assertion failed
 T     assert parse("wat")
 T     actual: Err("not a number")
 T ok <root>/internal/irbuild/testdata/assert_shape.nomi :: a Result subject that is Ok passes and carries the variant through
 T FAIL <root>/internal/irbuild/testdata/assert_shape.nomi :: refuting an Ok fails in its own words
-T   line 74: refute failed
+T   line 75: refute failed
 T     refute parse("42")
 T     actual: Ok(42)
 T FAIL <root>/internal/irbuild/testdata/assert_shape.nomi :: a bound shape subject shows its defining expression above its value
-T   line 80: assertion failed
+T   line 81: assertion failed
 T     assert looked_up
 T     defined as:
 T       find(2)
@@ -241,7 +241,7 @@ T
 C debug_display_surfaces.nomi
 E 1
 N 7
-H 7eb3c3b174b32cd638a279ba64b34f7d1eeef0a49b83d261698e3280c891336e
+H 1546892ded286b1bec86e8c0440f1e138ad14f2b36e44211c7b9d2ba6f912a2d
 T ok <root>/internal/irbuild/testdata/debug_display_surfaces.nomi :: the four renderings of one value
 T   1 Display.to_string(r) = REV-DISPLAY
 T   2 interpolated r       = REV-DISPLAY
@@ -256,37 +256,37 @@ T   10 Debug.inspect(b)    = False
 T   11 Debug.inspect(list) = [True, False]
 T   12 materialized payload = False
 T FAIL <root>/internal/irbuild/testdata/debug_display_surfaces.nomi :: values row for a struct with an impl Display
-T   line 178: assertion failed
+T   line 179: assertion failed
 T     assert no_rev(r)
 T     values:
 T       r
 T         = Rev{alpha: 2, zeta: 1}
 T FAIL <root>/internal/irbuild/testdata/debug_display_surfaces.nomi :: values row honours a hand-written impl Debug
-T   line 183: assertion failed
+T   line 184: assertion failed
 T     assert no_custom(c)
 T     values:
 T       c
 T         = CUSTOM-DEBUG
 T FAIL <root>/internal/irbuild/testdata/debug_display_surfaces.nomi :: values row for a struct with no impls at all
-T   line 188: assertion failed
+T   line 189: assertion failed
 T     assert no_plain(p)
 T     values:
 T       p
 T         = Plain{alpha: 2, zeta: 1}
 T FAIL <root>/internal/irbuild/testdata/debug_display_surfaces.nomi :: values row for a Bool
-T   line 193: assertion failed
+T   line 194: assertion failed
 T     assert no_bool(b)
 T     values:
 T       b
 T         = True
 T FAIL <root>/internal/irbuild/testdata/debug_display_surfaces.nomi :: values row for a list of Bool
-T   line 198: assertion failed
+T   line 199: assertion failed
 T     assert no_bools(bs)
 T     values:
 T       bs
 T         = [True, False]
 T FAIL <root>/internal/irbuild/testdata/debug_display_surfaces.nomi :: values row shows an opaque payload Debug hides
-T   line 203: assertion failed
+T   line 204: assertion failed
 T     assert no_meters(m)
 T     values:
 T       m
@@ -649,7 +649,7 @@ T
 C infinite_iter_traps.nomi
 E 1
 N 33
-H f526272fd92392ccc762c1610d2ed214cd276b6a91bf24d892d142e12b824708
+H 7028e409289cbf54530ac0cc1da06331dfc67d7ad0af90560c5adeefa07bf1a2
 T ok <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: a user source that says it is infinite
 T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: to_list of repeat
 T   line 46: `Iter.to_list` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
@@ -704,17 +704,17 @@ T   line 151: `String.join` of an infinite iterator (`Iter.repeat`) never finish
 T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: Result.partition
 T   line 156: `Result.partition` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
 T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: Task.spawn_all
-T   line 161: `Task.spawn_all` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T   line 162: `Task.spawn_all` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
 T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: through adapters that keep it infinite
-T   line 179: `Iter.to_list` of an infinite iterator (`Iter.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T   line 180: `Iter.to_list` of an infinite iterator (`Iter.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
 T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: zip of two infinite sources
-T   line 183: `Iter.to_list` of an infinite iterator (`Iter.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T   line 184: `Iter.to_list` of an infinite iterator (`Iter.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
 T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: concat with an infinite source
-T   line 187: `Iter.to_list` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T   line 188: `Iter.to_list` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
 T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: sort_with
-T   line 191: `Iter.sort_with` of an infinite iterator (`Iter.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T   line 192: `Iter.sort_with` of an infinite iterator (`Iter.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
 T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: to_list of an unbounded range from a negative start
-T   line 195: `Iter.to_list` of an infinite iterator (`Range.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T   line 196: `Iter.to_list` of an infinite iterator (`Range.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
 T test result: FAILED. 1 passed, 32 failed
 T
 C inspect_through_list.nomi

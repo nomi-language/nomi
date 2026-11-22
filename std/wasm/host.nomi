@@ -1,0 +1,90 @@
+//# The Go-backed half of std::wasm: WebAssembly modules compiled and run
+//# by an engine (internal/stdwasm). It is internal; a program imports
+//# std::wasm.
+//#
+//# A value crosses as two `Int64`s, its type and its bits: 0 for an
+//# `I32`, 1 an `I64`, 2 an `F32` and 3 an `F64`, and the bits as
+//# std::wasm's `Value` holds them, an integer's signed value and a
+//# float's `Float.to_bits_32` or `Float.to_bits`. A failure crosses as a
+//# list of strings, its kind first, which std::wasm reads into its
+//# `Error` (internal/stdwasm's wasm.go, "Failures").
+
+import
+    bytes.Bytes
+    int.{Int, Int64}
+    lists.List
+    results.Result
+    strings.String
+    unit.Unit
+end
+
+/// A compiled module.
+pub host type Compiled
+
+/// An instance of a module.
+pub host type Live
+
+/// The memory of the instance whose call reached an import, for the
+/// length of that import's call.
+pub host type Memory
+
+/// The module in `bytes`, compiled, or the engine's reason it is not one.
+pub host fn compile(bytes: Bytes) -> Result<Compiled, String>
+
+/// An instance of `module`. Import `i` is `modules[i]`.`names[i]`, takes
+/// `params[i]` and returns `results[i]`, by type, and is answered by
+/// `fns[i]`, or, while the task whose call reached it is stopping, by
+/// `stops[i]` without running `fns[i]`: `[]` for an import that runs then
+/// too, else `1` and the values. `limit` is the memory limit in bytes.
+pub host fn instantiate(
+    module:  Compiled,
+    modules: List<String>,
+    names:   List<String>,
+    params:  List<List<Int64>>,
+    results: List<List<Int64>>,
+    stops:   List<List<Int64>>,
+    fns:     List<(Memory, List<Int64>) -> Result<List<Int64>, String>>,
+    limit:   Int,
+) -> Result<Live, List<String>>
+
+/// The export `name` called with `args`, answering its results.
+pub host fn call(
+    instance: Live,
+    name:     String,
+    args:     List<Int64>,
+) -> Result<List<Int64>, List<String>>
+
+/// `length` bytes of the instance's memory from `at`.
+pub host fn read(instance: Live, at: Int, length: Int) -> Result<Bytes, List<String>>
+
+/// `data` into the instance's memory from `at`.
+pub host fn write(instance: Live, at: Int, data: Bytes) -> Result<Unit, List<String>>
+
+/// The size of the instance's memory in bytes.
+pub host fn size(instance: Live) -> Result<Int, List<String>>
+
+/// The instance dropped.
+pub host fn drop(instance: Live) -> Unit
+
+/// `read` for the memory an import is handed.
+pub host fn memory_read(memory: Memory, at: Int, length: Int) -> Result<Bytes, List<String>>
+
+/// `write` for the memory an import is handed.
+pub host fn memory_write(memory: Memory, at: Int, data: Bytes) -> Result<Unit, List<String>>
+
+/// `size` for the memory an import is handed.
+pub host fn memory_size(memory: Memory) -> Result<Int, List<String>>
+
+/// The export `name` of a fresh instance of `module`, its memory limited
+/// to `limit` bytes, called once over `input`, by std::wasm's `run`
+/// convention.
+pub host fn run(
+    module: Compiled,
+    name:   String,
+    input:  Bytes,
+    limit:  Int,
+) -> Result<Bytes, List<String>>
+
+/// The export `name` of `instance` called once over `input`, by std::wasm's
+/// `run` convention.
+pub host fn run_on(instance: Live, name: String, input: Bytes) -> Result<Bytes, List<String>>

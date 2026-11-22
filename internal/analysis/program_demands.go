@@ -7,16 +7,18 @@ import (
 	"sync/atomic"
 )
 
-// programDemands is FinalizeCoherence's answer for a program, kept up to
-// date file by file: what each file's bodies demand, the union of those
-// demands bucket by bucket (unionDemandsOver), and the missing-impl
-// diagnostic each bucket draws (MissingImpls). A file's part is valid while
-// the program holds the same analysis with the same body part (the analysis
-// pointer and FileBodies.generation); a recheck that rebuilds a file's
-// bodies (walkBodiesAgain) gives them a new generation. Each call reads
-// again only the files whose part is no longer valid, and works out again
-// only the buckets those files demanded before or demand now. The answer is
-// MissingImpls(p, p.Files())'s, diagnostic for diagnostic and in its order.
+// programDemands is the missing-impl check over a program's demanders:
+// what each file's bodies demand, the union of those demands bucket by
+// bucket, and the missing-impl diagnostic each bucket draws. MissingImpls
+// works one out afresh; FinalizeCoherence keeps one on the program, up to
+// date file by file. A file's part is valid while the program holds the
+// same analysis with the same body part (the analysis pointer and
+// FileBodies.generation); a recheck that rebuilds a file's bodies
+// (walkBodiesAgain) gives them a new generation. Each call reads again only
+// the files whose part is no longer valid, and works out again only the
+// buckets those files demanded before or demand now. A reduction over
+// stored facts (reduceCoherence) gathers its buckets from the facts and
+// settles each by the same rule (missingInBucket, missingInOrder).
 //
 // The supply side, the program's impl index and every file's own Impls,
 // comes from the program's declarations, which a body edit does not change.
@@ -29,8 +31,8 @@ type programDemands struct {
 	entry *FileAnalysis
 	// idx is the impl index and files the demanders the cache was built
 	// over. owner is the program's stdlib base, whose files' impls idx
-	// holds, and base is owner when files holds every one of its files, as
-	// unionDemandsOver settles it, or nil.
+	// holds, and base is owner when files holds every one of its files, or
+	// nil.
 	idx         *ProjectImplIndex
 	files       []*FileAnalysis
 	owner, base *StdBase
@@ -38,11 +40,12 @@ type programDemands struct {
 	own []fileDemands
 	// buckets holds every bucket a file or the base demands.
 	buckets map[implPair]*demandBucket
-	// extra is the union of the Impls of the files owner does not own.
+	// extra is the union of the Impls of the program's files owner does not
+	// own.
 	extra map[string]map[string]bool
-	// supply is the snapshot DetectMissingImpls reads a bucket against
-	// (MissingImpls): the index's impls and identity coverage of each type
-	// a bucket names, with extra's impls laid over them and uncovered.
+	// supply is the snapshot a bucket is read against (missingImpl): the
+	// index's impls and identity coverage of each type a bucket names, with
+	// extra's impls laid over them and uncovered.
 	supply *ProjectImplIndex
 	// missing is the diagnostic of each bucket that draws one.
 	missing map[implPair]TypeError
@@ -52,8 +55,8 @@ type programDemands struct {
 type fileDemands struct {
 	generation uint64
 	// has is every bucket of the file's own ImplManifest, and wants those
-	// a recording outside the stdlib demands (unionDemandsOver). A file
-	// base owns has neither: the base answers for it.
+	// a recording outside the stdlib demands, in a file outside the
+	// stdlib. A file base owns has neither: the base answers for it.
 	has, wants []implPair
 	// impls is a copy of the file's own Impls when it was read, nil for a
 	// file owner owns.
@@ -67,8 +70,8 @@ type demandBucket struct {
 	// when the base wants it.
 	from   []int
 	wanted int
-	// recs is the bucket's recordings as unionDemandsOver answers them,
-	// while wanted is above zero.
+	// recs is the bucket's recordings, each once in position order, while
+	// wanted is above zero.
 	recs []Recording
 }
 
@@ -100,14 +103,15 @@ func (p *Program) missingImplsKept(kept **programDemands, entry *FileAnalysis) [
 	p.demandsMu.Lock()
 	defer p.demandsMu.Unlock()
 	if d := *kept; d == nil || d.entry != entry || !d.update(p) {
-		*kept = newProgramDemands(p, entry)
+		*kept = newProgramDemands(p, entry, p.Files())
 	}
 	return (*kept).diagnostics()
 }
 
-// newProgramDemands reads every file of p and works out every bucket.
-func newProgramDemands(p *Program, entry *FileAnalysis) *programDemands {
-	files := p.Files()
+// newProgramDemands reads every file of files, p's files or some of them,
+// and works out every bucket. The supply is p's whole: its index, and the
+// own impls of every file of p the index does not answer for.
+func newProgramDemands(p *Program, entry *FileAnalysis, files []*FileAnalysis) *programDemands {
 	d := &programDemands{
 		entry:   entry,
 		idx:     p.ImplIndex,
@@ -124,14 +128,17 @@ func newProgramDemands(p *Program, entry *FileAnalysis) *programDemands {
 			d.bucket(b).wanted++
 		}
 	}
+	read := make(map[*FileAnalysis]bool, len(files))
 	for i, fa := range files {
 		d.own[i] = d.read(fa)
 		d.add(i)
-		for t, ifaces := range d.own[i].impls {
-			if d.extra[t] == nil {
-				d.extra[t] = map[string]bool{}
-			}
-			maps.Copy(d.extra[t], ifaces)
+		read[fa] = true
+		d.addExtra(d.own[i].impls)
+	}
+	for _, fa := range p.Files() {
+		if !read[fa] && !d.owner.Owns(fa) {
+			noteStdlibWork(fa.Origin)
+			d.addExtra(fa.Impls)
 		}
 	}
 	d.supply = &ProjectImplIndex{
@@ -143,6 +150,16 @@ func newProgramDemands(p *Program, entry *FileAnalysis) *programDemands {
 		d.settle(b)
 	}
 	return d
+}
+
+// addExtra lays impls, one file's own, over d.extra.
+func (d *programDemands) addExtra(impls map[string]map[string]bool) {
+	for t, ifaces := range impls {
+		if d.extra[t] == nil {
+			d.extra[t] = map[string]bool{}
+		}
+		maps.Copy(d.extra[t], ifaces)
+	}
 }
 
 // update brings the cache up to date with p, reading again the files whose
@@ -278,11 +295,10 @@ func (d *programDemands) remove(i int) {
 	}
 }
 
-// settle works out bucket b's recordings and diagnostic again, as
-// unionDemandsOver and MissingImpls do: the recordings of the files that
-// hold it in file order, then the base's, each once, sorted by position,
-// against the supply of b's type. It is linear in the bucket's recordings,
-// which for a pair like (Add, Int) come from most files.
+// settle works out bucket b's recordings and diagnostic again: the
+// recordings of the files that hold it in file order, then the base's
+// (missingInBucket). It is linear in the bucket's recordings, which for a
+// pair like (Add, Int) come from most files.
 func (d *programDemands) settle(b implPair) {
 	bk := d.buckets[b]
 	delete(d.missing, b)
@@ -306,15 +322,30 @@ func (d *programDemands) settle(b implPair) {
 		recs = append(recs, d.manifest(d.files[i])[b.iface][b.typeName]...)
 	}
 	recs = append(recs, baseRecs...)
-	sortRecordings(recs)
-	bk.recs = dropSortedDuplicates(recs)
-	if !missingImplsChecked(b.iface) {
-		return
-	}
-	d.supplyFor(b.typeName)
-	if e, ok := d.supply.missingImpl(b.iface, b.typeName, bk.recs, nil); ok {
+	var e TypeError
+	var ok bool
+	bk.recs, e, ok = missingInBucket(b, recs, func() *ProjectImplIndex {
+		d.supplyFor(b.typeName)
+		return d.supply
+	})
+	if ok {
 		d.missing[b] = e
 	}
+}
+
+// missingInBucket answers the recordings of bucket b, recs (the demanding
+// files' in order, then the stdlib base's) each once and sorted by
+// position, and the missing-impl diagnostic they draw against supply's
+// answer for b's type, if any. A check (programDemands.settle) and a
+// reduction over stored facts (reduceCoherence) settle each bucket here.
+func missingInBucket(b implPair, recs []Recording, supply func() *ProjectImplIndex) ([]Recording, TypeError, bool) {
+	sortRecordings(recs)
+	recs = dropSortedDuplicates(recs)
+	if !missingImplsChecked(b.iface) {
+		return recs, TypeError{}, false
+	}
+	e, ok := supply().missingImpl(b.iface, b.typeName, recs, nil)
+	return recs, e, ok
 }
 
 // dropSortedDuplicates drops each recording of recs, sorted by
@@ -362,13 +393,19 @@ func (d *programDemands) supplyFor(typeName string) {
 }
 
 // diagnostics answers every bucket's diagnostic, ordered by interface and
-// then type, as DetectMissingImpls orders them.
+// then type (missingInOrder).
 func (d *programDemands) diagnostics() []TypeError {
-	if len(d.missing) == 0 {
+	return missingInOrder(d.missing)
+}
+
+// missingInOrder answers the diagnostics of missing, ordered by interface
+// and then type, as DetectMissingImpls orders them.
+func missingInOrder(missing map[implPair]TypeError) []TypeError {
+	if len(missing) == 0 {
 		return nil
 	}
-	keys := make([]implPair, 0, len(d.missing))
-	for b := range d.missing {
+	keys := make([]implPair, 0, len(missing))
+	for b := range missing {
 		keys = append(keys, b)
 	}
 	sort.Slice(keys, func(i, j int) bool {
@@ -379,7 +416,7 @@ func (d *programDemands) diagnostics() []TypeError {
 	})
 	errs := make([]TypeError, len(keys))
 	for i, b := range keys {
-		errs[i] = d.missing[b]
+		errs[i] = missing[b]
 	}
 	return errs
 }

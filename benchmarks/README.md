@@ -18,7 +18,7 @@ time goes.
 
 ## Running
 
-```bash
+```sh
 benchmarks/run
 ```
 
@@ -31,18 +31,18 @@ names), `-out <file>` (`-` prints the table), `-check` (output checks only).
 A single program runs as any Nomi program does. A Benchmarks Game program
 takes its size, and the FASTA readers read standard input:
 
-```bash
+```sh
 nomi run benchmarks/game/nbody.nomi 1000
 ```
 
-```bash
+```sh
 nomi run benchmarks/game/revcomp.nomi < benchmarks/game/expected/fasta-output.txt
 ```
 
 An Are We Fast Yet program takes the suite's outer and inner iteration
 counts and prints `verified` when its result checks out:
 
-```bash
+```sh
 nomi run benchmarks/awfy/richards.nomi 1 10
 ```
 
@@ -70,7 +70,7 @@ Nomi function and by line; `--profile=<file>` also writes a pprof file
 (`docs/tooling.md`, "Where the time goes: `--profile`"). A built executable
 takes `NOMI_PROFILE=1` or `NOMI_PROFILE=<file>`:
 
-```bash
+```sh
 nomi run --profile benchmarks/game/nbody.nomi 200000
 ```
 
@@ -78,10 +78,10 @@ For work on the VM itself, `NOMI_CPUPROFILE=<file>` writes a Go CPU profile
 of the run, whose frames are the VM's Go functions (`internal/vm`) and the
 runtime's (`rt`), not the program's:
 
-```bash
+```sh
 NOMI_CPUPROFILE=nbody.prof nomi run benchmarks/game/nbody.nomi 200000
 ```
 
-```bash
+```sh
 go tool pprof -top nomi nbody.prof
 ```

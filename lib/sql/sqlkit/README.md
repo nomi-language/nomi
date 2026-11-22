@@ -4,7 +4,7 @@ Checked SQL for Nomi. You write SQL in `.sql` files; sqlkit checks each
 query against your schema and writes ordinary Nomi code for it: a row
 struct per table and a typed function per query. One tool does it:
 
-```
+```sh
 nomi tool sqlkit generate           # write the generated files
 nomi tool sqlkit generate --check   # write nothing; fail when they are stale
 ```
@@ -36,7 +36,7 @@ See [`../examples/shop`](../examples/shop) for a whole program.
 
 ## Setting up
 
-```
+```tree
 db/
 ├── migrations/
 │   ├── 20261019120000_users_and_orders.sql
@@ -66,6 +66,12 @@ Every key may be left out; those are the defaults. A module with no
 With several databases, give each its own `queries` and `out` or `schema`,
 so no two write one file. The migrations and the query files are the `.sql`
 files directly in their directories.
+
+The table is named by the key your `[dependencies]` gives sqlkit, `sqlkit`
+above. A project that names it `db = { module = ".../sqlkit", ... }` writes
+`[db.database.main]` and runs `nomi tool db generate`, and the generated
+code imports sqlkit's files through that name: `db::sqlkit`, which it uses
+as `sqlkit`, and `db::runtime`.
 
 A table's row struct is its name in the singular, in PascalCase: a final
 `ies` becomes `y` (`categories`, `Category`), a final `ses` becomes `s`
@@ -109,7 +115,7 @@ field the imported type lacks. Had `post_row` written `-> Maybe<Post>`,
 `nomi check` would say so at `body`, and a comment just above names the
 row:
 
-```
+```console
 error: Post has no field 'body'
   --> queries.nomi:36:13
    |
@@ -117,7 +123,7 @@ error: Post has no field 'body'
    |             ^^^^
 ```
 
-```
+```nomi
     // `Post` is models.Post, which db/queries/queries.sql imports. The row of the
     // table `posts` is `schema.Post`.
     runtime.optional(conn, "post_row", statement, fn row -> Ok(Post{
@@ -255,7 +261,7 @@ outer join inside one, or of one, makes every column of the query a
 `generate` stops with each problem at its file, line and column, and writes
 nothing:
 
-```
+```console
 db/queries/queries.sql:3:12: no such column: emial
 db/queries/queries.sql:3:12: help: reported by SQLite for `user_by_email`
 error: 1 problem in the SQL; nothing was written
@@ -279,7 +285,7 @@ error: 1 problem in the SQL; nothing was written
 One mistake can give two errors. Here `user_by_email` says `@mail` where it
 means `@email`, so `mail` names no parameter and `email` is not used:
 
-```
+```console
 db/queries/queries.sql:9:15: `mail` is not a parameter of `user_by_email`
 db/queries/queries.sql:9:15: help: its parameters are `email`
 db/queries/queries.sql:5:25: the parameter `email` is not used in the SQL of `user_by_email`
@@ -290,7 +296,7 @@ error: 2 problems in the SQL; nothing was written
 Taking `RETURNING id` off `insert_user` leaves an `INSERT` that returns no
 row, so there is no id to answer:
 
-```
+```console
 db/queries/queries.sql:11:62: `insert_user` returns no rows, so it cannot answer an `Int`; write `-> Changed` for the number of rows it changed, or `-> Unit`
 ```
 
@@ -298,7 +304,7 @@ The checker then checks the generated code like any other. A column read
 into a field of the wrong type, or a NULL-able one into a field that is not
 a `Maybe`, is an error at the column's reader in the generated file:
 
-```
+```console
 error: Int does not implement SqlNumeric (required by `where T: SqlNumeric`)
    --> queries.nomi:142:26
     |
@@ -335,7 +341,7 @@ SQLite stores a `DECIMAL(p, s)` column's values as 64-bit floats, exact to
 back as `12.50d`, and `generate` warns about a `DECIMAL` column declared
 with more than 15 digits or with no scale:
 
-```
+```console
 warning: db/migrations/20261201090000_discount.sql:1: `orders.discount` is DECIMAL with no scale, so a value reads back at its shortest scale (12.5, not 12.50): declare DECIMAL(p, s)
 ```
 

@@ -1,5 +1,7 @@
 //# The `[sqlkit]` table of a module's `nomi.toml`: its databases, each a
-//# `[sqlkit.database.<name>]` table.
+//# `[sqlkit.database.<name>]` table. The table is named by the key the
+//# module's `[dependencies]` gives sqlkit, `[db]` for `db = { module =
+//# ".../sqlkit", ... }`; `[sqlkit]` below is the key `sqlkit`.
 //#
 //#     [sqlkit.database.main]
 //#     dialect = "sqlite"             # or "postgres"
@@ -44,6 +46,11 @@ end
 
 /// One database of the module.
 pub struct Database
+    /// The name the module gives sqlkit: its key under `[dependencies]`,
+    /// which names the table the database is configured in and the module
+    /// the generated code imports.
+    kit: String = "sqlkit"
+
     name:       String
     dialect:    Dialect = Dialect.Sqlite
     migrations: String
@@ -63,14 +70,15 @@ end
 derive Equatable for Database
 
 /// The databases a `[sqlkit]` table, as `Json`, declares, by name; with
-/// none, `main` with the defaults.
+/// none, `main` with the defaults. `kit` is the table's name, the one the
+/// module gives sqlkit.
 //! c =
 //!     Json.decode(
 //!         "{\"database\":{\"main\":{\"queries\":\"sql\",\"tables\":{\"people\":\"Person\"}}}}"
 //!     )
 //!     |> Result.with_default(Json.Null)
 //!
-//! assert databases.read(c) == [
+//! assert databases.read(c, "sqlkit") == [
 //!     Database{
 //!         name:       "main",
 //!         migrations: "db/migrations",
@@ -81,15 +89,17 @@ derive Equatable for Database
 //!     },
 //! ]
 //!
-//! assert databases.read(Json.Null) == [databases.defaults("main")]
+//! assert databases.read(Json.Null, "sqlkit") == [databases.defaults("main")]
+//! assert databases.read(Json.Null, "db") == [{..databases.defaults("main"), kit: "db"}]
 //
-pub fn read(config: Json) -> List<Database>
-    tables = case field(config, "database")
-        Some(Json.Obj(tables)) -> tables
-        _                      -> {}
-    end
+pub fn read(config: Json, kit: String) -> List<Database>
+    tables =
+        case field(config, "database")
+            Some(Json.Obj(tables)) -> tables
+            _                      -> {}
+        end
 
-    if Map.size(tables) == 0 then return [defaults("main")]
+    if Map.size(tables) == 0 then return [{..defaults("main"), kit:}]
 
     tables
     |> Map.keys()
@@ -99,6 +109,7 @@ pub fn read(config: Json) -> List<Database>
         d = defaults(name)
 
         Database{
+            kit:,
             name:,
             dialect:     dialect_of(text(table, "dialect")),
             migrations:  text(table, "migrations") |> Maybe.with_default(d.migrations),
@@ -126,21 +137,22 @@ fn dialect_of(given: Maybe<String>) -> Dialect
     |> Maybe.with_default(Dialect.Sqlite)
 end
 
-/// What is wrong with a `[sqlkit]` table: a `dialect` that names no
-/// dialect.
+/// What is wrong with a `[sqlkit]` table, the one named `kit`: a
+/// `dialect` that names no dialect.
 //! c =
 //!     Json.decode("{\"database\":{\"main\":{\"dialect\":\"mysql\"}}}")
 //!     |> Result.with_default(Json.Null)
 //!
-//! assert databases.problems(c) == [
+//! assert databases.problems(c, "sqlkit") == [
 //!     "nomi.toml: `[sqlkit.database.main]` names the dialect \"mysql\"; sqlkit knows \"sqlite\" and \"postgres\"",
 //! ]
 //
-pub fn problems(config: Json) -> List<String>
-    tables = case field(config, "database")
-        Some(Json.Obj(tables)) -> tables
-        _                      -> {}
-    end
+pub fn problems(config: Json, kit: String) -> List<String>
+    tables =
+        case field(config, "database")
+            Some(Json.Obj(tables)) -> tables
+            _                      -> {}
+        end
 
     tables
     |> Map.keys()
@@ -151,7 +163,7 @@ pub fn problems(config: Json) -> List<String>
         case text(table, "dialect")
             Some(g) when not Iter.any_match(dialects(), fn (n, _) -> n == g) ->
                 [
-                    "nomi.toml: `[sqlkit.database.${name}]` names the dialect ${Debug.inspect(
+                    "nomi.toml: `[${kit}.database.${name}]` names the dialect ${Debug.inspect(
                         g
                     )}; sqlkit knows \"sqlite\" and \"postgres\"",
                 ]

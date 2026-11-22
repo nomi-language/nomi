@@ -8,6 +8,7 @@ import (
 	"io"
 	"mime"
 	"mime/multipart"
+	"net/http"
 	"net/textproto"
 	"sort"
 	"strconv"
@@ -86,13 +87,7 @@ func ParseMultipart(contentType string, data rt.Bytes) rt.Result[*rt.List[rt.Byt
 			text("f")
 			text(field)
 			text(fh.Filename)
-			names := sortedKeys(fh.Header)
-			var headers []string
-			for _, k := range names {
-				for _, v := range fh.Header[k] {
-					headers = append(headers, k, v)
-				}
-			}
+			headers := flatHeader(http.Header(fh.Header))
 			text(strconv.Itoa(len(headers) / 2))
 			for _, h := range headers {
 				text(h)

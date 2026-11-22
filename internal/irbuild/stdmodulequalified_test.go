@@ -8,8 +8,8 @@ import "testing"
 // `supervisors.Supervisor.new` with named and defaulted arguments in boot, an
 // app field of type `supervisors.Supervisor`, `random.Error.OsEntropy{...}`
 // built and matched, and `json.Json.Int(3)` and `json.Json.Null`. The
-// intrinsic arms recognise std's type by the declaration the owner resolves
-// to (stdIntrinsicOwner), so the local types keep their own calls.
+// intrinsic arms recognise std's function by the call's record
+// (intrinsicArm), so the local types keep their own calls.
 func TestStdModuleQualified_TypesResolveByDeclaration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
@@ -78,6 +78,24 @@ fn main()
   io.print(show(6))
   [1, 2] |> Iter.map(display.Display.to_string) |> String.join(",") |> io.print()
 end`, "3\nP4\nP5\n6\n1,2\n")
+}
+
+// A std interface named through its module, beside the file's own
+// interface of its name, over a std receiver whose impl that module
+// declares: the call is the impl its record names (recordedCallPlan), not
+// the file's interface.
+func TestStdModuleQualified_AStdImplBesideALocalInterfaceOfItsName(t *testing.T) {
+	verifyLambdaProgram(t, `import
+  std::io
+  std::json
+end
+interface ToJson
+  fn to_json(value: self) -> String
+end
+fn main()
+  io.print(json.ToJson.to_json(5))
+  io.print(json.ToJson.to_json("x"))
+end`, "5\n\"x\"\n")
 }
 
 // A std interface named through its module in a file that declares its own

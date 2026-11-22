@@ -34,6 +34,18 @@ func TestPatternMatch_WrapsCall(t *testing.T) {
 	}
 }
 
+// A call that is a binding's value becomes a `case` on the line below the
+// name, as `nomi fmt` writes one.
+func TestPatternMatch_WrapsABindingsCall(t *testing.T) {
+	decls := "fn parse(s: String) -> Result<Int, String>\n    Maybe.with_default(String.to_int(s), 0) |> Ok()\nend\n\n"
+	src := fnMainAfter(decls, "n = par‸se(\"4\")\nio.inspect(n)\n")
+	got := checkRefactor(t, src, "Pattern match on the result of parse", rewrite)
+	want := fnMainAfter(decls, "n =\n    case parse(\"4\")\n        .Ok(value)  -> todo\n        .Err(value) -> todo\n    end\n\nio.inspect(n)\n")
+	if got != want {
+		t.Fatalf("got\n%s\nwant\n%s", got, want)
+	}
+}
+
 func TestPatternMatch_Refused(t *testing.T) {
 	// Not an enum.
 	refuseRefactor(t, fnMain("n‸ = 4\nio.inspect(n)\n"), "Pattern match")

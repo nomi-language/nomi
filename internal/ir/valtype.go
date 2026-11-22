@@ -140,6 +140,10 @@ type ValType struct {
 	elems  []*ValType
 	names  []string
 	result *ValType
+	// spread says a distinct's inner type is written as a tuple of its
+	// parts, `type Coord (Int, Int)`, and reads as those parts:
+	// `Coord(3, 4)`. See SetSpread.
+	spread bool
 	// layout is a declared struct's fields or a declared enum's variants,
 	// stated by the producer after construction so that a type can reach
 	// itself through a field. nil until stated. See SetFields.
@@ -187,6 +191,11 @@ type Variant struct {
 	Name   string
 	Form   VariantForm
 	Fields []Field
+	// Spread says a positional variant's payload is written as a tuple of
+	// its parts, `Node(Tree, Tree)`, and reads as those parts:
+	// `Node(Leaf, Leaf)`. A payload of one tuple type reads as the tuple,
+	// `Some((1, 2))`.
+	Spread bool
 }
 
 // Layout is what a descriptor builder needs to know about a declared type
@@ -371,10 +380,27 @@ func (t *ValType) SetVariants(variants []Variant) {
 			panic("ir: ValType.SetVariants: " + v.Name + " is " + v.Form.String() +
 				" and carries " + strconv.Itoa(n) + " payloads")
 		}
-		vs[i] = Variant{Name: v.Name, Form: v.Form, Fields: requireFields(v.Fields, "SetVariants")}
+		if v.Spread && v.Form != VariantPositional {
+			panic("ir: ValType.SetVariants: " + v.Name + " is " + v.Form.String() + " and spreads its payload")
+		}
+		vs[i] = Variant{Name: v.Name, Form: v.Form, Fields: requireFields(v.Fields, "SetVariants"), Spread: v.Spread}
 	}
 	t.setLayout(&Layout{Variants: vs})
 }
+
+// SetSpread states that a distinct's inner type is written as a tuple of
+// its parts (`type Coord (Int, Int)`), which a rendering spreads:
+// `Coord(3, 4)`.
+func (t *ValType) SetSpread() {
+	if t.kind != KindDistinct || len(t.elems) != 1 || t.elems[0].kind != KindTuple {
+		panic("ir: ValType.SetSpread: " + t.String() + " is not a distinct over a tuple")
+	}
+	t.spread = true
+}
+
+// Spread reports whether t is a distinct whose inner type is written as a
+// tuple of its parts (SetSpread).
+func (t *ValType) Spread() bool { return t.spread }
 
 func (t *ValType) setLayout(l *Layout) {
 	if t.layout != nil {

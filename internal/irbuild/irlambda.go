@@ -98,20 +98,6 @@ func argsAt(args []ir.Temp, slots []int) []ir.Temp {
 	return out
 }
 
-// lambdaParamKind is the kind a lambda parameter takes: its annotation, the
-// type a pattern names or the checker recorded for it, or the inferred type.
-// kindInvalid is a miss, which the caller declines.
-func (g *gen) lambdaParamKind(p ast.Param) kind {
-	if p.TypeAnnotation != nil || p.Destructure != nil {
-		// `fn Dur(n) ->` takes a Dur, `fn Point{x, y} ->` a Point and
-		// `fn (k, v) ->` the tuple its position gives it: the type the
-		// checker recorded for the pattern (paramKind).
-		return g.paramKind(p)
-	}
-	_, k := g.inferredParamKind(p)
-	return k
-}
-
 func (bl *irScalarBuilder) lambda(t *ast.Lambda) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	params := make([]kind, len(t.Params))
@@ -119,7 +105,7 @@ func (bl *irScalarBuilder) lambda(t *ast.Lambda) (ir.Temp, kind, bool, bool) {
 		if po, partial := bl.partialOpen[t]; partial {
 			params[i] = po.kinds[i]
 		} else {
-			params[i] = bl.g.lambdaParamKind(p)
+			params[i] = bl.g.paramKind(p)
 		}
 		if !irCallableValueKind(params[i]) && params[i] != kindUnit {
 			bl.g.dc.note("a lambda parameter outside the domain: " + params[i].nomi())
@@ -183,15 +169,13 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 	}
 	at := bl.g.irNodePos(t)
 	f := ir.NewFunc(at, "lambda")
-	sh := &irFuncShell{fn: f, syms: map[string]*ir.Symbol{}, params: map[string]ir.Temp{}, patternOK: true}
-	sh.frame = newIRFuncFrame(f)
+	sh := &irFuncShell{fn: f, params: map[string]ir.Temp{}}
 	sh.entry = f.NewBlock(at, "entry")
-	child = &irScalarBuilder{g: bl.g, sh: sh, f: f, b: sh.entry, parent: bl, bound: map[string]ir.Temp{}, boundK: map[string]kind{}}
+	child = &irScalarBuilder{g: bl.g, sh: sh, f: f, b: sh.entry, parent: bl}
 	child.root = t
 	why = "a lambda parameter pattern"
 	var tries []irPendingTry
 	if supplier < 0 {
-		child.inferReturn = &resultInference{}
 		// A try in the body leaves the lambda's own activation, the
 		// innermost one.
 		child.concTries, child.tryBoundary = &tries, "lambda"
@@ -202,49 +186,31 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 	if supplier < 0 {
 		child.ctl = bl.ctlCallbacks[t]
 	}
-	var patterned []irPatternParam
 	// A supplier takes the parameters before its slot in the group's fill
 	// order (irLambdaGroup.before).
-	taken := t.Params[:len(params)]
-	if supplier >= 0 {
-		taken = make([]ast.Param, len(params))
-		for j, s := range group.before(supplier) {
-			taken[j] = t.Params[s]
-		}
+	taken := make([]int, len(params))
+	for i := range taken {
+		taken[i] = i
 	}
-	for i, p := range taken {
+	if supplier >= 0 {
+		copy(taken, group.before(supplier))
+	}
+	for i, s := range taken {
+		p := t.Params[s]
 		temp := bl.g.irAddParam(f, sh.paramSym(p), params[i])
 		if i == 0 && child.ctl == irCtlReduce {
 			child.ctlAcc = temp
 		}
-		if bl.g.irPrologueParam(p, params[i]) {
-			patterned = append(patterned, irPatternParam{pat: p.Destructure, temp: temp, k: params[i]})
-			continue
-		}
-		if tp, tuple := p.Destructure.(*ast.TuplePattern); tuple {
-			for j, c := range tp.Patterns {
-				id, named := c.(*ast.IdentPattern)
-				if !named || ast.IsDiscardName(id.Name) {
-					continue
-				}
-				part := params[i].comp.parts[j]
-				read := child.tupleProjection(tp, temp, j, part)
-				child.patternBinding(id, id.Name, read, part)
-			}
-			continue
-		}
 		if p.Destructure != nil {
-			// `fn Dur(n) ->`: the argument's inner value, bound to n, as a
-			// `Dur(n) = d` statement binds it.
-			name, _ := bl.g.irDistinctParamBinding(p.Destructure, params[i])
-			if !ast.IsDiscardName(name) {
-				inner := child.distinctProjection(p.Destructure, temp, params[i], true, "irlambda.go distinct parameter")
-				child.patternBinding(p.Destructure, name, inner, params[i].def.inner)
+			// `fn (a, b) ->`, `fn Point{x, y} ->`: the pattern's names, bound
+			// from the argument as a binding with no `else` binds them.
+			if !child.bindPattern(p.Destructure, temp, params[i]) {
+				return no()
 			}
 			continue
 		}
 		if !ast.IsDiscardName(p.Name) {
-			child.bound[p.Name], child.boundK[p.Name] = temp, params[i]
+			child.declareKey(bl.g.paramKey(t, s), temp, params[i])
 			child.declareVar(p.Name, temp, params[i], p.Line, p.Col)
 		}
 	}
@@ -253,15 +219,15 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 		// expected (lambdaArity) takes only those: each later parameter is
 		// its default, evaluated on every call in parameter order, as a
 		// call that leaves it out evaluates it.
-		for _, p := range t.Params[len(params):] {
-			k := bl.g.lambdaParamKind(p)
+		for j, p := range t.Params[len(params):] {
+			k := bl.g.paramKind(p)
 			v, vk, _, ok := child.lowerWant(p.Default, k)
 			if !ok || vk != k {
 				bl.g.dc.note("a lambda parameter default outside the parameter's kind: " + k.nomi())
 				return no()
 			}
 			if !ast.IsDiscardName(p.Name) {
-				child.bound[p.Name], child.boundK[p.Name] = v, k
+				child.declareKey(bl.g.paramKey(t, len(params)+j), v, k)
 				child.declareVar(p.Name, v, k, p.Line, p.Col)
 			}
 		}
@@ -272,41 +238,42 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 	self := supplier < 0 && bl.recursive != nil && bl.recursive.lam == t
 	if self {
 		r := bl.recursive
-		temp := bl.g.irAddParam(f, sh.localSym(r.name), r.k)
-		if _, shadowed := child.bound[r.name]; !shadowed {
-			child.bound[r.name], child.boundK[r.name] = temp, r.k
-		}
+		temp := bl.g.irAddParam(f, ir.NewSymbol(r.name), r.k)
+		// The body's reads of the fn's name resolve to its declaration,
+		// or an instance's, which in the body is this parameter.
+		child.declareKey(r.key, temp, r.k)
 	}
-	if len(patterned) != 0 {
-		if !child.patternParams(patterned) {
-			return no()
-		}
+	// The lambda's result: a supplier's is its slot's parameter, a
+	// reduction callback's its accumulator (through every branch, payload-free
+	// variants such as None included), the solved one where the position
+	// expects a wider or open result (lambdaWant), and otherwise the
+	// checker's (lambdaResultKind). Every `return` in the body answers it.
+	var sig irFuncSig
+	resolved := supplier >= 0
+	switch {
+	case supplier >= 0:
+		sig.result = group.params[supplier]
+	case bl.foldCallbacks[t]:
+		sig.result, resolved = params[0], true
 	}
-	sig := irFuncSig{inferResult: true}
-	// A reduction callback returns its accumulator type. Keep that context
-	// through every branch, including payload-free variants such as None.
-	if supplier < 0 && bl.foldCallbacks[t] {
-		sig = irFuncSig{result: params[0]}
-		child.returnKind = params[0]
-	}
-	if want, known := bl.g.lambdaWant, bl.g.lambdaWantFor == t; known && supplier < 0 && sig.inferResult && child.ctl == irCtlNone {
+	if want, known := bl.g.lambdaWant, bl.g.lambdaWantFor == t; known && !resolved && child.ctl == irCtlNone {
 		switch b := body.(type) {
 		case *ast.If, *ast.Case:
-			sig = irFuncSig{result: want}
+			sig.result, resolved = want, true
 		case *ast.ListLit:
 			// `fn -> { io.print("left") [] }`: an empty literal answers the
 			// solved result.
 			if len(b.Items) == 0 && b.TypeName == nil {
-				sig = irFuncSig{result: want}
+				sig.result, resolved = want, true
 			}
 		case *ast.MapLit:
 			if len(b.Entries) == 0 && b.TypeName == nil {
-				sig = irFuncSig{result: want}
+				sig.result, resolved = want, true
 			}
 		default:
 			// `fn -> { io.print("empty") None }`.
 			if _, _, _, bare := preludeValueName(body); bare {
-				sig = irFuncSig{result: want}
+				sig.result, resolved = want, true
 			}
 		}
 		if want.tag == tagSeq || irHeldKind(want) || bl.g.declaredFnLambda == t {
@@ -316,18 +283,22 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 			// `(Int) -> Display` is expected, or a nested fn declared to
 			// return `Display`: the body's value and every `return`'s
 			// enter the existential.
-			sig = irFuncSig{result: want}
-			child.returnKind = want
+			sig.result, resolved = want, true
 		}
+	}
+	if !resolved {
+		k, recorded := bl.lambdaResultKind(t)
+		if !recorded {
+			why = "a lambda the checker's records give no result"
+			return no()
+		}
+		sig.result = k
+	}
+	if supplier < 0 {
+		child.returnKind = sig.result
 	}
 	if supplier < 0 && child.ctl != irCtlNone {
 		lead, body = bl.g.irCtlTailGuard(lead, body)
-		if cond, isIf := body.(*ast.If); isIf && cond.Else == nil && sig.inferResult {
-			// `fn s -> if s == "STOP" { break }`: an `if` with no `else` is Unit
-			// either way, so a signalling arm has a known result to leave
-			// with.
-			sig = irFuncSig{result: kindUnit}
-		}
 	}
 	if block := t.Body; block != nil && supplier < 0 {
 		// The lambda's own statements: a `with` there holds for the rest of
@@ -371,18 +342,6 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 		}
 		ok = child.ctlReturn(body)
 		k = sig.result
-		if ok && sig.inferResult {
-			// A `break v` or `return v` settled the result's kind; with
-			// neither, the callee's parameter type gives it.
-			// kindInvalid: sentinel — no `break v` or `return v` settled it.
-			if k = child.returnKind; k == kindInvalid {
-				k = bl.g.lambdaCheckedResult(lam)
-			}
-			// kindInvalid: lookup — the checker recorded no function type at the argument.
-			if k == kindInvalid {
-				return no()
-			}
-		}
 	case *ast.If:
 		sh.result = child.lambdaResultSlot(sig)
 		k, ok = child.tailIf(t, sig)
@@ -392,20 +351,11 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 	default:
 		if supplier < 0 && bl.g.neverFinishes(body) {
 			// An `Iter.loop` with no `break` never answers: the lambda's
-			// result is what its returns settled, or the checker's.
+			// result is the one it has, which its returns answer.
 			if _, ok = child.endlessLoop(body); !ok {
 				return no()
 			}
-			if k = sig.result; sig.inferResult {
-				// kindInvalid: sentinel — no `return v` settled it.
-				if k = child.returnKind; k == kindInvalid {
-					k = bl.g.lambdaTypedResult(lam)
-				}
-				// kindInvalid: lookup — the checker recorded no function type for the lambda.
-				if k == kindInvalid {
-					return no()
-				}
-			}
+			k = sig.result
 			break
 		}
 		if fill := bl.partialOpen[lam].defaults; supplier >= 0 && fill != nil && fill[supplier] != nil {
@@ -413,38 +363,23 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 			// the callee's default, evaluated in the callee's scope.
 			answer, ok = fill[supplier](child)
 			k = group.params[supplier]
-		} else if supplier >= 0 {
-			answer, k, _, ok = child.lowerWant(body, group.params[supplier])
-		} else if !sig.inferResult {
-			answer, k, _, ok = child.lowerWant(body, sig.result)
 		} else {
-			answer, k, _, ok = child.lower(body)
+			answer, k, _, ok = child.lowerWant(body, sig.result)
 		}
 		if ok {
 			child.b.SetTerm(ir.NewReturn(bl.g.irNodePos(body), answer))
 		}
 	}
 	if ok && k == kindDiverged {
-		// Every arm of the tail region returned: the lambda's result is
-		// what those returns settled.
-		k = child.returnKind
-		// In a signalling callback every arm may leave by `break` or
-		// `continue` (`fn x -> case x { 1 -> continue  _ -> break 9 }`), and the
-		// result is the checker's.
-		// kindInvalid: sentinel — no `return` settled it.
-		if k == kindInvalid && child.ctl != irCtlNone {
-			k = bl.g.lambdaCheckedResult(t)
-		}
+		// `return todo` as the whole body traps and returns nothing: the
+		// lambda's result is the one it has.
+		k = sig.result
 	}
 	if !ok {
 		return no()
 	}
 	irHeldOperand(k, "a lambda's result")
-	if child.inferReturn != nil {
-		if _, agree := child.inferReturn.settle(k); !agree {
-			bl.g.dc.note("a lambda whose returns disagree")
-			return no()
-		}
+	if supplier < 0 {
 		if !child.settleConcurrentTries(tries, k) {
 			bl.g.dc.note("a try whose operand does not exit to the lambda's result: " + k.nomi())
 			return no()
@@ -454,9 +389,9 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 	bl.g.irRequireLint(f, "a lambda graph")
 	var n *ir.FuncValue
 	if self {
-		n = ir.NewRecursiveFuncValue(at, bl.f.NewTemp(), f, child.captures...)
+		n = ir.NewRecursiveFuncValue(at, bl.f.NewTemp(), f, child.captures...).KeepFields()
 	} else {
-		n = ir.NewFuncValue(at, bl.f.NewTemp(), f, child.captures...)
+		n = ir.NewFuncValue(at, bl.f.NewTemp(), f, child.captures...).KeepFields()
 	}
 	bl.b.Append(n)
 	fk := funcKindIn(bl.g, params, k)
@@ -469,15 +404,13 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 }
 
 // lambdaResultSlot is the temporary a lambda's tail `if` or `case` writes.
-// A declared result types it, so an arm whose value enters the result by
-// erasure (a Pt where a Named is declared) is copied into the declared
+// The lambda's result types it, so an arm whose value enters the result by
+// erasure (a Pt where a Named is declared) is copied into the result
 // type's storage, as a module function's result slot is, and an arm that
-// produces the declared type itself (a `todo`) agrees with it.
+// produces the result type itself (a `todo`) agrees with it.
 func (bl *irScalarBuilder) lambdaResultSlot(sig irFuncSig) ir.Temp {
 	t := bl.f.NewTemp()
-	if !sig.inferResult {
-		bl.g.irTypeTemp(bl.f, t, sig.result)
-	}
+	bl.g.irTypeTemp(bl.f, t, sig.result)
 	return t
 }
 
@@ -488,19 +421,41 @@ type irLambdaCapture struct {
 	// src is the enclosing builder's temporary the capture is supplied
 	// from, by which capturedPlan finds the captured value's plan.
 	src ir.Temp
-	// ref is the checker's reference at the read that made the capture,
-	// which the enclosing builder lowered and held to its binding
-	// (verifyLocalRead), or nil for an identifier the builder wrote.
-	ref *analysis.Symbol
+	// name is the captured name, which names the capture's parameter.
+	name string
 }
 
-// capture makes name a parameter of this closure, supplied by the value the
-// enclosing builder holds for it where the closure is built. A closure sees
-// the value a name held when it was made; a later rebinding of the name is a
-// new binding it never reads (spec §7 *Closures*).
-func (bl *irScalarBuilder) capture(t *ast.Ident) (ir.Temp, kind, bool, bool) {
-	if held, ok := bl.captured[t.Name]; ok {
-		bl.bound[t.Name], bl.boundK[t.Name] = held.temp, held.k
+// captureKey is what a closure captured: a local, by its key (readKey), or
+// what no body binds, by its declaration, or, for an identifier the
+// builder wrote that names no local, by its spelling.
+type captureKey struct {
+	local analysis.Pos
+	decl  ast.Node
+	name  string
+}
+
+// captureKeyOf is the captureKey of t, whose key readKey answered.
+func (bl *irScalarBuilder) captureKeyOf(t *ast.Ident, key analysis.Pos, local bool) captureKey {
+	if local {
+		return captureKey{local: key}
+	}
+	if sym := bl.g.identRef(t); sym != nil && sym.Node != nil {
+		return captureKey{decl: sym.Node}
+	}
+	return captureKey{name: t.Name}
+}
+
+// capture makes t's value a parameter of this closure, supplied by the
+// value the enclosing builder holds for it where the closure is built: the
+// local whose key is key, or what no body binds. A closure sees the value a
+// name held when it was made; a later rebinding of the name is a new
+// binding it never reads (spec §7 *Closures*).
+func (bl *irScalarBuilder) capture(t *ast.Ident, key analysis.Pos, local bool) (ir.Temp, kind, bool, bool) {
+	ck := bl.captureKeyOf(t, key, local)
+	if held, ok := bl.captured[ck]; ok {
+		if local {
+			bl.declareKey(key, held.temp, held.k)
+		}
 		return held.temp, held.k, true, true
 	}
 	src, k, _, ok := bl.parent.lower(t)
@@ -514,13 +469,15 @@ func (bl *irScalarBuilder) capture(t *ast.Ident) (ir.Temp, kind, bool, bool) {
 	if !ok || !irCallableValueKind(k) {
 		return ir.NoTemp, kindInvalid, false, false
 	}
-	dst := bl.g.irAddParam(bl.f, bl.sh.localSym(t.Name), k)
+	dst := bl.g.irAddParam(bl.f, ir.NewSymbol(t.Name), k)
 	bl.captures = append(bl.captures, src)
 	if bl.captured == nil {
-		bl.captured = map[string]irLambdaCapture{}
+		bl.captured = map[captureKey]irLambdaCapture{}
 	}
-	bl.captured[t.Name] = irLambdaCapture{temp: dst, k: k, src: src, ref: bl.g.identRef(t)}
-	bl.bound[t.Name], bl.boundK[t.Name] = dst, k
+	bl.captured[ck] = irLambdaCapture{temp: dst, k: k, src: src, name: t.Name}
+	if local {
+		bl.declareKey(key, dst, k)
+	}
 	bl.declareCapture(t.Name, dst, k, bl.capturedDecl(t.Name, src))
 	return dst, k, true, true
 }
@@ -558,7 +515,8 @@ func (bl *irScalarBuilder) capturedPlan(temp ir.Temp) *irLambdaPlan {
 	if bl.parent == nil {
 		return nil
 	}
-	for name, held := range bl.captured {
+	for _, held := range bl.captured {
+		name := held.name
 		if held.temp != temp {
 			continue
 		}
@@ -576,13 +534,13 @@ func (bl *irScalarBuilder) capturedPlan(temp ir.Temp) *irLambdaPlan {
 		if outer.entryGroup != nil {
 			// A partial's entry and its suppliers are closures of the
 			// parent's graph too.
-			plan.entry = bl.g.irAddParam(bl.f, bl.sh.localSym(name+"\x00entry"), outer.entryKind)
+			plan.entry = bl.g.irAddParam(bl.f, ir.NewSymbol(name+"\x00entry"), outer.entryKind)
 			bl.captures = append(bl.captures, outer.entry)
 			plan.entryGroup = bl.captureGroup(outer.entryGroup, name+"\x00entrydefault")
 			// Held by a name no program spells, so a partial over the
 			// entry (partialOverEntry) in a closure nested here finds the
 			// entry's own plan through this capture.
-			bl.captured[name+"\x00entry"] = irLambdaCapture{temp: plan.entry, k: outer.entryKind, src: outer.entry}
+			bl.captured[captureKey{local: bl.g.madeLocal()}] = irLambdaCapture{temp: plan.entry, k: outer.entryKind, src: outer.entry, name: name + "\x00entry"}
 		}
 		if bl.capturedPlans == nil {
 			bl.capturedPlans = map[ir.Temp]*irLambdaPlan{}
@@ -606,7 +564,7 @@ func (bl *irScalarBuilder) captureGroup(outer *irLambdaGroup, prefix string) *ir
 		// A supplier takes the parameters before its slot in the group's
 		// fill order and answers the slot's value.
 		sk := outer.supplierKind(bl.g, i)
-		dst := bl.g.irAddParam(bl.f, bl.sh.localSym(prefix+strconv.Itoa(i)), sk)
+		dst := bl.g.irAddParam(bl.f, ir.NewSymbol(prefix+strconv.Itoa(i)), sk)
 		bl.captures = append(bl.captures, s)
 		group.suppliers[i] = dst
 	}
@@ -806,90 +764,40 @@ func (bl *irScalarBuilder) funcRef(t *ast.Ident) (ir.Temp, kind, bool, bool) {
 		bl.g.dc.note("an iter-sensitive function passed where its break or continue cannot be caught: " + t.Name)
 		return no()
 	}
-	ref := ir.NewRefFunc(bl.g.irNodePos(t), bl.f.NewTemp(), bl.g.irFunctionCallee(sig))
+	ref := ir.NewRefFunc(bl.g.irNodePos(t), bl.f.NewTemp(), bl.g.irFunctionCallee(sig)).KeepFields()
 	bl.b.Append(ref)
 	bl.side(ref.Dst(), irScalarSide{k: fk, ctl: ctl})
 	return ref.Dst(), fk, true, true
 }
 
-// irDistinctParamBinding is the name a lambda parameter pattern `Dur(n)`
-// binds when the parameter's kind is a wrapping distinct, which the
-// pattern's head names (the checker types the pattern against the value);
-// `_` for `Dur(_)`. Any other pattern answers false.
-func (g *gen) irDistinctParamBinding(pattern ast.Node, k kind) (string, bool) {
-	ep, ok := pattern.(*ast.EnumPattern)
-	if !ok || k.tag != tagNamed || !irWrappingDistinct(k.def) {
-		return "", false
-	}
-	if _, isVariant := g.patternVariant(ep.Variant); isVariant {
-		return "", false
-	}
-	if ep.Binding != "" && ep.Payload == nil {
-		return ep.Binding, true
-	}
-	switch pl := ep.Payload.(type) {
-	case *ast.IdentPattern:
-		return pl.Name, true
-	case *ast.WildcardPattern:
-		return "_", true
-	}
-	return "", false
-}
-
-// irFlatTupleParam reports a tuple pattern of names and wildcards whose arity
-// matches a tuple kind.
-func irFlatTupleParam(tp *ast.TuplePattern, k kind) bool {
-	if k.tag != tagTuple || k.comp == nil || len(k.comp.parts) != len(tp.Patterns) {
-		return false
-	}
-	for _, c := range tp.Patterns {
-		switch c.(type) {
-		case *ast.IdentPattern, *ast.WildcardPattern:
-		default:
-			return false
+// lambdaResultKind is the result kind of the function type the checker's
+// records give lam: its own (recordedKind), or where its own result is
+// Infallible (a body that only leaves, `fn x -> { break Some(x) }`) the
+// result of the function type its position settled (settledKind:
+// `(T) -> Bool` for Iter.filter's callback). A lambda the builder writes
+// carries the type of the source it stands for (carryType). ok is false
+// where lam has no record that names a result, and the lambda declines
+// (noteUnrecordedKind counts it).
+func (bl *irScalarBuilder) lambdaResultKind(lam *ast.Lambda) (kind, bool) {
+	result := func(k kind) kind {
+		if k.tag != tagFunc || k.comp == nil || len(k.comp.parts) == 0 {
+			return kindInvalid
 		}
+		return funcResult(k)
 	}
-	return true
-}
-
-// lambdaCheckedResult is the result kind of the function type the checker
-// expected lam to be at its argument (`(T) -> Bool` for Iter.filter's
-// callback), or kindInvalid where it recorded none or left it unsolved. The
-// lambda's own type is not asked: a body that only leaves gives it
-// Infallible, which the callee does not take.
-func (g *gen) lambdaCheckedResult(lam *ast.Lambda) kind {
-	if g.fa == nil {
-		return kindInvalid
+	k := kindInvalid
+	if own, recorded := bl.g.recordedKind(lam); recorded {
+		k = result(own)
 	}
-	ty := g.srcFA().ExpectedTypes[lam]
-	for {
-		tv, isVar := ty.(*analysis.TypeVar)
-		if !isVar || tv.Resolved == nil {
-			break
-		}
-		ty = tv.Resolved
+	if settled, isSettled := bl.g.settledKind(lam); k == kindNever && isSettled {
+		k = result(settled)
 	}
-	ft, isFunc := ty.(*analysis.FuncType)
-	if !isFunc || ft.Return == nil {
-		return kindInvalid
+	// kindInvalid: lookup — a record no result kind represents is counted as no record.
+	if k == kindInvalid || k == kindNever {
+		bl.noteUnrecordedKind("lambda result", lam)
+		return kind{}, false
 	}
-	return g.project(ft.Return)
-}
-
-// lambdaTypedResult is lambdaCheckedResult, or where no function type was
-// expected at lam (`f = fn -> …`), the result of the type the checker gave lam
-// itself. A lambda ending in an `Iter.loop` with no `break` asks it: the loop
-// has its state type there, not Infallible.
-func (g *gen) lambdaTypedResult(lam *ast.Lambda) kind {
-	// kindInvalid: sentinel — no type was expected at the lambda; its own type answers.
-	if k := g.lambdaCheckedResult(lam); k != kindInvalid || g.fa == nil {
-		return k
-	}
-	ft, isFunc := g.srcFA().ExprTypes[lam].(*analysis.FuncType)
-	if !isFunc || ft.Return == nil {
-		return kindInvalid
-	}
-	return g.project(ft.Return)
+	return k, true
 }
 
 // lambdaArity is the number of parameters lambda t takes as a value: all of

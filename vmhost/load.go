@@ -59,13 +59,24 @@ type config struct {
 	warnings func(Diagnostics)
 	// hints adds the advice marked Hint to what warnings takes (WithHints).
 	hints bool
-	// held says the host holds the program to allowed (WithCapabilities).
+	// held says the host holds the program to allowed (WithEffects).
 	held    bool
 	allowed []string
-	// goHeld says the host holds the program's Go bindings to goModules
-	// (WithGo).
-	goHeld    bool
-	goModules []string
+	// loaderHosts admits the program's own `host fn`s no table answers
+	// (WithLoaderHosts).
+	loaderHosts bool
+}
+
+// WithLoaderHosts admits a program whose own `host fn`s no table passed
+// with WithHosts answers, for a build whose image the host that loads it
+// answers them for in JSON (a WASI reactor's nomi.host_call;
+// vmrunner.WithHostCalls): `nomi build --no-vm`, and `nomi build --target
+// wasip1/wasm` of a program with an `export fn`. The image records each
+// one's key and conversions (BuildExportsImage), and the runner that
+// loads it refuses it then when its host does not answer one. Running or
+// calling such a function here fails as a missing binding does.
+func WithLoaderHosts() Option {
+	return func(c *config) { c.loaderHosts = true }
 }
 
 func newConfig(opts []Option) config {
@@ -80,8 +91,7 @@ func newConfig(opts []Option) config {
 // declarations cross into. A table answers each function by the key the
 // declaration registers under: its bare name in the entry file,
 // `<module>.<name>` in a sibling file. A declaration no table answers is a
-// load error. An FFI wrapper passes the table it generated for the project's
-// `go` bindings; an embedder writes one (see hostadapt.Func). Nil tables are
+// load error. An embedder writes one (see hostadapt.Func). Nil tables are
 // skipped.
 func WithHosts(tables ...HostTable) Option {
 	return func(c *config) {
@@ -93,66 +103,42 @@ func WithHosts(tables ...HostTable) Option {
 	}
 }
 
-// WithCapabilities holds the program to names: what it may reach outside
-// the machine (Program.OutsideCalls), named as nomi.toml's [capabilities]
-// std lists name it, `std::fs` or `std::startup`, and `host:<key>` for a
+// WithEffects holds the program to names: the effects it may have
+// (Program.EffectCalls), named as nomi.toml's [effects] std lists
+// name them, `std::fs` or `std::startup`, and `host:<key>` for a
 // function a table passed with WithHosts answers. With no names the program
-// may reach nothing outside itself, and with it set no `go` binding runs
-// unless WithGo lists the module that binds it.
+// may have no effects.
 //
 // The load refuses the program before anything in it runs, with a
-// *CapabilityError, when an outside call is reachable from any function a
+// *EffectError, when a call with an effect is reachable from any function a
 // host can run: main and the boot, every function the entry file declares
 // (Call may call any of them), and the test cases. A name a nomi.toml
-// entry could not be (a misspelled std module, a `go:` name, since Go is
-// allowed by module with WithGo), a `host:` key no table answers, and a
-// name listed twice fail the load; a valid name nothing reaches does not.
+// entry could not be (a misspelled std module), a `host:` key no table
+// answers, and a name listed twice fail the load; a valid name nothing has does not.
 // Run, Test and Call hold the program again from their own roots, as they
-// hold it to nomi.toml's lists. The project's own [capabilities] tables
+// hold it to nomi.toml's lists. The project's own [effects] tables
 // still apply, so the program must satisfy both: neither list widens the
-// other, and a dependency's entry under [capabilities.deps.modules] still
-// holds that dependency's calls.
+// other, and an entry under [effects.self.modules] or
+// [effects.deps.modules] still holds that module's calls.
 //
 // It does not confine what it cannot see:
 //
 //   - WithFileSystem decides which files std::fs reaches; the list decides
-//     only whether std::fs is reached at all.
+//     only whether the program may have the effect std::fs at all.
 //   - A host function the host supplies is the host's own Go code, and
 //     acts as that code does once its `host:` name is allowed.
-//   - A `go` binding is Go code the VM cannot look inside: WithGo allows a
-//     module's bindings whole.
 //   - Allowing std::compiler lets the program run a nested program, which
 //     no list holds.
-//   - Time and memory are not capabilities: WithStop and Run's context stop
+//   - Time and memory are not effects: WithStop and Run's context stop
 //     a run, and EvalLimits bounds an Evaluate.
 //
 // The walk over what the program reaches is conservative: a call in a
 // branch that never runs counts, and so does any implementation of an
-// interface function the program calls (OutsideCall.Chain says why).
-func WithCapabilities(names ...string) Option {
+// interface function the program calls (EffectCall.Chain says why).
+func WithEffects(names ...string) Option {
 	return func(c *config) {
 		c.held = true
 		c.allowed = append([]string{}, names...)
-	}
-}
-
-// WithGo lets the modules named bind Go, as nomi.toml's `go` does: a `go`
-// binding reached from anything a host can run is refused, at the load
-// and again by Run, Test and Call, unless modules lists the module whose
-// files hold it, by its path as go.mod writes it. The program's own files
-// are its project's module: its go.mod's module path, else its nomi.toml's
-// `[module].name`, else its entry's module name, which for LoadSource is
-// the name it is given. Which Go package a binding names does not matter.
-//
-// With WithCapabilities, a Go binding is refused unless WithGo lists its
-// module, and with no WithGo none runs. Without WithCapabilities, WithGo
-// holds only Go bindings. A module that is neither the project nor one
-// its go.mod requires, and a module listed twice, fail the load. The
-// project's own [capabilities] tables still apply.
-func WithGo(modules ...string) Option {
-	return func(c *config) {
-		c.goHeld = true
-		c.goModules = append([]string{}, modules...)
 	}
 }
 
@@ -265,7 +251,7 @@ func (c *config) frontendConfig() (frontend.Config, error) {
 		VirtualManifest: c.manifest,
 		ProjectRoot:     c.projectRoot,
 		Provided: func(key string) bool {
-			return keys[key] || (c.session != nil && sessionKey(key))
+			return keys[key] || (c.session != nil && sessionKey(key)) || c.loaderHosts
 		},
 		HostTypesAreHandles: true,
 		UnmetHint:           "answer them from a host table passed with vmhost.WithHosts.",
@@ -509,7 +495,7 @@ func Check(path string, opts ...Option) error {
 	if err != nil {
 		return err
 	}
-	if err := p.capabilityError(p.checkedRoots()...); err != nil {
+	if err := p.effectError(p.checkedRoots()...); err != nil {
 		return err
 	}
 	writeAdvice(cfg, p.Advice())
@@ -518,8 +504,7 @@ func Check(path string, opts ...Option) error {
 }
 
 // checkedProgram is the program at abs as Check checks it, before Check
-// holds it to its lists: the front end, with every `go` binding taken as
-// provided, so a program with Go bindings checks without its wrapper, then
+// holds it to its lists: the front end, then
 // the lowering, as `nomi run` and `nomi test` lower it, with nothing run.
 // A body the compiler accepts and cannot lower is reported at its source,
 // as the error `nomi run` would stop with.
@@ -528,7 +513,6 @@ func checkedProgram(cfg config, abs string) (*Program, error) {
 	if err != nil {
 		return nil, err
 	}
-	fc.SourceBoundProvided = true
 	p, err := checked(lower(cfg, func() (*irbuild.Program, error) { return irbuild.AnalyzeFile(abs, fc) }))
 	if err != nil {
 		return nil, err
@@ -739,7 +723,7 @@ func newProgram(prog *irbuild.Program, res *irbuild.Result, declines map[string]
 	m := programManifest(prog.Root, cfg.manifest)
 	p.locales, p.webEmbedded = m.CarriedLocales(), m.WebLocales()
 	if m != nil {
-		p.capabilities = m.Capabilities
+		p.effects = m.Effects
 	}
 	if p.locales != nil {
 		p.source = m.Source()

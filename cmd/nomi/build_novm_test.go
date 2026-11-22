@@ -221,12 +221,10 @@ func TestBuildNoVM_Refusals(t *testing.T) {
 	env := buildEnv(t.TempDir())
 	dir := t.TempDir()
 	mustWrite(t, filepath.Join(dir, "echo.nomi"), imagePrograms["echo.nomi"])
-	project := filepath.Join(repoRoot(t), "cmd", "nomi", "testdata", "go_bindings", "main.nomi")
 	for _, c := range []struct {
 		args []string
 		want string
 	}{
-		{[]string{"build", "--no-vm", project, "-o", "ffi.nomic"}, "nomi build --no-vm: this project has Go bindings"},
 		{[]string{"build", "--no-vm", "--target", "linux/amd64", "echo.nomi"}, "a compiled program runs on every target's nomi-vm, so it takes no --target"},
 		{[]string{"build", "--no-vm", "--web", "echo.nomi"}, "--no-vm and --web are different outputs"},
 		{[]string{"build", "--compiler", "echo.nomi"}, "nomi build: unknown flag \"--compiler\""},

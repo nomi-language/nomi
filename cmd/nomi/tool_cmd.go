@@ -9,13 +9,15 @@ import (
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/modcache"
+	"github.com/nomi-language/nomi/vmhost"
 )
 
 const toolUsage = `usage: nomi tool <module> <name> [args...]
 
 tool runs the tool <name> of the module <module>: the program
 tools/<name>.nomi at the module's root, with the arguments after its name.
-<module> is the current module's name or a module its go.mod requires. A
+<module> is the current module's name or a dependency's name in its nomi.toml,
+which the tool finds in NOMI_TOOL_MODULE and reads its table by. A
 tool runs in the current directory, with the same access to files, the
 network and output that nomi run gives a program. It is how a module ships
 a code generator, such as sqlkit's
@@ -32,18 +34,12 @@ func toolPath(dir, module, name string) (path, root string, err error) {
 	if root == "" {
 		return "", "", fmt.Errorf("%s is in no module: there is no nomi.toml above it", dir)
 	}
-	modRoot := ""
-	if m, err := analysis.LoadManifest(root); err == nil && m.Name == module {
-		modRoot = root
-	} else {
-		index, err := analysis.BuildModuleIndex(root)
-		if err != nil {
-			return "", "", err
-		}
-		modRoot = index[module]
+	modRoot, err := analysis.ModuleRoot(root, module)
+	if err != nil {
+		return "", "", err
 	}
 	if modRoot == "" {
-		return "", "", fmt.Errorf("no module %s: it is neither this module nor one its go.mod requires; add it with `nomi add <module path>`, or `nomi add <directory>` for one on disk", module)
+		return "", "", fmt.Errorf("no module %s: it is neither this module nor a dependency its nomi.toml names; add it with `nomi add <module path>`, or `nomi add <directory>` for one on disk", module)
 	}
 	path = filepath.Join(modRoot, "tools", filepath.FromSlash(name)+".nomi")
 	if _, err := os.Stat(path); err != nil {
@@ -70,6 +66,11 @@ func runTool(args []string) error {
 	// go.mod lists, at the versions it lists, and the go.mod at the tool's
 	// own root, whose replaces are its checkout's, is not read.
 	if err := os.Setenv(modcache.MainModuleEnv, root); err != nil {
+		return err
+	}
+	// The tool reads its table, and writes its imports, under the name
+	// this project gives its module.
+	if err := os.Setenv(vmhost.ToolModuleEnv, args[0]); err != nil {
 		return err
 	}
 	runFileVM(path, args[2:]...)

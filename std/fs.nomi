@@ -19,6 +19,13 @@
 //# touching the disk. Tasks reach the file system of the frame they were
 //# started on.
 //#
+//# A `Dir` is a directory a program holds: `fs.open_dir` opens one, and
+//# `Dir`'s functions are these same functions, each taking a path under the
+//# directory and reaching nothing outside it. Opening the `Dir` is the call
+//# an effects list names `std::fs`. A library handed a `Dir` reads and
+//# writes only what is under it, and its own code needs no `std::fs`
+//# ([Effects lists](/tooling/projects/#effects-lists)).
+//#
 //# ```nomi
 //# import
 //#     std::fs
@@ -36,15 +43,17 @@
 import
     bool.Bool.{self, False, True}
     bytes.Bytes
+    duration.Duration
     equatable.Equatable
     fs::host
     instant.Instant
-    int.{Int, Int64, PositiveInt}
+    int.{Int, Int64, NonNegativeInt, PositiveInt}
     io.{Error, File, Reader, Writer}
     iter.Iter
     lists.List
     maybe.Maybe.{self, None, Some}
     path
+    resources.Release
     results.Result.{self, Err, Ok}
     strings.String
     unit.Unit
@@ -68,7 +77,10 @@ pub enum WriteMode
     /// Write a temporary file beside the path and rename it over the path
     /// when the write ends, so a reader sees the old contents or the new,
     /// never part of either. A write that fails leaves the old file as it
-    /// was.
+    /// was. On the disk the temporary file is synced before the rename, and
+    /// the directory is not after it: a crash right after the write can
+    /// leave the old contents, never part of the new. `fs.sync_dir` keeps
+    /// the new.
     ReplaceAtomically
     /// Create the file when it is missing, and write at its end.
     Append
@@ -136,7 +148,7 @@ end
 //! assert ran.value == Ok(String.to_bytes("ab"))
 //
 pub fn read(path: String) -> Result<Bytes, Error>
-    host.read(path)
+    Dir.read(Dir{files: host.here()}, path)
 end
 
 /// The whole file at `path`, as text. Bytes that are not UTF-8 are
@@ -160,7 +172,7 @@ end
 //! assert ran.value == [Ok("milk"), Err(Error.NotFound{path: "todo.txt"})]
 //
 pub fn read_text(path: String) -> Result<String, Error>
-    host.read_text(path)
+    Dir.read_text(Dir{files: host.here()}, path)
 end
 
 /// Writes `data` to `path`. By default it replaces the file; `mode` says
@@ -181,7 +193,7 @@ end
 //! assert ran.files == {"/work/a.bin" => String.to_bytes("a")}
 //
 pub fn write(path: String, data: Bytes, mode: WriteMode = WriteMode.Replace) -> Result<Unit, Error>
-    host.write(path, data, mode_code(mode))
+    Dir.write(Dir{files: host.here()}, path, data, mode:)
 end
 
 /// Writes `text` to `path` as UTF-8, as `fs.write` writes bytes.
@@ -203,7 +215,7 @@ pub fn write_text(
     text: String,
     mode: WriteMode = WriteMode.Replace,
 ) -> Result<Unit, Error>
-    host.write(path, String.to_bytes(text), mode_code(mode))
+    Dir.write_text(Dir{files: host.here()}, path, text, mode:)
 end
 
 /// Each line of the file at `path`, as `Reader.lines` reads them: without
@@ -232,7 +244,7 @@ end
 //! assert ran.open == []
 //
 pub fn lines(path: String) -> Iter<Result<String, Error>>
-    Lines{path:}
+    Lines{reach: fn -> Dir{files: host.here()}, path:}
 end
 
 /// The file at `path` in pieces of at most `size` bytes, as `fs.lines`
@@ -250,16 +262,19 @@ end
 //! assert ran.value == Ok([String.to_bytes("ab"), String.to_bytes("cd"), String.to_bytes("e")])
 //
 pub fn chunks(path: String, size: PositiveInt = 65536) -> Iter<Result<Bytes, Error>>
-    Chunks{path:, size:}
+    Chunks{reach: fn -> Dir{files: host.here()}, path:, size:}
 end
 
+/// The lines of a file, which each run opens again in the directory `reach`
+/// answers then.
 struct Lines
-    path: String
+    reach: () -> Dir
+    path:  String
 end
 
 impl Iter<Result<String, Error>> for Lines
     fn each_while(lines: Lines, yield: (Result<String, Error>) -> Bool) -> Bool
-        case host.open(lines.path)
+        case Dir.open(lines.reach(), lines.path)
             Err(e) ->
                 yield(Err(e))
 
@@ -271,13 +286,14 @@ impl Iter<Result<String, Error>> for Lines
 end
 
 struct Chunks
-    path: String
-    size: PositiveInt
+    reach: () -> Dir
+    path:  String
+    size:  PositiveInt
 end
 
 impl Iter<Result<Bytes, Error>> for Chunks
     fn each_while(chunks: Chunks, yield: (Result<Bytes, Error>) -> Bool) -> Bool
-        case host.open(chunks.path)
+        case Dir.open(chunks.reach(), chunks.path)
             Err(e) ->
                 yield(Err(e))
 
@@ -310,7 +326,7 @@ end
 //! assert ran.open == []
 //
 pub fn open(path: String) -> Result<Reader, Error>
-    host.open(path)
+    Dir.open(Dir{files: host.here()}, path)
 end
 
 /// A writer over the file at `path`, which `mode` treats as `fs.write`
@@ -374,7 +390,7 @@ end
 //! assert appended.open == []
 //
 pub fn create(path: String, mode = WriteMode.Replace) -> Result<Writer, Error>
-    host.create(path, mode_code(mode))
+    Dir.create(Dir{files: host.here()}, path, mode:)
 end
 
 /// How `fs.open_file` opens a file.
@@ -405,7 +421,7 @@ derive Equatable for Access
 ///     File.close(f)
 /// end
 /// ```
-//! import std::fs::testing.{self, Sandbox}
+//! import std::fs::testing.{self, Failure, Operation, Sandbox}
 //!
 //! ran = testing.run(Sandbox{}, fn ->
 //!     [
@@ -463,35 +479,236 @@ derive Equatable for Access
 //! assert patched.value == Ok(Unit)
 //! assert testing.text(patched, "/work/db") == Some("v2-data")
 //! assert patched.open == []
+//!
+//! fn save(data: String) -> Result<Unit, Error>
+//!     f = open_file("db", access: Access.ReadWrite)?
+//!     defer File.close_quietly(f)
+//!     File.write_at(f, 0, String.to_bytes(data))?
+//!     File.sync(f)
+//! end
+//!
+//! saved = testing.run(Sandbox{files: {"db" => "v1"}}, fn -> save("v2"))
+//!
+//! assert saved.value == Ok(Unit)
+//! assert testing.text(saved, "/work/db") == Some("v2")
+//!
+//! broken = Error.Other{operation: "sync", path: "db", code: "EIO"}
+//!
+//! failed = testing.run(Sandbox{
+//!     files:    {"db" => "v1"},
+//!     failures: [Failure{path: "db", operation: Operation.Sync, error: broken}],
+//! }, fn -> save("v2"))
+//!
+//! assert failed.value == Err(broken)
+//! assert failed.open == []
+//!
+//! logged = testing.run(Sandbox{files: {"log" => "a"}}, fn ->
+//!     f = open_file("log", access: Access.ReadWrite)?
+//!     defer File.close_quietly(f)
+//!     File.write_at(f, 1, String.to_bytes("b"))?
+//!     File.sync_data(f)
+//! end)
+//!
+//! assert logged.value == Ok(Unit)
+//! assert testing.text(logged, "/work/log") == Some("ab")
+//! assert logged.log == ["open /work/log", "sync_data /work/log"]
 //
 pub fn open_file(path: String, access = Access.Read) -> Result<File, Error>
-    code: Int64 = case access
-        Access.Read      -> 0
-        Access.ReadWrite -> 1
-        Access.Create    -> 2
-    end
+    Dir.open_file(Dir{files: host.here()}, path, access:)
+end
 
-    host.open_file(path, code)
+/// How a lock on a `File` holds its bytes (`fs.lock`, `fs.try_lock`).
+pub enum LockMode
+    /// Any number of handles may hold a shared lock on the same bytes.
+    Shared
+    /// No other handle holds any lock beside an exclusive one. The file must
+    /// be open to write: a file opened with `Access.Read` is
+    /// `PermissionDenied`.
+    Exclusive
+end
+
+derive Equatable for LockMode
+
+/// What `fs.try_lock` found.
+pub enum LockAttempt
+    /// The handle holds the lock.
+    Acquired
+    /// Another handle holds a lock on some of the bytes that conflicts with
+    /// the one asked for. Nothing changed.
+    Busy
+end
+
+derive Equatable for LockAttempt
+
+/// Takes a lock on the file `f` from `fs.open_file`: on `length` bytes from
+/// `start`, or on every byte from `start` on when `length` is `None`, so the
+/// whole file by default. It waits while another handle holds a lock there
+/// that conflicts, and returns `Err(io.Error.TimedOut)` when `timeout`
+/// passes first. An exclusive lock conflicts with every other lock, and a
+/// shared lock with an exclusive one. A lock may cover bytes past the end of
+/// the file.
+///
+/// A lock belongs to its handle. Two handles on one file exclude each other,
+/// in one program or in two, and so do two tasks that each open the file;
+/// tasks that share a handle share its locks. A lock is advisory: it stops
+/// other locks, not reads and writes. A lock on bytes the handle already
+/// holds replaces it, so a shared lock becomes exclusive once no other
+/// handle holds a lock there. Closing the file releases its locks, and so
+/// does the program ending. An exclusive lock on a file opened with
+/// `Access.Read` is `PermissionDenied`. A task cancelled while it waits
+/// stops waiting.
+///
+/// On Linux and macOS a lock is an open file description lock
+/// (`F_OFD_SETLK`). On Windows it is `LockFileEx`'s, which differs in three
+/// ways: a lock is mandatory, so another handle's read or write of bytes
+/// locked exclusively fails; a handle changes a lock only by unlocking it
+/// first; and `fs.unlock` names bytes exactly as they were locked. In memory
+/// (the browser, a sandbox) and in a wasip1 module, where WASI has no locks,
+/// the program keeps its locks itself: they exclude its own handles and
+/// nothing outside it.
+///
+/// ```nomi
+/// fs.lock(f, .Exclusive, timeout: Duration.seconds(5))?
+/// ```
+//! import std::fs::testing.{self, Sandbox}
+//!
+//! ran = testing.run(Sandbox{files: {"db" => ""}}, fn ->
+//!     a = open_file("db", access: Access.ReadWrite)?
+//!     defer File.close_quietly(a)
+//!     b = open_file("db", access: Access.ReadWrite)?
+//!     defer File.close_quietly(b)
+//!     lock(a, LockMode.Exclusive)?
+//!     waited = lock(b, LockMode.Shared, timeout: Duration.milliseconds(10))
+//!     unlock(a)?
+//!     Ok((waited, lock(b, LockMode.Shared)))
+//! end)
+//!
+//! assert ran.value == Ok((Err(Error.TimedOut), Ok(Unit)))
+//! assert ran.open == []
+//
+pub fn lock(
+    f:       File,
+    mode:    LockMode,
+    start:   NonNegativeInt = 0,
+    length:  Maybe<PositiveInt> = None,
+    timeout: Duration = Duration.seconds(5),
+) -> Result<Unit, Error>
+    if host.lock(f, lock_code(mode), start, length_code(length), timeout)? then
+        Ok(Unit)
+    else
+        Err(Error.TimedOut)
+    end
+end
+
+/// Takes a lock as `fs.lock` does, without waiting: `Busy` when another
+/// handle holds a lock on some of the bytes that conflicts, in this program
+/// or another, and nothing changed.
+///
+/// ```nomi
+/// case fs.try_lock(f, .Exclusive)?
+///     .Acquired -> write_page(f)
+///     .Busy     -> Err(Busy)
+/// end
+/// ```
+//! import std::fs::testing.{self, Sandbox}
+//!
+//! ran = testing.run(Sandbox{files: {"db" => ""}}, fn ->
+//!     a = open_file("db", access: Access.ReadWrite)?
+//!     defer File.close_quietly(a)
+//!     b = open_file("db", access: Access.ReadWrite)?
+//!     defer File.close_quietly(b)
+//!
+//!     Ok([
+//!         try_lock(a, LockMode.Exclusive, length: Some(100))?,
+//!         try_lock(b, LockMode.Shared)?,
+//!         try_lock(b, LockMode.Exclusive, start: 100)?,
+//!         try_lock(a, LockMode.Shared, start: 50, length: Some(100))?,
+//!     ])
+//! end)
+//!
+//! busy = LockAttempt.Busy
+//! assert ran.value == Ok([LockAttempt.Acquired, busy, LockAttempt.Acquired, busy])
+//
+pub fn try_lock(
+    f:      File,
+    mode:   LockMode,
+    start:  NonNegativeInt = 0,
+    length: Maybe<PositiveInt> = None,
+) -> Result<LockAttempt, Error>
+    if host.lock(f, lock_code(mode), start, length_code(length), Duration.nanoseconds(0))? then
+        Ok(LockAttempt.Acquired)
+    else
+        Ok(LockAttempt.Busy)
+    end
+end
+
+/// Lets go of the handle's lock on `length` bytes from `start`, or on every
+/// byte from `start` on when `length` is `None`: the whole file by default.
+/// Bytes the handle holds no lock on are left as they are, and a lock on
+/// bytes on either side of the range keeps them. On Windows the range is
+/// exactly one that was locked (`fs.lock`).
+///
+/// ```nomi
+/// fs.unlock(f)?
+/// ```
+//! import std::fs::testing.{self, Sandbox}
+//!
+//! ran = testing.run(Sandbox{files: {"db" => ""}}, fn ->
+//!     a = open_file("db", access: Access.ReadWrite)?
+//!     defer File.close_quietly(a)
+//!     b = open_file("db", access: Access.ReadWrite)?
+//!     defer File.close_quietly(b)
+//!     lock(a, LockMode.Exclusive)?
+//!     unlock(a, length: Some(10))?
+//!     freed = try_lock(b, LockMode.Exclusive, length: Some(10))?
+//!     kept = try_lock(b, LockMode.Exclusive, start: 10)?
+//!     File.close(a)?
+//!     Ok((freed, kept, try_lock(b, LockMode.Exclusive, start: 10)?))
+//! end)
+//!
+//! assert ran.value == Ok((LockAttempt.Acquired, LockAttempt.Busy, LockAttempt.Acquired))
+//
+pub fn unlock(
+    f:      File,
+    start:  NonNegativeInt = 0,
+    length: Maybe<PositiveInt> = None,
+) -> Result<Unit, Error>
+    _ = host.lock(f, 0, start, length_code(length), Duration.nanoseconds(0))?
+    Ok(Unit)
+end
+
+/// The lock mode as its crossing carries it: 0 unlocks.
+fn lock_code(mode: LockMode) -> Int64
+    case mode
+        LockMode.Shared    -> 1
+        LockMode.Exclusive -> 2
+    end
+end
+
+/// The length as its crossing carries it: 0 is every byte from the start
+/// on.
+fn length_code(length: Maybe<PositiveInt>) -> NonNegativeInt
+    case length
+        Some(n) -> n
+        None    -> 0
+    end
 end
 
 /// Runs `body` with every std::fs call in it, and in the tasks it starts,
-/// confined to the directory `dir`. Inside, a relative path is under
-/// `dir`, an absolute path must be under it, and `fs.current_dir()`
-/// returns `dir` made absolute. A path that leads outside it, by `..` or
-/// through a symlink, is `InvalidPath` instead of reaching what is there,
-/// with the reason `the path leads outside the directory fs.within
-/// confines calls to`. An absolute symlink is refused for the same reason,
-/// wherever it points. On the operating system's file system each name is
-/// resolved under the directory as it is opened, so a symlink changed
-/// during the call cannot lead out either. `fs.make_temp_dir` is
-/// `Unsupported{operation: "fs.make_temp_dir", target: "fs.within"}`,
-/// since its directory is elsewhere. A `within` inside another confines
-/// the call further. A `dir` that is missing is `NotFound`, and one that
-/// is not a directory is an error too (`NotADirectory` in memory).
+/// confined to the directory `dir`, as the functions of the `Dir` that
+/// `fs.open_dir(dir)` opens are: a relative path is under `dir`, an
+/// absolute path must be under it, and a path that leads outside it is
+/// `InvalidPath` (`Dir`). Inside, `fs.current_dir()` returns `dir` made
+/// absolute, and `fs.make_temp_dir` is `Unsupported{operation:
+/// "fs.make_temp_dir", target: "fs.within"}`, since its directory is
+/// elsewhere. A `within` inside another confines the call further. A `dir`
+/// that is missing is `NotFound`, and one that is not a directory is an
+/// error too (`NotADirectory` in memory).
 ///
-/// It is how a program handles paths it was given (an archive's entries, a
-/// request's file name) without reaching files it did not mean to. On the
-/// disk it is Go's `os.Root`; in memory, the same rules.
+/// It is how code that takes paths handles paths it was given (an
+/// archive's entries, a request's file name) without reaching files it did
+/// not mean to. Code of your own can take a `Dir` instead, which says in
+/// its signature what it reaches.
 ///
 /// ```nomi
 /// fn extract(dest: String, entries: List<(String, Bytes)>) -> Result<Unit, io.Error>
@@ -509,15 +726,15 @@ end
 //!
 //! escaped = Error.InvalidPath{
 //!     path:   "../secret.txt",
-//!     reason: "the path leads outside the directory fs.within confines calls to",
+//!     reason: "the path leads outside the directory it is confined to",
 //! }
 //!
 //! assert ran.value == Ok([Ok("<p>"), Err(escaped)])
 //
 pub fn within<T>(dir: String, body: () -> Result<T, Error>) -> Result<T, Error>
-    confined = host.within(dir)?
-    defer host.release(confined)
-    value = host.run_in(confined, body)
+    confined = Dir.subdir(Dir{files: host.here()}, dir)?
+    defer Dir.close(confined)
+    value = host.run_in(confined.files, body)
     value
 end
 
@@ -544,12 +761,13 @@ end
 //!     ])
 //
 pub fn list(dir: String) -> Result<List<Entry>, Error>
-    listed(dir) |> Result.flat_map(fn entries -> Result.collect(entries))
+    Dir.list(Dir{files: host.here()}, dir)
 end
 
-/// The entries of dir, each decoded, or why the directory cannot be listed.
-fn listed(dir: String) -> Result<List<Result<Entry, Error>>, Error>
-    coded = host.list(dir)?
+/// The entries of the directory `dir` under `at`, each decoded, or why the
+/// directory cannot be listed.
+fn listed(at: Dir, dir: String) -> Result<List<Result<Entry, Error>>, Error>
+    coded = host.list(at.files, dir)?
 
     Ok(
         coded
@@ -561,29 +779,31 @@ end
 /// An entry as the listing crossing writes it: its kind's letter, then its
 /// name, or `!` and the name when it is not UTF-8.
 fn decoded(dir: String, coded: String) -> Result<Entry, Error>
-    joined = fn name: String ->
-        if String.ends_with(dir, "/") then
-            "${dir}${name}"
-        else
-            "${dir}/${name}"
+    joined =
+        fn name: String ->
+            if String.ends_with(dir, "/") then
+                "${dir}${name}"
+            else
+                "${dir}/${name}"
+            end
         end
-    end
 
     case String.strip_prefix(coded, "!")
         Some(name) ->
             Err(Error.InvalidPath{path: joined(name), reason: "the name is not UTF-8"})
 
         None ->
-            (kind, name) = case (
-                String.strip_prefix(coded, "f"),
-                String.strip_prefix(coded, "d"),
-                String.strip_prefix(coded, "l"),
-            )
-                (Some(name), _, _) -> (Kind.File, name)
-                (_, Some(name), _) -> (Kind.Directory, name)
-                (_, _, Some(name)) -> (Kind.Symlink, name)
-                _ -> (Kind.Other, String.strip_prefix(coded, "o") |> Maybe.with_default(coded))
-            end
+            (kind, name) =
+                case (
+                    String.strip_prefix(coded, "f"),
+                    String.strip_prefix(coded, "d"),
+                    String.strip_prefix(coded, "l"),
+                )
+                    (Some(name), _, _) -> (Kind.File, name)
+                    (_, Some(name), _) -> (Kind.Directory, name)
+                    (_, _, Some(name)) -> (Kind.Symlink, name)
+                    _ -> (Kind.Other, String.strip_prefix(coded, "o") |> Maybe.with_default(coded))
+                end
 
             Ok(Entry{path: joined(name), name:, kind:})
     end
@@ -618,32 +838,34 @@ end
 //!     == Err(Error.NotFound{path: "none"})
 //
 pub fn walk(root: String) -> Iter<Result<Entry, Error>>
-    Walk{root:, depth: -1}
+    Walk{reach: fn -> Dir{files: host.here()}, root:, depth: -1}
 end
 
 /// A walk that goes `depth` directories down at most, or every one when
-/// `depth` is negative.
+/// `depth` is negative, in the directory `reach` answers when it runs.
 struct Walk
+    reach: () -> Dir
     root:  String
     depth: Int
 end
 
 impl Iter<Result<Entry, Error>> for Walk
     fn each_while(w: Walk, yield: (Result<Entry, Error>) -> Bool) -> Bool
-        walk_dir(w.root, w.depth, yield)
+        walk_dir(w.reach(), w.root, w.depth, yield)
     end
 end
 
 /// Hands each entry under dir to yield, as `walk` orders them, until it
 /// stops.
-fn walk_dir(dir: String, depth: Int, yield: (Result<Entry, Error>) -> Bool) -> Bool
-    case listed(dir)
+fn walk_dir(at: Dir, dir: String, depth: Int, yield: (Result<Entry, Error>) -> Bool) -> Bool
+    case listed(at, dir)
         Err(e)      -> yield(Err(e))
-        Ok(entries) -> walk_entries(entries, depth, yield)
+        Ok(entries) -> walk_entries(at, entries, depth, yield)
     end
 end
 
 fn walk_entries(
+    at:      Dir,
     entries: List<Result<Entry, Error>>,
     depth:   Int,
     yield:   (Result<Entry, Error>) -> Bool,
@@ -656,17 +878,17 @@ fn walk_entries(
             if not yield(Ok(entry)) then
                 False
             else if entry.kind == Kind.Directory and depth != 0 then
-                if walk_dir(entry.path, depth - 1, yield) then
-                    walk_entries(rest, depth, yield)
+                if walk_dir(at, entry.path, depth - 1, yield) then
+                    walk_entries(at, rest, depth, yield)
                 else
                     False
                 end
             else
-                walk_entries(rest, depth, yield)
+                walk_entries(at, rest, depth, yield)
             end
 
         [Err(e), ..rest] ->
-            if yield(Err(e)) then walk_entries(rest, depth, yield) else False
+            if yield(Err(e)) then walk_entries(at, rest, depth, yield) else False
     end
 end
 
@@ -704,38 +926,51 @@ end
 //! ]
 //
 pub fn glob(pattern: String) -> Result<List<String>, Error>
+    Dir.glob(Dir{files: host.here()}, pattern)
+end
+
+/// The paths under `at` that match `pattern`, as `glob` finds them.
+fn globbed(at: Dir, pattern: String) -> Result<List<String>, Error>
     names = String.split(pattern, "/") |> Iter.to_list()
     (fixed, rest) = glob_split(names, [])
 
-    base = case (fixed, String.starts_with(pattern, "/"))
-        ([], _)      -> ""
-        ([""], True) -> "/"
-        _            -> String.join(fixed, "/")
-    end
+    base =
+        case (fixed, String.starts_with(pattern, "/"))
+            ([], _)      -> ""
+            ([""], True) -> "/"
+            _            -> String.join(fixed, "/")
+        end
 
     case rest
         [] ->
-            case exists(base)
+            case Dir.exists(at, base)
                 Ok(True)  -> Ok([base])
                 Ok(False) -> Ok([])
                 Err(e)    -> Err(e)
             end
 
         _ ->
-            depth = if Iter.contains(rest, "**") then
-                -1
-            else
-                Iter.count(rest) - 1
-            end
+            depth =
+                if Iter.contains(rest, "**") then
+                    -1
+                else
+                    Iter.count(rest) - 1
+                end
 
             root = if base == "" then "." else base
 
-            found = walk_matches(Walk{root:, depth:}, base, pattern)
+            found = walk_matches(Walk{reach: fn -> at, root:, depth:}, base, pattern)
 
             case found
-                Ok(paths) -> Ok(Iter.sort(paths))
-                Err(Error.NotFound{path: _}) when base != "" and exists(base) == Ok(False) -> Ok([])
-                Err(e) -> Err(e)
+                Ok(paths) ->
+                    Ok(Iter.sort(paths))
+
+                Err(Error.NotFound{path: _}) when base != ""
+                    and Dir.exists(at, base) == Ok(False) ->
+                    Ok([])
+
+                Err(e) ->
+                    Err(e)
             end
     end
 end
@@ -804,7 +1039,7 @@ end
 //! ]
 //
 pub fn create_dir(path: String, parents = False) -> Result<Unit, Error>
-    host.create_dir(path, parents)
+    Dir.create_dir(Dir{files: host.here()}, path, parents:)
 end
 
 /// Removes a file, a symlink or an empty directory. A directory with
@@ -828,7 +1063,7 @@ end
 //! ]
 //
 pub fn remove(path: String) -> Result<Unit, Error>
-    host.remove(path)
+    Dir.remove(Dir{files: host.here()}, path)
 end
 
 /// Removes `path` and everything under it, following no symlink in it.
@@ -847,7 +1082,7 @@ end
 //! assert ran.files == {"/work/keep.txt" => String.to_bytes("")}
 //
 pub fn remove_all(path: String) -> Result<Unit, Error>
-    host.remove_all(path)
+    Dir.remove_all(Dir{files: host.here()}, path)
 end
 
 /// Removes `path` and everything under it, as `fs.remove_all` does, and
@@ -863,7 +1098,7 @@ end
 //! assert ran.files == {}
 //
 pub fn remove_all_quietly(path: String) -> Unit
-    _ = host.remove_all(path)
+    Dir.remove_all_quietly(Dir{files: host.here()}, path)
 end
 
 /// Moves `from` to `to`, replacing a file at `to`. A symlink at `from` is
@@ -882,7 +1117,43 @@ end
 //! assert ran.files == {"/work/b.txt" => String.to_bytes("a")}
 //
 pub fn rename(from: String, to: String) -> Result<Unit, Error>
-    host.rename(from, to)
+    Dir.rename(Dir{files: host.here()}, from, to)
+end
+
+/// Waits until the entries of the directory `dir` are on the storage
+/// device, so a file made, renamed or removed in it is still there, or still
+/// gone, after a crash or a power cut. `File.sync` makes a file's contents
+/// durable and not its name, so a program that makes a file and must keep it
+/// syncs the file, then its directory. Something other than a directory is
+/// `NotADirectory`. On Linux and macOS it is an `fsync` of the directory, as
+/// SQLite syncs one. On macOS that hands the entries to the drive, which may
+/// keep them in its own cache: unlike `File.sync`, it does not wait for that
+/// cache (`F_FULLFSYNC`), which costs a few milliseconds a call, so a power
+/// cut can still lose an entry the drive had not written. Windows has no
+/// call that flushes a directory, so there it checks the directory and
+/// returns. In memory there is nothing to make durable.
+///
+/// ```nomi
+/// fs.rename("orders.tmp", "orders")?
+///
+/// fs.sync_dir(".")?
+/// ```
+//! import std::fs::testing.{self, Sandbox}
+//!
+//! ran = testing.run(Sandbox{files: {"d/a.txt" => ""}}, fn ->
+//!     [sync_dir("d"), sync_dir("d/a.txt"), sync_dir("none")]
+//! end)
+//!
+//! assert ran.value == [
+//!     Ok(Unit),
+//!     Err(Error.NotADirectory{path: "d/a.txt"}),
+//!     Err(Error.NotFound{path: "none"}),
+//! ]
+//!
+//! assert ran.log == ["sync_dir /work/d", "sync_dir /work/d/a.txt", "sync_dir /work/none"]
+//
+pub fn sync_dir(dir: String) -> Result<Unit, Error>
+    Dir.sync_dir(Dir{files: host.here()}, dir)
 end
 
 /// Copies the file at `from` to `to`, replacing a file at `to`. A symlink
@@ -898,7 +1169,7 @@ end
 //! assert testing.text(ran, "/work/b.txt") == Some("a")
 //
 pub fn copy(from: String, to: String) -> Result<Unit, Error>
-    host.copy(from, to)
+    Dir.copy(Dir{files: host.here()}, from, to)
 end
 
 /// What is at `path`, following symlinks. The modification time is the
@@ -917,8 +1188,7 @@ end
 //! assert ran.value == Ok((Kind.File, 4))
 //
 pub fn metadata(path: String) -> Result<Metadata, Error>
-    fields = host.metadata(path)?
-    metadata_of(path, fields)
+    Dir.metadata(Dir{files: host.here()}, path)
 end
 
 /// What is at `path`, a symlink described as itself rather than as what it
@@ -939,8 +1209,7 @@ end
 //! assert ran.value == Ok((Kind.File, 4, Kind.Symlink, 5))
 //
 pub fn link_metadata(path: String) -> Result<Metadata, Error>
-    fields = host.link_metadata(path)?
-    metadata_of(path, fields)
+    Dir.link_metadata(Dir{files: host.here()}, path)
 end
 
 // The Metadata of a crossing's fields.
@@ -972,7 +1241,7 @@ end
 //! assert ran.value == Ok((Ok("v2"), Err(Error.AlreadyExists{path: "current"})))
 //
 pub fn create_symlink(path: String, target: String) -> Result<Unit, Error>
-    host.create_symlink(path, target)
+    Dir.create_symlink(Dir{files: host.here()}, path, target:)
 end
 
 /// The target of the symlink at `path`, as it was written. Something that
@@ -993,7 +1262,7 @@ end
 //! ]
 //
 pub fn read_link(path: String) -> Result<String, Error>
-    host.read_link(path)
+    Dir.read_link(Dir{files: host.here()}, path)
 end
 
 /// Sets the permission bits of what `path` names, following a symlink:
@@ -1015,7 +1284,7 @@ end
 //! assert ran.value == Ok(0o755)
 //
 pub fn set_mode(path: String, mode: Int) -> Result<Unit, Error>
-    host.set_mode(path, mode)
+    Dir.set_mode(Dir{files: host.here()}, path, mode)
 end
 
 fn kind_at(position: Int) -> Kind
@@ -1042,11 +1311,7 @@ end
 //! assert ran.value == [Ok(True), Ok(False), Ok(True)]
 //
 pub fn exists(path: String) -> Result<Bool, Error>
-    case host.metadata(path)
-        Ok(_)                        -> Ok(True)
-        Err(Error.NotFound{path: _}) -> Ok(False)
-        Err(e)                       -> Err(e)
-    end
+    Dir.exists(Dir{files: host.here()}, path)
 end
 
 /// The directory temporary files go in: the operating system's (`/tmp`,
@@ -1063,7 +1328,7 @@ end
 //! assert testing.run(Sandbox{}, fn -> temp_dir()).value == "/tmp"
 //
 pub fn temp_dir() -> String
-    host.temp_dir()
+    host.temp_dir(host.here())
 end
 
 /// Makes a fresh directory under `fs.temp_dir()` and returns its path.
@@ -1096,7 +1361,7 @@ end
 //! assert ran.files == {}
 //
 pub fn make_temp_dir() -> Result<String, Error>
-    host.make_temp_dir()
+    host.make_temp_dir(host.here())
 end
 
 /// The directory relative paths are resolved against: the program's
@@ -1112,5 +1377,545 @@ end
 //! assert testing.run(Sandbox{cwd: "/home/ada"}, fn -> current_dir()).value == Ok("/home/ada")
 //
 pub fn current_dir() -> Result<String, Error>
-    host.current_dir()
+    host.current_dir(host.here())
+end
+
+/// The directory at `path`, held open as a `Dir`: what a program hands to
+/// code that should reach only the files under it. This is the call an
+/// effects list names `std::fs`; a call through the `Dir` is named by
+/// none. Defer `Dir.close` on the next line, or keep the `Dir` in the app
+/// struct for the program's life. A `path` that is missing is `NotFound`,
+/// and one that is not a directory is an error too (`NotADirectory` in
+/// memory). Inside `fs.within` or another `Dir`'s confinement, `path` is
+/// under that directory too.
+///
+/// ```nomi
+/// fn boot(startup: Startup) -> Result<App, io.Error>
+///     dir = Map.get(startup.env, "DATA_DIR") |> Maybe.with_default("data")
+///     Ok(App{data: fs.open_dir(dir)?})
+/// end
+/// ```
+//! import std::fs::testing.{self, Sandbox}
+//!
+//! ran = testing.run(Sandbox{files: {"site/index.html" => "<p>"}}, fn ->
+//!     site = open_dir("site")?
+//!     defer Dir.close(site)
+//!     Dir.read_text(site, "index.html")
+//! end)
+//!
+//! assert ran.value == Ok("<p>")
+//!
+//! assert testing.run(Sandbox{}, fn -> Result.map(open_dir("none"), Dir.close)).value
+//!     == Err(Error.NotFound{path: "none"})
+//
+pub fn open_dir(path: String) -> Result<Dir, Error>
+    Dir.subdir(Dir{files: host.here()}, path)
+end
+
+/// A directory the program holds, and the functions that reach what is
+/// under it: std::fs's functions, each taking a path under the directory.
+/// `fs.open_dir` opens one, `Dir.subdir` one below it, and
+/// `std::fs::testing.dir` one over files in memory. A function handed a
+/// `Dir` reaches only what is under it, so the `Dir` in its signature says
+/// what it can touch, and an effects list names `std::fs` where a `Dir`
+/// is opened from a path, never at a call through one.
+///
+/// A relative path is under the directory, and an absolute one must be
+/// under it. A path that leads outside, by `..`, by a symlink whose target
+/// is outside or absolute, or as an absolute path elsewhere, is
+/// `InvalidPath` with the reason `the path leads outside the directory it
+/// is confined to`, and reaches nothing. The rules are the same on the
+/// disk and in memory. On the disk the directory is Go's `os.Root`: each
+/// name is opened under the one before it, relative to the open directory,
+/// so a symlink swapped in while a call runs cannot lead out, and a `Dir`
+/// whose directory is renamed still reaches it. What is under the
+/// directory is reached whatever it is: a mount point, a device file, a
+/// Linux bind mount or `/proc` entry. On Windows a reserved device name
+/// (`NUL`, `COM1`) is refused, and on Unix `Dir.set_mode` of a path that
+/// is changed to a symlink while it runs may set the link's target's mode.
+///
+/// A `Dir` holds its directory open until `Dir.close`, and a call through
+/// it after that is `Closed`. A `File`, `Reader` or `Writer` opened through
+/// a `Dir` is an ordinary one, which outlives the `Dir`'s close.
+//! import std::fs::testing.{self, Sandbox}
+//!
+//! data = testing.dir(Sandbox{files: {"secret.txt" => "s", "site/index.html" => "<p>"}})
+//! defer Dir.close(data)
+//!
+//! site = Dir.subdir(data, "site")!
+//! defer Dir.close(site)
+//!
+//! escaped =
+//!     fn p: String ->
+//!         Error.InvalidPath{path: p, reason: "the path leads outside the directory it is confined to"}
+//!     end
+//!
+//! assert Dir.read_text(site, "index.html") == Ok("<p>")
+//! assert Dir.read_text(site, "../secret.txt") == Err(escaped("../secret.txt"))
+//! assert Dir.read_text(site, "/etc/passwd") == Err(escaped("/etc/passwd"))
+//! assert Dir.write_text(site, "../x.txt", "x") == Err(escaped("../x.txt"))
+//!
+//! Dir.close(site)
+//! assert Dir.read_text(site, "index.html") == Err(Error.Closed)
+//
+pub opaque struct Dir
+    files: host.FileSystem
+end
+
+impl Release for Dir
+    fn release(dir: Dir)
+        Dir.close(dir)
+    end
+end
+
+impl Dir
+    /// The whole file at `path` under `dir`, as `fs.read` reads it.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{binary: {"b.bin" => String.to_bytes("ab")}})
+    //! defer Dir.close(d)
+    //! assert Dir.read(d, "b.bin") == Ok(String.to_bytes("ab"))
+    //
+    pub fn read(dir: Dir, path: String) -> Result<Bytes, Error>
+        host.read(dir.files, path)
+    end
+
+    /// The whole file at `path` under `dir` as text, as `fs.read_text`
+    /// reads it.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{files: {"notes.txt" => "milk"}})
+    //! defer Dir.close(d)
+    //! assert Dir.read_text(d, "notes.txt") == Ok("milk")
+    //! assert Dir.read_text(d, "todo.txt") == Err(Error.NotFound{path: "todo.txt"})
+    //
+    pub fn read_text(dir: Dir, path: String) -> Result<String, Error>
+        host.read_text(dir.files, path)
+    end
+
+    /// Writes `data` to `path` under `dir`, as `fs.write` writes it.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{})
+    //! defer Dir.close(d)
+    //! assert Dir.write(d, "a.bin", String.to_bytes("a")) == Ok(Unit)
+    //! assert Dir.read(d, "a.bin") == Ok(String.to_bytes("a"))
+    //
+    pub fn write(
+        dir:  Dir,
+        path: String,
+        data: Bytes,
+        mode: WriteMode = WriteMode.Replace,
+    ) -> Result<Unit, Error>
+        host.write(dir.files, path, data, mode_code(mode))
+    end
+
+    /// Writes `text` to `path` under `dir` as UTF-8, as `fs.write_text`
+    /// writes it.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{files: {"log.txt" => "a\n"}})
+    //! defer Dir.close(d)
+    //! assert Dir.write_text(d, "log.txt", "b\n", mode: WriteMode.Append) == Ok(Unit)
+    //! assert Dir.read_text(d, "log.txt") == Ok("a\nb\n")
+    //
+    pub fn write_text(
+        dir:  Dir,
+        path: String,
+        text: String,
+        mode: WriteMode = WriteMode.Replace,
+    ) -> Result<Unit, Error>
+        host.write(dir.files, path, String.to_bytes(text), mode_code(mode))
+    end
+
+    /// Each line of the file at `path` under `dir`, as `fs.lines` reads
+    /// them: each run of the iterator opens the file again.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{files: {"in.txt" => "pear\r\napple"}})
+    //! defer Dir.close(d)
+    //! assert Result.collect(Dir.lines(d, "in.txt")) == Ok(["pear", "apple"])
+    //
+    pub fn lines(dir: Dir, path: String) -> Iter<Result<String, Error>>
+        Lines{reach: fn -> dir, path:}
+    end
+
+    /// The file at `path` under `dir` in pieces of at most `size` bytes, as
+    /// `fs.chunks` reads it.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{files: {"a.txt" => "abcde"}})
+    //! defer Dir.close(d)
+    //!
+    //! assert Result.collect(Dir.chunks(d, "a.txt", size: 2))
+    //!     == Ok([String.to_bytes("ab"), String.to_bytes("cd"), String.to_bytes("e")])
+    //
+    pub fn chunks(dir: Dir, path: String, size: PositiveInt = 65536) -> Iter<Result<Bytes, Error>>
+        Chunks{reach: fn -> dir, path:, size:}
+    end
+
+    /// A reader over the file at `path` under `dir`, as `fs.open` opens it.
+    /// Defer `Reader.close_quietly` on the next line.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{files: {"a.txt" => "one\ntwo\n"}})
+    //! defer Dir.close(d)
+    //!
+    //! fn first_line(d: Dir) -> Result<Maybe<String>, Error>
+    //!     r = Dir.open(d, "a.txt")?
+    //!     defer Reader.close_quietly(r)
+    //!     Reader.read_line(r)
+    //! end
+    //!
+    //! assert first_line(d) == Ok(Some("one"))
+    //
+    pub fn open(dir: Dir, path: String) -> Result<Reader, Error>
+        host.open(dir.files, path)
+    end
+
+    /// A writer over the file at `path` under `dir`, as `fs.create` makes
+    /// it. Defer `Writer.discard` on the next line, and end the success path
+    /// with `Writer.close(w)?`.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{})
+    //! defer Dir.close(d)
+    //!
+    //! fn save(d: Dir, rows: List<String>) -> Result<Unit, Error>
+    //!     w = Dir.create(d, "out.txt", mode: WriteMode.ReplaceAtomically)?
+    //!     defer Writer.discard(w)
+    //!     Writer.write_lines(w, rows)?
+    //!     Writer.close(w)?
+    //!     Ok(Unit)
+    //! end
+    //!
+    //! assert save(d, ["new"]) == Ok(Unit)
+    //! assert Dir.read_text(d, "out.txt") == Ok("new\n")
+    //
+    pub fn create(dir: Dir, path: String, mode = WriteMode.Replace) -> Result<Writer, Error>
+        host.create(dir.files, path, mode_code(mode))
+    end
+
+    /// A `File` on `path` under `dir` for reads and writes at a position,
+    /// as `fs.open_file` opens it. It is an ordinary `File`: it syncs, locks
+    /// and reads at a position as any other does.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{files: {"db" => "v1-data"}})
+    //! defer Dir.close(d)
+    //!
+    //! fn patch(d: Dir) -> Result<Unit, Error>
+    //!     f = Dir.open_file(d, "db", access: Access.ReadWrite)?
+    //!     defer File.close_quietly(f)
+    //!     lock(f, LockMode.Exclusive)?
+    //!     File.write_at(f, 0, String.to_bytes("v2"))?
+    //!     File.sync(f)?
+    //!     File.close(f)
+    //! end
+    //!
+    //! assert patch(d) == Ok(Unit)
+    //! assert Dir.read_text(d, "db") == Ok("v2-data")
+    //
+    pub fn open_file(dir: Dir, path: String, access = Access.Read) -> Result<File, Error>
+        code: Int64 =
+            case access
+                Access.Read      -> 0
+                Access.ReadWrite -> 1
+                Access.Create    -> 2
+            end
+
+        host.open_file(dir.files, path, code)
+    end
+
+    /// The entries of the directory `path` under `dir`, as `fs.list` lists
+    /// them: each `Entry`'s `path` is `path` and its name joined with `/`.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{files: {"b.txt" => "", "a.txt" => ""}})
+    //! defer Dir.close(d)
+    //!
+    //! assert Result.map(Dir.list(d, "."), fn es -> Iter.map(es, fn e -> e.name) |> Iter.to_list())
+    //!     == Ok(["a.txt", "b.txt"])
+    //
+    pub fn list(dir: Dir, path: String) -> Result<List<Entry>, Error>
+        listed(dir, path) |> Result.flat_map(fn entries -> Result.collect(entries))
+    end
+
+    /// Every entry under `root` under `dir`, depth first, as `fs.walk`
+    /// finds them.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{files: {"d/b.txt" => "", "d/a/x.txt" => ""}})
+    //! defer Dir.close(d)
+    //!
+    //! assert Dir.walk(d, "d") |> Iter.map(fn e -> Result.map(e, fn e -> e.path)) |> Iter.to_list() == [
+    //!     Ok("d/a"),
+    //!     Ok("d/a/x.txt"),
+    //!     Ok("d/b.txt"),
+    //! ]
+    //
+    pub fn walk(dir: Dir, root: String) -> Iter<Result<Entry, Error>>
+        Walk{reach: fn -> dir, root:, depth: -1}
+    end
+
+    /// The paths under `dir` that match `pattern`, sorted, as `fs.glob`
+    /// matches them.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{files: {"src/main.nomi" => "", "src/lib/a.nomi" => "", "a.txt" => ""}})
+    //! defer Dir.close(d)
+    //! assert Dir.glob(d, "src/**/*.nomi") == Ok(["src/lib/a.nomi", "src/main.nomi"])
+    //
+    pub fn glob(dir: Dir, pattern: String) -> Result<List<String>, Error>
+        globbed(dir, pattern)
+    end
+
+    /// Makes the directory `path` under `dir`, as `fs.create_dir` makes it.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{})
+    //! defer Dir.close(d)
+    //! assert Dir.create_dir(d, "a/b") == Err(Error.NotFound{path: "a"})
+    //! assert Dir.create_dir(d, "a/b", parents: True) == Ok(Unit)
+    //
+    pub fn create_dir(dir: Dir, path: String, parents = False) -> Result<Unit, Error>
+        host.create_dir(dir.files, path, parents)
+    end
+
+    /// Removes a file, a symlink or an empty directory under `dir`, as
+    /// `fs.remove` does.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{files: {"old.txt" => ""}})
+    //! defer Dir.close(d)
+    //! assert Dir.remove(d, "old.txt") == Ok(Unit)
+    //! assert Dir.remove(d, "old.txt") == Err(Error.NotFound{path: "old.txt"})
+    //
+    pub fn remove(dir: Dir, path: String) -> Result<Unit, Error>
+        host.remove(dir.files, path)
+    end
+
+    /// Removes `path` under `dir` and everything under it, as
+    /// `fs.remove_all` does.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{files: {"build/a/b.o" => ""}})
+    //! defer Dir.close(d)
+    //! assert Dir.remove_all(d, "build") == Ok(Unit)
+    //! assert Dir.exists(d, "build") == Ok(False)
+    //
+    pub fn remove_all(dir: Dir, path: String) -> Result<Unit, Error>
+        host.remove_all(dir.files, path)
+    end
+
+    /// Removes `path` under `dir` and everything under it, and ignores the
+    /// outcome: the form for a `defer` after `Dir.make_temp_dir`.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{files: {"build/a.o" => ""}})
+    //! defer Dir.close(d)
+    //! Dir.remove_all_quietly(d, "build")
+    //! assert Dir.exists(d, "build") == Ok(False)
+    //
+    pub fn remove_all_quietly(dir: Dir, path: String) -> Unit
+        _ = host.remove_all(dir.files, path)
+    end
+
+    /// Moves `from` to `to`, both under `dir`, as `fs.rename` moves it.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{files: {"draft.txt" => "a"}})
+    //! defer Dir.close(d)
+    //! assert Dir.rename(d, "draft.txt", "final.txt") == Ok(Unit)
+    //! assert Dir.read_text(d, "final.txt") == Ok("a")
+    //
+    pub fn rename(dir: Dir, from: String, to: String) -> Result<Unit, Error>
+        host.rename(dir.files, from, to)
+    end
+
+    /// Waits until the entries of the directory `path` under `dir` are on
+    /// the storage device, as `fs.sync_dir` does. `"."` is `dir` itself.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{files: {"a.txt" => ""}})
+    //! defer Dir.close(d)
+    //! assert Dir.sync_dir(d, ".") == Ok(Unit)
+    //! assert Dir.sync_dir(d, "a.txt") == Err(Error.NotADirectory{path: "a.txt"})
+    //
+    pub fn sync_dir(dir: Dir, path: String) -> Result<Unit, Error>
+        host.sync_dir(dir.files, path)
+    end
+
+    /// Copies the file at `from` to `to`, both under `dir`, as `fs.copy`
+    /// copies it.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{files: {"a.txt" => "a"}})
+    //! defer Dir.close(d)
+    //! assert Dir.copy(d, "a.txt", "b.txt") == Ok(Unit)
+    //! assert Dir.read_text(d, "b.txt") == Ok("a")
+    //
+    pub fn copy(dir: Dir, from: String, to: String) -> Result<Unit, Error>
+        host.copy(dir.files, from, to)
+    end
+
+    /// What is at `path` under `dir`, following symlinks, as `fs.metadata`
+    /// answers it.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{files: {"a.txt" => "four"}})
+    //! defer Dir.close(d)
+    //! assert Result.map(Dir.metadata(d, "a.txt"), fn m -> (m.kind, m.size)) == Ok((Kind.File, 4))
+    //
+    pub fn metadata(dir: Dir, path: String) -> Result<Metadata, Error>
+        fields = host.metadata(dir.files, path)?
+        metadata_of(path, fields)
+    end
+
+    /// What is at `path` under `dir`, a symlink described as itself, as
+    /// `fs.link_metadata` answers it.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{files: {"a.txt" => "four"}, links: {"b" => "a.txt"}})
+    //! defer Dir.close(d)
+    //! assert Result.map(Dir.link_metadata(d, "b"), fn m -> m.kind) == Ok(Kind.Symlink)
+    //
+    pub fn link_metadata(dir: Dir, path: String) -> Result<Metadata, Error>
+        fields = host.link_metadata(dir.files, path)?
+        metadata_of(path, fields)
+    end
+
+    /// Makes a symlink at `path` under `dir` that points to `target`, as
+    /// written, as `fs.create_symlink` makes it. The link may point
+    /// anywhere; following it through a `Dir` reaches only what is under
+    /// the `Dir`.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{files: {"releases/v2/app" => "v2"}})
+    //! defer Dir.close(d)
+    //! assert Dir.create_symlink(d, "current", target: "releases/v2") == Ok(Unit)
+    //! assert Dir.read_text(d, "current/app") == Ok("v2")
+    //
+    pub fn create_symlink(dir: Dir, path: String, target: String) -> Result<Unit, Error>
+        host.create_symlink(dir.files, path, target)
+    end
+
+    /// The target of the symlink at `path` under `dir`, as it was written.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{files: {"a.txt" => ""}, links: {"b" => "a.txt"}})
+    //! defer Dir.close(d)
+    //! assert Dir.read_link(d, "b") == Ok("a.txt")
+    //
+    pub fn read_link(dir: Dir, path: String) -> Result<String, Error>
+        host.read_link(dir.files, path)
+    end
+
+    /// Sets the permission bits of what `path` under `dir` names, as
+    /// `fs.set_mode` sets them.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{files: {"run.sh" => ""}})
+    //! defer Dir.close(d)
+    //! assert Dir.set_mode(d, "run.sh", 0o755) == Ok(Unit)
+    //! assert Result.map(Dir.metadata(d, "run.sh"), fn m -> m.mode) == Ok(0o755)
+    //
+    pub fn set_mode(dir: Dir, path: String, mode: Int) -> Result<Unit, Error>
+        host.set_mode(dir.files, path, mode)
+    end
+
+    /// Whether something is at `path` under `dir`, as `fs.exists` answers.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{files: {"a.txt" => ""}})
+    //! defer Dir.close(d)
+    //! assert [Dir.exists(d, "a.txt"), Dir.exists(d, "b.txt")] == [Ok(True), Ok(False)]
+    //
+    pub fn exists(dir: Dir, path: String) -> Result<Bool, Error>
+        case host.metadata(dir.files, path)
+            Ok(_)                        -> Ok(True)
+            Err(Error.NotFound{path: _}) -> Ok(False)
+            Err(e)                       -> Err(e)
+        end
+    end
+
+    /// Makes a fresh directory in `dir` and returns its name, `nomi-` and
+    /// 16 hexadecimal digits: no other caller holds it. Defer
+    /// `Dir.remove_all_quietly` on the next line. `Dir.subdir` opens it.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{})
+    //! defer Dir.close(d)
+    //!
+    //! fn scratch(d: Dir) -> Result<String, Error>
+    //!     name = Dir.make_temp_dir(d)?
+    //!     defer Dir.remove_all_quietly(d, name)
+    //!     Dir.write_text(d, "${name}/x.txt", "x")?
+    //!     Dir.read_text(d, "${name}/x.txt")
+    //! end
+    //!
+    //! assert scratch(d) == Ok("x")
+    //! assert Result.map(Dir.list(d, "."), List.length) == Ok(0)
+    //
+    pub fn make_temp_dir(dir: Dir) -> Result<String, Error>
+        host.make_temp(dir.files, True)
+    end
+
+    /// Makes a fresh empty file in `dir` and returns its name, as
+    /// `Dir.make_temp_dir` names a directory. `Dir.open_file` with
+    /// `Access.ReadWrite` opens it, and `Dir.remove` removes it.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{})
+    //! defer Dir.close(d)
+    //!
+    //! fn spill(d: Dir) -> Result<Int, Error>
+    //!     name = Dir.make_temp_file(d)?
+    //!     f = Dir.open_file(d, name, access: Access.ReadWrite)?
+    //!     defer File.close_quietly(f)
+    //!     File.write(f, String.to_bytes("rows"))?
+    //!     size = File.size(f)?
+    //!     File.close(f)?
+    //!     Dir.remove(d, name)?
+    //!     Ok(size)
+    //! end
+    //!
+    //! assert spill(d) == Ok(4)
+    //
+    pub fn make_temp_file(dir: Dir) -> Result<String, Error>
+        host.make_temp(dir.files, False)
+    end
+
+    /// The directory `path` under `dir`, held open as a `Dir` of its own,
+    /// which reaches only what is under it. Defer `Dir.close` on the next
+    /// line; the two close apart.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{files: {"a/b.txt" => "b"}})
+    //! defer Dir.close(d)
+    //!
+    //! a = Dir.subdir(d, "a")!
+    //! defer Dir.close(a)
+    //!
+    //! assert Dir.read_text(a, "b.txt") == Ok("b")
+    //! assert Result.map(Dir.subdir(d, "none"), Dir.close) == Err(Error.NotFound{path: "none"})
+    //
+    pub fn subdir(dir: Dir, path: String) -> Result<Dir, Error>
+        Ok(Dir{files: host.within(dir.files, path)?})
+    end
+
+    /// Lets go of the directory. A call through the `Dir` after is
+    /// `Closed`, and a second close does nothing. A `File`, `Reader` or
+    /// `Writer` it opened stays open.
+    //! import std::fs::testing.{self, Sandbox}
+    //!
+    //! d = testing.dir(Sandbox{files: {"a.txt" => "a"}})
+    //! defer Dir.close(d)
+    //!
+    //! Dir.close(d)
+    //! assert Dir.read_text(d, "a.txt") == Err(Error.Closed)
+    //
+    pub fn close(dir: Dir) -> Unit
+        host.release(dir.files)
+    end
 end

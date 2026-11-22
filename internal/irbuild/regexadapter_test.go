@@ -11,19 +11,19 @@ import (
 )
 
 // std/regex's Go support has two surfaces in one package, `nomi/stdregex`:
-// an FFI-shaped adapter (`FFICompile`, `FFIFind`, ...) whose signatures use
+// an host-shaped adapter (`HostCompile`, `HostFind`, ...) whose signatures use
 // `(T, error)`, `*T`, `[]T` and a `*stdregex.Regex` handle, and an rt-shaped
 // shim that delegates to it, so there is one implementation with two
 // marshalling surfaces. The builder's host registry binds only rt-shaped
 // signatures, which is why the shim is not optional. The tests below hold
-// both halves: the FFI-shaped signatures and Go types are refused, the
+// both halves: the host-shaped signatures and Go types are refused, the
 // rt-shaped spellings of the same Nomi types project, and every std/regex
 // declaration lowers through the shim (adapterhandle_test.go is the positive
 // side).
 //
 // The handle's Go type is `rt.Regex`, because a value is stored in modules
 // that never call the adapter and rt is what every gen can name
-// (rt/regexhandle.go). `pub opaque type Regex go go_regex.Regex` parses to an
+// (rt/regexhandle.go). `pub host type Regex` parses to an
 // `*ast.ExternType`, so it is an stdHostSpecs row, as `Context`, `Dynamic` and
 // `Supervisor` are, and not an opaqueSpecs row.
 
@@ -33,7 +33,7 @@ import (
 // EXPIRES WHEN: stdlib.go's hostFnFor or kindOfGoType admits these Go shapes
 // directly.
 //
-// The adapter is written for the FFI projection, which maps `(T, error)` onto
+// The adapter is written for the host projection, which maps `(T, error)` onto
 // `Result<T, String>`, `*T` onto `Maybe<T>` and `[]T` onto `List<T>`. The
 // builder's registry does none of that, so none of the six can be bound as it
 // stands. The package resolves, because the shim beside it is registered, so
@@ -44,7 +44,7 @@ import (
 // parameter walk. This order is hostFnFor's own; a program reaches these
 // declarations through the stdlib index, which checks the signature first.
 func TestAdapterWall_AdapterSignaturesNeedShims(t *testing.T) {
-	// Each row is a REAL symbol from nomi/stdregex's FFI-shaped surface, held
+	// Each row is a REAL symbol from nomi/stdregex's host-shaped surface, held
 	// as a func value so a rename is a Go compile error here rather than a
 	// stale string. That is the same trade a stdlibbindings.Binding makes.
 	for _, tc := range []struct {
@@ -52,18 +52,18 @@ func TestAdapterWall_AdapterSignaturesNeedShims(t *testing.T) {
 		fn   any
 		want string
 	}{
-		// `(T, error)` — two returns, and the arity check precedes the package
-		// lookup, so this one reports its shape.
-		{"Compile", stdregex.FFICompile, "returns 2 values"},
+		// `(T, error)`: several results are the declaration's tuple, so the
+		// walk reaches the first, a handle, and stops on it.
+		{"Compile", stdregex.HostCompile, "result is *stdregex.Regex, which is outside the representable set"},
 		// The other five are one-return, so the parameter walk runs and stops
 		// on the handle RECEIVER. Their result types (`*string`, `[]string`)
 		// are behind it and never reached — which is why the shim needs a
 		// twin for each of them and not only for the two with list results.
-		{"Find", stdregex.FFIFind, "parameter 1 is *stdregex.Regex, which is outside the representable set"},
-		{"FindAll", stdregex.FFIFindAll, "parameter 1 is *stdregex.Regex, which is outside the representable set"},
-		{"Split", stdregex.FFISplit, "parameter 1 is *stdregex.Regex, which is outside the representable set"},
-		{"Pattern", stdregex.FFIPattern, "parameter 1 is *stdregex.Regex, which is outside the representable set"},
-		{"Match", stdregex.FFIMatch, "parameter 1 is *stdregex.Regex, which is outside the representable set"},
+		{"Find", stdregex.HostFind, "parameter 1 is *stdregex.Regex, which is outside the representable set"},
+		{"FindAll", stdregex.HostFindAll, "parameter 1 is *stdregex.Regex, which is outside the representable set"},
+		{"Split", stdregex.HostSplit, "parameter 1 is *stdregex.Regex, which is outside the representable set"},
+		{"Pattern", stdregex.HostPattern, "parameter 1 is *stdregex.Regex, which is outside the representable set"},
+		{"Match", stdregex.HostMatch, "parameter 1 is *stdregex.Regex, which is outside the representable set"},
 	} {
 		_, why := hostFnFor(tc.fn)
 		if why == "" {
@@ -114,8 +114,8 @@ func TestAdapterWall_AdapterGoTypesAreNotRepresentable(t *testing.T) {
 		typ  reflect.Type
 	}{
 		{"the handle itself (*regex.Regex)", reflect.TypeFor[*stdregex.Regex]()},
-		{"Find's result (*string), the FFI spelling of Maybe<String>", reflect.TypeFor[*string]()},
-		{"FindAll's result ([]string), the FFI spelling of List<String>", reflect.TypeFor[[]string]()},
+		{"Find's result (*string), the host spelling of Maybe<String>", reflect.TypeFor[*string]()},
+		{"FindAll's result ([]string), the host spelling of List<String>", reflect.TypeFor[[]string]()},
 	} {
 		if k := kindOfGoType(tc.typ); k != kindInvalid {
 			t.Errorf("kindOfGoType(%s) = %s for %s, want kindInvalid. If this "+

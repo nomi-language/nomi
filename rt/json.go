@@ -40,7 +40,7 @@ import (
 // # Every observable string here is Nomi's, and there is one copy of each
 //
 // `decode`'s error vocabulary is a designed contract, pinned by
-// tests/18-ffi-and-dynamic/json_decode_error_text_test.nomi, and it
+// tests/18-json-and-dynamic/json_decode_error_text_test.nomi, and it
 // lives here once, for rt/trap.go's stated reason: an observable string has
 // one copy. The same goes for the Int/Float split at parse time, the sorted
 // object key order `decode` produces, and `encode`'s float format — each is

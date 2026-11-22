@@ -1,0 +1,111 @@
+import sqlite::describe.{self, Column, Migration}
+
+once schema = [
+    Migration{
+        path: "1.sql",
+        text: "CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT NOT NULL UNIQUE, name TEXT);\nCREATE TABLE orders (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users (id), total DECIMAL(12, 2) NOT NULL);",
+    },
+    Migration{path: "2.sql", text: "ALTER TABLE orders ADD COLUMN shipped_on DATE;"},
+]
+
+// SQLite's column metadata names each result column's table column, its
+// declared type and whether it is NOT NULL; an expression has none.
+test "columns come with their table columns"
+    d = describe.describe(
+        schema,
+        [
+            "SELECT o.id, u.email, u.name, count(*) AS n FROM orders o JOIN users u ON u.id = o.user_id WHERE o.id = ?1",
+        ],
+    )
+
+    assert d.error == ""
+    assert Some(s) = List.first(d.statements)
+    assert s.params == 1
+
+    assert s.columns == [
+        Column{name: "id", declared: "INTEGER", table: "orders", origin: "id", not_null: True},
+        Column{name: "email", declared: "TEXT", table: "users", origin: "email", not_null: True},
+        Column{name: "name", declared: "TEXT", table: "users", origin: "name", not_null: False},
+        Column{name: "n", declared: "", table: "", origin: "", not_null: False},
+    ]
+end
+
+// The query plan marks the table a LEFT JOIN may leave out.
+test "the plan marks the left-joined table"
+    d = describe.describe(
+        schema,
+        ["SELECT u.email, o.id FROM users u LEFT JOIN orders o ON o.user_id = u.id"],
+    )
+
+    assert Some(s) = List.first(d.statements)
+    plan = String.join(s.plan, "\n")
+    assert String.contains(plan, "o ") and String.contains(plan, "LEFT-JOIN")
+end
+
+// A view's column names the table column under it, and the plan names the
+// aliases written inside the view, not the view's: sqlkit's outer_joined
+// counts on both.
+test "a view is planned into the query"
+    view = Migration{
+        path: "3.sql",
+        text: "CREATE VIEW user_orders AS SELECT u.email, o.id FROM users u LEFT JOIN orders o ON o.user_id = u.id;",
+    }
+
+    d = describe.describe([..schema, view], ["SELECT d.email, d.id FROM user_orders d"])
+    assert d.error == ""
+    assert Some(s) = List.first(d.statements)
+
+    assert s.columns == [
+        Column{name: "email", declared: "TEXT", table: "users", origin: "email", not_null: True},
+        Column{name: "id", declared: "INTEGER", table: "orders", origin: "id", not_null: True},
+    ]
+
+    assert s.plan
+    |> Iter.find(fn line ->
+        String.starts_with(line, "SEARCH o ") and String.contains(line, "LEFT-JOIN")
+    end) is Some(_)
+end
+
+// A statement SQLite rejects is its message and the byte it names; a
+// migration it rejects stops the description at that migration.
+test "errors name their byte, and a failed migration stops the description"
+    d = describe.describe(schema, ["SELECT nope FROM users", "SELECT 1; SELECT 2"])
+
+    assert d.statements |> Iter.map(fn s -> (s.error, s.offset)) |> Iter.to_list() == [
+        ("no such column: nope",                                 7),
+        ("a query is one statement; this one has more after it", 0),
+    ]
+
+    failed = describe.describe(
+        [
+            Migration{
+                path: "1.sql",
+                text: "CREATE TABLE a (n INTEGER);\nCREATE TABLE b (n INTEGER REFERENCES;",
+            },
+        ],
+        [],
+    )
+
+    assert failed.error != "" and failed.migration == "1.sql" and failed.offset >= 28
+    assert failed.tables == [] and failed.statements == []
+end
+
+// Each migration that creates or changes a column is recorded with it.
+test "columns know their migration"
+    d = describe.describe(schema, [])
+
+    columns =
+        d.tables
+        |> Iter.flat_map(fn t -> t.columns |> Iter.map(fn c -> (t.name, c.name, c.migration)))
+        |> Iter.to_list()
+
+    assert columns == [
+        ("orders", "id",         "1.sql"),
+        ("orders", "user_id",    "1.sql"),
+        ("orders", "total",      "1.sql"),
+        ("orders", "shipped_on", "2.sql"),
+        ("users",  "id",         "1.sql"),
+        ("users",  "email",      "1.sql"),
+        ("users",  "name",       "1.sql"),
+    ]
+end

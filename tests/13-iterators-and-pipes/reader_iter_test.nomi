@@ -75,15 +75,16 @@ test "io.lines reads the capture's input after io.read_line"
 end
 
 test "io.lines hands over each line before it reads the next"
-    shout = fn ->
-        io.lines()
-        |> Iter.each(fn line ->
-            case line
-                Ok(text) -> io.print(String.uppercase(text))
-                Err(e)   -> io.eprint(e)
-            end
-        end)
-    end
+    shout =
+        fn ->
+            io.lines()
+            |> Iter.each(fn line ->
+                case line
+                    Ok(text) -> io.print(String.uppercase(text))
+                    Err(e)   -> io.eprint(e)
+                end
+            end)
+        end
 
     assert io.replay(
         """

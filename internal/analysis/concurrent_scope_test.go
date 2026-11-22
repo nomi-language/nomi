@@ -105,6 +105,35 @@ end`
 	expectConcurrentError(t, errs, "spawn outside concurrent block")
 }
 
+// Whether a call is std's `Task.spawn` is its declaration's identity:
+// std's Task imported as `Job` spawns, and a program's own `Task` does not.
+func TestConcurrentScope_SpawnIsStdsByDeclaration(t *testing.T) {
+	errs := analyzeConcurrentRaw(`import std::tasks.{Task as Job}
+
+fn demo() -> Int
+  t = Job.spawn(fn -> 42)
+  Job.await(t)
+end`)
+	expectConcurrentError(t, errs, "spawn outside concurrent block")
+
+	errs = analyzeConcurrentRaw(`struct Task
+  n: Int
+end
+
+impl Task
+  fn spawn(f: () -> Int) -> Task
+    Task{n: f()}
+  end
+end
+
+fn demo() -> Int
+  Task.spawn(fn -> 42).n
+end`)
+	if len(errs) != 0 {
+		t.Fatalf("a program's own Task.spawn is refused: %v", errs)
+	}
+}
+
 // Rule 1 (transitive case): `spawn` inside a helper function that is
 // only called from inside a `concurrent` block. The chain bottoms out
 // inside a `concurrent` ancestor, so the call is legal.

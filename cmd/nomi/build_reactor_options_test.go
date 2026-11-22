@@ -100,15 +100,15 @@ func TestBuildCommand_ReactorLoadsAndCallsWithOptions(t *testing.T) {
 	want := []string{
 		`allowed: {"ok":["hello(name: String) -> String"]}`,
 		`allowed hello: {"ok":"Ada"}`,
-		"refused: error:greeter.nomi:4: this program reaches std::io, and the host allows nothing outside the program\n" +
+		"refused: error:greeter.nomi:4: this program has the effect std::io, and the host allows no effects\n" +
 			"greeter.nomi:4: help: reached from `hello`\n" +
 			"greeter.nomi:4: help: add \"std::io\" to the names the host passes to nomi_load_with's \"std\", or remove the call",
 		`refused, then allowed: {"ok":["hello(name: String) -> String"]}`,
 		`host alone: {"ok":["hello(name: String) -> String"]}`,
-		`allow: error:nomi_load_with has no option "allow"; its options are "std", "host" and "timeout_ms"`,
-		`not an object: error:nomi_load_with: the options must be one JSON object, such as {"std": ["std::io"], "host": ["lookup"], "timeout_ms": 500}`,
+		`allow: error:nomi_load_with has no option "allow"; its options are "std", "host", "host_calls" and "timeout_ms"`,
+		`not an object: error:nomi_load_with: the options must be one JSON object, such as {"std": ["std::io"], "host": ["lookup"], "host_calls": ["lookup"], "timeout_ms": 500}`,
 		`std not an array: error:nomi_load_with: "std" must be an array of std names, such as ["std::io"]; [] allows nothing`,
-		`a go name: error:nomi_load_with's "std": "go:example.com/pkg" names a Go package; a compiled program records no Go import path`,
+		`a go name: error:nomi_load_with's "std": "go:example.com/pkg" is not a std module`,
 		`a misformed name: error:nomi_load_with's "std": "files" is not a std module`,
 		`a misspelled name: error:nomi_load_with's "std" names std::fss, which is not a std module (did you mean "std::fs"?)`,
 		`a host name in std: error:nomi_load_with: "std" holds std names, and host:lookup is a host function; list its key, "lookup", in "host"`,
@@ -127,7 +127,7 @@ func TestBuildCommand_ReactorLoadsAndCallsWithOptions(t *testing.T) {
 		`add under the load's timeout_ms: {"ok":3}`,
 		"main under the load's timeout_ms: 1",
 		`add after main: {"ok":9}`,
-		`nomi-wasi std refused: greeter.nomi:4: this program reaches std::io, and the host allows only std::fs`,
+		`nomi-wasi std refused: greeter.nomi:4: this program has the effect std::io, and the host allows only std::fs`,
 		`nomi-wasi std admitted: "Bo"`,
 		// nomi-wasi.js hands timeoutMs on as the reactor's timeout_ms.
 		"nomi-wasi timeoutMs: the call to `forever` was stopped after 200 ms, its timeout_ms",
@@ -175,7 +175,7 @@ const reactor = await WebAssembly.compile(await readFile(reactorPath));
 
 async function start() {
   const wasi = new WASI({ version: "preview1", args: [], env: {}, stdout: 2, returnOnExit: true });
-  const instance = await WebAssembly.instantiate(reactor, wasi.getImportObject());
+  const instance = await WebAssembly.instantiate(reactor, { ...wasi.getImportObject(), nomi: { host_call: () => 0n } });
   wasi.initialize(instance);
   return instance.exports;
 }

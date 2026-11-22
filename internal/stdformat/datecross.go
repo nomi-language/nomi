@@ -45,27 +45,27 @@ func naiveAttempt(answer string) rt.CalendarNaiveResult {
 	return stdcalendar.BoundNaiveParse(answer[1:])
 }
 
-// FFIParseDateStyle is `calendar.date_parse_style`.
-func FFIParseDateStyle(fr *rt.Frame, text, locale, spec string, lenient bool) rt.CalendarDateResult {
+// HostParseDateStyle is `calendar.date_parse_style`.
+func HostParseDateStyle(fr *rt.Frame, text, locale, spec string, lenient bool) rt.CalendarDateResult {
 	return dateAttempt(ParseStyle(stdlocale.Data(fr), text, locale, spec, lenient))
 }
 
-// FFIParseTimeStyle is `calendar.time_parse_style`.
-func FFIParseTimeStyle(fr *rt.Frame, text, locale, spec string, lenient bool) rt.CalendarTimeResult {
+// HostParseTimeStyle is `calendar.time_parse_style`.
+func HostParseTimeStyle(fr *rt.Frame, text, locale, spec string, lenient bool) rt.CalendarTimeResult {
 	return timeAttempt(ParseStyle(stdlocale.Data(fr), text, locale, spec, lenient))
 }
 
-// FFIParseDatePattern is `calendar.date_parse_pattern`.
-func FFIParseDatePattern(text, pattern string) rt.CalendarDateResult {
+// HostParseDatePattern is `calendar.date_parse_pattern`.
+func HostParseDatePattern(text, pattern string) rt.CalendarDateResult {
 	return dateAttempt(ParsePattern(text, pattern, true, false))
 }
 
-// FFIParseTimePattern is `calendar.time_parse_pattern`.
-func FFIParseTimePattern(text, pattern string) rt.CalendarTimeResult {
+// HostParseTimePattern is `calendar.time_parse_pattern`.
+func HostParseTimePattern(text, pattern string) rt.CalendarTimeResult {
 	return timeAttempt(ParsePattern(text, pattern, false, true))
 }
 
-// FFIParseNaivePattern is `calendar.naive_parse_pattern`.
-func FFIParseNaivePattern(text, pattern string) rt.CalendarNaiveResult {
+// HostParseNaivePattern is `calendar.naive_parse_pattern`.
+func HostParseNaivePattern(text, pattern string) rt.CalendarNaiveResult {
 	return naiveAttempt(ParsePattern(text, pattern, true, true))
 }

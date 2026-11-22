@@ -27,18 +27,6 @@
   name: (identifier) @function.definition)
 (function_definition
   name: (type_identifier) @function.definition)
-(gopkg_declaration
-  "gopkg" @keyword)
-(gopkg_declaration
-  alias: (identifier) @module)
-(go_selector_binding
-  "go" @keyword)
-(go_selector_binding
-  package: (identifier) @module)
-(go_selector_binding
-  symbol: (identifier) @function)
-(go_selector_binding
-  symbol: (type_identifier) @function)
 
 ; Host function definitions
 (extern_func_definition

@@ -15,10 +15,10 @@ import (
 // the contract. internal/ir/render.go records six:
 //
 //	a Decimal   Row `1.50`               Debug `1.50d`
-//	a Dynamic   Row `<dynamic: string>`  Debug refuses; std's impl is dispatched
+//	a Dynamic   Row `<dynamic: string>`  Debug the value it holds (DynamicInspect)
 //	a String    Row and Debug `"a\"b"` (StringLiteral), and Display is raw
-//	a struct    Row sorted fields        Debug refuses a named struct; its impl,
-//	                                     which prints declaration order, is dispatched
+//	a struct    Row sorted fields        Debug declaration order, as the
+//	                                     literal that builds it is written
 //	a record    Row Row leaves           Debug Debug leaves (both sorted by name)
 //	a hand impl Row honours a user's      Debug honours it, through the hook
 //	            (RowTextWith's hook)
@@ -29,6 +29,11 @@ import (
 // user's hand-written `impl Debug` and nothing else, so a std type's Debug
 // (Decimal's `d`) and a derived or universal one never reach a row. rt/render_test.go pins all six, and the golden
 // files in testdata/expectations pin what programs print.
+//
+// They agree on a declared type's call form: each writes a payload-carrying
+// variant or a distinct value through callText, so a payload written as a
+// tuple of its parts reads as those parts, `Node(Leaf, 1, Leaf)`, in a row,
+// a Display, a Debug and a debugger's variable alike.
 
 // RowText is how a Value reads in an assertion's `values:` row: a String is
 // its literal (StringLiteral) and everything else is its DisplayText. Nested
@@ -167,7 +172,7 @@ func displayRecordWith(r *Record, elem func(any) string) string {
 				// reads as the same variant held as its fields does.
 				return elem(p)
 			}
-			return FormatVariant(v.Name, elem(r.Field(0)))
+			return callText(v.Name, r.Field(0), v.Spread, elem)
 		}
 		return InspectStruct(ShortTypeName(v.Name), namedParts(r, elem))
 
@@ -175,7 +180,7 @@ func displayRecordWith(r *Record, elem func(any) string) string {
 		if r.NumFields() == 0 {
 			return r.Desc.Short
 		}
-		return FormatVariant(r.Desc.Short, elem(r.Field(0)))
+		return callText(r.Desc.Short, r.Field(0), r.Desc.Spread, elem)
 	}
 	if r.Desc.Name == "sets.Set" {
 		// A Set reads as its members, `[1, 2]`, as its Debug does, never as
@@ -227,6 +232,19 @@ func FormatTuple(parts []string) string { return "(" + strings.Join(parts, ", ")
 // rendered payload: `Some(1)`, `Id(5)`.
 func FormatVariant(name, payload string) string { return name + "(" + payload + ")" }
 
+// callText is a payload-carrying variant or a distinct value as the call
+// that builds it, its payload rendered by render: `Some(1)`, `Id(5)`. A
+// payload written as a tuple of its parts (spread: VariantDesc.Spread,
+// TypeDesc.Spread) is those parts, `Node(Leaf, 1, Leaf)`, `Coord(3, 4)`,
+// where a payload of one tuple type is the tuple, `Some((1, 2))`. Every
+// rendering of a declared type's call form is this one.
+func callText(name string, payload any, spread bool, render func(any) string) string {
+	if t, ok := payload.(*Record); spread && ok && t != nil && t.Desc.Kind == KindTuple {
+		return name + FormatTuple(recordParts(t, render))
+	}
+	return FormatVariant(name, render(payload))
+}
+
 // FormatMapPairs joins rendered key/value pairs in the order given: `{}`
 // when empty, `{k => v, w => x}` otherwise. FormatMap is this over an rt.Map.
 func FormatMapPairs(keys, vals []string) string {
@@ -260,11 +278,14 @@ func hookBoxFirst(v any, hook DebugHook) (string, bool, error) {
 }
 
 // DebugText is the structural `Debug.inspect` of a Value, consulting hook
-// first at every level. It renders what the front end's universal Debug and
-// std's impls print for scalars, collections, tuples, anonymous records,
-// distincts, Bool, the prelude's carrying enums and the placeholder of an
-// opaque value (a task, a channel half), and refuses by name what only a
-// dispatched impl can render: a named struct, a user enum, a Dynamic.
+// first at every level. It renders a value as the literal that builds it,
+// as the spec's universal Debug says (§12 *Display and Debug*): scalars,
+// collections, tuples, anonymous records, a named struct with its fields in
+// declaration order, an enum's variant by its shape (an `embeds` variant as
+// the value it holds), a distinct, and a payload written as a tuple of its
+// parts as those parts (VariantDesc.Spread, TypeDesc.Spread), and the
+// placeholder of an opaque value (a task, a channel half). An opaque type's
+// `<opaque T>` is its synthesized impl's, which the hook owns.
 func DebugText(v any, hook DebugHook) (string, error) {
 	if hook != nil {
 		if s, owned, err := hookBoxFirst(v, hook); owned || err != nil {
@@ -373,24 +394,6 @@ func DebugText(v any, hook DebugHook) (string, error) {
 	return "", fmt.Errorf("Debug on an unrepresented receiver (%T)", v)
 }
 
-// DebugPreludeVariant reports whether the structural Debug knows this variant
-// of a prelude enum by its runtime identity (`maybe.Maybe`, not `Maybe`), and
-// if so whether it carries a payload: a carrying variant renders
-// `Variant(payload)`, a bare one its name. Anything unknown is a user enum,
-// whose Debug is its dispatched impl.
-func DebugPreludeVariant(enum, variant string) (carrying, known bool) {
-	carrying, known = debugCarrying[enum][variant]
-	return carrying, known
-}
-
-var debugCarrying = map[string]map[string]bool{
-	"maybe.Maybe":       {"Some": true, "None": false},
-	"results.Result":    {"Ok": true, "Err": true},
-	"literals.Fragment": {"Static": true, "Dynamic": true},
-	"tasks.Outcome":     {"Completed": true, "Failed": true, "Cancelled": false},
-	"tasks.Failure":     {"Panicked": true, "Errored": true},
-}
-
 func debugRecord(r *Record, hook DebugHook) (string, error) {
 	switch r.Desc.Kind {
 	case KindTuple:
@@ -406,39 +409,29 @@ func debugRecord(r *Record, hook DebugHook) (string, error) {
 		return FormatTuple(parts), nil
 	case KindEnum:
 		v := r.Variant()
-		bare := v.Shape == VariantBare
-		carrying, known := DebugPreludeVariant(r.Desc.Name, v.Name)
-		if known && !carrying && bare {
+		switch v.Shape {
+		case VariantBare:
 			return v.Name, nil
-		}
-		if known && carrying && !bare {
-			payload, err := DebugText(payloadValue(r), hook)
+		case VariantEmbedded:
+			return DebugText(r.Field(0), hook)
+		case VariantFields:
+			parts, err := declaredDebugParts(r, &v.Layout, hook)
 			if err != nil {
 				return "", err
 			}
-			return FormatVariant(v.Name, payload), nil
+			return StructOpen(ShortTypeName(v.Name)) + strings.Join(parts, ", ") + "}", nil
 		}
-		// A Bool, and only a Bool, prints its variant's name; the engine's
-		// Bool is a Go bool, so this arm serves a Bool built as a record.
-		if r.Desc.Short != "Bool" || !bare {
-			return "", fmt.Errorf("Debug on an unrepresented receiver (%s.%s)", r.Desc.Short, v.Name)
-		}
-		return v.Name, nil
+		// A positional variant is the call that builds it, a payload of a
+		// struct named as the variant among them: `Click(Click{x: 1})`.
+		return debugCall(v.Name, r.Field(0), v.Spread, hook)
 	case KindDistinct:
 		if r.NumFields() == 0 {
 			return r.Desc.Short, nil
 		}
-		inner, err := DebugText(r.Field(0), hook)
-		if err != nil {
-			return "", err
-		}
-		return FormatVariant(r.Desc.Short, inner), nil
+		return debugCall(r.Desc.Short, r.Field(0), r.Desc.Spread, hook)
 	}
 	if r.Desc.Name == "sets.Set" {
 		return debugSet(r, hook)
-	}
-	if r.Desc.Name == ChannelTypeName {
-		return debugChannel(r, hook)
 	}
 	if r.Desc.Kind == KindAnon || r.Desc.Name == "" {
 		// An anonymous record's field order is its sorted names, which is
@@ -449,26 +442,45 @@ func debugRecord(r *Record, hook DebugHook) (string, error) {
 		}
 		return "{" + strings.Join(parts, ", ") + "}", nil
 	}
-	return "", fmt.Errorf("Debug on an unrepresented receiver (%s): a struct's "+
-		"Debug renders its fields in DECLARATION order through its dispatched impl, "+
-		"and the structural renderer prints only sorted orders", r.Desc.Short)
+	// A named struct reads as the literal that builds it, `Point{x: 1, y:
+	// 2}`, its fields in declaration order, which is its layout's.
+	parts, err := declaredDebugParts(r, r.Layout(), hook)
+	if err != nil {
+		return "", err
+	}
+	return StructOpen(r.Desc.Short) + strings.Join(parts, ", ") + "}", nil
 }
 
-// debugChannel is a `Channel<T>`'s Debug. std declares no impl Debug for it,
-// so it reads as any struct's universal Debug does, `Channel{...}` with its
-// fields in declaration order, which is its descriptor's layout order: the
-// sender, then the receiver, each a channel half (ChannelInspectText).
-func debugChannel(r *Record, hook DebugHook) (string, error) {
-	l := r.Layout()
+// debugCall is callText with each part rendered by DebugText, stopping at
+// the first error.
+func debugCall(name string, payload any, spread bool, hook DebugHook) (string, error) {
+	var first error
+	s := callText(name, payload, spread, func(x any) string {
+		if first != nil {
+			return ""
+		}
+		s, err := DebugText(x, hook)
+		first = err
+		return s
+	})
+	if first != nil {
+		return "", first
+	}
+	return s, nil
+}
+
+// declaredDebugParts renders the fields l lays out in r, `name: value`, in
+// l's order.
+func declaredDebugParts(r *Record, l *Layout, hook DebugHook) ([]string, error) {
 	parts := make([]string, len(l.Fields))
 	for i := range l.Fields {
 		s, err := DebugText(r.slot(&l.Fields[i]), hook)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		parts[i] = l.Fields[i].Name + ": " + s
 	}
-	return StructOpen(r.Desc.Short) + strings.Join(parts, ", ") + "}", nil
+	return parts, nil
 }
 
 func sortedDebugParts(r *Record, hook DebugHook) ([]string, error) {

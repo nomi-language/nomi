@@ -9,7 +9,6 @@ import (
 	"github.com/nomi-language/nomi/internal/doctest"
 	"github.com/nomi-language/nomi/internal/expectation"
 	"github.com/nomi-language/nomi/internal/irbuild"
-	"github.com/nomi-language/nomi/internal/tourgo"
 )
 
 // TestObjectsLinkToTheSameProgram runs the corpus, the tour's blocks and the
@@ -29,8 +28,7 @@ import (
 // objects-link step does. Its objects-irbuild step runs
 // TestIRGolden_RecordsMatchTheVM under NOMI_LINK_OBJECTS=1, so every
 // program irbuild.expect records is linked through objects and held to its
-// record. A program run through a generated FFI wrapper lowers in the
-// wrapper's process, which sees only NOMI_LINK_OBJECTS. TestLink_* in
+// record. TestLink_* in
 // internal/ir hold the linker's rules, and TestLinkedStd_* in
 // internal/irbuild hold that two programs reaching listed std modules link
 // one kept lowering of them.
@@ -118,9 +116,7 @@ func runLinkedPopulations(t *testing.T, how string) {
 			t.Fatal(err)
 		}
 		for _, b := range doctest.ExtractBlocks(string(data), "nomi-run") {
-			// A block that imports a module only the browser links has
-			// no record (TestExpectation_Tour).
-			if !b.Runs() || len(tourgo.Unlinked(b.Code)) > 0 {
+			if !b.Runs() {
 				continue
 			}
 			block++

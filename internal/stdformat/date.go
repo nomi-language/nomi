@@ -495,10 +495,10 @@ func unquote(s string) string {
 	return b.String()
 }
 
-// FFIFormatCivilStyle is `calendar.civil_format_style`: a value's fields in
+// HostFormatCivilStyle is `calendar.civil_format_style`: a value's fields in
 // locale by a style spec, `<date style>/<time style>`, `-` for a part not
 // written (`medium/short`).
-func FFIFormatCivilStyle(fr *rt.Frame, locale string, year rt.Int, fields []int64, spec string) string {
+func HostFormatCivilStyle(fr *rt.Frame, locale string, year rt.Int, fields []int64, spec string) string {
 	return FormatStyle(stdlocale.Data(fr), locale, year, fields, spec)
 }
 
@@ -516,9 +516,9 @@ func FormatStyle(d *cldrdata.Data, locale string, year rt.Int, fields []int64, s
 	return c.write(c.stylePattern(ds, ts, v), v)
 }
 
-// FFIFormatCivilFields is `calendar.civil_format_fields`: a value's fields
+// HostFormatCivilFields is `calendar.civil_format_fields`: a value's fields
 // in locale by a skeleton.
-func FFIFormatCivilFields(fr *rt.Frame, locale string, year rt.Int, fields []int64, skeleton string) string {
+func HostFormatCivilFields(fr *rt.Frame, locale string, year rt.Int, fields []int64, skeleton string) string {
 	return FormatSkeleton(stdlocale.Data(fr), locale, year, fields, skeleton)
 }
 
@@ -533,8 +533,8 @@ func FormatSkeleton(d *cldrdata.Data, locale string, year rt.Int, fields []int64
 	return c.write(p, v)
 }
 
-// FFIFormatCivilPattern is `calendar.civil_format_pattern`: a value's
+// HostFormatCivilPattern is `calendar.civil_format_pattern`: a value's
 // fields by a fixed pattern, in ASCII digits.
-func FFIFormatCivilPattern(year rt.Int, fields []int64, pattern string) string {
+func HostFormatCivilPattern(year rt.Int, fields []int64, pattern string) string {
 	return fixedCalendar().write(parseDate(pattern), civilOf(year, fields))
 }

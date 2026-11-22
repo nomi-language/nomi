@@ -9,7 +9,6 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/internal/syntheticextern"
 )
 
 // StoredSource describes the program whose entry file is path, a file on
@@ -44,9 +43,6 @@ func (c *Checker) StoredSource(path string, mode Mode, appTypes []analysis.AppTy
 				c.entrySrc = string(data)
 				nodes, err := parser.Parse(lexer.Lex(c.entrySrc))
 				if err != nil {
-					return nil, false
-				}
-				if nodes, err = syntheticextern.Inject(nodes, c.cfg.SyntheticExterns, true); err != nil {
 					return nil, false
 				}
 				return analysis.ExpandDeclarations(nodes, c.site(entry)), true

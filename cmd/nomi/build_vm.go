@@ -9,16 +9,17 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/nomi-language/nomi/internal/ffirun"
+	"github.com/nomi-language/nomi/internal/runners"
 )
 
 // `nomi build-vm`: a copy of nomi-vm for a target with no program, which runs
 // the .nomic file it is handed (vmrunner/imagefile.go). It is the runner
 // `nomi build` would append a program to, found, built or downloaded as that
-// does (ffirun.Runner). `--reactor` writes the wasip1 reactor with nothing
+// does (runners.Runner). `--reactor` writes the wasip1 reactor with nothing
 // embedded instead, which takes a .nomic through nomi_load. `--no-network`
-// picks the variant built without the network (ffirun.Variant.NoNetwork),
-// a third smaller, whose network crossings answer an error.
+// picks the lean variant (runners.Variant.NoNetwork), a third smaller,
+// built without the network and WebAssembly modules, whose crossings of
+// those answer an error.
 
 const buildVMUsage = "usage: nomi build-vm [--target <goos>/<goarch>] [--compiler] [--no-network] [-o <out>]\n" +
 	"       nomi build-vm --reactor [--compiler] [--no-network] [-o <out>]"
@@ -36,7 +37,7 @@ var (
 
 type buildVMArgs struct {
 	out    string
-	target ffirun.Target
+	target runners.Target
 	// compiler picks the VM that links std/compiler's hosts.
 	compiler bool
 	// reactor writes the wasip1 reactor, which loads a .nomic through
@@ -106,7 +107,7 @@ func parseBuildVMArgs(args []string) (buildVMArgs, error) {
 		}
 		return v, nil
 	}
-	v.target = ffirun.ResolveTarget(goos, goarch)
+	v.target = runners.ResolveTarget(goos, goarch)
 	if v.out == "" {
 		v.out = defaultExecutableName("nomi-vm", v.target)
 	}
@@ -133,7 +134,7 @@ func writeRunner(v buildVMArgs, stderr io.Writer) error {
 	if v.reactor {
 		cmd = "nomi build-vm --reactor"
 	}
-	runner, err := ffirun.Runner(v.target, ffirun.Variant{Compiler: v.compiler, Reactor: v.reactor, NoNetwork: v.noNetwork}, stderr)
+	runner, err := runners.Runner(v.target, runners.Variant{Compiler: v.compiler, Reactor: v.reactor, NoNetwork: v.noNetwork}, stderr)
 	if err != nil {
 		return fmt.Errorf("%s: %w", cmd, err)
 	}
@@ -162,11 +163,11 @@ func writeRunner(v buildVMArgs, stderr io.Writer) error {
 		}
 	}
 	if v.target.GOOS == "js" && v.target.GOARCH == "wasm" {
-		support, err := ffirun.WasmExec(runner)
+		support, err := runners.WasmExec(runner)
 		if err != nil {
 			return fmt.Errorf("%s: %w", cmd, err)
 		}
-		if err := copyTo(filepath.Join(filepath.Dir(v.out), ffirun.WasmExecName), support, 0o644); err != nil {
+		if err := copyTo(filepath.Join(filepath.Dir(v.out), runners.WasmExecName), support, 0o644); err != nil {
 			return fmt.Errorf("%s: %w", cmd, err)
 		}
 	}

@@ -25,25 +25,16 @@ import (
 // `Day` into one slot, and resolveImplDef's duplicate rule would refuse all
 // three.
 //
-// # A SECOND INDEX, NOT A WIDER KEY, because of one consultation site
+// # A SECOND INDEX, NOT A WIDER KEY
 //
 // Widening `implsByIface`'s key to carry the interface's type arguments changes
-// a map that `bindsImpl`, `noEquatableImpl`, `debugerased.go`,
-// `debuginspect.go`, `irinterfacecall.go`, `irqualcall.go` and `genericimpl.go`
-// all read. Most of those would merely need a mechanical edit. `noEquatableImpl` is
-// the one that would not, and it decides the shape of this file:
-//
-//	if g.implsByIface[stdIfaceImplKey(stdEquatable)][k] != nil { return false }
-//
-// It answers "this builder has ESTABLISHED that no impl Equatable exists", and a
-// TRUE answer sends `==` to the STRUCTURAL comparator. Under a widened key that
-// lookup becomes "no row for (Equatable, k, <which rhs?>)", and the honest
-// rewrite is an EXISTENTIAL over the rhs axis — "no row for any rhs". A
-// mechanical rewrite that kept the shape of a single lookup would answer TRUE
-// for a type that HAS an impl, and `==` would silently take the structural
-// fallback: a WRONG ANSWER, not a refusal, on a comparison that lowers.
-// Eight sites, and the failure at one of them is invisible to the corpus unless
-// a fixture happens to compare two values of a type whose Equatable impl exists.
+// a map that `bindsImpl`, `debugerased.go`, `debuginspect.go`,
+// `irinterfacecall.go`, `irqualcall.go` and `genericimpl.go` all read, each
+// asking for one receiver's impl of an interface. Under a widened key each
+// lookup becomes "a row for (iface, k, <which rhs?>)", and the honest rewrite
+// is an EXISTENTIAL over the rhs axis. A mechanical rewrite that kept the shape
+// of a single lookup would answer "no impl" for a type that HAS one, at a site
+// a fixture may never reach.
 //
 // A SECOND INDEX cannot produce that failure, and the reason is structural
 // rather than careful: no operator impl is registered in `implsByIface` at all,
@@ -63,7 +54,7 @@ import (
 //
 // `Add`/`Subtract`/`Multiply`/`Divide` are excluded from `stdIfaceSpecs`
 // because `stdIfaceSpec.matches` returns false on `len(decl.TypeParams) > 0`, so
-// `stdIfaceNamed` answers nothing for them and there is no declaration to
+// std's shared defs hold none of them and there is no declaration to
 // instantiate. An operator impl therefore carries `iface == nil`, and that is
 // sufficient rather than a compromise: dispatch is from a STATICALLY KNOWN left
 // operand at every one of the three call shapes below, `bindImpl` returns
@@ -82,12 +73,10 @@ import (
 //
 // # IDENTITY
 //
-// The interface must be STD's. `operIfaceAnchoredIn` mirrors `stdIfaceAnchors`
-// exactly: `fa.ModuleScope.Lookup(name)` must yield an IMPORT symbol whose
-// module path is the declaring std module (`stdImportModuleOf` reports the
-// ORIGIN module even through the prelude's re-export), and the resolved
-// declaration must have the shape `operIfaceSpec` records. A user's own
-// `interface Add<R, O>` is not an import, so it anchors nothing here and takes
+// The interface must be STD's: the one the checker recorded for the impl
+// block (implBlockRecord) is the spec's (module, name), and std declares it
+// in the shape `operIfaceSpec` records (`operIfaceOf`). A user's own
+// `interface Add<R, O>` is another interface, so it is no spec's and takes
 // `resolveImplDef`'s generic-interface-template route instead.
 
 // operIfaceSpec is one stdlib OPERATOR interface: `pub interface Add<Rhs, Out>`
@@ -180,34 +169,16 @@ type operKey struct {
 	out   kind
 }
 
-// operIfaceAnchoredIn reports whether `name` in this module is the stdlib
-// operator interface of that name, with the declared shape.
-//
-// A free function taking the analysis rather than a gen method, on
-// `stdIfaceAnchors`' and `structIfaceAnchored`' footing: one implementation of
-// "is this the std interface", so there is nothing for a second to drift from.
-func operIfaceAnchoredIn(fa *analysis.FileAnalysis, name string) (*operIfaceSpec, bool) {
-	s, known := operIfaceByName[name]
-	if !known || fa == nil || fa.ModuleScope == nil {
+// operIfaceOf is the operator interface spec of std interface id, when std
+// declares it in the spec's shape (matchesDecl). The zero id, a program's
+// interface, is none.
+func (g *gen) operIfaceOf(id analysis.StdType) (*operIfaceSpec, bool) {
+	s, known := operIfaceByName[id.Name]
+	if !known || s.module != id.Module {
 		return nil, false
 	}
-	sym := fa.ModuleScope.Lookup(name)
-	if sym == nil {
-		return nil, false
-	}
-	if mod, imported := stdImportModuleOf(sym, stdImporterOf(fa, sym)); !imported || mod != s.module {
-		// Not reached through an import of the DECLARING std module: a local
-		// declaration, a sibling's, or a dependency's. No anchor, and the
-		// ordinary paths report. This is the identity check and it is the whole
-		// of it — see stdiface.go's file comment.
-		return nil, false
-	}
-	res := sym
-	for res.Resolved != nil {
-		res = res.Resolved
-	}
-	decl, isDecl := res.Node.(*ast.InterfaceDef)
-	if !isDecl || !s.matchesDecl(decl) {
+	decl := stdInterfaceDecl(g.fa, id)
+	if decl == nil || !s.matchesDecl(decl) {
 		return nil, false
 	}
 	return s, true
@@ -238,7 +209,7 @@ func (s *operIfaceSpec) matchesDecl(decl *ast.InterfaceDef) bool {
 	case len(decl.TypeParams) != typeParams, len(decl.WhereClauses) > 0:
 		return false
 	// An attached `//!` test is deliberately NOT a disqualifier — see
-	// stdStructSpec.matches for why.
+	// stdStructSpec.mismatch for why.
 	case len(decl.Methods) != 1:
 		return false
 	}
@@ -291,26 +262,6 @@ func isNamedTypeExpr(te ast.TypeExpr, name string) bool {
 	return simple && st.Name == name
 }
 
-// operIfaceAnchored is operIfaceAnchoredIn against this gen's module, memoized.
-//
-// Memoized because resolveImplDef asks once per impl block and the lookup walks
-// a resolution chain; the answer is a property of the module, so one answer per
-// gen is the whole of what is needed.
-func (g *gen) operIfaceAnchored(name string) (*operIfaceSpec, bool) {
-	if g.operAnchors == nil {
-		g.operAnchors = map[string]*operIfaceSpec{}
-	}
-	if s, cached := g.operAnchors[name]; cached {
-		return s, s != nil
-	}
-	s, ok := operIfaceAnchoredIn(g.fa, name)
-	if !ok {
-		s = nil
-	}
-	g.operAnchors[name] = s
-	return s, s != nil
-}
-
 // admitOperImpl claims `impl Add<Days, Day> for Day` for this file's parallel
 // index, reporting whether it did.
 //
@@ -321,12 +272,13 @@ func (g *gen) operIfaceAnchored(name string) (*operIfaceSpec, bool) {
 // operShapeRefusal, since it compares the block's own parameter kinds against
 // the header's type arguments.
 //
-// Declines, leaving `generic interface impl` to report, for
-// every header that is not one of the four anchored operator interfaces at
+// iface is the std interface the checker recorded for the block. Declines,
+// leaving `generic interface impl` to report, for every header that is not
+// one of the operator interfaces at
 // exactly two type arguments, both of which resolve to kinds this builder
 // represents.
-func (g *gen) admitOperImpl(d *implDef, ib *ast.ImplBlock, name string) bool {
-	s, anchored := g.operIfaceAnchored(name)
+func (g *gen) admitOperImpl(d *implDef, ib *ast.ImplBlock, name string, iface analysis.StdType) bool {
+	s, anchored := g.operIfaceOf(iface)
 	if !anchored {
 		return false
 	}
@@ -383,7 +335,7 @@ func (g *gen) operShapeRefusal(d *implDef) (string, string) {
 	label := d.oper.nomi + " for " + d.recv.nomi()
 	if d.oper.maybeSelf {
 		// `Maybe<self>`: the receiver resolved after admitOperImpl ran.
-		a, anchored := g.preludeNamed("Maybe")
+		a, anchored := preludeSpecAnchor(preludeSpecNamed("Maybe"))
 		if !anchored {
 			return "operator impl shape", label + " needs the prelude Maybe"
 		}

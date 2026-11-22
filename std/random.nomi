@@ -112,8 +112,8 @@ end
 
 /// Unbiased integer in the inclusive range `[from, to]` plus the advanced
 /// state (host rejection sampling over the span, so a range of any width
-/// draws). The Go adapter returns two values, which the FFI boundary
-/// projects element-by-element into this tuple.
+/// draws). The Go function returns two values, which the host projection
+/// maps element by element into this tuple.
 host fn between_state(state: Int, from: Int, to: Int) -> (Int, Int)
 
 /// Float in `[0.0, 1.0)` plus the advanced state.
@@ -289,10 +289,11 @@ impl Generator<T>
     //
     pub fn map<T, U>(gen: Generator<T>, f: (T) -> U) -> Generator<U>
         Generator{
-            run: fn seed ->
-                (value, seed) = Generator.step(gen, seed)
-                (f(value), seed)
-            end,
+            run:
+                fn seed ->
+                    (value, seed) = Generator.step(gen, seed)
+                    (f(value), seed)
+                end,
         }
     end
 
@@ -313,10 +314,11 @@ impl Generator<T>
     //
     pub fn flat_map<T, U>(gen: Generator<T>, f: (T) -> Generator<U>) -> Generator<U>
         Generator{
-            run: fn seed ->
-                (value, seed) = Generator.step(gen, seed)
-                Generator.step(f(value), seed)
-            end,
+            run:
+                fn seed ->
+                    (value, seed) = Generator.step(gen, seed)
+                    Generator.step(f(value), seed)
+                end,
         }
     end
 
@@ -341,26 +343,28 @@ end
 
 fn unsafe_int(from: Int, to: Int) -> Generator<Int>
     Generator{
-        run: fn seed ->
-            between(seed, from, to)
-        end,
+        run:
+            fn seed ->
+                between(seed, from, to)
+            end,
     }
 end
 
 fn unsafe_float(from: Float, to: Float) -> Generator<Float>
     Generator{
-        run: fn seed ->
-            (f, seed) = unit_float(seed)
-            span = to - from
+        run:
+            fn seed ->
+                (f, seed) = unit_float(seed)
+                span = to - from
 
-            // Finite bounds whose difference overflows (`-1.0e308` to
-            // `1.0e308`) interpolate instead, where no term exceeds a bound.
-            if Float.is_finite(span) then
-                (from + f * span, seed)
-            else
-                (from * (1.0 - f) + to * f, seed)
-            end
-        end,
+                // Finite bounds whose difference overflows (`-1.0e308` to
+                // `1.0e308`) interpolate instead, where no term exceeds a bound.
+                if Float.is_finite(span) then
+                    (from + f * span, seed)
+                else
+                    (from * (1.0 - f) + to * f, seed)
+                end
+            end,
     }
 end
 

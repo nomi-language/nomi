@@ -76,8 +76,13 @@ type Backend interface {
 	// Create opens path to write it in mode.
 	Create(path string, mode WriteMode) (rt.WriteSink, *rt.IOError)
 	// OpenFile opens path for reads and writes at a position, as access
-	// says. A directory is IsADirectory.
+	// says. A directory is IsADirectory. The source syncs the file and locks
+	// ranges of it for its own handle.
 	OpenFile(path string, access Access) (rt.FileSource, *rt.IOError)
+	// SyncDir makes the entries of the directory dir durable, so a file
+	// made, renamed or removed in it outlasts a crash. Something other than
+	// a directory is NotADirectory.
+	SyncDir(dir string) *rt.IOError
 	// List is dir's entries, sorted by name. A symlink is listed as one,
 	// whatever it points to.
 	List(dir string) ([]DirEntry, *rt.IOError)
@@ -102,8 +107,8 @@ type Backend interface {
 	// Chmod sets the permission bits of what path names, following
 	// symlinks.
 	Chmod(path string, mode int64) *rt.IOError
-	// Within is a file system that reaches only what is under dir, and the
-	// function that releases it. A relative path is under dir, an absolute
+	// Within is a file system that reaches only what is under dir (a
+	// `Dir`'s), and the function that releases it. A relative path is under dir, an absolute
 	// one must be, and a path that leaves it, by `..` or by a symlink, is
 	// InvalidPath (escapes).
 	Within(dir string) (Backend, func(), *rt.IOError)
@@ -141,8 +146,8 @@ func validPath(path string) *rt.IOError {
 func errOf(tag uint8, path string) *rt.IOError { return &rt.IOError{Tag: tag, Path: path} }
 
 // escapeReason is the InvalidPath reason for a path that leaves the
-// directory `fs.within` confines a call to.
-const escapeReason = "the path leads outside the directory fs.within confines calls to"
+// directory a `Dir` holds, or `fs.within` confines a call to.
+const escapeReason = "the path leads outside the directory it is confined to"
 
 // escapes is the InvalidPath error for such a path.
 func escapes(path string) *rt.IOError {

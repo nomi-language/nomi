@@ -20,7 +20,7 @@ const (
 	exprKindOwnType exprKindAgreement = "its own type"
 	// exprKindSettled: an expression of Infallible (`todo`,
 	// `unreachable`) the builder lowers at the type its position settled
-	// (ExpectedTypes), as todoCheckedKind reads it, and a lambda whose body
+	// (settledKind), as trapKind reads it, and a lambda whose body
 	// only leaves (`continue`, `break`), recorded with an Infallible result
 	// and lowered at the result its position takes.
 	exprKindSettled exprKindAgreement = "Infallible, at its position's type"
@@ -37,38 +37,6 @@ const (
 	exprKindBoolVariant exprKindAgreement = "a Bool variant's value, held as the Bool"
 )
 
-// exprKindClass is a known way the kind the builder lowers an expression at
-// and the type the checker recorded for it differ.
-type exprKindClass string
-
-const (
-	exprKindHeldConcrete      exprKindClass = "held at a concrete kind where the record is an interface"
-	exprKindCaptureView       exprKindClass = "a partial lowered at its callee's Iter parameter"
-	exprKindLiteralAtPosition exprKindClass = "a literal recorded at wider element types than its items'"
-)
-
-// knownExprKindClasses is every exprKindClass verifyExprKind lets pass,
-// with its cause. verifyExprKind fails on a disagreement of no listed
-// class; TestIRGolden_RecordsMatchTheVM counts each class's distinct
-// sites, and maxExprKindSites holds each count to a maximum that only goes
-// down.
-var knownExprKindClasses = map[exprKindClass]string{
-	// The checker solved a generic call's type parameter at the interface
-	// its position expects (`d: Display = Iter.loop(Set[1, 2], ...)` solves
-	// the state at Display), and the builder instantiates the callee at its
-	// arguments' kinds and converts the result where it is used.
-	exprKindHeldConcrete: "the builder instantiates a generic call at its arguments' kinds",
-	// `&Iter.sum(&1)` mapped over a List of Lists: the builder types the
-	// partial's open slot at its callee's parameter (Iter<Int>), and the
-	// checker types it at the List it is given and records no view of it.
-	exprKindCaptureView: "the builder types a partial's open slot from its callee's parameter",
-	// `{"a" => [1]}` checked against `Map<String, Iter<Int>>` is recorded at
-	// that type, and `[fc1]` in `Vector[[fc1], [Fig1.Pt1, fc1]]` (fc1 a
-	// Ring1, which Fig1 embeds) at List<Fig1>; the builder holds each
-	// literal at its items' own kinds and converts it where it is used.
-	exprKindLiteralAtPosition: "the checker records a literal at the element types its position takes",
-}
-
 // exprKindNoRecord is why an expression the builder lowers has no type in
 // the checker's record to compare with.
 type exprKindNoRecord string
@@ -82,13 +50,125 @@ const (
 	noRecordBuilt     exprKindNoRecord = "a node the builder writes"
 )
 
+// recordedType is the type the checker recorded for n's value
+// (FileAnalysis.ExprTypes), or for a node the builder made, the type it
+// carries (carryType), and nil where there is none: a node the builder
+// wrote or copied that carries none, or code markUnchecked marks. The
+// builder reads an expression's kind through it (recordedKind) and
+// verifyExprKind holds every other expression's lowered kind to it.
+func (g *gen) recordedType(n ast.Node) analysis.Type {
+	if g.fa == nil || g.unchecked[n] {
+		return nil
+	}
+	if ty := g.carriedTypes[n]; ty != nil {
+		return ty
+	}
+	fa := g.srcFA()
+	if fa == nil {
+		return nil
+	}
+	return fa.ExprTypes[n]
+}
+
+// carryType makes ty the type recordedType answers for n, a node the
+// builder made, until done is called: the checker's type of the source
+// node n stands for (a lambda a capture stands for takes the capture's,
+// recordedType(capture)), which is projected under the instance frame n is
+// lowered in, as that node's own record would be. A node that lives as
+// long as the body it is in never calls done. A nil ty carries nothing.
+func (g *gen) carryType(n ast.Node, ty analysis.Type) (done func()) {
+	if ty == nil {
+		return func() {}
+	}
+	if g.carriedTypes == nil {
+		g.carriedTypes = map[ast.Node]analysis.Type{}
+	}
+	g.carriedTypes[n] = ty
+	return func() { delete(g.carriedTypes, n) }
+}
+
+// carryRefResult makes the result of the function type the checker gave
+// ref, a function used as a value (checkedRefFuncType), the type of call,
+// the call of ref the body of that value's function makes, until done is
+// called.
+func (g *gen) carryRefResult(call *ast.Call, ref ast.Node) (done func()) {
+	if ft := checkedRefFuncType(g.srcFA(), ref); ft != nil {
+		return g.carryType(call, ft.Return)
+	}
+	return func() {}
+}
+
+// recordedKind is the kind of recordedType under the current instance's
+// frame, and false where n has no record.
+func (g *gen) recordedKind(n ast.Node) (kind, bool) {
+	rec := g.recordedType(n)
+	if rec == nil {
+		return kind{}, false
+	}
+	return g.project(rec), true
+}
+
+// convertedKind is the kind the checker's records give n's value where it
+// is used: the type its Conversion converts it to (a literal written where
+// a wider type is expected, `(1, Pt{x: 5})` returned as an `(Int, Named)`),
+// or else its own type (recordedKind), under the current instance's frame,
+// and false where n has no record.
+func (g *gen) convertedKind(n ast.Node) (kind, bool) {
+	if g.recordedType(n) == nil {
+		return kind{}, false
+	}
+	if c := g.srcFA().Conversions[n]; c != nil {
+		return g.project(c.To), true
+	}
+	return g.recordedKind(n)
+}
+
+// settledKind is the kind of the type the checker settled for n, an
+// expression of Infallible, from its position (FileAnalysis.ExpectedTypes,
+// analysis's settleTodo: Bool for `not todo`, the other arm's type for an
+// `if` arm), under the current instance's frame, and false where it settled
+// none.
+func (g *gen) settledKind(n ast.Node) (kind, bool) {
+	if g.fa == nil {
+		return kind{}, false
+	}
+	fa := g.srcFA()
+	if fa == nil {
+		return kind{}, false
+	}
+	ty, settled := fa.ExpectedTypes[n]
+	if !settled {
+		return kind{}, false
+	}
+	return g.project(ty), true
+}
+
+// valueKind is the kind the checker's records give n's value, for a
+// construct whose kind is its parts' (a region, a block, a `concurrent`
+// body): its own type (recordedKind), or for a value of Infallible the type
+// its position settled (settledKind) where one was. ok is false where n has
+// no record that names a kind (noteUnrecordedKind counts it under family):
+// a block then takes its tail's kind, and a region or a `concurrent` body
+// declines.
+func (bl *irScalarBuilder) valueKind(family string, n ast.Node) (kind, bool) {
+	k, recorded := bl.g.recordedKind(n)
+	if settled, isSettled := bl.g.settledKind(n); recorded && k == kindNever && isSettled && irCallableValueKind(settled) {
+		k = settled
+	}
+	// kindInvalid: lookup — a record no kind represents is counted as no record.
+	if !recorded || k == kindInvalid {
+		bl.noteUnrecordedKind(family, n)
+		return kind{}, false
+	}
+	return k, true
+}
+
 // verifyExprKind fails, under substVerify, when the kind k lowerExact
 // lowered n at is not what the checker's records say n's value is there:
-// its own type (ExprTypes) under the current instance's frame, or the type
-// a record that changes it gives (exprKindAgreement), and the difference is
-// no known exprKindClass. A node with no record (one the builder wrote or
-// copied, one of code markUnchecked marks) is not checked, and the census
-// counts it by why it has none.
+// its own type (recordedType) under the current instance's frame, or the
+// type a record that changes it gives (exprKindAgreement). A node with no
+// record (one the builder wrote or copied, one of code markUnchecked marks)
+// is not checked, and the census counts it by why it has none.
 func (bl *irScalarBuilder) verifyExprKind(n ast.Node, k kind) {
 	g := bl.g
 	if !substVerify || g.fa == nil {
@@ -103,8 +183,8 @@ func (bl *irScalarBuilder) verifyExprKind(n ast.Node, k kind) {
 		exprKindCensus.note(g, class, line, col)
 		stdExprKindCensus.note(g, class, line, col)
 	}
-	rec := fa.ExprTypes[n]
-	if g.unchecked[n] || rec == nil {
+	rec := g.recordedType(n)
+	if rec == nil {
 		if exprKindCensus.counting() || stdExprKindCensus.counting() {
 			note(exprKindNoRecordPrefix + string(bl.noRecordOf(n, fa)))
 		}
@@ -114,30 +194,56 @@ func (bl *irScalarBuilder) verifyExprKind(n ast.Node, k kind) {
 		note(exprKindAgreePrefix + string(agreement))
 		return
 	}
-	class, identified := bl.exprKindClassOf(n, k, rec)
-	if _, listed := knownExprKindClasses[class]; !identified || !listed {
-		g.calleeMismatch(line, col, fmt.Sprintf("the builder lowers this %s (`%s`) at %s, and the checker records it as %s (%s)",
-			n.NodeType(), renderNode(n), k.nomi(), rec, g.project(rec).nomi()))
-		return
-	}
-	note(string(class))
+	g.calleeMismatch(line, col, fmt.Sprintf("the builder lowers this %s (`%s`) at %s, and the checker records it as %s (%s)",
+		n.NodeType(), renderNode(n), k.nomi(), rec, g.project(rec).nomi()))
 }
 
 // The census counts an agreement and a site with no record as classes of
-// their own, named with these prefixes, beside the classes it holds.
+// their own, named with these prefixes.
 const (
 	exprKindAgreePrefix    = "agrees: "
 	exprKindNoRecordPrefix = "no record: "
+	// exprKindUnrecordedPrefix names a site of a construct whose kind the
+	// builder reads from the checker's record (noteUnrecordedKind) that has
+	// none: a block computes its kind from its tail, and a region, a
+	// lambda and a `concurrent` body decline. Each such class is held, to a
+	// maximum that only goes down.
+	exprKindUnrecordedPrefix = "no kind record, "
 )
+
+// noteUnrecordedKind counts n, a construct of family (a region) whose kind
+// the builder reads from the checker's record (recordedKind), where n has
+// no record that names a kind (a node the builder wrote that carries none,
+// code markUnchecked marks): by family and by why it has none (noRecordOf,
+// or a record project maps to no kind).
+func (bl *irScalarBuilder) noteUnrecordedKind(family string, n ast.Node) {
+	g := bl.g
+	if g.fa == nil || !(exprKindCensus.counting() || stdExprKindCensus.counting()) {
+		return
+	}
+	fa := g.srcFA()
+	if fa == nil {
+		return
+	}
+	why := "a record that names no kind"
+	if g.recordedType(n) == nil {
+		why = string(bl.noRecordOf(n, fa))
+	}
+	class := exprKindUnrecordedPrefix + family + ": " + why
+	line, col := nodePos(n)
+	exprKindCensus.note(g, class, line, col)
+	stdExprKindCensus.note(g, class, line, col)
+}
 
 // exprKindAgreementOf is the record k equals, and false for none.
 func (g *gen) exprKindAgreementOf(n ast.Node, k kind, rec analysis.Type) (exprKindAgreement, bool) {
 	fa := g.srcFA()
 	own := g.project(rec)
+	settled, isSettled := g.settledKind(n)
 	switch {
 	case own == k:
 		return exprKindOwnType, true
-	case own == kindNever && fa.ExpectedTypes[n] != nil && g.project(fa.ExpectedTypes[n]) == k:
+	case own == kindNever && isSettled && fa.ExpectedTypes[n] != nil && settled == k:
 		return exprKindSettled, true
 	case own.tag == tagFunc && k.tag == tagFunc && funcResult(own) == kindNever && slices.Equal(funcParams(own), funcParams(k)):
 		return exprKindSettled, true
@@ -165,74 +271,6 @@ func boolEmbeds(t analysis.Type) bool {
 		if v.Embedded != nil && analysis.TypesEqual(v.Embedded, t) {
 			return true
 		}
-	}
-	return false
-}
-
-// exprKindClassOf is the class of a disagreement between k and rec,
-// identified by what the builder is lowering and what the records hold, and
-// false for none.
-func (bl *irScalarBuilder) exprKindClassOf(n ast.Node, k kind, rec analysis.Type) (exprKindClass, bool) {
-	g := bl.g
-	own := g.project(rec)
-	// kindInvalid: lookup — a record project maps to no kind is of no class.
-	if own == kindInvalid {
-		return "", false
-	}
-	if own.tag == tagIface && k.tag != tagIface {
-		return exprKindHeldConcrete, true
-	}
-	if partialAtIterSlots(n, k, own) {
-		return exprKindCaptureView, true
-	}
-	if isLiteral(n) && sameCollection(k, own) {
-		return exprKindLiteralAtPosition, true
-	}
-	return "", false
-}
-
-// partialAtIterSlots reports whether n is a partial capture (`&Iter.sum(&1)`,
-// a hole that is an open argument) lowered at k, a function kind that
-// differs from own, the checker's, only in parameters k takes as an Iter.
-func partialAtIterSlots(n ast.Node, k, own kind) bool {
-	c, isCapture := n.(*ast.Capture)
-	if !isCapture || k.tag != tagFunc || own.tag != tagFunc || funcResult(k) != funcResult(own) {
-		return false
-	}
-	partial := false
-	for _, h := range c.Holes() {
-		_, open := h.(*ast.Placeholder)
-		partial = partial || open
-	}
-	ks, owns := funcParams(k), funcParams(own)
-	if !partial || len(ks) != len(owns) {
-		return false
-	}
-	for i := range ks {
-		if ks[i] != owns[i] && ks[i].tag != tagSeq {
-			return false
-		}
-	}
-	return true
-}
-
-// sameCollection reports whether k and own are one shape at other element
-// kinds: two tuples, records, Lists or Maps of as many parts, or two
-// instances of one std container (stdRecvParts: a Vector, a Set).
-func sameCollection(k, own kind) bool {
-	if k.tag == own.tag && k.comp != nil && own.comp != nil && len(k.comp.parts) == len(own.comp.parts) {
-		return true
-	}
-	kh, kargs, kok := stdRecvParts(k)
-	oh, oargs, ook := stdRecvParts(own)
-	return kok && ook && kh == oh && len(kargs) == len(oargs)
-}
-
-// isLiteral reports whether n is a collection, tuple or record literal.
-func isLiteral(n ast.Node) bool {
-	switch n.(type) {
-	case *ast.ListLit, *ast.MapLit, *ast.TupleLit, *ast.StructLit:
-		return true
 	}
 	return false
 }

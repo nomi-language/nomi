@@ -13,7 +13,8 @@ import (
 // body is the capture's body with each `&N` read as parameter N. Nothing
 // is evaluated when the function is made; a call of it evaluates the
 // whole body, as the equivalent `fn` does. A partial capture
-// (`&add(1, &1)`) takes the callee's parameters at its open slots
+// (`&add(1, &1)`) calls the callee with its open slots filled by its
+// parameters, which are the ones the checker gave the capture
 // (partialApplication).
 //
 // The body is the capture's own expression, so it lowers as the same
@@ -62,9 +63,11 @@ func (bl *irScalarBuilder) captureFunc(t *ast.Capture) (ir.Temp, kind, bool, boo
 	for i := range kinds {
 		lam.Params = append(lam.Params, ast.Param{Name: captureParamName(t, i+1), Line: t.Line, Col: t.Col})
 	}
-	subst := make(map[ast.Node]string, len(holes))
+	keys := bl.g.madeLambda(lam)
+	subst := make(map[ast.Node]madeName, len(holes))
 	for _, h := range holes {
-		subst[h] = lam.Params[ast.HoleNumber(h)-1].Name
+		n := ast.HoleNumber(h) - 1
+		subst[h] = madeName{lam.Params[n].Name, keys[n]}
 	}
 	lam.Body = &ast.Block{Line: t.Line, Col: t.Col, Stmts: []ast.Node{t.Body}}
 	if bl.partialOpen == nil {
@@ -84,11 +87,18 @@ func captureParamName(t ast.Node, n int) string {
 	return "%open" + strconv.Itoa(line) + "." + strconv.Itoa(col) + "." + strconv.Itoa(n)
 }
 
-// substHoles has holeRead read each node of subst as its name until the
+// madeName is a local the builder declares, which a node it substitutes
+// is read as: the local's name and its key (madeLocal).
+type madeName struct {
+	name string
+	key  analysis.Pos
+}
+
+// substHoles has holeRead read each node of subst as its local until the
 // function it answers is called.
-func (g *gen) substHoles(subst map[ast.Node]string) func() {
+func (g *gen) substHoles(subst map[ast.Node]madeName) func() {
 	if g.holeSubst == nil {
-		g.holeSubst = map[ast.Node]string{}
+		g.holeSubst = map[ast.Node]madeName{}
 	}
 	for n, name := range subst {
 		g.holeSubst[n] = name
@@ -103,9 +113,9 @@ func (g *gen) substHoles(subst map[ast.Node]string) func() {
 // holeRead is n, or the name a capture's body reads it as while that body
 // lowers (holeSubst).
 func (g *gen) holeRead(n ast.Node) ast.Node {
-	if name, ok := g.holeSubst[n]; ok {
+	if local, ok := g.holeSubst[n]; ok {
 		line, col := nodePos(n)
-		return g.madeIdent(name, line, col)
+		return g.madeRead(local.name, local.key, line, col)
 	}
 	return g.asTodo(n)
 }

@@ -12,7 +12,9 @@ import (
 	"github.com/nomi-language/nomi/internal/stdcsv"
 	"github.com/nomi-language/nomi/internal/stdformat"
 	"github.com/nomi-language/nomi/internal/stdio"
+	"github.com/nomi-language/nomi/internal/stdlibbindings/families"
 	"github.com/nomi-language/nomi/internal/stdlocale"
+	"github.com/nomi-language/nomi/internal/stdpasswords"
 	"github.com/nomi-language/nomi/internal/stdphraseformat"
 	"github.com/nomi-language/nomi/internal/stdplural"
 	"github.com/nomi-language/nomi/internal/stdprocess"
@@ -43,83 +45,85 @@ var spec_d5 = &hostadapt.DescSpec{Name: "locale.Locale", Kind: rt.KindDistinct, 
 
 var spec_d6 = &hostadapt.DescSpec{Name: "calendar.DateAttempt", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "value", Type: rt.SlotRef}, {Name: "kind", Type: rt.SlotInt}, {Name: "reason", Type: rt.SlotString}}}
 
-var spec_d7 = &hostadapt.DescSpec{Name: "calendar.NaiveAttempt", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "value", Type: rt.SlotRef}, {Name: "kind", Type: rt.SlotInt}, {Name: "reason", Type: rt.SlotString}}}
+var spec_d7 = &hostadapt.DescSpec{Name: "results.Result", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Ok", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}, {Name: "Err", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}}}
 
-var spec_d8 = &hostadapt.DescSpec{Name: "calendar.OffsetAttempt", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "value", Type: rt.SlotRef}, {Name: "kind", Type: rt.SlotInt}, {Name: "reason", Type: rt.SlotString}}}
+var spec_d8 = &hostadapt.DescSpec{Name: "calendar.NaiveAttempt", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "value", Type: rt.SlotRef}, {Name: "kind", Type: rt.SlotInt}, {Name: "reason", Type: rt.SlotString}}}
 
-var spec_d9 = &hostadapt.DescSpec{Name: "calendar.TimeAttempt", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "value", Type: rt.SlotRef}, {Name: "kind", Type: rt.SlotInt}, {Name: "reason", Type: rt.SlotString}}}
+var spec_d9 = &hostadapt.DescSpec{Name: "calendar.OffsetAttempt", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "value", Type: rt.SlotRef}, {Name: "kind", Type: rt.SlotInt}, {Name: "reason", Type: rt.SlotString}}}
 
-var spec_d10 = &hostadapt.DescSpec{Name: "calendar.ZonedAttempt", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "value", Type: rt.SlotRef}, {Name: "kind", Type: rt.SlotInt}, {Name: "reason", Type: rt.SlotString}}}
+var spec_d10 = &hostadapt.DescSpec{Name: "calendar.TimeAttempt", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "value", Type: rt.SlotRef}, {Name: "kind", Type: rt.SlotInt}, {Name: "reason", Type: rt.SlotString}}}
 
-var spec_d11 = &hostadapt.DescSpec{Name: "results.Result", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Ok", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}, {Name: "Err", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotRef}}}}}
+var spec_d11 = &hostadapt.DescSpec{Name: "calendar.ZonedAttempt", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "value", Type: rt.SlotRef}, {Name: "kind", Type: rt.SlotInt}, {Name: "reason", Type: rt.SlotString}}}
 
-var spec_d12 = &hostadapt.DescSpec{Name: "localize.NumberParseError", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Empty", Shape: rt.VariantBare}, {Name: "Unexpected", Shape: rt.VariantFields, Fields: []rt.FieldSpec{{Name: "at", Type: rt.SlotInt}, {Name: "text", Type: rt.SlotString}}}, {Name: "Grouping", Shape: rt.VariantFields, Fields: []rt.FieldSpec{{Name: "at", Type: rt.SlotInt}}}, {Name: "OutOfRange", Shape: rt.VariantBare}, {Name: "TooManyFractionDigits", Shape: rt.VariantFields, Fields: []rt.FieldSpec{{Name: "max", Type: rt.SlotInt}}}, {Name: "WrongCurrency", Shape: rt.VariantFields, Fields: []rt.FieldSpec{{Name: "expected", Type: rt.SlotRef}, {Name: "found", Type: rt.SlotString}}}}}
+var spec_d12 = &hostadapt.DescSpec{Name: "results.Result", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Ok", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}, {Name: "Err", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotRef}}}}}
 
-var spec_d13 = &hostadapt.DescSpec{Name: "currency.Currency", Kind: rt.KindDistinct, Inner: hostadapt.Slot(rt.SlotString)}
+var spec_d13 = &hostadapt.DescSpec{Name: "localize.NumberParseError", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Empty", Shape: rt.VariantBare}, {Name: "Unexpected", Shape: rt.VariantFields, Fields: []rt.FieldSpec{{Name: "at", Type: rt.SlotInt}, {Name: "text", Type: rt.SlotString}}}, {Name: "Grouping", Shape: rt.VariantFields, Fields: []rt.FieldSpec{{Name: "at", Type: rt.SlotInt}}}, {Name: "OutOfRange", Shape: rt.VariantBare}, {Name: "TooManyFractionDigits", Shape: rt.VariantFields, Fields: []rt.FieldSpec{{Name: "max", Type: rt.SlotInt}}}, {Name: "WrongCurrency", Shape: rt.VariantFields, Fields: []rt.FieldSpec{{Name: "expected", Type: rt.SlotRef}, {Name: "found", Type: rt.SlotString}}}}}
 
-var spec_d14 = &hostadapt.DescSpec{Name: "results.Result", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Ok", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotFloat}}}, {Name: "Err", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotRef}}}}}
+var spec_d14 = &hostadapt.DescSpec{Name: "currency.Currency", Kind: rt.KindDistinct, Inner: hostadapt.Slot(rt.SlotString)}
 
-var spec_d15 = &hostadapt.DescSpec{Name: "results.Result", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Ok", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotInt}}}, {Name: "Err", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotRef}}}}}
+var spec_d15 = &hostadapt.DescSpec{Name: "results.Result", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Ok", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotFloat}}}, {Name: "Err", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotRef}}}}}
 
-var spec_d16 = &hostadapt.DescSpec{Name: "locale.LocaleAttempt", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "value", Type: rt.SlotString}, {Name: "kind", Type: rt.SlotInt}, {Name: "detail", Type: rt.SlotString}}}
+var spec_d16 = &hostadapt.DescSpec{Name: "results.Result", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Ok", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotInt}}}, {Name: "Err", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotRef}}}}}
 
-var spec_d17 = &hostadapt.DescSpec{Name: "maybe.Maybe", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Some", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}, {Name: "None", Shape: rt.VariantBare}}}
+var spec_d17 = &hostadapt.DescSpec{Name: "locale.LocaleAttempt", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "value", Type: rt.SlotString}, {Name: "kind", Type: rt.SlotInt}, {Name: "detail", Type: rt.SlotString}}}
+
+var spec_d18 = &hostadapt.DescSpec{Name: "maybe.Maybe", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Some", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}, {Name: "None", Shape: rt.VariantBare}}}
 
 var spec_d19 = &hostadapt.DescSpec{Name: "results.Result", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Ok", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotInt}}}, {Name: "Err", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}}}
 
-var spec_d21 = &hostadapt.DescSpec{Name: "results.Result", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Ok", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotRef}}}, {Name: "Err", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}}}
+var spec_d20 = &hostadapt.DescSpec{Name: "results.Result", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Ok", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotRef}}}, {Name: "Err", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}}}
 
-var spec_d23 = &hostadapt.DescSpec{Name: "maybe.Maybe", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Some", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotRef}}}, {Name: "None", Shape: rt.VariantBare}}}
+var spec_d21 = &hostadapt.DescSpec{Name: "results.Result", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Ok", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotBytes}}}, {Name: "Err", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}}}
 
-var spec_d24 = &hostadapt.DescSpec{Name: "maybe.Maybe", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Some", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotInt}}}, {Name: "None", Shape: rt.VariantBare}}}
+var spec_d22 = &hostadapt.DescSpec{Name: "results.Result", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Ok", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotBool}}}, {Name: "Err", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}}}
+
+var spec_d23 = &hostadapt.DescSpec{Name: "maybe.Maybe", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Some", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotInt}}}, {Name: "None", Shape: rt.VariantBare}}}
+
+var spec_d24 = &hostadapt.DescSpec{Name: "maybe.Maybe", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Some", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotRef}}}, {Name: "None", Shape: rt.VariantBare}}}
 
 var spec_d25 = &hostadapt.DescSpec{Name: "maybe.Maybe", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Some", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotByte}}}, {Name: "None", Shape: rt.VariantBare}}}
 
-var spec_d26 = &hostadapt.DescSpec{Name: "results.Result", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Ok", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotBytes}}}, {Name: "Err", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}}}
+var spec_d26 = &hostadapt.DescSpec{Name: "maybe.Maybe", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Some", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotBytes}}}, {Name: "None", Shape: rt.VariantBare}}}
 
-var spec_d27 = &hostadapt.DescSpec{Name: "maybe.Maybe", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Some", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotBytes}}}, {Name: "None", Shape: rt.VariantBare}}}
+var spec_d27 = &hostadapt.DescSpec{Name: "comparable.Ordering", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Less", Shape: rt.VariantBare}, {Name: "Equal", Shape: rt.VariantBare}, {Name: "Greater", Shape: rt.VariantBare}}}
 
-var spec_d28 = &hostadapt.DescSpec{Name: "results.Result", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Ok", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}, {Name: "Err", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}}}
+var spec_d28 = &hostadapt.DescSpec{Name: "instant.Instant", Kind: rt.KindDistinct, Inner: hostadapt.Slot(rt.SlotInt)}
 
-var spec_d29 = &hostadapt.DescSpec{Name: "comparable.Ordering", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Less", Shape: rt.VariantBare}, {Name: "Equal", Shape: rt.VariantBare}, {Name: "Greater", Shape: rt.VariantBare}}}
+var spec_d29 = &hostadapt.DescSpec{Name: "code_points.Codepoint", Kind: rt.KindDistinct, Inner: hostadapt.Slot(rt.SlotInt)}
 
-var spec_d30 = &hostadapt.DescSpec{Name: "instant.Instant", Kind: rt.KindDistinct, Inner: hostadapt.Slot(rt.SlotInt)}
+var spec_d30 = &hostadapt.DescSpec{Name: "duration.Duration", Kind: rt.KindDistinct, Inner: hostadapt.Slot(rt.SlotInt)}
 
-var spec_d31 = &hostadapt.DescSpec{Name: "code_points.Codepoint", Kind: rt.KindDistinct, Inner: hostadapt.Slot(rt.SlotInt)}
+var spec_d31 = &hostadapt.DescSpec{Name: "results.Result", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Ok", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotRef}}}, {Name: "Err", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotRef}}}}}
 
-var spec_d32 = &hostadapt.DescSpec{Name: "duration.Duration", Kind: rt.KindDistinct, Inner: hostadapt.Slot(rt.SlotInt)}
+var spec_d32 = &hostadapt.DescSpec{Name: "json.Json", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "String", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}, {Name: "Int", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotInt}}}, {Name: "Float", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotFloat}}}, {Name: "Bool", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotBool}}}, {Name: "Arr", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotRef}}}, {Name: "Obj", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotRef}}}, {Name: "Null", Shape: rt.VariantBare}}}
 
-var spec_d33 = &hostadapt.DescSpec{Name: "results.Result", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Ok", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotRef}}}, {Name: "Err", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotRef}}}}}
+var spec_d33 = &hostadapt.DescSpec{Name: "json.Json.DecodeError", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "message", Type: rt.SlotString}, {Name: "line", Type: rt.SlotInt}, {Name: "col", Type: rt.SlotInt}, {Name: "offset", Type: rt.SlotInt}}}
 
-var spec_d34 = &hostadapt.DescSpec{Name: "json.Json", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "String", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}, {Name: "Int", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotInt}}}, {Name: "Float", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotFloat}}}, {Name: "Bool", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotBool}}}, {Name: "Arr", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotRef}}}, {Name: "Obj", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotRef}}}, {Name: "Null", Shape: rt.VariantBare}}}
+var spec_d34 = &hostadapt.DescSpec{Name: "supervisors.FlushOutcome", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Flushed", Shape: rt.VariantBare}, {Name: "TimedOut", Shape: rt.VariantBare}}}
 
-var spec_d35 = &hostadapt.DescSpec{Name: "json.Json.DecodeError", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "message", Type: rt.SlotString}, {Name: "line", Type: rt.SlotInt}, {Name: "col", Type: rt.SlotInt}, {Name: "offset", Type: rt.SlotInt}}}
+var spec_d35 = &hostadapt.DescSpec{Name: "assertions.AssertionFailure", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "line", Type: rt.SlotInt}, {Name: "keyword", Type: rt.SlotString}, {Name: "expression", Type: rt.SlotString}, {Name: "reason", Type: rt.SlotString}, {Name: "actual", Type: rt.SlotRef}, {Name: "binding", Type: rt.SlotRef}, {Name: "values", Type: rt.SlotRef}, {Name: "details", Type: rt.SlotRef}, {Name: "subtests", Type: rt.SlotRef}}}
 
-var spec_d36 = &hostadapt.DescSpec{Name: "supervisors.FlushOutcome", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Flushed", Shape: rt.VariantBare}, {Name: "TimedOut", Shape: rt.VariantBare}}}
+var spec_d36 = &hostadapt.DescSpec{Name: "assertions.AssertionBinding", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "name", Type: rt.SlotString}, {Name: "expression", Type: rt.SlotString}, {Name: "value", Type: rt.SlotString}, {Name: "pipeline", Type: rt.SlotRef}}}
 
-var spec_d37 = &hostadapt.DescSpec{Name: "assertions.AssertionFailure", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "line", Type: rt.SlotInt}, {Name: "keyword", Type: rt.SlotString}, {Name: "expression", Type: rt.SlotString}, {Name: "reason", Type: rt.SlotString}, {Name: "actual", Type: rt.SlotRef}, {Name: "binding", Type: rt.SlotRef}, {Name: "values", Type: rt.SlotRef}, {Name: "details", Type: rt.SlotRef}, {Name: "subtests", Type: rt.SlotRef}}}
+var spec_d37 = &hostadapt.DescSpec{Name: "assertions.AssertionPipelineStage", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "expression", Type: rt.SlotString}, {Name: "value", Type: rt.SlotString}}}
 
-var spec_d38 = &hostadapt.DescSpec{Name: "assertions.AssertionBinding", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "name", Type: rt.SlotString}, {Name: "expression", Type: rt.SlotString}, {Name: "value", Type: rt.SlotString}, {Name: "pipeline", Type: rt.SlotRef}}}
+var spec_d38 = &hostadapt.DescSpec{Name: "assertions.AssertionValue", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "expression", Type: rt.SlotString}, {Name: "value", Type: rt.SlotString}, {Name: "pipeline", Type: rt.SlotRef}}}
 
-var spec_d39 = &hostadapt.DescSpec{Name: "assertions.AssertionPipelineStage", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "expression", Type: rt.SlotString}, {Name: "value", Type: rt.SlotString}}}
+var spec_d39 = &hostadapt.DescSpec{Name: "assertions.AssertionDetail", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "label", Type: rt.SlotString}, {Name: "value", Type: rt.SlotString}}}
 
-var spec_d40 = &hostadapt.DescSpec{Name: "assertions.AssertionValue", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "expression", Type: rt.SlotString}, {Name: "value", Type: rt.SlotString}, {Name: "pipeline", Type: rt.SlotRef}}}
+var spec_d40 = &hostadapt.DescSpec{Name: "assertions.SubtestFailure", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "row", Type: rt.SlotString}, {Name: "failure", Type: rt.SlotRef}}}
 
-var spec_d41 = &hostadapt.DescSpec{Name: "assertions.AssertionDetail", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "label", Type: rt.SlotString}, {Name: "value", Type: rt.SlotString}}}
+var spec_d41 = &hostadapt.DescSpec{Name: "maybe.Maybe", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Some", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotFloat}}}, {Name: "None", Shape: rt.VariantBare}}}
 
-var spec_d42 = &hostadapt.DescSpec{Name: "assertions.SubtestFailure", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "row", Type: rt.SlotString}, {Name: "failure", Type: rt.SlotRef}}}
+var spec_d42 = &hostadapt.DescSpec{Name: "dynamic.Error", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "path", Type: rt.SlotRef}, {Name: "expected", Type: rt.SlotString}, {Name: "got", Type: rt.SlotString}}}
 
-var spec_d43 = &hostadapt.DescSpec{Name: "maybe.Maybe", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Some", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotFloat}}}, {Name: "None", Shape: rt.VariantBare}}}
+var spec_d43 = &hostadapt.DescSpec{Name: "dynamic.PathSegment", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Field", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}, {Name: "Index", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotInt}}}}}
 
-var spec_d44 = &hostadapt.DescSpec{Name: "dynamic.Error", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "path", Type: rt.SlotRef}, {Name: "expected", Type: rt.SlotString}, {Name: "got", Type: rt.SlotString}}}
+var spec_d44 = &hostadapt.DescSpec{Name: "results.Result", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Ok", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotBool}}}, {Name: "Err", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotRef}}}}}
 
-var spec_d45 = &hostadapt.DescSpec{Name: "dynamic.PathSegment", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Field", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}, {Name: "Index", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotInt}}}}}
+var spec_d45 = &hostadapt.DescSpec{Name: "io.Error", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "NotFound", Shape: rt.VariantFields, Fields: []rt.FieldSpec{{Name: "path", Type: rt.SlotString}}}, {Name: "AlreadyExists", Shape: rt.VariantFields, Fields: []rt.FieldSpec{{Name: "path", Type: rt.SlotString}}}, {Name: "PermissionDenied", Shape: rt.VariantFields, Fields: []rt.FieldSpec{{Name: "path", Type: rt.SlotString}}}, {Name: "NotADirectory", Shape: rt.VariantFields, Fields: []rt.FieldSpec{{Name: "path", Type: rt.SlotString}}}, {Name: "IsADirectory", Shape: rt.VariantFields, Fields: []rt.FieldSpec{{Name: "path", Type: rt.SlotString}}}, {Name: "DirectoryNotEmpty", Shape: rt.VariantFields, Fields: []rt.FieldSpec{{Name: "path", Type: rt.SlotString}}}, {Name: "InvalidPath", Shape: rt.VariantFields, Fields: []rt.FieldSpec{{Name: "path", Type: rt.SlotString}, {Name: "reason", Type: rt.SlotString}}}, {Name: "InvalidText", Shape: rt.VariantFields, Fields: []rt.FieldSpec{{Name: "path", Type: rt.SlotString}, {Name: "offset", Type: rt.SlotInt}}}, {Name: "NoSpace", Shape: rt.VariantFields, Fields: []rt.FieldSpec{{Name: "path", Type: rt.SlotString}}}, {Name: "ReadOnly", Shape: rt.VariantFields, Fields: []rt.FieldSpec{{Name: "path", Type: rt.SlotString}}}, {Name: "TooManyOpen", Shape: rt.VariantBare}, {Name: "Closed", Shape: rt.VariantBare}, {Name: "BrokenPipe", Shape: rt.VariantBare}, {Name: "TimedOut", Shape: rt.VariantBare}, {Name: "Unsupported", Shape: rt.VariantFields, Fields: []rt.FieldSpec{{Name: "operation", Type: rt.SlotString}, {Name: "target", Type: rt.SlotString}}}, {Name: "Other", Shape: rt.VariantFields, Fields: []rt.FieldSpec{{Name: "operation", Type: rt.SlotString}, {Name: "path", Type: rt.SlotString}, {Name: "code", Type: rt.SlotString}}}}}
 
-var spec_d46 = &hostadapt.DescSpec{Name: "results.Result", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Ok", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotBool}}}, {Name: "Err", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotRef}}}}}
-
-var spec_d47 = &hostadapt.DescSpec{Name: "io.Error", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "NotFound", Shape: rt.VariantFields, Fields: []rt.FieldSpec{{Name: "path", Type: rt.SlotString}}}, {Name: "AlreadyExists", Shape: rt.VariantFields, Fields: []rt.FieldSpec{{Name: "path", Type: rt.SlotString}}}, {Name: "PermissionDenied", Shape: rt.VariantFields, Fields: []rt.FieldSpec{{Name: "path", Type: rt.SlotString}}}, {Name: "NotADirectory", Shape: rt.VariantFields, Fields: []rt.FieldSpec{{Name: "path", Type: rt.SlotString}}}, {Name: "IsADirectory", Shape: rt.VariantFields, Fields: []rt.FieldSpec{{Name: "path", Type: rt.SlotString}}}, {Name: "DirectoryNotEmpty", Shape: rt.VariantFields, Fields: []rt.FieldSpec{{Name: "path", Type: rt.SlotString}}}, {Name: "InvalidPath", Shape: rt.VariantFields, Fields: []rt.FieldSpec{{Name: "path", Type: rt.SlotString}, {Name: "reason", Type: rt.SlotString}}}, {Name: "InvalidText", Shape: rt.VariantFields, Fields: []rt.FieldSpec{{Name: "path", Type: rt.SlotString}, {Name: "offset", Type: rt.SlotInt}}}, {Name: "NoSpace", Shape: rt.VariantFields, Fields: []rt.FieldSpec{{Name: "path", Type: rt.SlotString}}}, {Name: "ReadOnly", Shape: rt.VariantFields, Fields: []rt.FieldSpec{{Name: "path", Type: rt.SlotString}}}, {Name: "TooManyOpen", Shape: rt.VariantBare}, {Name: "Closed", Shape: rt.VariantBare}, {Name: "BrokenPipe", Shape: rt.VariantBare}, {Name: "TimedOut", Shape: rt.VariantBare}, {Name: "Unsupported", Shape: rt.VariantFields, Fields: []rt.FieldSpec{{Name: "operation", Type: rt.SlotString}, {Name: "target", Type: rt.SlotString}}}, {Name: "Other", Shape: rt.VariantFields, Fields: []rt.FieldSpec{{Name: "operation", Type: rt.SlotString}, {Name: "path", Type: rt.SlotString}, {Name: "code", Type: rt.SlotString}}}}}
-
-var spec_d48 = &hostadapt.DescSpec{Name: "results.Result", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Ok", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotBytes}}}, {Name: "Err", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotRef}}}}}
+var spec_d46 = &hostadapt.DescSpec{Name: "results.Result", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Ok", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotBytes}}}, {Name: "Err", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotRef}}}}}
 
 // bound holds the descriptors the adapters build with, resolved once.
 type bound struct {
@@ -172,7 +176,6 @@ type bound struct {
 	d45 *rt.TypeDesc
 	d46 *rt.TypeDesc
 	d47 *rt.TypeDesc
-	d48 *rt.TypeDesc
 }
 
 // Specs lists the descriptor specs the adapters build with, so an engine can
@@ -197,8 +200,11 @@ func Specs() []*hostadapt.DescSpec {
 		spec_d15,
 		spec_d16,
 		spec_d17,
+		spec_d18,
 		spec_d19,
+		spec_d20,
 		spec_d21,
+		spec_d22,
 		spec_d23,
 		spec_d24,
 		spec_d25,
@@ -223,8 +229,6 @@ func Specs() []*hostadapt.DescSpec {
 		spec_d44,
 		spec_d45,
 		spec_d46,
-		spec_d47,
-		spec_d48,
 	}
 }
 
@@ -266,6 +270,7 @@ func Names() []string {
 		"calendar.date_parse_raw",
 		"calendar.date_parse_style",
 		"calendar.fields_check",
+		"calendar.local_zone_raw",
 		"calendar.naive_add_days",
 		"calendar.naive_add_months",
 		"calendar.naive_add_nanos",
@@ -355,6 +360,12 @@ func Names() []string {
 		"toml/host.build",
 		"toml/host.quote",
 		"toml/host.float",
+		"toml/host.decode",
+		"passwords/host.argon2id",
+		"passwords/host.scrypt",
+		"passwords/host.bcrypt_hash",
+		"passwords/host.bcrypt_verify",
+		"passwords/host.bcrypt_cost",
 		"strings.capture_groups",
 		"strings.capture_groups_all",
 		"String.capitalize",
@@ -426,6 +437,8 @@ func Names() []string {
 		"html/host.escape",
 		"html/host.filter_url",
 		"html/host.escape_url_path",
+		"html/host.unescape_references",
+		"html/host.named_reference",
 		"url/host.escape_query",
 		"url/host.unescape_query",
 		"url/host.escape_path_segment",
@@ -482,7 +495,6 @@ func Names() []string {
 		"float.Float.ceil",
 		"float.Float.trunc",
 		"float.Float.to_int",
-		"float.float_bits",
 		"float.Float.pow",
 		"float.Float.sqrt",
 		"float.Float.exp",
@@ -505,6 +517,13 @@ func Names() []string {
 		"code_points.Codepoint.is_whitespace",
 		"code_points.Codepoint.is_upper",
 		"code_points.Codepoint.is_lower",
+		"code_points.Codepoint.is_title",
+		"code_points.Codepoint.is_mark",
+		"code_points.Codepoint.is_number",
+		"code_points.Codepoint.is_punctuation",
+		"code_points.Codepoint.is_symbol",
+		"code_points.Codepoint.is_separator",
+		"code_points.Codepoint.is_control",
 		"strings.String.to_codepoints",
 		"context.Context.with_timeout",
 		"context.Context.root",
@@ -533,6 +552,7 @@ func Names() []string {
 		"context.Context.deadline",
 		"context.Context.deadline_remaining",
 		"context.Context.with_deadline",
+		"context.Context.inspect",
 		"bytes.Bytes.to_list",
 		"bytes.Bytes.from_list",
 		"strings.String.normalize",
@@ -574,6 +594,7 @@ func Names() []string {
 		"io.collected",
 		"embed/host.read",
 		"embed/host.sum",
+		"fs/host.here",
 		"fs/host.read",
 		"fs/host.read_text",
 		"fs/host.write",
@@ -602,8 +623,13 @@ func Names() []string {
 		"io.File.size",
 		"io.File.truncate",
 		"io.File.close",
+		"io.File.sync",
+		"io.File.sync_data",
+		"fs/host.lock",
+		"fs/host.sync_dir",
 		"fs/host.temp_dir",
 		"fs/host.make_temp_dir",
+		"fs/host.make_temp",
 		"fs/host.current_dir",
 		"fs/host.new_sandbox",
 		"fs/host.sandbox_fail",
@@ -743,6 +769,7 @@ func Names() []string {
 		"http/host.format_time",
 		"http/host.parse_time",
 		"http/host.limit_body",
+		"http/host.read_at_most",
 		"http/host.cookie_text",
 		"http/host.cookie_valid",
 		"http/host.parse_cookie",
@@ -772,22 +799,101 @@ func Names() []string {
 		"csv/host.stopped",
 		"csv/host.message",
 		"csv/host.failure",
+		"csv/host.decode",
 		"csv/host.encode",
 		"xml/host.open",
 		"xml/host.next",
-		"xml/host.name",
-		"xml/host.attributes",
-		"xml/host.namespaces",
-		"xml/host.text",
-		"xml/host.target",
-		"xml/host.position",
+		"xml/host.current",
 		"xml/host.stopped",
 		"xml/host.message",
 		"xml/host.failure",
+		"xml/host.decode",
 		"xml/host.escape_text",
 		"xml/host.escape_attribute",
 		"xml/host.is_name",
+		"wasm/host.compile",
+		"wasm/host.run",
+		"wasm/host.instantiate",
+		"wasm/host.call",
+		"wasm/host.run_on",
+		"wasm/host.read",
+		"wasm/host.write",
+		"wasm/host.size",
+		"wasm/host.drop",
+		"wasm/host.memory_read",
+		"wasm/host.memory_write",
+		"wasm/host.memory_size",
 		"iter.as_count",
+		"bytes.Bytes.to_string_lossy",
+		"bytes.Bytes.valid_utf8_length",
+		"bytes.Bytes.concat_all",
+		"bytes.index_of_from",
+		"bytes.index_of_byte_from",
+		"bytes.Bytes.last_index_of",
+		"bytes.Bytes.last_index_of_byte",
+		"bytes.index_of_any_from",
+		"bytes.Bytes.last_index_of_any",
+		"bytes.Bytes.contains_bytes",
+		"bytes.Bytes.starts_with",
+		"bytes.Bytes.ends_with",
+		"bytes.Bytes.split",
+		"bytes.Bytes.count",
+		"bytes.Bytes.uint8_at",
+		"bytes.Bytes.int8_at",
+		"bytes.Bytes.uint16_be_at",
+		"bytes.Bytes.uint16_le_at",
+		"bytes.Bytes.int16_be_at",
+		"bytes.Bytes.int16_le_at",
+		"bytes.Bytes.uint32_be_at",
+		"bytes.Bytes.uint32_le_at",
+		"bytes.Bytes.int32_be_at",
+		"bytes.Bytes.int32_le_at",
+		"bytes.Bytes.uint64_be_at",
+		"bytes.Bytes.uint64_le_at",
+		"bytes.Bytes.int64_be_at",
+		"bytes.Bytes.int64_le_at",
+		"bytes.Bytes.float32_be_at",
+		"bytes.Bytes.float32_le_at",
+		"bytes.Bytes.float64_be_at",
+		"bytes.Bytes.float64_le_at",
+		"bytes.Bytes.uvarint_at",
+		"bytes.Bytes.varint_at",
+		"bytes.builder_new",
+		"bytes.Builder.length",
+		"bytes.Builder.to_bytes",
+		"bytes.Builder.push",
+		"bytes.Builder.push_bytes",
+		"bytes.Builder.push_string",
+		"bytes.Builder.push_int8",
+		"bytes.Builder.push_int16_be",
+		"bytes.Builder.push_int16_le",
+		"bytes.Builder.push_int32_be",
+		"bytes.Builder.push_int32_le",
+		"bytes.Builder.push_int64_be",
+		"bytes.Builder.push_int64_le",
+		"bytes.Builder.push_float32_be",
+		"bytes.Builder.push_float32_le",
+		"bytes.Builder.push_float64_be",
+		"bytes.Builder.push_float64_le",
+		"bytes.Builder.push_uvarint",
+		"bytes.Builder.push_varint",
+		"int.Int.wrapping_add_32",
+		"int.Int.wrapping_sub_32",
+		"int.Int.wrapping_mul_32",
+		"int.Int.rotate_left_32",
+		"int.Int.rotate_left_64",
+		"int.Int.leading_zeros_32",
+		"int.Int.leading_zeros_64",
+		"int.Int.trailing_zeros_32",
+		"int.Int.trailing_zeros_64",
+		"int.Int.swap_bytes_16",
+		"int.Int.swap_bytes_32",
+		"int.Int.swap_bytes_64",
+		"int.Int.wrap_signed",
+		"float.Float.to_bits",
+		"float.Float.from_bits",
+		"float.Float.to_bits_32",
+		"float.Float.from_bits_32",
 	}
 }
 
@@ -850,15 +956,21 @@ func Bind(env *hostadapt.Env) (map[string]hostadapt.Func, error) {
 	if b.d17, err = env.Desc(spec_d17); err != nil {
 		return nil, err
 	}
-	b.d18 = rt.TupleDesc(rt.SlotInt, rt.SlotInt)
+	if b.d18, err = env.Desc(spec_d18); err != nil {
+		return nil, err
+	}
 	if b.d19, err = env.Desc(spec_d19); err != nil {
 		return nil, err
 	}
-	b.d20 = rt.TupleDesc(rt.SlotFloat, rt.SlotInt)
+	if b.d20, err = env.Desc(spec_d20); err != nil {
+		return nil, err
+	}
 	if b.d21, err = env.Desc(spec_d21); err != nil {
 		return nil, err
 	}
-	b.d22 = rt.TupleDesc(rt.SlotInt, rt.SlotInt, rt.SlotString)
+	if b.d22, err = env.Desc(spec_d22); err != nil {
+		return nil, err
+	}
 	if b.d23, err = env.Desc(spec_d23); err != nil {
 		return nil, err
 	}
@@ -931,706 +1043,676 @@ func Bind(env *hostadapt.Env) (map[string]hostadapt.Func, error) {
 	if b.d46, err = env.Desc(spec_d46); err != nil {
 		return nil, err
 	}
-	if b.d47, err = env.Desc(spec_d47); err != nil {
+	b.d47 = rt.TupleDesc(rt.SlotInt, rt.SlotInt)
+	funcs := make(map[string]hostadapt.Func, 659)
+	funcs["http/host.new_client"] = b.fn748
+	funcs["http/host.send"] = b.fn758
+	funcs["http/host.listen"] = b.fn795
+	funcs["http/host.listen_tls"] = b.fn802
+	funcs["http/host.tls_config"] = b.fn819
+	funcs["http/host.dial_with"] = b.fn834
+	funcs["http/host.wire_request"] = b.fn915
+	funcs["http/host.wire_response"] = b.fn916
+	funcs["http/host.respond"] = b.fn1021
+	funcs["process/host.start"] = b.fn1070
+	if err := hostadapt.BindRows(env, b, regRows[:], funcs); err != nil {
 		return nil, err
 	}
-	if b.d48, err = env.Desc(spec_d48); err != nil {
-		return nil, err
-	}
-	if env.AddParts != nil {
-		env.AddParts("decimal.decimal_parse_in", b.fn111Parts)
-		env.AddParts("decimal.decimal_parse_percent_in", b.fn117Parts)
-		env.AddParts("float.float_parse_in", b.fn121Parts)
-		env.AddParts("float.float_parse_percent_in", b.fn125Parts)
-		env.AddParts("int.int_parse_in", b.fn127Parts)
-		env.AddParts("money/format.money_parse_raw", b.fn139Parts)
-		env.AddParts("locale.locale_region", b.fn146Parts)
-		env.AddParts("locale.locale_script", b.fn148Parts)
-		env.AddParts("random.os_state", b.fn155Parts)
-		env.AddParts("Regex.compile", b.fn158Parts)
-		env.AddParts("Regex.find_in", b.fn163Parts)
-		env.AddParts("strings.capture_groups", b.fn174Parts)
-		env.AddParts("strings.String.to_int", b.fn203Parts)
-		env.AddParts("int.Int.to_byte", b.fn211Parts)
-		env.AddParts("signatures/host.generate_rsa", b.fn228Parts)
-		env.AddParts("signatures/host.private_from_der", b.fn230Parts)
-		env.AddParts("signatures/host.private_from_pem", b.fn231Parts)
-		env.AddParts("signatures/host.public_from_der", b.fn235Parts)
-		env.AddParts("signatures/host.public_from_pem", b.fn236Parts)
-		env.AddParts("signatures/host.ed25519_from_seed", b.fn239Parts)
-		env.AddParts("signatures/host.ed25519_public_from_bytes", b.fn241Parts)
-		env.AddParts("http/host.seal", b.fn245Parts)
-		env.AddParts("http/host.open_sealed", b.fn246Parts)
-		env.AddParts("base64.decode", b.fn249Parts)
-		env.AddParts("base64.decode_url", b.fn251Parts)
-		env.AddParts("hex.decode", b.fn253Parts)
-		env.AddParts("url/host.unescape_query", b.fn258Parts)
-		env.AddParts("url/host.unescape_path_segment", b.fn261Parts)
-		env.AddParts("url/host.parse_parts", b.fn262Parts)
-		env.AddParts("bytes.Bytes.get", b.fn285Parts)
-		env.AddParts("bytes.Bytes.to_string", b.fn288Parts)
-		env.AddParts("int.int_from_digits", b.fn307Parts)
-		env.AddParts("float.Float.to_int", b.fn319Parts)
-		env.AddParts("int.Int.to_codepoint", b.fn340Parts)
-		env.AddParts("json.Json.decode", b.fn357Parts)
-		env.AddParts("strings.String.to_decimal", b.fn397Parts)
-		env.AddParts("strings.String.to_float", b.fn400Parts)
-		env.AddParts("float.Float.to_decimal", b.fn404Parts)
-		env.AddParts("decimal.Decimal.divide_exact", b.fn406Parts)
-		env.AddParts("decimal.Decimal.round_exact", b.fn408Parts)
-		env.AddParts("decimal.Decimal.sqrt_exact", b.fn411Parts)
-		env.AddParts("context.Context.deadline", b.fn415Parts)
-		env.AddParts("context.Context.deadline_remaining", b.fn418Parts)
-		env.AddParts("dynamic.Dynamic.field", b.fn431Parts)
-		env.AddParts("dynamic.Dynamic.index", b.fn441Parts)
-		env.AddParts("dynamic.Dynamic.path", b.fn442Parts)
-		env.AddParts("dynamic.Dynamic.as_string", b.fn443Parts)
-		env.AddParts("dynamic.Dynamic.as_int", b.fn446Parts)
-		env.AddParts("dynamic.Dynamic.as_float", b.fn449Parts)
-		env.AddParts("dynamic.Dynamic.as_bool", b.fn452Parts)
-		env.AddParts("dynamic.Dynamic.as_list", b.fn455Parts)
-		env.AddParts("dynamic.Dynamic.as_dict", b.fn460Parts)
-		env.AddParts("io.read_line", b.fn470Parts)
-		env.AddParts("io.Reader.read_line", b.fn481Parts)
-		env.AddParts("io.read_up_to", b.fn483Parts)
-		env.AddParts("io.Reader.read_all", b.fn487Parts)
-		env.AddParts("io.Reader.read_all_text", b.fn490Parts)
-		env.AddParts("io.Reader.copy_to", b.fn493Parts)
-		env.AddParts("io.Reader.close", b.fn497Parts)
-		env.AddParts("io.Writer.write", b.fn508Parts)
-		env.AddParts("io.Writer.write_text", b.fn509Parts)
-		env.AddParts("io.Writer.flush", b.fn510Parts)
-		env.AddParts("io.Writer.close", b.fn511Parts)
-		env.AddParts("fs/host.read", b.fn522Parts)
-		env.AddParts("fs/host.read_text", b.fn523Parts)
-		env.AddParts("fs/host.write", b.fn524Parts)
-		env.AddParts("fs/host.open", b.fn525Parts)
-		env.AddParts("fs/host.create", b.fn529Parts)
-		env.AddParts("fs/host.list", b.fn533Parts)
-		env.AddParts("fs/host.create_dir", b.fn537Parts)
-		env.AddParts("fs/host.remove", b.fn538Parts)
-		env.AddParts("fs/host.remove_all", b.fn539Parts)
-		env.AddParts("fs/host.rename", b.fn540Parts)
-		env.AddParts("fs/host.copy", b.fn541Parts)
-		env.AddParts("fs/host.metadata", b.fn542Parts)
-		env.AddParts("fs/host.link_metadata", b.fn546Parts)
-		env.AddParts("fs/host.create_symlink", b.fn547Parts)
-		env.AddParts("fs/host.read_link", b.fn548Parts)
-		env.AddParts("fs/host.set_mode", b.fn549Parts)
-		env.AddParts("fs/host.open_file", b.fn550Parts)
-		env.AddParts("fs/host.within", b.fn555Parts)
-		env.AddParts("io.file_read", b.fn562Parts)
-		env.AddParts("io.File.read_at", b.fn564Parts)
-		env.AddParts("io.File.write", b.fn565Parts)
-		env.AddParts("io.File.write_at", b.fn566Parts)
-		env.AddParts("io.File.seek", b.fn567Parts)
-		env.AddParts("io.File.position", b.fn568Parts)
-		env.AddParts("io.File.size", b.fn569Parts)
-		env.AddParts("io.File.truncate", b.fn570Parts)
-		env.AddParts("io.File.close", b.fn571Parts)
-		env.AddParts("fs/host.make_temp_dir", b.fn573Parts)
-		env.AddParts("fs/host.current_dir", b.fn574Parts)
-		env.AddParts("http/host.send", b.fn591Parts)
-		env.AddParts("http/host.listen", b.fn618Parts)
-		env.AddParts("http/host.listen_tls", b.fn625Parts)
-		env.AddParts("http/host.certificate_from_pem", b.fn629Parts)
-		env.AddParts("http/host.certificate_load", b.fn634Parts)
-		env.AddParts("http/host.tls_config", b.fn637Parts)
-		env.AddParts("http/host.dial_with", b.fn650Parts)
-		env.AddParts("http/host.lookup", b.fn655Parts)
-		env.AddParts("http/host.split_host_port", b.fn661Parts)
-		env.AddParts("http/host.tls_dial", b.fn669Parts)
-		env.AddParts("http/host.tls_client", b.fn670Parts)
-		env.AddParts("http/host.tls_server", b.fn671Parts)
-		env.AddParts("http/host.tls_state_parts", b.fn679Parts)
-		env.AddParts("http/host.in_tls", b.fn689Parts)
-		env.AddParts("http/host.extend_read_deadline", b.fn690Parts)
-		env.AddParts("http/host.upgrade", b.fn693Parts)
-		env.AddParts("http/host.exchange_tls", b.fn694Parts)
-		env.AddParts("http/host.wire_read_request", b.fn698Parts)
-		env.AddParts("http/host.wire_read_response", b.fn701Parts)
-		env.AddParts("http/host.wire_request", b.fn704Parts)
-		env.AddParts("http/host.wire_response", b.fn705Parts)
-		env.AddParts("http/host.gunzip", b.fn709Parts)
-		env.AddParts("http/host.next_part", b.fn713Parts)
-		env.AddParts("http/host.multipart_write", b.fn722Parts)
-		env.AddParts("http/host.ws_connect", b.fn729Parts)
-		env.AddParts("http/host.ws_receive", b.fn735Parts)
-		env.AddParts("http/host.ws_send", b.fn739Parts)
-		env.AddParts("http/host.ws_ping", b.fn743Parts)
-		env.AddParts("http/host.ws_close", b.fn744Parts)
-		env.AddParts("http/host.net_listen_with", b.fn747Parts)
-		env.AddParts("http/host.tls_listen", b.fn752Parts)
-		env.AddParts("http/host.net_accept", b.fn754Parts)
-		env.AddParts("http/host.next", b.fn757Parts)
-		env.AddParts("http/host.parse_multipart", b.fn773Parts)
-		env.AddParts("http/host.respond", b.fn779Parts)
-		env.AddParts("http/host.new_mux", b.fn784Parts)
-		env.AddParts("http/host.parse_time", b.fn795Parts)
-		env.AddParts("http/host.parse_cookie", b.fn800Parts)
-		env.AddParts("http/host.parse_set_cookie", b.fn803Parts)
-		env.AddParts("process/host.start", b.fn811Parts)
-		env.AddParts("process/host.wait", b.fn820Parts)
-	}
-	return map[string]hostadapt.Func{
-		"Date.days_between":                         b.fn1,
-		"Date.to_string":                            b.fn4,
-		"DateTime.day":                              b.fn6,
-		"DateTime.hour":                             b.fn9,
-		"DateTime.minute":                           b.fn10,
-		"DateTime.month":                            b.fn11,
-		"DateTime.nanosecond":                       b.fn12,
-		"DateTime.second":                           b.fn13,
-		"DateTime.to_offset":                        b.fn14,
-		"DateTime.to_string":                        b.fn16,
-		"DateTime.year":                             b.fn17,
-		"NaiveDateTime.to_date":                     b.fn18,
-		"NaiveDateTime.to_string":                   b.fn21,
-		"NaiveDateTime.to_time":                     b.fn22,
-		"OffsetDateTime.day":                        b.fn24,
-		"OffsetDateTime.hour":                       b.fn26,
-		"OffsetDateTime.minute":                     b.fn27,
-		"OffsetDateTime.month":                      b.fn28,
-		"OffsetDateTime.nanosecond":                 b.fn29,
-		"OffsetDateTime.second":                     b.fn30,
-		"OffsetDateTime.to_naive":                   b.fn31,
-		"OffsetDateTime.to_string":                  b.fn33,
-		"OffsetDateTime.year":                       b.fn34,
-		"Time.to_string":                            b.fn35,
-		"calendar.civil_format_fields":              b.fn37,
-		"calendar.civil_format_pattern":             b.fn43,
-		"calendar.civil_format_style":               b.fn44,
-		"calendar.date_add_days":                    b.fn45,
-		"calendar.date_add_months":                  b.fn46,
-		"calendar.date_add_years":                   b.fn47,
-		"calendar.date_new_raw":                     b.fn48,
-		"calendar.date_parse_pattern":               b.fn51,
-		"calendar.date_parse_raw":                   b.fn52,
-		"calendar.date_parse_style":                 b.fn53,
-		"calendar.fields_check":                     b.fn55,
-		"calendar.naive_add_days":                   b.fn56,
-		"calendar.naive_add_months":                 b.fn57,
-		"calendar.naive_add_nanos":                  b.fn58,
-		"calendar.naive_add_years":                  b.fn59,
-		"calendar.naive_between_nanos":              b.fn60,
-		"calendar.naive_new_exact_raw":              b.fn61,
-		"calendar.naive_parse_pattern":              b.fn64,
-		"calendar.naive_parse_raw":                  b.fn65,
-		"calendar.offset_add_months":                b.fn66,
-		"calendar.offset_add_years":                 b.fn67,
-		"calendar.offset_add_nanos":                 b.fn68,
-		"calendar.offset_from_instant_nanos":        b.fn69,
-		"calendar.offset_parse_raw":                 b.fn70,
-		"calendar.offset_with_offset_raw":           b.fn73,
-		"calendar.pattern_check":                    b.fn74,
-		"calendar.relative_format_raw":              b.fn75,
-		"calendar.time_add_nanos":                   b.fn76,
-		"calendar.time_parse_pattern":               b.fn77,
-		"calendar.time_parse_raw":                   b.fn80,
-		"calendar.time_parse_style":                 b.fn81,
-		"calendar.zoned_add_days":                   b.fn82,
-		"calendar.zoned_add_hours":                  b.fn84,
-		"calendar.zoned_add_microseconds":           b.fn85,
-		"calendar.zoned_add_milliseconds":           b.fn86,
-		"calendar.zoned_add_minutes":                b.fn87,
-		"calendar.zoned_add_months":                 b.fn88,
-		"calendar.zoned_add_nanoseconds":            b.fn89,
-		"calendar.zoned_add_seconds":                b.fn90,
-		"calendar.zoned_add_years":                  b.fn91,
-		"calendar.zoned_add_nanos":                  b.fn92,
-		"calendar.zoned_from_instant_in_raw":        b.fn93,
-		"calendar.zoned_in_zone_raw":                b.fn96,
-		"calendar.zoned_offset_nanos":               b.fn97,
-		"calendar.zoned_parse_raw":                  b.fn98,
-		"calendar.zoned_with_zone_raw":              b.fn99,
-		"collation.collator_compare_raw":            b.fn100,
-		"collation.collator_inspect_raw":            b.fn101,
-		"collation.collator_new_raw":                b.fn102,
-		"collation.collator_sort_key_raw":           b.fn103,
-		"currency.currency_check":                   b.fn105,
-		"currency.currency_code_of":                 b.fn106,
-		"currency.currency_digits_of":               b.fn107,
-		"decimal.decimal_format":                    b.fn108,
-		"duration.duration_format_raw":              b.fn109,
-		"decimal.decimal_format_percent":            b.fn110,
-		"decimal.decimal_parse_in":                  b.fn111,
-		"decimal.decimal_parse_percent_in":          b.fn117,
-		"float.float_format":                        b.fn118,
-		"float.float_format_percent":                b.fn120,
-		"float.float_parse_in":                      b.fn121,
-		"float.float_parse_percent_in":              b.fn125,
-		"int.int_format":                            b.fn126,
-		"int.int_parse_in":                          b.fn127,
-		"locale.locale_available":                   b.fn130,
-		"locale.locale_load_raw":                    b.fn132,
-		"locale.locale_loaded_raw":                  b.fn133,
-		"phrase/format.format_raw":                  b.fn134,
-		"phrase/format.load_raw":                    b.fn136,
-		"phrase/format.noun_raw":                    b.fn137,
-		"money/format.money_format_raw":             b.fn138,
-		"money/format.money_parse_raw":              b.fn139,
-		"locale.locale_fallbacks":                   b.fn140,
-		"locale.locale_from_posix_raw":              b.fn141,
-		"locale.locale_language":                    b.fn143,
-		"locale.locale_negotiate":                   b.fn144,
-		"locale.locale_parse_raw":                   b.fn145,
-		"locale.locale_region":                      b.fn146,
-		"locale.locale_script":                      b.fn148,
-		"plural.plural_cardinal_tag":                b.fn149,
-		"plural.plural_cardinal_tags":               b.fn150,
-		"plural.plural_ordinal_tag":                 b.fn152,
-		"plural.plural_ordinal_tags":                b.fn153,
-		"random.between_state":                      b.fn154,
-		"random.os_state":                           b.fn155,
-		"random.secure_bytes":                       b.fn156,
-		"random.unit_float_state":                   b.fn157,
-		"Regex.compile":                             b.fn158,
-		"Regex.is_contained_in":                     b.fn160,
-		"Regex.find_in":                             b.fn163,
-		"Regex.find_all_in":                         b.fn164,
-		"Regex.pattern":                             b.fn165,
-		"Regex.is_prefix_of":                        b.fn166,
-		"Regex.replace_in":                          b.fn167,
-		"Regex.split_in":                            b.fn168,
-		"Regex.is_suffix_of":                        b.fn169,
-		"toml/host.check":                           b.fn170,
-		"toml/host.build":                           b.fn171,
-		"toml/host.quote":                           b.fn172,
-		"toml/host.float":                           b.fn173,
-		"strings.capture_groups":                    b.fn174,
-		"strings.capture_groups_all":                b.fn178,
-		"String.capitalize":                         b.fn180,
-		"String.capitalize_in":                      b.fn181,
-		"String.fold_case":                          b.fn182,
-		"String.snake_case":                         b.fn183,
-		"String.kebab_case":                         b.fn184,
-		"String.pascal_case":                        b.fn185,
-		"String.camel_case":                         b.fn186,
-		"String.lowercase_in":                       b.fn187,
-		"String.uppercase_in":                       b.fn188,
-		"strings.join_list_raw":                     b.fn189,
-		"strings.String.is_contained_in":            b.fn190,
-		"strings.String.is_prefix_of":               b.fn191,
-		"strings.String.is_suffix_of":               b.fn192,
-		"strings.String.find_all_in":                b.fn193,
-		"strings.String.uppercase":                  b.fn195,
-		"strings.String.lowercase":                  b.fn196,
-		"strings.String.is_upper":                   b.fn197,
-		"strings.String.is_lower":                   b.fn198,
-		"strings.String.replace_in":                 b.fn199,
-		"strings.String.trim":                       b.fn200,
-		"strings.String.hash":                       b.fn201,
-		"strings.string_compare":                    b.fn202,
-		"strings.String.to_int":                     b.fn203,
-		"strings.String.split_in":                   b.fn205,
-		"strings.String.words":                      b.fn206,
-		"strings.String.lines":                      b.fn207,
-		"strings.String.length":                     b.fn208,
-		"strings.String.slice":                      b.fn209,
-		"strings.String.reverse":                    b.fn210,
-		"int.Int.to_byte":                           b.fn211,
-		"bytes.Byte.to_int":                         b.fn214,
-		"bytes.Bytes.length":                        b.fn216,
-		"hash.sha256":                               b.fn218,
-		"hash.sha512":                               b.fn219,
-		"hash.md5":                                  b.fn220,
-		"hash.sha1":                                 b.fn221,
-		"hash.hmac_sha256":                          b.fn222,
-		"hash.hmac_sha512":                          b.fn223,
-		"hash.equal_in_constant_time":               b.fn224,
-		"hash.pbkdf2_sha256":                        b.fn225,
-		"signatures/host.generate_ed25519":          b.fn226,
-		"signatures/host.generate_p256":             b.fn227,
-		"signatures/host.generate_rsa":              b.fn228,
-		"signatures/host.private_from_der":          b.fn230,
-		"signatures/host.private_from_pem":          b.fn231,
-		"signatures/host.private_to_pem":            b.fn232,
-		"signatures/host.private_kind":              b.fn233,
-		"signatures/host.public_of":                 b.fn234,
-		"signatures/host.public_from_der":           b.fn235,
-		"signatures/host.public_from_pem":           b.fn236,
-		"signatures/host.public_to_pem":             b.fn237,
-		"signatures/host.public_kind":               b.fn238,
-		"signatures/host.ed25519_from_seed":         b.fn239,
-		"signatures/host.ed25519_seed":              b.fn240,
-		"signatures/host.ed25519_public_from_bytes": b.fn241,
-		"signatures/host.ed25519_public_bytes":      b.fn242,
-		"signatures/host.sign":                      b.fn243,
-		"signatures/host.is_valid":                  b.fn244,
-		"http/host.seal":                            b.fn245,
-		"http/host.open_sealed":                     b.fn246,
-		"base64.standard":                           b.fn248,
-		"base64.decode":                             b.fn249,
-		"base64.url_safe":                           b.fn250,
-		"base64.decode_url":                         b.fn251,
-		"hex.encode":                                b.fn252,
-		"hex.decode":                                b.fn253,
-		"html/host.escape":                          b.fn254,
-		"html/host.filter_url":                      b.fn255,
-		"html/host.escape_url_path":                 b.fn256,
-		"url/host.escape_query":                     b.fn257,
-		"url/host.unescape_query":                   b.fn258,
-		"url/host.escape_path_segment":              b.fn260,
-		"url/host.unescape_path_segment":            b.fn261,
-		"url/host.parse_parts":                      b.fn262,
-		"url/host.format_parts":                     b.fn265,
-		"url/host.redacted_parts":                   b.fn267,
-		"url/host.escaped_path_parts":               b.fn268,
-		"url/host.escaped_fragment_parts":           b.fn269,
-		"url/host.request_uri_parts":                b.fn270,
-		"url/host.hostname_parts":                   b.fn271,
-		"url/host.port_parts":                       b.fn272,
-		"url/host.resolve_parts":                    b.fn273,
-		"url/host.join_path_parts":                  b.fn274,
-		"url/host.escape_fragment":                  b.fn275,
-		"url/host.query_pairs":                      b.fn276,
-		"url/host.query_error":                      b.fn277,
-		"url/host.query_encode":                     b.fn278,
-		"path/host.clean":                           b.fn279,
-		"path/host.join":                            b.fn280,
-		"path/host.base":                            b.fn281,
-		"path/host.dir":                             b.fn282,
-		"mail/host.quoted_printable":                b.fn283,
-		"mail/host.date":                            b.fn284,
-		"bytes.Bytes.get":                           b.fn285,
-		"bytes.Bytes.slice":                         b.fn286,
-		"bytes.Bytes.concat":                        b.fn287,
-		"bytes.Bytes.to_string":                     b.fn288,
-		"bytes.Bytes.hash":                          b.fn289,
-		"bytes.Bytes.contains":                      b.fn290,
-		"bytes.bytes_compare":                       b.fn291,
-		"strings.String.to_bytes":                   b.fn292,
-		"int.Int.to_string":                         b.fn293,
-		"int.Int.to_float":                          b.fn294,
-		"averageable.int_ratio_to_float":            b.fn295,
-		"int.Int.wrapping_add":                      b.fn296,
-		"int.Int.wrapping_sub":                      b.fn297,
-		"int.Int.wrapping_mul":                      b.fn298,
-		"int.Int.bit_count":                         b.fn299,
-		"int.Int.bit_length":                        b.fn300,
-		"int.Int.pow":                               b.fn301,
-		"int.Int.sqrt":                              b.fn302,
-		"int.Int.gcd":                               b.fn303,
-		"int.Int.lcm":                               b.fn304,
-		"int.int_to_digits":                         b.fn305,
-		"int.int_from_digits":                       b.fn307,
-		"float.Float.to_string":                     b.fn309,
-		"float.Float.nan":                           b.fn310,
-		"float.Float.positive_infinity":             b.fn311,
-		"float.Float.negative_infinity":             b.fn312,
-		"float.Float.is_nan":                        b.fn313,
-		"float.float_round":                         b.fn314,
-		"float.Float.floor":                         b.fn316,
-		"float.Float.ceil":                          b.fn317,
-		"float.Float.trunc":                         b.fn318,
-		"float.Float.to_int":                        b.fn319,
-		"float.float_bits":                          b.fn320,
-		"float.Float.pow":                           b.fn321,
-		"float.Float.sqrt":                          b.fn322,
-		"float.Float.exp":                           b.fn323,
-		"float.Float.log":                           b.fn324,
-		"float.Float.log2":                          b.fn325,
-		"float.Float.log10":                         b.fn326,
-		"float.Float.sin":                           b.fn327,
-		"float.Float.cos":                           b.fn328,
-		"float.Float.tan":                           b.fn329,
-		"float.Float.atan2":                         b.fn330,
-		"decimal.Decimal.to_string":                 b.fn331,
-		"decimal.Decimal.equal":                     b.fn333,
-		"decimal.Decimal.hash":                      b.fn334,
-		"decimal.Decimal.compare":                   b.fn335,
-		"duration.render_nanos":                     b.fn337,
-		"instant.Instant.now":                       b.fn338,
-		"int.Int.to_codepoint":                      b.fn340,
-		"code_points.Codepoint.to_string":           b.fn344,
-		"code_points.Codepoint.is_letter":           b.fn346,
-		"code_points.Codepoint.is_whitespace":       b.fn347,
-		"code_points.Codepoint.is_upper":            b.fn348,
-		"code_points.Codepoint.is_lower":            b.fn349,
-		"strings.String.to_codepoints":              b.fn350,
-		"context.Context.with_timeout":              b.fn352,
-		"context.Context.root":                      b.fn356,
-		"json.Json.decode":                          b.fn357,
-		"json.Json.encode":                          b.fn367,
-		"timer.sleep":                               b.fn371,
-		"supervisors.Supervisor.new_exact":          b.fn373,
-		"supervisors.Supervisor.flush_bounded":      b.fn378,
-		"assertions.AssertionFailure.format":        b.fn382,
-		"int.Int.to_decimal":                        b.fn395,
-		"strings.String.to_decimal":                 b.fn397,
-		"strings.String.to_float":                   b.fn400,
-		"decimal.Decimal.to_int":                    b.fn402,
-		"decimal.Decimal.to_float":                  b.fn403,
-		"float.Float.to_decimal":                    b.fn404,
-		"decimal.Decimal.divide":                    b.fn405,
-		"decimal.Decimal.divide_exact":              b.fn406,
-		"decimal.Decimal.round":                     b.fn407,
-		"decimal.Decimal.round_exact":               b.fn408,
-		"decimal.Decimal.pow":                       b.fn409,
-		"decimal.Decimal.sqrt":                      b.fn410,
-		"decimal.Decimal.sqrt_exact":                b.fn411,
-		"decimal.Decimal.normalize":                 b.fn412,
-		"decimal.Decimal.scale":                     b.fn413,
-		"strings.String.repeat":                     b.fn414,
-		"context.Context.deadline":                  b.fn415,
-		"context.Context.deadline_remaining":        b.fn418,
-		"context.Context.with_deadline":             b.fn422,
-		"bytes.Bytes.to_list":                       b.fn424,
-		"bytes.Bytes.from_list":                     b.fn426,
-		"strings.String.normalize":                  b.fn428,
-		"strings.String.to_literal":                 b.fn430,
-		"dynamic.Dynamic.field":                     b.fn431,
-		"dynamic.Dynamic.index":                     b.fn441,
-		"dynamic.Dynamic.path":                      b.fn442,
-		"dynamic.Dynamic.as_string":                 b.fn443,
-		"dynamic.Dynamic.as_int":                    b.fn446,
-		"dynamic.Dynamic.as_float":                  b.fn449,
-		"dynamic.Dynamic.as_bool":                   b.fn452,
-		"dynamic.Dynamic.as_list":                   b.fn455,
-		"dynamic.Dynamic.as_dict":                   b.fn460,
-		"dynamic.Dynamic.is_null":                   b.fn465,
-		"dynamic.Dynamic.hash":                      b.fn466,
-		"dynamic.Dynamic.has":                       b.fn467,
-		"dynamic.Dynamic.inspect":                   b.fn468,
-		"json.Json.to_dynamic":                      b.fn469,
-		"io.read_line":                              b.fn470,
-		"io.standard_input":                         b.fn476,
-		"io.standard_output":                        b.fn478,
-		"io.standard_error":                         b.fn480,
-		"io.Reader.read_line":                       b.fn481,
-		"io.read_up_to":                             b.fn483,
-		"io.Reader.read_all":                        b.fn487,
-		"io.Reader.read_all_text":                   b.fn490,
-		"io.Reader.copy_to":                         b.fn493,
-		"io.Reader.close":                           b.fn497,
-		"io.Reader.from_bytes":                      b.fn501,
-		"io.Reader.from_text":                       b.fn502,
-		"io.Reader.from_fn":                         b.fn503,
-		"io.Writer.write":                           b.fn508,
-		"io.Writer.write_text":                      b.fn509,
-		"io.Writer.flush":                           b.fn510,
-		"io.Writer.close":                           b.fn511,
-		"io.Writer.discard":                         b.fn512,
-		"io.writer_from_fn":                         b.fn513,
-		"io.memory_writer":                          b.fn518,
-		"io.collected":                              b.fn519,
-		"embed/host.read":                           b.fn520,
-		"embed/host.sum":                            b.fn521,
-		"fs/host.read":                              b.fn522,
-		"fs/host.read_text":                         b.fn523,
-		"fs/host.write":                             b.fn524,
-		"fs/host.open":                              b.fn525,
-		"fs/host.create":                            b.fn529,
-		"fs/host.list":                              b.fn533,
-		"fs/host.create_dir":                        b.fn537,
-		"fs/host.remove":                            b.fn538,
-		"fs/host.remove_all":                        b.fn539,
-		"fs/host.rename":                            b.fn540,
-		"fs/host.copy":                              b.fn541,
-		"fs/host.metadata":                          b.fn542,
-		"fs/host.link_metadata":                     b.fn546,
-		"fs/host.create_symlink":                    b.fn547,
-		"fs/host.read_link":                         b.fn548,
-		"fs/host.set_mode":                          b.fn549,
-		"fs/host.open_file":                         b.fn550,
-		"fs/host.within":                            b.fn555,
-		"fs/host.release":                           b.fn560,
-		"io.file_read":                              b.fn562,
-		"io.File.read_at":                           b.fn564,
-		"io.File.write":                             b.fn565,
-		"io.File.write_at":                          b.fn566,
-		"io.File.seek":                              b.fn567,
-		"io.File.position":                          b.fn568,
-		"io.File.size":                              b.fn569,
-		"io.File.truncate":                          b.fn570,
-		"io.File.close":                             b.fn571,
-		"fs/host.temp_dir":                          b.fn572,
-		"fs/host.make_temp_dir":                     b.fn573,
-		"fs/host.current_dir":                       b.fn574,
-		"fs/host.new_sandbox":                       b.fn575,
-		"fs/host.sandbox_fail":                      b.fn578,
-		"fs/host.sandbox_files":                     b.fn579,
-		"fs/host.sandbox_log":                       b.fn581,
-		"fs/host.sandbox_open":                      b.fn582,
-		"http/host.new_client":                      b.fn583,
-		"http/host.default_client":                  b.fn588,
-		"http/host.close_idle":                      b.fn589,
-		"http/host.send":                            b.fn591,
-		"http/host.status":                          b.fn597,
-		"http/host.protocol":                        b.fn599,
-		"http/host.headers":                         b.fn601,
-		"http/host.trailers":                        b.fn602,
-		"http/host.body_bytes":                      b.fn603,
-		"http/host.body_reader":                     b.fn604,
-		"http/host.close_body":                      b.fn605,
-		"http/host.content_length":                  b.fn606,
-		"http/host.transfer_encoding":               b.fn607,
-		"http/host.closes":                          b.fn608,
-		"http/host.uncompressed":                    b.fn609,
-		"http/host.final_url":                       b.fn610,
-		"http/host.canonical_key":                   b.fn611,
-		"http/host.status_text":                     b.fn612,
-		"http/host.headers_wire":                    b.fn613,
-		"http/host.parse_http_version":              b.fn614,
-		"http/host.basic_auth":                      b.fn615,
-		"http/host.add_cookie":                      b.fn616,
-		"http/host.cross_origin_check":              b.fn617,
-		"http/host.listen":                          b.fn618,
-		"http/host.listen_tls":                      b.fn625,
-		"http/host.with_tls":                        b.fn627,
-		"http/host.test_certificate":                b.fn628,
-		"http/host.certificate_from_pem":            b.fn629,
-		"http/host.certificate_load":                b.fn634,
-		"http/host.certificate_info":                b.fn635,
-		"http/host.tls_config":                      b.fn637,
-		"http/host.tls_with_certificate":            b.fn647,
-		"http/host.cipher_suites":                   b.fn648,
-		"http/host.cipher_suite_name":               b.fn649,
-		"http/host.dial_with":                       b.fn650,
-		"http/host.lookup":                          b.fn655,
-		"http/host.pipe":                            b.fn659,
-		"http/host.split_host_port":                 b.fn661,
-		"http/host.join_host_port":                  b.fn662,
-		"http/host.conn_close_read":                 b.fn663,
-		"http/host.conn_no_delay":                   b.fn665,
-		"http/host.conn_linger":                     b.fn666,
-		"http/host.conn_keep_alive":                 b.fn667,
-		"http/host.conn_multipath":                  b.fn668,
-		"http/host.tls_dial":                        b.fn669,
-		"http/host.tls_client":                      b.fn670,
-		"http/host.tls_server":                      b.fn671,
-		"http/host.conn_reader":                     b.fn672,
-		"http/host.conn_writer":                     b.fn673,
-		"http/host.conn_close":                      b.fn674,
-		"http/host.conn_close_write":                b.fn675,
-		"http/host.conn_local":                      b.fn676,
-		"http/host.conn_remote":                     b.fn677,
-		"http/host.conn_deadline":                   b.fn678,
-		"http/host.tls_state_parts":                 b.fn679,
-		"http/host.hello_parts":                     b.fn682,
-		"http/host.hello_supports":                  b.fn683,
-		"http/host.tls_wrap_listener":               b.fn684,
-		"http/host.in_local":                        b.fn687,
-		"http/host.in_tls":                          b.fn689,
-		"http/host.extend_read_deadline":            b.fn690,
-		"http/host.upgrade":                         b.fn693,
-		"http/host.exchange_tls":                    b.fn694,
-		"http/host.new_tracer":                      b.fn695,
-		"http/host.tracer_events":                   b.fn696,
-		"http/host.wire_read_request":               b.fn698,
-		"http/host.wire_read_response":              b.fn701,
-		"http/host.wire_parts":                      b.fn702,
-		"http/host.wire_body":                       b.fn703,
-		"http/host.wire_request":                    b.fn704,
-		"http/host.wire_response":                   b.fn705,
-		"http/host.chunked_reader":                  b.fn706,
-		"http/host.chunked_writer":                  b.fn707,
-		"http/host.gzip_bytes":                      b.fn708,
-		"http/host.gunzip":                          b.fn709,
-		"http/host.gzip_writer":                     b.fn710,
-		"http/host.gzip_reader":                     b.fn711,
-		"http/host.multipart_reader":                b.fn712,
-		"http/host.next_part":                       b.fn713,
-		"http/host.part_headers":                    b.fn718,
-		"http/host.part_reader":                     b.fn719,
-		"http/host.part_form_name":                  b.fn720,
-		"http/host.part_file_name":                  b.fn721,
-		"http/host.multipart_write":                 b.fn722,
-		"http/host.close_connections":               b.fn724,
-		"http/host.ws_accept_key":                   b.fn726,
-		"http/host.ws_valid_key":                    b.fn727,
-		"http/host.ws_open":                         b.fn728,
-		"http/host.ws_connect":                      b.fn729,
-		"http/host.ws_protocol":                     b.fn733,
-		"http/host.ws_id":                           b.fn734,
-		"http/host.ws_receive":                      b.fn735,
-		"http/host.ws_send":                         b.fn739,
-		"http/host.ws_ping":                         b.fn743,
-		"http/host.ws_close":                        b.fn744,
-		"http/host.ws_pipe":                         b.fn745,
-		"http/host.tls_verify_hostname":             b.fn746,
-		"http/host.net_listen_with":                 b.fn747,
-		"http/host.net_listener_deadline":           b.fn751,
-		"http/host.tls_listen":                      b.fn752,
-		"http/host.net_listener_address":            b.fn753,
-		"http/host.net_accept":                      b.fn754,
-		"http/host.net_listener_close":              b.fn755,
-		"http/host.address":                         b.fn756,
-		"http/host.next":                            b.fn757,
-		"http/host.shutdown":                        b.fn761,
-		"http/host.in_method":                       b.fn762,
-		"http/host.in_host":                         b.fn763,
-		"http/host.in_remote":                       b.fn764,
-		"http/host.in_target":                       b.fn765,
-		"http/host.in_protocol":                     b.fn766,
-		"http/host.in_headers":                      b.fn767,
-		"http/host.in_trailers":                     b.fn768,
-		"http/host.in_content_length":               b.fn769,
-		"http/host.in_transfer_encoding":            b.fn770,
-		"http/host.in_close":                        b.fn771,
-		"http/host.in_body":                         b.fn772,
-		"http/host.parse_multipart":                 b.fn773,
-		"http/host.encode_multipart":                b.fn777,
-		"http/host.file_content_disposition":        b.fn778,
-		"http/host.respond":                         b.fn779,
-		"http/host.produce":                         b.fn780,
-		"http/host.finish":                          b.fn781,
-		"http/host.answered_already":                b.fn782,
-		"http/host.detect_content_type":             b.fn783,
-		"http/host.new_mux":                         b.fn784,
-		"http/host.check_pattern":                   b.fn789,
-		"http/host.route":                           b.fn790,
-		"http/host.answer_content":                  b.fn792,
-		"http/host.answer_redirect":                 b.fn793,
-		"http/host.format_time":                     b.fn794,
-		"http/host.parse_time":                      b.fn795,
-		"http/host.limit_body":                      b.fn797,
-		"http/host.cookie_text":                     b.fn798,
-		"http/host.cookie_valid":                    b.fn799,
-		"http/host.parse_cookie":                    b.fn800,
-		"http/host.parse_set_cookie":                b.fn803,
-		"http/host.new_jar":                         b.fn804,
-		"http/host.jar_cookies":                     b.fn806,
-		"http/host.jar_set":                         b.fn808,
-		"http/host.with_jar":                        b.fn810,
-		"process/host.start":                        b.fn811,
-		"process/host.child_stdin":                  b.fn816,
-		"process/host.child_stdout":                 b.fn818,
-		"process/host.child_stderr":                 b.fn819,
-		"process/host.wait":                         b.fn820,
-		"process/host.captured":                     b.fn824,
-		"process/host.kill":                         b.fn825,
-		"process/host.new_fake":                     b.fn826,
-		"process/host.fake_answer":                  b.fn828,
-		"process/host.fake_refuse":                  b.fn830,
-		"process/host.fake_calls":                   b.fn831,
-		"process/host.fake_command":                 b.fn832,
-		"process/host.fake_dir":                     b.fn833,
-		"process/host.fake_env":                     b.fn834,
-		"process/host.fake_input":                   b.fn836,
-		"csv/host.open":                             b.fn837,
-		"csv/host.next":                             b.fn840,
-		"csv/host.line":                             b.fn842,
-		"csv/host.stopped":                          b.fn843,
-		"csv/host.message":                          b.fn844,
-		"csv/host.failure":                          b.fn845,
-		"csv/host.encode":                           b.fn846,
-		"xml/host.open":                             b.fn847,
-		"xml/host.next":                             b.fn849,
-		"xml/host.name":                             b.fn851,
-		"xml/host.attributes":                       b.fn852,
-		"xml/host.namespaces":                       b.fn853,
-		"xml/host.text":                             b.fn854,
-		"xml/host.target":                           b.fn855,
-		"xml/host.position":                         b.fn856,
-		"xml/host.stopped":                          b.fn857,
-		"xml/host.message":                          b.fn858,
-		"xml/host.failure":                          b.fn859,
-		"xml/host.escape_text":                      b.fn860,
-		"xml/host.escape_attribute":                 b.fn861,
-		"xml/host.is_name":                          b.fn862,
-		"iter.as_count":                             b.fn863,
-	}, nil
+	return funcs, nil
+}
+
+// regRows lists the register form of each binding that has one; its adapter
+// is that form over boxed values (hostadapt.BindRows).
+var regRows = [...]hostadapt.Row[*bound]{
+	{Key: "Date.days_between", Fn: (*bound).fn1Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotRef}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "Date.to_string", Fn: (*bound).fn3Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "DateTime.day", Fn: (*bound).fn4Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "DateTime.hour", Fn: (*bound).fn6Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "DateTime.minute", Fn: (*bound).fn7Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "DateTime.month", Fn: (*bound).fn8Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "DateTime.nanosecond", Fn: (*bound).fn9Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "DateTime.second", Fn: (*bound).fn10Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "DateTime.to_offset", Fn: (*bound).fn11Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "DateTime.to_string", Fn: (*bound).fn14Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "DateTime.year", Fn: (*bound).fn15Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "NaiveDateTime.to_date", Fn: (*bound).fn16Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "NaiveDateTime.to_string", Fn: (*bound).fn20Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "NaiveDateTime.to_time", Fn: (*bound).fn21Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "OffsetDateTime.day", Fn: (*bound).fn24Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "OffsetDateTime.hour", Fn: (*bound).fn26Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "OffsetDateTime.minute", Fn: (*bound).fn27Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "OffsetDateTime.month", Fn: (*bound).fn28Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "OffsetDateTime.nanosecond", Fn: (*bound).fn29Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "OffsetDateTime.second", Fn: (*bound).fn30Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "OffsetDateTime.to_naive", Fn: (*bound).fn31Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "OffsetDateTime.to_string", Fn: (*bound).fn34Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "OffsetDateTime.year", Fn: (*bound).fn35Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "Time.to_string", Fn: (*bound).fn36Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "calendar.civil_format_fields", Fn: (*bound).fn38Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt, rt.SlotRef, rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "calendar.civil_format_pattern", Fn: (*bound).fn42Regs, In: []rt.SlotType{rt.SlotInt, rt.SlotRef, rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "calendar.civil_format_style", Fn: (*bound).fn43Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt, rt.SlotRef, rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "calendar.date_add_days", Fn: (*bound).fn44Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "calendar.date_add_months", Fn: (*bound).fn46Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "calendar.date_add_years", Fn: (*bound).fn48Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "calendar.date_new_raw", Fn: (*bound).fn50Regs, In: []rt.SlotType{rt.SlotInt, rt.SlotInt, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "calendar.date_parse_pattern", Fn: (*bound).fn54Regs, In: []rt.SlotType{rt.SlotString, rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "calendar.date_parse_raw", Fn: (*bound).fn56Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "calendar.date_parse_style", Fn: (*bound).fn58Regs, In: []rt.SlotType{rt.SlotString, rt.SlotRef, rt.SlotString, rt.SlotBool}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "calendar.fields_check", Fn: (*bound).fn60Regs, In: []rt.SlotType{rt.SlotInt, rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "calendar.local_zone_raw", Fn: (*bound).fn61Regs, In: []rt.SlotType{}, Out: []rt.SlotType{rt.SlotString}, Whole: spec_d7},
+	{Key: "calendar.naive_add_days", Fn: (*bound).fn62Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "calendar.naive_add_months", Fn: (*bound).fn64Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "calendar.naive_add_nanos", Fn: (*bound).fn66Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "calendar.naive_add_years", Fn: (*bound).fn68Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "calendar.naive_between_nanos", Fn: (*bound).fn70Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotRef}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "calendar.naive_new_exact_raw", Fn: (*bound).fn71Regs, In: []rt.SlotType{rt.SlotInt, rt.SlotInt, rt.SlotInt, rt.SlotInt, rt.SlotInt, rt.SlotInt, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "calendar.naive_parse_pattern", Fn: (*bound).fn75Regs, In: []rt.SlotType{rt.SlotString, rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "calendar.naive_parse_raw", Fn: (*bound).fn77Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "calendar.offset_add_months", Fn: (*bound).fn79Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "calendar.offset_add_years", Fn: (*bound).fn81Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "calendar.offset_add_nanos", Fn: (*bound).fn83Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "calendar.offset_from_instant_nanos", Fn: (*bound).fn85Regs, In: []rt.SlotType{rt.SlotInt, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "calendar.offset_parse_raw", Fn: (*bound).fn87Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "calendar.offset_with_offset_raw", Fn: (*bound).fn91Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "calendar.pattern_check", Fn: (*bound).fn93Regs, In: []rt.SlotType{rt.SlotInt, rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "calendar.relative_format_raw", Fn: (*bound).fn94Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt, rt.SlotInt, rt.SlotBool}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "calendar.time_add_nanos", Fn: (*bound).fn95Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "calendar.time_parse_pattern", Fn: (*bound).fn97Regs, In: []rt.SlotType{rt.SlotString, rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "calendar.time_parse_raw", Fn: (*bound).fn101Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "calendar.time_parse_style", Fn: (*bound).fn103Regs, In: []rt.SlotType{rt.SlotString, rt.SlotRef, rt.SlotString, rt.SlotBool}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "calendar.zoned_add_days", Fn: (*bound).fn105Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "calendar.zoned_add_hours", Fn: (*bound).fn108Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "calendar.zoned_add_microseconds", Fn: (*bound).fn110Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "calendar.zoned_add_milliseconds", Fn: (*bound).fn112Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "calendar.zoned_add_minutes", Fn: (*bound).fn114Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "calendar.zoned_add_months", Fn: (*bound).fn116Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "calendar.zoned_add_nanoseconds", Fn: (*bound).fn118Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "calendar.zoned_add_seconds", Fn: (*bound).fn120Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "calendar.zoned_add_years", Fn: (*bound).fn122Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "calendar.zoned_add_nanos", Fn: (*bound).fn124Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "calendar.zoned_from_instant_in_raw", Fn: (*bound).fn126Regs, In: []rt.SlotType{rt.SlotInt, rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "calendar.zoned_in_zone_raw", Fn: (*bound).fn130Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "calendar.zoned_offset_nanos", Fn: (*bound).fn132Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "calendar.zoned_parse_raw", Fn: (*bound).fn133Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "calendar.zoned_with_zone_raw", Fn: (*bound).fn135Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "collation.collator_compare_raw", Fn: (*bound).fn137Regs, In: []rt.SlotType{rt.SlotString, rt.SlotString, rt.SlotString}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "collation.collator_inspect_raw", Fn: (*bound).fn138Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "collation.collator_new_raw", Fn: (*bound).fn139Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt, rt.SlotBool, rt.SlotInt, rt.SlotBool}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "collation.collator_sort_key_raw", Fn: (*bound).fn140Regs, In: []rt.SlotType{rt.SlotString, rt.SlotString}, Out: []rt.SlotType{rt.SlotBytes}},
+	{Key: "currency.currency_check", Fn: (*bound).fn141Regs, In: []rt.SlotType{rt.SlotString, rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "currency.currency_code_of", Fn: (*bound).fn142Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "currency.currency_digits_of", Fn: (*bound).fn143Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "decimal.decimal_format", Fn: (*bound).fn144Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString, rt.SlotInt, rt.SlotInt, rt.SlotBool}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "duration.duration_format_raw", Fn: (*bound).fn145Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt, rt.SlotInt}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "decimal.decimal_format_percent", Fn: (*bound).fn146Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString, rt.SlotInt, rt.SlotInt}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "decimal.decimal_parse_in", Fn: (*bound).fn147Regs, In: []rt.SlotType{rt.SlotString, rt.SlotRef, rt.SlotBool}, Out: []rt.SlotType{rt.SlotString}, Whole: spec_d12},
+	{Key: "decimal.decimal_parse_percent_in", Fn: (*bound).fn153Regs, In: []rt.SlotType{rt.SlotString, rt.SlotRef, rt.SlotBool}, Out: []rt.SlotType{rt.SlotString}, Whole: spec_d12},
+	{Key: "float.float_format", Fn: (*bound).fn154Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotFloat, rt.SlotInt, rt.SlotInt, rt.SlotBool}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "float.float_format_percent", Fn: (*bound).fn155Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotFloat, rt.SlotInt}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "float.float_parse_in", Fn: (*bound).fn156Regs, In: []rt.SlotType{rt.SlotString, rt.SlotRef, rt.SlotBool}, Out: []rt.SlotType{rt.SlotFloat}, Whole: spec_d15},
+	{Key: "float.float_parse_percent_in", Fn: (*bound).fn159Regs, In: []rt.SlotType{rt.SlotString, rt.SlotRef, rt.SlotBool}, Out: []rt.SlotType{rt.SlotFloat}, Whole: spec_d15},
+	{Key: "int.int_format", Fn: (*bound).fn160Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt, rt.SlotBool, rt.SlotInt}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "int.int_parse_in", Fn: (*bound).fn161Regs, In: []rt.SlotType{rt.SlotString, rt.SlotRef, rt.SlotBool}, Out: []rt.SlotType{rt.SlotInt}, Whole: spec_d16},
+	{Key: "locale.locale_available", Fn: (*bound).fn164Regs, In: []rt.SlotType{}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "locale.locale_load_raw", Fn: (*bound).fn168Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "locale.locale_loaded_raw", Fn: (*bound).fn169Regs, In: []rt.SlotType{}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "phrase/format.format_raw", Fn: (*bound).fn171Regs, In: []rt.SlotType{rt.SlotString, rt.SlotRef, rt.SlotRef, rt.SlotRef, rt.SlotRef, rt.SlotRef, rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "phrase/format.load_raw", Fn: (*bound).fn174Regs, In: []rt.SlotType{rt.SlotString, rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "phrase/format.noun_raw", Fn: (*bound).fn176Regs, In: []rt.SlotType{rt.SlotString, rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "money/format.money_format_raw", Fn: (*bound).fn177Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString, rt.SlotString, rt.SlotInt, rt.SlotBool, rt.SlotInt, rt.SlotBool}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "money/format.money_parse_raw", Fn: (*bound).fn178Regs, In: []rt.SlotType{rt.SlotString, rt.SlotRef, rt.SlotString, rt.SlotInt, rt.SlotBool, rt.SlotBool}, Out: []rt.SlotType{rt.SlotString}, Whole: spec_d12},
+	{Key: "locale.locale_fallbacks", Fn: (*bound).fn179Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "locale.locale_from_posix_raw", Fn: (*bound).fn181Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "locale.locale_language", Fn: (*bound).fn184Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "locale.locale_negotiate", Fn: (*bound).fn185Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotRef, rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "locale.locale_parse_raw", Fn: (*bound).fn186Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "locale.locale_region", Fn: (*bound).fn188Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}, Whole: spec_d18},
+	{Key: "locale.locale_script", Fn: (*bound).fn189Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}, Whole: spec_d18},
+	{Key: "plural.plural_cardinal_tag", Fn: (*bound).fn190Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "plural.plural_cardinal_tags", Fn: (*bound).fn191Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "plural.plural_ordinal_tag", Fn: (*bound).fn195Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "plural.plural_ordinal_tags", Fn: (*bound).fn196Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "random.between_state", Fn: (*bound).fn198Regs, In: []rt.SlotType{rt.SlotInt, rt.SlotInt, rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt, rt.SlotInt}},
+	{Key: "random.os_state", Fn: (*bound).fn199Regs, In: []rt.SlotType{}, Out: []rt.SlotType{rt.SlotInt}, Whole: spec_d19},
+	{Key: "random.secure_bytes", Fn: (*bound).fn200Regs, In: []rt.SlotType{rt.SlotInt}, Out: []rt.SlotType{rt.SlotBytes}},
+	{Key: "random.unit_float_state", Fn: (*bound).fn201Regs, In: []rt.SlotType{rt.SlotInt}, Out: []rt.SlotType{rt.SlotFloat, rt.SlotInt}},
+	{Key: "Regex.compile", Fn: (*bound).fn202Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d20},
+	{Key: "Regex.is_contained_in", Fn: (*bound).fn205Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString}, Out: []rt.SlotType{rt.SlotBool}},
+	{Key: "Regex.find_in", Fn: (*bound).fn207Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString}, Out: []rt.SlotType{rt.SlotString}, Whole: spec_d18},
+	{Key: "Regex.find_all_in", Fn: (*bound).fn208Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "Regex.pattern", Fn: (*bound).fn210Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "Regex.is_prefix_of", Fn: (*bound).fn211Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString}, Out: []rt.SlotType{rt.SlotBool}},
+	{Key: "Regex.replace_in", Fn: (*bound).fn212Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString, rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "Regex.split_in", Fn: (*bound).fn213Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "Regex.is_suffix_of", Fn: (*bound).fn215Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString}, Out: []rt.SlotType{rt.SlotBool}},
+	{Key: "toml/host.check", Fn: (*bound).fn216Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotInt, rt.SlotInt, rt.SlotString}},
+	{Key: "toml/host.build", Fn: (*bound).fn217Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "toml/host.quote", Fn: (*bound).fn218Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "toml/host.float", Fn: (*bound).fn219Regs, In: []rt.SlotType{rt.SlotFloat}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "toml/host.decode", Fn: (*bound).fn220Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotRef, rt.SlotInt, rt.SlotInt, rt.SlotInt, rt.SlotString}},
+	{Key: "passwords/host.argon2id", Fn: (*bound).fn222Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotBytes, rt.SlotInt, rt.SlotInt, rt.SlotInt, rt.SlotInt}, Out: []rt.SlotType{rt.SlotBytes}},
+	{Key: "passwords/host.scrypt", Fn: (*bound).fn223Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotBytes, rt.SlotInt, rt.SlotInt, rt.SlotInt, rt.SlotInt}, Out: []rt.SlotType{rt.SlotBytes}, Whole: spec_d21},
+	{Key: "passwords/host.bcrypt_hash", Fn: (*bound).fn224Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotInt}, Out: []rt.SlotType{rt.SlotString}, Whole: spec_d7},
+	{Key: "passwords/host.bcrypt_verify", Fn: (*bound).fn225Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotString}, Out: []rt.SlotType{rt.SlotBool}, Whole: spec_d22},
+	{Key: "passwords/host.bcrypt_cost", Fn: (*bound).fn226Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotInt}, Whole: spec_d23},
+	{Key: "strings.capture_groups", Fn: (*bound).fn227Regs, In: []rt.SlotType{rt.SlotString, rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d24},
+	{Key: "strings.capture_groups_all", Fn: (*bound).fn231Regs, In: []rt.SlotType{rt.SlotString, rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "String.capitalize", Fn: (*bound).fn234Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "String.capitalize_in", Fn: (*bound).fn235Regs, In: []rt.SlotType{rt.SlotString, rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "String.fold_case", Fn: (*bound).fn236Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "String.snake_case", Fn: (*bound).fn237Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "String.kebab_case", Fn: (*bound).fn238Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "String.pascal_case", Fn: (*bound).fn239Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "String.camel_case", Fn: (*bound).fn240Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "String.lowercase_in", Fn: (*bound).fn241Regs, In: []rt.SlotType{rt.SlotString, rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "String.uppercase_in", Fn: (*bound).fn242Regs, In: []rt.SlotType{rt.SlotString, rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "strings.join_list_raw", Fn: (*bound).fn243Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotRef, rt.SlotInt, rt.SlotInt}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "strings.String.is_contained_in", Fn: (*bound).fn244Regs, In: []rt.SlotType{rt.SlotString, rt.SlotString}, Out: []rt.SlotType{rt.SlotBool}},
+	{Key: "strings.String.is_prefix_of", Fn: (*bound).fn245Regs, In: []rt.SlotType{rt.SlotString, rt.SlotString}, Out: []rt.SlotType{rt.SlotBool}},
+	{Key: "strings.String.is_suffix_of", Fn: (*bound).fn246Regs, In: []rt.SlotType{rt.SlotString, rt.SlotString}, Out: []rt.SlotType{rt.SlotBool}},
+	{Key: "strings.String.find_all_in", Fn: (*bound).fn247Regs, In: []rt.SlotType{rt.SlotString, rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "strings.String.uppercase", Fn: (*bound).fn250Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "strings.String.lowercase", Fn: (*bound).fn251Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "strings.String.is_upper", Fn: (*bound).fn252Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotBool}},
+	{Key: "strings.String.is_lower", Fn: (*bound).fn253Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotBool}},
+	{Key: "strings.String.replace_in", Fn: (*bound).fn254Regs, In: []rt.SlotType{rt.SlotString, rt.SlotString, rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "strings.String.trim", Fn: (*bound).fn255Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "strings.String.hash", Fn: (*bound).fn256Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "strings.string_compare", Fn: (*bound).fn257Regs, In: []rt.SlotType{rt.SlotString, rt.SlotString}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "strings.String.to_int", Fn: (*bound).fn258Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotInt}, Whole: spec_d23},
+	{Key: "strings.String.split_in", Fn: (*bound).fn260Regs, In: []rt.SlotType{rt.SlotString, rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "strings.String.words", Fn: (*bound).fn262Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "strings.String.lines", Fn: (*bound).fn264Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "strings.String.length", Fn: (*bound).fn266Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "strings.String.slice", Fn: (*bound).fn267Regs, In: []rt.SlotType{rt.SlotString, rt.SlotInt, rt.SlotInt}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "strings.String.reverse", Fn: (*bound).fn268Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "int.Int.to_byte", Fn: (*bound).fn269Regs, In: []rt.SlotType{rt.SlotInt}, Out: []rt.SlotType{rt.SlotByte}, Whole: spec_d25},
+	{Key: "bytes.Byte.to_int", Fn: (*bound).fn271Regs, In: []rt.SlotType{rt.SlotByte}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "bytes.Bytes.length", Fn: (*bound).fn272Regs, In: []rt.SlotType{rt.SlotBytes}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "hash.sha256", Fn: (*bound).fn273Regs, In: []rt.SlotType{rt.SlotBytes}, Out: []rt.SlotType{rt.SlotBytes}},
+	{Key: "hash.sha512", Fn: (*bound).fn274Regs, In: []rt.SlotType{rt.SlotBytes}, Out: []rt.SlotType{rt.SlotBytes}},
+	{Key: "hash.md5", Fn: (*bound).fn275Regs, In: []rt.SlotType{rt.SlotBytes}, Out: []rt.SlotType{rt.SlotBytes}},
+	{Key: "hash.sha1", Fn: (*bound).fn276Regs, In: []rt.SlotType{rt.SlotBytes}, Out: []rt.SlotType{rt.SlotBytes}},
+	{Key: "hash.hmac_sha256", Fn: (*bound).fn277Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotBytes}, Out: []rt.SlotType{rt.SlotBytes}},
+	{Key: "hash.hmac_sha512", Fn: (*bound).fn278Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotBytes}, Out: []rt.SlotType{rt.SlotBytes}},
+	{Key: "hash.equal_in_constant_time", Fn: (*bound).fn279Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotBytes}, Out: []rt.SlotType{rt.SlotBool}},
+	{Key: "hash.pbkdf2_sha256", Fn: (*bound).fn280Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotBytes, rt.SlotInt, rt.SlotInt}, Out: []rt.SlotType{rt.SlotBytes}},
+	{Key: "signatures/host.generate_ed25519", Fn: (*bound).fn281Regs, In: []rt.SlotType{}, Out: []rt.SlotType{rt.SlotBytes}},
+	{Key: "signatures/host.generate_p256", Fn: (*bound).fn282Regs, In: []rt.SlotType{}, Out: []rt.SlotType{rt.SlotBytes}},
+	{Key: "signatures/host.generate_rsa", Fn: (*bound).fn283Regs, In: []rt.SlotType{rt.SlotInt}, Out: []rt.SlotType{rt.SlotBytes}, Whole: spec_d21},
+	{Key: "signatures/host.private_from_der", Fn: (*bound).fn285Regs, In: []rt.SlotType{rt.SlotBytes}, Out: []rt.SlotType{rt.SlotBytes}, Whole: spec_d21},
+	{Key: "signatures/host.private_from_pem", Fn: (*bound).fn286Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotBytes}, Whole: spec_d21},
+	{Key: "signatures/host.private_to_pem", Fn: (*bound).fn287Regs, In: []rt.SlotType{rt.SlotBytes}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "signatures/host.private_kind", Fn: (*bound).fn288Regs, In: []rt.SlotType{rt.SlotBytes}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "signatures/host.public_of", Fn: (*bound).fn289Regs, In: []rt.SlotType{rt.SlotBytes}, Out: []rt.SlotType{rt.SlotBytes}},
+	{Key: "signatures/host.public_from_der", Fn: (*bound).fn290Regs, In: []rt.SlotType{rt.SlotBytes}, Out: []rt.SlotType{rt.SlotBytes}, Whole: spec_d21},
+	{Key: "signatures/host.public_from_pem", Fn: (*bound).fn291Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotBytes}, Whole: spec_d21},
+	{Key: "signatures/host.public_to_pem", Fn: (*bound).fn292Regs, In: []rt.SlotType{rt.SlotBytes}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "signatures/host.public_kind", Fn: (*bound).fn293Regs, In: []rt.SlotType{rt.SlotBytes}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "signatures/host.ed25519_from_seed", Fn: (*bound).fn294Regs, In: []rt.SlotType{rt.SlotBytes}, Out: []rt.SlotType{rt.SlotBytes}, Whole: spec_d21},
+	{Key: "signatures/host.ed25519_seed", Fn: (*bound).fn295Regs, In: []rt.SlotType{rt.SlotBytes}, Out: []rt.SlotType{rt.SlotBytes}},
+	{Key: "signatures/host.ed25519_public_from_bytes", Fn: (*bound).fn296Regs, In: []rt.SlotType{rt.SlotBytes}, Out: []rt.SlotType{rt.SlotBytes}, Whole: spec_d21},
+	{Key: "signatures/host.ed25519_public_bytes", Fn: (*bound).fn297Regs, In: []rt.SlotType{rt.SlotBytes}, Out: []rt.SlotType{rt.SlotBytes}},
+	{Key: "signatures/host.sign", Fn: (*bound).fn298Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotInt, rt.SlotBytes}, Out: []rt.SlotType{rt.SlotBytes}},
+	{Key: "signatures/host.is_valid", Fn: (*bound).fn299Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotInt, rt.SlotBytes, rt.SlotBytes}, Out: []rt.SlotType{rt.SlotBool}},
+	{Key: "http/host.seal", Fn: (*bound).fn300Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotBytes, rt.SlotBytes}, Out: []rt.SlotType{rt.SlotBytes}, Whole: spec_d21},
+	{Key: "http/host.open_sealed", Fn: (*bound).fn301Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotBytes, rt.SlotBytes}, Out: []rt.SlotType{rt.SlotBytes}, Whole: spec_d26},
+	{Key: "base64.standard", Fn: (*bound).fn303Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotBool}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "base64.decode", Fn: (*bound).fn304Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotBytes}, Whole: spec_d21},
+	{Key: "base64.url_safe", Fn: (*bound).fn305Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotBool}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "base64.decode_url", Fn: (*bound).fn306Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotBytes}, Whole: spec_d21},
+	{Key: "hex.encode", Fn: (*bound).fn307Regs, In: []rt.SlotType{rt.SlotBytes}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "hex.decode", Fn: (*bound).fn308Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotBytes}, Whole: spec_d21},
+	{Key: "html/host.escape", Fn: (*bound).fn309Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "html/host.filter_url", Fn: (*bound).fn310Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "html/host.escape_url_path", Fn: (*bound).fn311Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "html/host.unescape_references", Fn: (*bound).fn312Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "html/host.named_reference", Fn: (*bound).fn313Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}, Whole: spec_d18},
+	{Key: "url/host.escape_query", Fn: (*bound).fn315Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "url/host.unescape_query", Fn: (*bound).fn316Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}, Whole: spec_d7},
+	{Key: "url/host.escape_path_segment", Fn: (*bound).fn318Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "url/host.unescape_path_segment", Fn: (*bound).fn319Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}, Whole: spec_d7},
+	{Key: "url/host.parse_parts", Fn: (*bound).fn320Regs, In: []rt.SlotType{rt.SlotString, rt.SlotBool}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d20},
+	{Key: "url/host.format_parts", Fn: (*bound).fn324Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "url/host.redacted_parts", Fn: (*bound).fn326Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "url/host.escaped_path_parts", Fn: (*bound).fn327Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "url/host.escaped_fragment_parts", Fn: (*bound).fn328Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "url/host.request_uri_parts", Fn: (*bound).fn329Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "url/host.hostname_parts", Fn: (*bound).fn330Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "url/host.port_parts", Fn: (*bound).fn331Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "url/host.resolve_parts", Fn: (*bound).fn332Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "url/host.join_path_parts", Fn: (*bound).fn334Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "url/host.escape_fragment", Fn: (*bound).fn336Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "url/host.query_pairs", Fn: (*bound).fn337Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "url/host.query_error", Fn: (*bound).fn339Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "url/host.query_encode", Fn: (*bound).fn340Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "path/host.clean", Fn: (*bound).fn341Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "path/host.join", Fn: (*bound).fn342Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "path/host.base", Fn: (*bound).fn343Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "path/host.dir", Fn: (*bound).fn344Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "mail/host.quoted_printable", Fn: (*bound).fn345Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "mail/host.date", Fn: (*bound).fn346Regs, In: []rt.SlotType{rt.SlotInt}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "bytes.Bytes.get", Fn: (*bound).fn347Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotInt}, Out: []rt.SlotType{rt.SlotByte}, Whole: spec_d25},
+	{Key: "bytes.Bytes.slice", Fn: (*bound).fn348Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotInt, rt.SlotInt}, Out: []rt.SlotType{rt.SlotBytes}},
+	{Key: "bytes.Bytes.concat", Fn: (*bound).fn349Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotBytes}, Out: []rt.SlotType{rt.SlotBytes}},
+	{Key: "bytes.Bytes.to_string", Fn: (*bound).fn350Regs, In: []rt.SlotType{rt.SlotBytes}, Out: []rt.SlotType{rt.SlotString}, Whole: spec_d7},
+	{Key: "bytes.Bytes.hash", Fn: (*bound).fn351Regs, In: []rt.SlotType{rt.SlotBytes}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "bytes.Bytes.contains", Fn: (*bound).fn352Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotByte}, Out: []rt.SlotType{rt.SlotBool}},
+	{Key: "bytes.bytes_compare", Fn: (*bound).fn353Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotBytes}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "strings.String.to_bytes", Fn: (*bound).fn354Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotBytes}},
+	{Key: "int.Int.to_string", Fn: (*bound).fn355Regs, In: []rt.SlotType{rt.SlotInt}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "int.Int.to_float", Fn: (*bound).fn356Regs, In: []rt.SlotType{rt.SlotInt}, Out: []rt.SlotType{rt.SlotFloat}},
+	{Key: "averageable.int_ratio_to_float", Fn: (*bound).fn357Regs, In: []rt.SlotType{rt.SlotInt, rt.SlotInt}, Out: []rt.SlotType{rt.SlotFloat}},
+	{Key: "int.Int.wrapping_add", Fn: (*bound).fn358Regs, In: []rt.SlotType{rt.SlotInt, rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "int.Int.wrapping_sub", Fn: (*bound).fn359Regs, In: []rt.SlotType{rt.SlotInt, rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "int.Int.wrapping_mul", Fn: (*bound).fn360Regs, In: []rt.SlotType{rt.SlotInt, rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "int.Int.bit_count", Fn: (*bound).fn361Regs, In: []rt.SlotType{rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "int.Int.bit_length", Fn: (*bound).fn362Regs, In: []rt.SlotType{rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "int.Int.pow", Fn: (*bound).fn363Regs, In: []rt.SlotType{rt.SlotInt, rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "int.Int.sqrt", Fn: (*bound).fn364Regs, In: []rt.SlotType{rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "int.Int.gcd", Fn: (*bound).fn365Regs, In: []rt.SlotType{rt.SlotInt, rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "int.Int.lcm", Fn: (*bound).fn366Regs, In: []rt.SlotType{rt.SlotInt, rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "int.int_to_digits", Fn: (*bound).fn367Regs, In: []rt.SlotType{rt.SlotInt, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "int.int_from_digits", Fn: (*bound).fn371Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}, Whole: spec_d23},
+	{Key: "float.Float.to_string", Fn: (*bound).fn374Regs, In: []rt.SlotType{rt.SlotFloat}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "float.Float.nan", Fn: (*bound).fn375Regs, In: []rt.SlotType{}, Out: []rt.SlotType{rt.SlotFloat}},
+	{Key: "float.Float.positive_infinity", Fn: (*bound).fn376Regs, In: []rt.SlotType{}, Out: []rt.SlotType{rt.SlotFloat}},
+	{Key: "float.Float.negative_infinity", Fn: (*bound).fn377Regs, In: []rt.SlotType{}, Out: []rt.SlotType{rt.SlotFloat}},
+	{Key: "float.Float.is_nan", Fn: (*bound).fn378Regs, In: []rt.SlotType{rt.SlotFloat}, Out: []rt.SlotType{rt.SlotBool}},
+	{Key: "float.float_round", Fn: (*bound).fn379Regs, In: []rt.SlotType{rt.SlotFloat, rt.SlotInt, rt.SlotRef}, Out: []rt.SlotType{rt.SlotFloat}},
+	{Key: "float.Float.floor", Fn: (*bound).fn381Regs, In: []rt.SlotType{rt.SlotFloat}, Out: []rt.SlotType{rt.SlotFloat}},
+	{Key: "float.Float.ceil", Fn: (*bound).fn382Regs, In: []rt.SlotType{rt.SlotFloat}, Out: []rt.SlotType{rt.SlotFloat}},
+	{Key: "float.Float.trunc", Fn: (*bound).fn383Regs, In: []rt.SlotType{rt.SlotFloat}, Out: []rt.SlotType{rt.SlotFloat}},
+	{Key: "float.Float.to_int", Fn: (*bound).fn384Regs, In: []rt.SlotType{rt.SlotFloat}, Out: []rt.SlotType{rt.SlotInt}, Whole: spec_d23},
+	{Key: "float.Float.pow", Fn: (*bound).fn385Regs, In: []rt.SlotType{rt.SlotFloat, rt.SlotFloat}, Out: []rt.SlotType{rt.SlotFloat}},
+	{Key: "float.Float.sqrt", Fn: (*bound).fn386Regs, In: []rt.SlotType{rt.SlotFloat}, Out: []rt.SlotType{rt.SlotFloat}},
+	{Key: "float.Float.exp", Fn: (*bound).fn387Regs, In: []rt.SlotType{rt.SlotFloat}, Out: []rt.SlotType{rt.SlotFloat}},
+	{Key: "float.Float.log", Fn: (*bound).fn388Regs, In: []rt.SlotType{rt.SlotFloat}, Out: []rt.SlotType{rt.SlotFloat}},
+	{Key: "float.Float.log2", Fn: (*bound).fn389Regs, In: []rt.SlotType{rt.SlotFloat}, Out: []rt.SlotType{rt.SlotFloat}},
+	{Key: "float.Float.log10", Fn: (*bound).fn390Regs, In: []rt.SlotType{rt.SlotFloat}, Out: []rt.SlotType{rt.SlotFloat}},
+	{Key: "float.Float.sin", Fn: (*bound).fn391Regs, In: []rt.SlotType{rt.SlotFloat}, Out: []rt.SlotType{rt.SlotFloat}},
+	{Key: "float.Float.cos", Fn: (*bound).fn392Regs, In: []rt.SlotType{rt.SlotFloat}, Out: []rt.SlotType{rt.SlotFloat}},
+	{Key: "float.Float.tan", Fn: (*bound).fn393Regs, In: []rt.SlotType{rt.SlotFloat}, Out: []rt.SlotType{rt.SlotFloat}},
+	{Key: "float.Float.atan2", Fn: (*bound).fn394Regs, In: []rt.SlotType{rt.SlotFloat, rt.SlotFloat}, Out: []rt.SlotType{rt.SlotFloat}},
+	{Key: "decimal.Decimal.to_string", Fn: (*bound).fn395Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "decimal.Decimal.equal", Fn: (*bound).fn397Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotRef}, Out: []rt.SlotType{rt.SlotBool}},
+	{Key: "decimal.Decimal.hash", Fn: (*bound).fn398Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "decimal.Decimal.compare", Fn: (*bound).fn399Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "duration.render_nanos", Fn: (*bound).fn402Regs, In: []rt.SlotType{rt.SlotInt}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "instant.Instant.now", Fn: (*bound).fn403Regs, In: []rt.SlotType{}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "int.Int.to_codepoint", Fn: (*bound).fn406Regs, In: []rt.SlotType{rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d24},
+	{Key: "code_points.Codepoint.to_string", Fn: (*bound).fn411Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "code_points.Codepoint.is_letter", Fn: (*bound).fn413Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotBool}},
+	{Key: "code_points.Codepoint.is_whitespace", Fn: (*bound).fn414Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotBool}},
+	{Key: "code_points.Codepoint.is_upper", Fn: (*bound).fn415Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotBool}},
+	{Key: "code_points.Codepoint.is_lower", Fn: (*bound).fn416Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotBool}},
+	{Key: "code_points.Codepoint.is_title", Fn: (*bound).fn417Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotBool}},
+	{Key: "code_points.Codepoint.is_mark", Fn: (*bound).fn418Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotBool}},
+	{Key: "code_points.Codepoint.is_number", Fn: (*bound).fn419Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotBool}},
+	{Key: "code_points.Codepoint.is_punctuation", Fn: (*bound).fn420Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotBool}},
+	{Key: "code_points.Codepoint.is_symbol", Fn: (*bound).fn421Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotBool}},
+	{Key: "code_points.Codepoint.is_separator", Fn: (*bound).fn422Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotBool}},
+	{Key: "code_points.Codepoint.is_control", Fn: (*bound).fn423Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotBool}},
+	{Key: "strings.String.to_codepoints", Fn: (*bound).fn424Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "context.Context.with_timeout", Fn: (*bound).fn427Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "context.Context.root", Fn: (*bound).fn432Regs, In: []rt.SlotType{}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "json.Json.decode", Fn: (*bound).fn434Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "json.Json.encode", Fn: (*bound).fn445Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "timer.sleep", Fn: (*bound).fn451Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "supervisors.Supervisor.new_exact", Fn: (*bound).fn454Regs, In: []rt.SlotType{rt.SlotInt, rt.SlotRef, rt.SlotRef, rt.SlotRef, rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "supervisors.Supervisor.flush_bounded", Fn: (*bound).fn460Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "assertions.AssertionFailure.format", Fn: (*bound).fn465Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "int.Int.to_decimal", Fn: (*bound).fn478Regs, In: []rt.SlotType{rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "strings.String.to_decimal", Fn: (*bound).fn481Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d24},
+	{Key: "strings.String.to_float", Fn: (*bound).fn485Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotFloat}, Whole: spec_d41},
+	{Key: "decimal.Decimal.to_int", Fn: (*bound).fn487Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "decimal.Decimal.to_float", Fn: (*bound).fn488Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotFloat}},
+	{Key: "float.Float.to_decimal", Fn: (*bound).fn489Regs, In: []rt.SlotType{rt.SlotFloat, rt.SlotInt, rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d24},
+	{Key: "decimal.Decimal.divide", Fn: (*bound).fn491Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotRef, rt.SlotInt, rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "decimal.Decimal.divide_exact", Fn: (*bound).fn493Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d24},
+	{Key: "decimal.Decimal.round", Fn: (*bound).fn495Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt, rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "decimal.Decimal.round_exact", Fn: (*bound).fn497Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d24},
+	{Key: "decimal.Decimal.pow", Fn: (*bound).fn499Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "decimal.Decimal.sqrt", Fn: (*bound).fn501Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt, rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "decimal.Decimal.sqrt_exact", Fn: (*bound).fn503Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d24},
+	{Key: "decimal.Decimal.normalize", Fn: (*bound).fn505Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "decimal.Decimal.scale", Fn: (*bound).fn507Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "strings.String.repeat", Fn: (*bound).fn508Regs, In: []rt.SlotType{rt.SlotString, rt.SlotInt}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "context.Context.deadline", Fn: (*bound).fn509Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d24},
+	{Key: "context.Context.deadline_remaining", Fn: (*bound).fn513Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d24},
+	{Key: "context.Context.with_deadline", Fn: (*bound).fn518Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "context.Context.inspect", Fn: (*bound).fn521Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "bytes.Bytes.to_list", Fn: (*bound).fn522Regs, In: []rt.SlotType{rt.SlotBytes}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "bytes.Bytes.from_list", Fn: (*bound).fn526Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotBytes}},
+	{Key: "strings.String.normalize", Fn: (*bound).fn529Regs, In: []rt.SlotType{rt.SlotString, rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "strings.String.to_literal", Fn: (*bound).fn531Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "dynamic.Dynamic.field", Fn: (*bound).fn532Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "dynamic.Dynamic.index", Fn: (*bound).fn543Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "dynamic.Dynamic.path", Fn: (*bound).fn545Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "dynamic.Dynamic.as_string", Fn: (*bound).fn547Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}, Whole: spec_d12},
+	{Key: "dynamic.Dynamic.as_int", Fn: (*bound).fn550Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotInt}, Whole: spec_d16},
+	{Key: "dynamic.Dynamic.as_float", Fn: (*bound).fn553Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotFloat}, Whole: spec_d15},
+	{Key: "dynamic.Dynamic.as_bool", Fn: (*bound).fn556Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotBool}, Whole: spec_d44},
+	{Key: "dynamic.Dynamic.as_list", Fn: (*bound).fn559Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "dynamic.Dynamic.as_dict", Fn: (*bound).fn565Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "dynamic.Dynamic.is_null", Fn: (*bound).fn571Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotBool}},
+	{Key: "dynamic.Dynamic.hash", Fn: (*bound).fn572Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "dynamic.Dynamic.has", Fn: (*bound).fn573Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString}, Out: []rt.SlotType{rt.SlotBool}},
+	{Key: "dynamic.Dynamic.inspect", Fn: (*bound).fn574Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "json.Json.to_dynamic", Fn: (*bound).fn575Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "io.read_line", Fn: (*bound).fn577Regs, In: []rt.SlotType{}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "io.standard_input", Fn: (*bound).fn583Regs, In: []rt.SlotType{}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "io.standard_output", Fn: (*bound).fn586Regs, In: []rt.SlotType{}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "io.standard_error", Fn: (*bound).fn589Regs, In: []rt.SlotType{}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "io.Reader.read_line", Fn: (*bound).fn591Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "io.read_up_to", Fn: (*bound).fn594Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "io.Reader.read_all", Fn: (*bound).fn599Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotBytes}, Whole: spec_d46},
+	{Key: "io.Reader.read_all_text", Fn: (*bound).fn602Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}, Whole: spec_d12},
+	{Key: "io.Reader.copy_to", Fn: (*bound).fn605Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotRef}, Out: []rt.SlotType{rt.SlotInt}, Whole: spec_d16},
+	{Key: "io.Reader.close", Fn: (*bound).fn609Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "io.Reader.from_bytes", Fn: (*bound).fn614Regs, In: []rt.SlotType{rt.SlotBytes}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "io.Reader.from_text", Fn: (*bound).fn616Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "io.Reader.from_fn", Fn: (*bound).fn618Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "io.Writer.write", Fn: (*bound).fn625Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotBytes}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "io.Writer.write_text", Fn: (*bound).fn627Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "io.Writer.flush", Fn: (*bound).fn629Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "io.Writer.close", Fn: (*bound).fn631Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "io.Writer.discard", Fn: (*bound).fn633Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "io.writer_from_fn", Fn: (*bound).fn635Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotRef, rt.SlotBool}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "io.memory_writer", Fn: (*bound).fn641Regs, In: []rt.SlotType{}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "io.collected", Fn: (*bound).fn643Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotBytes}},
+	{Key: "embed/host.read", Fn: (*bound).fn644Regs, In: []rt.SlotType{rt.SlotInt, rt.SlotString}, Out: []rt.SlotType{rt.SlotBytes}},
+	{Key: "embed/host.sum", Fn: (*bound).fn645Regs, In: []rt.SlotType{rt.SlotInt, rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "fs/host.here", Fn: (*bound).fn646Regs, In: []rt.SlotType{}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "fs/host.read", Fn: (*bound).fn649Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString}, Out: []rt.SlotType{rt.SlotBytes}, Whole: spec_d46},
+	{Key: "fs/host.read_text", Fn: (*bound).fn651Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString}, Out: []rt.SlotType{rt.SlotString}, Whole: spec_d12},
+	{Key: "fs/host.write", Fn: (*bound).fn652Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString, rt.SlotBytes, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "fs/host.open", Fn: (*bound).fn654Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "fs/host.create", Fn: (*bound).fn659Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "fs/host.list", Fn: (*bound).fn664Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "fs/host.create_dir", Fn: (*bound).fn669Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString, rt.SlotBool}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "fs/host.remove", Fn: (*bound).fn671Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "fs/host.remove_all", Fn: (*bound).fn673Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "fs/host.rename", Fn: (*bound).fn675Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString, rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "fs/host.copy", Fn: (*bound).fn677Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString, rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "fs/host.metadata", Fn: (*bound).fn679Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "fs/host.link_metadata", Fn: (*bound).fn684Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "fs/host.create_symlink", Fn: (*bound).fn686Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString, rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "fs/host.read_link", Fn: (*bound).fn688Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString}, Out: []rt.SlotType{rt.SlotString}, Whole: spec_d12},
+	{Key: "fs/host.set_mode", Fn: (*bound).fn689Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "fs/host.open_file", Fn: (*bound).fn691Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "fs/host.within", Fn: (*bound).fn697Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "fs/host.release", Fn: (*bound).fn702Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "io.file_read", Fn: (*bound).fn704Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "io.File.read_at", Fn: (*bound).fn707Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "io.File.write", Fn: (*bound).fn709Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotBytes}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "io.File.write_at", Fn: (*bound).fn711Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt, rt.SlotBytes}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "io.File.seek", Fn: (*bound).fn713Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "io.File.position", Fn: (*bound).fn715Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotInt}, Whole: spec_d16},
+	{Key: "io.File.size", Fn: (*bound).fn716Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotInt}, Whole: spec_d16},
+	{Key: "io.File.truncate", Fn: (*bound).fn717Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "io.File.close", Fn: (*bound).fn719Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "io.File.sync", Fn: (*bound).fn721Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "io.File.sync_data", Fn: (*bound).fn723Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "fs/host.lock", Fn: (*bound).fn725Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt, rt.SlotInt, rt.SlotInt, rt.SlotRef}, Out: []rt.SlotType{rt.SlotBool}, Whole: spec_d44},
+	{Key: "fs/host.sync_dir", Fn: (*bound).fn728Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "fs/host.temp_dir", Fn: (*bound).fn730Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "fs/host.make_temp_dir", Fn: (*bound).fn731Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}, Whole: spec_d12},
+	{Key: "fs/host.make_temp", Fn: (*bound).fn732Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotBool}, Out: []rt.SlotType{rt.SlotString}, Whole: spec_d12},
+	{Key: "fs/host.current_dir", Fn: (*bound).fn733Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}, Whole: spec_d12},
+	{Key: "fs/host.new_sandbox", Fn: (*bound).fn734Regs, In: []rt.SlotType{rt.SlotString, rt.SlotRef, rt.SlotRef, rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "fs/host.sandbox_fail", Fn: (*bound).fn738Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString, rt.SlotInt, rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "fs/host.sandbox_files", Fn: (*bound).fn740Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "fs/host.sandbox_log", Fn: (*bound).fn744Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "fs/host.sandbox_open", Fn: (*bound).fn746Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.default_client", Fn: (*bound).fn753Regs, In: []rt.SlotType{}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.close_idle", Fn: (*bound).fn755Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.status", Fn: (*bound).fn766Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "http/host.protocol", Fn: (*bound).fn768Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.headers", Fn: (*bound).fn771Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.trailers", Fn: (*bound).fn773Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.body_bytes", Fn: (*bound).fn775Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotBytes}},
+	{Key: "http/host.body_reader", Fn: (*bound).fn776Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.close_body", Fn: (*bound).fn778Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.content_length", Fn: (*bound).fn780Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "http/host.transfer_encoding", Fn: (*bound).fn781Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.closes", Fn: (*bound).fn783Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotBool}},
+	{Key: "http/host.uncompressed", Fn: (*bound).fn784Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotBool}},
+	{Key: "http/host.final_url", Fn: (*bound).fn785Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "http/host.canonical_key", Fn: (*bound).fn786Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "http/host.status_text", Fn: (*bound).fn787Regs, In: []rt.SlotType{rt.SlotInt}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "http/host.headers_wire", Fn: (*bound).fn788Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "http/host.parse_http_version", Fn: (*bound).fn789Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.basic_auth", Fn: (*bound).fn791Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.add_cookie", Fn: (*bound).fn793Regs, In: []rt.SlotType{rt.SlotString, rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "http/host.cross_origin_check", Fn: (*bound).fn794Regs, In: []rt.SlotType{rt.SlotString, rt.SlotString, rt.SlotRef, rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "http/host.with_tls", Fn: (*bound).fn804Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.test_certificate", Fn: (*bound).fn806Regs, In: []rt.SlotType{}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.certificate_from_pem", Fn: (*bound).fn808Regs, In: []rt.SlotType{rt.SlotString, rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "http/host.certificate_load", Fn: (*bound).fn814Regs, In: []rt.SlotType{rt.SlotString, rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "http/host.certificate_info", Fn: (*bound).fn816Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.tls_with_certificate", Fn: (*bound).fn829Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.cipher_suites", Fn: (*bound).fn831Regs, In: []rt.SlotType{rt.SlotBool}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.cipher_suite_name", Fn: (*bound).fn833Regs, In: []rt.SlotType{rt.SlotInt}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "http/host.lookup", Fn: (*bound).fn839Regs, In: []rt.SlotType{rt.SlotString, rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "http/host.pipe", Fn: (*bound).fn844Regs, In: []rt.SlotType{}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.split_host_port", Fn: (*bound).fn847Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "http/host.join_host_port", Fn: (*bound).fn849Regs, In: []rt.SlotType{rt.SlotString, rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "http/host.conn_close_read", Fn: (*bound).fn850Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.conn_no_delay", Fn: (*bound).fn853Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotBool}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.conn_linger", Fn: (*bound).fn855Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.conn_keep_alive", Fn: (*bound).fn857Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotBool, rt.SlotInt, rt.SlotInt, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.conn_multipath", Fn: (*bound).fn859Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotBool}},
+	{Key: "http/host.tls_dial", Fn: (*bound).fn860Regs, In: []rt.SlotType{rt.SlotString, rt.SlotInt, rt.SlotInt, rt.SlotString, rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "http/host.tls_client", Fn: (*bound).fn862Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "http/host.tls_server", Fn: (*bound).fn864Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "http/host.conn_reader", Fn: (*bound).fn866Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.conn_writer", Fn: (*bound).fn868Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.conn_close", Fn: (*bound).fn870Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.conn_close_write", Fn: (*bound).fn872Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.conn_local", Fn: (*bound).fn874Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "http/host.conn_remote", Fn: (*bound).fn875Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "http/host.conn_deadline", Fn: (*bound).fn876Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.tls_state_parts", Fn: (*bound).fn878Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d24},
+	{Key: "http/host.hello_parts", Fn: (*bound).fn882Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.hello_supports", Fn: (*bound).fn884Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "http/host.tls_wrap_listener", Fn: (*bound).fn885Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.in_local", Fn: (*bound).fn889Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "http/host.in_tls", Fn: (*bound).fn891Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d24},
+	{Key: "http/host.extend_read_deadline", Fn: (*bound).fn893Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d20},
+	{Key: "http/host.upgrade", Fn: (*bound).fn897Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt, rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "http/host.exchange_tls", Fn: (*bound).fn899Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d24},
+	{Key: "http/host.new_tracer", Fn: (*bound).fn901Regs, In: []rt.SlotType{}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.tracer_events", Fn: (*bound).fn903Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.wire_read_request", Fn: (*bound).fn906Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d20},
+	{Key: "http/host.wire_read_response", Fn: (*bound).fn910Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d20},
+	{Key: "http/host.wire_parts", Fn: (*bound).fn912Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.wire_body", Fn: (*bound).fn914Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotBytes}},
+	{Key: "http/host.chunked_reader", Fn: (*bound).fn917Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.chunked_writer", Fn: (*bound).fn919Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.gzip_bytes", Fn: (*bound).fn921Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotInt}, Out: []rt.SlotType{rt.SlotBytes}},
+	{Key: "http/host.gunzip", Fn: (*bound).fn922Regs, In: []rt.SlotType{rt.SlotBytes}, Out: []rt.SlotType{rt.SlotBytes}, Whole: spec_d21},
+	{Key: "http/host.gzip_writer", Fn: (*bound).fn923Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.gzip_reader", Fn: (*bound).fn925Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.multipart_reader", Fn: (*bound).fn927Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString, rt.SlotBool}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.next_part", Fn: (*bound).fn929Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d20},
+	{Key: "http/host.part_headers", Fn: (*bound).fn935Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.part_reader", Fn: (*bound).fn937Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.part_form_name", Fn: (*bound).fn939Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "http/host.part_file_name", Fn: (*bound).fn940Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "http/host.multipart_write", Fn: (*bound).fn941Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString, rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d20},
+	{Key: "http/host.close_connections", Fn: (*bound).fn944Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.ws_accept_key", Fn: (*bound).fn947Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "http/host.ws_valid_key", Fn: (*bound).fn948Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotBool}},
+	{Key: "http/host.ws_open", Fn: (*bound).fn949Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotBool, rt.SlotInt, rt.SlotInt, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.ws_connect", Fn: (*bound).fn951Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString, rt.SlotString, rt.SlotRef, rt.SlotRef, rt.SlotInt, rt.SlotInt, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "http/host.ws_protocol", Fn: (*bound).fn956Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "http/host.ws_id", Fn: (*bound).fn957Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "http/host.ws_receive", Fn: (*bound).fn958Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "http/host.ws_send", Fn: (*bound).fn963Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotBool, rt.SlotBytes}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "http/host.ws_ping", Fn: (*bound).fn968Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotBytes}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "http/host.ws_close", Fn: (*bound).fn970Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt, rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "http/host.ws_pipe", Fn: (*bound).fn972Regs, In: []rt.SlotType{}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.tls_verify_hostname", Fn: (*bound).fn974Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "http/host.net_listen_with", Fn: (*bound).fn975Regs, In: []rt.SlotType{rt.SlotString, rt.SlotBool, rt.SlotInt, rt.SlotInt, rt.SlotInt, rt.SlotBool}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "http/host.net_listener_deadline", Fn: (*bound).fn980Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.tls_listen", Fn: (*bound).fn982Regs, In: []rt.SlotType{rt.SlotString, rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "http/host.net_listener_address", Fn: (*bound).fn984Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "http/host.net_accept", Fn: (*bound).fn985Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "http/host.net_listener_close", Fn: (*bound).fn987Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.address", Fn: (*bound).fn989Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "http/host.next", Fn: (*bound).fn990Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d24},
+	{Key: "http/host.shutdown", Fn: (*bound).fn995Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.in_method", Fn: (*bound).fn997Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "http/host.in_host", Fn: (*bound).fn998Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "http/host.in_remote", Fn: (*bound).fn999Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "http/host.in_target", Fn: (*bound).fn1000Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "http/host.in_protocol", Fn: (*bound).fn1001Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.in_headers", Fn: (*bound).fn1003Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.in_trailers", Fn: (*bound).fn1005Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.in_content_length", Fn: (*bound).fn1007Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "http/host.in_transfer_encoding", Fn: (*bound).fn1008Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.in_close", Fn: (*bound).fn1010Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotBool}},
+	{Key: "http/host.in_body", Fn: (*bound).fn1011Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.parse_multipart", Fn: (*bound).fn1013Regs, In: []rt.SlotType{rt.SlotString, rt.SlotBytes}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d20},
+	{Key: "http/host.encode_multipart", Fn: (*bound).fn1018Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.file_content_disposition", Fn: (*bound).fn1020Regs, In: []rt.SlotType{rt.SlotString, rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "http/host.produce", Fn: (*bound).fn1022Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt, rt.SlotRef, rt.SlotRef, rt.SlotInt, rt.SlotBool}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.finish", Fn: (*bound).fn1024Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.answered_already", Fn: (*bound).fn1026Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotBool}},
+	{Key: "http/host.detect_content_type", Fn: (*bound).fn1027Regs, In: []rt.SlotType{rt.SlotBytes}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "http/host.new_mux", Fn: (*bound).fn1028Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "http/host.check_pattern", Fn: (*bound).fn1034Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "http/host.route", Fn: (*bound).fn1035Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString, rt.SlotString, rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.answer_content", Fn: (*bound).fn1038Regs, In: []rt.SlotType{rt.SlotString, rt.SlotString, rt.SlotRef, rt.SlotString, rt.SlotInt, rt.SlotRef, rt.SlotBytes}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.answer_redirect", Fn: (*bound).fn1040Regs, In: []rt.SlotType{rt.SlotString, rt.SlotString, rt.SlotRef, rt.SlotString, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.format_time", Fn: (*bound).fn1042Regs, In: []rt.SlotType{rt.SlotInt}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "http/host.parse_time", Fn: (*bound).fn1043Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotInt}, Whole: spec_d19},
+	{Key: "http/host.limit_body", Fn: (*bound).fn1045Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.read_at_most", Fn: (*bound).fn1047Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotBytes, rt.SlotRef}},
+	{Key: "http/host.cookie_text", Fn: (*bound).fn1051Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "http/host.cookie_valid", Fn: (*bound).fn1052Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "http/host.parse_cookie", Fn: (*bound).fn1053Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d20},
+	{Key: "http/host.parse_set_cookie", Fn: (*bound).fn1057Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d20},
+	{Key: "http/host.new_jar", Fn: (*bound).fn1059Regs, In: []rt.SlotType{}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.jar_cookies", Fn: (*bound).fn1062Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.jar_set", Fn: (*bound).fn1065Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString, rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "http/host.with_jar", Fn: (*bound).fn1068Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "process/host.child_stdin", Fn: (*bound).fn1075Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "process/host.child_stdout", Fn: (*bound).fn1078Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "process/host.child_stderr", Fn: (*bound).fn1080Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "process/host.wait", Fn: (*bound).fn1082Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "process/host.captured", Fn: (*bound).fn1087Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotBytes}},
+	{Key: "process/host.kill", Fn: (*bound).fn1088Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "process/host.new_fake", Fn: (*bound).fn1090Regs, In: []rt.SlotType{}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "process/host.fake_answer", Fn: (*bound).fn1093Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString, rt.SlotRef, rt.SlotBool, rt.SlotInt, rt.SlotBytes, rt.SlotBytes}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "process/host.fake_refuse", Fn: (*bound).fn1096Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString, rt.SlotRef, rt.SlotBool, rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "process/host.fake_calls", Fn: (*bound).fn1098Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "process/host.fake_command", Fn: (*bound).fn1099Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "process/host.fake_dir", Fn: (*bound).fn1101Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "process/host.fake_env", Fn: (*bound).fn1102Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "process/host.fake_input", Fn: (*bound).fn1105Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotBytes}},
+	{Key: "csv/host.open", Fn: (*bound).fn1106Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotRef, rt.SlotRef, rt.SlotBool, rt.SlotBool, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "csv/host.next", Fn: (*bound).fn1110Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "csv/host.line", Fn: (*bound).fn1113Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "csv/host.stopped", Fn: (*bound).fn1114Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "csv/host.message", Fn: (*bound).fn1116Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "csv/host.failure", Fn: (*bound).fn1117Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "csv/host.decode", Fn: (*bound).fn1119Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotRef, rt.SlotRef, rt.SlotBool, rt.SlotBool, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef, rt.SlotRef, rt.SlotRef, rt.SlotString}},
+	{Key: "csv/host.encode", Fn: (*bound).fn1123Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotRef, rt.SlotBool}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "xml/host.open", Fn: (*bound).fn1124Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotBool}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "xml/host.next", Fn: (*bound).fn1127Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "xml/host.current", Fn: (*bound).fn1129Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "xml/host.stopped", Fn: (*bound).fn1131Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "xml/host.message", Fn: (*bound).fn1133Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "xml/host.failure", Fn: (*bound).fn1134Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "xml/host.decode", Fn: (*bound).fn1136Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotBool}, Out: []rt.SlotType{rt.SlotRef, rt.SlotRef, rt.SlotRef, rt.SlotString}},
+	{Key: "xml/host.escape_text", Fn: (*bound).fn1140Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "xml/host.escape_attribute", Fn: (*bound).fn1141Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "xml/host.is_name", Fn: (*bound).fn1142Regs, In: []rt.SlotType{rt.SlotString}, Out: []rt.SlotType{rt.SlotBool}},
+	{Key: "wasm/host.compile", Fn: (*bound).fn1143Regs, In: []rt.SlotType{rt.SlotBytes}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d20},
+	{Key: "wasm/host.run", Fn: (*bound).fn1148Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString, rt.SlotBytes, rt.SlotInt}, Out: []rt.SlotType{rt.SlotBytes}, Whole: spec_d46},
+	{Key: "wasm/host.instantiate", Fn: (*bound).fn1152Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotRef, rt.SlotRef, rt.SlotRef, rt.SlotRef, rt.SlotRef, rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "wasm/host.call", Fn: (*bound).fn1164Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString, rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "wasm/host.run_on", Fn: (*bound).fn1170Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString, rt.SlotBytes}, Out: []rt.SlotType{rt.SlotBytes}, Whole: spec_d46},
+	{Key: "wasm/host.read", Fn: (*bound).fn1171Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt, rt.SlotInt}, Out: []rt.SlotType{rt.SlotBytes}, Whole: spec_d46},
+	{Key: "wasm/host.write", Fn: (*bound).fn1172Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt, rt.SlotBytes}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "wasm/host.size", Fn: (*bound).fn1174Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotInt}, Whole: spec_d16},
+	{Key: "wasm/host.drop", Fn: (*bound).fn1177Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "wasm/host.memory_read", Fn: (*bound).fn1179Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt, rt.SlotInt}, Out: []rt.SlotType{rt.SlotBytes}, Whole: spec_d46},
+	{Key: "wasm/host.memory_write", Fn: (*bound).fn1181Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt, rt.SlotBytes}, Out: []rt.SlotType{rt.SlotRef}, Whole: spec_d31},
+	{Key: "wasm/host.memory_size", Fn: (*bound).fn1183Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotInt}, Whole: spec_d16},
+	{Key: "iter.as_count", Fn: (*bound).fn1184Regs, In: []rt.SlotType{rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "bytes.Bytes.to_string_lossy", Fn: (*bound).fn1185Regs, In: []rt.SlotType{rt.SlotBytes}, Out: []rt.SlotType{rt.SlotString}},
+	{Key: "bytes.Bytes.valid_utf8_length", Fn: (*bound).fn1186Regs, In: []rt.SlotType{rt.SlotBytes}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "bytes.Bytes.concat_all", Fn: (*bound).fn1187Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotBytes}},
+	{Key: "bytes.index_of_from", Fn: (*bound).fn1188Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotBytes, rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}, Whole: spec_d23},
+	{Key: "bytes.index_of_byte_from", Fn: (*bound).fn1190Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotByte, rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}, Whole: spec_d23},
+	{Key: "bytes.Bytes.last_index_of", Fn: (*bound).fn1191Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotBytes}, Out: []rt.SlotType{rt.SlotInt}, Whole: spec_d23},
+	{Key: "bytes.Bytes.last_index_of_byte", Fn: (*bound).fn1192Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotByte}, Out: []rt.SlotType{rt.SlotInt}, Whole: spec_d23},
+	{Key: "bytes.index_of_any_from", Fn: (*bound).fn1193Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotBytes, rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}, Whole: spec_d23},
+	{Key: "bytes.Bytes.last_index_of_any", Fn: (*bound).fn1194Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotBytes}, Out: []rt.SlotType{rt.SlotInt}, Whole: spec_d23},
+	{Key: "bytes.Bytes.contains_bytes", Fn: (*bound).fn1195Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotBytes}, Out: []rt.SlotType{rt.SlotBool}},
+	{Key: "bytes.Bytes.starts_with", Fn: (*bound).fn1196Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotBytes}, Out: []rt.SlotType{rt.SlotBool}},
+	{Key: "bytes.Bytes.ends_with", Fn: (*bound).fn1197Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotBytes}, Out: []rt.SlotType{rt.SlotBool}},
+	{Key: "bytes.Bytes.split", Fn: (*bound).fn1198Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotBytes}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "bytes.Bytes.count", Fn: (*bound).fn1200Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotBytes}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "bytes.Bytes.uint8_at", Fn: (*bound).fn1201Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}, Whole: spec_d23},
+	{Key: "bytes.Bytes.int8_at", Fn: (*bound).fn1202Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}, Whole: spec_d23},
+	{Key: "bytes.Bytes.uint16_be_at", Fn: (*bound).fn1203Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}, Whole: spec_d23},
+	{Key: "bytes.Bytes.uint16_le_at", Fn: (*bound).fn1204Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}, Whole: spec_d23},
+	{Key: "bytes.Bytes.int16_be_at", Fn: (*bound).fn1205Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}, Whole: spec_d23},
+	{Key: "bytes.Bytes.int16_le_at", Fn: (*bound).fn1206Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}, Whole: spec_d23},
+	{Key: "bytes.Bytes.uint32_be_at", Fn: (*bound).fn1207Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}, Whole: spec_d23},
+	{Key: "bytes.Bytes.uint32_le_at", Fn: (*bound).fn1208Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}, Whole: spec_d23},
+	{Key: "bytes.Bytes.int32_be_at", Fn: (*bound).fn1209Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}, Whole: spec_d23},
+	{Key: "bytes.Bytes.int32_le_at", Fn: (*bound).fn1210Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}, Whole: spec_d23},
+	{Key: "bytes.Bytes.uint64_be_at", Fn: (*bound).fn1211Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}, Whole: spec_d23},
+	{Key: "bytes.Bytes.uint64_le_at", Fn: (*bound).fn1212Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}, Whole: spec_d23},
+	{Key: "bytes.Bytes.int64_be_at", Fn: (*bound).fn1213Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}, Whole: spec_d23},
+	{Key: "bytes.Bytes.int64_le_at", Fn: (*bound).fn1214Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}, Whole: spec_d23},
+	{Key: "bytes.Bytes.float32_be_at", Fn: (*bound).fn1215Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotInt}, Out: []rt.SlotType{rt.SlotFloat}, Whole: spec_d41},
+	{Key: "bytes.Bytes.float32_le_at", Fn: (*bound).fn1216Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotInt}, Out: []rt.SlotType{rt.SlotFloat}, Whole: spec_d41},
+	{Key: "bytes.Bytes.float64_be_at", Fn: (*bound).fn1217Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotInt}, Out: []rt.SlotType{rt.SlotFloat}, Whole: spec_d41},
+	{Key: "bytes.Bytes.float64_le_at", Fn: (*bound).fn1218Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotInt}, Out: []rt.SlotType{rt.SlotFloat}, Whole: spec_d41},
+	{Key: "bytes.Bytes.uvarint_at", Fn: (*bound).fn1219Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt, rt.SlotInt}, Whole: spec_d24},
+	{Key: "bytes.Bytes.varint_at", Fn: (*bound).fn1223Regs, In: []rt.SlotType{rt.SlotBytes, rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt, rt.SlotInt}, Whole: spec_d24},
+	{Key: "bytes.builder_new", Fn: (*bound).fn1224Regs, In: []rt.SlotType{rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "bytes.Builder.length", Fn: (*bound).fn1227Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "bytes.Builder.to_bytes", Fn: (*bound).fn1229Regs, In: []rt.SlotType{rt.SlotRef}, Out: []rt.SlotType{rt.SlotBytes}},
+	{Key: "bytes.Builder.push", Fn: (*bound).fn1230Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotByte}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "bytes.Builder.push_bytes", Fn: (*bound).fn1232Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotBytes}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "bytes.Builder.push_string", Fn: (*bound).fn1234Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotString}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "bytes.Builder.push_int8", Fn: (*bound).fn1236Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "bytes.Builder.push_int16_be", Fn: (*bound).fn1238Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "bytes.Builder.push_int16_le", Fn: (*bound).fn1240Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "bytes.Builder.push_int32_be", Fn: (*bound).fn1242Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "bytes.Builder.push_int32_le", Fn: (*bound).fn1244Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "bytes.Builder.push_int64_be", Fn: (*bound).fn1246Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "bytes.Builder.push_int64_le", Fn: (*bound).fn1248Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "bytes.Builder.push_float32_be", Fn: (*bound).fn1250Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotFloat}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "bytes.Builder.push_float32_le", Fn: (*bound).fn1252Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotFloat}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "bytes.Builder.push_float64_be", Fn: (*bound).fn1254Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotFloat}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "bytes.Builder.push_float64_le", Fn: (*bound).fn1256Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotFloat}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "bytes.Builder.push_uvarint", Fn: (*bound).fn1258Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "bytes.Builder.push_varint", Fn: (*bound).fn1260Regs, In: []rt.SlotType{rt.SlotRef, rt.SlotInt}, Out: []rt.SlotType{rt.SlotRef}},
+	{Key: "int.Int.wrapping_add_32", Fn: (*bound).fn1262Regs, In: []rt.SlotType{rt.SlotInt, rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "int.Int.wrapping_sub_32", Fn: (*bound).fn1263Regs, In: []rt.SlotType{rt.SlotInt, rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "int.Int.wrapping_mul_32", Fn: (*bound).fn1264Regs, In: []rt.SlotType{rt.SlotInt, rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "int.Int.rotate_left_32", Fn: (*bound).fn1265Regs, In: []rt.SlotType{rt.SlotInt, rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "int.Int.rotate_left_64", Fn: (*bound).fn1266Regs, In: []rt.SlotType{rt.SlotInt, rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "int.Int.leading_zeros_32", Fn: (*bound).fn1267Regs, In: []rt.SlotType{rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "int.Int.leading_zeros_64", Fn: (*bound).fn1268Regs, In: []rt.SlotType{rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "int.Int.trailing_zeros_32", Fn: (*bound).fn1269Regs, In: []rt.SlotType{rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "int.Int.trailing_zeros_64", Fn: (*bound).fn1270Regs, In: []rt.SlotType{rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "int.Int.swap_bytes_16", Fn: (*bound).fn1271Regs, In: []rt.SlotType{rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "int.Int.swap_bytes_32", Fn: (*bound).fn1272Regs, In: []rt.SlotType{rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "int.Int.swap_bytes_64", Fn: (*bound).fn1273Regs, In: []rt.SlotType{rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "int.Int.wrap_signed", Fn: (*bound).fn1274Regs, In: []rt.SlotType{rt.SlotInt, rt.SlotInt}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "float.Float.to_bits", Fn: (*bound).fn1275Regs, In: []rt.SlotType{rt.SlotFloat}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "float.Float.from_bits", Fn: (*bound).fn1276Regs, In: []rt.SlotType{rt.SlotInt}, Out: []rt.SlotType{rt.SlotFloat}},
+	{Key: "float.Float.to_bits_32", Fn: (*bound).fn1277Regs, In: []rt.SlotType{rt.SlotFloat}, Out: []rt.SlotType{rt.SlotInt}},
+	{Key: "float.Float.from_bits_32", Fn: (*bound).fn1278Regs, In: []rt.SlotType{rt.SlotInt}, Out: []rt.SlotType{rt.SlotFloat}},
 }
 
 // in2 reads a Date as Go rt.Date.
@@ -1671,58 +1753,36 @@ func (b *bound) in2(fr *rt.Frame, v rt.Value) (out rt.Date, err error) {
 	return out, nil
 }
 
-// out3 builds a Int from Go rt.Int.
-func (b *bound) out3(v rt.Int) (rt.Value, error) {
-	return v.Value(), nil
-}
-
-// fn1 adapts Date.days_between: days_between(earlier: Date, later: Date) -> Int
-func (b *bound) fn1(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn1Regs is Date.days_between over slots.
+func (b *bound) fn1Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("Date.days_between", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("Date.days_between", 2, len(args))
-	}
-	a0, err := b.in2(fr, args[0])
+	a0, err := b.in2(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("Date.days_between", 0, "Date.days_between", "earlier", err)
+		return false, hostadapt.Param("Date.days_between", 0, "Date.days_between", "earlier", err)
 	}
-	a1, err := b.in2(fr, args[1])
+	a1, err := b.in2(fr, s.R[1])
 	if err != nil {
-		return nil, hostadapt.Param("Date.days_between", 1, "Date.days_between", "later", err)
+		return false, hostadapt.Param("Date.days_between", 1, "Date.days_between", "later", err)
 	}
 	r0 := stdcalendar.DateDaysBetween(a0, a1)
-	v0, err := b.out3(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("Date.days_between", err)
-	}
-	return v0, nil
+	s.SetInt(0, r0)
+	return true, nil
 }
 
-// out5 builds a String from Go string.
-func (b *bound) out5(v string) (rt.Value, error) {
-	return string(v), nil
-}
-
-// fn4 adapts Date.to_string: to_string(d: Date) -> String
-func (b *bound) fn4(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn3Regs is Date.to_string over slots.
+func (b *bound) fn3Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("Date.to_string", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("Date.to_string", 1, len(args))
-	}
-	a0, err := b.in2(fr, args[0])
+	a0, err := b.in2(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("Date.to_string", 0, "Date.to_string", "d", err)
+		return false, hostadapt.Param("Date.to_string", 0, "Date.to_string", "d", err)
 	}
 	r0 := stdcalendar.DateToString(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("Date.to_string", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// in7 reads a DateTime as Go rt.DateTime.
-func (b *bound) in7(fr *rt.Frame, v rt.Value) (out rt.DateTime, err error) {
+// in5 reads a DateTime as Go rt.DateTime.
+func (b *bound) in5(fr *rt.Frame, v rt.Value) (out rt.DateTime, err error) {
 	r, err := hostadapt.Record(v, "calendar.DateTime")
 	if err != nil {
 		return out, err
@@ -1744,183 +1804,128 @@ func (b *bound) in7(fr *rt.Frame, v rt.Value) (out rt.DateTime, err error) {
 	return out, nil
 }
 
-// out8 builds a Int from Go int64.
-func (b *bound) out8(v int64) (rt.Value, error) {
-	return rt.Value(int64(v)), nil
-}
-
-// fn6 adapts DateTime.day: day(value: DateTime) -> Int
-func (b *bound) fn6(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn4Regs is DateTime.day over slots.
+func (b *bound) fn4Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("DateTime.day", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("DateTime.day", 1, len(args))
-	}
-	a0, err := b.in7(fr, args[0])
+	a0, err := b.in5(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("DateTime.day", 0, "DateTime.day", "value", err)
+		return false, hostadapt.Param("DateTime.day", 0, "DateTime.day", "value", err)
 	}
 	r0 := stdcalendar.DateTimeDay(a0)
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("DateTime.day", err)
-	}
-	return v0, nil
+	s.SetInt64(0, int64(r0))
+	return true, nil
 }
 
-// fn9 adapts DateTime.hour: hour(value: DateTime) -> Int
-func (b *bound) fn9(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn6Regs is DateTime.hour over slots.
+func (b *bound) fn6Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("DateTime.hour", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("DateTime.hour", 1, len(args))
-	}
-	a0, err := b.in7(fr, args[0])
+	a0, err := b.in5(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("DateTime.hour", 0, "DateTime.hour", "value", err)
+		return false, hostadapt.Param("DateTime.hour", 0, "DateTime.hour", "value", err)
 	}
 	r0 := stdcalendar.DateTimeHour(a0)
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("DateTime.hour", err)
-	}
-	return v0, nil
+	s.SetInt64(0, int64(r0))
+	return true, nil
 }
 
-// fn10 adapts DateTime.minute: minute(value: DateTime) -> Int
-func (b *bound) fn10(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn7Regs is DateTime.minute over slots.
+func (b *bound) fn7Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("DateTime.minute", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("DateTime.minute", 1, len(args))
-	}
-	a0, err := b.in7(fr, args[0])
+	a0, err := b.in5(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("DateTime.minute", 0, "DateTime.minute", "value", err)
+		return false, hostadapt.Param("DateTime.minute", 0, "DateTime.minute", "value", err)
 	}
 	r0 := stdcalendar.DateTimeMinute(a0)
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("DateTime.minute", err)
-	}
-	return v0, nil
+	s.SetInt64(0, int64(r0))
+	return true, nil
 }
 
-// fn11 adapts DateTime.month: month(value: DateTime) -> Int
-func (b *bound) fn11(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn8Regs is DateTime.month over slots.
+func (b *bound) fn8Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("DateTime.month", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("DateTime.month", 1, len(args))
-	}
-	a0, err := b.in7(fr, args[0])
+	a0, err := b.in5(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("DateTime.month", 0, "DateTime.month", "value", err)
+		return false, hostadapt.Param("DateTime.month", 0, "DateTime.month", "value", err)
 	}
 	r0 := stdcalendar.DateTimeMonth(a0)
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("DateTime.month", err)
-	}
-	return v0, nil
+	s.SetInt64(0, int64(r0))
+	return true, nil
 }
 
-// fn12 adapts DateTime.nanosecond: nanosecond(value: DateTime) -> Int
-func (b *bound) fn12(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn9Regs is DateTime.nanosecond over slots.
+func (b *bound) fn9Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("DateTime.nanosecond", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("DateTime.nanosecond", 1, len(args))
-	}
-	a0, err := b.in7(fr, args[0])
+	a0, err := b.in5(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("DateTime.nanosecond", 0, "DateTime.nanosecond", "value", err)
+		return false, hostadapt.Param("DateTime.nanosecond", 0, "DateTime.nanosecond", "value", err)
 	}
 	r0 := stdcalendar.DateTimeNanosecond(a0)
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("DateTime.nanosecond", err)
-	}
-	return v0, nil
+	s.SetInt64(0, int64(r0))
+	return true, nil
 }
 
-// fn13 adapts DateTime.second: second(value: DateTime) -> Int
-func (b *bound) fn13(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn10Regs is DateTime.second over slots.
+func (b *bound) fn10Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("DateTime.second", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("DateTime.second", 1, len(args))
-	}
-	a0, err := b.in7(fr, args[0])
+	a0, err := b.in5(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("DateTime.second", 0, "DateTime.second", "value", err)
+		return false, hostadapt.Param("DateTime.second", 0, "DateTime.second", "value", err)
 	}
 	r0 := stdcalendar.DateTimeSecond(a0)
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("DateTime.second", err)
-	}
-	return v0, nil
+	s.SetInt64(0, int64(r0))
+	return true, nil
 }
 
-// out15 builds a OffsetDateTime from Go rt.OffsetDateTime.
-func (b *bound) out15(v rt.OffsetDateTime) (rt.Value, error) {
+// out12 builds a OffsetDateTime from Go rt.OffsetDateTime.
+func (b *bound) out12(v rt.OffsetDateTime) (rt.Value, error) {
 	r := b.d2.New()
 	r.SetIntSlot(0, v.InstantNanos.Value())
 	r.SetIntSlot(1, rt.Value(int64(v.OffsetSeconds)))
 	return r, nil
 }
 
-// fn14 adapts DateTime.to_offset: to_offset(d: DateTime) -> OffsetDateTime
-func (b *bound) fn14(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn11Regs is DateTime.to_offset over slots.
+func (b *bound) fn11Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("DateTime.to_offset", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("DateTime.to_offset", 1, len(args))
-	}
-	a0, err := b.in7(fr, args[0])
+	a0, err := b.in5(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("DateTime.to_offset", 0, "DateTime.to_offset", "d", err)
+		return false, hostadapt.Param("DateTime.to_offset", 0, "DateTime.to_offset", "d", err)
 	}
 	r0 := stdcalendar.DateTimeToOffset(a0)
-	v0, err := b.out15(r0)
+	w13, err := b.out12(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("DateTime.to_offset", err)
+		return false, hostadapt.Returned("DateTime.to_offset", err)
 	}
-	return v0, nil
+	s.R[0] = w13
+	return true, nil
 }
 
-// fn16 adapts DateTime.to_string: to_string(d: DateTime) -> String
-func (b *bound) fn16(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn14Regs is DateTime.to_string over slots.
+func (b *bound) fn14Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("DateTime.to_string", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("DateTime.to_string", 1, len(args))
-	}
-	a0, err := b.in7(fr, args[0])
+	a0, err := b.in5(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("DateTime.to_string", 0, "DateTime.to_string", "d", err)
+		return false, hostadapt.Param("DateTime.to_string", 0, "DateTime.to_string", "d", err)
 	}
 	r0 := stdcalendar.DateTimeToString(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("DateTime.to_string", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn17 adapts DateTime.year: year(value: DateTime) -> Int
-func (b *bound) fn17(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn15Regs is DateTime.year over slots.
+func (b *bound) fn15Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("DateTime.year", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("DateTime.year", 1, len(args))
-	}
-	a0, err := b.in7(fr, args[0])
+	a0, err := b.in5(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("DateTime.year", 0, "DateTime.year", "value", err)
+		return false, hostadapt.Param("DateTime.year", 0, "DateTime.year", "value", err)
 	}
 	r0 := stdcalendar.DateTimeYear(a0)
-	v0, err := b.out3(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("DateTime.year", err)
-	}
-	return v0, nil
+	s.SetInt(0, r0)
+	return true, nil
 }
 
-// in19 reads a NaiveDateTime as Go rt.NaiveDateTime.
-func (b *bound) in19(fr *rt.Frame, v rt.Value) (out rt.NaiveDateTime, err error) {
+// in17 reads a NaiveDateTime as Go rt.NaiveDateTime.
+func (b *bound) in17(fr *rt.Frame, v rt.Value) (out rt.NaiveDateTime, err error) {
 	r, err := hostadapt.Record(v, "calendar.NaiveDateTime")
 	if err != nil {
 		return out, err
@@ -2001,8 +2006,8 @@ func (b *bound) in19(fr *rt.Frame, v rt.Value) (out rt.NaiveDateTime, err error)
 	return out, nil
 }
 
-// out20 builds a Date from Go rt.Date.
-func (b *bound) out20(v rt.Date) (rt.Value, error) {
+// out18 builds a Date from Go rt.Date.
+func (b *bound) out18(v rt.Date) (rt.Value, error) {
 	r := b.d0.New()
 	r.SetIntSlot(0, v.Year.Value())
 	r.SetIntSlot(1, rt.Value(int64(v.Month)))
@@ -2010,44 +2015,36 @@ func (b *bound) out20(v rt.Date) (rt.Value, error) {
 	return r, nil
 }
 
-// fn18 adapts NaiveDateTime.to_date: to_date(dt: NaiveDateTime) -> Date
-func (b *bound) fn18(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn16Regs is NaiveDateTime.to_date over slots.
+func (b *bound) fn16Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("NaiveDateTime.to_date", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("NaiveDateTime.to_date", 1, len(args))
-	}
-	a0, err := b.in19(fr, args[0])
+	a0, err := b.in17(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("NaiveDateTime.to_date", 0, "NaiveDateTime.to_date", "dt", err)
+		return false, hostadapt.Param("NaiveDateTime.to_date", 0, "NaiveDateTime.to_date", "dt", err)
 	}
 	r0 := stdcalendar.NaiveDateTimeToDate(a0)
-	v0, err := b.out20(r0)
+	w19, err := b.out18(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("NaiveDateTime.to_date", err)
+		return false, hostadapt.Returned("NaiveDateTime.to_date", err)
 	}
-	return v0, nil
+	s.R[0] = w19
+	return true, nil
 }
 
-// fn21 adapts NaiveDateTime.to_string: to_string(dt: NaiveDateTime) -> String
-func (b *bound) fn21(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn20Regs is NaiveDateTime.to_string over slots.
+func (b *bound) fn20Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("NaiveDateTime.to_string", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("NaiveDateTime.to_string", 1, len(args))
-	}
-	a0, err := b.in19(fr, args[0])
+	a0, err := b.in17(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("NaiveDateTime.to_string", 0, "NaiveDateTime.to_string", "dt", err)
+		return false, hostadapt.Param("NaiveDateTime.to_string", 0, "NaiveDateTime.to_string", "dt", err)
 	}
 	r0 := stdcalendar.NaiveDateTimeToString(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("NaiveDateTime.to_string", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// out23 builds a Time from Go rt.Time.
-func (b *bound) out23(v rt.Time) (rt.Value, error) {
+// out22 builds a Time from Go rt.Time.
+func (b *bound) out22(v rt.Time) (rt.Value, error) {
 	r := b.d4.New()
 	r.SetIntSlot(0, rt.Value(int64(v.Hour)))
 	r.SetIntSlot(1, rt.Value(int64(v.Minute)))
@@ -2056,22 +2053,20 @@ func (b *bound) out23(v rt.Time) (rt.Value, error) {
 	return r, nil
 }
 
-// fn22 adapts NaiveDateTime.to_time: to_time(dt: NaiveDateTime) -> Time
-func (b *bound) fn22(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn21Regs is NaiveDateTime.to_time over slots.
+func (b *bound) fn21Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("NaiveDateTime.to_time", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("NaiveDateTime.to_time", 1, len(args))
-	}
-	a0, err := b.in19(fr, args[0])
+	a0, err := b.in17(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("NaiveDateTime.to_time", 0, "NaiveDateTime.to_time", "dt", err)
+		return false, hostadapt.Param("NaiveDateTime.to_time", 0, "NaiveDateTime.to_time", "dt", err)
 	}
 	r0 := stdcalendar.NaiveDateTimeToTime(a0)
-	v0, err := b.out23(r0)
+	w23, err := b.out22(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("NaiveDateTime.to_time", err)
+		return false, hostadapt.Returned("NaiveDateTime.to_time", err)
 	}
-	return v0, nil
+	s.R[0] = w23
+	return true, nil
 }
 
 // in25 reads a OffsetDateTime as Go rt.OffsetDateTime.
@@ -2101,112 +2096,76 @@ func (b *bound) in25(fr *rt.Frame, v rt.Value) (out rt.OffsetDateTime, err error
 	return out, nil
 }
 
-// fn24 adapts OffsetDateTime.day: day(value: OffsetDateTime) -> Int
-func (b *bound) fn24(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn24Regs is OffsetDateTime.day over slots.
+func (b *bound) fn24Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("OffsetDateTime.day", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("OffsetDateTime.day", 1, len(args))
-	}
-	a0, err := b.in25(fr, args[0])
+	a0, err := b.in25(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("OffsetDateTime.day", 0, "OffsetDateTime.day", "value", err)
+		return false, hostadapt.Param("OffsetDateTime.day", 0, "OffsetDateTime.day", "value", err)
 	}
 	r0 := stdcalendar.OffsetDateTimeDay(a0)
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("OffsetDateTime.day", err)
-	}
-	return v0, nil
+	s.SetInt64(0, int64(r0))
+	return true, nil
 }
 
-// fn26 adapts OffsetDateTime.hour: hour(value: OffsetDateTime) -> Int
-func (b *bound) fn26(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn26Regs is OffsetDateTime.hour over slots.
+func (b *bound) fn26Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("OffsetDateTime.hour", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("OffsetDateTime.hour", 1, len(args))
-	}
-	a0, err := b.in25(fr, args[0])
+	a0, err := b.in25(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("OffsetDateTime.hour", 0, "OffsetDateTime.hour", "value", err)
+		return false, hostadapt.Param("OffsetDateTime.hour", 0, "OffsetDateTime.hour", "value", err)
 	}
 	r0 := stdcalendar.OffsetDateTimeHour(a0)
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("OffsetDateTime.hour", err)
-	}
-	return v0, nil
+	s.SetInt64(0, int64(r0))
+	return true, nil
 }
 
-// fn27 adapts OffsetDateTime.minute: minute(value: OffsetDateTime) -> Int
-func (b *bound) fn27(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn27Regs is OffsetDateTime.minute over slots.
+func (b *bound) fn27Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("OffsetDateTime.minute", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("OffsetDateTime.minute", 1, len(args))
-	}
-	a0, err := b.in25(fr, args[0])
+	a0, err := b.in25(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("OffsetDateTime.minute", 0, "OffsetDateTime.minute", "value", err)
+		return false, hostadapt.Param("OffsetDateTime.minute", 0, "OffsetDateTime.minute", "value", err)
 	}
 	r0 := stdcalendar.OffsetDateTimeMinute(a0)
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("OffsetDateTime.minute", err)
-	}
-	return v0, nil
+	s.SetInt64(0, int64(r0))
+	return true, nil
 }
 
-// fn28 adapts OffsetDateTime.month: month(value: OffsetDateTime) -> Int
-func (b *bound) fn28(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn28Regs is OffsetDateTime.month over slots.
+func (b *bound) fn28Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("OffsetDateTime.month", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("OffsetDateTime.month", 1, len(args))
-	}
-	a0, err := b.in25(fr, args[0])
+	a0, err := b.in25(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("OffsetDateTime.month", 0, "OffsetDateTime.month", "value", err)
+		return false, hostadapt.Param("OffsetDateTime.month", 0, "OffsetDateTime.month", "value", err)
 	}
 	r0 := stdcalendar.OffsetDateTimeMonth(a0)
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("OffsetDateTime.month", err)
-	}
-	return v0, nil
+	s.SetInt64(0, int64(r0))
+	return true, nil
 }
 
-// fn29 adapts OffsetDateTime.nanosecond: nanosecond(value: OffsetDateTime) -> Int
-func (b *bound) fn29(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn29Regs is OffsetDateTime.nanosecond over slots.
+func (b *bound) fn29Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("OffsetDateTime.nanosecond", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("OffsetDateTime.nanosecond", 1, len(args))
-	}
-	a0, err := b.in25(fr, args[0])
+	a0, err := b.in25(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("OffsetDateTime.nanosecond", 0, "OffsetDateTime.nanosecond", "value", err)
+		return false, hostadapt.Param("OffsetDateTime.nanosecond", 0, "OffsetDateTime.nanosecond", "value", err)
 	}
 	r0 := stdcalendar.OffsetDateTimeNanosecond(a0)
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("OffsetDateTime.nanosecond", err)
-	}
-	return v0, nil
+	s.SetInt64(0, int64(r0))
+	return true, nil
 }
 
-// fn30 adapts OffsetDateTime.second: second(value: OffsetDateTime) -> Int
-func (b *bound) fn30(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn30Regs is OffsetDateTime.second over slots.
+func (b *bound) fn30Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("OffsetDateTime.second", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("OffsetDateTime.second", 1, len(args))
-	}
-	a0, err := b.in25(fr, args[0])
+	a0, err := b.in25(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("OffsetDateTime.second", 0, "OffsetDateTime.second", "value", err)
+		return false, hostadapt.Param("OffsetDateTime.second", 0, "OffsetDateTime.second", "value", err)
 	}
 	r0 := stdcalendar.OffsetDateTimeSecond(a0)
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("OffsetDateTime.second", err)
-	}
-	return v0, nil
+	s.SetInt64(0, int64(r0))
+	return true, nil
 }
 
 // out32 builds a NaiveDateTime from Go rt.NaiveDateTime.
@@ -2222,62 +2181,48 @@ func (b *bound) out32(v rt.NaiveDateTime) (rt.Value, error) {
 	return r, nil
 }
 
-// fn31 adapts OffsetDateTime.to_naive: to_naive(odt: OffsetDateTime) -> NaiveDateTime
-func (b *bound) fn31(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn31Regs is OffsetDateTime.to_naive over slots.
+func (b *bound) fn31Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("OffsetDateTime.to_naive", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("OffsetDateTime.to_naive", 1, len(args))
-	}
-	a0, err := b.in25(fr, args[0])
+	a0, err := b.in25(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("OffsetDateTime.to_naive", 0, "OffsetDateTime.to_naive", "odt", err)
+		return false, hostadapt.Param("OffsetDateTime.to_naive", 0, "OffsetDateTime.to_naive", "odt", err)
 	}
 	r0 := stdcalendar.OffsetDateTimeWall(a0)
-	v0, err := b.out32(r0)
+	w33, err := b.out32(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("OffsetDateTime.to_naive", err)
+		return false, hostadapt.Returned("OffsetDateTime.to_naive", err)
 	}
-	return v0, nil
+	s.R[0] = w33
+	return true, nil
 }
 
-// fn33 adapts OffsetDateTime.to_string: to_string(odt: OffsetDateTime) -> String
-func (b *bound) fn33(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn34Regs is OffsetDateTime.to_string over slots.
+func (b *bound) fn34Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("OffsetDateTime.to_string", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("OffsetDateTime.to_string", 1, len(args))
-	}
-	a0, err := b.in25(fr, args[0])
+	a0, err := b.in25(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("OffsetDateTime.to_string", 0, "OffsetDateTime.to_string", "odt", err)
+		return false, hostadapt.Param("OffsetDateTime.to_string", 0, "OffsetDateTime.to_string", "odt", err)
 	}
 	r0 := stdcalendar.OffsetDateTimeToString(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("OffsetDateTime.to_string", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn34 adapts OffsetDateTime.year: year(value: OffsetDateTime) -> Int
-func (b *bound) fn34(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn35Regs is OffsetDateTime.year over slots.
+func (b *bound) fn35Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("OffsetDateTime.year", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("OffsetDateTime.year", 1, len(args))
-	}
-	a0, err := b.in25(fr, args[0])
+	a0, err := b.in25(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("OffsetDateTime.year", 0, "OffsetDateTime.year", "value", err)
+		return false, hostadapt.Param("OffsetDateTime.year", 0, "OffsetDateTime.year", "value", err)
 	}
 	r0 := stdcalendar.OffsetDateTimeYear(a0)
-	v0, err := b.out3(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("OffsetDateTime.year", err)
-	}
-	return v0, nil
+	s.SetInt(0, r0)
+	return true, nil
 }
 
-// in36 reads a Time as Go rt.Time.
-func (b *bound) in36(fr *rt.Frame, v rt.Value) (out rt.Time, err error) {
+// in37 reads a Time as Go rt.Time.
+func (b *bound) in37(fr *rt.Frame, v rt.Value) (out rt.Time, err error) {
 	r, err := hostadapt.Record(v, "calendar.Time")
 	if err != nil {
 		return out, err
@@ -2329,26 +2274,20 @@ func (b *bound) in36(fr *rt.Frame, v rt.Value) (out rt.Time, err error) {
 	return out, nil
 }
 
-// fn35 adapts Time.to_string: to_string(t: Time) -> String
-func (b *bound) fn35(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn36Regs is Time.to_string over slots.
+func (b *bound) fn36Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("Time.to_string", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("Time.to_string", 1, len(args))
-	}
-	a0, err := b.in36(fr, args[0])
+	a0, err := b.in37(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("Time.to_string", 0, "Time.to_string", "t", err)
+		return false, hostadapt.Param("Time.to_string", 0, "Time.to_string", "t", err)
 	}
 	r0 := stdcalendar.TimeToString(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("Time.to_string", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// in38 reads a Locale as Go string.
-func (b *bound) in38(fr *rt.Frame, v rt.Value) (out string, err error) {
+// in39 reads a Locale as Go string.
+func (b *bound) in39(fr *rt.Frame, v rt.Value) (out string, err error) {
 	r, err := hostadapt.Record(v, "locale.Locale")
 	if err != nil {
 		return out, err
@@ -2358,15 +2297,6 @@ func (b *bound) in38(fr *rt.Frame, v rt.Value) (out string, err error) {
 		return out, err
 	}
 	return string(x), nil
-}
-
-// in39 reads a Int as Go rt.Int.
-func (b *bound) in39(fr *rt.Frame, v rt.Value) (out rt.Int, err error) {
-	if !rt.IsInt(v) {
-		return out, hostadapt.Want("Int", v)
-	}
-	x := v
-	return rt.IntOf(x), nil
 }
 
 // in41 reads a Int as Go int64.
@@ -2397,1897 +2327,1210 @@ func (b *bound) in40(fr *rt.Frame, v rt.Value) (out []int64, err error) {
 	return out, nil
 }
 
-// in42 reads a String as Go string.
-func (b *bound) in42(fr *rt.Frame, v rt.Value) (out string, err error) {
-	x, ok := v.(string)
-	if !ok {
-		return out, hostadapt.Want("String", v)
-	}
-	return string(x), nil
-}
-
-// fn37 adapts calendar.civil_format_fields: civil_format_fields(locale: Locale, year: Int, fields: List<Int64>, skeleton: String) -> String
-func (b *bound) fn37(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn38Regs is calendar.civil_format_fields over slots.
+func (b *bound) fn38Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("calendar.civil_format_fields", &err)
-	if len(args) != 4 {
-		return nil, hostadapt.Arity("calendar.civil_format_fields", 4, len(args))
-	}
-	a0, err := b.in38(fr, args[0])
+	a0, err := b.in39(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("calendar.civil_format_fields", 0, "calendar.civil_format_fields", "locale", err)
+		return false, hostadapt.Param("calendar.civil_format_fields", 0, "calendar.civil_format_fields", "locale", err)
 	}
-	a1, err := b.in39(fr, args[1])
+	a1 := s.Int(1)
+	a2, err := b.in40(fr, s.R[2])
 	if err != nil {
-		return nil, hostadapt.Param("calendar.civil_format_fields", 1, "calendar.civil_format_fields", "year", err)
+		return false, hostadapt.Param("calendar.civil_format_fields", 2, "calendar.civil_format_fields", "fields", err)
 	}
-	a2, err := b.in40(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.civil_format_fields", 2, "calendar.civil_format_fields", "fields", err)
-	}
-	a3, err := b.in42(fr, args[3])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.civil_format_fields", 3, "calendar.civil_format_fields", "skeleton", err)
-	}
-	r0 := stdformat.FFIFormatCivilFields(fr, a0, a1, a2, a3)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("calendar.civil_format_fields", err)
-	}
-	return v0, nil
+	a3 := string(s.S[3])
+	r0 := stdformat.HostFormatCivilFields(fr, a0, a1, a2, a3)
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn43 adapts calendar.civil_format_pattern: civil_format_pattern(year: Int, fields: List<Int64>, pattern: String) -> String
-func (b *bound) fn43(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn42Regs is calendar.civil_format_pattern over slots.
+func (b *bound) fn42Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("calendar.civil_format_pattern", &err)
-	if len(args) != 3 {
-		return nil, hostadapt.Arity("calendar.civil_format_pattern", 3, len(args))
-	}
-	a0, err := b.in39(fr, args[0])
+	a0 := s.Int(0)
+	a1, err := b.in40(fr, s.R[1])
 	if err != nil {
-		return nil, hostadapt.Param("calendar.civil_format_pattern", 0, "calendar.civil_format_pattern", "year", err)
+		return false, hostadapt.Param("calendar.civil_format_pattern", 1, "calendar.civil_format_pattern", "fields", err)
 	}
-	a1, err := b.in40(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.civil_format_pattern", 1, "calendar.civil_format_pattern", "fields", err)
-	}
-	a2, err := b.in42(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.civil_format_pattern", 2, "calendar.civil_format_pattern", "pattern", err)
-	}
-	r0 := stdformat.FFIFormatCivilPattern(a0, a1, a2)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("calendar.civil_format_pattern", err)
-	}
-	return v0, nil
+	a2 := string(s.S[2])
+	r0 := stdformat.HostFormatCivilPattern(a0, a1, a2)
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn44 adapts calendar.civil_format_style: civil_format_style(locale: Locale, year: Int, fields: List<Int64>, spec: String) -> String
-func (b *bound) fn44(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn43Regs is calendar.civil_format_style over slots.
+func (b *bound) fn43Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("calendar.civil_format_style", &err)
-	if len(args) != 4 {
-		return nil, hostadapt.Arity("calendar.civil_format_style", 4, len(args))
-	}
-	a0, err := b.in38(fr, args[0])
+	a0, err := b.in39(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("calendar.civil_format_style", 0, "calendar.civil_format_style", "locale", err)
+		return false, hostadapt.Param("calendar.civil_format_style", 0, "calendar.civil_format_style", "locale", err)
 	}
-	a1, err := b.in39(fr, args[1])
+	a1 := s.Int(1)
+	a2, err := b.in40(fr, s.R[2])
 	if err != nil {
-		return nil, hostadapt.Param("calendar.civil_format_style", 1, "calendar.civil_format_style", "year", err)
+		return false, hostadapt.Param("calendar.civil_format_style", 2, "calendar.civil_format_style", "fields", err)
 	}
-	a2, err := b.in40(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.civil_format_style", 2, "calendar.civil_format_style", "fields", err)
-	}
-	a3, err := b.in42(fr, args[3])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.civil_format_style", 3, "calendar.civil_format_style", "spec", err)
-	}
-	r0 := stdformat.FFIFormatCivilStyle(fr, a0, a1, a2, a3)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("calendar.civil_format_style", err)
-	}
-	return v0, nil
+	a3 := string(s.S[3])
+	r0 := stdformat.HostFormatCivilStyle(fr, a0, a1, a2, a3)
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn45 adapts calendar.date_add_days: date_add_days(d: Date, n: Int) -> Date
-func (b *bound) fn45(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn44Regs is calendar.date_add_days over slots.
+func (b *bound) fn44Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("calendar.date_add_days", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("calendar.date_add_days", 2, len(args))
-	}
-	a0, err := b.in2(fr, args[0])
+	a0, err := b.in2(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("calendar.date_add_days", 0, "calendar.date_add_days", "d", err)
+		return false, hostadapt.Param("calendar.date_add_days", 0, "calendar.date_add_days", "d", err)
 	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.date_add_days", 1, "calendar.date_add_days", "n", err)
-	}
+	a1 := s.Int(1)
 	r0 := stdcalendar.BoundDateAddDays(a0, a1)
-	v0, err := b.out20(r0)
+	w45, err := b.out18(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("calendar.date_add_days", err)
+		return false, hostadapt.Returned("calendar.date_add_days", err)
 	}
-	return v0, nil
+	s.R[0] = w45
+	return true, nil
 }
 
-// fn46 adapts calendar.date_add_months: date_add_months(d: Date, n: Int) -> Date
-func (b *bound) fn46(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn46Regs is calendar.date_add_months over slots.
+func (b *bound) fn46Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("calendar.date_add_months", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("calendar.date_add_months", 2, len(args))
-	}
-	a0, err := b.in2(fr, args[0])
+	a0, err := b.in2(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("calendar.date_add_months", 0, "calendar.date_add_months", "d", err)
+		return false, hostadapt.Param("calendar.date_add_months", 0, "calendar.date_add_months", "d", err)
 	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.date_add_months", 1, "calendar.date_add_months", "n", err)
-	}
+	a1 := s.Int(1)
 	r0 := stdcalendar.BoundDateAddMonths(a0, a1)
-	v0, err := b.out20(r0)
+	w47, err := b.out18(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("calendar.date_add_months", err)
+		return false, hostadapt.Returned("calendar.date_add_months", err)
 	}
-	return v0, nil
+	s.R[0] = w47
+	return true, nil
 }
 
-// fn47 adapts calendar.date_add_years: date_add_years(d: Date, n: Int) -> Date
-func (b *bound) fn47(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn48Regs is calendar.date_add_years over slots.
+func (b *bound) fn48Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("calendar.date_add_years", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("calendar.date_add_years", 2, len(args))
-	}
-	a0, err := b.in2(fr, args[0])
+	a0, err := b.in2(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("calendar.date_add_years", 0, "calendar.date_add_years", "d", err)
+		return false, hostadapt.Param("calendar.date_add_years", 0, "calendar.date_add_years", "d", err)
 	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.date_add_years", 1, "calendar.date_add_years", "n", err)
-	}
+	a1 := s.Int(1)
 	r0 := stdcalendar.BoundDateAddYears(a0, a1)
-	v0, err := b.out20(r0)
+	w49, err := b.out18(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("calendar.date_add_years", err)
+		return false, hostadapt.Returned("calendar.date_add_years", err)
 	}
-	return v0, nil
+	s.R[0] = w49
+	return true, nil
 }
 
-// out49 builds a DateAttempt from Go rt.CalendarDateResult.
-func (b *bound) out49(v rt.CalendarDateResult) (rt.Value, error) {
+// out51 builds a DateAttempt from Go rt.CalendarDateResult.
+func (b *bound) out51(v rt.CalendarDateResult) (rt.Value, error) {
 	r := b.d6.New()
-	w50, err := b.out20(v.Value)
+	w52, err := b.out18(v.Value)
 	if err != nil {
 		return nil, fmt.Errorf("field %q: %w", "value", err)
 	}
-	r.R[0] = w50
+	r.R[0] = w52
 	r.SetIntSlot(0, rt.Value(int64(v.Kind)))
 	r.S[0] = string(v.Reason)
 	return r, nil
 }
 
-// fn48 adapts calendar.date_new_raw: date_new_raw(year: Int, month: Int, day: Int) -> DateAttempt
-func (b *bound) fn48(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn50Regs is calendar.date_new_raw over slots.
+func (b *bound) fn50Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("calendar.date_new_raw", &err)
-	if len(args) != 3 {
-		return nil, hostadapt.Arity("calendar.date_new_raw", 3, len(args))
-	}
-	a0, err := b.in39(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.date_new_raw", 0, "calendar.date_new_raw", "year", err)
-	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.date_new_raw", 1, "calendar.date_new_raw", "month", err)
-	}
-	a2, err := b.in39(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.date_new_raw", 2, "calendar.date_new_raw", "day", err)
-	}
+	a0 := s.Int(0)
+	a1 := s.Int(1)
+	a2 := s.Int(2)
 	r0 := stdcalendar.BoundDateNew(a0, a1, a2)
-	v0, err := b.out49(r0)
+	w53, err := b.out51(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("calendar.date_new_raw", err)
+		return false, hostadapt.Returned("calendar.date_new_raw", err)
 	}
-	return v0, nil
+	s.R[0] = w53
+	return true, nil
 }
 
-// fn51 adapts calendar.date_parse_pattern: date_parse_pattern(text: String, pattern: String) -> DateAttempt
-func (b *bound) fn51(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn54Regs is calendar.date_parse_pattern over slots.
+func (b *bound) fn54Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("calendar.date_parse_pattern", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("calendar.date_parse_pattern", 2, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
+	a0 := string(s.S[0])
+	a1 := string(s.S[1])
+	r0 := stdformat.HostParseDatePattern(a0, a1)
+	w55, err := b.out51(r0)
 	if err != nil {
-		return nil, hostadapt.Param("calendar.date_parse_pattern", 0, "calendar.date_parse_pattern", "text", err)
+		return false, hostadapt.Returned("calendar.date_parse_pattern", err)
 	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.date_parse_pattern", 1, "calendar.date_parse_pattern", "pattern", err)
-	}
-	r0 := stdformat.FFIParseDatePattern(a0, a1)
-	v0, err := b.out49(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("calendar.date_parse_pattern", err)
-	}
-	return v0, nil
+	s.R[0] = w55
+	return true, nil
 }
 
-// fn52 adapts calendar.date_parse_raw: date_parse_raw(s: String) -> DateAttempt
-func (b *bound) fn52(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn56Regs is calendar.date_parse_raw over slots.
+func (b *bound) fn56Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("calendar.date_parse_raw", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("calendar.date_parse_raw", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.date_parse_raw", 0, "calendar.date_parse_raw", "s", err)
-	}
+	a0 := string(s.S[0])
 	r0 := stdcalendar.BoundDateParse(a0)
-	v0, err := b.out49(r0)
+	w57, err := b.out51(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("calendar.date_parse_raw", err)
+		return false, hostadapt.Returned("calendar.date_parse_raw", err)
 	}
-	return v0, nil
+	s.R[0] = w57
+	return true, nil
 }
 
-// in54 reads a Bool as Go bool.
-func (b *bound) in54(fr *rt.Frame, v rt.Value) (out bool, err error) {
-	x, ok := v.(bool)
-	if !ok {
-		return out, hostadapt.Want("Bool", v)
-	}
-	return bool(x), nil
-}
-
-// fn53 adapts calendar.date_parse_style: date_parse_style(text: String, locale: Locale, spec: String, lenient: Bool) -> DateAttempt
-func (b *bound) fn53(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn58Regs is calendar.date_parse_style over slots.
+func (b *bound) fn58Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("calendar.date_parse_style", &err)
-	if len(args) != 4 {
-		return nil, hostadapt.Arity("calendar.date_parse_style", 4, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
+	a0 := string(s.S[0])
+	a1, err := b.in39(fr, s.R[1])
 	if err != nil {
-		return nil, hostadapt.Param("calendar.date_parse_style", 0, "calendar.date_parse_style", "text", err)
+		return false, hostadapt.Param("calendar.date_parse_style", 1, "calendar.date_parse_style", "locale", err)
 	}
-	a1, err := b.in38(fr, args[1])
+	a2 := string(s.S[2])
+	a3 := bool(rt.WordBool(s.W[3]))
+	r0 := stdformat.HostParseDateStyle(fr, a0, a1, a2, a3)
+	w59, err := b.out51(r0)
 	if err != nil {
-		return nil, hostadapt.Param("calendar.date_parse_style", 1, "calendar.date_parse_style", "locale", err)
+		return false, hostadapt.Returned("calendar.date_parse_style", err)
 	}
-	a2, err := b.in42(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.date_parse_style", 2, "calendar.date_parse_style", "spec", err)
-	}
-	a3, err := b.in54(fr, args[3])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.date_parse_style", 3, "calendar.date_parse_style", "lenient", err)
-	}
-	r0 := stdformat.FFIParseDateStyle(fr, a0, a1, a2, a3)
-	v0, err := b.out49(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("calendar.date_parse_style", err)
-	}
-	return v0, nil
+	s.R[0] = w59
+	return true, nil
 }
 
-// fn55 adapts calendar.fields_check: fields_check(kind: Int64, text: String) -> String
-func (b *bound) fn55(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn60Regs is calendar.fields_check over slots.
+func (b *bound) fn60Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("calendar.fields_check", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("calendar.fields_check", 2, len(args))
-	}
-	a0, err := b.in41(fr, args[0])
+	a0, err := hostadapt.SlotSigned[int64](s, 0, "int64")
 	if err != nil {
-		return nil, hostadapt.Param("calendar.fields_check", 0, "calendar.fields_check", "kind", err)
+		return false, hostadapt.Param("calendar.fields_check", 0, "calendar.fields_check", "kind", err)
 	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.fields_check", 1, "calendar.fields_check", "text", err)
-	}
-	r0 := stdformat.FFICheckFields(a0, a1)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("calendar.fields_check", err)
-	}
-	return v0, nil
+	a1 := string(s.S[1])
+	r0 := stdformat.HostCheckFields(a0, a1)
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn56 adapts calendar.naive_add_days: naive_add_days(dt: NaiveDateTime, n: Int) -> NaiveDateTime
-func (b *bound) fn56(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn61Regs is calendar.local_zone_raw over slots.
+func (b *bound) fn61Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	defer hostadapt.Recover("calendar.local_zone_raw", &err)
+	r0, e := stdcalendar.LocalZone()
+	if e != nil {
+		rec := b.d7.NewVariant(1)
+		rec.S[0] = e.Error()
+		s.R[0] = rec
+		return false, nil
+	}
+	s.S[0] = string(r0)
+	return true, nil
+}
+
+// fn62Regs is calendar.naive_add_days over slots.
+func (b *bound) fn62Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("calendar.naive_add_days", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("calendar.naive_add_days", 2, len(args))
-	}
-	a0, err := b.in19(fr, args[0])
+	a0, err := b.in17(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("calendar.naive_add_days", 0, "calendar.naive_add_days", "dt", err)
+		return false, hostadapt.Param("calendar.naive_add_days", 0, "calendar.naive_add_days", "dt", err)
 	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.naive_add_days", 1, "calendar.naive_add_days", "n", err)
-	}
+	a1 := s.Int(1)
 	r0 := stdcalendar.BoundNaiveAddDays(a0, a1)
-	v0, err := b.out32(r0)
+	w63, err := b.out32(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("calendar.naive_add_days", err)
+		return false, hostadapt.Returned("calendar.naive_add_days", err)
 	}
-	return v0, nil
+	s.R[0] = w63
+	return true, nil
 }
 
-// fn57 adapts calendar.naive_add_months: naive_add_months(dt: NaiveDateTime, n: Int) -> NaiveDateTime
-func (b *bound) fn57(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn64Regs is calendar.naive_add_months over slots.
+func (b *bound) fn64Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("calendar.naive_add_months", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("calendar.naive_add_months", 2, len(args))
-	}
-	a0, err := b.in19(fr, args[0])
+	a0, err := b.in17(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("calendar.naive_add_months", 0, "calendar.naive_add_months", "dt", err)
+		return false, hostadapt.Param("calendar.naive_add_months", 0, "calendar.naive_add_months", "dt", err)
 	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.naive_add_months", 1, "calendar.naive_add_months", "n", err)
-	}
+	a1 := s.Int(1)
 	r0 := stdcalendar.BoundNaiveAddMonths(a0, a1)
-	v0, err := b.out32(r0)
+	w65, err := b.out32(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("calendar.naive_add_months", err)
+		return false, hostadapt.Returned("calendar.naive_add_months", err)
 	}
-	return v0, nil
+	s.R[0] = w65
+	return true, nil
 }
 
-// fn58 adapts calendar.naive_add_nanos: naive_add_nanos(dt: NaiveDateTime, nanos: Int) -> NaiveDateTime
-func (b *bound) fn58(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn66Regs is calendar.naive_add_nanos over slots.
+func (b *bound) fn66Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("calendar.naive_add_nanos", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("calendar.naive_add_nanos", 2, len(args))
-	}
-	a0, err := b.in19(fr, args[0])
+	a0, err := b.in17(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("calendar.naive_add_nanos", 0, "calendar.naive_add_nanos", "dt", err)
+		return false, hostadapt.Param("calendar.naive_add_nanos", 0, "calendar.naive_add_nanos", "dt", err)
 	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.naive_add_nanos", 1, "calendar.naive_add_nanos", "nanos", err)
-	}
+	a1 := s.Int(1)
 	r0 := stdcalendar.BoundNaiveAddNanos(a0, a1)
-	v0, err := b.out32(r0)
+	w67, err := b.out32(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("calendar.naive_add_nanos", err)
+		return false, hostadapt.Returned("calendar.naive_add_nanos", err)
 	}
-	return v0, nil
+	s.R[0] = w67
+	return true, nil
 }
 
-// fn59 adapts calendar.naive_add_years: naive_add_years(dt: NaiveDateTime, n: Int) -> NaiveDateTime
-func (b *bound) fn59(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn68Regs is calendar.naive_add_years over slots.
+func (b *bound) fn68Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("calendar.naive_add_years", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("calendar.naive_add_years", 2, len(args))
-	}
-	a0, err := b.in19(fr, args[0])
+	a0, err := b.in17(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("calendar.naive_add_years", 0, "calendar.naive_add_years", "dt", err)
+		return false, hostadapt.Param("calendar.naive_add_years", 0, "calendar.naive_add_years", "dt", err)
 	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.naive_add_years", 1, "calendar.naive_add_years", "n", err)
-	}
+	a1 := s.Int(1)
 	r0 := stdcalendar.BoundNaiveAddYears(a0, a1)
-	v0, err := b.out32(r0)
+	w69, err := b.out32(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("calendar.naive_add_years", err)
+		return false, hostadapt.Returned("calendar.naive_add_years", err)
 	}
-	return v0, nil
+	s.R[0] = w69
+	return true, nil
 }
 
-// fn60 adapts calendar.naive_between_nanos: naive_between_nanos(earlier: NaiveDateTime, later: NaiveDateTime) -> Int
-func (b *bound) fn60(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn70Regs is calendar.naive_between_nanos over slots.
+func (b *bound) fn70Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("calendar.naive_between_nanos", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("calendar.naive_between_nanos", 2, len(args))
-	}
-	a0, err := b.in19(fr, args[0])
+	a0, err := b.in17(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("calendar.naive_between_nanos", 0, "calendar.naive_between_nanos", "earlier", err)
+		return false, hostadapt.Param("calendar.naive_between_nanos", 0, "calendar.naive_between_nanos", "earlier", err)
 	}
-	a1, err := b.in19(fr, args[1])
+	a1, err := b.in17(fr, s.R[1])
 	if err != nil {
-		return nil, hostadapt.Param("calendar.naive_between_nanos", 1, "calendar.naive_between_nanos", "later", err)
+		return false, hostadapt.Param("calendar.naive_between_nanos", 1, "calendar.naive_between_nanos", "later", err)
 	}
 	r0 := stdcalendar.BoundNaiveBetweenNanos(a0, a1)
-	v0, err := b.out3(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("calendar.naive_between_nanos", err)
-	}
-	return v0, nil
+	s.SetInt(0, r0)
+	return true, nil
 }
 
-// out62 builds a NaiveAttempt from Go rt.CalendarNaiveResult.
-func (b *bound) out62(v rt.CalendarNaiveResult) (rt.Value, error) {
-	r := b.d7.New()
-	w63, err := b.out32(v.Value)
-	if err != nil {
-		return nil, fmt.Errorf("field %q: %w", "value", err)
-	}
-	r.R[0] = w63
-	r.SetIntSlot(0, rt.Value(int64(v.Kind)))
-	r.S[0] = string(v.Reason)
-	return r, nil
-}
-
-// fn61 adapts calendar.naive_new_exact_raw: naive_new_exact_raw(year: Int, month: Int, day: Int, hour: Int, minute: Int, second: Int, nanosecond: Int) -> NaiveAttempt
-func (b *bound) fn61(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("calendar.naive_new_exact_raw", &err)
-	if len(args) != 7 {
-		return nil, hostadapt.Arity("calendar.naive_new_exact_raw", 7, len(args))
-	}
-	a0, err := b.in39(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.naive_new_exact_raw", 0, "calendar.naive_new_exact_raw", "year", err)
-	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.naive_new_exact_raw", 1, "calendar.naive_new_exact_raw", "month", err)
-	}
-	a2, err := b.in39(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.naive_new_exact_raw", 2, "calendar.naive_new_exact_raw", "day", err)
-	}
-	a3, err := b.in39(fr, args[3])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.naive_new_exact_raw", 3, "calendar.naive_new_exact_raw", "hour", err)
-	}
-	a4, err := b.in39(fr, args[4])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.naive_new_exact_raw", 4, "calendar.naive_new_exact_raw", "minute", err)
-	}
-	a5, err := b.in39(fr, args[5])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.naive_new_exact_raw", 5, "calendar.naive_new_exact_raw", "second", err)
-	}
-	a6, err := b.in39(fr, args[6])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.naive_new_exact_raw", 6, "calendar.naive_new_exact_raw", "nanosecond", err)
-	}
-	r0 := stdcalendar.BoundNaiveNewExact(a0, a1, a2, a3, a4, a5, a6)
-	v0, err := b.out62(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("calendar.naive_new_exact_raw", err)
-	}
-	return v0, nil
-}
-
-// fn64 adapts calendar.naive_parse_pattern: naive_parse_pattern(text: String, pattern: String) -> NaiveAttempt
-func (b *bound) fn64(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("calendar.naive_parse_pattern", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("calendar.naive_parse_pattern", 2, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.naive_parse_pattern", 0, "calendar.naive_parse_pattern", "text", err)
-	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.naive_parse_pattern", 1, "calendar.naive_parse_pattern", "pattern", err)
-	}
-	r0 := stdformat.FFIParseNaivePattern(a0, a1)
-	v0, err := b.out62(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("calendar.naive_parse_pattern", err)
-	}
-	return v0, nil
-}
-
-// fn65 adapts calendar.naive_parse_raw: naive_parse_raw(s: String) -> NaiveAttempt
-func (b *bound) fn65(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("calendar.naive_parse_raw", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("calendar.naive_parse_raw", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.naive_parse_raw", 0, "calendar.naive_parse_raw", "s", err)
-	}
-	r0 := stdcalendar.BoundNaiveParse(a0)
-	v0, err := b.out62(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("calendar.naive_parse_raw", err)
-	}
-	return v0, nil
-}
-
-// fn66 adapts calendar.offset_add_months: offset_add_months(odt: OffsetDateTime, n: Int) -> OffsetDateTime
-func (b *bound) fn66(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("calendar.offset_add_months", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("calendar.offset_add_months", 2, len(args))
-	}
-	a0, err := b.in25(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.offset_add_months", 0, "calendar.offset_add_months", "odt", err)
-	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.offset_add_months", 1, "calendar.offset_add_months", "n", err)
-	}
-	r0 := stdcalendar.BoundOffsetAddMonths(a0, a1)
-	v0, err := b.out15(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("calendar.offset_add_months", err)
-	}
-	return v0, nil
-}
-
-// fn67 adapts calendar.offset_add_years: offset_add_years(odt: OffsetDateTime, n: Int) -> OffsetDateTime
-func (b *bound) fn67(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("calendar.offset_add_years", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("calendar.offset_add_years", 2, len(args))
-	}
-	a0, err := b.in25(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.offset_add_years", 0, "calendar.offset_add_years", "odt", err)
-	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.offset_add_years", 1, "calendar.offset_add_years", "n", err)
-	}
-	r0 := stdcalendar.BoundOffsetAddYears(a0, a1)
-	v0, err := b.out15(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("calendar.offset_add_years", err)
-	}
-	return v0, nil
-}
-
-// fn68 adapts calendar.offset_add_nanos: offset_add_nanos(odt: OffsetDateTime, nanos: Int) -> OffsetDateTime
-func (b *bound) fn68(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("calendar.offset_add_nanos", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("calendar.offset_add_nanos", 2, len(args))
-	}
-	a0, err := b.in25(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.offset_add_nanos", 0, "calendar.offset_add_nanos", "odt", err)
-	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.offset_add_nanos", 1, "calendar.offset_add_nanos", "nanos", err)
-	}
-	r0 := stdcalendar.BoundOffsetAddNanos(a0, a1)
-	v0, err := b.out15(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("calendar.offset_add_nanos", err)
-	}
-	return v0, nil
-}
-
-// fn69 adapts calendar.offset_from_instant_nanos: offset_from_instant_nanos(instant_nanos: Int, offset_nanos: Int) -> OffsetDateTime
-func (b *bound) fn69(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("calendar.offset_from_instant_nanos", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("calendar.offset_from_instant_nanos", 2, len(args))
-	}
-	a0, err := b.in39(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.offset_from_instant_nanos", 0, "calendar.offset_from_instant_nanos", "instant_nanos", err)
-	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.offset_from_instant_nanos", 1, "calendar.offset_from_instant_nanos", "offset_nanos", err)
-	}
-	r0 := stdcalendar.BoundOffsetFromInstant(a0, a1)
-	v0, err := b.out15(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("calendar.offset_from_instant_nanos", err)
-	}
-	return v0, nil
-}
-
-// out71 builds a OffsetAttempt from Go rt.CalendarOffsetResult.
-func (b *bound) out71(v rt.CalendarOffsetResult) (rt.Value, error) {
+// out72 builds a NaiveAttempt from Go rt.CalendarNaiveResult.
+func (b *bound) out72(v rt.CalendarNaiveResult) (rt.Value, error) {
 	r := b.d8.New()
-	w72, err := b.out15(v.Value)
+	w73, err := b.out32(v.Value)
 	if err != nil {
 		return nil, fmt.Errorf("field %q: %w", "value", err)
 	}
-	r.R[0] = w72
+	r.R[0] = w73
 	r.SetIntSlot(0, rt.Value(int64(v.Kind)))
 	r.S[0] = string(v.Reason)
 	return r, nil
 }
 
-// fn70 adapts calendar.offset_parse_raw: offset_parse_raw(s: String) -> OffsetAttempt
-func (b *bound) fn70(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("calendar.offset_parse_raw", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("calendar.offset_parse_raw", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
+// fn71Regs is calendar.naive_new_exact_raw over slots.
+func (b *bound) fn71Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	defer hostadapt.Recover("calendar.naive_new_exact_raw", &err)
+	a0 := s.Int(0)
+	a1 := s.Int(1)
+	a2 := s.Int(2)
+	a3 := s.Int(3)
+	a4 := s.Int(4)
+	a5 := s.Int(5)
+	a6 := s.Int(6)
+	r0 := stdcalendar.BoundNaiveNewExact(a0, a1, a2, a3, a4, a5, a6)
+	w74, err := b.out72(r0)
 	if err != nil {
-		return nil, hostadapt.Param("calendar.offset_parse_raw", 0, "calendar.offset_parse_raw", "s", err)
+		return false, hostadapt.Returned("calendar.naive_new_exact_raw", err)
 	}
-	r0 := stdcalendar.BoundOffsetParse(a0)
-	v0, err := b.out71(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("calendar.offset_parse_raw", err)
-	}
-	return v0, nil
+	s.R[0] = w74
+	return true, nil
 }
 
-// fn73 adapts calendar.offset_with_offset_raw: offset_with_offset_raw(dt: NaiveDateTime, offset_nanos: Int) -> OffsetAttempt
-func (b *bound) fn73(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("calendar.offset_with_offset_raw", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("calendar.offset_with_offset_raw", 2, len(args))
-	}
-	a0, err := b.in19(fr, args[0])
+// fn75Regs is calendar.naive_parse_pattern over slots.
+func (b *bound) fn75Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	defer hostadapt.Recover("calendar.naive_parse_pattern", &err)
+	a0 := string(s.S[0])
+	a1 := string(s.S[1])
+	r0 := stdformat.HostParseNaivePattern(a0, a1)
+	w76, err := b.out72(r0)
 	if err != nil {
-		return nil, hostadapt.Param("calendar.offset_with_offset_raw", 0, "calendar.offset_with_offset_raw", "dt", err)
+		return false, hostadapt.Returned("calendar.naive_parse_pattern", err)
 	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.offset_with_offset_raw", 1, "calendar.offset_with_offset_raw", "offset_nanos", err)
-	}
-	r0 := stdcalendar.BoundOffsetWithOffset(a0, a1)
-	v0, err := b.out71(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("calendar.offset_with_offset_raw", err)
-	}
-	return v0, nil
+	s.R[0] = w76
+	return true, nil
 }
 
-// fn74 adapts calendar.pattern_check: pattern_check(kind: Int64, text: String) -> String
-func (b *bound) fn74(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("calendar.pattern_check", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("calendar.pattern_check", 2, len(args))
-	}
-	a0, err := b.in41(fr, args[0])
+// fn77Regs is calendar.naive_parse_raw over slots.
+func (b *bound) fn77Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	defer hostadapt.Recover("calendar.naive_parse_raw", &err)
+	a0 := string(s.S[0])
+	r0 := stdcalendar.BoundNaiveParse(a0)
+	w78, err := b.out72(r0)
 	if err != nil {
-		return nil, hostadapt.Param("calendar.pattern_check", 0, "calendar.pattern_check", "kind", err)
+		return false, hostadapt.Returned("calendar.naive_parse_raw", err)
 	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.pattern_check", 1, "calendar.pattern_check", "text", err)
-	}
-	r0 := stdformat.FFICheckPattern(a0, a1)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("calendar.pattern_check", err)
-	}
-	return v0, nil
+	s.R[0] = w78
+	return true, nil
 }
 
-// fn75 adapts calendar.relative_format_raw: relative_format_raw(locale: Locale, count: Int, unit: Int64, numeric: Bool) -> String
-func (b *bound) fn75(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("calendar.relative_format_raw", &err)
-	if len(args) != 4 {
-		return nil, hostadapt.Arity("calendar.relative_format_raw", 4, len(args))
-	}
-	a0, err := b.in38(fr, args[0])
+// fn79Regs is calendar.offset_add_months over slots.
+func (b *bound) fn79Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	defer hostadapt.Recover("calendar.offset_add_months", &err)
+	a0, err := b.in25(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("calendar.relative_format_raw", 0, "calendar.relative_format_raw", "locale", err)
+		return false, hostadapt.Param("calendar.offset_add_months", 0, "calendar.offset_add_months", "odt", err)
 	}
-	a1, err := b.in39(fr, args[1])
+	a1 := s.Int(1)
+	r0 := stdcalendar.BoundOffsetAddMonths(a0, a1)
+	w80, err := b.out12(r0)
 	if err != nil {
-		return nil, hostadapt.Param("calendar.relative_format_raw", 1, "calendar.relative_format_raw", "count", err)
+		return false, hostadapt.Returned("calendar.offset_add_months", err)
 	}
-	a2, err := b.in41(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.relative_format_raw", 2, "calendar.relative_format_raw", "unit", err)
-	}
-	a3, err := b.in54(fr, args[3])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.relative_format_raw", 3, "calendar.relative_format_raw", "numeric", err)
-	}
-	r0 := stdformat.FFIFormatRelative(fr, a0, a1, a2, a3)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("calendar.relative_format_raw", err)
-	}
-	return v0, nil
+	s.R[0] = w80
+	return true, nil
 }
 
-// fn76 adapts calendar.time_add_nanos: time_add_nanos(t: Time, nanos: Int) -> Time
-func (b *bound) fn76(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("calendar.time_add_nanos", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("calendar.time_add_nanos", 2, len(args))
-	}
-	a0, err := b.in36(fr, args[0])
+// fn81Regs is calendar.offset_add_years over slots.
+func (b *bound) fn81Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	defer hostadapt.Recover("calendar.offset_add_years", &err)
+	a0, err := b.in25(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("calendar.time_add_nanos", 0, "calendar.time_add_nanos", "t", err)
+		return false, hostadapt.Param("calendar.offset_add_years", 0, "calendar.offset_add_years", "odt", err)
 	}
-	a1, err := b.in39(fr, args[1])
+	a1 := s.Int(1)
+	r0 := stdcalendar.BoundOffsetAddYears(a0, a1)
+	w82, err := b.out12(r0)
 	if err != nil {
-		return nil, hostadapt.Param("calendar.time_add_nanos", 1, "calendar.time_add_nanos", "nanos", err)
+		return false, hostadapt.Returned("calendar.offset_add_years", err)
 	}
-	r0 := stdcalendar.BoundTimeAddNanos(a0, a1)
-	v0, err := b.out23(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("calendar.time_add_nanos", err)
-	}
-	return v0, nil
+	s.R[0] = w82
+	return true, nil
 }
 
-// out78 builds a TimeAttempt from Go rt.CalendarTimeResult.
-func (b *bound) out78(v rt.CalendarTimeResult) (rt.Value, error) {
+// fn83Regs is calendar.offset_add_nanos over slots.
+func (b *bound) fn83Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	defer hostadapt.Recover("calendar.offset_add_nanos", &err)
+	a0, err := b.in25(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("calendar.offset_add_nanos", 0, "calendar.offset_add_nanos", "odt", err)
+	}
+	a1 := s.Int(1)
+	r0 := stdcalendar.BoundOffsetAddNanos(a0, a1)
+	w84, err := b.out12(r0)
+	if err != nil {
+		return false, hostadapt.Returned("calendar.offset_add_nanos", err)
+	}
+	s.R[0] = w84
+	return true, nil
+}
+
+// fn85Regs is calendar.offset_from_instant_nanos over slots.
+func (b *bound) fn85Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	defer hostadapt.Recover("calendar.offset_from_instant_nanos", &err)
+	a0 := s.Int(0)
+	a1 := s.Int(1)
+	r0 := stdcalendar.BoundOffsetFromInstant(a0, a1)
+	w86, err := b.out12(r0)
+	if err != nil {
+		return false, hostadapt.Returned("calendar.offset_from_instant_nanos", err)
+	}
+	s.R[0] = w86
+	return true, nil
+}
+
+// out88 builds a OffsetAttempt from Go rt.CalendarOffsetResult.
+func (b *bound) out88(v rt.CalendarOffsetResult) (rt.Value, error) {
 	r := b.d9.New()
-	w79, err := b.out23(v.Value)
+	w89, err := b.out12(v.Value)
 	if err != nil {
 		return nil, fmt.Errorf("field %q: %w", "value", err)
 	}
-	r.R[0] = w79
+	r.R[0] = w89
 	r.SetIntSlot(0, rt.Value(int64(v.Kind)))
 	r.S[0] = string(v.Reason)
 	return r, nil
 }
 
-// fn77 adapts calendar.time_parse_pattern: time_parse_pattern(text: String, pattern: String) -> TimeAttempt
-func (b *bound) fn77(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn87Regs is calendar.offset_parse_raw over slots.
+func (b *bound) fn87Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	defer hostadapt.Recover("calendar.offset_parse_raw", &err)
+	a0 := string(s.S[0])
+	r0 := stdcalendar.BoundOffsetParse(a0)
+	w90, err := b.out88(r0)
+	if err != nil {
+		return false, hostadapt.Returned("calendar.offset_parse_raw", err)
+	}
+	s.R[0] = w90
+	return true, nil
+}
+
+// fn91Regs is calendar.offset_with_offset_raw over slots.
+func (b *bound) fn91Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	defer hostadapt.Recover("calendar.offset_with_offset_raw", &err)
+	a0, err := b.in17(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("calendar.offset_with_offset_raw", 0, "calendar.offset_with_offset_raw", "dt", err)
+	}
+	a1 := s.Int(1)
+	r0 := stdcalendar.BoundOffsetWithOffset(a0, a1)
+	w92, err := b.out88(r0)
+	if err != nil {
+		return false, hostadapt.Returned("calendar.offset_with_offset_raw", err)
+	}
+	s.R[0] = w92
+	return true, nil
+}
+
+// fn93Regs is calendar.pattern_check over slots.
+func (b *bound) fn93Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	defer hostadapt.Recover("calendar.pattern_check", &err)
+	a0, err := hostadapt.SlotSigned[int64](s, 0, "int64")
+	if err != nil {
+		return false, hostadapt.Param("calendar.pattern_check", 0, "calendar.pattern_check", "kind", err)
+	}
+	a1 := string(s.S[1])
+	r0 := stdformat.HostCheckPattern(a0, a1)
+	s.S[0] = string(r0)
+	return true, nil
+}
+
+// fn94Regs is calendar.relative_format_raw over slots.
+func (b *bound) fn94Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	defer hostadapt.Recover("calendar.relative_format_raw", &err)
+	a0, err := b.in39(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("calendar.relative_format_raw", 0, "calendar.relative_format_raw", "locale", err)
+	}
+	a1 := s.Int(1)
+	a2, err := hostadapt.SlotSigned[int64](s, 2, "int64")
+	if err != nil {
+		return false, hostadapt.Param("calendar.relative_format_raw", 2, "calendar.relative_format_raw", "unit", err)
+	}
+	a3 := bool(rt.WordBool(s.W[3]))
+	r0 := stdformat.HostFormatRelative(fr, a0, a1, a2, a3)
+	s.S[0] = string(r0)
+	return true, nil
+}
+
+// fn95Regs is calendar.time_add_nanos over slots.
+func (b *bound) fn95Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	defer hostadapt.Recover("calendar.time_add_nanos", &err)
+	a0, err := b.in37(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("calendar.time_add_nanos", 0, "calendar.time_add_nanos", "t", err)
+	}
+	a1 := s.Int(1)
+	r0 := stdcalendar.BoundTimeAddNanos(a0, a1)
+	w96, err := b.out22(r0)
+	if err != nil {
+		return false, hostadapt.Returned("calendar.time_add_nanos", err)
+	}
+	s.R[0] = w96
+	return true, nil
+}
+
+// out98 builds a TimeAttempt from Go rt.CalendarTimeResult.
+func (b *bound) out98(v rt.CalendarTimeResult) (rt.Value, error) {
+	r := b.d10.New()
+	w99, err := b.out22(v.Value)
+	if err != nil {
+		return nil, fmt.Errorf("field %q: %w", "value", err)
+	}
+	r.R[0] = w99
+	r.SetIntSlot(0, rt.Value(int64(v.Kind)))
+	r.S[0] = string(v.Reason)
+	return r, nil
+}
+
+// fn97Regs is calendar.time_parse_pattern over slots.
+func (b *bound) fn97Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("calendar.time_parse_pattern", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("calendar.time_parse_pattern", 2, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
+	a0 := string(s.S[0])
+	a1 := string(s.S[1])
+	r0 := stdformat.HostParseTimePattern(a0, a1)
+	w100, err := b.out98(r0)
 	if err != nil {
-		return nil, hostadapt.Param("calendar.time_parse_pattern", 0, "calendar.time_parse_pattern", "text", err)
+		return false, hostadapt.Returned("calendar.time_parse_pattern", err)
 	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.time_parse_pattern", 1, "calendar.time_parse_pattern", "pattern", err)
-	}
-	r0 := stdformat.FFIParseTimePattern(a0, a1)
-	v0, err := b.out78(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("calendar.time_parse_pattern", err)
-	}
-	return v0, nil
+	s.R[0] = w100
+	return true, nil
 }
 
-// fn80 adapts calendar.time_parse_raw: time_parse_raw(s: String) -> TimeAttempt
-func (b *bound) fn80(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn101Regs is calendar.time_parse_raw over slots.
+func (b *bound) fn101Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("calendar.time_parse_raw", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("calendar.time_parse_raw", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.time_parse_raw", 0, "calendar.time_parse_raw", "s", err)
-	}
+	a0 := string(s.S[0])
 	r0 := stdcalendar.BoundTimeParse(a0)
-	v0, err := b.out78(r0)
+	w102, err := b.out98(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("calendar.time_parse_raw", err)
+		return false, hostadapt.Returned("calendar.time_parse_raw", err)
 	}
-	return v0, nil
+	s.R[0] = w102
+	return true, nil
 }
 
-// fn81 adapts calendar.time_parse_style: time_parse_style(text: String, locale: Locale, spec: String, lenient: Bool) -> TimeAttempt
-func (b *bound) fn81(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn103Regs is calendar.time_parse_style over slots.
+func (b *bound) fn103Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("calendar.time_parse_style", &err)
-	if len(args) != 4 {
-		return nil, hostadapt.Arity("calendar.time_parse_style", 4, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
+	a0 := string(s.S[0])
+	a1, err := b.in39(fr, s.R[1])
 	if err != nil {
-		return nil, hostadapt.Param("calendar.time_parse_style", 0, "calendar.time_parse_style", "text", err)
+		return false, hostadapt.Param("calendar.time_parse_style", 1, "calendar.time_parse_style", "locale", err)
 	}
-	a1, err := b.in38(fr, args[1])
+	a2 := string(s.S[2])
+	a3 := bool(rt.WordBool(s.W[3]))
+	r0 := stdformat.HostParseTimeStyle(fr, a0, a1, a2, a3)
+	w104, err := b.out98(r0)
 	if err != nil {
-		return nil, hostadapt.Param("calendar.time_parse_style", 1, "calendar.time_parse_style", "locale", err)
+		return false, hostadapt.Returned("calendar.time_parse_style", err)
 	}
-	a2, err := b.in42(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.time_parse_style", 2, "calendar.time_parse_style", "spec", err)
-	}
-	a3, err := b.in54(fr, args[3])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.time_parse_style", 3, "calendar.time_parse_style", "lenient", err)
-	}
-	r0 := stdformat.FFIParseTimeStyle(fr, a0, a1, a2, a3)
-	v0, err := b.out78(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("calendar.time_parse_style", err)
-	}
-	return v0, nil
+	s.R[0] = w104
+	return true, nil
 }
 
-// out83 builds a DateTime from Go rt.DateTime.
-func (b *bound) out83(v rt.DateTime) (rt.Value, error) {
+// out106 builds a DateTime from Go rt.DateTime.
+func (b *bound) out106(v rt.DateTime) (rt.Value, error) {
 	r := b.d1.New()
 	r.SetIntSlot(0, v.InstantNanos.Value())
 	r.S[0] = string(v.Zone)
 	return r, nil
 }
 
-// fn82 adapts calendar.zoned_add_days: zoned_add_days(d: DateTime, n: Int) -> DateTime
-func (b *bound) fn82(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("calendar.zoned_add_days", 2, len(args))
-	}
-	a0, err := b.in7(fr, args[0])
+// fn105Regs is calendar.zoned_add_days over slots.
+func (b *bound) fn105Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in5(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("calendar.zoned_add_days", 0, "calendar.zoned_add_days", "d", err)
+		return false, hostadapt.Param("calendar.zoned_add_days", 0, "calendar.zoned_add_days", "d", err)
 	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.zoned_add_days", 1, "calendar.zoned_add_days", "n", err)
-	}
+	a1 := s.Int(1)
 	r0 := stdcalendar.BoundZonedAddDays(a0, a1)
-	v0, err := b.out83(r0)
+	w107, err := b.out106(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("calendar.zoned_add_days", err)
+		return false, hostadapt.Returned("calendar.zoned_add_days", err)
 	}
-	return v0, nil
+	s.R[0] = w107
+	return true, nil
 }
 
-// fn84 adapts calendar.zoned_add_hours: zoned_add_hours(d: DateTime, n: Int) -> DateTime
-func (b *bound) fn84(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("calendar.zoned_add_hours", 2, len(args))
-	}
-	a0, err := b.in7(fr, args[0])
+// fn108Regs is calendar.zoned_add_hours over slots.
+func (b *bound) fn108Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in5(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("calendar.zoned_add_hours", 0, "calendar.zoned_add_hours", "d", err)
+		return false, hostadapt.Param("calendar.zoned_add_hours", 0, "calendar.zoned_add_hours", "d", err)
 	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.zoned_add_hours", 1, "calendar.zoned_add_hours", "n", err)
-	}
+	a1 := s.Int(1)
 	r0 := stdcalendar.BoundZonedAddHours(a0, a1)
-	v0, err := b.out83(r0)
+	w109, err := b.out106(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("calendar.zoned_add_hours", err)
+		return false, hostadapt.Returned("calendar.zoned_add_hours", err)
 	}
-	return v0, nil
+	s.R[0] = w109
+	return true, nil
 }
 
-// fn85 adapts calendar.zoned_add_microseconds: zoned_add_microseconds(d: DateTime, n: Int) -> DateTime
-func (b *bound) fn85(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("calendar.zoned_add_microseconds", 2, len(args))
-	}
-	a0, err := b.in7(fr, args[0])
+// fn110Regs is calendar.zoned_add_microseconds over slots.
+func (b *bound) fn110Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in5(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("calendar.zoned_add_microseconds", 0, "calendar.zoned_add_microseconds", "d", err)
+		return false, hostadapt.Param("calendar.zoned_add_microseconds", 0, "calendar.zoned_add_microseconds", "d", err)
 	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.zoned_add_microseconds", 1, "calendar.zoned_add_microseconds", "n", err)
-	}
+	a1 := s.Int(1)
 	r0 := stdcalendar.BoundZonedAddMicroseconds(a0, a1)
-	v0, err := b.out83(r0)
+	w111, err := b.out106(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("calendar.zoned_add_microseconds", err)
+		return false, hostadapt.Returned("calendar.zoned_add_microseconds", err)
 	}
-	return v0, nil
+	s.R[0] = w111
+	return true, nil
 }
 
-// fn86 adapts calendar.zoned_add_milliseconds: zoned_add_milliseconds(d: DateTime, n: Int) -> DateTime
-func (b *bound) fn86(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("calendar.zoned_add_milliseconds", 2, len(args))
-	}
-	a0, err := b.in7(fr, args[0])
+// fn112Regs is calendar.zoned_add_milliseconds over slots.
+func (b *bound) fn112Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in5(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("calendar.zoned_add_milliseconds", 0, "calendar.zoned_add_milliseconds", "d", err)
+		return false, hostadapt.Param("calendar.zoned_add_milliseconds", 0, "calendar.zoned_add_milliseconds", "d", err)
 	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.zoned_add_milliseconds", 1, "calendar.zoned_add_milliseconds", "n", err)
-	}
+	a1 := s.Int(1)
 	r0 := stdcalendar.BoundZonedAddMilliseconds(a0, a1)
-	v0, err := b.out83(r0)
+	w113, err := b.out106(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("calendar.zoned_add_milliseconds", err)
+		return false, hostadapt.Returned("calendar.zoned_add_milliseconds", err)
 	}
-	return v0, nil
+	s.R[0] = w113
+	return true, nil
 }
 
-// fn87 adapts calendar.zoned_add_minutes: zoned_add_minutes(d: DateTime, n: Int) -> DateTime
-func (b *bound) fn87(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("calendar.zoned_add_minutes", 2, len(args))
-	}
-	a0, err := b.in7(fr, args[0])
+// fn114Regs is calendar.zoned_add_minutes over slots.
+func (b *bound) fn114Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in5(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("calendar.zoned_add_minutes", 0, "calendar.zoned_add_minutes", "d", err)
+		return false, hostadapt.Param("calendar.zoned_add_minutes", 0, "calendar.zoned_add_minutes", "d", err)
 	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.zoned_add_minutes", 1, "calendar.zoned_add_minutes", "n", err)
-	}
+	a1 := s.Int(1)
 	r0 := stdcalendar.BoundZonedAddMinutes(a0, a1)
-	v0, err := b.out83(r0)
+	w115, err := b.out106(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("calendar.zoned_add_minutes", err)
+		return false, hostadapt.Returned("calendar.zoned_add_minutes", err)
 	}
-	return v0, nil
+	s.R[0] = w115
+	return true, nil
 }
 
-// fn88 adapts calendar.zoned_add_months: zoned_add_months(d: DateTime, n: Int) -> DateTime
-func (b *bound) fn88(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("calendar.zoned_add_months", 2, len(args))
-	}
-	a0, err := b.in7(fr, args[0])
+// fn116Regs is calendar.zoned_add_months over slots.
+func (b *bound) fn116Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in5(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("calendar.zoned_add_months", 0, "calendar.zoned_add_months", "d", err)
+		return false, hostadapt.Param("calendar.zoned_add_months", 0, "calendar.zoned_add_months", "d", err)
 	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.zoned_add_months", 1, "calendar.zoned_add_months", "n", err)
-	}
+	a1 := s.Int(1)
 	r0 := stdcalendar.BoundZonedAddMonths(a0, a1)
-	v0, err := b.out83(r0)
+	w117, err := b.out106(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("calendar.zoned_add_months", err)
+		return false, hostadapt.Returned("calendar.zoned_add_months", err)
 	}
-	return v0, nil
+	s.R[0] = w117
+	return true, nil
 }
 
-// fn89 adapts calendar.zoned_add_nanoseconds: zoned_add_nanoseconds(d: DateTime, n: Int) -> DateTime
-func (b *bound) fn89(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("calendar.zoned_add_nanoseconds", 2, len(args))
-	}
-	a0, err := b.in7(fr, args[0])
+// fn118Regs is calendar.zoned_add_nanoseconds over slots.
+func (b *bound) fn118Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in5(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("calendar.zoned_add_nanoseconds", 0, "calendar.zoned_add_nanoseconds", "d", err)
+		return false, hostadapt.Param("calendar.zoned_add_nanoseconds", 0, "calendar.zoned_add_nanoseconds", "d", err)
 	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.zoned_add_nanoseconds", 1, "calendar.zoned_add_nanoseconds", "n", err)
-	}
+	a1 := s.Int(1)
 	r0 := stdcalendar.BoundZonedAddNanoseconds(a0, a1)
-	v0, err := b.out83(r0)
+	w119, err := b.out106(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("calendar.zoned_add_nanoseconds", err)
+		return false, hostadapt.Returned("calendar.zoned_add_nanoseconds", err)
 	}
-	return v0, nil
+	s.R[0] = w119
+	return true, nil
 }
 
-// fn90 adapts calendar.zoned_add_seconds: zoned_add_seconds(d: DateTime, n: Int) -> DateTime
-func (b *bound) fn90(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("calendar.zoned_add_seconds", 2, len(args))
-	}
-	a0, err := b.in7(fr, args[0])
+// fn120Regs is calendar.zoned_add_seconds over slots.
+func (b *bound) fn120Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in5(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("calendar.zoned_add_seconds", 0, "calendar.zoned_add_seconds", "d", err)
+		return false, hostadapt.Param("calendar.zoned_add_seconds", 0, "calendar.zoned_add_seconds", "d", err)
 	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.zoned_add_seconds", 1, "calendar.zoned_add_seconds", "n", err)
-	}
+	a1 := s.Int(1)
 	r0 := stdcalendar.BoundZonedAddSeconds(a0, a1)
-	v0, err := b.out83(r0)
+	w121, err := b.out106(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("calendar.zoned_add_seconds", err)
+		return false, hostadapt.Returned("calendar.zoned_add_seconds", err)
 	}
-	return v0, nil
+	s.R[0] = w121
+	return true, nil
 }
 
-// fn91 adapts calendar.zoned_add_years: zoned_add_years(d: DateTime, n: Int) -> DateTime
-func (b *bound) fn91(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("calendar.zoned_add_years", 2, len(args))
-	}
-	a0, err := b.in7(fr, args[0])
+// fn122Regs is calendar.zoned_add_years over slots.
+func (b *bound) fn122Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in5(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("calendar.zoned_add_years", 0, "calendar.zoned_add_years", "d", err)
+		return false, hostadapt.Param("calendar.zoned_add_years", 0, "calendar.zoned_add_years", "d", err)
 	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.zoned_add_years", 1, "calendar.zoned_add_years", "n", err)
-	}
+	a1 := s.Int(1)
 	r0 := stdcalendar.BoundZonedAddYears(a0, a1)
-	v0, err := b.out83(r0)
+	w123, err := b.out106(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("calendar.zoned_add_years", err)
+		return false, hostadapt.Returned("calendar.zoned_add_years", err)
 	}
-	return v0, nil
+	s.R[0] = w123
+	return true, nil
 }
 
-// fn92 adapts calendar.zoned_add_nanos: zoned_add_nanos(d: DateTime, nanos: Int) -> DateTime
-func (b *bound) fn92(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn124Regs is calendar.zoned_add_nanos over slots.
+func (b *bound) fn124Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("calendar.zoned_add_nanos", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("calendar.zoned_add_nanos", 2, len(args))
-	}
-	a0, err := b.in7(fr, args[0])
+	a0, err := b.in5(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("calendar.zoned_add_nanos", 0, "calendar.zoned_add_nanos", "d", err)
+		return false, hostadapt.Param("calendar.zoned_add_nanos", 0, "calendar.zoned_add_nanos", "d", err)
 	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.zoned_add_nanos", 1, "calendar.zoned_add_nanos", "nanos", err)
-	}
+	a1 := s.Int(1)
 	r0 := stdcalendar.BoundZonedAddNanos(a0, a1)
-	v0, err := b.out83(r0)
+	w125, err := b.out106(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("calendar.zoned_add_nanos", err)
+		return false, hostadapt.Returned("calendar.zoned_add_nanos", err)
 	}
-	return v0, nil
+	s.R[0] = w125
+	return true, nil
 }
 
-// out94 builds a ZonedAttempt from Go rt.CalendarZonedResult.
-func (b *bound) out94(v rt.CalendarZonedResult) (rt.Value, error) {
-	r := b.d10.New()
-	w95, err := b.out83(v.Value)
+// out127 builds a ZonedAttempt from Go rt.CalendarZonedResult.
+func (b *bound) out127(v rt.CalendarZonedResult) (rt.Value, error) {
+	r := b.d11.New()
+	w128, err := b.out106(v.Value)
 	if err != nil {
 		return nil, fmt.Errorf("field %q: %w", "value", err)
 	}
-	r.R[0] = w95
+	r.R[0] = w128
 	r.SetIntSlot(0, rt.Value(int64(v.Kind)))
 	r.S[0] = string(v.Reason)
 	return r, nil
 }
 
-// fn93 adapts calendar.zoned_from_instant_in_raw: zoned_from_instant_in_raw(instant_nanos: Int, zone: String) -> ZonedAttempt
-func (b *bound) fn93(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn126Regs is calendar.zoned_from_instant_in_raw over slots.
+func (b *bound) fn126Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("calendar.zoned_from_instant_in_raw", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("calendar.zoned_from_instant_in_raw", 2, len(args))
-	}
-	a0, err := b.in39(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.zoned_from_instant_in_raw", 0, "calendar.zoned_from_instant_in_raw", "instant_nanos", err)
-	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.zoned_from_instant_in_raw", 1, "calendar.zoned_from_instant_in_raw", "zone", err)
-	}
+	a0 := s.Int(0)
+	a1 := string(s.S[1])
 	r0 := stdcalendar.BoundZonedFromInstantIn(a0, a1)
-	v0, err := b.out94(r0)
+	w129, err := b.out127(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("calendar.zoned_from_instant_in_raw", err)
+		return false, hostadapt.Returned("calendar.zoned_from_instant_in_raw", err)
 	}
-	return v0, nil
+	s.R[0] = w129
+	return true, nil
 }
 
-// fn96 adapts calendar.zoned_in_zone_raw: zoned_in_zone_raw(dt: NaiveDateTime, zone: String, mode: Int64) -> ZonedAttempt
-func (b *bound) fn96(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn130Regs is calendar.zoned_in_zone_raw over slots.
+func (b *bound) fn130Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("calendar.zoned_in_zone_raw", &err)
-	if len(args) != 3 {
-		return nil, hostadapt.Arity("calendar.zoned_in_zone_raw", 3, len(args))
-	}
-	a0, err := b.in19(fr, args[0])
+	a0, err := b.in17(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("calendar.zoned_in_zone_raw", 0, "calendar.zoned_in_zone_raw", "dt", err)
+		return false, hostadapt.Param("calendar.zoned_in_zone_raw", 0, "calendar.zoned_in_zone_raw", "dt", err)
 	}
-	a1, err := b.in42(fr, args[1])
+	a1 := string(s.S[1])
+	a2, err := hostadapt.SlotSigned[int64](s, 2, "int64")
 	if err != nil {
-		return nil, hostadapt.Param("calendar.zoned_in_zone_raw", 1, "calendar.zoned_in_zone_raw", "zone", err)
-	}
-	a2, err := b.in41(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.zoned_in_zone_raw", 2, "calendar.zoned_in_zone_raw", "mode", err)
+		return false, hostadapt.Param("calendar.zoned_in_zone_raw", 2, "calendar.zoned_in_zone_raw", "mode", err)
 	}
 	r0 := stdcalendar.BoundZonedInZone(a0, a1, a2)
-	v0, err := b.out94(r0)
+	w131, err := b.out127(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("calendar.zoned_in_zone_raw", err)
+		return false, hostadapt.Returned("calendar.zoned_in_zone_raw", err)
 	}
-	return v0, nil
+	s.R[0] = w131
+	return true, nil
 }
 
-// fn97 adapts calendar.zoned_offset_nanos: zoned_offset_nanos(d: DateTime) -> Int
-func (b *bound) fn97(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn132Regs is calendar.zoned_offset_nanos over slots.
+func (b *bound) fn132Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("calendar.zoned_offset_nanos", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("calendar.zoned_offset_nanos", 1, len(args))
-	}
-	a0, err := b.in7(fr, args[0])
+	a0, err := b.in5(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("calendar.zoned_offset_nanos", 0, "calendar.zoned_offset_nanos", "d", err)
+		return false, hostadapt.Param("calendar.zoned_offset_nanos", 0, "calendar.zoned_offset_nanos", "d", err)
 	}
 	r0 := stdcalendar.BoundZonedOffsetNanos(a0)
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("calendar.zoned_offset_nanos", err)
-	}
-	return v0, nil
+	s.SetInt64(0, int64(r0))
+	return true, nil
 }
 
-// fn98 adapts calendar.zoned_parse_raw: zoned_parse_raw(s: String) -> ZonedAttempt
-func (b *bound) fn98(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn133Regs is calendar.zoned_parse_raw over slots.
+func (b *bound) fn133Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("calendar.zoned_parse_raw", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("calendar.zoned_parse_raw", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.zoned_parse_raw", 0, "calendar.zoned_parse_raw", "s", err)
-	}
+	a0 := string(s.S[0])
 	r0 := stdcalendar.BoundZonedParse(a0)
-	v0, err := b.out94(r0)
+	w134, err := b.out127(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("calendar.zoned_parse_raw", err)
+		return false, hostadapt.Returned("calendar.zoned_parse_raw", err)
 	}
-	return v0, nil
+	s.R[0] = w134
+	return true, nil
 }
 
-// fn99 adapts calendar.zoned_with_zone_raw: zoned_with_zone_raw(d: DateTime, zone: String) -> ZonedAttempt
-func (b *bound) fn99(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn135Regs is calendar.zoned_with_zone_raw over slots.
+func (b *bound) fn135Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("calendar.zoned_with_zone_raw", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("calendar.zoned_with_zone_raw", 2, len(args))
-	}
-	a0, err := b.in7(fr, args[0])
+	a0, err := b.in5(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("calendar.zoned_with_zone_raw", 0, "calendar.zoned_with_zone_raw", "d", err)
+		return false, hostadapt.Param("calendar.zoned_with_zone_raw", 0, "calendar.zoned_with_zone_raw", "d", err)
 	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("calendar.zoned_with_zone_raw", 1, "calendar.zoned_with_zone_raw", "zone", err)
-	}
+	a1 := string(s.S[1])
 	r0 := stdcalendar.BoundZonedWithZone(a0, a1)
-	v0, err := b.out94(r0)
+	w136, err := b.out127(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("calendar.zoned_with_zone_raw", err)
+		return false, hostadapt.Returned("calendar.zoned_with_zone_raw", err)
 	}
-	return v0, nil
+	s.R[0] = w136
+	return true, nil
 }
 
-// fn100 adapts collation.collator_compare_raw: collator_compare_raw(collator: String, a: String, b: String) -> Int
-func (b *bound) fn100(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn137Regs is collation.collator_compare_raw over slots.
+func (b *bound) fn137Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("collation.collator_compare_raw", &err)
-	if len(args) != 3 {
-		return nil, hostadapt.Arity("collation.collator_compare_raw", 3, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("collation.collator_compare_raw", 0, "collation.collator_compare_raw", "collator", err)
-	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("collation.collator_compare_raw", 1, "collation.collator_compare_raw", "a", err)
-	}
-	a2, err := b.in42(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("collation.collator_compare_raw", 2, "collation.collator_compare_raw", "b", err)
-	}
-	r0 := stdformat.FFICollatorCompare(fr, a0, a1, a2)
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("collation.collator_compare_raw", err)
-	}
-	return v0, nil
+	a0 := string(s.S[0])
+	a1 := string(s.S[1])
+	a2 := string(s.S[2])
+	r0 := stdformat.HostCollatorCompare(fr, a0, a1, a2)
+	s.SetInt64(0, int64(r0))
+	return true, nil
 }
 
-// fn101 adapts collation.collator_inspect_raw: collator_inspect_raw(collator: String) -> String
-func (b *bound) fn101(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn138Regs is collation.collator_inspect_raw over slots.
+func (b *bound) fn138Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("collation.collator_inspect_raw", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("collation.collator_inspect_raw", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("collation.collator_inspect_raw", 0, "collation.collator_inspect_raw", "collator", err)
-	}
-	r0 := stdformat.FFICollatorInspect(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("collation.collator_inspect_raw", err)
-	}
-	return v0, nil
+	a0 := string(s.S[0])
+	r0 := stdformat.HostCollatorInspect(a0)
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn102 adapts collation.collator_new_raw: collator_new_raw(locale: Locale, strength: Int64, numeric: Bool, case_first: Int64, ignore_punctuation: Bool) -> String
-func (b *bound) fn102(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn139Regs is collation.collator_new_raw over slots.
+func (b *bound) fn139Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("collation.collator_new_raw", &err)
-	if len(args) != 5 {
-		return nil, hostadapt.Arity("collation.collator_new_raw", 5, len(args))
-	}
-	a0, err := b.in38(fr, args[0])
+	a0, err := b.in39(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("collation.collator_new_raw", 0, "collation.collator_new_raw", "locale", err)
+		return false, hostadapt.Param("collation.collator_new_raw", 0, "collation.collator_new_raw", "locale", err)
 	}
-	a1, err := b.in41(fr, args[1])
+	a1, err := hostadapt.SlotSigned[int64](s, 1, "int64")
 	if err != nil {
-		return nil, hostadapt.Param("collation.collator_new_raw", 1, "collation.collator_new_raw", "strength", err)
+		return false, hostadapt.Param("collation.collator_new_raw", 1, "collation.collator_new_raw", "strength", err)
 	}
-	a2, err := b.in54(fr, args[2])
+	a2 := bool(rt.WordBool(s.W[2]))
+	a3, err := hostadapt.SlotSigned[int64](s, 3, "int64")
 	if err != nil {
-		return nil, hostadapt.Param("collation.collator_new_raw", 2, "collation.collator_new_raw", "numeric", err)
+		return false, hostadapt.Param("collation.collator_new_raw", 3, "collation.collator_new_raw", "case_first", err)
 	}
-	a3, err := b.in41(fr, args[3])
-	if err != nil {
-		return nil, hostadapt.Param("collation.collator_new_raw", 3, "collation.collator_new_raw", "case_first", err)
-	}
-	a4, err := b.in54(fr, args[4])
-	if err != nil {
-		return nil, hostadapt.Param("collation.collator_new_raw", 4, "collation.collator_new_raw", "ignore_punctuation", err)
-	}
-	r0 := stdformat.FFICollatorNew(a0, a1, a2, a3, a4)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("collation.collator_new_raw", err)
-	}
-	return v0, nil
+	a4 := bool(rt.WordBool(s.W[4]))
+	r0 := stdformat.HostCollatorNew(a0, a1, a2, a3, a4)
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// out104 builds a Bytes from Go rt.Bytes.
-func (b *bound) out104(v rt.Bytes) (rt.Value, error) {
-	return rt.Bytes(v), nil
-}
-
-// fn103 adapts collation.collator_sort_key_raw: collator_sort_key_raw(collator: String, text: String) -> Bytes
-func (b *bound) fn103(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn140Regs is collation.collator_sort_key_raw over slots.
+func (b *bound) fn140Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("collation.collator_sort_key_raw", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("collation.collator_sort_key_raw", 2, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("collation.collator_sort_key_raw", 0, "collation.collator_sort_key_raw", "collator", err)
-	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("collation.collator_sort_key_raw", 1, "collation.collator_sort_key_raw", "text", err)
-	}
-	r0 := stdformat.FFICollatorSortKey(fr, a0, a1)
-	v0, err := b.out104(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("collation.collator_sort_key_raw", err)
-	}
-	return v0, nil
+	a0 := string(s.S[0])
+	a1 := string(s.S[1])
+	r0 := stdformat.HostCollatorSortKey(fr, a0, a1)
+	s.S[0] = string(rt.Bytes(r0))
+	return true, nil
 }
 
-// fn105 adapts currency.currency_check: currency_check(code: String, digits: Int) -> Int
-func (b *bound) fn105(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn141Regs is currency.currency_check over slots.
+func (b *bound) fn141Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("currency.currency_check", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("currency.currency_check", 2, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("currency.currency_check", 0, "currency.currency_check", "code", err)
-	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("currency.currency_check", 1, "currency.currency_check", "digits", err)
-	}
-	r0 := stdformat.FFICurrencyCheck(fr, a0, a1)
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("currency.currency_check", err)
-	}
-	return v0, nil
+	a0 := string(s.S[0])
+	a1 := s.Int(1)
+	r0 := stdformat.HostCurrencyCheck(fr, a0, a1)
+	s.SetInt64(0, int64(r0))
+	return true, nil
 }
 
-// fn106 adapts currency.currency_code_of: currency_code_of(text: String) -> String
-func (b *bound) fn106(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn142Regs is currency.currency_code_of over slots.
+func (b *bound) fn142Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("currency.currency_code_of", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("currency.currency_code_of", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("currency.currency_code_of", 0, "currency.currency_code_of", "text", err)
-	}
-	r0 := stdformat.FFICurrencyCodeOf(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("currency.currency_code_of", err)
-	}
-	return v0, nil
+	a0 := string(s.S[0])
+	r0 := stdformat.HostCurrencyCodeOf(a0)
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn107 adapts currency.currency_digits_of: currency_digits_of(text: String) -> Int
-func (b *bound) fn107(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn143Regs is currency.currency_digits_of over slots.
+func (b *bound) fn143Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("currency.currency_digits_of", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("currency.currency_digits_of", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("currency.currency_digits_of", 0, "currency.currency_digits_of", "text", err)
-	}
-	r0 := stdformat.FFICurrencyDigitsOf(fr, a0)
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("currency.currency_digits_of", err)
-	}
-	return v0, nil
+	a0 := string(s.S[0])
+	r0 := stdformat.HostCurrencyDigitsOf(fr, a0)
+	s.SetInt64(0, int64(r0))
+	return true, nil
 }
 
-// fn108 adapts decimal.decimal_format: decimal_format(locale: Locale, text: String, min_fraction: Int, max_fraction: Int, grouping: Bool) -> String
-func (b *bound) fn108(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 5 {
-		return nil, hostadapt.Arity("decimal.decimal_format", 5, len(args))
-	}
-	a0, err := b.in38(fr, args[0])
+// fn144Regs is decimal.decimal_format over slots.
+func (b *bound) fn144Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in39(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("decimal.decimal_format", 0, "decimal.decimal_format", "locale", err)
+		return false, hostadapt.Param("decimal.decimal_format", 0, "decimal.decimal_format", "locale", err)
 	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("decimal.decimal_format", 1, "decimal.decimal_format", "text", err)
-	}
-	a2, err := b.in39(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("decimal.decimal_format", 2, "decimal.decimal_format", "min_fraction", err)
-	}
-	a3, err := b.in39(fr, args[3])
-	if err != nil {
-		return nil, hostadapt.Param("decimal.decimal_format", 3, "decimal.decimal_format", "max_fraction", err)
-	}
-	a4, err := b.in54(fr, args[4])
-	if err != nil {
-		return nil, hostadapt.Param("decimal.decimal_format", 4, "decimal.decimal_format", "grouping", err)
-	}
-	r0 := stdformat.FFIFormatDecimal(fr, a0, a1, a2, a3, a4)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("decimal.decimal_format", err)
-	}
-	return v0, nil
+	a1 := string(s.S[1])
+	a2 := s.Int(2)
+	a3 := s.Int(3)
+	a4 := bool(rt.WordBool(s.W[4]))
+	r0 := stdformat.HostFormatDecimal(fr, a0, a1, a2, a3, a4)
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn109 adapts duration.duration_format_raw: duration_format_raw(locale: Locale, nanos: Int, width: Int64) -> String
-func (b *bound) fn109(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn145Regs is duration.duration_format_raw over slots.
+func (b *bound) fn145Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("duration.duration_format_raw", &err)
-	if len(args) != 3 {
-		return nil, hostadapt.Arity("duration.duration_format_raw", 3, len(args))
-	}
-	a0, err := b.in38(fr, args[0])
+	a0, err := b.in39(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("duration.duration_format_raw", 0, "duration.duration_format_raw", "locale", err)
+		return false, hostadapt.Param("duration.duration_format_raw", 0, "duration.duration_format_raw", "locale", err)
 	}
-	a1, err := b.in39(fr, args[1])
+	a1 := s.Int(1)
+	a2, err := hostadapt.SlotSigned[int64](s, 2, "int64")
 	if err != nil {
-		return nil, hostadapt.Param("duration.duration_format_raw", 1, "duration.duration_format_raw", "nanos", err)
+		return false, hostadapt.Param("duration.duration_format_raw", 2, "duration.duration_format_raw", "width", err)
 	}
-	a2, err := b.in41(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("duration.duration_format_raw", 2, "duration.duration_format_raw", "width", err)
-	}
-	r0 := stdformat.FFIFormatDuration(fr, a0, a1, a2)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("duration.duration_format_raw", err)
-	}
-	return v0, nil
+	r0 := stdformat.HostFormatDuration(fr, a0, a1, a2)
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn110 adapts decimal.decimal_format_percent: decimal_format_percent(locale: Locale, text: String, min_fraction: Int, max_fraction: Int) -> String
-func (b *bound) fn110(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 4 {
-		return nil, hostadapt.Arity("decimal.decimal_format_percent", 4, len(args))
-	}
-	a0, err := b.in38(fr, args[0])
+// fn146Regs is decimal.decimal_format_percent over slots.
+func (b *bound) fn146Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in39(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("decimal.decimal_format_percent", 0, "decimal.decimal_format_percent", "locale", err)
+		return false, hostadapt.Param("decimal.decimal_format_percent", 0, "decimal.decimal_format_percent", "locale", err)
 	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("decimal.decimal_format_percent", 1, "decimal.decimal_format_percent", "text", err)
-	}
-	a2, err := b.in39(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("decimal.decimal_format_percent", 2, "decimal.decimal_format_percent", "min_fraction", err)
-	}
-	a3, err := b.in39(fr, args[3])
-	if err != nil {
-		return nil, hostadapt.Param("decimal.decimal_format_percent", 3, "decimal.decimal_format_percent", "max_fraction", err)
-	}
-	r0 := stdformat.FFIFormatDecimalPercent(fr, a0, a1, a2, a3)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("decimal.decimal_format_percent", err)
-	}
-	return v0, nil
+	a1 := string(s.S[1])
+	a2 := s.Int(2)
+	a3 := s.Int(3)
+	r0 := stdformat.HostFormatDecimalPercent(fr, a0, a1, a2, a3)
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// out114 builds a Currency from Go rt.Currency.
-func (b *bound) out114(v rt.Currency) (rt.Value, error) {
-	r := b.d13.New()
+// out150 builds a Currency from Go rt.Currency.
+func (b *bound) out150(v rt.Currency) (rt.Value, error) {
+	r := b.d14.New()
 	r.S[0] = string(v)
 	return r, nil
 }
 
-// out113 builds a NumberParseError from Go rt.NumberParseError.
-func (b *bound) out113(v rt.NumberParseError) (rt.Value, error) {
+// out149 builds a NumberParseError from Go rt.NumberParseError.
+func (b *bound) out149(v rt.NumberParseError) (rt.Value, error) {
 	switch v.Tag {
 	case 1:
-		return b.d12.NewVariant(0), nil
+		return b.d13.NewVariant(0), nil
 	case 2:
-		r := b.d12.NewVariant(1)
+		r := b.d13.NewVariant(1)
 		r.SetIntSlot(0, rt.Value(int64(v.At)))
 		r.S[0] = string(v.Text)
 		return r, nil
 	case 3:
-		r := b.d12.NewVariant(2)
+		r := b.d13.NewVariant(2)
 		r.SetIntSlot(0, rt.Value(int64(v.At)))
 		return r, nil
 	case 4:
-		return b.d12.NewVariant(3), nil
+		return b.d13.NewVariant(3), nil
 	case 5:
-		r := b.d12.NewVariant(4)
+		r := b.d13.NewVariant(4)
 		r.SetIntSlot(0, rt.Value(int64(v.Max)))
 		return r, nil
 	case 6:
-		r := b.d12.NewVariant(5)
-		w115, err := b.out114(v.Expected)
+		r := b.d13.NewVariant(5)
+		w151, err := b.out150(v.Expected)
 		if err != nil {
 			return nil, fmt.Errorf("WrongCurrency.expected: %w", err)
 		}
-		r.R[0] = w115
+		r.R[0] = w151
 		r.S[0] = string(v.Found)
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.NumberParseError carries tag %d, which names no variant of localize.NumberParseError", v.Tag)
 }
 
-// out112 builds a Result<String, NumberParseError> from Go rt.Result[string, rt.NumberParseError].
-func (b *bound) out112(v rt.Result[string, rt.NumberParseError]) (rt.Value, error) {
+// out148 builds a Result<String, NumberParseError> from Go rt.Result[string, rt.NumberParseError].
+func (b *bound) out148(v rt.Result[string, rt.NumberParseError]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
-		r := b.d11.NewVariant(0)
+		r := b.d12.NewVariant(0)
 		r.S[0] = string(v.Ok)
 		return r, nil
 	case rt.TagErr:
-		r := b.d11.NewVariant(1)
-		w116, err := b.out113(v.Err)
+		r := b.d12.NewVariant(1)
+		w152, err := b.out149(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w116
+		r.R[0] = w152
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn111 adapts decimal.decimal_parse_in: decimal_parse_in(text: String, locale: Locale, lenient: Bool) -> Result<String, NumberParseError>
-func (b *bound) fn111(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn147Regs is decimal.decimal_parse_in over slots.
+func (b *bound) fn147Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("decimal.decimal_parse_in", &err)
-	if len(args) != 3 {
-		return nil, hostadapt.Arity("decimal.decimal_parse_in", 3, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
+	a0 := string(s.S[0])
+	a1, err := b.in39(fr, s.R[1])
 	if err != nil {
-		return nil, hostadapt.Param("decimal.decimal_parse_in", 0, "decimal.decimal_parse_in", "text", err)
+		return false, hostadapt.Param("decimal.decimal_parse_in", 1, "decimal.decimal_parse_in", "locale", err)
 	}
-	a1, err := b.in38(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("decimal.decimal_parse_in", 1, "decimal.decimal_parse_in", "locale", err)
-	}
-	a2, err := b.in54(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("decimal.decimal_parse_in", 2, "decimal.decimal_parse_in", "lenient", err)
-	}
-	r0 := stdformat.FFIParseDecimal(fr, a0, a1, a2)
-	v0, err := b.out112(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("decimal.decimal_parse_in", err)
-	}
-	return v0, nil
-}
-
-// fn111Parts is decimal.decimal_parse_in taken apart: the payload and true, or the record and false.
-func (b *bound) fn111Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	defer hostadapt.Recover("decimal.decimal_parse_in", &err)
-	if len(args) != 3 {
-		return nil, false, hostadapt.Arity("decimal.decimal_parse_in", 3, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("decimal.decimal_parse_in", 0, "decimal.decimal_parse_in", "text", err)
-	}
-	a1, err := b.in38(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("decimal.decimal_parse_in", 1, "decimal.decimal_parse_in", "locale", err)
-	}
-	a2, err := b.in54(fr, args[2])
-	if err != nil {
-		return nil, false, hostadapt.Param("decimal.decimal_parse_in", 2, "decimal.decimal_parse_in", "lenient", err)
-	}
-	r0 := stdformat.FFIParseDecimal(fr, a0, a1, a2)
+	a2 := bool(rt.WordBool(s.W[2]))
+	r0 := stdformat.HostParseDecimal(fr, a0, a1, a2)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out112(r0)
+		rec, err := b.out148(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("decimal.decimal_parse_in", err)
+			return false, hostadapt.Returned("decimal.decimal_parse_in", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out5(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("decimal.decimal_parse_in", err)
-	}
-	return v, true, nil
+	s.S[0] = string(r0.Ok)
+	return true, nil
 }
 
-// fn117 adapts decimal.decimal_parse_percent_in: decimal_parse_percent_in(text: String, locale: Locale, lenient: Bool) -> Result<String, NumberParseError>
-func (b *bound) fn117(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn153Regs is decimal.decimal_parse_percent_in over slots.
+func (b *bound) fn153Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("decimal.decimal_parse_percent_in", &err)
-	if len(args) != 3 {
-		return nil, hostadapt.Arity("decimal.decimal_parse_percent_in", 3, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
+	a0 := string(s.S[0])
+	a1, err := b.in39(fr, s.R[1])
 	if err != nil {
-		return nil, hostadapt.Param("decimal.decimal_parse_percent_in", 0, "decimal.decimal_parse_percent_in", "text", err)
+		return false, hostadapt.Param("decimal.decimal_parse_percent_in", 1, "decimal.decimal_parse_percent_in", "locale", err)
 	}
-	a1, err := b.in38(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("decimal.decimal_parse_percent_in", 1, "decimal.decimal_parse_percent_in", "locale", err)
-	}
-	a2, err := b.in54(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("decimal.decimal_parse_percent_in", 2, "decimal.decimal_parse_percent_in", "lenient", err)
-	}
-	r0 := stdformat.FFIParseDecimalPercent(fr, a0, a1, a2)
-	v0, err := b.out112(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("decimal.decimal_parse_percent_in", err)
-	}
-	return v0, nil
-}
-
-// fn117Parts is decimal.decimal_parse_percent_in taken apart: the payload and true, or the record and false.
-func (b *bound) fn117Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	defer hostadapt.Recover("decimal.decimal_parse_percent_in", &err)
-	if len(args) != 3 {
-		return nil, false, hostadapt.Arity("decimal.decimal_parse_percent_in", 3, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("decimal.decimal_parse_percent_in", 0, "decimal.decimal_parse_percent_in", "text", err)
-	}
-	a1, err := b.in38(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("decimal.decimal_parse_percent_in", 1, "decimal.decimal_parse_percent_in", "locale", err)
-	}
-	a2, err := b.in54(fr, args[2])
-	if err != nil {
-		return nil, false, hostadapt.Param("decimal.decimal_parse_percent_in", 2, "decimal.decimal_parse_percent_in", "lenient", err)
-	}
-	r0 := stdformat.FFIParseDecimalPercent(fr, a0, a1, a2)
+	a2 := bool(rt.WordBool(s.W[2]))
+	r0 := stdformat.HostParseDecimalPercent(fr, a0, a1, a2)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out112(r0)
+		rec, err := b.out148(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("decimal.decimal_parse_percent_in", err)
+			return false, hostadapt.Returned("decimal.decimal_parse_percent_in", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out5(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("decimal.decimal_parse_percent_in", err)
-	}
-	return v, true, nil
+	s.S[0] = string(r0.Ok)
+	return true, nil
 }
 
-// in119 reads a Float as Go float64.
-func (b *bound) in119(fr *rt.Frame, v rt.Value) (out float64, err error) {
-	x, ok := v.(float64)
-	if !ok {
-		return out, hostadapt.Want("Float", v)
+// fn154Regs is float.float_format over slots.
+func (b *bound) fn154Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in39(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("float.float_format", 0, "float.float_format", "locale", err)
 	}
-	return float64(x), nil
+	a1 := float64(rt.WordFloat(s.W[1]))
+	a2 := s.Int(2)
+	a3 := s.Int(3)
+	a4 := bool(rt.WordBool(s.W[4]))
+	r0 := stdformat.HostFormatFloat(fr, a0, a1, a2, a3, a4)
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn118 adapts float.float_format: float_format(locale: Locale, f: Float, min_fraction: Int, max_fraction: Int, grouping: Bool) -> String
-func (b *bound) fn118(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 5 {
-		return nil, hostadapt.Arity("float.float_format", 5, len(args))
-	}
-	a0, err := b.in38(fr, args[0])
+// fn155Regs is float.float_format_percent over slots.
+func (b *bound) fn155Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in39(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("float.float_format", 0, "float.float_format", "locale", err)
+		return false, hostadapt.Param("float.float_format_percent", 0, "float.float_format_percent", "locale", err)
 	}
-	a1, err := b.in119(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("float.float_format", 1, "float.float_format", "f", err)
-	}
-	a2, err := b.in39(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("float.float_format", 2, "float.float_format", "min_fraction", err)
-	}
-	a3, err := b.in39(fr, args[3])
-	if err != nil {
-		return nil, hostadapt.Param("float.float_format", 3, "float.float_format", "max_fraction", err)
-	}
-	a4, err := b.in54(fr, args[4])
-	if err != nil {
-		return nil, hostadapt.Param("float.float_format", 4, "float.float_format", "grouping", err)
-	}
-	r0 := stdformat.FFIFormatFloat(fr, a0, a1, a2, a3, a4)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("float.float_format", err)
-	}
-	return v0, nil
+	a1 := float64(rt.WordFloat(s.W[1]))
+	a2 := s.Int(2)
+	r0 := stdformat.HostFormatFloatPercent(fr, a0, a1, a2)
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn120 adapts float.float_format_percent: float_format_percent(locale: Locale, f: Float, max_fraction: Int) -> String
-func (b *bound) fn120(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 3 {
-		return nil, hostadapt.Arity("float.float_format_percent", 3, len(args))
-	}
-	a0, err := b.in38(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("float.float_format_percent", 0, "float.float_format_percent", "locale", err)
-	}
-	a1, err := b.in119(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("float.float_format_percent", 1, "float.float_format_percent", "f", err)
-	}
-	a2, err := b.in39(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("float.float_format_percent", 2, "float.float_format_percent", "max_fraction", err)
-	}
-	r0 := stdformat.FFIFormatFloatPercent(fr, a0, a1, a2)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("float.float_format_percent", err)
-	}
-	return v0, nil
-}
-
-// out122 builds a Result<Float, NumberParseError> from Go rt.Result[float64, rt.NumberParseError].
-func (b *bound) out122(v rt.Result[float64, rt.NumberParseError]) (rt.Value, error) {
-	switch v.Tag {
-	case rt.TagOk:
-		r := b.d14.NewVariant(0)
-		r.W[0] = rt.FloatWord(float64(v.Ok))
-		return r, nil
-	case rt.TagErr:
-		r := b.d14.NewVariant(1)
-		w123, err := b.out113(v.Err)
-		if err != nil {
-			return nil, fmt.Errorf("Err: %w", err)
-		}
-		r.R[0] = w123
-		return r, nil
-	}
-	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
-}
-
-// fn121 adapts float.float_parse_in: float_parse_in(text: String, locale: Locale, lenient: Bool) -> Result<Float, NumberParseError>
-func (b *bound) fn121(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("float.float_parse_in", &err)
-	if len(args) != 3 {
-		return nil, hostadapt.Arity("float.float_parse_in", 3, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("float.float_parse_in", 0, "float.float_parse_in", "text", err)
-	}
-	a1, err := b.in38(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("float.float_parse_in", 1, "float.float_parse_in", "locale", err)
-	}
-	a2, err := b.in54(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("float.float_parse_in", 2, "float.float_parse_in", "lenient", err)
-	}
-	r0 := stdformat.FFIParseFloat(fr, a0, a1, a2)
-	v0, err := b.out122(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("float.float_parse_in", err)
-	}
-	return v0, nil
-}
-
-// out124 builds a Float from Go float64.
-func (b *bound) out124(v float64) (rt.Value, error) {
-	return float64(v), nil
-}
-
-// fn121Parts is float.float_parse_in taken apart: the payload and true, or the record and false.
-func (b *bound) fn121Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	defer hostadapt.Recover("float.float_parse_in", &err)
-	if len(args) != 3 {
-		return nil, false, hostadapt.Arity("float.float_parse_in", 3, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("float.float_parse_in", 0, "float.float_parse_in", "text", err)
-	}
-	a1, err := b.in38(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("float.float_parse_in", 1, "float.float_parse_in", "locale", err)
-	}
-	a2, err := b.in54(fr, args[2])
-	if err != nil {
-		return nil, false, hostadapt.Param("float.float_parse_in", 2, "float.float_parse_in", "lenient", err)
-	}
-	r0 := stdformat.FFIParseFloat(fr, a0, a1, a2)
-	if r0.Tag != rt.TagOk {
-		rec, err := b.out122(r0)
-		if err != nil {
-			return nil, false, hostadapt.Returned("float.float_parse_in", err)
-		}
-		return rec, false, nil
-	}
-	v, err := b.out124(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("float.float_parse_in", err)
-	}
-	return v, true, nil
-}
-
-// fn125 adapts float.float_parse_percent_in: float_parse_percent_in(text: String, locale: Locale, lenient: Bool) -> Result<Float, NumberParseError>
-func (b *bound) fn125(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("float.float_parse_percent_in", &err)
-	if len(args) != 3 {
-		return nil, hostadapt.Arity("float.float_parse_percent_in", 3, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("float.float_parse_percent_in", 0, "float.float_parse_percent_in", "text", err)
-	}
-	a1, err := b.in38(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("float.float_parse_percent_in", 1, "float.float_parse_percent_in", "locale", err)
-	}
-	a2, err := b.in54(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("float.float_parse_percent_in", 2, "float.float_parse_percent_in", "lenient", err)
-	}
-	r0 := stdformat.FFIParseFloatPercent(fr, a0, a1, a2)
-	v0, err := b.out122(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("float.float_parse_percent_in", err)
-	}
-	return v0, nil
-}
-
-// fn125Parts is float.float_parse_percent_in taken apart: the payload and true, or the record and false.
-func (b *bound) fn125Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	defer hostadapt.Recover("float.float_parse_percent_in", &err)
-	if len(args) != 3 {
-		return nil, false, hostadapt.Arity("float.float_parse_percent_in", 3, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("float.float_parse_percent_in", 0, "float.float_parse_percent_in", "text", err)
-	}
-	a1, err := b.in38(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("float.float_parse_percent_in", 1, "float.float_parse_percent_in", "locale", err)
-	}
-	a2, err := b.in54(fr, args[2])
-	if err != nil {
-		return nil, false, hostadapt.Param("float.float_parse_percent_in", 2, "float.float_parse_percent_in", "lenient", err)
-	}
-	r0 := stdformat.FFIParseFloatPercent(fr, a0, a1, a2)
-	if r0.Tag != rt.TagOk {
-		rec, err := b.out122(r0)
-		if err != nil {
-			return nil, false, hostadapt.Returned("float.float_parse_percent_in", err)
-		}
-		return rec, false, nil
-	}
-	v, err := b.out124(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("float.float_parse_percent_in", err)
-	}
-	return v, true, nil
-}
-
-// fn126 adapts int.int_format: int_format(locale: Locale, n: Int, grouping: Bool, min_digits: Int) -> String
-func (b *bound) fn126(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 4 {
-		return nil, hostadapt.Arity("int.int_format", 4, len(args))
-	}
-	a0, err := b.in38(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("int.int_format", 0, "int.int_format", "locale", err)
-	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("int.int_format", 1, "int.int_format", "n", err)
-	}
-	a2, err := b.in54(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("int.int_format", 2, "int.int_format", "grouping", err)
-	}
-	a3, err := b.in39(fr, args[3])
-	if err != nil {
-		return nil, hostadapt.Param("int.int_format", 3, "int.int_format", "min_digits", err)
-	}
-	r0 := stdformat.FFIFormatInt(fr, a0, a1, a2, a3)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("int.int_format", err)
-	}
-	return v0, nil
-}
-
-// out128 builds a Result<Int, NumberParseError> from Go rt.Result[rt.Int, rt.NumberParseError].
-func (b *bound) out128(v rt.Result[rt.Int, rt.NumberParseError]) (rt.Value, error) {
+// out157 builds a Result<Float, NumberParseError> from Go rt.Result[float64, rt.NumberParseError].
+func (b *bound) out157(v rt.Result[float64, rt.NumberParseError]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
 		r := b.d15.NewVariant(0)
-		r.SetIntSlot(0, v.Ok.Value())
+		r.W[0] = rt.FloatWord(float64(v.Ok))
 		return r, nil
 	case rt.TagErr:
 		r := b.d15.NewVariant(1)
-		w129, err := b.out113(v.Err)
+		w158, err := b.out149(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w129
+		r.R[0] = w158
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn127 adapts int.int_parse_in: int_parse_in(text: String, locale: Locale, lenient: Bool) -> Result<Int, NumberParseError>
-func (b *bound) fn127(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("int.int_parse_in", &err)
-	if len(args) != 3 {
-		return nil, hostadapt.Arity("int.int_parse_in", 3, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
+// fn156Regs is float.float_parse_in over slots.
+func (b *bound) fn156Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	defer hostadapt.Recover("float.float_parse_in", &err)
+	a0 := string(s.S[0])
+	a1, err := b.in39(fr, s.R[1])
 	if err != nil {
-		return nil, hostadapt.Param("int.int_parse_in", 0, "int.int_parse_in", "text", err)
+		return false, hostadapt.Param("float.float_parse_in", 1, "float.float_parse_in", "locale", err)
 	}
-	a1, err := b.in38(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("int.int_parse_in", 1, "int.int_parse_in", "locale", err)
-	}
-	a2, err := b.in54(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("int.int_parse_in", 2, "int.int_parse_in", "lenient", err)
-	}
-	r0 := stdformat.FFIParseInt(fr, a0, a1, a2)
-	v0, err := b.out128(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("int.int_parse_in", err)
-	}
-	return v0, nil
-}
-
-// fn127Parts is int.int_parse_in taken apart: the payload and true, or the record and false.
-func (b *bound) fn127Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	defer hostadapt.Recover("int.int_parse_in", &err)
-	if len(args) != 3 {
-		return nil, false, hostadapt.Arity("int.int_parse_in", 3, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("int.int_parse_in", 0, "int.int_parse_in", "text", err)
-	}
-	a1, err := b.in38(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("int.int_parse_in", 1, "int.int_parse_in", "locale", err)
-	}
-	a2, err := b.in54(fr, args[2])
-	if err != nil {
-		return nil, false, hostadapt.Param("int.int_parse_in", 2, "int.int_parse_in", "lenient", err)
-	}
-	r0 := stdformat.FFIParseInt(fr, a0, a1, a2)
+	a2 := bool(rt.WordBool(s.W[2]))
+	r0 := stdformat.HostParseFloat(fr, a0, a1, a2)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out128(r0)
+		rec, err := b.out157(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("int.int_parse_in", err)
+			return false, hostadapt.Returned("float.float_parse_in", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out3(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("int.int_parse_in", err)
-	}
-	return v, true, nil
+	s.W[0] = rt.FloatWord(float64(r0.Ok))
+	return true, nil
 }
 
-// out131 builds a List<String> from Go []string.
-func (b *bound) out131(v []string) (rt.Value, error) {
+// fn159Regs is float.float_parse_percent_in over slots.
+func (b *bound) fn159Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	defer hostadapt.Recover("float.float_parse_percent_in", &err)
+	a0 := string(s.S[0])
+	a1, err := b.in39(fr, s.R[1])
+	if err != nil {
+		return false, hostadapt.Param("float.float_parse_percent_in", 1, "float.float_parse_percent_in", "locale", err)
+	}
+	a2 := bool(rt.WordBool(s.W[2]))
+	r0 := stdformat.HostParseFloatPercent(fr, a0, a1, a2)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out157(r0)
+		if err != nil {
+			return false, hostadapt.Returned("float.float_parse_percent_in", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.W[0] = rt.FloatWord(float64(r0.Ok))
+	return true, nil
+}
+
+// fn160Regs is int.int_format over slots.
+func (b *bound) fn160Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in39(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("int.int_format", 0, "int.int_format", "locale", err)
+	}
+	a1 := s.Int(1)
+	a2 := bool(rt.WordBool(s.W[2]))
+	a3 := s.Int(3)
+	r0 := stdformat.HostFormatInt(fr, a0, a1, a2, a3)
+	s.S[0] = string(r0)
+	return true, nil
+}
+
+// out162 builds a Result<Int, NumberParseError> from Go rt.Result[rt.Int, rt.NumberParseError].
+func (b *bound) out162(v rt.Result[rt.Int, rt.NumberParseError]) (rt.Value, error) {
+	switch v.Tag {
+	case rt.TagOk:
+		r := b.d16.NewVariant(0)
+		r.SetIntSlot(0, v.Ok.Value())
+		return r, nil
+	case rt.TagErr:
+		r := b.d16.NewVariant(1)
+		w163, err := b.out149(v.Err)
+		if err != nil {
+			return nil, fmt.Errorf("Err: %w", err)
+		}
+		r.R[0] = w163
+		return r, nil
+	}
+	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
+}
+
+// fn161Regs is int.int_parse_in over slots.
+func (b *bound) fn161Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	defer hostadapt.Recover("int.int_parse_in", &err)
+	a0 := string(s.S[0])
+	a1, err := b.in39(fr, s.R[1])
+	if err != nil {
+		return false, hostadapt.Param("int.int_parse_in", 1, "int.int_parse_in", "locale", err)
+	}
+	a2 := bool(rt.WordBool(s.W[2]))
+	r0 := stdformat.HostParseInt(fr, a0, a1, a2)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out162(r0)
+		if err != nil {
+			return false, hostadapt.Returned("int.int_parse_in", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.SetInt(0, r0.Ok)
+	return true, nil
+}
+
+// out166 builds a String from Go string.
+func (b *bound) out166(v string) (rt.Value, error) {
+	return string(v), nil
+}
+
+// out165 builds a List<String> from Go []string.
+func (b *bound) out165(v []string) (rt.Value, error) {
 	var xs *rt.List[any]
 	for i := len(v) - 1; i >= 0; i-- {
-		x, err := b.out5(v[i])
+		x, err := b.out166(v[i])
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -4296,54 +3539,50 @@ func (b *bound) out131(v []string) (rt.Value, error) {
 	return xs, nil
 }
 
-// fn130 adapts locale.locale_available: locale_available() -> List<String>
-func (b *bound) fn130(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn164Regs is locale.locale_available over slots.
+func (b *bound) fn164Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("locale.locale_available", &err)
-	if len(args) != 0 {
-		return nil, hostadapt.Arity("locale.locale_available", 0, len(args))
-	}
-	r0 := stdlocale.FFIAvailable(fr)
-	v0, err := b.out131(r0)
+	r0 := stdlocale.HostAvailable(fr)
+	w167, err := b.out165(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("locale.locale_available", err)
+		return false, hostadapt.Returned("locale.locale_available", err)
 	}
-	return v0, nil
+	s.R[0] = w167
+	return true, nil
 }
 
-// fn132 adapts locale.locale_load_raw: locale_load_raw(tag: String) -> String
-func (b *bound) fn132(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn168Regs is locale.locale_load_raw over slots.
+func (b *bound) fn168Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("locale.locale_load_raw", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("locale.locale_load_raw", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("locale.locale_load_raw", 0, "locale.locale_load_raw", "tag", err)
-	}
-	r0 := stdlocale.FFILoad(fr, a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("locale.locale_load_raw", err)
-	}
-	return v0, nil
+	a0 := string(s.S[0])
+	r0 := stdlocale.HostLoad(fr, a0)
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn133 adapts locale.locale_loaded_raw: locale_loaded_raw() -> List<String>
-func (b *bound) fn133(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn169Regs is locale.locale_loaded_raw over slots.
+func (b *bound) fn169Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("locale.locale_loaded_raw", &err)
-	if len(args) != 0 {
-		return nil, hostadapt.Arity("locale.locale_loaded_raw", 0, len(args))
-	}
-	r0 := stdlocale.FFILoaded(fr)
-	v0, err := b.out131(r0)
+	r0 := stdlocale.HostLoaded(fr)
+	w170, err := b.out165(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("locale.locale_loaded_raw", err)
+		return false, hostadapt.Returned("locale.locale_loaded_raw", err)
 	}
-	return v0, nil
+	s.R[0] = w170
+	return true, nil
 }
 
-// in135 reads a List<String> as Go []string.
-func (b *bound) in135(fr *rt.Frame, v rt.Value) (out []string, err error) {
+// in173 reads a String as Go string.
+func (b *bound) in173(fr *rt.Frame, v rt.Value) (out string, err error) {
+	x, ok := v.(string)
+	if !ok {
+		return out, hostadapt.Want("String", v)
+	}
+	return string(x), nil
+}
+
+// in172 reads a List<String> as Go []string.
+func (b *bound) in172(fr *rt.Frame, v rt.Value) (out []string, err error) {
 	xs, err := hostadapt.List(v)
 	if err != nil {
 		return out, err
@@ -4351,7 +3590,7 @@ func (b *bound) in135(fr *rt.Frame, v rt.Value) (out []string, err error) {
 	out = make([]string, 0, hostadapt.Len(xs))
 	i := 0
 	for c := xs; c != nil; c = c.Tail {
-		e, err := b.in42(fr, c.Head)
+		e, err := b.in173(fr, c.Head)
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -4361,437 +3600,236 @@ func (b *bound) in135(fr *rt.Frame, v rt.Value) (out []string, err error) {
 	return out, nil
 }
 
-// fn134 adapts phrase/format.format_raw: format_raw(table: String, locale: Locale, catalogs: List<String>, kinds: List<Int64>, numbers: List<String>, keys: List<String>, texts: List<String>) -> String
-func (b *bound) fn134(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 7 {
-		return nil, hostadapt.Arity("phrase/format.format_raw", 7, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
+// fn171Regs is phrase/format.format_raw over slots.
+func (b *bound) fn171Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
+	a1, err := b.in39(fr, s.R[1])
 	if err != nil {
-		return nil, hostadapt.Param("phrase/format.format_raw", 0, "phrase/format.format_raw", "table", err)
+		return false, hostadapt.Param("phrase/format.format_raw", 1, "phrase/format.format_raw", "locale", err)
 	}
-	a1, err := b.in38(fr, args[1])
+	a2, err := b.in172(fr, s.R[2])
 	if err != nil {
-		return nil, hostadapt.Param("phrase/format.format_raw", 1, "phrase/format.format_raw", "locale", err)
+		return false, hostadapt.Param("phrase/format.format_raw", 2, "phrase/format.format_raw", "catalogs", err)
 	}
-	a2, err := b.in135(fr, args[2])
+	a3, err := b.in40(fr, s.R[3])
 	if err != nil {
-		return nil, hostadapt.Param("phrase/format.format_raw", 2, "phrase/format.format_raw", "catalogs", err)
+		return false, hostadapt.Param("phrase/format.format_raw", 3, "phrase/format.format_raw", "kinds", err)
 	}
-	a3, err := b.in40(fr, args[3])
+	a4, err := b.in172(fr, s.R[4])
 	if err != nil {
-		return nil, hostadapt.Param("phrase/format.format_raw", 3, "phrase/format.format_raw", "kinds", err)
+		return false, hostadapt.Param("phrase/format.format_raw", 4, "phrase/format.format_raw", "numbers", err)
 	}
-	a4, err := b.in135(fr, args[4])
+	a5, err := b.in172(fr, s.R[5])
 	if err != nil {
-		return nil, hostadapt.Param("phrase/format.format_raw", 4, "phrase/format.format_raw", "numbers", err)
+		return false, hostadapt.Param("phrase/format.format_raw", 5, "phrase/format.format_raw", "keys", err)
 	}
-	a5, err := b.in135(fr, args[5])
+	a6, err := b.in172(fr, s.R[6])
 	if err != nil {
-		return nil, hostadapt.Param("phrase/format.format_raw", 5, "phrase/format.format_raw", "keys", err)
+		return false, hostadapt.Param("phrase/format.format_raw", 6, "phrase/format.format_raw", "texts", err)
 	}
-	a6, err := b.in135(fr, args[6])
-	if err != nil {
-		return nil, hostadapt.Param("phrase/format.format_raw", 6, "phrase/format.format_raw", "texts", err)
-	}
-	r0 := stdphraseformat.FFIFormat(fr, a0, a1, a2, a3, a4, a5, a6)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("phrase/format.format_raw", err)
-	}
-	return v0, nil
+	r0 := stdphraseformat.HostFormat(fr, a0, a1, a2, a3, a4, a5, a6)
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn136 adapts phrase/format.load_raw: load_raw(text: String, locale: Locale) -> List<String>
-func (b *bound) fn136(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn174Regs is phrase/format.load_raw over slots.
+func (b *bound) fn174Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("phrase/format.load_raw", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("phrase/format.load_raw", 2, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
+	a0 := string(s.S[0])
+	a1, err := b.in39(fr, s.R[1])
 	if err != nil {
-		return nil, hostadapt.Param("phrase/format.load_raw", 0, "phrase/format.load_raw", "text", err)
+		return false, hostadapt.Param("phrase/format.load_raw", 1, "phrase/format.load_raw", "locale", err)
 	}
-	a1, err := b.in38(fr, args[1])
+	r0 := stdphraseformat.HostLoad(fr, a0, a1)
+	w175, err := b.out165(r0)
 	if err != nil {
-		return nil, hostadapt.Param("phrase/format.load_raw", 1, "phrase/format.load_raw", "locale", err)
+		return false, hostadapt.Returned("phrase/format.load_raw", err)
 	}
-	r0 := stdphraseformat.FFILoad(fr, a0, a1)
-	v0, err := b.out131(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("phrase/format.load_raw", err)
-	}
-	return v0, nil
+	s.R[0] = w175
+	return true, nil
 }
 
-// fn137 adapts phrase/format.noun_raw: noun_raw(table: String, locale: Locale) -> String
-func (b *bound) fn137(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("phrase/format.noun_raw", 2, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
+// fn176Regs is phrase/format.noun_raw over slots.
+func (b *bound) fn176Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
+	a1, err := b.in39(fr, s.R[1])
 	if err != nil {
-		return nil, hostadapt.Param("phrase/format.noun_raw", 0, "phrase/format.noun_raw", "table", err)
+		return false, hostadapt.Param("phrase/format.noun_raw", 1, "phrase/format.noun_raw", "locale", err)
 	}
-	a1, err := b.in38(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("phrase/format.noun_raw", 1, "phrase/format.noun_raw", "locale", err)
-	}
-	r0 := stdphraseformat.FFINoun(fr, a0, a1)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("phrase/format.noun_raw", err)
-	}
-	return v0, nil
+	r0 := stdphraseformat.HostNoun(fr, a0, a1)
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn138 adapts money/format.money_format_raw: money_format_raw(locale: Locale, amount: String, code: String, digits: Int, iso: Bool, display: Int64, accounting: Bool) -> String
-func (b *bound) fn138(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn177Regs is money/format.money_format_raw over slots.
+func (b *bound) fn177Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("money/format.money_format_raw", &err)
-	if len(args) != 7 {
-		return nil, hostadapt.Arity("money/format.money_format_raw", 7, len(args))
-	}
-	a0, err := b.in38(fr, args[0])
+	a0, err := b.in39(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("money/format.money_format_raw", 0, "money/format.money_format_raw", "locale", err)
+		return false, hostadapt.Param("money/format.money_format_raw", 0, "money/format.money_format_raw", "locale", err)
 	}
-	a1, err := b.in42(fr, args[1])
+	a1 := string(s.S[1])
+	a2 := string(s.S[2])
+	a3 := s.Int(3)
+	a4 := bool(rt.WordBool(s.W[4]))
+	a5, err := hostadapt.SlotSigned[int64](s, 5, "int64")
 	if err != nil {
-		return nil, hostadapt.Param("money/format.money_format_raw", 1, "money/format.money_format_raw", "amount", err)
+		return false, hostadapt.Param("money/format.money_format_raw", 5, "money/format.money_format_raw", "display", err)
 	}
-	a2, err := b.in42(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("money/format.money_format_raw", 2, "money/format.money_format_raw", "code", err)
-	}
-	a3, err := b.in39(fr, args[3])
-	if err != nil {
-		return nil, hostadapt.Param("money/format.money_format_raw", 3, "money/format.money_format_raw", "digits", err)
-	}
-	a4, err := b.in54(fr, args[4])
-	if err != nil {
-		return nil, hostadapt.Param("money/format.money_format_raw", 4, "money/format.money_format_raw", "iso", err)
-	}
-	a5, err := b.in41(fr, args[5])
-	if err != nil {
-		return nil, hostadapt.Param("money/format.money_format_raw", 5, "money/format.money_format_raw", "display", err)
-	}
-	a6, err := b.in54(fr, args[6])
-	if err != nil {
-		return nil, hostadapt.Param("money/format.money_format_raw", 6, "money/format.money_format_raw", "accounting", err)
-	}
-	r0 := stdformat.FFIFormatMoney(fr, a0, a1, a2, a3, a4, a5, a6)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("money/format.money_format_raw", err)
-	}
-	return v0, nil
+	a6 := bool(rt.WordBool(s.W[6]))
+	r0 := stdformat.HostFormatMoney(fr, a0, a1, a2, a3, a4, a5, a6)
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn139 adapts money/format.money_parse_raw: money_parse_raw(text: String, locale: Locale, code: String, digits: Int, iso: Bool, lenient: Bool) -> Result<String, NumberParseError>
-func (b *bound) fn139(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn178Regs is money/format.money_parse_raw over slots.
+func (b *bound) fn178Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("money/format.money_parse_raw", &err)
-	if len(args) != 6 {
-		return nil, hostadapt.Arity("money/format.money_parse_raw", 6, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
+	a0 := string(s.S[0])
+	a1, err := b.in39(fr, s.R[1])
 	if err != nil {
-		return nil, hostadapt.Param("money/format.money_parse_raw", 0, "money/format.money_parse_raw", "text", err)
+		return false, hostadapt.Param("money/format.money_parse_raw", 1, "money/format.money_parse_raw", "locale", err)
 	}
-	a1, err := b.in38(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("money/format.money_parse_raw", 1, "money/format.money_parse_raw", "locale", err)
-	}
-	a2, err := b.in42(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("money/format.money_parse_raw", 2, "money/format.money_parse_raw", "code", err)
-	}
-	a3, err := b.in39(fr, args[3])
-	if err != nil {
-		return nil, hostadapt.Param("money/format.money_parse_raw", 3, "money/format.money_parse_raw", "digits", err)
-	}
-	a4, err := b.in54(fr, args[4])
-	if err != nil {
-		return nil, hostadapt.Param("money/format.money_parse_raw", 4, "money/format.money_parse_raw", "iso", err)
-	}
-	a5, err := b.in54(fr, args[5])
-	if err != nil {
-		return nil, hostadapt.Param("money/format.money_parse_raw", 5, "money/format.money_parse_raw", "lenient", err)
-	}
-	r0 := stdformat.FFIParseMoney(fr, a0, a1, a2, a3, a4, a5)
-	v0, err := b.out112(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("money/format.money_parse_raw", err)
-	}
-	return v0, nil
-}
-
-// fn139Parts is money/format.money_parse_raw taken apart: the payload and true, or the record and false.
-func (b *bound) fn139Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	defer hostadapt.Recover("money/format.money_parse_raw", &err)
-	if len(args) != 6 {
-		return nil, false, hostadapt.Arity("money/format.money_parse_raw", 6, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("money/format.money_parse_raw", 0, "money/format.money_parse_raw", "text", err)
-	}
-	a1, err := b.in38(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("money/format.money_parse_raw", 1, "money/format.money_parse_raw", "locale", err)
-	}
-	a2, err := b.in42(fr, args[2])
-	if err != nil {
-		return nil, false, hostadapt.Param("money/format.money_parse_raw", 2, "money/format.money_parse_raw", "code", err)
-	}
-	a3, err := b.in39(fr, args[3])
-	if err != nil {
-		return nil, false, hostadapt.Param("money/format.money_parse_raw", 3, "money/format.money_parse_raw", "digits", err)
-	}
-	a4, err := b.in54(fr, args[4])
-	if err != nil {
-		return nil, false, hostadapt.Param("money/format.money_parse_raw", 4, "money/format.money_parse_raw", "iso", err)
-	}
-	a5, err := b.in54(fr, args[5])
-	if err != nil {
-		return nil, false, hostadapt.Param("money/format.money_parse_raw", 5, "money/format.money_parse_raw", "lenient", err)
-	}
-	r0 := stdformat.FFIParseMoney(fr, a0, a1, a2, a3, a4, a5)
+	a2 := string(s.S[2])
+	a3 := s.Int(3)
+	a4 := bool(rt.WordBool(s.W[4]))
+	a5 := bool(rt.WordBool(s.W[5]))
+	r0 := stdformat.HostParseMoney(fr, a0, a1, a2, a3, a4, a5)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out112(r0)
+		rec, err := b.out148(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("money/format.money_parse_raw", err)
+			return false, hostadapt.Returned("money/format.money_parse_raw", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out5(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("money/format.money_parse_raw", err)
-	}
-	return v, true, nil
+	s.S[0] = string(r0.Ok)
+	return true, nil
 }
 
-// fn140 adapts locale.locale_fallbacks: locale_fallbacks(tag: String) -> List<String>
-func (b *bound) fn140(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn179Regs is locale.locale_fallbacks over slots.
+func (b *bound) fn179Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("locale.locale_fallbacks", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("locale.locale_fallbacks", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
+	a0 := string(s.S[0])
+	r0 := stdlocale.HostFallbacks(fr, a0)
+	w180, err := b.out165(r0)
 	if err != nil {
-		return nil, hostadapt.Param("locale.locale_fallbacks", 0, "locale.locale_fallbacks", "tag", err)
+		return false, hostadapt.Returned("locale.locale_fallbacks", err)
 	}
-	r0 := stdlocale.FFIFallbacks(fr, a0)
-	v0, err := b.out131(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("locale.locale_fallbacks", err)
-	}
-	return v0, nil
+	s.R[0] = w180
+	return true, nil
 }
 
-// out142 builds a LocaleAttempt from Go stdlocale.LocaleAttempt.
-func (b *bound) out142(v stdlocale.LocaleAttempt) (rt.Value, error) {
-	r := b.d16.New()
+// out182 builds a LocaleAttempt from Go stdlocale.LocaleAttempt.
+func (b *bound) out182(v stdlocale.LocaleAttempt) (rt.Value, error) {
+	r := b.d17.New()
 	r.S[0] = string(v.Value)
 	r.SetIntSlot(0, rt.Value(int64(v.Kind)))
 	r.S[1] = string(v.Detail)
 	return r, nil
 }
 
-// fn141 adapts locale.locale_from_posix_raw: locale_from_posix_raw(value: String) -> LocaleAttempt
-func (b *bound) fn141(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn181Regs is locale.locale_from_posix_raw over slots.
+func (b *bound) fn181Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("locale.locale_from_posix_raw", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("locale.locale_from_posix_raw", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
+	a0 := string(s.S[0])
+	r0 := stdlocale.HostFromPosix(a0)
+	w183, err := b.out182(r0)
 	if err != nil {
-		return nil, hostadapt.Param("locale.locale_from_posix_raw", 0, "locale.locale_from_posix_raw", "value", err)
+		return false, hostadapt.Returned("locale.locale_from_posix_raw", err)
 	}
-	r0 := stdlocale.FFIFromPosix(a0)
-	v0, err := b.out142(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("locale.locale_from_posix_raw", err)
-	}
-	return v0, nil
+	s.R[0] = w183
+	return true, nil
 }
 
-// fn143 adapts locale.locale_language: locale_language(tag: String) -> String
-func (b *bound) fn143(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn184Regs is locale.locale_language over slots.
+func (b *bound) fn184Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("locale.locale_language", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("locale.locale_language", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("locale.locale_language", 0, "locale.locale_language", "tag", err)
-	}
-	r0 := stdlocale.FFILanguage(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("locale.locale_language", err)
-	}
-	return v0, nil
+	a0 := string(s.S[0])
+	r0 := stdlocale.HostLanguage(a0)
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn144 adapts locale.locale_negotiate: locale_negotiate(requested: List<String>, available: List<String>, fallback: String) -> String
-func (b *bound) fn144(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn185Regs is locale.locale_negotiate over slots.
+func (b *bound) fn185Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("locale.locale_negotiate", &err)
-	if len(args) != 3 {
-		return nil, hostadapt.Arity("locale.locale_negotiate", 3, len(args))
-	}
-	a0, err := b.in135(fr, args[0])
+	a0, err := b.in172(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("locale.locale_negotiate", 0, "locale.locale_negotiate", "requested", err)
+		return false, hostadapt.Param("locale.locale_negotiate", 0, "locale.locale_negotiate", "requested", err)
 	}
-	a1, err := b.in135(fr, args[1])
+	a1, err := b.in172(fr, s.R[1])
 	if err != nil {
-		return nil, hostadapt.Param("locale.locale_negotiate", 1, "locale.locale_negotiate", "available", err)
+		return false, hostadapt.Param("locale.locale_negotiate", 1, "locale.locale_negotiate", "available", err)
 	}
-	a2, err := b.in42(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("locale.locale_negotiate", 2, "locale.locale_negotiate", "fallback", err)
-	}
-	r0 := stdlocale.FFINegotiate(a0, a1, a2)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("locale.locale_negotiate", err)
-	}
-	return v0, nil
+	a2 := string(s.S[2])
+	r0 := stdlocale.HostNegotiate(a0, a1, a2)
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn145 adapts locale.locale_parse_raw: locale_parse_raw(tag: String) -> LocaleAttempt
-func (b *bound) fn145(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn186Regs is locale.locale_parse_raw over slots.
+func (b *bound) fn186Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("locale.locale_parse_raw", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("locale.locale_parse_raw", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
+	a0 := string(s.S[0])
+	r0 := stdlocale.HostParse(a0)
+	w187, err := b.out182(r0)
 	if err != nil {
-		return nil, hostadapt.Param("locale.locale_parse_raw", 0, "locale.locale_parse_raw", "tag", err)
+		return false, hostadapt.Returned("locale.locale_parse_raw", err)
 	}
-	r0 := stdlocale.FFIParse(a0)
-	v0, err := b.out142(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("locale.locale_parse_raw", err)
-	}
-	return v0, nil
+	s.R[0] = w187
+	return true, nil
 }
 
-// out147 builds a Maybe<String> from Go *string.
-func (b *bound) out147(v *string) (rt.Value, error) {
-	if v == nil {
-		return b.d17.NewVariant(1), nil
-	}
-	r := b.d17.NewVariant(0)
-	r.S[0] = string(*v)
-	return r, nil
-}
-
-// fn146 adapts locale.locale_region: locale_region(tag: String) -> Maybe<String>
-func (b *bound) fn146(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn188Regs is locale.locale_region over slots.
+func (b *bound) fn188Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("locale.locale_region", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("locale.locale_region", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("locale.locale_region", 0, "locale.locale_region", "tag", err)
-	}
-	r0 := stdlocale.FFIRegion(a0)
-	v0, err := b.out147(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("locale.locale_region", err)
-	}
-	return v0, nil
-}
-
-// fn146Parts is locale.locale_region taken apart: the payload and true, or the record and false.
-func (b *bound) fn146Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	defer hostadapt.Recover("locale.locale_region", &err)
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("locale.locale_region", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("locale.locale_region", 0, "locale.locale_region", "tag", err)
-	}
-	r0 := stdlocale.FFIRegion(a0)
+	a0 := string(s.S[0])
+	r0 := stdlocale.HostRegion(a0)
 	if r0 == nil {
-		return b.d17.NewVariant(1), false, nil
+		s.R[0] = b.d18.NewVariant(1)
+		return false, nil
 	}
-	v, err := b.out5(*r0)
-	if err != nil {
-		return nil, false, hostadapt.Returned("locale.locale_region", err)
-	}
-	return v, true, nil
+	s.S[0] = string(*r0)
+	return true, nil
 }
 
-// fn148 adapts locale.locale_script: locale_script(tag: String) -> Maybe<String>
-func (b *bound) fn148(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn189Regs is locale.locale_script over slots.
+func (b *bound) fn189Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("locale.locale_script", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("locale.locale_script", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("locale.locale_script", 0, "locale.locale_script", "tag", err)
-	}
-	r0 := stdlocale.FFIScript(a0)
-	v0, err := b.out147(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("locale.locale_script", err)
-	}
-	return v0, nil
-}
-
-// fn148Parts is locale.locale_script taken apart: the payload and true, or the record and false.
-func (b *bound) fn148Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	defer hostadapt.Recover("locale.locale_script", &err)
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("locale.locale_script", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("locale.locale_script", 0, "locale.locale_script", "tag", err)
-	}
-	r0 := stdlocale.FFIScript(a0)
+	a0 := string(s.S[0])
+	r0 := stdlocale.HostScript(a0)
 	if r0 == nil {
-		return b.d17.NewVariant(1), false, nil
+		s.R[0] = b.d18.NewVariant(1)
+		return false, nil
 	}
-	v, err := b.out5(*r0)
-	if err != nil {
-		return nil, false, hostadapt.Returned("locale.locale_script", err)
-	}
-	return v, true, nil
+	s.S[0] = string(*r0)
+	return true, nil
 }
 
-// fn149 adapts plural.plural_cardinal_tag: plural_cardinal_tag(locale: Locale, value: String) -> Int
-func (b *bound) fn149(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn190Regs is plural.plural_cardinal_tag over slots.
+func (b *bound) fn190Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("plural.plural_cardinal_tag", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("plural.plural_cardinal_tag", 2, len(args))
-	}
-	a0, err := b.in38(fr, args[0])
+	a0, err := b.in39(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("plural.plural_cardinal_tag", 0, "plural.plural_cardinal_tag", "locale", err)
+		return false, hostadapt.Param("plural.plural_cardinal_tag", 0, "plural.plural_cardinal_tag", "locale", err)
 	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("plural.plural_cardinal_tag", 1, "plural.plural_cardinal_tag", "value", err)
-	}
-	r0 := stdplural.FFICardinalTag(fr, a0, a1)
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("plural.plural_cardinal_tag", err)
-	}
-	return v0, nil
+	a1 := string(s.S[1])
+	r0 := stdplural.HostCardinalTag(fr, a0, a1)
+	s.SetInt64(0, int64(r0))
+	return true, nil
 }
 
-// out151 builds a List<Int> from Go []int64.
-func (b *bound) out151(v []int64) (rt.Value, error) {
+// out193 builds a Int from Go int64.
+func (b *bound) out193(v int64) (rt.Value, error) {
+	return rt.Value(int64(v)), nil
+}
+
+// out192 builds a List<Int> from Go []int64.
+func (b *bound) out192(v []int64) (rt.Value, error) {
 	var xs *rt.List[any]
 	for i := len(v) - 1; i >= 0; i-- {
-		x, err := b.out8(v[i])
+		x, err := b.out193(v[i])
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -4800,218 +3838,121 @@ func (b *bound) out151(v []int64) (rt.Value, error) {
 	return xs, nil
 }
 
-// fn150 adapts plural.plural_cardinal_tags: plural_cardinal_tags(locale: Locale) -> List<Int>
-func (b *bound) fn150(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn191Regs is plural.plural_cardinal_tags over slots.
+func (b *bound) fn191Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("plural.plural_cardinal_tags", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("plural.plural_cardinal_tags", 1, len(args))
-	}
-	a0, err := b.in38(fr, args[0])
+	a0, err := b.in39(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("plural.plural_cardinal_tags", 0, "plural.plural_cardinal_tags", "locale", err)
+		return false, hostadapt.Param("plural.plural_cardinal_tags", 0, "plural.plural_cardinal_tags", "locale", err)
 	}
-	r0 := stdplural.FFICardinalTags(fr, a0)
-	v0, err := b.out151(r0)
+	r0 := stdplural.HostCardinalTags(fr, a0)
+	w194, err := b.out192(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("plural.plural_cardinal_tags", err)
+		return false, hostadapt.Returned("plural.plural_cardinal_tags", err)
 	}
-	return v0, nil
+	s.R[0] = w194
+	return true, nil
 }
 
-// fn152 adapts plural.plural_ordinal_tag: plural_ordinal_tag(locale: Locale, value: Int) -> Int
-func (b *bound) fn152(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn195Regs is plural.plural_ordinal_tag over slots.
+func (b *bound) fn195Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("plural.plural_ordinal_tag", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("plural.plural_ordinal_tag", 2, len(args))
-	}
-	a0, err := b.in38(fr, args[0])
+	a0, err := b.in39(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("plural.plural_ordinal_tag", 0, "plural.plural_ordinal_tag", "locale", err)
+		return false, hostadapt.Param("plural.plural_ordinal_tag", 0, "plural.plural_ordinal_tag", "locale", err)
 	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("plural.plural_ordinal_tag", 1, "plural.plural_ordinal_tag", "value", err)
-	}
-	r0 := stdplural.FFIOrdinalTag(fr, a0, a1)
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("plural.plural_ordinal_tag", err)
-	}
-	return v0, nil
+	a1 := s.Int(1)
+	r0 := stdplural.HostOrdinalTag(fr, a0, a1)
+	s.SetInt64(0, int64(r0))
+	return true, nil
 }
 
-// fn153 adapts plural.plural_ordinal_tags: plural_ordinal_tags(locale: Locale) -> List<Int>
-func (b *bound) fn153(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn196Regs is plural.plural_ordinal_tags over slots.
+func (b *bound) fn196Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("plural.plural_ordinal_tags", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("plural.plural_ordinal_tags", 1, len(args))
-	}
-	a0, err := b.in38(fr, args[0])
+	a0, err := b.in39(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("plural.plural_ordinal_tags", 0, "plural.plural_ordinal_tags", "locale", err)
+		return false, hostadapt.Param("plural.plural_ordinal_tags", 0, "plural.plural_ordinal_tags", "locale", err)
 	}
-	r0 := stdplural.FFIOrdinalTags(fr, a0)
-	v0, err := b.out151(r0)
+	r0 := stdplural.HostOrdinalTags(fr, a0)
+	w197, err := b.out192(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("plural.plural_ordinal_tags", err)
+		return false, hostadapt.Returned("plural.plural_ordinal_tags", err)
 	}
-	return v0, nil
+	s.R[0] = w197
+	return true, nil
 }
 
-// fn154 adapts random.between_state: between_state(state: Int, from: Int, to: Int) -> (Int, Int)
-func (b *bound) fn154(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn198Regs is random.between_state over slots.
+func (b *bound) fn198Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("random.between_state", &err)
-	if len(args) != 3 {
-		return nil, hostadapt.Arity("random.between_state", 3, len(args))
-	}
-	a0, err := b.in39(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("random.between_state", 0, "random.between_state", "state", err)
-	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("random.between_state", 1, "random.between_state", "from", err)
-	}
-	a2, err := b.in39(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("random.between_state", 2, "random.between_state", "to", err)
-	}
-	r0, r1 := stdrandom.FFIBetween(a0, a1, a2)
-	tup := b.d18.New()
-	tup.SetIntSlot(0, r0.Value())
-	tup.SetIntSlot(1, rt.Value(int64(r1)))
-	return tup, nil
+	a0 := s.Int(0)
+	a1 := s.Int(1)
+	a2 := s.Int(2)
+	r0, r1 := stdrandom.HostBetween(a0, a1, a2)
+	s.SetInt(0, r0)
+	s.SetInt64(1, int64(r1))
+	return true, nil
 }
 
-// fn155 adapts random.os_state: os_state() -> Result<Int, String>
-func (b *bound) fn155(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn199Regs is random.os_state over slots.
+func (b *bound) fn199Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("random.os_state", &err)
-	if len(args) != 0 {
-		return nil, hostadapt.Arity("random.os_state", 0, len(args))
-	}
-	r0, e := stdrandom.FFIFromOS()
+	r0, e := stdrandom.HostFromOS()
 	if e != nil {
 		rec := b.d19.NewVariant(1)
 		rec.S[0] = e.Error()
-		return rec, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("random.os_state", err)
-	}
-	ok := b.d19.NewVariant(0)
-	ok.SetIntSlot(0, v0)
-	return ok, nil
+	s.SetInt64(0, int64(r0))
+	return true, nil
 }
 
-// fn155Parts is random.os_state taken apart: the payload and true, or the record and false.
-func (b *bound) fn155Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	defer hostadapt.Recover("random.os_state", &err)
-	if len(args) != 0 {
-		return nil, false, hostadapt.Arity("random.os_state", 0, len(args))
-	}
-	r0, e := stdrandom.FFIFromOS()
-	if e != nil {
-		rec := b.d19.NewVariant(1)
-		rec.S[0] = e.Error()
-		return rec, false, nil
-	}
-	v, err := b.out8(r0)
-	if err != nil {
-		return nil, false, hostadapt.Returned("random.os_state", err)
-	}
-	return v, true, nil
+// fn200Regs is random.secure_bytes over slots.
+func (b *bound) fn200Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
+	r0 := stdrandom.HostSecureBytes(a0)
+	s.S[0] = string(rt.Bytes(r0))
+	return true, nil
 }
 
-// fn156 adapts random.secure_bytes: secure_bytes(count: NonNegativeInt) -> Bytes
-func (b *bound) fn156(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("random.secure_bytes", 1, len(args))
-	}
-	a0, err := b.in39(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("random.secure_bytes", 0, "random.secure_bytes", "count", err)
-	}
-	r0 := stdrandom.FFISecureBytes(a0)
-	v0, err := b.out104(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("random.secure_bytes", err)
-	}
-	return v0, nil
-}
-
-// fn157 adapts random.unit_float_state: unit_float_state(state: Int) -> (Float, Int)
-func (b *bound) fn157(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn201Regs is random.unit_float_state over slots.
+func (b *bound) fn201Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("random.unit_float_state", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("random.unit_float_state", 1, len(args))
-	}
-	a0, err := b.in39(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("random.unit_float_state", 0, "random.unit_float_state", "state", err)
-	}
-	r0, r1 := stdrandom.FFIUnitFloat(a0)
-	tup := b.d20.New()
-	tup.W[0] = rt.FloatWord(float64(r0))
-	tup.SetIntSlot(1, rt.Value(int64(r1)))
-	return tup, nil
+	a0 := s.Int(0)
+	r0, r1 := stdrandom.HostUnitFloat(a0)
+	s.W[0] = rt.FloatWord(float64(r0))
+	s.SetInt64(1, int64(r1))
+	return true, nil
 }
 
-// out159 builds a Regex from Go *stdregex.Regex.
-func (b *bound) out159(v *stdregex.Regex) (rt.Value, error) {
+// out203 builds a Regex from Go *stdregex.Regex.
+func (b *bound) out203(v *stdregex.Regex) (rt.Value, error) {
 	return rt.HostHandle{TypeName: "regex.Regex", Value: v}, nil
 }
 
-// fn158 adapts Regex.compile: compile(pattern: String) -> Result<Regex, String>
-func (b *bound) fn158(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn202Regs is Regex.compile over slots.
+func (b *bound) fn202Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("Regex.compile", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("Regex.compile", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("Regex.compile", 0, "Regex.compile", "pattern", err)
-	}
-	r0, e := stdregex.FFICompile(a0)
+	a0 := string(s.S[0])
+	r0, e := stdregex.HostCompile(a0)
 	if e != nil {
-		rec := b.d21.NewVariant(1)
+		rec := b.d20.NewVariant(1)
 		rec.S[0] = e.Error()
-		return rec, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v0, err := b.out159(r0)
+	w204, err := b.out203(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("Regex.compile", err)
+		return false, hostadapt.Returned("Regex.compile", err)
 	}
-	ok := b.d21.NewVariant(0)
-	ok.R[0] = v0
-	return ok, nil
+	s.R[0] = w204
+	return true, nil
 }
 
-// fn158Parts is Regex.compile taken apart: the payload and true, or the record and false.
-func (b *bound) fn158Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	defer hostadapt.Recover("Regex.compile", &err)
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("Regex.compile", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("Regex.compile", 0, "Regex.compile", "pattern", err)
-	}
-	r0, e := stdregex.FFICompile(a0)
-	if e != nil {
-		rec := b.d21.NewVariant(1)
-		rec.S[0] = e.Error()
-		return rec, false, nil
-	}
-	v, err := b.out159(r0)
-	if err != nil {
-		return nil, false, hostadapt.Returned("Regex.compile", err)
-	}
-	return v, true, nil
-}
-
-// in161 reads a Regex as Go *stdregex.Regex.
-func (b *bound) in161(fr *rt.Frame, v rt.Value) (out *stdregex.Regex, err error) {
+// in206 reads a Regex as Go *stdregex.Regex.
+func (b *bound) in206(fr *rt.Frame, v rt.Value) (out *stdregex.Regex, err error) {
 	h, err := hostadapt.Handle(v, "regex.Regex")
 	if err != nil {
 		return out, err
@@ -5023,367 +3964,308 @@ func (b *bound) in161(fr *rt.Frame, v rt.Value) (out *stdregex.Regex, err error)
 	return p, nil
 }
 
-// out162 builds a Bool from Go bool.
-func (b *bound) out162(v bool) (rt.Value, error) {
-	return bool(v), nil
-}
-
-// fn160 adapts Regex.is_contained_in: is_contained_in(re: Regex<C>, text: String) -> Bool
-func (b *bound) fn160(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn205Regs is Regex.is_contained_in over slots.
+func (b *bound) fn205Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("Regex.is_contained_in", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("Regex.is_contained_in", 2, len(args))
-	}
-	a0, err := b.in161(fr, args[0])
+	a0, err := b.in206(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("Regex.is_contained_in", 0, "Regex.is_contained_in", "re", err)
+		return false, hostadapt.Param("Regex.is_contained_in", 0, "Regex.is_contained_in", "re", err)
 	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("Regex.is_contained_in", 1, "Regex.is_contained_in", "text", err)
-	}
-	r0 := stdregex.FFIMatch(a0, a1)
-	v0, err := b.out162(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("Regex.is_contained_in", err)
-	}
-	return v0, nil
+	a1 := string(s.S[1])
+	r0 := stdregex.HostMatch(a0, a1)
+	s.W[0] = rt.BoolWord(bool(r0))
+	return true, nil
 }
 
-// fn163 adapts Regex.find_in: find_in(re: Regex<C>, text: String) -> Maybe<String>
-func (b *bound) fn163(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn207Regs is Regex.find_in over slots.
+func (b *bound) fn207Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("Regex.find_in", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("Regex.find_in", 2, len(args))
-	}
-	a0, err := b.in161(fr, args[0])
+	a0, err := b.in206(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("Regex.find_in", 0, "Regex.find_in", "re", err)
+		return false, hostadapt.Param("Regex.find_in", 0, "Regex.find_in", "re", err)
 	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("Regex.find_in", 1, "Regex.find_in", "text", err)
-	}
-	r0 := stdregex.FFIFind(a0, a1)
-	v0, err := b.out147(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("Regex.find_in", err)
-	}
-	return v0, nil
-}
-
-// fn163Parts is Regex.find_in taken apart: the payload and true, or the record and false.
-func (b *bound) fn163Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	defer hostadapt.Recover("Regex.find_in", &err)
-	if len(args) != 2 {
-		return nil, false, hostadapt.Arity("Regex.find_in", 2, len(args))
-	}
-	a0, err := b.in161(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("Regex.find_in", 0, "Regex.find_in", "re", err)
-	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("Regex.find_in", 1, "Regex.find_in", "text", err)
-	}
-	r0 := stdregex.FFIFind(a0, a1)
+	a1 := string(s.S[1])
+	r0 := stdregex.HostFind(a0, a1)
 	if r0 == nil {
-		return b.d17.NewVariant(1), false, nil
+		s.R[0] = b.d18.NewVariant(1)
+		return false, nil
 	}
-	v, err := b.out5(*r0)
-	if err != nil {
-		return nil, false, hostadapt.Returned("Regex.find_in", err)
-	}
-	return v, true, nil
+	s.S[0] = string(*r0)
+	return true, nil
 }
 
-// fn164 adapts Regex.find_all_in: find_all_in(re: Regex<C>, text: String) -> List<String>
-func (b *bound) fn164(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn208Regs is Regex.find_all_in over slots.
+func (b *bound) fn208Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("Regex.find_all_in", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("Regex.find_all_in", 2, len(args))
-	}
-	a0, err := b.in161(fr, args[0])
+	a0, err := b.in206(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("Regex.find_all_in", 0, "Regex.find_all_in", "re", err)
+		return false, hostadapt.Param("Regex.find_all_in", 0, "Regex.find_all_in", "re", err)
 	}
-	a1, err := b.in42(fr, args[1])
+	a1 := string(s.S[1])
+	r0 := stdregex.HostFindAll(a0, a1)
+	w209, err := b.out165(r0)
 	if err != nil {
-		return nil, hostadapt.Param("Regex.find_all_in", 1, "Regex.find_all_in", "text", err)
+		return false, hostadapt.Returned("Regex.find_all_in", err)
 	}
-	r0 := stdregex.FFIFindAll(a0, a1)
-	v0, err := b.out131(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("Regex.find_all_in", err)
-	}
-	return v0, nil
+	s.R[0] = w209
+	return true, nil
 }
 
-// fn165 adapts Regex.pattern: pattern(re: Regex<C>) -> String
-func (b *bound) fn165(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn210Regs is Regex.pattern over slots.
+func (b *bound) fn210Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("Regex.pattern", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("Regex.pattern", 1, len(args))
-	}
-	a0, err := b.in161(fr, args[0])
+	a0, err := b.in206(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("Regex.pattern", 0, "Regex.pattern", "re", err)
+		return false, hostadapt.Param("Regex.pattern", 0, "Regex.pattern", "re", err)
 	}
-	r0 := stdregex.FFIPattern(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("Regex.pattern", err)
-	}
-	return v0, nil
+	r0 := stdregex.HostPattern(a0)
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn166 adapts Regex.is_prefix_of: is_prefix_of(re: Regex<C>, text: String) -> Bool
-func (b *bound) fn166(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn211Regs is Regex.is_prefix_of over slots.
+func (b *bound) fn211Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("Regex.is_prefix_of", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("Regex.is_prefix_of", 2, len(args))
-	}
-	a0, err := b.in161(fr, args[0])
+	a0, err := b.in206(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("Regex.is_prefix_of", 0, "Regex.is_prefix_of", "re", err)
+		return false, hostadapt.Param("Regex.is_prefix_of", 0, "Regex.is_prefix_of", "re", err)
 	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("Regex.is_prefix_of", 1, "Regex.is_prefix_of", "text", err)
-	}
-	r0 := stdregex.FFIPrefixOf(a0, a1)
-	v0, err := b.out162(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("Regex.is_prefix_of", err)
-	}
-	return v0, nil
+	a1 := string(s.S[1])
+	r0 := stdregex.HostPrefixOf(a0, a1)
+	s.W[0] = rt.BoolWord(bool(r0))
+	return true, nil
 }
 
-// fn167 adapts Regex.replace_in: replace_in(re: Regex<C>, text: String, replacement: String) -> String
-func (b *bound) fn167(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn212Regs is Regex.replace_in over slots.
+func (b *bound) fn212Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("Regex.replace_in", &err)
-	if len(args) != 3 {
-		return nil, hostadapt.Arity("Regex.replace_in", 3, len(args))
-	}
-	a0, err := b.in161(fr, args[0])
+	a0, err := b.in206(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("Regex.replace_in", 0, "Regex.replace_in", "re", err)
+		return false, hostadapt.Param("Regex.replace_in", 0, "Regex.replace_in", "re", err)
 	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("Regex.replace_in", 1, "Regex.replace_in", "text", err)
-	}
-	a2, err := b.in42(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("Regex.replace_in", 2, "Regex.replace_in", "replacement", err)
-	}
-	r0 := stdregex.FFIReplace(a0, a1, a2)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("Regex.replace_in", err)
-	}
-	return v0, nil
+	a1 := string(s.S[1])
+	a2 := string(s.S[2])
+	r0 := stdregex.HostReplace(a0, a1, a2)
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn168 adapts Regex.split_in: split_in(re: Regex<C>, text: String) -> List<String>
-func (b *bound) fn168(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn213Regs is Regex.split_in over slots.
+func (b *bound) fn213Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("Regex.split_in", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("Regex.split_in", 2, len(args))
-	}
-	a0, err := b.in161(fr, args[0])
+	a0, err := b.in206(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("Regex.split_in", 0, "Regex.split_in", "re", err)
+		return false, hostadapt.Param("Regex.split_in", 0, "Regex.split_in", "re", err)
 	}
-	a1, err := b.in42(fr, args[1])
+	a1 := string(s.S[1])
+	r0 := stdregex.HostSplit(a0, a1)
+	w214, err := b.out165(r0)
 	if err != nil {
-		return nil, hostadapt.Param("Regex.split_in", 1, "Regex.split_in", "text", err)
+		return false, hostadapt.Returned("Regex.split_in", err)
 	}
-	r0 := stdregex.FFISplit(a0, a1)
-	v0, err := b.out131(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("Regex.split_in", err)
-	}
-	return v0, nil
+	s.R[0] = w214
+	return true, nil
 }
 
-// fn169 adapts Regex.is_suffix_of: is_suffix_of(re: Regex<C>, text: String) -> Bool
-func (b *bound) fn169(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn215Regs is Regex.is_suffix_of over slots.
+func (b *bound) fn215Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("Regex.is_suffix_of", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("Regex.is_suffix_of", 2, len(args))
-	}
-	a0, err := b.in161(fr, args[0])
+	a0, err := b.in206(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("Regex.is_suffix_of", 0, "Regex.is_suffix_of", "re", err)
+		return false, hostadapt.Param("Regex.is_suffix_of", 0, "Regex.is_suffix_of", "re", err)
 	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("Regex.is_suffix_of", 1, "Regex.is_suffix_of", "text", err)
-	}
-	r0 := stdregex.FFISuffixOf(a0, a1)
-	v0, err := b.out162(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("Regex.is_suffix_of", err)
-	}
-	return v0, nil
+	a1 := string(s.S[1])
+	r0 := stdregex.HostSuffixOf(a0, a1)
+	s.W[0] = rt.BoolWord(bool(r0))
+	return true, nil
 }
 
-// fn170 adapts toml/host.check: check(statics: List<String>) -> (Int, Int, String)
-func (b *bound) fn170(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn216Regs is toml/host.check over slots.
+func (b *bound) fn216Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("toml/host.check", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("toml/host.check", 1, len(args))
-	}
-	a0, err := b.in135(fr, args[0])
+	a0, err := b.in172(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("toml/host.check", 0, "toml/host.check", "statics", err)
+		return false, hostadapt.Param("toml/host.check", 0, "toml/host.check", "statics", err)
 	}
-	r0, r1, r2 := stdtoml.FFICheck(a0)
-	tup := b.d22.New()
-	tup.SetIntSlot(0, rt.Value(int64(r0)))
-	tup.SetIntSlot(1, rt.Value(int64(r1)))
-	tup.S[0] = string(r2)
-	return tup, nil
+	r0, r1, r2 := stdtoml.HostCheck(a0)
+	s.SetInt64(0, int64(r0))
+	s.SetInt64(1, int64(r1))
+	s.S[2] = string(r2)
+	return true, nil
 }
 
-// fn171 adapts toml/host.build: build(statics: List<String>, slots: List<String>) -> String
-func (b *bound) fn171(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn217Regs is toml/host.build over slots.
+func (b *bound) fn217Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("toml/host.build", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("toml/host.build", 2, len(args))
-	}
-	a0, err := b.in135(fr, args[0])
+	a0, err := b.in172(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("toml/host.build", 0, "toml/host.build", "statics", err)
+		return false, hostadapt.Param("toml/host.build", 0, "toml/host.build", "statics", err)
 	}
-	a1, err := b.in135(fr, args[1])
+	a1, err := b.in172(fr, s.R[1])
 	if err != nil {
-		return nil, hostadapt.Param("toml/host.build", 1, "toml/host.build", "slots", err)
+		return false, hostadapt.Param("toml/host.build", 1, "toml/host.build", "slots", err)
 	}
-	r0 := stdtoml.FFIBuild(a0, a1)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("toml/host.build", err)
-	}
-	return v0, nil
+	r0 := stdtoml.HostBuild(a0, a1)
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn172 adapts toml/host.quote: quote(text: String) -> String
-func (b *bound) fn172(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn218Regs is toml/host.quote over slots.
+func (b *bound) fn218Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("toml/host.quote", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("toml/host.quote", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("toml/host.quote", 0, "toml/host.quote", "text", err)
-	}
-	r0 := stdtoml.FFIQuote(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("toml/host.quote", err)
-	}
-	return v0, nil
+	a0 := string(s.S[0])
+	r0 := stdtoml.HostQuote(a0)
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn173 adapts toml/host.float: float(value: Float) -> String
-func (b *bound) fn173(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn219Regs is toml/host.float over slots.
+func (b *bound) fn219Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("toml/host.float", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("toml/host.float", 1, len(args))
-	}
-	a0, err := b.in119(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("toml/host.float", 0, "toml/host.float", "value", err)
-	}
-	r0 := stdtoml.FFIFloat(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("toml/host.float", err)
-	}
-	return v0, nil
+	a0 := float64(rt.WordFloat(s.W[0]))
+	r0 := stdtoml.HostFloat(a0)
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// out176 builds a List<Maybe<String>> from Go []*string.
-func (b *bound) out176(v []*string) (rt.Value, error) {
-	var xs *rt.List[any]
-	for i := len(v) - 1; i >= 0; i-- {
-		x, err := b.out147(v[i])
-		if err != nil {
-			return nil, fmt.Errorf("index %d: %w", i, err)
-		}
-		xs = rt.Cons[any](x, xs)
+// fn220Regs is toml/host.decode over slots.
+func (b *bound) fn220Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	defer hostadapt.Recover("toml/host.decode", &err)
+	a0 := string(s.S[0])
+	r0, r1, r2, r3, r4 := stdtoml.HostDecode(a0)
+	w221, err := b.out165(r0)
+	if err != nil {
+		return false, hostadapt.Returned("toml/host.decode", fmt.Errorf("%s: marshaling return 0: %w", "toml/host.decode", err))
 	}
-	return xs, nil
+	s.R[0] = w221
+	s.SetInt64(1, int64(r1))
+	s.SetInt64(2, int64(r2))
+	s.SetInt64(3, int64(r3))
+	s.S[4] = string(r4)
+	return true, nil
 }
 
-// out175 builds a Maybe<List<Maybe<String>>> from Go *[]*string.
-func (b *bound) out175(v *[]*string) (rt.Value, error) {
+// fn222Regs is passwords/host.argon2id over slots.
+func (b *bound) fn222Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	defer hostadapt.Recover("passwords/host.argon2id", &err)
+	a0 := []uint8(rt.Bytes(s.S[0]))
+	a1 := []uint8(rt.Bytes(s.S[1]))
+	a2, err := hostadapt.SlotUnsigned[uint32](s, 2, "uint32")
+	if err != nil {
+		return false, hostadapt.Param("passwords/host.argon2id", 2, "passwords/host.argon2id", "passes", err)
+	}
+	a3, err := hostadapt.SlotUnsigned[uint32](s, 3, "uint32")
+	if err != nil {
+		return false, hostadapt.Param("passwords/host.argon2id", 3, "passwords/host.argon2id", "memory_kib", err)
+	}
+	a4, err := hostadapt.SlotUnsigned[uint32](s, 4, "uint32")
+	if err != nil {
+		return false, hostadapt.Param("passwords/host.argon2id", 4, "passwords/host.argon2id", "lanes", err)
+	}
+	a5, err := hostadapt.SlotUnsigned[uint32](s, 5, "uint32")
+	if err != nil {
+		return false, hostadapt.Param("passwords/host.argon2id", 5, "passwords/host.argon2id", "length", err)
+	}
+	r0 := stdpasswords.Argon2id(a0, a1, a2, a3, a4, a5)
+	s.S[0] = string(rt.Bytes(r0))
+	return true, nil
+}
+
+// fn223Regs is passwords/host.scrypt over slots.
+func (b *bound) fn223Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	defer hostadapt.Recover("passwords/host.scrypt", &err)
+	a0 := []uint8(rt.Bytes(s.S[0]))
+	a1 := []uint8(rt.Bytes(s.S[1]))
+	a2, err := hostadapt.SlotUnsigned[uint32](s, 2, "uint32")
+	if err != nil {
+		return false, hostadapt.Param("passwords/host.scrypt", 2, "passwords/host.scrypt", "log_cost", err)
+	}
+	a3, err := hostadapt.SlotUnsigned[uint32](s, 3, "uint32")
+	if err != nil {
+		return false, hostadapt.Param("passwords/host.scrypt", 3, "passwords/host.scrypt", "block_size", err)
+	}
+	a4, err := hostadapt.SlotUnsigned[uint32](s, 4, "uint32")
+	if err != nil {
+		return false, hostadapt.Param("passwords/host.scrypt", 4, "passwords/host.scrypt", "parallelism", err)
+	}
+	a5, err := hostadapt.SlotUnsigned[uint32](s, 5, "uint32")
+	if err != nil {
+		return false, hostadapt.Param("passwords/host.scrypt", 5, "passwords/host.scrypt", "length", err)
+	}
+	r0, e := stdpasswords.Scrypt(a0, a1, a2, a3, a4, a5)
+	if e != nil {
+		rec := b.d21.NewVariant(1)
+		rec.S[0] = e.Error()
+		s.R[0] = rec
+		return false, nil
+	}
+	s.S[0] = string(rt.Bytes(r0))
+	return true, nil
+}
+
+// fn224Regs is passwords/host.bcrypt_hash over slots.
+func (b *bound) fn224Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	defer hostadapt.Recover("passwords/host.bcrypt_hash", &err)
+	a0 := []uint8(rt.Bytes(s.S[0]))
+	a1, err := hostadapt.SlotUnsigned[uint32](s, 1, "uint32")
+	if err != nil {
+		return false, hostadapt.Param("passwords/host.bcrypt_hash", 1, "passwords/host.bcrypt_hash", "cost", err)
+	}
+	r0, e := stdpasswords.BcryptHash(a0, a1)
+	if e != nil {
+		rec := b.d7.NewVariant(1)
+		rec.S[0] = e.Error()
+		s.R[0] = rec
+		return false, nil
+	}
+	s.S[0] = string(r0)
+	return true, nil
+}
+
+// fn225Regs is passwords/host.bcrypt_verify over slots.
+func (b *bound) fn225Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	defer hostadapt.Recover("passwords/host.bcrypt_verify", &err)
+	a0 := []uint8(rt.Bytes(s.S[0]))
+	a1 := string(s.S[1])
+	r0, e := stdpasswords.BcryptVerify(a0, a1)
+	if e != nil {
+		rec := b.d22.NewVariant(1)
+		rec.S[0] = e.Error()
+		s.R[0] = rec
+		return false, nil
+	}
+	s.W[0] = rt.BoolWord(bool(r0))
+	return true, nil
+}
+
+// fn226Regs is passwords/host.bcrypt_cost over slots.
+func (b *bound) fn226Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	defer hostadapt.Recover("passwords/host.bcrypt_cost", &err)
+	a0 := string(s.S[0])
+	r0 := stdpasswords.BcryptCost(a0)
+	if r0 == nil {
+		s.R[0] = b.d23.NewVariant(1)
+		return false, nil
+	}
+	s.SetInt64(0, int64(*r0))
+	return true, nil
+}
+
+// out229 builds a Maybe<String> from Go *string.
+func (b *bound) out229(v *string) (rt.Value, error) {
 	if v == nil {
-		return b.d23.NewVariant(1), nil
+		return b.d18.NewVariant(1), nil
 	}
-	r := b.d23.NewVariant(0)
-	w177, err := b.out176(*v)
-	if err != nil {
-		return nil, err
-	}
-	r.R[0] = w177
+	r := b.d18.NewVariant(0)
+	r.S[0] = string(*v)
 	return r, nil
 }
 
-// fn174 adapts strings.capture_groups: capture_groups(s: String, re: Regex<C>) -> Maybe<List<Maybe<String>>>
-func (b *bound) fn174(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("strings.capture_groups", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("strings.capture_groups", 2, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("strings.capture_groups", 0, "strings.capture_groups", "s", err)
-	}
-	a1, err := b.in161(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("strings.capture_groups", 1, "strings.capture_groups", "re", err)
-	}
-	r0 := stdstrings.FFICaptures(a0, a1)
-	v0, err := b.out175(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("strings.capture_groups", err)
-	}
-	return v0, nil
-}
-
-// fn174Parts is strings.capture_groups taken apart: the payload and true, or the record and false.
-func (b *bound) fn174Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	defer hostadapt.Recover("strings.capture_groups", &err)
-	if len(args) != 2 {
-		return nil, false, hostadapt.Arity("strings.capture_groups", 2, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("strings.capture_groups", 0, "strings.capture_groups", "s", err)
-	}
-	a1, err := b.in161(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("strings.capture_groups", 1, "strings.capture_groups", "re", err)
-	}
-	r0 := stdstrings.FFICaptures(a0, a1)
-	if r0 == nil {
-		return b.d23.NewVariant(1), false, nil
-	}
-	v, err := b.out176(*r0)
-	if err != nil {
-		return nil, false, hostadapt.Returned("strings.capture_groups", err)
-	}
-	return v, true, nil
-}
-
-// out179 builds a List<List<Maybe<String>>> from Go [][]*string.
-func (b *bound) out179(v [][]*string) (rt.Value, error) {
+// out228 builds a List<Maybe<String>> from Go []*string.
+func (b *bound) out228(v []*string) (rt.Value, error) {
 	var xs *rt.List[any]
 	for i := len(v) - 1; i >= 0; i-- {
-		x, err := b.out176(v[i])
+		x, err := b.out229(v[i])
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -5392,297 +4274,203 @@ func (b *bound) out179(v [][]*string) (rt.Value, error) {
 	return xs, nil
 }
 
-// fn178 adapts strings.capture_groups_all: capture_groups_all(s: String, re: Regex<C>) -> List<List<Maybe<String>>>
-func (b *bound) fn178(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn227Regs is strings.capture_groups over slots.
+func (b *bound) fn227Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	defer hostadapt.Recover("strings.capture_groups", &err)
+	a0 := string(s.S[0])
+	a1, err := b.in206(fr, s.R[1])
+	if err != nil {
+		return false, hostadapt.Param("strings.capture_groups", 1, "strings.capture_groups", "re", err)
+	}
+	r0 := stdstrings.HostCaptures(a0, a1)
+	if r0 == nil {
+		s.R[0] = b.d24.NewVariant(1)
+		return false, nil
+	}
+	w230, err := b.out228(*r0)
+	if err != nil {
+		return false, hostadapt.Returned("strings.capture_groups", err)
+	}
+	s.R[0] = w230
+	return true, nil
+}
+
+// out232 builds a List<List<Maybe<String>>> from Go [][]*string.
+func (b *bound) out232(v [][]*string) (rt.Value, error) {
+	var xs *rt.List[any]
+	for i := len(v) - 1; i >= 0; i-- {
+		x, err := b.out228(v[i])
+		if err != nil {
+			return nil, fmt.Errorf("index %d: %w", i, err)
+		}
+		xs = rt.Cons[any](x, xs)
+	}
+	return xs, nil
+}
+
+// fn231Regs is strings.capture_groups_all over slots.
+func (b *bound) fn231Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("strings.capture_groups_all", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("strings.capture_groups_all", 2, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
+	a0 := string(s.S[0])
+	a1, err := b.in206(fr, s.R[1])
 	if err != nil {
-		return nil, hostadapt.Param("strings.capture_groups_all", 0, "strings.capture_groups_all", "s", err)
+		return false, hostadapt.Param("strings.capture_groups_all", 1, "strings.capture_groups_all", "re", err)
 	}
-	a1, err := b.in161(fr, args[1])
+	r0 := stdstrings.HostCapturesAll(a0, a1)
+	w233, err := b.out232(r0)
 	if err != nil {
-		return nil, hostadapt.Param("strings.capture_groups_all", 1, "strings.capture_groups_all", "re", err)
+		return false, hostadapt.Returned("strings.capture_groups_all", err)
 	}
-	r0 := stdstrings.FFICapturesAll(a0, a1)
-	v0, err := b.out179(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("strings.capture_groups_all", err)
-	}
-	return v0, nil
+	s.R[0] = w233
+	return true, nil
 }
 
-// fn180 adapts String.capitalize: capitalize(s: String) -> String
-func (b *bound) fn180(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn234Regs is String.capitalize over slots.
+func (b *bound) fn234Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("String.capitalize", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("String.capitalize", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("String.capitalize", 0, "String.capitalize", "s", err)
-	}
-	r0 := stdstrings.FFICapitalize(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("String.capitalize", err)
-	}
-	return v0, nil
+	a0 := string(s.S[0])
+	r0 := stdstrings.HostCapitalize(a0)
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn181 adapts String.capitalize_in: capitalize_in(s: String, locale: Locale) -> String
-func (b *bound) fn181(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn235Regs is String.capitalize_in over slots.
+func (b *bound) fn235Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("String.capitalize_in", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("String.capitalize_in", 2, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
+	a0 := string(s.S[0])
+	a1, err := b.in39(fr, s.R[1])
 	if err != nil {
-		return nil, hostadapt.Param("String.capitalize_in", 0, "String.capitalize_in", "s", err)
+		return false, hostadapt.Param("String.capitalize_in", 1, "String.capitalize_in", "locale", err)
 	}
-	a1, err := b.in38(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("String.capitalize_in", 1, "String.capitalize_in", "locale", err)
-	}
-	r0 := stdstrings.FFICapitalizeIn(a0, a1)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("String.capitalize_in", err)
-	}
-	return v0, nil
+	r0 := stdstrings.HostCapitalizeIn(a0, a1)
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn182 adapts String.fold_case: fold_case(s: String) -> String
-func (b *bound) fn182(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn236Regs is String.fold_case over slots.
+func (b *bound) fn236Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("String.fold_case", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("String.fold_case", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("String.fold_case", 0, "String.fold_case", "s", err)
-	}
-	r0 := stdstrings.FFIFoldCase(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("String.fold_case", err)
-	}
-	return v0, nil
+	a0 := string(s.S[0])
+	r0 := stdstrings.HostFoldCase(a0)
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn183 adapts String.snake_case: snake_case(s: String) -> String
-func (b *bound) fn183(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn237Regs is String.snake_case over slots.
+func (b *bound) fn237Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("String.snake_case", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("String.snake_case", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("String.snake_case", 0, "String.snake_case", "s", err)
-	}
+	a0 := string(s.S[0])
 	r0 := stdstrings.SnakeCase(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("String.snake_case", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn184 adapts String.kebab_case: kebab_case(s: String) -> String
-func (b *bound) fn184(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn238Regs is String.kebab_case over slots.
+func (b *bound) fn238Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("String.kebab_case", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("String.kebab_case", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("String.kebab_case", 0, "String.kebab_case", "s", err)
-	}
+	a0 := string(s.S[0])
 	r0 := stdstrings.KebabCase(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("String.kebab_case", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn185 adapts String.pascal_case: pascal_case(s: String) -> String
-func (b *bound) fn185(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn239Regs is String.pascal_case over slots.
+func (b *bound) fn239Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("String.pascal_case", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("String.pascal_case", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("String.pascal_case", 0, "String.pascal_case", "s", err)
-	}
+	a0 := string(s.S[0])
 	r0 := stdstrings.PascalCase(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("String.pascal_case", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn186 adapts String.camel_case: camel_case(s: String) -> String
-func (b *bound) fn186(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn240Regs is String.camel_case over slots.
+func (b *bound) fn240Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("String.camel_case", &err)
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("String.camel_case", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("String.camel_case", 0, "String.camel_case", "s", err)
-	}
+	a0 := string(s.S[0])
 	r0 := stdstrings.CamelCase(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("String.camel_case", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn187 adapts String.lowercase_in: lowercase_in(s: String, locale: Locale) -> String
-func (b *bound) fn187(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn241Regs is String.lowercase_in over slots.
+func (b *bound) fn241Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("String.lowercase_in", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("String.lowercase_in", 2, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
+	a0 := string(s.S[0])
+	a1, err := b.in39(fr, s.R[1])
 	if err != nil {
-		return nil, hostadapt.Param("String.lowercase_in", 0, "String.lowercase_in", "s", err)
+		return false, hostadapt.Param("String.lowercase_in", 1, "String.lowercase_in", "locale", err)
 	}
-	a1, err := b.in38(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("String.lowercase_in", 1, "String.lowercase_in", "locale", err)
-	}
-	r0 := stdstrings.FFILowercaseIn(a0, a1)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("String.lowercase_in", err)
-	}
-	return v0, nil
+	r0 := stdstrings.HostLowercaseIn(a0, a1)
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn188 adapts String.uppercase_in: uppercase_in(s: String, locale: Locale) -> String
-func (b *bound) fn188(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn242Regs is String.uppercase_in over slots.
+func (b *bound) fn242Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("String.uppercase_in", &err)
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("String.uppercase_in", 2, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
+	a0 := string(s.S[0])
+	a1, err := b.in39(fr, s.R[1])
 	if err != nil {
-		return nil, hostadapt.Param("String.uppercase_in", 0, "String.uppercase_in", "s", err)
+		return false, hostadapt.Param("String.uppercase_in", 1, "String.uppercase_in", "locale", err)
 	}
-	a1, err := b.in38(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("String.uppercase_in", 1, "String.uppercase_in", "locale", err)
-	}
-	r0 := stdstrings.FFIUppercaseIn(a0, a1)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("String.uppercase_in", err)
-	}
-	return v0, nil
+	r0 := stdstrings.HostUppercaseIn(a0, a1)
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn189 adapts strings.join_list_raw: join_list_raw(locale: Locale, items: List<String>, style: Int64, width: Int64) -> String
-func (b *bound) fn189(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn243Regs is strings.join_list_raw over slots.
+func (b *bound) fn243Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	defer hostadapt.Recover("strings.join_list_raw", &err)
-	if len(args) != 4 {
-		return nil, hostadapt.Arity("strings.join_list_raw", 4, len(args))
-	}
-	a0, err := b.in38(fr, args[0])
+	a0, err := b.in39(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("strings.join_list_raw", 0, "strings.join_list_raw", "locale", err)
+		return false, hostadapt.Param("strings.join_list_raw", 0, "strings.join_list_raw", "locale", err)
 	}
-	a1, err := b.in135(fr, args[1])
+	a1, err := b.in172(fr, s.R[1])
 	if err != nil {
-		return nil, hostadapt.Param("strings.join_list_raw", 1, "strings.join_list_raw", "items", err)
+		return false, hostadapt.Param("strings.join_list_raw", 1, "strings.join_list_raw", "items", err)
 	}
-	a2, err := b.in41(fr, args[2])
+	a2, err := hostadapt.SlotSigned[int64](s, 2, "int64")
 	if err != nil {
-		return nil, hostadapt.Param("strings.join_list_raw", 2, "strings.join_list_raw", "style", err)
+		return false, hostadapt.Param("strings.join_list_raw", 2, "strings.join_list_raw", "style", err)
 	}
-	a3, err := b.in41(fr, args[3])
+	a3, err := hostadapt.SlotSigned[int64](s, 3, "int64")
 	if err != nil {
-		return nil, hostadapt.Param("strings.join_list_raw", 3, "strings.join_list_raw", "width", err)
+		return false, hostadapt.Param("strings.join_list_raw", 3, "strings.join_list_raw", "width", err)
 	}
-	r0 := stdformat.FFIJoinList(fr, a0, a1, a2, a3)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("strings.join_list_raw", err)
-	}
-	return v0, nil
+	r0 := stdformat.HostJoinList(fr, a0, a1, a2, a3)
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn190 adapts strings.String.is_contained_in: is_contained_in(needle: String, text: String) -> Bool
-func (b *bound) fn190(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("strings.String.is_contained_in", 2, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("strings.String.is_contained_in", 0, "strings.String.is_contained_in", "needle", err)
-	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("strings.String.is_contained_in", 1, "strings.String.is_contained_in", "text", err)
-	}
+// fn244Regs is strings.String.is_contained_in over slots.
+func (b *bound) fn244Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
+	a1 := string(s.S[1])
 	r0 := rt.StringContainedIn(a0, a1)
-	v0, err := b.out162(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("strings.String.is_contained_in", err)
-	}
-	return v0, nil
+	s.W[0] = rt.BoolWord(bool(r0))
+	return true, nil
 }
 
-// fn191 adapts strings.String.is_prefix_of: is_prefix_of(prefix: String, text: String) -> Bool
-func (b *bound) fn191(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("strings.String.is_prefix_of", 2, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("strings.String.is_prefix_of", 0, "strings.String.is_prefix_of", "prefix", err)
-	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("strings.String.is_prefix_of", 1, "strings.String.is_prefix_of", "text", err)
-	}
+// fn245Regs is strings.String.is_prefix_of over slots.
+func (b *bound) fn245Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
+	a1 := string(s.S[1])
 	r0 := rt.StringPrefixOf(a0, a1)
-	v0, err := b.out162(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("strings.String.is_prefix_of", err)
-	}
-	return v0, nil
+	s.W[0] = rt.BoolWord(bool(r0))
+	return true, nil
 }
 
-// fn192 adapts strings.String.is_suffix_of: is_suffix_of(suffix: String, text: String) -> Bool
-func (b *bound) fn192(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("strings.String.is_suffix_of", 2, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("strings.String.is_suffix_of", 0, "strings.String.is_suffix_of", "suffix", err)
-	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("strings.String.is_suffix_of", 1, "strings.String.is_suffix_of", "text", err)
-	}
+// fn246Regs is strings.String.is_suffix_of over slots.
+func (b *bound) fn246Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
+	a1 := string(s.S[1])
 	r0 := rt.StringSuffixOf(a0, a1)
-	v0, err := b.out162(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("strings.String.is_suffix_of", err)
-	}
-	return v0, nil
+	s.W[0] = rt.BoolWord(bool(r0))
+	return true, nil
 }
 
-// out194 builds a List<String> from Go *rt.List[string].
-func (b *bound) out194(v *rt.List[string]) (rt.Value, error) {
+// out248 builds a List<String> from Go *rt.List[string].
+func (b *bound) out248(v *rt.List[string]) (rt.Value, error) {
 	n := 0
 	if v != nil {
 		n = v.Len
@@ -5690,7 +4478,7 @@ func (b *bound) out194(v *rt.List[string]) (rt.Value, error) {
 	items := make([]rt.Value, 0, n)
 	i := 0
 	for c := v; c != nil; c = c.Tail {
-		x, err := b.out5(c.Head)
+		x, err := b.out166(c.Head)
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -5704,345 +4492,180 @@ func (b *bound) out194(v *rt.List[string]) (rt.Value, error) {
 	return xs, nil
 }
 
-// fn193 adapts strings.String.find_all_in: find_all_in(needle: String, text: String) -> List<String>
-func (b *bound) fn193(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("strings.String.find_all_in", 2, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("strings.String.find_all_in", 0, "strings.String.find_all_in", "needle", err)
-	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("strings.String.find_all_in", 1, "strings.String.find_all_in", "text", err)
-	}
+// fn247Regs is strings.String.find_all_in over slots.
+func (b *bound) fn247Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
+	a1 := string(s.S[1])
 	r0 := rt.StringFindAllIn(a0, a1)
-	v0, err := b.out194(r0)
+	w249, err := b.out248(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("strings.String.find_all_in", err)
+		return false, hostadapt.Returned("strings.String.find_all_in", err)
 	}
-	return v0, nil
+	s.R[0] = w249
+	return true, nil
 }
 
-// fn195 adapts strings.String.uppercase: uppercase(s: String) -> String
-func (b *bound) fn195(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("strings.String.uppercase", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("strings.String.uppercase", 0, "strings.String.uppercase", "s", err)
-	}
+// fn250Regs is strings.String.uppercase over slots.
+func (b *bound) fn250Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
 	r0 := rt.StringUppercase(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("strings.String.uppercase", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn196 adapts strings.String.lowercase: lowercase(s: String) -> String
-func (b *bound) fn196(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("strings.String.lowercase", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("strings.String.lowercase", 0, "strings.String.lowercase", "s", err)
-	}
+// fn251Regs is strings.String.lowercase over slots.
+func (b *bound) fn251Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
 	r0 := rt.StringLowercase(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("strings.String.lowercase", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn197 adapts strings.String.is_upper: is_upper(s: String) -> Bool
-func (b *bound) fn197(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("strings.String.is_upper", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("strings.String.is_upper", 0, "strings.String.is_upper", "s", err)
-	}
+// fn252Regs is strings.String.is_upper over slots.
+func (b *bound) fn252Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
 	r0 := rt.StringIsUpper(a0)
-	v0, err := b.out162(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("strings.String.is_upper", err)
-	}
-	return v0, nil
+	s.W[0] = rt.BoolWord(bool(r0))
+	return true, nil
 }
 
-// fn198 adapts strings.String.is_lower: is_lower(s: String) -> Bool
-func (b *bound) fn198(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("strings.String.is_lower", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("strings.String.is_lower", 0, "strings.String.is_lower", "s", err)
-	}
+// fn253Regs is strings.String.is_lower over slots.
+func (b *bound) fn253Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
 	r0 := rt.StringIsLower(a0)
-	v0, err := b.out162(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("strings.String.is_lower", err)
-	}
-	return v0, nil
+	s.W[0] = rt.BoolWord(bool(r0))
+	return true, nil
 }
 
-// fn199 adapts strings.String.replace_in: replace_in(old: String, text: String, replacement: String) -> String
-func (b *bound) fn199(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 3 {
-		return nil, hostadapt.Arity("strings.String.replace_in", 3, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("strings.String.replace_in", 0, "strings.String.replace_in", "old", err)
-	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("strings.String.replace_in", 1, "strings.String.replace_in", "text", err)
-	}
-	a2, err := b.in42(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("strings.String.replace_in", 2, "strings.String.replace_in", "replacement", err)
-	}
+// fn254Regs is strings.String.replace_in over slots.
+func (b *bound) fn254Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
+	a1 := string(s.S[1])
+	a2 := string(s.S[2])
 	r0 := rt.StringReplaceIn(a0, a1, a2)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("strings.String.replace_in", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn200 adapts strings.String.trim: trim(s: String) -> String
-func (b *bound) fn200(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("strings.String.trim", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("strings.String.trim", 0, "strings.String.trim", "s", err)
-	}
+// fn255Regs is strings.String.trim over slots.
+func (b *bound) fn255Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
 	r0 := rt.StringTrim(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("strings.String.trim", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn201 adapts strings.String.hash: hash(s: String) -> Int
-func (b *bound) fn201(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("strings.String.hash", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("strings.String.hash", 0, "strings.String.hash", "s", err)
-	}
+// fn256Regs is strings.String.hash over slots.
+func (b *bound) fn256Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
 	r0 := rt.StringHash(a0)
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("strings.String.hash", err)
-	}
-	return v0, nil
+	s.SetInt64(0, int64(r0))
+	return true, nil
 }
 
-// fn202 adapts strings.string_compare: string_compare(a: String, b: String) -> Int
-func (b *bound) fn202(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("strings.string_compare", 2, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("strings.string_compare", 0, "strings.string_compare", "a", err)
-	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("strings.string_compare", 1, "strings.string_compare", "b", err)
-	}
+// fn257Regs is strings.string_compare over slots.
+func (b *bound) fn257Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
+	a1 := string(s.S[1])
 	r0 := rt.StringCompare(a0, a1)
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("strings.string_compare", err)
-	}
-	return v0, nil
+	s.SetInt64(0, int64(r0))
+	return true, nil
 }
 
-// out204 builds a Maybe<Int> from Go rt.Maybe[rt.Int].
-func (b *bound) out204(v rt.Maybe[rt.Int]) (rt.Value, error) {
+// out259 builds a Maybe<Int> from Go rt.Maybe[rt.Int].
+func (b *bound) out259(v rt.Maybe[rt.Int]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagSome:
-		r := b.d24.NewVariant(0)
+		r := b.d23.NewVariant(0)
 		r.SetIntSlot(0, v.Some.Value())
 		return r, nil
 	case rt.TagNone:
-		return b.d24.NewVariant(1), nil
+		return b.d23.NewVariant(1), nil
 	}
 	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
 }
 
-// fn203 adapts strings.String.to_int: to_int(s: String) -> Maybe<Int>
-func (b *bound) fn203(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("strings.String.to_int", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("strings.String.to_int", 0, "strings.String.to_int", "s", err)
-	}
-	r0 := rt.StringToInt(a0)
-	v0, err := b.out204(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("strings.String.to_int", err)
-	}
-	return v0, nil
-}
-
-// fn203Parts is strings.String.to_int taken apart: the payload and true, or the record and false.
-func (b *bound) fn203Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("strings.String.to_int", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("strings.String.to_int", 0, "strings.String.to_int", "s", err)
-	}
+// fn258Regs is strings.String.to_int over slots.
+func (b *bound) fn258Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
 	r0 := rt.StringToInt(a0)
 	if r0.Tag != rt.TagSome {
-		rec, err := b.out204(r0)
+		rec, err := b.out259(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("strings.String.to_int", err)
+			return false, hostadapt.Returned("strings.String.to_int", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out3(r0.Some)
-	if err != nil {
-		return nil, false, hostadapt.Returned("strings.String.to_int", err)
-	}
-	return v, true, nil
+	s.SetInt(0, r0.Some)
+	return true, nil
 }
 
-// fn205 adapts strings.String.split_in: split_in(separator: String, text: String) -> List<String>
-func (b *bound) fn205(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("strings.String.split_in", 2, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("strings.String.split_in", 0, "strings.String.split_in", "separator", err)
-	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("strings.String.split_in", 1, "strings.String.split_in", "text", err)
-	}
+// fn260Regs is strings.String.split_in over slots.
+func (b *bound) fn260Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
+	a1 := string(s.S[1])
 	r0 := rt.StringSplitIn(a0, a1)
-	v0, err := b.out194(r0)
+	w261, err := b.out248(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("strings.String.split_in", err)
+		return false, hostadapt.Returned("strings.String.split_in", err)
 	}
-	return v0, nil
+	s.R[0] = w261
+	return true, nil
 }
 
-// fn206 adapts strings.String.words: words(s: String) -> List<String>
-func (b *bound) fn206(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("strings.String.words", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("strings.String.words", 0, "strings.String.words", "s", err)
-	}
+// fn262Regs is strings.String.words over slots.
+func (b *bound) fn262Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
 	r0 := rt.StringWords(a0)
-	v0, err := b.out194(r0)
+	w263, err := b.out248(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("strings.String.words", err)
+		return false, hostadapt.Returned("strings.String.words", err)
 	}
-	return v0, nil
+	s.R[0] = w263
+	return true, nil
 }
 
-// fn207 adapts strings.String.lines: lines(s: String) -> List<String>
-func (b *bound) fn207(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("strings.String.lines", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("strings.String.lines", 0, "strings.String.lines", "s", err)
-	}
+// fn264Regs is strings.String.lines over slots.
+func (b *bound) fn264Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
 	r0 := rt.StringLines(a0)
-	v0, err := b.out194(r0)
+	w265, err := b.out248(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("strings.String.lines", err)
+		return false, hostadapt.Returned("strings.String.lines", err)
 	}
-	return v0, nil
+	s.R[0] = w265
+	return true, nil
 }
 
-// fn208 adapts strings.String.length: length(s: String) -> Int
-func (b *bound) fn208(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("strings.String.length", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("strings.String.length", 0, "strings.String.length", "s", err)
-	}
+// fn266Regs is strings.String.length over slots.
+func (b *bound) fn266Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
 	r0 := rt.StringLength(a0)
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("strings.String.length", err)
-	}
-	return v0, nil
+	s.SetInt64(0, int64(r0))
+	return true, nil
 }
 
-// fn209 adapts strings.String.slice: slice(s: String, start: Int, stop: Int) -> String
-func (b *bound) fn209(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 3 {
-		return nil, hostadapt.Arity("strings.String.slice", 3, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("strings.String.slice", 0, "strings.String.slice", "s", err)
-	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("strings.String.slice", 1, "strings.String.slice", "start", err)
-	}
-	a2, err := b.in39(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("strings.String.slice", 2, "strings.String.slice", "stop", err)
-	}
+// fn267Regs is strings.String.slice over slots.
+func (b *bound) fn267Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
+	a1 := s.Int(1)
+	a2 := s.Int(2)
 	r0 := rt.StringSlice(a0, a1, a2)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("strings.String.slice", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn210 adapts strings.String.reverse: reverse(s: String) -> String
-func (b *bound) fn210(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("strings.String.reverse", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("strings.String.reverse", 0, "strings.String.reverse", "s", err)
-	}
+// fn268Regs is strings.String.reverse over slots.
+func (b *bound) fn268Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
 	r0 := rt.StringReverse(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("strings.String.reverse", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// out212 builds a Maybe<Byte> from Go rt.Maybe[rt.Byte].
-func (b *bound) out212(v rt.Maybe[rt.Byte]) (rt.Value, error) {
+// out270 builds a Maybe<Byte> from Go rt.Maybe[rt.Byte].
+func (b *bound) out270(v rt.Maybe[rt.Byte]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagSome:
 		r := b.d25.NewVariant(0)
@@ -6054,780 +4677,114 @@ func (b *bound) out212(v rt.Maybe[rt.Byte]) (rt.Value, error) {
 	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
 }
 
-// fn211 adapts int.Int.to_byte: to_byte(n: Int) -> Maybe<Byte>
-func (b *bound) fn211(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("int.Int.to_byte", 1, len(args))
-	}
-	a0, err := b.in39(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("int.Int.to_byte", 0, "int.Int.to_byte", "n", err)
-	}
-	r0 := rt.IntToByte(a0)
-	v0, err := b.out212(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("int.Int.to_byte", err)
-	}
-	return v0, nil
-}
-
-// out213 builds a Byte from Go rt.Byte.
-func (b *bound) out213(v rt.Byte) (rt.Value, error) {
-	return rt.Byte(v), nil
-}
-
-// fn211Parts is int.Int.to_byte taken apart: the payload and true, or the record and false.
-func (b *bound) fn211Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("int.Int.to_byte", 1, len(args))
-	}
-	a0, err := b.in39(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("int.Int.to_byte", 0, "int.Int.to_byte", "n", err)
-	}
+// fn269Regs is int.Int.to_byte over slots.
+func (b *bound) fn269Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
 	r0 := rt.IntToByte(a0)
 	if r0.Tag != rt.TagSome {
-		rec, err := b.out212(r0)
+		rec, err := b.out270(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("int.Int.to_byte", err)
+			return false, hostadapt.Returned("int.Int.to_byte", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out213(r0.Some)
-	if err != nil {
-		return nil, false, hostadapt.Returned("int.Int.to_byte", err)
-	}
-	return v, true, nil
+	s.W[0] = rt.ByteWord(rt.Byte(r0.Some))
+	return true, nil
 }
 
-// in215 reads a Byte as Go rt.Byte.
-func (b *bound) in215(fr *rt.Frame, v rt.Value) (out rt.Byte, err error) {
-	x, ok := v.(rt.Byte)
-	if !ok {
-		return out, hostadapt.Want("Byte", v)
-	}
-	return rt.Byte(x), nil
-}
-
-// fn214 adapts bytes.Byte.to_int: to_int(b: Byte) -> Int
-func (b *bound) fn214(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("bytes.Byte.to_int", 1, len(args))
-	}
-	a0, err := b.in215(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("bytes.Byte.to_int", 0, "bytes.Byte.to_int", "b", err)
-	}
+// fn271Regs is bytes.Byte.to_int over slots.
+func (b *bound) fn271Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Byte(rt.WordByte(s.W[0]))
 	r0 := rt.ByteToInt(a0)
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("bytes.Byte.to_int", err)
-	}
-	return v0, nil
+	s.SetInt64(0, int64(r0))
+	return true, nil
 }
 
-// in217 reads a Bytes as Go rt.Bytes.
-func (b *bound) in217(fr *rt.Frame, v rt.Value) (out rt.Bytes, err error) {
-	x, ok := v.(rt.Bytes)
-	if !ok {
-		return out, hostadapt.Want("Bytes", v)
-	}
-	return rt.Bytes(x), nil
-}
-
-// fn216 adapts bytes.Bytes.length: length(data: Bytes) -> Int
-func (b *bound) fn216(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("bytes.Bytes.length", 1, len(args))
-	}
-	a0, err := b.in217(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("bytes.Bytes.length", 0, "bytes.Bytes.length", "data", err)
-	}
+// fn272Regs is bytes.Bytes.length over slots.
+func (b *bound) fn272Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
 	r0 := rt.BytesLength(a0)
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("bytes.Bytes.length", err)
-	}
-	return v0, nil
+	s.SetInt64(0, int64(r0))
+	return true, nil
 }
 
-// fn218 adapts hash.sha256: sha256(data: Bytes) -> Bytes
-func (b *bound) fn218(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("hash.sha256", 1, len(args))
-	}
-	a0, err := b.in217(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("hash.sha256", 0, "hash.sha256", "data", err)
-	}
+// fn273Regs is hash.sha256 over slots.
+func (b *bound) fn273Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
 	r0 := rt.SHA256(a0)
-	v0, err := b.out104(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("hash.sha256", err)
-	}
-	return v0, nil
+	s.S[0] = string(rt.Bytes(r0))
+	return true, nil
 }
 
-// fn219 adapts hash.sha512: sha512(data: Bytes) -> Bytes
-func (b *bound) fn219(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("hash.sha512", 1, len(args))
-	}
-	a0, err := b.in217(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("hash.sha512", 0, "hash.sha512", "data", err)
-	}
+// fn274Regs is hash.sha512 over slots.
+func (b *bound) fn274Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
 	r0 := rt.SHA512(a0)
-	v0, err := b.out104(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("hash.sha512", err)
-	}
-	return v0, nil
+	s.S[0] = string(rt.Bytes(r0))
+	return true, nil
 }
 
-// fn220 adapts hash.md5: md5(data: Bytes) -> Bytes
-func (b *bound) fn220(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("hash.md5", 1, len(args))
-	}
-	a0, err := b.in217(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("hash.md5", 0, "hash.md5", "data", err)
-	}
+// fn275Regs is hash.md5 over slots.
+func (b *bound) fn275Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
 	r0 := rt.MD5(a0)
-	v0, err := b.out104(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("hash.md5", err)
-	}
-	return v0, nil
+	s.S[0] = string(rt.Bytes(r0))
+	return true, nil
 }
 
-// fn221 adapts hash.sha1: sha1(data: Bytes) -> Bytes
-func (b *bound) fn221(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("hash.sha1", 1, len(args))
-	}
-	a0, err := b.in217(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("hash.sha1", 0, "hash.sha1", "data", err)
-	}
+// fn276Regs is hash.sha1 over slots.
+func (b *bound) fn276Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
 	r0 := rt.SHA1(a0)
-	v0, err := b.out104(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("hash.sha1", err)
-	}
-	return v0, nil
+	s.S[0] = string(rt.Bytes(r0))
+	return true, nil
 }
 
-// fn222 adapts hash.hmac_sha256: hmac_sha256(key: Bytes, data: Bytes) -> Bytes
-func (b *bound) fn222(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("hash.hmac_sha256", 2, len(args))
-	}
-	a0, err := b.in217(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("hash.hmac_sha256", 0, "hash.hmac_sha256", "key", err)
-	}
-	a1, err := b.in217(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("hash.hmac_sha256", 1, "hash.hmac_sha256", "data", err)
-	}
+// fn277Regs is hash.hmac_sha256 over slots.
+func (b *bound) fn277Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := rt.Bytes(rt.Bytes(s.S[1]))
 	r0 := rt.HMACSHA256(a0, a1)
-	v0, err := b.out104(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("hash.hmac_sha256", err)
-	}
-	return v0, nil
+	s.S[0] = string(rt.Bytes(r0))
+	return true, nil
 }
 
-// fn223 adapts hash.hmac_sha512: hmac_sha512(key: Bytes, data: Bytes) -> Bytes
-func (b *bound) fn223(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("hash.hmac_sha512", 2, len(args))
-	}
-	a0, err := b.in217(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("hash.hmac_sha512", 0, "hash.hmac_sha512", "key", err)
-	}
-	a1, err := b.in217(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("hash.hmac_sha512", 1, "hash.hmac_sha512", "data", err)
-	}
+// fn278Regs is hash.hmac_sha512 over slots.
+func (b *bound) fn278Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := rt.Bytes(rt.Bytes(s.S[1]))
 	r0 := rt.HMACSHA512(a0, a1)
-	v0, err := b.out104(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("hash.hmac_sha512", err)
-	}
-	return v0, nil
+	s.S[0] = string(rt.Bytes(r0))
+	return true, nil
 }
 
-// fn224 adapts hash.equal_in_constant_time: equal_in_constant_time(a: Bytes, b: Bytes) -> Bool
-func (b *bound) fn224(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("hash.equal_in_constant_time", 2, len(args))
-	}
-	a0, err := b.in217(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("hash.equal_in_constant_time", 0, "hash.equal_in_constant_time", "a", err)
-	}
-	a1, err := b.in217(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("hash.equal_in_constant_time", 1, "hash.equal_in_constant_time", "b", err)
-	}
+// fn279Regs is hash.equal_in_constant_time over slots.
+func (b *bound) fn279Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := rt.Bytes(rt.Bytes(s.S[1]))
 	r0 := rt.EqualInConstantTime(a0, a1)
-	v0, err := b.out162(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("hash.equal_in_constant_time", err)
-	}
-	return v0, nil
+	s.W[0] = rt.BoolWord(bool(r0))
+	return true, nil
 }
 
-// fn225 adapts hash.pbkdf2_sha256: pbkdf2_sha256(password: Bytes, salt: Bytes, iterations: PositiveInt, length: PositiveInt) -> Bytes
-func (b *bound) fn225(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 4 {
-		return nil, hostadapt.Arity("hash.pbkdf2_sha256", 4, len(args))
-	}
-	a0, err := b.in217(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("hash.pbkdf2_sha256", 0, "hash.pbkdf2_sha256", "password", err)
-	}
-	a1, err := b.in217(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("hash.pbkdf2_sha256", 1, "hash.pbkdf2_sha256", "salt", err)
-	}
-	a2, err := b.in39(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("hash.pbkdf2_sha256", 2, "hash.pbkdf2_sha256", "iterations", err)
-	}
-	a3, err := b.in39(fr, args[3])
-	if err != nil {
-		return nil, hostadapt.Param("hash.pbkdf2_sha256", 3, "hash.pbkdf2_sha256", "length", err)
-	}
+// fn280Regs is hash.pbkdf2_sha256 over slots.
+func (b *bound) fn280Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := rt.Bytes(rt.Bytes(s.S[1]))
+	a2 := s.Int(2)
+	a3 := s.Int(3)
 	r0 := rt.PBKDF2SHA256(a0, a1, a2, a3)
-	v0, err := b.out104(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("hash.pbkdf2_sha256", err)
-	}
-	return v0, nil
+	s.S[0] = string(rt.Bytes(r0))
+	return true, nil
 }
 
-// out229 builds a Result<Bytes, String> from Go rt.Result[rt.Bytes, string].
-func (b *bound) out229(v rt.Result[rt.Bytes, string]) (rt.Value, error) {
-	switch v.Tag {
-	case rt.TagOk:
-		r := b.d26.NewVariant(0)
-		r.S[0] = string(rt.Bytes(v.Ok))
-		return r, nil
-	case rt.TagErr:
-		r := b.d26.NewVariant(1)
-		r.S[0] = string(v.Err)
-		return r, nil
-	}
-	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
-}
-
-// fn245 adapts http/host.seal: seal(key: Bytes, data: Bytes, label: Bytes) -> Result<Bytes, String>
-func (b *bound) fn245(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 3 {
-		return nil, hostadapt.Arity("http/host.seal", 3, len(args))
-	}
-	a0, err := b.in217(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("http/host.seal", 0, "http/host.seal", "key", err)
-	}
-	a1, err := b.in217(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("http/host.seal", 1, "http/host.seal", "data", err)
-	}
-	a2, err := b.in217(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("http/host.seal", 2, "http/host.seal", "label", err)
-	}
-	r0 := rt.Seal(a0, a1, a2)
-	v0, err := b.out229(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("http/host.seal", err)
-	}
-	return v0, nil
-}
-
-// fn245Parts is http/host.seal taken apart: the payload and true, or the record and false.
-func (b *bound) fn245Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 3 {
-		return nil, false, hostadapt.Arity("http/host.seal", 3, len(args))
-	}
-	a0, err := b.in217(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("http/host.seal", 0, "http/host.seal", "key", err)
-	}
-	a1, err := b.in217(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("http/host.seal", 1, "http/host.seal", "data", err)
-	}
-	a2, err := b.in217(fr, args[2])
-	if err != nil {
-		return nil, false, hostadapt.Param("http/host.seal", 2, "http/host.seal", "label", err)
-	}
-	r0 := rt.Seal(a0, a1, a2)
-	if r0.Tag != rt.TagOk {
-		rec, err := b.out229(r0)
-		if err != nil {
-			return nil, false, hostadapt.Returned("http/host.seal", err)
-		}
-		return rec, false, nil
-	}
-	v, err := b.out104(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("http/host.seal", err)
-	}
-	return v, true, nil
-}
-
-// out247 builds a Maybe<Bytes> from Go rt.Maybe[rt.Bytes].
-func (b *bound) out247(v rt.Maybe[rt.Bytes]) (rt.Value, error) {
-	switch v.Tag {
-	case rt.TagSome:
-		r := b.d27.NewVariant(0)
-		r.S[0] = string(rt.Bytes(v.Some))
-		return r, nil
-	case rt.TagNone:
-		return b.d27.NewVariant(1), nil
-	}
-	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
-}
-
-// fn246 adapts http/host.open_sealed: open_sealed(key: Bytes, sealed: Bytes, label: Bytes) -> Maybe<Bytes>
-func (b *bound) fn246(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 3 {
-		return nil, hostadapt.Arity("http/host.open_sealed", 3, len(args))
-	}
-	a0, err := b.in217(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("http/host.open_sealed", 0, "http/host.open_sealed", "key", err)
-	}
-	a1, err := b.in217(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("http/host.open_sealed", 1, "http/host.open_sealed", "sealed", err)
-	}
-	a2, err := b.in217(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("http/host.open_sealed", 2, "http/host.open_sealed", "label", err)
-	}
-	r0 := rt.Open(a0, a1, a2)
-	v0, err := b.out247(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("http/host.open_sealed", err)
-	}
-	return v0, nil
-}
-
-// fn246Parts is http/host.open_sealed taken apart: the payload and true, or the record and false.
-func (b *bound) fn246Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 3 {
-		return nil, false, hostadapt.Arity("http/host.open_sealed", 3, len(args))
-	}
-	a0, err := b.in217(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("http/host.open_sealed", 0, "http/host.open_sealed", "key", err)
-	}
-	a1, err := b.in217(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("http/host.open_sealed", 1, "http/host.open_sealed", "sealed", err)
-	}
-	a2, err := b.in217(fr, args[2])
-	if err != nil {
-		return nil, false, hostadapt.Param("http/host.open_sealed", 2, "http/host.open_sealed", "label", err)
-	}
-	r0 := rt.Open(a0, a1, a2)
-	if r0.Tag != rt.TagSome {
-		rec, err := b.out247(r0)
-		if err != nil {
-			return nil, false, hostadapt.Returned("http/host.open_sealed", err)
-		}
-		return rec, false, nil
-	}
-	v, err := b.out104(r0.Some)
-	if err != nil {
-		return nil, false, hostadapt.Returned("http/host.open_sealed", err)
-	}
-	return v, true, nil
-}
-
-// fn248 adapts base64.standard: standard(data: Bytes, padded: Bool) -> String
-func (b *bound) fn248(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("base64.standard", 2, len(args))
-	}
-	a0, err := b.in217(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("base64.standard", 0, "base64.standard", "data", err)
-	}
-	a1, err := b.in54(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("base64.standard", 1, "base64.standard", "padded", err)
-	}
-	r0 := rt.Base64Encode(a0, a1)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("base64.standard", err)
-	}
-	return v0, nil
-}
-
-// fn249 adapts base64.decode: decode(text: String) -> Result<Bytes, String>
-func (b *bound) fn249(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("base64.decode", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("base64.decode", 0, "base64.decode", "text", err)
-	}
-	r0 := rt.Base64Decode(a0)
-	v0, err := b.out229(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("base64.decode", err)
-	}
-	return v0, nil
-}
-
-// fn249Parts is base64.decode taken apart: the payload and true, or the record and false.
-func (b *bound) fn249Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("base64.decode", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("base64.decode", 0, "base64.decode", "text", err)
-	}
-	r0 := rt.Base64Decode(a0)
-	if r0.Tag != rt.TagOk {
-		rec, err := b.out229(r0)
-		if err != nil {
-			return nil, false, hostadapt.Returned("base64.decode", err)
-		}
-		return rec, false, nil
-	}
-	v, err := b.out104(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("base64.decode", err)
-	}
-	return v, true, nil
-}
-
-// fn250 adapts base64.url_safe: url_safe(data: Bytes, padded: Bool) -> String
-func (b *bound) fn250(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("base64.url_safe", 2, len(args))
-	}
-	a0, err := b.in217(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("base64.url_safe", 0, "base64.url_safe", "data", err)
-	}
-	a1, err := b.in54(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("base64.url_safe", 1, "base64.url_safe", "padded", err)
-	}
-	r0 := rt.Base64URLEncode(a0, a1)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("base64.url_safe", err)
-	}
-	return v0, nil
-}
-
-// fn251 adapts base64.decode_url: decode_url(text: String) -> Result<Bytes, String>
-func (b *bound) fn251(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("base64.decode_url", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("base64.decode_url", 0, "base64.decode_url", "text", err)
-	}
-	r0 := rt.Base64URLDecode(a0)
-	v0, err := b.out229(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("base64.decode_url", err)
-	}
-	return v0, nil
-}
-
-// fn251Parts is base64.decode_url taken apart: the payload and true, or the record and false.
-func (b *bound) fn251Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("base64.decode_url", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("base64.decode_url", 0, "base64.decode_url", "text", err)
-	}
-	r0 := rt.Base64URLDecode(a0)
-	if r0.Tag != rt.TagOk {
-		rec, err := b.out229(r0)
-		if err != nil {
-			return nil, false, hostadapt.Returned("base64.decode_url", err)
-		}
-		return rec, false, nil
-	}
-	v, err := b.out104(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("base64.decode_url", err)
-	}
-	return v, true, nil
-}
-
-// fn252 adapts hex.encode: encode(data: Bytes) -> String
-func (b *bound) fn252(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("hex.encode", 1, len(args))
-	}
-	a0, err := b.in217(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("hex.encode", 0, "hex.encode", "data", err)
-	}
-	r0 := rt.HexEncode(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("hex.encode", err)
-	}
-	return v0, nil
-}
-
-// fn253 adapts hex.decode: decode(text: String) -> Result<Bytes, String>
-func (b *bound) fn253(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("hex.decode", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("hex.decode", 0, "hex.decode", "text", err)
-	}
-	r0 := rt.HexDecode(a0)
-	v0, err := b.out229(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("hex.decode", err)
-	}
-	return v0, nil
-}
-
-// fn253Parts is hex.decode taken apart: the payload and true, or the record and false.
-func (b *bound) fn253Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("hex.decode", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("hex.decode", 0, "hex.decode", "text", err)
-	}
-	r0 := rt.HexDecode(a0)
-	if r0.Tag != rt.TagOk {
-		rec, err := b.out229(r0)
-		if err != nil {
-			return nil, false, hostadapt.Returned("hex.decode", err)
-		}
-		return rec, false, nil
-	}
-	v, err := b.out104(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("hex.decode", err)
-	}
-	return v, true, nil
-}
-
-// fn254 adapts html/host.escape: escape(text: String) -> String
-func (b *bound) fn254(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("html/host.escape", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("html/host.escape", 0, "html/host.escape", "text", err)
-	}
-	r0 := rt.HTMLEscape(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("html/host.escape", err)
-	}
-	return v0, nil
-}
-
-// fn255 adapts html/host.filter_url: filter_url(text: String) -> String
-func (b *bound) fn255(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("html/host.filter_url", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("html/host.filter_url", 0, "html/host.filter_url", "text", err)
-	}
-	r0 := rt.HTMLFilterURL(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("html/host.filter_url", err)
-	}
-	return v0, nil
-}
-
-// fn256 adapts html/host.escape_url_path: escape_url_path(text: String) -> String
-func (b *bound) fn256(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("html/host.escape_url_path", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("html/host.escape_url_path", 0, "html/host.escape_url_path", "text", err)
-	}
-	r0 := rt.HTMLEscapeURLPath(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("html/host.escape_url_path", err)
-	}
-	return v0, nil
-}
-
-// fn257 adapts url/host.escape_query: escape_query(text: String) -> String
-func (b *bound) fn257(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("url/host.escape_query", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("url/host.escape_query", 0, "url/host.escape_query", "text", err)
-	}
-	r0 := rt.URLEscapeQuery(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("url/host.escape_query", err)
-	}
-	return v0, nil
-}
-
-// out259 builds a Result<String, String> from Go rt.Result[string, string].
-func (b *bound) out259(v rt.Result[string, string]) (rt.Value, error) {
-	switch v.Tag {
-	case rt.TagOk:
-		r := b.d28.NewVariant(0)
-		r.S[0] = string(v.Ok)
-		return r, nil
-	case rt.TagErr:
-		r := b.d28.NewVariant(1)
-		r.S[0] = string(v.Err)
-		return r, nil
-	}
-	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
-}
-
-// fn258 adapts url/host.unescape_query: unescape_query(text: String) -> Result<String, String>
-func (b *bound) fn258(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("url/host.unescape_query", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("url/host.unescape_query", 0, "url/host.unescape_query", "text", err)
-	}
-	r0 := rt.URLUnescapeQuery(a0)
-	v0, err := b.out259(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("url/host.unescape_query", err)
-	}
-	return v0, nil
-}
-
-// fn258Parts is url/host.unescape_query taken apart: the payload and true, or the record and false.
-func (b *bound) fn258Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("url/host.unescape_query", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("url/host.unescape_query", 0, "url/host.unescape_query", "text", err)
-	}
-	r0 := rt.URLUnescapeQuery(a0)
-	if r0.Tag != rt.TagOk {
-		rec, err := b.out259(r0)
-		if err != nil {
-			return nil, false, hostadapt.Returned("url/host.unescape_query", err)
-		}
-		return rec, false, nil
-	}
-	v, err := b.out5(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("url/host.unescape_query", err)
-	}
-	return v, true, nil
-}
-
-// fn260 adapts url/host.escape_path_segment: escape_path_segment(text: String) -> String
-func (b *bound) fn260(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("url/host.escape_path_segment", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("url/host.escape_path_segment", 0, "url/host.escape_path_segment", "text", err)
-	}
-	r0 := rt.URLEscapePathSegment(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("url/host.escape_path_segment", err)
-	}
-	return v0, nil
-}
-
-// fn261 adapts url/host.unescape_path_segment: unescape_path_segment(text: String) -> Result<String, String>
-func (b *bound) fn261(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("url/host.unescape_path_segment", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("url/host.unescape_path_segment", 0, "url/host.unescape_path_segment", "text", err)
-	}
-	r0 := rt.URLUnescapePathSegment(a0)
-	v0, err := b.out259(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("url/host.unescape_path_segment", err)
-	}
-	return v0, nil
-}
-
-// fn261Parts is url/host.unescape_path_segment taken apart: the payload and true, or the record and false.
-func (b *bound) fn261Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("url/host.unescape_path_segment", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("url/host.unescape_path_segment", 0, "url/host.unescape_path_segment", "text", err)
-	}
-	r0 := rt.URLUnescapePathSegment(a0)
-	if r0.Tag != rt.TagOk {
-		rec, err := b.out259(r0)
-		if err != nil {
-			return nil, false, hostadapt.Returned("url/host.unescape_path_segment", err)
-		}
-		return rec, false, nil
-	}
-	v, err := b.out5(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("url/host.unescape_path_segment", err)
-	}
-	return v, true, nil
-}
-
-// out263 builds a Result<List<String>, String> from Go rt.Result[*rt.List[string], string].
-func (b *bound) out263(v rt.Result[*rt.List[string], string]) (rt.Value, error) {
+// out284 builds a Result<Bytes, String> from Go rt.Result[rt.Bytes, string].
+func (b *bound) out284(v rt.Result[rt.Bytes, string]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
 		r := b.d21.NewVariant(0)
-		w264, err := b.out194(v.Ok)
-		if err != nil {
-			return nil, fmt.Errorf("Ok: %w", err)
-		}
-		r.R[0] = w264
+		r.S[0] = string(rt.Bytes(v.Ok))
 		return r, nil
 	case rt.TagErr:
 		r := b.d21.NewVariant(1)
@@ -6837,57 +4794,295 @@ func (b *bound) out263(v rt.Result[*rt.List[string], string]) (rt.Value, error) 
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn262 adapts url/host.parse_parts: parse_parts(text: String, request_uri: Bool) -> Result<List<String>, String>
-func (b *bound) fn262(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("url/host.parse_parts", 2, len(args))
+// fn300Regs is http/host.seal over slots.
+func (b *bound) fn300Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := rt.Bytes(rt.Bytes(s.S[1]))
+	a2 := rt.Bytes(rt.Bytes(s.S[2]))
+	r0 := rt.Seal(a0, a1, a2)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out284(r0)
+		if err != nil {
+			return false, hostadapt.Returned("http/host.seal", err)
+		}
+		s.R[0] = rec
+		return false, nil
 	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("url/host.parse_parts", 0, "url/host.parse_parts", "text", err)
-	}
-	a1, err := b.in54(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("url/host.parse_parts", 1, "url/host.parse_parts", "request_uri", err)
-	}
-	r0 := rt.URLParse(a0, a1)
-	v0, err := b.out263(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("url/host.parse_parts", err)
-	}
-	return v0, nil
+	s.S[0] = string(rt.Bytes(r0.Ok))
+	return true, nil
 }
 
-// fn262Parts is url/host.parse_parts taken apart: the payload and true, or the record and false.
-func (b *bound) fn262Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 2 {
-		return nil, false, hostadapt.Arity("url/host.parse_parts", 2, len(args))
+// out302 builds a Maybe<Bytes> from Go rt.Maybe[rt.Bytes].
+func (b *bound) out302(v rt.Maybe[rt.Bytes]) (rt.Value, error) {
+	switch v.Tag {
+	case rt.TagSome:
+		r := b.d26.NewVariant(0)
+		r.S[0] = string(rt.Bytes(v.Some))
+		return r, nil
+	case rt.TagNone:
+		return b.d26.NewVariant(1), nil
 	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("url/host.parse_parts", 0, "url/host.parse_parts", "text", err)
+	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
+}
+
+// fn301Regs is http/host.open_sealed over slots.
+func (b *bound) fn301Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := rt.Bytes(rt.Bytes(s.S[1]))
+	a2 := rt.Bytes(rt.Bytes(s.S[2]))
+	r0 := rt.Open(a0, a1, a2)
+	if r0.Tag != rt.TagSome {
+		rec, err := b.out302(r0)
+		if err != nil {
+			return false, hostadapt.Returned("http/host.open_sealed", err)
+		}
+		s.R[0] = rec
+		return false, nil
 	}
-	a1, err := b.in54(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("url/host.parse_parts", 1, "url/host.parse_parts", "request_uri", err)
+	s.S[0] = string(rt.Bytes(r0.Some))
+	return true, nil
+}
+
+// fn303Regs is base64.standard over slots.
+func (b *bound) fn303Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := bool(rt.WordBool(s.W[1]))
+	r0 := rt.Base64Encode(a0, a1)
+	s.S[0] = string(r0)
+	return true, nil
+}
+
+// fn304Regs is base64.decode over slots.
+func (b *bound) fn304Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
+	r0 := rt.Base64Decode(a0)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out284(r0)
+		if err != nil {
+			return false, hostadapt.Returned("base64.decode", err)
+		}
+		s.R[0] = rec
+		return false, nil
 	}
+	s.S[0] = string(rt.Bytes(r0.Ok))
+	return true, nil
+}
+
+// fn305Regs is base64.url_safe over slots.
+func (b *bound) fn305Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := bool(rt.WordBool(s.W[1]))
+	r0 := rt.Base64URLEncode(a0, a1)
+	s.S[0] = string(r0)
+	return true, nil
+}
+
+// fn306Regs is base64.decode_url over slots.
+func (b *bound) fn306Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
+	r0 := rt.Base64URLDecode(a0)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out284(r0)
+		if err != nil {
+			return false, hostadapt.Returned("base64.decode_url", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.S[0] = string(rt.Bytes(r0.Ok))
+	return true, nil
+}
+
+// fn307Regs is hex.encode over slots.
+func (b *bound) fn307Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	r0 := rt.HexEncode(a0)
+	s.S[0] = string(r0)
+	return true, nil
+}
+
+// fn308Regs is hex.decode over slots.
+func (b *bound) fn308Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
+	r0 := rt.HexDecode(a0)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out284(r0)
+		if err != nil {
+			return false, hostadapt.Returned("hex.decode", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.S[0] = string(rt.Bytes(r0.Ok))
+	return true, nil
+}
+
+// fn309Regs is html/host.escape over slots.
+func (b *bound) fn309Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
+	r0 := rt.HTMLEscape(a0)
+	s.S[0] = string(r0)
+	return true, nil
+}
+
+// fn310Regs is html/host.filter_url over slots.
+func (b *bound) fn310Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
+	r0 := rt.HTMLFilterURL(a0)
+	s.S[0] = string(r0)
+	return true, nil
+}
+
+// fn311Regs is html/host.escape_url_path over slots.
+func (b *bound) fn311Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
+	r0 := rt.HTMLEscapeURLPath(a0)
+	s.S[0] = string(r0)
+	return true, nil
+}
+
+// fn312Regs is html/host.unescape_references over slots.
+func (b *bound) fn312Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
+	r0 := rt.HTMLUnescape(a0)
+	s.S[0] = string(r0)
+	return true, nil
+}
+
+// out314 builds a Maybe<String> from Go rt.Maybe[string].
+func (b *bound) out314(v rt.Maybe[string]) (rt.Value, error) {
+	switch v.Tag {
+	case rt.TagSome:
+		r := b.d18.NewVariant(0)
+		r.S[0] = string(v.Some)
+		return r, nil
+	case rt.TagNone:
+		return b.d18.NewVariant(1), nil
+	}
+	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
+}
+
+// fn313Regs is html/host.named_reference over slots.
+func (b *bound) fn313Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
+	r0 := rt.HTMLEntity(a0)
+	if r0.Tag != rt.TagSome {
+		rec, err := b.out314(r0)
+		if err != nil {
+			return false, hostadapt.Returned("html/host.named_reference", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.S[0] = string(r0.Some)
+	return true, nil
+}
+
+// fn315Regs is url/host.escape_query over slots.
+func (b *bound) fn315Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
+	r0 := rt.URLEscapeQuery(a0)
+	s.S[0] = string(r0)
+	return true, nil
+}
+
+// out317 builds a Result<String, String> from Go rt.Result[string, string].
+func (b *bound) out317(v rt.Result[string, string]) (rt.Value, error) {
+	switch v.Tag {
+	case rt.TagOk:
+		r := b.d7.NewVariant(0)
+		r.S[0] = string(v.Ok)
+		return r, nil
+	case rt.TagErr:
+		r := b.d7.NewVariant(1)
+		r.S[0] = string(v.Err)
+		return r, nil
+	}
+	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
+}
+
+// fn316Regs is url/host.unescape_query over slots.
+func (b *bound) fn316Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
+	r0 := rt.URLUnescapeQuery(a0)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out317(r0)
+		if err != nil {
+			return false, hostadapt.Returned("url/host.unescape_query", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.S[0] = string(r0.Ok)
+	return true, nil
+}
+
+// fn318Regs is url/host.escape_path_segment over slots.
+func (b *bound) fn318Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
+	r0 := rt.URLEscapePathSegment(a0)
+	s.S[0] = string(r0)
+	return true, nil
+}
+
+// fn319Regs is url/host.unescape_path_segment over slots.
+func (b *bound) fn319Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
+	r0 := rt.URLUnescapePathSegment(a0)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out317(r0)
+		if err != nil {
+			return false, hostadapt.Returned("url/host.unescape_path_segment", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.S[0] = string(r0.Ok)
+	return true, nil
+}
+
+// out321 builds a Result<List<String>, String> from Go rt.Result[*rt.List[string], string].
+func (b *bound) out321(v rt.Result[*rt.List[string], string]) (rt.Value, error) {
+	switch v.Tag {
+	case rt.TagOk:
+		r := b.d20.NewVariant(0)
+		w322, err := b.out248(v.Ok)
+		if err != nil {
+			return nil, fmt.Errorf("Ok: %w", err)
+		}
+		r.R[0] = w322
+		return r, nil
+	case rt.TagErr:
+		r := b.d20.NewVariant(1)
+		r.S[0] = string(v.Err)
+		return r, nil
+	}
+	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
+}
+
+// fn320Regs is url/host.parse_parts over slots.
+func (b *bound) fn320Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
+	a1 := bool(rt.WordBool(s.W[1]))
 	r0 := rt.URLParse(a0, a1)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out263(r0)
+		rec, err := b.out321(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("url/host.parse_parts", err)
+			return false, hostadapt.Returned("url/host.parse_parts", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out194(r0.Ok)
+	w323, err := b.out248(r0.Ok)
 	if err != nil {
-		return nil, false, hostadapt.Returned("url/host.parse_parts", err)
+		return false, hostadapt.Returned("url/host.parse_parts", err)
 	}
-	return v, true, nil
+	s.R[0] = w323
+	return true, nil
 }
 
-// in266 reads a List<String> as Go *rt.List[string].
-func (b *bound) in266(fr *rt.Frame, v rt.Value) (out *rt.List[string], err error) {
+// in325 reads a List<String> as Go *rt.List[string].
+func (b *bound) in325(fr *rt.Frame, v rt.Value) (out *rt.List[string], err error) {
 	xs, err := hostadapt.List(v)
 	if err != nil {
 		return out, err
@@ -6895,7 +5090,7 @@ func (b *bound) in266(fr *rt.Frame, v rt.Value) (out *rt.List[string], err error
 	items := make([]string, 0, hostadapt.Len(xs))
 	i := 0
 	for c := xs; c != nil; c = c.Tail {
-		e, err := b.in42(fr, c.Head)
+		e, err := b.in173(fr, c.Head)
 		if err != nil {
 			return out, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -6908,783 +5103,407 @@ func (b *bound) in266(fr *rt.Frame, v rt.Value) (out *rt.List[string], err error
 	return out, nil
 }
 
-// fn265 adapts url/host.format_parts: format_parts(parts: List<String>) -> String
-func (b *bound) fn265(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("url/host.format_parts", 1, len(args))
-	}
-	a0, err := b.in266(fr, args[0])
+// fn324Regs is url/host.format_parts over slots.
+func (b *bound) fn324Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in325(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("url/host.format_parts", 0, "url/host.format_parts", "parts", err)
+		return false, hostadapt.Param("url/host.format_parts", 0, "url/host.format_parts", "parts", err)
 	}
 	r0 := rt.URLFormat(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("url/host.format_parts", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn267 adapts url/host.redacted_parts: redacted_parts(parts: List<String>) -> String
-func (b *bound) fn267(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("url/host.redacted_parts", 1, len(args))
-	}
-	a0, err := b.in266(fr, args[0])
+// fn326Regs is url/host.redacted_parts over slots.
+func (b *bound) fn326Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in325(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("url/host.redacted_parts", 0, "url/host.redacted_parts", "parts", err)
+		return false, hostadapt.Param("url/host.redacted_parts", 0, "url/host.redacted_parts", "parts", err)
 	}
 	r0 := rt.URLRedacted(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("url/host.redacted_parts", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn268 adapts url/host.escaped_path_parts: escaped_path_parts(parts: List<String>) -> String
-func (b *bound) fn268(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("url/host.escaped_path_parts", 1, len(args))
-	}
-	a0, err := b.in266(fr, args[0])
+// fn327Regs is url/host.escaped_path_parts over slots.
+func (b *bound) fn327Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in325(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("url/host.escaped_path_parts", 0, "url/host.escaped_path_parts", "parts", err)
+		return false, hostadapt.Param("url/host.escaped_path_parts", 0, "url/host.escaped_path_parts", "parts", err)
 	}
 	r0 := rt.URLEscapedPath(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("url/host.escaped_path_parts", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn269 adapts url/host.escaped_fragment_parts: escaped_fragment_parts(parts: List<String>) -> String
-func (b *bound) fn269(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("url/host.escaped_fragment_parts", 1, len(args))
-	}
-	a0, err := b.in266(fr, args[0])
+// fn328Regs is url/host.escaped_fragment_parts over slots.
+func (b *bound) fn328Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in325(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("url/host.escaped_fragment_parts", 0, "url/host.escaped_fragment_parts", "parts", err)
+		return false, hostadapt.Param("url/host.escaped_fragment_parts", 0, "url/host.escaped_fragment_parts", "parts", err)
 	}
 	r0 := rt.URLEscapedFragment(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("url/host.escaped_fragment_parts", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn270 adapts url/host.request_uri_parts: request_uri_parts(parts: List<String>) -> String
-func (b *bound) fn270(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("url/host.request_uri_parts", 1, len(args))
-	}
-	a0, err := b.in266(fr, args[0])
+// fn329Regs is url/host.request_uri_parts over slots.
+func (b *bound) fn329Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in325(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("url/host.request_uri_parts", 0, "url/host.request_uri_parts", "parts", err)
+		return false, hostadapt.Param("url/host.request_uri_parts", 0, "url/host.request_uri_parts", "parts", err)
 	}
 	r0 := rt.URLRequestURI(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("url/host.request_uri_parts", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn271 adapts url/host.hostname_parts: hostname_parts(parts: List<String>) -> String
-func (b *bound) fn271(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("url/host.hostname_parts", 1, len(args))
-	}
-	a0, err := b.in266(fr, args[0])
+// fn330Regs is url/host.hostname_parts over slots.
+func (b *bound) fn330Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in325(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("url/host.hostname_parts", 0, "url/host.hostname_parts", "parts", err)
+		return false, hostadapt.Param("url/host.hostname_parts", 0, "url/host.hostname_parts", "parts", err)
 	}
 	r0 := rt.URLHostname(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("url/host.hostname_parts", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn272 adapts url/host.port_parts: port_parts(parts: List<String>) -> String
-func (b *bound) fn272(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("url/host.port_parts", 1, len(args))
-	}
-	a0, err := b.in266(fr, args[0])
+// fn331Regs is url/host.port_parts over slots.
+func (b *bound) fn331Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in325(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("url/host.port_parts", 0, "url/host.port_parts", "parts", err)
+		return false, hostadapt.Param("url/host.port_parts", 0, "url/host.port_parts", "parts", err)
 	}
 	r0 := rt.URLPort(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("url/host.port_parts", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn273 adapts url/host.resolve_parts: resolve_parts(base: List<String>, reference: List<String>) -> List<String>
-func (b *bound) fn273(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("url/host.resolve_parts", 2, len(args))
-	}
-	a0, err := b.in266(fr, args[0])
+// fn332Regs is url/host.resolve_parts over slots.
+func (b *bound) fn332Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in325(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("url/host.resolve_parts", 0, "url/host.resolve_parts", "base", err)
+		return false, hostadapt.Param("url/host.resolve_parts", 0, "url/host.resolve_parts", "base", err)
 	}
-	a1, err := b.in266(fr, args[1])
+	a1, err := b.in325(fr, s.R[1])
 	if err != nil {
-		return nil, hostadapt.Param("url/host.resolve_parts", 1, "url/host.resolve_parts", "reference", err)
+		return false, hostadapt.Param("url/host.resolve_parts", 1, "url/host.resolve_parts", "reference", err)
 	}
 	r0 := rt.URLResolve(a0, a1)
-	v0, err := b.out194(r0)
+	w333, err := b.out248(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("url/host.resolve_parts", err)
+		return false, hostadapt.Returned("url/host.resolve_parts", err)
 	}
-	return v0, nil
+	s.R[0] = w333
+	return true, nil
 }
 
-// fn274 adapts url/host.join_path_parts: join_path_parts(parts: List<String>, segments: List<String>) -> List<String>
-func (b *bound) fn274(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("url/host.join_path_parts", 2, len(args))
-	}
-	a0, err := b.in266(fr, args[0])
+// fn334Regs is url/host.join_path_parts over slots.
+func (b *bound) fn334Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in325(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("url/host.join_path_parts", 0, "url/host.join_path_parts", "parts", err)
+		return false, hostadapt.Param("url/host.join_path_parts", 0, "url/host.join_path_parts", "parts", err)
 	}
-	a1, err := b.in266(fr, args[1])
+	a1, err := b.in325(fr, s.R[1])
 	if err != nil {
-		return nil, hostadapt.Param("url/host.join_path_parts", 1, "url/host.join_path_parts", "segments", err)
+		return false, hostadapt.Param("url/host.join_path_parts", 1, "url/host.join_path_parts", "segments", err)
 	}
 	r0 := rt.URLJoinPath(a0, a1)
-	v0, err := b.out194(r0)
+	w335, err := b.out248(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("url/host.join_path_parts", err)
+		return false, hostadapt.Returned("url/host.join_path_parts", err)
 	}
-	return v0, nil
+	s.R[0] = w335
+	return true, nil
 }
 
-// fn275 adapts url/host.escape_fragment: escape_fragment(text: String) -> String
-func (b *bound) fn275(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("url/host.escape_fragment", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("url/host.escape_fragment", 0, "url/host.escape_fragment", "text", err)
-	}
+// fn336Regs is url/host.escape_fragment over slots.
+func (b *bound) fn336Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
 	r0 := rt.URLEscapeFragment(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("url/host.escape_fragment", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn276 adapts url/host.query_pairs: query_pairs(text: String) -> List<String>
-func (b *bound) fn276(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("url/host.query_pairs", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("url/host.query_pairs", 0, "url/host.query_pairs", "text", err)
-	}
+// fn337Regs is url/host.query_pairs over slots.
+func (b *bound) fn337Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
 	r0 := rt.QueryPairs(a0)
-	v0, err := b.out194(r0)
+	w338, err := b.out248(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("url/host.query_pairs", err)
+		return false, hostadapt.Returned("url/host.query_pairs", err)
 	}
-	return v0, nil
+	s.R[0] = w338
+	return true, nil
 }
 
-// fn277 adapts url/host.query_error: query_error(text: String) -> String
-func (b *bound) fn277(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("url/host.query_error", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("url/host.query_error", 0, "url/host.query_error", "text", err)
-	}
+// fn339Regs is url/host.query_error over slots.
+func (b *bound) fn339Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
 	r0 := rt.QueryError(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("url/host.query_error", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn278 adapts url/host.query_encode: query_encode(pairs: List<String>) -> String
-func (b *bound) fn278(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("url/host.query_encode", 1, len(args))
-	}
-	a0, err := b.in266(fr, args[0])
+// fn340Regs is url/host.query_encode over slots.
+func (b *bound) fn340Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in325(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("url/host.query_encode", 0, "url/host.query_encode", "pairs", err)
+		return false, hostadapt.Param("url/host.query_encode", 0, "url/host.query_encode", "pairs", err)
 	}
 	r0 := rt.QueryEncode(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("url/host.query_encode", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn279 adapts path/host.clean: clean(p: String) -> String
-func (b *bound) fn279(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("path/host.clean", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("path/host.clean", 0, "path/host.clean", "p", err)
-	}
+// fn341Regs is path/host.clean over slots.
+func (b *bound) fn341Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
 	r0 := rt.PathClean(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("path/host.clean", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn280 adapts path/host.join: join(parts: List<String>) -> String
-func (b *bound) fn280(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("path/host.join", 1, len(args))
-	}
-	a0, err := b.in266(fr, args[0])
+// fn342Regs is path/host.join over slots.
+func (b *bound) fn342Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in325(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("path/host.join", 0, "path/host.join", "parts", err)
+		return false, hostadapt.Param("path/host.join", 0, "path/host.join", "parts", err)
 	}
 	r0 := rt.PathJoin(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("path/host.join", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn281 adapts path/host.base: base(p: String) -> String
-func (b *bound) fn281(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("path/host.base", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("path/host.base", 0, "path/host.base", "p", err)
-	}
+// fn343Regs is path/host.base over slots.
+func (b *bound) fn343Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
 	r0 := rt.PathBase(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("path/host.base", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn282 adapts path/host.dir: dir(p: String) -> String
-func (b *bound) fn282(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("path/host.dir", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("path/host.dir", 0, "path/host.dir", "p", err)
-	}
+// fn344Regs is path/host.dir over slots.
+func (b *bound) fn344Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
 	r0 := rt.PathDir(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("path/host.dir", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn283 adapts mail/host.quoted_printable: quoted_printable(text: String) -> String
-func (b *bound) fn283(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("mail/host.quoted_printable", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("mail/host.quoted_printable", 0, "mail/host.quoted_printable", "text", err)
-	}
+// fn345Regs is mail/host.quoted_printable over slots.
+func (b *bound) fn345Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
 	r0 := rt.MailQuotedPrintable(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("mail/host.quoted_printable", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn284 adapts mail/host.date: date(nanos: Int) -> String
-func (b *bound) fn284(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("mail/host.date", 1, len(args))
-	}
-	a0, err := b.in39(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("mail/host.date", 0, "mail/host.date", "nanos", err)
-	}
+// fn346Regs is mail/host.date over slots.
+func (b *bound) fn346Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
 	r0 := rt.MailDate(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("mail/host.date", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn285 adapts bytes.Bytes.get: get(data: Bytes, index: Int) -> Maybe<Byte>
-func (b *bound) fn285(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("bytes.Bytes.get", 2, len(args))
-	}
-	a0, err := b.in217(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("bytes.Bytes.get", 0, "bytes.Bytes.get", "data", err)
-	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("bytes.Bytes.get", 1, "bytes.Bytes.get", "index", err)
-	}
-	r0 := rt.BytesGet(a0, a1)
-	v0, err := b.out212(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("bytes.Bytes.get", err)
-	}
-	return v0, nil
-}
-
-// fn285Parts is bytes.Bytes.get taken apart: the payload and true, or the record and false.
-func (b *bound) fn285Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 2 {
-		return nil, false, hostadapt.Arity("bytes.Bytes.get", 2, len(args))
-	}
-	a0, err := b.in217(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("bytes.Bytes.get", 0, "bytes.Bytes.get", "data", err)
-	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("bytes.Bytes.get", 1, "bytes.Bytes.get", "index", err)
-	}
+// fn347Regs is bytes.Bytes.get over slots.
+func (b *bound) fn347Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := s.Int(1)
 	r0 := rt.BytesGet(a0, a1)
 	if r0.Tag != rt.TagSome {
-		rec, err := b.out212(r0)
+		rec, err := b.out270(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("bytes.Bytes.get", err)
+			return false, hostadapt.Returned("bytes.Bytes.get", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out213(r0.Some)
-	if err != nil {
-		return nil, false, hostadapt.Returned("bytes.Bytes.get", err)
-	}
-	return v, true, nil
+	s.W[0] = rt.ByteWord(rt.Byte(r0.Some))
+	return true, nil
 }
 
-// fn286 adapts bytes.Bytes.slice: slice(data: Bytes, start: Int, stop: Int) -> Bytes
-func (b *bound) fn286(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 3 {
-		return nil, hostadapt.Arity("bytes.Bytes.slice", 3, len(args))
-	}
-	a0, err := b.in217(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("bytes.Bytes.slice", 0, "bytes.Bytes.slice", "data", err)
-	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("bytes.Bytes.slice", 1, "bytes.Bytes.slice", "start", err)
-	}
-	a2, err := b.in39(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("bytes.Bytes.slice", 2, "bytes.Bytes.slice", "stop", err)
-	}
+// fn348Regs is bytes.Bytes.slice over slots.
+func (b *bound) fn348Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := s.Int(1)
+	a2 := s.Int(2)
 	r0 := rt.BytesSlice(a0, a1, a2)
-	v0, err := b.out104(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("bytes.Bytes.slice", err)
-	}
-	return v0, nil
+	s.S[0] = string(rt.Bytes(r0))
+	return true, nil
 }
 
-// fn287 adapts bytes.Bytes.concat: concat(a: Bytes, b: Bytes) -> Bytes
-func (b *bound) fn287(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("bytes.Bytes.concat", 2, len(args))
-	}
-	a0, err := b.in217(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("bytes.Bytes.concat", 0, "bytes.Bytes.concat", "a", err)
-	}
-	a1, err := b.in217(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("bytes.Bytes.concat", 1, "bytes.Bytes.concat", "b", err)
-	}
+// fn349Regs is bytes.Bytes.concat over slots.
+func (b *bound) fn349Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := rt.Bytes(rt.Bytes(s.S[1]))
 	r0 := rt.BytesConcat(a0, a1)
-	v0, err := b.out104(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("bytes.Bytes.concat", err)
-	}
-	return v0, nil
+	s.S[0] = string(rt.Bytes(r0))
+	return true, nil
 }
 
-// fn288 adapts bytes.Bytes.to_string: to_string(data: Bytes) -> Result<String, String>
-func (b *bound) fn288(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("bytes.Bytes.to_string", 1, len(args))
-	}
-	a0, err := b.in217(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("bytes.Bytes.to_string", 0, "bytes.Bytes.to_string", "data", err)
-	}
-	r0 := rt.BytesToString(a0)
-	v0, err := b.out259(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("bytes.Bytes.to_string", err)
-	}
-	return v0, nil
-}
-
-// fn288Parts is bytes.Bytes.to_string taken apart: the payload and true, or the record and false.
-func (b *bound) fn288Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("bytes.Bytes.to_string", 1, len(args))
-	}
-	a0, err := b.in217(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("bytes.Bytes.to_string", 0, "bytes.Bytes.to_string", "data", err)
-	}
+// fn350Regs is bytes.Bytes.to_string over slots.
+func (b *bound) fn350Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
 	r0 := rt.BytesToString(a0)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out259(r0)
+		rec, err := b.out317(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("bytes.Bytes.to_string", err)
+			return false, hostadapt.Returned("bytes.Bytes.to_string", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out5(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("bytes.Bytes.to_string", err)
-	}
-	return v, true, nil
+	s.S[0] = string(r0.Ok)
+	return true, nil
 }
 
-// fn289 adapts bytes.Bytes.hash: hash(data: Bytes) -> Int
-func (b *bound) fn289(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("bytes.Bytes.hash", 1, len(args))
-	}
-	a0, err := b.in217(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("bytes.Bytes.hash", 0, "bytes.Bytes.hash", "data", err)
-	}
+// fn351Regs is bytes.Bytes.hash over slots.
+func (b *bound) fn351Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
 	r0 := rt.BytesHash(a0)
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("bytes.Bytes.hash", err)
-	}
-	return v0, nil
+	s.SetInt64(0, int64(r0))
+	return true, nil
 }
 
-// fn290 adapts bytes.Bytes.contains: contains(c: Bytes, x: Byte) -> Bool
-func (b *bound) fn290(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("bytes.Bytes.contains", 2, len(args))
-	}
-	a0, err := b.in217(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("bytes.Bytes.contains", 0, "bytes.Bytes.contains", "c", err)
-	}
-	a1, err := b.in215(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("bytes.Bytes.contains", 1, "bytes.Bytes.contains", "x", err)
-	}
+// fn352Regs is bytes.Bytes.contains over slots.
+func (b *bound) fn352Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := rt.Byte(rt.WordByte(s.W[1]))
 	r0 := rt.BytesContains(a0, a1)
-	v0, err := b.out162(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("bytes.Bytes.contains", err)
-	}
-	return v0, nil
+	s.W[0] = rt.BoolWord(bool(r0))
+	return true, nil
 }
 
-// fn291 adapts bytes.bytes_compare: bytes_compare(a: Bytes, b: Bytes) -> Int
-func (b *bound) fn291(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("bytes.bytes_compare", 2, len(args))
-	}
-	a0, err := b.in217(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("bytes.bytes_compare", 0, "bytes.bytes_compare", "a", err)
-	}
-	a1, err := b.in217(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("bytes.bytes_compare", 1, "bytes.bytes_compare", "b", err)
-	}
+// fn353Regs is bytes.bytes_compare over slots.
+func (b *bound) fn353Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := rt.Bytes(rt.Bytes(s.S[1]))
 	r0 := rt.BytesCompare(a0, a1)
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("bytes.bytes_compare", err)
-	}
-	return v0, nil
+	s.SetInt64(0, int64(r0))
+	return true, nil
 }
 
-// fn292 adapts strings.String.to_bytes: to_bytes(s: String) -> Bytes
-func (b *bound) fn292(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("strings.String.to_bytes", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("strings.String.to_bytes", 0, "strings.String.to_bytes", "s", err)
-	}
+// fn354Regs is strings.String.to_bytes over slots.
+func (b *bound) fn354Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
 	r0 := rt.StringToBytes(a0)
-	v0, err := b.out104(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("strings.String.to_bytes", err)
-	}
-	return v0, nil
+	s.S[0] = string(rt.Bytes(r0))
+	return true, nil
 }
 
-// fn293 adapts int.Int.to_string: to_string(n: Int) -> String
-func (b *bound) fn293(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("int.Int.to_string", 1, len(args))
-	}
-	a0, err := b.in39(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("int.Int.to_string", 0, "int.Int.to_string", "n", err)
-	}
+// fn355Regs is int.Int.to_string over slots.
+func (b *bound) fn355Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
 	r0 := rt.IntToString(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("int.Int.to_string", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn294 adapts int.Int.to_float: to_float(x: Int) -> Float
-func (b *bound) fn294(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("int.Int.to_float", 1, len(args))
-	}
-	a0, err := b.in39(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("int.Int.to_float", 0, "int.Int.to_float", "x", err)
-	}
+// fn356Regs is int.Int.to_float over slots.
+func (b *bound) fn356Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
 	r0 := rt.IntToFloat(a0)
-	v0, err := b.out124(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("int.Int.to_float", err)
-	}
-	return v0, nil
+	s.W[0] = rt.FloatWord(float64(r0))
+	return true, nil
 }
 
-// fn295 adapts averageable.int_ratio_to_float: int_ratio_to_float(numerator: Int, denominator: PositiveInt) -> Float
-func (b *bound) fn295(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("averageable.int_ratio_to_float", 2, len(args))
-	}
-	a0, err := b.in39(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("averageable.int_ratio_to_float", 0, "averageable.int_ratio_to_float", "numerator", err)
-	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("averageable.int_ratio_to_float", 1, "averageable.int_ratio_to_float", "denominator", err)
-	}
+// fn357Regs is averageable.int_ratio_to_float over slots.
+func (b *bound) fn357Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
+	a1 := s.Int(1)
 	r0 := rt.IntRatioToFloat(a0, a1)
-	v0, err := b.out124(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("averageable.int_ratio_to_float", err)
-	}
-	return v0, nil
+	s.W[0] = rt.FloatWord(float64(r0))
+	return true, nil
 }
 
-// fn296 adapts int.Int.wrapping_add: wrapping_add(a: Int, b: Int) -> Int
-func (b *bound) fn296(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("int.Int.wrapping_add", 2, len(args))
-	}
-	a0, err := b.in39(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("int.Int.wrapping_add", 0, "int.Int.wrapping_add", "a", err)
-	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("int.Int.wrapping_add", 1, "int.Int.wrapping_add", "b", err)
-	}
+// fn358Regs is int.Int.wrapping_add over slots.
+func (b *bound) fn358Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
+	a1 := s.Int(1)
 	r0 := rt.IntWrapAdd(a0, a1)
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("int.Int.wrapping_add", err)
-	}
-	return v0, nil
+	s.SetInt64(0, int64(r0))
+	return true, nil
 }
 
-// fn297 adapts int.Int.wrapping_sub: wrapping_sub(a: Int, b: Int) -> Int
-func (b *bound) fn297(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("int.Int.wrapping_sub", 2, len(args))
-	}
-	a0, err := b.in39(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("int.Int.wrapping_sub", 0, "int.Int.wrapping_sub", "a", err)
-	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("int.Int.wrapping_sub", 1, "int.Int.wrapping_sub", "b", err)
-	}
+// fn359Regs is int.Int.wrapping_sub over slots.
+func (b *bound) fn359Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
+	a1 := s.Int(1)
 	r0 := rt.IntWrapSub(a0, a1)
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("int.Int.wrapping_sub", err)
-	}
-	return v0, nil
+	s.SetInt64(0, int64(r0))
+	return true, nil
 }
 
-// fn298 adapts int.Int.wrapping_mul: wrapping_mul(a: Int, b: Int) -> Int
-func (b *bound) fn298(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("int.Int.wrapping_mul", 2, len(args))
-	}
-	a0, err := b.in39(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("int.Int.wrapping_mul", 0, "int.Int.wrapping_mul", "a", err)
-	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("int.Int.wrapping_mul", 1, "int.Int.wrapping_mul", "b", err)
-	}
+// fn360Regs is int.Int.wrapping_mul over slots.
+func (b *bound) fn360Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
+	a1 := s.Int(1)
 	r0 := rt.IntWrapMul(a0, a1)
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("int.Int.wrapping_mul", err)
-	}
-	return v0, nil
+	s.SetInt64(0, int64(r0))
+	return true, nil
 }
 
-// fn299 adapts int.Int.bit_count: bit_count(n: NonNegativeInt) -> Int
-func (b *bound) fn299(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("int.Int.bit_count", 1, len(args))
-	}
-	a0, err := b.in39(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("int.Int.bit_count", 0, "int.Int.bit_count", "n", err)
-	}
+// fn361Regs is int.Int.bit_count over slots.
+func (b *bound) fn361Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
 	r0 := rt.IntBitCount(a0)
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("int.Int.bit_count", err)
-	}
-	return v0, nil
+	s.SetInt64(0, int64(r0))
+	return true, nil
 }
 
-// fn300 adapts int.Int.bit_length: bit_length(n: Int) -> Int
-func (b *bound) fn300(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("int.Int.bit_length", 1, len(args))
-	}
-	a0, err := b.in39(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("int.Int.bit_length", 0, "int.Int.bit_length", "n", err)
-	}
+// fn362Regs is int.Int.bit_length over slots.
+func (b *bound) fn362Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
 	r0 := rt.IntBitLength(a0)
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("int.Int.bit_length", err)
-	}
-	return v0, nil
+	s.SetInt64(0, int64(r0))
+	return true, nil
 }
 
-// fn301 adapts int.Int.pow: pow(n: Int, exp: NonNegativeInt) -> Int
-func (b *bound) fn301(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("int.Int.pow", 2, len(args))
-	}
-	a0, err := b.in39(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("int.Int.pow", 0, "int.Int.pow", "n", err)
-	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("int.Int.pow", 1, "int.Int.pow", "exp", err)
-	}
+// fn363Regs is int.Int.pow over slots.
+func (b *bound) fn363Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
+	a1 := s.Int(1)
 	r0 := rt.IntPow(a0, a1)
-	v0, err := b.out3(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("int.Int.pow", err)
-	}
-	return v0, nil
+	s.SetInt(0, r0)
+	return true, nil
 }
 
-// fn302 adapts int.Int.sqrt: sqrt(n: NonNegativeInt) -> Int
-func (b *bound) fn302(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("int.Int.sqrt", 1, len(args))
-	}
-	a0, err := b.in39(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("int.Int.sqrt", 0, "int.Int.sqrt", "n", err)
-	}
+// fn364Regs is int.Int.sqrt over slots.
+func (b *bound) fn364Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
 	r0 := rt.IntSqrt(a0)
-	v0, err := b.out3(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("int.Int.sqrt", err)
-	}
-	return v0, nil
+	s.SetInt(0, r0)
+	return true, nil
 }
 
-// fn303 adapts int.Int.gcd: gcd(a: Int, b: Int) -> Int
-func (b *bound) fn303(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("int.Int.gcd", 2, len(args))
-	}
-	a0, err := b.in39(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("int.Int.gcd", 0, "int.Int.gcd", "a", err)
-	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("int.Int.gcd", 1, "int.Int.gcd", "b", err)
-	}
+// fn365Regs is int.Int.gcd over slots.
+func (b *bound) fn365Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
+	a1 := s.Int(1)
 	r0 := rt.IntGcd(a0, a1)
-	v0, err := b.out3(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("int.Int.gcd", err)
-	}
-	return v0, nil
+	s.SetInt(0, r0)
+	return true, nil
 }
 
-// fn304 adapts int.Int.lcm: lcm(a: Int, b: Int) -> Int
-func (b *bound) fn304(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("int.Int.lcm", 2, len(args))
-	}
-	a0, err := b.in39(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("int.Int.lcm", 0, "int.Int.lcm", "a", err)
-	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("int.Int.lcm", 1, "int.Int.lcm", "b", err)
-	}
+// fn366Regs is int.Int.lcm over slots.
+func (b *bound) fn366Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
+	a1 := s.Int(1)
 	r0 := rt.IntLcm(a0, a1)
-	v0, err := b.out3(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("int.Int.lcm", err)
-	}
-	return v0, nil
+	s.SetInt(0, r0)
+	return true, nil
 }
 
-// out306 builds a List<Int> from Go *rt.List[rt.Int].
-func (b *bound) out306(v *rt.List[rt.Int]) (rt.Value, error) {
+// out369 builds a Int from Go rt.Int.
+func (b *bound) out369(v rt.Int) (rt.Value, error) {
+	return v.Value(), nil
+}
+
+// out368 builds a List<Int> from Go *rt.List[rt.Int].
+func (b *bound) out368(v *rt.List[rt.Int]) (rt.Value, error) {
 	n := 0
 	if v != nil {
 		n = v.Len
@@ -7692,7 +5511,7 @@ func (b *bound) out306(v *rt.List[rt.Int]) (rt.Value, error) {
 	items := make([]rt.Value, 0, n)
 	i := 0
 	for c := v; c != nil; c = c.Tail {
-		x, err := b.out3(c.Head)
+		x, err := b.out369(c.Head)
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -7706,29 +5525,30 @@ func (b *bound) out306(v *rt.List[rt.Int]) (rt.Value, error) {
 	return xs, nil
 }
 
-// fn305 adapts int.int_to_digits: int_to_digits(n: Int, base: Int) -> List<Int>
-func (b *bound) fn305(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("int.int_to_digits", 2, len(args))
-	}
-	a0, err := b.in39(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("int.int_to_digits", 0, "int.int_to_digits", "n", err)
-	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("int.int_to_digits", 1, "int.int_to_digits", "base", err)
-	}
+// fn367Regs is int.int_to_digits over slots.
+func (b *bound) fn367Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
+	a1 := s.Int(1)
 	r0 := rt.IntToDigits(a0, a1)
-	v0, err := b.out306(r0)
+	w370, err := b.out368(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("int.int_to_digits", err)
+		return false, hostadapt.Returned("int.int_to_digits", err)
 	}
-	return v0, nil
+	s.R[0] = w370
+	return true, nil
 }
 
-// in308 reads a List<Int> as Go *rt.List[rt.Int].
-func (b *bound) in308(fr *rt.Frame, v rt.Value) (out *rt.List[rt.Int], err error) {
+// in373 reads a Int as Go rt.Int.
+func (b *bound) in373(fr *rt.Frame, v rt.Value) (out rt.Int, err error) {
+	if !rt.IsInt(v) {
+		return out, hostadapt.Want("Int", v)
+	}
+	x := v
+	return rt.IntOf(x), nil
+}
+
+// in372 reads a List<Int> as Go *rt.List[rt.Int].
+func (b *bound) in372(fr *rt.Frame, v rt.Value) (out *rt.List[rt.Int], err error) {
 	xs, err := hostadapt.List(v)
 	if err != nil {
 		return out, err
@@ -7736,7 +5556,7 @@ func (b *bound) in308(fr *rt.Frame, v rt.Value) (out *rt.List[rt.Int], err error
 	items := make([]rt.Int, 0, hostadapt.Len(xs))
 	i := 0
 	for c := xs; c != nil; c = c.Tail {
-		e, err := b.in39(fr, c.Head)
+		e, err := b.in373(fr, c.Head)
 		if err != nil {
 			return out, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -7749,130 +5569,65 @@ func (b *bound) in308(fr *rt.Frame, v rt.Value) (out *rt.List[rt.Int], err error
 	return out, nil
 }
 
-// fn307 adapts int.int_from_digits: int_from_digits(digits: List<Int>, base: Int) -> Maybe<Int>
-func (b *bound) fn307(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("int.int_from_digits", 2, len(args))
-	}
-	a0, err := b.in308(fr, args[0])
+// fn371Regs is int.int_from_digits over slots.
+func (b *bound) fn371Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in372(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("int.int_from_digits", 0, "int.int_from_digits", "digits", err)
+		return false, hostadapt.Param("int.int_from_digits", 0, "int.int_from_digits", "digits", err)
 	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("int.int_from_digits", 1, "int.int_from_digits", "base", err)
-	}
-	r0 := rt.IntFromDigits(a0, a1)
-	v0, err := b.out204(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("int.int_from_digits", err)
-	}
-	return v0, nil
-}
-
-// fn307Parts is int.int_from_digits taken apart: the payload and true, or the record and false.
-func (b *bound) fn307Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 2 {
-		return nil, false, hostadapt.Arity("int.int_from_digits", 2, len(args))
-	}
-	a0, err := b.in308(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("int.int_from_digits", 0, "int.int_from_digits", "digits", err)
-	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("int.int_from_digits", 1, "int.int_from_digits", "base", err)
-	}
+	a1 := s.Int(1)
 	r0 := rt.IntFromDigits(a0, a1)
 	if r0.Tag != rt.TagSome {
-		rec, err := b.out204(r0)
+		rec, err := b.out259(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("int.int_from_digits", err)
+			return false, hostadapt.Returned("int.int_from_digits", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out3(r0.Some)
-	if err != nil {
-		return nil, false, hostadapt.Returned("int.int_from_digits", err)
-	}
-	return v, true, nil
+	s.SetInt(0, r0.Some)
+	return true, nil
 }
 
-// fn309 adapts float.Float.to_string: to_string(x: Float) -> String
-func (b *bound) fn309(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("float.Float.to_string", 1, len(args))
-	}
-	a0, err := b.in119(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("float.Float.to_string", 0, "float.Float.to_string", "x", err)
-	}
+// fn374Regs is float.Float.to_string over slots.
+func (b *bound) fn374Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := float64(rt.WordFloat(s.W[0]))
 	r0 := rt.FormatFloat(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("float.Float.to_string", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn310 adapts float.Float.nan: nan() -> Float
-func (b *bound) fn310(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 0 {
-		return nil, hostadapt.Arity("float.Float.nan", 0, len(args))
-	}
+// fn375Regs is float.Float.nan over slots.
+func (b *bound) fn375Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	r0 := rt.FloatNaN()
-	v0, err := b.out124(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("float.Float.nan", err)
-	}
-	return v0, nil
+	s.W[0] = rt.FloatWord(float64(r0))
+	return true, nil
 }
 
-// fn311 adapts float.Float.positive_infinity: positive_infinity() -> Float
-func (b *bound) fn311(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 0 {
-		return nil, hostadapt.Arity("float.Float.positive_infinity", 0, len(args))
-	}
+// fn376Regs is float.Float.positive_infinity over slots.
+func (b *bound) fn376Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	r0 := rt.FloatPositiveInfinity()
-	v0, err := b.out124(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("float.Float.positive_infinity", err)
-	}
-	return v0, nil
+	s.W[0] = rt.FloatWord(float64(r0))
+	return true, nil
 }
 
-// fn312 adapts float.Float.negative_infinity: negative_infinity() -> Float
-func (b *bound) fn312(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 0 {
-		return nil, hostadapt.Arity("float.Float.negative_infinity", 0, len(args))
-	}
+// fn377Regs is float.Float.negative_infinity over slots.
+func (b *bound) fn377Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	r0 := rt.FloatNegativeInfinity()
-	v0, err := b.out124(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("float.Float.negative_infinity", err)
-	}
-	return v0, nil
+	s.W[0] = rt.FloatWord(float64(r0))
+	return true, nil
 }
 
-// fn313 adapts float.Float.is_nan: is_nan(x: Float) -> Bool
-func (b *bound) fn313(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("float.Float.is_nan", 1, len(args))
-	}
-	a0, err := b.in119(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("float.Float.is_nan", 0, "float.Float.is_nan", "x", err)
-	}
+// fn378Regs is float.Float.is_nan over slots.
+func (b *bound) fn378Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := float64(rt.WordFloat(s.W[0]))
 	r0 := rt.FloatIsNaN(a0)
-	v0, err := b.out162(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("float.Float.is_nan", err)
-	}
-	return v0, nil
+	s.W[0] = rt.BoolWord(bool(r0))
+	return true, nil
 }
 
-// in315 reads a RoundingMode as Go rt.RoundingMode.
-func (b *bound) in315(fr *rt.Frame, v rt.Value) (out rt.RoundingMode, err error) {
+// in380 reads a RoundingMode as Go rt.RoundingMode.
+func (b *bound) in380(fr *rt.Frame, v rt.Value) (out rt.RoundingMode, err error) {
 	r, tag, err := hostadapt.Variant(v, "decimal.RoundingMode")
 	if err != nil {
 		return out, err
@@ -7899,320 +5654,143 @@ func (b *bound) in315(fr *rt.Frame, v rt.Value) (out rt.RoundingMode, err error)
 	return out, nil
 }
 
-// fn314 adapts float.float_round: float_round(x: Float, scale: Int, mode: RoundingMode) -> Float
-func (b *bound) fn314(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 3 {
-		return nil, hostadapt.Arity("float.float_round", 3, len(args))
-	}
-	a0, err := b.in119(fr, args[0])
+// fn379Regs is float.float_round over slots.
+func (b *bound) fn379Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := float64(rt.WordFloat(s.W[0]))
+	a1 := s.Int(1)
+	a2, err := b.in380(fr, s.R[2])
 	if err != nil {
-		return nil, hostadapt.Param("float.float_round", 0, "float.float_round", "x", err)
-	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("float.float_round", 1, "float.float_round", "scale", err)
-	}
-	a2, err := b.in315(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("float.float_round", 2, "float.float_round", "mode", err)
+		return false, hostadapt.Param("float.float_round", 2, "float.float_round", "mode", err)
 	}
 	r0 := rt.FloatRound(a0, a1, a2)
-	v0, err := b.out124(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("float.float_round", err)
-	}
-	return v0, nil
+	s.W[0] = rt.FloatWord(float64(r0))
+	return true, nil
 }
 
-// fn316 adapts float.Float.floor: floor(x: Float) -> Float
-func (b *bound) fn316(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("float.Float.floor", 1, len(args))
-	}
-	a0, err := b.in119(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("float.Float.floor", 0, "float.Float.floor", "x", err)
-	}
+// fn381Regs is float.Float.floor over slots.
+func (b *bound) fn381Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := float64(rt.WordFloat(s.W[0]))
 	r0 := rt.FloatFloor(a0)
-	v0, err := b.out124(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("float.Float.floor", err)
-	}
-	return v0, nil
+	s.W[0] = rt.FloatWord(float64(r0))
+	return true, nil
 }
 
-// fn317 adapts float.Float.ceil: ceil(x: Float) -> Float
-func (b *bound) fn317(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("float.Float.ceil", 1, len(args))
-	}
-	a0, err := b.in119(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("float.Float.ceil", 0, "float.Float.ceil", "x", err)
-	}
+// fn382Regs is float.Float.ceil over slots.
+func (b *bound) fn382Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := float64(rt.WordFloat(s.W[0]))
 	r0 := rt.FloatCeil(a0)
-	v0, err := b.out124(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("float.Float.ceil", err)
-	}
-	return v0, nil
+	s.W[0] = rt.FloatWord(float64(r0))
+	return true, nil
 }
 
-// fn318 adapts float.Float.trunc: trunc(x: Float) -> Float
-func (b *bound) fn318(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("float.Float.trunc", 1, len(args))
-	}
-	a0, err := b.in119(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("float.Float.trunc", 0, "float.Float.trunc", "x", err)
-	}
+// fn383Regs is float.Float.trunc over slots.
+func (b *bound) fn383Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := float64(rt.WordFloat(s.W[0]))
 	r0 := rt.FloatTrunc(a0)
-	v0, err := b.out124(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("float.Float.trunc", err)
-	}
-	return v0, nil
+	s.W[0] = rt.FloatWord(float64(r0))
+	return true, nil
 }
 
-// fn319 adapts float.Float.to_int: to_int(x: Float) -> Maybe<Int>
-func (b *bound) fn319(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("float.Float.to_int", 1, len(args))
-	}
-	a0, err := b.in119(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("float.Float.to_int", 0, "float.Float.to_int", "x", err)
-	}
-	r0 := rt.FloatToInt(a0)
-	v0, err := b.out204(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("float.Float.to_int", err)
-	}
-	return v0, nil
-}
-
-// fn319Parts is float.Float.to_int taken apart: the payload and true, or the record and false.
-func (b *bound) fn319Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("float.Float.to_int", 1, len(args))
-	}
-	a0, err := b.in119(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("float.Float.to_int", 0, "float.Float.to_int", "x", err)
-	}
+// fn384Regs is float.Float.to_int over slots.
+func (b *bound) fn384Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := float64(rt.WordFloat(s.W[0]))
 	r0 := rt.FloatToInt(a0)
 	if r0.Tag != rt.TagSome {
-		rec, err := b.out204(r0)
+		rec, err := b.out259(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("float.Float.to_int", err)
+			return false, hostadapt.Returned("float.Float.to_int", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out3(r0.Some)
-	if err != nil {
-		return nil, false, hostadapt.Returned("float.Float.to_int", err)
-	}
-	return v, true, nil
+	s.SetInt(0, r0.Some)
+	return true, nil
 }
 
-// fn320 adapts float.float_bits: float_bits(x: Float) -> Int
-func (b *bound) fn320(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("float.float_bits", 1, len(args))
-	}
-	a0, err := b.in119(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("float.float_bits", 0, "float.float_bits", "x", err)
-	}
-	r0 := rt.FloatBits(a0)
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("float.float_bits", err)
-	}
-	return v0, nil
-}
-
-// fn321 adapts float.Float.pow: pow(x: Float, y: Float) -> Float
-func (b *bound) fn321(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("float.Float.pow", 2, len(args))
-	}
-	a0, err := b.in119(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("float.Float.pow", 0, "float.Float.pow", "x", err)
-	}
-	a1, err := b.in119(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("float.Float.pow", 1, "float.Float.pow", "y", err)
-	}
+// fn385Regs is float.Float.pow over slots.
+func (b *bound) fn385Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := float64(rt.WordFloat(s.W[0]))
+	a1 := float64(rt.WordFloat(s.W[1]))
 	r0 := rt.FloatPow(a0, a1)
-	v0, err := b.out124(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("float.Float.pow", err)
-	}
-	return v0, nil
+	s.W[0] = rt.FloatWord(float64(r0))
+	return true, nil
 }
 
-// fn322 adapts float.Float.sqrt: sqrt(x: Float) -> Float
-func (b *bound) fn322(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("float.Float.sqrt", 1, len(args))
-	}
-	a0, err := b.in119(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("float.Float.sqrt", 0, "float.Float.sqrt", "x", err)
-	}
+// fn386Regs is float.Float.sqrt over slots.
+func (b *bound) fn386Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := float64(rt.WordFloat(s.W[0]))
 	r0 := rt.FloatSqrt(a0)
-	v0, err := b.out124(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("float.Float.sqrt", err)
-	}
-	return v0, nil
+	s.W[0] = rt.FloatWord(float64(r0))
+	return true, nil
 }
 
-// fn323 adapts float.Float.exp: exp(x: Float) -> Float
-func (b *bound) fn323(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("float.Float.exp", 1, len(args))
-	}
-	a0, err := b.in119(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("float.Float.exp", 0, "float.Float.exp", "x", err)
-	}
+// fn387Regs is float.Float.exp over slots.
+func (b *bound) fn387Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := float64(rt.WordFloat(s.W[0]))
 	r0 := rt.FloatExp(a0)
-	v0, err := b.out124(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("float.Float.exp", err)
-	}
-	return v0, nil
+	s.W[0] = rt.FloatWord(float64(r0))
+	return true, nil
 }
 
-// fn324 adapts float.Float.log: log(x: Float) -> Float
-func (b *bound) fn324(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("float.Float.log", 1, len(args))
-	}
-	a0, err := b.in119(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("float.Float.log", 0, "float.Float.log", "x", err)
-	}
+// fn388Regs is float.Float.log over slots.
+func (b *bound) fn388Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := float64(rt.WordFloat(s.W[0]))
 	r0 := rt.FloatLog(a0)
-	v0, err := b.out124(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("float.Float.log", err)
-	}
-	return v0, nil
+	s.W[0] = rt.FloatWord(float64(r0))
+	return true, nil
 }
 
-// fn325 adapts float.Float.log2: log2(x: Float) -> Float
-func (b *bound) fn325(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("float.Float.log2", 1, len(args))
-	}
-	a0, err := b.in119(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("float.Float.log2", 0, "float.Float.log2", "x", err)
-	}
+// fn389Regs is float.Float.log2 over slots.
+func (b *bound) fn389Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := float64(rt.WordFloat(s.W[0]))
 	r0 := rt.FloatLog2(a0)
-	v0, err := b.out124(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("float.Float.log2", err)
-	}
-	return v0, nil
+	s.W[0] = rt.FloatWord(float64(r0))
+	return true, nil
 }
 
-// fn326 adapts float.Float.log10: log10(x: Float) -> Float
-func (b *bound) fn326(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("float.Float.log10", 1, len(args))
-	}
-	a0, err := b.in119(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("float.Float.log10", 0, "float.Float.log10", "x", err)
-	}
+// fn390Regs is float.Float.log10 over slots.
+func (b *bound) fn390Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := float64(rt.WordFloat(s.W[0]))
 	r0 := rt.FloatLog10(a0)
-	v0, err := b.out124(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("float.Float.log10", err)
-	}
-	return v0, nil
+	s.W[0] = rt.FloatWord(float64(r0))
+	return true, nil
 }
 
-// fn327 adapts float.Float.sin: sin(x: Float) -> Float
-func (b *bound) fn327(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("float.Float.sin", 1, len(args))
-	}
-	a0, err := b.in119(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("float.Float.sin", 0, "float.Float.sin", "x", err)
-	}
+// fn391Regs is float.Float.sin over slots.
+func (b *bound) fn391Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := float64(rt.WordFloat(s.W[0]))
 	r0 := rt.FloatSin(a0)
-	v0, err := b.out124(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("float.Float.sin", err)
-	}
-	return v0, nil
+	s.W[0] = rt.FloatWord(float64(r0))
+	return true, nil
 }
 
-// fn328 adapts float.Float.cos: cos(x: Float) -> Float
-func (b *bound) fn328(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("float.Float.cos", 1, len(args))
-	}
-	a0, err := b.in119(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("float.Float.cos", 0, "float.Float.cos", "x", err)
-	}
+// fn392Regs is float.Float.cos over slots.
+func (b *bound) fn392Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := float64(rt.WordFloat(s.W[0]))
 	r0 := rt.FloatCos(a0)
-	v0, err := b.out124(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("float.Float.cos", err)
-	}
-	return v0, nil
+	s.W[0] = rt.FloatWord(float64(r0))
+	return true, nil
 }
 
-// fn329 adapts float.Float.tan: tan(x: Float) -> Float
-func (b *bound) fn329(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("float.Float.tan", 1, len(args))
-	}
-	a0, err := b.in119(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("float.Float.tan", 0, "float.Float.tan", "x", err)
-	}
+// fn393Regs is float.Float.tan over slots.
+func (b *bound) fn393Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := float64(rt.WordFloat(s.W[0]))
 	r0 := rt.FloatTan(a0)
-	v0, err := b.out124(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("float.Float.tan", err)
-	}
-	return v0, nil
+	s.W[0] = rt.FloatWord(float64(r0))
+	return true, nil
 }
 
-// fn330 adapts float.Float.atan2: atan2(y: Float, x: Float) -> Float
-func (b *bound) fn330(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("float.Float.atan2", 2, len(args))
-	}
-	a0, err := b.in119(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("float.Float.atan2", 0, "float.Float.atan2", "y", err)
-	}
-	a1, err := b.in119(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("float.Float.atan2", 1, "float.Float.atan2", "x", err)
-	}
+// fn394Regs is float.Float.atan2 over slots.
+func (b *bound) fn394Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := float64(rt.WordFloat(s.W[0]))
+	a1 := float64(rt.WordFloat(s.W[1]))
 	r0 := rt.FloatAtan2(a0, a1)
-	v0, err := b.out124(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("float.Float.atan2", err)
-	}
-	return v0, nil
+	s.W[0] = rt.FloatWord(float64(r0))
+	return true, nil
 }
 
-// in332 reads a Decimal as Go rt.Decimal.
-func (b *bound) in332(fr *rt.Frame, v rt.Value) (out rt.Decimal, err error) {
+// in396 reads a Decimal as Go rt.Decimal.
+func (b *bound) in396(fr *rt.Frame, v rt.Value) (out rt.Decimal, err error) {
 	x, ok := v.(rt.Decimal)
 	if !ok {
 		return out, hostadapt.Want("Decimal", v)
@@ -8220,297 +5798,292 @@ func (b *bound) in332(fr *rt.Frame, v rt.Value) (out rt.Decimal, err error) {
 	return x, nil
 }
 
-// fn331 adapts decimal.Decimal.to_string: to_string(d: Decimal) -> String
-func (b *bound) fn331(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("decimal.Decimal.to_string", 1, len(args))
-	}
-	a0, err := b.in332(fr, args[0])
+// fn395Regs is decimal.Decimal.to_string over slots.
+func (b *bound) fn395Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in396(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("decimal.Decimal.to_string", 0, "decimal.Decimal.to_string", "d", err)
+		return false, hostadapt.Param("decimal.Decimal.to_string", 0, "decimal.Decimal.to_string", "d", err)
 	}
 	r0 := rt.DecimalToString(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("decimal.Decimal.to_string", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn333 adapts decimal.Decimal.equal: equal(a: Decimal, b: Decimal) -> Bool
-func (b *bound) fn333(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("decimal.Decimal.equal", 2, len(args))
-	}
-	a0, err := b.in332(fr, args[0])
+// fn397Regs is decimal.Decimal.equal over slots.
+func (b *bound) fn397Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in396(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("decimal.Decimal.equal", 0, "decimal.Decimal.equal", "a", err)
+		return false, hostadapt.Param("decimal.Decimal.equal", 0, "decimal.Decimal.equal", "a", err)
 	}
-	a1, err := b.in332(fr, args[1])
+	a1, err := b.in396(fr, s.R[1])
 	if err != nil {
-		return nil, hostadapt.Param("decimal.Decimal.equal", 1, "decimal.Decimal.equal", "b", err)
+		return false, hostadapt.Param("decimal.Decimal.equal", 1, "decimal.Decimal.equal", "b", err)
 	}
 	r0 := rt.EqDecimal(a0, a1)
-	v0, err := b.out162(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("decimal.Decimal.equal", err)
-	}
-	return v0, nil
+	s.W[0] = rt.BoolWord(bool(r0))
+	return true, nil
 }
 
-// fn334 adapts decimal.Decimal.hash: hash(d: Decimal) -> Int
-func (b *bound) fn334(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("decimal.Decimal.hash", 1, len(args))
-	}
-	a0, err := b.in332(fr, args[0])
+// fn398Regs is decimal.Decimal.hash over slots.
+func (b *bound) fn398Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in396(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("decimal.Decimal.hash", 0, "decimal.Decimal.hash", "d", err)
+		return false, hostadapt.Param("decimal.Decimal.hash", 0, "decimal.Decimal.hash", "d", err)
 	}
 	r0 := rt.DecimalHash(a0)
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("decimal.Decimal.hash", err)
-	}
-	return v0, nil
+	s.SetInt64(0, int64(r0))
+	return true, nil
 }
 
-// out336 builds a Ordering from Go rt.Ordering.
-func (b *bound) out336(v rt.Ordering) (rt.Value, error) {
+// out400 builds a Ordering from Go rt.Ordering.
+func (b *bound) out400(v rt.Ordering) (rt.Value, error) {
 	switch v.Tag {
 	case 1:
-		return b.d29.NewVariant(0), nil
+		return b.d27.NewVariant(0), nil
 	case 2:
-		return b.d29.NewVariant(1), nil
+		return b.d27.NewVariant(1), nil
 	case 3:
-		return b.d29.NewVariant(2), nil
+		return b.d27.NewVariant(2), nil
 	}
 	return nil, fmt.Errorf("Go rt.Ordering carries tag %d, which names no variant of comparable.Ordering", v.Tag)
 }
 
-// fn335 adapts decimal.Decimal.compare: compare(a: Decimal, b: Decimal) -> Ordering
-func (b *bound) fn335(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("decimal.Decimal.compare", 2, len(args))
-	}
-	a0, err := b.in332(fr, args[0])
+// fn399Regs is decimal.Decimal.compare over slots.
+func (b *bound) fn399Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in396(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("decimal.Decimal.compare", 0, "decimal.Decimal.compare", "a", err)
+		return false, hostadapt.Param("decimal.Decimal.compare", 0, "decimal.Decimal.compare", "a", err)
 	}
-	a1, err := b.in332(fr, args[1])
+	a1, err := b.in396(fr, s.R[1])
 	if err != nil {
-		return nil, hostadapt.Param("decimal.Decimal.compare", 1, "decimal.Decimal.compare", "b", err)
+		return false, hostadapt.Param("decimal.Decimal.compare", 1, "decimal.Decimal.compare", "b", err)
 	}
 	r0 := rt.DecimalCompare(a0, a1)
-	v0, err := b.out336(r0)
+	w401, err := b.out400(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("decimal.Decimal.compare", err)
+		return false, hostadapt.Returned("decimal.Decimal.compare", err)
 	}
-	return v0, nil
+	s.R[0] = w401
+	return true, nil
 }
 
-// fn337 adapts duration.render_nanos: render_nanos(ns: Int) -> String
-func (b *bound) fn337(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("duration.render_nanos", 1, len(args))
-	}
-	a0, err := b.in39(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("duration.render_nanos", 0, "duration.render_nanos", "ns", err)
-	}
+// fn402Regs is duration.render_nanos over slots.
+func (b *bound) fn402Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
 	r0 := rt.DurationNanosToString(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("duration.render_nanos", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// out339 builds a Instant from Go rt.Instant.
-func (b *bound) out339(v rt.Instant) (rt.Value, error) {
-	r := b.d30.New()
+// out404 builds a Instant from Go rt.Instant.
+func (b *bound) out404(v rt.Instant) (rt.Value, error) {
+	r := b.d28.New()
 	r.SetIntSlot(0, rt.Value(int64(v)))
 	return r, nil
 }
 
-// fn338 adapts instant.Instant.now: now() -> Instant
-func (b *bound) fn338(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 0 {
-		return nil, hostadapt.Arity("instant.Instant.now", 0, len(args))
-	}
+// fn403Regs is instant.Instant.now over slots.
+func (b *bound) fn403Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	r0 := rt.InstantNow()
-	v0, err := b.out339(r0)
+	w405, err := b.out404(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("instant.Instant.now", err)
+		return false, hostadapt.Returned("instant.Instant.now", err)
 	}
-	return v0, nil
+	s.R[0] = w405
+	return true, nil
 }
 
-// out342 builds a Codepoint from Go rt.Codepoint.
-func (b *bound) out342(v rt.Codepoint) (rt.Value, error) {
-	r := b.d31.New()
+// out408 builds a Codepoint from Go rt.Codepoint.
+func (b *bound) out408(v rt.Codepoint) (rt.Value, error) {
+	r := b.d29.New()
 	r.SetIntSlot(0, rt.Value(int64(v)))
 	return r, nil
 }
 
-// out341 builds a Maybe<Codepoint> from Go rt.Maybe[rt.Codepoint].
-func (b *bound) out341(v rt.Maybe[rt.Codepoint]) (rt.Value, error) {
+// out407 builds a Maybe<Codepoint> from Go rt.Maybe[rt.Codepoint].
+func (b *bound) out407(v rt.Maybe[rt.Codepoint]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagSome:
-		r := b.d23.NewVariant(0)
-		w343, err := b.out342(v.Some)
+		r := b.d24.NewVariant(0)
+		w409, err := b.out408(v.Some)
 		if err != nil {
 			return nil, fmt.Errorf("Some: %w", err)
 		}
-		r.R[0] = w343
+		r.R[0] = w409
 		return r, nil
 	case rt.TagNone:
-		return b.d23.NewVariant(1), nil
+		return b.d24.NewVariant(1), nil
 	}
 	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
 }
 
-// fn340 adapts int.Int.to_codepoint: to_codepoint(n: Int) -> Maybe<Codepoint>
-func (b *bound) fn340(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("int.Int.to_codepoint", 1, len(args))
-	}
-	a0, err := b.in39(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("int.Int.to_codepoint", 0, "int.Int.to_codepoint", "n", err)
-	}
-	r0 := rt.IntToCodepoint(a0)
-	v0, err := b.out341(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("int.Int.to_codepoint", err)
-	}
-	return v0, nil
-}
-
-// fn340Parts is int.Int.to_codepoint taken apart: the payload and true, or the record and false.
-func (b *bound) fn340Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("int.Int.to_codepoint", 1, len(args))
-	}
-	a0, err := b.in39(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("int.Int.to_codepoint", 0, "int.Int.to_codepoint", "n", err)
-	}
+// fn406Regs is int.Int.to_codepoint over slots.
+func (b *bound) fn406Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
 	r0 := rt.IntToCodepoint(a0)
 	if r0.Tag != rt.TagSome {
-		rec, err := b.out341(r0)
+		rec, err := b.out407(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("int.Int.to_codepoint", err)
+			return false, hostadapt.Returned("int.Int.to_codepoint", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out342(r0.Some)
+	w410, err := b.out408(r0.Some)
 	if err != nil {
-		return nil, false, hostadapt.Returned("int.Int.to_codepoint", err)
+		return false, hostadapt.Returned("int.Int.to_codepoint", err)
 	}
-	return v, true, nil
+	s.R[0] = w410
+	return true, nil
 }
 
-// in345 reads a Codepoint as Go rt.Codepoint.
-func (b *bound) in345(fr *rt.Frame, v rt.Value) (out rt.Codepoint, err error) {
+// in412 reads a Codepoint as Go rt.Codepoint.
+func (b *bound) in412(fr *rt.Frame, v rt.Value) (out rt.Codepoint, err error) {
 	r, err := hostadapt.Record(v, "code_points.Codepoint")
 	if err != nil {
 		return out, err
 	}
-	x, err := hostadapt.IntValueField(r, b.d31, 0, 0, "")
+	x, err := hostadapt.IntValueField(r, b.d29, 0, 0, "")
 	if err != nil {
 		return out, err
 	}
 	return hostadapt.ToSigned[rt.Codepoint](x, "rt.Codepoint")
 }
 
-// fn344 adapts code_points.Codepoint.to_string: to_string(cp: Codepoint) -> String
-func (b *bound) fn344(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("code_points.Codepoint.to_string", 1, len(args))
-	}
-	a0, err := b.in345(fr, args[0])
+// fn411Regs is code_points.Codepoint.to_string over slots.
+func (b *bound) fn411Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in412(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("code_points.Codepoint.to_string", 0, "code_points.Codepoint.to_string", "cp", err)
+		return false, hostadapt.Param("code_points.Codepoint.to_string", 0, "code_points.Codepoint.to_string", "cp", err)
 	}
 	r0 := rt.CodepointToString(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("code_points.Codepoint.to_string", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn346 adapts code_points.Codepoint.is_letter: is_letter(cp: Codepoint) -> Bool
-func (b *bound) fn346(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("code_points.Codepoint.is_letter", 1, len(args))
-	}
-	a0, err := b.in345(fr, args[0])
+// fn413Regs is code_points.Codepoint.is_letter over slots.
+func (b *bound) fn413Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in412(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("code_points.Codepoint.is_letter", 0, "code_points.Codepoint.is_letter", "cp", err)
+		return false, hostadapt.Param("code_points.Codepoint.is_letter", 0, "code_points.Codepoint.is_letter", "cp", err)
 	}
 	r0 := rt.CodepointIsLetter(a0)
-	v0, err := b.out162(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("code_points.Codepoint.is_letter", err)
-	}
-	return v0, nil
+	s.W[0] = rt.BoolWord(bool(r0))
+	return true, nil
 }
 
-// fn347 adapts code_points.Codepoint.is_whitespace: is_whitespace(cp: Codepoint) -> Bool
-func (b *bound) fn347(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("code_points.Codepoint.is_whitespace", 1, len(args))
-	}
-	a0, err := b.in345(fr, args[0])
+// fn414Regs is code_points.Codepoint.is_whitespace over slots.
+func (b *bound) fn414Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in412(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("code_points.Codepoint.is_whitespace", 0, "code_points.Codepoint.is_whitespace", "cp", err)
+		return false, hostadapt.Param("code_points.Codepoint.is_whitespace", 0, "code_points.Codepoint.is_whitespace", "cp", err)
 	}
 	r0 := rt.CodepointIsWhitespace(a0)
-	v0, err := b.out162(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("code_points.Codepoint.is_whitespace", err)
-	}
-	return v0, nil
+	s.W[0] = rt.BoolWord(bool(r0))
+	return true, nil
 }
 
-// fn348 adapts code_points.Codepoint.is_upper: is_upper(cp: Codepoint) -> Bool
-func (b *bound) fn348(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("code_points.Codepoint.is_upper", 1, len(args))
-	}
-	a0, err := b.in345(fr, args[0])
+// fn415Regs is code_points.Codepoint.is_upper over slots.
+func (b *bound) fn415Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in412(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("code_points.Codepoint.is_upper", 0, "code_points.Codepoint.is_upper", "cp", err)
+		return false, hostadapt.Param("code_points.Codepoint.is_upper", 0, "code_points.Codepoint.is_upper", "cp", err)
 	}
 	r0 := rt.CodepointIsUpper(a0)
-	v0, err := b.out162(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("code_points.Codepoint.is_upper", err)
-	}
-	return v0, nil
+	s.W[0] = rt.BoolWord(bool(r0))
+	return true, nil
 }
 
-// fn349 adapts code_points.Codepoint.is_lower: is_lower(cp: Codepoint) -> Bool
-func (b *bound) fn349(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("code_points.Codepoint.is_lower", 1, len(args))
-	}
-	a0, err := b.in345(fr, args[0])
+// fn416Regs is code_points.Codepoint.is_lower over slots.
+func (b *bound) fn416Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in412(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("code_points.Codepoint.is_lower", 0, "code_points.Codepoint.is_lower", "cp", err)
+		return false, hostadapt.Param("code_points.Codepoint.is_lower", 0, "code_points.Codepoint.is_lower", "cp", err)
 	}
 	r0 := rt.CodepointIsLower(a0)
-	v0, err := b.out162(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("code_points.Codepoint.is_lower", err)
-	}
-	return v0, nil
+	s.W[0] = rt.BoolWord(bool(r0))
+	return true, nil
 }
 
-// out351 builds a List<Codepoint> from Go *rt.List[rt.Codepoint].
-func (b *bound) out351(v *rt.List[rt.Codepoint]) (rt.Value, error) {
+// fn417Regs is code_points.Codepoint.is_title over slots.
+func (b *bound) fn417Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in412(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("code_points.Codepoint.is_title", 0, "code_points.Codepoint.is_title", "cp", err)
+	}
+	r0 := rt.CodepointIsTitle(a0)
+	s.W[0] = rt.BoolWord(bool(r0))
+	return true, nil
+}
+
+// fn418Regs is code_points.Codepoint.is_mark over slots.
+func (b *bound) fn418Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in412(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("code_points.Codepoint.is_mark", 0, "code_points.Codepoint.is_mark", "cp", err)
+	}
+	r0 := rt.CodepointIsMark(a0)
+	s.W[0] = rt.BoolWord(bool(r0))
+	return true, nil
+}
+
+// fn419Regs is code_points.Codepoint.is_number over slots.
+func (b *bound) fn419Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in412(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("code_points.Codepoint.is_number", 0, "code_points.Codepoint.is_number", "cp", err)
+	}
+	r0 := rt.CodepointIsNumber(a0)
+	s.W[0] = rt.BoolWord(bool(r0))
+	return true, nil
+}
+
+// fn420Regs is code_points.Codepoint.is_punctuation over slots.
+func (b *bound) fn420Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in412(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("code_points.Codepoint.is_punctuation", 0, "code_points.Codepoint.is_punctuation", "cp", err)
+	}
+	r0 := rt.CodepointIsPunctuation(a0)
+	s.W[0] = rt.BoolWord(bool(r0))
+	return true, nil
+}
+
+// fn421Regs is code_points.Codepoint.is_symbol over slots.
+func (b *bound) fn421Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in412(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("code_points.Codepoint.is_symbol", 0, "code_points.Codepoint.is_symbol", "cp", err)
+	}
+	r0 := rt.CodepointIsSymbol(a0)
+	s.W[0] = rt.BoolWord(bool(r0))
+	return true, nil
+}
+
+// fn422Regs is code_points.Codepoint.is_separator over slots.
+func (b *bound) fn422Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in412(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("code_points.Codepoint.is_separator", 0, "code_points.Codepoint.is_separator", "cp", err)
+	}
+	r0 := rt.CodepointIsSeparator(a0)
+	s.W[0] = rt.BoolWord(bool(r0))
+	return true, nil
+}
+
+// fn423Regs is code_points.Codepoint.is_control over slots.
+func (b *bound) fn423Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in412(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("code_points.Codepoint.is_control", 0, "code_points.Codepoint.is_control", "cp", err)
+	}
+	r0 := rt.CodepointIsControl(a0)
+	s.W[0] = rt.BoolWord(bool(r0))
+	return true, nil
+}
+
+// out425 builds a List<Codepoint> from Go *rt.List[rt.Codepoint].
+func (b *bound) out425(v *rt.List[rt.Codepoint]) (rt.Value, error) {
 	n := 0
 	if v != nil {
 		n = v.Len
@@ -8518,7 +6091,7 @@ func (b *bound) out351(v *rt.List[rt.Codepoint]) (rt.Value, error) {
 	items := make([]rt.Value, 0, n)
 	i := 0
 	for c := v; c != nil; c = c.Tail {
-		x, err := b.out342(c.Head)
+		x, err := b.out408(c.Head)
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -8532,25 +6105,20 @@ func (b *bound) out351(v *rt.List[rt.Codepoint]) (rt.Value, error) {
 	return xs, nil
 }
 
-// fn350 adapts strings.String.to_codepoints: to_codepoints(s: String) -> List<Codepoint>
-func (b *bound) fn350(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("strings.String.to_codepoints", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("strings.String.to_codepoints", 0, "strings.String.to_codepoints", "s", err)
-	}
+// fn424Regs is strings.String.to_codepoints over slots.
+func (b *bound) fn424Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
 	r0 := rt.StringToCodepoints(a0)
-	v0, err := b.out351(r0)
+	w426, err := b.out425(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("strings.String.to_codepoints", err)
+		return false, hostadapt.Returned("strings.String.to_codepoints", err)
 	}
-	return v0, nil
+	s.R[0] = w426
+	return true, nil
 }
 
-// in353 reads a Context as Go rt.Context.
-func (b *bound) in353(fr *rt.Frame, v rt.Value) (out rt.Context, err error) {
+// in428 reads a Context as Go rt.Context.
+func (b *bound) in428(fr *rt.Frame, v rt.Value) (out rt.Context, err error) {
 	x, ok := v.(rt.Context)
 	if !ok {
 		return out, hostadapt.Want("Context", v)
@@ -8558,60 +6126,56 @@ func (b *bound) in353(fr *rt.Frame, v rt.Value) (out rt.Context, err error) {
 	return x, nil
 }
 
-// in354 reads a Duration as Go rt.Duration.
-func (b *bound) in354(fr *rt.Frame, v rt.Value) (out rt.Duration, err error) {
+// in429 reads a Duration as Go rt.Duration.
+func (b *bound) in429(fr *rt.Frame, v rt.Value) (out rt.Duration, err error) {
 	r, err := hostadapt.Record(v, "duration.Duration")
 	if err != nil {
 		return out, err
 	}
-	x, err := hostadapt.IntValueField(r, b.d32, 0, 0, "")
+	x, err := hostadapt.IntValueField(r, b.d30, 0, 0, "")
 	if err != nil {
 		return out, err
 	}
 	return rt.Duration(hostadapt.DurationNanos(x)), nil
 }
 
-// out355 builds a Context from Go rt.Context.
-func (b *bound) out355(v rt.Context) (rt.Value, error) {
+// out430 builds a Context from Go rt.Context.
+func (b *bound) out430(v rt.Context) (rt.Value, error) {
 	return v, nil
 }
 
-// fn352 adapts context.Context.with_timeout: with_timeout(c: Context, dur: Duration) -> Context
-func (b *bound) fn352(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("context.Context.with_timeout", 2, len(args))
-	}
-	a0, err := b.in353(fr, args[0])
+// fn427Regs is context.Context.with_timeout over slots.
+func (b *bound) fn427Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in428(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("context.Context.with_timeout", 0, "context.Context.with_timeout", "c", err)
+		return false, hostadapt.Param("context.Context.with_timeout", 0, "context.Context.with_timeout", "c", err)
 	}
-	a1, err := b.in354(fr, args[1])
+	a1, err := b.in429(fr, s.R[1])
 	if err != nil {
-		return nil, hostadapt.Param("context.Context.with_timeout", 1, "context.Context.with_timeout", "dur", err)
+		return false, hostadapt.Param("context.Context.with_timeout", 1, "context.Context.with_timeout", "dur", err)
 	}
 	r0 := rt.ContextWithTimeout(a0, a1)
-	v0, err := b.out355(r0)
+	w431, err := b.out430(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("context.Context.with_timeout", err)
+		return false, hostadapt.Returned("context.Context.with_timeout", err)
 	}
-	return v0, nil
+	s.R[0] = w431
+	return true, nil
 }
 
-// fn356 adapts context.Context.root: root() -> Context
-func (b *bound) fn356(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 0 {
-		return nil, hostadapt.Arity("context.Context.root", 0, len(args))
-	}
+// fn432Regs is context.Context.root over slots.
+func (b *bound) fn432Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	r0 := rt.ContextRoot()
-	v0, err := b.out355(r0)
+	w433, err := b.out430(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("context.Context.root", err)
+		return false, hostadapt.Returned("context.Context.root", err)
 	}
-	return v0, nil
+	s.R[0] = w433
+	return true, nil
 }
 
-// out360 builds a List<Json> from Go *rt.List[rt.Json].
-func (b *bound) out360(v *rt.List[rt.Json]) (rt.Value, error) {
+// out437 builds a List<Json> from Go *rt.List[rt.Json].
+func (b *bound) out437(v *rt.List[rt.Json]) (rt.Value, error) {
 	n := 0
 	if v != nil {
 		n = v.Len
@@ -8619,7 +6183,7 @@ func (b *bound) out360(v *rt.List[rt.Json]) (rt.Value, error) {
 	items := make([]rt.Value, 0, n)
 	i := 0
 	for c := v; c != nil; c = c.Tail {
-		x, err := b.out359(c.Head)
+		x, err := b.out436(c.Head)
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -8633,16 +6197,16 @@ func (b *bound) out360(v *rt.List[rt.Json]) (rt.Value, error) {
 	return xs, nil
 }
 
-// out362 builds a Map<String, Json> from Go rt.Map[string, rt.Json].
-func (b *bound) out362(v rt.Map[string, rt.Json]) (rt.Value, error) {
+// out439 builds a Map<String, Json> from Go rt.Map[string, rt.Json].
+func (b *bound) out439(v rt.Map[string, rt.Json]) (rt.Value, error) {
 	ents := rt.MapEntries(v)
 	conv := make([]rt.MapEntry[any, any], len(ents))
 	for i, e := range ents {
-		k, err := b.out5(e.Key)
+		k, err := b.out166(e.Key)
 		if err != nil {
 			return nil, fmt.Errorf("key %d: %w", i, err)
 		}
-		x, err := b.out359(e.Val)
+		x, err := b.out436(e.Val)
 		if err != nil {
 			return nil, fmt.Errorf("value %d: %w", i, err)
 		}
@@ -8651,50 +6215,50 @@ func (b *bound) out362(v rt.Map[string, rt.Json]) (rt.Value, error) {
 	return rt.MapOf(rt.Hash, rt.Equal, conv), nil
 }
 
-// out359 builds a Json from Go rt.Json.
-func (b *bound) out359(v rt.Json) (rt.Value, error) {
+// out436 builds a Json from Go rt.Json.
+func (b *bound) out436(v rt.Json) (rt.Value, error) {
 	switch v.Tag {
 	case 1:
-		r := b.d34.NewVariant(0)
+		r := b.d32.NewVariant(0)
 		r.S[0] = string(v.String)
 		return r, nil
 	case 2:
-		r := b.d34.NewVariant(1)
+		r := b.d32.NewVariant(1)
 		r.SetIntSlot(0, v.Int.Value())
 		return r, nil
 	case 3:
-		r := b.d34.NewVariant(2)
+		r := b.d32.NewVariant(2)
 		r.W[0] = rt.FloatWord(float64(v.Float))
 		return r, nil
 	case 4:
-		r := b.d34.NewVariant(3)
+		r := b.d32.NewVariant(3)
 		r.W[0] = rt.BoolWord(bool(v.Bool))
 		return r, nil
 	case 5:
-		r := b.d34.NewVariant(4)
-		w361, err := b.out360(v.Arr)
+		r := b.d32.NewVariant(4)
+		w438, err := b.out437(v.Arr)
 		if err != nil {
 			return nil, fmt.Errorf("Arr: %w", err)
 		}
-		r.R[0] = w361
+		r.R[0] = w438
 		return r, nil
 	case 6:
-		r := b.d34.NewVariant(5)
-		w363, err := b.out362(v.Obj)
+		r := b.d32.NewVariant(5)
+		w440, err := b.out439(v.Obj)
 		if err != nil {
 			return nil, fmt.Errorf("Obj: %w", err)
 		}
-		r.R[0] = w363
+		r.R[0] = w440
 		return r, nil
 	case 7:
-		return b.d34.NewVariant(6), nil
+		return b.d32.NewVariant(6), nil
 	}
 	return nil, fmt.Errorf("Go rt.Json carries tag %d, which names no variant of json.Json", v.Tag)
 }
 
-// out365 builds a Json.DecodeError from Go rt.JsonDecodeError.
-func (b *bound) out365(v rt.JsonDecodeError) (rt.Value, error) {
-	r := b.d35.New()
+// out442 builds a Json.DecodeError from Go rt.JsonDecodeError.
+func (b *bound) out442(v rt.JsonDecodeError) (rt.Value, error) {
+	r := b.d33.New()
 	r.S[0] = string(v.Message)
 	r.SetIntSlot(0, rt.Value(int64(v.Line)))
 	r.SetIntSlot(1, rt.Value(int64(v.Col)))
@@ -8702,72 +6266,69 @@ func (b *bound) out365(v rt.JsonDecodeError) (rt.Value, error) {
 	return r, nil
 }
 
-// out358 builds a Result<Json, Json.DecodeError> from Go rt.Result[rt.Json, rt.JsonDecodeError].
-func (b *bound) out358(v rt.Result[rt.Json, rt.JsonDecodeError]) (rt.Value, error) {
+// out435 builds a Result<Json, Json.DecodeError> from Go rt.Result[rt.Json, rt.JsonDecodeError].
+func (b *bound) out435(v rt.Result[rt.Json, rt.JsonDecodeError]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
-		r := b.d33.NewVariant(0)
-		w364, err := b.out359(v.Ok)
+		r := b.d31.NewVariant(0)
+		w441, err := b.out436(v.Ok)
 		if err != nil {
 			return nil, fmt.Errorf("Ok: %w", err)
 		}
-		r.R[0] = w364
+		r.R[0] = w441
 		return r, nil
 	case rt.TagErr:
-		r := b.d33.NewVariant(1)
-		w366, err := b.out365(v.Err)
+		r := b.d31.NewVariant(1)
+		w443, err := b.out442(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w366
+		r.R[0] = w443
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn357 adapts json.Json.decode: decode(source: String) -> Result<Json, Json.DecodeError>
-func (b *bound) fn357(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("json.Json.decode", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("json.Json.decode", 0, "json.Json.decode", "source", err)
-	}
-	r0 := rt.JsonDecode(a0)
-	v0, err := b.out358(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("json.Json.decode", err)
-	}
-	return v0, nil
-}
-
-// fn357Parts is json.Json.decode taken apart: the payload and true, or the record and false.
-func (b *bound) fn357Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("json.Json.decode", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("json.Json.decode", 0, "json.Json.decode", "source", err)
-	}
+// fn434Regs is json.Json.decode over slots.
+func (b *bound) fn434Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
 	r0 := rt.JsonDecode(a0)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out358(r0)
+		rec, err := b.out435(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("json.Json.decode", err)
+			return false, hostadapt.Returned("json.Json.decode", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out359(r0.Ok)
+	w444, err := b.out436(r0.Ok)
 	if err != nil {
-		return nil, false, hostadapt.Returned("json.Json.decode", err)
+		return false, hostadapt.Returned("json.Json.decode", err)
 	}
-	return v, true, nil
+	s.R[0] = w444
+	return true, nil
 }
 
-// in369 reads a List<Json> as Go *rt.List[rt.Json].
-func (b *bound) in369(fr *rt.Frame, v rt.Value) (out *rt.List[rt.Json], err error) {
+// in447 reads a Float as Go float64.
+func (b *bound) in447(fr *rt.Frame, v rt.Value) (out float64, err error) {
+	x, ok := v.(float64)
+	if !ok {
+		return out, hostadapt.Want("Float", v)
+	}
+	return float64(x), nil
+}
+
+// in448 reads a Bool as Go bool.
+func (b *bound) in448(fr *rt.Frame, v rt.Value) (out bool, err error) {
+	x, ok := v.(bool)
+	if !ok {
+		return out, hostadapt.Want("Bool", v)
+	}
+	return bool(x), nil
+}
+
+// in449 reads a List<Json> as Go *rt.List[rt.Json].
+func (b *bound) in449(fr *rt.Frame, v rt.Value) (out *rt.List[rt.Json], err error) {
 	xs, err := hostadapt.List(v)
 	if err != nil {
 		return out, err
@@ -8775,7 +6336,7 @@ func (b *bound) in369(fr *rt.Frame, v rt.Value) (out *rt.List[rt.Json], err erro
 	items := make([]rt.Json, 0, hostadapt.Len(xs))
 	i := 0
 	for c := xs; c != nil; c = c.Tail {
-		e, err := b.in368(fr, c.Head)
+		e, err := b.in446(fr, c.Head)
 		if err != nil {
 			return out, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -8788,8 +6349,8 @@ func (b *bound) in369(fr *rt.Frame, v rt.Value) (out *rt.List[rt.Json], err erro
 	return out, nil
 }
 
-// in370 reads a Map<String, Json> as Go rt.Map[string, rt.Json].
-func (b *bound) in370(fr *rt.Frame, v rt.Value) (out rt.Map[string, rt.Json], err error) {
+// in450 reads a Map<String, Json> as Go rt.Map[string, rt.Json].
+func (b *bound) in450(fr *rt.Frame, v rt.Value) (out rt.Map[string, rt.Json], err error) {
 	m, ok := v.(rt.Map[any, any])
 	if !ok {
 		return out, hostadapt.Want("Map<String, Json>", v)
@@ -8797,11 +6358,11 @@ func (b *bound) in370(fr *rt.Frame, v rt.Value) (out rt.Map[string, rt.Json], er
 	ents := rt.MapEntries(m)
 	conv := make([]rt.MapEntry[string, rt.Json], len(ents))
 	for i, e := range ents {
-		k, err := b.in42(fr, e.Key)
+		k, err := b.in173(fr, e.Key)
 		if err != nil {
 			return out, fmt.Errorf("key %d: %w", i, err)
 		}
-		x, err := b.in368(fr, e.Val)
+		x, err := b.in446(fr, e.Val)
 		if err != nil {
 			return out, fmt.Errorf("value %d: %w", i, err)
 		}
@@ -8810,8 +6371,8 @@ func (b *bound) in370(fr *rt.Frame, v rt.Value) (out rt.Map[string, rt.Json], er
 	return rt.MapOf(rt.HashString, rt.Eq[string], conv), nil
 }
 
-// in368 reads a Json as Go rt.Json.
-func (b *bound) in368(fr *rt.Frame, v rt.Value) (out rt.Json, err error) {
+// in446 reads a Json as Go rt.Json.
+func (b *bound) in446(fr *rt.Frame, v rt.Value) (out rt.Json, err error) {
 	r, tag, err := hostadapt.Variant(v, "json.Json")
 	if err != nil {
 		return out, err
@@ -8821,7 +6382,7 @@ func (b *bound) in368(fr *rt.Frame, v rt.Value) (out rt.Json, err error) {
 	case "String":
 		{
 			p := hostadapt.Payload(r)
-			x, err := b.in42(fr, p)
+			x, err := b.in173(fr, p)
 			if err != nil {
 				return out, fmt.Errorf("String: %w", err)
 			}
@@ -8831,7 +6392,7 @@ func (b *bound) in368(fr *rt.Frame, v rt.Value) (out rt.Json, err error) {
 	case "Int":
 		{
 			p := hostadapt.Payload(r)
-			x, err := b.in39(fr, p)
+			x, err := b.in373(fr, p)
 			if err != nil {
 				return out, fmt.Errorf("Int: %w", err)
 			}
@@ -8841,7 +6402,7 @@ func (b *bound) in368(fr *rt.Frame, v rt.Value) (out rt.Json, err error) {
 	case "Float":
 		{
 			p := hostadapt.Payload(r)
-			x, err := b.in119(fr, p)
+			x, err := b.in447(fr, p)
 			if err != nil {
 				return out, fmt.Errorf("Float: %w", err)
 			}
@@ -8851,7 +6412,7 @@ func (b *bound) in368(fr *rt.Frame, v rt.Value) (out rt.Json, err error) {
 	case "Bool":
 		{
 			p := hostadapt.Payload(r)
-			x, err := b.in54(fr, p)
+			x, err := b.in448(fr, p)
 			if err != nil {
 				return out, fmt.Errorf("Bool: %w", err)
 			}
@@ -8861,7 +6422,7 @@ func (b *bound) in368(fr *rt.Frame, v rt.Value) (out rt.Json, err error) {
 	case "Arr":
 		{
 			p := hostadapt.Payload(r)
-			x, err := b.in369(fr, p)
+			x, err := b.in449(fr, p)
 			if err != nil {
 				return out, fmt.Errorf("Arr: %w", err)
 			}
@@ -8871,7 +6432,7 @@ func (b *bound) in368(fr *rt.Frame, v rt.Value) (out rt.Json, err error) {
 	case "Obj":
 		{
 			p := hostadapt.Payload(r)
-			x, err := b.in370(fr, p)
+			x, err := b.in450(fr, p)
 			if err != nil {
 				return out, fmt.Errorf("Obj: %w", err)
 			}
@@ -8886,47 +6447,39 @@ func (b *bound) in368(fr *rt.Frame, v rt.Value) (out rt.Json, err error) {
 	return out, nil
 }
 
-// fn367 adapts json.Json.encode: encode(jv: Json) -> String
-func (b *bound) fn367(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("json.Json.encode", 1, len(args))
-	}
-	a0, err := b.in368(fr, args[0])
+// fn445Regs is json.Json.encode over slots.
+func (b *bound) fn445Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in446(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("json.Json.encode", 0, "json.Json.encode", "jv", err)
+		return false, hostadapt.Param("json.Json.encode", 0, "json.Json.encode", "jv", err)
 	}
 	r0 := rt.JsonEncode(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("json.Json.encode", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// out372 builds a Unit from Go rt.Unit.
-func (b *bound) out372(v rt.Unit) (rt.Value, error) {
+// out452 builds a Unit from Go rt.Unit.
+func (b *bound) out452(v rt.Unit) (rt.Value, error) {
 	return rt.Unit{}, nil
 }
 
-// fn371 adapts timer.sleep: sleep(d: Duration) -> Unit
-func (b *bound) fn371(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("timer.sleep", 1, len(args))
-	}
-	a0, err := b.in354(fr, args[0])
+// fn451Regs is timer.sleep over slots.
+func (b *bound) fn451Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in429(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("timer.sleep", 0, "timer.sleep", "d", err)
+		return false, hostadapt.Param("timer.sleep", 0, "timer.sleep", "d", err)
 	}
 	r0 := rt.TimerSleep(fr, a0)
-	v0, err := b.out372(r0)
+	w453, err := b.out452(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("timer.sleep", err)
+		return false, hostadapt.Returned("timer.sleep", err)
 	}
-	return v0, nil
+	s.R[0] = w453
+	return true, nil
 }
 
-// in374 reads a Restart as Go rt.Restart.
-func (b *bound) in374(fr *rt.Frame, v rt.Value) (out rt.Restart, err error) {
+// in455 reads a Restart as Go rt.Restart.
+func (b *bound) in455(fr *rt.Frame, v rt.Value) (out rt.Restart, err error) {
 	r, tag, err := hostadapt.Variant(v, "supervisors.Restart")
 	if err != nil {
 		return out, err
@@ -8945,8 +6498,8 @@ func (b *bound) in374(fr *rt.Frame, v rt.Value) (out rt.Restart, err error) {
 	return out, nil
 }
 
-// in375 reads a Backoff as Go rt.Backoff.
-func (b *bound) in375(fr *rt.Frame, v rt.Value) (out rt.Backoff, err error) {
+// in456 reads a Backoff as Go rt.Backoff.
+func (b *bound) in456(fr *rt.Frame, v rt.Value) (out rt.Backoff, err error) {
 	r, tag, err := hostadapt.Variant(v, "supervisors.Backoff")
 	if err != nil {
 		return out, err
@@ -8959,7 +6512,7 @@ func (b *bound) in375(fr *rt.Frame, v rt.Value) (out rt.Backoff, err error) {
 			if err != nil {
 				return out, err
 			}
-			x, err := b.in39(fr, p)
+			x, err := b.in373(fr, p)
 			if err != nil {
 				return out, fmt.Errorf("Exponential.max_restarts: %w", err)
 			}
@@ -8970,7 +6523,7 @@ func (b *bound) in375(fr *rt.Frame, v rt.Value) (out rt.Backoff, err error) {
 			if err != nil {
 				return out, err
 			}
-			x, err := b.in354(fr, p)
+			x, err := b.in429(fr, p)
 			if err != nil {
 				return out, fmt.Errorf("Exponential.max_elapsed: %w", err)
 			}
@@ -8983,8 +6536,8 @@ func (b *bound) in375(fr *rt.Frame, v rt.Value) (out rt.Backoff, err error) {
 	return out, nil
 }
 
-// in376 reads a GiveUp as Go rt.GiveUp.
-func (b *bound) in376(fr *rt.Frame, v rt.Value) (out rt.GiveUp, err error) {
+// in457 reads a GiveUp as Go rt.GiveUp.
+func (b *bound) in457(fr *rt.Frame, v rt.Value) (out rt.GiveUp, err error) {
 	r, tag, err := hostadapt.Variant(v, "supervisors.GiveUp")
 	if err != nil {
 		return out, err
@@ -9001,46 +6554,41 @@ func (b *bound) in376(fr *rt.Frame, v rt.Value) (out rt.GiveUp, err error) {
 	return out, nil
 }
 
-// out377 builds a Supervisor from Go rt.Supervisor.
-func (b *bound) out377(v rt.Supervisor) (rt.Value, error) {
+// out458 builds a Supervisor from Go rt.Supervisor.
+func (b *bound) out458(v rt.Supervisor) (rt.Value, error) {
 	return v, nil
 }
 
-// fn373 adapts supervisors.Supervisor.new_exact: new_exact(max_running: PositiveInt, shutdown_timeout: Duration, restart: Restart, backoff: Backoff, on_give_up: GiveUp) -> Supervisor
-func (b *bound) fn373(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 5 {
-		return nil, hostadapt.Arity("supervisors.Supervisor.new_exact", 5, len(args))
-	}
-	a0, err := b.in39(fr, args[0])
+// fn454Regs is supervisors.Supervisor.new_exact over slots.
+func (b *bound) fn454Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
+	a1, err := b.in429(fr, s.R[1])
 	if err != nil {
-		return nil, hostadapt.Param("supervisors.Supervisor.new_exact", 0, "supervisors.Supervisor.new_exact", "max_running", err)
+		return false, hostadapt.Param("supervisors.Supervisor.new_exact", 1, "supervisors.Supervisor.new_exact", "shutdown_timeout", err)
 	}
-	a1, err := b.in354(fr, args[1])
+	a2, err := b.in455(fr, s.R[2])
 	if err != nil {
-		return nil, hostadapt.Param("supervisors.Supervisor.new_exact", 1, "supervisors.Supervisor.new_exact", "shutdown_timeout", err)
+		return false, hostadapt.Param("supervisors.Supervisor.new_exact", 2, "supervisors.Supervisor.new_exact", "restart", err)
 	}
-	a2, err := b.in374(fr, args[2])
+	a3, err := b.in456(fr, s.R[3])
 	if err != nil {
-		return nil, hostadapt.Param("supervisors.Supervisor.new_exact", 2, "supervisors.Supervisor.new_exact", "restart", err)
+		return false, hostadapt.Param("supervisors.Supervisor.new_exact", 3, "supervisors.Supervisor.new_exact", "backoff", err)
 	}
-	a3, err := b.in375(fr, args[3])
+	a4, err := b.in457(fr, s.R[4])
 	if err != nil {
-		return nil, hostadapt.Param("supervisors.Supervisor.new_exact", 3, "supervisors.Supervisor.new_exact", "backoff", err)
-	}
-	a4, err := b.in376(fr, args[4])
-	if err != nil {
-		return nil, hostadapt.Param("supervisors.Supervisor.new_exact", 4, "supervisors.Supervisor.new_exact", "on_give_up", err)
+		return false, hostadapt.Param("supervisors.Supervisor.new_exact", 4, "supervisors.Supervisor.new_exact", "on_give_up", err)
 	}
 	r0 := rt.SupervisorNewExact(fr, a0, a1, a2, a3, a4)
-	v0, err := b.out377(r0)
+	w459, err := b.out458(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("supervisors.Supervisor.new_exact", err)
+		return false, hostadapt.Returned("supervisors.Supervisor.new_exact", err)
 	}
-	return v0, nil
+	s.R[0] = w459
+	return true, nil
 }
 
-// in379 reads a Supervisor as Go rt.Supervisor.
-func (b *bound) in379(fr *rt.Frame, v rt.Value) (out rt.Supervisor, err error) {
+// in461 reads a Supervisor as Go rt.Supervisor.
+func (b *bound) in461(fr *rt.Frame, v rt.Value) (out rt.Supervisor, err error) {
 	x, ok := v.(rt.Supervisor)
 	if !ok {
 		return out, hostadapt.Want("Supervisor", v)
@@ -9048,8 +6596,8 @@ func (b *bound) in379(fr *rt.Frame, v rt.Value) (out rt.Supervisor, err error) {
 	return x, nil
 }
 
-// in380 reads a Wait as Go rt.Wait.
-func (b *bound) in380(fr *rt.Frame, v rt.Value) (out rt.Wait, err error) {
+// in462 reads a Wait as Go rt.Wait.
+func (b *bound) in462(fr *rt.Frame, v rt.Value) (out rt.Wait, err error) {
 	r, tag, err := hostadapt.Variant(v, "supervisors.Wait")
 	if err != nil {
 		return out, err
@@ -9061,7 +6609,7 @@ func (b *bound) in380(fr *rt.Frame, v rt.Value) (out rt.Wait, err error) {
 	case "UpTo":
 		{
 			p := hostadapt.Payload(r)
-			x, err := b.in354(fr, p)
+			x, err := b.in429(fr, p)
 			if err != nil {
 				return out, fmt.Errorf("UpTo: %w", err)
 			}
@@ -9074,47 +6622,45 @@ func (b *bound) in380(fr *rt.Frame, v rt.Value) (out rt.Wait, err error) {
 	return out, nil
 }
 
-// out381 builds a FlushOutcome from Go rt.FlushOutcome.
-func (b *bound) out381(v rt.FlushOutcome) (rt.Value, error) {
+// out463 builds a FlushOutcome from Go rt.FlushOutcome.
+func (b *bound) out463(v rt.FlushOutcome) (rt.Value, error) {
 	switch v.Tag {
 	case 1:
-		return b.d36.NewVariant(0), nil
+		return b.d34.NewVariant(0), nil
 	case 2:
-		return b.d36.NewVariant(1), nil
+		return b.d34.NewVariant(1), nil
 	}
 	return nil, fmt.Errorf("Go rt.FlushOutcome carries tag %d, which names no variant of supervisors.FlushOutcome", v.Tag)
 }
 
-// fn378 adapts supervisors.Supervisor.flush_bounded: flush_bounded(supervisor: Supervisor, bound: Wait) -> FlushOutcome
-func (b *bound) fn378(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("supervisors.Supervisor.flush_bounded", 2, len(args))
-	}
-	a0, err := b.in379(fr, args[0])
+// fn460Regs is supervisors.Supervisor.flush_bounded over slots.
+func (b *bound) fn460Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in461(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("supervisors.Supervisor.flush_bounded", 0, "supervisors.Supervisor.flush_bounded", "supervisor", err)
+		return false, hostadapt.Param("supervisors.Supervisor.flush_bounded", 0, "supervisors.Supervisor.flush_bounded", "supervisor", err)
 	}
-	a1, err := b.in380(fr, args[1])
+	a1, err := b.in462(fr, s.R[1])
 	if err != nil {
-		return nil, hostadapt.Param("supervisors.Supervisor.flush_bounded", 1, "supervisors.Supervisor.flush_bounded", "bound", err)
+		return false, hostadapt.Param("supervisors.Supervisor.flush_bounded", 1, "supervisors.Supervisor.flush_bounded", "bound", err)
 	}
 	r0 := rt.SupervisorFlushBounded(fr, a0, a1)
-	v0, err := b.out381(r0)
+	w464, err := b.out463(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("supervisors.Supervisor.flush_bounded", err)
+		return false, hostadapt.Returned("supervisors.Supervisor.flush_bounded", err)
 	}
-	return v0, nil
+	s.R[0] = w464
+	return true, nil
 }
 
-// in384 reads a Maybe<String> as Go rt.Maybe[string].
-func (b *bound) in384(fr *rt.Frame, v rt.Value) (out rt.Maybe[string], err error) {
+// in467 reads a Maybe<String> as Go rt.Maybe[string].
+func (b *bound) in467(fr *rt.Frame, v rt.Value) (out rt.Maybe[string], err error) {
 	r, tag, err := hostadapt.Variant(v, "maybe.Maybe")
 	if err != nil {
 		return out, err
 	}
 	switch tag {
 	case "Some":
-		x, err := b.in42(fr, hostadapt.Payload(r))
+		x, err := b.in173(fr, hostadapt.Payload(r))
 		if err != nil {
 			return out, fmt.Errorf("Some: %w", err)
 		}
@@ -9125,18 +6671,179 @@ func (b *bound) in384(fr *rt.Frame, v rt.Value) (out rt.Maybe[string], err error
 	return out, fmt.Errorf("unmarshal Maybe: unknown variant %q", tag)
 }
 
-// in388 reads a AssertionPipelineStage as Go rt.NomiAssertionPipelineStage.
-func (b *bound) in388(fr *rt.Frame, v rt.Value) (out rt.NomiAssertionPipelineStage, err error) {
+// in471 reads a AssertionPipelineStage as Go rt.NomiAssertionPipelineStage.
+func (b *bound) in471(fr *rt.Frame, v rt.Value) (out rt.NomiAssertionPipelineStage, err error) {
 	r, err := hostadapt.Record(v, "assertions.AssertionPipelineStage")
 	if err != nil {
 		return out, err
 	}
 	{
-		x, err := hostadapt.StringField(r, b.d39, 0, 0, "expression")
+		x, err := hostadapt.StringField(r, b.d37, 0, 0, "expression")
 		if err != nil {
 			return out, err
 		}
 		out.Expression = string(x)
+	}
+	{
+		x, err := hostadapt.StringField(r, b.d37, 1, 1, "value")
+		if err != nil {
+			return out, err
+		}
+		out.Value = string(x)
+	}
+	return out, nil
+}
+
+// in470 reads a List<AssertionPipelineStage> as Go *rt.List[rt.NomiAssertionPipelineStage].
+func (b *bound) in470(fr *rt.Frame, v rt.Value) (out *rt.List[rt.NomiAssertionPipelineStage], err error) {
+	xs, err := hostadapt.List(v)
+	if err != nil {
+		return out, err
+	}
+	items := make([]rt.NomiAssertionPipelineStage, 0, hostadapt.Len(xs))
+	i := 0
+	for c := xs; c != nil; c = c.Tail {
+		e, err := b.in471(fr, c.Head)
+		if err != nil {
+			return out, fmt.Errorf("index %d: %w", i, err)
+		}
+		items = append(items, e)
+		i++
+	}
+	for k := len(items) - 1; k >= 0; k-- {
+		out = rt.Cons(items[k], out)
+	}
+	return out, nil
+}
+
+// in469 reads a AssertionBinding as Go rt.NomiAssertionBinding.
+func (b *bound) in469(fr *rt.Frame, v rt.Value) (out rt.NomiAssertionBinding, err error) {
+	r, err := hostadapt.Record(v, "assertions.AssertionBinding")
+	if err != nil {
+		return out, err
+	}
+	{
+		x, err := hostadapt.StringField(r, b.d36, 0, 0, "name")
+		if err != nil {
+			return out, err
+		}
+		out.Name = string(x)
+	}
+	{
+		x, err := hostadapt.StringField(r, b.d36, 1, 1, "expression")
+		if err != nil {
+			return out, err
+		}
+		out.Expression = string(x)
+	}
+	{
+		x, err := hostadapt.StringField(r, b.d36, 2, 2, "value")
+		if err != nil {
+			return out, err
+		}
+		out.Value = string(x)
+	}
+	{
+		x, err := hostadapt.RefField(r, b.d36, 3, 0, "pipeline")
+		if err != nil {
+			return out, err
+		}
+		y, err := b.in470(fr, x)
+		if err != nil {
+			return out, fmt.Errorf("field %q: %w", "pipeline", err)
+		}
+		out.Pipeline = y
+	}
+	return out, nil
+}
+
+// in468 reads a Maybe<AssertionBinding> as Go rt.Maybe[rt.NomiAssertionBinding].
+func (b *bound) in468(fr *rt.Frame, v rt.Value) (out rt.Maybe[rt.NomiAssertionBinding], err error) {
+	r, tag, err := hostadapt.Variant(v, "maybe.Maybe")
+	if err != nil {
+		return out, err
+	}
+	switch tag {
+	case "Some":
+		x, err := b.in469(fr, hostadapt.Payload(r))
+		if err != nil {
+			return out, fmt.Errorf("Some: %w", err)
+		}
+		return rt.Maybe[rt.NomiAssertionBinding]{Tag: rt.TagSome, Some: x}, nil
+	case "None":
+		return rt.Maybe[rt.NomiAssertionBinding]{Tag: rt.TagNone}, nil
+	}
+	return out, fmt.Errorf("unmarshal Maybe: unknown variant %q", tag)
+}
+
+// in473 reads a AssertionValue as Go rt.NomiAssertionValue.
+func (b *bound) in473(fr *rt.Frame, v rt.Value) (out rt.NomiAssertionValue, err error) {
+	r, err := hostadapt.Record(v, "assertions.AssertionValue")
+	if err != nil {
+		return out, err
+	}
+	{
+		x, err := hostadapt.StringField(r, b.d38, 0, 0, "expression")
+		if err != nil {
+			return out, err
+		}
+		out.Expression = string(x)
+	}
+	{
+		x, err := hostadapt.StringField(r, b.d38, 1, 1, "value")
+		if err != nil {
+			return out, err
+		}
+		out.Value = string(x)
+	}
+	{
+		x, err := hostadapt.RefField(r, b.d38, 2, 0, "pipeline")
+		if err != nil {
+			return out, err
+		}
+		y, err := b.in470(fr, x)
+		if err != nil {
+			return out, fmt.Errorf("field %q: %w", "pipeline", err)
+		}
+		out.Pipeline = y
+	}
+	return out, nil
+}
+
+// in472 reads a List<AssertionValue> as Go *rt.List[rt.NomiAssertionValue].
+func (b *bound) in472(fr *rt.Frame, v rt.Value) (out *rt.List[rt.NomiAssertionValue], err error) {
+	xs, err := hostadapt.List(v)
+	if err != nil {
+		return out, err
+	}
+	items := make([]rt.NomiAssertionValue, 0, hostadapt.Len(xs))
+	i := 0
+	for c := xs; c != nil; c = c.Tail {
+		e, err := b.in473(fr, c.Head)
+		if err != nil {
+			return out, fmt.Errorf("index %d: %w", i, err)
+		}
+		items = append(items, e)
+		i++
+	}
+	for k := len(items) - 1; k >= 0; k-- {
+		out = rt.Cons(items[k], out)
+	}
+	return out, nil
+}
+
+// in475 reads a AssertionDetail as Go rt.NomiAssertionDetail.
+func (b *bound) in475(fr *rt.Frame, v rt.Value) (out rt.NomiAssertionDetail, err error) {
+	r, err := hostadapt.Record(v, "assertions.AssertionDetail")
+	if err != nil {
+		return out, err
+	}
+	{
+		x, err := hostadapt.StringField(r, b.d39, 0, 0, "label")
+		if err != nil {
+			return out, err
+		}
+		out.Label = string(x)
 	}
 	{
 		x, err := hostadapt.StringField(r, b.d39, 1, 1, "value")
@@ -9148,169 +6855,8 @@ func (b *bound) in388(fr *rt.Frame, v rt.Value) (out rt.NomiAssertionPipelineSta
 	return out, nil
 }
 
-// in387 reads a List<AssertionPipelineStage> as Go *rt.List[rt.NomiAssertionPipelineStage].
-func (b *bound) in387(fr *rt.Frame, v rt.Value) (out *rt.List[rt.NomiAssertionPipelineStage], err error) {
-	xs, err := hostadapt.List(v)
-	if err != nil {
-		return out, err
-	}
-	items := make([]rt.NomiAssertionPipelineStage, 0, hostadapt.Len(xs))
-	i := 0
-	for c := xs; c != nil; c = c.Tail {
-		e, err := b.in388(fr, c.Head)
-		if err != nil {
-			return out, fmt.Errorf("index %d: %w", i, err)
-		}
-		items = append(items, e)
-		i++
-	}
-	for k := len(items) - 1; k >= 0; k-- {
-		out = rt.Cons(items[k], out)
-	}
-	return out, nil
-}
-
-// in386 reads a AssertionBinding as Go rt.NomiAssertionBinding.
-func (b *bound) in386(fr *rt.Frame, v rt.Value) (out rt.NomiAssertionBinding, err error) {
-	r, err := hostadapt.Record(v, "assertions.AssertionBinding")
-	if err != nil {
-		return out, err
-	}
-	{
-		x, err := hostadapt.StringField(r, b.d38, 0, 0, "name")
-		if err != nil {
-			return out, err
-		}
-		out.Name = string(x)
-	}
-	{
-		x, err := hostadapt.StringField(r, b.d38, 1, 1, "expression")
-		if err != nil {
-			return out, err
-		}
-		out.Expression = string(x)
-	}
-	{
-		x, err := hostadapt.StringField(r, b.d38, 2, 2, "value")
-		if err != nil {
-			return out, err
-		}
-		out.Value = string(x)
-	}
-	{
-		x, err := hostadapt.RefField(r, b.d38, 3, 0, "pipeline")
-		if err != nil {
-			return out, err
-		}
-		y, err := b.in387(fr, x)
-		if err != nil {
-			return out, fmt.Errorf("field %q: %w", "pipeline", err)
-		}
-		out.Pipeline = y
-	}
-	return out, nil
-}
-
-// in385 reads a Maybe<AssertionBinding> as Go rt.Maybe[rt.NomiAssertionBinding].
-func (b *bound) in385(fr *rt.Frame, v rt.Value) (out rt.Maybe[rt.NomiAssertionBinding], err error) {
-	r, tag, err := hostadapt.Variant(v, "maybe.Maybe")
-	if err != nil {
-		return out, err
-	}
-	switch tag {
-	case "Some":
-		x, err := b.in386(fr, hostadapt.Payload(r))
-		if err != nil {
-			return out, fmt.Errorf("Some: %w", err)
-		}
-		return rt.Maybe[rt.NomiAssertionBinding]{Tag: rt.TagSome, Some: x}, nil
-	case "None":
-		return rt.Maybe[rt.NomiAssertionBinding]{Tag: rt.TagNone}, nil
-	}
-	return out, fmt.Errorf("unmarshal Maybe: unknown variant %q", tag)
-}
-
-// in390 reads a AssertionValue as Go rt.NomiAssertionValue.
-func (b *bound) in390(fr *rt.Frame, v rt.Value) (out rt.NomiAssertionValue, err error) {
-	r, err := hostadapt.Record(v, "assertions.AssertionValue")
-	if err != nil {
-		return out, err
-	}
-	{
-		x, err := hostadapt.StringField(r, b.d40, 0, 0, "expression")
-		if err != nil {
-			return out, err
-		}
-		out.Expression = string(x)
-	}
-	{
-		x, err := hostadapt.StringField(r, b.d40, 1, 1, "value")
-		if err != nil {
-			return out, err
-		}
-		out.Value = string(x)
-	}
-	{
-		x, err := hostadapt.RefField(r, b.d40, 2, 0, "pipeline")
-		if err != nil {
-			return out, err
-		}
-		y, err := b.in387(fr, x)
-		if err != nil {
-			return out, fmt.Errorf("field %q: %w", "pipeline", err)
-		}
-		out.Pipeline = y
-	}
-	return out, nil
-}
-
-// in389 reads a List<AssertionValue> as Go *rt.List[rt.NomiAssertionValue].
-func (b *bound) in389(fr *rt.Frame, v rt.Value) (out *rt.List[rt.NomiAssertionValue], err error) {
-	xs, err := hostadapt.List(v)
-	if err != nil {
-		return out, err
-	}
-	items := make([]rt.NomiAssertionValue, 0, hostadapt.Len(xs))
-	i := 0
-	for c := xs; c != nil; c = c.Tail {
-		e, err := b.in390(fr, c.Head)
-		if err != nil {
-			return out, fmt.Errorf("index %d: %w", i, err)
-		}
-		items = append(items, e)
-		i++
-	}
-	for k := len(items) - 1; k >= 0; k-- {
-		out = rt.Cons(items[k], out)
-	}
-	return out, nil
-}
-
-// in392 reads a AssertionDetail as Go rt.NomiAssertionDetail.
-func (b *bound) in392(fr *rt.Frame, v rt.Value) (out rt.NomiAssertionDetail, err error) {
-	r, err := hostadapt.Record(v, "assertions.AssertionDetail")
-	if err != nil {
-		return out, err
-	}
-	{
-		x, err := hostadapt.StringField(r, b.d41, 0, 0, "label")
-		if err != nil {
-			return out, err
-		}
-		out.Label = string(x)
-	}
-	{
-		x, err := hostadapt.StringField(r, b.d41, 1, 1, "value")
-		if err != nil {
-			return out, err
-		}
-		out.Value = string(x)
-	}
-	return out, nil
-}
-
-// in391 reads a List<AssertionDetail> as Go *rt.List[rt.NomiAssertionDetail].
-func (b *bound) in391(fr *rt.Frame, v rt.Value) (out *rt.List[rt.NomiAssertionDetail], err error) {
+// in474 reads a List<AssertionDetail> as Go *rt.List[rt.NomiAssertionDetail].
+func (b *bound) in474(fr *rt.Frame, v rt.Value) (out *rt.List[rt.NomiAssertionDetail], err error) {
 	xs, err := hostadapt.List(v)
 	if err != nil {
 		return out, err
@@ -9318,7 +6864,7 @@ func (b *bound) in391(fr *rt.Frame, v rt.Value) (out *rt.List[rt.NomiAssertionDe
 	items := make([]rt.NomiAssertionDetail, 0, hostadapt.Len(xs))
 	i := 0
 	for c := xs; c != nil; c = c.Tail {
-		e, err := b.in392(fr, c.Head)
+		e, err := b.in475(fr, c.Head)
 		if err != nil {
 			return out, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -9331,25 +6877,25 @@ func (b *bound) in391(fr *rt.Frame, v rt.Value) (out *rt.List[rt.NomiAssertionDe
 	return out, nil
 }
 
-// in394 reads a SubtestFailure as Go rt.NomiSubtestFailure.
-func (b *bound) in394(fr *rt.Frame, v rt.Value) (out rt.NomiSubtestFailure, err error) {
+// in477 reads a SubtestFailure as Go rt.NomiSubtestFailure.
+func (b *bound) in477(fr *rt.Frame, v rt.Value) (out rt.NomiSubtestFailure, err error) {
 	r, err := hostadapt.Record(v, "assertions.SubtestFailure")
 	if err != nil {
 		return out, err
 	}
 	{
-		x, err := hostadapt.StringField(r, b.d42, 0, 0, "row")
+		x, err := hostadapt.StringField(r, b.d40, 0, 0, "row")
 		if err != nil {
 			return out, err
 		}
 		out.Row = string(x)
 	}
 	{
-		x, err := hostadapt.RefField(r, b.d42, 1, 0, "failure")
+		x, err := hostadapt.RefField(r, b.d40, 1, 0, "failure")
 		if err != nil {
 			return out, err
 		}
-		y, err := b.in383(fr, x)
+		y, err := b.in466(fr, x)
 		if err != nil {
 			return out, fmt.Errorf("field %q: %w", "failure", err)
 		}
@@ -9358,8 +6904,8 @@ func (b *bound) in394(fr *rt.Frame, v rt.Value) (out rt.NomiSubtestFailure, err 
 	return out, nil
 }
 
-// in393 reads a List<SubtestFailure> as Go *rt.List[rt.NomiSubtestFailure].
-func (b *bound) in393(fr *rt.Frame, v rt.Value) (out *rt.List[rt.NomiSubtestFailure], err error) {
+// in476 reads a List<SubtestFailure> as Go *rt.List[rt.NomiSubtestFailure].
+func (b *bound) in476(fr *rt.Frame, v rt.Value) (out *rt.List[rt.NomiSubtestFailure], err error) {
 	xs, err := hostadapt.List(v)
 	if err != nil {
 		return out, err
@@ -9367,7 +6913,7 @@ func (b *bound) in393(fr *rt.Frame, v rt.Value) (out *rt.List[rt.NomiSubtestFail
 	items := make([]rt.NomiSubtestFailure, 0, hostadapt.Len(xs))
 	i := 0
 	for c := xs; c != nil; c = c.Tail {
-		e, err := b.in394(fr, c.Head)
+		e, err := b.in477(fr, c.Head)
 		if err != nil {
 			return out, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -9380,14 +6926,14 @@ func (b *bound) in393(fr *rt.Frame, v rt.Value) (out *rt.List[rt.NomiSubtestFail
 	return out, nil
 }
 
-// in383 reads a AssertionFailure as Go rt.NomiAssertionFailure.
-func (b *bound) in383(fr *rt.Frame, v rt.Value) (out rt.NomiAssertionFailure, err error) {
+// in466 reads a AssertionFailure as Go rt.NomiAssertionFailure.
+func (b *bound) in466(fr *rt.Frame, v rt.Value) (out rt.NomiAssertionFailure, err error) {
 	r, err := hostadapt.Record(v, "assertions.AssertionFailure")
 	if err != nil {
 		return out, err
 	}
 	{
-		x, err := hostadapt.IntValueField(r, b.d37, 0, 0, "line")
+		x, err := hostadapt.IntValueField(r, b.d35, 0, 0, "line")
 		if err != nil {
 			return out, err
 		}
@@ -9398,76 +6944,76 @@ func (b *bound) in383(fr *rt.Frame, v rt.Value) (out rt.NomiAssertionFailure, er
 		out.Line = y
 	}
 	{
-		x, err := hostadapt.StringField(r, b.d37, 1, 0, "keyword")
+		x, err := hostadapt.StringField(r, b.d35, 1, 0, "keyword")
 		if err != nil {
 			return out, err
 		}
 		out.Keyword = string(x)
 	}
 	{
-		x, err := hostadapt.StringField(r, b.d37, 2, 1, "expression")
+		x, err := hostadapt.StringField(r, b.d35, 2, 1, "expression")
 		if err != nil {
 			return out, err
 		}
 		out.Expression = string(x)
 	}
 	{
-		x, err := hostadapt.StringField(r, b.d37, 3, 2, "reason")
+		x, err := hostadapt.StringField(r, b.d35, 3, 2, "reason")
 		if err != nil {
 			return out, err
 		}
 		out.Reason = string(x)
 	}
 	{
-		x, err := hostadapt.RefField(r, b.d37, 4, 0, "actual")
+		x, err := hostadapt.RefField(r, b.d35, 4, 0, "actual")
 		if err != nil {
 			return out, err
 		}
-		y, err := b.in384(fr, x)
+		y, err := b.in467(fr, x)
 		if err != nil {
 			return out, fmt.Errorf("field %q: %w", "actual", err)
 		}
 		out.Actual = y
 	}
 	{
-		x, err := hostadapt.RefField(r, b.d37, 5, 1, "binding")
+		x, err := hostadapt.RefField(r, b.d35, 5, 1, "binding")
 		if err != nil {
 			return out, err
 		}
-		y, err := b.in385(fr, x)
+		y, err := b.in468(fr, x)
 		if err != nil {
 			return out, fmt.Errorf("field %q: %w", "binding", err)
 		}
 		out.Binding = y
 	}
 	{
-		x, err := hostadapt.RefField(r, b.d37, 6, 2, "values")
+		x, err := hostadapt.RefField(r, b.d35, 6, 2, "values")
 		if err != nil {
 			return out, err
 		}
-		y, err := b.in389(fr, x)
+		y, err := b.in472(fr, x)
 		if err != nil {
 			return out, fmt.Errorf("field %q: %w", "values", err)
 		}
 		out.Values = y
 	}
 	{
-		x, err := hostadapt.RefField(r, b.d37, 7, 3, "details")
+		x, err := hostadapt.RefField(r, b.d35, 7, 3, "details")
 		if err != nil {
 			return out, err
 		}
-		y, err := b.in391(fr, x)
+		y, err := b.in474(fr, x)
 		if err != nil {
 			return out, fmt.Errorf("field %q: %w", "details", err)
 		}
 		out.Details = y
 	}
 	{
-		x, err := hostadapt.RefField(r, b.d37, 8, 4, "subtests")
+		x, err := hostadapt.RefField(r, b.d35, 8, 4, "subtests")
 		if err != nil {
 			return out, err
 		}
-		y, err := b.in393(fr, x)
+		y, err := b.in476(fr, x)
 		if err != nil {
 			return out, fmt.Errorf("field %q: %w", "subtests", err)
 		}
@@ -9476,709 +7022,474 @@ func (b *bound) in383(fr *rt.Frame, v rt.Value) (out rt.NomiAssertionFailure, er
 	return out, nil
 }
 
-// fn382 adapts assertions.AssertionFailure.format: format(failure: AssertionFailure) -> String
-func (b *bound) fn382(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("assertions.AssertionFailure.format", 1, len(args))
-	}
-	a0, err := b.in383(fr, args[0])
+// fn465Regs is assertions.AssertionFailure.format over slots.
+func (b *bound) fn465Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in466(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("assertions.AssertionFailure.format", 0, "assertions.AssertionFailure.format", "failure", err)
+		return false, hostadapt.Param("assertions.AssertionFailure.format", 0, "assertions.AssertionFailure.format", "failure", err)
 	}
 	r0 := rt.FormatNomiAssertionFailure(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("assertions.AssertionFailure.format", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// out396 builds a Decimal from Go rt.Decimal.
-func (b *bound) out396(v rt.Decimal) (rt.Value, error) {
+// out479 builds a Decimal from Go rt.Decimal.
+func (b *bound) out479(v rt.Decimal) (rt.Value, error) {
 	return v, nil
 }
 
-// fn395 adapts int.Int.to_decimal: to_decimal(n: Int) -> Decimal
-func (b *bound) fn395(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("int.Int.to_decimal", 1, len(args))
-	}
-	a0, err := b.in39(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("int.Int.to_decimal", 0, "int.Int.to_decimal", "n", err)
-	}
+// fn478Regs is int.Int.to_decimal over slots.
+func (b *bound) fn478Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
 	r0 := rt.IntToDecimal(a0)
-	v0, err := b.out396(r0)
+	w480, err := b.out479(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("int.Int.to_decimal", err)
+		return false, hostadapt.Returned("int.Int.to_decimal", err)
 	}
-	return v0, nil
+	s.R[0] = w480
+	return true, nil
 }
 
-// out398 builds a Maybe<Decimal> from Go rt.Maybe[rt.Decimal].
-func (b *bound) out398(v rt.Maybe[rt.Decimal]) (rt.Value, error) {
+// out482 builds a Maybe<Decimal> from Go rt.Maybe[rt.Decimal].
+func (b *bound) out482(v rt.Maybe[rt.Decimal]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagSome:
-		r := b.d23.NewVariant(0)
-		w399, err := b.out396(v.Some)
+		r := b.d24.NewVariant(0)
+		w483, err := b.out479(v.Some)
 		if err != nil {
 			return nil, fmt.Errorf("Some: %w", err)
 		}
-		r.R[0] = w399
+		r.R[0] = w483
 		return r, nil
 	case rt.TagNone:
-		return b.d23.NewVariant(1), nil
+		return b.d24.NewVariant(1), nil
 	}
 	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
 }
 
-// fn397 adapts strings.String.to_decimal: to_decimal(s: String) -> Maybe<Decimal>
-func (b *bound) fn397(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("strings.String.to_decimal", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("strings.String.to_decimal", 0, "strings.String.to_decimal", "s", err)
-	}
-	r0 := rt.StringToDecimal(a0)
-	v0, err := b.out398(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("strings.String.to_decimal", err)
-	}
-	return v0, nil
-}
-
-// fn397Parts is strings.String.to_decimal taken apart: the payload and true, or the record and false.
-func (b *bound) fn397Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("strings.String.to_decimal", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("strings.String.to_decimal", 0, "strings.String.to_decimal", "s", err)
-	}
+// fn481Regs is strings.String.to_decimal over slots.
+func (b *bound) fn481Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
 	r0 := rt.StringToDecimal(a0)
 	if r0.Tag != rt.TagSome {
-		rec, err := b.out398(r0)
+		rec, err := b.out482(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("strings.String.to_decimal", err)
+			return false, hostadapt.Returned("strings.String.to_decimal", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out396(r0.Some)
+	w484, err := b.out479(r0.Some)
 	if err != nil {
-		return nil, false, hostadapt.Returned("strings.String.to_decimal", err)
+		return false, hostadapt.Returned("strings.String.to_decimal", err)
 	}
-	return v, true, nil
+	s.R[0] = w484
+	return true, nil
 }
 
-// out401 builds a Maybe<Float> from Go rt.Maybe[float64].
-func (b *bound) out401(v rt.Maybe[float64]) (rt.Value, error) {
+// out486 builds a Maybe<Float> from Go rt.Maybe[float64].
+func (b *bound) out486(v rt.Maybe[float64]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagSome:
-		r := b.d43.NewVariant(0)
+		r := b.d41.NewVariant(0)
 		r.W[0] = rt.FloatWord(float64(v.Some))
 		return r, nil
 	case rt.TagNone:
-		return b.d43.NewVariant(1), nil
+		return b.d41.NewVariant(1), nil
 	}
 	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
 }
 
-// fn400 adapts strings.String.to_float: to_float(s: String) -> Maybe<Float>
-func (b *bound) fn400(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("strings.String.to_float", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("strings.String.to_float", 0, "strings.String.to_float", "s", err)
-	}
-	r0 := rt.StringToFloat(a0)
-	v0, err := b.out401(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("strings.String.to_float", err)
-	}
-	return v0, nil
-}
-
-// fn400Parts is strings.String.to_float taken apart: the payload and true, or the record and false.
-func (b *bound) fn400Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("strings.String.to_float", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("strings.String.to_float", 0, "strings.String.to_float", "s", err)
-	}
+// fn485Regs is strings.String.to_float over slots.
+func (b *bound) fn485Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
 	r0 := rt.StringToFloat(a0)
 	if r0.Tag != rt.TagSome {
-		rec, err := b.out401(r0)
+		rec, err := b.out486(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("strings.String.to_float", err)
+			return false, hostadapt.Returned("strings.String.to_float", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out124(r0.Some)
-	if err != nil {
-		return nil, false, hostadapt.Returned("strings.String.to_float", err)
-	}
-	return v, true, nil
+	s.W[0] = rt.FloatWord(float64(r0.Some))
+	return true, nil
 }
 
-// fn402 adapts decimal.Decimal.to_int: to_int(d: Decimal) -> Int
-func (b *bound) fn402(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("decimal.Decimal.to_int", 1, len(args))
-	}
-	a0, err := b.in332(fr, args[0])
+// fn487Regs is decimal.Decimal.to_int over slots.
+func (b *bound) fn487Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in396(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("decimal.Decimal.to_int", 0, "decimal.Decimal.to_int", "d", err)
+		return false, hostadapt.Param("decimal.Decimal.to_int", 0, "decimal.Decimal.to_int", "d", err)
 	}
 	r0 := rt.DecimalToInt(a0)
-	v0, err := b.out3(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("decimal.Decimal.to_int", err)
-	}
-	return v0, nil
+	s.SetInt(0, r0)
+	return true, nil
 }
 
-// fn403 adapts decimal.Decimal.to_float: to_float(d: Decimal) -> Float
-func (b *bound) fn403(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("decimal.Decimal.to_float", 1, len(args))
-	}
-	a0, err := b.in332(fr, args[0])
+// fn488Regs is decimal.Decimal.to_float over slots.
+func (b *bound) fn488Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in396(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("decimal.Decimal.to_float", 0, "decimal.Decimal.to_float", "d", err)
+		return false, hostadapt.Param("decimal.Decimal.to_float", 0, "decimal.Decimal.to_float", "d", err)
 	}
 	r0 := rt.DecimalToFloat(a0)
-	v0, err := b.out124(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("decimal.Decimal.to_float", err)
-	}
-	return v0, nil
+	s.W[0] = rt.FloatWord(float64(r0))
+	return true, nil
 }
 
-// fn404 adapts float.Float.to_decimal: to_decimal(x: Float, scale: Int, mode: RoundingMode) -> Maybe<Decimal>
-func (b *bound) fn404(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 3 {
-		return nil, hostadapt.Arity("float.Float.to_decimal", 3, len(args))
-	}
-	a0, err := b.in119(fr, args[0])
+// fn489Regs is float.Float.to_decimal over slots.
+func (b *bound) fn489Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := float64(rt.WordFloat(s.W[0]))
+	a1 := s.Int(1)
+	a2, err := b.in380(fr, s.R[2])
 	if err != nil {
-		return nil, hostadapt.Param("float.Float.to_decimal", 0, "float.Float.to_decimal", "x", err)
-	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("float.Float.to_decimal", 1, "float.Float.to_decimal", "scale", err)
-	}
-	a2, err := b.in315(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("float.Float.to_decimal", 2, "float.Float.to_decimal", "mode", err)
-	}
-	r0 := rt.FloatToDecimal(a0, a1, a2)
-	v0, err := b.out398(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("float.Float.to_decimal", err)
-	}
-	return v0, nil
-}
-
-// fn404Parts is float.Float.to_decimal taken apart: the payload and true, or the record and false.
-func (b *bound) fn404Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 3 {
-		return nil, false, hostadapt.Arity("float.Float.to_decimal", 3, len(args))
-	}
-	a0, err := b.in119(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("float.Float.to_decimal", 0, "float.Float.to_decimal", "x", err)
-	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("float.Float.to_decimal", 1, "float.Float.to_decimal", "scale", err)
-	}
-	a2, err := b.in315(fr, args[2])
-	if err != nil {
-		return nil, false, hostadapt.Param("float.Float.to_decimal", 2, "float.Float.to_decimal", "mode", err)
+		return false, hostadapt.Param("float.Float.to_decimal", 2, "float.Float.to_decimal", "mode", err)
 	}
 	r0 := rt.FloatToDecimal(a0, a1, a2)
 	if r0.Tag != rt.TagSome {
-		rec, err := b.out398(r0)
+		rec, err := b.out482(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("float.Float.to_decimal", err)
+			return false, hostadapt.Returned("float.Float.to_decimal", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out396(r0.Some)
+	w490, err := b.out479(r0.Some)
 	if err != nil {
-		return nil, false, hostadapt.Returned("float.Float.to_decimal", err)
+		return false, hostadapt.Returned("float.Float.to_decimal", err)
 	}
-	return v, true, nil
+	s.R[0] = w490
+	return true, nil
 }
 
-// fn405 adapts decimal.Decimal.divide: divide(a: Decimal, b: NonZeroDecimal, scale: Int, mode: RoundingMode) -> Decimal
-func (b *bound) fn405(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 4 {
-		return nil, hostadapt.Arity("decimal.Decimal.divide", 4, len(args))
-	}
-	a0, err := b.in332(fr, args[0])
+// fn491Regs is decimal.Decimal.divide over slots.
+func (b *bound) fn491Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in396(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("decimal.Decimal.divide", 0, "decimal.Decimal.divide", "a", err)
+		return false, hostadapt.Param("decimal.Decimal.divide", 0, "decimal.Decimal.divide", "a", err)
 	}
-	a1, err := b.in332(fr, args[1])
+	a1, err := b.in396(fr, s.R[1])
 	if err != nil {
-		return nil, hostadapt.Param("decimal.Decimal.divide", 1, "decimal.Decimal.divide", "b", err)
+		return false, hostadapt.Param("decimal.Decimal.divide", 1, "decimal.Decimal.divide", "b", err)
 	}
-	a2, err := b.in39(fr, args[2])
+	a2 := s.Int(2)
+	a3, err := b.in380(fr, s.R[3])
 	if err != nil {
-		return nil, hostadapt.Param("decimal.Decimal.divide", 2, "decimal.Decimal.divide", "scale", err)
-	}
-	a3, err := b.in315(fr, args[3])
-	if err != nil {
-		return nil, hostadapt.Param("decimal.Decimal.divide", 3, "decimal.Decimal.divide", "mode", err)
+		return false, hostadapt.Param("decimal.Decimal.divide", 3, "decimal.Decimal.divide", "mode", err)
 	}
 	r0 := rt.DecimalDivide(a0, a1, a2, a3)
-	v0, err := b.out396(r0)
+	w492, err := b.out479(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("decimal.Decimal.divide", err)
+		return false, hostadapt.Returned("decimal.Decimal.divide", err)
 	}
-	return v0, nil
+	s.R[0] = w492
+	return true, nil
 }
 
-// fn406 adapts decimal.Decimal.divide_exact: divide_exact(a: Decimal, b: NonZeroDecimal) -> Maybe<Decimal>
-func (b *bound) fn406(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("decimal.Decimal.divide_exact", 2, len(args))
-	}
-	a0, err := b.in332(fr, args[0])
+// fn493Regs is decimal.Decimal.divide_exact over slots.
+func (b *bound) fn493Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in396(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("decimal.Decimal.divide_exact", 0, "decimal.Decimal.divide_exact", "a", err)
+		return false, hostadapt.Param("decimal.Decimal.divide_exact", 0, "decimal.Decimal.divide_exact", "a", err)
 	}
-	a1, err := b.in332(fr, args[1])
+	a1, err := b.in396(fr, s.R[1])
 	if err != nil {
-		return nil, hostadapt.Param("decimal.Decimal.divide_exact", 1, "decimal.Decimal.divide_exact", "b", err)
-	}
-	r0 := rt.DecimalDivideExact(a0, a1)
-	v0, err := b.out398(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("decimal.Decimal.divide_exact", err)
-	}
-	return v0, nil
-}
-
-// fn406Parts is decimal.Decimal.divide_exact taken apart: the payload and true, or the record and false.
-func (b *bound) fn406Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 2 {
-		return nil, false, hostadapt.Arity("decimal.Decimal.divide_exact", 2, len(args))
-	}
-	a0, err := b.in332(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("decimal.Decimal.divide_exact", 0, "decimal.Decimal.divide_exact", "a", err)
-	}
-	a1, err := b.in332(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("decimal.Decimal.divide_exact", 1, "decimal.Decimal.divide_exact", "b", err)
+		return false, hostadapt.Param("decimal.Decimal.divide_exact", 1, "decimal.Decimal.divide_exact", "b", err)
 	}
 	r0 := rt.DecimalDivideExact(a0, a1)
 	if r0.Tag != rt.TagSome {
-		rec, err := b.out398(r0)
+		rec, err := b.out482(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("decimal.Decimal.divide_exact", err)
+			return false, hostadapt.Returned("decimal.Decimal.divide_exact", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out396(r0.Some)
+	w494, err := b.out479(r0.Some)
 	if err != nil {
-		return nil, false, hostadapt.Returned("decimal.Decimal.divide_exact", err)
+		return false, hostadapt.Returned("decimal.Decimal.divide_exact", err)
 	}
-	return v, true, nil
+	s.R[0] = w494
+	return true, nil
 }
 
-// fn407 adapts decimal.Decimal.round: round(d: Decimal, scale: Int, mode: RoundingMode) -> Decimal
-func (b *bound) fn407(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 3 {
-		return nil, hostadapt.Arity("decimal.Decimal.round", 3, len(args))
-	}
-	a0, err := b.in332(fr, args[0])
+// fn495Regs is decimal.Decimal.round over slots.
+func (b *bound) fn495Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in396(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("decimal.Decimal.round", 0, "decimal.Decimal.round", "d", err)
+		return false, hostadapt.Param("decimal.Decimal.round", 0, "decimal.Decimal.round", "d", err)
 	}
-	a1, err := b.in39(fr, args[1])
+	a1 := s.Int(1)
+	a2, err := b.in380(fr, s.R[2])
 	if err != nil {
-		return nil, hostadapt.Param("decimal.Decimal.round", 1, "decimal.Decimal.round", "scale", err)
-	}
-	a2, err := b.in315(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("decimal.Decimal.round", 2, "decimal.Decimal.round", "mode", err)
+		return false, hostadapt.Param("decimal.Decimal.round", 2, "decimal.Decimal.round", "mode", err)
 	}
 	r0 := rt.DecimalRound(a0, a1, a2)
-	v0, err := b.out396(r0)
+	w496, err := b.out479(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("decimal.Decimal.round", err)
+		return false, hostadapt.Returned("decimal.Decimal.round", err)
 	}
-	return v0, nil
+	s.R[0] = w496
+	return true, nil
 }
 
-// fn408 adapts decimal.Decimal.round_exact: round_exact(d: Decimal, scale: Int) -> Maybe<Decimal>
-func (b *bound) fn408(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("decimal.Decimal.round_exact", 2, len(args))
-	}
-	a0, err := b.in332(fr, args[0])
+// fn497Regs is decimal.Decimal.round_exact over slots.
+func (b *bound) fn497Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in396(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("decimal.Decimal.round_exact", 0, "decimal.Decimal.round_exact", "d", err)
+		return false, hostadapt.Param("decimal.Decimal.round_exact", 0, "decimal.Decimal.round_exact", "d", err)
 	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("decimal.Decimal.round_exact", 1, "decimal.Decimal.round_exact", "scale", err)
-	}
-	r0 := rt.DecimalRoundExact(a0, a1)
-	v0, err := b.out398(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("decimal.Decimal.round_exact", err)
-	}
-	return v0, nil
-}
-
-// fn408Parts is decimal.Decimal.round_exact taken apart: the payload and true, or the record and false.
-func (b *bound) fn408Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 2 {
-		return nil, false, hostadapt.Arity("decimal.Decimal.round_exact", 2, len(args))
-	}
-	a0, err := b.in332(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("decimal.Decimal.round_exact", 0, "decimal.Decimal.round_exact", "d", err)
-	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("decimal.Decimal.round_exact", 1, "decimal.Decimal.round_exact", "scale", err)
-	}
+	a1 := s.Int(1)
 	r0 := rt.DecimalRoundExact(a0, a1)
 	if r0.Tag != rt.TagSome {
-		rec, err := b.out398(r0)
+		rec, err := b.out482(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("decimal.Decimal.round_exact", err)
+			return false, hostadapt.Returned("decimal.Decimal.round_exact", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out396(r0.Some)
+	w498, err := b.out479(r0.Some)
 	if err != nil {
-		return nil, false, hostadapt.Returned("decimal.Decimal.round_exact", err)
+		return false, hostadapt.Returned("decimal.Decimal.round_exact", err)
 	}
-	return v, true, nil
+	s.R[0] = w498
+	return true, nil
 }
 
-// fn409 adapts decimal.Decimal.pow: pow(d: Decimal, exp: NonNegativeInt) -> Decimal
-func (b *bound) fn409(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("decimal.Decimal.pow", 2, len(args))
-	}
-	a0, err := b.in332(fr, args[0])
+// fn499Regs is decimal.Decimal.pow over slots.
+func (b *bound) fn499Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in396(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("decimal.Decimal.pow", 0, "decimal.Decimal.pow", "d", err)
+		return false, hostadapt.Param("decimal.Decimal.pow", 0, "decimal.Decimal.pow", "d", err)
 	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("decimal.Decimal.pow", 1, "decimal.Decimal.pow", "exp", err)
-	}
+	a1 := s.Int(1)
 	r0 := rt.DecimalPow(a0, a1)
-	v0, err := b.out396(r0)
+	w500, err := b.out479(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("decimal.Decimal.pow", err)
+		return false, hostadapt.Returned("decimal.Decimal.pow", err)
 	}
-	return v0, nil
+	s.R[0] = w500
+	return true, nil
 }
 
-// fn410 adapts decimal.Decimal.sqrt: sqrt(d: NonNegativeDecimal, scale: Int, mode: RoundingMode) -> Decimal
-func (b *bound) fn410(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 3 {
-		return nil, hostadapt.Arity("decimal.Decimal.sqrt", 3, len(args))
-	}
-	a0, err := b.in332(fr, args[0])
+// fn501Regs is decimal.Decimal.sqrt over slots.
+func (b *bound) fn501Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in396(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("decimal.Decimal.sqrt", 0, "decimal.Decimal.sqrt", "d", err)
+		return false, hostadapt.Param("decimal.Decimal.sqrt", 0, "decimal.Decimal.sqrt", "d", err)
 	}
-	a1, err := b.in39(fr, args[1])
+	a1 := s.Int(1)
+	a2, err := b.in380(fr, s.R[2])
 	if err != nil {
-		return nil, hostadapt.Param("decimal.Decimal.sqrt", 1, "decimal.Decimal.sqrt", "scale", err)
-	}
-	a2, err := b.in315(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("decimal.Decimal.sqrt", 2, "decimal.Decimal.sqrt", "mode", err)
+		return false, hostadapt.Param("decimal.Decimal.sqrt", 2, "decimal.Decimal.sqrt", "mode", err)
 	}
 	r0 := rt.DecimalSqrt(a0, a1, a2)
-	v0, err := b.out396(r0)
+	w502, err := b.out479(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("decimal.Decimal.sqrt", err)
+		return false, hostadapt.Returned("decimal.Decimal.sqrt", err)
 	}
-	return v0, nil
+	s.R[0] = w502
+	return true, nil
 }
 
-// fn411 adapts decimal.Decimal.sqrt_exact: sqrt_exact(d: NonNegativeDecimal, scale: Int) -> Maybe<Decimal>
-func (b *bound) fn411(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("decimal.Decimal.sqrt_exact", 2, len(args))
-	}
-	a0, err := b.in332(fr, args[0])
+// fn503Regs is decimal.Decimal.sqrt_exact over slots.
+func (b *bound) fn503Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in396(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("decimal.Decimal.sqrt_exact", 0, "decimal.Decimal.sqrt_exact", "d", err)
+		return false, hostadapt.Param("decimal.Decimal.sqrt_exact", 0, "decimal.Decimal.sqrt_exact", "d", err)
 	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("decimal.Decimal.sqrt_exact", 1, "decimal.Decimal.sqrt_exact", "scale", err)
-	}
-	r0 := rt.DecimalSqrtExact(a0, a1)
-	v0, err := b.out398(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("decimal.Decimal.sqrt_exact", err)
-	}
-	return v0, nil
-}
-
-// fn411Parts is decimal.Decimal.sqrt_exact taken apart: the payload and true, or the record and false.
-func (b *bound) fn411Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 2 {
-		return nil, false, hostadapt.Arity("decimal.Decimal.sqrt_exact", 2, len(args))
-	}
-	a0, err := b.in332(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("decimal.Decimal.sqrt_exact", 0, "decimal.Decimal.sqrt_exact", "d", err)
-	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("decimal.Decimal.sqrt_exact", 1, "decimal.Decimal.sqrt_exact", "scale", err)
-	}
+	a1 := s.Int(1)
 	r0 := rt.DecimalSqrtExact(a0, a1)
 	if r0.Tag != rt.TagSome {
-		rec, err := b.out398(r0)
+		rec, err := b.out482(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("decimal.Decimal.sqrt_exact", err)
+			return false, hostadapt.Returned("decimal.Decimal.sqrt_exact", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out396(r0.Some)
+	w504, err := b.out479(r0.Some)
 	if err != nil {
-		return nil, false, hostadapt.Returned("decimal.Decimal.sqrt_exact", err)
+		return false, hostadapt.Returned("decimal.Decimal.sqrt_exact", err)
 	}
-	return v, true, nil
+	s.R[0] = w504
+	return true, nil
 }
 
-// fn412 adapts decimal.Decimal.normalize: normalize(d: Decimal) -> Decimal
-func (b *bound) fn412(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("decimal.Decimal.normalize", 1, len(args))
-	}
-	a0, err := b.in332(fr, args[0])
+// fn505Regs is decimal.Decimal.normalize over slots.
+func (b *bound) fn505Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in396(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("decimal.Decimal.normalize", 0, "decimal.Decimal.normalize", "d", err)
+		return false, hostadapt.Param("decimal.Decimal.normalize", 0, "decimal.Decimal.normalize", "d", err)
 	}
 	r0 := rt.DecimalNormalize(a0)
-	v0, err := b.out396(r0)
+	w506, err := b.out479(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("decimal.Decimal.normalize", err)
+		return false, hostadapt.Returned("decimal.Decimal.normalize", err)
 	}
-	return v0, nil
+	s.R[0] = w506
+	return true, nil
 }
 
-// fn413 adapts decimal.Decimal.scale: scale(d: Decimal) -> Int
-func (b *bound) fn413(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("decimal.Decimal.scale", 1, len(args))
-	}
-	a0, err := b.in332(fr, args[0])
+// fn507Regs is decimal.Decimal.scale over slots.
+func (b *bound) fn507Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in396(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("decimal.Decimal.scale", 0, "decimal.Decimal.scale", "d", err)
+		return false, hostadapt.Param("decimal.Decimal.scale", 0, "decimal.Decimal.scale", "d", err)
 	}
 	r0 := rt.DecimalScale(a0)
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("decimal.Decimal.scale", err)
-	}
-	return v0, nil
+	s.SetInt64(0, int64(r0))
+	return true, nil
 }
 
-// fn414 adapts strings.String.repeat: repeat(s: String, count: NonNegativeInt) -> String
-func (b *bound) fn414(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("strings.String.repeat", 2, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("strings.String.repeat", 0, "strings.String.repeat", "s", err)
-	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("strings.String.repeat", 1, "strings.String.repeat", "count", err)
-	}
+// fn508Regs is strings.String.repeat over slots.
+func (b *bound) fn508Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
+	a1 := s.Int(1)
 	r0 := rt.StringRepeat(a0, a1)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("strings.String.repeat", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// out416 builds a Maybe<Instant> from Go rt.Maybe[rt.Instant].
-func (b *bound) out416(v rt.Maybe[rt.Instant]) (rt.Value, error) {
+// out510 builds a Maybe<Instant> from Go rt.Maybe[rt.Instant].
+func (b *bound) out510(v rt.Maybe[rt.Instant]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagSome:
-		r := b.d23.NewVariant(0)
-		w417, err := b.out339(v.Some)
+		r := b.d24.NewVariant(0)
+		w511, err := b.out404(v.Some)
 		if err != nil {
 			return nil, fmt.Errorf("Some: %w", err)
 		}
-		r.R[0] = w417
+		r.R[0] = w511
 		return r, nil
 	case rt.TagNone:
-		return b.d23.NewVariant(1), nil
+		return b.d24.NewVariant(1), nil
 	}
 	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
 }
 
-// fn415 adapts context.Context.deadline: deadline(c: Context) -> Maybe<Instant>
-func (b *bound) fn415(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("context.Context.deadline", 1, len(args))
-	}
-	a0, err := b.in353(fr, args[0])
+// fn509Regs is context.Context.deadline over slots.
+func (b *bound) fn509Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in428(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("context.Context.deadline", 0, "context.Context.deadline", "c", err)
-	}
-	r0 := rt.ContextDeadline(a0)
-	v0, err := b.out416(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("context.Context.deadline", err)
-	}
-	return v0, nil
-}
-
-// fn415Parts is context.Context.deadline taken apart: the payload and true, or the record and false.
-func (b *bound) fn415Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("context.Context.deadline", 1, len(args))
-	}
-	a0, err := b.in353(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("context.Context.deadline", 0, "context.Context.deadline", "c", err)
+		return false, hostadapt.Param("context.Context.deadline", 0, "context.Context.deadline", "c", err)
 	}
 	r0 := rt.ContextDeadline(a0)
 	if r0.Tag != rt.TagSome {
-		rec, err := b.out416(r0)
+		rec, err := b.out510(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("context.Context.deadline", err)
+			return false, hostadapt.Returned("context.Context.deadline", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out339(r0.Some)
+	w512, err := b.out404(r0.Some)
 	if err != nil {
-		return nil, false, hostadapt.Returned("context.Context.deadline", err)
+		return false, hostadapt.Returned("context.Context.deadline", err)
 	}
-	return v, true, nil
+	s.R[0] = w512
+	return true, nil
 }
 
-// out420 builds a Duration from Go rt.Duration.
-func (b *bound) out420(v rt.Duration) (rt.Value, error) {
-	r := b.d32.New()
+// out515 builds a Duration from Go rt.Duration.
+func (b *bound) out515(v rt.Duration) (rt.Value, error) {
+	r := b.d30.New()
 	r.SetIntSlot(0, rt.Value(int64(v)))
 	return r, nil
 }
 
-// out419 builds a Maybe<Duration> from Go rt.Maybe[rt.Duration].
-func (b *bound) out419(v rt.Maybe[rt.Duration]) (rt.Value, error) {
+// out514 builds a Maybe<Duration> from Go rt.Maybe[rt.Duration].
+func (b *bound) out514(v rt.Maybe[rt.Duration]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagSome:
-		r := b.d23.NewVariant(0)
-		w421, err := b.out420(v.Some)
+		r := b.d24.NewVariant(0)
+		w516, err := b.out515(v.Some)
 		if err != nil {
 			return nil, fmt.Errorf("Some: %w", err)
 		}
-		r.R[0] = w421
+		r.R[0] = w516
 		return r, nil
 	case rt.TagNone:
-		return b.d23.NewVariant(1), nil
+		return b.d24.NewVariant(1), nil
 	}
 	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
 }
 
-// fn418 adapts context.Context.deadline_remaining: deadline_remaining(c: Context) -> Maybe<Duration>
-func (b *bound) fn418(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("context.Context.deadline_remaining", 1, len(args))
-	}
-	a0, err := b.in353(fr, args[0])
+// fn513Regs is context.Context.deadline_remaining over slots.
+func (b *bound) fn513Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in428(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("context.Context.deadline_remaining", 0, "context.Context.deadline_remaining", "c", err)
-	}
-	r0 := rt.ContextDeadlineRemaining(a0)
-	v0, err := b.out419(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("context.Context.deadline_remaining", err)
-	}
-	return v0, nil
-}
-
-// fn418Parts is context.Context.deadline_remaining taken apart: the payload and true, or the record and false.
-func (b *bound) fn418Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("context.Context.deadline_remaining", 1, len(args))
-	}
-	a0, err := b.in353(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("context.Context.deadline_remaining", 0, "context.Context.deadline_remaining", "c", err)
+		return false, hostadapt.Param("context.Context.deadline_remaining", 0, "context.Context.deadline_remaining", "c", err)
 	}
 	r0 := rt.ContextDeadlineRemaining(a0)
 	if r0.Tag != rt.TagSome {
-		rec, err := b.out419(r0)
+		rec, err := b.out514(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("context.Context.deadline_remaining", err)
+			return false, hostadapt.Returned("context.Context.deadline_remaining", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out420(r0.Some)
+	w517, err := b.out515(r0.Some)
 	if err != nil {
-		return nil, false, hostadapt.Returned("context.Context.deadline_remaining", err)
+		return false, hostadapt.Returned("context.Context.deadline_remaining", err)
 	}
-	return v, true, nil
+	s.R[0] = w517
+	return true, nil
 }
 
-// in423 reads a Instant as Go rt.Instant.
-func (b *bound) in423(fr *rt.Frame, v rt.Value) (out rt.Instant, err error) {
+// in519 reads a Instant as Go rt.Instant.
+func (b *bound) in519(fr *rt.Frame, v rt.Value) (out rt.Instant, err error) {
 	r, err := hostadapt.Record(v, "instant.Instant")
 	if err != nil {
 		return out, err
 	}
-	x, err := hostadapt.IntValueField(r, b.d30, 0, 0, "")
+	x, err := hostadapt.IntValueField(r, b.d28, 0, 0, "")
 	if err != nil {
 		return out, err
 	}
 	return rt.Instant(hostadapt.InstantNanosClamped(x)), nil
 }
 
-// fn422 adapts context.Context.with_deadline: with_deadline(c: Context, at: Instant) -> Context
-func (b *bound) fn422(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("context.Context.with_deadline", 2, len(args))
-	}
-	a0, err := b.in353(fr, args[0])
+// fn518Regs is context.Context.with_deadline over slots.
+func (b *bound) fn518Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in428(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("context.Context.with_deadline", 0, "context.Context.with_deadline", "c", err)
+		return false, hostadapt.Param("context.Context.with_deadline", 0, "context.Context.with_deadline", "c", err)
 	}
-	a1, err := b.in423(fr, args[1])
+	a1, err := b.in519(fr, s.R[1])
 	if err != nil {
-		return nil, hostadapt.Param("context.Context.with_deadline", 1, "context.Context.with_deadline", "at", err)
+		return false, hostadapt.Param("context.Context.with_deadline", 1, "context.Context.with_deadline", "at", err)
 	}
 	r0 := rt.ContextWithDeadline(a0, a1)
-	v0, err := b.out355(r0)
+	w520, err := b.out430(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("context.Context.with_deadline", err)
+		return false, hostadapt.Returned("context.Context.with_deadline", err)
 	}
-	return v0, nil
+	s.R[0] = w520
+	return true, nil
 }
 
-// out425 builds a List<Byte> from Go *rt.List[rt.Byte].
-func (b *bound) out425(v *rt.List[rt.Byte]) (rt.Value, error) {
+// fn521Regs is context.Context.inspect over slots.
+func (b *bound) fn521Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in428(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("context.Context.inspect", 0, "context.Context.inspect", "c", err)
+	}
+	r0 := rt.ContextInspect(a0)
+	s.S[0] = string(r0)
+	return true, nil
+}
+
+// out524 builds a Byte from Go rt.Byte.
+func (b *bound) out524(v rt.Byte) (rt.Value, error) {
+	return rt.Byte(v), nil
+}
+
+// out523 builds a List<Byte> from Go *rt.List[rt.Byte].
+func (b *bound) out523(v *rt.List[rt.Byte]) (rt.Value, error) {
 	n := 0
 	if v != nil {
 		n = v.Len
@@ -10186,7 +7497,7 @@ func (b *bound) out425(v *rt.List[rt.Byte]) (rt.Value, error) {
 	items := make([]rt.Value, 0, n)
 	i := 0
 	for c := v; c != nil; c = c.Tail {
-		x, err := b.out213(c.Head)
+		x, err := b.out524(c.Head)
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -10200,25 +7511,29 @@ func (b *bound) out425(v *rt.List[rt.Byte]) (rt.Value, error) {
 	return xs, nil
 }
 
-// fn424 adapts bytes.Bytes.to_list: to_list(data: Bytes) -> List<Byte>
-func (b *bound) fn424(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("bytes.Bytes.to_list", 1, len(args))
-	}
-	a0, err := b.in217(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("bytes.Bytes.to_list", 0, "bytes.Bytes.to_list", "data", err)
-	}
+// fn522Regs is bytes.Bytes.to_list over slots.
+func (b *bound) fn522Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
 	r0 := rt.BytesToList(a0)
-	v0, err := b.out425(r0)
+	w525, err := b.out523(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("bytes.Bytes.to_list", err)
+		return false, hostadapt.Returned("bytes.Bytes.to_list", err)
 	}
-	return v0, nil
+	s.R[0] = w525
+	return true, nil
 }
 
-// in427 reads a List<Byte> as Go *rt.List[rt.Byte].
-func (b *bound) in427(fr *rt.Frame, v rt.Value) (out *rt.List[rt.Byte], err error) {
+// in528 reads a Byte as Go rt.Byte.
+func (b *bound) in528(fr *rt.Frame, v rt.Value) (out rt.Byte, err error) {
+	x, ok := v.(rt.Byte)
+	if !ok {
+		return out, hostadapt.Want("Byte", v)
+	}
+	return rt.Byte(x), nil
+}
+
+// in527 reads a List<Byte> as Go *rt.List[rt.Byte].
+func (b *bound) in527(fr *rt.Frame, v rt.Value) (out *rt.List[rt.Byte], err error) {
 	xs, err := hostadapt.List(v)
 	if err != nil {
 		return out, err
@@ -10226,7 +7541,7 @@ func (b *bound) in427(fr *rt.Frame, v rt.Value) (out *rt.List[rt.Byte], err erro
 	items := make([]rt.Byte, 0, hostadapt.Len(xs))
 	i := 0
 	for c := xs; c != nil; c = c.Tail {
-		e, err := b.in215(fr, c.Head)
+		e, err := b.in528(fr, c.Head)
 		if err != nil {
 			return out, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -10239,25 +7554,19 @@ func (b *bound) in427(fr *rt.Frame, v rt.Value) (out *rt.List[rt.Byte], err erro
 	return out, nil
 }
 
-// fn426 adapts bytes.Bytes.from_list: from_list(items: List<Byte>) -> Bytes
-func (b *bound) fn426(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("bytes.Bytes.from_list", 1, len(args))
-	}
-	a0, err := b.in427(fr, args[0])
+// fn526Regs is bytes.Bytes.from_list over slots.
+func (b *bound) fn526Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in527(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("bytes.Bytes.from_list", 0, "bytes.Bytes.from_list", "items", err)
+		return false, hostadapt.Param("bytes.Bytes.from_list", 0, "bytes.Bytes.from_list", "items", err)
 	}
 	r0 := rt.BytesFromList(a0)
-	v0, err := b.out104(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("bytes.Bytes.from_list", err)
-	}
-	return v0, nil
+	s.S[0] = string(rt.Bytes(r0))
+	return true, nil
 }
 
-// in429 reads a NormalForm as Go rt.NormalForm.
-func (b *bound) in429(fr *rt.Frame, v rt.Value) (out rt.NormalForm, err error) {
+// in530 reads a NormalForm as Go rt.NormalForm.
+func (b *bound) in530(fr *rt.Frame, v rt.Value) (out rt.NormalForm, err error) {
 	r, tag, err := hostadapt.Variant(v, "strings.NormalForm")
 	if err != nil {
 		return out, err
@@ -10278,46 +7587,28 @@ func (b *bound) in429(fr *rt.Frame, v rt.Value) (out rt.NormalForm, err error) {
 	return out, nil
 }
 
-// fn428 adapts strings.String.normalize: normalize(s: String, form: NormalForm) -> String
-func (b *bound) fn428(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("strings.String.normalize", 2, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
+// fn529Regs is strings.String.normalize over slots.
+func (b *bound) fn529Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
+	a1, err := b.in530(fr, s.R[1])
 	if err != nil {
-		return nil, hostadapt.Param("strings.String.normalize", 0, "strings.String.normalize", "s", err)
-	}
-	a1, err := b.in429(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("strings.String.normalize", 1, "strings.String.normalize", "form", err)
+		return false, hostadapt.Param("strings.String.normalize", 1, "strings.String.normalize", "form", err)
 	}
 	r0 := stdstrings.Normalize(a0, a1)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("strings.String.normalize", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn430 adapts strings.String.to_literal: to_literal(s: String) -> String
-func (b *bound) fn430(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("strings.String.to_literal", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("strings.String.to_literal", 0, "strings.String.to_literal", "s", err)
-	}
+// fn531Regs is strings.String.to_literal over slots.
+func (b *bound) fn531Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
 	r0 := stdstrings.Literal(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("strings.String.to_literal", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// in432 reads a Dynamic as Go rt.Dynamic.
-func (b *bound) in432(fr *rt.Frame, v rt.Value) (out rt.Dynamic, err error) {
+// in533 reads a Dynamic as Go rt.Dynamic.
+func (b *bound) in533(fr *rt.Frame, v rt.Value) (out rt.Dynamic, err error) {
 	x, ok := v.(rt.Dynamic)
 	if !ok {
 		return out, hostadapt.Want("Dynamic", v)
@@ -10325,28 +7616,28 @@ func (b *bound) in432(fr *rt.Frame, v rt.Value) (out rt.Dynamic, err error) {
 	return x, nil
 }
 
-// out434 builds a Dynamic from Go rt.Dynamic.
-func (b *bound) out434(v rt.Dynamic) (rt.Value, error) {
+// out535 builds a Dynamic from Go rt.Dynamic.
+func (b *bound) out535(v rt.Dynamic) (rt.Value, error) {
 	return v, nil
 }
 
-// out438 builds a PathSegment from Go rt.DynamicPathSegment.
-func (b *bound) out438(v rt.DynamicPathSegment) (rt.Value, error) {
+// out539 builds a PathSegment from Go rt.DynamicPathSegment.
+func (b *bound) out539(v rt.DynamicPathSegment) (rt.Value, error) {
 	switch v.Tag {
 	case 1:
-		r := b.d45.NewVariant(0)
+		r := b.d43.NewVariant(0)
 		r.S[0] = string(v.Field)
 		return r, nil
 	case 2:
-		r := b.d45.NewVariant(1)
+		r := b.d43.NewVariant(1)
 		r.SetIntSlot(0, rt.Value(int64(v.Index)))
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.DynamicPathSegment carries tag %d, which names no variant of dynamic.PathSegment", v.Tag)
 }
 
-// out437 builds a List<PathSegment> from Go *rt.List[rt.DynamicPathSegment].
-func (b *bound) out437(v *rt.List[rt.DynamicPathSegment]) (rt.Value, error) {
+// out538 builds a List<PathSegment> from Go *rt.List[rt.DynamicPathSegment].
+func (b *bound) out538(v *rt.List[rt.DynamicPathSegment]) (rt.Value, error) {
 	n := 0
 	if v != nil {
 		n = v.Len
@@ -10354,7 +7645,7 @@ func (b *bound) out437(v *rt.List[rt.DynamicPathSegment]) (rt.Value, error) {
 	items := make([]rt.Value, 0, n)
 	i := 0
 	for c := v; c != nil; c = c.Tail {
-		x, err := b.out438(c.Head)
+		x, err := b.out539(c.Head)
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -10368,431 +7659,268 @@ func (b *bound) out437(v *rt.List[rt.DynamicPathSegment]) (rt.Value, error) {
 	return xs, nil
 }
 
-// out436 builds a Error from Go rt.DynamicDecodeError.
-func (b *bound) out436(v rt.DynamicDecodeError) (rt.Value, error) {
-	r := b.d44.New()
-	w439, err := b.out437(v.Path)
+// out537 builds a Error from Go rt.DynamicDecodeError.
+func (b *bound) out537(v rt.DynamicDecodeError) (rt.Value, error) {
+	r := b.d42.New()
+	w540, err := b.out538(v.Path)
 	if err != nil {
 		return nil, fmt.Errorf("field %q: %w", "path", err)
 	}
-	r.R[0] = w439
+	r.R[0] = w540
 	r.S[0] = string(v.Expected)
 	r.S[1] = string(v.Got)
 	return r, nil
 }
 
-// out433 builds a Result<Dynamic, Error> from Go rt.Result[rt.Dynamic, rt.DynamicDecodeError].
-func (b *bound) out433(v rt.Result[rt.Dynamic, rt.DynamicDecodeError]) (rt.Value, error) {
+// out534 builds a Result<Dynamic, Error> from Go rt.Result[rt.Dynamic, rt.DynamicDecodeError].
+func (b *bound) out534(v rt.Result[rt.Dynamic, rt.DynamicDecodeError]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
-		r := b.d33.NewVariant(0)
-		w435, err := b.out434(v.Ok)
+		r := b.d31.NewVariant(0)
+		w536, err := b.out535(v.Ok)
 		if err != nil {
 			return nil, fmt.Errorf("Ok: %w", err)
 		}
-		r.R[0] = w435
+		r.R[0] = w536
 		return r, nil
 	case rt.TagErr:
-		r := b.d33.NewVariant(1)
-		w440, err := b.out436(v.Err)
+		r := b.d31.NewVariant(1)
+		w541, err := b.out537(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w440
+		r.R[0] = w541
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn431 adapts dynamic.Dynamic.field: field(d: Dynamic, name: String) -> Result<Dynamic, Error>
-func (b *bound) fn431(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("dynamic.Dynamic.field", 2, len(args))
-	}
-	a0, err := b.in432(fr, args[0])
+// fn532Regs is dynamic.Dynamic.field over slots.
+func (b *bound) fn532Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in533(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("dynamic.Dynamic.field", 0, "dynamic.Dynamic.field", "d", err)
+		return false, hostadapt.Param("dynamic.Dynamic.field", 0, "dynamic.Dynamic.field", "d", err)
 	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("dynamic.Dynamic.field", 1, "dynamic.Dynamic.field", "name", err)
-	}
-	r0 := rt.DynamicField(a0, a1)
-	v0, err := b.out433(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("dynamic.Dynamic.field", err)
-	}
-	return v0, nil
-}
-
-// fn431Parts is dynamic.Dynamic.field taken apart: the payload and true, or the record and false.
-func (b *bound) fn431Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 2 {
-		return nil, false, hostadapt.Arity("dynamic.Dynamic.field", 2, len(args))
-	}
-	a0, err := b.in432(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("dynamic.Dynamic.field", 0, "dynamic.Dynamic.field", "d", err)
-	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("dynamic.Dynamic.field", 1, "dynamic.Dynamic.field", "name", err)
-	}
+	a1 := string(s.S[1])
 	r0 := rt.DynamicField(a0, a1)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out433(r0)
+		rec, err := b.out534(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("dynamic.Dynamic.field", err)
+			return false, hostadapt.Returned("dynamic.Dynamic.field", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out434(r0.Ok)
+	w542, err := b.out535(r0.Ok)
 	if err != nil {
-		return nil, false, hostadapt.Returned("dynamic.Dynamic.field", err)
+		return false, hostadapt.Returned("dynamic.Dynamic.field", err)
 	}
-	return v, true, nil
+	s.R[0] = w542
+	return true, nil
 }
 
-// fn441 adapts dynamic.Dynamic.index: index(d: Dynamic, i: Int) -> Result<Dynamic, Error>
-func (b *bound) fn441(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("dynamic.Dynamic.index", 2, len(args))
-	}
-	a0, err := b.in432(fr, args[0])
+// fn543Regs is dynamic.Dynamic.index over slots.
+func (b *bound) fn543Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in533(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("dynamic.Dynamic.index", 0, "dynamic.Dynamic.index", "d", err)
+		return false, hostadapt.Param("dynamic.Dynamic.index", 0, "dynamic.Dynamic.index", "d", err)
 	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("dynamic.Dynamic.index", 1, "dynamic.Dynamic.index", "i", err)
-	}
-	r0 := rt.DynamicIndex(a0, a1)
-	v0, err := b.out433(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("dynamic.Dynamic.index", err)
-	}
-	return v0, nil
-}
-
-// fn441Parts is dynamic.Dynamic.index taken apart: the payload and true, or the record and false.
-func (b *bound) fn441Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 2 {
-		return nil, false, hostadapt.Arity("dynamic.Dynamic.index", 2, len(args))
-	}
-	a0, err := b.in432(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("dynamic.Dynamic.index", 0, "dynamic.Dynamic.index", "d", err)
-	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("dynamic.Dynamic.index", 1, "dynamic.Dynamic.index", "i", err)
-	}
+	a1 := s.Int(1)
 	r0 := rt.DynamicIndex(a0, a1)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out433(r0)
+		rec, err := b.out534(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("dynamic.Dynamic.index", err)
+			return false, hostadapt.Returned("dynamic.Dynamic.index", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out434(r0.Ok)
+	w544, err := b.out535(r0.Ok)
 	if err != nil {
-		return nil, false, hostadapt.Returned("dynamic.Dynamic.index", err)
+		return false, hostadapt.Returned("dynamic.Dynamic.index", err)
 	}
-	return v, true, nil
+	s.R[0] = w544
+	return true, nil
 }
 
-// fn442 adapts dynamic.Dynamic.path: path(d: Dynamic, dotted: String) -> Result<Dynamic, Error>
-func (b *bound) fn442(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("dynamic.Dynamic.path", 2, len(args))
-	}
-	a0, err := b.in432(fr, args[0])
+// fn545Regs is dynamic.Dynamic.path over slots.
+func (b *bound) fn545Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in533(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("dynamic.Dynamic.path", 0, "dynamic.Dynamic.path", "d", err)
+		return false, hostadapt.Param("dynamic.Dynamic.path", 0, "dynamic.Dynamic.path", "d", err)
 	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("dynamic.Dynamic.path", 1, "dynamic.Dynamic.path", "dotted", err)
-	}
-	r0 := rt.DynamicPath(a0, a1)
-	v0, err := b.out433(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("dynamic.Dynamic.path", err)
-	}
-	return v0, nil
-}
-
-// fn442Parts is dynamic.Dynamic.path taken apart: the payload and true, or the record and false.
-func (b *bound) fn442Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 2 {
-		return nil, false, hostadapt.Arity("dynamic.Dynamic.path", 2, len(args))
-	}
-	a0, err := b.in432(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("dynamic.Dynamic.path", 0, "dynamic.Dynamic.path", "d", err)
-	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("dynamic.Dynamic.path", 1, "dynamic.Dynamic.path", "dotted", err)
-	}
+	a1 := string(s.S[1])
 	r0 := rt.DynamicPath(a0, a1)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out433(r0)
+		rec, err := b.out534(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("dynamic.Dynamic.path", err)
+			return false, hostadapt.Returned("dynamic.Dynamic.path", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out434(r0.Ok)
+	w546, err := b.out535(r0.Ok)
 	if err != nil {
-		return nil, false, hostadapt.Returned("dynamic.Dynamic.path", err)
+		return false, hostadapt.Returned("dynamic.Dynamic.path", err)
 	}
-	return v, true, nil
+	s.R[0] = w546
+	return true, nil
 }
 
-// out444 builds a Result<String, Error> from Go rt.Result[string, rt.DynamicDecodeError].
-func (b *bound) out444(v rt.Result[string, rt.DynamicDecodeError]) (rt.Value, error) {
+// out548 builds a Result<String, Error> from Go rt.Result[string, rt.DynamicDecodeError].
+func (b *bound) out548(v rt.Result[string, rt.DynamicDecodeError]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
-		r := b.d11.NewVariant(0)
+		r := b.d12.NewVariant(0)
 		r.S[0] = string(v.Ok)
 		return r, nil
 	case rt.TagErr:
-		r := b.d11.NewVariant(1)
-		w445, err := b.out436(v.Err)
+		r := b.d12.NewVariant(1)
+		w549, err := b.out537(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w445
+		r.R[0] = w549
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn443 adapts dynamic.Dynamic.as_string: as_string(d: Dynamic) -> Result<String, Error>
-func (b *bound) fn443(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("dynamic.Dynamic.as_string", 1, len(args))
-	}
-	a0, err := b.in432(fr, args[0])
+// fn547Regs is dynamic.Dynamic.as_string over slots.
+func (b *bound) fn547Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in533(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("dynamic.Dynamic.as_string", 0, "dynamic.Dynamic.as_string", "d", err)
-	}
-	r0 := rt.DynamicAsString(a0)
-	v0, err := b.out444(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("dynamic.Dynamic.as_string", err)
-	}
-	return v0, nil
-}
-
-// fn443Parts is dynamic.Dynamic.as_string taken apart: the payload and true, or the record and false.
-func (b *bound) fn443Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("dynamic.Dynamic.as_string", 1, len(args))
-	}
-	a0, err := b.in432(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("dynamic.Dynamic.as_string", 0, "dynamic.Dynamic.as_string", "d", err)
+		return false, hostadapt.Param("dynamic.Dynamic.as_string", 0, "dynamic.Dynamic.as_string", "d", err)
 	}
 	r0 := rt.DynamicAsString(a0)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out444(r0)
+		rec, err := b.out548(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("dynamic.Dynamic.as_string", err)
+			return false, hostadapt.Returned("dynamic.Dynamic.as_string", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out5(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("dynamic.Dynamic.as_string", err)
-	}
-	return v, true, nil
+	s.S[0] = string(r0.Ok)
+	return true, nil
 }
 
-// out447 builds a Result<Int, Error> from Go rt.Result[rt.Int, rt.DynamicDecodeError].
-func (b *bound) out447(v rt.Result[rt.Int, rt.DynamicDecodeError]) (rt.Value, error) {
+// out551 builds a Result<Int, Error> from Go rt.Result[rt.Int, rt.DynamicDecodeError].
+func (b *bound) out551(v rt.Result[rt.Int, rt.DynamicDecodeError]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
-		r := b.d15.NewVariant(0)
+		r := b.d16.NewVariant(0)
 		r.SetIntSlot(0, v.Ok.Value())
 		return r, nil
 	case rt.TagErr:
-		r := b.d15.NewVariant(1)
-		w448, err := b.out436(v.Err)
+		r := b.d16.NewVariant(1)
+		w552, err := b.out537(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w448
+		r.R[0] = w552
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn446 adapts dynamic.Dynamic.as_int: as_int(d: Dynamic) -> Result<Int, Error>
-func (b *bound) fn446(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("dynamic.Dynamic.as_int", 1, len(args))
-	}
-	a0, err := b.in432(fr, args[0])
+// fn550Regs is dynamic.Dynamic.as_int over slots.
+func (b *bound) fn550Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in533(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("dynamic.Dynamic.as_int", 0, "dynamic.Dynamic.as_int", "d", err)
-	}
-	r0 := rt.DynamicAsInt(a0)
-	v0, err := b.out447(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("dynamic.Dynamic.as_int", err)
-	}
-	return v0, nil
-}
-
-// fn446Parts is dynamic.Dynamic.as_int taken apart: the payload and true, or the record and false.
-func (b *bound) fn446Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("dynamic.Dynamic.as_int", 1, len(args))
-	}
-	a0, err := b.in432(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("dynamic.Dynamic.as_int", 0, "dynamic.Dynamic.as_int", "d", err)
+		return false, hostadapt.Param("dynamic.Dynamic.as_int", 0, "dynamic.Dynamic.as_int", "d", err)
 	}
 	r0 := rt.DynamicAsInt(a0)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out447(r0)
+		rec, err := b.out551(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("dynamic.Dynamic.as_int", err)
+			return false, hostadapt.Returned("dynamic.Dynamic.as_int", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out3(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("dynamic.Dynamic.as_int", err)
-	}
-	return v, true, nil
+	s.SetInt(0, r0.Ok)
+	return true, nil
 }
 
-// out450 builds a Result<Float, Error> from Go rt.Result[float64, rt.DynamicDecodeError].
-func (b *bound) out450(v rt.Result[float64, rt.DynamicDecodeError]) (rt.Value, error) {
+// out554 builds a Result<Float, Error> from Go rt.Result[float64, rt.DynamicDecodeError].
+func (b *bound) out554(v rt.Result[float64, rt.DynamicDecodeError]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
-		r := b.d14.NewVariant(0)
+		r := b.d15.NewVariant(0)
 		r.W[0] = rt.FloatWord(float64(v.Ok))
 		return r, nil
 	case rt.TagErr:
-		r := b.d14.NewVariant(1)
-		w451, err := b.out436(v.Err)
+		r := b.d15.NewVariant(1)
+		w555, err := b.out537(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w451
+		r.R[0] = w555
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn449 adapts dynamic.Dynamic.as_float: as_float(d: Dynamic) -> Result<Float, Error>
-func (b *bound) fn449(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("dynamic.Dynamic.as_float", 1, len(args))
-	}
-	a0, err := b.in432(fr, args[0])
+// fn553Regs is dynamic.Dynamic.as_float over slots.
+func (b *bound) fn553Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in533(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("dynamic.Dynamic.as_float", 0, "dynamic.Dynamic.as_float", "d", err)
-	}
-	r0 := rt.DynamicAsFloat(a0)
-	v0, err := b.out450(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("dynamic.Dynamic.as_float", err)
-	}
-	return v0, nil
-}
-
-// fn449Parts is dynamic.Dynamic.as_float taken apart: the payload and true, or the record and false.
-func (b *bound) fn449Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("dynamic.Dynamic.as_float", 1, len(args))
-	}
-	a0, err := b.in432(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("dynamic.Dynamic.as_float", 0, "dynamic.Dynamic.as_float", "d", err)
+		return false, hostadapt.Param("dynamic.Dynamic.as_float", 0, "dynamic.Dynamic.as_float", "d", err)
 	}
 	r0 := rt.DynamicAsFloat(a0)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out450(r0)
+		rec, err := b.out554(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("dynamic.Dynamic.as_float", err)
+			return false, hostadapt.Returned("dynamic.Dynamic.as_float", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out124(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("dynamic.Dynamic.as_float", err)
-	}
-	return v, true, nil
+	s.W[0] = rt.FloatWord(float64(r0.Ok))
+	return true, nil
 }
 
-// out453 builds a Result<Bool, Error> from Go rt.Result[bool, rt.DynamicDecodeError].
-func (b *bound) out453(v rt.Result[bool, rt.DynamicDecodeError]) (rt.Value, error) {
+// out557 builds a Result<Bool, Error> from Go rt.Result[bool, rt.DynamicDecodeError].
+func (b *bound) out557(v rt.Result[bool, rt.DynamicDecodeError]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
-		r := b.d46.NewVariant(0)
+		r := b.d44.NewVariant(0)
 		r.W[0] = rt.BoolWord(bool(v.Ok))
 		return r, nil
 	case rt.TagErr:
-		r := b.d46.NewVariant(1)
-		w454, err := b.out436(v.Err)
+		r := b.d44.NewVariant(1)
+		w558, err := b.out537(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w454
+		r.R[0] = w558
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn452 adapts dynamic.Dynamic.as_bool: as_bool(d: Dynamic) -> Result<Bool, Error>
-func (b *bound) fn452(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("dynamic.Dynamic.as_bool", 1, len(args))
-	}
-	a0, err := b.in432(fr, args[0])
+// fn556Regs is dynamic.Dynamic.as_bool over slots.
+func (b *bound) fn556Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in533(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("dynamic.Dynamic.as_bool", 0, "dynamic.Dynamic.as_bool", "d", err)
-	}
-	r0 := rt.DynamicAsBool(a0)
-	v0, err := b.out453(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("dynamic.Dynamic.as_bool", err)
-	}
-	return v0, nil
-}
-
-// fn452Parts is dynamic.Dynamic.as_bool taken apart: the payload and true, or the record and false.
-func (b *bound) fn452Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("dynamic.Dynamic.as_bool", 1, len(args))
-	}
-	a0, err := b.in432(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("dynamic.Dynamic.as_bool", 0, "dynamic.Dynamic.as_bool", "d", err)
+		return false, hostadapt.Param("dynamic.Dynamic.as_bool", 0, "dynamic.Dynamic.as_bool", "d", err)
 	}
 	r0 := rt.DynamicAsBool(a0)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out453(r0)
+		rec, err := b.out557(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("dynamic.Dynamic.as_bool", err)
+			return false, hostadapt.Returned("dynamic.Dynamic.as_bool", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out162(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("dynamic.Dynamic.as_bool", err)
-	}
-	return v, true, nil
+	s.W[0] = rt.BoolWord(bool(r0.Ok))
+	return true, nil
 }
 
-// out457 builds a List<Dynamic> from Go *rt.List[rt.Dynamic].
-func (b *bound) out457(v *rt.List[rt.Dynamic]) (rt.Value, error) {
+// out561 builds a List<Dynamic> from Go *rt.List[rt.Dynamic].
+func (b *bound) out561(v *rt.List[rt.Dynamic]) (rt.Value, error) {
 	n := 0
 	if v != nil {
 		n = v.Len
@@ -10800,7 +7928,7 @@ func (b *bound) out457(v *rt.List[rt.Dynamic]) (rt.Value, error) {
 	items := make([]rt.Value, 0, n)
 	i := 0
 	for c := v; c != nil; c = c.Tail {
-		x, err := b.out434(c.Head)
+		x, err := b.out535(c.Head)
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -10814,80 +7942,62 @@ func (b *bound) out457(v *rt.List[rt.Dynamic]) (rt.Value, error) {
 	return xs, nil
 }
 
-// out456 builds a Result<List<Dynamic>, Error> from Go rt.Result[*rt.List[rt.Dynamic], rt.DynamicDecodeError].
-func (b *bound) out456(v rt.Result[*rt.List[rt.Dynamic], rt.DynamicDecodeError]) (rt.Value, error) {
+// out560 builds a Result<List<Dynamic>, Error> from Go rt.Result[*rt.List[rt.Dynamic], rt.DynamicDecodeError].
+func (b *bound) out560(v rt.Result[*rt.List[rt.Dynamic], rt.DynamicDecodeError]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
-		r := b.d33.NewVariant(0)
-		w458, err := b.out457(v.Ok)
+		r := b.d31.NewVariant(0)
+		w562, err := b.out561(v.Ok)
 		if err != nil {
 			return nil, fmt.Errorf("Ok: %w", err)
 		}
-		r.R[0] = w458
+		r.R[0] = w562
 		return r, nil
 	case rt.TagErr:
-		r := b.d33.NewVariant(1)
-		w459, err := b.out436(v.Err)
+		r := b.d31.NewVariant(1)
+		w563, err := b.out537(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w459
+		r.R[0] = w563
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn455 adapts dynamic.Dynamic.as_list: as_list(d: Dynamic) -> Result<List<Dynamic>, Error>
-func (b *bound) fn455(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("dynamic.Dynamic.as_list", 1, len(args))
-	}
-	a0, err := b.in432(fr, args[0])
+// fn559Regs is dynamic.Dynamic.as_list over slots.
+func (b *bound) fn559Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in533(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("dynamic.Dynamic.as_list", 0, "dynamic.Dynamic.as_list", "d", err)
-	}
-	r0 := rt.DynamicAsList(a0)
-	v0, err := b.out456(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("dynamic.Dynamic.as_list", err)
-	}
-	return v0, nil
-}
-
-// fn455Parts is dynamic.Dynamic.as_list taken apart: the payload and true, or the record and false.
-func (b *bound) fn455Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("dynamic.Dynamic.as_list", 1, len(args))
-	}
-	a0, err := b.in432(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("dynamic.Dynamic.as_list", 0, "dynamic.Dynamic.as_list", "d", err)
+		return false, hostadapt.Param("dynamic.Dynamic.as_list", 0, "dynamic.Dynamic.as_list", "d", err)
 	}
 	r0 := rt.DynamicAsList(a0)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out456(r0)
+		rec, err := b.out560(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("dynamic.Dynamic.as_list", err)
+			return false, hostadapt.Returned("dynamic.Dynamic.as_list", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out457(r0.Ok)
+	w564, err := b.out561(r0.Ok)
 	if err != nil {
-		return nil, false, hostadapt.Returned("dynamic.Dynamic.as_list", err)
+		return false, hostadapt.Returned("dynamic.Dynamic.as_list", err)
 	}
-	return v, true, nil
+	s.R[0] = w564
+	return true, nil
 }
 
-// out462 builds a Map<String, Dynamic> from Go rt.Map[string, rt.Dynamic].
-func (b *bound) out462(v rt.Map[string, rt.Dynamic]) (rt.Value, error) {
+// out567 builds a Map<String, Dynamic> from Go rt.Map[string, rt.Dynamic].
+func (b *bound) out567(v rt.Map[string, rt.Dynamic]) (rt.Value, error) {
 	ents := rt.MapEntries(v)
 	conv := make([]rt.MapEntry[any, any], len(ents))
 	for i, e := range ents {
-		k, err := b.out5(e.Key)
+		k, err := b.out166(e.Key)
 		if err != nil {
 			return nil, fmt.Errorf("key %d: %w", i, err)
 		}
-		x, err := b.out434(e.Val)
+		x, err := b.out535(e.Val)
 		if err != nil {
 			return nil, fmt.Errorf("value %d: %w", i, err)
 		}
@@ -10896,232 +8006,172 @@ func (b *bound) out462(v rt.Map[string, rt.Dynamic]) (rt.Value, error) {
 	return rt.MapOf(rt.Hash, rt.Equal, conv), nil
 }
 
-// out461 builds a Result<Map<String, Dynamic>, Error> from Go rt.Result[rt.Map[string, rt.Dynamic], rt.DynamicDecodeError].
-func (b *bound) out461(v rt.Result[rt.Map[string, rt.Dynamic], rt.DynamicDecodeError]) (rt.Value, error) {
+// out566 builds a Result<Map<String, Dynamic>, Error> from Go rt.Result[rt.Map[string, rt.Dynamic], rt.DynamicDecodeError].
+func (b *bound) out566(v rt.Result[rt.Map[string, rt.Dynamic], rt.DynamicDecodeError]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
-		r := b.d33.NewVariant(0)
-		w463, err := b.out462(v.Ok)
+		r := b.d31.NewVariant(0)
+		w568, err := b.out567(v.Ok)
 		if err != nil {
 			return nil, fmt.Errorf("Ok: %w", err)
 		}
-		r.R[0] = w463
+		r.R[0] = w568
 		return r, nil
 	case rt.TagErr:
-		r := b.d33.NewVariant(1)
-		w464, err := b.out436(v.Err)
+		r := b.d31.NewVariant(1)
+		w569, err := b.out537(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w464
+		r.R[0] = w569
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn460 adapts dynamic.Dynamic.as_dict: as_dict(d: Dynamic) -> Result<Map<String, Dynamic>, Error>
-func (b *bound) fn460(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("dynamic.Dynamic.as_dict", 1, len(args))
-	}
-	a0, err := b.in432(fr, args[0])
+// fn565Regs is dynamic.Dynamic.as_dict over slots.
+func (b *bound) fn565Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in533(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("dynamic.Dynamic.as_dict", 0, "dynamic.Dynamic.as_dict", "d", err)
-	}
-	r0 := rt.DynamicAsDict(a0)
-	v0, err := b.out461(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("dynamic.Dynamic.as_dict", err)
-	}
-	return v0, nil
-}
-
-// fn460Parts is dynamic.Dynamic.as_dict taken apart: the payload and true, or the record and false.
-func (b *bound) fn460Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("dynamic.Dynamic.as_dict", 1, len(args))
-	}
-	a0, err := b.in432(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("dynamic.Dynamic.as_dict", 0, "dynamic.Dynamic.as_dict", "d", err)
+		return false, hostadapt.Param("dynamic.Dynamic.as_dict", 0, "dynamic.Dynamic.as_dict", "d", err)
 	}
 	r0 := rt.DynamicAsDict(a0)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out461(r0)
+		rec, err := b.out566(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("dynamic.Dynamic.as_dict", err)
+			return false, hostadapt.Returned("dynamic.Dynamic.as_dict", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out462(r0.Ok)
+	w570, err := b.out567(r0.Ok)
 	if err != nil {
-		return nil, false, hostadapt.Returned("dynamic.Dynamic.as_dict", err)
+		return false, hostadapt.Returned("dynamic.Dynamic.as_dict", err)
 	}
-	return v, true, nil
+	s.R[0] = w570
+	return true, nil
 }
 
-// fn465 adapts dynamic.Dynamic.is_null: is_null(d: Dynamic) -> Bool
-func (b *bound) fn465(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("dynamic.Dynamic.is_null", 1, len(args))
-	}
-	a0, err := b.in432(fr, args[0])
+// fn571Regs is dynamic.Dynamic.is_null over slots.
+func (b *bound) fn571Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in533(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("dynamic.Dynamic.is_null", 0, "dynamic.Dynamic.is_null", "d", err)
+		return false, hostadapt.Param("dynamic.Dynamic.is_null", 0, "dynamic.Dynamic.is_null", "d", err)
 	}
 	r0 := rt.DynamicIsNull(a0)
-	v0, err := b.out162(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("dynamic.Dynamic.is_null", err)
-	}
-	return v0, nil
+	s.W[0] = rt.BoolWord(bool(r0))
+	return true, nil
 }
 
-// fn466 adapts dynamic.Dynamic.hash: hash(d: Dynamic) -> Int
-func (b *bound) fn466(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("dynamic.Dynamic.hash", 1, len(args))
-	}
-	a0, err := b.in432(fr, args[0])
+// fn572Regs is dynamic.Dynamic.hash over slots.
+func (b *bound) fn572Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in533(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("dynamic.Dynamic.hash", 0, "dynamic.Dynamic.hash", "d", err)
+		return false, hostadapt.Param("dynamic.Dynamic.hash", 0, "dynamic.Dynamic.hash", "d", err)
 	}
 	r0 := rt.DynamicHashInt(a0)
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("dynamic.Dynamic.hash", err)
-	}
-	return v0, nil
+	s.SetInt64(0, int64(r0))
+	return true, nil
 }
 
-// fn467 adapts dynamic.Dynamic.has: has(d: Dynamic, name: String) -> Bool
-func (b *bound) fn467(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("dynamic.Dynamic.has", 2, len(args))
-	}
-	a0, err := b.in432(fr, args[0])
+// fn573Regs is dynamic.Dynamic.has over slots.
+func (b *bound) fn573Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in533(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("dynamic.Dynamic.has", 0, "dynamic.Dynamic.has", "d", err)
+		return false, hostadapt.Param("dynamic.Dynamic.has", 0, "dynamic.Dynamic.has", "d", err)
 	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("dynamic.Dynamic.has", 1, "dynamic.Dynamic.has", "name", err)
-	}
+	a1 := string(s.S[1])
 	r0 := rt.DynamicHas(a0, a1)
-	v0, err := b.out162(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("dynamic.Dynamic.has", err)
-	}
-	return v0, nil
+	s.W[0] = rt.BoolWord(bool(r0))
+	return true, nil
 }
 
-// fn468 adapts dynamic.Dynamic.inspect: inspect(d: Dynamic) -> String
-func (b *bound) fn468(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("dynamic.Dynamic.inspect", 1, len(args))
-	}
-	a0, err := b.in432(fr, args[0])
+// fn574Regs is dynamic.Dynamic.inspect over slots.
+func (b *bound) fn574Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in533(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("dynamic.Dynamic.inspect", 0, "dynamic.Dynamic.inspect", "d", err)
+		return false, hostadapt.Param("dynamic.Dynamic.inspect", 0, "dynamic.Dynamic.inspect", "d", err)
 	}
 	r0 := rt.DynamicInspect(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("dynamic.Dynamic.inspect", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn469 adapts json.Json.to_dynamic: to_dynamic(jv: Json) -> Dynamic
-func (b *bound) fn469(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("json.Json.to_dynamic", 1, len(args))
-	}
-	a0, err := b.in368(fr, args[0])
+// fn575Regs is json.Json.to_dynamic over slots.
+func (b *bound) fn575Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in446(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("json.Json.to_dynamic", 0, "json.Json.to_dynamic", "jv", err)
+		return false, hostadapt.Param("json.Json.to_dynamic", 0, "json.Json.to_dynamic", "jv", err)
 	}
 	r0 := rt.JsonToDynamic(a0)
-	v0, err := b.out434(r0)
+	w576, err := b.out535(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("json.Json.to_dynamic", err)
+		return false, hostadapt.Returned("json.Json.to_dynamic", err)
 	}
-	return v0, nil
+	s.R[0] = w576
+	return true, nil
 }
 
-// out472 builds a Maybe<String> from Go rt.Maybe[string].
-func (b *bound) out472(v rt.Maybe[string]) (rt.Value, error) {
-	switch v.Tag {
-	case rt.TagSome:
-		r := b.d17.NewVariant(0)
-		r.S[0] = string(v.Some)
-		return r, nil
-	case rt.TagNone:
-		return b.d17.NewVariant(1), nil
-	}
-	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
-}
-
-// out474 builds a Error from Go rt.IOError.
-func (b *bound) out474(v rt.IOError) (rt.Value, error) {
+// out580 builds a Error from Go rt.IOError.
+func (b *bound) out580(v rt.IOError) (rt.Value, error) {
 	switch v.Tag {
 	case 1:
-		r := b.d47.NewVariant(0)
+		r := b.d45.NewVariant(0)
 		r.S[0] = string(v.Path)
 		return r, nil
 	case 2:
-		r := b.d47.NewVariant(1)
+		r := b.d45.NewVariant(1)
 		r.S[0] = string(v.Path)
 		return r, nil
 	case 3:
-		r := b.d47.NewVariant(2)
+		r := b.d45.NewVariant(2)
 		r.S[0] = string(v.Path)
 		return r, nil
 	case 4:
-		r := b.d47.NewVariant(3)
+		r := b.d45.NewVariant(3)
 		r.S[0] = string(v.Path)
 		return r, nil
 	case 5:
-		r := b.d47.NewVariant(4)
+		r := b.d45.NewVariant(4)
 		r.S[0] = string(v.Path)
 		return r, nil
 	case 6:
-		r := b.d47.NewVariant(5)
+		r := b.d45.NewVariant(5)
 		r.S[0] = string(v.Path)
 		return r, nil
 	case 7:
-		r := b.d47.NewVariant(6)
+		r := b.d45.NewVariant(6)
 		r.S[0] = string(v.Path)
 		r.S[1] = string(v.Reason)
 		return r, nil
 	case 8:
-		r := b.d47.NewVariant(7)
+		r := b.d45.NewVariant(7)
 		r.S[0] = string(v.Path)
 		r.SetIntSlot(0, v.Offset.Value())
 		return r, nil
 	case 9:
-		r := b.d47.NewVariant(8)
+		r := b.d45.NewVariant(8)
 		r.S[0] = string(v.Path)
 		return r, nil
 	case 10:
-		r := b.d47.NewVariant(9)
+		r := b.d45.NewVariant(9)
 		r.S[0] = string(v.Path)
 		return r, nil
 	case 11:
-		return b.d47.NewVariant(10), nil
+		return b.d45.NewVariant(10), nil
 	case 12:
-		return b.d47.NewVariant(11), nil
+		return b.d45.NewVariant(11), nil
 	case 13:
-		return b.d47.NewVariant(12), nil
+		return b.d45.NewVariant(12), nil
 	case 14:
-		return b.d47.NewVariant(13), nil
+		return b.d45.NewVariant(13), nil
 	case 15:
-		r := b.d47.NewVariant(14)
+		r := b.d45.NewVariant(14)
 		r.S[0] = string(v.Operation)
 		r.S[1] = string(v.Target)
 		return r, nil
 	case 16:
-		r := b.d47.NewVariant(15)
+		r := b.d45.NewVariant(15)
 		r.S[0] = string(v.Operation)
 		r.S[1] = string(v.Path)
 		r.S[2] = string(v.Code)
@@ -11130,113 +8180,93 @@ func (b *bound) out474(v rt.IOError) (rt.Value, error) {
 	return nil, fmt.Errorf("Go rt.IOError carries tag %d, which names no variant of io.Error", v.Tag)
 }
 
-// out471 builds a Result<Maybe<String>, Error> from Go rt.Result[rt.Maybe[string], rt.IOError].
-func (b *bound) out471(v rt.Result[rt.Maybe[string], rt.IOError]) (rt.Value, error) {
+// out578 builds a Result<Maybe<String>, Error> from Go rt.Result[rt.Maybe[string], rt.IOError].
+func (b *bound) out578(v rt.Result[rt.Maybe[string], rt.IOError]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
-		r := b.d33.NewVariant(0)
-		w473, err := b.out472(v.Ok)
+		r := b.d31.NewVariant(0)
+		w579, err := b.out314(v.Ok)
 		if err != nil {
 			return nil, fmt.Errorf("Ok: %w", err)
 		}
-		r.R[0] = w473
+		r.R[0] = w579
 		return r, nil
 	case rt.TagErr:
-		r := b.d33.NewVariant(1)
-		w475, err := b.out474(v.Err)
+		r := b.d31.NewVariant(1)
+		w581, err := b.out580(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w475
+		r.R[0] = w581
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn470 adapts io.read_line: read_line() -> Result<Maybe<String>, Error>
-func (b *bound) fn470(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 0 {
-		return nil, hostadapt.Arity("io.read_line", 0, len(args))
-	}
-	r0 := rt.ReadLine(fr)
-	v0, err := b.out471(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("io.read_line", err)
-	}
-	return v0, nil
-}
-
-// fn470Parts is io.read_line taken apart: the payload and true, or the record and false.
-func (b *bound) fn470Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 0 {
-		return nil, false, hostadapt.Arity("io.read_line", 0, len(args))
-	}
+// fn577Regs is io.read_line over slots.
+func (b *bound) fn577Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	r0 := rt.ReadLine(fr)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out471(r0)
+		rec, err := b.out578(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("io.read_line", err)
+			return false, hostadapt.Returned("io.read_line", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out472(r0.Ok)
+	w582, err := b.out314(r0.Ok)
 	if err != nil {
-		return nil, false, hostadapt.Returned("io.read_line", err)
+		return false, hostadapt.Returned("io.read_line", err)
 	}
-	return v, true, nil
+	s.R[0] = w582
+	return true, nil
 }
 
-// out477 builds a Reader from Go rt.Reader.
-func (b *bound) out477(v rt.Reader) (rt.Value, error) {
+// out584 builds a Reader from Go rt.Reader.
+func (b *bound) out584(v rt.Reader) (rt.Value, error) {
 	return v, nil
 }
 
-// fn476 adapts io.standard_input: standard_input() -> Reader
-func (b *bound) fn476(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 0 {
-		return nil, hostadapt.Arity("io.standard_input", 0, len(args))
-	}
+// fn583Regs is io.standard_input over slots.
+func (b *bound) fn583Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	r0 := rt.IOStdin()
-	v0, err := b.out477(r0)
+	w585, err := b.out584(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("io.standard_input", err)
+		return false, hostadapt.Returned("io.standard_input", err)
 	}
-	return v0, nil
+	s.R[0] = w585
+	return true, nil
 }
 
-// out479 builds a Writer from Go rt.Writer.
-func (b *bound) out479(v rt.Writer) (rt.Value, error) {
+// out587 builds a Writer from Go rt.Writer.
+func (b *bound) out587(v rt.Writer) (rt.Value, error) {
 	return v, nil
 }
 
-// fn478 adapts io.standard_output: standard_output() -> Writer
-func (b *bound) fn478(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 0 {
-		return nil, hostadapt.Arity("io.standard_output", 0, len(args))
-	}
+// fn586Regs is io.standard_output over slots.
+func (b *bound) fn586Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	r0 := rt.IOStdout()
-	v0, err := b.out479(r0)
+	w588, err := b.out587(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("io.standard_output", err)
+		return false, hostadapt.Returned("io.standard_output", err)
 	}
-	return v0, nil
+	s.R[0] = w588
+	return true, nil
 }
 
-// fn480 adapts io.standard_error: standard_error() -> Writer
-func (b *bound) fn480(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 0 {
-		return nil, hostadapt.Arity("io.standard_error", 0, len(args))
-	}
+// fn589Regs is io.standard_error over slots.
+func (b *bound) fn589Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	r0 := rt.IOStderr()
-	v0, err := b.out479(r0)
+	w590, err := b.out587(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("io.standard_error", err)
+		return false, hostadapt.Returned("io.standard_error", err)
 	}
-	return v0, nil
+	s.R[0] = w590
+	return true, nil
 }
 
-// in482 reads a Reader as Go rt.Reader.
-func (b *bound) in482(fr *rt.Frame, v rt.Value) (out rt.Reader, err error) {
+// in592 reads a Reader as Go rt.Reader.
+func (b *bound) in592(fr *rt.Frame, v rt.Value) (out rt.Reader, err error) {
 	x, ok := v.(rt.Reader)
 	if !ok {
 		return out, hostadapt.Want("Reader", v)
@@ -11244,241 +8274,154 @@ func (b *bound) in482(fr *rt.Frame, v rt.Value) (out rt.Reader, err error) {
 	return x, nil
 }
 
-// fn481 adapts io.Reader.read_line: read_line(r: Reader) -> Result<Maybe<String>, Error>
-func (b *bound) fn481(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("io.Reader.read_line", 1, len(args))
-	}
-	a0, err := b.in482(fr, args[0])
+// fn591Regs is io.Reader.read_line over slots.
+func (b *bound) fn591Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in592(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("io.Reader.read_line", 0, "io.Reader.read_line", "r", err)
-	}
-	r0 := rt.ReaderReadLine(fr, a0)
-	v0, err := b.out471(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("io.Reader.read_line", err)
-	}
-	return v0, nil
-}
-
-// fn481Parts is io.Reader.read_line taken apart: the payload and true, or the record and false.
-func (b *bound) fn481Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("io.Reader.read_line", 1, len(args))
-	}
-	a0, err := b.in482(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("io.Reader.read_line", 0, "io.Reader.read_line", "r", err)
+		return false, hostadapt.Param("io.Reader.read_line", 0, "io.Reader.read_line", "r", err)
 	}
 	r0 := rt.ReaderReadLine(fr, a0)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out471(r0)
+		rec, err := b.out578(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("io.Reader.read_line", err)
+			return false, hostadapt.Returned("io.Reader.read_line", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out472(r0.Ok)
+	w593, err := b.out314(r0.Ok)
 	if err != nil {
-		return nil, false, hostadapt.Returned("io.Reader.read_line", err)
+		return false, hostadapt.Returned("io.Reader.read_line", err)
 	}
-	return v, true, nil
+	s.R[0] = w593
+	return true, nil
 }
 
-// out484 builds a Result<Maybe<Bytes>, Error> from Go rt.Result[rt.Maybe[rt.Bytes], rt.IOError].
-func (b *bound) out484(v rt.Result[rt.Maybe[rt.Bytes], rt.IOError]) (rt.Value, error) {
+// out595 builds a Result<Maybe<Bytes>, Error> from Go rt.Result[rt.Maybe[rt.Bytes], rt.IOError].
+func (b *bound) out595(v rt.Result[rt.Maybe[rt.Bytes], rt.IOError]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
-		r := b.d33.NewVariant(0)
-		w485, err := b.out247(v.Ok)
+		r := b.d31.NewVariant(0)
+		w596, err := b.out302(v.Ok)
 		if err != nil {
 			return nil, fmt.Errorf("Ok: %w", err)
 		}
-		r.R[0] = w485
+		r.R[0] = w596
 		return r, nil
 	case rt.TagErr:
-		r := b.d33.NewVariant(1)
-		w486, err := b.out474(v.Err)
+		r := b.d31.NewVariant(1)
+		w597, err := b.out580(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w486
+		r.R[0] = w597
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn483 adapts io.read_up_to: read_up_to(r: Reader, max: PositiveInt) -> Result<Maybe<Bytes>, Error>
-func (b *bound) fn483(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("io.read_up_to", 2, len(args))
-	}
-	a0, err := b.in482(fr, args[0])
+// fn594Regs is io.read_up_to over slots.
+func (b *bound) fn594Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in592(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("io.read_up_to", 0, "io.read_up_to", "r", err)
+		return false, hostadapt.Param("io.read_up_to", 0, "io.read_up_to", "r", err)
 	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("io.read_up_to", 1, "io.read_up_to", "max", err)
-	}
-	r0 := rt.ReaderRead(fr, a0, a1)
-	v0, err := b.out484(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("io.read_up_to", err)
-	}
-	return v0, nil
-}
-
-// fn483Parts is io.read_up_to taken apart: the payload and true, or the record and false.
-func (b *bound) fn483Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 2 {
-		return nil, false, hostadapt.Arity("io.read_up_to", 2, len(args))
-	}
-	a0, err := b.in482(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("io.read_up_to", 0, "io.read_up_to", "r", err)
-	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("io.read_up_to", 1, "io.read_up_to", "max", err)
-	}
+	a1 := s.Int(1)
 	r0 := rt.ReaderRead(fr, a0, a1)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out484(r0)
+		rec, err := b.out595(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("io.read_up_to", err)
+			return false, hostadapt.Returned("io.read_up_to", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out247(r0.Ok)
+	w598, err := b.out302(r0.Ok)
 	if err != nil {
-		return nil, false, hostadapt.Returned("io.read_up_to", err)
+		return false, hostadapt.Returned("io.read_up_to", err)
 	}
-	return v, true, nil
+	s.R[0] = w598
+	return true, nil
 }
 
-// out488 builds a Result<Bytes, Error> from Go rt.Result[rt.Bytes, rt.IOError].
-func (b *bound) out488(v rt.Result[rt.Bytes, rt.IOError]) (rt.Value, error) {
+// out600 builds a Result<Bytes, Error> from Go rt.Result[rt.Bytes, rt.IOError].
+func (b *bound) out600(v rt.Result[rt.Bytes, rt.IOError]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
-		r := b.d48.NewVariant(0)
+		r := b.d46.NewVariant(0)
 		r.S[0] = string(rt.Bytes(v.Ok))
 		return r, nil
 	case rt.TagErr:
-		r := b.d48.NewVariant(1)
-		w489, err := b.out474(v.Err)
+		r := b.d46.NewVariant(1)
+		w601, err := b.out580(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w489
+		r.R[0] = w601
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn487 adapts io.Reader.read_all: read_all(r: Reader) -> Result<Bytes, Error>
-func (b *bound) fn487(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("io.Reader.read_all", 1, len(args))
-	}
-	a0, err := b.in482(fr, args[0])
+// fn599Regs is io.Reader.read_all over slots.
+func (b *bound) fn599Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in592(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("io.Reader.read_all", 0, "io.Reader.read_all", "r", err)
-	}
-	r0 := rt.ReaderReadAll(fr, a0)
-	v0, err := b.out488(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("io.Reader.read_all", err)
-	}
-	return v0, nil
-}
-
-// fn487Parts is io.Reader.read_all taken apart: the payload and true, or the record and false.
-func (b *bound) fn487Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("io.Reader.read_all", 1, len(args))
-	}
-	a0, err := b.in482(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("io.Reader.read_all", 0, "io.Reader.read_all", "r", err)
+		return false, hostadapt.Param("io.Reader.read_all", 0, "io.Reader.read_all", "r", err)
 	}
 	r0 := rt.ReaderReadAll(fr, a0)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out488(r0)
+		rec, err := b.out600(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("io.Reader.read_all", err)
+			return false, hostadapt.Returned("io.Reader.read_all", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out104(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("io.Reader.read_all", err)
-	}
-	return v, true, nil
+	s.S[0] = string(rt.Bytes(r0.Ok))
+	return true, nil
 }
 
-// out491 builds a Result<String, Error> from Go rt.Result[string, rt.IOError].
-func (b *bound) out491(v rt.Result[string, rt.IOError]) (rt.Value, error) {
+// out603 builds a Result<String, Error> from Go rt.Result[string, rt.IOError].
+func (b *bound) out603(v rt.Result[string, rt.IOError]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
-		r := b.d11.NewVariant(0)
+		r := b.d12.NewVariant(0)
 		r.S[0] = string(v.Ok)
 		return r, nil
 	case rt.TagErr:
-		r := b.d11.NewVariant(1)
-		w492, err := b.out474(v.Err)
+		r := b.d12.NewVariant(1)
+		w604, err := b.out580(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w492
+		r.R[0] = w604
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn490 adapts io.Reader.read_all_text: read_all_text(r: Reader) -> Result<String, Error>
-func (b *bound) fn490(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("io.Reader.read_all_text", 1, len(args))
-	}
-	a0, err := b.in482(fr, args[0])
+// fn602Regs is io.Reader.read_all_text over slots.
+func (b *bound) fn602Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in592(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("io.Reader.read_all_text", 0, "io.Reader.read_all_text", "r", err)
-	}
-	r0 := rt.ReaderReadAllText(fr, a0)
-	v0, err := b.out491(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("io.Reader.read_all_text", err)
-	}
-	return v0, nil
-}
-
-// fn490Parts is io.Reader.read_all_text taken apart: the payload and true, or the record and false.
-func (b *bound) fn490Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("io.Reader.read_all_text", 1, len(args))
-	}
-	a0, err := b.in482(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("io.Reader.read_all_text", 0, "io.Reader.read_all_text", "r", err)
+		return false, hostadapt.Param("io.Reader.read_all_text", 0, "io.Reader.read_all_text", "r", err)
 	}
 	r0 := rt.ReaderReadAllText(fr, a0)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out491(r0)
+		rec, err := b.out603(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("io.Reader.read_all_text", err)
+			return false, hostadapt.Returned("io.Reader.read_all_text", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out5(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("io.Reader.read_all_text", err)
-	}
-	return v, true, nil
+	s.S[0] = string(r0.Ok)
+	return true, nil
 }
 
-// in494 reads a Writer as Go rt.Writer.
-func (b *bound) in494(fr *rt.Frame, v rt.Value) (out rt.Writer, err error) {
+// in606 reads a Writer as Go rt.Writer.
+func (b *bound) in606(fr *rt.Frame, v rt.Value) (out rt.Writer, err error) {
 	x, ok := v.(rt.Writer)
 	if !ok {
 		return out, hostadapt.Want("Writer", v)
@@ -11486,181 +8429,136 @@ func (b *bound) in494(fr *rt.Frame, v rt.Value) (out rt.Writer, err error) {
 	return x, nil
 }
 
-// out495 builds a Result<Int, Error> from Go rt.Result[int64, rt.IOError].
-func (b *bound) out495(v rt.Result[int64, rt.IOError]) (rt.Value, error) {
+// out607 builds a Result<Int, Error> from Go rt.Result[int64, rt.IOError].
+func (b *bound) out607(v rt.Result[int64, rt.IOError]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
-		r := b.d15.NewVariant(0)
+		r := b.d16.NewVariant(0)
 		r.SetIntSlot(0, rt.Value(int64(v.Ok)))
 		return r, nil
 	case rt.TagErr:
-		r := b.d15.NewVariant(1)
-		w496, err := b.out474(v.Err)
+		r := b.d16.NewVariant(1)
+		w608, err := b.out580(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w496
+		r.R[0] = w608
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn493 adapts io.Reader.copy_to: copy_to(r: Reader, w: Writer) -> Result<Int, Error>
-func (b *bound) fn493(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("io.Reader.copy_to", 2, len(args))
-	}
-	a0, err := b.in482(fr, args[0])
+// fn605Regs is io.Reader.copy_to over slots.
+func (b *bound) fn605Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in592(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("io.Reader.copy_to", 0, "io.Reader.copy_to", "r", err)
+		return false, hostadapt.Param("io.Reader.copy_to", 0, "io.Reader.copy_to", "r", err)
 	}
-	a1, err := b.in494(fr, args[1])
+	a1, err := b.in606(fr, s.R[1])
 	if err != nil {
-		return nil, hostadapt.Param("io.Reader.copy_to", 1, "io.Reader.copy_to", "w", err)
-	}
-	r0 := rt.ReaderCopyTo(fr, a0, a1)
-	v0, err := b.out495(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("io.Reader.copy_to", err)
-	}
-	return v0, nil
-}
-
-// fn493Parts is io.Reader.copy_to taken apart: the payload and true, or the record and false.
-func (b *bound) fn493Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 2 {
-		return nil, false, hostadapt.Arity("io.Reader.copy_to", 2, len(args))
-	}
-	a0, err := b.in482(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("io.Reader.copy_to", 0, "io.Reader.copy_to", "r", err)
-	}
-	a1, err := b.in494(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("io.Reader.copy_to", 1, "io.Reader.copy_to", "w", err)
+		return false, hostadapt.Param("io.Reader.copy_to", 1, "io.Reader.copy_to", "w", err)
 	}
 	r0 := rt.ReaderCopyTo(fr, a0, a1)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out495(r0)
+		rec, err := b.out607(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("io.Reader.copy_to", err)
+			return false, hostadapt.Returned("io.Reader.copy_to", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out8(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("io.Reader.copy_to", err)
-	}
-	return v, true, nil
+	s.SetInt64(0, int64(r0.Ok))
+	return true, nil
 }
 
-// out498 builds a Result<Unit, Error> from Go rt.Result[rt.Unit, rt.IOError].
-func (b *bound) out498(v rt.Result[rt.Unit, rt.IOError]) (rt.Value, error) {
+// out610 builds a Result<Unit, Error> from Go rt.Result[rt.Unit, rt.IOError].
+func (b *bound) out610(v rt.Result[rt.Unit, rt.IOError]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
-		r := b.d33.NewVariant(0)
-		w499, err := b.out372(v.Ok)
+		r := b.d31.NewVariant(0)
+		w611, err := b.out452(v.Ok)
 		if err != nil {
 			return nil, fmt.Errorf("Ok: %w", err)
 		}
-		r.R[0] = w499
+		r.R[0] = w611
 		return r, nil
 	case rt.TagErr:
-		r := b.d33.NewVariant(1)
-		w500, err := b.out474(v.Err)
+		r := b.d31.NewVariant(1)
+		w612, err := b.out580(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w500
+		r.R[0] = w612
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn497 adapts io.Reader.close: close(r: Reader) -> Result<Unit, Error>
-func (b *bound) fn497(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("io.Reader.close", 1, len(args))
-	}
-	a0, err := b.in482(fr, args[0])
+// fn609Regs is io.Reader.close over slots.
+func (b *bound) fn609Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in592(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("io.Reader.close", 0, "io.Reader.close", "r", err)
-	}
-	r0 := rt.ReaderClose(a0)
-	v0, err := b.out498(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("io.Reader.close", err)
-	}
-	return v0, nil
-}
-
-// fn497Parts is io.Reader.close taken apart: the payload and true, or the record and false.
-func (b *bound) fn497Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("io.Reader.close", 1, len(args))
-	}
-	a0, err := b.in482(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("io.Reader.close", 0, "io.Reader.close", "r", err)
+		return false, hostadapt.Param("io.Reader.close", 0, "io.Reader.close", "r", err)
 	}
 	r0 := rt.ReaderClose(a0)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out498(r0)
+		rec, err := b.out610(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("io.Reader.close", err)
+			return false, hostadapt.Returned("io.Reader.close", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out372(r0.Ok)
+	w613, err := b.out452(r0.Ok)
 	if err != nil {
-		return nil, false, hostadapt.Returned("io.Reader.close", err)
+		return false, hostadapt.Returned("io.Reader.close", err)
 	}
-	return v, true, nil
+	s.R[0] = w613
+	return true, nil
 }
 
-// fn501 adapts io.Reader.from_bytes: from_bytes(data: Bytes) -> Reader
-func (b *bound) fn501(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("io.Reader.from_bytes", 1, len(args))
-	}
-	a0, err := b.in217(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("io.Reader.from_bytes", 0, "io.Reader.from_bytes", "data", err)
-	}
+// fn614Regs is io.Reader.from_bytes over slots.
+func (b *bound) fn614Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
 	r0 := rt.ReaderFromBytes(a0)
-	v0, err := b.out477(r0)
+	w615, err := b.out584(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("io.Reader.from_bytes", err)
+		return false, hostadapt.Returned("io.Reader.from_bytes", err)
 	}
-	return v0, nil
+	s.R[0] = w615
+	return true, nil
 }
 
-// fn502 adapts io.Reader.from_text: from_text(text: String) -> Reader
-func (b *bound) fn502(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("io.Reader.from_text", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("io.Reader.from_text", 0, "io.Reader.from_text", "text", err)
-	}
+// fn616Regs is io.Reader.from_text over slots.
+func (b *bound) fn616Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
 	r0 := rt.ReaderFromText(a0)
-	v0, err := b.out477(r0)
+	w617, err := b.out584(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("io.Reader.from_text", err)
+		return false, hostadapt.Returned("io.Reader.from_text", err)
 	}
-	return v0, nil
+	s.R[0] = w617
+	return true, nil
 }
 
-// in506 reads a Maybe<Bytes> as Go rt.Maybe[rt.Bytes].
-func (b *bound) in506(fr *rt.Frame, v rt.Value) (out rt.Maybe[rt.Bytes], err error) {
+// in622 reads a Bytes as Go rt.Bytes.
+func (b *bound) in622(fr *rt.Frame, v rt.Value) (out rt.Bytes, err error) {
+	x, ok := v.(rt.Bytes)
+	if !ok {
+		return out, hostadapt.Want("Bytes", v)
+	}
+	return rt.Bytes(x), nil
+}
+
+// in621 reads a Maybe<Bytes> as Go rt.Maybe[rt.Bytes].
+func (b *bound) in621(fr *rt.Frame, v rt.Value) (out rt.Maybe[rt.Bytes], err error) {
 	r, tag, err := hostadapt.Variant(v, "maybe.Maybe")
 	if err != nil {
 		return out, err
 	}
 	switch tag {
 	case "Some":
-		x, err := b.in217(fr, hostadapt.Payload(r))
+		x, err := b.in622(fr, hostadapt.Payload(r))
 		if err != nil {
 			return out, fmt.Errorf("Some: %w", err)
 		}
@@ -11671,8 +8569,8 @@ func (b *bound) in506(fr *rt.Frame, v rt.Value) (out rt.Maybe[rt.Bytes], err err
 	return out, fmt.Errorf("unmarshal Maybe: unknown variant %q", tag)
 }
 
-// in507 reads a Error as Go rt.IOError.
-func (b *bound) in507(fr *rt.Frame, v rt.Value) (out rt.IOError, err error) {
+// in623 reads a Error as Go rt.IOError.
+func (b *bound) in623(fr *rt.Frame, v rt.Value) (out rt.IOError, err error) {
 	r, tag, err := hostadapt.Variant(v, "io.Error")
 	if err != nil {
 		return out, err
@@ -11685,7 +8583,7 @@ func (b *bound) in507(fr *rt.Frame, v rt.Value) (out rt.IOError, err error) {
 			if err != nil {
 				return out, err
 			}
-			x, err := b.in42(fr, p)
+			x, err := b.in173(fr, p)
 			if err != nil {
 				return out, fmt.Errorf("NotFound.path: %w", err)
 			}
@@ -11698,7 +8596,7 @@ func (b *bound) in507(fr *rt.Frame, v rt.Value) (out rt.IOError, err error) {
 			if err != nil {
 				return out, err
 			}
-			x, err := b.in42(fr, p)
+			x, err := b.in173(fr, p)
 			if err != nil {
 				return out, fmt.Errorf("AlreadyExists.path: %w", err)
 			}
@@ -11711,7 +8609,7 @@ func (b *bound) in507(fr *rt.Frame, v rt.Value) (out rt.IOError, err error) {
 			if err != nil {
 				return out, err
 			}
-			x, err := b.in42(fr, p)
+			x, err := b.in173(fr, p)
 			if err != nil {
 				return out, fmt.Errorf("PermissionDenied.path: %w", err)
 			}
@@ -11724,7 +8622,7 @@ func (b *bound) in507(fr *rt.Frame, v rt.Value) (out rt.IOError, err error) {
 			if err != nil {
 				return out, err
 			}
-			x, err := b.in42(fr, p)
+			x, err := b.in173(fr, p)
 			if err != nil {
 				return out, fmt.Errorf("NotADirectory.path: %w", err)
 			}
@@ -11737,7 +8635,7 @@ func (b *bound) in507(fr *rt.Frame, v rt.Value) (out rt.IOError, err error) {
 			if err != nil {
 				return out, err
 			}
-			x, err := b.in42(fr, p)
+			x, err := b.in173(fr, p)
 			if err != nil {
 				return out, fmt.Errorf("IsADirectory.path: %w", err)
 			}
@@ -11750,7 +8648,7 @@ func (b *bound) in507(fr *rt.Frame, v rt.Value) (out rt.IOError, err error) {
 			if err != nil {
 				return out, err
 			}
-			x, err := b.in42(fr, p)
+			x, err := b.in173(fr, p)
 			if err != nil {
 				return out, fmt.Errorf("DirectoryNotEmpty.path: %w", err)
 			}
@@ -11763,7 +8661,7 @@ func (b *bound) in507(fr *rt.Frame, v rt.Value) (out rt.IOError, err error) {
 			if err != nil {
 				return out, err
 			}
-			x, err := b.in42(fr, p)
+			x, err := b.in173(fr, p)
 			if err != nil {
 				return out, fmt.Errorf("InvalidPath.path: %w", err)
 			}
@@ -11774,7 +8672,7 @@ func (b *bound) in507(fr *rt.Frame, v rt.Value) (out rt.IOError, err error) {
 			if err != nil {
 				return out, err
 			}
-			x, err := b.in42(fr, p)
+			x, err := b.in173(fr, p)
 			if err != nil {
 				return out, fmt.Errorf("InvalidPath.reason: %w", err)
 			}
@@ -11787,7 +8685,7 @@ func (b *bound) in507(fr *rt.Frame, v rt.Value) (out rt.IOError, err error) {
 			if err != nil {
 				return out, err
 			}
-			x, err := b.in42(fr, p)
+			x, err := b.in173(fr, p)
 			if err != nil {
 				return out, fmt.Errorf("InvalidText.path: %w", err)
 			}
@@ -11798,7 +8696,7 @@ func (b *bound) in507(fr *rt.Frame, v rt.Value) (out rt.IOError, err error) {
 			if err != nil {
 				return out, err
 			}
-			x, err := b.in39(fr, p)
+			x, err := b.in373(fr, p)
 			if err != nil {
 				return out, fmt.Errorf("InvalidText.offset: %w", err)
 			}
@@ -11811,7 +8709,7 @@ func (b *bound) in507(fr *rt.Frame, v rt.Value) (out rt.IOError, err error) {
 			if err != nil {
 				return out, err
 			}
-			x, err := b.in42(fr, p)
+			x, err := b.in173(fr, p)
 			if err != nil {
 				return out, fmt.Errorf("NoSpace.path: %w", err)
 			}
@@ -11824,7 +8722,7 @@ func (b *bound) in507(fr *rt.Frame, v rt.Value) (out rt.IOError, err error) {
 			if err != nil {
 				return out, err
 			}
-			x, err := b.in42(fr, p)
+			x, err := b.in173(fr, p)
 			if err != nil {
 				return out, fmt.Errorf("ReadOnly.path: %w", err)
 			}
@@ -11845,7 +8743,7 @@ func (b *bound) in507(fr *rt.Frame, v rt.Value) (out rt.IOError, err error) {
 			if err != nil {
 				return out, err
 			}
-			x, err := b.in42(fr, p)
+			x, err := b.in173(fr, p)
 			if err != nil {
 				return out, fmt.Errorf("Unsupported.operation: %w", err)
 			}
@@ -11856,7 +8754,7 @@ func (b *bound) in507(fr *rt.Frame, v rt.Value) (out rt.IOError, err error) {
 			if err != nil {
 				return out, err
 			}
-			x, err := b.in42(fr, p)
+			x, err := b.in173(fr, p)
 			if err != nil {
 				return out, fmt.Errorf("Unsupported.target: %w", err)
 			}
@@ -11869,7 +8767,7 @@ func (b *bound) in507(fr *rt.Frame, v rt.Value) (out rt.IOError, err error) {
 			if err != nil {
 				return out, err
 			}
-			x, err := b.in42(fr, p)
+			x, err := b.in173(fr, p)
 			if err != nil {
 				return out, fmt.Errorf("Other.operation: %w", err)
 			}
@@ -11880,7 +8778,7 @@ func (b *bound) in507(fr *rt.Frame, v rt.Value) (out rt.IOError, err error) {
 			if err != nil {
 				return out, err
 			}
-			x, err := b.in42(fr, p)
+			x, err := b.in173(fr, p)
 			if err != nil {
 				return out, fmt.Errorf("Other.path: %w", err)
 			}
@@ -11891,7 +8789,7 @@ func (b *bound) in507(fr *rt.Frame, v rt.Value) (out rt.IOError, err error) {
 			if err != nil {
 				return out, err
 			}
-			x, err := b.in42(fr, p)
+			x, err := b.in173(fr, p)
 			if err != nil {
 				return out, fmt.Errorf("Other.code: %w", err)
 			}
@@ -11904,21 +8802,21 @@ func (b *bound) in507(fr *rt.Frame, v rt.Value) (out rt.IOError, err error) {
 	return out, nil
 }
 
-// in505 reads a Result<Maybe<Bytes>, Error> as Go rt.Result[rt.Maybe[rt.Bytes], rt.IOError].
-func (b *bound) in505(fr *rt.Frame, v rt.Value) (out rt.Result[rt.Maybe[rt.Bytes], rt.IOError], err error) {
+// in620 reads a Result<Maybe<Bytes>, Error> as Go rt.Result[rt.Maybe[rt.Bytes], rt.IOError].
+func (b *bound) in620(fr *rt.Frame, v rt.Value) (out rt.Result[rt.Maybe[rt.Bytes], rt.IOError], err error) {
 	r, tag, err := hostadapt.Variant(v, "results.Result")
 	if err != nil {
 		return out, err
 	}
 	switch tag {
 	case "Ok":
-		x, err := b.in506(fr, hostadapt.Payload(r))
+		x, err := b.in621(fr, hostadapt.Payload(r))
 		if err != nil {
 			return out, fmt.Errorf("Ok: %w", err)
 		}
 		return rt.Result[rt.Maybe[rt.Bytes], rt.IOError]{Tag: rt.TagOk, Ok: x}, nil
 	case "Err":
-		x, err := b.in507(fr, hostadapt.Payload(r))
+		x, err := b.in623(fr, hostadapt.Payload(r))
 		if err != nil {
 			return out, fmt.Errorf("Err: %w", err)
 		}
@@ -11927,8 +8825,8 @@ func (b *bound) in505(fr *rt.Frame, v rt.Value) (out rt.Result[rt.Maybe[rt.Bytes
 	return out, fmt.Errorf("unmarshal Result: unknown variant %q", tag)
 }
 
-// in504 reads a () -> Result<Maybe<Bytes>, Error> as Go func(*rt.Frame) rt.Result[rt.Maybe[rt.Bytes], rt.IOError].
-func (b *bound) in504(fr *rt.Frame, v rt.Value) (out func(*rt.Frame) rt.Result[rt.Maybe[rt.Bytes], rt.IOError], err error) {
+// in619 reads a () -> Result<Maybe<Bytes>, Error> as Go func(*rt.Frame) rt.Result[rt.Maybe[rt.Bytes], rt.IOError].
+func (b *bound) in619(fr *rt.Frame, v rt.Value) (out func(*rt.Frame) rt.Result[rt.Maybe[rt.Bytes], rt.IOError], err error) {
 	if v == nil {
 		return out, fmt.Errorf("expected a function, got nil")
 	}
@@ -11937,7 +8835,7 @@ func (b *bound) in504(fr *rt.Frame, v rt.Value) (out func(*rt.Frame) rt.Result[r
 		if err != nil {
 			panic(hostadapt.Unwind{Err: err})
 		}
-		y, err := b.in505(fr, res)
+		y, err := b.in620(fr, res)
 		if err != nil {
 			panic(hostadapt.Unwind{Err: err})
 		}
@@ -11945,240 +8843,150 @@ func (b *bound) in504(fr *rt.Frame, v rt.Value) (out func(*rt.Frame) rt.Result[r
 	}, nil
 }
 
-// fn503 adapts io.Reader.from_fn: from_fn(next: () -> Result<Maybe<Bytes>, Error>) -> Reader
-func (b *bound) fn503(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("io.Reader.from_fn", 1, len(args))
-	}
-	a0, err := b.in504(fr, args[0])
+// fn618Regs is io.Reader.from_fn over slots.
+func (b *bound) fn618Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in619(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("io.Reader.from_fn", 0, "io.Reader.from_fn", "next", err)
+		return false, hostadapt.Param("io.Reader.from_fn", 0, "io.Reader.from_fn", "next", err)
 	}
 	r0 := rt.ReaderFromFn(a0)
-	v0, err := b.out477(r0)
+	w624, err := b.out584(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("io.Reader.from_fn", err)
+		return false, hostadapt.Returned("io.Reader.from_fn", err)
 	}
-	return v0, nil
+	s.R[0] = w624
+	return true, nil
 }
 
-// fn508 adapts io.Writer.write: write(w: Writer, data: Bytes) -> Result<Unit, Error>
-func (b *bound) fn508(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("io.Writer.write", 2, len(args))
-	}
-	a0, err := b.in494(fr, args[0])
+// fn625Regs is io.Writer.write over slots.
+func (b *bound) fn625Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in606(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("io.Writer.write", 0, "io.Writer.write", "w", err)
+		return false, hostadapt.Param("io.Writer.write", 0, "io.Writer.write", "w", err)
 	}
-	a1, err := b.in217(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("io.Writer.write", 1, "io.Writer.write", "data", err)
-	}
-	r0 := rt.WriterWrite(fr, a0, a1)
-	v0, err := b.out498(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("io.Writer.write", err)
-	}
-	return v0, nil
-}
-
-// fn508Parts is io.Writer.write taken apart: the payload and true, or the record and false.
-func (b *bound) fn508Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 2 {
-		return nil, false, hostadapt.Arity("io.Writer.write", 2, len(args))
-	}
-	a0, err := b.in494(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("io.Writer.write", 0, "io.Writer.write", "w", err)
-	}
-	a1, err := b.in217(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("io.Writer.write", 1, "io.Writer.write", "data", err)
-	}
+	a1 := rt.Bytes(rt.Bytes(s.S[1]))
 	r0 := rt.WriterWrite(fr, a0, a1)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out498(r0)
+		rec, err := b.out610(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("io.Writer.write", err)
+			return false, hostadapt.Returned("io.Writer.write", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out372(r0.Ok)
+	w626, err := b.out452(r0.Ok)
 	if err != nil {
-		return nil, false, hostadapt.Returned("io.Writer.write", err)
+		return false, hostadapt.Returned("io.Writer.write", err)
 	}
-	return v, true, nil
+	s.R[0] = w626
+	return true, nil
 }
 
-// fn509 adapts io.Writer.write_text: write_text(w: Writer, text: String) -> Result<Unit, Error>
-func (b *bound) fn509(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("io.Writer.write_text", 2, len(args))
-	}
-	a0, err := b.in494(fr, args[0])
+// fn627Regs is io.Writer.write_text over slots.
+func (b *bound) fn627Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in606(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("io.Writer.write_text", 0, "io.Writer.write_text", "w", err)
+		return false, hostadapt.Param("io.Writer.write_text", 0, "io.Writer.write_text", "w", err)
 	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("io.Writer.write_text", 1, "io.Writer.write_text", "text", err)
-	}
-	r0 := rt.WriterWriteText(fr, a0, a1)
-	v0, err := b.out498(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("io.Writer.write_text", err)
-	}
-	return v0, nil
-}
-
-// fn509Parts is io.Writer.write_text taken apart: the payload and true, or the record and false.
-func (b *bound) fn509Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 2 {
-		return nil, false, hostadapt.Arity("io.Writer.write_text", 2, len(args))
-	}
-	a0, err := b.in494(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("io.Writer.write_text", 0, "io.Writer.write_text", "w", err)
-	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("io.Writer.write_text", 1, "io.Writer.write_text", "text", err)
-	}
+	a1 := string(s.S[1])
 	r0 := rt.WriterWriteText(fr, a0, a1)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out498(r0)
+		rec, err := b.out610(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("io.Writer.write_text", err)
+			return false, hostadapt.Returned("io.Writer.write_text", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out372(r0.Ok)
+	w628, err := b.out452(r0.Ok)
 	if err != nil {
-		return nil, false, hostadapt.Returned("io.Writer.write_text", err)
+		return false, hostadapt.Returned("io.Writer.write_text", err)
 	}
-	return v, true, nil
+	s.R[0] = w628
+	return true, nil
 }
 
-// fn510 adapts io.Writer.flush: flush(w: Writer) -> Result<Unit, Error>
-func (b *bound) fn510(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("io.Writer.flush", 1, len(args))
-	}
-	a0, err := b.in494(fr, args[0])
+// fn629Regs is io.Writer.flush over slots.
+func (b *bound) fn629Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in606(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("io.Writer.flush", 0, "io.Writer.flush", "w", err)
-	}
-	r0 := rt.WriterFlush(fr, a0)
-	v0, err := b.out498(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("io.Writer.flush", err)
-	}
-	return v0, nil
-}
-
-// fn510Parts is io.Writer.flush taken apart: the payload and true, or the record and false.
-func (b *bound) fn510Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("io.Writer.flush", 1, len(args))
-	}
-	a0, err := b.in494(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("io.Writer.flush", 0, "io.Writer.flush", "w", err)
+		return false, hostadapt.Param("io.Writer.flush", 0, "io.Writer.flush", "w", err)
 	}
 	r0 := rt.WriterFlush(fr, a0)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out498(r0)
+		rec, err := b.out610(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("io.Writer.flush", err)
+			return false, hostadapt.Returned("io.Writer.flush", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out372(r0.Ok)
+	w630, err := b.out452(r0.Ok)
 	if err != nil {
-		return nil, false, hostadapt.Returned("io.Writer.flush", err)
+		return false, hostadapt.Returned("io.Writer.flush", err)
 	}
-	return v, true, nil
+	s.R[0] = w630
+	return true, nil
 }
 
-// fn511 adapts io.Writer.close: close(w: Writer) -> Result<Unit, Error>
-func (b *bound) fn511(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("io.Writer.close", 1, len(args))
-	}
-	a0, err := b.in494(fr, args[0])
+// fn631Regs is io.Writer.close over slots.
+func (b *bound) fn631Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in606(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("io.Writer.close", 0, "io.Writer.close", "w", err)
-	}
-	r0 := rt.WriterClose(fr, a0)
-	v0, err := b.out498(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("io.Writer.close", err)
-	}
-	return v0, nil
-}
-
-// fn511Parts is io.Writer.close taken apart: the payload and true, or the record and false.
-func (b *bound) fn511Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("io.Writer.close", 1, len(args))
-	}
-	a0, err := b.in494(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("io.Writer.close", 0, "io.Writer.close", "w", err)
+		return false, hostadapt.Param("io.Writer.close", 0, "io.Writer.close", "w", err)
 	}
 	r0 := rt.WriterClose(fr, a0)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out498(r0)
+		rec, err := b.out610(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("io.Writer.close", err)
+			return false, hostadapt.Returned("io.Writer.close", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out372(r0.Ok)
+	w632, err := b.out452(r0.Ok)
 	if err != nil {
-		return nil, false, hostadapt.Returned("io.Writer.close", err)
+		return false, hostadapt.Returned("io.Writer.close", err)
 	}
-	return v, true, nil
+	s.R[0] = w632
+	return true, nil
 }
 
-// fn512 adapts io.Writer.discard: discard(w: Writer) -> Unit
-func (b *bound) fn512(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("io.Writer.discard", 1, len(args))
-	}
-	a0, err := b.in494(fr, args[0])
+// fn633Regs is io.Writer.discard over slots.
+func (b *bound) fn633Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in606(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("io.Writer.discard", 0, "io.Writer.discard", "w", err)
+		return false, hostadapt.Param("io.Writer.discard", 0, "io.Writer.discard", "w", err)
 	}
 	r0 := rt.WriterDiscard(a0)
-	v0, err := b.out372(r0)
+	w634, err := b.out452(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("io.Writer.discard", err)
+		return false, hostadapt.Returned("io.Writer.discard", err)
 	}
-	return v0, nil
+	s.R[0] = w634
+	return true, nil
 }
 
-// in516 reads a Unit as Go rt.Unit.
-func (b *bound) in516(fr *rt.Frame, v rt.Value) (out rt.Unit, err error) {
+// in638 reads a Unit as Go rt.Unit.
+func (b *bound) in638(fr *rt.Frame, v rt.Value) (out rt.Unit, err error) {
 	return rt.Unit{}, nil
 }
 
-// in515 reads a Result<Unit, Error> as Go rt.Result[rt.Unit, rt.IOError].
-func (b *bound) in515(fr *rt.Frame, v rt.Value) (out rt.Result[rt.Unit, rt.IOError], err error) {
+// in637 reads a Result<Unit, Error> as Go rt.Result[rt.Unit, rt.IOError].
+func (b *bound) in637(fr *rt.Frame, v rt.Value) (out rt.Result[rt.Unit, rt.IOError], err error) {
 	r, tag, err := hostadapt.Variant(v, "results.Result")
 	if err != nil {
 		return out, err
 	}
 	switch tag {
 	case "Ok":
-		x, err := b.in516(fr, hostadapt.Payload(r))
+		x, err := b.in638(fr, hostadapt.Payload(r))
 		if err != nil {
 			return out, fmt.Errorf("Ok: %w", err)
 		}
 		return rt.Result[rt.Unit, rt.IOError]{Tag: rt.TagOk, Ok: x}, nil
 	case "Err":
-		x, err := b.in507(fr, hostadapt.Payload(r))
+		x, err := b.in623(fr, hostadapt.Payload(r))
 		if err != nil {
 			return out, fmt.Errorf("Err: %w", err)
 		}
@@ -12187,8 +8995,8 @@ func (b *bound) in515(fr *rt.Frame, v rt.Value) (out rt.Result[rt.Unit, rt.IOErr
 	return out, fmt.Errorf("unmarshal Result: unknown variant %q", tag)
 }
 
-// in514 reads a (Bytes) -> Result<Unit, Error> as Go func(*rt.Frame, rt.Bytes) rt.Result[rt.Unit, rt.IOError].
-func (b *bound) in514(fr *rt.Frame, v rt.Value) (out func(*rt.Frame, rt.Bytes) rt.Result[rt.Unit, rt.IOError], err error) {
+// in636 reads a (Bytes) -> Result<Unit, Error> as Go func(*rt.Frame, rt.Bytes) rt.Result[rt.Unit, rt.IOError].
+func (b *bound) in636(fr *rt.Frame, v rt.Value) (out func(*rt.Frame, rt.Bytes) rt.Result[rt.Unit, rt.IOError], err error) {
 	if v == nil {
 		return out, fmt.Errorf("expected a function, got nil")
 	}
@@ -12197,7 +9005,7 @@ func (b *bound) in514(fr *rt.Frame, v rt.Value) (out func(*rt.Frame, rt.Bytes) r
 		if err != nil {
 			panic(hostadapt.Unwind{Err: err})
 		}
-		y, err := b.in515(fr, res)
+		y, err := b.in637(fr, res)
 		if err != nil {
 			panic(hostadapt.Unwind{Err: err})
 		}
@@ -12205,8 +9013,8 @@ func (b *bound) in514(fr *rt.Frame, v rt.Value) (out func(*rt.Frame, rt.Bytes) r
 	}, nil
 }
 
-// in517 reads a () -> Result<Unit, Error> as Go func(*rt.Frame) rt.Result[rt.Unit, rt.IOError].
-func (b *bound) in517(fr *rt.Frame, v rt.Value) (out func(*rt.Frame) rt.Result[rt.Unit, rt.IOError], err error) {
+// in639 reads a () -> Result<Unit, Error> as Go func(*rt.Frame) rt.Result[rt.Unit, rt.IOError].
+func (b *bound) in639(fr *rt.Frame, v rt.Value) (out func(*rt.Frame) rt.Result[rt.Unit, rt.IOError], err error) {
 	if v == nil {
 		return out, fmt.Errorf("expected a function, got nil")
 	}
@@ -12215,7 +9023,7 @@ func (b *bound) in517(fr *rt.Frame, v rt.Value) (out func(*rt.Frame) rt.Result[r
 		if err != nil {
 			panic(hostadapt.Unwind{Err: err})
 		}
-		y, err := b.in515(fr, res)
+		y, err := b.in637(fr, res)
 		if err != nil {
 			panic(hostadapt.Unwind{Err: err})
 		}
@@ -12223,1063 +9031,84 @@ func (b *bound) in517(fr *rt.Frame, v rt.Value) (out func(*rt.Frame) rt.Result[r
 	}, nil
 }
 
-// fn513 adapts io.writer_from_fn: writer_from_fn(write: (Bytes) -> Result<Unit, Error>, close: () -> Result<Unit, Error>, unbuffered: Bool) -> Writer
-func (b *bound) fn513(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 3 {
-		return nil, hostadapt.Arity("io.writer_from_fn", 3, len(args))
-	}
-	a0, err := b.in514(fr, args[0])
+// fn635Regs is io.writer_from_fn over slots.
+func (b *bound) fn635Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in636(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("io.writer_from_fn", 0, "io.writer_from_fn", "write", err)
+		return false, hostadapt.Param("io.writer_from_fn", 0, "io.writer_from_fn", "write", err)
 	}
-	a1, err := b.in517(fr, args[1])
+	a1, err := b.in639(fr, s.R[1])
 	if err != nil {
-		return nil, hostadapt.Param("io.writer_from_fn", 1, "io.writer_from_fn", "close", err)
+		return false, hostadapt.Param("io.writer_from_fn", 1, "io.writer_from_fn", "close", err)
 	}
-	a2, err := b.in54(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("io.writer_from_fn", 2, "io.writer_from_fn", "unbuffered", err)
-	}
+	a2 := bool(rt.WordBool(s.W[2]))
 	r0 := rt.WriterFromFn(a0, a1, a2)
-	v0, err := b.out479(r0)
+	w640, err := b.out587(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("io.writer_from_fn", err)
+		return false, hostadapt.Returned("io.writer_from_fn", err)
 	}
-	return v0, nil
+	s.R[0] = w640
+	return true, nil
 }
 
-// fn518 adapts io.memory_writer: memory_writer() -> Writer
-func (b *bound) fn518(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 0 {
-		return nil, hostadapt.Arity("io.memory_writer", 0, len(args))
-	}
+// fn641Regs is io.memory_writer over slots.
+func (b *bound) fn641Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	r0 := rt.WriterToMemory()
-	v0, err := b.out479(r0)
+	w642, err := b.out587(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("io.memory_writer", err)
+		return false, hostadapt.Returned("io.memory_writer", err)
 	}
-	return v0, nil
+	s.R[0] = w642
+	return true, nil
 }
 
-// fn519 adapts io.collected: collected(w: Writer) -> Bytes
-func (b *bound) fn519(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("io.collected", 1, len(args))
-	}
-	a0, err := b.in494(fr, args[0])
+// fn643Regs is io.collected over slots.
+func (b *bound) fn643Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in606(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("io.collected", 0, "io.collected", "w", err)
+		return false, hostadapt.Param("io.collected", 0, "io.collected", "w", err)
 	}
 	r0 := rt.WriterCollected(a0)
-	v0, err := b.out104(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("io.collected", err)
-	}
-	return v0, nil
+	s.S[0] = string(rt.Bytes(r0))
+	return true, nil
 }
 
-// fn520 adapts embed/host.read: read(handle: Int, path: String) -> Bytes
-func (b *bound) fn520(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("embed/host.read", 2, len(args))
-	}
-	a0, err := b.in39(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("embed/host.read", 0, "embed/host.read", "handle", err)
-	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("embed/host.read", 1, "embed/host.read", "path", err)
-	}
+// fn644Regs is embed/host.read over slots.
+func (b *bound) fn644Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
+	a1 := string(s.S[1])
 	r0 := rt.EmbeddedRead(fr, a0, a1)
-	v0, err := b.out104(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("embed/host.read", err)
-	}
-	return v0, nil
+	s.S[0] = string(rt.Bytes(r0))
+	return true, nil
 }
 
-// fn521 adapts embed/host.sum: sum(handle: Int, path: String) -> String
-func (b *bound) fn521(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("embed/host.sum", 2, len(args))
-	}
-	a0, err := b.in39(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("embed/host.sum", 0, "embed/host.sum", "handle", err)
-	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("embed/host.sum", 1, "embed/host.sum", "path", err)
-	}
+// fn645Regs is embed/host.sum over slots.
+func (b *bound) fn645Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
+	a1 := string(s.S[1])
 	r0 := rt.EmbeddedSum(fr, a0, a1)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("embed/host.sum", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn522 adapts fs/host.read: read(path: String) -> Result<Bytes, Error>
-func (b *bound) fn522(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("fs/host.read", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("fs/host.read", 0, "fs/host.read", "path", err)
-	}
-	r0 := stdio.Read(fr, a0)
-	v0, err := b.out488(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("fs/host.read", err)
-	}
-	return v0, nil
-}
-
-// fn522Parts is fs/host.read taken apart: the payload and true, or the record and false.
-func (b *bound) fn522Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("fs/host.read", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("fs/host.read", 0, "fs/host.read", "path", err)
-	}
-	r0 := stdio.Read(fr, a0)
-	if r0.Tag != rt.TagOk {
-		rec, err := b.out488(r0)
-		if err != nil {
-			return nil, false, hostadapt.Returned("fs/host.read", err)
-		}
-		return rec, false, nil
-	}
-	v, err := b.out104(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("fs/host.read", err)
-	}
-	return v, true, nil
-}
-
-// fn523 adapts fs/host.read_text: read_text(path: String) -> Result<String, Error>
-func (b *bound) fn523(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("fs/host.read_text", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("fs/host.read_text", 0, "fs/host.read_text", "path", err)
-	}
-	r0 := stdio.ReadText(fr, a0)
-	v0, err := b.out491(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("fs/host.read_text", err)
-	}
-	return v0, nil
-}
-
-// fn523Parts is fs/host.read_text taken apart: the payload and true, or the record and false.
-func (b *bound) fn523Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("fs/host.read_text", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("fs/host.read_text", 0, "fs/host.read_text", "path", err)
-	}
-	r0 := stdio.ReadText(fr, a0)
-	if r0.Tag != rt.TagOk {
-		rec, err := b.out491(r0)
-		if err != nil {
-			return nil, false, hostadapt.Returned("fs/host.read_text", err)
-		}
-		return rec, false, nil
-	}
-	v, err := b.out5(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("fs/host.read_text", err)
-	}
-	return v, true, nil
-}
-
-// fn524 adapts fs/host.write: write(path: String, data: Bytes, mode: Int64) -> Result<Unit, Error>
-func (b *bound) fn524(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 3 {
-		return nil, hostadapt.Arity("fs/host.write", 3, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("fs/host.write", 0, "fs/host.write", "path", err)
-	}
-	a1, err := b.in217(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("fs/host.write", 1, "fs/host.write", "data", err)
-	}
-	a2, err := b.in41(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("fs/host.write", 2, "fs/host.write", "mode", err)
-	}
-	r0 := stdio.Write(fr, a0, a1, a2)
-	v0, err := b.out498(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("fs/host.write", err)
-	}
-	return v0, nil
-}
-
-// fn524Parts is fs/host.write taken apart: the payload and true, or the record and false.
-func (b *bound) fn524Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 3 {
-		return nil, false, hostadapt.Arity("fs/host.write", 3, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("fs/host.write", 0, "fs/host.write", "path", err)
-	}
-	a1, err := b.in217(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("fs/host.write", 1, "fs/host.write", "data", err)
-	}
-	a2, err := b.in41(fr, args[2])
-	if err != nil {
-		return nil, false, hostadapt.Param("fs/host.write", 2, "fs/host.write", "mode", err)
-	}
-	r0 := stdio.Write(fr, a0, a1, a2)
-	if r0.Tag != rt.TagOk {
-		rec, err := b.out498(r0)
-		if err != nil {
-			return nil, false, hostadapt.Returned("fs/host.write", err)
-		}
-		return rec, false, nil
-	}
-	v, err := b.out372(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("fs/host.write", err)
-	}
-	return v, true, nil
-}
-
-// out526 builds a Result<Reader, Error> from Go rt.Result[rt.Reader, rt.IOError].
-func (b *bound) out526(v rt.Result[rt.Reader, rt.IOError]) (rt.Value, error) {
-	switch v.Tag {
-	case rt.TagOk:
-		r := b.d33.NewVariant(0)
-		w527, err := b.out477(v.Ok)
-		if err != nil {
-			return nil, fmt.Errorf("Ok: %w", err)
-		}
-		r.R[0] = w527
-		return r, nil
-	case rt.TagErr:
-		r := b.d33.NewVariant(1)
-		w528, err := b.out474(v.Err)
-		if err != nil {
-			return nil, fmt.Errorf("Err: %w", err)
-		}
-		r.R[0] = w528
-		return r, nil
-	}
-	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
-}
-
-// fn525 adapts fs/host.open: open(path: String) -> Result<Reader, Error>
-func (b *bound) fn525(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("fs/host.open", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("fs/host.open", 0, "fs/host.open", "path", err)
-	}
-	r0 := stdio.Open(fr, a0)
-	v0, err := b.out526(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("fs/host.open", err)
-	}
-	return v0, nil
-}
-
-// fn525Parts is fs/host.open taken apart: the payload and true, or the record and false.
-func (b *bound) fn525Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("fs/host.open", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("fs/host.open", 0, "fs/host.open", "path", err)
-	}
-	r0 := stdio.Open(fr, a0)
-	if r0.Tag != rt.TagOk {
-		rec, err := b.out526(r0)
-		if err != nil {
-			return nil, false, hostadapt.Returned("fs/host.open", err)
-		}
-		return rec, false, nil
-	}
-	v, err := b.out477(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("fs/host.open", err)
-	}
-	return v, true, nil
-}
-
-// out530 builds a Result<Writer, Error> from Go rt.Result[rt.Writer, rt.IOError].
-func (b *bound) out530(v rt.Result[rt.Writer, rt.IOError]) (rt.Value, error) {
-	switch v.Tag {
-	case rt.TagOk:
-		r := b.d33.NewVariant(0)
-		w531, err := b.out479(v.Ok)
-		if err != nil {
-			return nil, fmt.Errorf("Ok: %w", err)
-		}
-		r.R[0] = w531
-		return r, nil
-	case rt.TagErr:
-		r := b.d33.NewVariant(1)
-		w532, err := b.out474(v.Err)
-		if err != nil {
-			return nil, fmt.Errorf("Err: %w", err)
-		}
-		r.R[0] = w532
-		return r, nil
-	}
-	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
-}
-
-// fn529 adapts fs/host.create: create(path: String, mode: Int64) -> Result<Writer, Error>
-func (b *bound) fn529(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("fs/host.create", 2, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("fs/host.create", 0, "fs/host.create", "path", err)
-	}
-	a1, err := b.in41(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("fs/host.create", 1, "fs/host.create", "mode", err)
-	}
-	r0 := stdio.Create(fr, a0, a1)
-	v0, err := b.out530(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("fs/host.create", err)
-	}
-	return v0, nil
-}
-
-// fn529Parts is fs/host.create taken apart: the payload and true, or the record and false.
-func (b *bound) fn529Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 2 {
-		return nil, false, hostadapt.Arity("fs/host.create", 2, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("fs/host.create", 0, "fs/host.create", "path", err)
-	}
-	a1, err := b.in41(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("fs/host.create", 1, "fs/host.create", "mode", err)
-	}
-	r0 := stdio.Create(fr, a0, a1)
-	if r0.Tag != rt.TagOk {
-		rec, err := b.out530(r0)
-		if err != nil {
-			return nil, false, hostadapt.Returned("fs/host.create", err)
-		}
-		return rec, false, nil
-	}
-	v, err := b.out479(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("fs/host.create", err)
-	}
-	return v, true, nil
-}
-
-// out534 builds a Result<List<String>, Error> from Go rt.Result[*rt.List[string], rt.IOError].
-func (b *bound) out534(v rt.Result[*rt.List[string], rt.IOError]) (rt.Value, error) {
-	switch v.Tag {
-	case rt.TagOk:
-		r := b.d33.NewVariant(0)
-		w535, err := b.out194(v.Ok)
-		if err != nil {
-			return nil, fmt.Errorf("Ok: %w", err)
-		}
-		r.R[0] = w535
-		return r, nil
-	case rt.TagErr:
-		r := b.d33.NewVariant(1)
-		w536, err := b.out474(v.Err)
-		if err != nil {
-			return nil, fmt.Errorf("Err: %w", err)
-		}
-		r.R[0] = w536
-		return r, nil
-	}
-	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
-}
-
-// fn533 adapts fs/host.list: list(dir: String) -> Result<List<String>, Error>
-func (b *bound) fn533(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("fs/host.list", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("fs/host.list", 0, "fs/host.list", "dir", err)
-	}
-	r0 := stdio.List(fr, a0)
-	v0, err := b.out534(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("fs/host.list", err)
-	}
-	return v0, nil
-}
-
-// fn533Parts is fs/host.list taken apart: the payload and true, or the record and false.
-func (b *bound) fn533Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("fs/host.list", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("fs/host.list", 0, "fs/host.list", "dir", err)
-	}
-	r0 := stdio.List(fr, a0)
-	if r0.Tag != rt.TagOk {
-		rec, err := b.out534(r0)
-		if err != nil {
-			return nil, false, hostadapt.Returned("fs/host.list", err)
-		}
-		return rec, false, nil
-	}
-	v, err := b.out194(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("fs/host.list", err)
-	}
-	return v, true, nil
-}
-
-// fn537 adapts fs/host.create_dir: create_dir(path: String, parents: Bool) -> Result<Unit, Error>
-func (b *bound) fn537(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("fs/host.create_dir", 2, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("fs/host.create_dir", 0, "fs/host.create_dir", "path", err)
-	}
-	a1, err := b.in54(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("fs/host.create_dir", 1, "fs/host.create_dir", "parents", err)
-	}
-	r0 := stdio.CreateDir(fr, a0, a1)
-	v0, err := b.out498(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("fs/host.create_dir", err)
-	}
-	return v0, nil
-}
-
-// fn537Parts is fs/host.create_dir taken apart: the payload and true, or the record and false.
-func (b *bound) fn537Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 2 {
-		return nil, false, hostadapt.Arity("fs/host.create_dir", 2, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("fs/host.create_dir", 0, "fs/host.create_dir", "path", err)
-	}
-	a1, err := b.in54(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("fs/host.create_dir", 1, "fs/host.create_dir", "parents", err)
-	}
-	r0 := stdio.CreateDir(fr, a0, a1)
-	if r0.Tag != rt.TagOk {
-		rec, err := b.out498(r0)
-		if err != nil {
-			return nil, false, hostadapt.Returned("fs/host.create_dir", err)
-		}
-		return rec, false, nil
-	}
-	v, err := b.out372(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("fs/host.create_dir", err)
-	}
-	return v, true, nil
-}
-
-// fn538 adapts fs/host.remove: remove(path: String) -> Result<Unit, Error>
-func (b *bound) fn538(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("fs/host.remove", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("fs/host.remove", 0, "fs/host.remove", "path", err)
-	}
-	r0 := stdio.Remove(fr, a0)
-	v0, err := b.out498(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("fs/host.remove", err)
-	}
-	return v0, nil
-}
-
-// fn538Parts is fs/host.remove taken apart: the payload and true, or the record and false.
-func (b *bound) fn538Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("fs/host.remove", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("fs/host.remove", 0, "fs/host.remove", "path", err)
-	}
-	r0 := stdio.Remove(fr, a0)
-	if r0.Tag != rt.TagOk {
-		rec, err := b.out498(r0)
-		if err != nil {
-			return nil, false, hostadapt.Returned("fs/host.remove", err)
-		}
-		return rec, false, nil
-	}
-	v, err := b.out372(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("fs/host.remove", err)
-	}
-	return v, true, nil
-}
-
-// fn539 adapts fs/host.remove_all: remove_all(path: String) -> Result<Unit, Error>
-func (b *bound) fn539(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("fs/host.remove_all", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("fs/host.remove_all", 0, "fs/host.remove_all", "path", err)
-	}
-	r0 := stdio.RemoveAll(fr, a0)
-	v0, err := b.out498(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("fs/host.remove_all", err)
-	}
-	return v0, nil
-}
-
-// fn539Parts is fs/host.remove_all taken apart: the payload and true, or the record and false.
-func (b *bound) fn539Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("fs/host.remove_all", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("fs/host.remove_all", 0, "fs/host.remove_all", "path", err)
-	}
-	r0 := stdio.RemoveAll(fr, a0)
-	if r0.Tag != rt.TagOk {
-		rec, err := b.out498(r0)
-		if err != nil {
-			return nil, false, hostadapt.Returned("fs/host.remove_all", err)
-		}
-		return rec, false, nil
-	}
-	v, err := b.out372(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("fs/host.remove_all", err)
-	}
-	return v, true, nil
-}
-
-// fn540 adapts fs/host.rename: rename(from: String, to: String) -> Result<Unit, Error>
-func (b *bound) fn540(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("fs/host.rename", 2, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("fs/host.rename", 0, "fs/host.rename", "from", err)
-	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("fs/host.rename", 1, "fs/host.rename", "to", err)
-	}
-	r0 := stdio.Rename(fr, a0, a1)
-	v0, err := b.out498(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("fs/host.rename", err)
-	}
-	return v0, nil
-}
-
-// fn540Parts is fs/host.rename taken apart: the payload and true, or the record and false.
-func (b *bound) fn540Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 2 {
-		return nil, false, hostadapt.Arity("fs/host.rename", 2, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("fs/host.rename", 0, "fs/host.rename", "from", err)
-	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("fs/host.rename", 1, "fs/host.rename", "to", err)
-	}
-	r0 := stdio.Rename(fr, a0, a1)
-	if r0.Tag != rt.TagOk {
-		rec, err := b.out498(r0)
-		if err != nil {
-			return nil, false, hostadapt.Returned("fs/host.rename", err)
-		}
-		return rec, false, nil
-	}
-	v, err := b.out372(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("fs/host.rename", err)
-	}
-	return v, true, nil
-}
-
-// fn541 adapts fs/host.copy: copy(from: String, to: String) -> Result<Unit, Error>
-func (b *bound) fn541(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("fs/host.copy", 2, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("fs/host.copy", 0, "fs/host.copy", "from", err)
-	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("fs/host.copy", 1, "fs/host.copy", "to", err)
-	}
-	r0 := stdio.Copy(fr, a0, a1)
-	v0, err := b.out498(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("fs/host.copy", err)
-	}
-	return v0, nil
-}
-
-// fn541Parts is fs/host.copy taken apart: the payload and true, or the record and false.
-func (b *bound) fn541Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 2 {
-		return nil, false, hostadapt.Arity("fs/host.copy", 2, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("fs/host.copy", 0, "fs/host.copy", "from", err)
-	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("fs/host.copy", 1, "fs/host.copy", "to", err)
-	}
-	r0 := stdio.Copy(fr, a0, a1)
-	if r0.Tag != rt.TagOk {
-		rec, err := b.out498(r0)
-		if err != nil {
-			return nil, false, hostadapt.Returned("fs/host.copy", err)
-		}
-		return rec, false, nil
-	}
-	v, err := b.out372(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("fs/host.copy", err)
-	}
-	return v, true, nil
-}
-
-// out543 builds a Result<List<Int>, Error> from Go rt.Result[*rt.List[rt.Int], rt.IOError].
-func (b *bound) out543(v rt.Result[*rt.List[rt.Int], rt.IOError]) (rt.Value, error) {
-	switch v.Tag {
-	case rt.TagOk:
-		r := b.d33.NewVariant(0)
-		w544, err := b.out306(v.Ok)
-		if err != nil {
-			return nil, fmt.Errorf("Ok: %w", err)
-		}
-		r.R[0] = w544
-		return r, nil
-	case rt.TagErr:
-		r := b.d33.NewVariant(1)
-		w545, err := b.out474(v.Err)
-		if err != nil {
-			return nil, fmt.Errorf("Err: %w", err)
-		}
-		r.R[0] = w545
-		return r, nil
-	}
-	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
-}
-
-// fn542 adapts fs/host.metadata: metadata(path: String) -> Result<List<Int>, Error>
-func (b *bound) fn542(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("fs/host.metadata", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("fs/host.metadata", 0, "fs/host.metadata", "path", err)
-	}
-	r0 := stdio.Metadata(fr, a0)
-	v0, err := b.out543(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("fs/host.metadata", err)
-	}
-	return v0, nil
-}
-
-// fn542Parts is fs/host.metadata taken apart: the payload and true, or the record and false.
-func (b *bound) fn542Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("fs/host.metadata", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("fs/host.metadata", 0, "fs/host.metadata", "path", err)
-	}
-	r0 := stdio.Metadata(fr, a0)
-	if r0.Tag != rt.TagOk {
-		rec, err := b.out543(r0)
-		if err != nil {
-			return nil, false, hostadapt.Returned("fs/host.metadata", err)
-		}
-		return rec, false, nil
-	}
-	v, err := b.out306(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("fs/host.metadata", err)
-	}
-	return v, true, nil
-}
-
-// fn546 adapts fs/host.link_metadata: link_metadata(path: String) -> Result<List<Int>, Error>
-func (b *bound) fn546(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("fs/host.link_metadata", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("fs/host.link_metadata", 0, "fs/host.link_metadata", "path", err)
-	}
-	r0 := stdio.LinkMetadata(fr, a0)
-	v0, err := b.out543(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("fs/host.link_metadata", err)
-	}
-	return v0, nil
-}
-
-// fn546Parts is fs/host.link_metadata taken apart: the payload and true, or the record and false.
-func (b *bound) fn546Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("fs/host.link_metadata", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("fs/host.link_metadata", 0, "fs/host.link_metadata", "path", err)
-	}
-	r0 := stdio.LinkMetadata(fr, a0)
-	if r0.Tag != rt.TagOk {
-		rec, err := b.out543(r0)
-		if err != nil {
-			return nil, false, hostadapt.Returned("fs/host.link_metadata", err)
-		}
-		return rec, false, nil
-	}
-	v, err := b.out306(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("fs/host.link_metadata", err)
-	}
-	return v, true, nil
-}
-
-// fn547 adapts fs/host.create_symlink: create_symlink(path: String, target: String) -> Result<Unit, Error>
-func (b *bound) fn547(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("fs/host.create_symlink", 2, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("fs/host.create_symlink", 0, "fs/host.create_symlink", "path", err)
-	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("fs/host.create_symlink", 1, "fs/host.create_symlink", "target", err)
-	}
-	r0 := stdio.CreateSymlink(fr, a0, a1)
-	v0, err := b.out498(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("fs/host.create_symlink", err)
-	}
-	return v0, nil
-}
-
-// fn547Parts is fs/host.create_symlink taken apart: the payload and true, or the record and false.
-func (b *bound) fn547Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 2 {
-		return nil, false, hostadapt.Arity("fs/host.create_symlink", 2, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("fs/host.create_symlink", 0, "fs/host.create_symlink", "path", err)
-	}
-	a1, err := b.in42(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("fs/host.create_symlink", 1, "fs/host.create_symlink", "target", err)
-	}
-	r0 := stdio.CreateSymlink(fr, a0, a1)
-	if r0.Tag != rt.TagOk {
-		rec, err := b.out498(r0)
-		if err != nil {
-			return nil, false, hostadapt.Returned("fs/host.create_symlink", err)
-		}
-		return rec, false, nil
-	}
-	v, err := b.out372(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("fs/host.create_symlink", err)
-	}
-	return v, true, nil
-}
-
-// fn548 adapts fs/host.read_link: read_link(path: String) -> Result<String, Error>
-func (b *bound) fn548(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("fs/host.read_link", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("fs/host.read_link", 0, "fs/host.read_link", "path", err)
-	}
-	r0 := stdio.ReadLink(fr, a0)
-	v0, err := b.out491(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("fs/host.read_link", err)
-	}
-	return v0, nil
-}
-
-// fn548Parts is fs/host.read_link taken apart: the payload and true, or the record and false.
-func (b *bound) fn548Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("fs/host.read_link", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("fs/host.read_link", 0, "fs/host.read_link", "path", err)
-	}
-	r0 := stdio.ReadLink(fr, a0)
-	if r0.Tag != rt.TagOk {
-		rec, err := b.out491(r0)
-		if err != nil {
-			return nil, false, hostadapt.Returned("fs/host.read_link", err)
-		}
-		return rec, false, nil
-	}
-	v, err := b.out5(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("fs/host.read_link", err)
-	}
-	return v, true, nil
-}
-
-// fn549 adapts fs/host.set_mode: set_mode(path: String, mode: Int) -> Result<Unit, Error>
-func (b *bound) fn549(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("fs/host.set_mode", 2, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("fs/host.set_mode", 0, "fs/host.set_mode", "path", err)
-	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("fs/host.set_mode", 1, "fs/host.set_mode", "mode", err)
-	}
-	r0 := stdio.SetMode(fr, a0, a1)
-	v0, err := b.out498(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("fs/host.set_mode", err)
-	}
-	return v0, nil
-}
-
-// fn549Parts is fs/host.set_mode taken apart: the payload and true, or the record and false.
-func (b *bound) fn549Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 2 {
-		return nil, false, hostadapt.Arity("fs/host.set_mode", 2, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("fs/host.set_mode", 0, "fs/host.set_mode", "path", err)
-	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("fs/host.set_mode", 1, "fs/host.set_mode", "mode", err)
-	}
-	r0 := stdio.SetMode(fr, a0, a1)
-	if r0.Tag != rt.TagOk {
-		rec, err := b.out498(r0)
-		if err != nil {
-			return nil, false, hostadapt.Returned("fs/host.set_mode", err)
-		}
-		return rec, false, nil
-	}
-	v, err := b.out372(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("fs/host.set_mode", err)
-	}
-	return v, true, nil
-}
-
-// out552 builds a File from Go rt.File.
-func (b *bound) out552(v rt.File) (rt.Value, error) {
+// out647 builds a FileSystem from Go rt.FileSystem.
+func (b *bound) out647(v rt.FileSystem) (rt.Value, error) {
 	return v, nil
 }
 
-// out551 builds a Result<File, Error> from Go rt.Result[rt.File, rt.IOError].
-func (b *bound) out551(v rt.Result[rt.File, rt.IOError]) (rt.Value, error) {
-	switch v.Tag {
-	case rt.TagOk:
-		r := b.d33.NewVariant(0)
-		w553, err := b.out552(v.Ok)
-		if err != nil {
-			return nil, fmt.Errorf("Ok: %w", err)
-		}
-		r.R[0] = w553
-		return r, nil
-	case rt.TagErr:
-		r := b.d33.NewVariant(1)
-		w554, err := b.out474(v.Err)
-		if err != nil {
-			return nil, fmt.Errorf("Err: %w", err)
-		}
-		r.R[0] = w554
-		return r, nil
+// fn646Regs is fs/host.here over slots.
+func (b *bound) fn646Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	r0 := stdio.Here(fr)
+	w648, err := b.out647(r0)
+	if err != nil {
+		return false, hostadapt.Returned("fs/host.here", err)
 	}
-	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
+	s.R[0] = w648
+	return true, nil
 }
 
-// fn550 adapts fs/host.open_file: open_file(path: String, access: Int64) -> Result<File, Error>
-func (b *bound) fn550(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("fs/host.open_file", 2, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("fs/host.open_file", 0, "fs/host.open_file", "path", err)
-	}
-	a1, err := b.in41(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("fs/host.open_file", 1, "fs/host.open_file", "access", err)
-	}
-	r0 := stdio.OpenFile(fr, a0, a1)
-	v0, err := b.out551(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("fs/host.open_file", err)
-	}
-	return v0, nil
-}
-
-// fn550Parts is fs/host.open_file taken apart: the payload and true, or the record and false.
-func (b *bound) fn550Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 2 {
-		return nil, false, hostadapt.Arity("fs/host.open_file", 2, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("fs/host.open_file", 0, "fs/host.open_file", "path", err)
-	}
-	a1, err := b.in41(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("fs/host.open_file", 1, "fs/host.open_file", "access", err)
-	}
-	r0 := stdio.OpenFile(fr, a0, a1)
-	if r0.Tag != rt.TagOk {
-		rec, err := b.out551(r0)
-		if err != nil {
-			return nil, false, hostadapt.Returned("fs/host.open_file", err)
-		}
-		return rec, false, nil
-	}
-	v, err := b.out552(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("fs/host.open_file", err)
-	}
-	return v, true, nil
-}
-
-// out557 builds a FileSystem from Go rt.FileSystem.
-func (b *bound) out557(v rt.FileSystem) (rt.Value, error) {
-	return v, nil
-}
-
-// out556 builds a Result<FileSystem, Error> from Go rt.Result[rt.FileSystem, rt.IOError].
-func (b *bound) out556(v rt.Result[rt.FileSystem, rt.IOError]) (rt.Value, error) {
-	switch v.Tag {
-	case rt.TagOk:
-		r := b.d33.NewVariant(0)
-		w558, err := b.out557(v.Ok)
-		if err != nil {
-			return nil, fmt.Errorf("Ok: %w", err)
-		}
-		r.R[0] = w558
-		return r, nil
-	case rt.TagErr:
-		r := b.d33.NewVariant(1)
-		w559, err := b.out474(v.Err)
-		if err != nil {
-			return nil, fmt.Errorf("Err: %w", err)
-		}
-		r.R[0] = w559
-		return r, nil
-	}
-	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
-}
-
-// fn555 adapts fs/host.within: within(dir: String) -> Result<FileSystem, Error>
-func (b *bound) fn555(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("fs/host.within", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("fs/host.within", 0, "fs/host.within", "dir", err)
-	}
-	r0 := stdio.Within(fr, a0)
-	v0, err := b.out556(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("fs/host.within", err)
-	}
-	return v0, nil
-}
-
-// fn555Parts is fs/host.within taken apart: the payload and true, or the record and false.
-func (b *bound) fn555Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("fs/host.within", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("fs/host.within", 0, "fs/host.within", "dir", err)
-	}
-	r0 := stdio.Within(fr, a0)
-	if r0.Tag != rt.TagOk {
-		rec, err := b.out556(r0)
-		if err != nil {
-			return nil, false, hostadapt.Returned("fs/host.within", err)
-		}
-		return rec, false, nil
-	}
-	v, err := b.out557(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("fs/host.within", err)
-	}
-	return v, true, nil
-}
-
-// in561 reads a FileSystem as Go rt.FileSystem.
-func (b *bound) in561(fr *rt.Frame, v rt.Value) (out rt.FileSystem, err error) {
+// in650 reads a FileSystem as Go rt.FileSystem.
+func (b *bound) in650(fr *rt.Frame, v rt.Value) (out rt.FileSystem, err error) {
 	x, ok := v.(rt.FileSystem)
 	if !ok {
 		return out, hostadapt.Want("FileSystem", v)
@@ -13287,25 +9116,604 @@ func (b *bound) in561(fr *rt.Frame, v rt.Value) (out rt.FileSystem, err error) {
 	return x, nil
 }
 
-// fn560 adapts fs/host.release: release(files: FileSystem) -> Unit
-func (b *bound) fn560(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("fs/host.release", 1, len(args))
-	}
-	a0, err := b.in561(fr, args[0])
+// fn649Regs is fs/host.read over slots.
+func (b *bound) fn649Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in650(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("fs/host.release", 0, "fs/host.release", "files", err)
+		return false, hostadapt.Param("fs/host.read", 0, "fs/host.read", "files", err)
 	}
-	r0 := stdio.Release(a0)
-	v0, err := b.out372(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("fs/host.release", err)
+	a1 := string(s.S[1])
+	r0 := stdio.Read(fr, a0, a1)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out600(r0)
+		if err != nil {
+			return false, hostadapt.Returned("fs/host.read", err)
+		}
+		s.R[0] = rec
+		return false, nil
 	}
-	return v0, nil
+	s.S[0] = string(rt.Bytes(r0.Ok))
+	return true, nil
 }
 
-// in563 reads a File as Go rt.File.
-func (b *bound) in563(fr *rt.Frame, v rt.Value) (out rt.File, err error) {
+// fn651Regs is fs/host.read_text over slots.
+func (b *bound) fn651Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in650(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("fs/host.read_text", 0, "fs/host.read_text", "files", err)
+	}
+	a1 := string(s.S[1])
+	r0 := stdio.ReadText(fr, a0, a1)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out603(r0)
+		if err != nil {
+			return false, hostadapt.Returned("fs/host.read_text", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.S[0] = string(r0.Ok)
+	return true, nil
+}
+
+// fn652Regs is fs/host.write over slots.
+func (b *bound) fn652Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in650(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("fs/host.write", 0, "fs/host.write", "files", err)
+	}
+	a1 := string(s.S[1])
+	a2 := rt.Bytes(rt.Bytes(s.S[2]))
+	a3, err := hostadapt.SlotSigned[int64](s, 3, "int64")
+	if err != nil {
+		return false, hostadapt.Param("fs/host.write", 3, "fs/host.write", "mode", err)
+	}
+	r0 := stdio.Write(fr, a0, a1, a2, a3)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out610(r0)
+		if err != nil {
+			return false, hostadapt.Returned("fs/host.write", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	w653, err := b.out452(r0.Ok)
+	if err != nil {
+		return false, hostadapt.Returned("fs/host.write", err)
+	}
+	s.R[0] = w653
+	return true, nil
+}
+
+// out655 builds a Result<Reader, Error> from Go rt.Result[rt.Reader, rt.IOError].
+func (b *bound) out655(v rt.Result[rt.Reader, rt.IOError]) (rt.Value, error) {
+	switch v.Tag {
+	case rt.TagOk:
+		r := b.d31.NewVariant(0)
+		w656, err := b.out584(v.Ok)
+		if err != nil {
+			return nil, fmt.Errorf("Ok: %w", err)
+		}
+		r.R[0] = w656
+		return r, nil
+	case rt.TagErr:
+		r := b.d31.NewVariant(1)
+		w657, err := b.out580(v.Err)
+		if err != nil {
+			return nil, fmt.Errorf("Err: %w", err)
+		}
+		r.R[0] = w657
+		return r, nil
+	}
+	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
+}
+
+// fn654Regs is fs/host.open over slots.
+func (b *bound) fn654Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in650(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("fs/host.open", 0, "fs/host.open", "files", err)
+	}
+	a1 := string(s.S[1])
+	r0 := stdio.Open(a0, a1)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out655(r0)
+		if err != nil {
+			return false, hostadapt.Returned("fs/host.open", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	w658, err := b.out584(r0.Ok)
+	if err != nil {
+		return false, hostadapt.Returned("fs/host.open", err)
+	}
+	s.R[0] = w658
+	return true, nil
+}
+
+// out660 builds a Result<Writer, Error> from Go rt.Result[rt.Writer, rt.IOError].
+func (b *bound) out660(v rt.Result[rt.Writer, rt.IOError]) (rt.Value, error) {
+	switch v.Tag {
+	case rt.TagOk:
+		r := b.d31.NewVariant(0)
+		w661, err := b.out587(v.Ok)
+		if err != nil {
+			return nil, fmt.Errorf("Ok: %w", err)
+		}
+		r.R[0] = w661
+		return r, nil
+	case rt.TagErr:
+		r := b.d31.NewVariant(1)
+		w662, err := b.out580(v.Err)
+		if err != nil {
+			return nil, fmt.Errorf("Err: %w", err)
+		}
+		r.R[0] = w662
+		return r, nil
+	}
+	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
+}
+
+// fn659Regs is fs/host.create over slots.
+func (b *bound) fn659Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in650(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("fs/host.create", 0, "fs/host.create", "files", err)
+	}
+	a1 := string(s.S[1])
+	a2, err := hostadapt.SlotSigned[int64](s, 2, "int64")
+	if err != nil {
+		return false, hostadapt.Param("fs/host.create", 2, "fs/host.create", "mode", err)
+	}
+	r0 := stdio.Create(fr, a0, a1, a2)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out660(r0)
+		if err != nil {
+			return false, hostadapt.Returned("fs/host.create", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	w663, err := b.out587(r0.Ok)
+	if err != nil {
+		return false, hostadapt.Returned("fs/host.create", err)
+	}
+	s.R[0] = w663
+	return true, nil
+}
+
+// out665 builds a Result<List<String>, Error> from Go rt.Result[*rt.List[string], rt.IOError].
+func (b *bound) out665(v rt.Result[*rt.List[string], rt.IOError]) (rt.Value, error) {
+	switch v.Tag {
+	case rt.TagOk:
+		r := b.d31.NewVariant(0)
+		w666, err := b.out248(v.Ok)
+		if err != nil {
+			return nil, fmt.Errorf("Ok: %w", err)
+		}
+		r.R[0] = w666
+		return r, nil
+	case rt.TagErr:
+		r := b.d31.NewVariant(1)
+		w667, err := b.out580(v.Err)
+		if err != nil {
+			return nil, fmt.Errorf("Err: %w", err)
+		}
+		r.R[0] = w667
+		return r, nil
+	}
+	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
+}
+
+// fn664Regs is fs/host.list over slots.
+func (b *bound) fn664Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in650(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("fs/host.list", 0, "fs/host.list", "files", err)
+	}
+	a1 := string(s.S[1])
+	r0 := stdio.List(a0, a1)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out665(r0)
+		if err != nil {
+			return false, hostadapt.Returned("fs/host.list", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	w668, err := b.out248(r0.Ok)
+	if err != nil {
+		return false, hostadapt.Returned("fs/host.list", err)
+	}
+	s.R[0] = w668
+	return true, nil
+}
+
+// fn669Regs is fs/host.create_dir over slots.
+func (b *bound) fn669Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in650(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("fs/host.create_dir", 0, "fs/host.create_dir", "files", err)
+	}
+	a1 := string(s.S[1])
+	a2 := bool(rt.WordBool(s.W[2]))
+	r0 := stdio.CreateDir(a0, a1, a2)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out610(r0)
+		if err != nil {
+			return false, hostadapt.Returned("fs/host.create_dir", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	w670, err := b.out452(r0.Ok)
+	if err != nil {
+		return false, hostadapt.Returned("fs/host.create_dir", err)
+	}
+	s.R[0] = w670
+	return true, nil
+}
+
+// fn671Regs is fs/host.remove over slots.
+func (b *bound) fn671Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in650(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("fs/host.remove", 0, "fs/host.remove", "files", err)
+	}
+	a1 := string(s.S[1])
+	r0 := stdio.Remove(a0, a1)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out610(r0)
+		if err != nil {
+			return false, hostadapt.Returned("fs/host.remove", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	w672, err := b.out452(r0.Ok)
+	if err != nil {
+		return false, hostadapt.Returned("fs/host.remove", err)
+	}
+	s.R[0] = w672
+	return true, nil
+}
+
+// fn673Regs is fs/host.remove_all over slots.
+func (b *bound) fn673Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in650(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("fs/host.remove_all", 0, "fs/host.remove_all", "files", err)
+	}
+	a1 := string(s.S[1])
+	r0 := stdio.RemoveAll(a0, a1)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out610(r0)
+		if err != nil {
+			return false, hostadapt.Returned("fs/host.remove_all", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	w674, err := b.out452(r0.Ok)
+	if err != nil {
+		return false, hostadapt.Returned("fs/host.remove_all", err)
+	}
+	s.R[0] = w674
+	return true, nil
+}
+
+// fn675Regs is fs/host.rename over slots.
+func (b *bound) fn675Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in650(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("fs/host.rename", 0, "fs/host.rename", "files", err)
+	}
+	a1 := string(s.S[1])
+	a2 := string(s.S[2])
+	r0 := stdio.Rename(a0, a1, a2)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out610(r0)
+		if err != nil {
+			return false, hostadapt.Returned("fs/host.rename", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	w676, err := b.out452(r0.Ok)
+	if err != nil {
+		return false, hostadapt.Returned("fs/host.rename", err)
+	}
+	s.R[0] = w676
+	return true, nil
+}
+
+// fn677Regs is fs/host.copy over slots.
+func (b *bound) fn677Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in650(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("fs/host.copy", 0, "fs/host.copy", "files", err)
+	}
+	a1 := string(s.S[1])
+	a2 := string(s.S[2])
+	r0 := stdio.Copy(fr, a0, a1, a2)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out610(r0)
+		if err != nil {
+			return false, hostadapt.Returned("fs/host.copy", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	w678, err := b.out452(r0.Ok)
+	if err != nil {
+		return false, hostadapt.Returned("fs/host.copy", err)
+	}
+	s.R[0] = w678
+	return true, nil
+}
+
+// out680 builds a Result<List<Int>, Error> from Go rt.Result[*rt.List[rt.Int], rt.IOError].
+func (b *bound) out680(v rt.Result[*rt.List[rt.Int], rt.IOError]) (rt.Value, error) {
+	switch v.Tag {
+	case rt.TagOk:
+		r := b.d31.NewVariant(0)
+		w681, err := b.out368(v.Ok)
+		if err != nil {
+			return nil, fmt.Errorf("Ok: %w", err)
+		}
+		r.R[0] = w681
+		return r, nil
+	case rt.TagErr:
+		r := b.d31.NewVariant(1)
+		w682, err := b.out580(v.Err)
+		if err != nil {
+			return nil, fmt.Errorf("Err: %w", err)
+		}
+		r.R[0] = w682
+		return r, nil
+	}
+	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
+}
+
+// fn679Regs is fs/host.metadata over slots.
+func (b *bound) fn679Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in650(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("fs/host.metadata", 0, "fs/host.metadata", "files", err)
+	}
+	a1 := string(s.S[1])
+	r0 := stdio.Metadata(a0, a1)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out680(r0)
+		if err != nil {
+			return false, hostadapt.Returned("fs/host.metadata", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	w683, err := b.out368(r0.Ok)
+	if err != nil {
+		return false, hostadapt.Returned("fs/host.metadata", err)
+	}
+	s.R[0] = w683
+	return true, nil
+}
+
+// fn684Regs is fs/host.link_metadata over slots.
+func (b *bound) fn684Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in650(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("fs/host.link_metadata", 0, "fs/host.link_metadata", "files", err)
+	}
+	a1 := string(s.S[1])
+	r0 := stdio.LinkMetadata(a0, a1)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out680(r0)
+		if err != nil {
+			return false, hostadapt.Returned("fs/host.link_metadata", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	w685, err := b.out368(r0.Ok)
+	if err != nil {
+		return false, hostadapt.Returned("fs/host.link_metadata", err)
+	}
+	s.R[0] = w685
+	return true, nil
+}
+
+// fn686Regs is fs/host.create_symlink over slots.
+func (b *bound) fn686Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in650(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("fs/host.create_symlink", 0, "fs/host.create_symlink", "files", err)
+	}
+	a1 := string(s.S[1])
+	a2 := string(s.S[2])
+	r0 := stdio.CreateSymlink(a0, a1, a2)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out610(r0)
+		if err != nil {
+			return false, hostadapt.Returned("fs/host.create_symlink", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	w687, err := b.out452(r0.Ok)
+	if err != nil {
+		return false, hostadapt.Returned("fs/host.create_symlink", err)
+	}
+	s.R[0] = w687
+	return true, nil
+}
+
+// fn688Regs is fs/host.read_link over slots.
+func (b *bound) fn688Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in650(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("fs/host.read_link", 0, "fs/host.read_link", "files", err)
+	}
+	a1 := string(s.S[1])
+	r0 := stdio.ReadLink(a0, a1)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out603(r0)
+		if err != nil {
+			return false, hostadapt.Returned("fs/host.read_link", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.S[0] = string(r0.Ok)
+	return true, nil
+}
+
+// fn689Regs is fs/host.set_mode over slots.
+func (b *bound) fn689Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in650(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("fs/host.set_mode", 0, "fs/host.set_mode", "files", err)
+	}
+	a1 := string(s.S[1])
+	a2 := s.Int(2)
+	r0 := stdio.SetMode(a0, a1, a2)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out610(r0)
+		if err != nil {
+			return false, hostadapt.Returned("fs/host.set_mode", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	w690, err := b.out452(r0.Ok)
+	if err != nil {
+		return false, hostadapt.Returned("fs/host.set_mode", err)
+	}
+	s.R[0] = w690
+	return true, nil
+}
+
+// out693 builds a File from Go rt.File.
+func (b *bound) out693(v rt.File) (rt.Value, error) {
+	return v, nil
+}
+
+// out692 builds a Result<File, Error> from Go rt.Result[rt.File, rt.IOError].
+func (b *bound) out692(v rt.Result[rt.File, rt.IOError]) (rt.Value, error) {
+	switch v.Tag {
+	case rt.TagOk:
+		r := b.d31.NewVariant(0)
+		w694, err := b.out693(v.Ok)
+		if err != nil {
+			return nil, fmt.Errorf("Ok: %w", err)
+		}
+		r.R[0] = w694
+		return r, nil
+	case rt.TagErr:
+		r := b.d31.NewVariant(1)
+		w695, err := b.out580(v.Err)
+		if err != nil {
+			return nil, fmt.Errorf("Err: %w", err)
+		}
+		r.R[0] = w695
+		return r, nil
+	}
+	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
+}
+
+// fn691Regs is fs/host.open_file over slots.
+func (b *bound) fn691Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in650(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("fs/host.open_file", 0, "fs/host.open_file", "files", err)
+	}
+	a1 := string(s.S[1])
+	a2, err := hostadapt.SlotSigned[int64](s, 2, "int64")
+	if err != nil {
+		return false, hostadapt.Param("fs/host.open_file", 2, "fs/host.open_file", "access", err)
+	}
+	r0 := stdio.OpenFile(a0, a1, a2)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out692(r0)
+		if err != nil {
+			return false, hostadapt.Returned("fs/host.open_file", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	w696, err := b.out693(r0.Ok)
+	if err != nil {
+		return false, hostadapt.Returned("fs/host.open_file", err)
+	}
+	s.R[0] = w696
+	return true, nil
+}
+
+// out698 builds a Result<FileSystem, Error> from Go rt.Result[rt.FileSystem, rt.IOError].
+func (b *bound) out698(v rt.Result[rt.FileSystem, rt.IOError]) (rt.Value, error) {
+	switch v.Tag {
+	case rt.TagOk:
+		r := b.d31.NewVariant(0)
+		w699, err := b.out647(v.Ok)
+		if err != nil {
+			return nil, fmt.Errorf("Ok: %w", err)
+		}
+		r.R[0] = w699
+		return r, nil
+	case rt.TagErr:
+		r := b.d31.NewVariant(1)
+		w700, err := b.out580(v.Err)
+		if err != nil {
+			return nil, fmt.Errorf("Err: %w", err)
+		}
+		r.R[0] = w700
+		return r, nil
+	}
+	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
+}
+
+// fn697Regs is fs/host.within over slots.
+func (b *bound) fn697Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in650(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("fs/host.within", 0, "fs/host.within", "files", err)
+	}
+	a1 := string(s.S[1])
+	r0 := stdio.Within(a0, a1)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out698(r0)
+		if err != nil {
+			return false, hostadapt.Returned("fs/host.within", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	w701, err := b.out647(r0.Ok)
+	if err != nil {
+		return false, hostadapt.Returned("fs/host.within", err)
+	}
+	s.R[0] = w701
+	return true, nil
+}
+
+// fn702Regs is fs/host.release over slots.
+func (b *bound) fn702Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in650(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("fs/host.release", 0, "fs/host.release", "files", err)
+	}
+	r0 := stdio.Release(a0)
+	w703, err := b.out452(r0)
+	if err != nil {
+		return false, hostadapt.Returned("fs/host.release", err)
+	}
+	s.R[0] = w703
+	return true, nil
+}
+
+// in705 reads a File as Go rt.File.
+func (b *bound) in705(fr *rt.Frame, v rt.Value) (out rt.File, err error) {
 	x, ok := v.(rt.File)
 	if !ok {
 		return out, hostadapt.Want("File", v)
@@ -13313,520 +9721,402 @@ func (b *bound) in563(fr *rt.Frame, v rt.Value) (out rt.File, err error) {
 	return x, nil
 }
 
-// fn562 adapts io.file_read: file_read(f: File, max: PositiveInt) -> Result<Maybe<Bytes>, Error>
-func (b *bound) fn562(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("io.file_read", 2, len(args))
-	}
-	a0, err := b.in563(fr, args[0])
+// fn704Regs is io.file_read over slots.
+func (b *bound) fn704Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in705(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("io.file_read", 0, "io.file_read", "f", err)
+		return false, hostadapt.Param("io.file_read", 0, "io.file_read", "f", err)
 	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("io.file_read", 1, "io.file_read", "max", err)
-	}
-	r0 := rt.FileRead(a0, a1)
-	v0, err := b.out484(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("io.file_read", err)
-	}
-	return v0, nil
-}
-
-// fn562Parts is io.file_read taken apart: the payload and true, or the record and false.
-func (b *bound) fn562Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 2 {
-		return nil, false, hostadapt.Arity("io.file_read", 2, len(args))
-	}
-	a0, err := b.in563(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("io.file_read", 0, "io.file_read", "f", err)
-	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("io.file_read", 1, "io.file_read", "max", err)
-	}
+	a1 := s.Int(1)
 	r0 := rt.FileRead(a0, a1)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out484(r0)
+		rec, err := b.out595(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("io.file_read", err)
+			return false, hostadapt.Returned("io.file_read", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out247(r0.Ok)
+	w706, err := b.out302(r0.Ok)
 	if err != nil {
-		return nil, false, hostadapt.Returned("io.file_read", err)
+		return false, hostadapt.Returned("io.file_read", err)
 	}
-	return v, true, nil
+	s.R[0] = w706
+	return true, nil
 }
 
-// fn564 adapts io.File.read_at: read_at(f: File, position: NonNegativeInt, max: PositiveInt) -> Result<Maybe<Bytes>, Error>
-func (b *bound) fn564(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 3 {
-		return nil, hostadapt.Arity("io.File.read_at", 3, len(args))
-	}
-	a0, err := b.in563(fr, args[0])
+// fn707Regs is io.File.read_at over slots.
+func (b *bound) fn707Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in705(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("io.File.read_at", 0, "io.File.read_at", "f", err)
+		return false, hostadapt.Param("io.File.read_at", 0, "io.File.read_at", "f", err)
 	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("io.File.read_at", 1, "io.File.read_at", "position", err)
-	}
-	a2, err := b.in39(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("io.File.read_at", 2, "io.File.read_at", "max", err)
-	}
-	r0 := rt.FileReadAt(a0, a1, a2)
-	v0, err := b.out484(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("io.File.read_at", err)
-	}
-	return v0, nil
-}
-
-// fn564Parts is io.File.read_at taken apart: the payload and true, or the record and false.
-func (b *bound) fn564Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 3 {
-		return nil, false, hostadapt.Arity("io.File.read_at", 3, len(args))
-	}
-	a0, err := b.in563(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("io.File.read_at", 0, "io.File.read_at", "f", err)
-	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("io.File.read_at", 1, "io.File.read_at", "position", err)
-	}
-	a2, err := b.in39(fr, args[2])
-	if err != nil {
-		return nil, false, hostadapt.Param("io.File.read_at", 2, "io.File.read_at", "max", err)
-	}
+	a1 := s.Int(1)
+	a2 := s.Int(2)
 	r0 := rt.FileReadAt(a0, a1, a2)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out484(r0)
+		rec, err := b.out595(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("io.File.read_at", err)
+			return false, hostadapt.Returned("io.File.read_at", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out247(r0.Ok)
+	w708, err := b.out302(r0.Ok)
 	if err != nil {
-		return nil, false, hostadapt.Returned("io.File.read_at", err)
+		return false, hostadapt.Returned("io.File.read_at", err)
 	}
-	return v, true, nil
+	s.R[0] = w708
+	return true, nil
 }
 
-// fn565 adapts io.File.write: write(f: File, data: Bytes) -> Result<Unit, Error>
-func (b *bound) fn565(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("io.File.write", 2, len(args))
-	}
-	a0, err := b.in563(fr, args[0])
+// fn709Regs is io.File.write over slots.
+func (b *bound) fn709Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in705(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("io.File.write", 0, "io.File.write", "f", err)
+		return false, hostadapt.Param("io.File.write", 0, "io.File.write", "f", err)
 	}
-	a1, err := b.in217(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("io.File.write", 1, "io.File.write", "data", err)
-	}
-	r0 := rt.FileWrite(a0, a1)
-	v0, err := b.out498(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("io.File.write", err)
-	}
-	return v0, nil
-}
-
-// fn565Parts is io.File.write taken apart: the payload and true, or the record and false.
-func (b *bound) fn565Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 2 {
-		return nil, false, hostadapt.Arity("io.File.write", 2, len(args))
-	}
-	a0, err := b.in563(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("io.File.write", 0, "io.File.write", "f", err)
-	}
-	a1, err := b.in217(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("io.File.write", 1, "io.File.write", "data", err)
-	}
+	a1 := rt.Bytes(rt.Bytes(s.S[1]))
 	r0 := rt.FileWrite(a0, a1)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out498(r0)
+		rec, err := b.out610(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("io.File.write", err)
+			return false, hostadapt.Returned("io.File.write", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out372(r0.Ok)
+	w710, err := b.out452(r0.Ok)
 	if err != nil {
-		return nil, false, hostadapt.Returned("io.File.write", err)
+		return false, hostadapt.Returned("io.File.write", err)
 	}
-	return v, true, nil
+	s.R[0] = w710
+	return true, nil
 }
 
-// fn566 adapts io.File.write_at: write_at(f: File, position: NonNegativeInt, data: Bytes) -> Result<Unit, Error>
-func (b *bound) fn566(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 3 {
-		return nil, hostadapt.Arity("io.File.write_at", 3, len(args))
-	}
-	a0, err := b.in563(fr, args[0])
+// fn711Regs is io.File.write_at over slots.
+func (b *bound) fn711Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in705(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("io.File.write_at", 0, "io.File.write_at", "f", err)
+		return false, hostadapt.Param("io.File.write_at", 0, "io.File.write_at", "f", err)
 	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("io.File.write_at", 1, "io.File.write_at", "position", err)
-	}
-	a2, err := b.in217(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Param("io.File.write_at", 2, "io.File.write_at", "data", err)
-	}
-	r0 := rt.FileWriteAt(a0, a1, a2)
-	v0, err := b.out498(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("io.File.write_at", err)
-	}
-	return v0, nil
-}
-
-// fn566Parts is io.File.write_at taken apart: the payload and true, or the record and false.
-func (b *bound) fn566Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 3 {
-		return nil, false, hostadapt.Arity("io.File.write_at", 3, len(args))
-	}
-	a0, err := b.in563(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("io.File.write_at", 0, "io.File.write_at", "f", err)
-	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("io.File.write_at", 1, "io.File.write_at", "position", err)
-	}
-	a2, err := b.in217(fr, args[2])
-	if err != nil {
-		return nil, false, hostadapt.Param("io.File.write_at", 2, "io.File.write_at", "data", err)
-	}
+	a1 := s.Int(1)
+	a2 := rt.Bytes(rt.Bytes(s.S[2]))
 	r0 := rt.FileWriteAt(a0, a1, a2)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out498(r0)
+		rec, err := b.out610(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("io.File.write_at", err)
+			return false, hostadapt.Returned("io.File.write_at", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out372(r0.Ok)
+	w712, err := b.out452(r0.Ok)
 	if err != nil {
-		return nil, false, hostadapt.Returned("io.File.write_at", err)
+		return false, hostadapt.Returned("io.File.write_at", err)
 	}
-	return v, true, nil
+	s.R[0] = w712
+	return true, nil
 }
 
-// fn567 adapts io.File.seek: seek(f: File, position: NonNegativeInt) -> Result<Unit, Error>
-func (b *bound) fn567(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("io.File.seek", 2, len(args))
-	}
-	a0, err := b.in563(fr, args[0])
+// fn713Regs is io.File.seek over slots.
+func (b *bound) fn713Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in705(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("io.File.seek", 0, "io.File.seek", "f", err)
+		return false, hostadapt.Param("io.File.seek", 0, "io.File.seek", "f", err)
 	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("io.File.seek", 1, "io.File.seek", "position", err)
-	}
-	r0 := rt.FileSeek(a0, a1)
-	v0, err := b.out498(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("io.File.seek", err)
-	}
-	return v0, nil
-}
-
-// fn567Parts is io.File.seek taken apart: the payload and true, or the record and false.
-func (b *bound) fn567Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 2 {
-		return nil, false, hostadapt.Arity("io.File.seek", 2, len(args))
-	}
-	a0, err := b.in563(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("io.File.seek", 0, "io.File.seek", "f", err)
-	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("io.File.seek", 1, "io.File.seek", "position", err)
-	}
+	a1 := s.Int(1)
 	r0 := rt.FileSeek(a0, a1)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out498(r0)
+		rec, err := b.out610(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("io.File.seek", err)
+			return false, hostadapt.Returned("io.File.seek", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out372(r0.Ok)
+	w714, err := b.out452(r0.Ok)
 	if err != nil {
-		return nil, false, hostadapt.Returned("io.File.seek", err)
+		return false, hostadapt.Returned("io.File.seek", err)
 	}
-	return v, true, nil
+	s.R[0] = w714
+	return true, nil
 }
 
-// fn568 adapts io.File.position: position(f: File) -> Result<Int, Error>
-func (b *bound) fn568(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("io.File.position", 1, len(args))
-	}
-	a0, err := b.in563(fr, args[0])
+// fn715Regs is io.File.position over slots.
+func (b *bound) fn715Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in705(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("io.File.position", 0, "io.File.position", "f", err)
-	}
-	r0 := rt.FilePosition(a0)
-	v0, err := b.out495(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("io.File.position", err)
-	}
-	return v0, nil
-}
-
-// fn568Parts is io.File.position taken apart: the payload and true, or the record and false.
-func (b *bound) fn568Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("io.File.position", 1, len(args))
-	}
-	a0, err := b.in563(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("io.File.position", 0, "io.File.position", "f", err)
+		return false, hostadapt.Param("io.File.position", 0, "io.File.position", "f", err)
 	}
 	r0 := rt.FilePosition(a0)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out495(r0)
+		rec, err := b.out607(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("io.File.position", err)
+			return false, hostadapt.Returned("io.File.position", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out8(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("io.File.position", err)
-	}
-	return v, true, nil
+	s.SetInt64(0, int64(r0.Ok))
+	return true, nil
 }
 
-// fn569 adapts io.File.size: size(f: File) -> Result<Int, Error>
-func (b *bound) fn569(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("io.File.size", 1, len(args))
-	}
-	a0, err := b.in563(fr, args[0])
+// fn716Regs is io.File.size over slots.
+func (b *bound) fn716Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in705(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("io.File.size", 0, "io.File.size", "f", err)
-	}
-	r0 := rt.FileSize(a0)
-	v0, err := b.out495(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("io.File.size", err)
-	}
-	return v0, nil
-}
-
-// fn569Parts is io.File.size taken apart: the payload and true, or the record and false.
-func (b *bound) fn569Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("io.File.size", 1, len(args))
-	}
-	a0, err := b.in563(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("io.File.size", 0, "io.File.size", "f", err)
+		return false, hostadapt.Param("io.File.size", 0, "io.File.size", "f", err)
 	}
 	r0 := rt.FileSize(a0)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out495(r0)
+		rec, err := b.out607(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("io.File.size", err)
+			return false, hostadapt.Returned("io.File.size", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out8(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("io.File.size", err)
-	}
-	return v, true, nil
+	s.SetInt64(0, int64(r0.Ok))
+	return true, nil
 }
 
-// fn570 adapts io.File.truncate: truncate(f: File, size: NonNegativeInt) -> Result<Unit, Error>
-func (b *bound) fn570(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("io.File.truncate", 2, len(args))
-	}
-	a0, err := b.in563(fr, args[0])
+// fn717Regs is io.File.truncate over slots.
+func (b *bound) fn717Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in705(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("io.File.truncate", 0, "io.File.truncate", "f", err)
+		return false, hostadapt.Param("io.File.truncate", 0, "io.File.truncate", "f", err)
 	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("io.File.truncate", 1, "io.File.truncate", "size", err)
-	}
-	r0 := rt.FileTruncate(a0, a1)
-	v0, err := b.out498(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("io.File.truncate", err)
-	}
-	return v0, nil
-}
-
-// fn570Parts is io.File.truncate taken apart: the payload and true, or the record and false.
-func (b *bound) fn570Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 2 {
-		return nil, false, hostadapt.Arity("io.File.truncate", 2, len(args))
-	}
-	a0, err := b.in563(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("io.File.truncate", 0, "io.File.truncate", "f", err)
-	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("io.File.truncate", 1, "io.File.truncate", "size", err)
-	}
+	a1 := s.Int(1)
 	r0 := rt.FileTruncate(a0, a1)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out498(r0)
+		rec, err := b.out610(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("io.File.truncate", err)
+			return false, hostadapt.Returned("io.File.truncate", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out372(r0.Ok)
+	w718, err := b.out452(r0.Ok)
 	if err != nil {
-		return nil, false, hostadapt.Returned("io.File.truncate", err)
+		return false, hostadapt.Returned("io.File.truncate", err)
 	}
-	return v, true, nil
+	s.R[0] = w718
+	return true, nil
 }
 
-// fn571 adapts io.File.close: close(f: File) -> Result<Unit, Error>
-func (b *bound) fn571(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("io.File.close", 1, len(args))
-	}
-	a0, err := b.in563(fr, args[0])
+// fn719Regs is io.File.close over slots.
+func (b *bound) fn719Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in705(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("io.File.close", 0, "io.File.close", "f", err)
-	}
-	r0 := rt.FileClose(a0)
-	v0, err := b.out498(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("io.File.close", err)
-	}
-	return v0, nil
-}
-
-// fn571Parts is io.File.close taken apart: the payload and true, or the record and false.
-func (b *bound) fn571Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("io.File.close", 1, len(args))
-	}
-	a0, err := b.in563(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("io.File.close", 0, "io.File.close", "f", err)
+		return false, hostadapt.Param("io.File.close", 0, "io.File.close", "f", err)
 	}
 	r0 := rt.FileClose(a0)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out498(r0)
+		rec, err := b.out610(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("io.File.close", err)
+			return false, hostadapt.Returned("io.File.close", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out372(r0.Ok)
+	w720, err := b.out452(r0.Ok)
 	if err != nil {
-		return nil, false, hostadapt.Returned("io.File.close", err)
+		return false, hostadapt.Returned("io.File.close", err)
 	}
-	return v, true, nil
+	s.R[0] = w720
+	return true, nil
 }
 
-// fn572 adapts fs/host.temp_dir: temp_dir() -> String
-func (b *bound) fn572(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 0 {
-		return nil, hostadapt.Arity("fs/host.temp_dir", 0, len(args))
-	}
-	r0 := stdio.TempDir(fr)
-	v0, err := b.out5(r0)
+// fn721Regs is io.File.sync over slots.
+func (b *bound) fn721Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in705(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Returned("fs/host.temp_dir", err)
+		return false, hostadapt.Param("io.File.sync", 0, "io.File.sync", "f", err)
 	}
-	return v0, nil
-}
-
-// fn573 adapts fs/host.make_temp_dir: make_temp_dir() -> Result<String, Error>
-func (b *bound) fn573(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 0 {
-		return nil, hostadapt.Arity("fs/host.make_temp_dir", 0, len(args))
-	}
-	r0 := stdio.MakeTempDir(fr)
-	v0, err := b.out491(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("fs/host.make_temp_dir", err)
-	}
-	return v0, nil
-}
-
-// fn573Parts is fs/host.make_temp_dir taken apart: the payload and true, or the record and false.
-func (b *bound) fn573Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 0 {
-		return nil, false, hostadapt.Arity("fs/host.make_temp_dir", 0, len(args))
-	}
-	r0 := stdio.MakeTempDir(fr)
+	r0 := rt.FileSync(a0)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out491(r0)
+		rec, err := b.out610(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("fs/host.make_temp_dir", err)
+			return false, hostadapt.Returned("io.File.sync", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out5(r0.Ok)
+	w722, err := b.out452(r0.Ok)
 	if err != nil {
-		return nil, false, hostadapt.Returned("fs/host.make_temp_dir", err)
+		return false, hostadapt.Returned("io.File.sync", err)
 	}
-	return v, true, nil
+	s.R[0] = w722
+	return true, nil
 }
 
-// fn574 adapts fs/host.current_dir: current_dir() -> Result<String, Error>
-func (b *bound) fn574(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 0 {
-		return nil, hostadapt.Arity("fs/host.current_dir", 0, len(args))
-	}
-	r0 := stdio.CurrentDir(fr)
-	v0, err := b.out491(r0)
+// fn723Regs is io.File.sync_data over slots.
+func (b *bound) fn723Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in705(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Returned("fs/host.current_dir", err)
+		return false, hostadapt.Param("io.File.sync_data", 0, "io.File.sync_data", "f", err)
 	}
-	return v0, nil
-}
-
-// fn574Parts is fs/host.current_dir taken apart: the payload and true, or the record and false.
-func (b *bound) fn574Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 0 {
-		return nil, false, hostadapt.Arity("fs/host.current_dir", 0, len(args))
-	}
-	r0 := stdio.CurrentDir(fr)
+	r0 := rt.FileSyncData(a0)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out491(r0)
+		rec, err := b.out610(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("fs/host.current_dir", err)
+			return false, hostadapt.Returned("io.File.sync_data", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out5(r0.Ok)
+	w724, err := b.out452(r0.Ok)
 	if err != nil {
-		return nil, false, hostadapt.Returned("fs/host.current_dir", err)
+		return false, hostadapt.Returned("io.File.sync_data", err)
 	}
-	return v, true, nil
+	s.R[0] = w724
+	return true, nil
 }
 
-// in576 reads a Map<String, Bytes> as Go rt.Map[string, rt.Bytes].
-func (b *bound) in576(fr *rt.Frame, v rt.Value) (out rt.Map[string, rt.Bytes], err error) {
+// out726 builds a Result<Bool, Error> from Go rt.Result[bool, rt.IOError].
+func (b *bound) out726(v rt.Result[bool, rt.IOError]) (rt.Value, error) {
+	switch v.Tag {
+	case rt.TagOk:
+		r := b.d44.NewVariant(0)
+		r.W[0] = rt.BoolWord(bool(v.Ok))
+		return r, nil
+	case rt.TagErr:
+		r := b.d44.NewVariant(1)
+		w727, err := b.out580(v.Err)
+		if err != nil {
+			return nil, fmt.Errorf("Err: %w", err)
+		}
+		r.R[0] = w727
+		return r, nil
+	}
+	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
+}
+
+// fn725Regs is fs/host.lock over slots.
+func (b *bound) fn725Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in705(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("fs/host.lock", 0, "fs/host.lock", "f", err)
+	}
+	a1, err := hostadapt.SlotSigned[int64](s, 1, "int64")
+	if err != nil {
+		return false, hostadapt.Param("fs/host.lock", 1, "fs/host.lock", "mode", err)
+	}
+	a2 := s.Int(2)
+	a3 := s.Int(3)
+	a4, err := b.in429(fr, s.R[4])
+	if err != nil {
+		return false, hostadapt.Param("fs/host.lock", 4, "fs/host.lock", "wait", err)
+	}
+	r0 := rt.FileLock(fr, a0, a1, a2, a3, a4)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out726(r0)
+		if err != nil {
+			return false, hostadapt.Returned("fs/host.lock", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.W[0] = rt.BoolWord(bool(r0.Ok))
+	return true, nil
+}
+
+// fn728Regs is fs/host.sync_dir over slots.
+func (b *bound) fn728Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in650(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("fs/host.sync_dir", 0, "fs/host.sync_dir", "files", err)
+	}
+	a1 := string(s.S[1])
+	r0 := stdio.SyncDir(a0, a1)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out610(r0)
+		if err != nil {
+			return false, hostadapt.Returned("fs/host.sync_dir", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	w729, err := b.out452(r0.Ok)
+	if err != nil {
+		return false, hostadapt.Returned("fs/host.sync_dir", err)
+	}
+	s.R[0] = w729
+	return true, nil
+}
+
+// fn730Regs is fs/host.temp_dir over slots.
+func (b *bound) fn730Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in650(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("fs/host.temp_dir", 0, "fs/host.temp_dir", "files", err)
+	}
+	r0 := stdio.TempDir(a0)
+	s.S[0] = string(r0)
+	return true, nil
+}
+
+// fn731Regs is fs/host.make_temp_dir over slots.
+func (b *bound) fn731Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in650(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("fs/host.make_temp_dir", 0, "fs/host.make_temp_dir", "files", err)
+	}
+	r0 := stdio.MakeTempDir(a0)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out603(r0)
+		if err != nil {
+			return false, hostadapt.Returned("fs/host.make_temp_dir", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.S[0] = string(r0.Ok)
+	return true, nil
+}
+
+// fn732Regs is fs/host.make_temp over slots.
+func (b *bound) fn732Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in650(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("fs/host.make_temp", 0, "fs/host.make_temp", "files", err)
+	}
+	a1 := bool(rt.WordBool(s.W[1]))
+	r0 := stdio.MakeTemp(fr, a0, a1)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out603(r0)
+		if err != nil {
+			return false, hostadapt.Returned("fs/host.make_temp", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.S[0] = string(r0.Ok)
+	return true, nil
+}
+
+// fn733Regs is fs/host.current_dir over slots.
+func (b *bound) fn733Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in650(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("fs/host.current_dir", 0, "fs/host.current_dir", "files", err)
+	}
+	r0 := stdio.CurrentDir(a0)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out603(r0)
+		if err != nil {
+			return false, hostadapt.Returned("fs/host.current_dir", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.S[0] = string(r0.Ok)
+	return true, nil
+}
+
+// in735 reads a Map<String, Bytes> as Go rt.Map[string, rt.Bytes].
+func (b *bound) in735(fr *rt.Frame, v rt.Value) (out rt.Map[string, rt.Bytes], err error) {
 	m, ok := v.(rt.Map[any, any])
 	if !ok {
 		return out, hostadapt.Want("Map<String, Bytes>", v)
@@ -13834,11 +10124,11 @@ func (b *bound) in576(fr *rt.Frame, v rt.Value) (out rt.Map[string, rt.Bytes], e
 	ents := rt.MapEntries(m)
 	conv := make([]rt.MapEntry[string, rt.Bytes], len(ents))
 	for i, e := range ents {
-		k, err := b.in42(fr, e.Key)
+		k, err := b.in173(fr, e.Key)
 		if err != nil {
 			return out, fmt.Errorf("key %d: %w", i, err)
 		}
-		x, err := b.in217(fr, e.Val)
+		x, err := b.in622(fr, e.Val)
 		if err != nil {
 			return out, fmt.Errorf("value %d: %w", i, err)
 		}
@@ -13847,8 +10137,8 @@ func (b *bound) in576(fr *rt.Frame, v rt.Value) (out rt.Map[string, rt.Bytes], e
 	return rt.MapOf(rt.HashString, rt.Eq[string], conv), nil
 }
 
-// in577 reads a Map<String, String> as Go rt.Map[string, string].
-func (b *bound) in577(fr *rt.Frame, v rt.Value) (out rt.Map[string, string], err error) {
+// in736 reads a Map<String, String> as Go rt.Map[string, string].
+func (b *bound) in736(fr *rt.Frame, v rt.Value) (out rt.Map[string, string], err error) {
 	m, ok := v.(rt.Map[any, any])
 	if !ok {
 		return out, hostadapt.Want("Map<String, String>", v)
@@ -13856,11 +10146,11 @@ func (b *bound) in577(fr *rt.Frame, v rt.Value) (out rt.Map[string, string], err
 	ents := rt.MapEntries(m)
 	conv := make([]rt.MapEntry[string, string], len(ents))
 	for i, e := range ents {
-		k, err := b.in42(fr, e.Key)
+		k, err := b.in173(fr, e.Key)
 		if err != nil {
 			return out, fmt.Errorf("key %d: %w", i, err)
 		}
-		x, err := b.in42(fr, e.Val)
+		x, err := b.in173(fr, e.Val)
 		if err != nil {
 			return out, fmt.Errorf("value %d: %w", i, err)
 		}
@@ -13869,78 +10159,70 @@ func (b *bound) in577(fr *rt.Frame, v rt.Value) (out rt.Map[string, string], err
 	return rt.MapOf(rt.HashString, rt.Eq[string], conv), nil
 }
 
-// fn575 adapts fs/host.new_sandbox: new_sandbox(cwd: String, files: Map<String, Bytes>, dirs: List<String>, links: Map<String, String>) -> FileSystem
-func (b *bound) fn575(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 4 {
-		return nil, hostadapt.Arity("fs/host.new_sandbox", 4, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
+// fn734Regs is fs/host.new_sandbox over slots.
+func (b *bound) fn734Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
+	a1, err := b.in735(fr, s.R[1])
 	if err != nil {
-		return nil, hostadapt.Param("fs/host.new_sandbox", 0, "fs/host.new_sandbox", "cwd", err)
+		return false, hostadapt.Param("fs/host.new_sandbox", 1, "fs/host.new_sandbox", "files", err)
 	}
-	a1, err := b.in576(fr, args[1])
+	a2, err := b.in325(fr, s.R[2])
 	if err != nil {
-		return nil, hostadapt.Param("fs/host.new_sandbox", 1, "fs/host.new_sandbox", "files", err)
+		return false, hostadapt.Param("fs/host.new_sandbox", 2, "fs/host.new_sandbox", "dirs", err)
 	}
-	a2, err := b.in266(fr, args[2])
+	a3, err := b.in736(fr, s.R[3])
 	if err != nil {
-		return nil, hostadapt.Param("fs/host.new_sandbox", 2, "fs/host.new_sandbox", "dirs", err)
-	}
-	a3, err := b.in577(fr, args[3])
-	if err != nil {
-		return nil, hostadapt.Param("fs/host.new_sandbox", 3, "fs/host.new_sandbox", "links", err)
+		return false, hostadapt.Param("fs/host.new_sandbox", 3, "fs/host.new_sandbox", "links", err)
 	}
 	r0 := stdio.NewSandbox(a0, a1, a2, a3)
-	v0, err := b.out557(r0)
+	w737, err := b.out647(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("fs/host.new_sandbox", err)
+		return false, hostadapt.Returned("fs/host.new_sandbox", err)
 	}
-	return v0, nil
+	s.R[0] = w737
+	return true, nil
 }
 
-// fn578 adapts fs/host.sandbox_fail: sandbox_fail(sandbox: FileSystem, path: String, operation: Int64, error: Error, nth: Int) -> Unit
-func (b *bound) fn578(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 5 {
-		return nil, hostadapt.Arity("fs/host.sandbox_fail", 5, len(args))
-	}
-	a0, err := b.in561(fr, args[0])
+// fn738Regs is fs/host.sandbox_fail over slots.
+func (b *bound) fn738Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in650(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("fs/host.sandbox_fail", 0, "fs/host.sandbox_fail", "sandbox", err)
+		return false, hostadapt.Param("fs/host.sandbox_fail", 0, "fs/host.sandbox_fail", "sandbox", err)
 	}
-	a1, err := b.in42(fr, args[1])
+	a1 := string(s.S[1])
+	a2, err := hostadapt.SlotSigned[int64](s, 2, "int64")
 	if err != nil {
-		return nil, hostadapt.Param("fs/host.sandbox_fail", 1, "fs/host.sandbox_fail", "path", err)
+		return false, hostadapt.Param("fs/host.sandbox_fail", 2, "fs/host.sandbox_fail", "operation", err)
 	}
-	a2, err := b.in41(fr, args[2])
+	a3, err := b.in623(fr, s.R[3])
 	if err != nil {
-		return nil, hostadapt.Param("fs/host.sandbox_fail", 2, "fs/host.sandbox_fail", "operation", err)
+		return false, hostadapt.Param("fs/host.sandbox_fail", 3, "fs/host.sandbox_fail", "error", err)
 	}
-	a3, err := b.in507(fr, args[3])
-	if err != nil {
-		return nil, hostadapt.Param("fs/host.sandbox_fail", 3, "fs/host.sandbox_fail", "error", err)
-	}
-	a4, err := b.in39(fr, args[4])
-	if err != nil {
-		return nil, hostadapt.Param("fs/host.sandbox_fail", 4, "fs/host.sandbox_fail", "nth", err)
-	}
+	a4 := s.Int(4)
 	r0 := stdio.SandboxFail(a0, a1, a2, a3, a4)
-	v0, err := b.out372(r0)
+	w739, err := b.out452(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("fs/host.sandbox_fail", err)
+		return false, hostadapt.Returned("fs/host.sandbox_fail", err)
 	}
-	return v0, nil
+	s.R[0] = w739
+	return true, nil
 }
 
-// out580 builds a Map<String, Bytes> from Go rt.Map[string, rt.Bytes].
-func (b *bound) out580(v rt.Map[string, rt.Bytes]) (rt.Value, error) {
+// out742 builds a Bytes from Go rt.Bytes.
+func (b *bound) out742(v rt.Bytes) (rt.Value, error) {
+	return rt.Bytes(v), nil
+}
+
+// out741 builds a Map<String, Bytes> from Go rt.Map[string, rt.Bytes].
+func (b *bound) out741(v rt.Map[string, rt.Bytes]) (rt.Value, error) {
 	ents := rt.MapEntries(v)
 	conv := make([]rt.MapEntry[any, any], len(ents))
 	for i, e := range ents {
-		k, err := b.out5(e.Key)
+		k, err := b.out166(e.Key)
 		if err != nil {
 			return nil, fmt.Errorf("key %d: %w", i, err)
 		}
-		x, err := b.out104(e.Val)
+		x, err := b.out742(e.Val)
 		if err != nil {
 			return nil, fmt.Errorf("value %d: %w", i, err)
 		}
@@ -13949,59 +10231,53 @@ func (b *bound) out580(v rt.Map[string, rt.Bytes]) (rt.Value, error) {
 	return rt.MapOf(rt.Hash, rt.Equal, conv), nil
 }
 
-// fn579 adapts fs/host.sandbox_files: sandbox_files(sandbox: FileSystem) -> Map<String, Bytes>
-func (b *bound) fn579(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("fs/host.sandbox_files", 1, len(args))
-	}
-	a0, err := b.in561(fr, args[0])
+// fn740Regs is fs/host.sandbox_files over slots.
+func (b *bound) fn740Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in650(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("fs/host.sandbox_files", 0, "fs/host.sandbox_files", "sandbox", err)
+		return false, hostadapt.Param("fs/host.sandbox_files", 0, "fs/host.sandbox_files", "sandbox", err)
 	}
 	r0 := stdio.SandboxFiles(a0)
-	v0, err := b.out580(r0)
+	w743, err := b.out741(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("fs/host.sandbox_files", err)
+		return false, hostadapt.Returned("fs/host.sandbox_files", err)
 	}
-	return v0, nil
+	s.R[0] = w743
+	return true, nil
 }
 
-// fn581 adapts fs/host.sandbox_log: sandbox_log(sandbox: FileSystem) -> List<String>
-func (b *bound) fn581(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("fs/host.sandbox_log", 1, len(args))
-	}
-	a0, err := b.in561(fr, args[0])
+// fn744Regs is fs/host.sandbox_log over slots.
+func (b *bound) fn744Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in650(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("fs/host.sandbox_log", 0, "fs/host.sandbox_log", "sandbox", err)
+		return false, hostadapt.Param("fs/host.sandbox_log", 0, "fs/host.sandbox_log", "sandbox", err)
 	}
 	r0 := stdio.SandboxLog(a0)
-	v0, err := b.out194(r0)
+	w745, err := b.out248(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("fs/host.sandbox_log", err)
+		return false, hostadapt.Returned("fs/host.sandbox_log", err)
 	}
-	return v0, nil
+	s.R[0] = w745
+	return true, nil
 }
 
-// fn582 adapts fs/host.sandbox_open: sandbox_open(sandbox: FileSystem) -> List<String>
-func (b *bound) fn582(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("fs/host.sandbox_open", 1, len(args))
-	}
-	a0, err := b.in561(fr, args[0])
+// fn746Regs is fs/host.sandbox_open over slots.
+func (b *bound) fn746Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in650(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("fs/host.sandbox_open", 0, "fs/host.sandbox_open", "sandbox", err)
+		return false, hostadapt.Param("fs/host.sandbox_open", 0, "fs/host.sandbox_open", "sandbox", err)
 	}
 	r0 := stdio.SandboxOpen(a0)
-	v0, err := b.out194(r0)
+	w747, err := b.out248(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("fs/host.sandbox_open", err)
+		return false, hostadapt.Returned("fs/host.sandbox_open", err)
 	}
-	return v0, nil
+	s.R[0] = w747
+	return true, nil
 }
 
-// in584 reads a List<Bool> as Go *rt.List[bool].
-func (b *bound) in584(fr *rt.Frame, v rt.Value) (out *rt.List[bool], err error) {
+// in749 reads a List<Bool> as Go *rt.List[bool].
+func (b *bound) in749(fr *rt.Frame, v rt.Value) (out *rt.List[bool], err error) {
 	xs, err := hostadapt.List(v)
 	if err != nil {
 		return out, err
@@ -14009,7 +10285,7 @@ func (b *bound) in584(fr *rt.Frame, v rt.Value) (out *rt.List[bool], err error) 
 	items := make([]bool, 0, hostadapt.Len(xs))
 	i := 0
 	for c := xs; c != nil; c = c.Tail {
-		e, err := b.in54(fr, c.Head)
+		e, err := b.in448(fr, c.Head)
 		if err != nil {
 			return out, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -14022,13 +10298,13 @@ func (b *bound) in584(fr *rt.Frame, v rt.Value) (out *rt.List[bool], err error) 
 	return out, nil
 }
 
-// in585 reads a (String, Int, List<String>) -> String as Go func(*rt.Frame, string, int64, *rt.List[string]) string.
-func (b *bound) in585(fr *rt.Frame, v rt.Value) (out func(*rt.Frame, string, int64, *rt.List[string]) string, err error) {
+// in750 reads a (String, Int, List<String>) -> String as Go func(*rt.Frame, string, int64, *rt.List[string]) string.
+func (b *bound) in750(fr *rt.Frame, v rt.Value) (out func(*rt.Frame, string, int64, *rt.List[string]) string, err error) {
 	if v == nil {
 		return out, fmt.Errorf("expected a function, got nil")
 	}
 	return func(fr *rt.Frame, p0 string, p1 int64, p2 *rt.List[string]) string {
-		x2, err := b.out194(p2)
+		x2, err := b.out248(p2)
 		if err != nil {
 			panic(fmt.Sprintf("Nomi callback arg 2: %v", err))
 		}
@@ -14036,7 +10312,7 @@ func (b *bound) in585(fr *rt.Frame, v rt.Value) (out func(*rt.Frame, string, int
 		if err != nil {
 			panic(hostadapt.Unwind{Err: err})
 		}
-		y, err := b.in42(fr, res)
+		y, err := b.in173(fr, res)
 		if err != nil {
 			panic(hostadapt.Unwind{Err: err})
 		}
@@ -14044,8 +10320,8 @@ func (b *bound) in585(fr *rt.Frame, v rt.Value) (out func(*rt.Frame, string, int
 	}, nil
 }
 
-// in586 reads a (String) -> Unit as Go func(*rt.Frame, string) rt.Unit.
-func (b *bound) in586(fr *rt.Frame, v rt.Value) (out func(*rt.Frame, string) rt.Unit, err error) {
+// in751 reads a (String) -> Unit as Go func(*rt.Frame, string) rt.Unit.
+func (b *bound) in751(fr *rt.Frame, v rt.Value) (out func(*rt.Frame, string) rt.Unit, err error) {
 	if v == nil {
 		return out, fmt.Errorf("expected a function, got nil")
 	}
@@ -14054,7 +10330,7 @@ func (b *bound) in586(fr *rt.Frame, v rt.Value) (out func(*rt.Frame, string) rt.
 		if err != nil {
 			panic(hostadapt.Unwind{Err: err})
 		}
-		y, err := b.in516(fr, res)
+		y, err := b.in638(fr, res)
 		if err != nil {
 			panic(hostadapt.Unwind{Err: err})
 		}
@@ -14062,13 +10338,13 @@ func (b *bound) in586(fr *rt.Frame, v rt.Value) (out func(*rt.Frame, string) rt.
 	}, nil
 }
 
-// out587 builds a Client from Go rt.HTTPClient.
-func (b *bound) out587(v rt.HTTPClient) (rt.Value, error) {
+// out752 builds a Client from Go rt.HTTPClient.
+func (b *bound) out752(v rt.HTTPClient) (rt.Value, error) {
 	return v, nil
 }
 
-// in590 reads a Client as Go rt.HTTPClient.
-func (b *bound) in590(fr *rt.Frame, v rt.Value) (out rt.HTTPClient, err error) {
+// in756 reads a Client as Go rt.HTTPClient.
+func (b *bound) in756(fr *rt.Frame, v rt.Value) (out rt.HTTPClient, err error) {
 	x, ok := v.(rt.HTTPClient)
 	if !ok {
 		return out, hostadapt.Want("Client", v)
@@ -14076,8 +10352,27 @@ func (b *bound) in590(fr *rt.Frame, v rt.Value) (out rt.HTTPClient, err error) {
 	return x, nil
 }
 
-// in592 reads a Handle as Go rt.HTTPHandle.
-func (b *bound) in592(fr *rt.Frame, v rt.Value) (out rt.HTTPHandle, err error) {
+// in759 reads a Maybe<Reader> as Go rt.Maybe[rt.Reader].
+func (b *bound) in759(fr *rt.Frame, v rt.Value) (out rt.Maybe[rt.Reader], err error) {
+	r, tag, err := hostadapt.Variant(v, "maybe.Maybe")
+	if err != nil {
+		return out, err
+	}
+	switch tag {
+	case "Some":
+		x, err := b.in592(fr, hostadapt.Payload(r))
+		if err != nil {
+			return out, fmt.Errorf("Some: %w", err)
+		}
+		return rt.Maybe[rt.Reader]{Tag: rt.TagSome, Some: x}, nil
+	case "None":
+		return rt.Maybe[rt.Reader]{Tag: rt.TagNone}, nil
+	}
+	return out, fmt.Errorf("unmarshal Maybe: unknown variant %q", tag)
+}
+
+// in761 reads a Handle as Go rt.HTTPHandle.
+func (b *bound) in761(fr *rt.Frame, v rt.Value) (out rt.HTTPHandle, err error) {
 	x, ok := v.(rt.HTTPHandle)
 	if !ok {
 		return out, hostadapt.Want("Handle", v)
@@ -14085,36 +10380,55 @@ func (b *bound) in592(fr *rt.Frame, v rt.Value) (out rt.HTTPHandle, err error) {
 	return x, nil
 }
 
-// out594 builds a Exchange from Go rt.HTTPExchange.
-func (b *bound) out594(v rt.HTTPExchange) (rt.Value, error) {
+// in760 reads a Maybe<Handle> as Go rt.Maybe[rt.HTTPHandle].
+func (b *bound) in760(fr *rt.Frame, v rt.Value) (out rt.Maybe[rt.HTTPHandle], err error) {
+	r, tag, err := hostadapt.Variant(v, "maybe.Maybe")
+	if err != nil {
+		return out, err
+	}
+	switch tag {
+	case "Some":
+		x, err := b.in761(fr, hostadapt.Payload(r))
+		if err != nil {
+			return out, fmt.Errorf("Some: %w", err)
+		}
+		return rt.Maybe[rt.HTTPHandle]{Tag: rt.TagSome, Some: x}, nil
+	case "None":
+		return rt.Maybe[rt.HTTPHandle]{Tag: rt.TagNone}, nil
+	}
+	return out, fmt.Errorf("unmarshal Maybe: unknown variant %q", tag)
+}
+
+// out763 builds a Exchange from Go rt.HTTPExchange.
+func (b *bound) out763(v rt.HTTPExchange) (rt.Value, error) {
 	return v, nil
 }
 
-// out593 builds a Result<Exchange, List<String>> from Go rt.Result[rt.HTTPExchange, *rt.List[string]].
-func (b *bound) out593(v rt.Result[rt.HTTPExchange, *rt.List[string]]) (rt.Value, error) {
+// out762 builds a Result<Exchange, List<String>> from Go rt.Result[rt.HTTPExchange, *rt.List[string]].
+func (b *bound) out762(v rt.Result[rt.HTTPExchange, *rt.List[string]]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
-		r := b.d33.NewVariant(0)
-		w595, err := b.out594(v.Ok)
+		r := b.d31.NewVariant(0)
+		w764, err := b.out763(v.Ok)
 		if err != nil {
 			return nil, fmt.Errorf("Ok: %w", err)
 		}
-		r.R[0] = w595
+		r.R[0] = w764
 		return r, nil
 	case rt.TagErr:
-		r := b.d33.NewVariant(1)
-		w596, err := b.out194(v.Err)
+		r := b.d31.NewVariant(1)
+		w765, err := b.out248(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w596
+		r.R[0] = w765
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// in598 reads a Exchange as Go rt.HTTPExchange.
-func (b *bound) in598(fr *rt.Frame, v rt.Value) (out rt.HTTPExchange, err error) {
+// in767 reads a Exchange as Go rt.HTTPExchange.
+func (b *bound) in767(fr *rt.Frame, v rt.Value) (out rt.HTTPExchange, err error) {
 	x, ok := v.(rt.HTTPExchange)
 	if !ok {
 		return out, hostadapt.Want("Exchange", v)
@@ -14122,8 +10436,8 @@ func (b *bound) in598(fr *rt.Frame, v rt.Value) (out rt.HTTPExchange, err error)
 	return x, nil
 }
 
-// out600 builds a List<Int> from Go *rt.List[int64].
-func (b *bound) out600(v *rt.List[int64]) (rt.Value, error) {
+// out769 builds a List<Int> from Go *rt.List[int64].
+func (b *bound) out769(v *rt.List[int64]) (rt.Value, error) {
 	n := 0
 	if v != nil {
 		n = v.Len
@@ -14131,7 +10445,7 @@ func (b *bound) out600(v *rt.List[int64]) (rt.Value, error) {
 	items := make([]rt.Value, 0, n)
 	i := 0
 	for c := v; c != nil; c = c.Tail {
-		x, err := b.out8(c.Head)
+		x, err := b.out193(c.Head)
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -14145,8 +10459,8 @@ func (b *bound) out600(v *rt.List[int64]) (rt.Value, error) {
 	return xs, nil
 }
 
-// in619 reads a (String, Int) -> Unit as Go func(*rt.Frame, string, int64) rt.Unit.
-func (b *bound) in619(fr *rt.Frame, v rt.Value) (out func(*rt.Frame, string, int64) rt.Unit, err error) {
+// in796 reads a (String, Int) -> Unit as Go func(*rt.Frame, string, int64) rt.Unit.
+func (b *bound) in796(fr *rt.Frame, v rt.Value) (out func(*rt.Frame, string, int64) rt.Unit, err error) {
 	if v == nil {
 		return out, fmt.Errorf("expected a function, got nil")
 	}
@@ -14155,7 +10469,7 @@ func (b *bound) in619(fr *rt.Frame, v rt.Value) (out func(*rt.Frame, string, int
 		if err != nil {
 			panic(hostadapt.Unwind{Err: err})
 		}
-		y, err := b.in516(fr, res)
+		y, err := b.in638(fr, res)
 		if err != nil {
 			panic(hostadapt.Unwind{Err: err})
 		}
@@ -14163,8 +10477,8 @@ func (b *bound) in619(fr *rt.Frame, v rt.Value) (out func(*rt.Frame, string, int
 	}, nil
 }
 
-// in620 reads a () -> Unit as Go func(*rt.Frame) rt.Unit.
-func (b *bound) in620(fr *rt.Frame, v rt.Value) (out func(*rt.Frame) rt.Unit, err error) {
+// in797 reads a () -> Unit as Go func(*rt.Frame) rt.Unit.
+func (b *bound) in797(fr *rt.Frame, v rt.Value) (out func(*rt.Frame) rt.Unit, err error) {
 	if v == nil {
 		return out, fmt.Errorf("expected a function, got nil")
 	}
@@ -14173,7 +10487,7 @@ func (b *bound) in620(fr *rt.Frame, v rt.Value) (out func(*rt.Frame) rt.Unit, er
 		if err != nil {
 			panic(hostadapt.Unwind{Err: err})
 		}
-		y, err := b.in516(fr, res)
+		y, err := b.in638(fr, res)
 		if err != nil {
 			panic(hostadapt.Unwind{Err: err})
 		}
@@ -14181,36 +10495,36 @@ func (b *bound) in620(fr *rt.Frame, v rt.Value) (out func(*rt.Frame) rt.Unit, er
 	}, nil
 }
 
-// out622 builds a Listener from Go rt.HTTPListener.
-func (b *bound) out622(v rt.HTTPListener) (rt.Value, error) {
+// out799 builds a Listener from Go rt.HTTPListener.
+func (b *bound) out799(v rt.HTTPListener) (rt.Value, error) {
 	return v, nil
 }
 
-// out621 builds a Result<Listener, List<String>> from Go rt.Result[rt.HTTPListener, *rt.List[string]].
-func (b *bound) out621(v rt.Result[rt.HTTPListener, *rt.List[string]]) (rt.Value, error) {
+// out798 builds a Result<Listener, List<String>> from Go rt.Result[rt.HTTPListener, *rt.List[string]].
+func (b *bound) out798(v rt.Result[rt.HTTPListener, *rt.List[string]]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
-		r := b.d33.NewVariant(0)
-		w623, err := b.out622(v.Ok)
+		r := b.d31.NewVariant(0)
+		w800, err := b.out799(v.Ok)
 		if err != nil {
 			return nil, fmt.Errorf("Ok: %w", err)
 		}
-		r.R[0] = w623
+		r.R[0] = w800
 		return r, nil
 	case rt.TagErr:
-		r := b.d33.NewVariant(1)
-		w624, err := b.out194(v.Err)
+		r := b.d31.NewVariant(1)
+		w801, err := b.out248(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w624
+		r.R[0] = w801
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// in626 reads a TlsConfig as Go rt.TLSConfig.
-func (b *bound) in626(fr *rt.Frame, v rt.Value) (out rt.TLSConfig, err error) {
+// in803 reads a TlsConfig as Go rt.TLSConfig.
+func (b *bound) in803(fr *rt.Frame, v rt.Value) (out rt.TLSConfig, err error) {
 	x, ok := v.(rt.TLSConfig)
 	if !ok {
 		return out, hostadapt.Want("TlsConfig", v)
@@ -14218,36 +10532,36 @@ func (b *bound) in626(fr *rt.Frame, v rt.Value) (out rt.TLSConfig, err error) {
 	return x, nil
 }
 
-// out631 builds a Certificate from Go rt.TLSCertificate.
-func (b *bound) out631(v rt.TLSCertificate) (rt.Value, error) {
+// out810 builds a Certificate from Go rt.TLSCertificate.
+func (b *bound) out810(v rt.TLSCertificate) (rt.Value, error) {
 	return v, nil
 }
 
-// out630 builds a Result<Certificate, List<String>> from Go rt.Result[rt.TLSCertificate, *rt.List[string]].
-func (b *bound) out630(v rt.Result[rt.TLSCertificate, *rt.List[string]]) (rt.Value, error) {
+// out809 builds a Result<Certificate, List<String>> from Go rt.Result[rt.TLSCertificate, *rt.List[string]].
+func (b *bound) out809(v rt.Result[rt.TLSCertificate, *rt.List[string]]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
-		r := b.d33.NewVariant(0)
-		w632, err := b.out631(v.Ok)
+		r := b.d31.NewVariant(0)
+		w811, err := b.out810(v.Ok)
 		if err != nil {
 			return nil, fmt.Errorf("Ok: %w", err)
 		}
-		r.R[0] = w632
+		r.R[0] = w811
 		return r, nil
 	case rt.TagErr:
-		r := b.d33.NewVariant(1)
-		w633, err := b.out194(v.Err)
+		r := b.d31.NewVariant(1)
+		w812, err := b.out248(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w633
+		r.R[0] = w812
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// in636 reads a Certificate as Go rt.TLSCertificate.
-func (b *bound) in636(fr *rt.Frame, v rt.Value) (out rt.TLSCertificate, err error) {
+// in817 reads a Certificate as Go rt.TLSCertificate.
+func (b *bound) in817(fr *rt.Frame, v rt.Value) (out rt.TLSCertificate, err error) {
 	x, ok := v.(rt.TLSCertificate)
 	if !ok {
 		return out, hostadapt.Want("Certificate", v)
@@ -14255,20 +10569,20 @@ func (b *bound) in636(fr *rt.Frame, v rt.Value) (out rt.TLSCertificate, err erro
 	return x, nil
 }
 
-// out639 builds a Handle from Go rt.HTTPHandle.
-func (b *bound) out639(v rt.HTTPHandle) (rt.Value, error) {
+// out821 builds a Handle from Go rt.HTTPHandle.
+func (b *bound) out821(v rt.HTTPHandle) (rt.Value, error) {
 	return v, nil
 }
 
-// in640 reads a Maybe<Certificate> as Go rt.Maybe[rt.TLSCertificate].
-func (b *bound) in640(fr *rt.Frame, v rt.Value) (out rt.Maybe[rt.TLSCertificate], err error) {
+// in822 reads a Maybe<Certificate> as Go rt.Maybe[rt.TLSCertificate].
+func (b *bound) in822(fr *rt.Frame, v rt.Value) (out rt.Maybe[rt.TLSCertificate], err error) {
 	r, tag, err := hostadapt.Variant(v, "maybe.Maybe")
 	if err != nil {
 		return out, err
 	}
 	switch tag {
 	case "Some":
-		x, err := b.in636(fr, hostadapt.Payload(r))
+		x, err := b.in817(fr, hostadapt.Payload(r))
 		if err != nil {
 			return out, fmt.Errorf("Some: %w", err)
 		}
@@ -14279,13 +10593,13 @@ func (b *bound) in640(fr *rt.Frame, v rt.Value) (out rt.Maybe[rt.TLSCertificate]
 	return out, fmt.Errorf("unmarshal Maybe: unknown variant %q", tag)
 }
 
-// in638 reads a (Handle) -> Maybe<Certificate> as Go func(*rt.Frame, rt.HTTPHandle) rt.Maybe[rt.TLSCertificate].
-func (b *bound) in638(fr *rt.Frame, v rt.Value) (out func(*rt.Frame, rt.HTTPHandle) rt.Maybe[rt.TLSCertificate], err error) {
+// in820 reads a (Handle) -> Maybe<Certificate> as Go func(*rt.Frame, rt.HTTPHandle) rt.Maybe[rt.TLSCertificate].
+func (b *bound) in820(fr *rt.Frame, v rt.Value) (out func(*rt.Frame, rt.HTTPHandle) rt.Maybe[rt.TLSCertificate], err error) {
 	if v == nil {
 		return out, fmt.Errorf("expected a function, got nil")
 	}
 	return func(fr *rt.Frame, p0 rt.HTTPHandle) rt.Maybe[rt.TLSCertificate] {
-		x0, err := b.out639(p0)
+		x0, err := b.out821(p0)
 		if err != nil {
 			panic(fmt.Sprintf("Nomi callback arg 0: %v", err))
 		}
@@ -14293,7 +10607,7 @@ func (b *bound) in638(fr *rt.Frame, v rt.Value) (out func(*rt.Frame, rt.HTTPHand
 		if err != nil {
 			panic(hostadapt.Unwind{Err: err})
 		}
-		y, err := b.in640(fr, res)
+		y, err := b.in822(fr, res)
 		if err != nil {
 			panic(hostadapt.Unwind{Err: err})
 		}
@@ -14301,8 +10615,8 @@ func (b *bound) in638(fr *rt.Frame, v rt.Value) (out func(*rt.Frame, rt.HTTPHand
 	}, nil
 }
 
-// out642 builds a List<List<String>> from Go *rt.List[*rt.List[string]].
-func (b *bound) out642(v *rt.List[*rt.List[string]]) (rt.Value, error) {
+// out824 builds a List<List<String>> from Go *rt.List[*rt.List[string]].
+func (b *bound) out824(v *rt.List[*rt.List[string]]) (rt.Value, error) {
 	n := 0
 	if v != nil {
 		n = v.Len
@@ -14310,7 +10624,7 @@ func (b *bound) out642(v *rt.List[*rt.List[string]]) (rt.Value, error) {
 	items := make([]rt.Value, 0, n)
 	i := 0
 	for c := v; c != nil; c = c.Tail {
-		x, err := b.out194(c.Head)
+		x, err := b.out248(c.Head)
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -14324,13 +10638,13 @@ func (b *bound) out642(v *rt.List[*rt.List[string]]) (rt.Value, error) {
 	return xs, nil
 }
 
-// in641 reads a (List<List<String>>) -> String as Go func(*rt.Frame, *rt.List[*rt.List[string]]) string.
-func (b *bound) in641(fr *rt.Frame, v rt.Value) (out func(*rt.Frame, *rt.List[*rt.List[string]]) string, err error) {
+// in823 reads a (List<List<String>>) -> String as Go func(*rt.Frame, *rt.List[*rt.List[string]]) string.
+func (b *bound) in823(fr *rt.Frame, v rt.Value) (out func(*rt.Frame, *rt.List[*rt.List[string]]) string, err error) {
 	if v == nil {
 		return out, fmt.Errorf("expected a function, got nil")
 	}
 	return func(fr *rt.Frame, p0 *rt.List[*rt.List[string]]) string {
-		x0, err := b.out642(p0)
+		x0, err := b.out824(p0)
 		if err != nil {
 			panic(fmt.Sprintf("Nomi callback arg 0: %v", err))
 		}
@@ -14338,7 +10652,7 @@ func (b *bound) in641(fr *rt.Frame, v rt.Value) (out func(*rt.Frame, *rt.List[*r
 		if err != nil {
 			panic(hostadapt.Unwind{Err: err})
 		}
-		y, err := b.in42(fr, res)
+		y, err := b.in173(fr, res)
 		if err != nil {
 			panic(hostadapt.Unwind{Err: err})
 		}
@@ -14346,87 +10660,87 @@ func (b *bound) in641(fr *rt.Frame, v rt.Value) (out func(*rt.Frame, *rt.List[*r
 	}, nil
 }
 
-// out644 builds a TlsConfig from Go rt.TLSConfig.
-func (b *bound) out644(v rt.TLSConfig) (rt.Value, error) {
+// out826 builds a TlsConfig from Go rt.TLSConfig.
+func (b *bound) out826(v rt.TLSConfig) (rt.Value, error) {
 	return v, nil
 }
 
-// out643 builds a Result<TlsConfig, List<String>> from Go rt.Result[rt.TLSConfig, *rt.List[string]].
-func (b *bound) out643(v rt.Result[rt.TLSConfig, *rt.List[string]]) (rt.Value, error) {
+// out825 builds a Result<TlsConfig, List<String>> from Go rt.Result[rt.TLSConfig, *rt.List[string]].
+func (b *bound) out825(v rt.Result[rt.TLSConfig, *rt.List[string]]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
-		r := b.d33.NewVariant(0)
-		w645, err := b.out644(v.Ok)
+		r := b.d31.NewVariant(0)
+		w827, err := b.out826(v.Ok)
 		if err != nil {
 			return nil, fmt.Errorf("Ok: %w", err)
 		}
-		r.R[0] = w645
+		r.R[0] = w827
 		return r, nil
 	case rt.TagErr:
-		r := b.d33.NewVariant(1)
-		w646, err := b.out194(v.Err)
+		r := b.d31.NewVariant(1)
+		w828, err := b.out248(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w646
+		r.R[0] = w828
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// out652 builds a Conn from Go rt.NetConn.
-func (b *bound) out652(v rt.NetConn) (rt.Value, error) {
+// out836 builds a Conn from Go rt.NetConn.
+func (b *bound) out836(v rt.NetConn) (rt.Value, error) {
 	return v, nil
 }
 
-// out651 builds a Result<Conn, List<String>> from Go rt.Result[rt.NetConn, *rt.List[string]].
-func (b *bound) out651(v rt.Result[rt.NetConn, *rt.List[string]]) (rt.Value, error) {
+// out835 builds a Result<Conn, List<String>> from Go rt.Result[rt.NetConn, *rt.List[string]].
+func (b *bound) out835(v rt.Result[rt.NetConn, *rt.List[string]]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
-		r := b.d33.NewVariant(0)
-		w653, err := b.out652(v.Ok)
+		r := b.d31.NewVariant(0)
+		w837, err := b.out836(v.Ok)
 		if err != nil {
 			return nil, fmt.Errorf("Ok: %w", err)
 		}
-		r.R[0] = w653
+		r.R[0] = w837
 		return r, nil
 	case rt.TagErr:
-		r := b.d33.NewVariant(1)
-		w654, err := b.out194(v.Err)
+		r := b.d31.NewVariant(1)
+		w838, err := b.out248(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w654
+		r.R[0] = w838
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// out656 builds a Result<List<String>, List<String>> from Go rt.Result[*rt.List[string], *rt.List[string]].
-func (b *bound) out656(v rt.Result[*rt.List[string], *rt.List[string]]) (rt.Value, error) {
+// out840 builds a Result<List<String>, List<String>> from Go rt.Result[*rt.List[string], *rt.List[string]].
+func (b *bound) out840(v rt.Result[*rt.List[string], *rt.List[string]]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
-		r := b.d33.NewVariant(0)
-		w657, err := b.out194(v.Ok)
+		r := b.d31.NewVariant(0)
+		w841, err := b.out248(v.Ok)
 		if err != nil {
 			return nil, fmt.Errorf("Ok: %w", err)
 		}
-		r.R[0] = w657
+		r.R[0] = w841
 		return r, nil
 	case rt.TagErr:
-		r := b.d33.NewVariant(1)
-		w658, err := b.out194(v.Err)
+		r := b.d31.NewVariant(1)
+		w842, err := b.out248(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w658
+		r.R[0] = w842
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// out660 builds a List<Conn> from Go *rt.List[rt.NetConn].
-func (b *bound) out660(v *rt.List[rt.NetConn]) (rt.Value, error) {
+// out845 builds a List<Conn> from Go *rt.List[rt.NetConn].
+func (b *bound) out845(v *rt.List[rt.NetConn]) (rt.Value, error) {
 	n := 0
 	if v != nil {
 		n = v.Len
@@ -14434,7 +10748,7 @@ func (b *bound) out660(v *rt.List[rt.NetConn]) (rt.Value, error) {
 	items := make([]rt.Value, 0, n)
 	i := 0
 	for c := v; c != nil; c = c.Tail {
-		x, err := b.out652(c.Head)
+		x, err := b.out836(c.Head)
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -14448,8 +10762,8 @@ func (b *bound) out660(v *rt.List[rt.NetConn]) (rt.Value, error) {
 	return xs, nil
 }
 
-// in664 reads a Conn as Go rt.NetConn.
-func (b *bound) in664(fr *rt.Frame, v rt.Value) (out rt.NetConn, err error) {
+// in851 reads a Conn as Go rt.NetConn.
+func (b *bound) in851(fr *rt.Frame, v rt.Value) (out rt.NetConn, err error) {
 	x, ok := v.(rt.NetConn)
 	if !ok {
 		return out, hostadapt.Want("Conn", v)
@@ -14457,25 +10771,25 @@ func (b *bound) in664(fr *rt.Frame, v rt.Value) (out rt.NetConn, err error) {
 	return x, nil
 }
 
-// out680 builds a Maybe<List<List<String>>> from Go rt.Maybe[*rt.List[*rt.List[string]]].
-func (b *bound) out680(v rt.Maybe[*rt.List[*rt.List[string]]]) (rt.Value, error) {
+// out879 builds a Maybe<List<List<String>>> from Go rt.Maybe[*rt.List[*rt.List[string]]].
+func (b *bound) out879(v rt.Maybe[*rt.List[*rt.List[string]]]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagSome:
-		r := b.d23.NewVariant(0)
-		w681, err := b.out642(v.Some)
+		r := b.d24.NewVariant(0)
+		w880, err := b.out824(v.Some)
 		if err != nil {
 			return nil, fmt.Errorf("Some: %w", err)
 		}
-		r.R[0] = w681
+		r.R[0] = w880
 		return r, nil
 	case rt.TagNone:
-		return b.d23.NewVariant(1), nil
+		return b.d24.NewVariant(1), nil
 	}
 	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
 }
 
-// in685 reads a TcpListener as Go rt.NetListener.
-func (b *bound) in685(fr *rt.Frame, v rt.Value) (out rt.NetListener, err error) {
+// in886 reads a TcpListener as Go rt.NetListener.
+func (b *bound) in886(fr *rt.Frame, v rt.Value) (out rt.NetListener, err error) {
 	x, ok := v.(rt.NetListener)
 	if !ok {
 		return out, hostadapt.Want("TcpListener", v)
@@ -14483,13 +10797,13 @@ func (b *bound) in685(fr *rt.Frame, v rt.Value) (out rt.NetListener, err error) 
 	return x, nil
 }
 
-// out686 builds a TcpListener from Go rt.NetListener.
-func (b *bound) out686(v rt.NetListener) (rt.Value, error) {
+// out887 builds a TcpListener from Go rt.NetListener.
+func (b *bound) out887(v rt.NetListener) (rt.Value, error) {
 	return v, nil
 }
 
-// in688 reads a Incoming as Go rt.HTTPIncoming.
-func (b *bound) in688(fr *rt.Frame, v rt.Value) (out rt.HTTPIncoming, err error) {
+// in890 reads a Incoming as Go rt.HTTPIncoming.
+func (b *bound) in890(fr *rt.Frame, v rt.Value) (out rt.HTTPIncoming, err error) {
 	x, ok := v.(rt.HTTPIncoming)
 	if !ok {
 		return out, hostadapt.Want("Incoming", v)
@@ -14497,27 +10811,27 @@ func (b *bound) in688(fr *rt.Frame, v rt.Value) (out rt.HTTPIncoming, err error)
 	return x, nil
 }
 
-// out691 builds a Result<Unit, String> from Go rt.Result[rt.Unit, string].
-func (b *bound) out691(v rt.Result[rt.Unit, string]) (rt.Value, error) {
+// out894 builds a Result<Unit, String> from Go rt.Result[rt.Unit, string].
+func (b *bound) out894(v rt.Result[rt.Unit, string]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
-		r := b.d21.NewVariant(0)
-		w692, err := b.out372(v.Ok)
+		r := b.d20.NewVariant(0)
+		w895, err := b.out452(v.Ok)
 		if err != nil {
 			return nil, fmt.Errorf("Ok: %w", err)
 		}
-		r.R[0] = w692
+		r.R[0] = w895
 		return r, nil
 	case rt.TagErr:
-		r := b.d21.NewVariant(1)
+		r := b.d20.NewVariant(1)
 		r.S[0] = string(v.Err)
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// out697 builds a List<List<List<String>>> from Go *rt.List[*rt.List[*rt.List[string]]].
-func (b *bound) out697(v *rt.List[*rt.List[*rt.List[string]]]) (rt.Value, error) {
+// out904 builds a List<List<List<String>>> from Go *rt.List[*rt.List[*rt.List[string]]].
+func (b *bound) out904(v *rt.List[*rt.List[*rt.List[string]]]) (rt.Value, error) {
 	n := 0
 	if v != nil {
 		n = v.Len
@@ -14525,7 +10839,7 @@ func (b *bound) out697(v *rt.List[*rt.List[*rt.List[string]]]) (rt.Value, error)
 	items := make([]rt.Value, 0, n)
 	i := 0
 	for c := v; c != nil; c = c.Tail {
-		x, err := b.out642(c.Head)
+		x, err := b.out824(c.Head)
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -14539,63 +10853,63 @@ func (b *bound) out697(v *rt.List[*rt.List[*rt.List[string]]]) (rt.Value, error)
 	return xs, nil
 }
 
-// out699 builds a Result<Handle, String> from Go rt.Result[rt.HTTPHandle, string].
-func (b *bound) out699(v rt.Result[rt.HTTPHandle, string]) (rt.Value, error) {
+// out907 builds a Result<Handle, String> from Go rt.Result[rt.HTTPHandle, string].
+func (b *bound) out907(v rt.Result[rt.HTTPHandle, string]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
-		r := b.d21.NewVariant(0)
-		w700, err := b.out639(v.Ok)
+		r := b.d20.NewVariant(0)
+		w908, err := b.out821(v.Ok)
 		if err != nil {
 			return nil, fmt.Errorf("Ok: %w", err)
 		}
-		r.R[0] = w700
+		r.R[0] = w908
 		return r, nil
 	case rt.TagErr:
-		r := b.d21.NewVariant(1)
+		r := b.d20.NewVariant(1)
 		r.S[0] = string(v.Err)
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// out715 builds a Maybe<Handle> from Go rt.Maybe[rt.HTTPHandle].
-func (b *bound) out715(v rt.Maybe[rt.HTTPHandle]) (rt.Value, error) {
+// out931 builds a Maybe<Handle> from Go rt.Maybe[rt.HTTPHandle].
+func (b *bound) out931(v rt.Maybe[rt.HTTPHandle]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagSome:
-		r := b.d23.NewVariant(0)
-		w716, err := b.out639(v.Some)
+		r := b.d24.NewVariant(0)
+		w932, err := b.out821(v.Some)
 		if err != nil {
 			return nil, fmt.Errorf("Some: %w", err)
 		}
-		r.R[0] = w716
+		r.R[0] = w932
 		return r, nil
 	case rt.TagNone:
-		return b.d23.NewVariant(1), nil
+		return b.d24.NewVariant(1), nil
 	}
 	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
 }
 
-// out714 builds a Result<Maybe<Handle>, String> from Go rt.Result[rt.Maybe[rt.HTTPHandle], string].
-func (b *bound) out714(v rt.Result[rt.Maybe[rt.HTTPHandle], string]) (rt.Value, error) {
+// out930 builds a Result<Maybe<Handle>, String> from Go rt.Result[rt.Maybe[rt.HTTPHandle], string].
+func (b *bound) out930(v rt.Result[rt.Maybe[rt.HTTPHandle], string]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
-		r := b.d21.NewVariant(0)
-		w717, err := b.out715(v.Ok)
+		r := b.d20.NewVariant(0)
+		w933, err := b.out931(v.Ok)
 		if err != nil {
 			return nil, fmt.Errorf("Ok: %w", err)
 		}
-		r.R[0] = w717
+		r.R[0] = w933
 		return r, nil
 	case rt.TagErr:
-		r := b.d21.NewVariant(1)
+		r := b.d20.NewVariant(1)
 		r.S[0] = string(v.Err)
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// in723 reads a List<Bytes> as Go *rt.List[rt.Bytes].
-func (b *bound) in723(fr *rt.Frame, v rt.Value) (out *rt.List[rt.Bytes], err error) {
+// in942 reads a List<Bytes> as Go *rt.List[rt.Bytes].
+func (b *bound) in942(fr *rt.Frame, v rt.Value) (out *rt.List[rt.Bytes], err error) {
 	xs, err := hostadapt.List(v)
 	if err != nil {
 		return out, err
@@ -14603,7 +10917,7 @@ func (b *bound) in723(fr *rt.Frame, v rt.Value) (out *rt.List[rt.Bytes], err err
 	items := make([]rt.Bytes, 0, hostadapt.Len(xs))
 	i := 0
 	for c := xs; c != nil; c = c.Tail {
-		e, err := b.in217(fr, c.Head)
+		e, err := b.in622(fr, c.Head)
 		if err != nil {
 			return out, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -14616,8 +10930,8 @@ func (b *bound) in723(fr *rt.Frame, v rt.Value) (out *rt.List[rt.Bytes], err err
 	return out, nil
 }
 
-// in725 reads a Listener as Go rt.HTTPListener.
-func (b *bound) in725(fr *rt.Frame, v rt.Value) (out rt.HTTPListener, err error) {
+// in945 reads a Listener as Go rt.HTTPListener.
+func (b *bound) in945(fr *rt.Frame, v rt.Value) (out rt.HTTPListener, err error) {
 	x, ok := v.(rt.HTTPListener)
 	if !ok {
 		return out, hostadapt.Want("Listener", v)
@@ -14625,122 +10939,122 @@ func (b *bound) in725(fr *rt.Frame, v rt.Value) (out rt.HTTPListener, err error)
 	return x, nil
 }
 
-// out730 builds a Result<Handle, List<String>> from Go rt.Result[rt.HTTPHandle, *rt.List[string]].
-func (b *bound) out730(v rt.Result[rt.HTTPHandle, *rt.List[string]]) (rt.Value, error) {
+// out952 builds a Result<Handle, List<String>> from Go rt.Result[rt.HTTPHandle, *rt.List[string]].
+func (b *bound) out952(v rt.Result[rt.HTTPHandle, *rt.List[string]]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
-		r := b.d33.NewVariant(0)
-		w731, err := b.out639(v.Ok)
+		r := b.d31.NewVariant(0)
+		w953, err := b.out821(v.Ok)
 		if err != nil {
 			return nil, fmt.Errorf("Ok: %w", err)
 		}
-		r.R[0] = w731
+		r.R[0] = w953
 		return r, nil
 	case rt.TagErr:
-		r := b.d33.NewVariant(1)
-		w732, err := b.out194(v.Err)
+		r := b.d31.NewVariant(1)
+		w954, err := b.out248(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w732
+		r.R[0] = w954
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// out736 builds a Result<Maybe<Bytes>, List<String>> from Go rt.Result[rt.Maybe[rt.Bytes], *rt.List[string]].
-func (b *bound) out736(v rt.Result[rt.Maybe[rt.Bytes], *rt.List[string]]) (rt.Value, error) {
+// out959 builds a Result<Maybe<Bytes>, List<String>> from Go rt.Result[rt.Maybe[rt.Bytes], *rt.List[string]].
+func (b *bound) out959(v rt.Result[rt.Maybe[rt.Bytes], *rt.List[string]]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
-		r := b.d33.NewVariant(0)
-		w737, err := b.out247(v.Ok)
+		r := b.d31.NewVariant(0)
+		w960, err := b.out302(v.Ok)
 		if err != nil {
 			return nil, fmt.Errorf("Ok: %w", err)
 		}
-		r.R[0] = w737
+		r.R[0] = w960
 		return r, nil
 	case rt.TagErr:
-		r := b.d33.NewVariant(1)
-		w738, err := b.out194(v.Err)
+		r := b.d31.NewVariant(1)
+		w961, err := b.out248(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w738
+		r.R[0] = w961
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// out740 builds a Result<Unit, List<String>> from Go rt.Result[rt.Unit, *rt.List[string]].
-func (b *bound) out740(v rt.Result[rt.Unit, *rt.List[string]]) (rt.Value, error) {
+// out964 builds a Result<Unit, List<String>> from Go rt.Result[rt.Unit, *rt.List[string]].
+func (b *bound) out964(v rt.Result[rt.Unit, *rt.List[string]]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
-		r := b.d33.NewVariant(0)
-		w741, err := b.out372(v.Ok)
+		r := b.d31.NewVariant(0)
+		w965, err := b.out452(v.Ok)
 		if err != nil {
 			return nil, fmt.Errorf("Ok: %w", err)
 		}
-		r.R[0] = w741
+		r.R[0] = w965
 		return r, nil
 	case rt.TagErr:
-		r := b.d33.NewVariant(1)
-		w742, err := b.out194(v.Err)
+		r := b.d31.NewVariant(1)
+		w966, err := b.out248(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w742
+		r.R[0] = w966
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// out748 builds a Result<TcpListener, List<String>> from Go rt.Result[rt.NetListener, *rt.List[string]].
-func (b *bound) out748(v rt.Result[rt.NetListener, *rt.List[string]]) (rt.Value, error) {
+// out976 builds a Result<TcpListener, List<String>> from Go rt.Result[rt.NetListener, *rt.List[string]].
+func (b *bound) out976(v rt.Result[rt.NetListener, *rt.List[string]]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
-		r := b.d33.NewVariant(0)
-		w749, err := b.out686(v.Ok)
+		r := b.d31.NewVariant(0)
+		w977, err := b.out887(v.Ok)
 		if err != nil {
 			return nil, fmt.Errorf("Ok: %w", err)
 		}
-		r.R[0] = w749
+		r.R[0] = w977
 		return r, nil
 	case rt.TagErr:
-		r := b.d33.NewVariant(1)
-		w750, err := b.out194(v.Err)
+		r := b.d31.NewVariant(1)
+		w978, err := b.out248(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w750
+		r.R[0] = w978
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// out759 builds a Incoming from Go rt.HTTPIncoming.
-func (b *bound) out759(v rt.HTTPIncoming) (rt.Value, error) {
+// out992 builds a Incoming from Go rt.HTTPIncoming.
+func (b *bound) out992(v rt.HTTPIncoming) (rt.Value, error) {
 	return v, nil
 }
 
-// out758 builds a Maybe<Incoming> from Go rt.Maybe[rt.HTTPIncoming].
-func (b *bound) out758(v rt.Maybe[rt.HTTPIncoming]) (rt.Value, error) {
+// out991 builds a Maybe<Incoming> from Go rt.Maybe[rt.HTTPIncoming].
+func (b *bound) out991(v rt.Maybe[rt.HTTPIncoming]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagSome:
-		r := b.d23.NewVariant(0)
-		w760, err := b.out759(v.Some)
+		r := b.d24.NewVariant(0)
+		w993, err := b.out992(v.Some)
 		if err != nil {
 			return nil, fmt.Errorf("Some: %w", err)
 		}
-		r.R[0] = w760
+		r.R[0] = w993
 		return r, nil
 	case rt.TagNone:
-		return b.d23.NewVariant(1), nil
+		return b.d24.NewVariant(1), nil
 	}
 	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
 }
 
-// out775 builds a List<Bytes> from Go *rt.List[rt.Bytes].
-func (b *bound) out775(v *rt.List[rt.Bytes]) (rt.Value, error) {
+// out1015 builds a List<Bytes> from Go *rt.List[rt.Bytes].
+func (b *bound) out1015(v *rt.List[rt.Bytes]) (rt.Value, error) {
 	n := 0
 	if v != nil {
 		n = v.Len
@@ -14748,7 +11062,7 @@ func (b *bound) out775(v *rt.List[rt.Bytes]) (rt.Value, error) {
 	items := make([]rt.Value, 0, n)
 	i := 0
 	for c := v; c != nil; c = c.Tail {
-		x, err := b.out104(c.Head)
+		x, err := b.out742(c.Head)
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -14762,55 +11076,55 @@ func (b *bound) out775(v *rt.List[rt.Bytes]) (rt.Value, error) {
 	return xs, nil
 }
 
-// out774 builds a Result<List<Bytes>, String> from Go rt.Result[*rt.List[rt.Bytes], string].
-func (b *bound) out774(v rt.Result[*rt.List[rt.Bytes], string]) (rt.Value, error) {
+// out1014 builds a Result<List<Bytes>, String> from Go rt.Result[*rt.List[rt.Bytes], string].
+func (b *bound) out1014(v rt.Result[*rt.List[rt.Bytes], string]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
-		r := b.d21.NewVariant(0)
-		w776, err := b.out775(v.Ok)
+		r := b.d20.NewVariant(0)
+		w1016, err := b.out1015(v.Ok)
 		if err != nil {
 			return nil, fmt.Errorf("Ok: %w", err)
 		}
-		r.R[0] = w776
+		r.R[0] = w1016
 		return r, nil
 	case rt.TagErr:
-		r := b.d21.NewVariant(1)
+		r := b.d20.NewVariant(1)
 		r.S[0] = string(v.Err)
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// out786 builds a Mux from Go rt.HTTPMux.
-func (b *bound) out786(v rt.HTTPMux) (rt.Value, error) {
+// out1030 builds a Mux from Go rt.HTTPMux.
+func (b *bound) out1030(v rt.HTTPMux) (rt.Value, error) {
 	return v, nil
 }
 
-// out785 builds a Result<Mux, List<String>> from Go rt.Result[rt.HTTPMux, *rt.List[string]].
-func (b *bound) out785(v rt.Result[rt.HTTPMux, *rt.List[string]]) (rt.Value, error) {
+// out1029 builds a Result<Mux, List<String>> from Go rt.Result[rt.HTTPMux, *rt.List[string]].
+func (b *bound) out1029(v rt.Result[rt.HTTPMux, *rt.List[string]]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
-		r := b.d33.NewVariant(0)
-		w787, err := b.out786(v.Ok)
+		r := b.d31.NewVariant(0)
+		w1031, err := b.out1030(v.Ok)
 		if err != nil {
 			return nil, fmt.Errorf("Ok: %w", err)
 		}
-		r.R[0] = w787
+		r.R[0] = w1031
 		return r, nil
 	case rt.TagErr:
-		r := b.d33.NewVariant(1)
-		w788, err := b.out194(v.Err)
+		r := b.d31.NewVariant(1)
+		w1032, err := b.out248(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w788
+		r.R[0] = w1032
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// in791 reads a Mux as Go rt.HTTPMux.
-func (b *bound) in791(fr *rt.Frame, v rt.Value) (out rt.HTTPMux, err error) {
+// in1036 reads a Mux as Go rt.HTTPMux.
+func (b *bound) in1036(fr *rt.Frame, v rt.Value) (out rt.HTTPMux, err error) {
 	x, ok := v.(rt.HTTPMux)
 	if !ok {
 		return out, hostadapt.Want("Mux", v)
@@ -14818,8 +11132,8 @@ func (b *bound) in791(fr *rt.Frame, v rt.Value) (out rt.HTTPMux, err error) {
 	return x, nil
 }
 
-// out796 builds a Result<Int, String> from Go rt.Result[rt.Int, string].
-func (b *bound) out796(v rt.Result[rt.Int, string]) (rt.Value, error) {
+// out1044 builds a Result<Int, String> from Go rt.Result[rt.Int, string].
+func (b *bound) out1044(v rt.Result[rt.Int, string]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
 		r := b.d19.NewVariant(0)
@@ -14833,32 +11147,49 @@ func (b *bound) out796(v rt.Result[rt.Int, string]) (rt.Value, error) {
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// out801 builds a Result<List<List<String>>, String> from Go rt.Result[*rt.List[*rt.List[string]], string].
-func (b *bound) out801(v rt.Result[*rt.List[*rt.List[string]], string]) (rt.Value, error) {
+// out1048 builds a Maybe<Error> from Go rt.Maybe[rt.IOError].
+func (b *bound) out1048(v rt.Maybe[rt.IOError]) (rt.Value, error) {
+	switch v.Tag {
+	case rt.TagSome:
+		r := b.d24.NewVariant(0)
+		w1049, err := b.out580(v.Some)
+		if err != nil {
+			return nil, fmt.Errorf("Some: %w", err)
+		}
+		r.R[0] = w1049
+		return r, nil
+	case rt.TagNone:
+		return b.d24.NewVariant(1), nil
+	}
+	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
+}
+
+// out1054 builds a Result<List<List<String>>, String> from Go rt.Result[*rt.List[*rt.List[string]], string].
+func (b *bound) out1054(v rt.Result[*rt.List[*rt.List[string]], string]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
-		r := b.d21.NewVariant(0)
-		w802, err := b.out642(v.Ok)
+		r := b.d20.NewVariant(0)
+		w1055, err := b.out824(v.Ok)
 		if err != nil {
 			return nil, fmt.Errorf("Ok: %w", err)
 		}
-		r.R[0] = w802
+		r.R[0] = w1055
 		return r, nil
 	case rt.TagErr:
-		r := b.d21.NewVariant(1)
+		r := b.d20.NewVariant(1)
 		r.S[0] = string(v.Err)
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// out805 builds a Jar from Go rt.HTTPJar.
-func (b *bound) out805(v rt.HTTPJar) (rt.Value, error) {
+// out1060 builds a Jar from Go rt.HTTPJar.
+func (b *bound) out1060(v rt.HTTPJar) (rt.Value, error) {
 	return v, nil
 }
 
-// in807 reads a Jar as Go rt.HTTPJar.
-func (b *bound) in807(fr *rt.Frame, v rt.Value) (out rt.HTTPJar, err error) {
+// in1063 reads a Jar as Go rt.HTTPJar.
+func (b *bound) in1063(fr *rt.Frame, v rt.Value) (out rt.HTTPJar, err error) {
 	x, ok := v.(rt.HTTPJar)
 	if !ok {
 		return out, hostadapt.Want("Jar", v)
@@ -14866,8 +11197,8 @@ func (b *bound) in807(fr *rt.Frame, v rt.Value) (out rt.HTTPJar, err error) {
 	return x, nil
 }
 
-// in809 reads a List<List<String>> as Go *rt.List[*rt.List[string]].
-func (b *bound) in809(fr *rt.Frame, v rt.Value) (out *rt.List[*rt.List[string]], err error) {
+// in1066 reads a List<List<String>> as Go *rt.List[*rt.List[string]].
+func (b *bound) in1066(fr *rt.Frame, v rt.Value) (out *rt.List[*rt.List[string]], err error) {
 	xs, err := hostadapt.List(v)
 	if err != nil {
 		return out, err
@@ -14875,7 +11206,7 @@ func (b *bound) in809(fr *rt.Frame, v rt.Value) (out *rt.List[*rt.List[string]],
 	items := make([]*rt.List[string], 0, hostadapt.Len(xs))
 	i := 0
 	for c := xs; c != nil; c = c.Tail {
-		e, err := b.in266(fr, c.Head)
+		e, err := b.in325(fr, c.Head)
 		if err != nil {
 			return out, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -14888,56 +11219,56 @@ func (b *bound) in809(fr *rt.Frame, v rt.Value) (out *rt.List[*rt.List[string]],
 	return out, nil
 }
 
-// out813 builds a Child from Go rt.ChildProcess.
-func (b *bound) out813(v rt.ChildProcess) (rt.Value, error) {
+// out1072 builds a Child from Go rt.ChildProcess.
+func (b *bound) out1072(v rt.ChildProcess) (rt.Value, error) {
 	return v, nil
 }
 
-// out812 builds a Result<Child, Error> from Go rt.Result[rt.ChildProcess, rt.IOError].
-func (b *bound) out812(v rt.Result[rt.ChildProcess, rt.IOError]) (rt.Value, error) {
+// out1071 builds a Result<Child, Error> from Go rt.Result[rt.ChildProcess, rt.IOError].
+func (b *bound) out1071(v rt.Result[rt.ChildProcess, rt.IOError]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
-		r := b.d33.NewVariant(0)
-		w814, err := b.out813(v.Ok)
+		r := b.d31.NewVariant(0)
+		w1073, err := b.out1072(v.Ok)
 		if err != nil {
 			return nil, fmt.Errorf("Ok: %w", err)
 		}
-		r.R[0] = w814
+		r.R[0] = w1073
 		return r, nil
 	case rt.TagErr:
-		r := b.d33.NewVariant(1)
-		w815, err := b.out474(v.Err)
+		r := b.d31.NewVariant(1)
+		w1074, err := b.out580(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w815
+		r.R[0] = w1074
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn811 adapts process/host.start: start(program: String, args: List<String>, env: Map<String, String>, clear_env: Bool, dir: String, stdin: Int64, input: Reader, stdout: Int64, stderr: Int64) -> Result<Child, Error>
-func (b *bound) fn811(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn1070 adapts process/host.start: start(program: String, args: List<String>, env: Map<String, String>, clear_env: Bool, dir: String, stdin: Int64, input: Reader, stdout: Int64, stderr: Int64) -> Result<Child, Error>
+func (b *bound) fn1070(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 9 {
 		return nil, hostadapt.Arity("process/host.start", 9, len(args))
 	}
-	a0, err := b.in42(fr, args[0])
+	a0, err := b.in173(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("process/host.start", 0, "process/host.start", "program", err)
 	}
-	a1, err := b.in266(fr, args[1])
+	a1, err := b.in325(fr, args[1])
 	if err != nil {
 		return nil, hostadapt.Param("process/host.start", 1, "process/host.start", "args", err)
 	}
-	a2, err := b.in577(fr, args[2])
+	a2, err := b.in736(fr, args[2])
 	if err != nil {
 		return nil, hostadapt.Param("process/host.start", 2, "process/host.start", "env", err)
 	}
-	a3, err := b.in54(fr, args[3])
+	a3, err := b.in448(fr, args[3])
 	if err != nil {
 		return nil, hostadapt.Param("process/host.start", 3, "process/host.start", "clear_env", err)
 	}
-	a4, err := b.in42(fr, args[4])
+	a4, err := b.in173(fr, args[4])
 	if err != nil {
 		return nil, hostadapt.Param("process/host.start", 4, "process/host.start", "dir", err)
 	}
@@ -14945,7 +11276,7 @@ func (b *bound) fn811(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if err != nil {
 		return nil, hostadapt.Param("process/host.start", 5, "process/host.start", "stdin", err)
 	}
-	a6, err := b.in482(fr, args[6])
+	a6, err := b.in592(fr, args[6])
 	if err != nil {
 		return nil, hostadapt.Param("process/host.start", 6, "process/host.start", "input", err)
 	}
@@ -14958,71 +11289,15 @@ func (b *bound) fn811(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Param("process/host.start", 8, "process/host.start", "stderr", err)
 	}
 	r0 := stdprocess.Start(fr, a0, a1, a2, a3, a4, a5, a6, a7, a8)
-	v0, err := b.out812(r0)
+	v0, err := b.out1071(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("process/host.start", err)
 	}
 	return v0, nil
 }
 
-// fn811Parts is process/host.start taken apart: the payload and true, or the record and false.
-func (b *bound) fn811Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 9 {
-		return nil, false, hostadapt.Arity("process/host.start", 9, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("process/host.start", 0, "process/host.start", "program", err)
-	}
-	a1, err := b.in266(fr, args[1])
-	if err != nil {
-		return nil, false, hostadapt.Param("process/host.start", 1, "process/host.start", "args", err)
-	}
-	a2, err := b.in577(fr, args[2])
-	if err != nil {
-		return nil, false, hostadapt.Param("process/host.start", 2, "process/host.start", "env", err)
-	}
-	a3, err := b.in54(fr, args[3])
-	if err != nil {
-		return nil, false, hostadapt.Param("process/host.start", 3, "process/host.start", "clear_env", err)
-	}
-	a4, err := b.in42(fr, args[4])
-	if err != nil {
-		return nil, false, hostadapt.Param("process/host.start", 4, "process/host.start", "dir", err)
-	}
-	a5, err := b.in41(fr, args[5])
-	if err != nil {
-		return nil, false, hostadapt.Param("process/host.start", 5, "process/host.start", "stdin", err)
-	}
-	a6, err := b.in482(fr, args[6])
-	if err != nil {
-		return nil, false, hostadapt.Param("process/host.start", 6, "process/host.start", "input", err)
-	}
-	a7, err := b.in41(fr, args[7])
-	if err != nil {
-		return nil, false, hostadapt.Param("process/host.start", 7, "process/host.start", "stdout", err)
-	}
-	a8, err := b.in41(fr, args[8])
-	if err != nil {
-		return nil, false, hostadapt.Param("process/host.start", 8, "process/host.start", "stderr", err)
-	}
-	r0 := stdprocess.Start(fr, a0, a1, a2, a3, a4, a5, a6, a7, a8)
-	if r0.Tag != rt.TagOk {
-		rec, err := b.out812(r0)
-		if err != nil {
-			return nil, false, hostadapt.Returned("process/host.start", err)
-		}
-		return rec, false, nil
-	}
-	v, err := b.out813(r0.Ok)
-	if err != nil {
-		return nil, false, hostadapt.Returned("process/host.start", err)
-	}
-	return v, true, nil
-}
-
-// in817 reads a Child as Go rt.ChildProcess.
-func (b *bound) in817(fr *rt.Frame, v rt.Value) (out rt.ChildProcess, err error) {
+// in1076 reads a Child as Go rt.ChildProcess.
+func (b *bound) in1076(fr *rt.Frame, v rt.Value) (out rt.ChildProcess, err error) {
 	x, ok := v.(rt.ChildProcess)
 	if !ok {
 		return out, hostadapt.Want("Child", v)
@@ -15030,179 +11305,145 @@ func (b *bound) in817(fr *rt.Frame, v rt.Value) (out rt.ChildProcess, err error)
 	return x, nil
 }
 
-// fn816 adapts process/host.child_stdin: child_stdin(child: Child) -> Writer
-func (b *bound) fn816(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("process/host.child_stdin", 1, len(args))
-	}
-	a0, err := b.in817(fr, args[0])
+// fn1075Regs is process/host.child_stdin over slots.
+func (b *bound) fn1075Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1076(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("process/host.child_stdin", 0, "process/host.child_stdin", "child", err)
+		return false, hostadapt.Param("process/host.child_stdin", 0, "process/host.child_stdin", "child", err)
 	}
 	r0 := stdprocess.Stdin(a0)
-	v0, err := b.out479(r0)
+	w1077, err := b.out587(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("process/host.child_stdin", err)
+		return false, hostadapt.Returned("process/host.child_stdin", err)
 	}
-	return v0, nil
+	s.R[0] = w1077
+	return true, nil
 }
 
-// fn818 adapts process/host.child_stdout: child_stdout(child: Child) -> Reader
-func (b *bound) fn818(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("process/host.child_stdout", 1, len(args))
-	}
-	a0, err := b.in817(fr, args[0])
+// fn1078Regs is process/host.child_stdout over slots.
+func (b *bound) fn1078Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1076(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("process/host.child_stdout", 0, "process/host.child_stdout", "child", err)
+		return false, hostadapt.Param("process/host.child_stdout", 0, "process/host.child_stdout", "child", err)
 	}
 	r0 := stdprocess.Stdout(a0)
-	v0, err := b.out477(r0)
+	w1079, err := b.out584(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("process/host.child_stdout", err)
+		return false, hostadapt.Returned("process/host.child_stdout", err)
 	}
-	return v0, nil
+	s.R[0] = w1079
+	return true, nil
 }
 
-// fn819 adapts process/host.child_stderr: child_stderr(child: Child) -> Reader
-func (b *bound) fn819(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("process/host.child_stderr", 1, len(args))
-	}
-	a0, err := b.in817(fr, args[0])
+// fn1080Regs is process/host.child_stderr over slots.
+func (b *bound) fn1080Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1076(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("process/host.child_stderr", 0, "process/host.child_stderr", "child", err)
+		return false, hostadapt.Param("process/host.child_stderr", 0, "process/host.child_stderr", "child", err)
 	}
 	r0 := stdprocess.Stderr(a0)
-	v0, err := b.out477(r0)
+	w1081, err := b.out584(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("process/host.child_stderr", err)
+		return false, hostadapt.Returned("process/host.child_stderr", err)
 	}
-	return v0, nil
+	s.R[0] = w1081
+	return true, nil
 }
 
-// out821 builds a Result<List<Int>, Error> from Go rt.Result[*rt.List[int64], rt.IOError].
-func (b *bound) out821(v rt.Result[*rt.List[int64], rt.IOError]) (rt.Value, error) {
+// out1083 builds a Result<List<Int>, Error> from Go rt.Result[*rt.List[int64], rt.IOError].
+func (b *bound) out1083(v rt.Result[*rt.List[int64], rt.IOError]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
-		r := b.d33.NewVariant(0)
-		w822, err := b.out600(v.Ok)
+		r := b.d31.NewVariant(0)
+		w1084, err := b.out769(v.Ok)
 		if err != nil {
 			return nil, fmt.Errorf("Ok: %w", err)
 		}
-		r.R[0] = w822
+		r.R[0] = w1084
 		return r, nil
 	case rt.TagErr:
-		r := b.d33.NewVariant(1)
-		w823, err := b.out474(v.Err)
+		r := b.d31.NewVariant(1)
+		w1085, err := b.out580(v.Err)
 		if err != nil {
 			return nil, fmt.Errorf("Err: %w", err)
 		}
-		r.R[0] = w823
+		r.R[0] = w1085
 		return r, nil
 	}
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// fn820 adapts process/host.wait: wait(child: Child) -> Result<List<Int>, Error>
-func (b *bound) fn820(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("process/host.wait", 1, len(args))
-	}
-	a0, err := b.in817(fr, args[0])
+// fn1082Regs is process/host.wait over slots.
+func (b *bound) fn1082Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1076(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("process/host.wait", 0, "process/host.wait", "child", err)
-	}
-	r0 := stdprocess.Wait(fr, a0)
-	v0, err := b.out821(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("process/host.wait", err)
-	}
-	return v0, nil
-}
-
-// fn820Parts is process/host.wait taken apart: the payload and true, or the record and false.
-func (b *bound) fn820Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	if len(args) != 1 {
-		return nil, false, hostadapt.Arity("process/host.wait", 1, len(args))
-	}
-	a0, err := b.in817(fr, args[0])
-	if err != nil {
-		return nil, false, hostadapt.Param("process/host.wait", 0, "process/host.wait", "child", err)
+		return false, hostadapt.Param("process/host.wait", 0, "process/host.wait", "child", err)
 	}
 	r0 := stdprocess.Wait(fr, a0)
 	if r0.Tag != rt.TagOk {
-		rec, err := b.out821(r0)
+		rec, err := b.out1083(r0)
 		if err != nil {
-			return nil, false, hostadapt.Returned("process/host.wait", err)
+			return false, hostadapt.Returned("process/host.wait", err)
 		}
-		return rec, false, nil
+		s.R[0] = rec
+		return false, nil
 	}
-	v, err := b.out600(r0.Ok)
+	w1086, err := b.out769(r0.Ok)
 	if err != nil {
-		return nil, false, hostadapt.Returned("process/host.wait", err)
+		return false, hostadapt.Returned("process/host.wait", err)
 	}
-	return v, true, nil
+	s.R[0] = w1086
+	return true, nil
 }
 
-// fn824 adapts process/host.captured: captured(child: Child, stream: Int64) -> Bytes
-func (b *bound) fn824(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("process/host.captured", 2, len(args))
-	}
-	a0, err := b.in817(fr, args[0])
+// fn1087Regs is process/host.captured over slots.
+func (b *bound) fn1087Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1076(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("process/host.captured", 0, "process/host.captured", "child", err)
+		return false, hostadapt.Param("process/host.captured", 0, "process/host.captured", "child", err)
 	}
-	a1, err := b.in41(fr, args[1])
+	a1, err := hostadapt.SlotSigned[int64](s, 1, "int64")
 	if err != nil {
-		return nil, hostadapt.Param("process/host.captured", 1, "process/host.captured", "stream", err)
+		return false, hostadapt.Param("process/host.captured", 1, "process/host.captured", "stream", err)
 	}
 	r0 := stdprocess.Captured(a0, a1)
-	v0, err := b.out104(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("process/host.captured", err)
-	}
-	return v0, nil
+	s.S[0] = string(rt.Bytes(r0))
+	return true, nil
 }
 
-// fn825 adapts process/host.kill: kill(child: Child) -> Unit
-func (b *bound) fn825(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("process/host.kill", 1, len(args))
-	}
-	a0, err := b.in817(fr, args[0])
+// fn1088Regs is process/host.kill over slots.
+func (b *bound) fn1088Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1076(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("process/host.kill", 0, "process/host.kill", "child", err)
+		return false, hostadapt.Param("process/host.kill", 0, "process/host.kill", "child", err)
 	}
 	r0 := stdprocess.Kill(a0)
-	v0, err := b.out372(r0)
+	w1089, err := b.out452(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("process/host.kill", err)
+		return false, hostadapt.Returned("process/host.kill", err)
 	}
-	return v0, nil
+	s.R[0] = w1089
+	return true, nil
 }
 
-// out827 builds a Fake from Go rt.ProcessFake.
-func (b *bound) out827(v rt.ProcessFake) (rt.Value, error) {
+// out1091 builds a Fake from Go rt.ProcessFake.
+func (b *bound) out1091(v rt.ProcessFake) (rt.Value, error) {
 	return v, nil
 }
 
-// fn826 adapts process/host.new_fake: new_fake() -> Fake
-func (b *bound) fn826(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 0 {
-		return nil, hostadapt.Arity("process/host.new_fake", 0, len(args))
-	}
+// fn1090Regs is process/host.new_fake over slots.
+func (b *bound) fn1090Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
 	r0 := stdprocess.NewFake()
-	v0, err := b.out827(r0)
+	w1092, err := b.out1091(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("process/host.new_fake", err)
+		return false, hostadapt.Returned("process/host.new_fake", err)
 	}
-	return v0, nil
+	s.R[0] = w1092
+	return true, nil
 }
 
-// in829 reads a Fake as Go rt.ProcessFake.
-func (b *bound) in829(fr *rt.Frame, v rt.Value) (out rt.ProcessFake, err error) {
+// in1094 reads a Fake as Go rt.ProcessFake.
+func (b *bound) in1094(fr *rt.Frame, v rt.Value) (out rt.ProcessFake, err error) {
 	x, ok := v.(rt.ProcessFake)
 	if !ok {
 		return out, hostadapt.Want("Fake", v)
@@ -15210,149 +11451,107 @@ func (b *bound) in829(fr *rt.Frame, v rt.Value) (out rt.ProcessFake, err error) 
 	return x, nil
 }
 
-// fn828 adapts process/host.fake_answer: fake_answer(fake: Fake, program: String, args: List<String>, any_args: Bool, code: Int64, stdout: Bytes, stderr: Bytes) -> Unit
-func (b *bound) fn828(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 7 {
-		return nil, hostadapt.Arity("process/host.fake_answer", 7, len(args))
-	}
-	a0, err := b.in829(fr, args[0])
+// fn1093Regs is process/host.fake_answer over slots.
+func (b *bound) fn1093Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1094(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("process/host.fake_answer", 0, "process/host.fake_answer", "fake", err)
+		return false, hostadapt.Param("process/host.fake_answer", 0, "process/host.fake_answer", "fake", err)
 	}
-	a1, err := b.in42(fr, args[1])
+	a1 := string(s.S[1])
+	a2, err := b.in325(fr, s.R[2])
 	if err != nil {
-		return nil, hostadapt.Param("process/host.fake_answer", 1, "process/host.fake_answer", "program", err)
+		return false, hostadapt.Param("process/host.fake_answer", 2, "process/host.fake_answer", "args", err)
 	}
-	a2, err := b.in266(fr, args[2])
+	a3 := bool(rt.WordBool(s.W[3]))
+	a4, err := hostadapt.SlotSigned[int64](s, 4, "int64")
 	if err != nil {
-		return nil, hostadapt.Param("process/host.fake_answer", 2, "process/host.fake_answer", "args", err)
+		return false, hostadapt.Param("process/host.fake_answer", 4, "process/host.fake_answer", "code", err)
 	}
-	a3, err := b.in54(fr, args[3])
-	if err != nil {
-		return nil, hostadapt.Param("process/host.fake_answer", 3, "process/host.fake_answer", "any_args", err)
-	}
-	a4, err := b.in41(fr, args[4])
-	if err != nil {
-		return nil, hostadapt.Param("process/host.fake_answer", 4, "process/host.fake_answer", "code", err)
-	}
-	a5, err := b.in217(fr, args[5])
-	if err != nil {
-		return nil, hostadapt.Param("process/host.fake_answer", 5, "process/host.fake_answer", "stdout", err)
-	}
-	a6, err := b.in217(fr, args[6])
-	if err != nil {
-		return nil, hostadapt.Param("process/host.fake_answer", 6, "process/host.fake_answer", "stderr", err)
-	}
+	a5 := rt.Bytes(rt.Bytes(s.S[5]))
+	a6 := rt.Bytes(rt.Bytes(s.S[6]))
 	r0 := stdprocess.FakeAnswer(a0, a1, a2, a3, a4, a5, a6)
-	v0, err := b.out372(r0)
+	w1095, err := b.out452(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("process/host.fake_answer", err)
+		return false, hostadapt.Returned("process/host.fake_answer", err)
 	}
-	return v0, nil
+	s.R[0] = w1095
+	return true, nil
 }
 
-// fn830 adapts process/host.fake_refuse: fake_refuse(fake: Fake, program: String, args: List<String>, any_args: Bool, error: Error) -> Unit
-func (b *bound) fn830(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 5 {
-		return nil, hostadapt.Arity("process/host.fake_refuse", 5, len(args))
-	}
-	a0, err := b.in829(fr, args[0])
+// fn1096Regs is process/host.fake_refuse over slots.
+func (b *bound) fn1096Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1094(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("process/host.fake_refuse", 0, "process/host.fake_refuse", "fake", err)
+		return false, hostadapt.Param("process/host.fake_refuse", 0, "process/host.fake_refuse", "fake", err)
 	}
-	a1, err := b.in42(fr, args[1])
+	a1 := string(s.S[1])
+	a2, err := b.in325(fr, s.R[2])
 	if err != nil {
-		return nil, hostadapt.Param("process/host.fake_refuse", 1, "process/host.fake_refuse", "program", err)
+		return false, hostadapt.Param("process/host.fake_refuse", 2, "process/host.fake_refuse", "args", err)
 	}
-	a2, err := b.in266(fr, args[2])
+	a3 := bool(rt.WordBool(s.W[3]))
+	a4, err := b.in623(fr, s.R[4])
 	if err != nil {
-		return nil, hostadapt.Param("process/host.fake_refuse", 2, "process/host.fake_refuse", "args", err)
-	}
-	a3, err := b.in54(fr, args[3])
-	if err != nil {
-		return nil, hostadapt.Param("process/host.fake_refuse", 3, "process/host.fake_refuse", "any_args", err)
-	}
-	a4, err := b.in507(fr, args[4])
-	if err != nil {
-		return nil, hostadapt.Param("process/host.fake_refuse", 4, "process/host.fake_refuse", "error", err)
+		return false, hostadapt.Param("process/host.fake_refuse", 4, "process/host.fake_refuse", "error", err)
 	}
 	r0 := stdprocess.FakeRefuse(a0, a1, a2, a3, a4)
-	v0, err := b.out372(r0)
+	w1097, err := b.out452(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("process/host.fake_refuse", err)
+		return false, hostadapt.Returned("process/host.fake_refuse", err)
 	}
-	return v0, nil
+	s.R[0] = w1097
+	return true, nil
 }
 
-// fn831 adapts process/host.fake_calls: fake_calls(fake: Fake) -> Int
-func (b *bound) fn831(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("process/host.fake_calls", 1, len(args))
-	}
-	a0, err := b.in829(fr, args[0])
+// fn1098Regs is process/host.fake_calls over slots.
+func (b *bound) fn1098Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1094(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("process/host.fake_calls", 0, "process/host.fake_calls", "fake", err)
+		return false, hostadapt.Param("process/host.fake_calls", 0, "process/host.fake_calls", "fake", err)
 	}
 	r0 := stdprocess.FakeCalls(a0)
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("process/host.fake_calls", err)
-	}
-	return v0, nil
+	s.SetInt64(0, int64(r0))
+	return true, nil
 }
 
-// fn832 adapts process/host.fake_command: fake_command(fake: Fake, i: Int) -> List<String>
-func (b *bound) fn832(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("process/host.fake_command", 2, len(args))
-	}
-	a0, err := b.in829(fr, args[0])
+// fn1099Regs is process/host.fake_command over slots.
+func (b *bound) fn1099Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1094(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("process/host.fake_command", 0, "process/host.fake_command", "fake", err)
+		return false, hostadapt.Param("process/host.fake_command", 0, "process/host.fake_command", "fake", err)
 	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("process/host.fake_command", 1, "process/host.fake_command", "i", err)
-	}
+	a1 := s.Int(1)
 	r0 := stdprocess.FakeCommand(a0, a1)
-	v0, err := b.out194(r0)
+	w1100, err := b.out248(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("process/host.fake_command", err)
+		return false, hostadapt.Returned("process/host.fake_command", err)
 	}
-	return v0, nil
+	s.R[0] = w1100
+	return true, nil
 }
 
-// fn833 adapts process/host.fake_dir: fake_dir(fake: Fake, i: Int) -> String
-func (b *bound) fn833(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("process/host.fake_dir", 2, len(args))
-	}
-	a0, err := b.in829(fr, args[0])
+// fn1101Regs is process/host.fake_dir over slots.
+func (b *bound) fn1101Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1094(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("process/host.fake_dir", 0, "process/host.fake_dir", "fake", err)
+		return false, hostadapt.Param("process/host.fake_dir", 0, "process/host.fake_dir", "fake", err)
 	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("process/host.fake_dir", 1, "process/host.fake_dir", "i", err)
-	}
+	a1 := s.Int(1)
 	r0 := stdprocess.FakeDir(a0, a1)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("process/host.fake_dir", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// out835 builds a Map<String, String> from Go rt.Map[string, string].
-func (b *bound) out835(v rt.Map[string, string]) (rt.Value, error) {
+// out1103 builds a Map<String, String> from Go rt.Map[string, string].
+func (b *bound) out1103(v rt.Map[string, string]) (rt.Value, error) {
 	ents := rt.MapEntries(v)
 	conv := make([]rt.MapEntry[any, any], len(ents))
 	for i, e := range ents {
-		k, err := b.out5(e.Key)
+		k, err := b.out166(e.Key)
 		if err != nil {
 			return nil, fmt.Errorf("key %d: %w", i, err)
 		}
-		x, err := b.out5(e.Val)
+		x, err := b.out166(e.Val)
 		if err != nil {
 			return nil, fmt.Errorf("value %d: %w", i, err)
 		}
@@ -15361,57 +11560,43 @@ func (b *bound) out835(v rt.Map[string, string]) (rt.Value, error) {
 	return rt.MapOf(rt.Hash, rt.Equal, conv), nil
 }
 
-// fn834 adapts process/host.fake_env: fake_env(fake: Fake, i: Int) -> Map<String, String>
-func (b *bound) fn834(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("process/host.fake_env", 2, len(args))
-	}
-	a0, err := b.in829(fr, args[0])
+// fn1102Regs is process/host.fake_env over slots.
+func (b *bound) fn1102Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1094(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("process/host.fake_env", 0, "process/host.fake_env", "fake", err)
+		return false, hostadapt.Param("process/host.fake_env", 0, "process/host.fake_env", "fake", err)
 	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("process/host.fake_env", 1, "process/host.fake_env", "i", err)
-	}
+	a1 := s.Int(1)
 	r0 := stdprocess.FakeEnv(a0, a1)
-	v0, err := b.out835(r0)
+	w1104, err := b.out1103(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("process/host.fake_env", err)
+		return false, hostadapt.Returned("process/host.fake_env", err)
 	}
-	return v0, nil
+	s.R[0] = w1104
+	return true, nil
 }
 
-// fn836 adapts process/host.fake_input: fake_input(fake: Fake, i: Int) -> Bytes
-func (b *bound) fn836(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("process/host.fake_input", 2, len(args))
-	}
-	a0, err := b.in829(fr, args[0])
+// fn1105Regs is process/host.fake_input over slots.
+func (b *bound) fn1105Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1094(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("process/host.fake_input", 0, "process/host.fake_input", "fake", err)
+		return false, hostadapt.Param("process/host.fake_input", 0, "process/host.fake_input", "fake", err)
 	}
-	a1, err := b.in39(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("process/host.fake_input", 1, "process/host.fake_input", "i", err)
-	}
+	a1 := s.Int(1)
 	r0 := stdprocess.FakeInput(a0, a1)
-	v0, err := b.out104(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("process/host.fake_input", err)
-	}
-	return v0, nil
+	s.S[0] = string(rt.Bytes(r0))
+	return true, nil
 }
 
-// in838 reads a Maybe<Codepoint> as Go rt.Maybe[rt.Codepoint].
-func (b *bound) in838(fr *rt.Frame, v rt.Value) (out rt.Maybe[rt.Codepoint], err error) {
+// in1107 reads a Maybe<Codepoint> as Go rt.Maybe[rt.Codepoint].
+func (b *bound) in1107(fr *rt.Frame, v rt.Value) (out rt.Maybe[rt.Codepoint], err error) {
 	r, tag, err := hostadapt.Variant(v, "maybe.Maybe")
 	if err != nil {
 		return out, err
 	}
 	switch tag {
 	case "Some":
-		x, err := b.in345(fr, hostadapt.Payload(r))
+		x, err := b.in412(fr, hostadapt.Payload(r))
 		if err != nil {
 			return out, fmt.Errorf("Some: %w", err)
 		}
@@ -15422,50 +11607,39 @@ func (b *bound) in838(fr *rt.Frame, v rt.Value) (out rt.Maybe[rt.Codepoint], err
 	return out, fmt.Errorf("unmarshal Maybe: unknown variant %q", tag)
 }
 
-// out839 builds a Records from Go rt.CsvRecords.
-func (b *bound) out839(v rt.CsvRecords) (rt.Value, error) {
+// out1108 builds a Records from Go rt.CsvRecords.
+func (b *bound) out1108(v rt.CsvRecords) (rt.Value, error) {
 	return v, nil
 }
 
-// fn837 adapts csv/host.open: open(reader: Reader, delimiter: Codepoint, comment: Maybe<Codepoint>, trim: Bool, lazy: Bool, fields: Int) -> Records
-func (b *bound) fn837(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 6 {
-		return nil, hostadapt.Arity("csv/host.open", 6, len(args))
-	}
-	a0, err := b.in482(fr, args[0])
+// fn1106Regs is csv/host.open over slots.
+func (b *bound) fn1106Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in592(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("csv/host.open", 0, "csv/host.open", "reader", err)
+		return false, hostadapt.Param("csv/host.open", 0, "csv/host.open", "reader", err)
 	}
-	a1, err := b.in345(fr, args[1])
+	a1, err := b.in412(fr, s.R[1])
 	if err != nil {
-		return nil, hostadapt.Param("csv/host.open", 1, "csv/host.open", "delimiter", err)
+		return false, hostadapt.Param("csv/host.open", 1, "csv/host.open", "delimiter", err)
 	}
-	a2, err := b.in838(fr, args[2])
+	a2, err := b.in1107(fr, s.R[2])
 	if err != nil {
-		return nil, hostadapt.Param("csv/host.open", 2, "csv/host.open", "comment", err)
+		return false, hostadapt.Param("csv/host.open", 2, "csv/host.open", "comment", err)
 	}
-	a3, err := b.in54(fr, args[3])
-	if err != nil {
-		return nil, hostadapt.Param("csv/host.open", 3, "csv/host.open", "trim", err)
-	}
-	a4, err := b.in54(fr, args[4])
-	if err != nil {
-		return nil, hostadapt.Param("csv/host.open", 4, "csv/host.open", "lazy", err)
-	}
-	a5, err := b.in39(fr, args[5])
-	if err != nil {
-		return nil, hostadapt.Param("csv/host.open", 5, "csv/host.open", "fields", err)
-	}
+	a3 := bool(rt.WordBool(s.W[3]))
+	a4 := bool(rt.WordBool(s.W[4]))
+	a5 := s.Int(5)
 	r0 := stdcsv.Open(a0, a1, a2, a3, a4, a5)
-	v0, err := b.out839(r0)
+	w1109, err := b.out1108(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("csv/host.open", err)
+		return false, hostadapt.Returned("csv/host.open", err)
 	}
-	return v0, nil
+	s.R[0] = w1109
+	return true, nil
 }
 
-// in841 reads a Records as Go rt.CsvRecords.
-func (b *bound) in841(fr *rt.Frame, v rt.Value) (out rt.CsvRecords, err error) {
+// in1111 reads a Records as Go rt.CsvRecords.
+func (b *bound) in1111(fr *rt.Frame, v rt.Value) (out rt.CsvRecords, err error) {
 	x, ok := v.(rt.CsvRecords)
 	if !ok {
 		return out, hostadapt.Want("Records", v)
@@ -15473,144 +11647,146 @@ func (b *bound) in841(fr *rt.Frame, v rt.Value) (out rt.CsvRecords, err error) {
 	return x, nil
 }
 
-// fn840 adapts csv/host.next: next(records: Records) -> List<String>
-func (b *bound) fn840(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("csv/host.next", 1, len(args))
-	}
-	a0, err := b.in841(fr, args[0])
+// fn1110Regs is csv/host.next over slots.
+func (b *bound) fn1110Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1111(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("csv/host.next", 0, "csv/host.next", "records", err)
+		return false, hostadapt.Param("csv/host.next", 0, "csv/host.next", "records", err)
 	}
 	r0 := stdcsv.Next(fr, a0)
-	v0, err := b.out194(r0)
+	w1112, err := b.out248(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("csv/host.next", err)
+		return false, hostadapt.Returned("csv/host.next", err)
 	}
-	return v0, nil
+	s.R[0] = w1112
+	return true, nil
 }
 
-// fn842 adapts csv/host.line: line(records: Records) -> Int
-func (b *bound) fn842(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("csv/host.line", 1, len(args))
-	}
-	a0, err := b.in841(fr, args[0])
+// fn1113Regs is csv/host.line over slots.
+func (b *bound) fn1113Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1111(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("csv/host.line", 0, "csv/host.line", "records", err)
+		return false, hostadapt.Param("csv/host.line", 0, "csv/host.line", "records", err)
 	}
 	r0 := stdcsv.Line(a0)
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("csv/host.line", err)
-	}
-	return v0, nil
+	s.SetInt64(0, int64(r0))
+	return true, nil
 }
 
-// fn843 adapts csv/host.stopped: stopped(records: Records) -> List<Int>
-func (b *bound) fn843(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("csv/host.stopped", 1, len(args))
-	}
-	a0, err := b.in841(fr, args[0])
+// fn1114Regs is csv/host.stopped over slots.
+func (b *bound) fn1114Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1111(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("csv/host.stopped", 0, "csv/host.stopped", "records", err)
+		return false, hostadapt.Param("csv/host.stopped", 0, "csv/host.stopped", "records", err)
 	}
 	r0 := stdcsv.Stopped(a0)
-	v0, err := b.out600(r0)
+	w1115, err := b.out769(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("csv/host.stopped", err)
+		return false, hostadapt.Returned("csv/host.stopped", err)
 	}
-	return v0, nil
+	s.R[0] = w1115
+	return true, nil
 }
 
-// fn844 adapts csv/host.message: message(records: Records) -> String
-func (b *bound) fn844(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("csv/host.message", 1, len(args))
-	}
-	a0, err := b.in841(fr, args[0])
+// fn1116Regs is csv/host.message over slots.
+func (b *bound) fn1116Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1111(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("csv/host.message", 0, "csv/host.message", "records", err)
+		return false, hostadapt.Param("csv/host.message", 0, "csv/host.message", "records", err)
 	}
 	r0 := stdcsv.Message(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("csv/host.message", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn845 adapts csv/host.failure: failure(records: Records) -> Error
-func (b *bound) fn845(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("csv/host.failure", 1, len(args))
-	}
-	a0, err := b.in841(fr, args[0])
+// fn1117Regs is csv/host.failure over slots.
+func (b *bound) fn1117Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1111(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("csv/host.failure", 0, "csv/host.failure", "records", err)
+		return false, hostadapt.Param("csv/host.failure", 0, "csv/host.failure", "records", err)
 	}
 	r0 := stdcsv.Failure(a0)
-	v0, err := b.out474(r0)
+	w1118, err := b.out580(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("csv/host.failure", err)
+		return false, hostadapt.Returned("csv/host.failure", err)
 	}
-	return v0, nil
+	s.R[0] = w1118
+	return true, nil
 }
 
-// fn846 adapts csv/host.encode: encode(fields: List<String>, delimiter: Codepoint, crlf: Bool) -> String
-func (b *bound) fn846(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 3 {
-		return nil, hostadapt.Arity("csv/host.encode", 3, len(args))
-	}
-	a0, err := b.in266(fr, args[0])
+// fn1119Regs is csv/host.decode over slots.
+func (b *bound) fn1119Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1, err := b.in412(fr, s.R[1])
 	if err != nil {
-		return nil, hostadapt.Param("csv/host.encode", 0, "csv/host.encode", "fields", err)
+		return false, hostadapt.Param("csv/host.decode", 1, "csv/host.decode", "delimiter", err)
 	}
-	a1, err := b.in345(fr, args[1])
+	a2, err := b.in1107(fr, s.R[2])
 	if err != nil {
-		return nil, hostadapt.Param("csv/host.encode", 1, "csv/host.encode", "delimiter", err)
+		return false, hostadapt.Param("csv/host.decode", 2, "csv/host.decode", "comment", err)
 	}
-	a2, err := b.in54(fr, args[2])
+	a3 := bool(rt.WordBool(s.W[3]))
+	a4 := bool(rt.WordBool(s.W[4]))
+	a5 := s.Int(5)
+	r0, r1, r2, r3 := stdcsv.Decode(a0, a1, a2, a3, a4, a5)
+	w1120, err := b.out824(r0)
 	if err != nil {
-		return nil, hostadapt.Param("csv/host.encode", 2, "csv/host.encode", "crlf", err)
+		return false, hostadapt.Returned("csv/host.decode", fmt.Errorf("%s: marshaling return 0: %w", "csv/host.decode", err))
 	}
+	s.R[0] = w1120
+	w1121, err := b.out769(r1)
+	if err != nil {
+		return false, hostadapt.Returned("csv/host.decode", fmt.Errorf("%s: marshaling return 1: %w", "csv/host.decode", err))
+	}
+	s.R[1] = w1121
+	w1122, err := b.out769(r2)
+	if err != nil {
+		return false, hostadapt.Returned("csv/host.decode", fmt.Errorf("%s: marshaling return 2: %w", "csv/host.decode", err))
+	}
+	s.R[2] = w1122
+	s.S[3] = string(r3)
+	return true, nil
+}
+
+// fn1123Regs is csv/host.encode over slots.
+func (b *bound) fn1123Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in325(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("csv/host.encode", 0, "csv/host.encode", "fields", err)
+	}
+	a1, err := b.in412(fr, s.R[1])
+	if err != nil {
+		return false, hostadapt.Param("csv/host.encode", 1, "csv/host.encode", "delimiter", err)
+	}
+	a2 := bool(rt.WordBool(s.W[2]))
 	r0 := stdcsv.Encode(a0, a1, a2)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("csv/host.encode", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// out848 builds a Tokens from Go rt.XmlTokens.
-func (b *bound) out848(v rt.XmlTokens) (rt.Value, error) {
+// out1125 builds a Tokens from Go rt.XmlTokens.
+func (b *bound) out1125(v rt.XmlTokens) (rt.Value, error) {
 	return v, nil
 }
 
-// fn847 adapts xml/host.open: open(reader: Reader, allow_doctype: Bool) -> Tokens
-func (b *bound) fn847(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 2 {
-		return nil, hostadapt.Arity("xml/host.open", 2, len(args))
-	}
-	a0, err := b.in482(fr, args[0])
+// fn1124Regs is xml/host.open over slots.
+func (b *bound) fn1124Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in592(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("xml/host.open", 0, "xml/host.open", "reader", err)
+		return false, hostadapt.Param("xml/host.open", 0, "xml/host.open", "reader", err)
 	}
-	a1, err := b.in54(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Param("xml/host.open", 1, "xml/host.open", "allow_doctype", err)
-	}
+	a1 := bool(rt.WordBool(s.W[1]))
 	r0 := stdxml.Open(a0, a1)
-	v0, err := b.out848(r0)
+	w1126, err := b.out1125(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("xml/host.open", err)
+		return false, hostadapt.Returned("xml/host.open", err)
 	}
-	return v0, nil
+	s.R[0] = w1126
+	return true, nil
 }
 
-// in850 reads a Tokens as Go rt.XmlTokens.
-func (b *bound) in850(fr *rt.Frame, v rt.Value) (out rt.XmlTokens, err error) {
+// in1128 reads a Tokens as Go rt.XmlTokens.
+func (b *bound) in1128(fr *rt.Frame, v rt.Value) (out rt.XmlTokens, err error) {
 	x, ok := v.(rt.XmlTokens)
 	if !ok {
 		return out, hostadapt.Want("Tokens", v)
@@ -15618,686 +11794,2029 @@ func (b *bound) in850(fr *rt.Frame, v rt.Value) (out rt.XmlTokens, err error) {
 	return x, nil
 }
 
-// fn849 adapts xml/host.next: next(tokens: Tokens) -> Int
-func (b *bound) fn849(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("xml/host.next", 1, len(args))
-	}
-	a0, err := b.in850(fr, args[0])
+// fn1127Regs is xml/host.next over slots.
+func (b *bound) fn1127Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1128(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("xml/host.next", 0, "xml/host.next", "tokens", err)
+		return false, hostadapt.Param("xml/host.next", 0, "xml/host.next", "tokens", err)
 	}
 	r0 := stdxml.Next(fr, a0)
-	v0, err := b.out8(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("xml/host.next", err)
-	}
-	return v0, nil
+	s.SetInt64(0, int64(r0))
+	return true, nil
 }
 
-// fn851 adapts xml/host.name: name(tokens: Tokens) -> List<String>
-func (b *bound) fn851(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("xml/host.name", 1, len(args))
-	}
-	a0, err := b.in850(fr, args[0])
+// fn1129Regs is xml/host.current over slots.
+func (b *bound) fn1129Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1128(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("xml/host.name", 0, "xml/host.name", "tokens", err)
+		return false, hostadapt.Param("xml/host.current", 0, "xml/host.current", "tokens", err)
 	}
-	r0 := stdxml.Name(a0)
-	v0, err := b.out194(r0)
+	r0 := stdxml.Current(a0)
+	w1130, err := b.out824(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("xml/host.name", err)
+		return false, hostadapt.Returned("xml/host.current", err)
 	}
-	return v0, nil
+	s.R[0] = w1130
+	return true, nil
 }
 
-// fn852 adapts xml/host.attributes: attributes(tokens: Tokens) -> List<String>
-func (b *bound) fn852(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("xml/host.attributes", 1, len(args))
-	}
-	a0, err := b.in850(fr, args[0])
+// fn1131Regs is xml/host.stopped over slots.
+func (b *bound) fn1131Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1128(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("xml/host.attributes", 0, "xml/host.attributes", "tokens", err)
-	}
-	r0 := stdxml.Attributes(a0)
-	v0, err := b.out194(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("xml/host.attributes", err)
-	}
-	return v0, nil
-}
-
-// fn853 adapts xml/host.namespaces: namespaces(tokens: Tokens) -> List<String>
-func (b *bound) fn853(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("xml/host.namespaces", 1, len(args))
-	}
-	a0, err := b.in850(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("xml/host.namespaces", 0, "xml/host.namespaces", "tokens", err)
-	}
-	r0 := stdxml.Namespaces(a0)
-	v0, err := b.out194(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("xml/host.namespaces", err)
-	}
-	return v0, nil
-}
-
-// fn854 adapts xml/host.text: text(tokens: Tokens) -> String
-func (b *bound) fn854(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("xml/host.text", 1, len(args))
-	}
-	a0, err := b.in850(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("xml/host.text", 0, "xml/host.text", "tokens", err)
-	}
-	r0 := stdxml.Text(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("xml/host.text", err)
-	}
-	return v0, nil
-}
-
-// fn855 adapts xml/host.target: target(tokens: Tokens) -> String
-func (b *bound) fn855(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("xml/host.target", 1, len(args))
-	}
-	a0, err := b.in850(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("xml/host.target", 0, "xml/host.target", "tokens", err)
-	}
-	r0 := stdxml.Target(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("xml/host.target", err)
-	}
-	return v0, nil
-}
-
-// fn856 adapts xml/host.position: position(tokens: Tokens) -> List<Int>
-func (b *bound) fn856(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("xml/host.position", 1, len(args))
-	}
-	a0, err := b.in850(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("xml/host.position", 0, "xml/host.position", "tokens", err)
-	}
-	r0 := stdxml.Position(a0)
-	v0, err := b.out600(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("xml/host.position", err)
-	}
-	return v0, nil
-}
-
-// fn857 adapts xml/host.stopped: stopped(tokens: Tokens) -> List<Int>
-func (b *bound) fn857(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("xml/host.stopped", 1, len(args))
-	}
-	a0, err := b.in850(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("xml/host.stopped", 0, "xml/host.stopped", "tokens", err)
+		return false, hostadapt.Param("xml/host.stopped", 0, "xml/host.stopped", "tokens", err)
 	}
 	r0 := stdxml.Stopped(a0)
-	v0, err := b.out600(r0)
+	w1132, err := b.out769(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("xml/host.stopped", err)
+		return false, hostadapt.Returned("xml/host.stopped", err)
 	}
-	return v0, nil
+	s.R[0] = w1132
+	return true, nil
 }
 
-// fn858 adapts xml/host.message: message(tokens: Tokens) -> String
-func (b *bound) fn858(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("xml/host.message", 1, len(args))
-	}
-	a0, err := b.in850(fr, args[0])
+// fn1133Regs is xml/host.message over slots.
+func (b *bound) fn1133Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1128(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("xml/host.message", 0, "xml/host.message", "tokens", err)
+		return false, hostadapt.Param("xml/host.message", 0, "xml/host.message", "tokens", err)
 	}
 	r0 := stdxml.Message(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("xml/host.message", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn859 adapts xml/host.failure: failure(tokens: Tokens) -> Error
-func (b *bound) fn859(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("xml/host.failure", 1, len(args))
-	}
-	a0, err := b.in850(fr, args[0])
+// fn1134Regs is xml/host.failure over slots.
+func (b *bound) fn1134Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1128(fr, s.R[0])
 	if err != nil {
-		return nil, hostadapt.Param("xml/host.failure", 0, "xml/host.failure", "tokens", err)
+		return false, hostadapt.Param("xml/host.failure", 0, "xml/host.failure", "tokens", err)
 	}
 	r0 := stdxml.Failure(a0)
-	v0, err := b.out474(r0)
+	w1135, err := b.out580(r0)
 	if err != nil {
-		return nil, hostadapt.Returned("xml/host.failure", err)
+		return false, hostadapt.Returned("xml/host.failure", err)
 	}
-	return v0, nil
+	s.R[0] = w1135
+	return true, nil
 }
 
-// fn860 adapts xml/host.escape_text: escape_text(text: String) -> String
-func (b *bound) fn860(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("xml/host.escape_text", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
+// fn1136Regs is xml/host.decode over slots.
+func (b *bound) fn1136Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := bool(rt.WordBool(s.W[1]))
+	r0, r1, r2, r3 := stdxml.Decode(a0, a1)
+	w1137, err := b.out769(r0)
 	if err != nil {
-		return nil, hostadapt.Param("xml/host.escape_text", 0, "xml/host.escape_text", "text", err)
+		return false, hostadapt.Returned("xml/host.decode", fmt.Errorf("%s: marshaling return 0: %w", "xml/host.decode", err))
 	}
+	s.R[0] = w1137
+	w1138, err := b.out904(r1)
+	if err != nil {
+		return false, hostadapt.Returned("xml/host.decode", fmt.Errorf("%s: marshaling return 1: %w", "xml/host.decode", err))
+	}
+	s.R[1] = w1138
+	w1139, err := b.out769(r2)
+	if err != nil {
+		return false, hostadapt.Returned("xml/host.decode", fmt.Errorf("%s: marshaling return 2: %w", "xml/host.decode", err))
+	}
+	s.R[2] = w1139
+	s.S[3] = string(r3)
+	return true, nil
+}
+
+// fn1140Regs is xml/host.escape_text over slots.
+func (b *bound) fn1140Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
 	r0 := stdxml.EscapeText(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("xml/host.escape_text", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn861 adapts xml/host.escape_attribute: escape_attribute(text: String) -> String
-func (b *bound) fn861(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("xml/host.escape_attribute", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("xml/host.escape_attribute", 0, "xml/host.escape_attribute", "text", err)
-	}
+// fn1141Regs is xml/host.escape_attribute over slots.
+func (b *bound) fn1141Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
 	r0 := stdxml.EscapeAttribute(a0)
-	v0, err := b.out5(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("xml/host.escape_attribute", err)
-	}
-	return v0, nil
+	s.S[0] = string(r0)
+	return true, nil
 }
 
-// fn862 adapts xml/host.is_name: is_name(text: String) -> Bool
-func (b *bound) fn862(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("xml/host.is_name", 1, len(args))
-	}
-	a0, err := b.in42(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Param("xml/host.is_name", 0, "xml/host.is_name", "text", err)
-	}
+// fn1142Regs is xml/host.is_name over slots.
+func (b *bound) fn1142Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := string(s.S[0])
 	r0 := stdxml.IsName(a0)
-	v0, err := b.out162(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("xml/host.is_name", err)
-	}
-	return v0, nil
+	s.W[0] = rt.BoolWord(bool(r0))
+	return true, nil
 }
 
-// fn863 adapts iter.as_count: as_count(n: Int) -> Int
-func (b *bound) fn863(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	if len(args) != 1 {
-		return nil, hostadapt.Arity("iter.as_count", 1, len(args))
+// out1145 builds a Compiled from Go rt.WasmModule.
+func (b *bound) out1145(v rt.WasmModule) (rt.Value, error) {
+	return v, nil
+}
+
+// out1144 builds a Result<Compiled, String> from Go rt.Result[rt.WasmModule, string].
+func (b *bound) out1144(v rt.Result[rt.WasmModule, string]) (rt.Value, error) {
+	switch v.Tag {
+	case rt.TagOk:
+		r := b.d20.NewVariant(0)
+		w1146, err := b.out1145(v.Ok)
+		if err != nil {
+			return nil, fmt.Errorf("Ok: %w", err)
+		}
+		r.R[0] = w1146
+		return r, nil
+	case rt.TagErr:
+		r := b.d20.NewVariant(1)
+		r.S[0] = string(v.Err)
+		return r, nil
 	}
-	a0, err := b.in39(fr, args[0])
+	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
+}
+
+// in1149 reads a Compiled as Go rt.WasmModule.
+func (b *bound) in1149(fr *rt.Frame, v rt.Value) (out rt.WasmModule, err error) {
+	x, ok := v.(rt.WasmModule)
+	if !ok {
+		return out, hostadapt.Want("Compiled", v)
+	}
+	return x, nil
+}
+
+// out1150 builds a Result<Bytes, List<String>> from Go rt.Result[rt.Bytes, *rt.List[string]].
+func (b *bound) out1150(v rt.Result[rt.Bytes, *rt.List[string]]) (rt.Value, error) {
+	switch v.Tag {
+	case rt.TagOk:
+		r := b.d46.NewVariant(0)
+		r.S[0] = string(rt.Bytes(v.Ok))
+		return r, nil
+	case rt.TagErr:
+		r := b.d46.NewVariant(1)
+		w1151, err := b.out248(v.Err)
+		if err != nil {
+			return nil, fmt.Errorf("Err: %w", err)
+		}
+		r.R[0] = w1151
+		return r, nil
+	}
+	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
+}
+
+// in1154 reads a List<Int> as Go *rt.List[int64].
+func (b *bound) in1154(fr *rt.Frame, v rt.Value) (out *rt.List[int64], err error) {
+	xs, err := hostadapt.List(v)
 	if err != nil {
-		return nil, hostadapt.Param("iter.as_count", 0, "iter.as_count", "n", err)
+		return out, err
 	}
+	items := make([]int64, 0, hostadapt.Len(xs))
+	i := 0
+	for c := xs; c != nil; c = c.Tail {
+		e, err := b.in41(fr, c.Head)
+		if err != nil {
+			return out, fmt.Errorf("index %d: %w", i, err)
+		}
+		items = append(items, e)
+		i++
+	}
+	for k := len(items) - 1; k >= 0; k-- {
+		out = rt.Cons(items[k], out)
+	}
+	return out, nil
+}
+
+// in1153 reads a List<List<Int>> as Go *rt.List[*rt.List[int64]].
+func (b *bound) in1153(fr *rt.Frame, v rt.Value) (out *rt.List[*rt.List[int64]], err error) {
+	xs, err := hostadapt.List(v)
+	if err != nil {
+		return out, err
+	}
+	items := make([]*rt.List[int64], 0, hostadapt.Len(xs))
+	i := 0
+	for c := xs; c != nil; c = c.Tail {
+		e, err := b.in1154(fr, c.Head)
+		if err != nil {
+			return out, fmt.Errorf("index %d: %w", i, err)
+		}
+		items = append(items, e)
+		i++
+	}
+	for k := len(items) - 1; k >= 0; k-- {
+		out = rt.Cons(items[k], out)
+	}
+	return out, nil
+}
+
+// out1157 builds a Memory from Go rt.WasmMemory.
+func (b *bound) out1157(v rt.WasmMemory) (rt.Value, error) {
+	return v, nil
+}
+
+// in1158 reads a Result<List<Int>, String> as Go rt.Result[*rt.List[int64], string].
+func (b *bound) in1158(fr *rt.Frame, v rt.Value) (out rt.Result[*rt.List[int64], string], err error) {
+	r, tag, err := hostadapt.Variant(v, "results.Result")
+	if err != nil {
+		return out, err
+	}
+	switch tag {
+	case "Ok":
+		x, err := b.in1154(fr, hostadapt.Payload(r))
+		if err != nil {
+			return out, fmt.Errorf("Ok: %w", err)
+		}
+		return rt.Result[*rt.List[int64], string]{Tag: rt.TagOk, Ok: x}, nil
+	case "Err":
+		x, err := b.in173(fr, hostadapt.Payload(r))
+		if err != nil {
+			return out, fmt.Errorf("Err: %w", err)
+		}
+		return rt.Result[*rt.List[int64], string]{Tag: rt.TagErr, Err: x}, nil
+	}
+	return out, fmt.Errorf("unmarshal Result: unknown variant %q", tag)
+}
+
+// in1156 reads a (Memory, List<Int>) -> Result<List<Int>, String> as Go func(*rt.Frame, rt.WasmMemory, *rt.List[int64]) rt.Result[*rt.List[int64], string].
+func (b *bound) in1156(fr *rt.Frame, v rt.Value) (out func(*rt.Frame, rt.WasmMemory, *rt.List[int64]) rt.Result[*rt.List[int64], string], err error) {
+	if v == nil {
+		return out, fmt.Errorf("expected a function, got nil")
+	}
+	return func(fr *rt.Frame, p0 rt.WasmMemory, p1 *rt.List[int64]) rt.Result[*rt.List[int64], string] {
+		x0, err := b.out1157(p0)
+		if err != nil {
+			panic(fmt.Sprintf("Nomi callback arg 0: %v", err))
+		}
+		x1, err := b.out769(p1)
+		if err != nil {
+			panic(fmt.Sprintf("Nomi callback arg 1: %v", err))
+		}
+		res, err := b.env.Call(fr, v, []rt.Value{x0, x1})
+		if err != nil {
+			panic(hostadapt.Unwind{Err: err})
+		}
+		y, err := b.in1158(fr, res)
+		if err != nil {
+			panic(hostadapt.Unwind{Err: err})
+		}
+		return y
+	}, nil
+}
+
+// in1155 reads a List<(Memory, List<Int>) -> Result<List<Int>, String>> as Go *rt.List[func(*rt.Frame, rt.WasmMemory, *rt.List[int64]) rt.Result[*rt.List[int64], string]].
+func (b *bound) in1155(fr *rt.Frame, v rt.Value) (out *rt.List[func(*rt.Frame, rt.WasmMemory, *rt.List[int64]) rt.Result[*rt.List[int64], string]], err error) {
+	xs, err := hostadapt.List(v)
+	if err != nil {
+		return out, err
+	}
+	items := make([]func(*rt.Frame, rt.WasmMemory, *rt.List[int64]) rt.Result[*rt.List[int64], string], 0, hostadapt.Len(xs))
+	i := 0
+	for c := xs; c != nil; c = c.Tail {
+		e, err := b.in1156(fr, c.Head)
+		if err != nil {
+			return out, fmt.Errorf("index %d: %w", i, err)
+		}
+		items = append(items, e)
+		i++
+	}
+	for k := len(items) - 1; k >= 0; k-- {
+		out = rt.Cons(items[k], out)
+	}
+	return out, nil
+}
+
+// out1160 builds a Live from Go rt.WasmInstance.
+func (b *bound) out1160(v rt.WasmInstance) (rt.Value, error) {
+	return v, nil
+}
+
+// out1159 builds a Result<Live, List<String>> from Go rt.Result[rt.WasmInstance, *rt.List[string]].
+func (b *bound) out1159(v rt.Result[rt.WasmInstance, *rt.List[string]]) (rt.Value, error) {
+	switch v.Tag {
+	case rt.TagOk:
+		r := b.d31.NewVariant(0)
+		w1161, err := b.out1160(v.Ok)
+		if err != nil {
+			return nil, fmt.Errorf("Ok: %w", err)
+		}
+		r.R[0] = w1161
+		return r, nil
+	case rt.TagErr:
+		r := b.d31.NewVariant(1)
+		w1162, err := b.out248(v.Err)
+		if err != nil {
+			return nil, fmt.Errorf("Err: %w", err)
+		}
+		r.R[0] = w1162
+		return r, nil
+	}
+	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
+}
+
+// in1165 reads a Live as Go rt.WasmInstance.
+func (b *bound) in1165(fr *rt.Frame, v rt.Value) (out rt.WasmInstance, err error) {
+	x, ok := v.(rt.WasmInstance)
+	if !ok {
+		return out, hostadapt.Want("Live", v)
+	}
+	return x, nil
+}
+
+// out1166 builds a Result<List<Int>, List<String>> from Go rt.Result[*rt.List[int64], *rt.List[string]].
+func (b *bound) out1166(v rt.Result[*rt.List[int64], *rt.List[string]]) (rt.Value, error) {
+	switch v.Tag {
+	case rt.TagOk:
+		r := b.d31.NewVariant(0)
+		w1167, err := b.out769(v.Ok)
+		if err != nil {
+			return nil, fmt.Errorf("Ok: %w", err)
+		}
+		r.R[0] = w1167
+		return r, nil
+	case rt.TagErr:
+		r := b.d31.NewVariant(1)
+		w1168, err := b.out248(v.Err)
+		if err != nil {
+			return nil, fmt.Errorf("Err: %w", err)
+		}
+		r.R[0] = w1168
+		return r, nil
+	}
+	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
+}
+
+// out1175 builds a Result<Int, List<String>> from Go rt.Result[int64, *rt.List[string]].
+func (b *bound) out1175(v rt.Result[int64, *rt.List[string]]) (rt.Value, error) {
+	switch v.Tag {
+	case rt.TagOk:
+		r := b.d16.NewVariant(0)
+		r.SetIntSlot(0, rt.Value(int64(v.Ok)))
+		return r, nil
+	case rt.TagErr:
+		r := b.d16.NewVariant(1)
+		w1176, err := b.out248(v.Err)
+		if err != nil {
+			return nil, fmt.Errorf("Err: %w", err)
+		}
+		r.R[0] = w1176
+		return r, nil
+	}
+	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
+}
+
+// in1180 reads a Memory as Go rt.WasmMemory.
+func (b *bound) in1180(fr *rt.Frame, v rt.Value) (out rt.WasmMemory, err error) {
+	x, ok := v.(rt.WasmMemory)
+	if !ok {
+		return out, hostadapt.Want("Memory", v)
+	}
+	return x, nil
+}
+
+// fn1184Regs is iter.as_count over slots.
+func (b *bound) fn1184Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
 	r0 := rt.IntAsCount(a0)
-	v0, err := b.out3(r0)
-	if err != nil {
-		return nil, hostadapt.Returned("iter.as_count", err)
-	}
-	return v0, nil
+	s.SetInt(0, r0)
+	return true, nil
 }
 
-// NetworkNames is every crossing whose adapter calls github.com/nomi-language/nomi/internal/stdhttp,
-// sorted: what a runner built with the nomi_nonet tag answers with an error.
-// `nomi build` picks the runner without the network for a program that
-// reaches none of them.
-func NetworkNames() []string {
-	return []string{
-		"http/host.add_cookie",
-		"http/host.address",
-		"http/host.answer_content",
-		"http/host.answer_redirect",
-		"http/host.answered_already",
-		"http/host.basic_auth",
-		"http/host.body_bytes",
-		"http/host.body_reader",
-		"http/host.canonical_key",
-		"http/host.certificate_from_pem",
-		"http/host.certificate_info",
-		"http/host.certificate_load",
-		"http/host.check_pattern",
-		"http/host.chunked_reader",
-		"http/host.chunked_writer",
-		"http/host.cipher_suite_name",
-		"http/host.cipher_suites",
-		"http/host.close_body",
-		"http/host.close_connections",
-		"http/host.close_idle",
-		"http/host.closes",
-		"http/host.conn_close",
-		"http/host.conn_close_read",
-		"http/host.conn_close_write",
-		"http/host.conn_deadline",
-		"http/host.conn_keep_alive",
-		"http/host.conn_linger",
-		"http/host.conn_local",
-		"http/host.conn_multipath",
-		"http/host.conn_no_delay",
-		"http/host.conn_reader",
-		"http/host.conn_remote",
-		"http/host.conn_writer",
-		"http/host.content_length",
-		"http/host.cookie_text",
-		"http/host.cookie_valid",
-		"http/host.cross_origin_check",
-		"http/host.default_client",
-		"http/host.detect_content_type",
-		"http/host.dial_with",
-		"http/host.encode_multipart",
-		"http/host.exchange_tls",
-		"http/host.extend_read_deadline",
-		"http/host.file_content_disposition",
-		"http/host.final_url",
-		"http/host.finish",
-		"http/host.format_time",
-		"http/host.gunzip",
-		"http/host.gzip_bytes",
-		"http/host.gzip_reader",
-		"http/host.gzip_writer",
-		"http/host.headers",
-		"http/host.headers_wire",
-		"http/host.hello_parts",
-		"http/host.hello_supports",
-		"http/host.in_body",
-		"http/host.in_close",
-		"http/host.in_content_length",
-		"http/host.in_headers",
-		"http/host.in_host",
-		"http/host.in_local",
-		"http/host.in_method",
-		"http/host.in_protocol",
-		"http/host.in_remote",
-		"http/host.in_target",
-		"http/host.in_tls",
-		"http/host.in_trailers",
-		"http/host.in_transfer_encoding",
-		"http/host.jar_cookies",
-		"http/host.jar_set",
-		"http/host.join_host_port",
-		"http/host.limit_body",
-		"http/host.listen",
-		"http/host.listen_tls",
-		"http/host.lookup",
-		"http/host.multipart_reader",
-		"http/host.multipart_write",
-		"http/host.net_accept",
-		"http/host.net_listen_with",
-		"http/host.net_listener_address",
-		"http/host.net_listener_close",
-		"http/host.net_listener_deadline",
-		"http/host.new_client",
-		"http/host.new_jar",
-		"http/host.new_mux",
-		"http/host.new_tracer",
-		"http/host.next",
-		"http/host.next_part",
-		"http/host.parse_cookie",
-		"http/host.parse_http_version",
-		"http/host.parse_multipart",
-		"http/host.parse_set_cookie",
-		"http/host.parse_time",
-		"http/host.part_file_name",
-		"http/host.part_form_name",
-		"http/host.part_headers",
-		"http/host.part_reader",
-		"http/host.pipe",
-		"http/host.produce",
-		"http/host.protocol",
-		"http/host.respond",
-		"http/host.route",
-		"http/host.send",
-		"http/host.shutdown",
-		"http/host.split_host_port",
-		"http/host.status",
-		"http/host.status_text",
-		"http/host.test_certificate",
-		"http/host.tls_client",
-		"http/host.tls_config",
-		"http/host.tls_dial",
-		"http/host.tls_listen",
-		"http/host.tls_server",
-		"http/host.tls_state_parts",
-		"http/host.tls_verify_hostname",
-		"http/host.tls_with_certificate",
-		"http/host.tls_wrap_listener",
-		"http/host.tracer_events",
-		"http/host.trailers",
-		"http/host.transfer_encoding",
-		"http/host.uncompressed",
-		"http/host.upgrade",
-		"http/host.wire_body",
-		"http/host.wire_parts",
-		"http/host.wire_read_request",
-		"http/host.wire_read_response",
-		"http/host.wire_request",
-		"http/host.wire_response",
-		"http/host.with_jar",
-		"http/host.with_tls",
-		"http/host.ws_accept_key",
-		"http/host.ws_close",
-		"http/host.ws_connect",
-		"http/host.ws_id",
-		"http/host.ws_open",
-		"http/host.ws_ping",
-		"http/host.ws_pipe",
-		"http/host.ws_protocol",
-		"http/host.ws_receive",
-		"http/host.ws_send",
-		"http/host.ws_valid_key",
-		"signatures/host.ed25519_from_seed",
-		"signatures/host.ed25519_public_bytes",
-		"signatures/host.ed25519_public_from_bytes",
-		"signatures/host.ed25519_seed",
-		"signatures/host.generate_ed25519",
-		"signatures/host.generate_p256",
-		"signatures/host.generate_rsa",
-		"signatures/host.is_valid",
-		"signatures/host.private_from_der",
-		"signatures/host.private_from_pem",
-		"signatures/host.private_kind",
-		"signatures/host.private_to_pem",
-		"signatures/host.public_from_der",
-		"signatures/host.public_from_pem",
-		"signatures/host.public_kind",
-		"signatures/host.public_of",
-		"signatures/host.public_to_pem",
-		"signatures/host.sign",
+// fn1185Regs is bytes.Bytes.to_string_lossy over slots.
+func (b *bound) fn1185Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	r0 := rt.BytesToStringLossy(a0)
+	s.S[0] = string(r0)
+	return true, nil
+}
+
+// fn1186Regs is bytes.Bytes.valid_utf8_length over slots.
+func (b *bound) fn1186Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	r0 := rt.BytesValidUTF8Length(a0)
+	s.SetInt64(0, int64(r0))
+	return true, nil
+}
+
+// fn1187Regs is bytes.Bytes.concat_all over slots.
+func (b *bound) fn1187Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in942(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("bytes.Bytes.concat_all", 0, "bytes.Bytes.concat_all", "parts", err)
+	}
+	r0 := rt.BytesConcatAll(a0)
+	s.S[0] = string(rt.Bytes(r0))
+	return true, nil
+}
+
+// out1189 builds a Maybe<Int> from Go rt.Maybe[int64].
+func (b *bound) out1189(v rt.Maybe[int64]) (rt.Value, error) {
+	switch v.Tag {
+	case rt.TagSome:
+		r := b.d23.NewVariant(0)
+		r.SetIntSlot(0, rt.Value(int64(v.Some)))
+		return r, nil
+	case rt.TagNone:
+		return b.d23.NewVariant(1), nil
+	}
+	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
+}
+
+// fn1188Regs is bytes.index_of_from over slots.
+func (b *bound) fn1188Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := rt.Bytes(rt.Bytes(s.S[1]))
+	a2 := s.Int(2)
+	r0 := rt.BytesIndexOf(a0, a1, a2)
+	if r0.Tag != rt.TagSome {
+		rec, err := b.out1189(r0)
+		if err != nil {
+			return false, hostadapt.Returned("bytes.index_of_from", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.SetInt64(0, int64(r0.Some))
+	return true, nil
+}
+
+// fn1190Regs is bytes.index_of_byte_from over slots.
+func (b *bound) fn1190Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := rt.Byte(rt.WordByte(s.W[1]))
+	a2 := s.Int(2)
+	r0 := rt.BytesIndexOfByte(a0, a1, a2)
+	if r0.Tag != rt.TagSome {
+		rec, err := b.out1189(r0)
+		if err != nil {
+			return false, hostadapt.Returned("bytes.index_of_byte_from", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.SetInt64(0, int64(r0.Some))
+	return true, nil
+}
+
+// fn1191Regs is bytes.Bytes.last_index_of over slots.
+func (b *bound) fn1191Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := rt.Bytes(rt.Bytes(s.S[1]))
+	r0 := rt.BytesLastIndexOf(a0, a1)
+	if r0.Tag != rt.TagSome {
+		rec, err := b.out1189(r0)
+		if err != nil {
+			return false, hostadapt.Returned("bytes.Bytes.last_index_of", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.SetInt64(0, int64(r0.Some))
+	return true, nil
+}
+
+// fn1192Regs is bytes.Bytes.last_index_of_byte over slots.
+func (b *bound) fn1192Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := rt.Byte(rt.WordByte(s.W[1]))
+	r0 := rt.BytesLastIndexOfByte(a0, a1)
+	if r0.Tag != rt.TagSome {
+		rec, err := b.out1189(r0)
+		if err != nil {
+			return false, hostadapt.Returned("bytes.Bytes.last_index_of_byte", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.SetInt64(0, int64(r0.Some))
+	return true, nil
+}
+
+// fn1193Regs is bytes.index_of_any_from over slots.
+func (b *bound) fn1193Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := rt.Bytes(rt.Bytes(s.S[1]))
+	a2 := s.Int(2)
+	r0 := rt.BytesIndexOfAny(a0, a1, a2)
+	if r0.Tag != rt.TagSome {
+		rec, err := b.out1189(r0)
+		if err != nil {
+			return false, hostadapt.Returned("bytes.index_of_any_from", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.SetInt64(0, int64(r0.Some))
+	return true, nil
+}
+
+// fn1194Regs is bytes.Bytes.last_index_of_any over slots.
+func (b *bound) fn1194Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := rt.Bytes(rt.Bytes(s.S[1]))
+	r0 := rt.BytesLastIndexOfAny(a0, a1)
+	if r0.Tag != rt.TagSome {
+		rec, err := b.out1189(r0)
+		if err != nil {
+			return false, hostadapt.Returned("bytes.Bytes.last_index_of_any", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.SetInt64(0, int64(r0.Some))
+	return true, nil
+}
+
+// fn1195Regs is bytes.Bytes.contains_bytes over slots.
+func (b *bound) fn1195Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := rt.Bytes(rt.Bytes(s.S[1]))
+	r0 := rt.BytesContainsBytes(a0, a1)
+	s.W[0] = rt.BoolWord(bool(r0))
+	return true, nil
+}
+
+// fn1196Regs is bytes.Bytes.starts_with over slots.
+func (b *bound) fn1196Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := rt.Bytes(rt.Bytes(s.S[1]))
+	r0 := rt.BytesStartsWith(a0, a1)
+	s.W[0] = rt.BoolWord(bool(r0))
+	return true, nil
+}
+
+// fn1197Regs is bytes.Bytes.ends_with over slots.
+func (b *bound) fn1197Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := rt.Bytes(rt.Bytes(s.S[1]))
+	r0 := rt.BytesEndsWith(a0, a1)
+	s.W[0] = rt.BoolWord(bool(r0))
+	return true, nil
+}
+
+// fn1198Regs is bytes.Bytes.split over slots.
+func (b *bound) fn1198Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := rt.Bytes(rt.Bytes(s.S[1]))
+	r0 := rt.BytesSplit(a0, a1)
+	w1199, err := b.out1015(r0)
+	if err != nil {
+		return false, hostadapt.Returned("bytes.Bytes.split", err)
+	}
+	s.R[0] = w1199
+	return true, nil
+}
+
+// fn1200Regs is bytes.Bytes.count over slots.
+func (b *bound) fn1200Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := rt.Bytes(rt.Bytes(s.S[1]))
+	r0 := rt.BytesCount(a0, a1)
+	s.SetInt64(0, int64(r0))
+	return true, nil
+}
+
+// fn1201Regs is bytes.Bytes.uint8_at over slots.
+func (b *bound) fn1201Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := s.Int(1)
+	r0 := rt.BytesUint8At(a0, a1)
+	if r0.Tag != rt.TagSome {
+		rec, err := b.out259(r0)
+		if err != nil {
+			return false, hostadapt.Returned("bytes.Bytes.uint8_at", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.SetInt(0, r0.Some)
+	return true, nil
+}
+
+// fn1202Regs is bytes.Bytes.int8_at over slots.
+func (b *bound) fn1202Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := s.Int(1)
+	r0 := rt.BytesInt8At(a0, a1)
+	if r0.Tag != rt.TagSome {
+		rec, err := b.out1189(r0)
+		if err != nil {
+			return false, hostadapt.Returned("bytes.Bytes.int8_at", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.SetInt64(0, int64(r0.Some))
+	return true, nil
+}
+
+// fn1203Regs is bytes.Bytes.uint16_be_at over slots.
+func (b *bound) fn1203Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := s.Int(1)
+	r0 := rt.BytesUint16BEAt(a0, a1)
+	if r0.Tag != rt.TagSome {
+		rec, err := b.out259(r0)
+		if err != nil {
+			return false, hostadapt.Returned("bytes.Bytes.uint16_be_at", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.SetInt(0, r0.Some)
+	return true, nil
+}
+
+// fn1204Regs is bytes.Bytes.uint16_le_at over slots.
+func (b *bound) fn1204Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := s.Int(1)
+	r0 := rt.BytesUint16LEAt(a0, a1)
+	if r0.Tag != rt.TagSome {
+		rec, err := b.out259(r0)
+		if err != nil {
+			return false, hostadapt.Returned("bytes.Bytes.uint16_le_at", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.SetInt(0, r0.Some)
+	return true, nil
+}
+
+// fn1205Regs is bytes.Bytes.int16_be_at over slots.
+func (b *bound) fn1205Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := s.Int(1)
+	r0 := rt.BytesInt16BEAt(a0, a1)
+	if r0.Tag != rt.TagSome {
+		rec, err := b.out1189(r0)
+		if err != nil {
+			return false, hostadapt.Returned("bytes.Bytes.int16_be_at", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.SetInt64(0, int64(r0.Some))
+	return true, nil
+}
+
+// fn1206Regs is bytes.Bytes.int16_le_at over slots.
+func (b *bound) fn1206Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := s.Int(1)
+	r0 := rt.BytesInt16LEAt(a0, a1)
+	if r0.Tag != rt.TagSome {
+		rec, err := b.out1189(r0)
+		if err != nil {
+			return false, hostadapt.Returned("bytes.Bytes.int16_le_at", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.SetInt64(0, int64(r0.Some))
+	return true, nil
+}
+
+// fn1207Regs is bytes.Bytes.uint32_be_at over slots.
+func (b *bound) fn1207Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := s.Int(1)
+	r0 := rt.BytesUint32BEAt(a0, a1)
+	if r0.Tag != rt.TagSome {
+		rec, err := b.out259(r0)
+		if err != nil {
+			return false, hostadapt.Returned("bytes.Bytes.uint32_be_at", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.SetInt(0, r0.Some)
+	return true, nil
+}
+
+// fn1208Regs is bytes.Bytes.uint32_le_at over slots.
+func (b *bound) fn1208Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := s.Int(1)
+	r0 := rt.BytesUint32LEAt(a0, a1)
+	if r0.Tag != rt.TagSome {
+		rec, err := b.out259(r0)
+		if err != nil {
+			return false, hostadapt.Returned("bytes.Bytes.uint32_le_at", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.SetInt(0, r0.Some)
+	return true, nil
+}
+
+// fn1209Regs is bytes.Bytes.int32_be_at over slots.
+func (b *bound) fn1209Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := s.Int(1)
+	r0 := rt.BytesInt32BEAt(a0, a1)
+	if r0.Tag != rt.TagSome {
+		rec, err := b.out1189(r0)
+		if err != nil {
+			return false, hostadapt.Returned("bytes.Bytes.int32_be_at", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.SetInt64(0, int64(r0.Some))
+	return true, nil
+}
+
+// fn1210Regs is bytes.Bytes.int32_le_at over slots.
+func (b *bound) fn1210Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := s.Int(1)
+	r0 := rt.BytesInt32LEAt(a0, a1)
+	if r0.Tag != rt.TagSome {
+		rec, err := b.out1189(r0)
+		if err != nil {
+			return false, hostadapt.Returned("bytes.Bytes.int32_le_at", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.SetInt64(0, int64(r0.Some))
+	return true, nil
+}
+
+// fn1211Regs is bytes.Bytes.uint64_be_at over slots.
+func (b *bound) fn1211Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := s.Int(1)
+	r0 := rt.BytesUint64BEAt(a0, a1)
+	if r0.Tag != rt.TagSome {
+		rec, err := b.out259(r0)
+		if err != nil {
+			return false, hostadapt.Returned("bytes.Bytes.uint64_be_at", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.SetInt(0, r0.Some)
+	return true, nil
+}
+
+// fn1212Regs is bytes.Bytes.uint64_le_at over slots.
+func (b *bound) fn1212Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := s.Int(1)
+	r0 := rt.BytesUint64LEAt(a0, a1)
+	if r0.Tag != rt.TagSome {
+		rec, err := b.out259(r0)
+		if err != nil {
+			return false, hostadapt.Returned("bytes.Bytes.uint64_le_at", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.SetInt(0, r0.Some)
+	return true, nil
+}
+
+// fn1213Regs is bytes.Bytes.int64_be_at over slots.
+func (b *bound) fn1213Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := s.Int(1)
+	r0 := rt.BytesInt64BEAt(a0, a1)
+	if r0.Tag != rt.TagSome {
+		rec, err := b.out1189(r0)
+		if err != nil {
+			return false, hostadapt.Returned("bytes.Bytes.int64_be_at", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.SetInt64(0, int64(r0.Some))
+	return true, nil
+}
+
+// fn1214Regs is bytes.Bytes.int64_le_at over slots.
+func (b *bound) fn1214Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := s.Int(1)
+	r0 := rt.BytesInt64LEAt(a0, a1)
+	if r0.Tag != rt.TagSome {
+		rec, err := b.out1189(r0)
+		if err != nil {
+			return false, hostadapt.Returned("bytes.Bytes.int64_le_at", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.SetInt64(0, int64(r0.Some))
+	return true, nil
+}
+
+// fn1215Regs is bytes.Bytes.float32_be_at over slots.
+func (b *bound) fn1215Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := s.Int(1)
+	r0 := rt.BytesFloat32BEAt(a0, a1)
+	if r0.Tag != rt.TagSome {
+		rec, err := b.out486(r0)
+		if err != nil {
+			return false, hostadapt.Returned("bytes.Bytes.float32_be_at", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.W[0] = rt.FloatWord(float64(r0.Some))
+	return true, nil
+}
+
+// fn1216Regs is bytes.Bytes.float32_le_at over slots.
+func (b *bound) fn1216Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := s.Int(1)
+	r0 := rt.BytesFloat32LEAt(a0, a1)
+	if r0.Tag != rt.TagSome {
+		rec, err := b.out486(r0)
+		if err != nil {
+			return false, hostadapt.Returned("bytes.Bytes.float32_le_at", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.W[0] = rt.FloatWord(float64(r0.Some))
+	return true, nil
+}
+
+// fn1217Regs is bytes.Bytes.float64_be_at over slots.
+func (b *bound) fn1217Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := s.Int(1)
+	r0 := rt.BytesFloat64BEAt(a0, a1)
+	if r0.Tag != rt.TagSome {
+		rec, err := b.out486(r0)
+		if err != nil {
+			return false, hostadapt.Returned("bytes.Bytes.float64_be_at", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.W[0] = rt.FloatWord(float64(r0.Some))
+	return true, nil
+}
+
+// fn1218Regs is bytes.Bytes.float64_le_at over slots.
+func (b *bound) fn1218Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := s.Int(1)
+	r0 := rt.BytesFloat64LEAt(a0, a1)
+	if r0.Tag != rt.TagSome {
+		rec, err := b.out486(r0)
+		if err != nil {
+			return false, hostadapt.Returned("bytes.Bytes.float64_le_at", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.W[0] = rt.FloatWord(float64(r0.Some))
+	return true, nil
+}
+
+// out1221 builds a (Int, Int) from Go struct{ F0 rt.Int; F1 int64 }.
+func (b *bound) out1221(v struct {
+	F0 rt.Int
+	F1 int64
+}) (rt.Value, error) {
+	tup := b.d47.New()
+	tup.SetIntSlot(0, v.F0.Value())
+	tup.SetIntSlot(1, rt.Value(int64(v.F1)))
+	return tup, nil
+}
+
+// out1220 builds a Maybe<(Int, Int)> from Go rt.Maybe[struct{ F0 rt.Int; F1 int64 }].
+func (b *bound) out1220(v rt.Maybe[struct {
+	F0 rt.Int
+	F1 int64
+}]) (rt.Value, error) {
+	switch v.Tag {
+	case rt.TagSome:
+		r := b.d24.NewVariant(0)
+		w1222, err := b.out1221(v.Some)
+		if err != nil {
+			return nil, fmt.Errorf("Some: %w", err)
+		}
+		r.R[0] = w1222
+		return r, nil
+	case rt.TagNone:
+		return b.d24.NewVariant(1), nil
+	}
+	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
+}
+
+// fn1219Regs is bytes.Bytes.uvarint_at over slots.
+func (b *bound) fn1219Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := s.Int(1)
+	r0 := rt.BytesUvarintAt(a0, a1)
+	if r0.Tag != rt.TagSome {
+		rec, err := b.out1220(r0)
+		if err != nil {
+			return false, hostadapt.Returned("bytes.Bytes.uvarint_at", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.SetInt(0, r0.Some.F0)
+	s.SetInt64(1, int64(r0.Some.F1))
+	return true, nil
+}
+
+// fn1223Regs is bytes.Bytes.varint_at over slots.
+func (b *bound) fn1223Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := rt.Bytes(rt.Bytes(s.S[0]))
+	a1 := s.Int(1)
+	r0 := rt.BytesVarintAt(a0, a1)
+	if r0.Tag != rt.TagSome {
+		rec, err := b.out1220(r0)
+		if err != nil {
+			return false, hostadapt.Returned("bytes.Bytes.varint_at", err)
+		}
+		s.R[0] = rec
+		return false, nil
+	}
+	s.SetInt(0, r0.Some.F0)
+	s.SetInt64(1, int64(r0.Some.F1))
+	return true, nil
+}
+
+// out1225 builds a Builder from Go rt.BytesBuilder.
+func (b *bound) out1225(v rt.BytesBuilder) (rt.Value, error) {
+	return v, nil
+}
+
+// fn1224Regs is bytes.builder_new over slots.
+func (b *bound) fn1224Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
+	r0 := rt.BytesBuilderNew(a0)
+	w1226, err := b.out1225(r0)
+	if err != nil {
+		return false, hostadapt.Returned("bytes.builder_new", err)
+	}
+	s.R[0] = w1226
+	return true, nil
+}
+
+// in1228 reads a Builder as Go rt.BytesBuilder.
+func (b *bound) in1228(fr *rt.Frame, v rt.Value) (out rt.BytesBuilder, err error) {
+	x, ok := v.(rt.BytesBuilder)
+	if !ok {
+		return out, hostadapt.Want("Builder", v)
+	}
+	return x, nil
+}
+
+// fn1227Regs is bytes.Builder.length over slots.
+func (b *bound) fn1227Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1228(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("bytes.Builder.length", 0, "bytes.Builder.length", "b", err)
+	}
+	r0 := rt.BytesBuilderLength(a0)
+	s.SetInt64(0, int64(r0))
+	return true, nil
+}
+
+// fn1229Regs is bytes.Builder.to_bytes over slots.
+func (b *bound) fn1229Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1228(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("bytes.Builder.to_bytes", 0, "bytes.Builder.to_bytes", "b", err)
+	}
+	r0 := rt.BytesBuilderToBytes(a0)
+	s.S[0] = string(rt.Bytes(r0))
+	return true, nil
+}
+
+// fn1230Regs is bytes.Builder.push over slots.
+func (b *bound) fn1230Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1228(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("bytes.Builder.push", 0, "bytes.Builder.push", "b", err)
+	}
+	a1 := rt.Byte(rt.WordByte(s.W[1]))
+	r0 := rt.BytesBuilderPush(a0, a1)
+	w1231, err := b.out1225(r0)
+	if err != nil {
+		return false, hostadapt.Returned("bytes.Builder.push", err)
+	}
+	s.R[0] = w1231
+	return true, nil
+}
+
+// fn1232Regs is bytes.Builder.push_bytes over slots.
+func (b *bound) fn1232Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1228(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("bytes.Builder.push_bytes", 0, "bytes.Builder.push_bytes", "b", err)
+	}
+	a1 := rt.Bytes(rt.Bytes(s.S[1]))
+	r0 := rt.BytesBuilderPushBytes(a0, a1)
+	w1233, err := b.out1225(r0)
+	if err != nil {
+		return false, hostadapt.Returned("bytes.Builder.push_bytes", err)
+	}
+	s.R[0] = w1233
+	return true, nil
+}
+
+// fn1234Regs is bytes.Builder.push_string over slots.
+func (b *bound) fn1234Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1228(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("bytes.Builder.push_string", 0, "bytes.Builder.push_string", "b", err)
+	}
+	a1 := string(s.S[1])
+	r0 := rt.BytesBuilderPushString(a0, a1)
+	w1235, err := b.out1225(r0)
+	if err != nil {
+		return false, hostadapt.Returned("bytes.Builder.push_string", err)
+	}
+	s.R[0] = w1235
+	return true, nil
+}
+
+// fn1236Regs is bytes.Builder.push_int8 over slots.
+func (b *bound) fn1236Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1228(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("bytes.Builder.push_int8", 0, "bytes.Builder.push_int8", "b", err)
+	}
+	a1 := s.Int(1)
+	r0 := rt.BytesBuilderPushInt8(a0, a1)
+	w1237, err := b.out1225(r0)
+	if err != nil {
+		return false, hostadapt.Returned("bytes.Builder.push_int8", err)
+	}
+	s.R[0] = w1237
+	return true, nil
+}
+
+// fn1238Regs is bytes.Builder.push_int16_be over slots.
+func (b *bound) fn1238Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1228(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("bytes.Builder.push_int16_be", 0, "bytes.Builder.push_int16_be", "b", err)
+	}
+	a1 := s.Int(1)
+	r0 := rt.BytesBuilderPushInt16BE(a0, a1)
+	w1239, err := b.out1225(r0)
+	if err != nil {
+		return false, hostadapt.Returned("bytes.Builder.push_int16_be", err)
+	}
+	s.R[0] = w1239
+	return true, nil
+}
+
+// fn1240Regs is bytes.Builder.push_int16_le over slots.
+func (b *bound) fn1240Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1228(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("bytes.Builder.push_int16_le", 0, "bytes.Builder.push_int16_le", "b", err)
+	}
+	a1 := s.Int(1)
+	r0 := rt.BytesBuilderPushInt16LE(a0, a1)
+	w1241, err := b.out1225(r0)
+	if err != nil {
+		return false, hostadapt.Returned("bytes.Builder.push_int16_le", err)
+	}
+	s.R[0] = w1241
+	return true, nil
+}
+
+// fn1242Regs is bytes.Builder.push_int32_be over slots.
+func (b *bound) fn1242Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1228(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("bytes.Builder.push_int32_be", 0, "bytes.Builder.push_int32_be", "b", err)
+	}
+	a1 := s.Int(1)
+	r0 := rt.BytesBuilderPushInt32BE(a0, a1)
+	w1243, err := b.out1225(r0)
+	if err != nil {
+		return false, hostadapt.Returned("bytes.Builder.push_int32_be", err)
+	}
+	s.R[0] = w1243
+	return true, nil
+}
+
+// fn1244Regs is bytes.Builder.push_int32_le over slots.
+func (b *bound) fn1244Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1228(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("bytes.Builder.push_int32_le", 0, "bytes.Builder.push_int32_le", "b", err)
+	}
+	a1 := s.Int(1)
+	r0 := rt.BytesBuilderPushInt32LE(a0, a1)
+	w1245, err := b.out1225(r0)
+	if err != nil {
+		return false, hostadapt.Returned("bytes.Builder.push_int32_le", err)
+	}
+	s.R[0] = w1245
+	return true, nil
+}
+
+// fn1246Regs is bytes.Builder.push_int64_be over slots.
+func (b *bound) fn1246Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1228(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("bytes.Builder.push_int64_be", 0, "bytes.Builder.push_int64_be", "b", err)
+	}
+	a1 := s.Int(1)
+	r0 := rt.BytesBuilderPushInt64BE(a0, a1)
+	w1247, err := b.out1225(r0)
+	if err != nil {
+		return false, hostadapt.Returned("bytes.Builder.push_int64_be", err)
+	}
+	s.R[0] = w1247
+	return true, nil
+}
+
+// fn1248Regs is bytes.Builder.push_int64_le over slots.
+func (b *bound) fn1248Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1228(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("bytes.Builder.push_int64_le", 0, "bytes.Builder.push_int64_le", "b", err)
+	}
+	a1 := s.Int(1)
+	r0 := rt.BytesBuilderPushInt64LE(a0, a1)
+	w1249, err := b.out1225(r0)
+	if err != nil {
+		return false, hostadapt.Returned("bytes.Builder.push_int64_le", err)
+	}
+	s.R[0] = w1249
+	return true, nil
+}
+
+// fn1250Regs is bytes.Builder.push_float32_be over slots.
+func (b *bound) fn1250Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1228(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("bytes.Builder.push_float32_be", 0, "bytes.Builder.push_float32_be", "b", err)
+	}
+	a1 := float64(rt.WordFloat(s.W[1]))
+	r0 := rt.BytesBuilderPushFloat32BE(a0, a1)
+	w1251, err := b.out1225(r0)
+	if err != nil {
+		return false, hostadapt.Returned("bytes.Builder.push_float32_be", err)
+	}
+	s.R[0] = w1251
+	return true, nil
+}
+
+// fn1252Regs is bytes.Builder.push_float32_le over slots.
+func (b *bound) fn1252Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1228(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("bytes.Builder.push_float32_le", 0, "bytes.Builder.push_float32_le", "b", err)
+	}
+	a1 := float64(rt.WordFloat(s.W[1]))
+	r0 := rt.BytesBuilderPushFloat32LE(a0, a1)
+	w1253, err := b.out1225(r0)
+	if err != nil {
+		return false, hostadapt.Returned("bytes.Builder.push_float32_le", err)
+	}
+	s.R[0] = w1253
+	return true, nil
+}
+
+// fn1254Regs is bytes.Builder.push_float64_be over slots.
+func (b *bound) fn1254Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1228(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("bytes.Builder.push_float64_be", 0, "bytes.Builder.push_float64_be", "b", err)
+	}
+	a1 := float64(rt.WordFloat(s.W[1]))
+	r0 := rt.BytesBuilderPushFloat64BE(a0, a1)
+	w1255, err := b.out1225(r0)
+	if err != nil {
+		return false, hostadapt.Returned("bytes.Builder.push_float64_be", err)
+	}
+	s.R[0] = w1255
+	return true, nil
+}
+
+// fn1256Regs is bytes.Builder.push_float64_le over slots.
+func (b *bound) fn1256Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1228(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("bytes.Builder.push_float64_le", 0, "bytes.Builder.push_float64_le", "b", err)
+	}
+	a1 := float64(rt.WordFloat(s.W[1]))
+	r0 := rt.BytesBuilderPushFloat64LE(a0, a1)
+	w1257, err := b.out1225(r0)
+	if err != nil {
+		return false, hostadapt.Returned("bytes.Builder.push_float64_le", err)
+	}
+	s.R[0] = w1257
+	return true, nil
+}
+
+// fn1258Regs is bytes.Builder.push_uvarint over slots.
+func (b *bound) fn1258Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1228(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("bytes.Builder.push_uvarint", 0, "bytes.Builder.push_uvarint", "b", err)
+	}
+	a1 := s.Int(1)
+	r0 := rt.BytesBuilderPushUvarint(a0, a1)
+	w1259, err := b.out1225(r0)
+	if err != nil {
+		return false, hostadapt.Returned("bytes.Builder.push_uvarint", err)
+	}
+	s.R[0] = w1259
+	return true, nil
+}
+
+// fn1260Regs is bytes.Builder.push_varint over slots.
+func (b *bound) fn1260Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0, err := b.in1228(fr, s.R[0])
+	if err != nil {
+		return false, hostadapt.Param("bytes.Builder.push_varint", 0, "bytes.Builder.push_varint", "b", err)
+	}
+	a1 := s.Int(1)
+	r0 := rt.BytesBuilderPushVarint(a0, a1)
+	w1261, err := b.out1225(r0)
+	if err != nil {
+		return false, hostadapt.Returned("bytes.Builder.push_varint", err)
+	}
+	s.R[0] = w1261
+	return true, nil
+}
+
+// fn1262Regs is int.Int.wrapping_add_32 over slots.
+func (b *bound) fn1262Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
+	a1 := s.Int(1)
+	r0 := rt.IntWrapAdd32(a0, a1)
+	s.SetInt64(0, int64(r0))
+	return true, nil
+}
+
+// fn1263Regs is int.Int.wrapping_sub_32 over slots.
+func (b *bound) fn1263Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
+	a1 := s.Int(1)
+	r0 := rt.IntWrapSub32(a0, a1)
+	s.SetInt64(0, int64(r0))
+	return true, nil
+}
+
+// fn1264Regs is int.Int.wrapping_mul_32 over slots.
+func (b *bound) fn1264Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
+	a1 := s.Int(1)
+	r0 := rt.IntWrapMul32(a0, a1)
+	s.SetInt64(0, int64(r0))
+	return true, nil
+}
+
+// fn1265Regs is int.Int.rotate_left_32 over slots.
+func (b *bound) fn1265Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
+	a1 := s.Int(1)
+	r0 := rt.IntRotateLeft32(a0, a1)
+	s.SetInt64(0, int64(r0))
+	return true, nil
+}
+
+// fn1266Regs is int.Int.rotate_left_64 over slots.
+func (b *bound) fn1266Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
+	a1 := s.Int(1)
+	r0 := rt.IntRotateLeft64(a0, a1)
+	s.SetInt64(0, int64(r0))
+	return true, nil
+}
+
+// fn1267Regs is int.Int.leading_zeros_32 over slots.
+func (b *bound) fn1267Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
+	r0 := rt.IntLeadingZeros32(a0)
+	s.SetInt64(0, int64(r0))
+	return true, nil
+}
+
+// fn1268Regs is int.Int.leading_zeros_64 over slots.
+func (b *bound) fn1268Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
+	r0 := rt.IntLeadingZeros64(a0)
+	s.SetInt64(0, int64(r0))
+	return true, nil
+}
+
+// fn1269Regs is int.Int.trailing_zeros_32 over slots.
+func (b *bound) fn1269Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
+	r0 := rt.IntTrailingZeros32(a0)
+	s.SetInt64(0, int64(r0))
+	return true, nil
+}
+
+// fn1270Regs is int.Int.trailing_zeros_64 over slots.
+func (b *bound) fn1270Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
+	r0 := rt.IntTrailingZeros64(a0)
+	s.SetInt64(0, int64(r0))
+	return true, nil
+}
+
+// fn1271Regs is int.Int.swap_bytes_16 over slots.
+func (b *bound) fn1271Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
+	r0 := rt.IntSwapBytes16(a0)
+	s.SetInt64(0, int64(r0))
+	return true, nil
+}
+
+// fn1272Regs is int.Int.swap_bytes_32 over slots.
+func (b *bound) fn1272Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
+	r0 := rt.IntSwapBytes32(a0)
+	s.SetInt64(0, int64(r0))
+	return true, nil
+}
+
+// fn1273Regs is int.Int.swap_bytes_64 over slots.
+func (b *bound) fn1273Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
+	r0 := rt.IntSwapBytes64(a0)
+	s.SetInt64(0, int64(r0))
+	return true, nil
+}
+
+// fn1274Regs is int.Int.wrap_signed over slots.
+func (b *bound) fn1274Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
+	a1 := s.Int(1)
+	r0 := rt.IntWrapSigned(a0, a1)
+	s.SetInt(0, r0)
+	return true, nil
+}
+
+// fn1275Regs is float.Float.to_bits over slots.
+func (b *bound) fn1275Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := float64(rt.WordFloat(s.W[0]))
+	r0 := rt.FloatBits(a0)
+	s.SetInt64(0, int64(r0))
+	return true, nil
+}
+
+// fn1276Regs is float.Float.from_bits over slots.
+func (b *bound) fn1276Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
+	r0 := rt.FloatFromBits(a0)
+	s.W[0] = rt.FloatWord(float64(r0))
+	return true, nil
+}
+
+// fn1277Regs is float.Float.to_bits_32 over slots.
+func (b *bound) fn1277Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := float64(rt.WordFloat(s.W[0]))
+	r0 := rt.FloatToBits32(a0)
+	s.SetInt64(0, int64(r0))
+	return true, nil
+}
+
+// fn1278Regs is float.Float.from_bits_32 over slots.
+func (b *bound) fn1278Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	a0 := s.Int(0)
+	r0 := rt.FloatFromBits32(a0)
+	s.W[0] = rt.FloatWord(float64(r0))
+	return true, nil
+}
+
+// Family is an optional family of crossings (internal/stdlibbindings/families),
+// with what this build does with it.
+type Family struct {
+	families.Family
+	// Linked reports whether this build answers the family's crossings
+	// with their adapters.
+	Linked bool
+	// Names is every crossing whose adapter calls the family's package,
+	// sorted.
+	Names []string
+}
+
+// Families are the optional families. `nomi build` appends a program that
+// reaches none of their crossings to the lean runner, built with every
+// family's tag (families.LeanTags), and a runner refuses before it runs
+// a program that reaches a family it does not link.
+func Families() []Family {
+	return []Family{
+		{Family: families.All[0], Linked: hasNet, Names: []string{
+			"http/host.add_cookie",
+			"http/host.address",
+			"http/host.answer_content",
+			"http/host.answer_redirect",
+			"http/host.answered_already",
+			"http/host.basic_auth",
+			"http/host.body_bytes",
+			"http/host.body_reader",
+			"http/host.canonical_key",
+			"http/host.certificate_from_pem",
+			"http/host.certificate_info",
+			"http/host.certificate_load",
+			"http/host.check_pattern",
+			"http/host.chunked_reader",
+			"http/host.chunked_writer",
+			"http/host.cipher_suite_name",
+			"http/host.cipher_suites",
+			"http/host.close_body",
+			"http/host.close_connections",
+			"http/host.close_idle",
+			"http/host.closes",
+			"http/host.conn_close",
+			"http/host.conn_close_read",
+			"http/host.conn_close_write",
+			"http/host.conn_deadline",
+			"http/host.conn_keep_alive",
+			"http/host.conn_linger",
+			"http/host.conn_local",
+			"http/host.conn_multipath",
+			"http/host.conn_no_delay",
+			"http/host.conn_reader",
+			"http/host.conn_remote",
+			"http/host.conn_writer",
+			"http/host.content_length",
+			"http/host.cookie_text",
+			"http/host.cookie_valid",
+			"http/host.cross_origin_check",
+			"http/host.default_client",
+			"http/host.detect_content_type",
+			"http/host.dial_with",
+			"http/host.encode_multipart",
+			"http/host.exchange_tls",
+			"http/host.extend_read_deadline",
+			"http/host.file_content_disposition",
+			"http/host.final_url",
+			"http/host.finish",
+			"http/host.format_time",
+			"http/host.gunzip",
+			"http/host.gzip_bytes",
+			"http/host.gzip_reader",
+			"http/host.gzip_writer",
+			"http/host.headers",
+			"http/host.headers_wire",
+			"http/host.hello_parts",
+			"http/host.hello_supports",
+			"http/host.in_body",
+			"http/host.in_close",
+			"http/host.in_content_length",
+			"http/host.in_headers",
+			"http/host.in_host",
+			"http/host.in_local",
+			"http/host.in_method",
+			"http/host.in_protocol",
+			"http/host.in_remote",
+			"http/host.in_target",
+			"http/host.in_tls",
+			"http/host.in_trailers",
+			"http/host.in_transfer_encoding",
+			"http/host.jar_cookies",
+			"http/host.jar_set",
+			"http/host.join_host_port",
+			"http/host.limit_body",
+			"http/host.listen",
+			"http/host.listen_tls",
+			"http/host.lookup",
+			"http/host.multipart_reader",
+			"http/host.multipart_write",
+			"http/host.net_accept",
+			"http/host.net_listen_with",
+			"http/host.net_listener_address",
+			"http/host.net_listener_close",
+			"http/host.net_listener_deadline",
+			"http/host.new_client",
+			"http/host.new_jar",
+			"http/host.new_mux",
+			"http/host.new_tracer",
+			"http/host.next",
+			"http/host.next_part",
+			"http/host.parse_cookie",
+			"http/host.parse_http_version",
+			"http/host.parse_multipart",
+			"http/host.parse_set_cookie",
+			"http/host.parse_time",
+			"http/host.part_file_name",
+			"http/host.part_form_name",
+			"http/host.part_headers",
+			"http/host.part_reader",
+			"http/host.pipe",
+			"http/host.produce",
+			"http/host.protocol",
+			"http/host.read_at_most",
+			"http/host.respond",
+			"http/host.route",
+			"http/host.send",
+			"http/host.shutdown",
+			"http/host.split_host_port",
+			"http/host.status",
+			"http/host.status_text",
+			"http/host.test_certificate",
+			"http/host.tls_client",
+			"http/host.tls_config",
+			"http/host.tls_dial",
+			"http/host.tls_listen",
+			"http/host.tls_server",
+			"http/host.tls_state_parts",
+			"http/host.tls_verify_hostname",
+			"http/host.tls_with_certificate",
+			"http/host.tls_wrap_listener",
+			"http/host.tracer_events",
+			"http/host.trailers",
+			"http/host.transfer_encoding",
+			"http/host.uncompressed",
+			"http/host.upgrade",
+			"http/host.wire_body",
+			"http/host.wire_parts",
+			"http/host.wire_read_request",
+			"http/host.wire_read_response",
+			"http/host.wire_request",
+			"http/host.wire_response",
+			"http/host.with_jar",
+			"http/host.with_tls",
+			"http/host.ws_accept_key",
+			"http/host.ws_close",
+			"http/host.ws_connect",
+			"http/host.ws_id",
+			"http/host.ws_open",
+			"http/host.ws_ping",
+			"http/host.ws_pipe",
+			"http/host.ws_protocol",
+			"http/host.ws_receive",
+			"http/host.ws_send",
+			"http/host.ws_valid_key",
+			"signatures/host.ed25519_from_seed",
+			"signatures/host.ed25519_public_bytes",
+			"signatures/host.ed25519_public_from_bytes",
+			"signatures/host.ed25519_seed",
+			"signatures/host.generate_ed25519",
+			"signatures/host.generate_p256",
+			"signatures/host.generate_rsa",
+			"signatures/host.is_valid",
+			"signatures/host.private_from_der",
+			"signatures/host.private_from_pem",
+			"signatures/host.private_kind",
+			"signatures/host.private_to_pem",
+			"signatures/host.public_from_der",
+			"signatures/host.public_from_pem",
+			"signatures/host.public_kind",
+			"signatures/host.public_of",
+			"signatures/host.public_to_pem",
+			"signatures/host.sign",
+		}},
+		{Family: families.All[1], Linked: hasWasm, Names: []string{
+			"wasm/host.call",
+			"wasm/host.compile",
+			"wasm/host.drop",
+			"wasm/host.instantiate",
+			"wasm/host.memory_read",
+			"wasm/host.memory_size",
+			"wasm/host.memory_write",
+			"wasm/host.read",
+			"wasm/host.run",
+			"wasm/host.run_on",
+			"wasm/host.size",
+			"wasm/host.write",
+		}},
 	}
 }
 
 // pure is every crossing whose row in internal/stdlibbindings is marked
 // Pure, sorted.
 var pure = map[string]bool{
-	"Date.days_between":                   true,
-	"Date.to_string":                      true,
-	"DateTime.day":                        true,
-	"DateTime.hour":                       true,
-	"DateTime.minute":                     true,
-	"DateTime.month":                      true,
-	"DateTime.nanosecond":                 true,
-	"DateTime.second":                     true,
-	"DateTime.to_offset":                  true,
-	"DateTime.to_string":                  true,
-	"DateTime.year":                       true,
-	"NaiveDateTime.to_date":               true,
-	"NaiveDateTime.to_string":             true,
-	"NaiveDateTime.to_time":               true,
-	"OffsetDateTime.day":                  true,
-	"OffsetDateTime.hour":                 true,
-	"OffsetDateTime.minute":               true,
-	"OffsetDateTime.month":                true,
-	"OffsetDateTime.nanosecond":           true,
-	"OffsetDateTime.second":               true,
-	"OffsetDateTime.to_naive":             true,
-	"OffsetDateTime.to_string":            true,
-	"OffsetDateTime.year":                 true,
-	"Regex.compile":                       true,
-	"Regex.find_all_in":                   true,
-	"Regex.find_in":                       true,
-	"Regex.is_contained_in":               true,
-	"Regex.is_prefix_of":                  true,
-	"Regex.is_suffix_of":                  true,
-	"Regex.pattern":                       true,
-	"Regex.replace_in":                    true,
-	"Regex.split_in":                      true,
-	"String.camel_case":                   true,
-	"String.capitalize":                   true,
-	"String.capitalize_in":                true,
-	"String.fold_case":                    true,
-	"String.kebab_case":                   true,
-	"String.lowercase_in":                 true,
-	"String.pascal_case":                  true,
-	"String.snake_case":                   true,
-	"String.uppercase_in":                 true,
-	"Time.to_string":                      true,
-	"assertions.AssertionFailure.format":  true,
-	"base64.decode":                       true,
-	"base64.decode_url":                   true,
-	"base64.standard":                     true,
-	"base64.url_safe":                     true,
-	"bytes.Byte.to_int":                   true,
-	"bytes.Bytes.concat":                  true,
-	"bytes.Bytes.contains":                true,
-	"bytes.Bytes.from_list":               true,
-	"bytes.Bytes.get":                     true,
-	"bytes.Bytes.hash":                    true,
-	"bytes.Bytes.length":                  true,
-	"bytes.Bytes.slice":                   true,
-	"bytes.Bytes.to_list":                 true,
-	"bytes.Bytes.to_string":               true,
-	"bytes.bytes_compare":                 true,
-	"calendar.civil_format_fields":        true,
-	"calendar.civil_format_pattern":       true,
-	"calendar.civil_format_style":         true,
-	"calendar.date_add_days":              true,
-	"calendar.date_add_months":            true,
-	"calendar.date_add_years":             true,
-	"calendar.date_new_raw":               true,
-	"calendar.date_parse_pattern":         true,
-	"calendar.date_parse_raw":             true,
-	"calendar.date_parse_style":           true,
-	"calendar.fields_check":               true,
-	"calendar.naive_add_days":             true,
-	"calendar.naive_add_months":           true,
-	"calendar.naive_add_nanos":            true,
-	"calendar.naive_add_years":            true,
-	"calendar.naive_between_nanos":        true,
-	"calendar.naive_new_exact_raw":        true,
-	"calendar.naive_parse_pattern":        true,
-	"calendar.naive_parse_raw":            true,
-	"calendar.offset_add_months":          true,
-	"calendar.offset_add_nanos":           true,
-	"calendar.offset_add_years":           true,
-	"calendar.offset_from_instant_nanos":  true,
-	"calendar.offset_parse_raw":           true,
-	"calendar.offset_with_offset_raw":     true,
-	"calendar.pattern_check":              true,
-	"calendar.relative_format_raw":        true,
-	"calendar.time_add_nanos":             true,
-	"calendar.time_parse_pattern":         true,
-	"calendar.time_parse_raw":             true,
-	"calendar.time_parse_style":           true,
-	"calendar.zoned_add_days":             true,
-	"calendar.zoned_add_hours":            true,
-	"calendar.zoned_add_microseconds":     true,
-	"calendar.zoned_add_milliseconds":     true,
-	"calendar.zoned_add_minutes":          true,
-	"calendar.zoned_add_months":           true,
-	"calendar.zoned_add_nanos":            true,
-	"calendar.zoned_add_nanoseconds":      true,
-	"calendar.zoned_add_seconds":          true,
-	"calendar.zoned_add_years":            true,
-	"calendar.zoned_from_instant_in_raw":  true,
-	"calendar.zoned_in_zone_raw":          true,
-	"calendar.zoned_offset_nanos":         true,
-	"calendar.zoned_parse_raw":            true,
-	"calendar.zoned_with_zone_raw":        true,
-	"code_points.Codepoint.is_letter":     true,
-	"code_points.Codepoint.is_lower":      true,
-	"code_points.Codepoint.is_upper":      true,
-	"code_points.Codepoint.is_whitespace": true,
-	"code_points.Codepoint.to_string":     true,
-	"collation.collator_compare_raw":      true,
-	"collation.collator_inspect_raw":      true,
-	"collation.collator_new_raw":          true,
-	"collation.collator_sort_key_raw":     true,
-	"csv/host.encode":                     true,
-	"currency.currency_check":             true,
-	"currency.currency_code_of":           true,
-	"currency.currency_digits_of":         true,
-	"decimal.Decimal.compare":             true,
-	"decimal.Decimal.divide_exact":        true,
-	"decimal.Decimal.equal":               true,
-	"decimal.Decimal.hash":                true,
-	"decimal.Decimal.normalize":           true,
-	"decimal.Decimal.scale":               true,
-	"decimal.Decimal.to_float":            true,
-	"decimal.Decimal.to_int":              true,
-	"decimal.Decimal.to_string":           true,
-	"decimal.decimal_format":              true,
-	"decimal.decimal_format_percent":      true,
-	"decimal.decimal_parse_in":            true,
-	"decimal.decimal_parse_percent_in":    true,
-	"duration.duration_format_raw":        true,
-	"duration.render_nanos":               true,
-	"dynamic.Dynamic.as_bool":             true,
-	"dynamic.Dynamic.as_dict":             true,
-	"dynamic.Dynamic.as_float":            true,
-	"dynamic.Dynamic.as_int":              true,
-	"dynamic.Dynamic.as_list":             true,
-	"dynamic.Dynamic.as_string":           true,
-	"dynamic.Dynamic.field":               true,
-	"dynamic.Dynamic.has":                 true,
-	"dynamic.Dynamic.index":               true,
-	"dynamic.Dynamic.inspect":             true,
-	"dynamic.Dynamic.is_null":             true,
-	"dynamic.Dynamic.path":                true,
-	"float.Float.atan2":                   true,
-	"float.Float.ceil":                    true,
-	"float.Float.cos":                     true,
-	"float.Float.exp":                     true,
-	"float.Float.floor":                   true,
-	"float.Float.is_nan":                  true,
-	"float.Float.log":                     true,
-	"float.Float.log10":                   true,
-	"float.Float.log2":                    true,
-	"float.Float.nan":                     true,
-	"float.Float.negative_infinity":       true,
-	"float.Float.positive_infinity":       true,
-	"float.Float.pow":                     true,
-	"float.Float.sin":                     true,
-	"float.Float.sqrt":                    true,
-	"float.Float.tan":                     true,
-	"float.Float.to_decimal":              true,
-	"float.Float.to_int":                  true,
-	"float.Float.to_string":               true,
-	"float.Float.trunc":                   true,
-	"float.float_bits":                    true,
-	"float.float_format":                  true,
-	"float.float_format_percent":          true,
-	"float.float_parse_in":                true,
-	"float.float_parse_percent_in":        true,
-	"float.float_round":                   true,
-	"hash.equal_in_constant_time":         true,
-	"hash.hmac_sha256":                    true,
-	"hash.hmac_sha512":                    true,
-	"hash.sha256":                         true,
-	"hash.sha512":                         true,
-	"hex.decode":                          true,
-	"hex.encode":                          true,
-	"http/host.check_pattern":             true,
-	"int.Int.bit_count":                   true,
-	"int.Int.bit_length":                  true,
-	"int.Int.gcd":                         true,
-	"int.Int.lcm":                         true,
-	"int.Int.pow":                         true,
-	"int.Int.sqrt":                        true,
-	"int.Int.to_byte":                     true,
-	"int.Int.to_codepoint":                true,
-	"int.Int.to_decimal":                  true,
-	"int.Int.to_float":                    true,
-	"int.Int.to_string":                   true,
-	"int.Int.wrapping_add":                true,
-	"int.Int.wrapping_mul":                true,
-	"int.Int.wrapping_sub":                true,
-	"int.int_format":                      true,
-	"int.int_from_digits":                 true,
-	"int.int_parse_in":                    true,
-	"int.int_to_digits":                   true,
-	"json.Json.decode":                    true,
-	"json.Json.encode":                    true,
-	"json.Json.to_dynamic":                true,
-	"locale.locale_available":             true,
-	"locale.locale_fallbacks":             true,
-	"locale.locale_from_posix_raw":        true,
-	"locale.locale_language":              true,
-	"locale.locale_negotiate":             true,
-	"locale.locale_parse_raw":             true,
-	"locale.locale_region":                true,
-	"locale.locale_script":                true,
-	"mail/host.date":                      true,
-	"mail/host.quoted_printable":          true,
-	"money/format.money_format_raw":       true,
-	"money/format.money_parse_raw":        true,
-	"path/host.base":                      true,
-	"path/host.clean":                     true,
-	"path/host.dir":                       true,
-	"path/host.join":                      true,
-	"phrase/format.format_raw":            true,
-	"plural.plural_cardinal_tag":          true,
-	"plural.plural_cardinal_tags":         true,
-	"plural.plural_ordinal_tag":           true,
-	"plural.plural_ordinal_tags":          true,
-	"strings.String.find_all_in":          true,
-	"strings.String.hash":                 true,
-	"strings.String.is_contained_in":      true,
-	"strings.String.is_prefix_of":         true,
-	"strings.String.is_suffix_of":         true,
-	"strings.String.length":               true,
-	"strings.String.lines":                true,
-	"strings.String.lowercase":            true,
-	"strings.String.normalize":            true,
-	"strings.String.replace_in":           true,
-	"strings.String.reverse":              true,
-	"strings.String.slice":                true,
-	"strings.String.split_in":             true,
-	"strings.String.to_bytes":             true,
-	"strings.String.to_codepoints":        true,
-	"strings.String.to_decimal":           true,
-	"strings.String.to_float":             true,
-	"strings.String.to_int":               true,
-	"strings.String.to_literal":           true,
-	"strings.String.trim":                 true,
-	"strings.String.uppercase":            true,
-	"strings.String.words":                true,
-	"strings.capture_groups":              true,
-	"strings.capture_groups_all":          true,
-	"strings.join_list_raw":               true,
-	"strings.string_compare":              true,
-	"toml/host.build":                     true,
-	"toml/host.check":                     true,
-	"toml/host.float":                     true,
-	"toml/host.quote":                     true,
-	"url/host.escape_fragment":            true,
-	"url/host.escape_path_segment":        true,
-	"url/host.escape_query":               true,
-	"url/host.escaped_fragment_parts":     true,
-	"url/host.escaped_path_parts":         true,
-	"url/host.format_parts":               true,
-	"url/host.hostname_parts":             true,
-	"url/host.join_path_parts":            true,
-	"url/host.parse_parts":                true,
-	"url/host.port_parts":                 true,
-	"url/host.query_encode":               true,
-	"url/host.query_error":                true,
-	"url/host.query_pairs":                true,
-	"url/host.redacted_parts":             true,
-	"url/host.request_uri_parts":          true,
-	"url/host.resolve_parts":              true,
-	"url/host.unescape_path_segment":      true,
-	"url/host.unescape_query":             true,
-	"xml/host.escape_attribute":           true,
-	"xml/host.escape_text":                true,
-	"xml/host.is_name":                    true,
+	"Date.days_between":                         true,
+	"Date.to_string":                            true,
+	"DateTime.day":                              true,
+	"DateTime.hour":                             true,
+	"DateTime.minute":                           true,
+	"DateTime.month":                            true,
+	"DateTime.nanosecond":                       true,
+	"DateTime.second":                           true,
+	"DateTime.to_offset":                        true,
+	"DateTime.to_string":                        true,
+	"DateTime.year":                             true,
+	"NaiveDateTime.to_date":                     true,
+	"NaiveDateTime.to_string":                   true,
+	"NaiveDateTime.to_time":                     true,
+	"OffsetDateTime.day":                        true,
+	"OffsetDateTime.hour":                       true,
+	"OffsetDateTime.minute":                     true,
+	"OffsetDateTime.month":                      true,
+	"OffsetDateTime.nanosecond":                 true,
+	"OffsetDateTime.second":                     true,
+	"OffsetDateTime.to_naive":                   true,
+	"OffsetDateTime.to_string":                  true,
+	"OffsetDateTime.year":                       true,
+	"Regex.compile":                             true,
+	"Regex.find_all_in":                         true,
+	"Regex.find_in":                             true,
+	"Regex.is_contained_in":                     true,
+	"Regex.is_prefix_of":                        true,
+	"Regex.is_suffix_of":                        true,
+	"Regex.pattern":                             true,
+	"Regex.replace_in":                          true,
+	"Regex.split_in":                            true,
+	"String.camel_case":                         true,
+	"String.capitalize":                         true,
+	"String.capitalize_in":                      true,
+	"String.fold_case":                          true,
+	"String.kebab_case":                         true,
+	"String.lowercase_in":                       true,
+	"String.pascal_case":                        true,
+	"String.snake_case":                         true,
+	"String.uppercase_in":                       true,
+	"Time.to_string":                            true,
+	"assertions.AssertionFailure.format":        true,
+	"averageable.int_ratio_to_float":            true,
+	"base64.decode":                             true,
+	"base64.decode_url":                         true,
+	"base64.standard":                           true,
+	"base64.url_safe":                           true,
+	"bytes.Builder.length":                      true,
+	"bytes.Builder.push":                        true,
+	"bytes.Builder.push_bytes":                  true,
+	"bytes.Builder.push_float32_be":             true,
+	"bytes.Builder.push_float32_le":             true,
+	"bytes.Builder.push_float64_be":             true,
+	"bytes.Builder.push_float64_le":             true,
+	"bytes.Builder.push_int16_be":               true,
+	"bytes.Builder.push_int16_le":               true,
+	"bytes.Builder.push_int32_be":               true,
+	"bytes.Builder.push_int32_le":               true,
+	"bytes.Builder.push_int64_be":               true,
+	"bytes.Builder.push_int64_le":               true,
+	"bytes.Builder.push_int8":                   true,
+	"bytes.Builder.push_string":                 true,
+	"bytes.Builder.push_uvarint":                true,
+	"bytes.Builder.push_varint":                 true,
+	"bytes.Builder.to_bytes":                    true,
+	"bytes.Byte.to_int":                         true,
+	"bytes.Bytes.concat":                        true,
+	"bytes.Bytes.concat_all":                    true,
+	"bytes.Bytes.contains":                      true,
+	"bytes.Bytes.contains_bytes":                true,
+	"bytes.Bytes.count":                         true,
+	"bytes.Bytes.ends_with":                     true,
+	"bytes.Bytes.float32_be_at":                 true,
+	"bytes.Bytes.float32_le_at":                 true,
+	"bytes.Bytes.float64_be_at":                 true,
+	"bytes.Bytes.float64_le_at":                 true,
+	"bytes.Bytes.from_list":                     true,
+	"bytes.Bytes.get":                           true,
+	"bytes.Bytes.hash":                          true,
+	"bytes.Bytes.int16_be_at":                   true,
+	"bytes.Bytes.int16_le_at":                   true,
+	"bytes.Bytes.int32_be_at":                   true,
+	"bytes.Bytes.int32_le_at":                   true,
+	"bytes.Bytes.int64_be_at":                   true,
+	"bytes.Bytes.int64_le_at":                   true,
+	"bytes.Bytes.int8_at":                       true,
+	"bytes.Bytes.last_index_of":                 true,
+	"bytes.Bytes.last_index_of_any":             true,
+	"bytes.Bytes.last_index_of_byte":            true,
+	"bytes.Bytes.length":                        true,
+	"bytes.Bytes.slice":                         true,
+	"bytes.Bytes.split":                         true,
+	"bytes.Bytes.starts_with":                   true,
+	"bytes.Bytes.to_list":                       true,
+	"bytes.Bytes.to_string":                     true,
+	"bytes.Bytes.to_string_lossy":               true,
+	"bytes.Bytes.uint16_be_at":                  true,
+	"bytes.Bytes.uint16_le_at":                  true,
+	"bytes.Bytes.uint32_be_at":                  true,
+	"bytes.Bytes.uint32_le_at":                  true,
+	"bytes.Bytes.uint64_be_at":                  true,
+	"bytes.Bytes.uint64_le_at":                  true,
+	"bytes.Bytes.uint8_at":                      true,
+	"bytes.Bytes.uvarint_at":                    true,
+	"bytes.Bytes.valid_utf8_length":             true,
+	"bytes.Bytes.varint_at":                     true,
+	"bytes.builder_new":                         true,
+	"bytes.bytes_compare":                       true,
+	"bytes.index_of_any_from":                   true,
+	"bytes.index_of_byte_from":                  true,
+	"bytes.index_of_from":                       true,
+	"calendar.civil_format_fields":              true,
+	"calendar.civil_format_pattern":             true,
+	"calendar.civil_format_style":               true,
+	"calendar.date_add_days":                    true,
+	"calendar.date_add_months":                  true,
+	"calendar.date_add_years":                   true,
+	"calendar.date_new_raw":                     true,
+	"calendar.date_parse_pattern":               true,
+	"calendar.date_parse_raw":                   true,
+	"calendar.date_parse_style":                 true,
+	"calendar.fields_check":                     true,
+	"calendar.naive_add_days":                   true,
+	"calendar.naive_add_months":                 true,
+	"calendar.naive_add_nanos":                  true,
+	"calendar.naive_add_years":                  true,
+	"calendar.naive_between_nanos":              true,
+	"calendar.naive_new_exact_raw":              true,
+	"calendar.naive_parse_pattern":              true,
+	"calendar.naive_parse_raw":                  true,
+	"calendar.offset_add_months":                true,
+	"calendar.offset_add_nanos":                 true,
+	"calendar.offset_add_years":                 true,
+	"calendar.offset_from_instant_nanos":        true,
+	"calendar.offset_parse_raw":                 true,
+	"calendar.offset_with_offset_raw":           true,
+	"calendar.pattern_check":                    true,
+	"calendar.relative_format_raw":              true,
+	"calendar.time_add_nanos":                   true,
+	"calendar.time_parse_pattern":               true,
+	"calendar.time_parse_raw":                   true,
+	"calendar.time_parse_style":                 true,
+	"calendar.zoned_add_days":                   true,
+	"calendar.zoned_add_hours":                  true,
+	"calendar.zoned_add_microseconds":           true,
+	"calendar.zoned_add_milliseconds":           true,
+	"calendar.zoned_add_minutes":                true,
+	"calendar.zoned_add_months":                 true,
+	"calendar.zoned_add_nanos":                  true,
+	"calendar.zoned_add_nanoseconds":            true,
+	"calendar.zoned_add_seconds":                true,
+	"calendar.zoned_add_years":                  true,
+	"calendar.zoned_from_instant_in_raw":        true,
+	"calendar.zoned_in_zone_raw":                true,
+	"calendar.zoned_offset_nanos":               true,
+	"calendar.zoned_parse_raw":                  true,
+	"calendar.zoned_with_zone_raw":              true,
+	"code_points.Codepoint.is_control":          true,
+	"code_points.Codepoint.is_letter":           true,
+	"code_points.Codepoint.is_lower":            true,
+	"code_points.Codepoint.is_mark":             true,
+	"code_points.Codepoint.is_number":           true,
+	"code_points.Codepoint.is_punctuation":      true,
+	"code_points.Codepoint.is_separator":        true,
+	"code_points.Codepoint.is_symbol":           true,
+	"code_points.Codepoint.is_title":            true,
+	"code_points.Codepoint.is_upper":            true,
+	"code_points.Codepoint.is_whitespace":       true,
+	"code_points.Codepoint.to_string":           true,
+	"collation.collator_compare_raw":            true,
+	"collation.collator_inspect_raw":            true,
+	"collation.collator_new_raw":                true,
+	"collation.collator_sort_key_raw":           true,
+	"context.Context.deadline":                  true,
+	"context.Context.inspect":                   true,
+	"context.Context.root":                      true,
+	"context.Context.with_deadline":             true,
+	"csv/host.decode":                           true,
+	"csv/host.encode":                           true,
+	"currency.currency_check":                   true,
+	"currency.currency_code_of":                 true,
+	"currency.currency_digits_of":               true,
+	"decimal.Decimal.compare":                   true,
+	"decimal.Decimal.divide":                    true,
+	"decimal.Decimal.divide_exact":              true,
+	"decimal.Decimal.equal":                     true,
+	"decimal.Decimal.hash":                      true,
+	"decimal.Decimal.normalize":                 true,
+	"decimal.Decimal.pow":                       true,
+	"decimal.Decimal.round":                     true,
+	"decimal.Decimal.round_exact":               true,
+	"decimal.Decimal.scale":                     true,
+	"decimal.Decimal.sqrt":                      true,
+	"decimal.Decimal.sqrt_exact":                true,
+	"decimal.Decimal.to_float":                  true,
+	"decimal.Decimal.to_int":                    true,
+	"decimal.Decimal.to_string":                 true,
+	"decimal.decimal_format":                    true,
+	"decimal.decimal_format_percent":            true,
+	"decimal.decimal_parse_in":                  true,
+	"decimal.decimal_parse_percent_in":          true,
+	"duration.duration_format_raw":              true,
+	"duration.render_nanos":                     true,
+	"dynamic.Dynamic.as_bool":                   true,
+	"dynamic.Dynamic.as_dict":                   true,
+	"dynamic.Dynamic.as_float":                  true,
+	"dynamic.Dynamic.as_int":                    true,
+	"dynamic.Dynamic.as_list":                   true,
+	"dynamic.Dynamic.as_string":                 true,
+	"dynamic.Dynamic.field":                     true,
+	"dynamic.Dynamic.has":                       true,
+	"dynamic.Dynamic.hash":                      true,
+	"dynamic.Dynamic.index":                     true,
+	"dynamic.Dynamic.inspect":                   true,
+	"dynamic.Dynamic.is_null":                   true,
+	"dynamic.Dynamic.path":                      true,
+	"float.Float.atan2":                         true,
+	"float.Float.ceil":                          true,
+	"float.Float.cos":                           true,
+	"float.Float.exp":                           true,
+	"float.Float.floor":                         true,
+	"float.Float.from_bits":                     true,
+	"float.Float.from_bits_32":                  true,
+	"float.Float.is_nan":                        true,
+	"float.Float.log":                           true,
+	"float.Float.log10":                         true,
+	"float.Float.log2":                          true,
+	"float.Float.nan":                           true,
+	"float.Float.negative_infinity":             true,
+	"float.Float.positive_infinity":             true,
+	"float.Float.pow":                           true,
+	"float.Float.sin":                           true,
+	"float.Float.sqrt":                          true,
+	"float.Float.tan":                           true,
+	"float.Float.to_bits":                       true,
+	"float.Float.to_bits_32":                    true,
+	"float.Float.to_decimal":                    true,
+	"float.Float.to_int":                        true,
+	"float.Float.to_string":                     true,
+	"float.Float.trunc":                         true,
+	"float.float_format":                        true,
+	"float.float_format_percent":                true,
+	"float.float_parse_in":                      true,
+	"float.float_parse_percent_in":              true,
+	"float.float_round":                         true,
+	"hash.equal_in_constant_time":               true,
+	"hash.hmac_sha256":                          true,
+	"hash.hmac_sha512":                          true,
+	"hash.md5":                                  true,
+	"hash.pbkdf2_sha256":                        true,
+	"hash.sha1":                                 true,
+	"hash.sha256":                               true,
+	"hash.sha512":                               true,
+	"hex.decode":                                true,
+	"hex.encode":                                true,
+	"html/host.escape":                          true,
+	"html/host.escape_url_path":                 true,
+	"html/host.filter_url":                      true,
+	"html/host.named_reference":                 true,
+	"html/host.unescape_references":             true,
+	"http/host.add_cookie":                      true,
+	"http/host.answer_redirect":                 true,
+	"http/host.basic_auth":                      true,
+	"http/host.canonical_key":                   true,
+	"http/host.certificate_from_pem":            true,
+	"http/host.certificate_info":                true,
+	"http/host.check_pattern":                   true,
+	"http/host.cipher_suite_name":               true,
+	"http/host.cipher_suites":                   true,
+	"http/host.cookie_text":                     true,
+	"http/host.cookie_valid":                    true,
+	"http/host.cross_origin_check":              true,
+	"http/host.detect_content_type":             true,
+	"http/host.encode_multipart":                true,
+	"http/host.file_content_disposition":        true,
+	"http/host.format_time":                     true,
+	"http/host.gunzip":                          true,
+	"http/host.gzip_bytes":                      true,
+	"http/host.headers_wire":                    true,
+	"http/host.join_host_port":                  true,
+	"http/host.new_mux":                         true,
+	"http/host.open_sealed":                     true,
+	"http/host.parse_cookie":                    true,
+	"http/host.parse_http_version":              true,
+	"http/host.parse_multipart":                 true,
+	"http/host.parse_set_cookie":                true,
+	"http/host.parse_time":                      true,
+	"http/host.route":                           true,
+	"http/host.split_host_port":                 true,
+	"http/host.status_text":                     true,
+	"http/host.ws_accept_key":                   true,
+	"http/host.ws_valid_key":                    true,
+	"int.Int.bit_count":                         true,
+	"int.Int.bit_length":                        true,
+	"int.Int.gcd":                               true,
+	"int.Int.lcm":                               true,
+	"int.Int.leading_zeros_32":                  true,
+	"int.Int.leading_zeros_64":                  true,
+	"int.Int.pow":                               true,
+	"int.Int.rotate_left_32":                    true,
+	"int.Int.rotate_left_64":                    true,
+	"int.Int.sqrt":                              true,
+	"int.Int.swap_bytes_16":                     true,
+	"int.Int.swap_bytes_32":                     true,
+	"int.Int.swap_bytes_64":                     true,
+	"int.Int.to_byte":                           true,
+	"int.Int.to_codepoint":                      true,
+	"int.Int.to_decimal":                        true,
+	"int.Int.to_float":                          true,
+	"int.Int.to_string":                         true,
+	"int.Int.trailing_zeros_32":                 true,
+	"int.Int.trailing_zeros_64":                 true,
+	"int.Int.wrap_signed":                       true,
+	"int.Int.wrapping_add":                      true,
+	"int.Int.wrapping_add_32":                   true,
+	"int.Int.wrapping_mul":                      true,
+	"int.Int.wrapping_mul_32":                   true,
+	"int.Int.wrapping_sub":                      true,
+	"int.Int.wrapping_sub_32":                   true,
+	"int.int_format":                            true,
+	"int.int_from_digits":                       true,
+	"int.int_parse_in":                          true,
+	"int.int_to_digits":                         true,
+	"iter.as_count":                             true,
+	"json.Json.decode":                          true,
+	"json.Json.encode":                          true,
+	"json.Json.to_dynamic":                      true,
+	"locale.locale_available":                   true,
+	"locale.locale_fallbacks":                   true,
+	"locale.locale_from_posix_raw":              true,
+	"locale.locale_language":                    true,
+	"locale.locale_negotiate":                   true,
+	"locale.locale_parse_raw":                   true,
+	"locale.locale_region":                      true,
+	"locale.locale_script":                      true,
+	"mail/host.date":                            true,
+	"mail/host.quoted_printable":                true,
+	"money/format.money_format_raw":             true,
+	"money/format.money_parse_raw":              true,
+	"passwords/host.argon2id":                   true,
+	"passwords/host.bcrypt_cost":                true,
+	"passwords/host.bcrypt_verify":              true,
+	"passwords/host.scrypt":                     true,
+	"path/host.base":                            true,
+	"path/host.clean":                           true,
+	"path/host.dir":                             true,
+	"path/host.join":                            true,
+	"phrase/format.format_raw":                  true,
+	"plural.plural_cardinal_tag":                true,
+	"plural.plural_cardinal_tags":               true,
+	"plural.plural_ordinal_tag":                 true,
+	"plural.plural_ordinal_tags":                true,
+	"random.between_state":                      true,
+	"random.unit_float_state":                   true,
+	"signatures/host.ed25519_from_seed":         true,
+	"signatures/host.ed25519_public_bytes":      true,
+	"signatures/host.ed25519_public_from_bytes": true,
+	"signatures/host.ed25519_seed":              true,
+	"signatures/host.is_valid":                  true,
+	"signatures/host.private_from_der":          true,
+	"signatures/host.private_from_pem":          true,
+	"signatures/host.private_kind":              true,
+	"signatures/host.private_to_pem":            true,
+	"signatures/host.public_from_der":           true,
+	"signatures/host.public_from_pem":           true,
+	"signatures/host.public_kind":               true,
+	"signatures/host.public_of":                 true,
+	"signatures/host.public_to_pem":             true,
+	"strings.String.find_all_in":                true,
+	"strings.String.hash":                       true,
+	"strings.String.is_contained_in":            true,
+	"strings.String.is_lower":                   true,
+	"strings.String.is_prefix_of":               true,
+	"strings.String.is_suffix_of":               true,
+	"strings.String.is_upper":                   true,
+	"strings.String.length":                     true,
+	"strings.String.lines":                      true,
+	"strings.String.lowercase":                  true,
+	"strings.String.normalize":                  true,
+	"strings.String.repeat":                     true,
+	"strings.String.replace_in":                 true,
+	"strings.String.reverse":                    true,
+	"strings.String.slice":                      true,
+	"strings.String.split_in":                   true,
+	"strings.String.to_bytes":                   true,
+	"strings.String.to_codepoints":              true,
+	"strings.String.to_decimal":                 true,
+	"strings.String.to_float":                   true,
+	"strings.String.to_int":                     true,
+	"strings.String.to_literal":                 true,
+	"strings.String.trim":                       true,
+	"strings.String.uppercase":                  true,
+	"strings.String.words":                      true,
+	"strings.capture_groups":                    true,
+	"strings.capture_groups_all":                true,
+	"strings.join_list_raw":                     true,
+	"strings.string_compare":                    true,
+	"toml/host.build":                           true,
+	"toml/host.check":                           true,
+	"toml/host.decode":                          true,
+	"toml/host.float":                           true,
+	"toml/host.quote":                           true,
+	"url/host.escape_fragment":                  true,
+	"url/host.escape_path_segment":              true,
+	"url/host.escape_query":                     true,
+	"url/host.escaped_fragment_parts":           true,
+	"url/host.escaped_path_parts":               true,
+	"url/host.format_parts":                     true,
+	"url/host.hostname_parts":                   true,
+	"url/host.join_path_parts":                  true,
+	"url/host.parse_parts":                      true,
+	"url/host.port_parts":                       true,
+	"url/host.query_encode":                     true,
+	"url/host.query_error":                      true,
+	"url/host.query_pairs":                      true,
+	"url/host.redacted_parts":                   true,
+	"url/host.request_uri_parts":                true,
+	"url/host.resolve_parts":                    true,
+	"url/host.unescape_path_segment":            true,
+	"url/host.unescape_query":                   true,
+	"wasm/host.compile":                         true,
+	"wasm/host.run":                             true,
+	"xml/host.decode":                           true,
+	"xml/host.escape_attribute":                 true,
+	"xml/host.escape_text":                      true,
+	"xml/host.is_name":                          true,
 }
 
 // Pure reports whether the crossing name lands on an adapter whose row is
@@ -16305,304 +13824,231 @@ var pure = map[string]bool{
 // acts on nothing outside the machine (stdlibbindings.Binding.Pure).
 func Pure(name string) bool { return pure[name] }
 
-// outside is whether each crossing whose row in internal/stdlibbindings
-// is not Pure is an outside call, sorted.
-var outside = map[string]bool{
-	"averageable.int_ratio_to_float":            false,
-	"context.Context.deadline":                  false,
-	"context.Context.deadline_remaining":        true,
-	"context.Context.root":                      false,
-	"context.Context.with_deadline":             false,
-	"context.Context.with_timeout":              true,
-	"csv/host.failure":                          false,
-	"csv/host.line":                             false,
-	"csv/host.message":                          false,
-	"csv/host.next":                             false,
-	"csv/host.open":                             false,
-	"csv/host.stopped":                          false,
-	"decimal.Decimal.divide":                    false,
-	"decimal.Decimal.pow":                       false,
-	"decimal.Decimal.round":                     false,
-	"decimal.Decimal.round_exact":               false,
-	"decimal.Decimal.sqrt":                      false,
-	"decimal.Decimal.sqrt_exact":                false,
-	"dynamic.Dynamic.hash":                      false,
-	"embed/host.read":                           false,
-	"embed/host.sum":                            false,
-	"fs/host.copy":                              true,
-	"fs/host.create":                            true,
-	"fs/host.create_dir":                        true,
-	"fs/host.create_symlink":                    true,
-	"fs/host.current_dir":                       true,
-	"fs/host.link_metadata":                     true,
-	"fs/host.list":                              true,
-	"fs/host.make_temp_dir":                     true,
-	"fs/host.metadata":                          true,
-	"fs/host.new_sandbox":                       false,
-	"fs/host.open":                              true,
-	"fs/host.open_file":                         true,
-	"fs/host.read":                              true,
-	"fs/host.read_link":                         true,
-	"fs/host.read_text":                         true,
-	"fs/host.release":                           false,
-	"fs/host.remove":                            true,
-	"fs/host.remove_all":                        true,
-	"fs/host.rename":                            true,
-	"fs/host.sandbox_fail":                      false,
-	"fs/host.sandbox_files":                     false,
-	"fs/host.sandbox_log":                       false,
-	"fs/host.sandbox_open":                      false,
-	"fs/host.set_mode":                          true,
-	"fs/host.temp_dir":                          true,
-	"fs/host.within":                            true,
-	"fs/host.write":                             true,
-	"hash.md5":                                  false,
-	"hash.pbkdf2_sha256":                        false,
-	"hash.sha1":                                 false,
-	"html/host.escape":                          false,
-	"html/host.escape_url_path":                 false,
-	"html/host.filter_url":                      false,
-	"http/host.add_cookie":                      false,
-	"http/host.address":                         false,
-	"http/host.answer_content":                  false,
-	"http/host.answer_redirect":                 false,
-	"http/host.answered_already":                false,
-	"http/host.basic_auth":                      false,
-	"http/host.body_bytes":                      false,
-	"http/host.body_reader":                     false,
-	"http/host.canonical_key":                   false,
-	"http/host.certificate_from_pem":            false,
-	"http/host.certificate_info":                false,
-	"http/host.certificate_load":                true,
-	"http/host.chunked_reader":                  false,
-	"http/host.chunked_writer":                  false,
-	"http/host.cipher_suite_name":               false,
-	"http/host.cipher_suites":                   false,
-	"http/host.close_body":                      false,
-	"http/host.close_connections":               false,
-	"http/host.close_idle":                      false,
-	"http/host.closes":                          false,
-	"http/host.conn_close":                      false,
-	"http/host.conn_close_read":                 false,
-	"http/host.conn_close_write":                false,
-	"http/host.conn_deadline":                   false,
-	"http/host.conn_keep_alive":                 false,
-	"http/host.conn_linger":                     false,
-	"http/host.conn_local":                      false,
-	"http/host.conn_multipath":                  false,
-	"http/host.conn_no_delay":                   false,
-	"http/host.conn_reader":                     false,
-	"http/host.conn_remote":                     false,
-	"http/host.conn_writer":                     false,
-	"http/host.content_length":                  false,
-	"http/host.cookie_text":                     false,
-	"http/host.cookie_valid":                    false,
-	"http/host.cross_origin_check":              false,
-	"http/host.default_client":                  false,
-	"http/host.detect_content_type":             false,
-	"http/host.dial_with":                       true,
-	"http/host.encode_multipart":                false,
-	"http/host.exchange_tls":                    false,
-	"http/host.extend_read_deadline":            false,
-	"http/host.file_content_disposition":        false,
-	"http/host.final_url":                       false,
-	"http/host.finish":                          false,
-	"http/host.format_time":                     false,
-	"http/host.gunzip":                          false,
-	"http/host.gzip_bytes":                      false,
-	"http/host.gzip_reader":                     false,
-	"http/host.gzip_writer":                     false,
-	"http/host.headers":                         false,
-	"http/host.headers_wire":                    false,
-	"http/host.hello_parts":                     false,
-	"http/host.hello_supports":                  false,
-	"http/host.in_body":                         false,
-	"http/host.in_close":                        false,
-	"http/host.in_content_length":               false,
-	"http/host.in_headers":                      false,
-	"http/host.in_host":                         false,
-	"http/host.in_local":                        false,
-	"http/host.in_method":                       false,
-	"http/host.in_protocol":                     false,
-	"http/host.in_remote":                       false,
-	"http/host.in_target":                       false,
-	"http/host.in_tls":                          false,
-	"http/host.in_trailers":                     false,
-	"http/host.in_transfer_encoding":            false,
-	"http/host.jar_cookies":                     false,
-	"http/host.jar_set":                         false,
-	"http/host.join_host_port":                  false,
-	"http/host.limit_body":                      false,
-	"http/host.listen":                          true,
-	"http/host.listen_tls":                      true,
-	"http/host.lookup":                          true,
-	"http/host.multipart_reader":                false,
-	"http/host.multipart_write":                 false,
-	"http/host.net_accept":                      false,
-	"http/host.net_listen_with":                 true,
-	"http/host.net_listener_address":            false,
-	"http/host.net_listener_close":              false,
-	"http/host.net_listener_deadline":           false,
-	"http/host.new_client":                      false,
-	"http/host.new_jar":                         false,
-	"http/host.new_mux":                         false,
-	"http/host.new_tracer":                      false,
-	"http/host.next":                            false,
-	"http/host.next_part":                       false,
-	"http/host.open_sealed":                     false,
-	"http/host.parse_cookie":                    false,
-	"http/host.parse_http_version":              false,
-	"http/host.parse_multipart":                 false,
-	"http/host.parse_set_cookie":                false,
-	"http/host.parse_time":                      false,
-	"http/host.part_file_name":                  false,
-	"http/host.part_form_name":                  false,
-	"http/host.part_headers":                    false,
-	"http/host.part_reader":                     false,
-	"http/host.pipe":                            false,
-	"http/host.produce":                         false,
-	"http/host.protocol":                        false,
-	"http/host.respond":                         false,
-	"http/host.route":                           false,
-	"http/host.seal":                            false,
-	"http/host.send":                            true,
-	"http/host.shutdown":                        false,
-	"http/host.split_host_port":                 false,
-	"http/host.status":                          false,
-	"http/host.status_text":                     false,
-	"http/host.test_certificate":                true,
-	"http/host.tls_client":                      false,
-	"http/host.tls_config":                      true,
-	"http/host.tls_dial":                        true,
-	"http/host.tls_listen":                      true,
-	"http/host.tls_server":                      false,
-	"http/host.tls_state_parts":                 false,
-	"http/host.tls_verify_hostname":             false,
-	"http/host.tls_with_certificate":            false,
-	"http/host.tls_wrap_listener":               false,
-	"http/host.tracer_events":                   false,
-	"http/host.trailers":                        false,
-	"http/host.transfer_encoding":               false,
-	"http/host.uncompressed":                    false,
-	"http/host.upgrade":                         false,
-	"http/host.wire_body":                       false,
-	"http/host.wire_parts":                      false,
-	"http/host.wire_read_request":               false,
-	"http/host.wire_read_response":              false,
-	"http/host.wire_request":                    false,
-	"http/host.wire_response":                   false,
-	"http/host.with_jar":                        false,
-	"http/host.with_tls":                        false,
-	"http/host.ws_accept_key":                   false,
-	"http/host.ws_close":                        false,
-	"http/host.ws_connect":                      true,
-	"http/host.ws_id":                           false,
-	"http/host.ws_open":                         false,
-	"http/host.ws_ping":                         false,
-	"http/host.ws_pipe":                         false,
-	"http/host.ws_protocol":                     false,
-	"http/host.ws_receive":                      false,
-	"http/host.ws_send":                         false,
-	"http/host.ws_valid_key":                    false,
-	"instant.Instant.now":                       true,
-	"io.File.close":                             false,
-	"io.File.position":                          false,
-	"io.File.read_at":                           false,
-	"io.File.seek":                              false,
-	"io.File.size":                              false,
-	"io.File.truncate":                          false,
-	"io.File.write":                             false,
-	"io.File.write_at":                          false,
-	"io.Reader.close":                           false,
-	"io.Reader.copy_to":                         false,
-	"io.Reader.from_bytes":                      false,
-	"io.Reader.from_fn":                         false,
-	"io.Reader.from_text":                       false,
-	"io.Reader.read_all":                        false,
-	"io.Reader.read_all_text":                   false,
-	"io.Reader.read_line":                       false,
-	"io.Writer.close":                           false,
-	"io.Writer.discard":                         false,
-	"io.Writer.flush":                           false,
-	"io.Writer.write":                           false,
-	"io.Writer.write_text":                      false,
-	"io.collected":                              false,
-	"io.file_read":                              false,
-	"io.memory_writer":                          false,
-	"io.read_line":                              true,
-	"io.read_up_to":                             false,
-	"io.standard_error":                         true,
-	"io.standard_input":                         true,
-	"io.standard_output":                        true,
-	"io.writer_from_fn":                         false,
-	"iter.as_count":                             false,
-	"locale.locale_load_raw":                    false,
-	"locale.locale_loaded_raw":                  false,
-	"phrase/format.load_raw":                    false,
-	"phrase/format.noun_raw":                    false,
-	"process/host.captured":                     false,
-	"process/host.child_stderr":                 false,
-	"process/host.child_stdin":                  false,
-	"process/host.child_stdout":                 false,
-	"process/host.fake_answer":                  false,
-	"process/host.fake_calls":                   false,
-	"process/host.fake_command":                 false,
-	"process/host.fake_dir":                     false,
-	"process/host.fake_env":                     false,
-	"process/host.fake_input":                   false,
-	"process/host.fake_refuse":                  false,
-	"process/host.kill":                         false,
-	"process/host.new_fake":                     false,
-	"process/host.start":                        true,
-	"process/host.wait":                         false,
-	"random.between_state":                      false,
-	"random.os_state":                           true,
-	"random.secure_bytes":                       true,
-	"random.unit_float_state":                   false,
-	"signatures/host.ed25519_from_seed":         false,
-	"signatures/host.ed25519_public_bytes":      false,
-	"signatures/host.ed25519_public_from_bytes": false,
-	"signatures/host.ed25519_seed":              false,
-	"signatures/host.generate_ed25519":          true,
-	"signatures/host.generate_p256":             true,
-	"signatures/host.generate_rsa":              true,
-	"signatures/host.is_valid":                  false,
-	"signatures/host.private_from_der":          false,
-	"signatures/host.private_from_pem":          false,
-	"signatures/host.private_kind":              false,
-	"signatures/host.private_to_pem":            false,
-	"signatures/host.public_from_der":           false,
-	"signatures/host.public_from_pem":           false,
-	"signatures/host.public_kind":               false,
-	"signatures/host.public_of":                 false,
-	"signatures/host.public_to_pem":             false,
-	"signatures/host.sign":                      false,
-	"strings.String.is_lower":                   false,
-	"strings.String.is_upper":                   false,
-	"strings.String.repeat":                     false,
-	"supervisors.Supervisor.flush_bounded":      true,
-	"supervisors.Supervisor.new_exact":          false,
-	"timer.sleep":                               true,
-	"xml/host.attributes":                       false,
-	"xml/host.failure":                          false,
-	"xml/host.message":                          false,
-	"xml/host.name":                             false,
-	"xml/host.namespaces":                       false,
-	"xml/host.next":                             false,
-	"xml/host.open":                             false,
-	"xml/host.position":                         false,
-	"xml/host.stopped":                          false,
-	"xml/host.target":                           false,
-	"xml/host.text":                             false,
+// unbounded is every crossing whose row in internal/stdlibbindings is marked
+// Unbounded, sorted.
+var unbounded = map[string]bool{
+	"decimal.Decimal.divide":       true,
+	"decimal.Decimal.pow":          true,
+	"decimal.Decimal.round":        true,
+	"decimal.Decimal.round_exact":  true,
+	"decimal.Decimal.sqrt":         true,
+	"decimal.Decimal.sqrt_exact":   true,
+	"hash.pbkdf2_sha256":           true,
+	"http/host.gunzip":             true,
+	"passwords/host.argon2id":      true,
+	"passwords/host.bcrypt_verify": true,
+	"passwords/host.scrypt":        true,
+	"strings.String.repeat":        true,
+	"wasm/host.compile":            true,
+	"wasm/host.run":                true,
 }
 
-// World reports whether the crossing name lands on an adapter whose row
-// is an outside call (stdlibbindings.Binding.World), and whether any row
-// answers the name at all; a Pure row is inside.
-func World(name string) (isOutside, known bool) {
-	if pure[name] {
-		return false, true
-	}
-	isOutside, known = outside[name]
-	return isOutside, known
+// Unbounded reports whether the crossing name lands on an adapter whose
+// row is marked Unbounded: a pure function whose one call's cost grows
+// with an operand's value (stdlibbindings.Binding.Unbounded).
+func Unbounded(name string) bool { return unbounded[name] }
+
+// held is every crossing whose row in internal/stdlibbindings is marked
+// Held, sorted.
+var held = map[string]bool{
+	"csv/host.failure":                true,
+	"csv/host.line":                   true,
+	"csv/host.message":                true,
+	"csv/host.next":                   true,
+	"csv/host.open":                   true,
+	"csv/host.stopped":                true,
+	"embed/host.read":                 true,
+	"embed/host.sum":                  true,
+	"fs/host.copy":                    true,
+	"fs/host.create":                  true,
+	"fs/host.create_dir":              true,
+	"fs/host.create_symlink":          true,
+	"fs/host.current_dir":             true,
+	"fs/host.link_metadata":           true,
+	"fs/host.list":                    true,
+	"fs/host.lock":                    true,
+	"fs/host.make_temp":               true,
+	"fs/host.make_temp_dir":           true,
+	"fs/host.metadata":                true,
+	"fs/host.open":                    true,
+	"fs/host.open_file":               true,
+	"fs/host.read":                    true,
+	"fs/host.read_link":               true,
+	"fs/host.read_text":               true,
+	"fs/host.release":                 true,
+	"fs/host.remove":                  true,
+	"fs/host.remove_all":              true,
+	"fs/host.rename":                  true,
+	"fs/host.sandbox_fail":            true,
+	"fs/host.sandbox_files":           true,
+	"fs/host.sandbox_log":             true,
+	"fs/host.sandbox_open":            true,
+	"fs/host.set_mode":                true,
+	"fs/host.sync_dir":                true,
+	"fs/host.temp_dir":                true,
+	"fs/host.within":                  true,
+	"fs/host.write":                   true,
+	"http/host.address":               true,
+	"http/host.answered_already":      true,
+	"http/host.body_bytes":            true,
+	"http/host.body_reader":           true,
+	"http/host.chunked_reader":        true,
+	"http/host.chunked_writer":        true,
+	"http/host.close_body":            true,
+	"http/host.close_connections":     true,
+	"http/host.close_idle":            true,
+	"http/host.closes":                true,
+	"http/host.conn_close":            true,
+	"http/host.conn_close_read":       true,
+	"http/host.conn_close_write":      true,
+	"http/host.conn_deadline":         true,
+	"http/host.conn_keep_alive":       true,
+	"http/host.conn_linger":           true,
+	"http/host.conn_local":            true,
+	"http/host.conn_multipath":        true,
+	"http/host.conn_no_delay":         true,
+	"http/host.conn_reader":           true,
+	"http/host.conn_remote":           true,
+	"http/host.conn_writer":           true,
+	"http/host.content_length":        true,
+	"http/host.exchange_tls":          true,
+	"http/host.extend_read_deadline":  true,
+	"http/host.final_url":             true,
+	"http/host.finish":                true,
+	"http/host.gzip_reader":           true,
+	"http/host.gzip_writer":           true,
+	"http/host.headers":               true,
+	"http/host.hello_parts":           true,
+	"http/host.hello_supports":        true,
+	"http/host.in_body":               true,
+	"http/host.in_close":              true,
+	"http/host.in_content_length":     true,
+	"http/host.in_headers":            true,
+	"http/host.in_host":               true,
+	"http/host.in_local":              true,
+	"http/host.in_method":             true,
+	"http/host.in_protocol":           true,
+	"http/host.in_remote":             true,
+	"http/host.in_target":             true,
+	"http/host.in_tls":                true,
+	"http/host.in_trailers":           true,
+	"http/host.in_transfer_encoding":  true,
+	"http/host.jar_cookies":           true,
+	"http/host.jar_set":               true,
+	"http/host.limit_body":            true,
+	"http/host.multipart_reader":      true,
+	"http/host.multipart_write":       true,
+	"http/host.net_accept":            true,
+	"http/host.net_listener_address":  true,
+	"http/host.net_listener_close":    true,
+	"http/host.net_listener_deadline": true,
+	"http/host.next":                  true,
+	"http/host.next_part":             true,
+	"http/host.part_file_name":        true,
+	"http/host.part_form_name":        true,
+	"http/host.part_headers":          true,
+	"http/host.part_reader":           true,
+	"http/host.produce":               true,
+	"http/host.protocol":              true,
+	"http/host.read_at_most":          true,
+	"http/host.respond":               true,
+	"http/host.send":                  true,
+	"http/host.shutdown":              true,
+	"http/host.status":                true,
+	"http/host.tls_client":            true,
+	"http/host.tls_server":            true,
+	"http/host.tls_state_parts":       true,
+	"http/host.tls_verify_hostname":   true,
+	"http/host.tls_with_certificate":  true,
+	"http/host.tls_wrap_listener":     true,
+	"http/host.tracer_events":         true,
+	"http/host.trailers":              true,
+	"http/host.transfer_encoding":     true,
+	"http/host.uncompressed":          true,
+	"http/host.upgrade":               true,
+	"http/host.wire_body":             true,
+	"http/host.wire_parts":            true,
+	"http/host.wire_read_request":     true,
+	"http/host.wire_read_response":    true,
+	"http/host.wire_request":          true,
+	"http/host.wire_response":         true,
+	"http/host.with_jar":              true,
+	"http/host.with_tls":              true,
+	"http/host.ws_close":              true,
+	"http/host.ws_id":                 true,
+	"http/host.ws_open":               true,
+	"http/host.ws_ping":               true,
+	"http/host.ws_protocol":           true,
+	"http/host.ws_receive":            true,
+	"http/host.ws_send":               true,
+	"io.File.close":                   true,
+	"io.File.position":                true,
+	"io.File.read_at":                 true,
+	"io.File.seek":                    true,
+	"io.File.size":                    true,
+	"io.File.sync":                    true,
+	"io.File.sync_data":               true,
+	"io.File.truncate":                true,
+	"io.File.write":                   true,
+	"io.File.write_at":                true,
+	"io.Reader.close":                 true,
+	"io.Reader.copy_to":               true,
+	"io.Reader.read_all":              true,
+	"io.Reader.read_all_text":         true,
+	"io.Reader.read_line":             true,
+	"io.Writer.close":                 true,
+	"io.Writer.discard":               true,
+	"io.Writer.flush":                 true,
+	"io.Writer.write":                 true,
+	"io.Writer.write_text":            true,
+	"io.collected":                    true,
+	"io.file_read":                    true,
+	"io.read_up_to":                   true,
+	"process/host.captured":           true,
+	"process/host.child_stderr":       true,
+	"process/host.child_stdin":        true,
+	"process/host.child_stdout":       true,
+	"process/host.fake_answer":        true,
+	"process/host.fake_calls":         true,
+	"process/host.fake_command":       true,
+	"process/host.fake_dir":           true,
+	"process/host.fake_env":           true,
+	"process/host.fake_input":         true,
+	"process/host.fake_refuse":        true,
+	"process/host.kill":               true,
+	"process/host.wait":               true,
+	"wasm/host.call":                  true,
+	"wasm/host.drop":                  true,
+	"wasm/host.memory_read":           true,
+	"wasm/host.memory_size":           true,
+	"wasm/host.memory_write":          true,
+	"wasm/host.read":                  true,
+	"wasm/host.run_on":                true,
+	"wasm/host.size":                  true,
+	"wasm/host.write":                 true,
+	"xml/host.current":                true,
+	"xml/host.failure":                true,
+	"xml/host.message":                true,
+	"xml/host.next":                   true,
+	"xml/host.open":                   true,
+	"xml/host.stopped":                true,
 }
+
+// Held reports whether the crossing name lands on an adapter whose row
+// is marked Held: one that acts only through a value its operand already
+// holds, which an effects list names where the value was made
+// (stdlibbindings.Binding.Held).
+func Held(name string) bool { return held[name] }
+
+// known is every crossing Names lists, as a set.
+var known = func() map[string]bool {
+	m := map[string]bool{}
+	for _, n := range Names() {
+		m[n] = true
+	}
+	return m
+}()
+
+// Known reports whether the crossing name lands on an adapter: whether a
+// row in internal/stdlibbindings answers it.
+func Known(name string) bool { return known[name] }

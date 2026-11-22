@@ -28,10 +28,11 @@ test "a pattern names a marker payload"
     Sender.close(ch.sender)
     r = Sender.send(ch.sender, 1)
 
-    n = case r
-        Err(ChannelClosed) -> 1
-        Ok(_)              -> 0
-    end
+    n =
+        case r
+            Err(ChannelClosed) -> 1
+            Ok(_)              -> 0
+        end
 
     assert n == 1
     assert Err(ChannelClosed) = r

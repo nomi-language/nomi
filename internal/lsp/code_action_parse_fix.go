@@ -25,7 +25,7 @@ import (
 //
 // A fix whose edits are in another file (parser.Fix's Path) edits that
 // file, read with read, which may be nil when no fix of errs has a Path:
-// the edit to nomi.toml that allows a call its [capabilities] lists do not
+// the edit to nomi.toml that allows a call its [effects] lists do not
 // (vmhost's allowFix). It widens what the program may reach, so it is
 // never the preferred fix.
 func buildParseFixActions(content, uri string, read func(protocol.DocumentUri) (string, bool), errs []parser.ParseError, diags []protocol.Diagnostic) []protocol.CodeAction {

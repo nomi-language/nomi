@@ -11,7 +11,7 @@ A Sublime Text syntax definition for the [Nomi](https://github.com/nomi-language
 
 From the repository root:
 
-```
+```sh
 mkdir -p "$(bat --config-dir)/syntaxes"
 cp editors/bat/nomi.sublime-syntax "$(bat --config-dir)/syntaxes/"
 bat cache --build
@@ -19,7 +19,7 @@ bat cache --build
 
 Verify:
 
-```
+```sh
 bat --list-languages | grep Nomi
 # Nomi:nomi
 ```
@@ -28,7 +28,7 @@ bat --list-languages | grep Nomi
 
 Yazi uses its own bundled syntect and won't automatically see `bat`'s custom syntaxes. To route `.nomi` files through `bat` for previews, install the [piper](https://github.com/yazi-rs/plugins/tree/main/piper.yazi) plugin and add a previewer override.
 
-```
+```sh
 ya pkg add yazi-rs/plugins:piper
 ```
 

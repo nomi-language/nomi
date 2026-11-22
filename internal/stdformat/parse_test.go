@@ -83,7 +83,7 @@ func TestParseInt(t *testing.T) {
 		{"en", "   ", true, "Empty"},
 		{"en", "12x", true, `Unexpected{at: 2, text: "x"}`},
 	} {
-		if got := intResult(FFIParseInt(fr, c.text, c.locale, c.lenient)); got != c.want {
+		if got := intResult(HostParseInt(fr, c.text, c.locale, c.lenient)); got != c.want {
 			t.Errorf("Int.parse_in(%q, %s, lenient: %v) = %s, want %s", c.text, c.locale, c.lenient, got, c.want)
 		}
 	}
@@ -107,7 +107,7 @@ func TestParseDecimal(t *testing.T) {
 		{"de-CH", "1'234.5", false, "1234.5"},
 		{"en", "∞", false, "OutOfRange"},
 	} {
-		if got := decResult(FFIParseDecimal(fr, c.text, c.locale, c.lenient)); got != c.want {
+		if got := decResult(HostParseDecimal(fr, c.text, c.locale, c.lenient)); got != c.want {
 			t.Errorf("Decimal.parse_in(%q, %s, lenient: %v) = %s, want %s", c.text, c.locale, c.lenient, got, c.want)
 		}
 	}
@@ -130,7 +130,7 @@ func TestParseDecimal(t *testing.T) {
 		{"ar-EG", "٥٠٪؜", false, "0.50"},
 		{"ar-EG", "٥٠٪", true, "0.50"},
 	} {
-		if got := decResult(FFIParseDecimalPercent(fr, c.text, c.locale, c.lenient)); got != c.want {
+		if got := decResult(HostParseDecimalPercent(fr, c.text, c.locale, c.lenient)); got != c.want {
 			t.Errorf("Decimal.parse_percent_in(%q, %s, lenient: %v) = %s, want %s", c.text, c.locale, c.lenient, got, c.want)
 		}
 	}
@@ -138,24 +138,24 @@ func TestParseDecimal(t *testing.T) {
 
 func TestParseFloat(t *testing.T) {
 	fr := full()
-	r := FFIParseFloat(fr, "1.234.567,89", "de", false)
+	r := HostParseFloat(fr, "1.234.567,89", "de", false)
 	if r.Tag != rt.TagOk || r.Ok != 1234567.89 {
 		t.Errorf("Float.parse_in de: %+v", r)
 	}
-	if r := FFIParseFloat(fr, "-∞", "en", false); r.Tag != rt.TagOk || !math.IsInf(r.Ok, -1) {
+	if r := HostParseFloat(fr, "-∞", "en", false); r.Tag != rt.TagOk || !math.IsInf(r.Ok, -1) {
 		t.Errorf("-∞: %+v", r)
 	}
-	if r := FFIParseFloat(fr, "NaN", "en", false); r.Tag != rt.TagOk || !math.IsNaN(r.Ok) {
+	if r := HostParseFloat(fr, "NaN", "en", false); r.Tag != rt.TagOk || !math.IsNaN(r.Ok) {
 		t.Errorf("NaN: %+v", r)
 	}
-	if r := FFIParseFloat(fr, "1"+string(make([]byte, 0))+"e400", "en", false); r.Tag != rt.TagErr {
+	if r := HostParseFloat(fr, "1"+string(make([]byte, 0))+"e400", "en", false); r.Tag != rt.TagErr {
 		t.Errorf("1e400: %+v", r)
 	}
 	big := "1"
 	for range 400 {
 		big += "0"
 	}
-	if r := FFIParseFloat(fr, big, "en", false); r.Tag != rt.TagErr || r.Err.Tag != rt.TagNumberParseOutOfRange {
+	if r := HostParseFloat(fr, big, "en", false); r.Tag != rt.TagErr || r.Err.Tag != rt.TagNumberParseOutOfRange {
 		t.Errorf("10^400: %+v", r)
 	}
 }
@@ -171,27 +171,27 @@ func TestFormatThenParseRoundTrips(t *testing.T) {
 	for _, loc := range locales {
 		for _, n := range ints {
 			for _, grouping := range []bool{true, false} {
-				text := FFIFormatInt(fr, loc, rt.SmallInt(n), grouping, rt.SmallInt(1))
+				text := HostFormatInt(fr, loc, rt.SmallInt(n), grouping, rt.SmallInt(1))
 				for _, lenient := range []bool{false, true} {
-					if got := intResult(FFIParseInt(fr, text, loc, lenient)); got != fmt.Sprint(n) {
+					if got := intResult(HostParseInt(fr, text, loc, lenient)); got != fmt.Sprint(n) {
 						t.Errorf("%s: %d formats as %q, which parses (lenient %v) as %s", loc, n, text, lenient, got)
 					}
 				}
 			}
 		}
 		for _, d := range decimals {
-			text := FFIFormatDecimal(fr, loc, d, rt.SmallInt(0), rt.SmallInt(100), true)
-			if got := decResult(FFIParseDecimal(fr, text, loc, false)); got != d {
+			text := HostFormatDecimal(fr, loc, d, rt.SmallInt(0), rt.SmallInt(100), true)
+			if got := decResult(HostParseDecimal(fr, text, loc, false)); got != d {
 				t.Errorf("%s: %s formats as %q, which parses as %s", loc, d, text, got)
 			}
-			pct := FFIFormatDecimalPercent(fr, loc, timesHundred(d), rt.SmallInt(0), rt.SmallInt(100))
-			if got := decResult(FFIParseDecimalPercent(fr, pct, loc, false)); got != stripScaleTo(d) {
+			pct := HostFormatDecimalPercent(fr, loc, timesHundred(d), rt.SmallInt(0), rt.SmallInt(100))
+			if got := decResult(HostParseDecimalPercent(fr, pct, loc, false)); got != stripScaleTo(d) {
 				t.Errorf("%s: %s formats as the percentage %q, which parses as %s", loc, d, pct, got)
 			}
 		}
 		f := -1234567.25
-		text := FFIFormatFloat(fr, loc, f, rt.SmallInt(0), rt.SmallInt(3), true)
-		if r := FFIParseFloat(fr, text, loc, false); r.Tag != rt.TagOk || r.Ok != f {
+		text := HostFormatFloat(fr, loc, f, rt.SmallInt(0), rt.SmallInt(3), true)
+		if r := HostParseFloat(fr, text, loc, false); r.Tag != rt.TagOk || r.Ok != f {
 			t.Errorf("%s: %v formats as %q, which parses as %+v", loc, f, text, r)
 		}
 	}

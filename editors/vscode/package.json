@@ -46,6 +46,22 @@
         "path": "./syntaxes/nomi.tmLanguage.json"
       }
     ],
+    "semanticTokenModifiers": [
+      {
+        "id": "effect",
+        "description": "Code that has effects: a call that reads a file, prints or uses the network, or a function that can."
+      }
+    ],
+    "semanticTokenScopes": [
+      {
+        "language": "nomi",
+        "scopes": {
+          "*.effect": [
+            "markup.bold"
+          ]
+        }
+      }
+    ],
     "taskDefinitions": [
       {
         "type": "nomi",

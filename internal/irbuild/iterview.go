@@ -87,7 +87,13 @@ func (bl *irScalarBuilder) viewSourceAt(at ast.Node, sk kind) (viewSource, bool)
 			return vs, ok
 		}
 	}
-	return bl.viewSourceOfKind(sk)
+	vs, ok := bl.viewSourceOfKind(sk)
+	if sk.tag == tagSeq {
+		// A sequence is its own view: its elements are of the type the
+		// checker recorded for it.
+		vs.elemType = partCheckerType(bl.g.valueCheckerType(at, sk), sk, 0)
+	}
+	return vs, ok
 }
 
 // viewSourceIn is a value of kind sk in the domain dom the checker
@@ -208,11 +214,11 @@ func (bl *irScalarBuilder) viewAs(at ast.Node, src ir.Temp, sk kind, vs viewSour
 		return src, true
 	}
 	own, from := vs.dom != viewSeq, vs.elem
-	asItIs := from == elem || bl.erasesUnboxed(elem, from)
+	asItIs := from == elem || bl.erasesUnboxed(elem, from, vs.elemType)
 	if !asItIs && !irCallableValueKind(from) {
 		// An element no adapter takes is elem's when it is the interface's
 		// or the conjunction's value all the same.
-		if !irHeldKind(elem) || !bl.g.irErases(elem, from, nil) {
+		if !irHeldKind(elem) || !bl.g.irErases(elem, from, vs.elemType) {
 			return ir.NoTemp, false
 		}
 		asItIs = true

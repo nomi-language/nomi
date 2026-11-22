@@ -8,7 +8,7 @@ import (
 // FuzzFrontEndAcceptsSoItLowers found the front end accepting a `test`
 // declared inside a test body, which the builder declined. A `test` is a
 // declaration of the file or of a group, so the parser refuses one in any
-// body, and a `group` and a `gopkg` likewise.
+// body, and a `group` likewise.
 func TestTopLevelOnlyDeclarationsInABodyAreRejected(t *testing.T) {
 	cases := []struct{ name, src, want string }{
 		{"test in a test", "test \"outer\"\n    test \"inner\"\n        assert 1 == 1\n    end\n    assert 1 == 1\nend\n",
@@ -19,8 +19,6 @@ func TestTopLevelOnlyDeclarationsInABodyAreRejected(t *testing.T) {
 			"main.nomi:1:5: a `test` is declared at the top level of a file or in a `group`; it cannot be nested inside a body"},
 		{"group in a test", "test \"outer\"\n    group \"g\"\n        test \"a\"\n            assert 1 == 1\n        end\n    end\n    assert 1 == 1\nend\n",
 			"main.nomi:2:5: a `group` is declared at the top level of a file; it cannot be nested inside a body"},
-		{"gopkg in a function", "import std::io\n\nfn main()\n    gopkg \"strings\"\n    io.print(1)\nend\n",
-			"main.nomi:4:5: a `gopkg` declaration belongs at the top level of a file, beside the `go` bindings that use it; it cannot appear inside a body"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

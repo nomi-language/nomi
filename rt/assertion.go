@@ -413,9 +413,11 @@ func RecordOperand(trace *[]AssertionValueContext, expr, value string, suppressR
 func InspectUnit(Unit) string { return "Unit" }
 
 // ChannelInspectText is how a `Sender<T>` or a `Receiver<T>` reads in a
-// `values:` row, and it is the only spelling of it. The VM's channel halves
+// `values:` row and wherever the machine renders one. The VM's channel halves
 // answer it as their OpaqueText, and so do the two typed wrappers below, so no
-// report can drift from another.
+// report can drift from another. std's `impl Debug` of each half writes the
+// same text, which irbuild's TestMachineImplsComputeTheirBodies holds the
+// machine to.
 //
 // A constant, not derived from the type's name. The failing assertion
 //
@@ -423,9 +425,8 @@ func InspectUnit(Unit) string { return "Unit" }
 //	h = Holder{s: ch.sender}
 //	assert tag(h) == 2
 //
-// reports `h = Holder{s: <channel>}`. It is not the host-type bare name: `Sender` and
-// `Receiver` are `pub host type` declarations and the auto-Debug for those is
-// a bare name, which would give `Sender`. And it does not
+// reports `h = Holder{s: <channel>}`. It is not the host-type bare name,
+// which would give `Sender`. And it does not
 // distinguish the two halves — a `Receiver<T>` reads `<channel>` as well —
 // because both are one channel at runtime and the direction is purely static.
 //

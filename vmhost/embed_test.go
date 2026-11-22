@@ -112,7 +112,7 @@ func TestLoad_AHostFnNoTableAnswersIsAFrontEndError(t *testing.T) {
 	if err == nil {
 		t.Fatal("a program whose `host fn shout` nothing answers loaded")
 	}
-	for _, want := range []string{"1 extern declared but not registered", "shout\t(entry:3:9)", "vmhost.WithHosts"} {
+	for _, want := range []string{"no host table answers 1 `host` declaration:", "shout\t(entry:3:9)", "vmhost.WithHosts"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("load error %q lacks %q", err, want)
 		}

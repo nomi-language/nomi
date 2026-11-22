@@ -36,20 +36,13 @@ func (bl *irScalarBuilder) bareImplCall(t *ast.Call, callee *ast.Ident) (ir.Temp
 	if sym == nil || target.Qualifier.Kind != analysis.QualNone {
 		return ir.NoTemp, kindInvalid, false, false, false
 	}
-	var owner string
 	switch o := target.Owner; {
 	case o.Kind == analysis.QualType && sym.OwningType != "":
-		owner = sym.OwningType
 	case o.Kind == analysis.QualInterface && sym.Kind == analysis.SymbolInterfaceMethod && sym.OwningInterface != "":
-		owner = sym.OwningInterface
 	default:
 		return ir.NoTemp, kindInvalid, false, false, false
 	}
-	// The qualifier has no position: the checker's record at the callee is
-	// the function's, and a qualifier read there would be taken for its
-	// owner.
-	ti := &ast.TypeIdent{Name: owner}
-	lower := func() (ir.Temp, kind, bool, bool) { return bl.typeQualCall(t, ti, callee.Name) }
+	lower := func() (ir.Temp, kind, bool, bool) { return bl.typeQualCall(t, callee.Name) }
 	var v ir.Temp
 	var k kind
 	var mobile, ok bool

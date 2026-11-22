@@ -99,6 +99,10 @@ type opaqueSpec struct {
 	// here: it is what makes the shared def package-neutral, and
 	// TestOpaqueDefsArePackageNeutral enforces it.
 	inner kind
+	// decl is the inner type as std's declaration writes it (typeText). A
+	// subtype is written as itself (`opaque type Codepoint Int64`), though
+	// inner is its base's kind.
+	decl string
 	// goType is rt's Go type, held as the TYPE rather than as its spelling for
 	// the same reason a stdlibbindings.Binding holds a func value, not a name: a
 	// rename or a deletion in rt is then a Go compile error in this file, and
@@ -117,8 +121,8 @@ type opaqueSpec struct {
 // # The shape this table admits
 //
 // `pub [opaque] type X <scalar>`, with the clause named per row: matches()
-// requires the row's `form`, Public, no decorator but `derive`, and an inner
-// type scalarKind admits.
+// requires the row's `form`, Public, no decorator but `derive`, and the inner
+// type written as the row's `decl`.
 //
 // `opaque` is a use-site rule the front end enforces, not a representation. A
 // distinct over a scalar has the same representation whether or not callers
@@ -146,51 +150,51 @@ type opaqueSpec struct {
 // std/int's `NonZeroInt` and `PositiveInt` are refinements, which have no
 // representation of their own and so no row (refinement.go).
 var opaqueSpecs = []opaqueSpec{
-	{origin: "std/duration", nomi: "Duration", form: formOpaque, inner: kindInt, goType: reflect.TypeFor[rt.Duration]()},
-	{origin: "std/instant", nomi: "Instant", form: formOpaque, inner: kindInt, goType: reflect.TypeFor[rt.Instant]()},
-	{origin: "std/code_points", nomi: "Codepoint", form: formOpaque, inner: kindInt, goType: reflect.TypeFor[rt.Codepoint]()},
+	{origin: "std/duration", nomi: "Duration", form: formOpaque, inner: kindInt, decl: "Int", goType: reflect.TypeFor[rt.Duration]()},
+	{origin: "std/instant", nomi: "Instant", form: formOpaque, inner: kindInt, decl: "Int", goType: reflect.TypeFor[rt.Instant]()},
+	{origin: "std/code_points", nomi: "Codepoint", form: formOpaque, inner: kindInt, decl: "Int64", goType: reflect.TypeFor[rt.Codepoint]()},
 	// std/random's PRNG register. A row with NO extern over it, which this
 	// table's own header says is the normal case rather than the exception:
 	// `Seed.from_int(n: Int) -> Seed` is the Nomi body `Seed(n)`. See
 	// rt/random.go for why no rule belongs beside the type.
-	{origin: "std/random", nomi: "Seed", form: formOpaque, inner: kindInt, goType: reflect.TypeFor[rt.Seed]()},
+	{origin: "std/random", nomi: "Seed", form: formOpaque, inner: kindInt, decl: "Int", goType: reflect.TypeFor[rt.Seed]()},
 	// std/locale's canonical BCP 47 tag. No extern takes or returns it: the
 	// host functions trade in the tag's String, and std/locale's Nomi bodies
 	// wrap and unwrap it. See rt/locale.go.
-	{origin: "std/locale", nomi: "Locale", form: formOpaque, inner: kindString, goType: reflect.TypeFor[rt.Locale]()},
+	{origin: "std/locale", nomi: "Locale", form: formOpaque, inner: kindString, decl: "String", goType: reflect.TypeFor[rt.Locale]()},
 	// std/calendar's civil periods. Ten rows for ten declarations rather than
 	// one parameterised entry, because each is a DISTINCT Nomi type with a
 	// distinct rt Go type and the whole point of the family is that
 	// `Add<Hours, DateTime>` and `Add<Minutes, DateTime>` must not share a
 	// signature. The order is std's own declaration order — largest unit
 	// first — because that is the order a reader checks them against.
-	{origin: "std/calendar", nomi: "Years", form: formDistinct, inner: kindInt, goType: reflect.TypeFor[rt.Years]()},
-	{origin: "std/calendar", nomi: "Months", form: formDistinct, inner: kindInt, goType: reflect.TypeFor[rt.Months]()},
-	{origin: "std/calendar", nomi: "Weeks", form: formDistinct, inner: kindInt, goType: reflect.TypeFor[rt.Weeks]()},
-	{origin: "std/calendar", nomi: "Days", form: formDistinct, inner: kindInt, goType: reflect.TypeFor[rt.Days]()},
-	{origin: "std/calendar", nomi: "Hours", form: formDistinct, inner: kindInt, goType: reflect.TypeFor[rt.Hours]()},
-	{origin: "std/calendar", nomi: "Minutes", form: formDistinct, inner: kindInt, goType: reflect.TypeFor[rt.Minutes]()},
-	{origin: "std/calendar", nomi: "Seconds", form: formDistinct, inner: kindInt, goType: reflect.TypeFor[rt.Seconds]()},
-	{origin: "std/calendar", nomi: "Milliseconds", form: formDistinct, inner: kindInt, goType: reflect.TypeFor[rt.Milliseconds]()},
-	{origin: "std/calendar", nomi: "Microseconds", form: formDistinct, inner: kindInt, goType: reflect.TypeFor[rt.Microseconds]()},
-	{origin: "std/calendar", nomi: "Nanoseconds", form: formDistinct, inner: kindInt, goType: reflect.TypeFor[rt.Nanoseconds]()},
+	{origin: "std/calendar", nomi: "Years", form: formDistinct, inner: kindInt, decl: "Int", goType: reflect.TypeFor[rt.Years]()},
+	{origin: "std/calendar", nomi: "Months", form: formDistinct, inner: kindInt, decl: "Int", goType: reflect.TypeFor[rt.Months]()},
+	{origin: "std/calendar", nomi: "Weeks", form: formDistinct, inner: kindInt, decl: "Int", goType: reflect.TypeFor[rt.Weeks]()},
+	{origin: "std/calendar", nomi: "Days", form: formDistinct, inner: kindInt, decl: "Int", goType: reflect.TypeFor[rt.Days]()},
+	{origin: "std/calendar", nomi: "Hours", form: formDistinct, inner: kindInt, decl: "Int", goType: reflect.TypeFor[rt.Hours]()},
+	{origin: "std/calendar", nomi: "Minutes", form: formDistinct, inner: kindInt, decl: "Int", goType: reflect.TypeFor[rt.Minutes]()},
+	{origin: "std/calendar", nomi: "Seconds", form: formDistinct, inner: kindInt, decl: "Int", goType: reflect.TypeFor[rt.Seconds]()},
+	{origin: "std/calendar", nomi: "Milliseconds", form: formDistinct, inner: kindInt, decl: "Int", goType: reflect.TypeFor[rt.Milliseconds]()},
+	{origin: "std/calendar", nomi: "Microseconds", form: formDistinct, inner: kindInt, decl: "Int", goType: reflect.TypeFor[rt.Microseconds]()},
+	{origin: "std/calendar", nomi: "Nanoseconds", form: formDistinct, inner: kindInt, decl: "Int", goType: reflect.TypeFor[rt.Nanoseconds]()},
 	// std/currency's code, or custom code and digits (`BTC:8`). The host
 	// functions trade in the code, the digits and whether it is ISO;
 	// std/currency's Nomi bodies wrap and unwrap it. See rt/currency.go.
-	{origin: "std/currency", nomi: "Currency", form: formOpaque, inner: kindString, goType: reflect.TypeFor[rt.Currency]()},
+	{origin: "std/currency", nomi: "Currency", form: formOpaque, inner: kindString, decl: "String", goType: reflect.TypeFor[rt.Currency]()},
 	// std/calendar's skeletons and fixed patterns, each the text it was
 	// checked as. The host functions take the text; std/calendar's Nomi
 	// bodies wrap and unwrap it. See rt/calendarformat.go.
-	{origin: "std/calendar", nomi: "DateFields", form: formOpaque, inner: kindString, goType: reflect.TypeFor[rt.DateFields]()},
-	{origin: "std/calendar", nomi: "TimeFields", form: formOpaque, inner: kindString, goType: reflect.TypeFor[rt.TimeFields]()},
-	{origin: "std/calendar", nomi: "DateTimeFields", form: formOpaque, inner: kindString, goType: reflect.TypeFor[rt.DateTimeFields]()},
-	{origin: "std/calendar", nomi: "DatePattern", form: formOpaque, inner: kindString, goType: reflect.TypeFor[rt.DatePattern]()},
-	{origin: "std/calendar", nomi: "TimePattern", form: formOpaque, inner: kindString, goType: reflect.TypeFor[rt.TimePattern]()},
-	{origin: "std/calendar", nomi: "DateTimePattern", form: formOpaque, inner: kindString, goType: reflect.TypeFor[rt.DateTimePattern]()},
+	{origin: "std/calendar", nomi: "DateFields", form: formOpaque, inner: kindString, decl: "String", goType: reflect.TypeFor[rt.DateFields]()},
+	{origin: "std/calendar", nomi: "TimeFields", form: formOpaque, inner: kindString, decl: "String", goType: reflect.TypeFor[rt.TimeFields]()},
+	{origin: "std/calendar", nomi: "DateTimeFields", form: formOpaque, inner: kindString, decl: "String", goType: reflect.TypeFor[rt.DateTimeFields]()},
+	{origin: "std/calendar", nomi: "DatePattern", form: formOpaque, inner: kindString, decl: "String", goType: reflect.TypeFor[rt.DatePattern]()},
+	{origin: "std/calendar", nomi: "TimePattern", form: formOpaque, inner: kindString, decl: "String", goType: reflect.TypeFor[rt.TimePattern]()},
+	{origin: "std/calendar", nomi: "DateTimePattern", form: formOpaque, inner: kindString, decl: "String", goType: reflect.TypeFor[rt.DateTimePattern]()},
 	// std/collation's collator: the locale's tag and its options. The host
 	// functions take the text; std/collation's Nomi bodies wrap and unwrap
 	// it. See rt/collation.go.
-	{origin: "std/collation", nomi: "Collator", form: formOpaque, inner: kindString, goType: reflect.TypeFor[rt.Collator]()},
+	{origin: "std/collation", nomi: "Collator", form: formOpaque, inner: kindString, decl: "String", goType: reflect.TypeFor[rt.Collator]()},
 }
 
 // opaqueDefs is the process-wide *typeDef per spec, keyed by spec index.
@@ -241,23 +245,14 @@ func opaqueKindOfGoType(t reflect.Type) kind {
 // --- anchoring -------------------------------------------------------------
 
 // opaqueAnchors resolves the opaque specs against one module's analysis: the
-// declaration NODE it reached each spec through, and the spec index under the
-// Nomi name.
-//
-// A free function rather than a gen method because two callers need it and only
-// one is a gen: the STDLIB SIGNATURE pass (collectStdCandidates) runs before any
-// gen exists and has to know whether `Duration` in `Duration.seconds(n: Int):
-// Duration` is a representable type. Two implementations of "is this the std
-// type" is exactly the drift this file's identity rules exist to prevent, so
-// there is one.
+// declaration NODE it reached each spec through.
 //
 // A module analyzed without an analysis library gets no anchors and every
-// mention refuses, which is what happened before this file existed.
-func opaqueAnchors(fa *analysis.FileAnalysis) (map[*ast.TypeDef]int, map[string]int) {
+// mention refuses.
+func opaqueAnchors(fa *analysis.FileAnalysis) map[*ast.TypeDef]int {
 	byDecl := map[*ast.TypeDef]int{}
-	byName := map[string]int{}
 	if fa == nil || fa.ModuleScope == nil {
-		return byDecl, byName
+		return byDecl
 	}
 	for i := range opaqueSpecs {
 		s := &opaqueSpecs[i]
@@ -266,9 +261,8 @@ func opaqueAnchors(fa *analysis.FileAnalysis) (map[*ast.TypeDef]int, map[string]
 			continue
 		}
 		byDecl[decl] = i
-		byName[s.nomi] = i
 	}
-	return byDecl, byName
+	return byDecl
 }
 
 // opaqueDeclIn is the declaration a spec's name resolves to in fa, validated
@@ -294,7 +288,7 @@ func opaqueDeclIn(fa *analysis.FileAnalysis, s *opaqueSpec) *ast.TypeDef {
 		return nil
 	}
 	decl, isDecl := sym.Node.(*ast.TypeDef)
-	if !isDecl || !s.matches(decl, dt.Inner) {
+	if !isDecl || !s.matches(decl) {
 		return nil
 	}
 	return decl
@@ -306,7 +300,7 @@ func (g *gen) loadOpaques() {
 		return
 	}
 	g.opaquesLoaded = true
-	g.opaqueByDecl, g.opaqueByName = opaqueAnchors(g.fa)
+	g.opaqueByDecl = opaqueAnchors(g.fa)
 }
 
 // matches reports whether decl is the declaration this spec describes.
@@ -319,11 +313,11 @@ func (g *gen) loadOpaques() {
 // `Public` because a file-private declaration cannot be the type another
 // module names. The inner type because `rt.Duration` is int64, so a std edit
 // to `opaque type Duration Float` must produce no anchor rather than lower
-// against the wrong width. A `type Name` marker has a nil InnerTypeExpr, which
-// scalarKind answers kindInvalid for, so it cannot match either. inner is
-// the inner type as the checker resolved it in the declaring module, which
-// names a subtype the importing module may not have in scope.
-func (s *opaqueSpec) matches(decl *ast.TypeDef, inner analysis.Type) bool {
+// against the wrong width. The inner type is compared as std writes it
+// (typeText against the row's `decl`), so the check resolves nothing; a
+// `type Name` marker has a nil InnerTypeExpr, which no row's spelling is.
+// What the spelling stands for is TestStdSpecSpellingsAreTheirKinds'.
+func (s *opaqueSpec) matches(decl *ast.TypeDef) bool {
 	want := formOpaque
 	if !decl.Opaque {
 		want = formDistinct
@@ -331,7 +325,7 @@ func (s *opaqueSpec) matches(decl *ast.TypeDef, inner analysis.Type) bool {
 	if decl.Name != s.nomi || s.form != want || !decl.Public {
 		return false
 	}
-	// An attached `//!` test is not checked: see stdStructSpec.matches.
+	// An attached `//!` test is not checked: see stdStructSpec.mismatch.
 	for _, dec := range decl.Decorators {
 		// `derive` is the one decorator that is not a gap. std/duration carries
 		// three (`derive Equatable / Hashable / Comparable for Duration`), each
@@ -343,17 +337,7 @@ func (s *opaqueSpec) matches(decl *ast.TypeDef, inner analysis.Type) bool {
 			return false
 		}
 	}
-	k := scalarKind(decl.InnerTypeExpr)
-	// kindInvalid: lookup — an inner type with no scalar kind of its own may be a subtype, read through its base below.
-	if k == kindInvalid && inner != nil {
-		if _, sub := decl.InnerTypeExpr.(*ast.SimpleType); sub {
-			// A subtype of a scalar (`opaque type Instant Int64`) is its
-			// base's value (spec §4 *Subtypes*), so it has the base's
-			// representation.
-			k = scalarKindOfType(analysis.RefinementBase(inner))
-		}
-	}
-	return k == s.inner
+	return decl.InnerTypeExpr != nil && typeText(decl.InnerTypeExpr) == s.decl
 }
 
 // opaqueDeclared reports the spec index for a type declaration this module
@@ -365,24 +349,6 @@ func (g *gen) opaqueDeclared(decl *ast.TypeDef) int {
 		return i
 	}
 	return -1
-}
-
-// opaqueNamed resolves a type NAME to the shared def, for a module that MENTIONS
-// one of these types without declaring it.
-//
-// The anchor was established through the module's own scope, which is what the
-// checker resolves a bare type name through, so no per-mention re-check is
-// needed here — unlike prelude.go, whose subjects are VARIANT names that two
-// enums may share. A module declaring its own `Duration` never reaches this:
-// namedType consults g.types first, and buildTypes put the local declaration
-// there.
-func (g *gen) opaqueNamed(name string) (*typeDef, bool) {
-	g.loadOpaques()
-	i, anchored := g.opaqueByName[name]
-	if !anchored {
-		return nil, false
-	}
-	return opaqueDefs()[i], true
 }
 
 // projectStdOpaque is inferred.go's projection for one of these types: the

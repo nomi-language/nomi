@@ -25,7 +25,7 @@ func vectorHostWith(key string, owned bool) hostFn {
 		switch key {
 		case "Vector.length", "Vector.next_item":
 			arity = 1
-		case "Vector.set":
+		case "Vector.set", "Vector.slice":
 			arity = 3
 		case "Vector.get", "Vector.push", "Vector.concat":
 		default:
@@ -54,6 +54,15 @@ func vectorHostWith(key string, owned bool) hostFn {
 				panic(p)
 			}
 		}()
+		if key == "Vector.slice" {
+			// A bound past int64's range is clamped as one at its end is.
+			for _, a := range args[1:] {
+				if !rt.IsInt(a) {
+					return nil, fmt.Errorf("vm: %s: operand is %T, want Int", key, a)
+				}
+			}
+			return rt.VectorSliceClamped(vec, rt.IntSaturated(args[1]), rt.IntSaturated(args[2])), nil
+		}
 		if key == "Vector.set" {
 			// An index past int64's range is past any Vector.
 			if _, small := args[1].(int64); !small || !rt.VectorInRange(vec, index) {

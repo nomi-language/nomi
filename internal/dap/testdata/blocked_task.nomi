@@ -6,10 +6,11 @@ end
 fn main()
     io.print("waiting")
 
-    line = concurrent
-        t = Task.spawn(fn -> io.read_line())
-        Task.await(t)
-    end
+    line =
+        concurrent
+            t = Task.spawn(fn -> io.read_line())
+            Task.await(t)
+        end
 
     case line
         Ok(Some(text)) -> io.print("read ${text}")

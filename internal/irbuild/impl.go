@@ -50,10 +50,9 @@ import (
 // It lowers through exactly the path a hand-written impl takes, so a derive
 // has no separate implementation that could disagree with its Nomi body.
 //
-// SynthesizeUniversalDebug appends an `impl Debug for T` for every declared
-// type, at a fabricated position in the synth line band. Refusing one by name
-// would blame a programmer for a construct nobody wrote and would make every
-// struct declaration in the corpus unlowerable. So a synthesized block is
+// SynthesizeUniversalDebug appends an `impl Debug for T` for every opaque and
+// host type, at a fabricated position in the synth line band. Refusing one by
+// name would blame a programmer for a construct nobody wrote. So a synthesized block is
 // lowered speculatively: if its body does not lower cleanly, its refusals are
 // discarded and the impl is marked unlowerable, which makes every site that
 // would dispatch to it refuse at its own position, which is a position
@@ -222,7 +221,8 @@ type implDef struct {
 	recv     kind
 	decl     *ast.ImplBlock
 	// synth marks a block the front end produced from a `derive`, or the
-	// universal Debug. Its refusals are never reported at its own position.
+	// name-only Debug of an opaque or a host type. Its refusals are never
+	// reported at its own position.
 	synth bool
 	// ifaceSubst is the generic interface instantiation this block implements,
 	// or nil. Non-nil exactly when `iface.instOf != nil`.
@@ -262,9 +262,8 @@ type implDef struct {
 	// lowerable function for, and why.
 	//
 	// A SECOND MAP RATHER THAN A FALSE `implItem.lowerable`. Most readers of
-	// `d.items[name]` — among them `bindImpl`, `qualImplPlan`,
-	// `foreignIfacePlan` and `operimpl.go`
-	// — test only `!= nil` and would take a refused item, naming a
+	// `d.items[name]` — among them `bindImpl`, `qualImplPlan` and
+	// `operimpl.go` — test only `!= nil` and would take a refused item, naming a
 	// body nobody built. An ABSENT item is the state every reader already
 	// handles: it is what a block that simply does not supply the method looks
 	// like.
@@ -399,7 +398,7 @@ type implItem struct {
 
 // addImplItem registers it, a function of block d, under its name in d and
 // under the declaration it lowers (implItemsByDecl, implItem.source): its
-// `fn` or Go-bound `host fn`, or for an inherited default the interface's
+// `fn`, or for an inherited default the interface's
 // function.
 func (g *gen) addImplItem(d *implDef, it *implItem) {
 	d.items[it.name] = it
@@ -415,7 +414,7 @@ func (g *gen) addImplItem(d *implDef, it *implItem) {
 }
 
 // source is the declaration it lowers, as a checker record names it: its
-// own `fn`, the `host fn` a Go-bound function's shell stands for
+// own `fn`
 // (shellSource), or for an inherited default the interface's function with
 // the block that inherits it.
 func (it *implItem) source() (ast.Node, *ast.ImplBlock) {
@@ -480,6 +479,11 @@ func (g *gen) declareIfaces(nodes []ast.Node) {
 		// and the conformance obligation is discharged ENTIRELY by the analyzer
 		// at the impl block, including for a non-enum receiver.
 		g.ifaces[id.Name] = d
+		if g.ifacesByDecl == nil {
+			// A fixture may build a gen literal and not go through newGen.
+			g.ifacesByDecl = map[ast.Node]*ifaceDef{}
+		}
+		g.ifacesByDecl[id] = d
 		g.ifaceOrder = append(g.ifaceOrder, d)
 	}
 }
@@ -795,27 +799,26 @@ func (g *gen) resolveImplDef(d *implDef, ib *ast.ImplBlock, recv kind) {
 			return
 		}
 		d.ifaceName = name
-		// `impl other.Shape for Sq`: the qualifier names a program
-		// module's interface, whatever this file declares under the bare
-		// name. A std module lowered with the program (`impl sql.ToSql for
-		// Status`) is one: its interface is the program's, the def the bare
-		// imported name reaches, so a value boxed as it in any file
-		// dispatches to this impl.
-		// `impl calendar.DateParts for Q`: the qualifier names a shared std
-		// interface.
-		qualified := false
-		if def, named := g.qualifiedModuleIface(ib.Interface); named {
-			d.iface, qualified = def, true
-		} else if std, named := g.qualifiedStdIface(ib.Interface); named {
-			d.iface, qualified = std, true
+		// The interface is the one the checker recorded for the block
+		// (implBlockRecord), however the header spells it: a program
+		// module's, a sibling's through its mirror, a std module's lowered
+		// with the program (`impl sql.ToSql for Status`), whose def a value
+		// boxed as it in any file dispatches through, or std's.
+		rec := g.implBlockRecord(ib)
+		if rec != nil && rec.Interface == "" {
+			rec = nil
+		}
+		var def *ifaceDef
+		if rec != nil {
+			def, _ = g.solvedIface(rec.Origin, rec.Interface)
 		}
 		// A GENERIC interface, monomorphized at this block's type arguments.
 		// Asked FIRST, and the order is the whole safety argument: the template
-		// def below is deliberately unlowerable, so falling through would
-		// refuse the very block this instantiation serves. The instance is
-		// the template at the block's type arguments, solved under the frame
-		// a generic receiver's instance was registered at. See ifaceinst.go.
-		if tpl := g.ifaceTemplate(name); tpl != nil && !qualified {
+		// def is deliberately unlowerable, so falling through would refuse the
+		// very block this instantiation serves. The instance is the template
+		// at the block's type arguments, solved under the frame a generic
+		// receiver's instance was registered at. See ifaceinst.go.
+		if tpl := g.genericTemplateDecl(def); tpl != nil {
 			inst, why, detail := g.ifaceInstanceFor(tpl, ib)
 			if why != "" {
 				d.lowerable, d.why, d.whyDetail = false, why, detail
@@ -828,18 +831,24 @@ func (g *gen) resolveImplDef(d *implDef, ib *ast.ImplBlock, recv kind) {
 			// parameter kinds are the INSTANCE's, already substituted.
 			g.pushIfaceSubst(substIfaceImpl, d, inst.subst, inst.types)
 			defer g.popIfaceSubst()
+		} else if def != nil {
+			d.iface = def
+		} else if rec != nil {
+			// A stdlib interface with an rt table (stdIfaceSpecs), or the
+			// universal structural marker.
+			d.iface = g.stdSharedIface(rec.Std())
 		}
 		// TYPE ARGUMENTS WRITTEN AGAINST AN INTERFACE WITH NO TEMPLATE HERE —
-		// a STDLIB generic interface (`impl Add<Score, Score> for Score`) or a
-		// sibling's. Nothing to instantiate, so the key stays.
+		// a STDLIB generic interface (`impl Add<Score, Score> for Score`).
+		// Nothing to instantiate, so the key stays.
 		//
 		// AN EXPLICIT ARM RATHER THAN A FALL-THROUGH: a fall-through and a
 		// deliberate decline print the same refusal. `Add`/`Subtract`/
 		// `Multiply`/`Divide` are excluded from `stdIfaceSpecs` because
 		// `stdIfaceSpec.matches` returns false on `len(decl.TypeParams) > 0`,
-		// so `stdIfaceNamed` answers nothing for them and there is no
-		// declaration for this builder to instantiate.
-		if d.iface == nil {
+		// so std's shared defs hold none of them and there is no declaration
+		// for this builder to instantiate.
+		if d.iface == nil && rec != nil {
 			// The four operator interfaces, which need no `*ifaceDef`: the
 			// callee is chosen from a statically known left operand at all
 			// three of their call shapes, each interface declares one method
@@ -852,7 +861,7 @@ func (g *gen) resolveImplDef(d *implDef, ib *ast.ImplBlock, recv kind) {
 			// second copy of them is exactly the drift this function's own
 			// comment exists to prevent. The divert is at the LAST step, the
 			// registration — see the `d.oper != nil` arm there.
-			g.admitOperImpl(d, ib, name)
+			g.admitOperImpl(d, ib, name, rec.Std())
 			if gt, explicit := ifaceHeaderArgs(ib.Interface); explicit && d.oper == nil {
 				// `impl Contains<Regex> for Text`: a std or sibling generic
 				// interface at written arguments. The items carry their own
@@ -869,36 +878,25 @@ func (g *gen) resolveImplDef(d *implDef, ib *ast.ImplBlock, recv kind) {
 				d.instArgs = args
 			}
 		}
-		if d.iface == nil && !qualified {
-			// A sibling file's interface resolves to a mirror, so an impl
-			// written here is recorded under the owner's method symbol and
-			// not under a second one. See existential.go.
-			d.iface, _ = g.ifaceNamed(name)
-		}
-		if d.iface == nil {
-			// A stdlib interface. Asked last, so a local declaration and a
-			// sibling's mirror both win: the same precedence typeOf uses, and
-			// the same the analyzer's own "project wins" shadowing rule uses.
-			// See stdiface.go.
-			d.iface, _ = g.stdIfaceNamed(name)
-		}
-		if d.iface == nil && name == "Debug" && d.synth && g.programStd {
-			// The universal Debug the front end synthesizes for every type
-			// a std module lowered with the program declares
-			// (programStdModules, analysis.SynthesizeUniversalDebug).
-			// A std module has no prelude, and one that never names Debug
-			// (std/url, std/money) imports none, so the block's `Debug`
-			// resolves to nothing in its scope. It is std's Debug by
-			// construction: without this its impls are filed under no
-			// interface, and a program cannot hold a `Url` as a `Debug`.
+		if d.iface == nil && rec == nil && (d.typeScope != nil || (name == "Debug" && d.synth && g.programStd)) {
+			// The universal Debug the front end writes for an opaque type
+			// declared in a body (FileBodies.BlockDebug, registered with its
+			// block's scope), or synthesizes for every opaque and host type a
+			// std module lowered with the program declares
+			// (programStdModules, analysis.SynthesizeUniversalDebug). Neither has a record of
+			// its interface: the first is std's Debug by construction, and
+			// a std module has no prelude, so one that never names Debug
+			// (std/url, std/money) resolves the second's header to nothing.
+			// Without this its impls are filed under no interface, and a
+			// program cannot hold a `Url` as a `Debug`.
 			d.iface = g.stdDebugDef()
 		}
-		if d.iface == nil && d.oper == nil {
+		if d.iface == nil && d.oper == nil && rec != nil {
 			// Any other std interface: the def a value of the receiver
 			// held as it dispatches through. See stdprogiface.go.
-			d.stdIface = g.stdProgIfaceForImpl(ib)
+			d.stdIface = g.stdProgIfaceForImpl(ib, rec)
 		}
-		d.ifaceKey = g.implIfaceKey(d, ib.Interface, name)
+		d.ifaceKey = g.implIfaceKey(d, rec, name)
 		if d.iface != nil && !d.iface.lowerable {
 			d.lowerable, d.why, d.whyDetail = false, d.iface.why, name
 			return
@@ -942,7 +940,7 @@ func (g *gen) resolveImplDef(d *implDef, ib *ast.ImplBlock, recv kind) {
 			// files it and the module loop lowers it. See once.go.
 			continue
 		}
-		fd, ok := implItemFunc(item)
+		fd, ok := item.(*ast.FuncDef)
 		if !ok {
 			d.lowerable, d.why, d.whyDetail = false, "host-backed impl function", constructName(item)
 			return
@@ -975,8 +973,8 @@ func (g *gen) resolveImplDef(d *implDef, ib *ast.ImplBlock, recv kind) {
 	// AN OPERATOR IMPL NEVER ENTERS `implsByIface`, and this return is the whole
 	// of that claim: one line to check, rather than a property of eight
 	// consultation sites. No lookup in that map ever sees an operator impl,
-	// which is why the second index cannot reproduce `noEquatableImpl`'s
-	// wrong-answer failure. See operimpl.go.
+	// so no lookup of one receiver's impl there can lose an impl to the rhs
+	// axis. See operimpl.go.
 	//
 	// The shape agreement is asked HERE and not earlier because it compares the
 	// item's resolved parameter kinds against the header's type arguments, and
@@ -1094,7 +1092,7 @@ func (g *gen) implItemSig(d *implDef, fd *ast.FuncDef) (*implItem, implGap) {
 		return nil, implGap{why: "generic impl function", detail: implMemberLabel(d, fd.Name)}
 	case len(fd.Decorators) > 0:
 		return nil, implGap{why: "decorator", detail: fd.Name, whole: true}
-	case fd.Body == nil && !implItemIsHost(fd):
+	case fd.Body == nil:
 		return nil, implGap{why: "impl function without a body", detail: fd.Name, whole: true}
 	}
 	it := &implItem{
@@ -1308,12 +1306,8 @@ func (g *gen) hasTID(k kind) bool {
 		if o == nil || o.unit == g.fileUnit || o.unit >= len(g.reg.gens) {
 			return false
 		}
-		owner := g.reg.gens[o.unit]
-		if owner == nil {
-			return false
-		}
-		src := owner.types[o.nomi]
-		return src != nil && owner.tids[named(src)]
+		src := g.reg.defOf(o)
+		return src != nil && g.reg.gens[o.unit].tids[named(src)]
 	}
 	g.tids[k] = true
 	return true
@@ -1377,8 +1371,10 @@ func (g *gen) qualifiedNomiName(nomi string) string {
 // (ifaceinst.go).
 func (g *gen) ifaceDecl(id *ast.InterfaceDef) {
 	g.at(id.Line)
-	d := g.ifaces[id.Name]
-	if d == nil || d.decl != id {
+	d := g.ifacesByDecl[id]
+	if d == nil {
+		// A second declaration of the name, which declareIfaces files
+		// no def for.
 		g.rejectWhole("interface declaration", id.Name, id)
 		return
 	}
@@ -1408,7 +1404,15 @@ func (g *gen) implDecl(ib *ast.ImplBlock) {
 		g.at(ib.Line)
 		g.emitImpl(d)
 		g.rejectWithheldItems(d, ib)
+		g.queueWithheldAbstract(d, ib)
 		return
+	}
+	if g.isGenericImplTemplate(ib) {
+		// What its functions do for every type is the abstract body of the
+		// template's instance at its own type parameters (abstract.go).
+		if tpl, _, ok := g.receiverTemplate(ib); ok {
+			g.queueAbstractBody(abstractBody{tpl: tpl})
+		}
 	}
 	if g.isGenericImplTemplate(ib) || d.siblingTemplate != nil || d.stdRecvTemplate != nil {
 		// A TEMPLATE, not an impl. Lowers nothing and REFUSES nothing, which is
@@ -1422,11 +1426,32 @@ func (g *gen) implDecl(ib *ast.ImplBlock) {
 	}
 	g.at(ib.Line)
 	if !d.lowerable {
+		if g.typeOf(ib.Receiver).tag == tagIface {
+			// `impl Release for Conn`: an impl for an interface type, whose
+			// functions no program's dispatch reaches. What they do is
+			// their abstract bodies' (abstract.go).
+			g.queueAbstractBody(abstractBody{impl: d})
+		}
 		g.rejectWhole(d.why, d.whyDetail, ib)
 		return
 	}
 	g.emitImpl(d)
 	g.rejectWithheldItems(d, ib)
+	g.queueWithheldAbstract(d, ib)
+}
+
+// queueWithheldAbstract queues d, the block ib, for its abstract bodies when
+// it withholds a generic function of its own, which each call instantiates
+// (withheldMember): what the function does for every type is its abstract
+// body's (abstract.go). A block of owner functions (`impl Session<T>`'s
+// `Session.new<T>`) withholds them as any block does.
+func (g *gen) queueWithheldAbstract(d *implDef, ib *ast.ImplBlock) {
+	for _, fd := range implFuncDecls(ib) {
+		if _, withheld := d.withheldMember(fd.Name); withheld {
+			g.queueAbstractBody(abstractBody{impl: d})
+			return
+		}
+	}
 }
 
 // rejectWithheldItems names each function this block WROTE and could not
@@ -1457,7 +1482,7 @@ func (g *gen) rejectWithheldItems(d *implDef, ib *ast.ImplBlock) {
 		return
 	}
 	for _, item := range ib.Items {
-		fd, isFn := implItemFunc(item)
+		fd, isFn := item.(*ast.FuncDef)
 		if !isFn {
 			continue
 		}
@@ -1534,16 +1559,6 @@ func (g *gen) implFunc(d *implDef, it *implItem) {
 	// A call on an interface value that leaves a defaulted parameter out
 	// dispatches to this function's accessor for it (ifaceslotdispatch.go).
 	defer g.irImplSlotDispatch(d, it)
-
-	g.pushScope()
-	defer g.popScope()
-	for i, p := range it.params0 {
-		// A destructuring parameter's names come out of its value in the
-		// prologue irImplLower opens; its synthesized name is not bound.
-		if p.Destructure == nil && !ast.IsDiscardName(p.Name) {
-			g.bind(p.Name, local{k: it.params[i]})
-		}
-	}
 
 	prev := g.result
 	g.result = it.result
@@ -1634,61 +1649,6 @@ func (g *gen) snapshot() func() {
 	}
 }
 
-// --- call sites ---------------------------------------------------------------
-
-// qualifierKind is the kind a call qualifier names, or kindInvalid.
-func (g *gen) qualifierKind(owner string) kind {
-	// A type parameter of an enclosing generic type, resolved through the
-	// substitution frame. Asked first, for the reason typeOf's
-	// *ast.SimpleType arm asks genericSubstKind first: a type parameter
-	// shadows a same-named type for the length of its activation.
-	//
-	// This is what makes `T.hello(value.value)` inside
-	// `impl Greet for Wrapper<T>` an ordinary concrete call. The body is only
-	// ever lowered inside an instantiation, so `T` has a concrete answer
-	// here. Declines when no frame is open or the name is not one of its
-	// parameters, so nothing else pays for it.
-	//
-	// One insertion point and not an arm per call form, which is the
-	// property generictype.go claims for genericSubstKind's placement in
-	// typeOf: every qualified-call shape funnels through here for its
-	// receiver kind. See genericimpl.go.
-	// kindInvalid: lookup — a miss tries the next form.
-	if k, isParam := g.genericSubstKind(owner); isParam && k != kindInvalid {
-		return k
-	}
-	switch owner {
-	case "Int":
-		return kindInt
-	case "Float":
-		return kindFloat
-	case "String":
-		return kindString
-	case "Bool":
-		return kindBool
-	case "Unit":
-		return kindUnit
-	}
-	if d, isBlockLocal := g.blockLocalNamed(owner); isBlockLocal {
-		// A type declared in an enclosing block wins its name there.
-		if d.lowerable {
-			return named(d)
-		}
-		return kindInvalid
-	}
-	if d, isImported := g.blockImportedNamed(owner); isImported {
-		// So does a type an enclosing block's import binds.
-		if d.lowerable {
-			return named(d)
-		}
-		return kindInvalid
-	}
-	if d, found := g.types[owner]; found && d.lowerable {
-		return named(d)
-	}
-	return kindInvalid
-}
-
 // `embedsVariant` (types.go) answers WHICH VARIANT of an enum embeds a
 // value, which is what `coerce` needs to construct one; `ir.Table.Embeds`
 // records the edge and `ir.Type` carries no variant structure to name the
@@ -1709,112 +1669,3 @@ func (g *gen) implements(d *ifaceDef, k kind, kt analysis.Type) bool {
 
 // existential is the kind of values whose static type is the interface d.
 func existential(d *ifaceDef) kind { return kind{tag: tagIface, iface: d} }
-
-// handWrittenNominalEquatable reports whether k is an ENUM or a DISTINCT
-// carrying a programmer-written `impl Equatable`.
-//
-// `==` on either nominal kind routes through a hand-written impl when one
-// exists, so a comparison of one that reaches the structural comparator is a
-// silent wrong answer.
-//
-// Returning true does not lower anything. It puts the comparison back on the
-// impl route, which lowers the impl's call or declines. A refusal is never a
-// wrong answer; a DIFF always is.
-//
-// `synth` is the discriminator, and it must be: a DERIVED impl on either kind
-// still compares structurally, so firing on one would stop `==`
-// lowering for every `derive Equatable` enum — `Maybe` and `Result` included
-// — and for `std/duration`'s and `std/instant`'s `pub opaque type … Int`
-// (`05-calendar-and-time/durations_test.nomi`).
-//
-// Only LOCAL impls. A std enum or distinct carrying a hand-written Equatable
-// is not covered: establishing provenance through `g.std.byIface` needs a
-// separate look. std declares no hand-written `impl Equatable` on either kind;
-// its Equatable receivers are primitives, containers, structs and one
-// `host type`.
-func (g *gen) handWrittenNominalEquatable(k kind) bool {
-	if k.def == nil || !(k.def.isEnum || k.def.isDistinct) {
-		return false
-	}
-	d := g.implsByIface[stdIfaceImplKey(stdEquatable)][k]
-	return d != nil && !d.synth
-}
-
-// noImplOf reports whether this builder can ESTABLISH that no `impl iface`
-// exists for k anywhere in the program, where iface is std's Equatable or
-// Hashable.
-//
-// Asked to decide whether the STRUCTURAL fallback is the right answer: for
-// `==` on a struct-shaped type, and for `Equatable.equal` and
-// `Hashable.hash` on a declared type that meets a bound by its equality
-// (spec §5 *Equality and Ordering Semantics*). It has to be positive rather than
-// "the lookup for a callable impl missed", because that lookup misses for two
-// opposite reasons: no impl at all, which is exactly when `==` is structural
-// equality, and an impl this builder cannot lower, which is when `==` CALLS
-// something and a structural answer would be a silent wrong answer.
-// `stdlibImplOf` collapses those two into one nil.
-//
-// Three sources. The FOREIGN arm leaves this gen and establishes the answer
-// program-wide off the declaration node the mirror carries; the reasoning, including why the OWNER'S FILE is the wrong scope to
-// ask, is in foreign.go's foreignNoImpl.
-//
-// The std probe reads `byIface` BEFORE the `why`/signature filtering
-// stdlibImplOf applies, which is the whole point: a std impl that exists and
-// was refused must refuse the comparison, not silently become structural.
-//
-// The lookups are keyed on the KIND — the `*typeDef` pointer — everywhere
-// except the interface SPELLING, which is a std interface name and not a type
-// identity. A bare name here could only ever make this answer FALSE for a type
-// that has no impl, which over-refuses; it can never grant a structural
-// lowering to a type that has one. The error direction is the safe one and
-// that is deliberate.
-func (g *gen) noImplOf(iface analysis.StdType, k kind) bool {
-	if k.def == nil {
-		return false
-	}
-	if k.def.foreign != "" {
-		// A MIRROR holds none of the owner's impl table, and the answer is not
-		// in this gen at all. It is established program-wide, keyed on the
-		// declaration node the mirror carries verbatim. See foreign.go.
-		return g.foreignNoImpl(iface, k.def)
-	}
-	if g.implsByIface[stdIfaceImplKey(iface)][k] != nil {
-		return false
-	}
-	if reg := g.programReg(); reg != nil && g.reg == nil && k.def.decl != nil && reg.byDecl[k.def.decl] != nil {
-		// A std instance's body at a type the program declares
-		// (`Maybe.hash<Point>`): this gen's tables are std's, and the
-		// program's impls, derived ones included, are in its own files.
-		return !reg.declaresImpl(iface, k.def.decl)
-	}
-	if g.std != nil && len(g.std.byIface[irStructuralIfaceMethod[iface.Name]][k]) > 0 {
-		return false
-	}
-	return true
-}
-
-// programReg is the registry of the program this gen lowers for: its own,
-// or, for a std instance gen, which has none, its program's units' one.
-func (g *gen) programReg() *typeRegistry {
-	if g.reg != nil {
-		return g.reg
-	}
-	if s := g.stdInsts; s != nil {
-		for _, og := range s.program {
-			if og != nil && og.reg != nil {
-				return og.reg
-			}
-		}
-	}
-	return nil
-}
-
-// irStructuralIfaceMethod is the byIface key of the one method of each
-// interface a declared type may meet by its equality.
-var irStructuralIfaceMethod = map[string]string{
-	"Equatable": "Equatable.equal",
-	"Hashable":  "Hashable.hash",
-}
-
-// noEquatableImpl is noImplOf for Equatable.
-func (g *gen) noEquatableImpl(k kind) bool { return g.noImplOf(stdEquatable, k) }

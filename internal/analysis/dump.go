@@ -159,8 +159,14 @@ func dumpFile(fa *FileAnalysis, errs []TypeError, root string, unused func(*Impl
 	for n, t := range fa.SubtestsRowTypes {
 		lines = append(lines, fmt.Sprintf("subtests %s = %s", at(n), typ(t)))
 	}
-	for n := range fa.CoveringOrPatterns {
-		lines = append(lines, fmt.Sprintf("covering or %s", at(n)))
+	for n, always := range fa.IrrefutablePatterns {
+		lines = append(lines, fmt.Sprintf("irrefutable %s = %v", at(n), always))
+	}
+	for n, t := range fa.BindingFallbacks {
+		lines = append(lines, fmt.Sprintf("binding fallback %s = %s", at(n), typ(t)))
+	}
+	for n, why := range fa.HostJSONForms {
+		lines = append(lines, fmt.Sprintf("host json form %s = %q", at(n), why))
 	}
 	for n, r := range fa.AppReads {
 		lines = append(lines, fmt.Sprintf("app read %s = %s.%s %s", at(n), typ(r.App), r.Field.Name, r.ContextField))

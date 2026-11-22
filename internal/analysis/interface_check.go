@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
-	"github.com/nomi-language/nomi/internal/syntheticextern"
 )
 
 // Checking a file against interfaces. A file F of a program is built from
@@ -65,7 +64,7 @@ type SourceProgram struct {
 	Nodes map[string][]ast.Node
 	// Source answers the nodes the build was given for the project file
 	// with key, freshly made each call (a build changes the nodes it is
-	// given): parsed, with Go bindings injected and keyword declarations
+	// given): parsed, with keyword declarations
 	// expanded, and for the entry before derive lowering. It answers false
 	// for a file it cannot give, which is then read from its source
 	// through Loader as the check read it.
@@ -170,7 +169,7 @@ func NewProgramInterfaces(sp *SourceProgram) *ProgramInterfaces {
 		pi.paths[key] = fa.FilePath
 	}
 	for key, fi := range ifaces {
-		pi.imports[key] = pi.projectKeys(importsOf(fi.Nodes))
+		pi.imports[key] = pi.projectKeys(key, importsOf(fi.Nodes))
 	}
 	pi.diags = programDeclDiags(sp)
 	return pi
@@ -261,7 +260,7 @@ func (pi *ProgramInterfaces) AddFile(key, path string) bool {
 	fi := ExtractInterface(key, path, nodes)
 	pi.encoded[key] = fi.Encode()
 	pi.paths[key] = path
-	pi.imports[key] = pi.projectKeys(importsOf(fi.Nodes))
+	pi.imports[key] = pi.projectKeys(key, importsOf(fi.Nodes))
 	delete(pi.headers, key)
 	return true
 }
@@ -325,20 +324,17 @@ func (pi *ProgramInterfaces) Keys() []string {
 	return keys
 }
 
-// projectKeys answers the module keys of the program's files that paths
-// name, as discovery classifies an import, in order and without repeats.
-func (pi *ProgramInterfaces) projectKeys(paths [][]string) []string {
+// projectKeys answers the module keys of the program's files that paths,
+// the imports of the file keyed from, name, as discovery classifies an
+// import (ModuleIndex.target), in order and without repeats.
+func (pi *ProgramInterfaces) projectKeys(from string, paths [][]string) []string {
 	var keys []string
+	in := pi.index.moduleOfKey(from)
 	for _, mp := range paths {
 		if len(mp) == 0 {
 			continue
 		}
-		key := ""
-		if rest, self := SelfNameImport(mp, pi.manifestName); self {
-			key = strings.Join(rest, "/")
-		} else {
-			key = strings.Join(ShortNameImport(mp, pi.index, pi.manifestName), "/")
-		}
+		key := pi.index.target(in, pi.manifestName, pi.index.Own, mp).key
 		if _, ok := pi.encoded[key]; ok && !slices.Contains(keys, key) {
 			keys = append(keys, key)
 		}
@@ -365,7 +361,7 @@ func (pi *ProgramInterfaces) source(key string) []ast.Node {
 // project files F imports, and theirs, F excluded.
 func (pi *ProgramInterfaces) closure(key string) map[string]bool {
 	seen := map[string]bool{}
-	queue := pi.projectKeys(importsOf(pi.source(key)))
+	queue := pi.projectKeys(key, importsOf(pi.source(key)))
 	for len(queue) > 0 {
 		k := queue[0]
 		queue = queue[1:]
@@ -1035,7 +1031,6 @@ func (dm *DocumentManager) textSourceProgram(root, entry string, text func(key s
 	primitives, modules, stdlibFAs := dm.primitives, dm.modules, dm.stdlibFAs
 	dm.mu.RUnlock()
 	manifest, _ := LoadManifest(root)
-	externs := dm.syntheticExternsForRoot(root)
 	read := func(path string) (string, bool) {
 		if in, ok := inputs[path]; ok {
 			return in.Text, in.Found
@@ -1059,14 +1054,7 @@ func (dm *DocumentManager) textSourceProgram(root, entry string, text func(key s
 			}
 			if key == entry {
 				nodes = expand(nodes)
-				path := filepath.Join(root, filepath.FromSlash(key)+".nomi")
-				if injected, err := syntheticextern.Inject(nodes, externs, isFFIEntryPath(path)); err == nil {
-					nodes = injected
-				}
 				return nodes, true
-			}
-			if injected, err := syntheticextern.Inject(nodes, externs, false); err == nil {
-				nodes = injected
 			}
 			return expand(nodes), true
 		},

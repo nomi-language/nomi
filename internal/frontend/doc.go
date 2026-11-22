@@ -1,5 +1,4 @@
-// Package frontend is Nomi's front end: parse, inject the synthetic host
-// declarations an FFI project mirrors from its Go bindings, expand keyword
+// Package frontend is Nomi's front end: parse, expand keyword
 // declarations, lower derives, synthesize derived and universal Debug
 // impls, analyze the whole import graph, and check that every `host`
 // declaration has something to answer it. It executes nothing.
@@ -26,8 +25,9 @@
 // type is kept with the declarations (attachInferredParam) and written
 // again on a body rebuild. The IR builder reads an inferred field's or
 // parameter's type from its symbol (irbuild's fieldKind, paramKind); a std
-// signature, built from syntax, reads it from the module's analysis
-// (stdInferredParamKind). An interface keeps every field default, so a
+// signature, built before any of the builder's per-module state, reads the
+// same symbol in the module's analysis (paramSymbolType, projectShared). An
+// interface keeps every field default, so a
 // file checked against it infers the same type.
 //
 // # Type ascription
@@ -68,13 +68,16 @@
 // # Boot-only check
 //
 // CheckBootScope (spec §16 *Supervision*; analysis's boot_scope.go) is
-// reported per file over a graph of the whole program's functions: every
-// project function, and each std function the program reaches, whose calls
-// are read once per process, since std's analysis never changes. A
-// diagnostic names the shortest chain, the first call to a callee nearest
-// `Supervisor.new` (bootDepths). No report reads a body: each file's bodies
-// are read once per body part (FileBodies.generation) into a summary
-// (bootSummaryOf), and calls name callees by *Symbol. The graph is built
+// reported per file over a graph of the whole program's project functions.
+// A call into std carries its callee's depth and chain in std's own graph,
+// worked out once per process, since std's functions call only std's and
+// std's analysis never changes (stdBootFact); so a test body's or a
+// lambda's call of std's `Worker.new` is reported whatever else the
+// program calls. A diagnostic names the shortest chain, the first call to
+// a callee nearest `Supervisor.new` (bootDepthsOf). No report reads a
+// body: each file's bodies are read once per body part
+// (FileBodies.generation) into a summary (bootSummaryOf), and calls name
+// callees by *Symbol. The graph is built
 // once per program and kept on the Program until a summary or the file list
 // changes (programBootGraph); rebuilding it per file is quadratic. The
 // check runs when a file's diagnostics are assembled, never from a cached
@@ -222,13 +225,12 @@
 //     the front end reports nothing, and analysis.EmbedWarnings returns the
 //     file's warnings (code `embed-missing`), which vmhost hands to
 //     WithWarnings once a load has checked (vmhost.Program.Warnings; `nomi
-//     run`, `check`, `test`, the FFI wrapper's modes and the REPL pass one;
+//     run`, `check`, `test` and the REPL pass one;
 //     `nomi check --format json` writes them with severity `warning`), and
 //     the language server publishes them beside `dbg` and `todo`
 //     (embedWarningDiagnostics). A build refuses them as errors where it
 //     refuses a `todo` (vmhost's Program.missingEmbeds,
-//     EmbedInfo.MissingErrors), for every target and the FFI wrapper's
-//     builds. A program with a warning is not kept, and the base is a tree
+//     EmbedInfo.MissingErrors), for every target. A program with a warning is not kept, and the base is a tree
 //     of a kept record, so its appearing is a miss.
 //   - No bytes held. ast.EmbeddedFiles holds each file's path, Source (the
 //     path on disk, or the data file's key), size and SHA-256, computed by
@@ -284,6 +286,5 @@
 // not cases, and run with their test. `nomi test` reads the same list from
 // each file's source alone (SourceSelectsTestLine, SourceSelectsTests) to
 // report a selection that names nothing and to skip a file `--run` selects
-// nothing in; the FFI wrapper gets the pattern as an argument and selects
-// with the same SelectTests.
+// nothing in.
 package frontend

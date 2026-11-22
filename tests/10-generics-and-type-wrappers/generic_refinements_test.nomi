@@ -79,11 +79,12 @@ test "values convert as their parents do"
     assert largest(run) == Some(4)
     assert widen(positives) == [3, 4]
 
-    joined = if Iter.count(run) > 1 then
-        run
-    else
-        Ascending.try_from([7])!
-    end
+    joined =
+        if Iter.count(run) > 1 then
+            run
+        else
+            Ascending.try_from([7])!
+        end
 
     assert largest(joined) == Some(4)
 end

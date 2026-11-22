@@ -70,17 +70,19 @@ fn search(
 end
 
 fn matches(line: String, pattern: String, flags: Set<Flag>) -> Bool
-    (line, pattern) = if .IgnoreCase in flags then
-        (String.fold_case(line), String.fold_case(pattern))
-    else
-        (line, pattern)
-    end
+    (line, pattern) =
+        if .IgnoreCase in flags then
+            (String.fold_case(line), String.fold_case(pattern))
+        else
+            (line, pattern)
+        end
 
-    found = if .WholeLine in flags then
-        line == pattern
-    else
-        pattern in line
-    end
+    found =
+        if .WholeLine in flags then
+            line == pattern
+        else
+            pattern in line
+        end
 
     found != (.Invert in flags)
 end

@@ -50,11 +50,12 @@ test "an as name in each statement position"
 
     r: Result<Int, String> = Ok(7)
 
-    seen = if Ok(v) as whole = r then
-        (v, whole)
-    else
-        (0, Err("none"))
-    end
+    seen =
+        if Ok(v) as whole = r then
+            (v, whole)
+        else
+            (0, Err("none"))
+        end
 
     assert seen == (7, Ok(7))
 

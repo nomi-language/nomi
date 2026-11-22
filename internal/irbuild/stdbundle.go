@@ -7,18 +7,31 @@ package irbuild
 // for the listed ones (programStdModules), several times that under
 // js/wasm. A std bundle holds both, in two sections.
 //
-// The shared section is what buildStdlibIndex produced: the modules' IR, one
-// ir image, so references between them stay pointers, and per module what
-// lowering decided for each declaration (the outcome fields of each stdFunc
-// and stdOnce, and the module's unlowered table). A process with a bundle
-// builds each module's view as buildStdlibIndex does, which reads std's
-// analysis and is cheap, and restores the module's outcome in place of
-// lowering it (restoreStdModule), in the same order, so the index it files
-// is the one a lowering would file.
+// The shared section is what buildStdlibIndex produced: per module, its IR
+// as an object (ir.EncodeObject) and what lowering decided for each
+// declaration (the outcome fields of each stdFunc and stdOnce, and the
+// module's unlowered table), which names each IR function and cell by its
+// linkage name. Each module's object and outcomes are a body of their own,
+// and the section's table of contents names, per module, the modules whose
+// objects define what its body names. A process reads the table when it
+// reads the bundle, and decodes a module's body when it restores the
+// module, which is when the stdlib has built it (stdlibIndex.restoring),
+// with the bodies of the modules it depends on, all with one ir.Linker
+// (stdObjects.decode), so a reference from one module to another's
+// declaration is to the symbol the other defines. It builds each module's
+// view as buildStdlibIndex does, which reads std's analysis and is cheap,
+// and restores the module's outcome in place of lowering it
+// (restoreStdModule), in the same order, so the index it files is the one a
+// lowering would file. An index holds the IR of every module decoded when
+// it was made, and one made before a later decode is replaced
+// (stdlibIndex.staleObjects); a program links the modules of its own
+// closure among them (stdlibIndex.linkedShared).
 //
 // The listed section is one lowering of every listed module
-// (stdbundlelisted.go), decoded only when a program first reaches one of
-// them. Its symbols name the shared modules' by linkage name.
+// (stdbundlelisted.go), its modules objects too, decoded only when a
+// program first reaches one of them, with a linker over the shared
+// modules' (ir.NewLinkerOver): its symbols name the shared modules' by
+// linkage name, and it names the shared modules it needs decoded first.
 //
 // Where a bundle comes from:
 //
@@ -43,9 +56,9 @@ package irbuild
 // as this process's SourcePath once decoded, so a bundle written where std
 // lives at one path is used where it lives at another.
 //
-// Under `go test`, a process that lowers the stdlib still runs on the
-// decoded bundle, so every test is a test of the bundle;
-// TestStdBundle_DecodesToTheLowering and
+// A process that lowers the stdlib still runs on the decoded bundle, so
+// its modules are linked by name as a later process's are and every test
+// is a test of the bundle; TestStdBundle_DecodesToTheLowering and
 // TestStdBundle_ListedDecodesToTheLowering compare the two directly.
 
 import (
@@ -63,6 +76,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -76,7 +90,7 @@ const (
 	stdBundleMagic = "NOMISTDB"
 	// stdBundleVersion versions this file's own layout; ir.FormatVersion
 	// versions the images inside it.
-	stdBundleVersion = 5
+	stdBundleVersion = 7
 	// stdBundleUnused is how long a cached bundle no process has used is
 	// kept: each build of the compiler writes its own.
 	stdBundleUnused = 24 * time.Hour
@@ -95,17 +109,302 @@ var stdBundleState struct {
 	listed []byte
 	// path is where this binary's bundle is cached, "" for no cache.
 	path string
+	// objects is the shared section's modules, each decoded from its
+	// object when the process needs it, which the listed section links
+	// over; nil when the process runs on a lowering that did not encode.
+	objects *stdObjects
+}
+
+// stdObjects is the shared section's modules, each decoded from its object
+// when the process first needs it (decode), all with one linker.
+type stdObjects struct {
+	// mu serializes decoding, which writes linker and the maps below, with
+	// what reads them: a decode over linker (linkOver) and an index's copy
+	// of the decoded modules (decodedModules).
+	mu sync.Mutex
+	// linker links every module decoded. What is linked against the shared
+	// stdlib by name links over it (ir.NewLinkerOver).
+	linker *ir.Linker
+	// recs is the section's table of contents, one record per module in the
+	// bundle's order, and byName finds a record by its module's name.
+	recs   []*stdModuleRecord
+	byName map[string]*stdModuleRecord
+	// mods are the modules decoded so far.
+	mods map[*ir.Module]bool
+	// linkedFuncs and linkedCells are every decoded function and cell by
+	// linkage name: what a record's outcomes name.
+	linkedFuncs map[string]*ir.Func
+	linkedCells map[string]*ir.Symbol
+	// definedIn is the record whose object defines each of them.
+	definedIn map[string]*stdModuleRecord
+	// rename names a decoded position's file as this process's SourcePath,
+	// and badFile is a name it found that is no std file.
+	rename  ir.DecodeOption
+	badFile string
+	// gen counts the decodes that decoded a module, so an index made before
+	// one knows it lacks that module (stdlibIndex.objectsGen).
+	gen atomic.Int64
+}
+
+// stdObjectsDecoded counts, process-wide, the shared modules' objects this
+// process decoded: modules, the functions they define once linked, and the
+// objects' bytes. Read by tests.
+var stdObjectsDecoded struct{ modules, funcs, bytes atomic.Int64 }
+
+// StdObjectsDecodedForTest is what this process decoded of the shared std
+// modules' objects so far (stdObjectsDecoded). It panics outside a test
+// binary.
+func StdObjectsDecodedForTest() (modules, funcs, bytes int) {
+	if !testing.Testing() {
+		panic("irbuild.StdObjectsDecodedForTest called outside a test")
+	}
+	d := &stdObjectsDecoded
+	return int(d.modules.Load()), int(d.funcs.Load()), int(d.bytes.Load())
+}
+
+// stdDecodeEagerly, set by a test before the process's first lowering,
+// decodes every shared module's object when the bundle is read, so the
+// test can hold a lowering over objects decoded when needed to one over
+// all of them (TestStdObjects_DecodedWhenNeededLowersAsAllDecoded).
+var stdDecodeEagerly bool
+
+// decode decodes the objects of the modules named and of every module they
+// depend on at any depth (stdModuleRecord.deps), those not decoded yet, in
+// the bundle's order, and then reads their records' outcomes. It is the one
+// place a shared module's object is decoded: restoring a module the stdlib
+// has built decodes it, and decoding the listed section decodes the shared
+// modules it names.
+//
+// The dependencies may form cycles (the members of an import cycle name
+// each other's functions). The set is closed first, and the linker links a
+// name an object reads before the object that defines it is decoded to the
+// symbol that object then defines, so the order within the set does not
+// matter; the outcomes, which name functions by linkage name, are resolved
+// once every object of the set is decoded. A module that does not decode is
+// a defect: the section's checksum held, so the bundle's writer and this
+// reader disagree.
+func (o *stdObjects) decode(names ...string) error {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	want := make([]bool, len(o.recs))
+	var visit func(rec *stdModuleRecord)
+	visit = func(rec *stdModuleRecord) {
+		if want[rec.at] || rec.decoded {
+			return
+		}
+		want[rec.at] = true
+		for _, d := range rec.deps {
+			visit(o.recs[d])
+		}
+	}
+	for _, name := range names {
+		rec := o.byName[name]
+		if rec == nil {
+			return fmt.Errorf("the std bundle has no module %s", name)
+		}
+		visit(rec)
+	}
+	var resolve []func() error
+	decoded := false
+	for i, rec := range o.recs {
+		if !want[i] {
+			continue
+		}
+		res, err := o.readBody(rec)
+		if err != nil {
+			return fmt.Errorf("decoding %s from the std bundle: %w", rec.name, err)
+		}
+		resolve = append(resolve, res...)
+		decoded = true
+	}
+	for _, res := range resolve {
+		if err := res(); err != nil {
+			return err
+		}
+	}
+	if o.badFile != "" {
+		return fmt.Errorf("the bundle names %s, which is not a std file", o.badFile)
+	}
+	for i, rec := range o.recs {
+		if want[i] {
+			rec.decoded, rec.body = true, nil
+		}
+	}
+	if decoded {
+		o.gen.Add(1)
+	}
+	return nil
+}
+
+// decodeAll decodes every module's object.
+func (o *stdObjects) decodeAll() error {
+	names := make([]string, len(o.recs))
+	for i, rec := range o.recs {
+		names[i] = rec.name
+	}
+	return o.decode(names...)
+}
+
+// linkOver runs link with a linker over the shared modules', for objects
+// that name theirs by linkage name, while no module decodes. It fails when
+// mods, the shared lowering they are to link with, holds a module the
+// objects did not decode (a module restoring lowered, which no object
+// defines).
+func (o *stdObjects) linkOver(mods []*ir.Module, link func(*ir.Linker) error) error {
+	if o == nil {
+		return errors.New("the shared stdlib is not decoded from its objects")
+	}
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	for _, m := range mods {
+		if !o.mods[m] {
+			return fmt.Errorf("the shared stdlib's %s is not one its objects decoded", m.Name())
+		}
+	}
+	return link(ir.NewLinkerOver(o.linker))
+}
+
+// decodedModules is mods, by namespace key, with every module decoded
+// added under its key in pkgOf, and the decodes they reflect (gen). A key
+// mods holds keeps its module.
+func (o *stdObjects) decodedModules(mods map[string]*ir.Module, pkgOf map[string]string) (map[string]*ir.Module, int64) {
+	out := make(map[string]*ir.Module, len(mods))
+	for pkg, m := range mods {
+		out[pkg] = m
+	}
+	if o == nil {
+		return out, 0
+	}
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	for _, rec := range o.recs {
+		if pkg := pkgOf[rec.name]; rec.decoded && rec.mod != nil && out[pkg] == nil {
+			out[pkg] = rec.mod
+		}
+	}
+	return out, o.gen.Load()
+}
+
+// linkedShared is the shared std modules a program links, by namespace
+// key, in key order, taken from have (an index's irModules): the program's
+// closure, which depends on the program alone, never on what else the
+// process decoded. from is the program's modules (its own, the listed
+// modules it links, its std instances).
+//
+// The closure starts from the base modules every stdlib is built with, the
+// std modules the program's files import (imports, importedStdModules of
+// each), and each shared module whose object defines a linkage name from's
+// modules write, and adds, until nothing is added, every module each one
+// imports at any depth (std.StdLib.ModuleImports) and each one's
+// dependencies in the bundle (stdModuleRecord.deps). A module the closure
+// leaves out declares no type a value of the program can have: a value is
+// made by code the program runs, which is in from or in a module of the
+// closure, and that code's module declares its type or imports the module
+// that does; a host function's or an exported function's values have the
+// types its declaration names, which its module imports. So a call
+// through an interface selects no impl of a module outside it, and the
+// walk that prunes an image (vm.PruneImage) follows impls only in the
+// modules a program can reach, the same in every process. An index lowered
+// without a bundle has no table of contents, and its program links have
+// whole.
+func (x *stdlibIndex) linkedShared(have map[string]*ir.Module, imports []string, from ...[]*ir.Module) []*ir.Module {
+	pkgs := make([]string, 0, len(have))
+	if o := x.objects; o != nil && x.lib != nil {
+		in := map[string]bool{}
+		queue := append(std.BaseModules(), imports...)
+		queue = append(queue, o.definers(from)...)
+		for len(queue) > 0 {
+			name := queue[0]
+			queue = queue[1:]
+			if in[name] {
+				continue
+			}
+			in[name] = true
+			queue = append(queue, x.lib.ModuleImports(name)...)
+			if rec := o.byName[name]; rec != nil {
+				for _, d := range rec.deps {
+					queue = append(queue, o.recs[d].name)
+				}
+			}
+		}
+		for name := range in {
+			if pkg, ok := x.modulePkg[name]; ok && have[pkg] != nil {
+				pkgs = append(pkgs, pkg)
+			}
+		}
+	} else {
+		for pkg := range have {
+			pkgs = append(pkgs, pkg)
+		}
+	}
+	sort.Strings(pkgs)
+	out := make([]*ir.Module, len(pkgs))
+	for i, pkg := range pkgs {
+		out[i] = have[pkg]
+	}
+	return out
+}
+
+// programStdImports is the std modules p's files import, the listed std
+// modules declared with it among them (moduleStdImports).
+func programStdImports(p *Program) []string {
+	var out []string
+	for i := range p.Modules {
+		out = append(out, moduleStdImports(&p.Modules[i])...)
+	}
+	return out
+}
+
+// moduleStdImports is the std modules m's file imports (importedStdModules),
+// which seed the closure of shared modules its program links.
+func moduleStdImports(m *Module) []string {
+	return importedStdModules(m.Nodes, strings.HasPrefix(m.Name, "std/"))
+}
+
+// definers is the name of each shared module whose object defines a
+// linkage name one of mods' modules writes.
+func (o *stdObjects) definers(mods [][]*ir.Module) []string {
+	var links []string
+	for _, ms := range mods {
+		for _, m := range ms {
+			for _, s := range ir.ModuleSymbols(m) {
+				if s.Link() != "" {
+					links = append(links, s.Link())
+				}
+			}
+		}
+	}
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	seen := map[*stdModuleRecord]bool{}
+	var out []string
+	for _, link := range links {
+		if rec := o.definedIn[link]; rec != nil && !seen[rec] {
+			seen[rec] = true
+			out = append(out, rec.name)
+		}
+	}
+	return out
+}
+
+// generation is how many decodes have decoded a module (gen), 0 for none.
+func (o *stdObjects) generation() int64 {
+	if o == nil {
+		return 0
+	}
+	return o.gen.Load()
 }
 
 // loadStdlibIndex is the shared stdlib lowering: decoded from the embedded
-// bundle or the cached one, else lowered and written to the cache.
+// bundle or the cached one, else lowered, written to the cache and decoded
+// from what was written.
 func loadStdlibIndex() *stdlibIndex {
 	st := &stdBundleState
 	r := takeStdBundleRead()
 	if r.from == "embedded" {
-		idx, err := restoreStdShared(r.recs)
+		idx, err := restoreStdShared(r.objects)
 		if err == nil {
-			st.from, st.shared, st.listed = "embedded", r.shared, r.listed
+			st.from, st.shared, st.listed, st.objects = "embedded", r.shared, r.listed, r.objects
 			return idx
 		}
 		fmt.Fprintf(os.Stderr, "nomi: the std bundle this binary embeds is not its own, so it lowers the stdlib: %v\n", err)
@@ -114,9 +413,9 @@ func loadStdlibIndex() *stdlibIndex {
 	}
 	st.path = r.path
 	if r.from == "cache" {
-		idx, err := restoreStdShared(r.recs)
+		idx, err := restoreStdShared(r.objects)
 		if err == nil {
-			st.from, st.shared, st.listed = "cache", r.shared, r.listed
+			st.from, st.shared, st.listed, st.objects = "cache", r.shared, r.listed, r.objects
 			return idx
 		}
 		stdBundleDebug("%s not used: %v", st.path, err)
@@ -132,28 +431,30 @@ func loadStdlibIndex() *stdlibIndex {
 	}
 	st.shared = shared
 	writeStdBundle(shared, nil)
-	if testing.Testing() {
-		// Every test runs on the decoded lowering, as every later process
-		// of a built binary does.
-		dec, err := decodeStdShared(shared)
-		if err != nil {
+	// The process runs on the decoded lowering, as every later process of
+	// the binary does.
+	dec, objects, err := decodeStdShared(shared)
+	if err != nil {
+		if testing.Testing() {
 			panic("irbuild: the std bundle this process wrote does not decode: " + err.Error())
 		}
-		return dec
+		stdBundleDebug("the bundle this process wrote does not decode: %v", err)
+		return idx
 	}
-	return idx
+	st.objects = objects
+	return dec
 }
 
-// stdBundleRead is a bundle found and its shared section's records decoded,
-// which needs no stdlib, so it can run while the stdlib builds
-// (PrefetchStdBundle): the embedded bundle when it decodes, else the cached
-// one when it does. Restoring the records (restoreStdShared) reads the
-// stdlib.
+// stdBundleRead is a bundle found, checked and its shared section's table
+// of contents read, which needs no stdlib, so it can run while the stdlib
+// builds (PrefetchStdBundle): the embedded bundle when it reads, else the
+// cached one when it does. Restoring the records (restoreStdShared) reads
+// the stdlib, and decodes each module's object as it restores the module.
 type stdBundleRead struct {
 	// from is "embedded" or "cache", or "" when neither decoded.
 	from           string
 	shared, listed []byte
-	recs           []*stdModuleRecord
+	objects        *stdObjects
 	// path is where this binary's bundle is cached, "" for no cache; unset
 	// when the embedded bundle decoded.
 	path string
@@ -163,9 +464,9 @@ type stdBundleRead struct {
 func readStdBundle() *stdBundleRead {
 	r := &stdBundleRead{}
 	if len(embeddedStdBundle) > 0 {
-		recs, shared, listed, err := readStdBundleSections(embeddedStdBundle)
+		objects, shared, listed, err := readStdBundleSections(embeddedStdBundle)
 		if err == nil {
-			r.from, r.recs, r.shared, r.listed = "embedded", recs, shared, listed
+			r.from, r.objects, r.shared, r.listed = "embedded", objects, shared, listed
 			return r
 		}
 		fmt.Fprintf(os.Stderr, "nomi: the std bundle this binary embeds is not its own, so it lowers the stdlib: %v\n", err)
@@ -184,12 +485,12 @@ func (r *stdBundleRead) readCache() {
 	if err != nil {
 		return
 	}
-	recs, shared, listed, err := readStdBundleSections(data)
+	objects, shared, listed, err := readStdBundleSections(data)
 	if err != nil {
 		stdBundleDebug("%s not used: %v", r.path, err)
 		return
 	}
-	r.from, r.recs, r.shared, r.listed = "cache", recs, shared, listed
+	r.from, r.objects, r.shared, r.listed = "cache", objects, shared, listed
 	if info, err := os.Stat(r.path); err == nil {
 		artifactcache.Touch(r.path, info)
 	}
@@ -327,6 +628,9 @@ func markStdUnits(recs []*stdModuleRecord, idx *stdlibIndex) {
 
 // stdModuleRecord is what lowering one module decided: the module's IR,
 // its unlowered table, and each declaration's outcome, in the view's order.
+// Read from a bundle, a record is its entry in the shared section's table
+// of contents until its module is decoded (stdObjects.decode): name,
+// withPrev, at, deps and body, with the rest unset.
 type stdModuleRecord struct {
 	name      string
 	mod       *ir.Module
@@ -337,6 +641,16 @@ type stdModuleRecord struct {
 	// cycle, with the record before it (markStdUnits), so restoring the
 	// bundle gives it the scope its lowering had (earlierMods).
 	withPrev bool
+	// at is the record's place in the table of contents, and deps the
+	// places of the records whose objects define a function or cell this
+	// record's object or outcomes name by linkage name, which are decoded
+	// with it.
+	at   int
+	deps []int
+	// body is the record's object and outcomes as the section holds them,
+	// until decoded is set.
+	body    []byte
+	decoded bool
 }
 
 // stdCandRecord is the fields of one stdFunc that lowering its module sets,
@@ -425,13 +739,19 @@ func restoreStdModule(v *stdModuleView, rec *stdModuleRecord) ([]*stdFunc, []*st
 //	the shared section: uint32 its CRC-32, then its bytes
 //	bool whether a listed section follows; if so its CRC-32 and bytes
 //
-// The shared section is bytes the ir image of every module, then uvarint
-// the record count and each record. A record is the module's name, its index
-// in the image's modules plus one (0 for none), its unlowered table (absent,
-// or count and sorted pairs), its declarations and its onces. An *ir.Func is
-// written as its module's index plus one (0 for nil) and its index in that
-// module's functions; an irCell as its module and its index in that module's
-// cells. The listed section is stdbundlelisted.go's.
+// The shared section is its table of contents: uvarint the record count and
+// each record's entry. An entry is the module's name, whether it was
+// lowered in one unit with the record before it, uvarint the count of its
+// dependencies and each one's place in the table (the records whose objects
+// define what this one names), and bytes its body. A body is bytes its
+// object ("" for a module with no IR), its unlowered table (absent, or
+// count and sorted pairs), its declarations and its onces. An *ir.Func or
+// an irCell is written as its symbol's linkage name ("" for nil), which the
+// object of the record or of one of its dependencies defines, and no name
+// is defined by two objects, so a name is in the same module whichever
+// modules a process decodes first. Reading the section reads the entries
+// and keeps each body's bytes; a body is decoded with its dependencies
+// (stdObjects.decode). The listed section is stdbundlelisted.go's.
 
 // stdHostDigest is a checksum of the host function registry the lowering
 // reads (stdlibHostFunc): a binary whose registry differs lowers std
@@ -676,128 +996,180 @@ func stdSourceName(bad *string) func(string) string {
 // its order, as a shared section.
 func encodeSharedSection(recs []*stdModuleRecord) ([]byte, error) {
 	var mods []*ir.Module
-	modIdx := map[*ir.Module]int{}
-	type at struct{ mod, i int }
-	funcAt := map[*ir.Func]at{}
-	cellAt := map[*ir.Symbol]at{}
 	for _, rec := range recs {
+		if rec.mod != nil {
+			mods = append(mods, rec.mod)
+		}
+	}
+	// A process decodes each module's object apart, so a symbol two modules
+	// name without a linkage name would be two symbols there.
+	if err := ir.CheckLinkage(mods, nil); err != nil {
+		return nil, err
+	}
+	// Each linkage name a module defines, and the module. A process decodes
+	// the modules it needs in the order it needs them, and the linker keeps
+	// the first definition of a name, so a name two modules defined would be
+	// in whichever was decoded first.
+	funcs := map[string]*ir.Func{}
+	cells := map[string]*ir.Symbol{}
+	definer := map[string]int{}
+	var twice []string
+	define := func(link string, at int) {
+		if prev, ok := definer[link]; ok && prev != at {
+			twice = append(twice, fmt.Sprintf("%s (%s and %s)", link, recs[prev].name, recs[at].name))
+			return
+		}
+		definer[link] = at
+	}
+	for at, rec := range recs {
 		if rec.mod == nil {
 			continue
 		}
-		mi := len(mods)
-		modIdx[rec.mod] = mi
-		mods = append(mods, rec.mod)
-		for i, f := range rec.mod.Funcs() {
-			funcAt[f] = at{mi, i}
+		for _, f := range rec.mod.Funcs() {
+			if s := f.Sym(); s != nil && s.Link() != "" {
+				define(s.Link(), at)
+				if funcs[s.Link()] == nil {
+					funcs[s.Link()] = f
+				}
+			}
 		}
-		for i, c := range rec.mod.Cells() {
-			cellAt[c.Sym()] = at{mi, i}
+		for _, c := range rec.mod.Cells() {
+			if s := c.Sym(); s.Link() != "" {
+				define(s.Link(), at)
+				if cells[s.Link()] == nil {
+					cells[s.Link()] = s
+				}
+			}
 		}
 	}
-	var bad []string
-	image, err := ir.EncodeImage(ir.Image{Modules: mods, Entry: -1}, ir.WithFileNames(stdImageName(&bad)))
-	if err != nil {
-		return nil, err
+	if len(twice) > 0 {
+		sort.Strings(twice)
+		return nil, fmt.Errorf("the std lowering defines names in two modules: %s", strings.Join(twice, ", "))
 	}
-	if len(bad) > 0 {
-		return nil, fmt.Errorf("the std lowering names files outside std: %s", strings.Join(bad, ", "))
-	}
+	var bad, missing []string
 	w := &bundleWriter{}
-	w.str(string(image))
 	w.uv(uint64(len(recs)))
-	var missing []string
-	fn := func(f *ir.Func, what string) {
-		if f == nil {
-			w.uv(0)
-			return
+	for at, rec := range recs {
+		b := &bundleWriter{}
+		deps := map[int]bool{}
+		names := func(link string) {
+			if d, ok := definer[link]; ok && d != at {
+				deps[d] = true
+			}
 		}
-		p, ok := funcAt[f]
-		if !ok {
-			missing = append(missing, what)
-			w.uv(0)
-			return
+		// fn writes f by its linkage name, which must be the name of f
+		// itself among the modules' functions.
+		fn := func(f *ir.Func, what string) {
+			if f == nil {
+				b.str("")
+				return
+			}
+			link := ""
+			if f.Sym() != nil {
+				link = f.Sym().Link()
+			}
+			if link == "" || funcs[link] != f {
+				missing = append(missing, what)
+			}
+			names(link)
+			b.str(link)
 		}
-		w.uv(uint64(p.mod + 1))
-		w.uv(uint64(p.i))
-	}
-	fnMap := func(m map[int]*ir.Func, what string) {
-		if m == nil {
-			w.uv(0)
-			return
+		fnMap := func(m map[int]*ir.Func, what string) {
+			if m == nil {
+				b.uv(0)
+				return
+			}
+			b.uv(uint64(len(m) + 1))
+			keys := make([]int, 0, len(m))
+			for k := range m {
+				keys = append(keys, k)
+			}
+			sort.Ints(keys)
+			for _, k := range keys {
+				b.uv(uint64(k))
+				fn(m[k], fmt.Sprintf("%s %d", what, k))
+			}
 		}
-		w.uv(uint64(len(m) + 1))
-		keys := make([]int, 0, len(m))
-		for k := range m {
-			keys = append(keys, k)
-		}
-		sort.Ints(keys)
-		for _, k := range keys {
-			w.uv(uint64(k))
-			fn(m[k], fmt.Sprintf("%s %d", what, k))
-		}
-	}
-	for _, rec := range recs {
-		w.str(rec.name)
-		w.bool1(rec.withPrev)
 		if rec.mod == nil {
-			w.uv(0)
+			b.str("")
 		} else {
-			w.uv(uint64(modIdx[rec.mod] + 1))
+			obj, err := ir.EncodeObject(rec.mod, ir.WithFileNames(stdImageName(&bad)))
+			if err != nil {
+				return nil, err
+			}
+			b.str(string(obj))
+			for _, s := range ir.ModuleSymbols(rec.mod) {
+				if s.Link() != "" {
+					names(s.Link())
+				}
+			}
 		}
 		if rec.unlowered == nil {
-			w.uv(0)
+			b.uv(0)
 		} else {
-			w.uv(uint64(len(rec.unlowered) + 1))
+			b.uv(uint64(len(rec.unlowered) + 1))
 			keys := make([]string, 0, len(rec.unlowered))
 			for k := range rec.unlowered {
 				keys = append(keys, k)
 			}
 			sort.Strings(keys)
 			for _, k := range keys {
-				w.str(k)
-				w.str(rec.unlowered[k])
+				b.str(k)
+				b.str(rec.unlowered[k])
 			}
 		}
-		w.uv(uint64(len(rec.cands)))
+		b.uv(uint64(len(rec.cands)))
 		for i := range rec.cands {
 			c := &rec.cands[i]
-			w.str(c.key)
-			w.bool1(c.hasDecl)
+			b.str(c.key)
+			b.bool1(c.hasDecl)
 			if c.defaultFill == nil {
-				w.uv(0)
+				b.uv(0)
 			} else {
-				w.uv(uint64(len(c.defaultFill) + 1))
+				b.uv(uint64(len(c.defaultFill) + 1))
 				for _, v := range c.defaultFill {
-					w.bool1(v)
+					b.bool1(v)
 				}
 			}
-			w.str(c.rtCall)
-			w.str(c.rtHostPkg)
-			w.bool1(c.rtFrame)
-			w.bool1(c.body)
-			w.str(c.pkg)
-			w.str(c.why)
+			b.str(c.rtCall)
+			b.str(c.rtHostPkg)
+			b.bool1(c.rtFrame)
+			b.bool1(c.body)
+			b.str(c.pkg)
+			b.str(c.why)
 			fn(c.irBody, rec.name+" "+c.key)
 			fnMap(c.irSlot, rec.name+" "+c.key+" slot")
 		}
-		w.uv(uint64(len(rec.onces)))
+		b.uv(uint64(len(rec.onces)))
 		for _, o := range rec.onces {
-			w.str(o.key)
-			w.bool1(o.settled)
-			w.str(o.why)
+			b.str(o.key)
+			b.bool1(o.settled)
+			b.str(o.why)
 			if o.irCell == nil {
-				w.uv(0)
+				b.str("")
 				continue
 			}
-			p, ok := cellAt[o.irCell]
-			if !ok {
+			if o.irCell.Link() == "" || cells[o.irCell.Link()] != o.irCell {
 				missing = append(missing, rec.name+" once "+o.key)
-				w.uv(0)
-				continue
 			}
-			w.uv(uint64(p.mod + 1))
-			w.uv(uint64(p.i))
+			names(o.irCell.Link())
+			b.str(o.irCell.Link())
 		}
+		w.str(rec.name)
+		w.bool1(rec.withPrev)
+		sorted := make([]int, 0, len(deps))
+		for d := range deps {
+			sorted = append(sorted, d)
+		}
+		sort.Ints(sorted)
+		w.uv(uint64(len(sorted)))
+		for _, d := range sorted {
+			w.uv(uint64(d))
+		}
+		w.str(string(b.b))
+	}
+	if len(bad) > 0 {
+		return nil, fmt.Errorf("the std lowering names files outside std: %s", strings.Join(bad, ", "))
 	}
 	if len(missing) > 0 {
 		return nil, fmt.Errorf("the std lowering points outside its modules: %s", strings.Join(missing, ", "))
@@ -808,16 +1180,17 @@ func encodeSharedSection(recs []*stdModuleRecord) ([]byte, error) {
 // decodeStdBundle checks data and builds the stdlib index from its shared
 // section.
 //
-// It restores every module, which it builds first (std.All), and checks the
-// bundle lowers them in this process's order, which a process restoring
-// only the modules its programs reach cannot (decodeStdShared).
+// It restores every module, which it builds first (std.All), so it decodes
+// every module's object, and checks the bundle lowers them in this
+// process's order, which a process restoring only the modules its programs
+// reach cannot (decodeStdShared).
 func decodeStdBundle(data []byte) (*stdlibIndex, error) {
 	shared, _, err := splitStdBundle(data)
 	if err != nil {
 		return nil, err
 	}
 	lib := std.All()
-	idx, err := decodeStdShared(shared)
+	idx, _, err := decodeStdShared(shared)
 	if err != nil {
 		return nil, err
 	}
@@ -838,53 +1211,60 @@ func decodeStdBundle(data []byte) (*stdlibIndex, error) {
 	return idx, nil
 }
 
-// readStdBundleSections checks data and decodes its shared section's
-// records, answering the sections too.
-func readStdBundleSections(data []byte) (recs []*stdModuleRecord, shared, listed []byte, err error) {
+// readStdBundleSections checks data and reads its shared section's table of
+// contents, answering the sections too.
+func readStdBundleSections(data []byte) (objects *stdObjects, shared, listed []byte, err error) {
 	defer func() {
 		// The reader bounds-checks what it reads; a panic is a bug in this
 		// file, and the bundle is still only a cache.
 		if r := recover(); r != nil {
-			recs, err = nil, fmt.Errorf("decoding the std bundle: %v", r)
+			objects, err = nil, fmt.Errorf("decoding the std bundle: %v", r)
 		}
 	}()
 	shared, listed, err = splitStdBundle(data)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	recs, err = readSharedSection(shared)
+	objects, err = readSharedSection(shared)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return recs, shared, listed, nil
+	return objects, shared, listed, nil
 }
 
 // decodeStdShared builds the stdlib index from a shared section, with the
-// modules the shared stdlib has built restored and the others pending,
-// restored when a program reaches them (stdlibIndex.withModules). Every
-// module's IR is the image's, which a program links whole.
-func decodeStdShared(data []byte) (idx *stdlibIndex, err error) {
+// modules the shared stdlib has built restored, their objects decoded, and
+// the others pending, restored when a program reaches them
+// (stdlibIndex.withModules), and answers the objects the section's modules
+// decode from.
+func decodeStdShared(data []byte) (idx *stdlibIndex, objects *stdObjects, err error) {
 	defer func() {
 		// The reader bounds-checks what it reads; a panic is a bug in this
 		// file, and the bundle is still only a cache.
 		if r := recover(); r != nil {
-			idx, err = nil, fmt.Errorf("decoding the std bundle: %v", r)
+			idx, objects, err = nil, nil, fmt.Errorf("decoding the std bundle: %v", r)
 		}
 	}()
-	recs, err := readSharedSection(data)
+	objects, err = readSharedSection(data)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return restoreStdShared(recs)
+	idx, err = restoreStdShared(objects)
+	if err != nil {
+		return nil, nil, err
+	}
+	return idx, objects, nil
 }
 
-// restoreStdShared is decodeStdShared from a shared section's records.
-func restoreStdShared(recs []*stdModuleRecord) (idx *stdlibIndex, err error) {
+// restoreStdShared is decodeStdShared from a shared section's table of
+// contents.
+func restoreStdShared(objects *stdObjects) (idx *stdlibIndex, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			idx, err = nil, fmt.Errorf("decoding the std bundle: %v", r)
 		}
 	}()
+	recs := objects.recs
 	lib := std.Shared()
 	names := lib.ModuleNames()
 	lowered := map[string]bool{}
@@ -897,6 +1277,7 @@ func restoreStdShared(recs []*stdModuleRecord) (idx *stdlibIndex, err error) {
 		return nil, fmt.Errorf("the bundle has %d modules, this stdlib %d", len(recs), len(lowered))
 	}
 	idx = newStdlibIndex(names)
+	idx.objects = objects
 	idx.pending = make(map[string]*stdModuleRecord, len(recs))
 	// A module's scope is every module of an earlier unit and the other
 	// members of its own, as buildStdlibIndexBy gave it.
@@ -932,104 +1313,42 @@ func restoreStdShared(recs []*stdModuleRecord) (idx *stdlibIndex, err error) {
 		seen[rec.name] = true
 		idx.order = append(idx.order, rec.name)
 		idx.pending[rec.name] = rec
-		pkg := idx.modulePkg[rec.name]
-		if rec.mod != nil {
-			idx.irModules[pkg] = rec.mod
-		}
-		if len(rec.unlowered) > 0 {
-			idx.unlowered[pkg] = rec.unlowered
-		}
 	}
 	closeUnit()
 	return idx.restoring(lib, false)
 }
 
-// readSharedSection reads a shared section's records, with their IR
-// decoded.
-func readSharedSection(data []byte) ([]*stdModuleRecord, error) {
+// readSharedSection reads a shared section's table of contents: each
+// record's entry, with its body kept to decode when the process needs the
+// module (stdObjects.decode).
+func readSharedSection(data []byte) (*stdObjects, error) {
 	r := &bundleReader{b: data}
-	var badFile string
-	im, err := ir.DecodeImage(r.bytes(), ir.WithDecodedFileNames(stdSourceName(&badFile)))
-	if r.err != nil {
-		return nil, r.err
+	objects := &stdObjects{
+		linker:      ir.NewLinker(),
+		byName:      map[string]*stdModuleRecord{},
+		mods:        map[*ir.Module]bool{},
+		linkedFuncs: map[string]*ir.Func{},
+		linkedCells: map[string]*ir.Symbol{},
+		definedIn:   map[string]*stdModuleRecord{},
 	}
-	if err != nil {
-		return nil, err
-	}
-	if badFile != "" {
-		return nil, fmt.Errorf("the bundle names %s, which is not a std file", badFile)
-	}
-	mods := im.Modules
-	fn := func() *ir.Func {
-		m := r.uv()
-		if m == 0 {
-			return nil
-		}
-		i := r.uv()
-		if r.err != nil || m > uint64(len(mods)) || i >= uint64(len(mods[m-1].Funcs())) {
-			r.fail("function reference")
-			return nil
-		}
-		return mods[m-1].Funcs()[i]
-	}
-	fnMap := func() map[int]*ir.Func {
-		n := r.uv()
-		if n == 0 {
-			return nil
-		}
-		out := map[int]*ir.Func{}
-		for ; n > 1 && r.err == nil; n-- {
-			k := int(r.uv())
-			if f := fn(); f != nil {
-				out[k] = f
-			} else {
-				r.fail("function reference")
+	objects.rename = ir.WithDecodedFileNames(stdSourceName(&objects.badFile))
+	n := r.count()
+	for i := 0; i < n && r.err == nil; i++ {
+		rec := &stdModuleRecord{name: r.str(), withPrev: r.bool1(), at: i}
+		for d := r.count(); d > 0 && r.err == nil; d-- {
+			dep := r.uv()
+			if dep >= uint64(n) || int(dep) == i {
+				r.fail("dependency")
+				break
 			}
+			rec.deps = append(rec.deps, int(dep))
 		}
-		return out
-	}
-	var recs []*stdModuleRecord
-	for n := r.count(); n > 0 && r.err == nil; n-- {
-		rec := &stdModuleRecord{name: r.str(), withPrev: r.bool1()}
-		if m := r.uv(); m > uint64(len(mods)) {
-			r.fail("module reference")
-		} else if m > 0 {
-			rec.mod = mods[m-1]
+		rec.body = r.bytes()
+		if r.err == nil && objects.byName[rec.name] != nil {
+			r.fail("module " + rec.name + " twice")
 		}
-		if n := r.uv(); n > 0 {
-			rec.unlowered = map[string]string{}
-			for ; n > 1 && r.err == nil; n-- {
-				k := r.str()
-				rec.unlowered[k] = r.str()
-			}
-		}
-		for n := r.count(); n > 0 && r.err == nil; n-- {
-			c := stdCandRecord{key: r.str(), hasDecl: r.bool1()}
-			if n := r.uv(); n > 0 {
-				c.defaultFill = make([]bool, 0, min(n-1, uint64(len(r.b))))
-				for ; n > 1 && r.err == nil; n-- {
-					c.defaultFill = append(c.defaultFill, r.bool1())
-				}
-			}
-			c.rtCall, c.rtHostPkg, c.rtFrame = r.str(), r.str(), r.bool1()
-			c.body, c.pkg, c.why = r.bool1(), r.str(), r.str()
-			c.irBody = fn()
-			c.irSlot = fnMap()
-			rec.cands = append(rec.cands, c)
-		}
-		for n := r.count(); n > 0 && r.err == nil; n-- {
-			o := stdOnceRecord{key: r.str(), settled: r.bool1(), why: r.str()}
-			if m := r.uv(); m > 0 {
-				i := r.uv()
-				if r.err != nil || m > uint64(len(mods)) || i >= uint64(len(mods[m-1].Cells())) {
-					r.fail("cell reference")
-				} else {
-					o.irCell = mods[m-1].Cells()[i].Sym()
-				}
-			}
-			rec.onces = append(rec.onces, o)
-		}
-		recs = append(recs, rec)
+		objects.recs = append(objects.recs, rec)
+		objects.byName[rec.name] = rec
 	}
 	if r.err == nil && len(r.b) != 0 {
 		r.fail("trailing bytes")
@@ -1037,5 +1356,120 @@ func readSharedSection(data []byte) ([]*stdModuleRecord, error) {
 	if r.err != nil {
 		return nil, r.err
 	}
-	return recs, nil
+	if stdDecodeEagerly {
+		if err := objects.decodeAll(); err != nil {
+			return nil, err
+		}
+	}
+	return objects, nil
+}
+
+// readBody decodes rec's object, linking it, and reads its outcomes,
+// answering what resolves the functions and cells they name once every
+// object decode decodes with it is linked. o.mu is held.
+func (o *stdObjects) readBody(rec *stdModuleRecord) (resolve []func() error, err error) {
+	defer func() {
+		// The reader bounds-checks what it reads; a panic is a bug in this
+		// file.
+		if p := recover(); p != nil {
+			resolve, err = nil, fmt.Errorf("%v", p)
+		}
+	}()
+	r := &bundleReader{b: rec.body}
+	// fn reads a function's linkage name, "" for none unless required, and
+	// sets the function it names once the names resolve.
+	fn := func(required bool, set func(*ir.Func)) {
+		link := r.str()
+		if link == "" {
+			if required {
+				r.fail("function reference")
+			}
+			return
+		}
+		resolve = append(resolve, func() error {
+			f := o.linkedFuncs[link]
+			if f == nil {
+				return fmt.Errorf("%s: the std bundle names function %s, which no decoded module defines", rec.name, link)
+			}
+			set(f)
+			return nil
+		})
+	}
+	if obj := r.bytes(); r.err == nil && len(obj) > 0 {
+		m, err := decodeObject(o.linker, obj, o.rename)
+		if err != nil {
+			return nil, fmt.Errorf("its object: %w", err)
+		}
+		rec.mod = m
+		o.mods[m] = true
+		stdObjectsDecoded.modules.Add(1)
+		stdObjectsDecoded.funcs.Add(int64(len(m.Funcs())))
+		stdObjectsDecoded.bytes.Add(int64(len(obj)))
+		for _, f := range m.Funcs() {
+			if s := f.Sym(); s != nil && s.Link() != "" {
+				o.linkedFuncs[s.Link()] = f
+				o.definedIn[s.Link()] = rec
+			}
+		}
+		for _, c := range m.Cells() {
+			if s := c.Sym(); s.Link() != "" {
+				o.linkedCells[s.Link()] = s
+				o.definedIn[s.Link()] = rec
+			}
+		}
+	}
+	if n := r.uv(); n > 0 {
+		rec.unlowered = map[string]string{}
+		for ; n > 1 && r.err == nil; n-- {
+			k := r.str()
+			rec.unlowered[k] = r.str()
+		}
+	}
+	for n := r.count(); n > 0 && r.err == nil; n-- {
+		c := stdCandRecord{key: r.str(), hasDecl: r.bool1()}
+		if n := r.uv(); n > 0 {
+			c.defaultFill = make([]bool, 0, min(n-1, uint64(len(r.b))))
+			for ; n > 1 && r.err == nil; n-- {
+				c.defaultFill = append(c.defaultFill, r.bool1())
+			}
+		}
+		c.rtCall, c.rtHostPkg, c.rtFrame = r.str(), r.str(), r.bool1()
+		c.body, c.pkg, c.why = r.bool1(), r.str(), r.str()
+		rec.cands = append(rec.cands, c)
+		at := len(rec.cands) - 1
+		fn(false, func(f *ir.Func) { rec.cands[at].irBody = f })
+		if n := r.uv(); n > 0 {
+			slots := map[int]*ir.Func{}
+			rec.cands[at].irSlot = slots
+			for ; n > 1 && r.err == nil; n-- {
+				k := int(r.uv())
+				fn(true, func(f *ir.Func) { slots[k] = f })
+			}
+		}
+	}
+	// Its capacity is the count, so a pointer into it holds.
+	count := r.count()
+	list := make([]stdOnceRecord, 0, count)
+	for ; count > 0 && r.err == nil; count-- {
+		list = append(list, stdOnceRecord{key: r.str(), settled: r.bool1(), why: r.str()})
+		if link := r.str(); link != "" {
+			once := &list[len(list)-1]
+			resolve = append(resolve, func() error {
+				if once.irCell = o.linkedCells[link]; once.irCell == nil {
+					return fmt.Errorf("%s: the std bundle names cell %s, which no decoded module defines", rec.name, link)
+				}
+				return nil
+			})
+		}
+	}
+	if len(list) > 0 {
+		rec.onces = list
+	}
+	if r.err == nil && len(r.b) != 0 {
+		r.fail("trailing bytes")
+	}
+	if r.err != nil {
+		return nil, r.err
+	}
+	return resolve, nil
 }

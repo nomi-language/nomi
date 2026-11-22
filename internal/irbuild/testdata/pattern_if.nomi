@@ -101,11 +101,12 @@ end
 /// LAMBDA and not the enclosing function — the caller's own answer is appended
 /// after it, which is what proves it.
 fn in_lambda(m: Maybe<Int>) -> String
-    f = fn v: Maybe<Int> ->
-        if Some(n) = v then return "lambda:${n}"
+    f =
+        fn v: Maybe<Int> ->
+            if Some(n) = v then return "lambda:${n}"
 
-        "lambda:none"
-    end
+            "lambda:none"
+        end
 
     "${f(m)}/done"
 end

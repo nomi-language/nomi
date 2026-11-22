@@ -4,21 +4,26 @@ package irbuild
 //
 // keptListedStd is the process's one lowering of every listed module
 // (programstdlink.go). A bundle's listed section holds it: the modules,
-// units first and then the std instances their bodies asked for, as one ir
-// image whose symbols name the shared modules' by linkage name, so it is
-// decoded against whichever shared lowering the process has (ir.Linker);
-// each instance module's needs; and the lowering's literal sites, refusals,
-// suppressions and refused synthesized impl blocks.
+// units first and then the std instances their bodies asked for, each an
+// object whose symbols name the shared modules' by linkage name, decoded
+// with a linker over the one the shared modules' objects were
+// (stdObjects.linkerOver); each instance module's needs; and the lowering's
+// literal sites, refusals, suppressions and refused synthesized impl blocks.
 //
-// The layout: bytes the image; uvarint the unit count; per instance module,
-// uvarint its needs' count and each name; uvarint the literal sites' count
-// and each site; the refusals; the suppressions; and the refused blocks, each
-// as its module's name and its index among the module's nodes. A literal
-// site's cell is written as its module's index and the cell's index in it,
-// its renderer as a function reference (stdbundle.go), and its check
-// declaration by its declaration name.
+// The layout: uvarint the count of shared modules the section needs decoded
+// first and each one's name (listedSharedDeps); uvarint the module count
+// and bytes each module's object;
+// uvarint the unit count; per instance module, uvarint its needs' count and
+// each name; uvarint the literal sites' count and each site; the refusals;
+// the suppressions; and the refused blocks, each as its module's name and
+// its index among the module's nodes. A literal site's cell, which only its
+// module names, is written as its module's index and the cell's index in
+// it, its renderer as its module's index plus one (0 for none) and its
+// index in that module's functions, and its check declaration by its
+// declaration name.
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"sort"
@@ -135,10 +140,23 @@ func encodeListedSection(k *listedStd, instNeeds [][]string) ([]byte, error) {
 	if err := ir.CheckLinkage(append(slices.Clip(shared), all.mods...), nil); err != nil {
 		return nil, err
 	}
-	var bad []string
-	image, err := ir.EncodeImage(ir.Image{Modules: all.mods, Entry: -1}, ir.WithFileNames(stdImageName(&bad)))
+	deps, err := listedSharedDeps(all.mods)
 	if err != nil {
 		return nil, err
+	}
+	var bad []string
+	w := &bundleWriter{}
+	w.uv(uint64(len(deps)))
+	for _, d := range deps {
+		w.str(d)
+	}
+	w.uv(uint64(len(all.mods)))
+	for _, m := range all.mods {
+		obj, err := ir.EncodeObject(m, ir.WithFileNames(stdImageName(&bad)))
+		if err != nil {
+			return nil, err
+		}
+		w.str(string(obj))
 	}
 	type at struct{ mod, i int }
 	funcAt := map[*ir.Func]at{}
@@ -152,8 +170,6 @@ func encodeListedSection(k *listedStd, instNeeds [][]string) ([]byte, error) {
 		}
 	}
 	file := stdImageName(&bad)
-	w := &bundleWriter{}
-	w.str(string(image))
 	w.uv(uint64(len(all.units)))
 	if len(instNeeds) != len(all.mods)-len(all.units) {
 		return nil, fmt.Errorf("%d instance modules and %d needs", len(all.mods)-len(all.units), len(instNeeds))
@@ -262,6 +278,69 @@ func encodeListedSection(k *listedStd, instNeeds [][]string) ([]byte, error) {
 	return w.b, nil
 }
 
+// listedSharedDeps is the shared modules a listed section of mods names,
+// sorted, which a process decodes before the section: each module whose
+// object defines a linkage name mods' objects write, and, for a name no
+// shared module defines, each module whose object writes it too, so that
+// a shared module decoded after the section links that name to the
+// section's symbol rather than one of its own. It decodes every shared
+// module to read what each defines and names.
+func listedSharedDeps(mods []*ir.Module) ([]string, error) {
+	o := stdBundleState.objects
+	if o == nil {
+		return nil, errors.New("the shared stdlib is not decoded from its objects")
+	}
+	if err := o.decodeAll(); err != nil {
+		return nil, err
+	}
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	definer := map[string]string{}
+	writers := map[string][]string{}
+	for _, rec := range o.recs {
+		if rec.mod == nil {
+			continue
+		}
+		for _, f := range rec.mod.Funcs() {
+			if s := f.Sym(); s != nil && s.Link() != "" {
+				definer[s.Link()] = rec.name
+			}
+		}
+		for _, c := range rec.mod.Cells() {
+			if s := c.Sym(); s.Link() != "" {
+				definer[s.Link()] = rec.name
+			}
+		}
+		for _, s := range ir.ModuleSymbols(rec.mod) {
+			if s.Link() != "" {
+				writers[s.Link()] = append(writers[s.Link()], rec.name)
+			}
+		}
+	}
+	need := map[string]bool{}
+	for _, m := range mods {
+		for _, s := range ir.ModuleSymbols(m) {
+			link := s.Link()
+			if link == "" {
+				continue
+			}
+			if d, ok := definer[link]; ok {
+				need[d] = true
+				continue
+			}
+			for _, w := range writers[link] {
+				need[w] = true
+			}
+		}
+	}
+	out := make([]string, 0, len(need))
+	for name := range need {
+		out = append(out, name)
+	}
+	slices.Sort(out)
+	return out, nil
+}
+
 // decodeListedSection decodes a listed section, framed as a bundle holds it
 // (frameSection), against this process's shared lowering.
 func decodeListedSection(framed []byte) (k *listedStd, err error) {
@@ -274,22 +353,45 @@ func decodeListedSection(framed []byte) (k *listedStd, err error) {
 	if err != nil {
 		return nil, err
 	}
-	l := ir.NewLinker()
-	if err := l.Add(stdlibLowering().sortedModules()...); err != nil {
-		return nil, err
-	}
 	r := &bundleReader{b: data}
-	var badFile string
-	im, err := ir.DecodeImage(r.bytes(), ir.WithLinkedSymbols(l.Symbol), ir.WithDecodedFileNames(stdSourceName(&badFile)))
+	stdlibLowering()
+	objects := stdBundleState.objects
+	if objects == nil {
+		return nil, errors.New("the shared stdlib is not decoded from its objects")
+	}
+	var deps []string
+	for n := r.count(); n > 0 && r.err == nil; n-- {
+		deps = append(deps, r.str())
+	}
 	if r.err != nil {
 		return nil, r.err
 	}
-	if err != nil {
+	// The shared modules the section names are decoded first, so its
+	// objects link to their symbols, and the lowering taken after holds
+	// them.
+	if err := objects.decode(deps...); err != nil {
 		return nil, err
 	}
-	mods := im.Modules
-	for _, m := range mods {
-		l.Define(m)
+	shared := stdlibLowering().sortedModules()
+	var badFile string
+	rename := ir.WithDecodedFileNames(stdSourceName(&badFile))
+	var mods []*ir.Module
+	err = objects.linkOver(shared, func(l *ir.Linker) error {
+		for n := r.count(); n > 0 && r.err == nil; n-- {
+			obj := r.bytes()
+			if r.err != nil {
+				break
+			}
+			m, err := decodeObject(l, obj, rename)
+			if err != nil {
+				return err
+			}
+			mods = append(mods, m)
+		}
+		return r.err
+	})
+	if err != nil {
+		return nil, err
 	}
 	file := stdSourceName(&badFile)
 	ls := &linkedStd{mods: mods}

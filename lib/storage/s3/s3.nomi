@@ -289,15 +289,16 @@ impl Store for Bucket
 
         case send(bucket, Method.Head, key)
             Ok(response) ->
-                size = case response.content_length
-                    Some(n) ->
-                        n
+                size =
+                    case response.content_length
+                        Some(n) ->
+                            n
 
-                    None ->
-                        Headers.get(response.headers, "Content-Length")
-                        |> Maybe.flat_map(String.to_int)
-                        |> Maybe.with_default(0)
-                end
+                        None ->
+                            Headers.get(response.headers, "Content-Length")
+                            |> Maybe.flat_map(String.to_int)
+                            |> Maybe.with_default(0)
+                    end
 
                 Ok(Some(info_of(response, size)))
 
@@ -392,14 +393,15 @@ fn listing_of(body: String) -> Result<Listing, storage.Error>
         |> Maybe.values()
         |> Iter.to_list()
 
-    next = if Element.child_text(doc, "IsTruncated") == Some("true") then
-        Some(
-            Element.child_text(doc, "NextContinuationToken")
-            |> Maybe.to_result(bad("a truncated listing has no NextContinuationToken"))?
-        )
-    else
-        None
-    end
+    next =
+        if Element.child_text(doc, "IsTruncated") == Some("true") then
+            Some(
+                Element.child_text(doc, "NextContinuationToken")
+                |> Maybe.to_result(bad("a truncated listing has no NextContinuationToken"))?
+            )
+        else
+            None
+        end
 
     Ok(Listing{objects:, prefixes:, next:})
 end
@@ -434,11 +436,12 @@ fn attempt(
         payload: config.payload,
     )
 
-    outcome = case Client.fetch(bucket.client, signed)
-        Ok(response) when Status.is_success(response.status) -> Ok(response)
-        Ok(response) -> Err(failure(key, response))
-        Err(error)   -> Err(from_http(error))
-    end
+    outcome =
+        case Client.fetch(bucket.client, signed)
+            Ok(response) when Status.is_success(response.status) -> Ok(response)
+            Ok(response) -> Err(failure(key, response))
+            Err(error)   -> Err(from_http(error))
+        end
 
     case outcome
         Err(.Unavailable{}) when tried < config.retries ->
@@ -480,10 +483,11 @@ fn failure(key: String, response: Response) -> storage.Error
     parsed = parse_error(body)
     code = parsed |> Maybe.map(fn e -> e.code) |> Maybe.with_default("HTTP ${status}")
 
-    message = case parsed
-        Some(e) -> e.message
-        None    -> String.take(String.trim(body), 200)
-    end
+    message =
+        case parsed
+            Some(e) -> e.message
+            None    -> String.take(String.trim(body), 200)
+        end
 
     case status
         404 when code != "NoSuchBucket" ->
@@ -493,10 +497,11 @@ fn failure(key: String, response: Response) -> storage.Error
             storage.Error.Denied{message: joined(code, message)}
 
         400 when code == "AuthorizationHeaderMalformed" ->
-            wanted = case parsed |> Maybe.flat_map(fn e -> e.region)
-                Some(region) -> " (the server wants the region ${region})"
-                None         -> ""
-            end
+            wanted =
+                case parsed |> Maybe.flat_map(fn e -> e.region)
+                    Some(region) -> " (the server wants the region ${region})"
+                    None         -> ""
+                end
 
             storage.Error.Backend{code:, message: "${message}${wanted}"}
 
@@ -636,10 +641,11 @@ end
 fn object_url(config: Config, key: String) -> Url
     endpoint = config.endpoint
 
-    (host, path) = case config.addressing
-        .Path        -> (endpoint.host, "/${config.bucket}/${key}")
-        .VirtualHost -> ("${config.bucket}.${endpoint.host}", "/${key}")
-    end
+    (host, path) =
+        case config.addressing
+            .Path        -> (endpoint.host, "/${config.bucket}/${key}")
+            .VirtualHost -> ("${config.bucket}.${endpoint.host}", "/${key}")
+        end
 
     encoded = uri_encode(path, keep_slash: True)
     raw_path = if encoded == path then None else Some(encoded)
@@ -708,11 +714,12 @@ fn canonical_request(request: Request, query: Query, hashed: String) -> (String,
     headers = canonical_headers(request)
     names = headers |> Iter.map(fn (name, _) -> name) |> String.join(";")
 
-    path = if request.url.path == "" then
-        "/"
-    else
-        request.url.path
-    end
+    path =
+        if request.url.path == "" then
+            "/"
+        else
+            request.url.path
+        end
 
     canonical = String.join(
         [

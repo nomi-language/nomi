@@ -15,6 +15,10 @@
 //   - an interface by the form of its dynamic value: one of the package's
 //     struct types, held by value or by pointer, numbered in name order;
 //   - a slice by its length and then its elements, nil and empty told apart;
+//     an element whose pointer an interface may hold (an InterfaceMethod
+//     of an InterfaceDef's Methods) is numbered in the pointer table as it
+//     is written (Encoder.elem), so a pointer to it written later reads
+//     back as the decoded element's address;
 //   - *big.Int and *ast.Expansion by hand-written codecs (codec.go).
 //
 // An unexported field is written by a hand-written method when handWritten
@@ -36,6 +40,7 @@ import (
 	"go/types"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -225,6 +230,9 @@ func (g *gen) encode(b *bytes.Buffer, e string, t types.Type) error {
 	case *types.Slice:
 		i := g.newVar("i")
 		fmt.Fprintf(b, "e.len(%s == nil, len(%s))\nif len(%s) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(%s)), len(%s), %q) {\nfor %s := range %s {\n", e, e, e, e, e, types.TypeString(t, g.qualifier), i, e)
+		if g.pointedAt(u.Elem()) {
+			fmt.Fprintf(b, "e.elem(&%s[%s])\n", e, i)
+		}
 		if err := g.encode(b, e+"["+i+"]", u.Elem()); err != nil {
 			return err
 		}
@@ -281,6 +289,9 @@ func (g *gen) decode(b *bytes.Buffer, e string, t types.Type) error {
 		ty := types.TypeString(t, g.qualifier)
 		fmt.Fprintf(b, "if %s := d.sharedLen(); %s == 0 {\n%s = %s{}\n} else if %s > 0 {\nif %s, %s := d.ptr(); !%s {\n%s = d.sharedSlice%s(%s, %s)\n} else {\nd.fits(%s)\n%s := make(%s, %s)\nd.refs = append(d.refs, %s)\nfor %s := range %s {\n",
 			n, n, e, ty, n, r, fresh, fresh, e, g.sliceName(t), r, n, n, x, ty, n, x, i, x)
+		if g.pointedAt(u.Elem()) {
+			fmt.Fprintf(b, "d.refs = append(d.refs, &%s[%s])\n", x, i)
+		}
 		if err := g.decode(b, x+"["+i+"]", u.Elem()); err != nil {
 			return err
 		}
@@ -289,6 +300,19 @@ func (g *gen) decode(b *bytes.Buffer, e string, t types.Type) error {
 		return nil
 	}
 	return fmt.Errorf("a field of type %s", t)
+}
+
+// pointedAt reports whether an element of a slice of t, held in place, may
+// also be held by a pointer an interface field carries: t is a struct whose
+// pointer is one of the forms (an InterfaceDef's Methods, whose elements a
+// symbol's node names). Such an element is numbered in the pointer table
+// as it is written, so the pointer reads back as the element's address.
+func (g *gen) pointedAt(t types.Type) bool {
+	n, ok := g.named(t)
+	if !ok {
+		return false
+	}
+	return slices.Contains(g.forms, form{name: n.Obj().Name(), ptr: true})
 }
 
 // sliceName is a slice type's name in a generated function's.

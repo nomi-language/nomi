@@ -33,40 +33,6 @@ end
     (type_identifier)))
 
 ================================================================================
-Go selector bindings
-================================================================================
-
-gopkg "example.com/app/ffi" as ffi
-
-opaque type RawConn go ffi.Conn
-
-fn echo_upper(s: String) -> String go ffi.EchoUpper
-
---------------------------------------------------------------------------------
-
-(source_file
-  (gopkg_declaration
-    path: (string
-      (string_content))
-    alias: (identifier))
-  (type_definition
-    name: (qualified_type_identifier
-      (type_identifier))
-    (go_selector_binding
-      package: (identifier)
-      symbol: (type_identifier)))
-  (function_definition
-    name: (identifier)
-    (parameters
-      (parameter
-        name: (identifier)
-        (type_identifier)))
-    return_type: (type_identifier)
-    (go_selector_binding
-      package: (identifier)
-      symbol: (type_identifier))))
-
-================================================================================
 Module path joined by ::
 ================================================================================
 

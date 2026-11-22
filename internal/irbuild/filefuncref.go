@@ -40,7 +40,7 @@ func (bl *irScalarBuilder) fileFuncRef(t *ast.FieldAccess, owner *ast.Ident) (ir
 	}
 	if g.files != nil {
 		if to, isSibling := g.lookupQualifier(owner); isSibling {
-			f := g.files.units[to].funcs[t.Field.Name]
+			f := g.siblingFuncAt(to, t.Field)
 			if f == nil {
 				return ir.NoTemp, kindInvalid, false, false, false
 			}
@@ -127,18 +127,17 @@ func (bl *irScalarBuilder) stdFileFuncRef(ref ast.Node, module, name string) (ir
 		})
 		return v, k, mobile, ok, true
 	}
-	var generic *stdFunc
-	if g.stdInsts != nil {
-		generic = stdModuleGenericTemplate(g.stdInsts.std.views[module], "", name)
-	}
-	if generic == nil && (g.std == nil || g.std.byFile[module+"."+name] == nil) {
+	id := g.stdFuncAtRef(ref)
+	generic := g.stdInsts.stdTemplateOf(id)
+	f := g.stdFuncByID(id)
+	if generic == nil && f == nil {
 		return ir.NoTemp, kindInvalid, false, false, false
 	}
 	params, result, ok := g.checkedRefValueKinds(ref)
 	if !ok {
 		return no()
 	}
-	if f := g.std.byFile[module+"."+name]; generic == nil && f != nil && f.decl != nil {
+	if generic == nil && f.decl != nil {
 		if g.namedCtlForm(f.decl) != irCtlNone {
 			// An iter-sensitive helper (a std module's own, named in its
 			// tests) is its body itself, which signals in the adapter's
@@ -158,7 +157,7 @@ func (bl *irScalarBuilder) stdFileFuncRef(ref ast.Node, module, name string) (ir
 	}
 	v, k, mobile, ok := bl.wrapperRef(ref, module+"."+name, params, result, func(child *irScalarBuilder, call *ast.Call) (ir.Temp, kind, bool) {
 		args := child.irQualLowerArgs(call)
-		plan := child.stdFilePlan(call, args, module, name)
+		plan := child.stdFilePlan(call, args)
 		if plan == nil {
 			return ir.NoTemp, kindInvalid, false
 		}
@@ -196,7 +195,7 @@ func (bl *irScalarBuilder) stdNamedFuncRef(ref ast.Node, f *stdFunc, params []ki
 	if sym == nil {
 		return no()
 	}
-	n := ir.NewRefFunc(g.irNodePos(ref), bl.f.NewTemp(), sym)
+	n := ir.NewRefFunc(g.irNodePos(ref), bl.f.NewTemp(), sym).KeepFields()
 	bl.b.Append(n)
 	bl.side(n.Dst(), irScalarSide{k: fk, ctl: ctl})
 	return n.Dst(), fk, true, true
@@ -224,10 +223,9 @@ func (bl *irScalarBuilder) wrapperRef(ref ast.Node, name string, params []kind, 
 	g := bl.g
 	at := g.irNodePos(ref)
 	f := ir.NewFunc(at, name)
-	sh := &irFuncShell{fn: f, syms: map[string]*ir.Symbol{}, params: map[string]ir.Temp{}, patternOK: true}
-	sh.frame = newIRFuncFrame(f)
+	sh := &irFuncShell{fn: f, params: map[string]ir.Temp{}}
 	sh.entry = f.NewBlock(at, "entry")
-	child := &irScalarBuilder{g: g, sh: sh, f: f, b: sh.entry, parent: bl, bound: map[string]ir.Temp{}, boundK: map[string]kind{}}
+	child := &irScalarBuilder{g: g, sh: sh, f: f, b: sh.entry, parent: bl}
 	line, col := calleeRefPos(ref)
 	call := &ast.Call{Func: ref, Line: line, Col: col}
 	for i, pk := range params {
@@ -235,19 +233,20 @@ func (bl *irScalarBuilder) wrapperRef(ref ast.Node, name string, params []kind, 
 		if len(params) > 1 {
 			p += strconv.Itoa(i)
 		}
-		child.bound[p] = g.irAddParam(f, ir.NewSymbol(p), pk)
-		child.boundK[p] = pk
-		call.Args = append(call.Args, g.madeIdent(p, line, col))
+		key := g.madeLocal()
+		child.declareKey(key, g.irAddParam(f, ir.NewSymbol(p), pk), pk)
+		call.Args = append(call.Args, g.madeRead(p, key, line, col))
 	}
 	// The function value passes its parameters in order.
 	defer g.carryCall(call, g.positionalCallOf(ref, len(params), len(params)))()
+	defer g.carryRefResult(call, ref)()
 	dst, k, ok := body(child, call)
 	if !ok || k != result || len(child.captures) != 0 {
 		return no()
 	}
 	child.b.SetTerm(ir.NewReturn(at, dst))
 	bl.g.irRequireLint(f, "a function value over "+name)
-	n := ir.NewFuncValue(at, bl.f.NewTemp(), f)
+	n := ir.NewFuncValue(at, bl.f.NewTemp(), f).KeepFields()
 	bl.b.Append(n)
 	fk := funcKindIn(g, params, result)
 	bl.side(n.Dst(), irScalarSide{k: fk})
@@ -283,7 +282,7 @@ func checkedRefFuncType(fa *analysis.FileAnalysis, ref ast.Node) *analysis.FuncT
 }
 
 // siblingFuncRef is unit `to`'s `fn` f as a function value. host marks a
-// Go-bound `host fn` reached by a bare name (fileSite.host).
+// `host fn` reached by a bare name (fileSite.host).
 func (bl *irScalarBuilder) siblingFuncRef(ref ast.Node, to int, f *fileFunc, host bool) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	g := bl.g
@@ -308,9 +307,6 @@ func (bl *irScalarBuilder) siblingFuncRef(ref ast.Node, to int, f *fileFunc, hos
 		if !ok {
 			return no()
 		}
-		if host && !irHostFnHasVMBody(params, result) {
-			return no()
-		}
 		sym = g.irSiblingCalleeSym(to, f)
 	}
 	if sym == nil {
@@ -325,7 +321,7 @@ func (bl *irScalarBuilder) siblingFuncRef(ref ast.Node, to int, f *fileFunc, hos
 		bl.g.dc.note("an iter-sensitive function passed where its break or continue cannot be caught: " + f.name)
 		return no()
 	}
-	n := ir.NewRefFunc(g.irNodePos(ref), bl.f.NewTemp(), sym)
+	n := ir.NewRefFunc(g.irNodePos(ref), bl.f.NewTemp(), sym).KeepFields()
 	bl.b.Append(n)
 	bl.side(n.Dst(), irScalarSide{k: fk, ctl: ctl})
 	return n.Dst(), fk, true, true

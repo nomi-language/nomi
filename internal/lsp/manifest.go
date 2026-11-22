@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -11,7 +12,7 @@ import (
 	protocol "github.com/tliron/glsp/protocol_3_16"
 
 	"github.com/nomi-language/nomi/internal/analysis"
-	"github.com/nomi-language/nomi/internal/capability"
+	"github.com/nomi-language/nomi/internal/effects"
 	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/parser"
@@ -123,8 +124,8 @@ func manifestDiagnostic(text string, line int, message string) protocol.Diagnost
 }
 
 // manifestDiagnostics are the problems of a lowering that are in a
-// nomi.toml, by its URI: the errors in the [capabilities] lists
-// (vmhost's capabilityListProblems), each at its line of the text the
+// nomi.toml, by its URI: the errors in the [effects] lists
+// (vmhost's effectListProblems), each at its line of the text the
 // lowering read, and those that carry a fix as parse errors at the
 // diagnostic's start, which a code action in the file offers
 // (manifestFixes): the entry of a dependency entries_required finds with
@@ -169,16 +170,16 @@ func (s *Server) manifestDiagnostics(problems, err error) (map[string][]protocol
 }
 
 // manifestCompletion is what completes at pos in text, the nomi.toml at
-// uri: a std module's name inside a list of std names; inside
-// [capabilities.deps]' `go` or `go_in_tests`, each dependency whose code
-// binds Go; and as a key under [capabilities.deps.modules], each
-// dependency with its whole entry, what its own files reach, as the fix of
-// a missing entry writes it (Reach.Tightest, analysis.ModuleEntryText). A
-// dependency is a module the project's programs load Nomi files from
-// (vmhost.Reach's Modules), from what they reach (projectReaches), so none
-// is offered while a program does not check, and none the list or table
-// already names. A name is quoted unless the cursor is inside a string; a
-// key's entry replaces its quotes.
+// uri: a std module's name inside a list of std names; and as a key under
+// [effects.self.modules] or
+// [effects.deps.modules], each module of the project or dependency
+// with its whole entry, what its own files reach, as the fix of a missing
+// entry writes it (Reach.Entries, analysis.ModuleEntryText). The keys are
+// those the project's programs load files from (Reach.EntryKeys), from
+// what they reach (projectReaches), so none is offered while a program
+// does not check, and none the list or table already names. A name is
+// quoted unless the cursor is inside a string; a key's entry replaces its
+// quotes.
 func (s *Server) manifestCompletion(uri, text string, pos protocol.Position) []protocol.CompletionItem {
 	at := manifestPlaceAt(text, pos)
 	line, lineText, col, lines := at.line, at.lineText, at.col, at.lines
@@ -189,22 +190,14 @@ func (s *Server) manifestCompletion(uri, text string, pos protocol.Position) []p
 	kind := protocol.CompletionItemKindModule
 	switch list := at.list(); {
 	case isStdList(list):
-		names = capability.StdNames()
-	case list == analysis.ListDepsGo || list == analysis.ListDepsGoInTests:
+		names = effects.StdNames()
+	case at.entryList() != "":
 		kind = protocol.CompletionItemKindFolder
 		if r := reach(); r != nil {
-			for _, m := range r.ModuleReaches() {
-				if m.BindsGo && !analysis.ManifestListHolds(data, m.Path, at.table[0], at.table[1], at.key) {
-					names = append(names, m.Path)
-				}
-			}
-		}
-	case at.onModuleKey():
-		kind = protocol.CompletionItemKindFolder
-		if r := reach(); r != nil {
-			entries = r.Tightest().Deps.Modules
-			for _, m := range r.Modules {
-				if analysis.ManifestKeyLine(data, "capabilities", "deps", "modules", m) == 0 {
+			list := at.entryList()
+			entries = r.Entries(list)
+			for _, m := range r.EntryKeys(list) {
+				if analysis.ManifestKeyLine(data, analysis.EntryKeyPath(list, m)...) == 0 {
 					names = append(names, m)
 				}
 			}
@@ -279,43 +272,51 @@ func manifestPlaceAt(text string, pos protocol.Position) manifestPlace {
 	return at
 }
 
-// list is the capability list whose value holds the place, as a change
-// names it (analysis.ListSelfStd): a list of std names or of modules, or
-// ListDepsModules for a module's entry, whose module is the key. It is ""
-// anywhere else.
+// list is the effects list whose value holds the place, as a change
+// names it (analysis.ListSelfStd): a list of std names, or one of
+// analysis.EntryLists for an entry, whose module is the key. It is
+// "" anywhere else.
 func (at manifestPlace) list() string {
 	switch strings.Join(at.table, ".") {
-	case "capabilities.self":
+	case "effects.self":
 		switch at.key {
 		case "std":
 			return analysis.ListSelfStd
 		case "std_in_tests":
 			return analysis.ListSelfStdInTests
 		}
-	case "capabilities.deps":
+	case "effects.deps":
 		switch at.key {
 		case "std":
 			return analysis.ListDepsStd
 		case "std_in_tests":
 			return analysis.ListDepsStdInTests
-		case "go":
-			return analysis.ListDepsGo
-		case "go_in_tests":
-			return analysis.ListDepsGoInTests
 		}
-	case "capabilities.deps.modules":
-		if at.key != "" {
-			return analysis.ListDepsModules
-		}
+	}
+	if list := at.entries(); list != "" && at.key != "" {
+		return list
 	}
 	return ""
 }
 
-// onModuleKey reports whether the place is a key under
-// [capabilities.deps.modules], left of its `=`, where a dependency's path
-// is written.
-func (at manifestPlace) onModuleKey() bool {
-	return strings.Join(at.table, ".") == "capabilities.deps.modules" && at.key == "" && !strings.Contains(at.lineText[:at.col], "=")
+// entries is the list of the table of entries the place is in, one of
+// analysis.EntryLists, or "".
+func (at manifestPlace) entries() string {
+	list, ok := strings.CutPrefix(strings.Join(at.table, "."), "effects.")
+	if !ok || !slices.Contains(analysis.EntryLists, list) {
+		return ""
+	}
+	return list
+}
+
+// entryList is the list of the table of entries whose key the place is
+// on, left of its `=`, where a module of the project or a dependency's path
+// is written; "" anywhere else.
+func (at manifestPlace) entryList() string {
+	if at.key != "" || strings.Contains(at.lineText[:at.col], "=") {
+		return ""
+	}
+	return at.entries()
 }
 
 // quoted is the string on the place's line that holds it, without its

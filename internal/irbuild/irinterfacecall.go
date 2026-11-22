@@ -21,6 +21,9 @@ import (
 // implementor, a value written `as` an interface, which stays the value it
 // is).
 func (bl *irScalarBuilder) dispatchedCallPlan(t *ast.Call, args irQualArgs) *irQualPlan {
+	if p := bl.boundCallPlan(t, args); p != nil {
+		return p
+	}
 	d, m, at := bl.dispatchedMethod(t, args)
 	if m == nil {
 		return nil
@@ -427,66 +430,21 @@ func mirroredImpl(gens []*gen, key string, mirror *typeDef) (*gen, *implDef) {
 	return nil, nil
 }
 
-// foreignIfacePlan selects this module's impl of an interface declared
-// elsewhere, the one whose key is key (ifaceKey): `ToJson.to_json(user)`
-// for a derived `impl ToJson for User`. Only a single exact fit is planned.
-//
-// A call with no arguments has no operand to select an impl by:
-// `FromJson.from_missing<Uuid>()`, as a derived FromJson decodes a missing
-// field, names its type only as a type argument. Any one impl whose method
-// fits would be a guess at a type the call does not name, so none is planned
-// and the caller selects by the type argument (kindImplCall).
-func (bl *irScalarBuilder) foreignIfacePlan(t *ast.Call, args irQualArgs, key, method string) *irQualPlan {
-	byRecv, known := bl.g.implsByIface[key]
-	if !known || key == "" || !args.ok || len(args.kinds) == 0 || (key == stdIfaceImplKey(stdIter) && bl.g.iterOwns(stdIter.Name)) {
-		return nil
-	}
-	for _, k := range args.kinds {
-		if k.tag == tagIface {
-			return nil
-		}
-	}
-	var chosen *implItem
-	name := ""
-	impls := bl.g.implOrder
-	if r := args.kinds[0]; r.tag == tagNamed && r.def != nil && r.def.genericOf != nil {
-		// `Display.to_string(b)` over a `Box<Int>`: an impl on a generic
-		// receiver is registered per instance (registerInstanceImpls) and
-		// implOrder does not hold it.
-		impls = append(bl.g.implsOf(r), impls...)
-	}
-	for _, d := range impls {
-		if d.ifaceKey != key || !d.lowerable || byRecv[d.recv] != d {
-			continue
-		}
-		it := d.items[method]
-		if it == nil || !bl.qualSignature(t, args, it.params, it.result) {
-			continue
-		}
-		if chosen != nil {
-			return nil
-		}
-		chosen, name = it, d.ifaceName+"."+method
-	}
-	if chosen == nil || !chosen.lowerable || irImplSource(chosen) == nil {
-		return nil
-	}
-	return &irQualPlan{token: chosen, name: name, result: chosen.result}
-}
-
 // stdIfacePlan selects a stdlib interface method by its first argument's kind
-// and plans the call to its retained body or approved runtime host.
+// and plans the call to its retained body or approved runtime host. A call
+// whose record names no interface's function (a std function an
+// interface's own block declares, `Iter.map`) is planned elsewhere.
 func (bl *irScalarBuilder) stdIfacePlan(t *ast.Call, args irQualArgs, iface, method string) *irQualPlan {
 	g := bl.g
-	spelling := iface + "." + method
-	if g.std == nil || !args.ok || len(args.kinds) == 0 || len(g.std.byType[spelling]) != 0 {
+	if g.std == nil || !args.ok || len(args.kinds) == 0 {
 		return nil
 	}
-	byRecv, isIface := g.std.byIface[spelling]
-	if !isIface {
+	fn := g.calleeInterfaceFunc(g.calleeAt(t))
+	if fn.IsZero() {
 		return nil
 	}
-	f := stdPick(byRecv[args.kinds[0]], args.kinds)
+	fs := g.std.stdIfaceImpls(fn, args.kinds[0])
+	f := bl.pickedByKinds(t, viaPickStdIface, fs, args.kinds)
 	p := bl.stdFuncPlan(t, args, f)
 	if p == nil {
 		p = bl.shadowedIfacePlan(t, args, f)
@@ -500,7 +458,7 @@ func (bl *irScalarBuilder) stdIfacePlan(t *ast.Call, args irQualArgs, iface, met
 // `Bytes.to_string` names, and an interface qualifier names the impl
 // unambiguously; its retained body has its own declaration symbol.
 func (bl *irScalarBuilder) shadowedIfacePlan(t *ast.Call, args irQualArgs, f *stdFunc) *irQualPlan {
-	if f == nil || f.why != shadowedByInherent || f.iface == "" {
+	if f == nil || f.why != shadowedByInherent || f.iface.IsZero() {
 		return nil
 	}
 	if f.canon != nil {
@@ -512,5 +470,5 @@ func (bl *irScalarBuilder) shadowedIfacePlan(t *ast.Call, args irQualArgs, f *st
 	if !bl.qualSignature(t, args, f.params, f.result) {
 		return nil
 	}
-	return &irQualPlan{token: f, name: f.iface + "." + f.name, result: f.result, sym: f.irBody.Sym()}
+	return &irQualPlan{token: f, name: f.iface.Name + "." + f.name, result: f.result, sym: f.irBody.Sym()}
 }

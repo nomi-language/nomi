@@ -13,7 +13,7 @@ import (
 // The one implementation of `nomi test`'s reporting.
 //
 // Every caller must produce this output byte for byte: `nomi test` on the VM,
-// the FFI wrapper's test mode, and the golden files that record it. A second
+// and the golden files that record it. A second
 // formatter would make every comparison between them a comparison of
 // formatters.
 //
@@ -36,6 +36,9 @@ type TestReporter struct {
 	passed  int
 	failed  int
 	blocked int
+	// unchanged is how many of the passed cases were not run, since a
+	// stored pass matched their code (DecidedUnchanged).
+	unchanged int
 }
 
 func NewTestReporter(w io.Writer) *TestReporter {
@@ -58,7 +61,38 @@ type CaseCount struct {
 	// Cases is the number of cases, and Failed how many of them failed.
 	Cases  int
 	Failed int
+	// Decided is how a runner that keeps stored passes (vmhost's) decided
+	// whether to run the test, one of the Decided constants, or "" for a
+	// runner that keeps none. A test DecidedUnchanged did not run: it
+	// passed, with the cases its stored pass counted.
+	Decided string
+	// Effects says the test's code can have effects, which such a runner
+	// works out before deciding; false when Decided is "".
+	Effects bool
 }
+
+// How a runner that keeps stored passes decided whether to run a test
+// (CaseCount.Decided): the JSON record's `decided`.
+const (
+	// DecidedUnchanged is a test that did not run: a stored pass holds its
+	// code, and it has no effects or the run skips those too.
+	DecidedUnchanged = "unchanged"
+	// DecidedEffects is a test that ran because it has effects.
+	DecidedEffects = "effects"
+	// DecidedNew is a test that ran because no stored pass holds it.
+	DecidedNew = "new"
+	// DecidedChanged is a test that ran because its code or its settings
+	// differ from its stored pass's.
+	DecidedChanged = "changed"
+	// DecidedMoved is a test that ran because an assertion whose failure is
+	// a value moved, though its code is its stored pass's.
+	DecidedMoved = "moved"
+	// DecidedAll is a test that ran because the run runs every test.
+	DecidedAll = "all"
+)
+
+// unchanged reports whether c is a test that did not run.
+func (c CaseCount) unchanged() bool { return c.Decided == DecidedUnchanged }
 
 // CountCases is the CaseCount of a test that ran rows rows of `subtests`
 // tables (EnterSubtests) and ended with err, nil when it passed. A test's
@@ -101,6 +135,9 @@ func (c CaseCount) resolve(err error) CaseCount {
 func (r *TestReporter) tally(c CaseCount) {
 	r.passed += c.Cases - c.Failed
 	r.failed += c.Failed
+	if c.unchanged() {
+		r.unchanged += c.Cases
+	}
 }
 
 // Result reports one test that ran, named as the report shows it, with the
@@ -121,16 +158,25 @@ func (r *TestReporter) Result(name string, err error, output string, count CaseC
 
 // OKLine is the text after `ok ` on a passed test's line: its name, and for
 // a test that ran a `subtests` table its count of cases,
-// `abbreviates phrases (9 cases)`. Its passing rows are not listed.
+// `abbreviates phrases (9 cases)`. Its passing rows are not listed. A test
+// that did not run, since its code is a stored pass's, says so:
+// `adds (unchanged)`, `abbreviates phrases (9 cases, unchanged)`.
 func OKLine(name string, count CaseCount) string {
-	if !count.Subtests {
+	var notes []string
+	if count.Subtests {
+		noun := "cases"
+		if count.Cases == 1 {
+			noun = "case"
+		}
+		notes = append(notes, fmt.Sprintf("%d %s", count.Cases, noun))
+	}
+	if count.unchanged() {
+		notes = append(notes, "unchanged")
+	}
+	if len(notes) == 0 {
 		return name
 	}
-	noun := "cases"
-	if count.Cases == 1 {
-		noun = "case"
-	}
-	return fmt.Sprintf("%s (%d %s)", name, count.Cases, noun)
+	return fmt.Sprintf("%s (%s)", name, strings.Join(notes, ", "))
 }
 
 // writeOK is the text report's line for a passed test, and the test's output
@@ -270,41 +316,41 @@ func (r *TestReporter) BlockedCount() int { return r.blocked }
 
 // Counts returns the tally: the two numbers Summary prints and the exit status
 // is derived from.
-//
-// It exists because the FFI wrapper reports a file's cases through this
-// reporter and then has to hand the same two numbers back to the parent
-// process over its result marker. Counting them a second time in the wrapper
-// is what this type's header rules out.
 func (r *TestReporter) Counts() (passed, failed int) { return r.passed, r.failed }
 
 // Summary prints the `test result:` line and reports whether anything failed
 // or was blocked.
 //
 // The blocked count is appended only when it is not zero, so a run with no
-// blocked case prints exactly the line it always has. The verdict word is
-// FAILED when a case failed, BLOCKED when none failed and one was blocked, and
-// ok otherwise.
+// blocked case prints exactly the line it always has, and so is the split of
+// the cases that passed and failed into those that ran and those a stored
+// pass answered (`; 3 ran, 4213 unchanged`). The verdict word is FAILED when
+// a case failed, BLOCKED when none failed and one was blocked, and ok
+// otherwise.
 func (r *TestReporter) Summary() bool {
 	if r.format == TestFormatJSON {
 		r.writeSummary()
 		return r.failed > 0 || r.blocked > 0
 	}
-	blocked := ""
+	tail := ""
 	if r.blocked > 0 {
-		blocked = fmt.Sprintf(", %s blocked", Red(fmt.Sprintf("%d", r.blocked)))
+		tail = fmt.Sprintf(", %s blocked", Red(fmt.Sprintf("%d", r.blocked)))
+	}
+	if r.unchanged > 0 {
+		tail += fmt.Sprintf("; %d ran, %d unchanged", r.passed+r.failed-r.unchanged, r.unchanged)
 	}
 	if r.failed > 0 {
 		fmt.Fprintf(r.w, "test result: %s. %s passed, %s failed%s\n",
-			Red("FAILED"), Green(fmt.Sprintf("%d", r.passed)), Red(fmt.Sprintf("%d", r.failed)), blocked)
+			Red("FAILED"), Green(fmt.Sprintf("%d", r.passed)), Red(fmt.Sprintf("%d", r.failed)), tail)
 		return true
 	}
 	if r.blocked > 0 {
 		fmt.Fprintf(r.w, "test result: %s. %s passed, %d failed%s\n",
-			Red("BLOCKED"), Green(fmt.Sprintf("%d", r.passed)), r.failed, blocked)
+			Red("BLOCKED"), Green(fmt.Sprintf("%d", r.passed)), r.failed, tail)
 		return true
 	}
-	fmt.Fprintf(r.w, "test result: %s. %s passed, %d failed\n",
-		Green("ok"), Green(fmt.Sprintf("%d", r.passed)), r.failed)
+	fmt.Fprintf(r.w, "test result: %s. %s passed, %d failed%s\n",
+		Green("ok"), Green(fmt.Sprintf("%d", r.passed)), r.failed, tail)
 	return false
 }
 

@@ -108,6 +108,23 @@ type declineCensus struct {
 	// second route to the expression would build on it.
 	failures int
 	frames   []int
+	// declined counts the attempts that declined (close), and lastDeclined
+	// is the last one's reason: an abstract body reads them for the bodies
+	// its closure built (abstract.go).
+	declined     int
+	lastDeclined string
+	// abstract is set while the lowering builds its abstract bodies
+	// (abstract.go): each module a gen opens meanwhile is a module of
+	// abstract bodies (ir.Module.SetAbstract), which no program links. open
+	// is the type parameters those bodies leave open, which project answers
+	// by their identity (openType), each with the kind it is held at where
+	// it was opened.
+	// declinedFns is, while abstract is set, each declaration whose body
+	// declined (irScalarLower), in order: what an abstract body's answer
+	// is short of.
+	abstract    bool
+	open        map[*analysis.TypeParam_]kind
+	declinedFns []*ast.FuncDef
 }
 
 // newDeclineCensus is a lowering's census, observed by hooks.
@@ -279,6 +296,8 @@ var irDeclineUnnamed func(fn string)
 // reason recorded", so it is recorded here with a reason that says the
 // builder is at fault, and the test hook is told.
 func (dc *declineCensus) close() {
+	dc.declined++
+	defer func() { dc.lastDeclined = dc.why }()
 	if dc.why != "" {
 		return
 	}
@@ -297,7 +316,7 @@ func (bl *irScalarBuilder) lower(n ast.Node) (ir.Temp, kind, bool, bool) {
 		// A value of Infallible takes the kind its position settled, as a
 		// `todo` does (irnever.go).
 		// kindInvalid: lookup — no settled kind leaves the value Infallible.
-		if want := bl.g.neverSettledKind(n); want != kindInvalid {
+		if want, settled := bl.g.settledKind(n); settled && want != kindInvalid {
 			if v, retyped := bl.neverAs(n, t, k, want); retyped {
 				t, k = v, want
 			}
@@ -465,11 +484,11 @@ func (bl *irScalarBuilder) declineReason(n ast.Node) string {
 		}
 		return "an arithmetic operand or its kind"
 	case *ast.Ident:
-		if _, held := bl.bound[t.Name]; held {
+		l, held := bl.heldLocal(t)
+		switch {
+		case held && l.temp != ir.NoTemp:
 			return "a bound name (unreachable)"
-		}
-		l, bound := bl.g.lookup(t.Name)
-		if !bound {
+		case !held:
 			return "an ident bound nowhere this builder can see"
 		}
 		return "an ident kind outside the domain: " + l.k.nomi()
@@ -497,7 +516,7 @@ func (bl *irScalarBuilder) declineReason(n ast.Node) string {
 		}
 		switch o := t.Object.(type) {
 		case *ast.Ident:
-			if l, bound := bl.g.lookup(o.Name); bound {
+			if l, held := bl.heldLocal(o); held {
 				return "a field access on a local of kind " + l.k.nomi() + ": ." + name
 			}
 			return "a field access on an unbound name " + o.Name + ": ." + name
@@ -520,7 +539,7 @@ func (bl *irScalarBuilder) declineCallReason(t *ast.Call) string {
 		if fa.Field == nil {
 			return "a qualified callee with no field"
 		}
-		if bl.qualCalleeIsValue(fa) {
+		if bl.qualCalleeIsValue(t, fa) {
 			return "a call through a value read by a field chain: ." + fa.Field.Name
 		}
 		switch obj := fa.Object.(type) {

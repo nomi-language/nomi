@@ -10,8 +10,9 @@ import (
 
 	"github.com/BurntSushi/toml"
 
-	"github.com/nomi-language/nomi/internal/capability"
 	"github.com/nomi-language/nomi/internal/cldrfull"
+	"github.com/nomi-language/nomi/internal/effects"
+	"github.com/nomi-language/nomi/internal/modcache"
 	"github.com/nomi-language/nomi/internal/stdformat"
 	"github.com/nomi-language/nomi/internal/stdlocale"
 )
@@ -26,9 +27,20 @@ var ErrManifestMissing = errors.New("nomi.toml not found")
 //
 //	[module]
 //	name = "..."
+//	path = "..."
 //	entry_points = [...]
+//
+//	[dependencies]
+//	name = { module = "...", version = "..." }
 type Manifest struct {
 	Name string // [module].name
+	// Path is [module].path, the module path the module is published
+	// under, or "".
+	Path string
+	// Dependencies is the [dependencies] table as modcache.ParseModuleFile
+	// reads it, sorted by name: each module the module's files import, by
+	// the name they import it by.
+	Dependencies []modcache.Requirement
 	// EntryPoints is [module].entry_points: paths under the module root,
 	// .nomi implicit. The module's tools are entry points too without being
 	// listed (IsEntry, Entries).
@@ -58,111 +70,120 @@ type Manifest struct {
 	// each as its literal writes it (`PTS:0`), in the manifest's order. Nil
 	// or empty allows none.
 	CustomCurrencies []string
-	// Capabilities is the [capabilities.self] and [capabilities.deps]
-	// tables: what the module's own code, and the code of the modules it
-	// depends on, may reach outside the machine. Nil when the manifest has
-	// neither table, which holds nothing.
-	Capabilities *Capabilities
+	// Effects is the [effects.self] and [effects.deps]
+	// tables: the effects the module's own code, and the code of the
+	// modules it depends on, may have. Nil when the manifest has neither
+	// table, which holds nothing.
+	Effects *Effects
 }
 
-// Capabilities is nomi.toml's capability tables: the outside calls the
-// module's own files, and the files of the modules it depends on, may make
-// (vmhost's OutsideCallsNotAllowed). A std list's names are `std::` and a
+// Effects is nomi.toml's effects tables: the effects the
+// module's own files, and the files of the modules it depends on, may have
+// (vmhost's EffectCallsNotAllowed). A std list's names are `std::` and a
 // std module as an import writes it (`std::fs`), or `std::startup`; a list
-// of dependencies holds module paths as go.mod writes them. The parser
-// checks each entry's form; whether a std module has outside functions and
-// a module is one the project requires is the program's to answer
-// (vmhost).
+// of dependencies holds their names as [dependencies] writes them. The parser
+// checks each entry's form; whether a std module has functions with
+// effects and a module is one the project requires is the program's to
+// answer (vmhost).
 //
-// When the project has a [capabilities.deps] table, a dependency's own
-// [capabilities.self] holds the dependency too: its Std is the list it
-// declares for its own files, and its Go says whether it binds Go. A
-// dependency's Go never grants: the project's Deps.Go must list the
-// module. Its StdInTests, GoInTests and Deps are for its own builds and
-// are not read when it is a dependency.
-type Capabilities struct {
-	// Self is [capabilities.self], nil when the manifest leaves it out,
-	// which holds the module's own code to nothing.
-	Self *SelfCapabilities
-	// Deps is [capabilities.deps] with [capabilities.deps.modules], nil
+// When the project has an [effects.deps] table, a dependency's own
+// [effects.self] holds the dependency too: its Std is the list it
+// declares for its own files, and its Modules the entries it declares for
+// its own modules. Its StdInTests, EntriesRequired and Deps are for its
+// own builds and are not read when it is a dependency.
+type Effects struct {
+	// Self is [effects.self] with [effects.self.modules], nil
+	// when the manifest leaves both out, which holds the module's own code
+	// to nothing.
+	Self *SelfEffects
+	// Deps is [effects.deps] with [effects.deps.modules], nil
 	// when the manifest leaves both out, which holds the dependencies to
 	// nothing.
-	Deps *DepsCapabilities
+	Deps *DepsEffects
 }
 
-// SelfCapabilities is [capabilities.self]: what the calls written in the
-// module's own files may reach.
-type SelfCapabilities struct {
-	// Std is the std names its own files may reach. Empty when the table
-	// leaves it out, which allows no std call.
+// EntryLists is the lists that hold entries, each a table under
+// [effects] keyed by the code an entry is for:
+// [effects.self.modules] by a module of the project as its own code
+// imports it, and [effects.deps.modules] by a dependency's name as
+// [dependencies] names it.
+var EntryLists = []string{ListSelfModules, ListDepsModules}
+
+// Entries is the table of entries list names, one of EntryLists: each
+// entry's key and its std names, nil when c leaves the table out.
+func (c *Effects) Entries(list string) map[string][]string {
+	switch {
+	case list == ListSelfModules && c.Self != nil:
+		return c.Self.Modules
+	case list == ListDepsModules && c.Deps != nil:
+		return c.Deps.Modules
+	}
+	return nil
+}
+
+// EntryKeyPath is the path of the key of list's entry for key, as
+// ManifestKeyLine reads it: `effects`, the list's table, and the key.
+func EntryKeyPath(list, key string) []string {
+	return append(append([]string{"effects"}, strings.Split(list, ".")...), key)
+}
+
+// SelfEffects is [effects.self] and [effects.self.modules]:
+// the effects the calls written in the module's own files may have.
+type SelfEffects struct {
+	// Std is the effects its own files may have, by std name. Empty when
+	// the table leaves it out, which allows no std call.
 	Std []string
 	// StdInTests is added to Std when the roots are test cases.
 	StdInTests []string
-	// Go says whether its own files may bind Go, and GoInTests whether
-	// they may when the roots are test cases. Both are false when left
-	// out.
-	Go, GoInTests bool
+	// EntriesRequired is entries_required: every module of the project
+	// whose files the program loads must have an entry under Modules.
+	EntriesRequired bool
+	// Modules is [effects.self.modules]: for a module of the project,
+	// by its import path as the project's own code writes it (`pricing`,
+	// `reports::daily`, `pricing_test`), the std names that module's files
+	// may have, within Std. A module with no entry is held by Std alone.
+	// Nil when the manifest has no such table.
+	Modules map[string][]string
 }
 
-// DepsCapabilities is [capabilities.deps] and [capabilities.deps.modules]:
-// what the calls written in the files of the modules the project depends
-// on, directly or transitively, may reach.
-type DepsCapabilities struct {
+// DepsEffects is [effects.deps] and [effects.deps.modules]:
+// the effects the calls written in the files of the modules the project
+// depends on, directly or transitively, may have.
+type DepsEffects struct {
 	// EntriesRequired is entries_required: every dependency whose Nomi
-	// files the program loads must have an entry under Modules or a
-	// [capabilities.self] of its own.
+	// files the program loads must have an entry under Modules or an
+	// [effects.self] of its own.
 	EntriesRequired bool
-	// Std is the most any dependency's files may reach, a ceiling over
+	// Std is the most any dependency's files may have, a ceiling over
 	// every entry. Nil when the table leaves it out, which sets no
 	// ceiling; empty, not nil, for `std = []`, which allows nothing.
 	Std []string
 	// StdInTests is added to Std when the roots are test cases. The table
 	// sets it only beside Std.
 	StdInTests []string
-	// Go is the dependencies whose Nomi code may bind Go, each by its path
-	// as go.mod writes it. Empty when the table leaves it out, which lets
-	// no dependency bind Go.
-	Go []string
-	// GoInTests is added to Go when the roots are test cases.
-	GoInTests []string
-	// Modules is [capabilities.deps.modules]: for a module the project
-	// requires, by its path as go.mod writes it, the std names that
-	// module's own files may reach. A dependency with no entry is held by
-	// Std and its own [capabilities.self] alone.
+	// Modules is [effects.deps.modules]: for a module the project
+	// needs, by its name as [dependencies] names it, the std names that
+	// module's own files may have. A dependency with no entry is held by
+	// Std and its own [effects.self] alone.
 	Modules map[string][]string
 }
 
 // StdFor is the std names s allows its own files, with StdInTests when
 // tests is set.
-func (s *SelfCapabilities) StdFor(tests bool) []string {
+func (s *SelfEffects) StdFor(tests bool) []string {
 	if tests {
 		return append(slices.Clone(s.Std), s.StdInTests...)
 	}
 	return s.Std
 }
 
-// GoFor reports whether s lets its own files bind Go, with GoInTests when
-// tests is set.
-func (s *SelfCapabilities) GoFor(tests bool) bool {
-	return s.Go || tests && s.GoInTests
-}
-
 // StdFor is d's ceiling, with StdInTests when tests is set; nil when d sets
 // none.
-func (d *DepsCapabilities) StdFor(tests bool) []string {
+func (d *DepsEffects) StdFor(tests bool) []string {
 	if tests && d.Std != nil {
 		return append(slices.Clone(d.Std), d.StdInTests...)
 	}
 	return d.Std
-}
-
-// GoFor is the dependencies d lets bind Go, with GoInTests when tests is
-// set.
-func (d *DepsCapabilities) GoFor(tests bool) []string {
-	if tests {
-		return append(slices.Clone(d.Go), d.GoInTests...)
-	}
-	return d.Go
 }
 
 // ToolsDir is the directory under a module's root that holds its tools,
@@ -279,9 +300,11 @@ const (
 type manifestFile struct {
 	Module struct {
 		Name        string   `toml:"name"`
+		Path        string   `toml:"path"`
 		EntryPoints []string `toml:"entry_points"`
 	} `toml:"module"`
-	I18n struct {
+	Dependencies map[string]modcache.DependencyEntry `toml:"dependencies"`
+	I18n         struct {
 		Locales        *[]string `toml:"locales"`
 		SourceLocale   *string   `toml:"source_locale"`
 		PartialLocales *[]string `toml:"partial_locales"`
@@ -291,44 +314,39 @@ type manifestFile struct {
 	Money struct {
 		CustomCurrencies []string `toml:"custom_currencies"`
 	} `toml:"money"`
-	Capabilities *struct {
+	Effects *struct {
 		Self *struct {
-			Std        []string `toml:"std"`
-			StdInTests []string `toml:"std_in_tests"`
-			Go         any      `toml:"go"`
-			GoInTests  any      `toml:"go_in_tests"`
-		} "toml:\"self\" keys:\"`std` lists the std modules this module's own code may reach and `std_in_tests` those its tests may also reach, and `go` and `go_in_tests` are true or false: whether its own code, or its tests, may bind Go\""
+			EntriesRequired bool                `toml:"entries_required"`
+			Std             []string            `toml:"std"`
+			StdInTests      []string            `toml:"std_in_tests"`
+			Modules         map[string][]string `toml:"modules"`
+		} "toml:\"self\" keys:\"`std` lists the effects this module's own code may have, by std module, and `std_in_tests` those its tests may also have, `entries_required` makes every module of the project have an entry, and [effects.self.modules] holds an entry for each of its modules\""
 		Deps *struct {
 			EntriesRequired bool                `toml:"entries_required"`
 			Std             []string            `toml:"std"`
 			StdInTests      []string            `toml:"std_in_tests"`
-			Go              any                 `toml:"go"`
-			GoInTests       any                 `toml:"go_in_tests"`
 			Modules         map[string][]string `toml:"modules"`
-		} "toml:\"deps\" keys:\"`std` and `std_in_tests` list the most std modules any dependency may reach, `go` and `go_in_tests` the dependencies whose Go may run, `entries_required` makes every dependency have an entry, and [capabilities.deps.modules] holds an entry for each dependency\""
-	} "toml:\"capabilities\" keys:\"it holds two tables: [capabilities.self] is what this module's own code may reach, and [capabilities.deps] what the code of the modules it depends on may reach\""
+		} "toml:\"deps\" keys:\"`std` and `std_in_tests` list the most effects any dependency may have, `entries_required` makes every dependency have an entry, and [effects.deps.modules] holds an entry for each dependency\""
+	} "toml:\"effects\" keys:\"it holds two tables: [effects.self] is the effects this module's own code may have, and [effects.deps] the effects the code of the modules it depends on may have\""
 }
 
-// capabilityLists checks [capabilities.self] and [capabilities.deps]: each
-// std list's names `std::<module>` (capability.NameProblem), each list of
-// dependencies' module paths (capability.ModuleProblem), each listed once
-// in its list, self's go and go_in_tests true or false, deps' go and
-// go_in_tests lists, deps' std_in_tests only beside its std, and each
-// module path under [capabilities.deps.modules] non-empty. A `go:` name in
-// a std list is an error that says how Go is allowed, and a `host:` name
-// is a function an embedding Go program supplies, which a manifest cannot
+// effectLists checks [effects.self] and [effects.deps]: each
+// std list's names `std::<module>` (effects.NameProblem), each listed
+// once in its list, deps' std_in_tests only beside its std, and each
+// module path under [effects.deps.modules] non-empty. A `host:` name is a
+// function an embedding Go program supplies, which a manifest cannot
 // allow.
-func capabilityLists(raw manifestFile, data []byte, sourceLabel string) (*Capabilities, error) {
-	if raw.Capabilities == nil || raw.Capabilities.Self == nil && raw.Capabilities.Deps == nil {
+func effectLists(raw manifestFile, data []byte, sourceLabel string) (*Effects, error) {
+	if raw.Effects == nil || raw.Effects.Self == nil && raw.Effects.Deps == nil {
 		return nil, nil
 	}
 	at := func(line int) *ManifestError { return &ManifestError{Path: sourceLabel, Line: line} }
-	check := func(problemOf func(string) string, table, list string, names []string, path ...string) ([]string, error) {
+	check := func(table, list string, names []string, path ...string) ([]string, error) {
 		seen := map[string]bool{}
 		out := []string{}
 		for _, name := range names {
 			at := at(ManifestEntryLine(data, name, path...))
-			if problem := problemOf(name); problem != "" {
+			if problem := effects.NameProblem(name); problem != "" {
 				return nil, at.with("[%s] %s: %q %s", table, list, name, problem)
 			}
 			if seen[name] {
@@ -339,100 +357,63 @@ func capabilityLists(raw manifestFile, data []byte, sourceLabel string) (*Capabi
 		}
 		return out, nil
 	}
-	stdName := func(goFix string) func(string) string {
-		return func(name string) string { return capability.NameProblem(name, goFix) }
+	// entries is the table of entries list holds, raw as decoded: each key
+	// non-empty, and each entry a list of std names. writeKey says how a
+	// key is written, for the error at an empty one.
+	entries := func(list string, raw map[string][]string, writeKey string) (map[string][]string, error) {
+		table := "effects." + list
+		out := make(map[string][]string, len(raw))
+		keys := make([]string, 0, len(raw))
+		for key := range raw {
+			keys = append(keys, key)
+		}
+		slices.Sort(keys)
+		for _, key := range keys {
+			if strings.TrimSpace(key) == "" {
+				return nil, at(ManifestKeyLine(data, EntryKeyPath(list, key)...)).with("[%s] has an empty key; %s", table, writeKey)
+			}
+			var err error
+			if out[key], err = check(table, fmt.Sprintf("%q", key), raw[key], EntryKeyPath(list, key)...); err != nil {
+				return nil, err
+			}
+		}
+		return out, nil
 	}
-	c := &Capabilities{}
+	c := &Effects{}
 	var err error
-	if s := raw.Capabilities.Self; s != nil {
-		c.Self = &SelfCapabilities{}
-		std := stdName("Go is allowed by module, not by package: set go = true under [capabilities.self] to let this module's own code bind Go")
-		if c.Self.Std, err = check(std, "capabilities.self", "std", s.Std, "capabilities", "self", "std"); err != nil {
+	if s := raw.Effects.Self; s != nil {
+		c.Self = &SelfEffects{EntriesRequired: s.EntriesRequired}
+		if s.Modules != nil {
+			if c.Self.Modules, err = entries(ListSelfModules, s.Modules, "write a module as the project's own code imports it, such as \"pricing\""); err != nil {
+				return nil, err
+			}
+		}
+		if c.Self.Std, err = check("effects.self", "std", s.Std, "effects", "self", "std"); err != nil {
 			return nil, err
 		}
-		if c.Self.StdInTests, err = check(std, "capabilities.self", "std_in_tests", s.StdInTests, "capabilities", "self", "std_in_tests"); err != nil {
+		if c.Self.StdInTests, err = check("effects.self", "std_in_tests", s.StdInTests, "effects", "self", "std_in_tests"); err != nil {
 			return nil, err
-		}
-		for _, key := range []struct {
-			name  string
-			value any
-			into  *bool
-		}{{"go", s.Go, &c.Self.Go}, {"go_in_tests", s.GoInTests, &c.Self.GoInTests}} {
-			if key.value == nil {
-				continue
-			}
-			on, ok := key.value.(bool)
-			if !ok {
-				return nil, at(ManifestKeyLine(data, "capabilities", "self", key.name)).with(
-					"[capabilities.self] %s is true or false: whether this module's own code may bind Go; the dependencies whose Go may run are listed in go under [capabilities.deps]", key.name)
-			}
-			*key.into = on
 		}
 	}
-	if d := raw.Capabilities.Deps; d != nil {
-		c.Deps = &DepsCapabilities{EntriesRequired: d.EntriesRequired, Modules: map[string][]string{}}
-		std := stdName("Go is allowed by module, not by package: list the dependency that binds it in go under [capabilities.deps]")
+	if d := raw.Effects.Deps; d != nil {
+		c.Deps = &DepsEffects{EntriesRequired: d.EntriesRequired}
 		if d.Std != nil {
-			if c.Deps.Std, err = check(std, "capabilities.deps", "std", d.Std, "capabilities", "deps", "std"); err != nil {
+			if c.Deps.Std, err = check("effects.deps", "std", d.Std, "effects", "deps", "std"); err != nil {
 				return nil, err
 			}
 		}
 		if d.StdInTests != nil && d.Std == nil {
-			return nil, at(ManifestKeyLine(data, "capabilities", "deps", "std_in_tests")).with(
-				"[capabilities.deps] std_in_tests adds to std, which the table leaves out; with no std, no ceiling holds the dependencies")
+			return nil, at(ManifestKeyLine(data, "effects", "deps", "std_in_tests")).with(
+				"[effects.deps] std_in_tests adds to std, which the table leaves out; with no std, no ceiling holds the dependencies")
 		}
-		if c.Deps.StdInTests, err = check(std, "capabilities.deps", "std_in_tests", d.StdInTests, "capabilities", "deps", "std_in_tests"); err != nil {
+		if c.Deps.StdInTests, err = check("effects.deps", "std_in_tests", d.StdInTests, "effects", "deps", "std_in_tests"); err != nil {
 			return nil, err
 		}
-		for _, key := range []struct {
-			name  string
-			value any
-			into  *[]string
-		}{{"go", d.Go, &c.Deps.Go}, {"go_in_tests", d.GoInTests, &c.Deps.GoInTests}} {
-			names, ok := stringList(key.value)
-			if !ok {
-				return nil, at(ManifestKeyLine(data, "capabilities", "deps", key.name)).with(
-					"[capabilities.deps] %s lists the dependencies whose Go may run, by module path; whether this module's own code may bind Go is go under [capabilities.self]", key.name)
-			}
-			if *key.into, err = check(capability.ModuleProblem, "capabilities.deps", key.name, names, "capabilities", "deps", key.name); err != nil {
-				return nil, err
-			}
-		}
-		paths := make([]string, 0, len(d.Modules))
-		for path := range d.Modules {
-			paths = append(paths, path)
-		}
-		slices.Sort(paths)
-		for _, path := range paths {
-			if strings.TrimSpace(path) == "" {
-				return nil, at(ManifestKeyLine(data, "capabilities", "deps", "modules", path)).with(
-					"[capabilities.deps.modules] has an empty module path; write a module's path as go.mod requires it")
-			}
-			if c.Deps.Modules[path], err = check(std, "capabilities.deps.modules", fmt.Sprintf("%q", path), d.Modules[path], "capabilities", "deps", "modules", path); err != nil {
-				return nil, err
-			}
+		if c.Deps.Modules, err = entries(ListDepsModules, d.Modules, "write a dependency's name as [dependencies] names it"); err != nil {
+			return nil, err
 		}
 	}
 	return c, nil
-}
-
-// stringList is value, a TOML value decoded into an any, as a list of
-// strings: ok when it is one, or when it is nil, which is no key.
-func stringList(value any) ([]string, bool) {
-	if value == nil {
-		return nil, true
-	}
-	items, ok := value.([]any)
-	if !ok {
-		return nil, false
-	}
-	out := make([]string, len(items))
-	for i, item := range items {
-		if out[i], ok = item.(string); !ok {
-			return nil, false
-		}
-	}
-	return out, true
 }
 
 // customCurrencies checks [money].custom_currencies: each entry a custom
@@ -470,7 +451,7 @@ func i18nLocales(raw *[]string, sourceLabel string) ([]string, error) {
 	seen := map[string]string{}
 	out := make([]string, 0, len(*raw))
 	for _, tag := range *raw {
-		a := stdlocale.FFIParse(tag)
+		a := stdlocale.HostParse(tag)
 		if a.Kind != stdlocale.KindOK {
 			return nil, fmt.Errorf("%s: [i18n] locales: %q is not a locale tag%s", sourceLabel, tag, localeHint(a))
 		}
@@ -590,10 +571,10 @@ func LoadManifest(dir string) (*Manifest, error) {
 }
 
 // ParseManifestIn parses data as the nomi.toml of the directory dir, as
-// LoadManifest parses the file there: a table named for a module the
-// project requires is its tools'.
+// LoadManifest parses the file there: a table named for a module data's
+// [dependencies] names is its tools'.
 func ParseManifestIn(dir string, data []byte) (*Manifest, error) {
-	return parseManifestData(data, filepath.Join(dir, "nomi.toml"), isStdlibManifestDir(dir), func() []string { return toolTables(dir) })
+	return parseManifestData(data, filepath.Join(dir, "nomi.toml"), isStdlibManifestDir(dir), func() []string { return toolTables(data) })
 }
 
 // ParseManifestData parses nomi.toml content from a byte slice and
@@ -648,8 +629,18 @@ func parseManifestData(data []byte, sourceLabel string, allowStdName bool, tools
 	if err != nil {
 		return nil, err
 	}
+	mf, err := modcache.ParseModuleFile(data)
+	if err != nil {
+		var problem *modcache.ManifestProblem
+		if errors.As(err, &problem) {
+			return nil, (&ManifestError{Path: sourceLabel, Line: ManifestKeyLine(data, problem.Key...)}).with("%s", problem.Error())
+		}
+		return nil, fmt.Errorf("parse %s: %w", sourceLabel, err)
+	}
 	m := &Manifest{
 		Name:         raw.Module.Name,
+		Path:         mf.Path,
+		Dependencies: mf.Requires,
 		EntryPoints:  append([]string(nil), raw.Module.EntryPoints...),
 		Locales:      locales,
 		SourceLocale: DefaultSourceLocale,
@@ -661,7 +652,7 @@ func parseManifestData(data []byte, sourceLabel string, allowStdName bool, tools
 	if m.CustomCurrencies, err = customCurrencies(raw.Money.CustomCurrencies, sourceLabel); err != nil {
 		return nil, err
 	}
-	if m.Capabilities, err = capabilityLists(raw, data, sourceLabel); err != nil {
+	if m.Effects, err = effectLists(raw, data, sourceLabel); err != nil {
 		return nil, err
 	}
 	return m, nil

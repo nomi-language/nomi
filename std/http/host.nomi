@@ -8,8 +8,7 @@ import
     bytes.Bytes
     context.Context
     int.{Int, NonNegativeInt}
-    io.Reader
-    io.Writer
+    io.{Error, Reader, Writer}
     lists.List
     maybe.Maybe.{self, None, Some}
     results.Result
@@ -67,11 +66,14 @@ pub host fn default_client() -> Client
 /// Closes the client's idle connections.
 pub host fn close_idle(client: Client) -> Unit
 
-/// Sends one request. `headers` and `trailers` alternate name and value;
-/// `body_kind` is 0 for none, 1 for `data`, 2 for `input`; a negative
-/// `content_length` is unknown. With `stream` the body stays open; without
-/// it the body is read whole, refused past `max_body` bytes unless that is
-/// negative. An `Err` is an `http.Error` variant's name and its fields.
+/// Sends one request through `client`, a handle the caller made, so a
+/// call makes nothing of its own. `headers` and `trailers` alternate name
+/// and value; `body_kind` is 0 for none, 1 for `data`, 2 for `input`,
+/// which is `None` for the others; a negative `content_length` is
+/// unknown. With `stream` the body stays open; without it the body is
+/// read whole, refused past `max_body` bytes unless that is negative.
+/// `tracer` records the request's events when it is given. An `Err` is an
+/// `http.Error` variant's name and its fields.
 pub host fn send(
     client:         Client,
     method:         String,
@@ -79,15 +81,14 @@ pub host fn send(
     headers:        List<String>,
     body_kind:      Int,
     data:           Bytes,
-    input:          Reader,
+    input:          Maybe<Reader>,
     content_length: Int,
     host:           String,
     close:          Bool,
     trailers:       List<String>,
     stream:         Bool,
     max_body:       Int,
-    tracer:         Handle,
-    traced:         Bool,
+    tracer:         Maybe<Handle>,
 ) -> Result<Exchange, List<String>>
 
 pub host fn status(exchange: Exchange) -> Int
@@ -256,7 +257,8 @@ pub host fn new_mux(patterns: List<String>) -> Result<Mux, List<String>>
 
 /// Matches a request as the mux's `ServeHTTP` does: `["match", index,
 /// pattern, name, value, ...]`, or `["answer", status, body, name, value,
-/// ...]` for a response the mux makes itself.
+/// ...]` for a response the mux makes itself. Headers crossing from Go come
+/// sorted by name, each name's values in order.
 pub host fn route(mux: Mux, method: String, host: String, target: String) -> List<String>
 
 /// Go's `ServeContent` for `data` named `name`, modified at `modified`
@@ -285,11 +287,16 @@ pub host fn answer_redirect(
 /// Go's `TimeFormat` of an instant in nanoseconds.
 pub host fn format_time(nanos: Int) -> String
 
-/// Go's `ParseTime`, in nanoseconds.
+/// An HTTP-date in any of its three forms, read as GMT, in nanoseconds.
 pub host fn parse_time(text: String) -> Result<Int, String>
 
 /// A reader over `r` that fails past `max` bytes.
 pub host fn limit_body(r: Reader, max: NonNegativeInt) -> Reader
+
+/// What `r` holds, read until its end or until `max` bytes are read, and
+/// the error a read failed with before either, beside the bytes read until
+/// then.
+pub host fn read_at_most(r: Reader, max: Int) -> (Bytes, Maybe<Error>)
 
 /// A cookie jar: Go's net/http/cookiejar.
 pub host type Jar

@@ -6,9 +6,9 @@ import (
 )
 
 // siteCensus counts, while a test has it open, the distinct source sites
-// of each class a verifier finds (noteUnreadOperator, verifyLocalRead,
-// noteComparator, verifyExprKind, noteDebugImpl). Only a program's
-// lowering is counted (a gen with a std instance table, not std's own:
+// of each class a verifier finds (noteUnreadOperator, noteElemImpl, verifyExprKind, noteDebugImpl, noteIrrefutable,
+// noteCallRoute). Only a program's lowering is counted (a gen with a std
+// instance table, not std's own:
 // stdInstances.stdOwn): std's lowerings run once a process, or not at all
 // when its bundle is read back, so counting them would make a count depend
 // on what the artifact cache holds. A census with std set counts std's
@@ -25,11 +25,14 @@ type siteCensus struct {
 
 var (
 	operatorCensus    siteCensus
-	localReadCensus   siteCensus
-	comparatorCensus  siteCensus
+	elemImplCensus    siteCensus
 	exprKindCensus    siteCensus
 	stdExprKindCensus = siteCensus{std: true}
 	debugImplCensus   siteCensus
+	irrefutableCensus siteCensus
+	callRouteCensus   siteCensus
+	// stdCallRouteCensus counts std's own lowerings, to be reported.
+	stdCallRouteCensus = siteCensus{std: true}
 )
 
 // note counts the site (line, col) of the file g lowers under class.

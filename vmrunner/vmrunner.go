@@ -124,13 +124,14 @@ type Option func(*config)
 
 type config struct {
 	hosts    []HostTable
-	forEntry []func(entry string) HostTable
 	compiler func(root string) HostTable
 	// lists are the lists the host holds the program to
-	// (WithCapabilities, WithCapabilitiesFrom).
+	// (WithEffects, WithEffectsFrom).
 	lists []heldList
 	// stop is WithStop's context, or nil.
 	stop context.Context
+	// hostCalls is WithHostCalls' host, or nil.
+	hostCalls *hostCalls
 }
 
 // WithStop bounds what a load or a run runs by ctx: the boot (Start, Boot,
@@ -152,15 +153,10 @@ func (c *config) stopCtx() context.Context {
 	return c.stop
 }
 
-// WithHosts adds host tables: an FFI project's generated adapters.
+// WithHosts adds host tables: an embedder's functions for the `host fn`
+// declarations of the programs it runs.
 func WithHosts(tables ...HostTable) Option {
 	return func(c *config) { c.hosts = append(c.hosts, tables...) }
-}
-
-// WithEntryHosts adds a host table built for the entry's path, which an FFI
-// project's table needs to choose the key a declaration registers under.
-func WithEntryHosts(table func(entry string) HostTable) Option {
-	return func(c *config) { c.forEntry = append(c.forEntry, table) }
 }
 
 // WithCompiler binds std/compiler's hosts for the image's project root.
@@ -265,7 +261,7 @@ func run(image *Image, stdout, stderr io.Writer, stdin io.Reader, args []string,
 		fmt.Fprintf(stderr, "nomi: the compiled program cannot be read: %v\n", err)
 		return 1
 	}
-	if err := networkRefusal(im); err != nil {
+	if err := familyRefusal(im); err != nil {
 		fmt.Fprintf(stderr, "nomi: %v\n", err)
 		return 1
 	}
@@ -310,7 +306,7 @@ func run(image *Image, stdout, stderr io.Writer, stdin io.Reader, args []string,
 		boots = append(boots, boot)
 	}
 	// `nomi build` refused a program the VM would block, so this is a
-	// runner that does not match its image (an FFI binding it lacks).
+	// runner that does not match its image (a host table it lacks).
 	if found := m.Unretained(vm.MainRoots(entry, mainFn), boots); len(found) > 0 {
 		reasons := make([]string, len(found))
 		for i, u := range found {
@@ -409,10 +405,10 @@ func projectHosts(hosts []HostTable, withCompiler bool) []HostTable {
 }
 
 // bind is the tables a machine for im binds, as projectHosts puts them:
-// std/compiler's (WithCompiler), the host's (WithHosts) and the ones built
-// for the entry (WithEntryHosts). It refuses an image whose Go-bound keys
-// no table answers, and holds the program to the host's list
-// (WithCapabilities) from everything a host can run (hostRoots).
+// std/compiler's (WithCompiler) and the host's (WithHosts, and the one
+// WithHostCalls answers through). It refuses an
+// image whose host keys no table answers, and holds the program to the host's list
+// (WithEffects) from everything a host can run (hostRoots).
 func (cfg *config) bind(im ir.Image, entry *ir.Module) ([]HostTable, error) {
 	var compiler HostTable
 	var hosts []HostTable
@@ -421,13 +417,17 @@ func (cfg *config) bind(im ir.Image, entry *ir.Module) ([]HostTable, error) {
 		hosts = append(hosts, compiler)
 	}
 	own := append([]HostTable{}, cfg.hosts...)
-	if entry != nil {
-		for _, t := range cfg.forEntry {
-			own = append(own, t(entry.Name()))
+	supply := "pass one that does (vmrunner.WithHosts)"
+	if cfg.hostCalls != nil {
+		table, err := cfg.hostCalls.table(im, own)
+		if err != nil {
+			return nil, err
 		}
+		own = append(own, table)
+		supply = "list its key in " + cfg.hostCalls.via
 	}
 	hosts = append(hosts, own...)
-	if err := checkHostKeys(im.HostKeys, hosts); err != nil {
+	if err := checkHostKeys(im.HostKeys, hosts, supply); err != nil {
 		return nil, err
 	}
 	roots, boots := hostRoots(im, entry)
@@ -439,7 +439,8 @@ func (cfg *config) bind(im ir.Image, entry *ir.Module) ([]HostTable, error) {
 
 // hostRoots is everything a host can run in im: main and its failure
 // renderer, each exported function with its argument decoders and result
-// encoder, and the entry's boot.
+// encoder, the conversions a JSON host's call of a `host fn` runs
+// (WithHostCalls), and the entry's boot.
 func hostRoots(im ir.Image, entry *ir.Module) ([]*ir.Func, []*ir.Symbol) {
 	if entry == nil {
 		return nil, nil
@@ -454,6 +455,12 @@ func hostRoots(im ir.Image, entry *ir.Module) ([]*ir.Func, []*ir.Symbol) {
 			roots = append(roots, p.Decode)
 		}
 	}
+	for _, h := range im.HostFns {
+		roots = append(roots, h.Decode)
+		for _, p := range h.Params {
+			roots = append(roots, p.Encode)
+		}
+	}
 	var boots []*ir.Symbol
 	if boot := entry.Boot(); boot != nil {
 		boots = append(boots, boot)
@@ -461,10 +468,11 @@ func hostRoots(im ir.Image, entry *ir.Module) ([]*ir.Func, []*ir.Symbol) {
 	return nonNil(roots), boots
 }
 
-// checkHostKeys requires every Go-bound host key the image names to be
-// answered by one of the runner's tables, so a runner built without the
-// project's bindings says so before the program runs.
-func checkHostKeys(keys []string, tables []HostTable) error {
+// checkHostKeys requires every host key the image names (a user file's
+// `host fn`) to be answered by one of the runner's tables, so a runner
+// without the function says so before the program runs; supply says how
+// its host supplies one.
+func checkHostKeys(keys []string, tables []HostTable, supply string) error {
 	if len(keys) == 0 {
 		return nil
 	}
@@ -474,15 +482,14 @@ func checkHostKeys(keys []string, tables []HostTable) error {
 	}
 	for _, k := range keys {
 		if !have[k] {
-			return fmt.Errorf("this nomi-vm has no Go binding for %s; the program was built for a nomi-vm "+
-				"that links its project's Go bindings", k)
+			return fmt.Errorf("no host table of this runner answers %s, a `host fn` the program declares; %s", k, supply)
 		}
 	}
 	return nil
 }
 
 // WriteBlocked prints the report for a program the VM cannot run for a
-// reason that has no source diagnostic (a Go binding a runner lacks, a
+// reason that has no source diagnostic (a host function a runner lacks, a
 // machine limit): one `BLOCKED <label> <reason>` line per reason, then a
 // closing line. A body the compiler could not lower is reported by
 // vmhost.Blocked.Write as `nomi check` reports it, before anything is built.

@@ -117,6 +117,21 @@
 // stage follows goes in parentheses (emitIfParens), and an `if` stage that
 // another stage follows is written in block form.
 //
+// # A value after `=` or `:`
+//
+// A binding, a destructuring and a `once` (emitBindingValue), a struct
+// literal's field and a field's default (emitValueAfter) place their value
+// with one Group: the value on the name's line when it fits, else on the
+// lines below one indent in (belowWhenBroken). A pipeline takes that Group
+// in a binding; in every one of these positions, so does a value closedByEnd
+// says the grammar closes with `end`. Either way the value decides its own
+// layout again once it has moved, so an inline `if` or an inline pipeline
+// too wide for the name's line can sit on one line below it. Every other
+// value stays on the name's line: one closed by a bracket breaks inside its
+// brackets, where the next format finds the same break. The parser takes no
+// comment between `=` and the value, so a moved value's dangling comments
+// end its last line (withDanglingAfter).
+//
 // # Case arms
 //
 // A `case` always breaks, one arm per line, and its arms share one layout

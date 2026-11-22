@@ -213,7 +213,7 @@ func iterMaterializeHint(want, have Type) string {
 			fn = "Iter.to_set"
 		}
 	case *DistinctType:
-		if w.Name == "Vector" && (w.Origin == "std/vectors" || w.Origin == "") {
+		if isStdType(w, stdVectorType) {
 			fn = "Iter.to_vector"
 		}
 	}

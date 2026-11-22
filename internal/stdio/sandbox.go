@@ -38,7 +38,7 @@ func memoryOf(s rt.FileSystem) *Memory {
 // SandboxFail is std/fs/host's `sandbox_fail`: the nth operation op on path
 // fails with err, every one when nth is 0.
 func SandboxFail(s rt.FileSystem, path string, op int64, err rt.IOError, nth rt.Int) rt.Unit {
-	if op < int64(OpRead) || op > int64(OpClose) {
+	if op < int64(OpRead) || op > int64(OpSync) {
 		rt.Trap("std::fs::testing: the operation is not an Operation")
 	}
 	// An nth past int64 saturates: no sandbox runs that many operations,

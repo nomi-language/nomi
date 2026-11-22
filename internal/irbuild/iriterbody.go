@@ -550,7 +550,7 @@ func (bl *irScalarBuilder) iterReduceCall(t *ast.Call, method string) (ir.Temp, 
 		// The accumulator's kind as the callback's first parameter takes
 		// it, so a pattern parameter (`fn (n, xs), x ->`) takes its starting
 		// value whole at the kind its `continue` answers.
-		if seedTemp, ok = lowerSeed(from, bl.g.lambdaParamKind(lam.Params[0])); !ok {
+		if seedTemp, ok = lowerSeed(from, bl.g.paramKind(lam.Params[0])); !ok {
 			return no()
 		}
 	}
@@ -838,7 +838,7 @@ func (bl *irScalarBuilder) kindComparator(k kind) comparatorPick {
 // file's), to a std instance's or std's retained body, a forwarding body
 // around std's host, or for a tuple its lexicographic compare.
 func (bl *irScalarBuilder) comparatorOperand(at ast.Node, elem kind, elemType analysis.Type, p comparatorPick) ir.Temp {
-	bl.noteComparator(at, elemType)
+	bl.noteElemImpl(at, "a comparator", elemType, 0)
 	if p.tuple {
 		return bl.tupleComparator(at, elem, elemType)
 	}
@@ -939,10 +939,13 @@ func (bl *irScalarBuilder) markCtlCapture(c *ast.Capture) func() {
 
 // lambdaOfCapture lowers lam, the lambda capture c stands for, widened to
 // the signalling form when c is a signalling callback (markCtlCapture).
+// lam carries c's type (carryType), so its result is the one the checker
+// gave c.
 func (bl *irScalarBuilder) lambdaOfCapture(c *ast.Capture, lam *ast.Lambda) (ir.Temp, kind, bool, bool) {
 	if bl.ctlCaptures[c] {
 		defer bl.markCtl(lam, irCtlAdapter)()
 	}
+	defer bl.g.carryType(lam, bl.g.recordedType(c))()
 	return bl.lambda(lam)
 }
 
@@ -978,11 +981,11 @@ func (bl *irScalarBuilder) markCtlRef(ref ast.Node) func() {
 }
 
 // iterMaybeKind is the positional terminals' `Maybe<elem>`, answered when the
-// prelude anchors Maybe: the process-wide instance for a package-neutral
-// element, and this gen's own instance for a declared type's.
+// std declares Maybe in the spec's shape: the process-wide instance for a
+// package-neutral element, and this gen's own instance for a declared
+// type's.
 func (bl *irScalarBuilder) iterMaybeKind(elem kind) (kind, bool) {
-	bl.g.loadPreludes()
-	if _, anchored := bl.g.preludeNamed("Maybe"); !anchored {
+	if _, anchored := preludeSpecAnchor(preludeSpecNamed("Maybe")); !anchored {
 		return kindInvalid, false
 	}
 	mk, shared := bl.g.sharedMaybe(elem)
@@ -992,7 +995,7 @@ func (bl *irScalarBuilder) iterMaybeKind(elem kind) (kind, bool) {
 		// callable domain, not only the retained one: an interface element
 		// (`List<Named>`) is held as the concrete value, and `maybeOf`, which
 		// `Map.get` and `List.first` ask, already instantiates Maybe at it.
-		mk = bl.g.preludeInstance(bl.g.preludeByName["Maybe"], []kind{elem})
+		mk = bl.g.preludeInstanceOf(preludeSpecNamed("Maybe"), []kind{elem})
 		// kindInvalid: propagates — preludeInstance answers kindInvalid for an element Maybe cannot be instantiated at, and the terminal declines.
 		shared = mk != kindInvalid
 	}

@@ -73,6 +73,22 @@ func (m *Machine) ownership(f *ir.Func) *ir.Ownership {
 // A census reads it (vmhost's TestInPlaceCensus).
 func (m *Machine) Ownership(f *ir.Func) *ir.Ownership { return m.ownership(f) }
 
+// handedOver is the mask of the arguments moves hands a callee as its own,
+// when the caller's own mask is mask: each whose need the mask meets, and
+// deep when it meets its deep need too.
+func handedOver(mask uint64, moves []move) uint64 {
+	var owned uint64
+	for _, mv := range moves {
+		if mask&mv.need == mv.need {
+			owned |= 1 << mv.arg
+			if mask&mv.deep == mv.deep {
+				owned |= 1 << (ir.DeepBit + mv.arg)
+			}
+		}
+	}
+	return owned
+}
+
 // move is one argument an opCallO or opTailO may hand its callee: argument
 // arg is the callee's own when the caller's mask meets need, and its own
 // deep when it meets deep too.

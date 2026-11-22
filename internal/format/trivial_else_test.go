@@ -23,11 +23,12 @@ func TestFormat_TrivialElseIsLimitedByTheLine(t *testing.T) {
 		"    title = if String.length(name) > 3 then String.to_upper(name) else \"\"\n" +
 		"    items = if String.length(name) > 3 then [name, name, name, name] else []\n" +
 		"\n" +
-		"    both = if String.length(name) < 3 then\n" +
-		"        Some(\"too short\")\n" +
-		"    else\n" +
-		"        Some(name)\n" +
-		"    end\n" +
+		"    both =\n" +
+		"        if String.length(name) < 3 then\n" +
+		"            Some(\"too short\")\n" +
+		"        else\n" +
+		"            Some(name)\n" +
+		"        end\n" +
 		"\n" +
 		"    label\n" +
 		"end\n"

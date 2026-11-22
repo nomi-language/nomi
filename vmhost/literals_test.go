@@ -222,6 +222,11 @@ func TestLiteralWithoutSlots_InfallibleHandlerRunsAtCompileTime(t *testing.T) {
 	if want := "typed literal Word`x` cannot be checked at compile time: its handler has effects (Literal.from_fragments for Word calls io.print)"; len(ds) != 1 || ds[0].Message != want {
 		t.Errorf("an effectful handler: diagnostics = %v, want %q", ds, want)
 	}
+	repeats := handler("        Word{text: String.repeat(\"ab\", Iter.count(fragments))}\n")
+	ds = literalDiagnostics(t, repeats+"fn main()\n    io.print(Word`x`.text)\nend\n")
+	if want := "typed literal Word`x` cannot be checked at compile time: its handler calls a function whose cost grows with its argument (Literal.from_fragments for Word calls strings.String.repeat)"; len(ds) != 1 || ds[0].Message != want {
+		t.Errorf("an unbounded handler: diagnostics = %v, want %q", ds, want)
+	}
 	if _, err := LoadSource("main", traps+"fn main()\n    s = \"x\"\n    io.print(Word\"${s}\".text)\nend\n"); err != nil {
 		t.Fatalf("a literal with a slot does not load: %v", err)
 	}

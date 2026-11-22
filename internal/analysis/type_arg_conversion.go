@@ -73,12 +73,11 @@ func argVariance(t Type, i int) Variance {
 func stdCollectionArgs(t Type) bool {
 	switch t := t.(type) {
 	case *EnumType:
-		return (t.Name == "Maybe" && (t.Origin == "std/maybe" || t.Origin == "")) ||
-			(t.Name == "Result" && (t.Origin == "std/results" || t.Origin == ""))
+		return isStdType(t, stdMaybeType) || isStdType(t, stdResultType)
 	case *StructType:
 		return isStdSetType(t)
 	case *DistinctType:
-		return t.Name == "Vector" && (t.Origin == "std/vectors" || t.Origin == "")
+		return isStdType(t, stdVectorType)
 	}
 	return false
 }

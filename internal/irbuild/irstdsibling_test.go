@@ -3,6 +3,7 @@ package irbuild
 import (
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/internal/vm"
@@ -47,8 +48,8 @@ func lowerStdSource(t *testing.T, src string) *ir.Module {
 	}
 	nodes, fa := proj.Nodes, proj.FA
 	empty := &stdlibIndex{
-		byType: map[string][]*stdFunc{}, byFile: map[string]*stdFunc{},
-		byIface:   map[string]map[kind][]*stdFunc{},
+		byType:    map[string][]*stdFunc{},
+		byIface:   map[analysis.StdFunc]map[kind][]*stdFunc{},
 		modulePkg: map[string]string{},
 		byKey:     map[string]*stdFunc{},
 		byOnce:    map[string]*stdOnce{}, views: map[string]*stdModuleView{},

@@ -7,21 +7,23 @@ package irbuild
 // # Debug is satisfied by everything
 //
 // `Display.to_string(v)` on a `v: Tagged` is a program the checker rejects
-// unless `Tagged` extends `Display`. `Debug` is different by construction. The
-// front end synthesizes an `impl Debug for T` for every declared type
-// (`analysis.SynthesizeUniversalDebug`), and the checker answers true for
-// `Debug` at every concrete type and every bare type variable. So a value
-// erased under any interface has a type with a Debug impl, and which interface
-// erased it carries no information the lookup uses: the VM picks the impl by
-// the value's run-time type name.
+// unless `Tagged` extends `Display`. `Debug` is different by construction:
+// every type implements it, and the checker answers true for `Debug` at
+// every concrete type and every bare type variable. A type with a written or
+// derived Debug, an opaque type and a host type have a block of it (the last
+// two a name-only one, `analysis.SynthesizeUniversalDebug`); any other
+// renders by its shape (debugByShape). So a value erased under any interface
+// renders, and which interface erased it carries no information the
+// rendering uses: the VM picks a body by the value's run-time type name, or
+// renders the value by its shape where none is named.
 
 // debugDeferred reports whether bindImpl leaves this method out of its check
 // that the impl's receiver has a runtime identity.
 //
 // True for exactly `Debug.inspect` through the shared std def. `Debug` is
-// universal: every declared type has a synthesized impl of it, and bindImpl
-// does not hold those impls to the check. Every other interface, including a
-// user interface a program happens to name `Debug`, is checked.
+// universal, and bindImpl does not hold its impls to the check. Every other
+// interface, including a user interface a program happens to name `Debug`,
+// is checked.
 func (g *gen) debugDeferred(d *ifaceDef, m *ifaceMethod) bool {
 	if d == nil || m == nil || m.name != "inspect" {
 		return false
@@ -86,7 +88,7 @@ func (g *gen) erasedImplResolves(d *ifaceDef, m *ifaceMethod, recv kind) bool {
 		}
 		params[i] = m.params[i]
 	}
-	f := stdPick(g.std.byIface[d.nomi+"."+m.name][recv], params)
+	f := stdPick(g.std.stdIfaceImpls(g.stdIfaceType(d).Func(m.name), recv), params)
 	if f == nil || f.why != "" || len(f.params) != len(params) || f.result != m.result {
 		return false
 	}
@@ -98,24 +100,37 @@ func (g *gen) erasedImplResolves(d *ifaceDef, m *ifaceMethod, recv kind) bool {
 	return true
 }
 
-// bindsStdScalarImpl reports whether the stdlib index names an implementation
-// of every method of d at the scalar kind k.
+// bindsStdSharedImpl reports whether std implements d, one of the shared
+// std defs (stdIfaceDefs: Display, Debug, Comparable), at k, so that a value
+// of k held as d answers every call on it.
 //
 // bindsImpl asks it first: a stdlib impl of a stdlib interface is not an
 // `impl` block in any module, so the impl indexes hold none, and without this
-// a scalar boxed into a std interface would be answered as having no impl.
+// a std value held as a std interface would be answered as having no impl.
 //
-// Every method, not any: a value with one of two methods resolved would trap
-// on the other, and the checker accepted the program.
-func (g *gen) bindsStdScalarImpl(d *ifaceDef, k kind) bool {
-	if d == nil || !d.stdShared || !isScalarKind(k) || len(d.order) == 0 {
+// A function an erased receiver can dispatch needs the implementation the
+// stdlib index names at k, which only a scalar has (erasedImplResolves).
+// Every one, not any: a value with one of two methods resolved would trap
+// on the other, and the checker accepted the program. A function no erased
+// receiver can dispatch (`Comparable.compare`'s second `self`,
+// gapMultiSelf) is refused at its call, as stdProgBinds refuses it for a
+// declared type, so it asks only that std implements it at k: a std type
+// held as Comparable (`x: Comparable = 1.5d`) asks nothing of the value.
+func (g *gen) bindsStdSharedImpl(d *ifaceDef, k kind) bool {
+	if d == nil || !d.stdShared || len(d.order) == 0 || g.std == nil {
 		return false
 	}
 	for _, m := range d.order {
 		if !m.table {
 			return false
 		}
-		if !g.erasedImplResolves(d, m, k) {
+		if !m.dispatchable() {
+			if len(g.std.stdIfaceImpls(g.stdIfaceType(d).Func(m.name), k)) == 0 {
+				return false
+			}
+			continue
+		}
+		if !isScalarKind(k) || !g.erasedImplResolves(d, m, k) {
 			return false
 		}
 	}

@@ -37,30 +37,34 @@ func (bl *irScalarBuilder) nestedFunc(fd *ast.FuncDef) bool {
 	}
 	for _, p := range fd.Params {
 		// A destructuring parameter builds as a lambda's does
-		// (irlambdapattern.go), which reads its kind off its head when it
-		// has no annotation, and one written `by = 3` has the type the
-		// checker gave it from its default (lambdaParamKind).
+		// (bindPattern), which reads its kind off its head when it has no
+		// annotation, and one written `by = 3` has the type the
+		// checker gave it from its default (paramKind).
 		if p.TypeAnnotation == nil && p.Destructure == nil && p.Default == nil {
 			return no("a parameter without an annotation")
 		}
 	}
-	if _, shadows := bl.g.lookup(fd.Name); shadows || bl.bound[fd.Name] != ir.NoTemp {
-		return no("a name already bound: " + fd.Name)
-	}
 	if len(fd.TypeParams) != 0 {
 		return bl.genericNestedFunc(fd)
 	}
-	return bl.nestedInstance(fd, fd.Name)
+	return bl.nestedInstance(fd, madeName{fd.Name, analysis.Pos{Line: fd.Line, Col: fd.Col}})
 }
 
-// nestedInstance lowers fd's body as a closure bound to name: fd's own name,
-// or an instance's name under its substitution frame.
-func (bl *irScalarBuilder) nestedInstance(fd *ast.FuncDef, name string) bool {
+// nestedInstance lowers fd's body as a closure bound to local: fd's own
+// name at fd's position, or an instance's name under its substitution
+// frame, at a key of its own.
+func (bl *irScalarBuilder) nestedInstance(fd *ast.FuncDef, local madeName) bool {
+	name := local.name
 	no := func(why string) bool {
 		bl.g.dc.note("a nested fn: " + why)
 		return false
 	}
 	lam := &ast.Lambda{Params: fd.Params, Body: fd.Body, Line: fd.Line, Col: fd.Col}
+	// The closure carries the type the checker gave fd's symbol, under the
+	// instance's frame, so its result is fd's.
+	if sym := bl.g.funcDefSymbol(fd); sym != nil {
+		defer bl.g.carryType(lam, sym.Type)()
+	}
 	// A try in the body leaves the nested fn, whose boundary the checker
 	// names "fn <name>". Only this builder's own lambda build reads it: the
 	// lambdas inside the body are built by the nested fn's builder.
@@ -84,7 +88,7 @@ func (bl *irScalarBuilder) nestedInstance(fd *ast.FuncDef, name string) bool {
 		}
 	}
 	if astNamesIdent(fd.Body, fd.Name) {
-		return bl.recursiveNestedFunc(fd, lam, name)
+		return bl.recursiveNestedFunc(fd, lam, local)
 	}
 	val, fk, _, ok := bl.lambda(lam)
 	if !ok {
@@ -97,12 +101,25 @@ func (bl *irScalarBuilder) nestedInstance(fd *ast.FuncDef, name string) bool {
 	} else if funcResult(fk) != kindUnit {
 		return no("an unannotated result that is not Unit")
 	}
-	bind := ir.NewBind(bl.g.irPos(fd.Line, fd.Col), bl.f.NewTemp(), val, bl.sh.localSym(name))
+	bind := ir.NewBind(bl.g.irPos(fd.Line, fd.Col), bl.f.NewTemp(), val, ir.NewSymbol(name))
 	bl.b.Append(bind)
 	bl.side(bind.Dst(), irScalarSide{k: fk})
-	bl.bound[name], bl.boundK[name] = bind.Dst(), fk
+	bl.declareKey(local.key, bind.Dst(), fk)
 	bl.declareBind(bind, fk)
 	return true
+}
+
+// funcDefSymbol is the symbol the checker defined for fd, a nested `fn`, at
+// its position (analysis's defineFunc), or nil.
+func (g *gen) funcDefSymbol(fd *ast.FuncDef) *analysis.Symbol {
+	fa := g.srcFA()
+	if fa == nil {
+		return nil
+	}
+	if sym := fa.Definitions[analysis.Pos{Line: fd.Line, Col: fd.Col}]; sym != nil && sym.Node == fd {
+		return sym
+	}
+	return nil
 }
 
 // genericNestedFunc lowers a generic nested fn as one closure per type
@@ -124,23 +141,23 @@ func (bl *irScalarBuilder) nestedInstance(fd *ast.FuncDef, name string) bool {
 // (recursiveNestedFunc); a call at another tuple declines, as no other
 // instance is in scope while one is built.
 func (bl *irScalarBuilder) genericNestedFunc(fd *ast.FuncDef) bool {
-	gn := &irGenericNested{fd: fd, names: map[string]string{}}
+	gn := &irGenericNested{fd: fd, names: map[string]madeName{}}
 	insts := bl.g.nestedInstanceSet(fd, map[*ast.FuncDef]bool{})
 	for i, inst := range insts {
 		// The instance's name, which no program can spell, so it shadows
 		// nothing. Numbered, because two instances of a generic struct
 		// render alike (`Box`).
-		gn.names[kindsKey(inst.args)] = fmt.Sprintf("%s<%s>#%d", fd.Name, kindsNomi(inst.args), i)
+		gn.names[bl.g.nestedInstKey(fd, inst)] = madeName{fmt.Sprintf("%s<%s>#%d", fd.Name, kindsNomi(inst.args), i), bl.g.madeLocal()}
 	}
 	// Registered before the instances are built, so a body's call to
 	// itself resolves to the instance being built.
 	if bl.genericNested == nil {
-		bl.genericNested = map[string]*irGenericNested{}
+		bl.genericNested = map[*ast.FuncDef]*irGenericNested{}
 	}
-	bl.genericNested[fd.Name] = gn
+	bl.genericNested[fd] = gn
 	for _, inst := range insts {
 		bl.g.pushNestedFrame(fd, inst)
-		ok := bl.nestedInstance(fd, gn.names[kindsKey(inst.args)])
+		ok := bl.nestedInstance(fd, gn.names[bl.g.nestedInstKey(fd, inst)])
 		bl.g.popSubst()
 		if !ok {
 			return false
@@ -150,10 +167,10 @@ func (bl *irScalarBuilder) genericNestedFunc(fd *ast.FuncDef) bool {
 }
 
 // irGenericNested is a generic nested fn and the local name each of its
-// instances is bound under, by kindsKey of its type arguments.
+// instances is bound under, by nestedInstKey.
 type irGenericNested struct {
 	fd    *ast.FuncDef
-	names map[string]string
+	names map[string]madeName
 }
 
 // kindsKey is a type argument tuple's identity: each kind's key.
@@ -164,6 +181,20 @@ func kindsKey(args []kind) string {
 		b.WriteByte(0)
 	}
 	return b.String()
+}
+
+// nestedInstKey is the identity of fd's instance inst: its arguments'
+// kinds (kindsKey), and where they hold the subtypes the instance reads
+// (subtypeinst.go).
+func (g *gen) nestedInstKey(fd *ast.FuncDef, inst nestedInst) string {
+	names := make([]string, len(fd.TypeParams))
+	for i, tp := range fd.TypeParams {
+		names[i] = tp.Name
+	}
+	reads := subtypeReads(names, inst.checked, func() map[string][]*analysis.InterfaceType {
+		return analysis.DeclTypeParamBounds(g.srcFA(), fd, nil)
+	})
+	return kindsKey(inst.args) + subtypeReadsKey(reads)
 }
 
 // nestedInst is one tuple of type arguments a generic nested fn is called
@@ -198,7 +229,7 @@ func (g *gen) nestedInstanceSet(fd *ast.FuncDef, visiting map[*ast.FuncDef]bool)
 	seen := map[string]bool{}
 	add := func(sym *analysis.Symbol) {
 		inst, ok := g.nestedInstanceArgs(fd, analysis.CallTypeArgs(sym))
-		if key := kindsKey(inst.args); ok && !seen[key] {
+		if key := g.nestedInstKey(fd, inst); ok && !seen[key] {
 			seen[key] = true
 			out = append(out, inst)
 		}
@@ -316,15 +347,21 @@ func nestedGenericBodies(nodes []ast.Node) map[analysis.Pos]*ast.FuncDef {
 }
 
 // genericNestedFn is the generic nested fn a bare callee names in this
-// scope, or nil: the nearest enclosing builder that binds the name decides,
-// so a binding of the same name nearer the call is what it calls.
+// scope, or nil: the declaration the checker resolved the callee to, among
+// those this builder or an enclosing one declared.
 func (bl *irScalarBuilder) genericNestedFn(id *ast.Ident) *irGenericNested {
+	sym := bl.g.identRef(id)
+	if sym == nil || sym.Kind != analysis.SymbolFunction {
+		// A parameter's symbol's Node is its function's too.
+		return nil
+	}
+	fd, isFn := sym.Node.(*ast.FuncDef)
+	if !isFn {
+		return nil
+	}
 	for scope := bl; scope != nil; scope = scope.parent {
-		if gn := scope.genericNested[id.Name]; gn != nil {
+		if gn := scope.genericNested[fd]; gn != nil {
 			return gn
-		}
-		if _, bound := scope.bound[id.Name]; bound {
-			return nil
 		}
 	}
 	return nil
@@ -363,20 +400,18 @@ func (bl *irScalarBuilder) genericNestedRef(id *ast.Ident) (inst *ast.Ident, ok,
 		return nil, false, false
 	}
 	fd := gn.fd
-	var args []kind
+	var at nestedInst
 	solved := false
 	if bl.g.fa != nil {
 		pos := analysis.Pos{Line: id.Line, Col: id.Col}
 		if sym := bl.g.srcFA().References[pos]; sym != nil {
 			if sym.CallType != nil {
-				var inst nestedInst
-				inst, solved = bl.g.nestedInstanceArgs(fd, analysis.CallTypeArgs(sym))
-				args = inst.args
+				at, solved = bl.g.nestedInstanceArgs(fd, analysis.CallTypeArgs(sym))
 			} else if bl.g.nestedGenericCalls(fd) != nil && bl.g.nestedWithin[pos] == fd {
 				// A call in fd's own body, which the checker does not
 				// instantiate: at fd's own parameters, the instance being
 				// built, whose frame is the innermost.
-				args, solved = bl.g.nestedOwnArgs(fd)
+				at, solved = bl.g.nestedOwnArgs(fd)
 			}
 		}
 	}
@@ -384,32 +419,33 @@ func (bl *irScalarBuilder) genericNestedRef(id *ast.Ident) (inst *ast.Ident, ok,
 		bl.g.dc.note("a generic nested fn whose type arguments are unsolved here: " + id.Name)
 		return nil, false, true
 	}
-	name, built := gn.names[kindsKey(args)]
-	if !built || !bl.reaches(name) {
-		bl.g.dc.note("a generic nested fn at a type its declaration did not build: " + fd.Name + "<" + kindsNomi(args) + ">")
+	local, built := gn.names[bl.g.nestedInstKey(fd, at)]
+	if !built || !bl.reaches(local.key) {
+		bl.g.dc.note("a generic nested fn at a type its declaration did not build: " + fd.Name + "<" + kindsNomi(at.args) + ">")
 		return nil, false, true
 	}
-	return bl.g.madeIdent(name, id.Line, id.Col), true, true
+	return bl.g.madeRead(local.name, local.key, id.Line, id.Col), true, true
 }
 
 // nestedOwnArgs is fd's own type parameters in the frame of the instance of
 // fd being built.
-func (g *gen) nestedOwnArgs(fd *ast.FuncDef) ([]kind, bool) {
-	args := make([]kind, len(fd.TypeParams))
+func (g *gen) nestedOwnArgs(fd *ast.FuncDef) (nestedInst, bool) {
+	inst := nestedInst{args: make([]kind, len(fd.TypeParams)), checked: make([]analysis.Type, len(fd.TypeParams))}
 	for i, tp := range fd.TypeParams {
 		k, bound := g.genericSubstKind(tp.Name)
 		if !bound {
-			return nil, false
+			return nestedInst{}, false
 		}
-		args[i] = k
+		inst.args[i] = k
+		inst.checked[i], _ = g.genericSubstType(tp.Name)
 	}
-	return args, true
+	return inst, true
 }
 
 // reaches reports whether name is bound in this builder or one enclosing it.
-func (bl *irScalarBuilder) reaches(name string) (bound bool) {
+func (bl *irScalarBuilder) reaches(key analysis.Pos) (bound bool) {
 	for scope := bl; scope != nil; scope = scope.parent {
-		if _, has := scope.bound[name]; has {
+		if _, has := scope.locals[key]; has {
 			return true
 		}
 	}
@@ -422,7 +458,13 @@ func (bl *irScalarBuilder) reaches(name string) (bound bool) {
 type irRecursiveFn struct {
 	lam  *ast.Lambda
 	name string
-	k    kind
+	// key is the key of the closure's own local: fd's position, or an
+	// instance's key.
+	key analysis.Pos
+	k   kind
+	// fd is the nested fn, whose declaration the body's reads of its name
+	// resolve to.
+	fd *ast.FuncDef
 }
 
 // recursiveNestedFunc lowers a nested fn whose body names itself. The name is
@@ -431,7 +473,8 @@ type irRecursiveFn struct {
 // other name it reads is captured by value as any closure's is. The front end
 // rejects a nested fn calling one declared after it, so there are no mutually
 // recursive nested fns to group.
-func (bl *irScalarBuilder) recursiveNestedFunc(fd *ast.FuncDef, lam *ast.Lambda, name string) bool {
+func (bl *irScalarBuilder) recursiveNestedFunc(fd *ast.FuncDef, lam *ast.Lambda, local madeName) bool {
+	name := local.name
 	params := make([]kind, len(fd.Params))
 	for i, p := range fd.Params {
 		params[i] = bl.g.paramKind(p)
@@ -448,17 +491,17 @@ func (bl *irScalarBuilder) recursiveNestedFunc(fd *ast.FuncDef, lam *ast.Lambda,
 	irHeldOperand(result, "a recursive nested fn's result")
 	fk := funcKindIn(bl.g, params, result)
 	saved := bl.recursive
-	bl.recursive = &irRecursiveFn{lam: lam, name: name, k: fk}
+	bl.recursive = &irRecursiveFn{lam: lam, name: name, key: local.key, k: fk, fd: fd}
 	val, got, _, ok := bl.lambda(lam)
 	bl.recursive = saved
 	if !ok || got != fk {
 		bl.g.dc.note("a recursive nested fn: its body is outside the lambda shape: " + fd.Name)
 		return false
 	}
-	bind := ir.NewBind(bl.g.irPos(fd.Line, fd.Col), bl.f.NewTemp(), val, bl.sh.localSym(name))
+	bind := ir.NewBind(bl.g.irPos(fd.Line, fd.Col), bl.f.NewTemp(), val, ir.NewSymbol(name))
 	bl.b.Append(bind)
 	bl.side(bind.Dst(), irScalarSide{k: fk})
-	bl.bound[name], bl.boundK[name] = bind.Dst(), fk
+	bl.declareKey(local.key, bind.Dst(), fk)
 	bl.declareBind(bind, fk)
 	return true
 }

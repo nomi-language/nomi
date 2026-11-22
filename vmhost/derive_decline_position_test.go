@@ -10,8 +10,8 @@ import (
 
 // A body Nomi synthesized has no source line, so a decline inside one is
 // reported at the declaration that asked for it: the `derive` line, in
-// whichever file it is, or the type's declaration for the universal Debug,
-// which no line asks for. No derived body declines today, so each case asks
+// whichever file it is, or the type's declaration for an opaque type's
+// name-only Debug, which no line asks for. No derived body declines today, so each case asks
 // for the diagnostic of a body that did, by its name and its impl block, as
 // Unsupported would for a body the machine finds unretained.
 func TestDeclinePosition_ASynthesizedBodyIsReportedAtItsDerive(t *testing.T) {
@@ -48,6 +48,11 @@ derive Equatable for Rec
 
 fn main()
     io.inspect(Rec{m: Money{cents: 1}, c: Coin{n: 2}} == Rec{m: Money{cents: 1}, c: Coin{n: 2}})
+    io.inspect(Secret{n: 3})
+end
+
+opaque struct Secret
+    n: Int
 end
 `)
 	if err != nil {
@@ -67,9 +72,10 @@ end
 			"main.nomi:11:1: its body is not supported yet, so `fn Equatable.equal for Rec` cannot run"},
 		{ir.ImplFunc{Type: "Coin", Interface: "Hashable", Func: "hash"},
 			"money.nomi:15:1: its body is not supported yet, so `fn Hashable.hash for Coin` cannot run"},
-		// The universal Debug: no line asks for it, so the type does.
-		{ir.ImplFunc{Type: "Rec", Interface: "Debug", Func: "inspect"},
-			"main.nomi:6:8: its body is not supported yet, so `fn Debug.inspect for Rec` cannot run"},
+		// An opaque type's name-only Debug: no line asks for it, so the
+		// type does.
+		{ir.ImplFunc{Type: "Secret", Interface: "Debug", Func: "inspect"},
+			"main.nomi:18:15: its body is not supported yet, so `fn Debug.inspect for Secret` cannot run"},
 		// A written impl function keeps its own line.
 		{ir.ImplFunc{Type: "Money", Interface: "Equatable", Func: "equal"},
 			"money.nomi:6:8: the body of `fn equal` is not supported yet, so `fn Equatable.equal for Money` cannot run"},

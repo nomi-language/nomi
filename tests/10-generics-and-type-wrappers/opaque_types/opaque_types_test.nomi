@@ -35,20 +35,23 @@ test "opaque enums expose predicates and maybe-returning accessors"
     s_off = Status.inactive("on holiday")
     s_susp = Status.suspend(100, "maintenance")
 
-    off_reason = case Status.inactive_reason(s_off)
-        Some(reason) -> "off: " + reason
-        None         -> "not inactive"
-    end
+    off_reason =
+        case Status.inactive_reason(s_off)
+            Some(reason) -> "off: " + reason
+            None         -> "not inactive"
+        end
 
-    suspended_reason = case Status.suspended_reason(s_susp)
-        Some(reason) -> "suspended: " + reason
-        None         -> "not suspended"
-    end
+    suspended_reason =
+        case Status.suspended_reason(s_susp)
+            Some(reason) -> "suspended: " + reason
+            None         -> "not suspended"
+        end
 
-    suspended_until = case Status.suspended_until(s_susp)
-        Some(until) -> until
-        None        -> -1
-    end
+    suspended_until =
+        case Status.suspended_until(s_susp)
+            Some(until) -> until
+            None        -> -1
+        end
 
     assert Status.is_active(s_active)
     refute Status.is_active(s_off)

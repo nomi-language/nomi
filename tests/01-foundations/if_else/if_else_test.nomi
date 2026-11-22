@@ -27,15 +27,16 @@ test "else None makes an if a Maybe"
 end
 
 test "an else if chain ending in else None is its branches' Maybe"
-    pick = fn n: Int ->
-        if n > 0 then
-            Some("positive")
-        else if n < 0 then
-            Some("negative")
-        else
-            None
+    pick =
+        fn n: Int ->
+            if n > 0 then
+                Some("positive")
+            else if n < 0 then
+                Some("negative")
+            else
+                None
+            end
         end
-    end
 
     assert pick(1) == Some("positive")
     assert pick(-1) == Some("negative")
@@ -73,10 +74,11 @@ test "a forgotten else names the branch's type"
 end
 
 test "if without else allows Unit side effects"
-    fake_side_effect = fn ->
-        // Imagine an io.print side effect here
-        Unit
-    end
+    fake_side_effect =
+        fn ->
+            // Imagine an io.print side effect here
+            Unit
+        end
 
     result = if True then fake_side_effect()
 
@@ -99,11 +101,12 @@ end
 test "if can match and bind a pattern"
     maybe_name = Some("Ada")
 
-    label = if Some(name) = maybe_name then
-        name
-    else
-        "unknown"
-    end
+    label =
+        if Some(name) = maybe_name then
+            name
+        else
+            "unknown"
+        end
 
     assert label == "Ada"
 end
@@ -111,11 +114,12 @@ end
 test "if pattern mismatch evaluates else"
     maybe_name: Maybe<String> = None
 
-    label = if Some(name) = maybe_name then
-        name
-    else
-        "unknown"
-    end
+    label =
+        if Some(name) = maybe_name then
+            name
+        else
+            "unknown"
+        end
 
     assert label == "unknown"
 end
@@ -137,15 +141,16 @@ end
 test "else if chains select the first matching branch"
     x = 42
 
-    bucket = if x < 0 then
-        "negative"
-    else if x < 10 then
-        "small"
-    else if x < 100 then
-        "medium"
-    else
-        "large"
-    end
+    bucket =
+        if x < 0 then
+            "negative"
+        else if x < 10 then
+            "small"
+        else if x < 100 then
+            "medium"
+        else
+            "large"
+        end
 
     assert bucket == "medium"
 end

@@ -1,0 +1,37 @@
+Test data for the markdown module's conformance tests
+======================================================
+
+These files are test data. They are read only by the module's tests
+(conformance_test.nomi) and are not part of the module's runtime files.
+Each holds a list of cases, each a name, a Markdown input and the HTML
+goldmark v1.8.7 renders for it with its GFM extension, configured as this
+module's renderer was configured when it wrapped goldmark.
+
+commonmark.json
+    The inputs are the 652 examples of the CommonMark Spec, version
+    0.31.2, by John MacFarlane, as goldmark v1.8.7 ships them in its
+    _test/spec.json (https://spec.commonmark.org/0.31.2/). The CommonMark
+    Spec is licensed under the Creative Commons Attribution-ShareAlike 4.0
+    International License (CC BY-SA 4.0,
+    https://creativecommons.org/licenses/by-sa/4.0/). This file, its
+    inputs and the outputs recorded for them, is distributed under that
+    licence. The expected outputs differ from the spec's own: they are
+    goldmark's rendering, which leaves raw HTML out and adds GitHub's
+    extensions.
+
+goldmark.json
+    The inputs are the cases of goldmark v1.8.7's test files for its
+    table, strikethrough, linkify and task list extensions
+    (extension/_test/*.txt) and its extra CommonMark cases
+    (_test/extra.txt). goldmark is Copyright (c) 2019 Yusuke Inuzuka and
+    licensed under the MIT License (https://github.com/yuin/goldmark).
+
+library.json
+    Cases written for this module.
+
+corpus.json
+    Copies of Markdown files from this repository, frozen when the
+    fixtures were made, as real documents to render.
+
+Everything else in this module is under the repository's licences
+(LICENSE-MIT and LICENSE-APACHE).

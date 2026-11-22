@@ -25,7 +25,7 @@ version.
 
 ## Build
 
-```
+```sh
 go build -o nomi ./cmd/nomi   # the CLI, at ./nomi (gitignored)
 go install ./cmd/nomi         # `nomi` on your PATH
 go install ./cmd/nomi-lsp     # the language server
@@ -33,7 +33,7 @@ go install ./cmd/nomi-lsp     # the language server
 
 ## Test
 
-```
+```sh
 go test ./... -count=1         # compiler, VM, LSP, runtime library
 go test ./rt/... -count=1      # the runtime library on its own
 ./nomi test tests
@@ -74,17 +74,19 @@ Pushing a `v*` tag runs `.github/workflows/release.yml`, which runs
 `scripts/release.sh <tag>` and attaches its output to a GitHub release. The
 script can be run by hand too:
 
-```
+```sh
 ./scripts/release.sh v0.1.0
 ```
 
-It writes `dist/nomi_<version>_<os>_<arch>.{tar.gz,zip}` and
+It writes `dist/nomi_<version>_<os>_<arch>.{tar.gz,zip}`, beside each a
+`_compiler` archive of std::compiler's runners, and
 `dist/nomi_<version>_checksums.txt` (`NOMI_RELEASE_DIST=<dir>` writes them
 elsewhere, for a dry run). The version must be the release's tag: it is
-stamped into `nomi` (`-X github.com/nomi-language/nomi/internal/ffirun.ReleaseVersion=<version>`), and
-`nomi build --target` downloads other platforms' nomi-vm from that tag. The
-script reads each binary's platform and commit back with `go version -m` and
-fails if they disagree with the target or with each other.
+stamped into `nomi` (`-X github.com/nomi-language/nomi/internal/runners.ReleaseVersion=<version>`), and
+`nomi build` downloads a runner it does not have from that tag. The script
+reads each binary's platform, build tags and commit back from its build
+information and fails if they disagree with what it built or with each
+other.
 
 ## License
 

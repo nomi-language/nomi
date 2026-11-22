@@ -99,10 +99,11 @@ end
 
 impl Priced for Coffee
     fn price(coffee: Coffee) -> Int
-        base = case coffee.size
-            .Small -> 3
-            .Large -> 4
-        end
+        base =
+            case coffee.size
+                .Small -> 3
+                .Large -> 4
+            end
 
         base + coffee.shots - 1
     end

@@ -3,14 +3,9 @@ package lsp
 import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
-	"github.com/nomi-language/nomi/internal/ffirun"
 	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/hoverdoc"
-	goast "go/ast"
-	goparser "go/parser"
-	gotoken "go/token"
 	"net/url"
-	"os"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -50,15 +45,6 @@ func (s *Server) textDocumentDefinition(ctx *glsp.Context, params *protocol.Defi
 				return s.toUTF16Location(loc), nil
 			}
 			return nil, nil
-		}
-		if loc, ok := s.foreignGoAliasDefinitionLocation(doc.Nodes, pos, uri); ok {
-			return s.toUTF16Location(loc), nil
-		}
-		if loc, ok := s.foreignGoDefinitionLocation(doc.Nodes, pos, uri); ok {
-			return s.toUTF16Location(loc), nil
-		}
-		if loc, ok := s.foreignGoPackageDefinitionLocation(doc.Nodes, pos, uri); ok {
-			return s.toUTF16Location(loc), nil
 		}
 		return nil, nil
 	}
@@ -157,253 +143,6 @@ func (s *Server) punDefinitions(uri string, pun hoverdoc.Pun) []protocol.Locatio
 		locs = append(locs, *loc)
 	}
 	return locs
-}
-
-func (s *Server) foreignGoAliasDefinitionLocation(nodes []ast.Node, pos analysis.Pos, currentURI string) (*protocol.Location, bool) {
-	aliases := map[string]analysis.Pos{}
-	foreignAliasDefinitions(nodes, aliases)
-	alias, ok := foreignBindingAliasAt(nodes, pos, aliases)
-	if !ok {
-		return nil, false
-	}
-	defPos, ok := aliases[alias]
-	if !ok || defPos.Line == 0 || defPos.Col == 0 {
-		return nil, false
-	}
-	startLine := uint32(defPos.Line - 1)
-	startChar := uint32(defPos.Col - 1)
-	return &protocol.Location{
-		URI: protocol.DocumentUri(currentURI),
-		Range: protocol.Range{
-			Start: protocol.Position{Line: startLine, Character: startChar},
-			End:   protocol.Position{Line: startLine, Character: startChar + uint32(len(alias))},
-		},
-	}, true
-}
-
-func foreignAliasDefinitions(nodes []ast.Node, aliases map[string]analysis.Pos) {
-	for _, n := range nodes {
-		switch v := n.(type) {
-		case *ast.ExternPackage:
-			aliases[v.Alias] = analysis.Pos{Line: v.AliasLine, Col: v.AliasCol}
-		case *ast.ImplBlock:
-			foreignAliasDefinitions(v.Items, aliases)
-		}
-	}
-
-}
-func foreignBindingAliasAt(nodes []ast.Node, pos analysis.Pos, aliases map[string]analysis.Pos) (string, bool) {
-	for _, n := range nodes {
-		switch v := n.(type) {
-		case *ast.ExternFunc:
-			if positionWithinName(pos, v.ForeignAliasLine, v.ForeignAliasCol, v.ForeignAlias) {
-				return v.ForeignAlias, true
-			}
-		case *ast.ExternType:
-			if positionWithinName(pos, v.ForeignAliasLine, v.ForeignAliasCol, v.ForeignAlias) {
-				return v.ForeignAlias, true
-			}
-		case *ast.ImplBlock:
-			if alias, ok := foreignBindingAliasAt(v.Items, pos, aliases); ok {
-				return alias, true
-			}
-		}
-	}
-	return "", false
-}
-
-func (s *Server) foreignGoDefinitionLocation(nodes []ast.Node, pos analysis.Pos, currentURI string) (*protocol.Location, bool) {
-	importPath, goName, ok := foreignBindingAt(nodes, pos, nil)
-	if !ok || importPath == "" || goName == "" {
-		return nil, false
-	}
-	dir, ok := resolveLocalGoImportDir(uriToPath(currentURI), importPath)
-	if !ok {
-		return nil, false
-	}
-	file, line, col, ok := findGoTopLevelDefinition(dir, goName)
-	if !ok {
-		return nil, false
-	}
-	startLine := uint32(line - 1)
-	startChar := uint32(col - 1)
-	return &protocol.Location{
-		URI: protocol.DocumentUri(pathToURI(file)),
-		Range: protocol.Range{
-			Start: protocol.Position{Line: startLine, Character: startChar},
-			End:   protocol.Position{Line: startLine, Character: startChar + uint32(len(goName))},
-		},
-	}, true
-}
-
-func (s *Server) foreignGoPackageDefinitionLocation(nodes []ast.Node, pos analysis.Pos, currentURI string) (*protocol.Location, bool) {
-	importPath, ok := foreignPackagePathAt(nodes, pos)
-	if !ok || importPath == "" {
-		return nil, false
-	}
-	return s.foreignGoPackageDefinitionLocationForPath(importPath, currentURI)
-}
-
-func (s *Server) foreignGoPackageDefinitionLocationForPath(importPath, currentURI string) (*protocol.Location, bool) {
-	dir, ok := resolveLocalGoImportDir(uriToPath(currentURI), importPath)
-	if !ok {
-		return nil, false
-	}
-	file, line, col, packageName, ok := findGoPackageDeclaration(dir)
-	if !ok {
-		return nil, false
-	}
-	startLine := uint32(line - 1)
-	startChar := uint32(col - 1)
-	return &protocol.Location{
-		URI: protocol.DocumentUri(pathToURI(file)),
-		Range: protocol.Range{
-			Start: protocol.Position{Line: startLine, Character: startChar},
-			End:   protocol.Position{Line: startLine, Character: startChar + uint32(len(packageName))},
-		},
-	}, true
-}
-
-func foreignBindingAt(nodes []ast.Node, pos analysis.Pos, inherited map[string]string) (string, string, bool) {
-	aliases := make(map[string]string, len(inherited)+4)
-	for alias, importPath := range inherited {
-		aliases[alias] = importPath
-	}
-	for _, n := range nodes {
-		switch pkg := n.(type) {
-		case *ast.ExternPackage:
-			aliases[pkg.Alias] = pkg.ImportPath
-		}
-	}
-	for _, n := range nodes {
-		switch v := n.(type) {
-		case *ast.ExternFunc:
-			if positionWithinName(pos, v.ForeignNameLine, v.ForeignNameCol, v.ForeignName) {
-				return aliases[v.ForeignAlias], v.ForeignName, true
-			}
-		case *ast.ExternType:
-			if positionWithinName(pos, v.ForeignNameLine, v.ForeignNameCol, v.ForeignName) {
-				return aliases[v.ForeignAlias], v.ForeignName, true
-			}
-		case *ast.ImplBlock:
-			if importPath, goName, ok := foreignBindingAt(v.Items, pos, aliases); ok {
-				return importPath, goName, true
-			}
-		}
-	}
-	return "", "", false
-}
-
-func foreignPackagePathAt(nodes []ast.Node, pos analysis.Pos) (string, bool) {
-	for _, n := range nodes {
-		switch v := n.(type) {
-		case *ast.ExternPackage:
-			if positionWithinName(pos, v.ImportPathLine, v.ImportPathCol, v.ImportPath) {
-				return v.ImportPath, true
-			}
-		}
-	}
-	return "", false
-}
-
-func positionWithinName(pos analysis.Pos, line, col int, name string) bool {
-	return line > 0 && col > 0 && pos.Line == line && pos.Col >= col && pos.Col < col+len(name)
-}
-
-// resolveLocalGoImportDir maps a Go import path to a directory on disk, for
-// go-to-definition on a `gopkg` handle's symbols.
-//
-// It used to special-case `nomi/std/<name>`, so a handle in a stdlib facade
-// jumped to the co-located adapter under `std/<name>/`. No std facade carries
-// a `gopkg` handle any more — every std declaration is a `host fn` and every
-// Go implementation is a sibling package — so the branch had no import path
-// left to match. What remains is the `go.mod` reading a USER project needs.
-//
-// The go.mod read is the nearest one above the declaring file, the one the IR
-// builder resolves a `gopkg` through. It need not sit at the Nomi project
-// root: an extensionless script in a module's bin/ is rooted at bin/. A Go
-// standard library package needs no go.mod: its directory is in the Go
-// toolchain's GOROOT. A package of a required module is read from the Go
-// module cache when `nomi fetch`, or the go command, put it there.
-func resolveLocalGoImportDir(declaringFile, importPath string) (string, bool) {
-	if dir, ok := ffirun.StdPackageDir(importPath); ok {
-		return dir, true
-	}
-	projectRoot, ok := ffirun.GoModRoot(declaringFile)
-	if !ok {
-		return "", false
-	}
-	return ffirun.GoPackageDir(projectRoot, importPath)
-}
-
-// findGoTopLevelDefinition finds the function or type name declares at the
-// top level of the Go package in dir. A package is one directory, so a
-// sub-directory is another package and is not searched: `math.Sqrt` is not
-// `math/big`'s `(*Float).Sqrt`. A method is not top-level.
-func findGoTopLevelDefinition(dir, name string) (string, int, int, bool) {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return "", 0, 0, false
-	}
-	fset := gotoken.NewFileSet()
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".go") || strings.HasSuffix(e.Name(), "_test.go") {
-			continue
-		}
-		file, err := goparser.ParseFile(fset, filepath.Join(dir, e.Name()), nil, goparser.SkipObjectResolution)
-		if err != nil {
-			continue
-		}
-		for _, decl := range file.Decls {
-			switch v := decl.(type) {
-			case *goast.FuncDecl:
-				if v.Recv == nil && v.Name != nil && v.Name.Name == name {
-					p := fset.Position(v.Name.Pos())
-					return p.Filename, p.Line, p.Column, true
-				}
-			case *goast.GenDecl:
-				for _, spec := range v.Specs {
-					if ts, ok := spec.(*goast.TypeSpec); ok && ts.Name != nil && ts.Name.Name == name {
-						p := fset.Position(ts.Name.Pos())
-						return p.Filename, p.Line, p.Column, true
-					}
-				}
-			}
-		}
-	}
-	return "", 0, 0, false
-}
-
-func findGoPackageDeclaration(dir string) (string, int, int, string, bool) {
-	fset := gotoken.NewFileSet()
-	var outFile, outPackage string
-	var outLine, outCol int
-	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return nil
-		}
-		if d.IsDir() {
-			switch d.Name() {
-			case ".git", "vendor", "node_modules":
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if !strings.HasSuffix(d.Name(), ".go") || strings.HasSuffix(d.Name(), "_test.go") {
-			return nil
-		}
-		file, err := goparser.ParseFile(fset, path, nil, goparser.PackageClauseOnly)
-		if err != nil || file.Name == nil {
-			return nil
-		}
-		p := fset.Position(file.Name.Pos())
-		outFile, outLine, outCol, outPackage = p.Filename, p.Line, p.Column, file.Name.Name
-		return filepath.SkipAll
-	})
-	if err != nil && err != filepath.SkipAll {
-		return "", 0, 0, "", false
-	}
-	return outFile, outLine, outCol, outPackage, outFile != ""
 }
 
 // stdModuleDeclaring names the std module that declares sym: a top-level
@@ -685,7 +424,7 @@ func (s *Server) moduleKeyToURI(key, openDocURI string) protocol.DocumentUri {
 		return protocol.DocumentUri(s.stdFileURI(strings.TrimPrefix(key, "std/")))
 	default:
 		root := s.docs.FindProjectRoot(uriToPath(openDocURI))
-		if path, ok := analysis.ImportFile(root, strings.Split(key, "/")); ok {
+		if path, ok := analysis.FileOfKey(root, key); ok {
 			return protocol.DocumentUri(pathToURI(path))
 		}
 		absPath := filepath.Join(root, filepath.FromSlash(key)) + ".nomi"

@@ -151,10 +151,11 @@ impl SigningKey
     /// The key that checks what `key` signs: the same secret for HS256,
     /// the public key for the others.
     pub fn verifying_key(key: SigningKey) -> VerifyingKey
-        checker = case key.signer
-            .Hmac(secret) -> Checker.Hmac(secret)
-            .Key(private) -> Checker.Key(PrivateKey.public_key(private))
-        end
+        checker =
+            case key.signer
+                .Hmac(secret) -> Checker.Hmac(secret)
+                .Key(private) -> Checker.Key(PrivateKey.public_key(private))
+            end
 
         VerifyingKey{algorithm: key.algorithm, checker:}
     end
@@ -291,13 +292,14 @@ pub fn sign(claims: Map<String, Json>, key: SigningKey) -> String
     header = {"alg" => Json.String(Display.to_string(key.algorithm)), "typ" => Json.String("JWT")}
     input = "${part(Json.Obj(header))}.${part(Json.Obj(claims))}"
 
-    signature = case key.signer
-        .Hmac(secret) ->
-            hash.hmac_sha256(secret, String.to_bytes(input))
+    signature =
+        case key.signer
+            .Hmac(secret) ->
+                hash.hmac_sha256(secret, String.to_bytes(input))
 
-        .Key(private) ->
-            signatures.sign_with(private, scheme(key.algorithm), String.to_bytes(input))!
-    end
+            .Key(private) ->
+                signatures.sign_with(private, scheme(key.algorithm), String.to_bytes(input))!
+        end
 
     "${input}.${base64.encode_url(signature, padded: False)}"
 end
@@ -349,20 +351,25 @@ pub fn verify(
     key:        VerifyingKey,
     validation: Validation = Validation{},
 ) -> Result<Map<String, Json>, JwtError>
-    (header_part, claims_part, signature_part) = case String.split(token, ".")
-        [h, c, s] -> (h, c, s)
-        _         -> return Err(JwtError.Malformed("a token is three parts joined by `.`"))
-    end
+    (header_part, claims_part, signature_part) =
+        case String.split(token, ".")
+            [h, c, s] -> (h, c, s)
+            _         -> return Err(JwtError.Malformed("a token is three parts joined by `.`"))
+        end
 
     header = object(header_part, "header")?
     check_header(header, key.algorithm)?
     signature = decoded(signature_part, "signature")?
     input = String.to_bytes("${header_part}.${claims_part}")
 
-    valid = case key.checker
-        .Hmac(secret) -> hash.equal_in_constant_time(hash.hmac_sha256(secret, input), signature)
-        .Key(public)  -> signatures.is_valid_with(public, scheme(key.algorithm), input, signature)
-    end
+    valid =
+        case key.checker
+            .Hmac(secret) ->
+                hash.equal_in_constant_time(hash.hmac_sha256(secret, input), signature)
+
+            .Key(public) ->
+                signatures.is_valid_with(public, scheme(key.algorithm), input, signature)
+        end
 
     if not valid then return Err(JwtError.BadSignature)
 
@@ -460,14 +467,15 @@ end
 fn object(text: String, what: String) -> Result<Map<String, Json>, JwtError>
     data = decoded(text, what)?
 
-    json = case Bytes.to_string(data)
-        Ok(utf8) ->
-            Json.decode(utf8)
-            |> Result.map_err(fn e -> JwtError.Malformed("the ${what} is not JSON: ${e}"))?
+    json =
+        case Bytes.to_string(data)
+            Ok(utf8) ->
+                Json.decode(utf8)
+                |> Result.map_err(fn e -> JwtError.Malformed("the ${what} is not JSON: ${e}"))?
 
-        Err(_) ->
-            return Err(JwtError.Malformed("the ${what} is not UTF-8"))
-    end
+            Err(_) ->
+                return Err(JwtError.Malformed("the ${what} is not UTF-8"))
+        end
 
     case json
         .Obj(fields) -> Ok(fields)

@@ -32,12 +32,46 @@ func TestStdStructSpecsMatchStdSource(t *testing.T) {
 		if fa == nil {
 			t.Fatalf("%s: std declares no module %q", s.nomi, module)
 		}
-		_, byName := stdStructAnchors(fa)
-		if _, anchored := byName[s.nomi]; !anchored {
-			t.Errorf("%s.%s: no anchor built, so every mention refuses. "+
-				"Either the declaration moved or its shape changed; compare stdStructSpec.matches "+
-				"against %s.nomi", s.origin, s.nomi, s.origin)
+		if !specAnchored(stdStructAnchors(fa), i) {
+			why := "std/" + module + ".nomi declares no struct of that name"
+			if decl := stdStructDeclIn(fa, s); decl != nil {
+				why = s.mismatch(decl)
+			}
+			t.Errorf("%s.%s: no anchor built, so every mention refuses: %s", s.origin, s.nomi, why)
 		}
+	}
+}
+
+// TestStdStructRowWithAWrongSpellingIsRefused holds the spelling half of
+// mismatch: a copy of the DateTime row whose `zone` says `Int64` where std
+// writes `String` must not match std's own declaration, and the reason names
+// the row, the field and both spellings.
+func TestStdStructRowWithAWrongSpellingIsRefused(t *testing.T) {
+	var spec stdStructSpec
+	for i := range stdStructSpecs {
+		if stdStructSpecs[i].origin == "std/calendar" && stdStructSpecs[i].nomi == "DateTime" {
+			spec = stdStructSpecs[i]
+		}
+	}
+	if spec.nomi == "" {
+		t.Fatal("no DateTime row; this test is about that row")
+	}
+	decl := stdStructDeclIn(std.Load().Files["calendar"], &spec)
+	if decl == nil {
+		t.Fatal("std/calendar declares no DateTime")
+	}
+	if why := spec.mismatch(decl); why != "" {
+		t.Fatalf("the row itself does not match std, so the case below would pass vacuously: %s", why)
+	}
+	spec.fields = append([]stdStructField(nil), spec.fields...)
+	spec.fields[1].decl = "Int64"
+	why := spec.mismatch(decl)
+	if why == "" {
+		t.Fatal("a row saying `zone: Int64` matches std's `zone: String`")
+	}
+	const want = "std/calendar.DateTime.zone: std writes `String`, the row says `Int64`"
+	if why != want {
+		t.Errorf("the refusal reads\n  %s\nwant\n  %s", why, want)
 	}
 }
 
@@ -104,7 +138,7 @@ func TestStdStructDefsArePackageNeutral(t *testing.T) {
 }
 
 // TestStdStructGoWidthMatchesTheDeclaredField checks each spec field's kind
-// against the GO type. `matches` checks it against the NOMI declaration only.
+// against the GO type. `mismatch` checks the NOMI spelling and TestStdSpecSpellingsAreTheirKinds its kind.
 //
 // So `rt.DateTime{ InstantNanos int32 }` would pass every other guard in
 // this package while silently truncating any instant past 2038 — the same shape
@@ -139,7 +173,7 @@ func TestStdStructGoWidthMatchesTheDeclaredField(t *testing.T) {
 // TestStdStructShapeCheckRejectsADriftedDeclaration is the negative half, and it
 // is the half a name-keyed table would get wrong.
 //
-// `matches` exists to make a std edit produce NO anchor rather than lower
+// `mismatch` exists to make a std edit produce NO anchor rather than lower
 // against a layout nobody wrote, and a permuted or widened field is a wrong
 // ANSWER rather than a Go compile error. Each case below is a real edit somebody
 // could make to std/calendar.nomi.
@@ -168,12 +202,12 @@ func TestStdStructShapeCheckRejectsADriftedDeclaration(t *testing.T) {
 		// a LAYOUT fact: a private declaration cannot be named by another
 		// module, which makes its anchor unreachable from elsewhere rather than
 		// wrong, and std/calendar's boundary carriers are private (see
-		// stdStructSpec.matches). Every row here is a change that would make
+		// stdStructSpec.mismatch). Every row here is a change that would make
 		// the builder lower against the WRONG LAYOUT.
 		{"generic", "pub opaque struct DateTime<T>\n  instant_nanos: Int\n  zone: String\nend\n"},
 		{"field default", "pub opaque struct DateTime\n  instant_nanos: Int\n  zone: String = \"UTC\"\nend\n"},
 	}
-	// The control first, so a `matches` that rejected everything would fail here
+	// The control first, so a `mismatch` that rejected everything would fail here
 	// rather than making every drift case pass vacuously.
 	if !anchorsDateTime(t, spec, "pub opaque struct DateTime\n  instant_nanos: Int\n  zone: String\nend\n") {
 		t.Fatal("the spec's own shape does not anchor, so every case below would pass vacuously")
@@ -188,7 +222,7 @@ func TestStdStructShapeCheckRejectsADriftedDeclaration(t *testing.T) {
 	}
 }
 
-// anchorsDateTime reports whether `matches` accepts the `DateTime` declaration
+// anchorsDateTime reports whether `mismatch` accepts the `DateTime` declaration
 // in src. Analysed rather than hand-built, so the AST is the parser's own —
 // hand-building a StructDef would let a case pass by mis-modelling the node.
 func anchorsDateTime(t *testing.T, spec *stdStructSpec, src string) bool {
@@ -205,7 +239,7 @@ func anchorsDateTime(t *testing.T, spec *stdStructSpec, src string) bool {
 	for _, m := range p.Modules {
 		for _, n := range m.Nodes {
 			sd, isStruct := n.(*ast.StructDef)
-			if isStruct && sd.Name == "DateTime" && spec.matches(sd, stdAnchorsOf(m.FA)) {
+			if isStruct && sd.Name == "DateTime" && spec.mismatch(sd) == "" {
 				return true
 			}
 		}

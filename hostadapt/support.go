@@ -3,10 +3,7 @@ package hostadapt
 import (
 	"errors"
 	"fmt"
-	"math"
-	"math/big"
 	"strings"
-	"time"
 	"unsafe"
 
 	"github.com/nomi-language/nomi/rt"
@@ -35,10 +32,9 @@ func Arg(name string, i int, err error) error {
 }
 
 // ConvertError is a value the other side's type cannot hold: an Int past a
-// fixed-width Go integer, a Float past float32, a nil *big.Int. It is the
-// program's value that is wrong, not
-// the adapter, so a call that meets one traps as a Nomi fault (Param,
-// Returned) rather than failing the machine.
+// fixed-width Go integer. It is the program's value that is wrong, not the
+// adapter, so a call that meets one traps as a Nomi fault (Param, Returned)
+// rather than failing the machine.
 type ConvertError struct {
 	// Takes is what the receiving slot holds, in the author's words: "an Int
 	// that fits in 64 bits".
@@ -72,8 +68,7 @@ func Param(key string, i int, fn, param string, err error) error {
 
 // Returned is the failure of converting fn's result. A value Nomi's
 // declared type cannot hold is an *rt.Error, raised at the call as a Nomi
-// fault: "`big.NewInt` returned a nil *big.Int, which is not an Int".
-// Anything else is err.
+// fault. Anything else is err.
 func Returned(fn string, err error) error {
 	var ce *ConvertError
 	if !errors.As(err, &ce) {
@@ -153,15 +148,6 @@ func IntValueField(r *rt.Record, d *rt.TypeDesc, i, slot int, name string) (rt.V
 		return nil, fmt.Errorf("field %q: %w", name, Want("Int", v))
 	}
 	return v, nil
-}
-
-// IntField reads an Int field as an int64, refusing a value past its range.
-func IntField(r *rt.Record, d *rt.TypeDesc, i, slot int, name string) (int64, error) {
-	v, err := IntValueField(r, d, i, slot, name)
-	if err != nil {
-		return 0, err
-	}
-	return ToSigned[int64](v, "int64")
 }
 
 // FloatField reads a Float field.
@@ -310,24 +296,21 @@ type Unsigned interface {
 // for the Go side stops, with an error the adapter names its binding in.
 func ToSigned[T Signed](v rt.Value, goType string) (T, error) {
 	var zero T
-	takes := fmt.Sprintf("an Int that fits in %d bits", unsafe.Sizeof(zero)*8)
 	n, ok := v.(int64)
-	if !ok {
-		return 0, overflows(goType, takes, v)
+	if t := T(n); ok && int64(t) == n {
+		return t, nil
 	}
-	t := T(n)
-	if int64(t) != n {
-		return 0, overflows(goType, takes, v)
-	}
-	return t, nil
+	return 0, overflows(goType, fmt.Sprintf("an Int that fits in %d bits", unsafe.Sizeof(zero)*8), v)
 }
 
 // ToUnsigned narrows an Int to a Go unsigned type.
 func ToUnsigned[T Unsigned](v rt.Value, goType string) (T, error) {
 	var zero T
-	takes := fmt.Sprintf("an Int from 0 to %d", uint64(^zero))
+	fail := func() (T, error) {
+		return 0, overflows(goType, fmt.Sprintf("an Int from 0 to %d", uint64(^zero)), v)
+	}
 	if !rt.IsInt(v) || rt.IntSign(v) < 0 {
-		return 0, overflows(goType, takes, v)
+		return fail()
 	}
 	var u uint64
 	switch x := v.(type) {
@@ -336,13 +319,13 @@ func ToUnsigned[T Unsigned](v rt.Value, goType string) (T, error) {
 	case *rt.BigInt:
 		z := x.Big()
 		if !z.IsUint64() {
-			return 0, overflows(goType, takes, v)
+			return fail()
 		}
 		u = z.Uint64()
 	}
 	t := T(u)
 	if uint64(t) != u {
-		return 0, overflows(goType, takes, v)
+		return fail()
 	}
 	return t, nil
 }
@@ -355,28 +338,6 @@ func overflows(goType, takes string, v rt.Value) error {
 		return &ConvertError{Takes: takes, Got: got, msg: fmt.Sprintf("unmarshal to %s: value %s overflows", goType, got)}
 	}
 	return fmt.Errorf("unmarshal to %s: %w", goType, Want("Int", v))
-}
-
-// FromBig is a Go *big.Int as an Int. A nil pointer is no number, so a Go
-// function that returns one where the binding declares an Int traps at the
-// call.
-func FromBig(z *big.Int) (rt.Value, error) {
-	if z == nil {
-		return nil, &ConvertError{Takes: "an Int", Got: "a nil *big.Int", msg: "marshal *big.Int: the pointer is nil"}
-	}
-	return rt.IntFromBig(z), nil
-}
-
-// ToFloat32 narrows a Float, refusing a finite magnitude float32 cannot hold.
-func ToFloat32[T ~float32](v float64, goType string) (T, error) {
-	if !math.IsInf(v, 0) && !math.IsNaN(v) && (v > math.MaxFloat32 || v < -math.MaxFloat32) {
-		return 0, &ConvertError{
-			Takes: "a Float within float32's range",
-			Got:   rt.FormatFloat(v),
-			msg:   fmt.Sprintf("unmarshal to %s: value %v overflows", goType, v),
-		}
-	}
-	return T(v), nil
 }
 
 // DurationNanos is a Duration's nanoseconds, an Int of any size, as Go's
@@ -394,30 +355,10 @@ func DurationNanos(v rt.Value) int64 { return rt.IntSaturated(v) }
 // earlier one than 1677 as already passed.
 func InstantNanosClamped(v rt.Value) int64 { return rt.IntSaturated(v) }
 
-// InstantTime is the Go time of an Instant's nanoseconds, an Int of any
-// size: exact for every moment a program names, and clamped past about 146
-// billion years from 1970 (rt.InstantTimeOf).
-func InstantTime(v rt.Value) time.Time { return rt.InstantTimeOf(rt.IntOf(v)) }
-
-// InstantNanos is an Instant's nanoseconds for a Go time: exact for every
-// time Go represents (rt.InstantFromTime), since an Instant is an Int of
-// any size.
-func InstantNanos(t time.Time) rt.Int { return rt.InstantFromTime(t) }
-
-// CallbackFailure is the panic value of a Go callback with no `error` result
-// whose Nomi function failed: it has nowhere to put the failure. The text is
-// the marshaller's.
-func CallbackFailure(err error, goType string) string {
-	return fmt.Sprintf(
-		"Nomi callback failed: %v — the Go callback type %s has no error return, "+
-			"so the failure has nowhere to go; declare it as func(...) (T, error) to receive Nomi failures",
-		err, goType)
-}
-
-// Unwind is the panic value of a frame-taking Go callback (`func(fr
-// *rt.Frame, ...)`) whose Nomi function failed: the failure, a trap
-// included, unwinds to the host call the callback runs inside, and the
-// engine answers that call with Err as its own failure.
+// Unwind is the panic value of a Go callback (`func(fr *rt.Frame, ...)`)
+// whose Nomi function failed: the failure, a trap included, unwinds to the
+// host call the callback runs inside, and the engine answers that call with
+// Err as its own failure.
 type Unwind struct{ Err error }
 
 // Slot answers a pointer to s, for a DescSpec's Inner.

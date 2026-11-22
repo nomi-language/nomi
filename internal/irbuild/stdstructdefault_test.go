@@ -100,11 +100,10 @@ func TestStdStructDefaults_ShapeCheckRejectsADriftedDefault(t *testing.T) {
 	if decl == nil {
 		t.Fatal("std/assertions does not declare AssertionDetails")
 	}
-	anchors := stdAnchorsOf(fa)
 
-	// The control first, so a `matches` that rejected everything would fail
+	// The control first, so a `mismatch` that rejected everything would fail
 	// here rather than making every case below pass vacuously.
-	if !spec.matches(decl, anchors) {
+	if spec.mismatch(decl) != "" {
 		t.Fatal("the spec's own declaration does not anchor, so every case below would pass vacuously")
 	}
 
@@ -153,7 +152,7 @@ func TestStdStructDefaults_ShapeCheckRejectsADriftedDefault(t *testing.T) {
 			drifted := *decl
 			drifted.Fields = append([]ast.StructField(nil), decl.Fields...)
 			c.mutate(drifted.Fields)
-			if spec.matches(&drifted, anchors) {
+			if spec.mismatch(&drifted) == "" {
 				t.Fatalf("the drifted declaration still anchors; the builder would fill an "+
 					"omitted field with a value std does not declare (case %q)", c.name)
 			}

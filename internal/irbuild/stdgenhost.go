@@ -66,23 +66,17 @@ import (
 // agree. For these two families:
 //
 //	channel                       arm                          covered
-//	an ANNOTATION                 typeOf / namedType           yes
+//	an ANNOTATION                 typeOf                       yes
 //	an INFERRED type              inferred.go's project        yes
 //	a CROSS-FILE component        foreign.go's importNamed     yes (rtDeclared)
-//	a stdlib SIGNATURE            stdlib.go's stdTypeKind      n/a — see below
+//	a stdlib SIGNATURE            projectShared                yes
 //	a REFUSAL REASON              sigreason.go                 yes
 //
-// The stdlib-SIGNATURE arm is absent DELIBERATELY and it costs nothing here:
-// every declaration in std/channels.nomi is `pub host fn …<T>`, so
-// `stdCandidateFor` short-circuits at `case generic:` before any signature
-// question is asked, and no channel function can reach `stdTypeKind` at all.
-// (`genStructSigKind` in `stdgensig.go` is the generic-struct family's
-// signature arm. It changes nothing here: all five channel host fns are
-// generic over `T`, so `sigNamesTypeParam` claims each one before
-// `genStructSigKind` is reached.)
-// TestStdGenHostChannelsAreAllGeneric evaluates the precondition
-// rather than stating it, so if std ever declares a non-generic channel
-// function this comment fails instead of rotting.
+// Every declaration in std/channels.nomi is `pub host fn …<T>`, so
+// `stdCandidateFor` files each one as `stdlib generic function` whatever its
+// signature projects to. TestStdGenHostChannelsAreAllGeneric evaluates the
+// precondition rather than stating it, so if std ever declares a non-generic
+// channel function this comment fails instead of rotting.
 
 // --- a GENERIC stdlib `pub host type` ---------------------------------------
 
@@ -137,26 +131,20 @@ var stdGenHostSpecs = []stdGenHostSpec{
 	// `Type<T>` is the fifth row and the only one whose type parameter is
 	// PHANTOM: `rt.Type[T]` is one `*rt.TypeID` whatever T is, where every row
 	// above stores a T. It satisfies the same three-clause identity — a `pub
-	// host type Type<T>` with no bound, in std/type.nomi, which declares that
-	// line and nothing else. The parameter still separates instances here:
-	// `Type<Marker>` and `Type<TraceId>` are two defs with different
-	// genHostArgs, so one does not pass where the other is wanted.
+	// host type Type<T>` with no bound, in std/type.nomi. The parameter still
+	// separates instances here: `Type<Marker>` and `Type<TraceId>` are two defs
+	// with different genHostArgs, so one does not pass where the other is
+	// wanted.
 	//
-	// Its OPERATION surface is EMPTY, which no other row here can say: std/type
-	// declares no function, no interface and no constructor, so there is nothing
-	// to lower on the type itself. What consults a witness is `std/context`'s
-	// value store — see ircontextvalue.go — and the value position is the only way
-	// a `Type<T>` is ever produced.
+	// Its OPERATION surface is its Debug alone: std/type declares no function
+	// and no constructor, and its `impl Debug` renders the witness through the
+	// machine (machineImpls). What consults a witness is `std/context`'s value
+	// store — see ircontextvalue.go — and the value position is the only way a
+	// `Type<T>` is ever produced.
 	//
 	// A test that needs an unrepresentable type must not use `Type<Int>`, which
 	// this row makes representable.
 	{origin: "std/type", nomi: "Type", params: []string{"T"}},
-}
-
-// stdGenHostAnchor is one generic std host type as THIS compilation's analysis
-// sees it.
-type stdGenHostAnchor struct {
-	spec *stdGenHostSpec
 }
 
 // stdGenHostValidated is, per spec, whether STD ITSELF declares the type in the
@@ -221,10 +209,6 @@ func stdGenHostDeclIn(fa *analysis.FileAnalysis, s *stdGenHostSpec) *ast.ExternT
 //   - The BOUNDS, against the row's own expectation, so a std edit that adds a
 //     constraint this builder discharges nowhere produces no anchor rather
 //     than lowering past it.
-//   - No foreign binding (`ForeignAlias`, `ForeignName`). A `host type`
-//     bound to a Go package is an FFI handle whose representation is the
-//     embedder's (hostpkg.go); rt's `Sender[T]` is not that, and the two
-//     stay different types.
 //
 // A DECORATOR other than `derive` is refused for opaqueSpec.matches' reason:
 // declModifiers refuses it on its own terms and redirecting the type to rt
@@ -244,37 +228,13 @@ func (s *stdGenHostSpec) matches(decl *ast.ExternType) bool {
 	if !boundsMatch(s.bounds, decl.TypeParams, decl.WhereClauses) {
 		return false
 	}
-	if decl.ForeignAlias != "" || decl.ForeignName != "" {
-		return false
-	}
-	// An attached `//!` test is not checked: see stdStructSpec.matches.
+	// An attached `//!` test is not checked: see stdStructSpec.mismatch.
 	for _, dec := range decl.Decorators {
 		if dec.Name != "derive" {
 			return false
 		}
 	}
 	return true
-}
-
-// stdGenHostAnchorsOf resolves the specs against one module's analysis, by Nomi
-// name. IDENTITY ONLY; the shape is stdGenHostValidated's question.
-func stdGenHostAnchorsOf(fa *analysis.FileAnalysis) map[string]*stdGenHostAnchor {
-	out := map[string]*stdGenHostAnchor{}
-	if fa == nil || fa.ModuleScope == nil {
-		return out
-	}
-	validated := stdGenHostValidated()
-	for i := range stdGenHostSpecs {
-		if !validated[i] {
-			continue
-		}
-		spec := &stdGenHostSpecs[i]
-		if stdGenHostDeclIn(fa, spec) == nil {
-			continue
-		}
-		out[spec.nomi] = &stdGenHostAnchor{spec: spec}
-	}
-	return out
 }
 
 var (
@@ -522,17 +482,11 @@ type stdMarkerSpec struct {
 //
 // # Why this is not a row in opaqueSpecs
 //
-// opaque.go's `matches` ends with `scalarKind(decl.InnerTypeExpr) == s.inner`,
-// and its comment states the exclusion as a mechanical fact rather than a
-// policy: "A `type Name` marker has a nil InnerTypeExpr, which scalarKind
-// answers kindInvalid for, so it cannot match either."
-//
-// A row over there with `inner: kindInvalid` WOULD match a marker — and it
-// would also match `pub type X SomeStruct`, because scalarKind answers
-// kindInvalid for any non-scalar inner just as readily. That is the one
-// direction every identity check in this package must not fail in, so the
-// nil-inner case needs a check of its own (`decl.InnerTypeExpr == nil`) rather
-// than a widened tolerance in a check built for scalars.
+// opaque.go's `matches` requires an inner type written as the row's `decl`,
+// and a `type Name` marker has none. An opaque row is a distinct over a
+// scalar with a def that holds the scalar; a marker holds nothing, so the
+// nil-inner case is a family of its own with its own check
+// (`decl.InnerTypeExpr == nil`) rather than a row with an empty spelling.
 var stdMarkerSpecs = []stdMarkerSpec{
 	{origin: "std/channels", nomi: "ChannelClosed", form: formDistinct},
 	{origin: "std/channels", nomi: "TimedOut", form: formDistinct},
@@ -612,13 +566,12 @@ func stdMarkerOfType(origin, name string) (kind, bool) {
 }
 
 // stdMarkerAnchors resolves the marker specs against one module's analysis: the
-// declaration NODE it reached each spec through, and the spec index under the
-// Nomi name. opaqueAnchors' body over the marker table.
-func stdMarkerAnchors(fa *analysis.FileAnalysis) (map[*ast.TypeDef]int, map[string]int) {
+// declaration NODE it reached each spec through. opaqueAnchors' body over the
+// marker table.
+func stdMarkerAnchors(fa *analysis.FileAnalysis) map[*ast.TypeDef]int {
 	byDecl := map[*ast.TypeDef]int{}
-	byName := map[string]int{}
 	if fa == nil || fa.ModuleScope == nil {
-		return byDecl, byName
+		return byDecl
 	}
 	for i := range stdMarkerSpecs {
 		s := &stdMarkerSpecs[i]
@@ -638,9 +591,8 @@ func stdMarkerAnchors(fa *analysis.FileAnalysis) (map[*ast.TypeDef]int, map[stri
 			continue
 		}
 		byDecl[decl] = i
-		byName[s.nomi] = i
 	}
-	return byDecl, byName
+	return byDecl
 }
 
 // matches reports whether decl is the declaration this spec describes.
@@ -661,7 +613,7 @@ func (s *stdMarkerSpec) matches(decl *ast.TypeDef) bool {
 	if decl.InnerTypeExpr != nil {
 		return false
 	}
-	// An attached `//!` test is not checked: see stdStructSpec.matches.
+	// An attached `//!` test is not checked: see stdStructSpec.mismatch.
 	for _, dec := range decl.Decorators {
 		if dec.Name != "derive" {
 			return false
@@ -676,7 +628,7 @@ func (g *gen) loadStdMarkers() {
 		return
 	}
 	g.stdMarkersLoaded = true
-	g.stdMarkerByDecl, g.stdMarkerByName = stdMarkerAnchors(g.fa)
+	g.stdMarkerByDecl = stdMarkerAnchors(g.fa)
 }
 
 // stdMarkerDeclared reports the spec index for a marker declaration this module
@@ -692,32 +644,16 @@ func (g *gen) stdMarkerDeclared(decl *ast.TypeDef) int {
 	return -1
 }
 
-// stdMarkerNamed resolves a type NAME to the shared def, for a module that
-// MENTIONS a marker without declaring it. opaqueNamed's reasoning exactly.
-func (g *gen) stdMarkerNamed(name string) (*typeDef, bool) {
-	g.loadStdMarkers()
-	i, anchored := g.stdMarkerByName[name]
-	if !anchored {
-		return nil, false
-	}
-	return stdMarkerDefs()[i], true
-}
-
 // projectStdMarker is inferred.go's projection for a marker: the DistinctType
 // the checker solved for a position the program never annotated.
 //
-// The two DOORS — this one and stdMarkerNamed — are deliberately NOT symmetric,
-// and the asymmetry is the opposite direction to the one projectStdOpaque warns
-// about. That warning is about an ANNOTATION door that works while inference
-// refuses, which is two answers to one question. Here inference is WIDER: it
-// resolves through stdMarkerOfType, which needs no module anchor, because a
+// It resolves through stdMarkerOfType, which needs no module anchor, because a
 // marker reached as a std function's error type is never spelled by the program
-// that reaches it. The annotation door keeps the anchor, because `c:
-// ChannelClosed` IS a spelling and the module's scope is what says which
-// declaration it names.
+// that reaches it, and an annotation (`c: ChannelClosed`) reaches it the same
+// way, through the type the checker recorded for it.
 //
-// The two cannot disagree on anything reachable: writing the name without
-// importing it is a front-end error, so every position where the annotation door
+// Writing the name without importing it is a front-end error, so every
+// position where an annotation
 // is reachable is a position where the anchor exists.
 func (g *gen) projectStdMarker(ty *analysis.DistinctType) (kind, bool) {
 	if len(ty.TypeArgs) > 0 {

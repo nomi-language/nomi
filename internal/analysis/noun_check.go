@@ -115,11 +115,3 @@ func (e *nounExpansion) fallsBack(locale, source string) bool {
 	}
 	return false
 }
-
-func quoted(xs []string) []string {
-	out := make([]string, len(xs))
-	for i, x := range xs {
-		out[i] = "`" + x + "`"
-	}
-	return out
-}

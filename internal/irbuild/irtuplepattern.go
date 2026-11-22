@@ -1,139 +1,59 @@
 package irbuild
 
 import (
+	"strconv"
+
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
-// tupleCaseComponents validates the complete pattern before changing the graph.
-func tupleCaseComponents(pattern ast.Node, k kind) ([]int, bool) {
-	pat, ok := pattern.(*ast.TuplePattern)
-	if !ok || !irRetainedTupleKind(k) || len(pat.Patterns) != len(k.comp.parts) {
-		return nil, false
+// tupleCaseTest tests a tuple pattern: each component but a `_` read off
+// subj and matched in order, so a later component is read only once the
+// tests before it passed. A tuple of names tests nothing.
+func (bl *irScalarBuilder) tupleCaseTest(pat *ast.TuplePattern, subj ir.Temp, k kind, next *ir.Block) bool {
+	if !irRetainedTupleKind(k) || len(pat.Patterns) != len(k.comp.parts) {
+		// The checker types the pattern against the tuple's type.
+		panic("irbuild: a tuple pattern of " + strconv.Itoa(len(pat.Patterns)) + " over " + k.nomi())
 	}
-	var tested []int
-	for i, component := range pat.Patterns {
-		switch component.(type) {
-		case *ast.WildcardPattern:
-		case *ast.IdentPattern:
-		case *ast.IntLit:
-			if !irIntLiteralKind(k.comp.parts[i]) {
-				return nil, false
-			}
-			tested = append(tested, i)
-		case *ast.StringLit:
-			if k.comp.parts[i] != kindString {
-				return nil, false
-			}
-			tested = append(tested, i)
-		default:
-			// A nested pattern (`(Some(id), _)`) is a component test that
-			// patternValueTest builds.
-			if !irFieldSubPattern(component, k.comp.parts[i]) {
-				return nil, false
-			}
-			tested = append(tested, i)
-		}
-	}
-	return tested, true
-}
-
-func tupleCaseIrrefutable(pattern ast.Node, k kind) bool {
-	tested, ok := tupleCaseComponents(pattern, k)
-	return ok && len(tested) == 0
-}
-
-func (bl *irScalarBuilder) tupleCaseTest(pattern ast.Node, subj ir.Temp, k kind, arm, next *ir.Block) bool {
-	tested, ok := tupleCaseComponents(pattern, k)
-	if !ok || len(tested) == 0 {
-		// The checker types the pattern against the tuple's type, each
-		// component a pattern irFieldSubPattern tests, and every caller
-		// binds an irrefutable tuple pattern instead of testing it.
-		panic("irbuild: a tuple pattern over " + k.nomi() + " with nothing to test, or a component tupleCaseComponents does not test")
-	}
-	pat := pattern.(*ast.TuplePattern)
-	j := 0
 	for i, component := range pat.Patterns {
 		if _, wildcard := component.(*ast.WildcardPattern); wildcard {
 			continue
 		}
 		part := bl.tupleProjection(pat, subj, i, k.comp.parts[i])
-		if id, binding := component.(*ast.IdentPattern); binding {
-			bl.tuplePatternBinding(id, part, k.comp.parts[i])
-			continue
-		}
-		success := arm
-		if j != len(tested)-1 {
-			success = bl.f.NewBlock(bl.g.irNodePos(component), "next component")
-		}
-		j++
-		switch component.(type) {
-		case *ast.IntLit, *ast.StringLit:
-		default:
-			if !bl.patternValueTest(component, part, k.comp.parts[i], success, next) {
-				return false
-			}
-			continue
-		}
-		lit, _, _, ok := bl.litFor(component, k.comp.parts[i])
-		if !ok {
+		if !bl.patternTest(component, part, k.comp.parts[i], next) {
 			return false
 		}
-		m := ir.NewMatchLitInto(bl.g.irNodePos(component), bl.f.NewTemp(), part, lit)
-		bl.b.Append(m)
-		bl.b.SetTerm(ir.NewBranch(bl.g.irNodePos(component), m.Dst(), success.ID(), next.ID()))
-		bl.b = success
 	}
 	return true
 }
 
-// tupleCaseBindings introduces the names of a validated flat tuple pattern.
-// The caller selects the destination block and owns the lexical scope.
-func (bl *irScalarBuilder) tupleCaseBindings(pattern ast.Node, subj ir.Temp, k kind) {
-	pat := pattern.(*ast.TuplePattern)
-	for i, component := range pat.Patterns {
-		if id, binding := component.(*ast.IdentPattern); binding {
-			part := bl.tupleProjection(pat, subj, i, k.comp.parts[i])
-			bl.tuplePatternBinding(id, part, k.comp.parts[i])
-		}
-	}
-}
-
-func (bl *irScalarBuilder) tuplePatternBinding(id *ast.IdentPattern, part ir.Temp, k kind) {
-	bl.patternBinding(id, id.Name, part, k)
-}
-
-// bindAsNames binds the name of each `as` around pattern to value, the value
-// the whole pattern matched, innermost first, in the current block. A site
-// that tests ast.WithoutAs(pattern) itself calls it on the success edge.
-func (bl *irScalarBuilder) bindAsNames(pattern ast.Node, value ir.Temp, k kind) {
-	var chain []*ast.AsPattern
-	for a, ok := pattern.(*ast.AsPattern); ok; a, ok = a.Pattern.(*ast.AsPattern) {
-		chain = append(chain, a)
-	}
-	for i := len(chain) - 1; i >= 0; i-- {
-		bl.patternBinding(chain[i], chain[i].Name, value, k)
-	}
-}
-
-func (bl *irScalarBuilder) patternBinding(at ast.Node, name string, part ir.Temp, k kind) {
+// patternBinding binds name, which at declares, to part at kind k, and
+// answers the key it is declared under: the position the name is written
+// at in at, or, for a name the builder makes, a key of its own
+// (madeLocal), which a read the builder writes carries (madeRead).
+func (bl *irScalarBuilder) patternBinding(at ast.Node, name string, part ir.Temp, k kind) analysis.Pos {
 	if ast.IsDiscardName(name) {
-		return
+		return analysis.Pos{}
 	}
 	if bl.orJoin != nil {
 		// An alternative of an `or` pattern: the name is declared once,
 		// where the alternatives join (irorpattern.go).
 		bl.orJoinCopy(at, name, part, k)
-		return
+		return analysis.Pos{}
 	}
 	// Pattern declarations belong to this arm, including when they shadow an
 	// enclosing declaration. Its caller owns the cloned lexical symbol tables.
 	sym := ir.NewSymbol(name)
-	bl.sh.syms[name] = sym
 	bind := ir.NewBind(bl.g.irNodePos(at), bl.f.NewTemp(), part, sym)
 	bl.b.Append(bind)
 	bl.side(bind.Dst(), irScalarSide{k: k})
-	bl.bound[name], bl.boundK[name] = bind.Dst(), k
-	line, col := irBindingSite(at, name)
+	line, col, written := irBindingSite(at, name)
+	key := analysis.Pos{Line: line, Col: col}
+	if !written {
+		key = bl.g.madeLocal()
+	}
+	bl.declareKey(key, bind.Dst(), k)
 	bl.declareBindAt(bind, k, line, col)
+	return key
 }

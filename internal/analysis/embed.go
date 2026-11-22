@@ -387,6 +387,23 @@ func expandEmbed(d *ast.EmbedDecl, site *ExpansionSite, slot int) *ast.OnceBindi
 	return once
 }
 
+// EmbeddedPaths is the paths, from the module root root on disk, of the
+// files d's patterns embed, in path order, as the front end resolves
+// them, or the first error it reports there. The tour's generator carries
+// these files with a module it links (internal/tourmodules/tourmodulesgen).
+func EmbeddedPaths(root string, d *ast.EmbedDecl) ([]string, error) {
+	r := embedResolver{decl: d, site: &ExpansionSite{Root: root, Embed: DiskEmbedFS{Root: root}, SkipEmbedContents: true}}
+	files := r.resolve()
+	if len(r.errs) > 0 {
+		return nil, fmt.Errorf("%s (line %d)", r.errs[0].Message, r.errs[0].Line)
+	}
+	out := make([]string, len(files))
+	for i, f := range files {
+		out[i] = f.Path
+	}
+	return out, nil
+}
+
 // embedResolver finds the files of one `embed`, by their paths from the
 // site's module root.
 type embedResolver struct {

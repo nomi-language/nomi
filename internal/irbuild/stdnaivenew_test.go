@@ -3,6 +3,7 @@ package irbuild
 import (
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
@@ -20,15 +21,22 @@ import (
 // be refused rather than silently filled from a declaration the Go
 // implementation never reads.
 func TestDefaultedHostFnArmStillEvaluates(t *testing.T) {
-	intType := func() ast.TypeExpr { return &ast.SimpleType{Name: "Int"} }
+	// Each `Int` is recorded as the checker records a written type, which
+	// is what a std signature's kinds are read from.
+	fa := &analysis.FileAnalysis{TypeExprTypes: map[ast.TypeExpr]analysis.Type{}}
+	intType := func() ast.TypeExpr {
+		te := &ast.SimpleType{Name: "Int"}
+		fa.TypeExprTypes[te] = analysis.TypeInt
+		return te
+	}
 	params := []ast.Param{
 		{Name: "a", TypeAnnotation: intType()},
 		{Name: "b", TypeAnnotation: intType(), Default: &ast.Block{}},
 	}
 	// fd == nil is what makes it a `host fn`: there is no Nomi body to hang a
 	// default on.
-	c := stdCandidateFor("probe", "Thing", "", "", "make", params, intType(),
-		false, false, nil, stdAnchors{})
+	c := stdCandidateFor("probe", "Thing", analysis.StdType{}, "", "make", params, intType(),
+		false, false, nil, fa)
 	const want = "stdlib host function with a defaulted parameter"
 	if c.f.why != want {
 		t.Errorf("a host fn with a trailing default is classified %q, want %q; the arm "+
@@ -40,9 +48,9 @@ func TestDefaultedHostFnArmStillEvaluates(t *testing.T) {
 	// declaration with a body must NOT hit the arm. Otherwise the arm could be
 	// refusing on `defaulted > 0` alone and every Nomi-bodied default in std
 	// would be refused with it, including `NaiveDateTime.new`.
-	withBody := stdCandidateFor("probe", "Thing", "", "", "make", params, intType(),
+	withBody := stdCandidateFor("probe", "Thing", analysis.StdType{}, "", "make", params, intType(),
 		false, false, &ast.FuncDef{Name: "make", Params: params,
-			Body: &ast.Block{}}, stdAnchors{})
+			Body: &ast.Block{}}, fa)
 	if withBody.f.why == want {
 		t.Errorf("a Nomi-bodied function with the same trailing default is also refused "+
 			"%q; the arm is meant to turn on `fd == nil`, not on the default alone", want)

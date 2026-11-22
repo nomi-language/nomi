@@ -28,15 +28,17 @@ in your browser.
 
 Nomi compiles programs to bytecode and runs them on its own virtual machine.
 The same VM runs `nomi run`, `nomi test`, the REPL, executables written by
-`nomi build`, the examples in the browser tour, and Go applications that embed
-Nomi. Nomi is implemented in Go, and can call Go code through a typed FFI.
+`nomi build`, the examples in the browser tour, and applications that embed
+Nomi. Nomi is implemented in Go. A Go program, or a program in any language
+with a WebAssembly runtime, can host Nomi and supply the `host fn`s it
+declares; Nomi source itself calls no Go.
 
 ## Status
 
 Nomi is very early and pre-release. The language changes without
 compatibility guarantees. The core (expressions, types, pattern matching,
 imports, interfaces, derives, tests, collections and control flow) is the most
-exercised; concurrency, FFI and module management are younger.
+exercised; concurrency, embedding and module management are younger.
 
 ## Learn
 
@@ -151,7 +153,7 @@ entry. Helix's `languages.toml` block adds run and test templates to
 `:debug-start`. The VS Code and Neovim READMEs have the launch settings.
 
 Each editor also attaches `nomi-lsp` to a module's `nomi.toml`, for the
-errors `nomi check` reports there and completion in its `[capabilities]`
+errors `nomi check` reports there and completion in its `[effects]`
 lists, and to its phrase catalogs, the TOML files under its
 `[i18n].catalogs` directory (`locales/` unless the manifest names another),
 for their diagnostics, completion, hover and quick fixes. The file keeps

@@ -729,8 +729,7 @@ func (s typingSeed) text() string { return s.files[s.open] }
 const repoRoot = "../.."
 
 // trackedSeeds are every tracked .nomi file, each with the .nomi files and
-// nomi.toml of its own directory. A file that names a Go package (`gopkg`)
-// is left out: analyzing it builds Go code.
+// nomi.toml of its own directory.
 func trackedSeeds(tb testing.TB) []typingSeed {
 	tb.Helper()
 	out, err := exec.Command("git", "-C", repoRoot, "ls-files", "*.nomi").Output()
@@ -743,9 +742,6 @@ func trackedSeeds(tb testing.TB) []typingSeed {
 		if err != nil {
 			tb.Fatal(err)
 		}
-		if strings.Contains(string(data), "gopkg") {
-			continue
-		}
 		name := filepath.Base(rel)
 		files := map[string]string{name: string(data)}
 		dir := filepath.Join(repoRoot, filepath.Dir(rel))
@@ -755,7 +751,7 @@ func trackedSeeds(tb testing.TB) []typingSeed {
 				if e.IsDir() || e.Name() == name || !(strings.HasSuffix(e.Name(), ".nomi") || e.Name() == "nomi.toml") {
 					continue
 				}
-				if b, err := os.ReadFile(filepath.Join(dir, e.Name())); err == nil && !strings.Contains(string(b), "gopkg") {
+				if b, err := os.ReadFile(filepath.Join(dir, e.Name())); err == nil {
 					files[e.Name()] = string(b)
 				}
 			}

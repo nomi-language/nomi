@@ -1,4 +1,5 @@
 import
+    std::embed.Files
     std::fs
     image.{self, Dimensions, Format, Image, Pixels}
 end
@@ -115,12 +116,13 @@ end
 fn variants(upload: Bytes) -> Result<List<(String, Bytes)>, image.Error>
     picture = image.decode(upload)?
 
-    encode = fn variant: Image ->
-        case Image.format(picture)
-            Some(.Png) -> Image.encode_png(variant)
-            _          -> Image.encode_jpeg(variant)
+    encode =
+        fn variant: Image ->
+            case Image.format(picture)
+                Some(.Png) -> Image.encode_png(variant)
+                _          -> Image.encode_jpeg(variant)
+            end
         end
-    end
 
     Ok([
         ("original",  encode(picture)),
@@ -147,4 +149,162 @@ test "an upload's variants are written as files that read back"
         Ok(Dimensions{format: .Jpeg, width: 120, height: 80}),
         Ok(Dimensions{format: .Jpeg, width: 120, height: 80}),
     ]
+end
+
+embed recorded `engine/image.wasm.sha256`
+
+// engine/build.sh records the SHA-256 of the module it builds; the module
+// committed is the one it built.
+test "the embedded engine is the one engine/build.sh recorded"
+    line = Files.read_text(recorded, "engine/image.wasm.sha256")!
+
+    assert Some(Files.sum(image.engine_wasm, "engine/image.wasm")!)
+        == List.first(String.split(line, " "))
+end
+
+test "fitted keeps the shape, rounds to the nearest pixel and never scales up"
+    sizes: List<(Pixels, Pixels, Pixels, Pixels, Pixels, Pixels)> = [
+        (120,  80,   800, 600, 120, 80),
+        (2048, 1536, 800, 600, 800, 600),
+        (2048, 1536, 300, 200, 267, 200),
+        (1182, 550,  800, 600, 800, 372),
+        (5000, 10,   100, 100, 100, 1),
+    ]
+
+    sizes
+    |> subtests (w, h, box_w, box_h, want_w, want_h), "${w} by ${h} into ${box_w} by ${box_h}"
+        assert image.fitted(w, h, box_w, box_h) == (want_w, want_h)
+    end
+end
+
+// The bytes of `values`, each 0 to 255.
+fn bytes(values: List<Int>) -> Bytes
+    values
+    |> Iter.map(&Int.to_byte(&1)!)
+    |> Iter.to_list()
+    |> Bytes.from_list()
+end
+
+// `data` with `part` written over it from `at`.
+fn patched(data: Bytes, at: Int, part: Bytes) -> Bytes
+    Bytes.concat_all([
+        Bytes.slice(data, 0, at),
+        part,
+        Bytes.slice(data, at + Bytes.length(part), Bytes.length(data)),
+    ])
+end
+
+test "a PNG round trip keeps every pixel"
+    lossy = image.decode(fixture("gradient.webp"))!
+
+    pictures = [
+        ("decoded from a WebP", lossy),
+        (
+            "gray",
+            Image{
+                width:  2,
+                height: 1,
+                pixels: bytes([7, 7, 7, 255, 200, 200, 200, 255]),
+                format: None,
+            },
+        ),
+        (
+            "with alpha",
+            Image{width: 2, height: 1, pixels: bytes([255, 0, 0, 128, 0, 0, 255, 0]), format: None},
+        ),
+    ]
+
+    pictures
+    |> subtests (description, picture), description
+        back = image.decode(Image.encode_png(picture))!
+        assert (back.width, back.height) == (picture.width, picture.height)
+        assert back.pixels == picture.pixels
+    end
+end
+
+test "a JPEG writes each pixel as its color over black"
+    // 8 by 8 white, opaque in its left half and transparent in its right.
+    pixels =
+        0..64
+        |> Iter.flat_map(fn i ->
+            if i % 8 < 4 then
+                [255, 255, 255, 255]
+            else
+                [255, 255, 255, 0]
+            end
+        end)
+        |> Iter.to_list()
+        |> bytes()
+
+    back = image.decode(Image.encode_jpeg(Image{width: 8, height: 8, pixels:, format: None}))!
+    assert Bytes.uint8_at(back.pixels, 0)! > 240
+    assert Bytes.uint8_at(back.pixels, 7 * 4)! < 16
+end
+
+// Every decode of a file cut short is an Error, never a trap or an image.
+test "a file cut short anywhere is an Error"
+    ["gradient.jpg", "gradient.png", "gradient.webp"]
+    |> subtests name, name
+        data = fixture(name)
+
+        decoded =
+            0..Bytes.length(data)
+            |> Iter.filter(fn n -> (image.decode(Bytes.slice(data, 0, n)) is Ok(_)))
+            |> Iter.count()
+
+        assert decoded == 0
+    end
+end
+
+// Each byte of each file set to 0 and then to 255: every decode and every
+// header read answers an image or an Error, never a trap; an image that
+// decodes has a header that reads; and a PNG's checksums find every change.
+test "a damaged file is an Error, never a trap"
+    ["gradient.jpg", "gradient.png", "gradient.webp", "huge-header.png"]
+    |> subtests name, name
+        data = fixture(name)
+
+        damaged =
+            0..Bytes.length(data)
+            |> Iter.flat_map(fn at ->
+                [patched(data, at, bytes([0])), patched(data, at, bytes([255]))]
+            end)
+            |> Iter.filter(&(&1 != data))
+            |> Iter.to_list()
+
+        answers =
+            damaged
+            |> Iter.map(fn d -> (image.dimensions(d) is Ok(_), image.decode(d) is Ok(_)))
+            |> Iter.to_list()
+
+        decoded = Iter.count_by(answers, &(&1.second))
+        assert Iter.count_by(answers, fn (read, decodes) -> decodes and not read) == 0
+
+        if String.ends_with(name, ".png") then
+            assert decoded == 0
+        else
+            assert decoded < Iter.count(damaged)
+        end
+    end
+end
+
+test "each format's header that declares too many pixels is refused"
+    jpeg = fixture("gradient.jpg")
+    frame = Bytes.index_of(jpeg, bytes([0xFF, 0xC0]))!
+    huge_jpeg = patched(jpeg, frame + 5, bytes([0xEA, 0x60, 0xEA, 0x60]))
+    assert image.dimensions(huge_jpeg) == Ok(Dimensions{format: .Jpeg, width: 60000, height: 60000})
+    assert image.decode(huge_jpeg) == Err(.TooLarge{width: 60000, height: 60000})
+
+    webp = fixture("gradient.webp")
+    vp8 = Bytes.index_of(webp, String.to_bytes("VP8 "))!
+    huge_webp = patched(webp, vp8 + 14, bytes([0x80, 0x3E, 0x80, 0x3E]))
+    assert image.dimensions(huge_webp) == Ok(Dimensions{format: .Webp, width: 16000, height: 16000})
+    assert image.decode(huge_webp) == Err(.TooLarge{width: 16000, height: 16000})
+end
+
+// The engine holds at most 1 GiB of pixels, so past it an image is too
+// large whatever max_pixels allows.
+test "an image past what the engine holds is TooLarge"
+    assert image.decode(fixture("huge-header.png"), max_pixels: 10_000_000_000)
+        == Err(.TooLarge{width: 100000, height: 100000})
 end

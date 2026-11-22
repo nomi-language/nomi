@@ -53,7 +53,7 @@
 //# Each of the five types has a typed literal, the usual way to write a
 //# value:
 //#
-//# ```
+//# ```text
 //# Date"YYYY-MM-DD"
 //# Time"HH:MM:SS[.fff…]"
 //# NaiveDateTime"YYYY-MM-DDTHH:MM:SS[.fff…]"
@@ -80,8 +80,9 @@
 //# wall reading projected through a zone, below),
 //# `OffsetDateTime.with_offset`, `OffsetDateTime.from_instant` (each a `Result`),
 //# `DateTime.from_instant_in` (a `Result`: `UnknownZone`), `DateTime.now_in`
-//# (the system clock projected into a zone) and `NaiveDateTime.utc_now` (the
-//# system clock as a UTC wall reading).
+//# (the system clock projected into a zone), `DateTime.now_local` (the same
+//# in the zone the machine is set to, which `DateTime.local_zone` names) and
+//# `NaiveDateTime.utc_now` (the system clock as a UTC wall reading).
 //#
 //# ## Years of any size
 //#
@@ -163,7 +164,7 @@
 //#
 //# ## The conversion lattice
 //#
-//# ```
+//# ```text
 //#                                 Date  ──────┐
 //#                                             │
 //#                                 Time  ──────┤  of / at_midnight
@@ -327,9 +328,11 @@ end
 /// that does not read, and `InvalidValue`, for a value that is no date or
 /// time (`day 30 not valid for 2026-02`). The other three come from
 /// `DateTime` alone. `UnknownZone` is a zone name the embedded zone
-/// database lacks. `Nonexistent` is a wall reading in a spring-forward gap
-/// and `Ambiguous` one in a fall-back fold, which `DateTime.in_zone` returns
-/// only with `Disambiguation.Reject`; the other modes resolve both.
+/// database lacks, or a machine zone with no IANA name
+/// (`DateTime.local_zone`). `Nonexistent` is a wall reading in a
+/// spring-forward gap and `Ambiguous` one in a fall-back fold, which
+/// `DateTime.in_zone` returns only with `Disambiguation.Reject`; the other
+/// modes resolve both.
 //! assert Date.new(2026, 2, 30) == Err(Error.InvalidValue("day 30 not valid for 2026-02"))
 //!
 //! assert Display.to_string(Error.InvalidValue("month out of range: 13"))
@@ -1933,6 +1936,8 @@ end
 /// `DateTime.from_instant_in(instant, zone)`, `DateTime.now_in(zone)` or
 /// `DateTime.parse`. A function that takes a zone name returns
 /// `Err(UnknownZone ...)` for one the database lacks.
+/// `DateTime.local_zone` names the zone the machine is set to, and
+/// `DateTime.now_local` reads the clock in it.
 //! dt = DateTime"2026-06-15T12:00:00-04:00[America/New_York]"
 //! assert Display.to_string(dt) == "2026-06-15T12:00:00-04:00[America/New_York]"
 //! assert DateTime.hour(dt) == 12
@@ -2010,9 +2015,9 @@ impl DateTime
     end
 
     /// The moment the clocks of an IANA zone showed the wall reading `dt`.
-    /// An unknown zone is `Err(UnknownZone ...)`. A reading in a gap or a
-    /// fold resolves as `mode` says (`Disambiguation`), and is an `Err`,
-    /// `Nonexistent` or `Ambiguous`, only with `Disambiguation.Reject`.
+    /// An unknown zone, `"Local"` and `""` among them (`local_zone` names the
+    /// machine's), is `Err(UnknownZone ...)`. A reading in a gap or a fold is
+    /// resolved by `mode`, and is an `Err` only with `Disambiguation.Reject`.
     //! assert DateTime.in_zone(NaiveDateTime"2026-06-15T12:00:00", "America/New_York")?
     //!     == DateTime"2026-06-15T12:00:00-04:00[America/New_York]"
     //!
@@ -2034,12 +2039,13 @@ impl DateTime
         zone: String,
         mode: Disambiguation,
     ) -> Result<DateTime, Error>
-        mode_tag: Int64 = case mode
-            Disambiguation.Compatible -> 1
-            Disambiguation.Earlier    -> 2
-            Disambiguation.Later      -> 3
-            Disambiguation.Reject     -> 4
-        end
+        mode_tag: Int64 =
+            case mode
+                Disambiguation.Compatible -> 1
+                Disambiguation.Earlier    -> 2
+                Disambiguation.Later      -> 3
+                Disambiguation.Reject     -> 4
+            end
 
         attempt = zoned_in_zone_raw(dt, zone, mode_tag)
 
@@ -2079,6 +2085,36 @@ impl DateTime
     //
     pub fn now_in(zone: String) -> Result<DateTime, Error>
         DateTime.from_instant_in(Instant.now(), zone)
+    end
+
+    /// The IANA zone the machine is set to, a name every function that
+    /// takes a zone takes. It is the zone the `TZ` environment variable
+    /// names, else the one the system's `/etc/localtime` links to, else
+    /// `UTC` on a system with neither. An empty `TZ` is `UTC`. In a
+    /// browser it is the zone the browser shows its clocks in. It is read
+    /// at each call, so a long-running program follows a change.
+    ///
+    /// A zone with no IANA name is `Err(UnknownZone ...)`, with the
+    /// reason: a `TZ` that names no zone, an `/etc/localtime` copied from
+    /// a zone file instead of linked to one, and a Windows zone with no
+    /// `TZ`, since Windows names its zones by names of its own.
+    //! zone = DateTime.local_zone() |> Result.with_default("UTC")
+    //! assert DateTime.from_instant_in(Instant.from_seconds(0), zone) is Ok(_)
+    //
+    pub fn local_zone() -> Result<String, Error>
+        case local_zone_raw()
+            Ok(zone)    -> Ok(zone)
+            Err(reason) -> Err(Error.UnknownZone(reason))
+        end
+    end
+
+    /// The current moment in the zone the machine is set to: `now_in` at
+    /// the zone `DateTime.local_zone` names, which fails as it does.
+    //! assert DateTime.now_local() |> Result.map(DateTime.zone) == DateTime.local_zone()
+    //
+    pub fn now_local() -> Result<DateTime, Error>
+        zone = DateTime.local_zone()?
+        DateTime.now_in(zone)
     end
 
     /// The same moment as an `OffsetDateTime`, at the offset the zone has
@@ -2507,16 +2543,17 @@ impl TimeUnit
         unit:    TimeUnit,
         numeric: Bool = False,
     ) -> String
-        position: Int64 = case unit
-            TimeUnit.Second  -> 0
-            TimeUnit.Minute  -> 1
-            TimeUnit.Hour    -> 2
-            TimeUnit.Day     -> 3
-            TimeUnit.Week    -> 4
-            TimeUnit.Month   -> 5
-            TimeUnit.Quarter -> 6
-            TimeUnit.Year    -> 7
-        end
+        position: Int64 =
+            case unit
+                TimeUnit.Second  -> 0
+                TimeUnit.Minute  -> 1
+                TimeUnit.Hour    -> 2
+                TimeUnit.Day     -> 3
+                TimeUnit.Week    -> 4
+                TimeUnit.Month   -> 5
+                TimeUnit.Quarter -> 6
+                TimeUnit.Year    -> 7
+            end
 
         relative_format_raw(locale, count, position, numeric)
     end
@@ -2820,10 +2857,10 @@ end
 // ============================================================================
 //
 // Every declaration below is module-private and takes or returns only `Int`,
-// `String` and the calendar structs themselves — the types the FFI
+// `String` and the calendar structs themselves — the types the host
 // projection carries directly, so each Go function is one adapter row.
-// `stdcalendar/boundary.go`'s header names the three types it does not
-// carry directly and states what each costs here.
+// `stdcalendar/boundary.go`'s header names the three shapes it passes
+// another way and states what each costs here.
 //
 // The twenty-one declarations bound INLINE above rather than through this
 // section are the ones whose public signature was already agreeable:
@@ -2964,6 +3001,9 @@ host fn offset_add_months(odt: OffsetDateTime, n: Int) -> OffsetDateTime
 host fn zoned_in_zone_raw(dt: NaiveDateTime, zone: String, mode: Int64) -> ZonedAttempt
 
 host fn zoned_from_instant_in_raw(instant_nanos: Int, zone: String) -> ZonedAttempt
+
+// The zone the machine is set to, or why it has no IANA name.
+host fn local_zone_raw() -> Result<String, String>
 
 host fn zoned_add_nanos(d: DateTime, nanos: Int) -> DateTime
 

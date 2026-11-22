@@ -525,8 +525,8 @@ dbg line 13: greet(typed) = "Hello, Cy"
 -->
 
 A list literal with an element is a `NonEmptyList` whatever its elements
-are, so `greet([name])` needs no check, and the same holds for vector, set
-and map literals and their non-empty subtypes.
+are, so `greet([name])` needs no check, and the same holds for vector, set and map literals and their non-empty subtypes.
+A binding with no type written keeps that: after `names = [name]`, and for `once names = ["Ada"]`, `greet(names)` needs no check either.
 
 A check narrows a binding to the std subtype it proves, where it holds:
 past `if typed == [] then return`, `typed` is a `NonEmptyList`, and in

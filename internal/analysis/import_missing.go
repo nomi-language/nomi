@@ -78,7 +78,7 @@ func (b *builder) reportMissingModule(n *ast.ImportStmt, segs []ast.Node, miss *
 		if miss.root != "" {
 			hint = missingModuleHint(dir, leaf, written)
 		}
-		// The import's head may name a module go.mod does not require, or
+		// The import's head may name no dependency of the project, or
 		// one whose directory is not a Nomi module.
 		if miss.dep == "" && b.projectRoot != "" {
 			problem, modHint, unlisted := modcache.ImportProblem(b.projectRoot, written[0])
@@ -89,7 +89,7 @@ func (b *builder) reportMissingModule(n *ast.ImportStmt, segs []ast.Node, miss *
 				msg, hint = msg+", and "+problem, modHint
 			}
 		}
-		// The path may name a module go.mod requires that is not
+		// The path may name a module the project needs that is not
 		// downloaded yet: the language server never downloads, so it says
 		// how to.
 		if miss.dep == "" && b.projectRoot != "" {
@@ -104,7 +104,7 @@ func (b *builder) reportMissingModule(n *ast.ImportStmt, segs []ast.Node, miss *
 
 // localHead reports whether the first name of miss's path is a file or a
 // directory where the import looked, so the path means a project file and
-// a module go.mod lacks is beside the point.
+// a dependency nomi.toml lacks is beside the point.
 func localHead(miss *importMiss) bool {
 	if miss.root == "" || len(miss.path) == 0 {
 		return false

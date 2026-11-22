@@ -26,25 +26,19 @@ func (bl *irScalarBuilder) namedIntrinsic(t *ast.Call, fa *ast.FieldAccess) bool
 	if fa.Field == nil || namedArgNode(t.Args) == nil {
 		return false
 	}
-	switch bl.stdIntrinsicOwner(fa) {
-	case "Task":
+	switch arm, id := bl.g.intrinsicArm(t); arm {
+	case armTask:
 		// Task.spawn_all places its own arguments (taskSpawnAll).
-		return fa.Field.Name != "spawn_all"
-	case "Channel", "Sender", "Receiver", "Arm":
+		return id.Name != "spawn_all"
+	case armChannel, armSupervisor, armReader:
 		return true
-	case "Supervisor":
-		// `Supervisor.new` and `flush` are Nomi-bodied with defaults, and
-		// take the ordinary qualified-call route.
-		return fa.Field.Name == "spawn" || fa.Field.Name == "spawn_all"
-	case "Reader":
-		return fa.Field.Name == "from_chunks" || fa.Field.Name == "from_text_chunks"
 	}
 	ti, isType := fa.Object.(*ast.TypeIdent)
 	if !isType || ti.Name != "Context" || (fa.Field.Name != "value" && fa.Field.Name != "with_value") {
 		return false
 	}
-	d, found := bl.g.namedType(ti.Name)
-	return found && irContextKind(named(d))
+	d := bl.g.typeDeclDef(bl.g.checkedRef(ti.Line, ti.Col))
+	return d != nil && irContextKind(named(d))
 }
 
 // mustBePlacedIntrinsic panics unless t, a call of the intrinsic what with
@@ -127,7 +121,7 @@ func (bl *irScalarBuilder) namedIntrinsicCall(t *ast.Call, fa *ast.FieldAccess) 
 		line, col := nodePos(a)
 		stand := &ast.Ident{Name: "\x00named", Line: line, Col: col}
 		args[slot], temps[slot], kinds[slot] = stand, v, k
-		placed[stand] = irPlacedArg{temp: v, k: k}
+		placed[stand] = irPlacedArg{temp: v, k: k, written: a}
 		bl.placed[stand] = placed[stand]
 	}
 	// The stand-ins are written at their slots, in order.

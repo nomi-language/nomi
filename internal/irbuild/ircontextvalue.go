@@ -116,20 +116,18 @@ func (bl *irScalarBuilder) namesType(at ast.Node, x kind) bool {
 	return ok && k == x
 }
 
-// witnessTypeKind is the kind the type name at spells in value position,
-// bare (`Token`) or through a whole-file import's qualifier
-// (`domain.Token`). ok is false when at is not a type name: a binding, or
-// a field chain over one. A type name this builder cannot resolve answers
-// kindInvalid.
+// witnessTypeKind is the X of the `Type<X>` the checker records for at, a
+// type name in value position, bare (`Token`) or through a whole-file
+// import's qualifier (`domain.Token`). ok is false when at is not a type
+// name: a binding, or a field chain over one. A type name whose record is
+// no witness the builder represents answers kindInvalid.
 func (bl *irScalarBuilder) witnessTypeKind(at ast.Node) (kind, bool) {
 	switch t := at.(type) {
 	case *ast.TypeIdent:
-		return bl.g.namedWitnessKind(t, t.Name), true
 	case *ast.Ident:
 		if bl.namesLocal(t) {
 			return kindInvalid, false
 		}
-		return bl.g.namedWitnessKind(t, t.Name), true
 	case *ast.FieldAccess:
 		root := t.Object
 		for fa, chained := root.(*ast.FieldAccess); chained; fa, chained = root.(*ast.FieldAccess) {
@@ -138,36 +136,15 @@ func (bl *irScalarBuilder) witnessTypeKind(at ast.Node) (kind, bool) {
 		if id, isIdent := root.(*ast.Ident); !isIdent || bl.namesLocal(id) {
 			return kindInvalid, false
 		}
-		name, ok := bl.dottedTypeQualifier(t)
-		if !ok {
+		if !bl.dottedTypeName(t) {
 			return kindInvalid, false
 		}
-		if d, found := bl.g.namedType(name); found && d.lowerable {
-			return named(d), true
-		}
-		return kindInvalid, true
+	default:
+		return kindInvalid, false
 	}
-	return kindInvalid, false
-}
-
-// namedWitnessKind is the kind the bare type name at spells: one this file
-// declares or a primitive (qualifierKind), else the X of the `Type<X>` the
-// checker typed at as, which names an imported std type (`Duration` after
-// `import std::duration.Duration`) that this file's type table does not
-// hold.
-func (g *gen) namedWitnessKind(at ast.Node, name string) kind {
-	// kindInvalid: lookup — a name this file's table does not hold tries the checker's type.
-	if k := g.qualifierKind(name); k != kindInvalid {
-		return k
-	}
-	t := g.checkedExprType(at)
-	if t == nil {
-		return kindInvalid
-	}
-	if x, ok := typeWitnessArg(g.project(t)); ok {
-		return x
-	}
-	return kindInvalid
+	k, _ := bl.g.recordedKind(at)
+	x, _ := typeWitnessArg(k)
+	return x, true
 }
 
 // contextValueCall lowers `Context.with_value(c, v)` and
@@ -235,7 +212,7 @@ func (bl *irScalarBuilder) contextValueCall(t *ast.Call, method string) (ir.Temp
 			if wk, ok = bl.g.genHostOfType("std/type", "Type", []kind{x}); !ok {
 				return no()
 			}
-			// witnessTypeKind named arg a type name spelling x.
+			// witnessTypeKind named arg a type name the checker typed Type<x>.
 			w = bl.witnessRef(arg, x, wk)
 		}
 		a.temps[1], a.kinds[1], a.mobile[1] = w, wk, true

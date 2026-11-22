@@ -15,56 +15,68 @@ func irOnceKind(k kind) bool {
 	return irRetainedValueKind(k) || k.tag == tagFunc && irCallableValueKind(k) || irHeldKind(k) || k == kindUnit
 }
 
+// onceValue reads the `once` the bare name t names, by the binding the
+// checker resolved it to (declaredOnceValue): this file's, or another
+// file's a selective import or a parameter default of that file's filled
+// here (lowerNamesFrom) names. A block `import` shadows the file's `once` of
+// the name.
 func (bl *irScalarBuilder) onceValue(t *ast.Ident) (ir.Temp, kind, bool, bool) {
-	d := bl.g.onces[t.Name]
 	if bl.g.blockImported(t) {
-		// A block `import` shadows the file's `once` of the name.
 		return ir.NoTemp, kindInvalid, false, false
 	}
-	if bl.namesLocal(t) {
+	return bl.declaredOnceValue(t, bl.g.identRef(t))
+}
+
+// qualifiedOnceValue reads the `once` a qualified name names: a file-level
+// binding of another file (`config.port`) or an owner-level one
+// (`Policy.default`) declared in an inherent impl block of this file or of
+// another. The checker records the binding's declaration at the member
+// position, whatever spelling named the file or the owner (`Policy`, an
+// imported `Policy`, `other.Policy`), so the reference is resolved from that
+// record rather than from the qualifier's text. A stdlib binding
+// (`io.stdout`) is in no user file and is left to stdFileOnceValue and
+// stdOnceValue.
+func (bl *irScalarBuilder) qualifiedOnceValue(t *ast.FieldAccess) (ir.Temp, kind, bool, bool) {
+	if t.Field == nil {
 		return ir.NoTemp, kindInvalid, false, false
 	}
-	if from := bl.g.namesFromGen(); from != nil {
-		if od := from.onces[t.Name]; od != nil && od.k.tag != tagFunc {
-			// A name another file binds to its `once`, in a parameter
-			// default of that file's filled here (defaultNamesAgree):
-			// that file's cell.
-			return bl.siblingOnceValue(t, bl.g.namesFrom-1, od)
-		}
+	return bl.declaredOnceValue(t, bl.g.identRef(t.Field))
+}
+
+// declaredOnceValue reads the `once` of a user file that ref, the checker's
+// reference at a read, resolves to: this file's cell (oncesByDecl), or the
+// declaring file's (fileIndex.byDecl). ok is false when ref names no such
+// binding.
+func (bl *irScalarBuilder) declaredOnceValue(at ast.Node, ref *analysis.Symbol) (ir.Temp, kind, bool, bool) {
+	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
+	g := bl.g
+	sym := resolveSymbol(ref)
+	if sym == nil || sym.Kind != analysis.SymbolOnce {
+		return no()
 	}
+	ob, ok := sym.Node.(*ast.OnceBinding)
+	if !ok {
+		return no()
+	}
+	d := g.oncesByDecl[ob]
 	if d == nil {
-		g := bl.g
-		if g.files != nil && g.reg != nil {
-			if site, ok := g.files.lookupBare(g.srcFA(), t); ok && site.once != nil && site.unit < len(g.reg.gens) && g.reg.gens[site.unit] != nil {
-				return bl.siblingOnceValue(t, site.unit, g.reg.gens[site.unit].oncesByDecl[site.once])
-			}
+		if g.files == nil || g.reg == nil {
+			return no()
 		}
-		return ir.NoTemp, kindInvalid, false, false
+		site, ok := g.files.byDecl[ob]
+		if !ok || site.once == nil || site.unit >= len(g.reg.gens) || g.reg.gens[site.unit] == nil {
+			return no()
+		}
+		return bl.siblingOnceValue(at, site.unit, g.reg.gens[site.unit].oncesByDecl[ob])
 	}
-	if !d.lowerable() || !irOnceKind(d.k) {
-		bl.g.dc.declineOnceRead(d)
-		return ir.NoTemp, kindInvalid, false, false
+	if !d.lowerable() {
+		g.dc.declineOnceRead(d)
+		return no()
 	}
-	n := ir.NewRefOnce(bl.g.irNodePos(t), bl.f.NewTemp(), bl.g.irTypes().Symbol(d, d.nomi))
+	n := ir.NewRefOnce(g.irNodePos(at), bl.f.NewTemp(), g.irTypes().Symbol(d, d.nomi))
 	bl.b.Append(n)
 	bl.side(n.Dst(), irScalarSide{k: d.k})
 	return n.Dst(), d.k, false, true
-}
-
-func (bl *irScalarBuilder) qualifiedOnceValue(t *ast.FieldAccess) (ir.Temp, kind, bool, bool) {
-	g := bl.g
-	owner, ok := ast.QualifierIdent(t.Object)
-	if !ok || t.Field == nil || g.files == nil || g.reg == nil {
-		return ir.NoTemp, kindInvalid, false, false
-	}
-	if bl.namesLocal(owner) {
-		return ir.NoTemp, kindInvalid, false, false
-	}
-	to, ok := g.lookupQualifier(owner)
-	if !ok || to >= len(g.reg.gens) || g.reg.gens[to] == nil {
-		return ir.NoTemp, kindInvalid, false, false
-	}
-	return bl.siblingOnceValue(t, to, g.reg.gens[to].onces[t.Field.Name])
 }
 
 // lowerNamesFrom lowers what follows under the names of the file at unit,
@@ -106,7 +118,7 @@ func (bl *irScalarBuilder) siblingOnceValue(at ast.Node, to int, d *onceDef) (ir
 	if d == nil {
 		return ir.NoTemp, kindInvalid, false, false
 	}
-	if !d.lowerable() || !irOnceKind(d.k) {
+	if !d.lowerable() {
 		bl.g.dc.declineOnceRead(d)
 		return ir.NoTemp, kindInvalid, false, false
 	}
@@ -125,10 +137,7 @@ func (bl *irScalarBuilder) siblingOnceValue(at ast.Node, to int, d *onceDef) (ir
 // declared without a type the builder can represent, so a host blames the
 // `once` rather than the name that reads it.
 func (dc *declineCensus) declineOnceRead(d *onceDef) {
-	why := d.why
-	if why == "" {
-		why = "a once of a kind outside the domain: " + d.k.nomi()
-	}
+	why := d.whyNot()
 	dc.noteOnce("a read of `once "+d.nomi+"`, which cannot lower: "+why, "once "+d.nomi)
 }
 
@@ -147,7 +156,8 @@ func (g *gen) irOnceCellLower(decl *ast.OnceBinding, k kind, sym *ir.Symbol, nam
 		}
 	}()
 	// The binding's declared or checked type, projected: its callers ask
-	// the declaration's lowerability first, and irOnceKind is the call
+	// the declaration's lowerability first, which holds a user binding's
+	// kind to irOnceKind (onceDef.whyNot), and irOnceKind is the call
 	// operands.
 	irHeldOperand(k, "a `once` binding")
 	body := decl.Value
@@ -161,35 +171,20 @@ func (g *gen) irOnceCellLower(decl *ast.OnceBinding, k kind, sym *ir.Symbol, nam
 	}
 	at := g.irNodePos(decl)
 	f := ir.NewFunc(at, "once "+name)
-	sh := &irFuncShell{fn: f, syms: map[string]*ir.Symbol{}, params: map[string]ir.Temp{}, patternOK: true}
-	sh.frame = newIRFuncFrame(f)
+	sh := &irFuncShell{fn: f, params: map[string]ir.Temp{}}
 	sh.entry = f.NewBlock(at, "entry")
 	sh.result = f.NewTemp()
 	sh.slot = ir.NewSlot(at, sh.result, g.irTypeOf(k))
 	sh.entry.Append(sh.slot)
-	sh.prologue = 1
 	// The value a `noun` declaration expanded into keeps its name's position
 	// and has the value it was given in the synthesized band.
-	bl := &irScalarBuilder{g: g, sh: sh, f: f, b: sh.entry, returnKind: k, bound: map[string]ir.Temp{}, boundK: map[string]kind{},
+	bl := &irScalarBuilder{g: g, sh: sh, f: f, b: sh.entry, returnKind: k,
 		synthesized: decl.Expansion != nil}
 	bl.openWithScope(true)
 	if !bl.leading(lead) {
 		return kindInvalid, false
 	}
-	// The tail faces the binding's kind, published in g.wantOf; a
-	// constructor such as `Channel.buffered(2)` reads its instantiation from
-	// there.
-	if g.wantOf == nil {
-		g.wantOf = map[ast.Node]kind{}
-	}
-	prevWant, held := g.wantOf[body]
-	g.wantOf[body] = k
 	val, got, ok := bl.tail(body, irFuncSig{result: k})
-	if held {
-		g.wantOf[body] = prevWant
-	} else {
-		delete(g.wantOf, body)
-	}
 	if !ok {
 		return kindInvalid, false
 	}
@@ -278,48 +273,4 @@ func irCellForceable(mods []*ir.Module, sym *ir.Symbol) bool {
 		}
 	}
 	return false
-}
-
-// ownerOnceValue reads an owner-level `once` (`Policy.default`), declared in
-// an inherent impl block of this file or of another. The checker records the
-// binding's declaration at the member position, whatever spelling named the
-// owner (`Policy`, an imported `Policy`, `other.Policy`), so the reference is
-// resolved from that record rather than from the owner's text. A stdlib
-// binding (`io.stdout`) is in no user file and is left to stdOnceValue.
-func (bl *irScalarBuilder) ownerOnceValue(t *ast.FieldAccess) (ir.Temp, kind, bool, bool) {
-	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	g := bl.g
-	if t.Field == nil || g.fa == nil {
-		return no()
-	}
-	sym := g.srcFA().References[analysis.Pos{Line: t.Field.Line, Col: t.Field.Col}]
-	for sym != nil && sym.Resolved != nil {
-		sym = sym.Resolved
-	}
-	if sym == nil || sym.Kind != analysis.SymbolOnce || sym.OwningType == "" {
-		return no()
-	}
-	ob, ok := sym.Node.(*ast.OnceBinding)
-	if !ok {
-		return no()
-	}
-	d := g.oncesByDecl[ob]
-	if d == nil {
-		if g.files == nil || g.reg == nil {
-			return no()
-		}
-		site, ok := g.files.byDecl[ob]
-		if !ok || site.once == nil || site.unit >= len(g.reg.gens) || g.reg.gens[site.unit] == nil {
-			return no()
-		}
-		return bl.siblingOnceValue(t, site.unit, g.reg.gens[site.unit].oncesByDecl[ob])
-	}
-	if !d.lowerable() || !irOnceKind(d.k) {
-		bl.g.dc.declineOnceRead(d)
-		return no()
-	}
-	n := ir.NewRefOnce(g.irNodePos(t), bl.f.NewTemp(), g.irTypes().Symbol(d, d.nomi))
-	bl.b.Append(n)
-	bl.side(n.Dst(), irScalarSide{k: d.k})
-	return n.Dst(), d.k, false, true
 }

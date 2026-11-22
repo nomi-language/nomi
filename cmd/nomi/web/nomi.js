@@ -12,7 +12,6 @@
 //     worker: true,             // false runs on the page's own thread
 //     locales: "./locales/",    // where Locale.load fetches <tag>.nomil; default beside app.wasm
 //     files: { "data/prices.csv": csvText },  // the files std/fs sees: string or Uint8Array
-//     setup: "./setup.mjs",     // a module whose default export runs, awaited, before the program
 //   });
 //   // files: every file in the program's file system when it ended, by
 //   // path, as Uint8Array
@@ -54,19 +53,6 @@
 // Imported by a page with an element carrying `data-nomi-program="app.wasm"`,
 // it mounts a terminal on that element and runs the program: this is what
 // the index.html beside it does, with no inline script.
-//
-// setup (run's and load's) is for what a program's Go bindings need from
-// JavaScript before it starts: the module is imported where the program
-// runs (its worker, or the page for `worker: false`) and its default export
-// awaited, so a binding that reaches a library through globalThis finds it
-// there. The sqlite driver's browser build is one: its setup module loads
-// SQLite's WebAssembly build,
-//
-//   import sqlite3InitModule from "./sqlite3.mjs";
-//   export default async () => { globalThis.sqlite3 = await sqlite3InitModule(); };
-//
-// A setup that throws ends the run before the program starts, as a fatal
-// naming the module.
 //
 // A program that lists its locales carries only `[i18n].web_embedded`'s in
 // app.wasm; its Locale.load fetches each other one's locales/<tag>.nomil
@@ -180,8 +166,6 @@ async function runProgram(init, post, requestLine) {
   let pending = init.stdinKind === "text" ? encoder.encode(init.stdinText) : new Uint8Array(0);
   let ended = init.stdinKind !== "callback";
   let failure = null;
-  // Why the setup module failed, when it did: the program never started.
-  let setupFailure = "";
 
   current = {
     write(fd, buf) {
@@ -235,10 +219,7 @@ async function runProgram(init, post, requestLine) {
       if (tail) post({ type: "output", fd, text: tail });
     }
     let fatal = "";
-    if (setupFailure) {
-      exitCode = 2;
-      fatal = setupFailure;
-    } else if (failure !== null) {
+    if (failure !== null) {
       // A JS exception out of the Go runtime (a RangeError when recursion
       // outruns the engine's stack) leaves Go mid-function.
       exitCode = 2;
@@ -269,16 +250,6 @@ async function runProgram(init, post, requestLine) {
     return await response.text();
   };
   try {
-    if (init.setup) {
-      try {
-        const setup = await import(init.setup);
-        if (typeof setup.default === "function") await setup.default();
-      } catch (err) {
-        setupFailure = `the setup module ${init.setup} failed: ${String(err?.message ?? err)}`;
-        finish();
-        return done;
-      }
-    }
     const instance = await WebAssembly.instantiate(init.module, go.importObject);
     go.run(instance).then(finish, (err) => {
       failure = err;
@@ -435,7 +406,7 @@ const timedOut = (ms) => ({ exitCode: 124, fatal: `the program ran for ${ms} ms 
  * loaded or an option is malformed.
  */
 export async function run(url, options = {}) {
-  const { args = [], env = {}, stdout, stderr, stdin, timeoutMs, signal, worker = true, locales, files = {}, setup } = options;
+  const { args = [], env = {}, stdout, stderr, stdin, timeoutMs, signal, worker = true, locales, files = {} } = options;
   if (!Array.isArray(args)) throw new TypeError("run: args must be an array of strings");
   if (files === null || typeof files !== "object" || Array.isArray(files)) {
     throw new TypeError("run: files must be an object of paths to strings or Uint8Arrays");
@@ -464,7 +435,6 @@ export async function run(url, options = {}) {
     image: image.slice(),
     url: href,
     locales: locales === undefined ? undefined : new URL(locales, base).href,
-    setup: setup === undefined ? undefined : new URL(setup, base).href,
     args: args.map(String),
     env: Object.fromEntries(Object.entries({ NOMI_COLOR: "never", ...env }).map(([k, v]) => [k, String(v)])),
     stdinKind: typeof stdin === "string" ? "text" : typeof stdin === "function" ? "callback" : "none",
@@ -495,7 +465,7 @@ export async function run(url, options = {}) {
  * fails), with the Nomi diagnostic as the Error's message.
  */
 export async function load(url, options = {}) {
-  const { args = [], env = {}, stdout, stderr, locales, setup } = options;
+  const { args = [], env = {}, stdout, stderr, locales } = options;
   if (!Array.isArray(args)) throw new TypeError("load: args must be an array of strings");
   if (env === null || typeof env !== "object") throw new TypeError("load: env must be an object");
   const base = typeof document !== "undefined" ? document.baseURI : import.meta.url;
@@ -508,7 +478,6 @@ export async function load(url, options = {}) {
     image: image.slice(),
     url: href,
     locales: locales === undefined ? undefined : new URL(locales, base).href,
-    setup: setup === undefined ? undefined : new URL(setup, base).href,
     args: args.map(String),
     env: Object.fromEntries(Object.entries({ NOMI_COLOR: "never", ...env }).map(([k, v]) => [k, String(v)])),
     stdinKind: "none",

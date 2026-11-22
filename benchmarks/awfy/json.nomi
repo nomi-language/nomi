@@ -435,15 +435,16 @@ impl Parser
     fn read_escape(p: Parser) -> Result<Parser, ParseException>
         p = read(p)
 
-        escaped = case p.current
-            Some("\"" or "/" or "\\") -> p.current!
-            Some("b")                 -> "\u{8}"
-            Some("f")                 -> "\u{c}"
-            Some("n")                 -> "\n"
-            Some("r")                 -> "\r"
-            Some("t")                 -> "\t"
-            _                         -> return Err(expected(p, "valid escape sequence"))
-        end
+        escaped =
+            case p.current
+                Some("\"" or "/" or "\\") -> p.current!
+                Some("b")                 -> "\u{8}"
+                Some("f")                 -> "\u{c}"
+                Some("n")                 -> "\n"
+                Some("r")                 -> "\r"
+                Some("t")                 -> "\t"
+                _                         -> return Err(expected(p, "valid escape sequence"))
+            end
 
         Ok(read({..p, capture_buffer: .. + escaped}))
     end
@@ -516,11 +517,12 @@ impl Parser
     end
 
     fn read(p: Parser) -> Parser
-        (line, column) = if p.current == Some("\n") then
-            (p.line + 1, 0)
-        else
-            (p.line, p.column)
-        end
+        (line, column) =
+            if p.current == Some("\n") then
+                (p.line + 1, 0)
+            else
+                (p.line, p.column)
+            end
 
         index = p.index + 1
         current = if index < p.length then Some(String.slice(p.input, index, index + 1)) else None
@@ -539,11 +541,12 @@ impl Parser
     fn end_capture(p: Parser) -> (String, Parser)
         end_index = if p.current == None then p.index else p.index - 1
 
-        (captured, buffer) = if p.capture_buffer == "" then
-            (substring(p, p.capture_start, end_index + 1), "")
-        else
-            (p.capture_buffer + substring(p, p.capture_start, end_index + 1), "")
-        end
+        (captured, buffer) =
+            if p.capture_buffer == "" then
+                (substring(p, p.capture_start, end_index + 1), "")
+            else
+                (p.capture_buffer + substring(p, p.capture_start, end_index + 1), "")
+            end
 
         (captured, {..p, capture_buffer: buffer, capture_start: -1})
     end

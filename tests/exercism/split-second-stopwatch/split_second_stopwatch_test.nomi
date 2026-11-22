@@ -43,13 +43,14 @@ end
 /// Runs the command `step` names, answering the step and the stopwatch
 /// after it, or the refusal and the stopwatch unchanged.
 fn command(watch: Stopwatch, step: Step) -> (Stopwatch, Step)
-    result = case step
-        .Start -> Stopwatch.start(watch)
-        .Stop  -> Stopwatch.stop(watch)
-        .Lap   -> Stopwatch.lap(watch)
-        .Reset -> Stopwatch.reset(watch)
-        _      -> unreachable "replay passes only the four commands"
-    end
+    result =
+        case step
+            .Start -> Stopwatch.start(watch)
+            .Stop  -> Stopwatch.stop(watch)
+            .Lap   -> Stopwatch.lap(watch)
+            .Reset -> Stopwatch.reset(watch)
+            _      -> unreachable "replay passes only the four commands"
+        end
 
     case result
         Ok(next)   -> (next, step)

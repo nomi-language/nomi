@@ -156,7 +156,7 @@ func (bl *irScalarBuilder) elemOrdering(at ast.Node, a, b ir.Temp, k kind, kt an
 	if !ok {
 		return ir.NoTemp, false
 	}
-	bl.noteComparator(at, kt)
+	bl.noteElemImpl(at, "a comparator", kt, 0)
 	pos := bl.g.irNodePos(at)
 	var call *ir.Call
 	switch {
@@ -180,10 +180,9 @@ func (bl *irScalarBuilder) tupleComparator(at ast.Node, k kind, kt analysis.Type
 	pos := bl.g.irNodePos(at)
 	ord := stdEnumKind(stdEnumOrdering)
 	f := ir.NewFunc(pos, "tuple compare")
-	sh := &irFuncShell{fn: f, syms: map[string]*ir.Symbol{}, params: map[string]ir.Temp{}, patternOK: true}
-	sh.frame = newIRFuncFrame(f)
+	sh := &irFuncShell{fn: f, params: map[string]ir.Temp{}}
 	sh.entry = f.NewBlock(pos, "entry")
-	child := &irScalarBuilder{g: bl.g, sh: sh, f: f, b: sh.entry, parent: bl, bound: map[string]ir.Temp{}, boundK: map[string]kind{}}
+	child := &irScalarBuilder{g: bl.g, sh: sh, f: f, b: sh.entry, parent: bl}
 	a := bl.g.irAddParam(f, ir.NewSymbol("a"), k)
 	b := bl.g.irAddParam(f, ir.NewSymbol("b"), k)
 	c, ok := child.tupleOrdering(at, a, b, k, kt)

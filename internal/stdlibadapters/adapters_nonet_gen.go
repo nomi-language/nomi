@@ -9,835 +9,657 @@ package stdlibadapters
 import (
 	"errors"
 
+	"github.com/nomi-language/nomi/hostadapt"
 	"github.com/nomi-language/nomi/rt"
 )
 
-// errNoNetwork is every network crossing's answer in a runner built
-// with the nomi_nonet tag. `nomi build` gives a program that reaches one
-// the runner with the network, so a program meets this only on a
-// runner chosen by hand.
-var errNoNetwork = errors.New("this nomi-vm was built without the network; build the program with `nomi build`, which picks the runner that has it")
+// errNoNet answers every crossing of the net family in
+// a runner built with the nomi_nonet tag.
+// A runner refuses a program that reaches one before it runs
+// (vmrunner's familyRefusal), so a program meets this only through a
+// crossing a runner makes for it.
+var errNoNet = errors.New("this nomi-vm was built without the network; build the program with `nomi build`, which picks a runner with all it uses")
 
-// HasNetwork reports whether this build answers the network crossings
-// (NetworkNames) with their adapters: false in a build with the nomi_nonet tag.
-const HasNetwork = false
+// hasNet reports whether this build answers net's crossings with
+// their adapters.
+const hasNet = false
 
-func (b *bound) fn226(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn281Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn227(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn282Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn228(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn283Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn228Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
+func (b *bound) fn285Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn230(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn286Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn230Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
+func (b *bound) fn287Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn231(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn288Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn231Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
+func (b *bound) fn289Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn232(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn290Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn233(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn291Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn234(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn292Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn235(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn293Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn235Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
+func (b *bound) fn294Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn236(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn295Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn236Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
+func (b *bound) fn296Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn237(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn297Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn238(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn298Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn239(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn299Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn239Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
+func (b *bound) fn748(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	return nil, errNoNet
 }
 
-func (b *bound) fn240(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn753Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn241(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn755Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn241Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
+func (b *bound) fn758(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	return nil, errNoNet
 }
 
-func (b *bound) fn242(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn766Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn243(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn768Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn244(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn771Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn583(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn773Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn588(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn775Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn589(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn776Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn591(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn778Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn591Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
+func (b *bound) fn780Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn597(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn781Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn599(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn783Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn601(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn784Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn602(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn785Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn603(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn786Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn604(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn787Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn605(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn788Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn606(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn789Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn607(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn791Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn608(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn793Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn609(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn610(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn611(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn612(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn613(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn614(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn615(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn616(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn617(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn618(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn618Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
-}
-
-func (b *bound) fn625(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn625Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
-}
-
-func (b *bound) fn627(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn628(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn629(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn629Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
-}
-
-func (b *bound) fn634(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn634Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
-}
-
-func (b *bound) fn635(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn637(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn637Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
-}
-
-func (b *bound) fn647(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn648(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn649(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn650(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn650Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
-}
-
-func (b *bound) fn655(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn655Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
-}
-
-func (b *bound) fn659(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn661(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn661Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
-}
-
-func (b *bound) fn662(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn663(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn665(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn666(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn667(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn668(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn669(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn669Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
-}
-
-func (b *bound) fn670(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn670Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
-}
-
-func (b *bound) fn671(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn671Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
-}
-
-func (b *bound) fn672(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn673(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn674(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn675(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn676(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn677(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn678(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn679(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn679Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
-}
-
-func (b *bound) fn682(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn683(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn684(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn687(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn689(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn689Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
-}
-
-func (b *bound) fn690(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn690Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
-}
-
-func (b *bound) fn693(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn693Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
-}
-
-func (b *bound) fn694(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn694Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
-}
-
-func (b *bound) fn695(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn696(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn698(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn698Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
-}
-
-func (b *bound) fn701(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn701Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
-}
-
-func (b *bound) fn702(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn703(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn704(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn704Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
-}
-
-func (b *bound) fn705(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn705Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
-}
-
-func (b *bound) fn706(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn707(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn708(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn709(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn709Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
-}
-
-func (b *bound) fn710(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn711(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn712(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn713(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn713Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
-}
-
-func (b *bound) fn718(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn719(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn720(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn721(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn722(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn722Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
-}
-
-func (b *bound) fn724(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn726(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn727(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn728(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn729(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn729Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
-}
-
-func (b *bound) fn733(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn734(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn735(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn735Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
-}
-
-func (b *bound) fn739(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn739Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
-}
-
-func (b *bound) fn743(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn743Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
-}
-
-func (b *bound) fn744(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn744Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
-}
-
-func (b *bound) fn745(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn746(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn747(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn747Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
-}
-
-func (b *bound) fn751(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn752(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn752Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
-}
-
-func (b *bound) fn753(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn754(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn754Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
-}
-
-func (b *bound) fn755(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn756(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn757(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn757Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
-}
-
-func (b *bound) fn761(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn762(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn763(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn764(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn765(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn766(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn767(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn768(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn769(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn770(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn771(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn772(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn773(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn773Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
-}
-
-func (b *bound) fn777(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn778(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn779(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn779Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
-}
-
-func (b *bound) fn780(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn781(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn782(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn783(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn784(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn784Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
-}
-
-func (b *bound) fn789(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn790(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn792(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn793(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn794(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn794Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
 func (b *bound) fn795(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+	return nil, errNoNet
 }
 
-func (b *bound) fn795Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
+func (b *bound) fn802(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	return nil, errNoNet
 }
 
-func (b *bound) fn797(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn804Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn798(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn806Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn799(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn808Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn800(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn814Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn800Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
+func (b *bound) fn816Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn803(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn819(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	return nil, errNoNet
 }
 
-func (b *bound) fn803Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
-	return nil, false, errNoNetwork
+func (b *bound) fn829Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn804(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn831Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn806(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn833Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }
 
-func (b *bound) fn808(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn834(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	return nil, errNoNet
 }
 
-func (b *bound) fn810(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
+func (b *bound) fn839Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn844Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn847Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn849Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn850Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn853Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn855Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn857Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn859Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn860Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn862Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn864Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn866Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn868Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn870Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn872Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn874Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn875Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn876Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn878Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn882Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn884Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn885Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn889Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn891Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn893Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn897Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn899Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn901Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn903Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn906Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn910Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn912Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn914Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn915(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	return nil, errNoNet
+}
+
+func (b *bound) fn916(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	return nil, errNoNet
+}
+
+func (b *bound) fn917Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn919Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn921Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn922Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn923Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn925Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn927Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn929Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn935Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn937Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn939Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn940Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn941Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn944Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn947Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn948Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn949Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn951Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn956Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn957Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn958Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn963Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn968Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn970Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn972Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn974Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn975Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn980Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn982Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn984Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn985Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn987Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn989Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn990Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn995Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn997Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn998Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn999Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1000Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1001Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1003Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1005Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1007Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1008Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1010Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1011Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1013Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1018Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1020Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1021(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	return nil, errNoNet
+}
+
+func (b *bound) fn1022Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1024Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1026Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1027Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1028Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1034Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1035Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1038Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1040Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1042Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1043Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1045Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1047Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1051Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1052Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1053Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1057Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1059Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1062Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1065Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
+}
+
+func (b *bound) fn1068Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) {
+	return false, errNoNet
 }

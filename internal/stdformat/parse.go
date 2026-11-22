@@ -402,8 +402,8 @@ func outOfRange() rt.NumberParseError {
 	return rt.NumberParseError{Tag: rt.TagNumberParseOutOfRange}
 }
 
-// FFIParseInt is `Int.parse_in`.
-func FFIParseInt(fr *rt.Frame, text, locale string, lenient bool) rt.Result[rt.Int, rt.NumberParseError] {
+// HostParseInt is `Int.parse_in`.
+func HostParseInt(fr *rt.Frame, text, locale string, lenient bool) rt.Result[rt.Int, rt.NumberParseError] {
 	n := numbersFor(stdlocale.Data(fr), locale)
 	v, err := n.parse(text, n.decimal, lenient, false)
 	if err != nil {
@@ -459,16 +459,16 @@ func decimalText(v parsed, shift int) string {
 	return s
 }
 
-// FFIParseDecimal is `Decimal.parse_in`: the Decimal's text, which keeps
+// HostParseDecimal is `Decimal.parse_in`: the Decimal's text, which keeps
 // the typed scale (12,50 is 12.50).
-func FFIParseDecimal(fr *rt.Frame, text, locale string, lenient bool) rt.Result[string, rt.NumberParseError] {
+func HostParseDecimal(fr *rt.Frame, text, locale string, lenient bool) rt.Result[string, rt.NumberParseError] {
 	n := numbersFor(stdlocale.Data(fr), locale)
 	return decimalResult(n.parse(text, n.decimal, lenient, false))(0)
 }
 
-// FFIParseDecimalPercent is `Decimal.parse_percent_in`: the percentage as a
+// HostParseDecimalPercent is `Decimal.parse_percent_in`: the percentage as a
 // fraction (12,5 % is 0.125).
-func FFIParseDecimalPercent(fr *rt.Frame, text, locale string, lenient bool) rt.Result[string, rt.NumberParseError] {
+func HostParseDecimalPercent(fr *rt.Frame, text, locale string, lenient bool) rt.Result[string, rt.NumberParseError] {
 	n := numbersFor(stdlocale.Data(fr), locale)
 	return decimalResult(n.parse(text, n.percent, lenient, true))(2)
 }
@@ -485,14 +485,14 @@ func decimalResult(v parsed, err *rt.NumberParseError) func(shift int) rt.Result
 	}
 }
 
-// FFIParseFloat is `Float.parse_in`.
-func FFIParseFloat(fr *rt.Frame, text, locale string, lenient bool) rt.Result[float64, rt.NumberParseError] {
+// HostParseFloat is `Float.parse_in`.
+func HostParseFloat(fr *rt.Frame, text, locale string, lenient bool) rt.Result[float64, rt.NumberParseError] {
 	return parseFloat(fr, text, locale, lenient, false)
 }
 
-// FFIParseFloatPercent is `Float.parse_percent_in`: the percentage as a
+// HostParseFloatPercent is `Float.parse_percent_in`: the percentage as a
 // fraction (12,5 % is 0.125).
-func FFIParseFloatPercent(fr *rt.Frame, text, locale string, lenient bool) rt.Result[float64, rt.NumberParseError] {
+func HostParseFloatPercent(fr *rt.Frame, text, locale string, lenient bool) rt.Result[float64, rt.NumberParseError] {
 	return parseFloat(fr, text, locale, lenient, true)
 }
 

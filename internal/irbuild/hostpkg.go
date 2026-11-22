@@ -1,120 +1,36 @@
 package irbuild
 
 import (
-	"os"
-	"path/filepath"
-	"strings"
 	"sync"
 
-	"golang.org/x/mod/modfile"
-
 	"github.com/nomi-language/nomi/internal/ast"
-	"github.com/nomi-language/nomi/internal/ffirun"
 )
 
-// A USER Go package named from Nomi source, and the `host fn` / `host type`
-// declarations bound to symbols in it.
+// A user file's `host fn` and `host type` declarations: what an embedder's
+// host table answers (vmhost.WithHosts).
 //
-//	gopkg "example.com/app/ffi" as ffi
-//	opaque type RawBox go ffi.Box
-//	pub fn echo_upper(s: String) -> String go ffi.EchoUpper
+//	host type Counter
+//	host fn counter_new() -> Counter
+//	host fn counter_add(c: Counter, n: Int) -> Counter
 //
-// The builder does not convert anything at this boundary. A Go-bound `host
-// fn` becomes an ordinary function whose VM body is one crossing under the
-// binding's key (irHostFnRetain), and the adapter internal/ffirun generates
-// for that key (internal/hostgen) converts the arguments and the result. A
-// `host type` bound to a Go type is a leaf def the VM holds as a handle.
+// The builder does not convert anything at this boundary. A `host fn`
+// becomes an ordinary function whose VM body is one crossing under the key
+// the host registers it by (irHostFnRetain), and the table's function takes
+// and answers the VM's own values. A `host type` is a leaf def the VM holds
+// as a handle.
 //
-// hostShellOf normalizes a Go-bound `*ast.ExternFunc` to an `*ast.FuncDef`
+// hostShellOf normalizes such an `*ast.ExternFunc` to an `*ast.FuncDef`
 // shell, INTERNED on the extern node, so every pass that resolves the
 // declaration holds one pointer and a call to it lowers like a call to any
 // other function in its module.
 
-// hostBoundFn reports whether a `host fn` names a Go symbol in source.
-//
-// `ForeignName != ""` is the whole test, and it is the ONE gate that keeps this
-// family from colliding with stdhost.go's. std declares `pub host type Bytes`
-// and `pub host fn` by the hundred and NONE of them carries a `go alias.Symbol`
-// binding: their implementations come from a host table. So a std `host fn`
-// stays refused under its own keys and a user's Go-bound one lowers here, with
-// no name-keyed test anywhere and therefore nothing for a same-named user
-// declaration to shadow.
-func hostBoundFn(ef *ast.ExternFunc) bool {
-	return ef != nil && ef.ForeignName != "" &&
-		len(ef.TypeParams) == 0 && len(ef.WhereClauses) == 0
-}
-
-// hostTableFn reports whether ef is a plain `host fn` in a user file: no `go`
-// binding, answered at run time by whatever host table the program is loaded
-// with (an embedder's, through vmhost.WithHosts). It gets the same VM body a
-// Go-bound one does (irHostFnRetain): a crossing under the key the host
-// registers it by. Stdlib `host fn`s are the language's own and
-// never take this path.
+// hostTableFn reports whether ef is a plain `host fn` the builder gives a VM
+// body when a user file declares it: one with no type parameters and no
+// `where` clause, answered at run time by whatever host table the program is
+// loaded with. Stdlib `host fn`s are the language's own and never take this
+// path.
 func hostTableFn(ef *ast.ExternFunc) bool {
-	return ef != nil && ef.ForeignName == "" &&
-		len(ef.TypeParams) == 0 && len(ef.WhereClauses) == 0
-}
-
-// hostBoundImplFn reports whether ef, an item of an impl block (inherent or
-// interface), is bound to a Go symbol (`impl Box<T> { pub fn origin() -> Int
-// go ffi.Origin }`). The Go function is the same whatever the receiver's type
-// arguments are, so its VM body is one crossing under the binding's key
-// (hostImplKey), built wherever the block's items are.
-func hostBoundImplFn(ef *ast.ExternFunc) bool {
-	return ef != nil && ef.ForeignName != "" &&
-		len(ef.TypeParams) == 0 && len(ef.WhereClauses) == 0
-}
-
-// implItemFunc is an impl block item as a function declaration: a written
-// function, or the shell (hostShellOf) of a Go-bound one.
-func implItemFunc(item ast.Node) (*ast.FuncDef, bool) {
-	switch it := item.(type) {
-	case *ast.FuncDef:
-		return it, true
-	case *ast.ExternFunc:
-		if hostBoundImplFn(it) {
-			return hostShellOf(it), true
-		}
-	}
-	return nil, false
-}
-
-// hostImplKey is the key the FFI wrapper registers a Go-bound impl function
-// under (internal/ffirun's implOwnerKey and externDeclKey): the receiver's
-// base name, the interface's instantiation when it has type arguments, and
-// the function's name. No module prefix.
-func hostImplKey(ib *ast.ImplBlock, name string) string {
-	base := hostImplReceiverName(ib.Receiver)
-	if ib.Interface != nil {
-		if inst := stdImplKey(ib.Interface); inst != "" {
-			base += "." + inst
-		}
-	}
-	return base + "." + name
-}
-
-func hostImplReceiverName(te ast.TypeExpr) string {
-	switch t := te.(type) {
-	case *ast.SimpleType:
-		return t.Name
-	case *ast.GenericType:
-		return t.Name
-	case *ast.QualifiedType:
-		return hostImplReceiverName(t.Member)
-	}
-	return ""
-}
-
-// hostCallable reports whether a user file's ef is a callable host function
-// the builder gives a VM body: Go-bound or host-table.
-func hostCallable(ef *ast.ExternFunc) bool {
-	return hostBoundFn(ef) || hostTableFn(ef)
-}
-
-func hostBoundType(et *ast.ExternType) bool {
-	return et != nil && et.ForeignName != "" &&
-		len(et.TypeParams) == 0 && len(et.WhereClauses) == 0 &&
-		len(et.Decorators) == 0
+	return ef != nil && len(ef.TypeParams) == 0 && len(ef.WhereClauses) == 0
 }
 
 // --- shells ----------------------------------------------------------------
@@ -125,8 +41,8 @@ var (
 	hostExtByShell = map[*ast.FuncDef]*ast.ExternFunc{}
 )
 
-// hostShellOf is the `*ast.FuncDef` every pass sees in place of a Go-bound
-// `host fn`, interned on the extern node.
+// hostShellOf is the `*ast.FuncDef` every pass sees in place of a user
+// file's `host fn`, interned on the extern node.
 //
 // The shell carries no Body, which is what every "is this lowerable?" clause in
 // the package keys on, so each of those clauses asks hostExtOf before refusing.
@@ -149,7 +65,7 @@ func hostShellOf(ef *ast.ExternFunc) *ast.FuncDef {
 	return fd
 }
 
-// hostExtOf recovers the Go-bound declaration a shell stands for.
+// hostExtOf recovers the `host fn` a shell stands for.
 func hostExtOf(fd *ast.FuncDef) (*ast.ExternFunc, bool) {
 	if fd == nil {
 		return nil, false
@@ -160,102 +76,54 @@ func hostExtOf(fd *ast.FuncDef) (*ast.ExternFunc, bool) {
 	return ef, ok
 }
 
-// --- host packages ---------------------------------------------------------
+// --- host types ------------------------------------------------------------
 
-// hostPkg is one `gopkg` declaration as the builder needs it.
-type hostPkg struct {
-	// importPath is the Go import path the declaration names.
-	importPath string
-	// alias is an identifier derived from the import path (hostAlias) and
-	// not from the Nomi alias. hostTypeDef spells it into the process-wide
-	// key of a host type in this package, so two files that bind one Go
-	// package under different Nomi aliases reach one def.
-	alias string
-	// why is set when no Go module provides importPath (hostModuleOf).
-	why string
-}
-
-// hostAlias is the identifier an import path is keyed under: `hostpkg_` and
-// the path, with every character that is not a letter or a digit replaced by
-// `_`.
-func hostAlias(importPath string) string {
-	var b strings.Builder
-	b.WriteString("hostpkg_")
-	for _, r := range importPath {
-		switch {
-		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
-			b.WriteRune(r)
-		default:
-			b.WriteByte('_')
-		}
-	}
-	return b.String()
-}
-
-// collectHostPkgs resolves this module's `gopkg` declarations and the host types
-// bound through them.
+// collectHostTypes builds the defs of a user file's `host type` declarations.
 //
 // Called from declareTypes, ahead of the type table, because a `host fn`
 // signature may name a host type and a struct field may hold one.
-func (g *gen) collectHostPkgs() {
-	if g.stdModule == "" {
-		for _, n := range g.nodes {
-			if et, isType := n.(*ast.ExternType); isType && hostTableType(et) {
-				if g.hostTypes == nil {
-					g.hostTypes = map[string]*typeDef{}
-				}
-				g.hostTypes[et.Name] = hostTableTypeDef(g.nomiPath, et)
-			}
-		}
-	}
-	for _, n := range g.nodes {
-		ep, isPkg := n.(*ast.ExternPackage)
-		if !isPkg {
-			continue
-		}
-		if g.hostPkgs == nil {
-			g.hostPkgs = map[string]*hostPkg{}
-		}
-		hp := &hostPkg{importPath: ep.ImportPath, alias: hostAlias(ep.ImportPath), why: hostModuleOf(g.nomiPath, ep.ImportPath)}
-		g.hostPkgs[ep.Alias] = hp
-	}
-	if g.hostPkgs == nil {
+func (g *gen) collectHostTypes() {
+	if g.stdModule != "" {
 		return
 	}
 	for _, n := range g.nodes {
-		et, isType := n.(*ast.ExternType)
-		if !isType || !hostBoundType(et) {
-			continue
+		if et, isType := n.(*ast.ExternType); isType && hostTableType(et) {
+			if g.hostTypes == nil {
+				g.hostTypes = map[string]*typeDef{}
+			}
+			g.hostTypes[et.Name] = hostTableTypeDef(g.nomiPath, et)
 		}
-		hp := g.hostPkgs[et.ForeignAlias]
-		if hp == nil || hp.why != "" {
-			continue
-		}
-		if g.hostTypes == nil {
-			g.hostTypes = map[string]*typeDef{}
-		}
-		g.hostTypes[et.Name] = hostTypeDef(hp, et)
 	}
 }
 
-// hostTypeDefs interns one *typeDef per (import path, Go type name),
-// PROCESS-WIDE.
+// hostTypeDefs interns one *typeDef per declared host type, PROCESS-WIDE.
 //
 // Shared for opaque.go's reason, restated because it is a precondition rather
 // than a preference: a `host fn`'s parameter and result kinds are built in the
 // DECLARING gen and compared BY POINTER against a call site's kinds in a
-// different gen, so a per-gen def would make `ffi.box_label(box)` mismatch
-// against the very declaration it names. A leaf def has no components, so it
-// holds nothing of one gen's.
+// different gen, so a per-gen def would make `util.counter_add(c, 1)`
+// mismatch against the very declaration it names. A leaf def has no
+// components, so it holds nothing of one gen's.
 var (
 	hostTypeMu   sync.Mutex
 	hostTypeDefs = map[string]*typeDef{}
 )
 
-// hostTypeDef is the def for `opaque type RawBox go ffi.Box`.
+// hostTableType reports whether et is a plain `host type` in a user file:
+// nothing inside it. Its values are opaque handles the program's host-table
+// functions (hostTableFn) create and read, so the VM holds whatever Go value
+// the embedder's function answered.
+func hostTableType(et *ast.ExternType) bool {
+	return et != nil && len(et.TypeParams) == 0 && len(et.WhereClauses) == 0 &&
+		len(et.Decorators) == 0
+}
+
+// hostTableTypeDef is the def for a plain `host type`, interned process-wide
+// by the declaring file and name so a sibling file's call site and the
+// declaring file's `host fn` hold one kind.
 //
 // The shape is stdgenhost.go's `Sender<T>`: `isDistinct` with
-// `inner: kindInvalid` — the LEAF shape typeDef.inner's own comment names —
+// `inner: kindInvalid` (the LEAF shape typeDef.inner's own comment names),
 // plus `rtOpaque`, because a host handle has CONTENTS this builder may not look
 // inside, and `rtDeclared`, which marks the def as process-wide: it is
 // package-neutral, and a file that imports the type holds this same def.
@@ -263,43 +131,10 @@ var (
 // `rtOpaque` is the load-bearing one (see stdhost.go): without it, four arms
 // written for a zero-sized MARKER answer for a value with contents, so `a == b`
 // on two handles answers true, the hash is `rt.HashUnit`, the Debug rendering
-// is the bare type name, and `zeroSized()` says true. A host handle
-// is exactly that hazard: `*ffi.Box` is a pointer, two of them are not always
-// equal, and Nomi has no syntax that reaches inside one.
-//
-// Declining is also the RIGHT answer here and not merely the safe one. A host
-// handle is an opaque descriptor with no structural equality, no hash and no
-// Display in the language, so inventing any of the three would be inventing
-// semantics.
-//
-// The def is interned under the import path and the Go type's pointer form,
-// `*alias.Box`. A handle is a reference to state the Go side owns.
-func hostTypeDef(hp *hostPkg, et *ast.ExternType) *typeDef {
-	goSym := "*" + hp.alias + "." + goSelectorName(et.ForeignName)
-	key := hp.importPath + " " + goSym
-	hostTypeMu.Lock()
-	defer hostTypeMu.Unlock()
-	if d, ok := hostTypeDefs[key]; ok {
-		return d
-	}
-	d := &typeDef{nomi: et.Name, decl: et, line: et.Line, isDistinct: true, inner: kindInvalid, rtOpaque: true, rtDeclared: true, lowerable: true}
-	hostTypeDefs[key] = d
-	return d
-}
-
-// hostTableType reports whether et is a plain `host type` in a user file: no
-// `go` binding and nothing inside it. Its values are opaque
-// handles the program's host-table functions (hostTableFn) create and read,
-// so the VM holds whatever Go value the embedder's function answered.
-func hostTableType(et *ast.ExternType) bool {
-	return et != nil && et.ForeignName == "" &&
-		len(et.TypeParams) == 0 && len(et.WhereClauses) == 0 &&
-		len(et.Decorators) == 0
-}
-
-// hostTableTypeDef is the def for a plain `host type`: hostTypeDef's opaque
-// leaf, interned process-wide by the declaring file and name so a sibling
-// file's call site and the declaring file's `host fn` hold one kind.
+// is the bare type name, and `zeroSized()` says true. A host handle is an
+// opaque descriptor with no structural equality, no hash and no Display in
+// the language, so declining all three is the right answer and not merely
+// the safe one.
 func hostTableTypeDef(file string, et *ast.ExternType) *typeDef {
 	key := "host table " + file + " " + et.Name
 	hostTypeMu.Lock()
@@ -312,93 +147,11 @@ func hostTableTypeDef(file string, et *ast.ExternType) *typeDef {
 	return d
 }
 
-// goSelectorName is the symbol half of a `go alias.Symbol` binding.
-func goSelectorName(foreign string) string {
-	if i := strings.LastIndex(foreign, "."); i >= 0 {
-		return foreign[i+1:]
-	}
-	return foreign
-}
-
-// --- the module graph ------------------------------------------------------
-
-// hostModuleOf says why no Go module provides importPath, or "" when one
-// does. It walks up from the declaring .nomi file to the nearest go.mod
-// exactly as `internal/ffirun`'s findGoModRoot does.
-//
-// Only a module whose path PREFIXES the import path answers, and the rule is
-// deliberately narrow: a `gopkg` naming a published third-party package the
-// project does not provide refuses by name here. A Go standard library
-// package (ffirun.IsStdPackage) is the toolchain's and needs no go.mod.
-func hostModuleOf(nomiPath, importPath string) (why string) {
-	if ffirun.IsStdPackage(importPath) {
-		return ""
-	}
-	// An in-memory file's binding is answered by the host table its program
-	// is loaded with (the tour's linked Go, internal/tourgo), and the front
-	// end refuses one nothing answers.
-	if ffirun.InMemoryFile(nomiPath) {
-		return ""
-	}
-	root, ok := goModRootAbove(filepath.Dir(nomiPath))
-	if !ok {
-		return "no go.mod above the declaring file"
-	}
-	data, err := os.ReadFile(filepath.Join(root, "go.mod"))
-	if err != nil {
-		return "unreadable go.mod at " + root
-	}
-	f, err := modfile.Parse(filepath.Join(root, "go.mod"), data, nil)
-	if err != nil || f.Module == nil || f.Module.Mod.Path == "" {
-		return "unparseable go.mod at " + root
-	}
-	mod := f.Module.Mod.Path
-	if hostPathIn(importPath, mod) {
-		return ""
-	}
-	// A SEPARATELY REQUIRED module (`require echobinding v0.0.0`, with or
-	// without a local `replace`). The VM calls it through the adapter
-	// internal/ffirun generates into the project's wrapper, which Go builds
-	// against the project's own go.mod, so being required is what makes the
-	// import resolvable.
-	for _, rep := range f.Replace {
-		if hostPathIn(importPath, rep.Old.Path) && rep.New.Version == "" {
-			return ""
-		}
-	}
-	for _, req := range f.Require {
-		if hostPathIn(importPath, req.Mod.Path) {
-			return ""
-		}
-	}
-	return "outside the project's own Go module " + mod + " and every module its go.mod requires"
-}
-
-// hostPathIn reports whether importPath names module mod's root package or
-// one of its sub-packages.
-func hostPathIn(importPath, mod string) bool {
-	return importPath == mod || strings.HasPrefix(importPath, mod+"/")
-}
-
-func goModRootAbove(dir string) (string, bool) {
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			return dir, true
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			return "", false
-		}
-		dir = parent
-	}
-}
-
 // hostDefHeld reports whether d is a def in the process-wide host type table.
 //
 // Identity on the PROCESS-WIDE table by pointer, never on the rendered name:
-// the def compared against was built from a validated `opaque type X go
-// alias.Sym` declaration, so a user's own type spelled the same way produces a
-// different def and answers false here.
+// a user's own type spelled the same way produces a different def and
+// answers false here.
 func hostDefHeld(d *typeDef) bool {
 	hostTypeMu.Lock()
 	defer hostTypeMu.Unlock()
@@ -413,39 +166,18 @@ func hostDefHeld(d *typeDef) bool {
 // --- declarations ----------------------------------------------------------
 
 // hostFnDecl declares one `host fn` and retains its body: a crossing under the
-// binding's key.
+// key its host registers it by.
 //
-// The signature is the NOMI one, so every call site in the package — local,
-// module-qualified, or through a selective import — reaches it through the
+// The signature is the NOMI one, so every call site in the package (local,
+// module-qualified, or through a selective import) reaches it through the
 // path it already uses.
 func (g *gen) hostFnDecl(ef *ast.ExternFunc) {
 	g.at(ef.Line)
-	if g.stdModule == "" && hostTableFn(ef) {
-		sig := g.funcs[ef.Name]
-		if sig == nil || sig.decl != hostShellOf(ef) {
-			sig = g.hostSignature(ef)
-		}
-		if !sig.lowerable {
-			g.hostFnReject(sig.genericWhy, ef.Name, ef)
-			return
-		}
-		g.irHostFnRetain(ef, sig)
-		return
-	}
-	if !hostBoundFn(ef) {
-		// Not Go-bound, or a shape this family does not claim: a generic
-		// `host fn` or an impl item. Each is refused
-		// under the declaration's own key rather than silently dropped.
+	if g.stdModule != "" || !hostTableFn(ef) {
+		// A std `host fn`, or a shape this family does not claim: a generic
+		// `host fn`. Each is refused under the declaration's own key rather
+		// than silently dropped.
 		g.hostFnReject("host fn declaration", ef.Name, ef)
-		return
-	}
-	hp := g.hostPkgs[ef.ForeignAlias]
-	switch {
-	case hp == nil:
-		g.hostFnReject("host fn declaration", ef.Name+": no `gopkg` declares "+ef.ForeignAlias, ef)
-		return
-	case hp.why != "":
-		g.hostFnReject("go import", hp.importPath+": "+hp.why, ef)
 		return
 	}
 	sig := g.funcs[ef.Name]
@@ -455,14 +187,9 @@ func (g *gen) hostFnDecl(ef *ast.ExternFunc) {
 	if !sig.lowerable {
 		// The reason is on the signature, recorded where it was decided, so
 		// this and hostSignature cannot disagree about which of them judged.
-		// funcDecl's clause structure exactly.
 		g.hostFnReject(sig.genericWhy, ef.Name, ef)
 		return
 	}
-	// The body is a crossing under the binding's key. Whether the Go
-	// function's signature projects to the declaration is decided by the
-	// adapter internal/ffirun generates for it (internal/hostgen), which
-	// answers a refusal as the call's error; nothing here reads the Go side.
 	g.irHostFnRetain(ef, sig)
 }
 
@@ -483,11 +210,11 @@ func (g *gen) hostFnReject(construct, detail string, n ast.Node) {
 	g.dc.note(reason)
 }
 
-// hostSignature is a Go-bound `host fn` as its call sites see it.
+// hostSignature is a user file's `host fn` as its call sites see it.
 //
 // Built here rather than by signature() because the shell has no body, and
 // EVERY lowerability clause in signature() keys on that. The clauses this one
-// keeps are the ones that are still true of a foreign declaration: an
+// keeps are the ones that are still true of a host declaration: an
 // unrepresentable parameter or result type. A defaulted parameter is not
 // one: its default is Nomi code the caller lowers before the crossing, as
 // it does a `fn`'s (callDefaults, siblingdefault.go).
@@ -515,43 +242,19 @@ func (g *gen) hostSignature(ef *ast.ExternFunc) *fnSig {
 	return sig
 }
 
-// hostTypeDecl is the `opaque type RawBox go ffi.Box` declaration itself.
-//
-// A bound one lowers to nothing: collectHostPkgs built its def, and this only
-// refuses one whose `gopkg` is missing or could not be located. A plain
-// `host type` in a user file is an embedder's handle and lowers to nothing
-// either. Any other unbound one is refused.
+// hostTypeDecl is the `host type` declaration itself. A plain one in a user
+// file is an embedder's handle, whose def collectHostTypes built, and
+// lowers to nothing. Any other is refused.
 func (g *gen) hostTypeDecl(et *ast.ExternType) {
 	g.at(et.Line)
 	if g.stdModule == "" && hostTableType(et) {
-		// A plain `host type`: an embedder's handle, declared nowhere.
 		return
 	}
-	if !hostBoundType(et) {
-		g.rejectWhole("host type declaration", et.Name, et)
-		return
-	}
-	hp := g.hostPkgs[et.ForeignAlias]
-	switch {
-	case hp == nil:
-		g.reject("host type declaration", et.Name+": no `gopkg` declares "+et.ForeignAlias, et)
-	case hp.why != "":
-		g.reject("go import", hp.importPath+": "+hp.why, et)
-	}
+	g.rejectWhole("host type declaration", et.Name, et)
 }
 
-// hostPkgDecl is the `gopkg` declaration itself. It lowers to nothing. A
-// declaration whose module could not be located refuses here, at the position
-// a programmer can act on.
-func (g *gen) hostPkgDecl(ep *ast.ExternPackage) {
-	g.at(ep.Line)
-	if hp := g.hostPkgs[ep.Alias]; hp != nil && hp.why != "" {
-		g.reject("go import", ep.ImportPath+": "+hp.why, ep)
-	}
-}
-
-// hostHandleDef reports whether d is a USER FFI host handle — a def this file's
-// process-wide table built from a validated `opaque type X go alias.Sym`.
+// hostHandleDef reports whether d is a USER host handle: a def this file's
+// process-wide table built from a `host type` declaration.
 //
 // Identity on the TABLE by pointer, never on the rendered name or on
 // `rtOpaque`, which every std leaf also carries. It is the predicate

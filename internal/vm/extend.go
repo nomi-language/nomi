@@ -22,8 +22,13 @@ import (
 //
 // Dispatch and Display bodies are keyed by type name, and a later module's
 // entry replaces an earlier one's: a type an input redeclares dispatches to
-// the newest impl. The machine's boot is the entry's, or the one it had
-// when the entry declares none.
+// the newest impl. A Debug rendering an earlier input compiled names the
+// bodies its parts had then, and a type with none rendered by its shape;
+// on an extended machine it also renders a value no named body owns
+// through the hand-written `impl Debug` the machine holds for its type
+// (rowDebugs, debugImplHook), so an impl a later input writes for an
+// earlier type reaches it. The machine's boot is the entry's, or the one
+// it had when the entry declares none.
 //
 // Call it only while nothing runs on the machine, on the machine the caller
 // opened rather than a view.
@@ -31,6 +36,7 @@ func (m *Machine) Extend(entry *ir.Module, rest []*ir.Module) {
 	if m.modules == nil {
 		m.modules = map[*ir.Module]bool{}
 	}
+	m.extended = true
 	if prev := m.mod; prev != nil && prev != entry {
 		m.linkFuncs(prev)
 	}
@@ -119,4 +125,13 @@ func (m *Machine) Redirect(old, replacement *ir.Func) {
 	s.f = replacement
 	s.code.Store(m.codeOf(m.slotFor(replacement)))
 	s.value.Store(nil)
+	// A function old was compiled into (inline.go) compiles again on its
+	// next call, with the replacement in its place.
+	m.codes.slots.Range(func(_, v any) bool {
+		slot := v.(*fnSlot)
+		if c := slot.code.Load(); c != nil && c.inlines(old) {
+			slot.code.CompareAndSwap(c, nil)
+		}
+		return true
+	})
 }

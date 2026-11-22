@@ -165,18 +165,21 @@ func (c *checker) distinctCtorValue(n ast.Node) (Type, bool) {
 	if !isDistinct || dt.Inner == nil {
 		return nil, false
 	}
+	refused := c.checkOpaqueConstructor(n, dt)
 	if dt.Subtype || checkedDistinctOf(dt) != nil {
 		// The call form of a subtype or a validated type takes a literal;
 		// as a function it would take any value unchecked
-		// (refinement_check.go).
-		line, col := startOf(n)
+		// (refinement_check.go). An opaque one outside its file has no
+		// function to name instead.
 		base := refinementBaseOf(dt)
-		c.report(TypeError{Line: line, Col: col, Message: fmt.Sprintf(
-			"`%s` is %s and has no constructor function: its call form `%s(...)` takes only a literal", dt.Name, checkedKindText(dt), dt.Name)}.WithHint(fmt.Sprintf(
-			"to check values when the program runs, pass `%s.try_from`, a `(%s) -> Maybe<%s>`", dt.Name, formatTypeForError(base), dt.Name)))
+		if !refused {
+			line, col := startOf(n)
+			c.report(TypeError{Line: line, Col: col, Message: fmt.Sprintf(
+				"`%s` is %s and has no constructor function: its call form `%s(...)` takes only a literal", dt.Name, checkedKindText(dt), dt.Name)}.WithHint(fmt.Sprintf(
+				"to check values when the program runs, pass `%s.try_from`, a `(%s) -> Maybe<%s>`", dt.Name, formatTypeForError(base), dt.Name)))
+		}
 		return &FuncType{Params: []Type{base}, Return: dt}, true
 	}
-	c.checkOpaqueConstructor(n, dt)
 	// A generic distinct's constructor (`Wrap` for `type Wrap<T> T`) is
 	// the function of a fresh instance, which the use solves.
 	dt = c.freshDistinct(dt)

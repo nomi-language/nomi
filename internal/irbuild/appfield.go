@@ -62,8 +62,6 @@ func (g *gen) appFieldKind(read analysis.AppRead) kind {
 }
 
 func (g *gen) stageProgramApp(fd *ast.FuncDef) {
-	g.pushScope()
-	g.popScope()
 	g.irBootRetain(fd)
 }
 

@@ -111,8 +111,8 @@ func TestLink_ACalleeInASiblingModuleResolvesByIdentityAndNotByName(t *testing.T
 //
 // NO PRODUCER CAN BUILD THIS: a callee symbol is interned on a declaration
 // node and a node belongs to one unit. A hand-built set can, and picking one of
-// two declarations for one identity is the failure `ir.Table.SelectOverload`
-// refuses one layer up — so the machine reports instead.
+// two declarations for one identity is a silent wrong answer, so the machine
+// reports instead.
 func TestLink_ASymbolTwoModulesDeclareIsReportedRatherThanPicked(t *testing.T) {
 	shared := ir.NewSymbol("helper")
 

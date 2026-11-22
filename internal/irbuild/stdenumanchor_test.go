@@ -36,8 +36,7 @@ func TestStdEnumSpecOfSymbolChecksBothHalves(t *testing.T) {
 		if fa == nil {
 			t.Fatalf("std declares no module %q", module)
 		}
-		byDecl, _ := stdEnumAnchors(fa)
-		for decl, i := range byDecl {
+		for decl, i := range stdEnumAnchors(fa) {
 			if stdEnumSpecs[i].nomi == name {
 				return decl
 			}

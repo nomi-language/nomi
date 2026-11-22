@@ -10,7 +10,7 @@ import (
 // written type-qualified or as a field, and `Set.add` given one element
 // points at `Set.insert`.
 func TestCheckCollectionHints_LengthAndSetInsert(t *testing.T) {
-	env := append(os.Environ(), "NOMI_FFIRUN_CACHE_ROOT="+t.TempDir(), "NOMI_COLOR=never", "NOMI_DIAGNOSTICS=", "NOMI_ARTIFACT_CACHE=off")
+	env := append(os.Environ(), "NOMI_RUNNER_CACHE_ROOT="+t.TempDir(), "NOMI_COLOR=never", "NOMI_DIAGNOSTICS=", "NOMI_ARTIFACT_CACHE=off")
 	dir := t.TempDir()
 	mustWrite(t, filepath.Join(dir, "main.nomi"), `import std::io
 

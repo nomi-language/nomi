@@ -10,20 +10,20 @@ import (
 
 	"github.com/BurntSushi/toml"
 
-	"github.com/nomi-language/nomi/internal/modcache"
 	"github.com/nomi-language/nomi/internal/suggest"
 )
 
 // The keys nomi.toml accepts are manifestFile's: each table is a field with
 // a `toml` tag, and each key a field of that table's struct. A field whose
-// type is a struct is a table nested in its own (`[capabilities.self]`),
-// and a map's keys are free, as `[capabilities.deps.modules]`'s module
+// type is a struct is a table nested in its own (`[effects.self]`),
+// and a map's keys are free, as `[effects.deps.modules]`'s module
 // paths are. A table or key the manifest holds and manifestFile does not
 // is an error at its line, so a misspelled key is never read as nothing.
 // The error names the nearest key when one is close in spelling, except in
 // a table whose field carries a `keys` tag: there it says what each key
-// holds instead, since keys of one table that differ in a word are close
-// in spelling and far in meaning (`std_in_tests` and `go_in_tests`).
+// holds instead, since a key written wrong there is often close in
+// spelling to one far from it in meaning (`allow_in_tests` and
+// `std_in_tests`).
 //
 // A top-level table named for a module the project requires, or for the
 // project's own module, belongs to that module's tools (`nomi tool`), which
@@ -48,12 +48,19 @@ func manifestTables() map[string]manifestTable {
 			if ft.Kind() == reflect.Pointer {
 				ft = ft.Elem()
 			}
-			if ft.Kind() != reflect.Struct {
-				continue
-			}
 			path := f.Tag.Get("toml")
 			if prefix != "" {
 				path = prefix + "." + path
+			}
+			if ft.Kind() == reflect.Map && ft.Elem().Kind() == reflect.Struct {
+				// A table of entries, each a table of the struct's keys
+				// under a key of its own ([dependencies]): its keys are
+				// free, and an entry's are checked at `<path>.*`.
+				out[path] = manifestTable{about: f.Tag.Get("keys")}
+				path, ft = path+".*", ft.Elem()
+			}
+			if ft.Kind() != reflect.Struct {
+				continue
 			}
 			table := manifestTable{about: f.Tag.Get("keys")}
 			for j := 0; j < ft.NumField(); j++ {
@@ -99,6 +106,14 @@ func unknownManifestKey(data []byte, undecoded []toml.Key, md toml.MetaData, sou
 		}
 		// The innermost known table the key is in; a key past its next
 		// part is in a table nested in that one, which it declares none of.
+		// A table of entries' key is free, and is `*` in its path.
+		written := k
+		k = slices.Clone(k)
+		for i := 1; i < len(k)-1; i++ {
+			if _, entries := tables[strings.Join(k[:i], ".")+".*"]; entries {
+				k[i] = "*"
+			}
+		}
 		n := 1
 		for n < len(k)-1 {
 			if _, known := tables[strings.Join(k[:n+1], ".")]; !known {
@@ -106,8 +121,8 @@ func unknownManifestKey(data []byte, undecoded []toml.Key, md toml.MetaData, sou
 			}
 			n++
 		}
-		path, key := strings.Join(k[:n], "."), k[n]
-		table := tables[path]
+		table := tables[strings.Join(k[:n], ".")]
+		path, key := strings.Join(written[:n], "."), k[n]
 		if table.about != "" {
 			return at.with("[%s] has no key `%s`; %s", path, key, table.about)
 		}
@@ -147,50 +162,37 @@ func keyList(keys []string) string {
 	return strings.Join(quoted, ", ")
 }
 
-// toolTables is the names of the tables in the manifest at dir that belong
-// to a module's tools: the module's own `[module].name` and that of each
-// Nomi module its go.mod requires (modcache).
-func toolTables(dir string) []string {
-	var names []string
-	if name := manifestName(dir); name != "" {
-		names = append(names, name)
-	}
-	g, err := modcache.Load(dir)
-	if err != nil || g == nil {
-		return names
-	}
-	for _, d := range g.Deps {
-		if d.Nomi && d.Dir != "" {
-			if name := manifestName(d.Dir); name != "" {
-				names = append(names, name)
-			}
-		}
-	}
-	return names
-}
-
-// manifestName is `[module].name` of the manifest at dir, read without
-// checking the rest, or "".
-func manifestName(dir string) string {
-	data, err := ReadManifest(dir)
-	if err != nil {
-		return ""
-	}
+// toolTables is the names of the tables in data, a manifest's text, that
+// belong to a module's tools: the module's own `[module].name` and each key
+// of its [dependencies], the name the project gives a module, which `nomi
+// tool` runs its tools under and they read their table by. They are read
+// from the text itself, so a table is a tool's in the text that names its
+// dependency, whatever the file on disk holds, and reading them needs no
+// module graph.
+func toolTables(data []byte) []string {
 	var raw struct {
 		Module struct {
 			Name string `toml:"name"`
 		} `toml:"module"`
+		Dependencies map[string]toml.Primitive `toml:"dependencies"`
 	}
 	if _, err := toml.Decode(string(data), &raw); err != nil {
-		return ""
+		return nil
 	}
-	return raw.Module.Name
+	var names []string
+	if raw.Module.Name != "" {
+		names = append(names, raw.Module.Name)
+	}
+	for name := range raw.Dependencies {
+		names = append(names, name)
+	}
+	return names
 }
 
 // ManifestKeyLine is the line (1-based) of nomi.toml's text data that
 // writes the key at path: a table's header, or the line of a key in its
 // table; 0 when no line does. A key a header and a dotted key spell
-// together (`[capabilities]` and `modules.x = []`) is found too.
+// together (`[effects]` and `modules.x = []`) is found too.
 func ManifestKeyLine(data []byte, path ...string) int {
 	want := strings.Join(path, "\x00")
 	var header []string
@@ -222,6 +224,15 @@ func ManifestKeyLine(data []byte, path ...string) int {
 		}
 		if tableLine == 0 && strings.HasPrefix(joined, want+"\x00") {
 			tableLine = i + 1
+		}
+	}
+	if tableLine == 0 && len(path) > 1 {
+		// A key of an inline table (`a = { version = "v1.0.0" }`) is on
+		// the line that writes the table.
+		if at := ManifestKeyLine(data, path[:len(path)-1]...); at > 0 {
+			if _, value, ok := strings.Cut(strings.Split(string(data), "\n")[at-1], "="); ok && strings.HasPrefix(strings.TrimSpace(value), "{") {
+				return at
+			}
 		}
 	}
 	return tableLine
@@ -496,17 +507,6 @@ func ManifestEntryLine(data []byte, value string, path ...string) int {
 		}
 	}
 	return start
-}
-
-// ManifestListHolds reports whether the list at path in nomi.toml's text
-// data quotes value: whether the line ManifestEntryLine answers does.
-func ManifestListHolds(data []byte, value string, path ...string) bool {
-	line := ManifestEntryLine(data, value, path...)
-	if line == 0 {
-		return false
-	}
-	text := stripTomlComment(strings.Split(string(data), "\n")[line-1])
-	return strings.Contains(text, `"`+value+`"`) || strings.Contains(text, `'`+value+`'`)
 }
 
 // ManifestError is a problem in the nomi.toml at Path that the parser

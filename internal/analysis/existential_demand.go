@@ -18,6 +18,18 @@ import (
 // two types have no order. Without the rule a program using Display on a
 // `Scale` value was accepted and then could not run. This is the existential
 // counterpart of type_param_bound.go and default_self_bound.go.
+//
+// Holding I is not enough at a bound `T: I`, since a generic body may call
+// any of I's functions on T's values: an interface type meets the bound
+// only when none of them needs the implementor's own type
+// (existentialMeets, over the selfUse a direct call is held to), so
+// Comparable, whose `compare` takes two `self` values, is met by no
+// interface type. The checker's bound checks ask it
+// (checkExistentialBound), and so does impl matching
+// (typeSatisfiesInterfaceForImplMatch). A generic refinement's declaration
+// check is the one exception: it types the rule's `try_from` at its
+// bounds' interfaces as a witness for every implementor, which the IR
+// builder lowers for the effect walk and never runs (ruleWitness).
 
 // existentialSatisfies reports whether every value of interface type it
 // satisfies the std interface ifaceName, declared by origin ("" when
@@ -57,6 +69,9 @@ func (c *checker) checkExistentialDemand(it Type, ifaceName string, rec Recordin
 	universal := true
 	for _, m := range members {
 		if sameNominalIdentity(m.Origin, m.Name, rec.IfaceOrigin, ifaceName) {
+			if rec.Kind == RecordingKindGenericBoundCheck {
+				c.checkExistentialBound(it, m, rec)
+			}
 			return
 		}
 		universal = universal && c.existentialSatisfiesNamed(m, ifaceName)
@@ -64,7 +79,10 @@ func (c *checker) checkExistentialDemand(it Type, ifaceName string, rec Recordin
 	if universal {
 		return
 	}
-	if _, isIface := c.reg.Lookup(ifaceName).(*InterfaceType); !isIface {
+	// The demand is of an interface: one this file names, or one the demand
+	// names by its declaration, as a part's demand of an anonymous struct
+	// read from text names std/parse's Parse (structuralDemands).
+	if _, isIface := c.reg.Lookup(ifaceName).(*InterfaceType); !isIface && rec.IfaceOrigin == OriginUnresolved {
 		return
 	}
 	matches := func(t Type) bool {
@@ -191,15 +209,26 @@ func (c *checker) sigWithTypeParamFor(it Type, param string, all bool) (string, 
 	return sig, true
 }
 
-// An interface-qualified call `I.f(...)` picks the implementor from its
-// `self` arguments, or from where its result goes when `self` is only in the
-// result. A value of interface type I names no implementor, so on one the
-// call can run only when nothing else in the signature needs to be that
+// A use of an interface's function `I.f`, the call `I.f(...)` or an
+// operator that goes through it (`a < b` is `Comparable.compare(a, b)`),
+// picks the implementor from its `self` arguments, or from where its result
+// goes when `self` is only in the result. A value of interface type I, or of
+// a conjunction holding I, names no implementor, so on one the function can
+// run only when nothing else in its signature needs to be that
 // implementor's own type: a `self` result, a second `self` argument, or a
 // parameter holding `self` values would each need it. A function with no
 // `self` parameter, called through I with nothing naming the implementor,
 // has none to run. Inside one of I's own defaults the implementor is the one
-// the default runs for.
+// the default runs for. `==` and `!=` go through Equatable, which every
+// interface value meets by comparing the held values (existentialSatisfies),
+// so they are not such a use.
+
+// InterfaceValueSelfCode tags the error for a use of an interface's
+// function on an interface value where the function needs the
+// implementor's own type beyond its receiver (checkExistentialSelfUse).
+// Args holds the function, `Comparable.compare`, and for an operator the
+// operator.
+const InterfaceValueSelfCode = "interface-value-self"
 
 // checkExistentialSelfCall reports an interface-qualified call of fa on
 // iface that no implementor can answer. subs is the call's solved type
@@ -208,54 +237,70 @@ func (c *checker) checkExistentialSelfCall(fa *ast.FieldAccess, iface *Interface
 	if fa == nil || fa.Field == nil || iface == nil || iface.SelfParam == nil {
 		return
 	}
-	sig := interfaceMethodSig(iface, fa.Field.Name)
-	if sig == nil {
-		return
-	}
-	self := iface.SelfParam
-	concrete, solved := subs[self]
+	concrete, solved := subs[iface.SelfParam]
 	if solved {
 		concrete = resolveTypeVar(concrete)
 		if _, open := concrete.(*TypeVar); open {
 			solved = false
 		}
 	}
+	c.checkExistentialSelfUse(iface, fa.Field.Name, "", concrete, solved, subjects, line, col)
+}
+
+// checkExistentialOrdering reports the ordering n, whose compared operand
+// has type held, when held is an interface value: `a < b` is a use of
+// `Comparable.compare`, whose two `self` arguments no interface value can
+// answer (checkExistentialSelfUse). An interface value whose interfaces
+// leave out Comparable is the demand checkExistentialDemand reports.
+func (c *checker) checkExistentialOrdering(n *ast.Binary, held Type) {
+	if !isInterfaceValue(held) {
+		return
+	}
+	ifaceName, method, _ := operatorIface(n.Op)
+	for _, m := range InterfaceMembers(resolveTypeVar(ResolveClosed(held))) {
+		if m.Name == ifaceName && (m.Origin == "" || m.Origin == deriveProtocolHomeModule[ifaceName]) {
+			c.checkExistentialSelfUse(m, method, n.Op, held, true, []ast.Node{n.Left, n.Right}, n.Line, n.Col)
+			return
+		}
+	}
+}
+
+// checkExistentialSelfUse reports a use of the function method of iface,
+// whose `self` the use solved to concrete (solved is false where it did
+// not), that no implementor can answer: the call `I.f(...)` when op is "",
+// else the operator op. subjects are the use's argument expressions.
+func (c *checker) checkExistentialSelfUse(iface *InterfaceType, method, op string, concrete Type, solved bool, subjects []ast.Node, line, col int) {
+	if iface == nil || iface.SelfParam == nil {
+		return
+	}
+	sig := interfaceMethodSig(iface, method)
+	if sig == nil {
+		return
+	}
 	existential := false
-	if at, ok := concrete.(*InterfaceType); solved && ok && !at.DefaultSelf && at.Name == iface.Name {
-		existential = true
-	}
-	var selfAt []int
-	nested := ""
-	for i, p := range sig.Params {
-		if tp, ok := p.(*TypeParam_); ok && tp == self {
-			selfAt = append(selfAt, i)
-			continue
-		}
-		if nested == "" && mentionsTypeParam(p, self) {
-			nested = "_"
-			if i < len(sig.ParamNames) && sig.ParamNames[i] != "" {
-				nested = sig.ParamNames[i]
-			}
+	if solved && isInterfaceValue(concrete) {
+		concrete = resolveTypeVar(ResolveClosed(concrete))
+		for _, m := range InterfaceMembers(concrete) {
+			existential = existential || m.Name == iface.Name
 		}
 	}
-	returnsSelf := sig.Return != nil && mentionsTypeParam(sig.Return, self)
-	callee := iface.Name + "." + fa.Field.Name
-	inOwnDefault := c.defaultSelf == self && c.currentInterface == iface.Name
-	if len(selfAt) == 0 {
+	use := selfUseOf(sig, iface.SelfParam)
+	callee := iface.Name + "." + method
+	inOwnDefault := c.defaultSelf == iface.SelfParam && c.currentInterface == iface.Name
+	if len(use.at) == 0 {
 		if (solved && !existential) || (!solved && inOwnDefault) {
 			return
 		}
 		msg := fmt.Sprintf("`%s` has no `self` parameter, so this call does not say which implementor of %s runs", callee, iface.Name)
-		c.reportOnce(line, col, msg, fmt.Sprintf("call it on the implementing type (`Type.%s(...)`), or on a type parameter bounded by %s (`T.%s(...)` with `where T: %s`)", fa.Field.Name, iface.Name, fa.Field.Name, iface.Name))
+		c.reportOnce(line, col, msg, fmt.Sprintf("call it on the implementing type (`Type.%s(...)`), or on a type parameter bounded by %s (`T.%s(...)` with `where T: %s`)", method, iface.Name, method, iface.Name))
 		return
 	}
-	if !existential || (!returnsSelf && len(selfAt) < 2 && nested == "") {
+	if !existential || !use.needsImplementor() {
 		return
 	}
 	subject, param := "a value", ""
 	matches := func(t Type) bool {
-		at, ok := resolveTypeVar(t).(*InterfaceType)
-		return ok && !at.DefaultSelf && at.Name == iface.Name
+		return sameExistential(t, concrete)
 	}
 	for _, arg := range subjects {
 		if na, ok := arg.(*ast.NamedArg); ok {
@@ -273,27 +318,29 @@ func (c *checker) checkExistentialSelfCall(fa *ast.FieldAccess, iface *Interface
 		}
 		break
 	}
-	a := "a"
-	if strings.ContainsAny(iface.Name[:1], "AEIOU") {
-		a = "an"
+	// The value's type is named by its interface, or by the conjunction
+	// that holds the interface; the bound is the interface at the value's
+	// own arguments (`Scale<Int>` for an `s: Scale<Int>`).
+	held, bound := iface.Name, concrete.String()
+	if _, conj := concrete.(*ConjunctionType); conj {
+		held = bound
 	}
-	var why string
-	switch {
-	case returnsSelf:
-		why = fmt.Sprintf("its result is `self`, the implementor's own type, and %s `%s` value does not say which implementor it holds", a, iface.Name)
-	case len(selfAt) > 1:
-		why = fmt.Sprintf("its %d `self` arguments must be one implementor, and `%s` values may hold different ones", len(selfAt), iface.Name)
-	default:
-		why = fmt.Sprintf("its parameter `%s` holds `self` values, which must be the implementor's own type, and %s `%s` value does not say which implementor it holds", nested, a, iface.Name)
+	a := ArticleFor(held)
+	lead, args := fmt.Sprintf("`%s` cannot be called on", callee), []string{callee}
+	selfArgs := ""
+	if op != "" {
+		lead, args = fmt.Sprintf("`%s` cannot compare", op), append(args, op)
+		selfArgs = "its two operands"
 	}
-	msg := fmt.Sprintf("`%s` cannot be called on %s, %s `%s`: %s", callee, subject, a, iface.Name, why)
-	// The bound is the value's interface at its own arguments: `Scale<Int>`
-	// for an `s: Scale<Int>`.
-	help := fmt.Sprintf("take a type parameter bounded by %s instead, so the implementor is known: `where T: %s`", iface.Name, concrete)
-	if sigText, ok := c.sigWithTypeParamFor(iface, param, len(selfAt) > 1); ok {
-		help = fmt.Sprintf("take a type parameter bounded by %s instead, so the implementor is known: `%s where T: %s`", iface.Name, sigText, iface.Name)
+	msg := fmt.Sprintf("%s %s, %s `%s`: %s", lead, subject, a, held, use.why(held, selfArgs))
+	help := fmt.Sprintf("take a type parameter bounded by %s instead, so the implementor is known: `where T: %s`", held, bound)
+	if sigText, ok := c.sigWithTypeParamFor(concrete, param, len(use.at) > 1); ok {
+		help = fmt.Sprintf("take a type parameter bounded by %s instead, so the implementor is known: `%s where T: %s`", held, sigText, held)
 	}
-	c.reportOnce(line, col, msg, help)
+	if c.alreadyReported(line, col, msg) {
+		return
+	}
+	c.report(TypeError{Line: line, Col: col, Message: msg}.WithHint(help).coded(InterfaceValueSelfCode, args...))
 }
 
 // alreadyReported reports whether the checker holds the error msg at
@@ -317,21 +364,6 @@ func (c *checker) reportOnce(line, col int, msg, hint string) {
 		return
 	}
 	c.report(TypeError{Line: line, Col: col, Message: msg}.WithHint(hint))
-}
-
-// mentionsInterface reports whether t holds a value of interface name
-// somewhere inside it (`List<Scale>`, `(Int, Scale)`).
-func mentionsInterface(t Type, name string) bool {
-	t = resolveTypeVar(t)
-	if at, ok := t.(*InterfaceType); ok && !at.DefaultSelf && at.Name == name {
-		return true
-	}
-	for _, a := range typeChildren(t) {
-		if mentionsInterface(a, name) {
-			return true
-		}
-	}
-	return false
 }
 
 // sameExistential reports whether t is the interface value type it, an
@@ -358,4 +390,151 @@ func mentionsExistential(t, it Type) bool {
 		}
 	}
 	return false
+}
+
+// selfUse is how a function of an interface uses the interface's `self`
+// (spec §12 *Interface values*): the positions of its `self` parameters,
+// the name of a parameter that holds `self` values in another type ("_"
+// when it has none, "" when no parameter does), and whether its result
+// holds `self`.
+type selfUse struct {
+	at          []int
+	nested      string
+	returnsSelf bool
+}
+
+// selfUseOf is how sig, a function of the interface whose `self` is self,
+// uses it.
+func selfUseOf(sig *MethodSig, self *TypeParam_) selfUse {
+	var u selfUse
+	for i, p := range sig.Params {
+		if tp, ok := p.(*TypeParam_); ok && tp == self {
+			u.at = append(u.at, i)
+			continue
+		}
+		if u.nested == "" && mentionsTypeParam(p, self) {
+			u.nested = "_"
+			if i < len(sig.ParamNames) && sig.ParamNames[i] != "" {
+				u.nested = sig.ParamNames[i]
+			}
+		}
+	}
+	u.returnsSelf = sig.Return != nil && mentionsTypeParam(sig.Return, self)
+	return u
+}
+
+// needsImplementor reports whether a function that uses `self` as u does
+// needs the implementor's own type beyond its one receiver, so that it
+// cannot run on an interface value, which names no implementor: a `self`
+// result, a second `self` argument, a parameter holding `self` values, or
+// no `self` parameter at all.
+func (u selfUse) needsImplementor() bool {
+	return u.returnsSelf || len(u.at) != 1 || u.nested != ""
+}
+
+// why says why a function that uses `self` as u cannot run on a value of
+// the interface type held. selfArgs names its `self` arguments where the
+// use names them its own way (an operator's "its two operands"), "" for
+// "its N `self` arguments".
+func (u selfUse) why(held, selfArgs string) string {
+	a := ArticleFor(held)
+	if selfArgs == "" {
+		selfArgs = fmt.Sprintf("its %d `self` arguments", len(u.at))
+	}
+	switch {
+	case u.returnsSelf:
+		return fmt.Sprintf("its result is `self`, the implementor's own type, and %s `%s` value does not say which implementor it holds", a, held)
+	case len(u.at) > 1:
+		return fmt.Sprintf("%s must be one implementing type, and `%s` values may hold different ones", selfArgs, held)
+	case len(u.at) == 0:
+		return fmt.Sprintf("it has no `self` parameter, and %s `%s` value does not say which implementor runs it", a, held)
+	}
+	return fmt.Sprintf("its parameter `%s` holds `self` values, which must be the implementor's own type, and %s `%s` value does not say which implementor it holds", u.nested, a, held)
+}
+
+// existentialBlocker is the first function of iface no value of an
+// interface type holding iface can call (selfUse.needsImplementor), and
+// false when every one can.
+func existentialBlocker(iface *InterfaceType) (string, selfUse, bool) {
+	if iface == nil || iface.SelfParam == nil {
+		return "", selfUse{}, false
+	}
+	for i := range iface.Methods {
+		if u := selfUseOf(&iface.Methods[i], iface.SelfParam); u.needsImplementor() {
+			return iface.Methods[i].Name, u, true
+		}
+	}
+	return "", selfUse{}, false
+}
+
+// existentialMeets reports whether the interface type it (an interface,
+// or a conjunction of them) meets the bound `T: iface`, which is the one
+// rule for an interface type at a bound (spec §12 *Interface values*). A
+// generic body may call any of the bound's functions on T's values, so it
+// meets the bound when the language defines each of them across
+// implementors (existentialSatisfies: Debug, and Equatable and Hashable,
+// which compare and hash the held values by their run-time types), or
+// when it holds iface and no function of iface needs the implementor's own
+// type beyond its receiver (existentialBlocker), the rule a call of one of
+// them on an interface value is held to (checkExistentialSelfUse).
+// Comparable is neither: `compare` takes two `self` values, and values of
+// different types have no order.
+func existentialMeets(it Type, iface *InterfaceType) bool {
+	members := InterfaceMembers(it)
+	if len(members) == 0 {
+		return false
+	}
+	universal := true
+	var held *InterfaceType
+	for _, m := range members {
+		if sameNominalIdentity(m.Origin, m.Name, iface.Origin, iface.Name) {
+			held = m
+		}
+		universal = universal && existentialSatisfies(m, iface.Name, iface.Origin)
+	}
+	if universal {
+		return true
+	}
+	if held == nil {
+		return false
+	}
+	_, _, blocked := existentialBlocker(held)
+	return !blocked
+}
+
+// checkExistentialBound reports the bound `T: bound` that rec makes of
+// it, the type T is instantiated at, when it is an interface type that
+// holds bound and does not meet it (existentialMeets), at the call or the
+// operator that instantiates T, naming the function of bound that T's
+// values could not run. An interface type that does not hold bound is
+// checkExistentialDemand's to report. The checker's two bound checks ask
+// it: a generic call's bounds (a RecordingKindGenericBoundCheck demand)
+// and the bounds of the impl a use selects
+// (recordImplReceiverBoundConformances).
+func (c *checker) checkExistentialBound(it Type, bound *InterfaceType, rec Recording) {
+	if c.ruleWitness || !isInterfaceValue(it) {
+		return
+	}
+	it = resolveTypeVar(ResolveClosed(it))
+	var held *InterfaceType
+	for _, m := range InterfaceMembers(it) {
+		if sameNominalIdentity(m.Origin, m.Name, bound.Origin, bound.Name) {
+			held = m
+		}
+	}
+	if held == nil || existentialMeets(it, held) {
+		return
+	}
+	method, use, _ := existentialBlocker(held)
+	shown := it.String()
+	callee := held.Name + "." + method
+	msg := fmt.Sprintf("`%s` does not meet the bound `%s`, since `%s` cannot be called on %s `%s` value: %s", shown, held.String(), callee, ArticleFor(shown), shown, use.why(shown, ""))
+	help := fmt.Sprintf("take the values' own type, or a type parameter bounded by %s, so the implementor is known", held.Name)
+	if held.Name == "Comparable" {
+		help = "order values of one type: take their own type, or a type parameter bounded by Comparable, or order values of different types by a key of one type with `Iter.sort_by`"
+	}
+	if c.alreadyReported(rec.Pos.Line, rec.Pos.Col, msg) {
+		return
+	}
+	c.report(TypeError{Line: rec.Pos.Line, Col: rec.Pos.Col, Message: msg}.WithHint(help).coded(InterfaceValueSelfCode, callee))
 }

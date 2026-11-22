@@ -66,10 +66,11 @@ end
 test "struct patterns match and bind fields"
     user = User{name: "Alice", age: 30}
 
-    greeting = case user
-        User{name: "Alice"} -> "Hi Alice!"
-        User{name:}         -> "Hello " + name
-    end
+    greeting =
+        case user
+            User{name: "Alice"} -> "Hi Alice!"
+            User{name:}         -> "Hello " + name
+        end
 
     assert greeting == "Hi Alice!"
 end

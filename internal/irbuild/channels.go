@@ -65,15 +65,17 @@ import (
 // reachable from the pair would make the split bypassable, and being bypassable
 // is the only way the split could fail to pay.
 //
-// channelFuncs lists every function std declares, and channelCall panics on
-// one it does not list, so a std edit adding a fourth operation fails loudly
-// there.
+// channelFuncs lists every inherent function std declares, and channelCall
+// panics on one it does not list, so a std edit adding a fourth operation
+// fails loudly there. An impl's function (std's `impl Debug for Sender<T>`)
+// is no arm's: intrinsicArm sends only inherent ones here.
 //
-// # No equality, hashing or rendering
+// # No equality or hashing
 //
-// std declares no `Equatable`, no `Hashable`, no `Display` and no `Debug` for
+// std declares no `Equatable`, no `Hashable` and no `Display` for
 // `Channel<T>` or either half, so `a == b` on one and a `Map<Sender<Int>, _>`
-// refuse under the ordinary named-type keys. `rtOpaque` on the halves' defs is
+// refuse under the ordinary named-type keys. Each half's Debug is std's
+// written `<channel>`, which the machine renders (machineImpls). `rtOpaque` on the halves' defs is
 // what makes them refuse rather than answer: without it, the arms written for a
 // zero-sized marker would answer for a value with contents, and `a == b` would
 // be constantly true (see stdhost.go).

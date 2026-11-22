@@ -24,9 +24,8 @@ package ir
 // WHAT IS NOT. A Table's producer tokens: a decoded Table's types are keyed
 // by their own pointers and its Symbol map is empty, because a token is the
 // producer's identity (an AST node, a irbuild pointer) and no reader of a
-// decoded image interns anything. A Table's declarations: a Decl is the
-// builder's overload-selection record and no instruction names one. A
-// Module's LintModuleAdded progress starts over.
+// decoded image interns anything. A Module's LintModuleAdded progress
+// starts over.
 //
 // DETERMINISM. Everything is written in a traversal order fixed by the
 // modules' own slices. The one map in the graph, Type.conforms, is written
@@ -47,13 +46,13 @@ import (
 
 // FormatVersion is the version the encoder writes and the only one the
 // decoder reads. Bump it with any change to what is written.
-const FormatVersion = 51
+const FormatVersion = 54
 
 // formatMagic opens every encoded image.
 const formatMagic = "NOMIIR\x00"
 
 // Image is what a runner needs to start a program without lowering one: the
-// linked modules, which of them is the entry, and the Go-bound host keys the
+// linked modules, which of them is the entry, and the host keys the
 // program crosses under.
 type Image struct {
 	// Modules are the linked set, in link order: the program's own units,
@@ -61,7 +60,7 @@ type Image struct {
 	Modules []*Module
 	// Entry is the index into Modules of the entry unit, or -1.
 	Entry int
-	// HostKeys are the extern keys of the program's Go-bound `host fn`
+	// HostKeys are the extern keys of the program's own `host fn`
 	// bodies, sorted.
 	HostKeys []string
 	// HasMain reports whether the entry declares `fn main`. A program
@@ -73,6 +72,11 @@ type Image struct {
 	// Exports are the program's exported functions (`export fn`), the
 	// functions a host calls by name, in declaration order.
 	Exports []Export
+	// HostFns are the `host fn`s of the program's own files, in
+	// declaration order, with the conversions a host that answers them in
+	// JSON runs (vmrunner.WithHostCalls). Only an image for a host that
+	// calls exported functions carries them.
+	HostFns []HostFn
 	// Locales is the CLDR data the program carries (internal/cldrdata's
 	// text format): the locales its nomi.toml lists, cut to the parts it
 	// reaches. Empty for a program that reaches no locale data.
@@ -174,20 +178,60 @@ type ExportParam struct {
 // Signature is e as Nomi declares it, without `export fn`:
 // `guess(game: Game, letter: String) -> Game`.
 func (e *Export) Signature() string {
-	var b strings.Builder
-	b.WriteString(e.Name)
-	b.WriteByte('(')
+	params := make([]string, len(e.Params))
 	for i, p := range e.Params {
-		if i > 0 {
-			b.WriteString(", ")
-		}
-		b.WriteString(p.Name + ": " + p.Type)
+		params[i] = p.Name + ": " + p.Type
 	}
-	b.WriteByte(')')
-	if e.Result != "" {
-		b.WriteString(" -> " + e.Result)
+	return signature(e.Name, params, e.Result)
+}
+
+// HostFn is one `host fn` of the program's own files, as a host that
+// answers it in JSON calls it: each argument encoded by its parameter's
+// Encode, the host's JSON answer decoded by Decode.
+type HostFn struct {
+	// Key is the key the host answers it under (frontend.HostKey).
+	Key    string
+	Name   string
+	Params []HostFnParam
+	// Result is the declared result type as Nomi writes it, or "" for a
+	// Unit result, which has no Decode.
+	Result string
+	// Decode takes the host's JSON text and answers a Result<Result,
+	// String>, whose Err is why the text is not one.
+	Decode *Func
+	// NoJSON is why the signature cannot cross as JSON, or "" when it
+	// can. An image carries no conversion of one that cannot.
+	NoJSON string
+}
+
+// HostFnParam is one parameter of a HostFn.
+type HostFnParam struct {
+	Name string
+	// Type is the declared type as Nomi writes it.
+	Type string
+	// Encode takes the argument and answers its JSON text (a String).
+	Encode *Func
+}
+
+// Signature is h as Nomi declares it, without `host fn`:
+// `greet(name: String) -> String`.
+func (h *HostFn) Signature() string {
+	params := make([]string, len(h.Params))
+	for i, p := range h.Params {
+		params[i] = p.Name + ": " + p.Type
 	}
-	return b.String()
+	return signature(h.Name, params, h.Result)
+}
+
+// signature is a function's declaration as Nomi writes it without its
+// keyword: its name, its `name: Type` params, and its result unless that
+// is "".
+func signature(name string, params []string, result string) string {
+	out := name + "(" + strings.Join(params, ", ") + ")"
+	if result != "" {
+		out += " -> " + result
+	}
+	return out
 }
 
 // EntryModule is Modules[Entry], or nil.
@@ -302,6 +346,11 @@ type encoder struct {
 	named map[string]string
 	// texts replaces the text of the constants it holds (WithConstTexts).
 	texts map[*Const]string
+	// noPos leaves out every source position, every line a field holds
+	// and what only a debugger reads (withoutPositions): what BodySum
+	// hashes. unnamed are the symbols whose names it then leaves out.
+	noPos   bool
+	unnamed map[*Symbol]bool
 	// embedded is each embedded file the written code names, once per
 	// sum, in the order first written: the files region's table.
 	embedded     []FileEntry
@@ -329,6 +378,15 @@ func WithFileNames(rename func(string) string) EncodeOption {
 func WithConstTexts(texts map[*Const]string) EncodeOption {
 	return func(e *encoder) { e.texts = texts }
 }
+
+// withoutPositions writes no source position, no line a field holds (a
+// `subtests` name's), no debug information (statement marks, variables,
+// pipelines) and no name of a parameter or of a local a Bind declares,
+// whose symbol stands for itself by its place among the symbols written:
+// so code that moved, or whose locals' names spell where they are, encodes
+// as it did where it was.
+// Nothing decodes what it writes: it is what BodySum hashes.
+func withoutPositions(e *encoder) { e.noPos, e.unnamed = true, map[*Symbol]bool{} }
 
 // EncodeImage writes im in the current format. The same image gives the same
 // bytes.
@@ -375,6 +433,20 @@ func EncodeImage(im Image, opts ...EncodeOption) ([]byte, error) {
 		}
 		w.uv(e.str(x.Result))
 		w.uv(e.fn(x.Encode))
+	}
+	w.uv(uint64(len(im.HostFns)))
+	for _, h := range im.HostFns {
+		w.uv(e.str(h.Key))
+		w.uv(e.str(h.Name))
+		w.uv(uint64(len(h.Params)))
+		for _, p := range h.Params {
+			w.uv(e.str(p.Name))
+			w.uv(e.str(p.Type))
+			w.uv(e.fn(p.Encode))
+		}
+		w.uv(e.str(h.Result))
+		w.uv(e.fn(h.Decode))
+		w.uv(e.str(h.NoJSON))
 	}
 	w.uv(e.str(string(im.Locales)))
 	e.drain()
@@ -510,8 +582,10 @@ func (e *encoder) sym(s *Symbol) uint64 {
 	if i, ok := e.syms[s]; ok {
 		return i
 	}
-	e.str(s.name)
-	e.str(s.link)
+	if !e.unnamed[s] {
+		e.str(s.name)
+		e.str(s.link)
+	}
 	if s.impl != nil {
 		e.str(s.impl.Type)
 		e.str(s.impl.Interface)
@@ -578,6 +652,9 @@ func (e *encoder) fn(f *Func) uint64 {
 // pos writes a position as a delta from the previous one in the same buffer:
 // most positions share a file and sit a few lines apart.
 func (e *encoder) pos(w *wbuf, p Pos) {
+	if e.noPos {
+		return
+	}
 	file := e.str(e.file(p.file))
 	var flags byte
 	if file == w.file {
@@ -623,6 +700,9 @@ func (e *encoder) symList(w *wbuf, ss []*Symbol) {
 }
 
 func (e *encoder) module(w *wbuf, m *Module) {
+	if m.abstract {
+		e.fail("%s is a module of abstract bodies, which only the effect walk reads", m.name)
+	}
 	w.uv(e.str(e.file(m.name)))
 	w.slen(len(m.funcs), m.funcs == nil)
 	for _, f := range m.funcs {
@@ -684,6 +764,7 @@ func (e *encoder) valTypeRec(w *wbuf, t *ValType) {
 	}
 	e.strList(w, t.names)
 	w.uv(e.vt(t.result))
+	w.bool1(t.spread)
 	switch {
 	case t.layout == nil:
 		w.byte1(0)
@@ -695,6 +776,7 @@ func (e *encoder) valTypeRec(w *wbuf, t *ValType) {
 			w.uv(e.str(v.Name))
 			w.byte1(byte(v.Form))
 			e.fields(w, v.Fields)
+			w.bool1(v.Spread)
 		}
 	}
 }
@@ -751,6 +833,27 @@ func (e *encoder) funcBody(w *wbuf, f *Func) {
 	w.uv(e.str(f.name))
 	w.uv(e.sym(f.sym))
 	w.uv(uint64(f.next))
+	if e.noPos {
+		// A parameter and a local a Bind declares are found by their
+		// symbols, not by their names, which may spell a position (a
+		// destructured parameter's `__destr_3_9`, a local the builder made,
+		// `%record12.4`).
+		unnamed := func(s *Symbol) {
+			if _, written := e.syms[s]; s != nil && s.link == "" && !written {
+				e.unnamed[s] = true
+			}
+		}
+		for _, p := range f.params {
+			unnamed(p.Sym)
+		}
+		for _, b := range f.blocks {
+			for _, in := range b.instrs {
+				if n, ok := in.(*Bind); ok {
+					unnamed(n.sym)
+				}
+			}
+		}
+	}
 	w.slen(len(f.params), f.params == nil)
 	for _, p := range f.params {
 		w.uv(e.sym(p.Sym))
@@ -788,6 +891,10 @@ func (e *encoder) funcBody(w *wbuf, f *Func) {
 			e.instr(w, in)
 		}
 		e.term(w, b.term)
+		if e.noPos {
+			// Statement marks, variables and pipelines are a debugger's.
+			continue
+		}
 		w.slen(len(b.stmts), b.stmts == nil)
 		for _, m := range b.stmts {
 			w.uv(uint64(m.Index))
@@ -806,6 +913,9 @@ func (e *encoder) funcBody(w *wbuf, f *Func) {
 			e.fail("%s: the definition of %s is not in any block", f.name, Temp(t))
 		}
 		w.uv(at)
+	}
+	if e.noPos {
+		return
 	}
 	w.slen(len(f.vars), f.vars == nil)
 	for _, v := range f.vars {
@@ -853,6 +963,11 @@ func (e *encoder) term(w *wbuf, t Term) {
 }
 
 func (e *encoder) call(w *wbuf, n *Call) {
+	if n.form == CalleeBound {
+		// Only an abstract module holds one, and no machine runs it
+		// (Module.SetAbstract).
+		e.fail("a call through a bound, %s, runs on no machine and is never written", n.callee.Name())
+	}
 	e.pos(w, n.pos)
 	w.temp(n.dst)
 	w.byte1(byte(n.form))
@@ -909,6 +1024,7 @@ func (e *encoder) instr(w *wbuf, in Instr) {
 		w.temp(n.dst)
 		w.uv(e.fn(n.body))
 		w.bool1(n.self)
+		w.bool1(n.keeps)
 		e.temps(w, n.captures)
 	case *Assert:
 		w.byte1(tagAssert)
@@ -1036,7 +1152,9 @@ func (e *encoder) instr(w *wbuf, in Instr) {
 		w.temp(n.row)
 		w.uv(e.str(n.text))
 		w.temp(n.name)
-		w.uv(uint64(n.nameLine))
+		if !e.noPos {
+			w.uv(uint64(n.nameLine))
+		}
 		w.uv(e.str(n.nameText))
 	case *Not:
 		w.byte1(tagNot)
@@ -1086,6 +1204,7 @@ func (e *encoder) instr(w *wbuf, in Instr) {
 		w.temp(n.dst)
 		w.byte1(byte(n.kind))
 		w.uv(e.sym(n.sym))
+		w.bool1(n.keeps)
 	case *Copy:
 		w.byte1(tagCopy)
 		e.pos(w, n.pos)

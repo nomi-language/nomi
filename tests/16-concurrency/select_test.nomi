@@ -139,17 +139,18 @@ group "timers on the virtual clock"
         ch = Channel.buffered<Int>(1)
         start = Instant.now()
 
-        got = concurrent
-            sender = Task.spawn(fn -> send_later(ch.sender, Duration.seconds(1), 9))
+        got =
+            concurrent
+                sender = Task.spawn(fn -> send_later(ch.sender, Duration.seconds(1), 9))
 
-            received = Channel.select([
-                Arm.receive(ch.receiver, fn n -> n),
-                Arm.after(Duration.seconds(5), fn -> None),
-            ])
+                received = Channel.select([
+                    Arm.receive(ch.receiver, fn n -> n),
+                    Arm.after(Duration.seconds(5), fn -> None),
+                ])
 
-            Task.await(sender)
-            received
-        end
+                Task.await(sender)
+                received
+            end
 
         assert got == Some(9)
         assert seconds_since(start) == 1
@@ -179,12 +180,13 @@ group "timers on the virtual clock"
         ch = Channel.buffered<Int>(1)
         start = Instant.now()
 
-        outcome = concurrent
-            waiter = Task.spawn(fn -> Channel.select([Arm.receive(ch.receiver, fn n -> n)]))
-            timer.sleep(Duration.seconds(1))
-            Task.cancel(waiter)
-            Task.outcome(waiter)
-        end
+        outcome =
+            concurrent
+                waiter = Task.spawn(fn -> Channel.select([Arm.receive(ch.receiver, fn n -> n)]))
+                timer.sleep(Duration.seconds(1))
+                Task.cancel(waiter)
+                Task.outcome(waiter)
+            end
 
         assert outcome == Outcome.Cancelled
         assert seconds_since(start) == 1

@@ -200,13 +200,9 @@ func (g *gen) loadIter() {
 // the SHAPE off that module's own declaration. A std edit that changed
 // `each_while` still produces no anchor.
 //
-// Deliberately NOT a path check. `isStdTasksFile` (analysis/concurrent_scope.go)
-// is the closest precedent for the question "is the current file the std module
-// that declares this", and it has to compare `filepath.Base` twice AND check a
-// six-name fingerprint of the module scope, because the only thing it is handed
-// is a path. Here the module name is already in hand from the one constructor
-// that can produce a stdlib gen, and re-deriving it from `nomiPath` would be a
-// weaker fact wearing more code.
+// Deliberately NOT a path check. The module name is already in hand from
+// the one constructor that can produce a stdlib gen, and re-deriving it from
+// `nomiPath` would be a weaker fact wearing more code.
 //
 // One name and not a table: `Iter` is the only interface whose anchor this
 // builder resolves by provenance. If a second one arrives, the shape to reach

@@ -155,11 +155,8 @@ type gen struct {
 	// and done marks the struct types whose field codecs are written.
 	helpers map[string]string
 	done    map[string]bool
-	// queue holds struct types still to write.
-	queue []*types.Named
 	// kinds numbers the types the pointer table keys on.
 	kinds []string
-	tmp   int
 }
 
 func (g *gen) q(t types.Type) string {
@@ -176,11 +173,6 @@ func (g *gen) mangle(t types.Type) string {
 	s := g.q(t)
 	r := strings.NewReplacer("*", "P", "[]", "S", "[", "A", "]", "_", "map", "M", ".", "_", " ", "", "{", "", "}", "", ",", "_")
 	return r.Replace(s)
-}
-
-func (g *gen) newVar(prefix string) string {
-	g.tmp++
-	return fmt.Sprintf("%s%d", prefix, g.tmp)
 }
 
 func (g *gen) kind(name string) int {

@@ -1,0 +1,316 @@
+//# The SQLite engine: SQLite compiled to WebAssembly with engine/shim.c
+//# (engine/sqlite3.wasm, embedded), run by std::wasm, one instance a
+//# connection. Each operation is one `Instance.run` of an export of the
+//# shim: its input is written as the shim reads it and its answer read as
+//# the shim writes it (shim.c says how). The instance's imports are its
+//# file layer (vfs.nomi).
+
+import
+    std::bytes.Builder
+    std::embed.Files
+    std::wasm.{self, Instance, Module}
+    sqlite::internal::vfs
+end
+
+/// The engine: SQLite compiled with engine/shim.c by engine/build.sh.
+embed sqlite_wasm `engine/sqlite3.wasm`
+
+/// The engine's module, compiled once a process: from the artifact cache
+/// after the first process compiles it.
+once compiled: Result<Module, String> =
+    case Files.read(sqlite_wasm, "engine/sqlite3.wasm")
+        Ok(bytes) -> wasm.compile(bytes) |> Result.map_err(&"${&1}")
+        Err(e)    -> Err("${e}")
+    end
+
+/// One connection's engine: an instance of the module, and the files its
+/// file layer has open.
+pub opaque struct Engine
+    instance: Instance
+    files:    vfs.Files
+end
+
+/// A value as SQLite stores it.
+pub enum Cell
+    Null
+    Integer Int
+    Real Float
+    Text String
+    Blob Bytes
+end
+
+derive Equatable for Cell
+
+/// A failure SQLite reported: its extended result code, its message, and
+/// the byte of the SQL it is at (-1 for none). A code of -1 is the engine's
+/// own failure, which leaves it unusable.
+pub struct Failure
+    code:    Int
+    message: String
+    at:      Int
+end
+
+/// The columns of a statement: their names and declared types (`""` for
+/// none).
+pub struct Columns
+    names: List<String>
+    types: List<String>
+end
+
+/// What the statements `exec` ran answer: the rows the connection's last
+/// one changed, and the last one's columns and rows.
+pub struct Answer
+    changed: Int
+    columns: Columns
+    rows:    List<List<Cell>>
+end
+
+/// A statement `prepare` left for `step`: its handle (0 for none, when the
+/// SQL held no statement) and its columns.
+pub struct Prepared
+    handle:  Int
+    columns: Columns
+end
+
+/// Up to the number of rows `step` was asked for, and whether the
+/// statement has ended.
+pub struct Stepped
+    rows:  List<List<Cell>>
+    ended: Bool
+end
+
+/// One column of a statement `describe` prepared: its name, its declared
+/// type, the table and column it reads (`""` for an expression), and
+/// whether that column is `NOT NULL` or an `INTEGER PRIMARY KEY`.
+pub struct Described
+    name:     String
+    declared: String
+    table:    String
+    origin:   String
+    not_null: Bool
+end
+
+/// What `describe` says of a statement: whether more statements follow it,
+/// its parameter count and its columns.
+pub struct Description
+    more:    Bool
+    params:  Int
+    columns: List<Described>
+end
+
+/// A new engine, with no database open, whose files are in `place`.
+pub fn start(place: vfs.Place) -> Result<Engine, String>
+    module = compiled?
+    files = vfs.files(place)
+
+    instance =
+        wasm.instantiate(module, vfs.imports(files))
+        |> Result.map_err(&"the SQLite engine cannot start: ${&1}")?
+
+    Ok(Engine{instance:, files:})
+end
+
+/// The engine stopped: its instance dropped, any file it left open
+/// closed, and the directories its place owns closed.
+pub fn stop(e: Engine)
+    Instance.drop(e.instance)
+    vfs.close_all(e.files)
+end
+
+/// The connection to the database `name` opens, creating it.
+pub fn open(e: Engine, name: String) -> Result<Int, Failure>
+    data = call(e, "open", String.to_bytes(name))?
+    Ok(i32(data, 4))
+end
+
+/// Closes the connection `db`, and answers SQLite's code.
+pub fn close(e: Engine, db: Int) -> Int
+    case call(
+        e,
+        "close",
+        Builder.new()
+        |> Builder.push_int32_le(db)
+        |> Builder.to_bytes(),
+    )
+        Ok(_)  -> 0
+        Err(f) -> f.code
+    end
+end
+
+/// Runs the statements of `sql` on `db` with `params` bound to each.
+pub fn exec(e: Engine, db: Int, sql: String, params: List<Cell>) -> Result<Answer, Failure>
+    data = call(e, "exec", statement(db, sql, params))?
+    changed = Bytes.int64_le_at(data, 4)!
+    (columns, at) = columns(data, 12)
+    count = i32(data, at)
+    (_, rows) = rows(data, at + 4, count, Iter.count(columns.names))
+    Ok(Answer{changed:, columns:, rows:})
+end
+
+/// Runs the statements of `sql` on `db` but the last, and prepares the
+/// last, for `step`.
+pub fn prepare(e: Engine, db: Int, sql: String, params: List<Cell>) -> Result<Prepared, Failure>
+    data = call(e, "prepare", statement(db, sql, params))?
+    (columns, _) = columns(data, 8)
+    Ok(Prepared{handle: i32(data, 4), columns:})
+end
+
+/// Up to `max` more rows of the statement `handle`, of `width` columns.
+pub fn step(e: Engine, handle: Int, max: Int, width: Int) -> Result<Stepped, Failure>
+    data = call(
+        e,
+        "step",
+        Builder.new()
+        |> Builder.push_int32_le(handle)
+        |> Builder.push_int32_le(max)
+        |> Builder.to_bytes(),
+    )?
+
+    ended = Bytes.uint8_at(data, 4)! != 0
+    (_, rows) = rows(data, 9, i32(data, 5), width)
+    Ok(Stepped{rows:, ended:})
+end
+
+/// Ends the statement `handle`, whether or not `step` ended it.
+pub fn finalize(e: Engine, handle: Int)
+    _ = call(
+        e,
+        "finalize",
+        Builder.new()
+        |> Builder.push_int32_le(handle)
+        |> Builder.to_bytes(),
+    )
+end
+
+/// What SQLite says of the first statement of `sql` on `db`.
+pub fn describe(e: Engine, db: Int, sql: String) -> Result<Description, Failure>
+    data = call(
+        e,
+        "describe",
+        Builder.new()
+        |> Builder.push_int32_le(db)
+        |> Builder.push_bytes(String.to_bytes(sql))
+        |> Builder.to_bytes(),
+    )?
+
+    more = Bytes.uint8_at(data, 4)! != 0
+    params = i32(data, 5)
+
+    (_, columns) = Iter.map_reduce(1..=i32(data, 9), 13, fn at, _ ->
+        (name, at) = text(data, at)
+        (declared, at) = text(data, at)
+        (table, at) = text(data, at)
+        (origin, at) = text(data, at)
+        not_null = Bytes.uint8_at(data, at)! != 0
+        (at + 1, Described{name:, declared:, table:, origin:, not_null:})
+    end)
+
+    Ok(Description{more:, params:, columns:})
+end
+
+/// The export `name` run over `input`: its answer, from its code on, or
+/// its failure.
+fn call(e: Engine, name: String, input: Bytes) -> Result<Bytes, Failure>
+    data =
+        Instance.run(e.instance, name, input)
+        |> Result.map_err(fn trap -> Failure{
+            code:    -1,
+            message: "the SQLite engine failed: ${trap}",
+            at:      -1,
+        })?
+
+    code = i32(data, 0)
+    if code == 0 then return Ok(data)
+
+    (message, at) = text(data, 4)
+    Err(Failure{code:, message:, at: i32(data, at)})
+end
+
+/// A statement's input: the connection, the SQL and its parameters.
+fn statement(db: Int, sql: String, params: List<Cell>) -> Bytes
+    text = String.to_bytes(sql)
+
+    first =
+        Builder.new(capacity: Bytes.length(text) + 64)
+        |> Builder.push_int32_le(db)
+        |> Builder.push_int32_le(Bytes.length(text))
+        |> Builder.push_bytes(text)
+        |> Builder.push_int32_le(List.length(params))
+
+    params |> Iter.reduce(first, push_cell) |> Builder.to_bytes()
+end
+
+fn push_cell(b: Builder, c: Cell) -> Builder
+    case c
+        .Null       -> Builder.push(b, 5)
+        .Integer(n) -> b |> Builder.push(1) |> Builder.push_int64_le(n)
+        .Real(x)    -> b |> Builder.push(2) |> Builder.push_float64_le(x)
+        .Text(s)    -> b |> Builder.push(3) |> push_data(String.to_bytes(s))
+        .Blob(data) -> b |> Builder.push(4) |> push_data(data)
+    end
+end
+
+fn push_data(b: Builder, data: Bytes) -> Builder
+    b |> Builder.push_int32_le(Bytes.length(data)) |> Builder.push_bytes(data)
+end
+
+fn i32(data: Bytes, at: Int) -> Int
+    Bytes.int32_le_at(data, at)!
+end
+
+/// The bytes of the string at `at`, and where what follows it starts.
+fn data_at(data: Bytes, at: Int) -> (Bytes, Int)
+    length = i32(data, at)
+    (Bytes.slice(data, at + 4, at + 4 + length), at + 4 + length)
+end
+
+/// The text at `at`, and where what follows it starts. SQLite keeps text
+/// it was not given as UTF-8 as it was given; its bytes that are not
+/// UTF-8 read as U+FFFD.
+fn text(data: Bytes, at: Int) -> (String, Int)
+    (bytes, next) = data_at(data, at)
+    (Bytes.to_string_lossy(bytes), next)
+end
+
+/// The columns at `at`, and where what follows them starts.
+fn columns(data: Bytes, at: Int) -> (Columns, Int)
+    (next, pairs) = Iter.map_reduce(1..=i32(data, at), at + 4, fn pos, _ ->
+        (name, pos) = text(data, pos)
+        (declared, pos) = text(data, pos)
+        (pos, (name, declared))
+    end)
+
+    names = pairs |> Iter.map(.first) |> Iter.to_list()
+    types = pairs |> Iter.map(.second) |> Iter.to_list()
+    (Columns{names:, types:}, next)
+end
+
+/// `count` rows of `width` values at `at`, and where what follows them
+/// starts.
+fn rows(data: Bytes, at: Int, count: Int, width: Int) -> (Int, List<List<Cell>>)
+    Iter.map_reduce(1..=count, at, fn pos, _ ->
+        Iter.map_reduce(1..=width, pos, fn p, _ -> cell(data, p))
+    end)
+end
+
+/// The value at `at`, and where what follows it starts.
+fn cell(data: Bytes, at: Int) -> (Int, Cell)
+    case Bytes.uint8_at(data, at)!
+        1 ->
+            (at + 9, .Integer(Bytes.int64_le_at(data, at + 1)!))
+
+        2 ->
+            (at + 9, .Real(Bytes.float64_le_at(data, at + 1)!))
+
+        3 ->
+            (s, next) = text(data, at + 1)
+            (next, .Text(s))
+
+        4 ->
+            (b, next) = data_at(data, at + 1)
+            (next, .Blob(b))
+
+        _ ->
+            (at + 1, .Null)
+    end
+end

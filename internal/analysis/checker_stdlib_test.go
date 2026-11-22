@@ -309,7 +309,12 @@ func checkSourceWithStdlib(src string) (*analysis.FileAnalysis, []analysis.TypeE
 // checkSourceNodesWithStdlib is checkSourceWithStdlib, with the nodes it
 // checked.
 func checkSourceNodesWithStdlib(src string) (*analysis.FileAnalysis, []ast.Node, []analysis.TypeError) {
-	src = withStdlibTestImports(src)
+	return checkSourceAsWrittenWithStdlib(withStdlibTestImports(src))
+}
+
+// checkSourceAsWrittenWithStdlib is checkSourceNodesWithStdlib with no
+// imports added, so each line is where the source writes it.
+func checkSourceAsWrittenWithStdlib(src string) (*analysis.FileAnalysis, []ast.Node, []analysis.TypeError) {
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	// Lower type-body items and `for` blocks into

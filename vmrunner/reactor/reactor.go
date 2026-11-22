@@ -11,9 +11,20 @@
 //	nomi_main() -> i32
 //
 // over the program `nomi build` embedded in the module's memory, or one a
-// runner hands nomi_load. cmd/nomi-vm-reactor is such a main package, and
+// runner hands nomi_load. It imports one function besides WASI's, which
+// every runner supplies:
+//
+//	nomi.host_call(key_ptr, key_len, args_ptr, args_len: i32) -> i64
+//
+// through which the runner answers the program's own `host fn`s that
+// nomi_load_with's "host_calls" lists, in JSON (vmrunner.WithHostCalls).
+// A WebAssembly engine refuses to instantiate a module with an import left
+// unresolved, and Go's //go:wasmimport has no optional form, so a runner
+// with nothing to supply passes a function that answers 0. The runner answers a call by writing the result into a buffer
+// it reserves with nomi_alloc during the import, which Go's wasmexport
+// allows. cmd/nomi-vm-reactor is such a main package, and
 // so is the runner `nomi build --target wasip1/wasm` generates for a
-// project with Go bindings and an `export fn` (internal/ffirun), which
+// program with an `export fn`, which
 // passes its host table to Use. On any other target the package declares
 // Use and reads the options, and nothing else.
 //
@@ -25,8 +36,8 @@
 // silently ignoring them.
 //
 //   - "std" (nomi_load_with): an array of std names (`std::io`,
-//     `std::startup`), held as vmrunner.WithCapabilities holds a program:
-//     the load refuses a program that reaches an outside call other than a
+//     `std::startup`), held as vmrunner.WithEffects holds a program:
+//     the load refuses a program that reaches an effect call other than a
 //     host function that the names do not allow, from main, the boot or
 //     any exported function, before it runs anything. An empty array
 //     allows nothing; without the key such calls are not held.
@@ -35,6 +46,13 @@
 //     registers it, without `host:`. It holds host functions as "std"
 //     holds the rest: with "std" given and "host" not, no host function
 //     is allowed; "host" alone holds only host functions.
+//   - "host_calls" (nomi_load_with): an array of the keys of the
+//     program's own `host fn`s this host answers through the nomi.host_call
+//     import (frontend.HostKey: `greet`, `helpers/util.greet`), without
+//     `host:` (vmrunner.WithHostCalls). A `host fn` no linked table answers
+//     and this does not list fails the load, naming its key, and so does a
+//     listed one whose signature cannot cross as JSON. Listing a key does
+//     not allow it: "host" still holds it.
 //   - "timeout_ms" (both): a whole number of milliseconds above zero. On
 //     nomi_load_with it bounds the boot and is the default bound of every
 //     later nomi_call, nomi_call_with and nomi_main; on nomi_call_with it
@@ -70,25 +88,28 @@ func Use(opts ...vmrunner.Option) {
 
 // The option keys, and the exports that take them.
 const (
-	keyStd     = "std"
-	keyHost    = "host"
-	keyTimeout = "timeout_ms"
+	keyStd       = "std"
+	keyHost      = "host"
+	keyHostCalls = "host_calls"
+	keyTimeout   = "timeout_ms"
 )
 
 // stdVia and hostVia are how a refusal names the lists nomi_load_with's
 // "std" and "host" hold.
 const (
-	stdVia  = `nomi_load_with's "std"`
-	hostVia = `nomi_load_with's "host"`
+	stdVia       = `nomi_load_with's "std"`
+	hostVia      = `nomi_load_with's "host"`
+	hostCallsVia = `nomi_load_with's "host_calls"`
 )
 
 // callOptions are the options a host passes nomi_load_with or
 // nomi_call_with.
 type callOptions struct {
-	// std is "std"'s names and host "host"'s keys, each nil when its key
-	// was not given.
-	std  []string
-	host []string
+	// std is "std"'s names, host "host"'s keys and hostCalls
+	// "host_calls"' keys, each nil when its key was not given.
+	std       []string
+	host      []string
+	hostCalls []string
 	// timeout is "timeout_ms", or 0 when it was not given.
 	timeout time.Duration
 }
@@ -127,17 +148,25 @@ func parseOptions(export string, data []byte, keys ...string) (callOptions, erro
 				}
 			}
 			opts.std = names
-		case k == keyHost:
+		case k == keyHost || k == keyHostCalls:
 			var keys []string
 			if err := json.Unmarshal(v, &keys); err != nil || keys == nil {
-				return opts, fmt.Errorf(`%s: %q must be an array of host function keys, such as ["lookup"]; [] allows none`, export, k)
+				none := "allows none"
+				if k == keyHostCalls {
+					none = "answers none"
+				}
+				return opts, fmt.Errorf(`%s: %q must be an array of host function keys, such as ["lookup"]; [] %s`, export, k, none)
 			}
 			for _, key := range keys {
 				if bare, ok := strings.CutPrefix(key, "host:"); ok {
 					return opts, fmt.Errorf(`%s: %q lists keys as a host table registers them: write %q, not %q`, export, k, bare, key)
 				}
 			}
-			opts.host = keys
+			if k == keyHost {
+				opts.host = keys
+			} else {
+				opts.hostCalls = keys
+			}
 		case k == keyTimeout:
 			ms, err := strconv.ParseInt(string(v), 10, 64)
 			if err != nil || ms <= 0 || ms > math.MaxInt64/int64(time.Millisecond) {
@@ -176,6 +205,8 @@ func example(keys []string) string {
 			parts[i] = `"std": ["std::io"]`
 		case keyHost:
 			parts[i] = `"host": ["lookup"]`
+		case keyHostCalls:
+			parts[i] = `"host_calls": ["lookup"]`
 		case keyTimeout:
 			parts[i] = `"timeout_ms": 500`
 		}

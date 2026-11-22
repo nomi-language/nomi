@@ -58,9 +58,10 @@ func TestFormat_LambdaBlockBrokenAfterBraceStays(t *testing.T) {
 			"    end\n" +
 			"end\n",
 		"bound to a name": "fn f()\n" +
-			"    g = fn x: Int ->\n" +
-			"        x + 1\n" +
-			"    end\n" +
+			"    g =\n" +
+			"        fn x: Int ->\n" +
+			"            x + 1\n" +
+			"        end\n" +
 			"end\n",
 		"a trailing comment inside": "fn f(xs: List<Int>) -> List<Int>\n" +
 			"    xs\n" +

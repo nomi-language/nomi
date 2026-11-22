@@ -11,47 +11,22 @@ import (
 	"testing"
 )
 
-// maxLocalReadSites is how many distinct source sites of each known way a
-// read's binding, found by its name, and the declaration the checker
-// resolved the read to differ (verifyLocalRead, knownLocalReadClasses) the
-// programs TestIRGolden_RecordsMatchTheVM runs reach. Each count only goes
-// down. Every class's cause is in knownLocalReadClasses; a binding keyed by
-// its declaration, as the checker keys it, removes all four. A refinement
-// rule's literal is read so only in std's own lowerings, which the census
-// does not count, so the count is the same with the artifact cache empty,
-// warm or off.
-var maxLocalReadSites = map[localReadClass]int{
-	localReadCallSiteDefault:       6,
-	localReadRefinementLiteral:     0,
-	localReadDestructuredParameter: 1,
-	localReadNestedSelf:            1,
-}
-
-// localReadRatchet holds the local read census to maxLocalReadSites:
-// every class knownLocalReadClasses lists.
-func localReadRatchet() censusRatchet {
-	r := censusRatchet{what: "local reads", held: map[string]bool{}, max: map[string]int{},
-		fix: "read the binding the checker resolved"}
-	for class := range knownLocalReadClasses {
-		r.held[string(class)] = true
-	}
-	for class, n := range maxLocalReadSites {
-		r.max[string(class)] = n
-	}
-	return r
-}
-
-// A read whose binding and reference differ in a way no listed class
-// covers fails the lowering, naming the read's position and both answers.
-// With the class listed, the same program lowers.
-func TestVerifyLocalRead_AnUnlistedDifferenceFails(t *testing.T) {
+// A callee's default lowered at a call site reads the callee's earlier
+// parameter, and a recursive nested fn reads its own name in its body.
+// Each read finds its value by the declaration the checker resolved it to
+// (readKey), which the body holds, so the program lowers.
+func TestLocalRead_ADefaultAndANestedFnReadTheirDeclarations(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "main.nomi")
 	src := `fn add(a: Int, b: Int = a + 1) -> Int
   a + b
 end
 
 fn main()
+  fn count(n: Int) -> Int
+    if n == 0 then 0 else count(n - 1) + 1
+  end
   dbg add(2)
+  dbg count(3)
 end
 `
 	if err := os.WriteFile(path, []byte(src), 0o600); err != nil {
@@ -61,7 +36,7 @@ end
 	if err != nil {
 		t.Fatalf("the front end rejects this, so the test checks nothing: %v", err)
 	}
-	lower := func() (failure string) {
+	failure := func() (failure string) {
 		defer func() {
 			if r := recover(); r != nil {
 				failure = fmt.Sprint(r)
@@ -71,30 +46,24 @@ end
 			return err.Error()
 		}
 		return ""
-	}
-	if failure := lower(); failure != "" {
-		t.Fatalf("the program does not lower with every class listed: %s", failure)
-	}
-	cause := knownLocalReadClasses[localReadCallSiteDefault]
-	delete(knownLocalReadClasses, localReadCallSiteDefault)
-	defer func() { knownLocalReadClasses[localReadCallSiteDefault] = cause }()
-	want := "main.nomi:1:25: the builder reads `a` from no binding of a body, and the checker resolves it to the binding declared at 1:8"
-	if failure := lower(); !strings.Contains(failure, want) {
-		t.Fatalf("lowering with the class unlisted failed with %q, want it to name %q", failure, want)
+	}()
+	if failure != "" {
+		t.Fatalf("the program does not lower: %s", failure)
 	}
 }
 
 // maxSpellingResolutions is how many places of this package resolve a name
 // by its spelling: calls of moduleScopeOf (the file a name binds in a
-// file's module scope), of moduleScope (the same, a block's imports
-// first) and of boundBySpelling (the builder's own bindings of a name).
-// What a written name names is the checker's reference at it (identRef);
-// the three value-name sites left are the fallbacks for an identifier the
-// builder writes (scopeOfRef, namesLocal) and the bare callee
-// ownModuleCall respells, and the rest resolve a type's qualifier written
-// as a string (`json.Json` in a type, a dotted name). The count only goes
-// down.
-const maxSpellingResolutions = 16
+// file's module scope) outside builderSpellings. What a written name names
+// is the checker's reference at it (identRef), and a local is read by its
+// key (readKey): none.
+const maxSpellingResolutions = 0
+
+// builderSpellings are the functions whose spelling resolution resolves a
+// name the builder writes, never one the program does, with why.
+var builderSpellings = map[string]string{
+	"scopeOfRef": "a qualifier with no reference, which only an identifier the builder writes is (madeIdent)",
+}
 
 // TestSpellingResolutionsOnlyGoDown counts the places that resolve a name
 // by its spelling and fails when the count rises, or falls without its
@@ -104,9 +73,10 @@ func TestSpellingResolutionsOnlyGoDown(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resolvers := map[string]bool{"moduleScopeOf": true, "moduleScope": true, "boundBySpelling": true}
+	resolvers := map[string]bool{"moduleScopeOf": true}
 	fset := token.NewFileSet()
 	var sites []string
+	builderSites := map[string]int{}
 	for _, e := range entries {
 		name := e.Name()
 		if e.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
@@ -116,7 +86,11 @@ func TestSpellingResolutionsOnlyGoDown(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		fn := ""
 		ast.Inspect(file, func(n ast.Node) bool {
+			if fd, isFunc := n.(*ast.FuncDecl); isFunc {
+				fn = fd.Name.Name
+			}
 			call, isCall := n.(*ast.CallExpr)
 			if !isCall {
 				return true
@@ -128,11 +102,18 @@ func TestSpellingResolutionsOnlyGoDown(t *testing.T) {
 			case *ast.SelectorExpr:
 				callee = f.Sel.Name
 			}
-			if resolvers[callee] {
+			if _, builder := builderSpellings[fn]; resolvers[callee] && builder {
+				builderSites[fn]++
+			} else if resolvers[callee] {
 				sites = append(sites, fmt.Sprintf("%s: %s", fset.Position(call.Pos()), callee))
 			}
 			return true
 		})
+	}
+	for fn, why := range builderSpellings {
+		if builderSites[fn] != 1 {
+			t.Errorf("%s resolves %d names by their spelling and builderSpellings lists one (%s)", fn, builderSites[fn], why)
+		}
 	}
 	switch {
 	case len(sites) > maxSpellingResolutions:

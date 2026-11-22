@@ -46,11 +46,12 @@ impl Buffer<T>
     /// `buffer` with `item` after its newest, dropping the oldest item first
     /// when it is full.
     pub fn overwrite(buffer: Buffer<T>, item: T) -> Buffer<T>
-        kept = if Buffer.is_full(buffer) then
-            Iter.drop(buffer.items, 1) |> Iter.to_list()
-        else
-            buffer.items
-        end
+        kept =
+            if Buffer.is_full(buffer) then
+                Iter.drop(buffer.items, 1) |> Iter.to_list()
+            else
+                buffer.items
+            end
 
         {..buffer, items: [..kept, item]}
     end

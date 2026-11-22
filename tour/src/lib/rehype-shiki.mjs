@@ -1,5 +1,4 @@
 import { codeToHast } from "shiki";
-import { fileLanguage, splitFiles } from "./highlight.mjs";
 
 function textContent(node) {
   if (!node) return "";
@@ -122,25 +121,50 @@ function consoleBlock(code) {
   return { type: "element", tagName: "pre", properties: { className: "nomi-tour nomi-console" }, children };
 }
 
+// A ```text block is plain text that is neither code nor what a terminal
+// prints: a data file with no grammar here, a diagram, a rule of the
+// grammar. It gets the box the other blocks get and no color.
+function textBlock(code) {
+  return { type: "element", tagName: "pre", properties: { className: "nomi-tour nomi-text" }, children: [{ type: "text", value: code }] };
+}
+
 // A ```tree block is a directory listing drawn with box characters. It is
 // rebuilt as nested lists whose connecting lines are CSS borders: box
 // characters only join at a line height of 1, which is too tight to read.
-// A directory (a name ending in `/`) is bold.
+// A directory (a name ending in `/`) is bold. An entry may carry a note
+// after its name (`main.nomi  # the entry`); the notes are muted and start
+// in one column, set by the longest entry.
 function treeBlock(code) {
   const lines = code.split("\n").filter((line) => line.trim() !== "");
-  const root = { name: lines[0].trim(), children: [] };
+  const entry = (text, depth) => {
+    const m = /^(.*?)\s+#\s+(.*)$/.exec(text);
+    return { name: (m ? m[1] : text).trim(), note: m ? m[2] : "", depth, children: [] };
+  };
+  const root = entry(lines[0], 0);
+  const all = [root];
   const stack = [root];
   for (const line of lines.slice(1)) {
     const m = /^((?:[│ ] {3})*)[├└]── (.*)$/.exec(line);
     if (!m) continue;
     const depth = m[1].length / 4 + 1;
-    const node = { name: m[2], children: [] };
+    const node = entry(m[2], depth);
+    all.push(node);
     stack.length = depth;
     stack[depth - 1].children.push(node);
     stack[depth] = node;
   }
-  const label = (name) =>
-    name.endsWith("/") ? span("tree-dir", name) : { type: "text", value: name };
+  // Where an entry's name ends, in em: each level indents 1.85em
+  // (.nomi-filetree ul and li in tour.css) and the font's characters are
+  // 0.6em wide.
+  const end = (n) => n.depth * 1.85 + n.name.length * 0.6;
+  const column = Math.max(...all.filter((n) => n.note).map(end), 0) + 1.8;
+  const label = (n) => {
+    const name = n.name.endsWith("/") ? span("tree-dir", n.name) : { type: "text", value: n.name };
+    if (!n.note) return [name];
+    const note = span("tree-note", n.note);
+    note.properties.style = `margin-left:${(column - end(n)).toFixed(2)}em`;
+    return [name, note];
+  };
   const list = (nodes) => ({
     type: "element",
     tagName: "ul",
@@ -149,14 +173,14 @@ function treeBlock(code) {
       type: "element",
       tagName: "li",
       properties: {},
-      children: [label(n.name), ...(n.children.length ? [list(n.children)] : [])],
+      children: [...label(n), ...(n.children.length ? [list(n.children)] : [])],
     })),
   });
   return {
     type: "element",
     tagName: "div",
     properties: { className: "nomi-tour nomi-filetree" },
-    children: [label(root.name), list(root.children)],
+    children: [...label(root), list(root.children)],
   };
 }
 
@@ -178,31 +202,6 @@ function goModBlock(code) {
     }
   });
   return chipped("nomi-tour nomi-code-gomod", "gomod", children);
-}
-
-// A multi-file ```nomi-run block's Go files (`// FILE: urltools.go`), which
-// its editor shows read-only: the tour links that Go ahead of time
-// (internal/tourgo). Shiki highlights each here, at build time, into a hidden
-// span inside the block's <pre> named by the file, which tour-client.mjs
-// moves into the file's tab. The text is the file as its tab holds it
-// (splitFiles).
-async function goFileSpans(source) {
-  const spans = [];
-  for (const { name, body: code } of (splitFiles(source) ?? []).filter((f) => fileLanguage(f.name) === "go")) {
-    const root = await codeToHast(code, {
-      lang: "go",
-      themes: { light: "one-light", dark: "one-dark-pro" },
-    });
-    const pre = root.children?.find((node) => node.type === "element" && node.tagName === "pre");
-    const codeNode = pre?.children?.find((node) => node.type === "element" && node.tagName === "code");
-    spans.push({
-      type: "element",
-      tagName: "span",
-      properties: { hidden: true, dataNomiFile: name },
-      children: codeNode?.children || [],
-    });
-  }
-  return spans;
 }
 
 function chipped(preClass, chip, children) {
@@ -236,7 +235,6 @@ function recordedOutput(parent, index) {
 export default function rehypeShiki() {
   return async function transform(tree) {
     const edits = [];
-    const goFiles = [];
     const recorded = [];
 
     function visit(node, parent) {
@@ -256,6 +254,9 @@ export default function rehypeShiki() {
             continue;
           } else if (hasClass(code, "language-console")) {
             node.children[i] = consoleBlock(textContent(code).replace(/\n+$/, ""));
+            continue;
+          } else if (hasClass(code, "language-text")) {
+            node.children[i] = textBlock(textContent(code).replace(/\n+$/, ""));
             continue;
           } else if (hasClass(code, "language-nomi-hint")) {
             // ```nomi-hint after a ```nomi-run lesson block: the lesson's
@@ -349,9 +350,6 @@ export default function rehypeShiki() {
                 recorded.push({ pre: child, text: recordedOutput(node, i) ?? "" });
               }
             }
-            if (hasClass(code, "language-nomi-run")) {
-              goFiles.push({ pre: child, source: textContent(code) });
-            }
           }
         }
         visit(child, node);
@@ -361,9 +359,6 @@ export default function rehypeShiki() {
     visit(tree, null);
     for (const edit of edits) {
       edit.parent.children[edit.index] = await highlight(edit.code, SHIKI_LANGS[edit.fence]);
-    }
-    for (const { pre, source } of goFiles) {
-      pre.children.push(...(await goFileSpans(source)));
     }
     for (const { pre, text } of recorded) {
       pre.children.push({

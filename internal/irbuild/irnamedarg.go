@@ -19,9 +19,26 @@ import (
 // before a supplied one takes its default before the call is planned.
 
 // irPlacedArg is one operand a named-argument call already evaluated.
+// written is the operand as written, which the stand-in stands for: the
+// checker's records of the value it becomes where it is passed (a
+// coercion into an interface value, a conversion) are keyed by it, and
+// coercionAt and conversionAt read them there. nil for a slot a default
+// filled, which has no written operand.
 type irPlacedArg struct {
-	temp ir.Temp
-	k    kind
+	temp    ir.Temp
+	k       kind
+	written ast.Node
+}
+
+// writtenAtSlot is the operand of t that fills slot by plan, nil when the
+// slot is left to its default.
+func writtenAtSlot(t *ast.Call, plan argPlan, slot int) ast.Node {
+	for i, s := range plan.slots {
+		if s == slot {
+			return argExpr(t.Args[i])
+		}
+	}
+	return nil
 }
 
 func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.Temp, kind, bool, bool) {
@@ -33,14 +50,17 @@ func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.T
 	if sym == nil {
 		return no()
 	}
-	if ti, isType := fa.Object.(*ast.TypeIdent); isType && ti.Name == "Struct" && fa.Field.Name == "update" && !bl.g.isBoundTypeParam("Struct") {
-		// `Struct.update(updates: {x: 1}, original: p)`: the patch must stay
-		// a literal the merge reads, which a stand-in for an evaluated
-		// temporary is not, so the update places its own arguments.
-		if bl.recording > 0 {
-			return bl.recordedQualCall(t, func() (ir.Temp, kind, bool, bool) { return bl.structUpdateCall(t) })
+	if _, isType := fa.Object.(*ast.TypeIdent); isType {
+		if route, _ := bl.g.recordedQualRoute(t, fa.Field.Name); route == routeStructUpdate {
+			// `Struct.update(updates: {x: 1}, original: p)`, by the route its
+			// record names: the patch must stay a literal the merge reads,
+			// which a stand-in for an evaluated temporary is not, so the
+			// update places its own arguments.
+			if bl.recording > 0 {
+				return bl.recordedQualCall(t, func() (ir.Temp, kind, bool, bool) { return bl.structUpdateCall(t) })
+			}
+			return bl.structUpdateCall(t)
 		}
-		return bl.structUpdateCall(t)
 	}
 	// An interface-qualified call (`Display.to_string(value: x)`) names the
 	// interface method's parameters; the planned positional call dispatches
@@ -96,9 +116,12 @@ func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.T
 	// An iteration operation's callback given by name (`Iter.find(xs, f:
 	// is_big)`) is widened to its signalling form as typeQualCall widens a
 	// positional one, before it is lowered here.
-	ti, typeOwner := fa.Object.(*ast.TypeIdent)
-	signalOwner := typeOwner && len(names) == 2 && bl.signallingOwner(ti.Name, fa.Field.Name) &&
-		(ti.Name != "Iter" || !irSeededIterMethod(fa.Field.Name))
+	_, typeOwner := fa.Object.(*ast.TypeIdent)
+	signalOwner := false
+	if typeOwner && len(names) == 2 {
+		_, key := bl.g.recordedQualRoute(t, fa.Field.Name)
+		signalOwner = irSignallingCallback(key) && !irSeededIterMethod(key.Method)
+	}
 	for _, i := range plan.order {
 		a := argExpr(t.Args[i])
 		if signalOwner && plan.slots[i] == 1 {
@@ -174,7 +197,7 @@ func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.T
 				switch {
 				case tmp == ir.NoTemp || kinds[i] == params[i]:
 				case irHeldKind(params[i]):
-					v, got, erased := bl.convertTo(t, tmp, kinds[i], params[i])
+					v, got, erased := bl.convertTo(writtenAtSlot(t, plan, i), tmp, kinds[i], params[i])
 					if !erased {
 						return no()
 					}
@@ -200,14 +223,13 @@ func (bl *irScalarBuilder) namedPlacedCall(t *ast.Call, fa *ast.FieldAccess, pla
 	placed := make(map[ast.Node]irPlacedArg, len(args))
 	for slot := range args {
 		line, col := t.Line, t.Col
-		for i, s := range plan.slots {
-			if s == slot {
-				line, col = nodePos(argExpr(t.Args[i]))
-			}
+		written := writtenAtSlot(t, plan, slot)
+		if written != nil {
+			line, col = nodePos(written)
 		}
 		stand := &ast.Ident{Name: "\x00named", Line: line, Col: col}
 		args[slot] = stand
-		placed[stand] = irPlacedArg{temp: temps[slot], k: kinds[slot]}
+		placed[stand] = irPlacedArg{temp: temps[slot], k: kinds[slot], written: written}
 	}
 	if bl.placed == nil {
 		bl.placed = map[ast.Node]irPlacedArg{}

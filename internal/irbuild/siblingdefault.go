@@ -63,7 +63,7 @@ func (bl *irScalarBuilder) siblingQualSite(fa *ast.FieldAccess) (fileSite, bool)
 	if !isSibling || to == g.fileUnit {
 		return fileSite{}, false
 	}
-	f := g.files.units[to].funcs[fa.Field.Name]
+	f := g.siblingFuncAt(to, fa.Field)
 	if f == nil || f.decl == nil {
 		return fileSite{}, false
 	}
@@ -102,7 +102,7 @@ func (g *gen) irFileSlotDefaults(fd *ast.FuncDef, sig *fnSig) {
 // against `impl Box<T> { pub fn pad(label: String, width: NonNegativeInt =
 // 3) }`: the functions whose sites another file fills from accessors
 // (implMemberSite.accessorDefaults). A generic receiver's members, an
-// interface's impl functions and a Go-bound function build none.
+// interface's impl functions and a `host fn` build none.
 func (g *gen) irImplSlotDefaults(d *implDef, it *implItem) {
 	fd := it.decl
 	if g.irMod == nil || g.files == nil || d.iface != nil || d.ifaceName != "" || it.inherited ||
@@ -181,14 +181,13 @@ func (g *gen) irSlotAccessor(fd *ast.FuncDef, sig *fnSig, sym *ir.Symbol, name s
 	if sh == nil {
 		return nil
 	}
-	bl := &irScalarBuilder{g: g, sh: sh, f: sh.fn, b: sh.entry, returnKind: sig.params[slot], sides: sh.sides,
-		bound: map[string]ir.Temp{}, boundK: map[string]kind{}}
+	bl := &irScalarBuilder{g: g, sh: sh, f: sh.fn, b: sh.entry, returnKind: sig.params[slot]}
 	args := make([]ir.Temp, slot+1)
 	copy(args, sh.paramTemps)
 	args[slot] = ir.NoTemp
 	filled := *fd
 	filled.Params = fd.Params[:slot+1]
-	if !bl.callDefaults(&fnSig{decl: &filled, params: sig.params[:slot+1], defaultFrame: sig.defaultFrame, defaultTypes: sig.defaultTypes}, args) {
+	if !bl.callDefaults(&fnSig{decl: &filled, params: sig.params[:slot+1], defaultFrame: sig.defaultFrame, defaultTypes: sig.defaultTypes, defaultSelfType: sig.defaultSelfType}, args) {
 		g.dc.note("a default that does not lower")
 		return nil
 	}

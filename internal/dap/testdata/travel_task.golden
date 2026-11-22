@@ -11,9 +11,9 @@
 <- response configurationDone
 <- event stopped {"allThreadsStopped":true,"hitBreakpointIds":[1],"reason":"breakpoint","threadId":2}
 -> stepBack {"threadId":2}
-<- response stepBack failed "Step back is off: this program started a task (concurrent at task.nomi:12), and a program with more than one task does not replay exactly."
+<- response stepBack failed "Step back is off: this program started a task (concurrent at task.nomi:13), and a program with more than one task does not replay exactly."
 -> reverseContinue {"threadId":2}
-<- response reverseContinue failed "Step back is off: this program started a task (concurrent at task.nomi:12), and a program with more than one task does not replay exactly."
+<- response reverseContinue failed "Step back is off: this program started a task (concurrent at task.nomi:13), and a program with more than one task does not replay exactly."
 -> continue {"threadId":2}
 <- response continue {"allThreadsContinued":true}
 <- event output {"category":"stdout","output":"42\n"}

@@ -14,28 +14,32 @@ test "compound patterns can match nested maps without wrappers counting as depth
         "a" => JV.Obj{"b" => JV.Obj{"c" => JV.Num(99)}},
     })
 
-    one_result = case one
-        .Obj{"name" => .Str(n)} -> n
-        _                       -> "miss"
-    end
+    one_result =
+        case one
+            .Obj{"name" => .Str(n)} -> n
+            _                       -> "miss"
+        end
 
-    two_result = case two
-        .Obj{"data" => .Obj{"k" => .Num(n)}} -> n
-        _                                    -> 0
-    end
+    two_result =
+        case two
+            .Obj{"data" => .Obj{"k" => .Num(n)}} -> n
+            _                                    -> 0
+        end
 
-    wrapped_result = case wrapped
-        Some(.Obj{"k" => .Num(n)}) -> n
-        Some(_)                    -> 0
-        None                       -> -1
-    end
+    wrapped_result =
+        case wrapped
+            Some(.Obj{"k" => .Num(n)}) -> n
+            Some(_)                    -> 0
+            None                       -> -1
+        end
 
-    three_result = case three
-        Ok(.Obj{
-            "a" => .Obj{"b" => .Obj{"c" => .Num(n)}},
-        }) -> n
-        _ -> 0
-    end
+    three_result =
+        case three
+            Ok(.Obj{
+                "a" => .Obj{"b" => .Obj{"c" => .Num(n)}},
+            }) -> n
+            _ -> 0
+        end
 
     assert one_result == "Ada"
     assert two_result == 42

@@ -96,12 +96,34 @@ var tools = []tool{
 	{
 		name: "run_tests",
 		description: "Run a file's or a directory's `test` blocks as `nomi test` does. " +
-			"Answers each test with its outcome and any failure, and a summary. `line` runs only the test at that line.",
+			"A test with no effects whose code has not changed since it passed is not run and is answered `unchanged`; " +
+			"`all` runs every test, `changed` also skips unchanged tests with effects. " +
+			"Answers each test that ran or failed with its outcome, any failure, how it was decided (`decided`) and whether it is `pure`, " +
+			"the unchanged tests as a count unless `unchanged` asks for them, and a summary with how many cases ran. " +
+			"`line` runs only the test at that line.",
 		schema: object([]string{"path"}, map[string]any{
-			"path": prop("string", "A .nomi file or a directory."),
-			"line": prop("integer", "Run only the test whose block holds this line."),
+			"path":      prop("string", "A .nomi file or a directory."),
+			"line":      prop("integer", "Run only the test whose block holds this line."),
+			"all":       prop("boolean", "Run every test, unchanged ones too."),
+			"changed":   prop("boolean", "Run only the tests whose code changed, skipping unchanged tests with effects too."),
+			"unchanged": prop("boolean", "List each unchanged test, not only their count."),
 		}),
 		run: runTests,
+	},
+	{
+		name: "tests_reaching",
+		description: "The tests whose code can run the function at a line, as `nomi test --reaching` finds them: " +
+			"for each test file under `path`, the walk `nomi test` decides a test by. They run as run_tests runs them, " +
+			"so an unchanged one is answered `unchanged`. Answers each with its file, line, name, outcome and whether it is `pure` " +
+			"(its result depends on its code alone), and a summary.",
+		schema: object([]string{"file", "line"}, map[string]any{
+			"file":    prop("string", "The .nomi file the function is declared in."),
+			"line":    prop("integer", "A 1-based line of the function: its declaration's or one of its body's."),
+			"path":    prop("string", "The test file or directory to search; the working directory by default."),
+			"all":     prop("boolean", "Run every test found, unchanged ones too."),
+			"changed": prop("boolean", "Skip unchanged tests with effects too."),
+		}),
+		run: runTestsReaching,
 	},
 	{
 		name: "format",
@@ -175,10 +197,33 @@ func runCheck(ctx context.Context, s *Server, args json.RawMessage) (map[string]
 	return result, nil
 }
 
+// testRun is what run_tests and tests_reaching share of their arguments:
+// which tests a stored pass answers, as `nomi test --all` and `--changed`
+// say.
+type testRun struct {
+	All     bool `json:"all"`
+	Changed bool `json:"changed"`
+}
+
+// flags are `nomi test`'s flags for r.
+func (r testRun) flags() ([]string, error) {
+	switch {
+	case r.All && r.Changed:
+		return nil, fmt.Errorf("all and changed cannot be used together")
+	case r.All:
+		return []string{"--all"}, nil
+	case r.Changed:
+		return []string{"--changed"}, nil
+	}
+	return nil, nil
+}
+
 func runTests(ctx context.Context, s *Server, args json.RawMessage) (map[string]any, error) {
 	var a struct {
-		Path string `json:"path"`
-		Line int    `json:"line"`
+		testRun
+		Path      string `json:"path"`
+		Line      int    `json:"line"`
+		Unchanged bool   `json:"unchanged"`
 	}
 	if err := json.Unmarshal(args, &a); err != nil {
 		return nil, err
@@ -190,7 +235,40 @@ func runTests(ctx context.Context, s *Server, args json.RawMessage) (map[string]
 	if a.Line > 0 {
 		cliArgs = append(cliArgs, "--line", strconv.Itoa(a.Line))
 	}
-	out, exit, err := s.opts.RunCLI(ctx, s.opts.Root, cliArgs...)
+	return s.test(ctx, a.testRun, cliArgs, a.Path, a.Unchanged)
+}
+
+func runTestsReaching(ctx context.Context, s *Server, args json.RawMessage) (map[string]any, error) {
+	var a struct {
+		testRun
+		File string `json:"file"`
+		Line int    `json:"line"`
+		Path string `json:"path"`
+	}
+	if err := json.Unmarshal(args, &a); err != nil {
+		return nil, err
+	}
+	if a.File == "" || a.Line <= 0 {
+		return nil, fmt.Errorf("tests_reaching needs a file and a line")
+	}
+	if a.Path == "" {
+		a.Path = "."
+	}
+	cliArgs := []string{"test", a.Path, "--format", "json", "--reaching", s.path(a.File) + ":" + strconv.Itoa(a.Line)}
+	return s.test(ctx, a.testRun, cliArgs, a.Path, true)
+}
+
+// test runs `nomi test` with cliArgs and run's flags, and answers its
+// records: each test as a record of `tests`, with `pure` beside its
+// `decided`, the unchanged ones only as a count (`unchanged_tests`) unless
+// listUnchanged, each file that failed to load as a record of `files`,
+// the summary with the cases that ran (`ran`), and `ok`.
+func (s *Server) test(ctx context.Context, run testRun, cliArgs []string, path string, listUnchanged bool) (map[string]any, error) {
+	flags, err := run.flags()
+	if err != nil {
+		return nil, err
+	}
+	out, exit, err := s.opts.RunCLI(ctx, s.opts.Root, append(cliArgs, flags...)...)
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +279,38 @@ func runTests(ctx context.Context, s *Server, args json.RawMessage) (map[string]
 	if len(result) == 0 && exit != 0 {
 		// The program did not load: nomi test said why on stderr, which
 		// `nomi check` reports as diagnostics.
-		return nil, fmt.Errorf("nomi test failed before running a test (exit %d); run the check tool on %s for the reason", exit, a.Path)
+		return nil, fmt.Errorf("nomi test failed before running a test (exit %d); run the check tool on %s for the reason", exit, path)
+	}
+	tests, _ := result["tests"].([]any)
+	kept := []any{}
+	unchanged := 0
+	for _, t := range tests {
+		rec, _ := t.(map[string]any)
+		decided, _ := rec["decided"].(string)
+		if decided != "" {
+			// The runner worked out its effects to decide it.
+			effects, _ := rec["effects"].(bool)
+			rec["pure"] = !effects
+			delete(rec, "effects")
+		}
+		if decided == "unchanged" {
+			unchanged++
+			if !listUnchanged {
+				continue
+			}
+		}
+		kept = append(kept, rec)
+	}
+	result["tests"] = kept
+	result["unchanged_tests"] = unchanged
+	if summary, ok := result["summary"].(map[string]any); ok {
+		cases := 0.0
+		for _, k := range []string{"passed", "failed", "blocked"} {
+			n, _ := summary[k].(float64)
+			cases += n
+		}
+		was, _ := summary["unchanged"].(float64)
+		summary["ran"] = cases - was
 	}
 	result["ok"] = exit == 0
 	return result, nil

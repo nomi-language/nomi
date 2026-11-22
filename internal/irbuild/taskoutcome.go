@@ -6,7 +6,6 @@ import (
 
 	"github.com/nomi-language/nomi/rt"
 
-	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
@@ -26,11 +25,10 @@ import (
 // # Why a fourth payload shape was needed
 //
 // preludeVariantSpec could describe three: absent, the type parameter at
-// `param`, and the scalar `fixed`. `matches` discharges the third through
-// `scalarKind`, which is the builder's closed answer for "what type does this
-// annotation name" — and `Failure` is an enum, so `scalarKind` answers
-// kindInvalid and an `Outcome` row would produce no anchor at all. Fragment
-// mixes parametric with SCALAR, which the three shapes cover.
+// `param`, and the scalar `fixed`. A fixed payload is a kind, and `Failure`'s
+// kind is a def that cannot exist at package-variable initialization time,
+// so an `Outcome` row could not state it there. Fragment mixes parametric
+// with SCALAR, which the three shapes cover.
 //
 // # WHY A NAME CHECK IS AN IDENTITY CHECK HERE, which it usually is not
 //
@@ -283,7 +281,8 @@ func (s *namedPayloadSpec) matchesDecl(decl *ast.EnumDef) bool {
 			}
 			continue
 		}
-		if got.Kind != "positional" || scalarKind(got.DataTypeExpr) != want.payload {
+		// A scalar payload is written as its own name, which is the kind's.
+		if got.Kind != "positional" || typeText(got.DataTypeExpr) != want.payload.nomi() {
 			return false
 		}
 	}
@@ -293,65 +292,3 @@ func (s *namedPayloadSpec) matchesDecl(decl *ast.EnumDef) bool {
 // --- the bare-variant sentinel ---------------------------------------------
 
 // --- naming the payload type ------------------------------------------------
-
-// namedPayloadNamed resolves a type NAME to a named payload's process-wide def,
-// for a module that imports it.
-//
-// # Why this exists, when the reachability argument said the type is not
-// independently nameable
-//
-// Those are two different claims. The argument for keeping `Failure` out of
-// `stdEnumSpecs` is that NO CORPUS FILE
-// mentions it, so a public registry row would be scaffolding by that table's own
-// bar. It is NOT that the language forbids naming it: `Failure` is an ordinary
-// `pub enum` in std/tasks and `import std::tasks.{Outcome, Failure}` is a program
-// the front end accepts.
-//
-// Left unnameable, `Outcome.Failed(Failure.Errored("x"))` would refuse
-// `qualified call`, because `namedType("Failure")` misses and `variantCall`
-// declines. `Outcome.Failed` could then be MATCHED but never BUILT, a
-// half-present representation. The fixture checks it; no corpus file does.
-//
-// The identity rules are stdEnumNamed's, unweakened: the anchor requires the
-// analyzer to have resolved the name in THIS module's scope to a declaration
-// whose (Origin, Name) is the spec's and whose SHAPE the spec validates. A
-// module declaring its own `Failure` never reaches this, because namedType
-// consults `g.types` first and buildTypes put the local declaration there.
-func (g *gen) namedPayloadNamed(name string) (*typeDef, bool) {
-	if g.fa == nil || g.fa.ModuleScope == nil {
-		return nil, false
-	}
-	for _, s := range namedPayloadSpecs {
-		if s.nomi != name {
-			continue
-		}
-		if !s.anchorsIn(g.fa) {
-			return nil, false
-		}
-		return s.def(), true
-	}
-	return nil, false
-}
-
-// anchorsIn reports whether this module's scope resolves the spec's name to the
-// declaration the spec describes.
-//
-// Both halves of the analyzer's nominal-identity rule, and then the SHAPE:
-// (Origin, Name) decides which type it is, and the declaration's variant list
-// decides the TAGS. A user enum spelling the same name has a different Origin
-// and gets nothing, which is the half a name check gets wrong.
-func (s *namedPayloadSpec) anchorsIn(fa *analysis.FileAnalysis) bool {
-	sym := fa.ModuleScope.Lookup(s.nomi)
-	if sym == nil {
-		return false
-	}
-	if sym.Resolved != nil {
-		sym = sym.Resolved
-	}
-	et, isEnum := sym.Type.(*analysis.EnumType)
-	if !isEnum || et.Origin != s.origin || et.Name != s.nomi {
-		return false
-	}
-	decl, isDecl := sym.Node.(*ast.EnumDef)
-	return isDecl && s.matchesDecl(decl)
-}

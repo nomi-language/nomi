@@ -23,41 +23,63 @@ var explanations = map[string]string{
 		"Or take the subtype as the parameter's type (`fn per(total: Int, d: NonZeroInt)`), or check a computed value with " +
 		"`NonZeroInt.try_from(...)`, which answers a `Maybe`. A non-zero literal, and a value whose range rules zero out " +
 		"(`n + 1` with `n` a `NonNegativeInt`), pass as they are.",
-	"capability-not-allowed": "The project's nomi.toml lists what its program may reach outside itself (files, the network, " +
-		"processes, output and input, the clock, randomness, the environment, tasks, Go bindings) in two tables. " +
-		"`[capabilities.self]` holds the calls written in the project's own files: `std` lists the std modules they may call " +
-		"(`std::fs`, as an import writes it), `std_in_tests` adds names for the calls the tests reach, and `go` and `go_in_tests` " +
-		"are true or false, whether its own code, or its tests, may bind Go. `[capabilities.deps]` holds the calls written in the " +
-		"files of every module the project depends on: `std` is the most any dependency may reach, with `std_in_tests` for the " +
-		"tests, `go` and `go_in_tests` list the dependencies whose Go may run, by module path as go.mod writes it, and under " +
-		"`[capabilities.deps.modules]` a dependency's entry lists the std modules its own files may reach. `entries_required = true` " +
-		"makes every dependency have an entry, or a `[capabilities.self]` in its own nomi.toml. A table the project leaves out holds " +
-		"nothing. A dependency whose own nomi.toml has a `[capabilities.self]` is held to it too; a call over it is " +
-		"`capability-not-declared`. This call reaches a name the list the message names does not hold, or binds Go where that table " +
-		"does not let it. A call counts when anything can reach it from `main`, the boot, an exported function or a test, even if " +
+	"inherited-impl-makes-base": "A subtype has its base's impls, except those of an interface with a function that makes a value " +
+		"of its type: `Parse`, `FromSql`, `Summable`, `Productable`, `Discrete`, `Steppable`, `From`, `TryFrom`. The " +
+		"base's impl makes a value of the base, which no rule of the subtype has checked, so `Parse.parse<Port>(text)` and " +
+		"`Summable.empty_sum<Port>()` are refused. Make a value " +
+		"of the base and check it: `Port.try_from(n)` answers a `Maybe<Port>`. A call whose type argument nothing pins to the " +
+		"subtype is made at the base instead, so with `ports` a `List<Port>`, `Iter.sum(ports)` is an `Int`. `FromJson` is a " +
+		"reader: it reads a subtype at its base and checks its rules, a value that breaks one being the read's shape error, and a " +
+		"record read from texts reads a field of a subtype with its base's `Parse` and checks it the same way.",
+	"effect-not-allowed": "The project's nomi.toml lists the effects its program may have (files, the network, " +
+		"processes, output and input, the clock, randomness, the environment, tasks, channels and other state it makes) in two tables. " +
+		"A function is pure, or it has effects; each effect is named by the std module the code called. " +
+		"`[effects.self]` holds the calls written in the project's own files: `std` lists the effects they may have, by std module " +
+		"(`std::fs`, as an import writes it), and `std_in_tests` adds names for the effects only the tests have. " +
+		"Under `[effects.self.modules]` an entry for one " +
+		"of the project's modules, keyed by the module as its own code imports it (`pricing`, `reports::daily`), lists the std " +
+		"modules whose effects that module's files may have within `std`; an empty entry allows no effects, and `entries_required = true` under " +
+		"`[effects.self]` makes every module the program loads have one. `[effects.deps]` holds the calls written in the " +
+		"files of every module the project depends on: `std` is the most effects any dependency may have, with `std_in_tests` for the " +
+		"tests, and under " +
+		"`[effects.deps.modules]` a dependency's entry lists the effects its own files may have. `entries_required = true` " +
+		"makes every dependency have an entry, or an `[effects.self]` in its own nomi.toml. A table the project leaves out holds " +
+		"nothing. A dependency whose own nomi.toml has an `[effects.self]` is held to it too; a call over it is " +
+		"`effect-not-declared`. This call has an effect the list the message names does not hold. " +
+		"A call counts when anything can reach it from `main`, the boot, an exported function or a test, even if " +
 		"it never runs: a branch never taken, a function passed as a value and never called, any implementation of an interface " +
 		"function, any `Display` body when a value is displayed. The help's chain says why this one counts. Fix it one of three " +
-		"ways: add the name, or for a dependency's Go binding the module, to the key the help names, or set `go = true` for the " +
-		"project's own binding; remove the call; or change how the program reaches it, following the chain: a call in a `Display` " +
+		"ways: add the name to the key the help names; remove the call; or change how the program reaches it, following the chain: a call in a `Display` " +
 		"body, an interface implementation or a function value nothing needs counts, so move it out of the code the program reaches. " +
-		"Args are the name (for a Go binding `go:` and the Go package, which says which binding it is), the list it is over (`self`, " +
-		"`deps`, `deps.modules`, or `host`), the module whose files hold the call, and what that list allows: std names, or for a Go " +
-		"binding the dependencies `[capabilities.deps]` lets bind Go. A Go program that embeds Nomi can hold it to lists of its own " +
-		"(`vmhost.WithCapabilities`, and `vmhost.WithGo` for Go bindings), which hold the whole program; a call over them says the " +
-		"host allows it, and the fix is the host's. `nomi capabilities` prints what the project's own code and each dependency " +
-		"reach, `--why <name>` each call that reaches a name, and `--write` writes the tightest tables the program passes.",
-	"capability-not-declared": "A module this project depends on has a `[capabilities.self]` table in its own nomi.toml: its " +
-		"`std` is the list of std calls the module declares for its own files, and its `go = true` declares that it binds Go. The " +
-		"project's nomi.toml has a `[capabilities.deps]` table, so the module is held to what it declares, as well as to the " +
-		"project's `[capabilities.deps]` and its entry for the module under `[capabilities.deps.modules]`. This call, in the " +
-		"module's own files, reaches a name the module's own `std` does not hold, or binds Go while its own `go` is not true: the " +
-		"module declares less than its code reaches. The fix is in that module: add the name to `std`, or set `go = true`, under " +
-		"`[capabilities.self]` in its nomi.toml, or remove the call. Nothing in the project's own tables can allow it, and the " +
-		"module's own `go` never allows what the project's `[capabilities.deps]` does not. When the project's tables do not allow " +
-		"the call either, the help says which. Only the module's own `std` and `go` are read; its `std_in_tests`, `go_in_tests` " +
-		"and `[capabilities.deps]` are for its own builds. The call counts by the same rules as `capability-not-allowed`: anything " +
-		"that can reach it, even if it never runs. Args are the name, `self`, the module, and the names its own `std` holds, none " +
-		"for a Go binding.",
+		"Args are the name, the list it is over (`self`, " +
+		"`self.modules`, `deps`, `deps.modules`, or `host`), the module whose files hold the call (for `self.modules` the entry's " +
+		"key), and the names that list allows. A Go program that embeds Nomi can hold it to a list of its own " +
+		"(`vmhost.WithEffects`), which holds the whole program; a call over it says the " +
+		"host allows it, and the fix is the host's. `nomi effects` prints the effects the project's own code and each dependency " +
+		"have, `--why <name>` each call that has an effect, and `--write` writes the tightest tables the program passes.",
+	"effect-not-declared": "A module this project depends on has an `[effects.self]` table in its own nomi.toml: its " +
+		"`std` is the list of effects the module declares for its own files, an entry under its own `[effects.self.modules]` " +
+		"narrows that for one of its modules. The " +
+		"project's nomi.toml has an `[effects.deps]` table, so the module is held to what it declares, as well as to the " +
+		"project's `[effects.deps]` and its entry for the module under `[effects.deps.modules]`. This call, in the " +
+		"module's own files, has an effect the module's own `std`, or its entry for the file's module, does not hold: " +
+		"the module declares fewer effects than its code has. The fix is in that module: add the name to " +
+		"`std` or to the entry under `[effects.self]` in its nomi.toml, or remove the call. Nothing in the " +
+		"project's own tables can allow it. When the project's tables do not allow the call either, the help says which. " +
+		"Only the module's own `std` and its " +
+		"entries are read; its `std_in_tests`, `entries_required` and `[effects.deps]` are for its own " +
+		"builds. The call counts by the same rules as `effect-not-allowed`: anything that can reach it, even if it never runs. " +
+		"Args are the name, `self` (or `self.modules` over its entry), the module, and the names that list holds.",
+	"effects-not-determined": "The project's nomi.toml has an `[effects.self]` table, which holds the project's own code, " +
+		"its public functions among it, to the effects it lists. A public generic function runs at whatever types its callers " +
+		"give it, so `nomi check` reads its body with each type parameter held as its bounds: a call through a " +
+		"bound counts every implementation the program has, and a generic function it calls at its type parameters is " +
+		"read the same way. This function's body does not lower that way, and the help names the reason. A call that " +
+		"gives the function types is still checked " +
+		"at those types; what it does at other types is not known, so the list cannot hold it. Fix it by giving the " +
+		"function a parameter of interface type in place of the type parameter, or by making it private when no other " +
+		"module needs it. " +
+		"Args are the function's name and `self`.",
 	"unused-import": "An import names a module or item nothing in the file uses. " +
 		"Unused imports are errors in Nomi. Remove the import, or the unused names from its `{...}` list.",
 	"path-at-use": "A use names a file by its path (`db::posts.find(1)`) after the file was imported " +
@@ -66,10 +88,6 @@ var explanations = map[string]string{
 	"embed-missing": "An `embed` pattern names a folder or path that does not exist yet, such as a frontend's " +
 		"`web/dist` before its first build. `nomi run`, `check` and `test` embed it as an empty folder and warn; " +
 		"`nomi build` refuses. Create it (run the frontend's build), or fix the pattern if the path is wrong.",
-	"go-build-failed": "The program has Go bindings (`gopkg` and `go` declarations), and the Go toolchain could not build " +
-		"the wrapper that holds them: the Go the program binds, or the adapters generated for its bindings, does not " +
-		"compile. This is no Nomi error, and the record has no Nomi position: its message is the Go compiler's report, " +
-		"whose own positions name the Go files. Fix the Go, or the binding whose Go signature the adapter cannot call.",
 	"interface-value-parameter": "Advice, not an error: a function's type parameter is used only as one parameter's type, " +
 		"under one interface bound, so the parameter can take the interface as its type (`fn label(value: Named)` for " +
 		"`fn label<T>(value: T) where T: Named`). `nomi check` warns and passes the file; the fix writes the interface value " +
@@ -136,6 +154,19 @@ var explanations = map[string]string{
 	"type-argument-count": "A use of a type writes more or fewer type arguments than the type takes. A type declared without " +
 		"type parameters (a primitive, a type parameter, or a struct, enum, distinct type or interface declared without them) takes none: " +
 		"write `S`, not `S<Int>`. A generic type takes as many as its declaration lists, less any with a default.",
+	"interface-value-self": "A function of an interface is used on an interface value, by a call (`Comparable.compare(a, b)`) " +
+		"or by an operator that goes through it (`a < b` uses `Comparable.compare`), and the function needs the implementor's " +
+		"own type beyond its receiver: a second `self` argument, a `self` result, or a parameter holding `self` values. " +
+		"A generic call, an ordering of Lists or `Iter.sort` at an interface type is such a use too, when the type parameter's " +
+		"bound has such a function: an interface type meets no `Comparable` bound. " +
+		"An interface value does not say which type it holds, and two of them may hold different types, which have no order. " +
+		"Take a type parameter bounded by the interface instead, so the values are one type: `fn less<T>(a: T, b: T) -> Bool where T: Comparable`.",
+	"opaque-construction": "Code outside an opaque type's defining file builds a value of the type: its call form, its literal, " +
+		"a variant, or a function the compiler provides for it, `try_from` or `unchecked`, or it relies on the `TryFrom` impl " +
+		"the compiler provides for it: a generic call bounded by `TryFrom` at the type, an impl whose `where` needs it, a " +
+		"conversion to a `TryFrom` value, or `TryFrom.try_from` where the type is expected. An opaque type's construction is private " +
+		"to its file and that file's partner test. Call a public function that returns one instead, such as " +
+		"`Int.to_codepoint` for a `Codepoint`.",
 	"no-type-member": "`Type.member` names a member the type does not have: no function in its `impl` blocks, no variant and no " +
 		"constant by that name. Check the spelling against the help's suggestion, or declare the function in an `impl Type` block.",
 	"argument-type-mismatch": "A call passes an argument whose type its parameter does not take. The message names the argument, " +

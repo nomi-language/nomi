@@ -28,10 +28,9 @@ func (bl *irScalarBuilder) fieldAccessor(t *ast.FieldAccessor) (ir.Temp, kind, b
 	irHeldOperand(pk, "a field accessor's subject")
 	at := bl.g.irNodePos(t)
 	f := ir.NewFunc(at, t.Spelling())
-	sh := &irFuncShell{fn: f, syms: map[string]*ir.Symbol{}, params: map[string]ir.Temp{}, patternOK: true}
-	sh.frame = newIRFuncFrame(f)
+	sh := &irFuncShell{fn: f, params: map[string]ir.Temp{}}
 	sh.entry = f.NewBlock(at, "entry")
-	child := &irScalarBuilder{g: bl.g, sh: sh, f: f, b: sh.entry, parent: bl, bound: map[string]ir.Temp{}, boundK: map[string]kind{}}
+	child := &irScalarBuilder{g: bl.g, sh: sh, f: f, b: sh.entry, parent: bl}
 	// The parameter has no name in the source, and no Nomi code names it.
 	cur := bl.g.irAddParam(f, ir.NewSymbol("arg0"), pk)
 	k := pk
@@ -57,7 +56,7 @@ func (bl *irScalarBuilder) fieldAccessor(t *ast.FieldAccessor) (ir.Temp, kind, b
 	}
 	child.b.SetTerm(ir.NewReturn(bl.g.irNodePos(t), cur))
 	bl.g.irRequireLint(f, "a field accessor graph")
-	n := ir.NewFuncValue(at, bl.f.NewTemp(), f)
+	n := ir.NewFuncValue(at, bl.f.NewTemp(), f).KeepFields()
 	bl.b.Append(n)
 	fk := funcKindIn(bl.g, []kind{pk}, k)
 	bl.side(n.Dst(), irScalarSide{k: fk})

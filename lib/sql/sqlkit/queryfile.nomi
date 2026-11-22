@@ -74,13 +74,14 @@ derive Equatable for Problem
 
 impl Display for Problem
     fn to_string(p: Problem) -> String
-        at = if p.line == 0 then
-            p.file
-        else if p.col == 0 then
-            "${p.file}:${p.line}"
-        else
-            "${p.file}:${p.line}:${p.col}"
-        end
+        at =
+            if p.line == 0 then
+                p.file
+            else if p.col == 0 then
+                "${p.file}:${p.line}"
+            else
+                "${p.file}:${p.line}:${p.col}"
+            end
 
         Iter.concat(
             [p.message],
@@ -249,14 +250,19 @@ fn finish(path: String, s: State) -> State
 
         Some(q) ->
             // A query with only doc lines has its SQL start after them.
-            (q, text) = if s.in_doc then
-                (
-                    {..q, doc: Iter.reverse(s.lines), sql_line: q.line + Iter.count(s.lines) + 1},
-                    "",
-                )
-            else
-                (q, s.lines |> Iter.reverse() |> String.join("\n"))
-            end
+            (q, text) =
+                if s.in_doc then
+                    (
+                        {
+                            ..q,
+                            doc:      Iter.reverse(s.lines),
+                            sql_line: q.line + Iter.count(s.lines) + 1,
+                        },
+                        "",
+                    )
+                else
+                    (q, s.lines |> Iter.reverse() |> String.join("\n"))
+                end
 
             base = {..s, current: None, in_doc: False, lines: []}
 
@@ -278,15 +284,18 @@ fn statement(path: String, q: Query, text: String) -> Result<String, Problem>
             ]))
     end
 
-    stop = case Iter.find(solid, fn t -> t.kind == Kind.Punct and t.text == ";")
-        Some(t) ->
-            t
+    stop =
+        case Iter.find(solid, fn t -> t.kind == Kind.Punct and t.text == ";")
+            Some(t) ->
+                t
 
-        None ->
-            return Err(problem(path, q.line, 1, "the SQL of `${q.name}` does not end in `;`", [
-                    "end each query's SQL with `;`",
-                ]))
-    end
+            None ->
+                return Err(
+                    problem(path, q.line, 1, "the SQL of `${q.name}` does not end in `;`", [
+                        "end each query's SQL with `;`",
+                    ])
+                )
+        end
 
     case Iter.find(solid, fn t -> t.start > stop.start)
         Some(t) ->
@@ -330,31 +339,37 @@ fn annotation(path: String, number: Int, line: String, rest: String) -> Result<Q
         return bad(name_end, "`${name}` needs its parameters in parentheses, `()` for none")
     end
 
-    close = case closing(chars, name_end + 1, 0)
-        Some(c) -> c
-        None    -> return bad(name_end, "the parameters of `${name}` have no closing `)`")
-    end
+    close =
+        case closing(chars, name_end + 1, 0)
+            Some(c) -> c
+            None    -> return bad(name_end, "the parameters of `${name}` have no closing `)`")
+        end
 
-    params = case parameters(path, number, chars, name_end + 1, close)
-        Ok(ps) -> ps
-        Err(p) -> return Err(p)
-    end
+    params =
+        case parameters(path, number, chars, name_end + 1, close)
+            Ok(ps) -> ps
+            Err(p) -> return Err(p)
+        end
 
     after = skip_spaces(chars, close + 1)
     tail = slice(chars, after, Vector.length(chars)) |> trim_end()
 
-    (result, result_col) = if tail == "" then
-        (None, 0)
-    else
-        case String.strip_prefix(tail, "->")
-            Some(t) when String.trim(t) != "" ->
-                col = skip_spaces(chars, after + 2)
-                (Some(String.trim(t)), col + 1)
+    (result, result_col) =
+        if tail == "" then
+            (None, 0)
+        else
+            case String.strip_prefix(tail, "->")
+                Some(t) when String.trim(t) != "" ->
+                    col = skip_spaces(chars, after + 2)
+                    (Some(String.trim(t)), col + 1)
 
-            _ ->
-                return bad(after, "after the parameters of `${name}` comes `-> Row`, or nothing")
+                _ ->
+                    return bad(
+                        after,
+                        "after the parameters of `${name}` comes `-> Row`, or nothing",
+                    )
+            end
         end
-    end
 
     Ok(
         Query{

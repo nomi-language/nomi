@@ -10,7 +10,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/nomi-language/nomi/internal/ffirun"
+	"github.com/nomi-language/nomi/internal/runners"
 	"github.com/nomi-language/nomi/vmhost"
 	"github.com/nomi-language/nomi/vmrunner"
 )
@@ -32,8 +32,7 @@ import (
 // main), and one with at least one `export fn` is a WASI reactor
 // (nomi-vm-reactor: `_initialize`, nomi_alloc, nomi_call, nomi_free and
 // nomi_main), whose image carries the exported functions as `--web`'s does,
-// with nomi-wasi.js and nomi-wasi.d.ts written beside it. A project with Go
-// bindings gets its own reactor, which links them (ffirun.ProjectRunner).
+// with nomi-wasi.js and nomi-wasi.d.ts written beside it.
 //
 // A program the front end rejects, or one the VM would block, is refused with
 // the text `nomi run` prints, and nothing is written.
@@ -46,7 +45,7 @@ var errBuildRefused = errors.New("build refused")
 type buildArgs struct {
 	entry  string
 	out    string
-	target ffirun.Target
+	target runners.Target
 	// web writes a folder that runs the program in a browser (build_web.go).
 	web bool
 	// static is --static: the folder whose files --web copies in, in place
@@ -58,13 +57,13 @@ type buildArgs struct {
 	// noVM writes the program alone as a .nomic file, for a nomi-vm that
 	// does not embed it (vmrunner/imagefile.go).
 	noVM bool
-	// allowUnsupported are the capability classes (`files`) the build may
+	// allowUnsupported are the effect classes (`files`) the build may
 	// reach although its target lacks them (vmhost.CheckTarget).
 	allowUnsupported []string
 }
 
-// capabilityClasses are the classes --allow-unsupported names.
-var capabilityClasses = []string{vmhost.ClassFiles, vmhost.ClassProcesses, vmhost.ClassNetwork, vmhost.ClassConnect, vmhost.ClassListen}
+// effectClasses are the classes --allow-unsupported names.
+var effectClasses = []string{vmhost.ClassFiles, vmhost.ClassProcesses, vmhost.ClassNetwork, vmhost.ClassConnect, vmhost.ClassListen}
 
 func parseBuildArgs(args []string) (buildArgs, error) {
 	var b buildArgs
@@ -106,9 +105,9 @@ func parseBuildArgs(args []string) (buildArgs, error) {
 					return b, err
 				}
 			}
-			if !slices.Contains(capabilityClasses, v) {
-				return b, fmt.Errorf("nomi build: --allow-unsupported takes a capability class (%s); got %q",
-					strings.Join(capabilityClasses, ", "), v)
+			if !slices.Contains(effectClasses, v) {
+				return b, fmt.Errorf("nomi build: --allow-unsupported takes an effect class (%s); got %q",
+					strings.Join(effectClasses, ", "), v)
 			}
 			b.allowUnsupported = append(b.allowUnsupported, v)
 		case arg == "--no-vm":
@@ -155,13 +154,13 @@ func parseBuildArgs(args []string) (buildArgs, error) {
 		if goos != "" && (goos != "js" || goarch != "wasm") {
 			return b, fmt.Errorf("nomi build: --web builds for js/wasm, so it cannot take --target %s/%s", goos, goarch)
 		}
-		b.target = ffirun.Target{GOOS: "js", GOARCH: "wasm"}
+		b.target = runners.Target{GOOS: "js", GOARCH: "wasm"}
 		if b.out == "" {
 			b.out = strings.TrimSuffix(filepath.Base(b.entry), ".nomi") + "-web"
 		}
 		return b, nil
 	}
-	b.target = ffirun.ResolveTarget(goos, goarch)
+	b.target = runners.ResolveTarget(goos, goarch)
 	if b.out == "" {
 		// go build's default: the entry's base name, in the working
 		// directory.
@@ -172,7 +171,7 @@ func parseBuildArgs(args []string) (buildArgs, error) {
 
 // defaultExecutableName is name with the extension target's executables
 // carry.
-func defaultExecutableName(name string, target ffirun.Target) string {
+func defaultExecutableName(name string, target runners.Target) string {
 	switch {
 	case target.GOOS == "windows":
 		return name + ".exe"
@@ -213,80 +212,30 @@ func build(b buildArgs, stderr io.Writer) error {
 	}
 	// A build of the same files for the same target is kept in the artifact
 	// cache, as a run's lowering is: a hit needs no check, no lowering and
-	// no image, only the runner. It is kept only for a program with no Go
-	// bindings, so the wrapper is not asked about it.
+	// no image, only the runner.
 	cache := vmhost.OpenCacheFor(absPath, buildKind(b))
 	kept, hit := decodeKeptBuild(cache.Kept())
-	var res *ffirun.Result
 	if !hit {
-		res, err = ffirun.Prepare(absPath)
-		if b.noVM && hasGoBindings(res, err) {
-			return errNoVMGoBindings
-		}
-		if err != nil {
-			return fmt.Errorf("nomi build: %w", ffirun.ForBuild(err))
-		}
-	}
-	var image []byte
-	var sources []vmhost.EmbedSource
-	var runner, decls string
-	var reactor bool
-	var localeFiles map[string][]byte
-	if hit || res.FastPath {
-		if !hit {
-			var err error
-			if kept, err = buildInProcess(b, absPath, stderr, cache); err != nil {
-				return err
-			}
-		} else {
-			io.WriteString(stderr, kept.Notes)
-		}
-		image, sources, reactor, decls, localeFiles = kept.Image, kept.Sources, kept.Reactor, kept.Decls, kept.LocaleFiles
-		if b.noVM {
-			return writeImageFile(b.out, image, sources, kept.UsesCompiler)
-		}
-		// A program that reaches no network crossing is appended to the
-		// runner without the network, a third smaller (ffirun.Variant).
-		variant := ffirun.Variant{Compiler: kept.UsesCompiler, Reactor: reactor, NoNetwork: kept.NoNetwork}
-		if runner, err = ffirun.Runner(b.target, variant, stderr); err != nil {
-			return fmt.Errorf("nomi build: %w", err)
+		if kept, err = buildInProcess(b, absPath, stderr, cache); err != nil {
+			return err
 		}
 	} else {
-		if err := ffirun.CheckProjectBuild(res, b.target); err != nil {
-			return fmt.Errorf("nomi build: %w", err)
-		}
-		// The wrapper lowers the program with the project's bindings, and
-		// the runner links them: for --web a js/wasm module, as for
-		// --target js/wasm.
-		built, report, ok, err := ffirun.BuildImageVM(res, absPath, ffirun.ImageBuild{
-			Command: buildCommand(b),
-			Target:  b.target,
-			Web:     b.web,
-			Allowed: b.allowUnsupported,
-		})
-		if err != nil {
-			return fmt.Errorf("nomi build: %w", err)
-		}
-		if !ok {
-			fmt.Fprint(stderr, report)
-			return errBuildRefused
-		}
-		// The wrapper built a reactor's image with its exported functions,
-		// and the project's runner is then its reactor variant.
-		reactor = b.target == wasip1 && built.HasExports
-		image = built.Image
-		if sources, err = vmhost.DecodeEmbedSources(built.Sources); err != nil {
-			return fmt.Errorf("nomi build: %w", err)
-		}
-		if b.web {
-			if built.UsesFiles {
-				fmt.Fprintln(stderr, vmhost.WebFilesNote)
-			}
-			decls, localeFiles = built.Declarations, built.LocaleFiles
-		}
-		if runner, err = ffirun.ProjectRunner(res, b.target, ffirun.Variant{Compiler: built.UsesCompiler, Reactor: reactor, NoNetwork: built.NoNetwork}); err != nil {
-			return fmt.Errorf("nomi build: %w", err)
-		}
+		io.WriteString(stderr, kept.Notes)
+	}
+	image, sources, reactor, decls, localeFiles := kept.Image, kept.Sources, kept.Reactor, kept.Decls, kept.LocaleFiles
+	if b.noVM {
+		return writeImageFile(b.out, image, sources, kept.UsesCompiler)
+	}
+	// A program that reaches no optional family's crossing is appended to
+	// the lean runner, a third smaller (runners.Variant); one that reaches a
+	// family its target's runners never have has no runner.
+	if err := runners.FamiliesOnTarget(kept.Families, b.target); err != nil {
+		return fmt.Errorf("nomi build: %w", err)
+	}
+	variant := runners.Variant{Compiler: kept.UsesCompiler, Reactor: reactor, NoNetwork: len(kept.Families) == 0}
+	runner, err := runners.Runner(b.target, variant, stderr)
+	if err != nil {
+		return fmt.Errorf("nomi build: %w", err)
 	}
 	if b.web {
 		return writeWebFolder(b, runner, image, sources, decls, localeFiles, static, stderr)
@@ -332,19 +281,13 @@ func programEntry(cmd, entry string) (string, error) {
 	return absPath, nil
 }
 
-// hasGoBindings reports whether ffirun.Prepare's answer is a project with Go
-// bindings, which only a runner built with them can run.
-func hasGoBindings(res *ffirun.Result, err error) bool {
-	return err == nil && !res.FastPath || ffirun.NeedsCompilerSource(err)
-}
-
 // writeExecutable writes runner's bytes, then image (its code, then its
 // files region streamed from sources), then the trailer to out
 // (writeAtomic). A WebAssembly runner keeps its sections whole
 // (vmrunner/wasm.go): a wasip1 runner gets the image as a data segment
 // written into its own memory, so it runs with no file access, and a
 // js/wasm runner gets it as a custom section its loader hands it.
-func writeExecutable(out, runner string, image []byte, sources []vmhost.EmbedSource, target ffirun.Target) error {
+func writeExecutable(out, runner string, image []byte, sources []vmhost.EmbedSource, target runners.Target) error {
 	n, err := imageLen(image)
 	if err != nil {
 		return err
@@ -433,12 +376,7 @@ func writeAtomic(out string, perm os.FileMode, write func(io.Writer) error) erro
 
 // wasip1 is the target whose module is a WASI reactor when the program has
 // an `export fn`.
-var wasip1 = ffirun.Target{GOOS: "wasip1", GOARCH: "wasm"}
-
-// errNoVMGoBindings is `nomi build --no-vm` for an FFI project: its Go
-// bindings need a runner built with them, which the shared nomi-vm is not.
-var errNoVMGoBindings = errors.New("nomi build --no-vm: this project has Go bindings, which only a VM " +
-	"built with them can run, so it has no portable compiled program. Use `nomi build` for an executable that links them")
+var wasip1 = runners.Target{GOOS: "wasip1", GOARCH: "wasm"}
 
 // writeImageFile writes the .nomic file `nomi build --no-vm` makes: image,
 // its code and then its files region streamed from sources, behind a

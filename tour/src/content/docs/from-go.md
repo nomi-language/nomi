@@ -6,9 +6,11 @@ description: What carries over from Go to Nomi, what differs, and the same progr
 Much of Go carries over: static types with inference for locals, errors as
 values rather than exceptions, structs, interfaces, backtick raw strings, one
 formatter for all code, tasks and channels, and a single executable from
-`nomi build`. Nomi programs can also [call Go packages](/calling-go/)
-directly. What differs most: values never change, errors pass up with a
-postfix `?`, and a type implements an interface by saying so.
+`nomi build`. A Nomi program calls no Go packages of its own: the standard
+library covers what Go's does, and a library that needs native code carries
+it as WebAssembly and runs it through [std::wasm](/reference/wasm/). What
+differs most: values never change, errors pass up with a postfix `?`, and a
+type implements an interface by saying so.
 
 The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 

@@ -13,7 +13,7 @@ import (
 
 // reachOrderSource reaches shout through eight impls of one dispatched
 // method, so which impl the walk visits first decides the chain by which
-// shout's outside call is reported.
+// shout's effect call is reported.
 const reachOrderSource = `import std::io
 
 interface Named
@@ -100,7 +100,7 @@ end
 
 // TestReach_TheWalkIsTheSameEveryTime walks one program many times in one
 // process and requires every answer that names how a function was reached
-// (the outside calls' chains, the crossing sites' chains, the reached set
+// (the effect calls' chains, the crossing sites' chains, the reached set
 // in order) to be the same each time. A walk whose order followed a Go
 // map's would report a different chain from run to run.
 func TestReach_TheWalkIsTheSameEveryTime(t *testing.T) {
@@ -128,7 +128,7 @@ func TestReach_TheWalkIsTheSameEveryTime(t *testing.T) {
 	roots := vm.MainRoots(entry, main)
 	walk := func() string {
 		var b strings.Builder
-		for _, c := range vm.ReachedOutsideCalls(entry, mods, roots, vm.EdgeRoot, nil, nil).Calls {
+		for _, c := range vm.ReachedEffects(entry, mods, roots, nil, vm.EdgeRoot, nil, nil).Calls {
 			fmt.Fprintf(&b, "call %s %s %v\n", c.At, c.Crossing, c.Chain)
 		}
 		for _, s := range vm.ReachedCrossingSites(entry, mods, roots, nil, func(string) bool { return true }) {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/fileuri"
+	"github.com/nomi-language/nomi/internal/modcache"
 	"github.com/nomi-language/nomi/internal/stdcache"
 	"github.com/nomi-language/nomi/std"
 	"path/filepath"
@@ -45,8 +46,13 @@ type Server struct {
 	reaches projectReaches
 	// unused holds the open nomi.toml files and their hints' fixes
 	// (manifest_reach.go).
-	unused          unusedNames
-	notify          glsp.NotifyFunc // captured for background notifications
+	unused unusedNames
+	notify glsp.NotifyFunc // captured for background notifications
+	// call is the initialized notification's Call, for background
+	// requests to the editor; semanticRefresh is the client's
+	// workspace.semanticTokens.refreshSupport (refreshSemanticTokens).
+	call            glsp.CallFunc
+	semanticRefresh bool
 	cancelPropagate context.CancelFunc
 	propagateMu     sync.Mutex
 	// exprIndex is completion's position index over the last completed
@@ -215,6 +221,7 @@ func (s *Server) initialize(ctx *glsp.Context, params *protocol.InitializeParams
 	s.snippetSupport = clientSnippetSupport(params)
 	s.createFiles = clientCreatesFiles(params)
 	s.relatedInformation = clientRelatedInformation(params)
+	s.semanticRefresh = clientSemanticRefresh(params)
 	s.settings.apply(params.InitializationOptions)
 
 	// Advertise the specific code-action kinds we provide so editors can wire
@@ -266,8 +273,9 @@ func (s *Server) initialize(ctx *glsp.Context, params *protocol.InitializeParams
 }
 
 func (s *Server) initialized(ctx *glsp.Context, params *protocol.InitializedParams) error {
-	// Capture notify for background goroutines
+	// Capture notify and call for background goroutines
 	s.notify = ctx.Notify
+	s.call = ctx.Call
 
 	// Register file watcher and scan workspace in background.
 	// ctx.Call blocks waiting for a response, which deadlocks the message
@@ -282,9 +290,7 @@ func (s *Server) initialized(ctx *glsp.Context, params *protocol.InitializedPara
 						Watchers: []protocol.FileSystemWatcher{
 							{GlobPattern: "**/*.nomi"},
 							{GlobPattern: "**/*.toml"},
-							{GlobPattern: "**/*.go"},
-							{GlobPattern: "**/go.mod"},
-							{GlobPattern: "**/go.sum"},
+							{GlobPattern: "**/nomi.lock"},
 						},
 					},
 				},
@@ -454,6 +460,16 @@ func clientCreatesFiles(params *protocol.InitializeParams) bool {
 	return false
 }
 
+// clientSemanticRefresh is the client's
+// workspace.semanticTokens.refreshSupport.
+func clientSemanticRefresh(params *protocol.InitializeParams) bool {
+	ws := params.Capabilities.Workspace
+	if ws == nil || ws.SemanticTokens == nil || ws.SemanticTokens.RefreshSupport == nil {
+		return false
+	}
+	return *ws.SemanticTokens.RefreshSupport
+}
+
 func clientSnippetSupport(params *protocol.InitializeParams) bool {
 	td := params.Capabilities.TextDocument
 	if td == nil || td.Completion == nil || td.Completion.CompletionItem == nil {
@@ -522,11 +538,8 @@ func (s *Server) propagateAsync(uri string) {
 func (s *Server) workspaceDidChangeWatchedFiles(ctx *glsp.Context, params *protocol.DidChangeWatchedFilesParams) error {
 	for _, event := range params.Changes {
 		uri := string(event.URI)
-		if isFFIInputURI(uri) {
-			s.publishFFIInvalidation(ctx)
-			continue
-		}
-		if isManifestURI(uri) {
+		// nomi.lock selects the versions of the modules nomi.toml names.
+		if isManifestURI(uri) || filepath.Base(uriToPath(uri)) == modcache.LockName {
 			s.manifestChanged(uri)
 			continue
 		}
@@ -574,20 +587,6 @@ func (s *Server) workspaceDidChangeWatchedFiles(ctx *glsp.Context, params *proto
 
 func isNomiURI(uri string) bool {
 	return filepath.Ext(fileuri.ToPath(uri)) == ".nomi"
-}
-
-func isFFIInputURI(uri string) bool {
-	path := fileuri.ToPath(uri)
-	base := filepath.Base(path)
-	return filepath.Ext(path) == ".go" || base == "go.mod" || base == "go.sum"
-}
-
-func (s *Server) publishFFIInvalidation(ctx *glsp.Context) {
-	open, closed := s.docs.InvalidateFFIExterns()
-	s.queueClosedDiagnostics(closed...)
-	for _, doc := range open {
-		s.publish(ctx.Notify, doc.URI)
-	}
 }
 
 // propagateNewFile re-analyzes the open documents, any of which may import

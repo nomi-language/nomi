@@ -319,3 +319,34 @@ func nominalReceiver(t Type) (Type, string) {
 	}
 	return t, name
 }
+
+// InterfaceResult is the type a call of iface's function method answers for
+// a receiver of type recv, as the checker types `Iface.method(x)` written
+// with x of that type: the function's declared result with `self` bound to
+// recv. Nil where recv is nil, where the program does not reach iface's
+// module, and where the result names a type parameter of the interface the
+// receiver alone does not fix.
+func (fa *FileAnalysis) InterfaceResult(iface StdType, method string, recv Type) Type {
+	if fa == nil || recv == nil {
+		return nil
+	}
+	scope := fa.Program().StdlibModuleScopes[strings.TrimPrefix(iface.Module, "std/")]
+	if scope == nil || scope.LookupLocal(iface.Name) == nil {
+		return nil
+	}
+	it, isIface := resolveRef(scope.LookupLocal(iface.Name)).Type.(*InterfaceType)
+	if !isIface {
+		return nil
+	}
+	for _, m := range it.Methods {
+		if m.Name != method || m.Return == nil {
+			continue
+		}
+		ret := Substitute(m.Return, interfaceReqSubsWithSelf(it, recv))
+		if ContainsTypeParam(ret) {
+			return nil
+		}
+		return ret
+	}
+	return nil
+}

@@ -33,8 +33,9 @@ import
     bool.Bool.{False, True}
     bytes.Bytes
     debug.Debug
+    duration.Duration
     equatable.Equatable
-    fs.{self, Access, Entry, Kind, WriteMode}
+    fs.{self, Access, Dir, Entry, Kind, LockAttempt, LockMode, Metadata, WriteMode}
     fs::host
     int.{Int, Int64}
     io.{Error, File, Reader, Writer}
@@ -114,6 +115,8 @@ pub enum Operation
     Metadata
     /// Closing a file opened to read or write.
     Close
+    /// `File.sync`, `File.sync_data` and `fs.sync_dir`.
+    Sync
 end
 
 derive Equatable for Operation
@@ -128,9 +131,11 @@ pub struct Ran<T>
     /// Each operation as `<operation> <absolute path>`, in order: `read`,
     /// `write`, `open` (`fs.open_file`), `list`, `metadata`,
     /// `link_metadata`, `create_dir`, `create_symlink`, `read_link`,
-    /// `set_mode`, `remove`, `remove_all`, and `rename <from> to <to>`. The
-    /// path is the one the program named, resolved against the working
-    /// directory, before any symlink in it is followed.
+    /// `set_mode`, `remove`, `remove_all`, `sync_dir`, `sync` and
+    /// `sync_data` (`File.sync` and `File.sync_data`, at the path the file
+    /// was opened by), and `rename <from> to <to>`. The path is the one the
+    /// program named, resolved against the working directory, before any
+    /// symlink in it is followed.
     log: List<String>
     /// The absolute path of each handle still open when `body` returned. A
     /// test asserts `ran.open == []` to catch a reader or writer it forgot
@@ -152,6 +157,43 @@ end
 //! assert ran.open == []
 //
 pub fn run<T>(sandbox: Sandbox, body: () -> T) -> Ran<T>
+    fake = built(sandbox)
+    value = host.run_in(fake, body)
+
+    Ran{
+        value:,
+        files: host.sandbox_files(fake),
+        log:   host.sandbox_log(fake),
+        open:  host.sandbox_open(fake),
+    }
+end
+
+/// A `fs.Dir` over an in-memory file system built from `sandbox`, at its
+/// working directory (`/work` by default): what a test hands to code that
+/// takes a `Dir`, which then reads and writes no disk. The sandbox's
+/// failures apply. A test reads what the code wrote back through the
+/// `Dir`. Defer `Dir.close` on the next line.
+//! d = dir(Sandbox{files: {"in.txt" => "b\na\n"}})
+//! defer Dir.close(d)
+//!
+//! names = Result.collect(Dir.lines(d, "in.txt"))!
+//! assert Dir.write_text(d, "out.txt", String.join(Iter.sort(names), ",")) == Ok(Unit)
+//! assert Dir.read_text(d, "out.txt") == Ok("a,b")
+//!
+//! assert Dir.read_text(d, "/tmp/x") == Err(Error.InvalidPath{
+//!         path:   "/tmp/x",
+//!         reason: "the path leads outside the directory it is confined to",
+//!     })
+//
+pub fn dir(sandbox: Sandbox) -> Dir
+    case host.run_in(built(sandbox), fn -> fs.open_dir(sandbox.cwd))
+        Ok(d)  -> d
+        Err(_) -> unreachable "a sandbox's working directory exists"
+    end
+end
+
+/// The in-memory file system `sandbox` describes.
+fn built(sandbox: Sandbox) -> host.FileSystem
     texts = Map.map_values(sandbox.files, fn text -> String.to_bytes(text))
 
     fake = host.new_sandbox(
@@ -171,14 +213,7 @@ pub fn run<T>(sandbox: Sandbox, body: () -> T) -> Ran<T>
         )
     end)
 
-    value = host.run_in(fake, body)
-
-    Ran{
-        value:,
-        files: host.sandbox_files(fake),
-        log:   host.sandbox_log(fake),
-        open:  host.sandbox_open(fake),
-    }
+    fake
 end
 
 fn operation_code(operation: Operation) -> Int64
@@ -191,6 +226,7 @@ fn operation_code(operation: Operation) -> Int64
         Operation.List     -> 6
         Operation.Metadata -> 7
         Operation.Close    -> 8
+        Operation.Sync     -> 9
     end
 end
 
@@ -223,7 +259,9 @@ end
 /// `InvalidText`, closed handles, `exists`, walks and globs, symlinks
 /// (followed by reads and `metadata`, not by `link_metadata`, `remove`,
 /// `rename` and walks; a dangling one; a loop), `set_mode`, a `File`'s
-/// reads and writes at a position, and `fs.within`'s confinement.
+/// reads and writes at a position, its syncs and its locks against a second
+/// handle, `fs.sync_dir`, `fs.within`'s confinement, and a `Dir`'s: what it
+/// reaches, the paths it refuses, its close and its temporary files.
 ///
 /// std's own tests run it twice, against the disk in a directory from
 /// `fs.make_temp_dir` and against a sandbox inside `run`, so a rule both
@@ -318,9 +356,20 @@ fn rules() -> List<(String, (String) -> Maybe<String>)>
         ("a file reads and writes at a position",                     rule_file),
         ("a file opened to read refuses writes",                      rule_file_read_only),
         ("open_file of a missing file is NotFound unless it creates", rule_file_missing),
+        ("sync keeps the data and sync_dir takes a directory",        rule_sync),
+        ("a lock excludes another handle until it is unlocked",       rule_lock_handles),
+        ("shared locks share and refuse an exclusive one",            rule_lock_shared),
+        ("a lock on a range excludes only that range",                rule_lock_ranges),
+        ("closing a file releases its locks",                         rule_lock_close),
+        ("a lock that cannot be taken times out",                     rule_lock_timeout),
+        ("a file opened to read takes only shared locks",             rule_lock_read_only),
         ("within resolves paths under its directory",                 rule_within),
         ("within refuses paths that lead outside it",                 rule_within_escape),
         ("within of a missing directory is NotFound",                 rule_within_missing),
+        ("a Dir reaches what is under its directory",                 rule_dir_reach),
+        ("a Dir refuses paths that lead outside it",                  rule_dir_escape),
+        ("a closed Dir is Closed and its File stays open",            rule_dir_closed),
+        ("a Dir makes fresh temporary files and directories",         rule_dir_temp),
     ]
 end
 
@@ -646,11 +695,12 @@ end
 fn rule_walk(dir: String) -> Maybe<String>
     tree = path.join(dir, "t")
 
-    walked = fn ->
-        fs.walk(tree)
-        |> Iter.map(fn item -> Result.map(item, fn e -> (under(tree, e.path), e.kind)))
-        |> Result.collect()
-    end
+    walked =
+        fn ->
+            fs.walk(tree)
+            |> Iter.map(fn item -> Result.map(item, fn e -> (under(tree, e.path), e.kind)))
+            |> Result.collect()
+        end
 
     first([
         check("make a",        fs.create_dir(path.join(tree, "a"), parents: True),   Ok(Unit)),
@@ -816,12 +866,13 @@ end
 fn rule_link_loop(dir: String) -> Maybe<String>
     a = path.join(dir, "a")
 
-    code = fn ->
-        case fs.read_text(a)
-            Err(Error.Other{operation: _, path: _, code:}) -> code
-            other -> "${Debug.inspect(other)}"
+    code =
+        fn ->
+            case fs.read_text(a)
+                Err(Error.Other{operation: _, path: _, code:}) -> code
+                other -> "${Debug.inspect(other)}"
+            end
         end
-    end
 
     first([
         check("link a to b",        fs.create_symlink(a, target: "b"),                   Ok(Unit)),
@@ -856,9 +907,10 @@ end
 fn rule_file(dir: String) -> Maybe<String>
     p = path.join(dir, "f.bin")
 
-    text = fn data: Result<Maybe<Bytes>, Error> ->
-        Result.map(data, fn d -> Maybe.map(d, fn d -> Bytes.to_string(d) |> Result.to_maybe()))
-    end
+    text =
+        fn data: Result<Maybe<Bytes>, Error> ->
+            Result.map(data, fn d -> Maybe.map(d, fn d -> Bytes.to_string(d) |> Result.to_maybe()))
+        end
 
     case fs.open_file(p, access: Access.Create)
         Err(e) ->
@@ -936,25 +988,193 @@ fn rule_file_missing(dir: String) -> Maybe<String>
     ])
 end
 
+fn rule_sync(dir: String) -> Maybe<String>
+    p = path.join(dir, "s.txt")
+    missing = path.join(dir, "none")
+
+    case fs.open_file(p, access: Access.Create)
+        Err(e) ->
+            Some("open_file: ${e}")
+
+        Ok(f) ->
+            defer File.close_quietly(f)
+
+            first([
+                check("write", File.write(f, String.to_bytes("kept")), Ok(Unit)),
+                check("sync", File.sync(f), Ok(Unit)),
+                check("sync_data", File.sync_data(f), Ok(Unit)),
+                check("close", File.close(f), Ok(Unit)),
+                check("sync after close", File.sync(f), Err(Error.Closed)),
+                check("the file", fs.read_text(p), Ok("kept")),
+                check("sync_dir", fs.sync_dir(dir), Ok(Unit)),
+                check("sync_dir of a file", fs.sync_dir(p), Err(Error.NotADirectory{path: p})),
+                check(
+                    "sync_dir of a missing path",
+                    fs.sync_dir(missing),
+                    Err(Error.NotFound{path: missing}),
+                ),
+            ])
+    end
+end
+
+/// Calls body with two handles on the file p, made when it is missing, each
+/// open to read and write.
+fn on_two_handles(p: String, body: (File, File) -> Maybe<String>) -> Maybe<String>
+    case fs.open_file(p, access: Access.Create)
+        Err(e) ->
+            Some("open_file: ${e}")
+
+        Ok(a) ->
+            defer File.close_quietly(a)
+
+            case fs.open_file(p, access: Access.ReadWrite)
+                Err(e) ->
+                    Some("open_file again: ${e}")
+
+                Ok(b) ->
+                    defer File.close_quietly(b)
+                    body(a, b)
+            end
+    end
+end
+
+fn rule_lock_handles(dir: String) -> Maybe<String>
+    on_two_handles(path.join(dir, "db"), fn a, b ->
+        first([
+            check("exclusive", fs.try_lock(a, LockMode.Exclusive), Ok(LockAttempt.Acquired)),
+            check("shared beside it", fs.try_lock(b, LockMode.Shared), Ok(LockAttempt.Busy)),
+            check("exclusive beside it", fs.try_lock(b, LockMode.Exclusive), Ok(LockAttempt.Busy)),
+            check("unlock", fs.unlock(a), Ok(Unit)),
+            check(
+                "exclusive after the unlock",
+                fs.try_lock(b, LockMode.Exclusive),
+                Ok(LockAttempt.Acquired),
+            ),
+        ])
+    end)
+end
+
+fn rule_lock_shared(dir: String) -> Maybe<String>
+    on_two_handles(path.join(dir, "db"), fn a, b ->
+        first([
+            check("shared",           fs.try_lock(a, LockMode.Shared), Ok(LockAttempt.Acquired)),
+            check("shared beside it", fs.try_lock(b, LockMode.Shared), Ok(LockAttempt.Acquired)),
+            check(
+                "exclusive beside a shared one",
+                fs.try_lock(a, LockMode.Exclusive),
+                Ok(LockAttempt.Busy),
+            ),
+        ])
+    end)
+end
+
+fn rule_lock_ranges(dir: String) -> Maybe<String>
+    on_two_handles(path.join(dir, "db"), fn a, b ->
+        first([
+            check(
+                "the first ten bytes",
+                fs.try_lock(a, LockMode.Exclusive, length: Some(10)),
+                Ok(LockAttempt.Acquired),
+            ),
+            check(
+                "the next ten",
+                fs.try_lock(b, LockMode.Exclusive, start: 10, length: Some(10)),
+                Ok(LockAttempt.Acquired),
+            ),
+            check(
+                "bytes across both",
+                fs.try_lock(b, LockMode.Shared, start: 5, length: Some(10)),
+                Ok(LockAttempt.Busy),
+            ),
+            check(
+                "every byte past the end",
+                fs.try_lock(a, LockMode.Exclusive, start: 1000),
+                Ok(LockAttempt.Acquired),
+            ),
+            check(
+                "a byte among them",
+                fs.try_lock(b, LockMode.Shared, start: 2000, length: Some(1)),
+                Ok(LockAttempt.Busy),
+            ),
+        ])
+    end)
+end
+
+fn rule_lock_close(dir: String) -> Maybe<String>
+    on_two_handles(path.join(dir, "db"), fn a, b ->
+        first([
+            check("exclusive", fs.try_lock(a, LockMode.Exclusive), Ok(LockAttempt.Acquired)),
+            check("close",     File.close(a),                      Ok(Unit)),
+            check(
+                "exclusive after the close",
+                fs.lock(b, LockMode.Exclusive, timeout: Duration.seconds(1)),
+                Ok(Unit),
+            ),
+        ])
+    end)
+end
+
+fn rule_lock_timeout(dir: String) -> Maybe<String>
+    on_two_handles(path.join(dir, "db"), fn a, b ->
+        first([
+            check("exclusive", fs.lock(a, LockMode.Exclusive), Ok(Unit)),
+            check(
+                "a wait that runs out",
+                fs.lock(b, LockMode.Shared, timeout: Duration.milliseconds(20)),
+                Err(Error.TimedOut),
+            ),
+            check(
+                "no wait",
+                fs.lock(b, LockMode.Shared, timeout: Duration.nanoseconds(0)),
+                Err(Error.TimedOut),
+            ),
+        ])
+    end)
+end
+
+fn rule_lock_read_only(dir: String) -> Maybe<String>
+    p = path.join(dir, "r.db")
+    written = fs.write_text(p, "")
+
+    case fs.open_file(p)
+        Err(e) ->
+            Some("open_file: ${e}")
+
+        Ok(f) ->
+            defer File.close_quietly(f)
+
+            first([
+                check("write the file", written, Ok(Unit)),
+                check(
+                    "exclusive",
+                    fs.try_lock(f, LockMode.Exclusive),
+                    Err(Error.PermissionDenied{path: p}),
+                ),
+                check("shared", fs.try_lock(f, LockMode.Shared), Ok(LockAttempt.Acquired)),
+            ])
+    end
+end
+
 fn rule_within(dir: String) -> Maybe<String>
     site = path.join(dir, "site")
 
-    inside = fn ->
-        fs.within(site, fn ->
-            fs.write_text("new.txt", "n")?
-            fs.create_dir("sub")?
+    inside =
+        fn ->
+            fs.within(site, fn ->
+                fs.write_text("new.txt", "n")?
+                fs.create_dir("sub")?
 
-            Ok([
-                fs.read_text("index.txt"),
-                fs.read_text(path.join(site, "index.txt")),
-                fs.read_text("sub/../index.txt"),
-                fs.current_dir(),
-                Result.map(fs.list("."), fn es ->
-                    es |> Iter.map(fn e -> e.name) |> String.join(",")
-                end),
-            ])
-        end)
-    end
+                Ok([
+                    fs.read_text("index.txt"),
+                    fs.read_text(path.join(site, "index.txt")),
+                    fs.read_text("sub/../index.txt"),
+                    fs.current_dir(),
+                    Result.map(fs.list("."), fn es ->
+                        es |> Iter.map(fn e -> e.name) |> String.join(",")
+                    end),
+                ])
+            end)
+        end
 
     first([
         check("make site",       fs.create_dir(site),                              Ok(Unit)),
@@ -972,14 +1192,15 @@ fn rule_within_escape(dir: String) -> Maybe<String>
     site = path.join(dir, "site")
     secret = path.join(dir, "secret.txt")
 
-    escaped = fn p: String ->
-        Err(
-            Error.InvalidPath{
-                path:   p,
-                reason: "the path leads outside the directory fs.within confines calls to",
-            }
-        )
-    end
+    escaped =
+        fn p: String ->
+            Err(
+                Error.InvalidPath{
+                    path:   p,
+                    reason: "the path leads outside the directory it is confined to",
+                }
+            )
+        end
 
     setup = [
         check("make site",        fs.create_dir(site),        Ok(Unit)),
@@ -1027,4 +1248,254 @@ end
 fn rule_within_missing(dir: String) -> Maybe<String>
     none = path.join(dir, "none")
     check("within", fs.within(none, fn -> Ok(Unit)), Err(Error.NotFound{path: none}))
+end
+
+/// Calls body with a Dir of `<dir>/site`, made holding `index.txt`, after
+/// the checks setup makes once the directory is there.
+fn on_site(
+    dir:   String,
+    setup: () -> List<Maybe<String>>,
+    body:  (Dir) -> Maybe<String>,
+) -> Maybe<String>
+    site = path.join(dir, "site")
+
+    made = first([
+        check("make site",       fs.create_dir(site),                              Ok(Unit)),
+        check("write index.txt", fs.write_text(path.join(site, "index.txt"), "i"), Ok(Unit)),
+    ])
+
+    if Maybe.is_some(made) then return made
+    made_too = first(setup())
+    if Maybe.is_some(made_too) then return made_too
+
+    if Maybe.is_some(made) then return made
+
+    case fs.open_dir(site)
+        Err(e) ->
+            Some("open_dir: ${e}")
+
+        Ok(d) ->
+            defer Dir.close(d)
+            body(d)
+    end
+end
+
+/// What `read` answers in the directory `name` under `d`, opened as a Dir
+/// of its own.
+fn in_subdir(d: Dir, name: String, read: (Dir) -> Result<String, Error>) -> Result<String, Error>
+    sub = Dir.subdir(d, name)?
+    defer Dir.close(sub)
+    read(sub)
+end
+
+fn rule_dir_reach(dir: String) -> Maybe<String>
+    site = path.join(dir, "site")
+
+    names =
+        fn listed: Result<List<Entry>, Error> ->
+            Result.map(listed, fn es -> es |> Iter.map(fn e -> e.name) |> String.join(","))
+        end
+
+    on_site(dir, fn -> [], fn d ->
+        first([
+            check("read", Dir.read_text(d, "index.txt"), Ok("i")),
+            check(
+                "read by the absolute path",
+                Dir.read_text(d, path.join(site, "index.txt")),
+                Ok("i"),
+            ),
+            check(
+                "write under a missing directory",
+                Dir.write_text(d, "sub/x.txt", "x"),
+                Err(Error.NotFound{path: "sub"}),
+            ),
+            check("create_dir", Dir.create_dir(d, "sub"),            Ok(Unit)),
+            check("write",      Dir.write_text(d, "sub/x.txt", "x"), Ok(Unit)),
+            check("rename",     Dir.rename(d, "sub/x.txt", "y.txt"), Ok(Unit)),
+            check(
+                "a link that stays inside",
+                Dir.create_symlink(d, "in", target: "sub/../y.txt"),
+                Ok(Unit),
+            ),
+            check("read through it", Dir.read_text(d, "in"),  Ok("x")),
+            check("list",            names(Dir.list(d, ".")), Ok("in,index.txt,sub,y.txt")),
+            check(
+                "a subdir",
+                in_subdir(d, "sub", fn sub ->
+                    Dir.write_text(sub, "z.txt", "z")?
+                    Dir.read_text(sub, "z.txt")
+                end),
+                Ok("z"),
+            ),
+            check("what it wrote, from outside", fs.read_text(path.join(site, "y.txt")), Ok("x")),
+            check("and in the subdir", fs.read_text(path.join(site, "sub/z.txt")), Ok("z")),
+        ])
+    end)
+end
+
+fn rule_dir_escape(dir: String) -> Maybe<String>
+    site = path.join(dir, "site")
+    secret = path.join(dir, "secret.txt")
+
+    escape =
+        fn p: String ->
+            Error.InvalidPath{
+                path:   p,
+                reason: "the path leads outside the directory it is confined to",
+            }
+        end
+
+    opened = fn r: Result<File, Error> -> Result.map(r, fn f -> File.close(f))
+    size = fn r: Result<Metadata, Error> -> Result.map(r, fn m -> m.size)
+
+    setup = fn -> [
+        check("write the secret", fs.write_text(secret, "s"), Ok(Unit)),
+        check(
+            "link out",
+            fs.create_symlink(path.join(site, "out"), target: "../secret.txt"),
+            Ok(Unit),
+        ),
+        check(
+            "link out absolutely",
+            fs.create_symlink(path.join(site, "abs"), target: secret),
+            Ok(Unit),
+        ),
+        check("make sub", fs.create_dir(path.join(site, "sub")), Ok(Unit)),
+        check(
+            "link out below",
+            fs.create_symlink(path.join(site, "sub/out"), target: "../../secret.txt"),
+            Ok(Unit),
+        ),
+        check(
+            "link up below",
+            fs.create_symlink(path.join(site, "sub/up"), target: ".."),
+            Ok(Unit),
+        ),
+    ]
+
+    on_site(dir, setup, fn d ->
+        first([
+            check("..", Dir.read_text(d, "../secret.txt"), Err(escape("../secret.txt"))),
+            check("a link out", Dir.read_text(d, "out"), Err(escape("out"))),
+            check("an absolute link", Dir.read_text(d, "abs"), Err(escape("abs"))),
+            check("an absolute path outside", Dir.read_text(d, secret), Err(escape(secret))),
+            check("a link out below", Dir.read_text(d, "sub/out"), Err(escape("sub/out"))),
+            check(
+                "a link up and out",
+                Dir.read_text(d, "sub/up/../secret.txt"),
+                Err(escape("sub/up/../secret.txt")),
+            ),
+            check("a link up and in", Dir.read_text(d, "sub/up/index.txt"), Ok("i")),
+            check("write", Dir.write_text(d, "../x.txt", "x"), Err(escape("../x.txt"))),
+            check(
+                "rename out",
+                Dir.rename(d, "index.txt", "../moved.txt"),
+                Err(escape("../moved.txt")),
+            ),
+            check(
+                "rename in",
+                Dir.rename(d, "../secret.txt", "s.txt"),
+                Err(escape("../secret.txt")),
+            ),
+            check("copy out", Dir.copy(d, "index.txt", "../copy.txt"), Err(escape("../copy.txt"))),
+            check("copy in", Dir.copy(d, "out", "copy.txt"), Err(escape("out"))),
+            check("remove", Dir.remove(d, "../secret.txt"), Err(escape("../secret.txt"))),
+            check("remove_all", Dir.remove_all(d, "../secret.txt"), Err(escape("../secret.txt"))),
+            check("metadata", size(Dir.metadata(d, "out")), Err(escape("out"))),
+            check("exists", Dir.exists(d, "../secret.txt"), Err(escape("../secret.txt"))),
+            check("list the parent", Result.map(Dir.list(d, ".."), List.length), Err(escape(".."))),
+            check(
+                "open_file",
+                opened(Dir.open_file(d, "out", access: Access.ReadWrite)),
+                Err(escape("out")),
+            ),
+            check("create_dir", Dir.create_dir(d, "../made"), Err(escape("../made"))),
+            check(
+                "a link outside",
+                Dir.create_symlink(d, "../l", target: "x"),
+                Err(escape("../l")),
+            ),
+            check(
+                "subdir of the parent",
+                Result.map(Dir.subdir(d, ".."), Dir.close),
+                Err(escape("..")),
+            ),
+            check("the secret as it was",    fs.read_text(secret),                       Ok("s")),
+            check("nothing written outside", fs.exists(path.join(dir, "x.txt")),         Ok(False)),
+            check("nothing moved outside",   fs.exists(path.join(dir, "moved.txt")),     Ok(False)),
+            check("index.txt where it was",  fs.read_text(path.join(site, "index.txt")), Ok("i")),
+        ])
+    end)
+end
+
+fn rule_dir_closed(dir: String) -> Maybe<String>
+    p = path.join(dir, "kept.txt")
+
+    case fs.open_dir(dir)
+        Err(e) ->
+            Some("open_dir: ${e}")
+
+        Ok(d) ->
+            defer Dir.close(d)
+
+            case Dir.open_file(d, "kept.txt", access: Access.Create)
+                Err(e) ->
+                    Some("open_file: ${e}")
+
+                Ok(f) ->
+                    defer File.close_quietly(f)
+                    Dir.close(d)
+
+                    first([
+                        check(
+                            "read after the close",
+                            Dir.read_text(d, "kept.txt"),
+                            Err(Error.Closed),
+                        ),
+                        check(
+                            "subdir after the close",
+                            Result.map(Dir.subdir(d, "."), Dir.close),
+                            Err(Error.Closed),
+                        ),
+                        check("the file writes", File.write(f, String.to_bytes("k")), Ok(Unit)),
+                        check("and closes",      File.close(f),                       Ok(Unit)),
+                        check("what it wrote",   fs.read_text(p),                     Ok("k")),
+                    ])
+            end
+    end
+end
+
+fn rule_dir_temp(dir: String) -> Maybe<String>
+    case fs.open_dir(dir)
+        Err(e) ->
+            Some("open_dir: ${e}")
+
+        Ok(d) ->
+            defer Dir.close(d)
+            a = Dir.make_temp_file(d)
+            b = Dir.make_temp_file(d)
+            made = Dir.make_temp_dir(d)
+
+            what =
+                fn name: Result<String, Error> ->
+                    Result.flat_map(name, fn n ->
+                        Result.map(Dir.metadata(d, n), fn m -> (m.kind, m.size))
+                    end)
+                end
+
+            named =
+                fn name: Result<String, Error> ->
+                    Result.map(name, fn n ->
+                        String.starts_with(n, "nomi-") and String.length(n) == 21
+                    end)
+                end
+
+            first([
+                check("two names differ", a != b, True),
+                check("a file", what(a), Ok((Kind.File, 0))),
+                check("its name", named(a), Ok(True)),
+                check("a directory", Result.map(what(made), fn k -> k.first), Ok(Kind.Directory)),
+                check("its name", named(made), Ok(True)),
+            ])
+    end
 end

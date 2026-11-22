@@ -7,60 +7,39 @@
 //# `max_pixels` before it decodes any of them, since a small file can
 //# claim a size that would exhaust memory.
 //#
+//# The codecs are C libraries compiled to WebAssembly (engine/image.wasm,
+//# embedded), and each call runs in a fresh instance of it through
+//# `wasm.run`, so every function here is pure. An `Image` holds its pixels,
+//# and a call that makes a new one hands them to the engine and takes the
+//# new ones back.
+//#
 //# ```nomi
 //# import image.{self, Image}
 //#
-//# fn thumbnail(upload: Bytes) -> Result<Bytes, image.Error> {
+//# fn thumbnail(upload: Bytes) -> Result<Bytes, image.Error>
 //#     picture = image.decode(upload)?
 //#     Ok(Image.fit(picture, 300, 200) |> Image.encode_jpeg())
-//# }
+//# end
 //# ```
 
-import std::int.Int64
-
-gopkg "github.com/nomi-language/nomi/lib/image/goside"
-
-opaque type Handle go goside.Image
-
-// Why a call failed, as Go reports it: kind 0 none, 1 an unsupported
-// format, 2 a corrupt image, 3 too many pixels.
-struct Failure
-    kind:    Int
-    message: String
-    width:   Int
-    height:  Int
+import
+    std::bytes.Builder
+    std::embed.Files
+    std::int.Int64
+    std::wasm.{self, Module}
 end
 
-struct Info
-    format:  String
-    width:   Int
-    height:  Int
-    failure: Failure
-end
+/// The engine: stb_image, libwebp's decoder, stb_image_resize2,
+/// stb_image_write and zlib's deflate, compiled with engine/shim.c by
+/// engine/build.sh. shim.c says what each export reads and answers.
+embed engine_wasm `engine/image.wasm`
 
-fn probe_raw(data: Bytes) -> Info go goside.Probe
-
-fn decode_raw(data: Bytes, max_pixels: Pixels) -> (Handle, Failure) go goside.Decode
-
-fn width_raw(h: Handle) -> Int go goside.Width
-
-fn height_raw(h: Handle) -> Int go goside.Height
-
-fn format_raw(h: Handle) -> String go goside.Format
-
-fn fit_raw(h: Handle, max_width: Pixels, max_height: Pixels) -> Handle go goside.Fit
-
-fn fill_raw(h: Handle, width: Pixels, height: Pixels) -> Handle go goside.Fill
-
-fn crop_raw(h: Handle, x: Offset, y: Offset, width: Pixels, height: Pixels) -> Handle go goside.Crop
-
-fn encode_jpeg_raw(h: Handle, quality: Quality) -> Bytes go goside.EncodeJPEG
-
-fn encode_png_raw(h: Handle) -> Bytes go goside.EncodePNG
+/// The engine's module, compiled once a process: from the artifact cache
+/// after the first process compiles it.
+once engine: Module = wasm.compile(Files.read(engine_wasm, "engine/image.wasm")!)!
 
 /// A number of pixels: a width, a height, or how many an image may hold.
-/// It is at least 1, and at most what Go's image library counts in, a
-/// signed 64-bit integer.
+/// It is at least 1, and at most a signed 64-bit integer.
 pub subtype Pixels PositiveInt and Int64
 
 /// How far into an image a crop starts, in pixels: 0 at the left or top
@@ -127,31 +106,113 @@ end
 derive Equatable for Dimensions
 derive Debug for Dimensions
 
-fn format_of(name: String) -> Maybe<Format>
-    case name
-        "jpeg" -> Some(.Jpeg)
-        "png"  -> Some(.Png)
-        "webp" -> Some(.Webp)
-        _      -> None
+/// The memory an engine call that works in `bytes` may grow to: 64 MiB
+/// more, rounded up to a power of two. The engine refuses an image past
+/// the pixel limit before it allocates for it, so the limit only bounds
+/// what a hostile file makes it take. Rounding keeps the limits few, and a
+/// js/wasm build's engine compiles the module once for each limit.
+fn memory_for(bytes: NonNegativeInt) -> PositiveInt
+    rounded_up(67_108_864 + bytes, 67_108_864)
+end
+
+/// The least of `size` doubled until it is `needed` or more.
+fn rounded_up(needed: Int, size: PositiveInt) -> PositiveInt
+    if size >= needed then
+        size
+    else
+        rounded_up(needed, size * 2)
     end
 end
 
-// The Error a failure reports.
-fn error_of(failure: Failure) -> Error
-    case failure.kind
-        1 -> .UnsupportedFormat
-        2 -> .Corrupt{message: failure.message}
-        3 -> .TooLarge{width: failure.width, height: failure.height}
-        _ -> unreachable "an image call answered a failure kind image.nomi does not know"
+/// The engine's export `name` run over `numbers`, each a u64, and then
+/// `data`, in a fresh instance whose memory may grow to `memory` bytes.
+fn run(
+    name:    String,
+    numbers: List<Int>,
+    data:    Bytes,
+    memory:  NonNegativeInt,
+) -> Result<Bytes, wasm.Error>
+    numbers
+    |> Iter.reduce(Builder.new(), Builder.push_int64_le)
+    |> Builder.to_bytes()
+    |> Bytes.concat(data)
+    |> then &wasm.run(engine, name, &1, memory_limit: memory)
+end
+
+/// The u32 of `answer` at `at`.
+fn u32(answer: Bytes, at: Int) -> NonNegativeInt
+    Bytes.uint32_le_at(answer, at)!
+end
+
+/// What follows the status of `answer`.
+fn after_status(answer: Bytes) -> Bytes
+    Bytes.slice(answer, 1, Bytes.length(answer))
+end
+
+/// What the engine's `answer` to a probe or a decode holds after its
+/// status when the status is done, or the Error it names (shim.c lists
+/// them). A trap, which no input should cause, is the image's corruption.
+fn read(answer: Result<Bytes, wasm.Error>) -> Result<Bytes, Error>
+    case answer
+        Err(e) ->
+            Err(.Corrupt{message: "the decoder failed: ${e}"})
+
+        Ok(bytes) ->
+            rest = after_status(bytes)
+
+            case Bytes.uint8_at(bytes, 0)!
+                0 -> Ok(rest)
+                1 -> Err(.UnsupportedFormat)
+                2 -> Err(.Corrupt{message: Bytes.to_string_lossy(rest)})
+                _ -> Err(.TooLarge{width: u32(rest, 0), height: u32(rest, 4)})
+            end
     end
+end
+
+/// The engine's answer to `name` over pixels an Image holds, or why it
+/// could not make one: a box past what its memory holds.
+fn make(
+    name:    String,
+    numbers: List<Int>,
+    data:    Bytes,
+    memory:  NonNegativeInt,
+) -> Result<Bytes, String>
+    answer =
+        run(name, numbers, data, memory)
+        |> Result.map_err(&"the image engine failed in ${name}: ${&1}")?
+
+    case Bytes.uint8_at(answer, 0)!
+        0 -> Ok(after_status(answer))
+        _ -> Err("the image engine cannot ${name}: ${Bytes.to_string_lossy(after_status(answer))}")
+    end
+end
+
+/// The format the engine numbers `code`: 1, 2 and 3 (shim.c).
+fn format_of(code: Int) -> Format
+    case code
+        1 -> .Jpeg
+        2 -> .Png
+        _ -> .Webp
+    end
+end
+
+/// A size the engine answered, which is at least 1.
+fn pixels(n: Int) -> Pixels
+    Pixels.try_from(n)!
 end
 
 /// `data`'s format and size, read from its header without decoding its
 /// pixels: what a check of an upload needs before it decides to decode.
 pub fn dimensions(data: Bytes) -> Result<Dimensions, Error>
-    info = probe_raw(data)
-    if info.failure.kind != 0 then return Err(error_of(info.failure))
-    Ok(Dimensions{format: format_of(info.format)!, width: info.width, height: info.height})
+    header = run("probe", [], data, memory_for(Bytes.length(data) * 2)) |> read()?
+
+    Ok(
+        Dimensions{
+            format: format_of(Bytes.uint8_at(header, 0)!),
+            width:  u32(header, 1),
+            height: u32(header, 5),
+        }
+    )
 end
 
 /// `data` decoded: a JPEG, PNG or WebP file. An image whose header declares
@@ -159,30 +220,92 @@ end
 /// pixel is decoded. The default, 50 million, is an 8,660 by 5,773 photo,
 /// which decodes into about 200 MB.
 pub fn decode(data: Bytes, max_pixels: Pixels = 50_000_000) -> Result<Image, Error>
-    (handle, failure) = decode_raw(data, max_pixels)
-    if failure.kind != 0 then return Err(error_of(failure))
-    Ok(Image{handle:, format: format_of(format_raw(handle))})
+    // Decoding takes up to 26 bytes a pixel, for a 16-bit PNG with alpha.
+    memory = memory_for(Bytes.length(data) * 2 + max_pixels * 32)
+    decoded = run("decode", [max_pixels], data, memory) |> read()?
+
+    Ok(
+        Image{
+            width:  pixels(u32(decoded, 1)),
+            height: pixels(u32(decoded, 5)),
+            pixels: Bytes.slice(decoded, 9, Bytes.length(decoded)),
+            format: Some(format_of(Bytes.uint8_at(decoded, 0)!)),
+        }
+    )
 end
 
-/// A decoded image. Every operation returns a new `Image`; none changes
-/// the one it is given.
+/// A decoded image: its size, its pixels (8-bit RGBA, not premultiplied,
+/// row after row) and the format it came from. Every operation returns a
+/// new `Image`; none changes the one it is given.
 pub opaque struct Image
-    handle: Handle
+    width:  Pixels
+    height: Pixels
+    pixels: Bytes
 
     /// The format it was decoded from; `None` for an image a resize or a
     /// crop made.
     format: Maybe<Format>
 end
 
+/// `n`, or 1 when it is less: a size computed from a box rounds to no
+/// less than one pixel.
+fn at_least_one(n: Int) -> Pixels
+    pixels(Comparable.max(n, 1))
+end
+
+/// The largest size of `width` by `height` that fits in `max_width` by
+/// `max_height` keeping its shape, rounded to the nearest pixel: never
+/// larger than `width` by `height`, and at least 1 by 1.
+fn fitted(width: Pixels, height: Pixels, max_width: Pixels, max_height: Pixels) -> (Pixels, Pixels)
+    if width <= max_width and height <= max_height then
+        (width, height)
+    else if width * max_height >= height * max_width then
+        (max_width, at_least_one((height * max_width + width / 2) / width))
+    else
+        (at_least_one((width * max_height + height / 2) / height), max_height)
+    end
+end
+
+/// The `width` by `height` part of `image` at `x`, `y`, scaled to
+/// `to_width` by `to_height` with Catmull-Rom (copied, when the sizes are
+/// the same).
+fn scaled(
+    image:     Image,
+    x:         Int,
+    y:         Int,
+    width:     Pixels,
+    height:    Pixels,
+    to_width:  Pixels,
+    to_height: Pixels,
+) -> Image
+    out = to_width * to_height * 4
+    numbers = [x, y, width, height, to_width, to_height, image.width, image.height]
+    memory = memory_for((Bytes.length(image.pixels) + out) * 2)
+
+    Image{
+        width:  to_width,
+        height: to_height,
+        pixels: make("scale", numbers, image.pixels, memory)!,
+        format: None,
+    }
+end
+
+/// The engine's file of `image`, made by `name` with `numbers` before its
+/// size.
+fn encoded(image: Image, name: String, numbers: List<Int>) -> Bytes
+    memory = memory_for(Bytes.length(image.pixels) * 3)
+    make(name, [..numbers, image.width, image.height], image.pixels, memory)!
+end
+
 impl Image
     /// The width in pixels.
     pub fn width(image: Image) -> Int
-        width_raw(image.handle)
+        image.width
     end
 
     /// The height in pixels.
     pub fn height(image: Image) -> Int
-        height_raw(image.handle)
+        image.height
     end
 
     /// The format the image was decoded from, or `None` for one a resize
@@ -195,13 +318,14 @@ impl Image
     /// keeping its shape. An image that already fits is returned as it is:
     /// `fit` never scales up.
     pub fn fit(image: Image, max_width: Pixels, max_height: Pixels) -> Image
-        fitted = Image{handle: fit_raw(image.handle, max_width, max_height), format: None}
+        w = image.width
+        h = image.height
+        (to_width, to_height) = fitted(w, h, max_width, max_height)
 
-        if Image.width(fitted) == Image.width(image)
-            and Image.height(fitted) == Image.height(image) then
+        if to_width == w and to_height == h then
             image
         else
-            fitted
+            scaled(image, 0, 0, w, h, to_width, to_height)
         end
     end
 
@@ -209,26 +333,38 @@ impl Image
     /// until it covers the box, keeping its shape, then cut to the box
     /// around its center.
     pub fn fill(image: Image, width: Pixels, height: Pixels) -> Image
-        Image{handle: fill_raw(image.handle, width, height), format: None}
+        sw = image.width
+        sh = image.height
+
+        // The largest part of the image with the box's shape.
+        (cw, ch) =
+            if sw * height > sh * width then
+                (at_least_one((sh * width + height / 2) / height), sh)
+            else
+                (sw, at_least_one((sw * height + width / 2) / width))
+            end
+
+        scaled(image, (sw - cw) / 2, (sh - ch) / 2, cw, ch, width, height)
     end
 
     /// The part of `image` whose top left corner is at `x`, `y` and that is
     /// `width` by `height`, which must lie inside the image.
     pub fn crop(image: Image, x: Offset, y: Offset, width: Pixels, height: Pixels) -> Image
-        inside = x + width <= Image.width(image) and y + height <= Image.height(image)
+        inside = x + width <= image.width and y + height <= image.height
 
         if not inside then unreachable "Image.crop's rectangle must lie inside the image"
-        Image{handle: crop_raw(image.handle, x, y, width, height), format: None}
+        scaled(image, x, y, width, height, width, height)
     end
 
     /// `image` as a JPEG file at `quality`. JPEG has no transparency, so a
-    /// transparent pixel is written as its color.
+    /// pixel is written as its color over black: a transparent one is
+    /// black.
     pub fn encode_jpeg(image: Image, quality: Quality = 90) -> Bytes
-        encode_jpeg_raw(image.handle, quality)
+        encoded(image, "encode_jpeg", [quality])
     end
 
     /// `image` as a PNG file.
     pub fn encode_png(image: Image) -> Bytes
-        encode_png_raw(image.handle)
+        encoded(image, "encode_png", [])
     end
 end

@@ -21,7 +21,8 @@
 #   `'self'`. The bodies carry no per-page or content-hashed text, so the
 #   nine hashes cover all 69 pages.
 # - `script-src 'wasm-unsafe-eval'` is required by the Go interpreter wasm,
-#   the tree-sitter wasm, and Pagefind's search wasm. `'unsafe-eval'` is NOT
+#   the modules a program runs with std::wasm (compiled in the worker by
+#   the browser's engine), the tree-sitter wasm, and Pagefind's search wasm. `'unsafe-eval'` is NOT
 #   required: the only `eval` in the vendored `web-tree-sitter.js` is
 #   Emscripten's EM_ASM/EM_JS support, and our grammar wasm has no such
 #   section.

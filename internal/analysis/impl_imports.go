@@ -47,44 +47,26 @@ type ProgramFile struct {
 // impl counts. A call inside F to F's own impl, such as recursion, does not.
 //
 // It records what it decides on the program (Program.ImplImportUnused) and
-// writes no file's analysis.
+// writes no file's analysis. A check reads each file as ImplImportFacts
+// keyed by analysis and node; a reduction over stored facts
+// (reduceImplImports) reads them keyed by module key and DeclRef. Both
+// decide by unusedImports.
 func CheckImplImports(program []ProgramFile) map[*FileAnalysis][]TypeError {
-	pending := false
-	for _, f := range program {
-		if f.FA != nil && len(f.FA.ImplImports) > 0 {
-			pending = true
-			break
-		}
-	}
-	if !pending {
+	if !implImportsPending(program) {
 		return nil
 	}
-	byScope := make(map[*Scope]ProgramFile, len(program))
+	return newKeptImplUses(program).settle(program)
+}
+
+// implImportsPending reports whether a file of program has a whole-file
+// import no name uses.
+func implImportsPending(program []ProgramFile) bool {
 	for _, f := range program {
-		if f.FA != nil && f.FA.ModuleScope != nil {
-			byScope[f.FA.ModuleScope] = f
+		if f.FA != nil && len(f.FA.ImplImports) > 0 {
+			return true
 		}
 	}
-	uses := collectImplUses(program)
-	var out map[*FileAnalysis][]TypeError
-	for _, f := range program {
-		if f.FA == nil {
-			continue
-		}
-		for _, ii := range f.FA.ImplImports {
-			target, ok := byScope[ii.module]
-			unused := !ok || !uses.usesImplIn(target)
-			f.FA.Program().settleImplImport(ii, unused)
-			if !unused {
-				continue
-			}
-			if out == nil {
-				out = make(map[*FileAnalysis][]TypeError)
-			}
-			out[f.FA] = append(out[f.FA], unusedImportError(ii.UnusedImport))
-		}
-	}
-	return out
+	return false
 }
 
 type implPair struct {
@@ -104,7 +86,7 @@ type implUses struct {
 
 // demanded reports whether some file demands pair.
 func (u implUses) demanded(pair implPair) bool {
-	return u.pairs[pair] || (u.base != nil && u.base.pairs[pair])
+	return u.pairs[pair] || u.base != nil && u.base.pairs[pair]
 }
 
 func (u implUses) addDecl(n ast.Node, from *FileAnalysis) {
@@ -114,82 +96,45 @@ func (u implUses) addDecl(n ast.Node, from *FileAnalysis) {
 	u.decls[n][from] = true
 }
 
-func collectImplUses(program []ProgramFile) implUses {
-	u := implUses{decls: make(map[ast.Node]map[*FileAnalysis]bool), pairs: make(map[implPair]bool)}
-	// The demands are every file's of the program the files belong to, the
-	// stdlib's included, and those of the files themselves.
-	demanders := map[*FileAnalysis]bool{}
-	programs := map[*Program]bool{}
-	var base *StdBase
-	for _, f := range program {
-		if f.FA == nil {
-			continue
-		}
-		demanders[f.FA] = true
-		programs[f.FA.Program()] = true
-		if b := f.FA.Program().stdBase; b != nil {
-			base = b
-		}
+// implImportsOf is the whole-file imports of fa no name uses, in order,
+// each with the file it imports as target answers it (the zero F for none
+// of the program's) and its diagnostic.
+func implImportsOf[F comparable](fa *FileAnalysis, target func(*Scope) F) []ImplImportFact[F] {
+	out := make([]ImplImportFact[F], 0, len(fa.ImplImports))
+	for _, ii := range fa.ImplImports {
+		out = append(out, ImplImportFact[F]{Target: target(ii.module), Err: unusedImportError(ii.UnusedImport)})
 	}
-	for p := range programs {
-		for _, file := range p.Files() {
-			demanders[file] = true
-		}
-	}
-	// A stdlib base's files demand what the base records, and no reference
-	// in one of them reaches a program file's impl.
-	files := make([]*FileAnalysis, 0, len(demanders))
-	for fa := range demanders {
-		files = append(files, fa)
-	}
-	if base.ownsAll(files) {
-		u.base = base
-	}
-	for fa := range demanders {
-		if u.base.Owns(fa) {
-			continue
-		}
-		noteStdlibWork(fa.Origin)
-		for iface, byType := range fa.ImplManifest {
-			for typeName := range byType {
-				u.pairs[implPair{typeName: typeName, iface: iface}] = true
-			}
-		}
-	}
-	for _, f := range program {
-		fa := f.FA
-		if fa == nil || base.Owns(fa) {
-			continue
-		}
-		noteStdlibWork(fa.Origin)
-		for _, ref := range fa.References {
-			if ref == nil {
-				continue
-			}
-			if ref.DispatchImpl != nil {
-				u.addDecl(ref.DispatchImpl, fa)
-			}
-			for r := ref; r != nil; r = r.Resolved {
-				if r.Kind != SymbolFunction {
-					continue
-				}
-				switch r.Node.(type) {
-				case *ast.FuncDef, *ast.ExternFunc:
-					u.addDecl(r.Node, fa)
-				}
-			}
-		}
-	}
-	return u
+	return out
 }
 
-// usesImplIn reports whether the program uses an impl block that the file
-// target declares for a type it does not declare. A call from inside the file
-// itself, such as an impl function calling itself, does not count.
-func (u implUses) usesImplIn(target ProgramFile) bool {
-	nodes := target.Nodes
+// implUsesOf passes each function fa's references resolve or dispatch to,
+// in no order and perhaps more than once, to use.
+func implUsesOf(fa *FileAnalysis, use func(ast.Node)) {
+	for _, ref := range fa.References {
+		if ref == nil {
+			continue
+		}
+		if ref.DispatchImpl != nil {
+			use(ref.DispatchImpl)
+		}
+		for r := ref; r != nil; r = r.Resolved {
+			if r.Kind != SymbolFunction {
+				continue
+			}
+			switch r.Node.(type) {
+			case *ast.FuncDef, *ast.ExternFunc:
+				use(r.Node)
+			}
+		}
+	}
+}
+
+// foreignImplsOf is the impl blocks of the file analyzed as fa with nodes
+// for a type it does not declare, their functions keyed by key.
+func foreignImplsOf[K comparable](fa *FileAnalysis, nodes []ast.Node, key func(ast.Node) K) []ForeignImplFact[K] {
 	declared := make(map[string]bool)
 	collectDeclaredTypeNames(nodes, declared)
+	var out []ForeignImplFact[K]
 	for _, n := range nodes {
 		block, ok := n.(*ast.ImplBlock)
 		if !ok || block.Receiver == nil {
@@ -199,16 +144,46 @@ func (u implUses) usesImplIn(target ProgramFile) bool {
 		if recv == "" || declared[recv] {
 			continue
 		}
+		fi := ForeignImplFact[K]{Recv: recv, HasInterface: block.Interface != nil}
+		if block.Interface != nil {
+			fi.Iface = implInterfaceName(fa, block.Interface)
+		}
 		for _, item := range block.Items {
-			for from := range u.decls[item] {
-				if from != target.FA {
-					return true
+			fi.Items = append(fi.Items, key(item))
+		}
+		out = append(out, fi)
+	}
+	return out
+}
+
+// unusedImports decides each of imports, one file's whole-file imports no
+// name uses. One is unused when it imports none of the program's files
+// (foreignOf answers false for its target), or when the program uses none
+// of the impl blocks its file writes for a type it does not declare
+// (foreignOf's answer). The program uses such a block when a file other
+// than the block's own calls one of its functions (usedBy holds the files
+// whose references reach each function), or demands its (type, interface)
+// pair.
+func unusedImports[F, K comparable](imports []ImplImportFact[F], foreignOf func(F) ([]ForeignImplFact[K], bool), usedBy map[K]map[F]bool, demanded func(implPair) bool) []bool {
+	usesImplIn := func(target F, foreign []ForeignImplFact[K]) bool {
+		for _, block := range foreign {
+			for _, item := range block.Items {
+				for from := range usedBy[item] {
+					if from != target {
+						return true
+					}
 				}
 			}
+			if block.HasInterface && demanded(implPair{typeName: block.Recv, iface: block.Iface}) {
+				return true
+			}
 		}
-		if block.Interface != nil && u.demanded(implPair{typeName: recv, iface: TypeExprBaseName(block.Interface)}) {
-			return true
-		}
+		return false
 	}
-	return false
+	out := make([]bool, len(imports))
+	for i, ii := range imports {
+		foreign, ok := foreignOf(ii.Target)
+		out[i] = !ok || !usesImplIn(ii.Target, foreign)
+	}
+	return out
 }

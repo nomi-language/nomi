@@ -12,9 +12,8 @@ package irbuild
 // std anchor family uses and the reason a per-gen def would be wrong here: a
 // stdFunc's parameter kinds are built once and compared by pointer against a
 // call site's kinds in a different gen. Never by NAME — a user module may
-// declare its own `Decimal`, and `stdHostAnchors` already refuses to anchor the
-// spelling in that module, so a name test would claim a type this builder has
-// no representation for.
+// declare its own `Decimal`, which the checker types as that module's type,
+// so a name test would claim a type this builder has no representation for.
 func isDecimalKind(k kind) bool {
 	d := decimalKind()
 	// An unanchored Decimal must not match every kindInvalid operand, which would

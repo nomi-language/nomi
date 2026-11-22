@@ -169,12 +169,13 @@ fn main()
         "a" => JV.Obj{"b" => JV.Arr[JV.Num(99)]},
     }
 
-    inner = case nested
-        .Obj{
-            "a" => .Obj{"b" => .Arr[.Num(n)]},
-        } -> n
-        _ -> -1
-    end
+    inner =
+        case nested
+            .Obj{
+                "a" => .Obj{"b" => .Arr[.Num(n)]},
+            } -> n
+            _ -> -1
+        end
 
     io.print("nested inner = ${inner}")
     io.print("nested outer = ${obj_sig(nested, "a")}")
@@ -182,18 +183,20 @@ fn main()
     // --- the CONSUMING side: a spread tail -----------------------------------
     // The list pattern is exercised at a length it does NOT fix as well as at
     // one it does, because those are two different emitted length tests.
-    from_arr_spread = case arr_flat
-        .Arr[.Num(a), ..rest] -> "head=${a} rest=${Iter.count(rest)}"
-        _                     -> "miss"
-    end
+    from_arr_spread =
+        case arr_flat
+            .Arr[.Num(a), ..rest] -> "head=${a} rest=${Iter.count(rest)}"
+            _                     -> "miss"
+        end
 
     io.print("from_arr_spread = ${from_arr_spread}")
 
     // The CALL-form pattern, which must agree with the flat one.
-    from_arr_call = case arr_flat
-        .Arr([.Num(a), .Num(b), .Num(c)]) -> "${a},${b},${c}"
-        _                                 -> "miss"
-    end
+    from_arr_call =
+        case arr_flat
+            .Arr([.Num(a), .Num(b), .Num(c)]) -> "${a},${b},${c}"
+            _                                 -> "miss"
+        end
 
     io.print("flat and call patterns agree = ${arr_sig(arr_flat) == from_arr_call}")
 
@@ -206,50 +209,55 @@ fn main()
     // through to the honest answer.
     meta = JV.Meta{"a" => JV.Num(5)}
 
-    map_tag_matters = case meta
-        .Obj{"a" => .Num(n)}  -> "wrongly matched Obj ${n}"
-        .Meta{"a" => .Num(n)} -> "meta ${n}"
-        _                     -> "fell through"
-    end
+    map_tag_matters =
+        case meta
+            .Obj{"a" => .Num(n)}  -> "wrongly matched Obj ${n}"
+            .Meta{"a" => .Num(n)} -> "meta ${n}"
+            _                     -> "fell through"
+        end
 
     io.print("map_tag_matters = ${map_tag_matters}")
 
     // Same construction for the list half, whose tag test is a different call.
     tail = JV.Tail[JV.Num(6), JV.Num(7), JV.Num(8)]
 
-    list_tag_matters = case tail
-        .Arr[.Num(a), .Num(b), .Num(c)]  -> "wrongly matched Arr ${a},${b},${c}"
-        .Tail[.Num(a), .Num(b), .Num(c)] -> "tail ${a},${b},${c}"
-        _                                -> "fell through"
-    end
+    list_tag_matters =
+        case tail
+            .Arr[.Num(a), .Num(b), .Num(c)]  -> "wrongly matched Arr ${a},${b},${c}"
+            .Tail[.Num(a), .Num(b), .Num(c)] -> "tail ${a},${b},${c}"
+            _                                -> "fell through"
+        end
 
     io.print("list_tag_matters = ${list_tag_matters}")
 
     // And the plain non-match, kept because it covers the ordinary case where
     // the two payload TYPES differ as well.
-    wrong_tag = case arr_flat
-        .Obj{"a" => .Num(n)} -> "wrongly matched ${n}"
-        _                    -> "fell through"
-    end
+    wrong_tag =
+        case arr_flat
+            .Obj{"a" => .Num(n)} -> "wrongly matched ${n}"
+            _                    -> "fell through"
+        end
 
     io.print("wrong_tag = ${wrong_tag}")
 
     // And a list pattern at the WRONG ARITY, so the length test is a test too.
     // A two-element pattern against three elements must NOT match, which is the
     // rule that separates an exact-length match from a spread.
-    wrong_arity = case arr_flat
-        .Arr[.Num(a), .Num(b)] -> "wrongly matched ${a},${b}"
-        _                      -> "fell through"
-    end
+    wrong_arity =
+        case arr_flat
+            .Arr[.Num(a), .Num(b)] -> "wrongly matched ${a},${b}"
+            _                      -> "fell through"
+        end
 
     io.print("wrong_arity = ${wrong_arity}")
 
     // And a distinct list pattern at the wrong arity, which unwraps by
     // conversion rather than by tag and so tests a different code path.
-    wrong_items = case items
-        Items[a, b] -> "wrongly matched ${a},${b}"
-        _           -> "fell through"
-    end
+    wrong_items =
+        case items
+            Items[a, b] -> "wrongly matched ${a},${b}"
+            _           -> "fell through"
+        end
 
     io.print("wrong_items = ${wrong_items}")
 end

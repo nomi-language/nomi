@@ -24,6 +24,12 @@ import (
 // declaring file's CheckTypes reports at the declaration. After the phase the
 // table is read-only, so what a file's check sees does not depend on which
 // file was checked first.
+//
+// The phase also gives the other parts of a file's interface that only
+// checking an expression tells: the types of fields and parameters that
+// come from their defaults (default_type.go), first, and the declaration
+// each `impl Release` and `impl Commit` function's one call names
+// (resourceSite), last.
 type OnceTable struct {
 	sites map[*ast.OnceBinding]onceSite
 	// checking is the bindings whose value the inference phase is checking,
@@ -45,6 +51,9 @@ type OnceTable struct {
 	// defaults are the fields and parameters whose type comes from their
 	// default (default_type.go), which the phase infers first.
 	defaults []*defaultSite
+	// resources are the functions of `impl Release` and `impl Commit`
+	// blocks, whose one call the phase resolves last (resourceSite).
+	resources []resourceSite
 }
 
 // onceSite is where a `once` is declared: its file, that file's nodes (a
@@ -65,7 +74,8 @@ func NewOnceTable() *OnceTable {
 	}
 }
 
-// Index records every module-level `once` of one file.
+// Index records every module-level `once` of one file, and its `impl
+// Release` and `impl Commit` functions.
 func (t *OnceTable) Index(fa *FileAnalysis, nodes []ast.Node) {
 	for _, node := range nodes {
 		owner := ""
@@ -75,6 +85,7 @@ func (t *OnceTable) Index(fa *FileAnalysis, nodes []ast.Node) {
 		for _, n := range moduleOnces(node) {
 			t.sites[n] = onceSite{fa: fa, nodes: nodes, owner: owner}
 		}
+		t.resources = append(t.resources, resourceSitesOf(fa, nodes, node)...)
 	}
 }
 
@@ -117,8 +128,22 @@ func (t *OnceTable) infer() {
 		for _, n := range pending {
 			t.inferType(n)
 		}
+		t.resolveResources(nil)
 		t.inferred = true
 	})
+}
+
+// resolveResources resolves the call of each resource site of files, or of
+// every file when files is nil (resourceSite.resolve), and reports whether
+// a record changed.
+func (t *OnceTable) resolveResources(files map[*FileAnalysis]bool) bool {
+	changed := false
+	for _, s := range t.resources {
+		if files == nil || files[s.fa] {
+			changed = s.resolve() || changed
+		}
+	}
+	return changed
 }
 
 // sortForInference sorts bindings into the order the inference phase infers
@@ -144,9 +169,14 @@ func (t *OnceTable) sortForInference(pending []*ast.OnceBinding) {
 // now or before, or one's value reads an unannotated `once` of another file,
 // whose type was inferred against the old values. When it reports none,
 // each binding keeps the type object it had (early cutoff), so nothing that
-// reads one changes.
+// reads one changes. It resolves the files' resource sites again too, and
+// reports a call that now names another declaration, which another file's
+// release check reads.
 func (t *OnceTable) reinfer(files map[*FileAnalysis]bool) bool {
 	if t == nil || !t.inferred {
+		return true
+	}
+	if t.resolveResources(files) {
 		return true
 	}
 	var pending []*ast.OnceBinding

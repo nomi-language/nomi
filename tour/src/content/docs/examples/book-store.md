@@ -56,13 +56,14 @@ end
 
 /// The price, in cents, of a group of `size` different books.
 fn group_price(size: Int) -> Int
-    discount = case size
-        2 -> 5
-        3 -> 10
-        4 -> 20
-        5 -> 25
-        _ -> 0
-    end
+    discount =
+        case size
+            2 -> 5
+            3 -> 10
+            4 -> 20
+            5 -> 25
+            _ -> 0
+        end
 
     size * 800 * (100 - discount) / 100
 end

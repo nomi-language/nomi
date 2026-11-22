@@ -17,6 +17,7 @@
 //# any check the body could run.
 
 import
+    debug.Debug
     duration.Duration
     instant.Instant
     maybe.Maybe
@@ -101,4 +102,11 @@ impl Context
     //! assert Context.value(root, TraceId) == Maybe.None
     //
     pub host fn value<T>(c: Context, value_type: Type<T>) -> Maybe<T>
+end
+
+impl Debug for Context
+    /// `<context>`, with the deadline and the values left out, so that a
+    /// rendering never depends on the clock. `Context.deadline` reads the
+    /// deadline.
+    host fn inspect(c: Context) -> String
 end

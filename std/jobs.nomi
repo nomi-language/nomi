@@ -338,16 +338,17 @@ impl Unique
     //! assert Unique.key_for(Unique{key: "post:7"}, "email", at) == "[\"email\",\"post:7\"]"
     //
     pub fn key_for(unique: Unique, kind: String, now: Instant) -> String
-        bucket = case unique.period
-            Some(period) ->
-                // A PositiveDuration's nanoseconds are more than zero, a
-                // PositiveInt.
-                n = Duration.as_nanos(period)
-                [rfc3339(Instant.from_nanos(Int.floor_div(Instant.as_nanos(now), n) * n))]
+        bucket =
+            case unique.period
+                Some(period) ->
+                    // A PositiveDuration's nanoseconds are more than zero, a
+                    // PositiveInt.
+                    n = Duration.as_nanos(period)
+                    [rfc3339(Instant.from_nanos(Int.floor_div(Instant.as_nanos(now), n) * n))]
 
-            None ->
-                []
-        end
+                None ->
+                    []
+            end
 
         key_of([kind, unique.key] + bucket)
     end
@@ -558,16 +559,17 @@ impl Cron
     //!     })
     //
     pub fn parse(text: String) -> Result<Cron, CronError>
-        expanded = case String.trim(text)
-            "@yearly"   -> "0 0 1 1 *"
-            "@annually" -> "0 0 1 1 *"
-            "@monthly"  -> "0 0 1 * *"
-            "@weekly"   -> "0 0 * * 0"
-            "@daily"    -> "0 0 * * *"
-            "@midnight" -> "0 0 * * *"
-            "@hourly"   -> "0 * * * *"
-            _           -> text
-        end
+        expanded =
+            case String.trim(text)
+                "@yearly"   -> "0 0 1 1 *"
+                "@annually" -> "0 0 1 1 *"
+                "@monthly"  -> "0 0 1 * *"
+                "@weekly"   -> "0 0 * * 0"
+                "@daily"    -> "0 0 * * *"
+                "@midnight" -> "0 0 * * *"
+                "@hourly"   -> "0 * * * *"
+                _           -> text
+            end
 
         if String.starts_with(expanded, "@") then
             return Err(
@@ -758,59 +760,66 @@ end
 // The values one item of a field's list names: `*`, `a`, `a-b`, each with
 // an optional `/step`.
 fn item_values(item: Piece, f: Field) -> Result<Set<Int>, CronError>
-    (range, step) = case String.split(item.text, "/")
-        [range] ->
-            (range, None)
+    (range, step) =
+        case String.split(item.text, "/")
+            [range] ->
+                (range, None)
 
-        [range, step_text] ->
-            at = item.offset + String.length(range) + 1
+            [range, step_text] ->
+                at = item.offset + String.length(range) + 1
 
-            case digits(step_text)
-                Some(n) when n >= 1 ->
-                    (range, Some(n))
+                case digits(step_text)
+                    Some(n) when n >= 1 ->
+                        (range, Some(n))
 
-                _ ->
-                    return Err(
-                        CronError{
-                            offset:  at,
-                            message: "a step is a whole number from 1, not ${step_text}",
-                        }
-                    )
-            end
-
-        _ ->
-            return Err(CronError{offset: item.offset, message: "${item.text} has more than one /"})
-    end
-
-    (low, high) = if range == "*" then
-        (f.low, f.star_high)
-    else
-        case String.split(range, "-")
-            [one] ->
-                n = value(one, item.offset, f)?
-
-                if Maybe.is_some(step) then
-                    (n, f.star_high)
-                else
-                    (n, n)
+                    _ ->
+                        return Err(
+                            CronError{
+                                offset:  at,
+                                message: "a step is a whole number from 1, not ${step_text}",
+                            }
+                        )
                 end
-
-            [from, to] ->
-                a = value(from, item.offset, f)?
-                b = value(to, item.offset + String.length(from) + 1, f)?
-
-                if a > b then
-                    return Err(
-                        CronError{offset: item.offset, message: "the range ${range} runs backwards"}
-                    )
-                end
-
-                (a, b)
 
             _ ->
-                return Err(CronError{offset: item.offset, message: "${range} is not a range"})
+                return Err(
+                    CronError{offset: item.offset, message: "${item.text} has more than one /"}
+                )
         end
-    end
+
+    (low, high) =
+        if range == "*" then
+            (f.low, f.star_high)
+        else
+            case String.split(range, "-")
+                [one] ->
+                    n = value(one, item.offset, f)?
+
+                    if Maybe.is_some(step) then
+                        (n, f.star_high)
+                    else
+                        (n, n)
+                    end
+
+                [from, to] ->
+                    a = value(from, item.offset, f)?
+                    b = value(to, item.offset + String.length(from) + 1, f)?
+
+                    if a > b then
+                        return Err(
+                            CronError{
+                                offset:  item.offset,
+                                message: "the range ${range} runs backwards",
+                            }
+                        )
+                    end
+
+                    (a, b)
+
+                _ ->
+                    return Err(CronError{offset: item.offset, message: "${range} is not a range"})
+            end
+        end
 
     by = Maybe.with_default(step, 1)
 
@@ -1100,10 +1109,11 @@ impl Worker
             _ = Sender.send(slots.sender, Unit)
         end)
 
-        id = case Uuid.v4()
-            Ok(uuid) -> "${uuid}"
-            Err(_)   -> "worker-${Instant.as_nanos(Instant.now())}"
-        end
+        id =
+            case Uuid.v4()
+                Ok(uuid) -> "${uuid}"
+                Err(_)   -> "worker-${Instant.as_nanos(Instant.now())}"
+            end
 
         Worker{
             queue:,
@@ -1466,11 +1476,12 @@ pub fn enqueue_due(
                 Some(tick) ->
                     on_time = Schedule.next_after(schedule, last) == tick
 
-                    job = if on_time or schedule.missed == Missed.RunLatest then
-                        Some(tick_job(schedule, tick))
-                    else
-                        None
-                    end
+                    job =
+                        if on_time or schedule.missed == Missed.RunLatest then
+                            Some(tick_job(schedule, tick))
+                        else
+                            None
+                        end
 
                     Queue.record_tick(queue, schedule.name, tick, job)
             end
@@ -1737,18 +1748,19 @@ fn run_claimed(worker: Worker, handlers: Map<String, Handler>, claimed: Claimed)
     defer free_slot(worker)
     started = Instant.now()
 
-    answer = case Map.get(handlers, claimed.kind)
-        Some(handler) ->
-            renewing(worker, claimed, fn -> run_one(handler, claimed.args))
+    answer =
+        case Map.get(handlers, claimed.kind)
+            Some(handler) ->
+                renewing(worker, claimed, fn -> run_one(handler, claimed.args))
 
-        None ->
-            Err(
-                Failure.Snooze{
-                    message: "no handler for ${claimed.kind}",
-                    after:   Duration.minutes(1),
-                }
-            )
-    end
+            None ->
+                Err(
+                    Failure.Snooze{
+                        message: "no handler for ${claimed.kind}",
+                        after:   Duration.minutes(1),
+                    }
+                )
+        end
 
     how = settle_for(claimed, answer, Instant.now())
     took = Instant.between(started, Instant.now())

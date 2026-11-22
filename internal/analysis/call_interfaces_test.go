@@ -1,8 +1,9 @@
-package analysis
+package analysis_test
 
 import (
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
@@ -43,8 +44,12 @@ end
 // the checker selects no impl for records the interface instance it goes
 // through, whether it names the bound's type parameter (`C.holds`) or the
 // interface (`Holds.holds`); a call with a selected impl records none.
+// The source is checked over the stdlib, as a program is, so the
+// elaboration gate sees the types a program has: with no stdlib, Bool is
+// the checker's placeholder with no declaration (OriginUnresolved).
 func TestCallInterfaces_RecordTheInstance(t *testing.T) {
-	fa, nodes := checkNodes(t, callInterfacesSrc)
+	fa, nodes, errs := checkSourceAsWrittenWithStdlib(callInterfacesSrc)
+	expectNoStdlibErrors(t, errs)
 	got := map[string]string{}
 	for _, n := range nodes {
 		fd, ok := n.(*ast.FuncDef)
@@ -56,12 +61,8 @@ func TestCallInterfaces_RecordTheInstance(t *testing.T) {
 			if !ok {
 				return true
 			}
-			pos, named := calleeKey(call.Func)
-			if !named {
-				return true
-			}
-			if ref := fa.References[pos]; ref != nil {
-				if ref.CallInterface != nil {
+			if rc := fa.Calls[call]; rc != nil && rc.Callee.Ref != nil {
+				if ref := rc.Callee.Ref; ref.CallInterface != nil {
 					got[fd.Name] = ref.CallInterface.String()
 				} else {
 					got[fd.Name] = "none"
@@ -76,7 +77,7 @@ func TestCallInterfaces_RecordTheInstance(t *testing.T) {
 			t.Errorf("%s: CallInterface %q, want %q", name, got[name], w)
 		}
 	}
-	if vs := besidesStdlessOperators(VerifyElaboration(fa, nodes)); len(vs) > 0 {
+	if vs := analysis.VerifyElaboration(fa, nodes); len(vs) > 0 {
 		t.Fatalf("violations: %v", vs)
 	}
 }

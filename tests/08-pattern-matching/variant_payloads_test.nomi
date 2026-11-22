@@ -65,10 +65,11 @@ end
 test "variant payloads support every payload shape"
     fn_token = Token.Computation(double)
 
-    computed = case fn_token
-        Token.Computation(f) -> f(5)
-        _                    -> 0
-    end
+    computed =
+        case fn_token
+            Token.Computation(f) -> f(5)
+            _                    -> 0
+        end
 
     r: Token = Rect{width: 4.0, height: 5.0}
     e: Token = Expired
@@ -247,10 +248,11 @@ test "a struct-shaped variant's payload matches a record pattern"
 
     assert w == 4
 
-    whole = case (Box.Sized{w: 2, h: 7})
-        .Sized(r) -> r.w + r.h
-        .Empty    -> 0
-    end
+    whole =
+        case (Box.Sized{w: 2, h: 7})
+            .Sized(r) -> r.w + r.h
+            .Empty    -> 0
+        end
 
     assert whole == 9
 end

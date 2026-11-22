@@ -5,7 +5,7 @@ import "testing"
 // TestIRInspectChannel_Runs renders a channel's Debug: a half reads
 // `<channel>` (rt.ChannelInspectText) through Debug.inspect and dbg, and a
 // `Channel<T>` reads as the struct std declares, its two halves in
-// declaration order (rt's debugChannel), at the top, in a struct through its
+// declaration order (rt.DebugText), at the top, in a struct through its
 // derived Debug, and inside a List, a Vector, a tuple, a Map value, a Maybe
 // and a Result payload, an enum variant's payload and a list of structs.
 // Counter's derived Debug is what message_loop's `Config.inspect` calls;

@@ -27,7 +27,7 @@ func phraseTokensOf(t *testing.T, src string) string {
 	t.Helper()
 	s, uri := openProject(t, map[string]string{"main.nomi": src}, "main.nomi")
 	snap := s.docs.Snapshot(uri)
-	return spelledTokens(src, encodeSemanticTokens(snap.Analysis, snap.Nodes, snap.Content))
+	return spelledTokens(src, encodeSemanticTokens(snap.Analysis, snap.Nodes, snap.Content, nil, nil))
 }
 
 // The MF2 in a phrase's or noun's body gets tokens for its syntax, placed in

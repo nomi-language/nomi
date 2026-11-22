@@ -189,11 +189,12 @@ impl Duration
     pub fn format(d: Duration, locale: Locale, width: DurationWidth = DurationWidth.Long) -> String
         Duration(ns) = d
 
-        width_tag: Int64 = case width
-            DurationWidth.Long   -> 1
-            DurationWidth.Short  -> 2
-            DurationWidth.Narrow -> 3
-        end
+        width_tag: Int64 =
+            case width
+                DurationWidth.Long   -> 1
+                DurationWidth.Short  -> 2
+                DurationWidth.Narrow -> 3
+            end
 
         duration_format_raw(locale, ns, width_tag)
     end
@@ -216,12 +217,13 @@ impl Duration
         whole = Int.abs(ns / 1_000_000_000)
         digits = Int.min(fraction_digits, 9)
 
-        fraction = if digits == 0 then
-            ""
-        else
-            nanos = Int.abs(ns % 1_000_000_000) |> Int.to_string() |> String.pad_start(9, "0")
-            "." + String.take(nanos, digits)
-        end
+        fraction =
+            if digits == 0 then
+                ""
+            else
+                nanos = Int.abs(ns % 1_000_000_000) |> Int.to_string() |> String.pad_start(9, "0")
+                "." + String.take(nanos, digits)
+            end
 
         sign = if ns < 0 then "-" else ""
         hours = two_digits(whole / 3600)

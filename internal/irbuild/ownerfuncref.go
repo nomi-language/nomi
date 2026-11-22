@@ -151,11 +151,10 @@ func (bl *irScalarBuilder) callFuncValueOf(ref ast.Node, name string, params []k
 	line, col := calleeRefPos(ref)
 	at := g.irNodePos(ref)
 	f := ir.NewFunc(at, name)
-	sh := &irFuncShell{fn: f, syms: map[string]*ir.Symbol{}, params: map[string]ir.Temp{}, patternOK: true}
-	sh.frame = newIRFuncFrame(f)
+	sh := &irFuncShell{fn: f, params: map[string]ir.Temp{}}
 	sh.entry = f.NewBlock(at, "entry")
-	child := &irScalarBuilder{g: g, sh: sh, f: f, b: sh.entry, parent: bl, bound: map[string]ir.Temp{},
-		boundK: map[string]kind{}, placed: map[ast.Node]irPlacedArg{}, unwritten: true}
+	child := &irScalarBuilder{g: g, sh: sh, f: f, b: sh.entry, parent: bl,
+		placed: map[ast.Node]irPlacedArg{}, unwritten: true}
 	args := make([]ast.Node, len(params))
 	for i, k := range params {
 		// Each operand is a stand-in the call lowers to the parameter's
@@ -173,6 +172,7 @@ func (bl *irScalarBuilder) callFuncValueOf(ref ast.Node, name string, params []k
 		total = len(rec.Params)
 	}
 	defer g.carryCall(call, g.positionalCallOf(ref, len(args), total))()
+	defer g.carryRefResult(call, ref)()
 	if rec != nil {
 		if g.synthDefaults == nil {
 			g.synthDefaults = map[*ast.Call]*analysis.DefaultedCall{}
@@ -191,7 +191,7 @@ func (bl *irScalarBuilder) callFuncValueOf(ref ast.Node, name string, params []k
 	}
 	child.b.SetTerm(ir.NewReturn(at, dst))
 	bl.g.irRequireLint(f, "an owner function value")
-	n := ir.NewFuncValue(at, bl.f.NewTemp(), f)
+	n := ir.NewFuncValue(at, bl.f.NewTemp(), f).KeepFields()
 	bl.b.Append(n)
 	fk := funcKindIn(g, params, result)
 	bl.side(n.Dst(), irScalarSide{k: fk})

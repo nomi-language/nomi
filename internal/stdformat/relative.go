@@ -22,10 +22,10 @@ import (
 // dateFields name them.
 var relativeUnits = []string{"second", "minute", "hour", "day", "week", "month", "quarter", "year"}
 
-// FFIFormatRelative is `calendar.relative_format_raw`: n units from now in
+// HostFormatRelative is `calendar.relative_format_raw`: n units from now in
 // locale, unit by its position in TimeUnit; with numeric false, the
 // locale's word for it when it has one (`yesterday`, `tomorrow`).
-func FFIFormatRelative(fr *rt.Frame, locale string, n rt.Int, unit int64, numeric bool) string {
+func HostFormatRelative(fr *rt.Frame, locale string, n rt.Int, unit int64, numeric bool) string {
 	return Relative(stdlocale.Data(fr), locale, n, unit, numeric)
 }
 
@@ -73,9 +73,9 @@ var durationUnits = []struct {
 // (1-based).
 var unitWidths = map[int64]string{int64(rt.TagDurationLong): "long", int64(rt.TagDurationShort): "short", int64(rt.TagDurationNarrow): "narrow"}
 
-// FFIFormatDuration is `duration.duration_format_raw`: nanos as a reader of
+// HostFormatDuration is `duration.duration_format_raw`: nanos as a reader of
 // locale reads a length of time, at width (DurationWidth's tag).
-func FFIFormatDuration(fr *rt.Frame, locale string, nanos rt.Int, width int64) string {
+func HostFormatDuration(fr *rt.Frame, locale string, nanos rt.Int, width int64) string {
 	return Duration(stdlocale.Data(fr), locale, nanos, width)
 }
 

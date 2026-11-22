@@ -1,27 +1,30 @@
 package hostgen
 
 import (
-	"errors"
 	"strings"
 	"testing"
 
 	"github.com/nomi-language/nomi/rt"
 )
 
-func int8ToInt(int8) int64                { return 0 }
-func int32ToInt(int32) int64              { return 0 }
-func uint64ToInt(uint64) int64            { return 0 }
-func uint16ToInt(uint16) int64            { return 0 }
-func rtIntToInt(rt.Int) int64             { return 0 }
-func int64sToInt([]int64) int64           { return 0 }
-func intCallback(func(int64) int64) int64 { return 0 }
+func int8ToInt(int8) int64                           { return 0 }
+func int32ToInt(int32) int64                         { return 0 }
+func uint64ToInt(uint64) int64                       { return 0 }
+func uint16ToInt(uint16) int64                       { return 0 }
+func rtIntToInt(rt.Int) int64                        { return 0 }
+func int64sToInt([]int64) int64                      { return 0 }
+func intCallback(func(*rt.Frame, int64) int64) int64 { return 0 }
+func intToInt8(int64) int8                           { return 0 }
+func intToUint64(int64) uint64                       { return 0 }
+func intToRtInt(int64) rt.Int                        { return rt.Int{} }
 
 // TestIntPositionsFitTheirGoInteger holds the generator to the range an Int
 // position's declared type admits: a fixed-width Go integer takes it only
 // when every value the type admits fits, read off the subtype chain's
 // `when` bounds and an intersection's members. Anything wider is refused
 // at generation, naming the type to declare, rather than refused by the
-// adapter as the program runs. rt.Int takes any Int.
+// adapter as the program runs. rt.Int takes any Int, and a result may be
+// any width.
 func TestIntPositionsFitTheirGoInteger(t *testing.T) {
 	const source = `import
   int.{Int64, NonNegativeInt}
@@ -74,6 +77,9 @@ pub host fn callback64(f: (Int) -> Int64) -> Int
 		// A callback's result is an Int the Go side receives.
 		{"t.callback", intCallback, "callback: result: Go int64 holds an Int"},
 		{"t.callback64", intCallback, ""},
+		{"t.wide", intToInt8, ""},
+		{"t.wide", intToUint64, ""},
+		{"t.wide", intToRtInt, ""},
 	}
 	src := func(m string) ([]byte, bool) {
 		if m == "t" {
@@ -88,7 +94,6 @@ pub host fn callback64(f: (Int) -> Int64) -> Int
 			Funcs:    []FuncRow{{Name: c.key, Fn: c.fn}},
 			ModuleOf: func(FuncRow) (string, error) { return "t", nil },
 		})
-		var rangeErr *IntRangeError
 		switch {
 		case c.want == "":
 			if err != nil {
@@ -96,8 +101,6 @@ pub host fn callback64(f: (Int) -> Int64) -> Int
 			}
 		case err == nil:
 			t.Errorf("%s: generated an adapter whose Go integer the declared type overflows", c.key)
-		case !errors.As(err, &rangeErr):
-			t.Errorf("%s: refusal %q is no IntRangeError, which internal/ffirun reports at the binding", c.key, err)
 		case !strings.HasPrefix(err.Error(), c.key+": ") || !strings.Contains(err.Error(), c.want):
 			t.Errorf("%s: refusal %q does not name the binding and say %q", c.key, err, c.want)
 		}

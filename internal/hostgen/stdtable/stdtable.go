@@ -1,8 +1,7 @@
 // Package stdtable is the stdlib's adapter table: internal/stdlibbindings'
 // rows paired with the std facades, as internal/hostgen generates
 // internal/stdlibadapters from them. It is its own package so internal/hostgen
-// does not import nomi/std, which imports the front end, which imports
-// internal/ffirun, which generates a project's adapters with internal/hostgen.
+// does not import nomi/std, which imports the front end.
 package stdtable
 
 import (
@@ -82,9 +81,11 @@ func stdRowModule(row hostgen.FuncRow) (string, error) {
 // internal/stdtoml is std/toml/host's, std/toml's; internal/stdcsv and
 // internal/stdxml are std/csv/host's and std/xml/host's; internal/stdhttp is
 // std/http/host's and std/signatures/host's, whose key encodings need
-// crypto/x509, which only the runner with the network links.
+// crypto/x509, which only the runner with the network links;
+// internal/stdpasswords is std/passwords/host's; internal/stdwasm is
+// std/wasm/host's.
 var alsoImplements = map[string][]string{"io": {"fs/host"}, "process": {"process/host"}, "http": {"http/host", "signatures/host"}, "toml": {"toml/host"},
-	"csv": {"csv/host"}, "xml": {"xml/host"}}
+	"csv": {"csv/host"}, "xml": {"xml/host"}, "passwords": {"passwords/host"}, "wasm": {"wasm/host"}}
 
 const (
 	rtPackage     = "github.com/nomi-language/nomi/rt"

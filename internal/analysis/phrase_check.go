@@ -140,7 +140,7 @@ func phraseParamOf(fa *FileAnalysis, name string, t Type) mf2.Param {
 			p.Kind = mf2.KindList
 		}
 		if it, ok := t.(*InterfaceType); ok {
-			p.Localize = it.Name == "Localize"
+			p.Localize = isStdType(it, stdLocalizeType)
 			return p
 		}
 		if et, ok := t.(*EnumType); ok && len(et.TypeArgs) == 0 {
@@ -155,8 +155,11 @@ func phraseParamOf(fa *FileAnalysis, name string, t Type) mf2.Param {
 				p.Variants = nil
 			}
 		}
-		if name := concreteTypeName(t); name != "" {
-			p.Localize = fa != nil && fa.HasImpl(name, "Localize")
+		if name := concreteTypeName(t); name != "" && fa != nil {
+			// std's Localize, by the impl's interface and receiver
+			// declarations: an impl of a program's own `Localize` is not it.
+			p.Localize = fa.HasImpl(name, stdLocalizeType.Name) &&
+				fa.Program().ImplIndex.suppliesReceiver(t, name, stdLocalizeType.Module, stdLocalizeType.Name, fa.Program().unindexed())
 		}
 	}
 	return p

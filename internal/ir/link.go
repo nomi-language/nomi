@@ -18,6 +18,16 @@ package ir
 // CheckLinkage, which the object harness runs over every recorded program,
 // requires each such pair to encode identically, so a dropped body is never
 // one that differed.
+//
+// A LINKER MAY LINK OVER ANOTHER (NewLinkerOver). The objects a process
+// decodes once each, the stdlib's, are linked by one linker, and what is
+// linked against them later (the std modules declared with each program) by
+// a linker over it: a name the base knows is the base's symbol and its
+// definition the base's, and a linker over a base never writes it. A
+// Linker is not safe for concurrent use, so a caller that links more into
+// a base keeps every linker over it from decoding meanwhile
+// (internal/irbuild's stdObjects decodes the stdlib's objects one module
+// at a time, as the process needs them).
 
 import (
 	"bytes"
@@ -29,6 +39,9 @@ import (
 // Linker resolves linkage names to symbols while objects are decoded, so the
 // objects of one program share their declarations.
 type Linker struct {
+	// base, when set, is the linker this one links over: what it knows is
+	// known here, and it is never written.
+	base *Linker
 	syms map[string]*Symbol
 	// defined is the module each linked symbol's function or cell is in.
 	defined map[*Symbol]*Module
@@ -39,38 +52,49 @@ func NewLinker() *Linker {
 	return &Linker{syms: map[string]*Symbol{}, defined: map[*Symbol]*Module{}}
 }
 
+// NewLinkerOver is a linker that has linked what base has and writes
+// nothing into base.
+func NewLinkerOver(base *Linker) *Linker {
+	l := NewLinker()
+	l.base = base
+	return l
+}
+
+// known is the symbol of a linkage name this linker or its base has linked.
+func (l *Linker) known(link string) *Symbol {
+	for ; l != nil; l = l.base {
+		if s := l.syms[link]; s != nil {
+			return s
+		}
+	}
+	return nil
+}
+
+// definer is the module that defines s's function or cell, in this linker
+// or its base.
+func (l *Linker) definer(s *Symbol) *Module {
+	for ; l != nil; l = l.base {
+		if m := l.defined[s]; m != nil {
+			return m
+		}
+	}
+	return nil
+}
+
 // Symbol is the one symbol of written's linkage name: the first one this
 // linker saw, decoded or added, else written.
 func (l *Linker) Symbol(written *Symbol) *Symbol {
-	if s := l.syms[written.link]; s != nil {
+	if s := l.known(written.link); s != nil {
 		return s
 	}
 	l.syms[written.link] = written
 	return written
 }
 
-// Add links in-memory modules: their linked symbols become the ones later
-// objects resolve to. It fails when two of their symbols share a linkage
-// name, since an in-memory module's references cannot be redirected.
-func (l *Linker) Add(mods ...*Module) error {
-	for _, m := range mods {
-		for _, s := range ModuleSymbols(m) {
-			if s.link == "" {
-				continue
-			}
-			if had := l.syms[s.link]; had != nil && had != s {
-				return fmt.Errorf("ir: link: %s: two symbols have the linkage name %q", m.name, s.link)
-			}
-			l.syms[s.link] = s
-		}
-		l.Define(m)
-	}
-	return nil
-}
-
-// Decode decodes one object (or an image) and links its modules.
-func (l *Linker) Decode(data []byte) (Image, error) {
-	im, err := DecodeImage(data, WithLinkedSymbols(l.Symbol))
+// Decode decodes one object (or an image), with opts, and links its
+// modules.
+func (l *Linker) Decode(data []byte, opts ...DecodeOption) (Image, error) {
+	im, err := DecodeImage(data, append(opts, WithLinkedSymbols(l.Symbol))...)
 	if err != nil {
 		return Image{}, err
 	}
@@ -82,13 +106,20 @@ func (l *Linker) Decode(data []byte) (Image, error) {
 
 // Define records the linked symbols m defines, and drops from m a function
 // or cell another module already defines (the link-once rule above). Decode
-// and Add call it; a caller that decodes an object itself, with
+// calls it; a caller that decodes an object itself, with
 // WithLinkedSymbols(l.Symbol), calls it once it has read the module.
+//
+// A module of abstract bodies (Module.SetAbstract) links into no program,
+// and Define panics on one: only the effect walk reads it, from the lowering
+// that built it.
 func (l *Linker) Define(m *Module) {
+	if m.abstract {
+		panic("ir: Linker.Define: " + m.name + " is a module of abstract bodies, which links into no program")
+	}
 	kept := m.funcs[:0]
 	for _, f := range m.funcs {
 		if s := f.sym; s != nil && s.link != "" {
-			if other := l.defined[s]; other != nil && other != m {
+			if other := l.definer(s); other != nil && other != m {
 				continue
 			}
 			l.defined[s] = m
@@ -99,7 +130,7 @@ func (l *Linker) Define(m *Module) {
 	cells := m.cells[:0]
 	for _, c := range m.cells {
 		if s := c.sym; s != nil && s.link != "" {
-			if other := l.defined[s]; other != nil && other != m {
+			if other := l.definer(s); other != nil && other != m {
 				continue
 			}
 			l.defined[s] = m
@@ -126,9 +157,13 @@ func EncodeObject(m *Module, opts ...EncodeOption) ([]byte, error) {
 
 // funcText is f's encoding on its own, with the name and linkage name of
 // every symbol it writes, in the order it writes them: two functions with
-// equal texts are the same code over the same declarations.
-func funcText(f *Func) []byte {
+// equal texts are the same code over the same declarations. opts change how
+// it is written (withoutPositions).
+func funcText(f *Func, opts ...EncodeOption) []byte {
 	e := newEncoder()
+	for _, o := range opts {
+		o(e)
+	}
 	e.fn(f)
 	e.drain()
 	var b bytes.Buffer
@@ -137,6 +172,10 @@ func funcText(f *Func) []byte {
 		b.WriteByte(0)
 	}
 	for _, s := range e.symL {
+		if e.unnamed[s] {
+			b.WriteString("\x00\x00")
+			continue
+		}
 		b.WriteString(s.name + "\x00" + s.link + "\x00")
 	}
 	for _, s := range e.strL {

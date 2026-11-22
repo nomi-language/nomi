@@ -15,7 +15,8 @@ import (
 //	                                                          sibling requirement
 //
 // Each is the call its resolution means, as a bare `loop` is for
-// `import std::iter.Iter.loop` (bareIterLoop). The first is irqualcall.go's
+// `import std::iter.Iter.loop`, whose record names std's Iter.loop
+// (stdIterLoop). The first is irqualcall.go's
 // siblingCall; the second is ownerdecl.go's bareStdMethodCall. The third,
 // like a bare call to any function of the enclosing impl block, in a body
 // or in a parameter default, is the qualified call `F.label(v)` with the

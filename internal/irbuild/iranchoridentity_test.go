@@ -71,7 +71,8 @@ func TestIRAnchoredTypeHasOneIdentityAcrossModules(t *testing.T) {
 		t.Fatalf("the declaring module's %s is %p, the process-wide def is %p", nomi, dg.types[nomi], shared)
 	}
 
-	// A MENTIONING module reaches the same pointer through the name door.
+	// A MENTIONING module reaches the same pointer through the type the
+	// checker recorded for an annotation naming it.
 	mentioned, mg := irAnchorMentioningGen(t, nomi)
 	if mentioned != shared {
 		t.Fatalf("a mentioning module resolves %s to %p, the declaring module to %p; "+
@@ -113,7 +114,8 @@ func irAnchorGen(fa *analysis.FileAnalysis, nodes []ast.Node) *gen {
 }
 
 // irAnchorMentioningGen resolves an opaque type's shared def from a module that
-// MENTIONS it without declaring it, and returns that gen too.
+// MENTIONS it without declaring it, through the type the checker recorded for
+// an annotation that names it, and returns that gen too.
 func irAnchorMentioningGen(t *testing.T, nomi string) (*typeDef, *gen) {
 	t.Helper()
 	src := "import std::io\nimport std::duration.Duration\n\nfn hold(d: " + nomi + ") -> " + nomi + "\n  d\nend\n\nfn main()\n  io.print(\"x\")\nend\n"
@@ -122,9 +124,18 @@ func irAnchorMentioningGen(t *testing.T, nomi string) (*typeDef, *gen) {
 		t.Fatalf("analyzing the mentioning program: %v", err)
 	}
 	g := irAnchorGen(p.Modules[0].FA, p.Modules[0].Nodes)
-	def, anchored := g.opaqueNamed(nomi)
-	if !anchored {
-		t.Fatalf("a module that imports and annotates %s has no anchor for it", nomi)
+	var annotation ast.TypeExpr
+	for _, n := range p.Modules[0].Nodes {
+		if fd, ok := n.(*ast.FuncDef); ok && fd.Name == "hold" && len(fd.Params) == 1 {
+			annotation = fd.Params[0].TypeAnnotation
+		}
 	}
-	return def, g
+	if annotation == nil {
+		t.Fatal("the mentioning program declares no `hold(d)`, so this test reasons about nothing")
+	}
+	k := g.typeOf(annotation)
+	if k.tag != tagNamed || k.def == nil {
+		t.Fatalf("a module that imports and annotates %s projects the annotation to %v, not a named type", nomi, k)
+	}
+	return k.def, g
 }

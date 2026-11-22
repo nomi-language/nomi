@@ -54,7 +54,7 @@ func (dm *DocumentManager) keptClosed(uri string) *DocSnapshot {
 	}
 	root := dm.projectRootFromURI(uri)
 	key := relModuleKey(root, path)
-	if key == "" || strings.HasPrefix(key, "..") || IsStdlibKey(key) || len(dm.syntheticExternsForRoot(root)) > 0 {
+	if key == "" || strings.HasPrefix(key, "..") || IsStdlibKey(key) {
 		return nil
 	}
 	for _, entryPath := range dm.entryCandidates(root) {
@@ -103,7 +103,7 @@ func (dm *DocumentManager) keptClosed(uri string) *DocSnapshot {
 // reports true with the entry's text on disk, which the caller holds to
 // entryEditReaches.
 func (dm *DocumentManager) readsAsBuilt(p *CheckedProgram, entryPath string) (bool, *string) {
-	if p.unread || p.externs || len(p.Inputs) > 0 || len(p.checks.frontEnd) > 0 {
+	if p.unread || len(p.Inputs) > 0 || len(p.checks.frontEnd) > 0 {
 		return false, nil
 	}
 	for key := range p.Files {

@@ -143,10 +143,11 @@ group "the shop"
 
         // 2^53 + 1 cents does not fit a 64-bit float, which is how SQLite
         // keeps a DECIMAL: the driver refuses it rather than round it.
-        refused = case queries.insert_order(db, user, 90_071_992_547_409.93d)
-            Err(sql.Error.Database{code:, message: _}) -> code
-            _ -> "not refused"
-        end
+        refused =
+            case queries.insert_order(db, user, 90_071_992_547_409.93d)
+                Err(sql.Error.Database{code:, message: _}) -> code
+                _ -> "not refused"
+            end
 
         assert refused == "SQLITE_MISMATCH"
     end

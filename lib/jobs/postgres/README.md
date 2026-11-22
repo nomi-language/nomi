@@ -5,7 +5,7 @@ A durable queue for `std/jobs`, kept in a Postgres table, over
 `Queue`, std/jobs' interface, so code written against `Queue` runs on it
 unchanged. It is Nomi with no Go code of its own.
 
-```
+```sh
 nomi add github.com/nomi-language/nomi/lib/jobs/postgres
 nomi add github.com/nomi-language/nomi/lib/sql/postgres
 ```
@@ -87,7 +87,7 @@ end
   table that this version uses. A table made from an earlier `schema.sql`
   gives:
 
-  ```
+  ```console
   database error 42703: pgjobs: the jobs table nomi_jobs is older than this
   version of pgjobs and lacks the columns priority, unique_key,
   unique_states; the index nomi_jobs_unique; the table nomi_jobs_schedules.

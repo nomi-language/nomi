@@ -99,7 +99,7 @@ func TestAdapterWall_HandleRowsRequireAGoBindingBothWays(t *testing.T) {
 		{"Regex", "17-typed-literals/typed_literals/typed_literals_test.nomi", true},
 		// A NON-handle row in the same table, anchored through a file that
 		// reaches it, so the loop is not passing because only one row exists.
-		{"Dynamic", "18-ffi-and-dynamic/json_test.nomi", true},
+		{"Dynamic", "18-json-and-dynamic/json_test.nomi", true},
 	} {
 		root, err := filepath.Abs(filepath.Join("..", "..", "tests"))
 		if err != nil {
@@ -119,17 +119,10 @@ func TestAdapterWall_HandleRowsRequireAGoBindingBothWays(t *testing.T) {
 			t.Errorf("%s anchored=%v through %s, want %v", tc.nomi, anchored, tc.entry, tc.wantAnchor)
 		}
 	}
-	// The counterfactual. Every std declaration is a bare `host type`, so both
-	// settings of the row's `handle` bit match std's own declaration; the bit's
-	// correctness is checked against the bindings type table in
+	// Every std declaration is a bare `host type`, so both settings of the
+	// row's `handle` bit match std's own declaration; the bit's correctness is
+	// checked against the bindings type table in
 	// TestStdHostHandleRowsMatchTheBindingsTypeTable.
-	//
-	// What declaredHostType decides here is that a declaration carrying a
-	// `go` binding must not anchor, whatever
-	// the row says, because such a declaration is discovered as a co-located
-	// adapter and reached through the FFI projection instead. Both settings of
-	// the bit are exercised, so this cannot pass by the row happening to be a
-	// handle.
 	var row stdHostSpec
 	for i := range stdHostSpecs {
 		if stdHostSpecs[i].handle {
@@ -138,18 +131,10 @@ func TestAdapterWall_HandleRowsRequireAGoBindingBothWays(t *testing.T) {
 		}
 	}
 	decl := regexDecl(t)
-	if !row.declaredHostType(decl) {
-		t.Fatal("the handle row does not match std/regex's own declaration")
-	}
-	bound := *decl
-	bound.ForeignAlias, bound.ForeignName = "go_regex", "Regex"
 	for _, handle := range []bool{true, false} {
 		row.handle = handle
-		if row.declaredHostType(&bound) {
-			t.Errorf("a row with handle=%v matches a `go`-bound declaration. Nothing under "+
-				"`std/` may name a Go symbol: such a declaration is discovered as a "+
-				"co-located adapter, which puts every program importing the module "+
-				"behind a Go toolchain.", handle)
+		if !row.declaredHostType(decl) {
+			t.Errorf("the handle row with handle=%v does not match std/regex's own declaration", handle)
 		}
 	}
 }

@@ -13,8 +13,8 @@ package irbuild
 //
 //   - `Shape.Dot` and `Probe.Reading.Steady` are bare variants. The first has
 //     an `*ast.TypeIdent` object and the second a nested `*ast.FieldAccess`
-//     one that `dottedTypeQualifier` answers for, so a nested
-//     `*ast.FieldAccess` is admitted only when `dottedTypeQualifier` declines
+//     one that `dottedTypeName` answers for, so a nested
+//     `*ast.FieldAccess` is admitted only when `dottedTypeName` declines
 //     it, and `p.address.city` lowers its object through `bl.lower`.
 //   - `header.default_name` (a sibling file's `once` read through its API
 //     object) and `io.print` without a call (a module name read as a value)
@@ -59,7 +59,7 @@ func (bl *irScalarBuilder) fieldRead(t *ast.FieldAccess) (ir.Temp, kind, bool, b
 		// A field chain `p.address.city`, or a field of an application
 		// field (`Config.done.sender`). A dotted type qualifier is a bare
 		// variant instead.
-		if _, dotted := bl.dottedTypeQualifier(t.Object); dotted && !appObject {
+		if bl.dottedTypeName(t.Object) && !appObject {
 			return no()
 		}
 	case *ast.StructLit, *ast.GroupedExpr, *ast.TupleLit, *ast.If, *ast.Case, *ast.Block, *ast.TaggedString,
@@ -75,8 +75,7 @@ func (bl *irScalarBuilder) fieldRead(t *ast.FieldAccess) (ir.Temp, kind, bool, b
 	// THROUGH `bl.lower` AND NOT THROUGH A SECOND RESOLUTION OF THE NAME,
 	// because the Ident arm is where a body-bound name answers with the
 	// `ir.Bind`'s own temporary and a parameter or outer local answers with a
-	// fresh `ir.NewRefLocal`. Two spellings of "read this name" is exactly
-	// what `irparam.go` refuses for a destructuring prologue.
+	// fresh `ir.NewRefLocal`.
 	subj, k, mobile, ok := bl.lower(t.Object)
 	if !ok {
 		return no()
@@ -109,8 +108,9 @@ func (bl *irScalarBuilder) fieldProject(at ast.Node, name string, subj ir.Temp, 
 	if _, isRange := rangeElem(k); isRange && irRetainedRangeKind(k) {
 		// `r.start`, `r.end`, `r.inclusive`: the VM holds a Range as std's
 		// struct record, so its declared fields read like any struct's.
-		// std's own Range bodies (`impl Display for Range<T>`) read them.
-		if f := k.def.field(name); f != nil && irRetainedValueKind(f.k) {
+		// std's own Range bodies (`impl Display for Range<T>`) read them,
+		// an abstract body's (abstract.go) at an element held as its bound.
+		if f := k.def.field(name); f != nil && irCallableValueKind(f.k) {
 			p := ir.NewProjField(bl.g.irNodePos(at), bl.f.NewTemp(), subj,
 				bl.g.irTypes().Symbol(f, name), name, irParamShape(f.k))
 			bl.b.Append(p)

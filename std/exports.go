@@ -6,7 +6,6 @@ import (
 	"sync/atomic"
 
 	"github.com/nomi-language/nomi/internal/analysis"
-	"github.com/nomi-language/nomi/internal/ffirun"
 )
 
 // The analysis names the import a file is missing (std::http.Method) from
@@ -15,9 +14,6 @@ import (
 // made one (loadShared), else each module's source parsed.
 func init() {
 	analysis.SetStdExports(moduleExports)
-	// A `go` binding names std's types (`Int64`) by the std this binary
-	// embeds, which internal/ffirun cannot import.
-	ffirun.SetStdSource(ReadFile)
 }
 
 // artifactExports is the exports of the std artifact this process builds

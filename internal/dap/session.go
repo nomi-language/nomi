@@ -14,7 +14,6 @@ import (
 	godap "github.com/google/go-dap"
 
 	"github.com/nomi-language/nomi/internal/analysis"
-	"github.com/nomi-language/nomi/internal/ffirun"
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/internal/vm"
@@ -213,16 +212,6 @@ func (s *Server) prepare(args launchArgs) (*session, error) {
 		exceptions: map[int]vm.Stop{}, locIndex: map[ir.Pos]int{}}
 	sess.io.console(s)
 	stdlib := sess.test && vmcmd.IsStdlibPath(path)
-	if !stdlib {
-		res, err := ffirun.Prepare(path)
-		if err != nil {
-			return nil, err
-		}
-		if !res.FastPath {
-			return nil, fmt.Errorf("%s uses Go bindings, which nomi dap cannot debug yet; run it with `nomi %s`",
-				vmhost.DisplayPath(path), args.Mode)
-		}
-	}
 	if _, err := vmhost.ParseTestFormat(args.Format); args.Format != "" && err != nil {
 		return nil, err
 	}

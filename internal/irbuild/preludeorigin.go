@@ -2,7 +2,6 @@ package irbuild
 
 import (
 	"strings"
-	"sync"
 
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/std"
@@ -106,26 +105,23 @@ func stdDeclaresSpec(lib *std.StdLib, spec *preludeSpec) bool {
 	return false
 }
 
-// stdPreludeValid is stdDeclaresSpec over the spec TABLE, computed once for the
-// process.
-//
-// Once is sound for the same reason stdlibLowering's cache is: the stdlib is
-// fixed when the compiler binary is built, so the answer cannot differ between
-// loads. Closed by construction — a spec absent from the table answers false.
-var stdPreludeValid = func() func(*preludeSpec) bool {
-	var once sync.Once
+// stdPreludeValid is stdDeclaresSpec over the spec TABLE, worked out again
+// once the shared stdlib has grown (perStd): a spec whose module the stdlib
+// had not built when it was first asked is valid once the module is built.
+// Closed by construction — a spec absent from the table answers false.
+func stdPreludeValid(spec *preludeSpec) bool {
+	return stdPreludeValidity()[spec]
+}
+
+var stdPreludeValidity = perStd(func() map[*preludeSpec]bool {
+	lib := stdAnchorLib()
 	valid := map[*preludeSpec]bool{}
-	return func(spec *preludeSpec) bool {
-		once.Do(func() {
-			lib := stdAnchorLib()
-			for i := range preludeSpecs {
-				s := &preludeSpecs[i]
-				valid[s] = stdDeclaresSpec(lib, s)
-			}
-		})
-		return valid[spec]
+	for i := range preludeSpecs {
+		s := &preludeSpecs[i]
+		valid[s] = stdDeclaresSpec(lib, s)
 	}
-}()
+	return valid
+})
 
 // preludeSpecAnchor is the anchor for a spec whose identity the caller has
 // already established, or false when std's own declaration does not match it.
@@ -142,11 +138,9 @@ func preludeSpecAnchor(spec *preludeSpec) (*preludeAnchor, bool) {
 
 // preludeOriginAnchor is the anchor a TYPE's own (Origin, Name) names.
 //
-// An empty Origin declines. That is what a type produced by INSTANTIATING the
-// generic declaration carries (see projectPreludeEnum), and it says nothing
-// about which module declared anything. Admitting it would key the whole rule
-// on a NAME, and a type identity matched by name is silently wrong the first
-// time two declarations share one.
+// An empty Origin declines: it names no declaration (analysis's
+// OriginUnresolved), and admitting it would key the rule on a NAME, which is
+// silently wrong the first time two declarations share one.
 func preludeOriginAnchor(origin, name string) (*preludeAnchor, bool) {
 	if origin == "" {
 		return nil, false

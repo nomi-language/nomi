@@ -92,28 +92,31 @@ end
 
 fn main()
     // BOUNDED AND EXCEEDED: the sleep must end early and the task unwind.
-    bounded = concurrent
-        t = Task.spawn(fn -> slow_bounded())
-        Task.outcome(t)
-    end
+    bounded =
+        concurrent
+            t = Task.spawn(fn -> slow_bounded())
+            Task.outcome(t)
+        end
 
     describe("bounded", bounded)
 
     // BOUNDED AND MET: the same construct with room to finish. The control that
     // stops the row above from passing for a build that cancels everything.
-    met = concurrent
-        t = Task.spawn(fn -> quick_bounded())
-        Task.outcome(t)
-    end
+    met =
+        concurrent
+            t = Task.spawn(fn -> quick_bounded())
+            Task.outcome(t)
+        end
 
     describe("met", met)
 
     // NO REBIND AT ALL: a deadline-free scope must still complete, so the frame
     // the rebind installs is shown to be scoped rather than sticky.
-    plain = concurrent
-        t = Task.spawn(fn -> quick())
-        Task.outcome(t)
-    end
+    plain =
+        concurrent
+            t = Task.spawn(fn -> quick())
+            Task.outcome(t)
+        end
 
     describe("plain", plain)
 
@@ -121,10 +124,11 @@ fn main()
     // own waits must not have inherited the child's deadline. This is what the
     // frame restore buys, and a build that installed the deadline without
     // restoring it would print `cancelled` here.
-    after = concurrent
-        t = Task.spawn(fn -> quick())
-        Task.outcome(t)
-    end
+    after =
+        concurrent
+            t = Task.spawn(fn -> quick())
+            Task.outcome(t)
+        end
 
     describe("after", after)
 end

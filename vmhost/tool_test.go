@@ -80,6 +80,37 @@ module demo
 	}
 }
 
+// A tool's Startup holds ToolModuleEnv, the module name it was run under,
+// as `nomi tool` sets it.
+func TestToolMarked_TellsTheToolItsModulesName(t *testing.T) {
+	src := `// FILE: tools/name.nomi
+import std::io
+
+struct App
+    env: Map<String, String>
+end
+
+fn boot(startup: Startup) -> Result<App, String>
+    Ok(App{env: startup.env})
+end
+
+fn main()
+    io.print(Map.get(App.env, "` + vmhost.ToolModuleEnv + `") |> Maybe.with_default("unset"))
+end
+
+// FILE: nomi.toml
+[module]
+name = "demo"
+`
+	var out bytes.Buffer
+	if _, err := vmhost.ToolMarked(src, t.TempDir(), "demo", "name", &out); err != nil {
+		t.Fatalf("the tool failed: %v\n%s", err, out.String())
+	}
+	if out.String() != "demo\n" {
+		t.Errorf("the tool found %q in %s, want demo", out.String(), vmhost.ToolModuleEnv)
+	}
+}
+
 // In a block of sibling projects, a tool of the project's dependency runs
 // in the project's directory, as `nomi tool csvdata generate` in rates/
 // does: it reads and writes rates/'s files, which come back by their paths

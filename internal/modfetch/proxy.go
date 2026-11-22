@@ -16,16 +16,41 @@ import (
 
 	"golang.org/x/mod/module"
 	"golang.org/x/mod/semver"
-
-	"github.com/nomi-language/nomi/internal/gotoolchain"
 )
 
 // errNotFound is a proxy's 404 or 410, which a `,` in GOPROXY falls through.
 var errNotFound = errors.New("not found")
 
-// errDirect says GOPROXY reached `direct`: the module comes from its version
-// control repository, which only the go command can read.
-var errDirect = errors.New("direct")
+// directError says GOPROXY reached `direct` for a module: it comes from its
+// version control repository, which nomi reads only through the go command
+// on PATH (goJSON).
+type directError struct {
+	// private is set when GONOPROXY, or GOPRIVATE, matched the module.
+	private bool
+	// tried is what each proxy before `direct` answered.
+	tried []string
+}
+
+func (e *directError) Error() string { return "GOPROXY reached direct" }
+
+// noGo is the error for module path that GOPROXY sends `direct` when there
+// is no `go` on PATH: why it went there, and what to set to serve it from
+// a module proxy instead.
+func (e *directError) noGo(path string) error {
+	why := "GOPROXY names `direct`"
+	fix := "set GOPROXY to a module proxy that serves it"
+	switch {
+	case e.private:
+		why = "GONOPROXY, or GOPRIVATE when GONOPROXY is unset, matches it, which sends it `direct`"
+		fix = "set GOPROXY to a module proxy that serves it and GONOPROXY=none, so GOPRIVATE no longer skips the proxy"
+	case len(e.tried) > 0:
+		why = "the proxies GOPROXY lists before `direct` do not have it (" + strings.Join(e.tried, "; ") + ")"
+	}
+	return fmt.Errorf("module %s: %s, and nomi reads a module's version control repository only through the go command, "+
+		"which is not on PATH; %s: an https:// server (credentials go in its URL, https://user:token@host/path) or a "+
+		"file:// directory laid out as one, and GONOSUMDB or GOPRIVATE to its path when the checksum database "+
+		"cannot know it", path, why, fix)
+}
 
 // maxDownload bounds one downloaded file; Go's module zips are at most 500 MB.
 const maxDownload = 500 << 20
@@ -51,7 +76,7 @@ func (f *fetcher) proxyGet(path, name string) ([]byte, error) {
 			}
 			return nil, fmt.Errorf("%s", strings.Join(errs, "; "))
 		case "direct":
-			return nil, errDirect
+			return nil, &directError{private: f.cfg.private(path), tried: errs}
 		}
 		data, err := readURL(p.url + "/" + enc + "/" + name)
 		if err == nil {
@@ -84,60 +109,66 @@ func fileURLPath(urlPath string, windows bool) string {
 	return strings.ReplaceAll(urlPath, "/", `\`)
 }
 
-// readURL reads an http(s) or file URL.
+// readURL reads an http(s) or file URL. The user info of an http(s) URL
+// (https://user:token@proxy.example/mod) is its credentials, which the
+// request sends as basic authentication; nomi reads no .netrc and no
+// GOAUTH. An error names the URL with its password left out.
 func readURL(raw string) ([]byte, error) {
 	u, err := url.Parse(raw)
 	if err != nil {
 		return nil, err
 	}
+	shown := u.Redacted()
 	switch u.Scheme {
 	case "file":
 		if u.Host != "" { // file://host/path is not a local path
-			return nil, fmt.Errorf("%s: a file URL names no host", raw)
+			return nil, fmt.Errorf("%s: a file URL names no host", shown)
 		}
 		data, err := os.ReadFile(fileURLPath(u.Path, runtime.GOOS == "windows"))
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
-				return nil, fmt.Errorf("reading %s: %w", raw, errNotFound)
+				return nil, fmt.Errorf("reading %s: %w", shown, errNotFound)
 			}
-			return nil, fmt.Errorf("reading %s: %w", raw, err)
+			return nil, fmt.Errorf("reading %s: %w", shown, err)
 		}
 		return data, nil
 	case "http", "https":
+		// net/http sends the URL's user info as basic authentication, and
+		// its own errors leave the password out.
 		resp, err := httpClient.Get(raw)
 		if err != nil {
-			return nil, fmt.Errorf("reading %s: %w", raw, err)
+			return nil, fmt.Errorf("reading %s: %w", shown, errors.Unwrap(err))
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone {
 			body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<10))
 			detail := strings.TrimSpace(string(body))
 			if detail != "" {
-				return nil, fmt.Errorf("reading %s: %s: %w", raw, detail, errNotFound)
+				return nil, fmt.Errorf("reading %s: %s: %w", shown, detail, errNotFound)
 			}
-			return nil, fmt.Errorf("reading %s: %s: %w", raw, resp.Status, errNotFound)
+			return nil, fmt.Errorf("reading %s: %s: %w", shown, resp.Status, errNotFound)
 		}
 		if resp.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("reading %s: %s", raw, resp.Status)
+			return nil, fmt.Errorf("reading %s: %s", shown, resp.Status)
 		}
 		data, err := io.ReadAll(io.LimitReader(resp.Body, maxDownload+1))
 		if err != nil {
-			return nil, fmt.Errorf("reading %s: %w", raw, err)
+			return nil, fmt.Errorf("reading %s: %w", shown, err)
 		}
 		if len(data) > maxDownload {
-			return nil, fmt.Errorf("reading %s: larger than %d bytes", raw, maxDownload)
+			return nil, fmt.Errorf("reading %s: larger than %d bytes", shown, maxDownload)
 		}
 		return data, nil
 	}
-	return nil, fmt.Errorf("GOPROXY entry %q: unsupported scheme %q (want https, http or file)", raw, u.Scheme)
+	return nil, fmt.Errorf("GOPROXY entry %q: unsupported scheme %q (want https, http or file)", shown, u.Scheme)
 }
 
 // latest answers the version `@latest` names for path: the proxy's @latest,
 // else the highest release in its version list.
 func (f *fetcher) latest(path string) (string, error) {
 	data, err := f.proxyGet(path, "@latest")
-	if errors.Is(err, errDirect) {
-		return f.goLatest(path)
+	if d := (*directError)(nil); errors.As(err, &d) {
+		return f.goLatest(path, d)
 	}
 	if err == nil {
 		var info struct{ Version string }
@@ -172,8 +203,8 @@ type goDownloaded struct {
 // goDownload has the go command download m into the module cache, for a
 // module GOPROXY sends `direct` (its version control repository). The go
 // command verifies it as it does any module.
-func (f *fetcher) goDownload(m module.Version) (*goDownloaded, error) {
-	out, err := f.goJSON("mod", "download", "-json", m.Path+"@"+m.Version)
+func (f *fetcher) goDownload(m module.Version, direct *directError) (*goDownloaded, error) {
+	out, err := f.goJSON(m.Path, direct, "mod", "download", "-json", m.Path+"@"+m.Version)
 	if err != nil {
 		return nil, err
 	}
@@ -188,8 +219,8 @@ func (f *fetcher) goDownload(m module.Version) (*goDownloaded, error) {
 }
 
 // goLatest asks the go command for path@latest.
-func (f *fetcher) goLatest(path string) (string, error) {
-	out, err := f.goJSON("list", "-m", "-json", path+"@latest")
+func (f *fetcher) goLatest(path string, d *directError) (string, error) {
+	out, err := f.goJSON(path, d, "list", "-m", "-json", path+"@latest")
 	if err != nil {
 		return "", err
 	}
@@ -206,11 +237,15 @@ func (f *fetcher) goLatest(path string) (string, error) {
 	return info.Version, nil
 }
 
-func (f *fetcher) goJSON(args ...string) ([]byte, error) {
-	goBin, err := gotoolchain.FindForModules()
+// goJSON runs the go command on PATH with args, for module path, which
+// GOPROXY sent `direct` (d), and answers its JSON. With no `go` on PATH it
+// is d's error, which says what to set instead (directError.noGo). Only the
+// go command on PATH reads version control; nomi has no version control
+// reader of its own.
+func (f *fetcher) goJSON(path string, d *directError, args ...string) ([]byte, error) {
+	goBin, err := exec.LookPath("go")
 	if err != nil {
-		return nil, fmt.Errorf("GOPROXY sends this module to its version control repository (direct), "+
-			"which nomi reads through the go command: %w", err)
+		return nil, d.noGo(path)
 	}
 	cmd := exec.Command(goBin, args...)
 	// Outside any module, so no go.mod around the working directory has a say.

@@ -111,10 +111,11 @@ fn err_is_channel_closed()
     ch = Channel.buffered<Int>(1)
     Sender.close(ch.sender)
 
-    shape = case Sender.send(ch.sender, 1)
-        Ok(_)  -> "ok"
-        Err(_) -> "err"
-    end
+    shape =
+        case Sender.send(ch.sender, 1)
+            Ok(_)  -> "ok"
+            Err(_) -> "err"
+        end
 
     io.print("closed_shape = ${shape}")
 end
@@ -124,15 +125,17 @@ fn strings_too()
     _ = Sender.send(ch.sender, "a")
     _ = Sender.send(ch.sender, "b")
 
-    first = case Receiver.receive(ch.receiver)
-        Some(v) -> v
-        None    -> "none"
-    end
+    first =
+        case Receiver.receive(ch.receiver)
+            Some(v) -> v
+            None    -> "none"
+        end
 
-    second = case Receiver.receive(ch.receiver)
-        Some(v) -> v
-        None    -> "none"
-    end
+    second =
+        case Receiver.receive(ch.receiver)
+            Some(v) -> v
+            None    -> "none"
+        end
 
     io.print("strings = ${first}${second}")
 end

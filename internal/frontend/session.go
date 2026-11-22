@@ -5,7 +5,6 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/internal/syntheticextern"
 )
 
 // A program of in-memory files that grows one file at a time, as a REPL
@@ -29,9 +28,6 @@ func (c *Checker) SessionSource(text func(key string) (string, bool)) *analysis.
 			}
 			nodes, err := parser.Parse(lexer.Lex(src))
 			if err != nil {
-				return nil, false
-			}
-			if nodes, err = syntheticextern.Inject(nodes, c.cfg.SyntheticExterns, true); err != nil {
 				return nil, false
 			}
 			return analysis.ExpandDeclarations(nodes, c.site(key)), true

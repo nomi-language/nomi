@@ -1,6 +1,7 @@
 package virtualproject
 
 import (
+	"encoding/base64"
 	"fmt"
 	"os"
 	"path"
@@ -23,13 +24,14 @@ type Project struct {
 	// DataFiles are the files a program reads at run time, by their path
 	// from the project root: every marked file that is not a Nomi source or
 	// nomi.toml (`notes.txt`, `data/prices.csv`), catalogs' `.toml` files
-	// included, each ending in one newline unless it is empty (dataText).
+	// included, each ending in one newline unless it is empty (dataText),
+	// and a `(base64)` section's file holding its decoded bytes.
 	// The tour seeds a block's in-memory file system with them.
 	DataFiles map[string]string
-	// Files is set for a block that names modules, one with a `go.mod`
-	// section: every section by its path from the project root, as the
-	// same files on disk would hold them (a data file's text as dataText
-	// gives it). Its imports resolve through go.mod's requirements, so it
+	// Files is set for a block that names modules (namesModules): every
+	// section by its path from the project root, as the same files on disk
+	// would hold them (a data file's text as dataText gives it). Its
+	// imports resolve through its nomi.toml's [dependencies], so it
 	// is written as these files in a directory and loaded from there
 	// (vmhost.LoadMarked), and VirtualFiles and Manifest are unset.
 	// EntryName is then the entry's path (`main.nomi`), and EntrySource
@@ -51,20 +53,52 @@ type Project struct {
 	TestFiles []string
 }
 
+// FileMarker is a block's `// FILE: <path>` line, a directive on a line of
+// its own: the path, then ` (base64)` for a file that is not text, whose
+// section holds its bytes in standard base64 (line breaks ignored). The
+// tour client's FILE_MARKER (tour/src/lib/highlight.mjs) is the same
+// expression, which TestFileMarkersMatch (internal/docscheck) holds.
+var FileMarker = regexp.MustCompile(`^\s*//\s*FILE:\s*([A-Za-z0-9_.\-/]+\.[A-Za-z0-9]+)(\s+\(base64\))?\s*$`)
+
 var (
-	fileMarker      = regexp.MustCompile(`^\s*//\s*FILE:\s*([A-Za-z0-9_.\-/]+\.[A-Za-z0-9]+)\s*$`)
 	hasTopLevelMain = regexp.MustCompile(`(?m)^fn\s+main\b`)
 	// declaresTests matches a file with a top-level `test` or `group`.
 	declaresTests = regexp.MustCompile(`(?m)^(test|group)\s+"`)
 )
+
+// Marker is the path line's `// FILE:` marker names, and whether the
+// section is base64, or ok false for a line that is no marker.
+func Marker(line string) (name string, base64 bool, ok bool) {
+	m := FileMarker.FindStringSubmatch(line)
+	if m == nil {
+		return "", false, false
+	}
+	return m[1], m[2] != "", true
+}
+
+// Base64Body is the body of the `// FILE: <path> (base64)` section of a
+// file holding data: standard base64, 76 characters a line, each line
+// ending in a newline.
+func Base64Body(data []byte) string {
+	var b strings.Builder
+	text := base64.StdEncoding.EncodeToString(data)
+	for len(text) > 76 {
+		b.WriteString(text[:76] + "\n")
+		text = text[76:]
+	}
+	if text != "" {
+		b.WriteString(text + "\n")
+	}
+	return b.String()
+}
 
 // FileNames answers the path of each file src's `// FILE:` lines mark, as
 // written, in order: none for a source with no markers.
 func FileNames(src string) []string {
 	var names []string
 	for _, line := range strings.Split(src, "\n") {
-		if m := fileMarker.FindStringSubmatch(line); m != nil {
-			names = append(names, m[1])
+		if name, _, ok := Marker(line); ok {
+			names = append(names, name)
 		}
 	}
 	return names
@@ -74,7 +108,14 @@ func FileNames(src string) []string {
 // With no markers, the whole input is returned as a single-file project named
 // "main".
 func FromMarkedSource(src string) (Project, error) {
-	return fromMarked(src, "")
+	return fromMarked(src, "", false)
+}
+
+// FromMarkedSourceAsModules is FromMarkedSource with the block written as
+// files whether or not it names modules: a tool of its root module runs in
+// the project on disk (vmhost.ToolMarked).
+func FromMarkedSourceAsModules(src string) (Project, error) {
+	return fromMarked(src, "", true)
 }
 
 // FromMarkedSourceAt is the project of src entered at the marked file
@@ -84,30 +125,49 @@ func FromMarkedSourceAt(src, entry string) (Project, error) {
 	if entry == "" {
 		return Project{}, fmt.Errorf("no entry given")
 	}
-	return fromMarked(src, entry)
+	return fromMarked(src, entry, false)
 }
 
-func fromMarked(src, forced string) (Project, error) {
+func fromMarked(src, forced string, asModules bool) (Project, error) {
 	files := map[string]string{}
+	// binary holds the sections marked `(base64)`, whose files hold their
+	// decoded bytes as they are: no newline is trimmed or added.
+	binary := map[string]bool{}
 	currentName := ""
 	var nomiNames []string
 	firstName := ""
 	var order []string
 	var currentBuf strings.Builder
+	var decodeErr error
 	flush := func() {
 		if currentName == "" {
 			return
 		}
 		files[currentName] = currentBuf.String()
 		currentBuf.Reset()
+		if !binary[currentName] {
+			return
+		}
+		data, err := base64.StdEncoding.DecodeString(strings.TrimSpace(files[currentName]))
+		switch {
+		case isNomiSource(currentName) || strings.HasSuffix(currentName, ".toml"):
+			err = fmt.Errorf("// FILE: %s is marked (base64), and a Nomi file or a .toml file is text", currentName)
+		case err != nil:
+			err = fmt.Errorf("// FILE: %s is marked (base64), and its section is not base64: %v", currentName, err)
+		}
+		if err != nil && decodeErr == nil {
+			decodeErr = err
+		}
+		files[currentName] = string(data)
 	}
 
 	hasMarker := false
 	for _, line := range strings.SplitAfter(src, "\n") {
 		trimmed := strings.TrimRight(line, "\n")
-		if m := fileMarker.FindStringSubmatch(trimmed); m != nil {
+		if name, b64, ok := Marker(trimmed); ok {
 			flush()
-			currentName = m[1]
+			currentName = name
+			binary[name] = b64
 			order = append(order, currentName)
 			if firstName == "" {
 				firstName = currentName
@@ -127,6 +187,9 @@ func fromMarked(src, forced string) (Project, error) {
 	if !hasMarker {
 		return Project{EntrySource: src, EntryName: "main"}, nil
 	}
+	if decodeErr != nil {
+		return Project{}, decodeErr
+	}
 	if forced != "" {
 		if _, ok := files[forced]; !ok || !isNomiSource(forced) {
 			return Project{}, fmt.Errorf("// FILE: %s is not a Nomi file of the block", forced)
@@ -136,8 +199,8 @@ func fromMarked(src, forced string) (Project, error) {
 	var err error
 	var entry string
 	candidates := nomiNames
-	if namesModules(files) {
-		project, entry, candidates, err = fromModuleFiles(files, order, forced)
+	if asModules || namesModules(files) {
+		project, entry, candidates, err = fromModuleFiles(files, binary, order, forced)
 	} else {
 		entry = forced
 		if entry == "" {
@@ -146,7 +209,7 @@ func fromMarked(src, forced string) (Project, error) {
 		if entry == "" {
 			entry = fallbackEntry(files, nomiNames)
 		}
-		project, err = fromFiles(files, entry)
+		project, err = fromFiles(files, binary, entry)
 		if !isNomiSource(entry) {
 			entry = ""
 		}
@@ -188,11 +251,16 @@ func fallbackEntry(files map[string]string, nomiNames []string) string {
 	return ""
 }
 
-// namesModules reports whether a block's sections include a `go.mod`, at
-// its root or in a module of its own under it.
+// namesModules reports whether a block names modules: a section is a
+// nomi.toml in a directory under its root, a module of its own, or its
+// root nomi.toml has a [dependencies] table.
 func namesModules(files map[string]string) bool {
-	for name := range files {
-		if path.Base(name) == "go.mod" {
+	for name, body := range files {
+		clean := path.Clean(name)
+		if path.Base(clean) != "nomi.toml" {
+			continue
+		}
+		if path.Dir(clean) != "." || analysis.ManifestTableLayout([]byte(body), "dependencies").Header > 0 {
 			return true
 		}
 	}
@@ -201,12 +269,12 @@ func namesModules(files map[string]string) bool {
 
 // fromModuleFiles is the project of a block that names modules: its files
 // as they would be on disk, and its entry, the first file of the root
-// module (one in no directory holding a `nomi.toml` or `go.mod` of its own)
+// module (one in no directory holding a `nomi.toml` of its own)
 // that declares `fn main`, else fallbackEntry over the root module's Nomi
 // files in the block's order (order is the sections' paths as marked). In
 // a block of sibling projects, the root module is the project projectsDir
 // picks.
-func fromModuleFiles(marked map[string]string, order []string, forced string) (Project, string, []string, error) {
+func fromModuleFiles(marked map[string]string, binary map[string]bool, order []string, forced string) (Project, string, []string, error) {
 	files := make(map[string]string, len(marked))
 	moduleDirs := map[string]bool{}
 	for name, body := range marked {
@@ -219,8 +287,8 @@ func fromModuleFiles(marked map[string]string, order []string, forced string) (P
 		}
 		// A file ends as a file on disk does, with one newline: the blank
 		// lines between sections are not part of it.
-		files[clean] = dataText(body)
-		if base := path.Base(clean); (base == "nomi.toml" || base == "go.mod") && path.Dir(clean) != "." {
+		files[clean] = dataText(body, binary[name])
+		if path.Base(clean) == "nomi.toml" && path.Dir(clean) != "." {
 			moduleDirs[path.Dir(clean)] = true
 		}
 	}
@@ -278,20 +346,20 @@ func fromModuleFiles(marked map[string]string, order []string, forced string) (P
 }
 
 // projectsDir is the project directory of a block of sibling projects: one
-// with no go.mod at its root and a go.mod in two or more of its top-level
-// directories, each a module of its own beside the others (an app, and a
-// library its go.mod replaces with `../shared`). Its project is the
+// with no nomi.toml at its root and a nomi.toml in two or more of its
+// top-level directories, each a module of its own beside the others (an
+// app, and a library its nomi.toml names with `dir = "../shared"`). Its project is the
 // top-level directory of its first section, the file a reader sees first,
 // and every file is in one of its top-level directories. The entry rule
 // alone cannot pick the project, since a generator's tool declares `fn
 // main` too. It answers "" for a block whose root is its project.
 func projectsDir(files map[string]string, order []string) (string, error) {
-	if _, ok := files["go.mod"]; ok {
+	if _, ok := files["nomi.toml"]; ok {
 		return "", nil
 	}
 	modules := map[string]bool{}
 	for name := range files {
-		if dir, base := path.Split(name); base == "go.mod" && dir != "" && strings.Count(dir, "/") == 1 {
+		if dir, base := path.Split(name); base == "nomi.toml" && dir != "" && strings.Count(dir, "/") == 1 {
 			modules[dir] = true
 		}
 	}
@@ -335,7 +403,7 @@ func FromSources(entryPoint string, sources map[string]string, manifest *analysi
 // fromFiles is the project of a block that names no modules, entered at
 // entry when it is one of its Nomi files, else at its first Nomi file by
 // name.
-func fromFiles(files map[string]string, entry string) (Project, error) {
+func fromFiles(files map[string]string, binary map[string]bool, entry string) (Project, error) {
 	files = cloneFiles(files)
 	var manifest *analysis.Manifest
 	if tomlSrc, ok := files["nomi.toml"]; ok {
@@ -382,7 +450,7 @@ func fromFiles(files map[string]string, entry string) (Project, error) {
 			dataFiles[strings.TrimPrefix(name, "./")] = body
 		default:
 			// A file the program reads at run time.
-			dataFiles[strings.TrimPrefix(name, "./")] = dataText(body)
+			dataFiles[strings.TrimPrefix(name, "./")] = dataText(body, binary[name])
 		}
 	}
 	if len(virtualFiles) == 0 {
@@ -435,8 +503,12 @@ func (p Project) Write(dir string) (string, error) {
 
 // dataText is a file's text as its section holds it: the blank lines
 // that separate it from the next section are not part of it, and a text
-// that is not empty ends with one newline, as a text file does.
-func dataText(body string) string {
+// that is not empty ends with one newline, as a text file does. A binary
+// section's file is its decoded bytes, unchanged.
+func dataText(body string, binary bool) string {
+	if binary {
+		return body
+	}
 	text := strings.TrimRight(body, "\n")
 	if text == "" {
 		return ""

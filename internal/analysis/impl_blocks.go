@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/nomi-language/nomi/internal/ast"
 )
@@ -20,12 +21,12 @@ func (fa *FileAnalysis) implBlockFor(recv Type, iface, origin string, ifaceArgs 
 	if t == nil || iface == "" {
 		return nil
 	}
-	blocks := writtenOverSynthesized(fa.implBlocksOf(t, iface, origin))
+	blocks := BestImplPrecedence(fa.implBlocksOf(t, iface, origin), implTypeArgsBlock)
 	if len(blocks) == 1 {
 		return blocks[0].Block
 	}
 	if len(blocks) == 0 {
-		return nil
+		return fa.blockImplOf(t, iface)
 	}
 	var found *ast.ImplBlock
 	for _, cand := range fa.implCandidates(t, iface, origin) {
@@ -47,25 +48,95 @@ func (fa *FileAnalysis) implBlockFor(recv Type, iface, origin string, ifaceArgs 
 	return found
 }
 
-// writtenOverSynthesized is blocks with the synthesized ones left out when
-// a written one is among them. A hand-written `impl Debug` ranks above a
-// derived or synthesized one (spec §12): the declaring file's universal
-// `impl Debug for Box` yields to the `impl Debug for Box` another file of
-// the program writes.
-func writtenOverSynthesized(blocks []*ImplTypeArgs) []*ImplTypeArgs {
-	if len(blocks) < 2 {
-		return blocks
+// blockImplOf is the impl block of the interface iface the front end wrote
+// for t, a type declared in a body, in that body: its universal Debug
+// (FileBodies.BlockDebug), the one impl such a type has, since no impl
+// block can name it. It is read in the file that declares t, whose origin
+// t's body origin names (BodyOrigin). Nil for a module-level type and for
+// any other interface.
+func (fa *FileAnalysis) blockImplOf(t Type, iface string) *ast.ImplBlock {
+	origin, ok := nominalOrigin(t)
+	if !ok || fa == nil {
+		return nil
 	}
-	var written []*ImplTypeArgs
-	for _, b := range blocks {
-		if !IsSynthesizedLine(b.Block.Line) {
-			written = append(written, b)
+	file, body := bodyOriginFile(origin)
+	if !body {
+		return nil
+	}
+	home := fa
+	if declaredOrigin(fa) != file {
+		p := fa.Program()
+		if p == nil {
+			return nil
+		}
+		if home = p.File(file); home == nil && file == p.entryOrigin() {
+			home = p.File("")
+		}
+		if home == nil {
+			return nil
 		}
 	}
-	if len(written) == 0 {
-		return blocks
+	for decl, impl := range home.BlockDebug {
+		line, col := declPos(decl)
+		if impl != nil && BodyOrigin(file, line, col) == origin && TypeExprBaseName(impl.Interface) == iface {
+			return impl
+		}
 	}
-	return written
+	return nil
+}
+
+// BestImplPrecedence is items with those whose block has the best
+// ImplPrecedence alone: the declaring file's universal `impl Debug for Box`
+// yields to the `impl Debug for Box` another file of the program writes,
+// and to a REPL input's `derive Debug for Box` for a type an earlier input
+// declared. block is an item's impl block. The resolver of which block a
+// call reaches (implBlockFor) and the IR builder's index of every file's
+// impl functions rank with it.
+func BestImplPrecedence[T any](items []T, block func(T) *ast.ImplBlock) []T {
+	if len(items) < 2 {
+		return items
+	}
+	best := implUniversal
+	for _, it := range items {
+		best = min(best, ImplPrecedence(block(it)))
+	}
+	var out []T
+	for _, it := range items {
+		if ImplPrecedence(block(it)) == best {
+			out = append(out, it)
+		}
+	}
+	return out
+}
+
+// implTypeArgsBlock is a's block, for BestImplPrecedence.
+func implTypeArgsBlock(a *ImplTypeArgs) *ast.ImplBlock { return a.Block }
+
+// The ranks of ImplPrecedence, best first.
+const (
+	implWritten = iota
+	implDerived
+	implUniversal
+)
+
+// ImplPrecedence ranks b among the impl blocks of one interface for one
+// type, best (lowest) first: a hand-written block above a derived one
+// (spec §12), and a derived one above the universal Debug the front end
+// synthesizes for every type (every function ast.FuncDef.AutoSynth).
+func ImplPrecedence(b *ast.ImplBlock) int {
+	if !IsSynthesizedLine(b.Line) {
+		return implWritten
+	}
+	fns := implBlockFuncDefs(b)
+	for _, fn := range fns {
+		if !fn.AutoSynth {
+			return implDerived
+		}
+	}
+	if len(fns) == 0 {
+		return implDerived
+	}
+	return implUniversal
 }
 
 // ImplBlockArgsAt is the type each of impl block ib's type parameters
@@ -162,9 +233,12 @@ func (fa *FileAnalysis) ownImpl(impl *OperatorImpl, t Type) bool {
 // block that declares it is one of the blocks of the interface iface
 // (declared by the file of origin, any of the name for OriginUnresolved)
 // whose receiver is t's declaration (implBlocksOf), so not another
-// module's type of t's name, nor, for a type declared inside a body, any
-// type's.
+// module's type of t's name, or, for a type declared inside a body, the
+// one its block holds (blockImplOf).
 func (fa *FileAnalysis) implOfOwnType(m ast.ImplMethodDecl, iface, origin string, t Type) bool {
+	if b := fa.blockImplOf(t, iface); b != nil && slices.Contains(b.Items, ast.Node(m)) {
+		return true
+	}
 	held := fa.implBlockHolding(m)
 	if held == nil {
 		return false
@@ -271,13 +345,12 @@ func implBlockKey(b *ast.ImplBlock) string {
 	return fmt.Sprintf("%d:%d:%s:%s", b.Line, b.Col, b.Interface.TypeString(), b.Receiver.TypeString())
 }
 
-// recordImplBlock notes info, an interface impl block of the file with its
-// resolved receiver, under its receiver's and its interface's base names
-// (FileAnalysis.ImplBlocks).
-func (fa *FileAnalysis) recordImplBlock(info *ImplTypeArgs, recv, iface string) {
-	if recv == "" || iface == "" || info.Block == nil {
-		return
-	}
+// recordImplBlock notes info, the record of an interface impl block of the
+// file, under its receiver's base name recv and its interface's name
+// (FileAnalysis.ImplBlocks), and is the record the file keeps for the
+// block: info, or the one noted before.
+func (fa *FileAnalysis) recordImplBlock(info *ImplTypeArgs, recv string) *ImplTypeArgs {
+	iface := info.Interface
 	if fa.ImplBlocks == nil {
 		fa.ImplBlocks = map[string]map[string][]*ImplTypeArgs{}
 	}
@@ -286,10 +359,11 @@ func (fa *FileAnalysis) recordImplBlock(info *ImplTypeArgs, recv, iface string) 
 	}
 	for _, b := range fa.ImplBlocks[recv][iface] {
 		if b.Block == info.Block {
-			return
+			return b
 		}
 	}
 	fa.ImplBlocks[recv][iface] = append(fa.ImplBlocks[recv][iface], info)
+	return info
 }
 
 // addImplBlocks adds fa's impl blocks to idx.

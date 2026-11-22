@@ -73,6 +73,69 @@ func TestWithinRefusesEscapes(t *testing.T) {
 	}
 }
 
+// TestDirCrossingsConfineAndClose holds the crossings a `Dir` makes, handed
+// the confined file system rather than reading the frame's, to one rule on
+// both backends: a write, a rename or a copy that leads outside is
+// InvalidPath with the escape reason and changes nothing outside, a path
+// inside works, and after Release every crossing through it is Closed.
+func TestDirCrossingsConfineAndClose(t *testing.T) {
+	dir := filepath.ToSlash(t.TempDir())
+	backends := map[string]struct {
+		b    Backend
+		root string
+	}{
+		"disk":   {OS, dir},
+		"memory": {NewMemory("/work"), "/work"},
+	}
+	for name, tc := range backends {
+		t.Run(name, func(t *testing.T) {
+			whole := rt.NewFileSystem(tc.b, false)
+			fr := rt.NewFrame(context.Background())
+			site := tc.root + "/site"
+			if r := CreateDir(whole, site, false); r.Tag != rt.TagOk {
+				t.Fatalf("create_dir: %+v", r.Err)
+			}
+			opened := Within(whole, site)
+			if opened.Tag != rt.TagOk {
+				t.Fatalf("within: %+v", opened.Err)
+			}
+			d := opened.Ok
+			escaped := func(what string, got rt.Result[rt.Unit, rt.IOError], p string) {
+				t.Helper()
+				if got.Tag != rt.TagErr || got.Err.Tag != rt.TagIOInvalidPath || got.Err.Reason != escapeReason || got.Err.Path != p {
+					t.Errorf("%s answered %+v, want InvalidPath escaping at %q", what, got, p)
+				}
+			}
+			if r := Write(fr, d, "in.txt", rt.Bytes("i"), int64(Replace)); r.Tag != rt.TagOk {
+				t.Fatalf("a write inside answered %+v", r.Err)
+			}
+			escaped("a write outside", Write(fr, d, "../out.txt", rt.Bytes("o"), int64(Replace)), "../out.txt")
+			escaped("a rename out", Rename(d, "in.txt", "../moved.txt"), "../moved.txt")
+			escaped("a copy out", Copy(fr, d, "in.txt", tc.root+"/copy.txt"), tc.root+"/copy.txt")
+			for _, p := range []string{"out.txt", "moved.txt", "copy.txt"} {
+				if r := Metadata(whole, tc.root+"/"+p); r.Tag != rt.TagErr || r.Err.Tag != rt.TagIONotFound {
+					t.Errorf("%s is outside the directory after the refusals: %+v", p, r)
+				}
+			}
+			if r := ReadText(fr, whole, site+"/in.txt"); r.Tag != rt.TagOk || r.Ok != "i" {
+				t.Errorf("the file written inside reads %+v from outside", r)
+			}
+			Release(d)
+			Release(d)
+			closed := rt.IOError{Tag: rt.TagIOClosed}
+			if r := ReadText(fr, d, "in.txt"); r.Tag != rt.TagErr || r.Err != closed {
+				t.Errorf("a read after the release answered %+v, want Closed", r)
+			}
+			if r := Within(d, "."); r.Tag != rt.TagErr || r.Err != closed {
+				t.Errorf("within after the release answered %+v, want Closed", r)
+			}
+			if r := MakeTemp(fr, d, true); r.Tag != rt.TagErr || r.Err != closed {
+				t.Errorf("make_temp after the release answered %+v, want Closed", r)
+			}
+		})
+	}
+}
+
 func writeAll(b Backend, p, data string) *rt.IOError {
 	sink, e := b.Create(p, Replace)
 	if e != nil {
@@ -98,7 +161,7 @@ func TestListMarksNamesThatAreNotUTF8(t *testing.T) {
 	m.Put("d/ok.txt", nil)
 	m.Put("d/b\xffd.txt", nil)
 	fr := rt.EnterFiles(rt.NewFrame(context.Background()), rt.NewFileSystem(m, true))
-	got := List(fr, "d")
+	got := List(Here(fr), "d")
 	if got.Tag != rt.TagOk {
 		t.Fatalf("list answered %+v", got.Err)
 	}

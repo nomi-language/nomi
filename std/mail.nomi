@@ -509,10 +509,11 @@ pub fn deliver(
     address = net.join_host_port(config.host, "${config.port}")
     options = net.DialOptions{timeout: Some(config.timeout)}
 
-    dialed = case config.security
-        .Tls -> tls.dial(address, tls_config(config), options)
-        _    -> net.dial(address, options)
-    end
+    dialed =
+        case config.security
+            .Tls -> tls.dial(address, tls_config(config), options)
+            _    -> net.dial(address, options)
+        end
 
     conn = dialed |> Result.map_err(fn e -> Error.Network{reason: "${e}"})?
     defer Connection.close(conn)
@@ -641,10 +642,11 @@ fn authenticate(
     extensions: List<String>,
     config:     SmtpConfig,
 ) -> Result<Unit, Error>
-    credentials = case config.credentials
-        None    -> return Ok(Unit)
-        Some(c) -> c
-    end
+    credentials =
+        case config.credentials
+            None    -> return Ok(Unit)
+            Some(c) -> c
+        end
 
     if not session.encrypted and not is_loopback(config.host) then
         return Err(cleartext_credentials(config.host))
@@ -669,11 +671,12 @@ fn authenticate(
         expect(session, command(session, base64.encode(password))?, [235], "AUTH LOGIN")?
         Ok(Unit)
     else
-        offered = if Iter.is_empty(mechanisms) then
-            "none"
-        else
-            String.join(mechanisms, " ")
-        end
+        offered =
+            if Iter.is_empty(mechanisms) then
+                "none"
+            else
+                String.join(mechanisms, " ")
+            end
 
         Err(Error.Protocol{
             reason: "${config.host} offers no AUTH mechanism std/mail speaks (PLAIN, LOGIN); it offers ${offered}",
@@ -714,23 +717,25 @@ fn read_reply(session: Session) -> Result<Reply, Error>
 end
 
 fn read_lines(session: Session, lines: List<String>) -> Result<Reply, Error>
-    line = case Reader.read_line(Connection.reader(session.conn))
-        Ok(Some(text)) -> text
-        Ok(None)       -> return Err(Error.Network{reason: "the server closed the connection"})
-        Err(e)         -> return Err(Error.Network{reason: "${e}"})
-    end
+    line =
+        case Reader.read_line(Connection.reader(session.conn))
+            Ok(Some(text)) -> text
+            Ok(None)       -> return Err(Error.Network{reason: "the server closed the connection"})
+            Err(e)         -> return Err(Error.Network{reason: "${e}"})
+        end
 
-    code = case String.to_int(String.take(line, 3))
-        Some(n) when String.length(line) >= 3 ->
-            n
+    code =
+        case String.to_int(String.take(line, 3))
+            Some(n) when String.length(line) >= 3 ->
+                n
 
-        _ ->
-            return Err(
-                Error.Protocol{
-                    reason: "the server sent ${String.to_literal(line)}, not an SMTP reply",
-                }
-            )
-    end
+            _ ->
+                return Err(
+                    Error.Protocol{
+                        reason: "the server sent ${String.to_literal(line)}, not an SMTP reply",
+                    }
+                )
+        end
 
     more = List.concat(lines, [String.drop(line, 4)])
 
@@ -893,15 +898,17 @@ pub fn render(
 ) -> Result<String, Error>
     check_message(message)?
 
-    id = case message_id
-        Some(given) -> given
-        None        -> new_message_id(message.from)
-    end
+    id =
+        case message_id
+            Some(given) -> given
+            None        -> new_message_id(message.from)
+        end
 
-    at = case date
-        Some(given) -> given
-        None        -> Instant.now()
-    end
+    at =
+        case date
+            Some(given) -> given
+            None        -> Instant.now()
+        end
 
     (content_headers, body) = content(message)
 
@@ -936,11 +943,12 @@ fn content(message: Message) -> (List<String>, String)
         |> Maybe.values()
         |> Iter.to_list()
 
-    main = case bodies
-        []      -> None
-        [one]   -> Some(one)
-        several -> Some(multipart("alternative", several))
-    end
+    main =
+        case bodies
+            []      -> None
+            [one]   -> Some(one)
+            several -> Some(multipart("alternative", several))
+        end
 
     attachments = message.attachments |> Iter.map(attachment_part) |> Iter.to_list()
 
@@ -968,20 +976,21 @@ end
 fn attachment_part(attachment: Attachment) -> (List<String>, String)
     name = attachment.filename
 
-    (type_line, disposition) = if Iter.all_match(name, fn g ->
-        c = code_of(g)
-        c >= 32 and c <= 126 and g != "\"" and g != "\\"
-    end) then
-        (
-            "Content-Type: ${attachment.content_type}; name=\"${name}\"",
-            "Content-Disposition: attachment; filename=\"${name}\"",
-        )
-    else
-        (
-            "Content-Type: ${attachment.content_type}",
-            "Content-Disposition: attachment; filename*=utf-8''${percent_encode(name)}",
-        )
-    end
+    (type_line, disposition) =
+        if Iter.all_match(name, fn g ->
+            c = code_of(g)
+            c >= 32 and c <= 126 and g != "\"" and g != "\\"
+        end) then
+            (
+                "Content-Type: ${attachment.content_type}; name=\"${name}\"",
+                "Content-Disposition: attachment; filename=\"${name}\"",
+            )
+        else
+            (
+                "Content-Type: ${attachment.content_type}",
+                "Content-Disposition: attachment; filename*=utf-8''${percent_encode(name)}",
+            )
+        end
 
     ([type_line, disposition, "Content-Transfer-Encoding: base64"], base64_lines(attachment.data))
 end
@@ -1100,17 +1109,18 @@ end
 fn mailbox(address: Address) -> String
     name = address.name
 
-    phrase = if name == "" then
-        ""
-    else if String.trim(name) == name
-        and not String.contains(name, "  ")
-        and Iter.all_match(name, fn g -> g == " " or is_atext(g)) then
-        name
-    else if is_plain(name) then
-        "\"${String.replace(String.replace(name, "\\", "\\\\"), "\"", "\\\"")}\""
-    else
-        String.join(encoded_words(name), " ")
-    end
+    phrase =
+        if name == "" then
+            ""
+        else if String.trim(name) == name
+            and not String.contains(name, "  ")
+            and Iter.all_match(name, fn g -> g == " " or is_atext(g)) then
+            name
+        else if is_plain(name) then
+            "\"${String.replace(String.replace(name, "\\", "\\\\"), "\"", "\\\"")}\""
+        else
+            String.join(encoded_words(name), " ")
+        end
 
     if phrase == "" then
         address.email

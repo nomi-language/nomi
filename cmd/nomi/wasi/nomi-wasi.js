@@ -30,15 +30,24 @@
 // diagnostic. The program stays usable after a failed call.
 //
 // The `std`, `host` and `timeoutMs` options reach the reactor through
-// nomi_load_with. `std` holds the program to a list of std names, such as
-// ["std::io"], and an empty list allows nothing outside the program: a
-// program that reaches more is refused at the load, before it runs.
+// nomi_load_with. `std` holds the program to a list of the effects it may
+// have, by std name, such as ["std::io"], and an empty list allows no
+// effects: a program that has more is refused at the load, before it runs.
 // `host` lists the keys of the host functions linked into the reactor
 // that the program may call; with `std` and no `host`, it may call none,
 // and `host` alone holds only host functions. With
 // `timeoutMs`, the boot and each later call and run of main stop once they
 // have run that long, and answer an error saying so; the program stays
 // loaded and takes more calls.
+//
+// The `hosts` option answers the program's own `host fn`s: an object from
+// each one's key (`greet`, or `helpers/util.greet` in another file) to a
+// function that takes its arguments and returns its result as JSON values,
+// called synchronously from the reactor's nomi.host_call import. A thrown
+// Error fails the Nomi call with its message. Its keys reach the reactor as
+// nomi_load_with's "host_calls"; `host` still holds them.
+//
+//   const app = await vm.load("./app.nomic", { hosts: { greet: (name) => `hi ${name}` } });
 //
 // A source is a URL string, URL, Response, ArrayBuffer or typed array (and
 // for loadRuntime, a WebAssembly.Module). Where there is no fetch for it
@@ -69,6 +78,7 @@ const encoder = new TextEncoder();
  *   stdin?: string | Uint8Array,
  *   onStdout?: (text: string) => void, onStderr?: (text: string) => void,
  *   std?: string[], host?: string[], timeoutMs?: number,
+ *   hosts?: Record<string, (...args: any[]) => unknown>,
  * }} Options
  */
 
@@ -277,10 +287,12 @@ class Host {
     // imports one more still instantiates: ENOSYS for any not here.
     /** @type {Record<string, Record<string, Function>>} */
     const imports = {};
+    const own = { host_call: hostCall(host, options.hosts ?? {}) };
     for (const { module: from, name, kind } of WebAssembly.Module.imports(module)) {
       if (kind !== "function") continue;
       imports[from] ??= {};
-      imports[from][name] = (from === "wasi_snapshot_preview1" && wasi[name]) || (() => ENOSYS);
+      imports[from][name] = (from === "wasi_snapshot_preview1" && wasi[name]) ||
+        (from === "nomi" && own[name]) || (() => ENOSYS);
     }
     host.x = /** @type {any} */ (await WebAssembly.instantiate(module, imports)).exports;
     host.enter("starting", () => host.x._initialize());
@@ -398,6 +410,32 @@ class Host {
 }
 
 /**
+ * The reactor's nomi.host_call import over hosts: it calls the function
+ * hosts names by the key with the decoded arguments, and answers
+ * `{"ok": result}`, or `{"error": message}` when the function throws, in
+ * a buffer from nomi_alloc. The reactor calls it only for a key
+ * loadOptions listed in "host_calls".
+ * @param {Host} host
+ * @param {Record<string, (...args: any[]) => unknown>} hosts
+ */
+function hostCall(host, hosts) {
+  return (/** @type {number} */ keyPtr, /** @type {number} */ keyLen, /** @type {number} */ argsPtr, /** @type {number} */ argsLen) => {
+    const text = (/** @type {number} */ ptr, /** @type {number} */ len) =>
+      new TextDecoder().decode(new Uint8Array(host.x.memory.buffer, ptr >>> 0, len));
+    const key = text(keyPtr, keyLen);
+    let answer;
+    try {
+      const result = hosts[key](...decodeValue(text(argsPtr, argsLen)));
+      answer = encodeValues({ ok: result === undefined ? null : result });
+    } catch (e) {
+      answer = JSON.stringify({ error: e instanceof Error ? e.message : String(e) });
+    }
+    const [ptr, len] = host.put(encoder.encode(answer));
+    return BigInt(ptr) << 32n | BigInt(len);
+  };
+}
+
+/**
  * The JSON options nomi_load_with takes from options, or null for none.
  * @param {Options} options
  */
@@ -406,6 +444,7 @@ function loadOptions(options) {
   const opts = {};
   if (options.std !== undefined) opts.std = options.std;
   if (options.host !== undefined) opts.host = options.host;
+  if (options.hosts !== undefined) opts.host_calls = Object.keys(options.hosts);
   if (options.timeoutMs !== undefined) opts.timeout_ms = options.timeoutMs;
   return Object.keys(opts).length === 0 ? null : JSON.stringify(opts);
 }

@@ -14,9 +14,10 @@ test "distinct types construct unwrap destructure and compare"
     id = Id(42)
     Id(n) = id
 
-    result = case id
-        Id(x) -> x + 1
-    end
+    result =
+        case id
+            Id(x) -> x + 1
+        end
 
     Id(unwrapped) = id
 
@@ -42,15 +43,17 @@ test "map distinct wrappers support literal attach and destructuring"
         {"c" => 3}
         |> Kvs()
 
-    flat = case kv
-        Kvs{"a" => v} -> "got a=${v}"
-        _             -> "no a"
-    end
+    flat =
+        case kv
+            Kvs{"a" => v} -> "got a=${v}"
+            _             -> "no a"
+        end
 
-    nested = case kv
-        Kvs({"b" => v}) -> "got b=${v}"
-        _               -> "no b"
-    end
+    nested =
+        case kv
+            Kvs({"b" => v}) -> "got b=${v}"
+            _               -> "no b"
+        end
 
     assert Debug.inspect(kv) == "Kvs({\"a\" => 1, \"b\" => 2})"
     assert Debug.inspect(kv2) == "Kvs({\"c\" => 3})"
@@ -63,17 +66,20 @@ test "tuple distinct wrappers support literal attach and destructuring"
     p2 = Pair((2, "world"))
     t = Triple(1, 2, 3)
 
-    flat = case p1
-        Pair(a, b) -> "flat: ${a}, ${b}"
-    end
+    flat =
+        case p1
+            Pair(a, b) -> "flat: ${a}, ${b}"
+        end
 
-    nested = case p1
-        Pair((c, d)) -> "nested: ${c}, ${d}"
-    end
+    nested =
+        case p1
+            Pair((c, d)) -> "nested: ${c}, ${d}"
+        end
 
-    triple = case t
-        Triple(x, y, z) -> "triple: ${x}, ${y}, ${z}"
-    end
+    triple =
+        case t
+            Triple(x, y, z) -> "triple: ${x}, ${y}, ${z}"
+        end
 
     assert Debug.inspect(p1) == "Pair(1, \"hello\")"
     assert Debug.inspect(p2) == "Pair(2, \"world\")"
@@ -107,10 +113,11 @@ test "an enum alias qualifies variants in patterns and constructors"
     assert shape_size(S.Dot) == 0
     c: Count = Count.Some(4)
 
-    n = case c
-        Count.Some(k) -> k
-        Count.None    -> 0
-    end
+    n =
+        case c
+            Count.Some(k) -> k
+            Count.None    -> 0
+        end
 
     assert n == 4
 end

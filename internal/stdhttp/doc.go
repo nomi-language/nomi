@@ -103,7 +103,11 @@
 //
 // `Response.redirect` and `Response.content` run Go's `Redirect` and
 // `ServeContent` on a recorder; `http.serve_file` reads through std/fs and
-// hands the bytes to `ServeContent`. Cookies cross as field lists; a
+// hands the bytes to `ServeContent`. Go's Header is a map, so every header
+// list that crosses to Nomi (a response, a request, a recorder's, a
+// multipart part's) is sorted by name, each name's values in order
+// (`flatHeader`), and the same header always crosses as the same list,
+// in the order Header.Write sends. Cookies cross as field lists; a
 // `CookieJar` is Go's cookiejar (rt.HTTPJar). `Headers.write_to`
 // (`Header.WriteSubset`), `Protocol.parse` (`ParseHTTPVersion`),
 // `Request.basic_auth` and `Request.add_cookie` cross as plain strings. A
@@ -112,11 +116,20 @@
 // is a digest of its parts, so the separately computed `Content-Type` and
 // bytes agree.
 //
+// A date is GMT whatever zone it names (RFC 9110 section 5.6.7, RFC
+// 6265 section 5.1.1). Go's time.Parse reads an abbreviation such as EST
+// against the process's zone, so no date here goes through it with
+// time.Local: `parse_time` and a cookie's Expires are read in UTC by
+// `gmtDate`, and `answer_content` rewrites the `If-*` dates of its
+// request as IMF-fixdates before `ServeContent` reads them.
+//
 // # Body limits
 //
-// Form readers read through `read_capped` (Nomi, std/http.nomi), which
-// copies at most one byte past the limit into `Writer.collect` and leaves
-// the rest unread. The limit is the request's `body_limit`
+// Form readers read through `read_capped` (Nomi, std/http.nomi). A
+// streamed body is read by ReadAtMost (`read_at_most`), at most one byte
+// past the limit, into a Bytes value with no Writer, leaving the rest
+// unread; a held stream is read with no effect of its own, so a form
+// reader has none. A body of bytes is measured. The limit is the request's `body_limit`
 // (`Request.limit_body`, which also applies MaxBytesReader semantics;
 // `Server.max_body` sets it on every request in `answer`), else 10 MB for
 // URL-encoded and 32 MB for multipart. A read cut off exactly at

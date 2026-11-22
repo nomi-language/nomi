@@ -1403,7 +1403,7 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 		case token.ENUM:
 			return p.parseEnumDef(true, false)
 		case token.TYPE:
-			return p.parseTypeDefOrForeignBinding(true, false)
+			return p.parseTypeDefOrGoBinding(true, false)
 		case token.SUBTYPE:
 			return p.parseTypeDef(true, false)
 		case token.OPAQUE:
@@ -1417,7 +1417,7 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 			case token.ENUM:
 				return p.parseEnumDef(true, true)
 			case token.TYPE:
-				return p.parseTypeDefOrForeignBinding(true, true)
+				return p.parseTypeDefOrGoBinding(true, true)
 			case token.SUBTYPE:
 				return p.parseTypeDef(true, true)
 			default:
@@ -1452,19 +1452,11 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 		}
 	}
 
-	if p.peek().Type == token.IDENT && p.peek().Lexeme == "gopkg" {
-		return p.parseGoPackageDecl()
+	if p.atGoBinding() {
+		return nil, goBindingError(p.peek())
 	}
 
-	if p.peek().Type == token.IDENT && p.peek().Lexeme == "go" {
-		if p.peekAt(1).Type == token.LBRACE {
-			return nil, errorAt(p.peek().Line, p.peek().Col, "Nomi has no `go { ... }` blocks; declare a Go package with `gopkg \"import/path\" as alias` and bind its functions and types with `go alias.Symbol`")
-		}
-		return nil, errorAt(p.peek().Line, p.peek().Col, "Go package handles use `gopkg \"import/path\"`")
-	}
-
-	// `extern` is reserved for the FFI surface, but runtime-provided
-	// declarations use the clearer `host` spelling.
+	// `extern` is reserved; runtime-provided declarations use `host`.
 	if p.peek().Type == token.EXTERN {
 		return p.parseExtern()
 	}
@@ -1534,7 +1526,7 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 	// Type definition or external type binding: type Name [InnerType] /
 	// [opaque] type RawConn go ffi.Conn
 	if p.peek().Type == token.TYPE {
-		return p.parseTypeDefOrForeignBinding(false, false)
+		return p.parseTypeDefOrGoBinding(false, false)
 	}
 
 	// Subtype: subtype Name Parent [and Parent...] [where ...] [when rule]
@@ -1555,7 +1547,7 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 		case token.ENUM:
 			return p.parseEnumDef(false, true)
 		case token.TYPE:
-			return p.parseTypeDefOrForeignBinding(false, true)
+			return p.parseTypeDefOrGoBinding(false, true)
 		case token.SUBTYPE:
 			return p.parseTypeDef(false, true)
 		default:
@@ -5866,39 +5858,11 @@ func (p *Parser) parseFuncDef(public bool) (ast.Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	afterHeader := p.pos
-	p.skipSignatureSeparators()
-	if !p.atEnd() && p.peekIsContextual("go") {
-		if next := p.peekAt(1); next.Type != token.IDENT || next.Line != p.peek().Line {
-			return nil, errorAt(p.peek().Line, p.peek().Col, "a function has no `go { ... }` body; bind a Go function with `go alias.Symbol`, where a `gopkg` declaration introduces `alias`")
-		}
-		{
-			foreignAlias, foreignName, aliasTok, goNameTok, err := p.parseGoSelectorBinding()
-			if err != nil {
-				return nil, err
-			}
-			return &ast.ExternFunc{
-				Name:             name,
-				Public:           public,
-				TypeParams:       typeParams,
-				Params:           params,
-				ParamsEndTrivia:  paramsEnd,
-				ReturnTypeExpr:   returnTypeExpr,
-				WhereClauses:     whereClauses,
-				Line:             nameTok.Line,
-				Col:              nameTok.Col,
-				ForeignAlias:     foreignAlias,
-				ForeignName:      foreignName,
-				ForeignAliasLine: aliasTok.Line,
-				ForeignAliasCol:  aliasTok.Col,
-				ForeignNameLine:  goNameTok.Line,
-				ForeignNameCol:   goNameTok.Col,
-			}, nil
-		}
-	}
-	p.pos = afterHeader
-	if !p.atLineEnd() && p.peekIsContextual("from") {
-		return nil, errorAt(p.peek().Line, p.peek().Col, "Go-backed functions use `go package.Symbol` bindings")
+	// Nothing stands after a header on its line, so a `go` there is a Go
+	// binding's symbol, which goBindingError refuses. One on the lines
+	// below is a statement.
+	if p.peekIsContextual("go") {
+		return nil, goBindingError(p.peek())
 	}
 
 	body, err := p.parseEndBody(tok, "a function's body")
@@ -5919,76 +5883,6 @@ func (p *Parser) parseFuncDef(public bool) (ast.Node, error) {
 		Col:             nameTok.Col,
 		FnCol:           tok.Col,
 	}, nil
-}
-
-func (p *Parser) parseGoPackageDecl() (ast.Node, error) {
-	goPkgTok := p.peek()
-	p.advance() // consume contextual `gopkg`
-
-	if p.atEnd() || p.peek().Type != token.STRING_LITERAL {
-		return nil, errorAt(goPkgTok.Line, goPkgTok.Col, "expected Go import path string after `gopkg`")
-	}
-	if p.blockDepth > 0 {
-		// The `go` bindings that use a handle are top-level, so a handle
-		// declared in a body could serve none of them.
-		p.softError(ParseError{Line: goPkgTok.Line, Col: goPkgTok.Col, Message: "a `gopkg` declaration belongs at the top level of a file, beside the `go` bindings that use it; it cannot appear inside a body"})
-	}
-	pathTok := p.peek()
-	importPath := pathTok.Lexeme
-	p.advance()
-
-	alias := ""
-	aliasLine, aliasCol := 0, 0
-	if !p.atEnd() && p.peek().Type == token.AS {
-		p.advance() // consume AS
-		if p.atEnd() || (p.peek().Type != token.IDENT && p.peek().Type != token.UNDERSCORE) {
-			return nil, errorAt(goPkgTok.Line, goPkgTok.Col, "expected Go package alias after `as`")
-		}
-		aliasTok := p.peek()
-		alias = aliasTok.Lexeme
-		aliasLine = aliasTok.Line
-		aliasCol = aliasTok.Col
-		p.advance()
-	}
-
-	pathCol := pathTok.Col + 1
-	if alias == "" {
-		alias = inferredGoImportAlias(importPath)
-		aliasLine = pathTok.Line
-		aliasCol = pathCol
-	}
-
-	return &ast.ExternPackage{
-		ImportPath:     importPath,
-		ImportPathLine: pathTok.Line,
-		ImportPathCol:  pathCol,
-		Alias:          alias,
-		Line:           goPkgTok.Line,
-		Col:            goPkgTok.Col,
-		AliasLine:      aliasLine,
-		AliasCol:       aliasCol,
-	}, nil
-}
-
-func (p *Parser) parseGoSelectorBinding() (string, string, token.Token, token.Token, error) {
-	goTok := p.peek()
-	p.advance() // consume contextual `go`
-
-	if p.atEnd() || (p.peek().Type != token.IDENT && p.peek().Type != token.UNDERSCORE) {
-		return "", "", token.Token{}, token.Token{}, errorAt(goTok.Line, goTok.Col, "expected Go package alias after `go`")
-	}
-	aliasTok := p.peek()
-	p.advance()
-	if p.atEnd() || p.peek().Type != token.DOT {
-		return "", "", token.Token{}, token.Token{}, errorAt(aliasTok.Line, aliasTok.Col, "expected '.' after Go package alias")
-	}
-	p.advance()
-	if p.atEnd() || (p.peek().Type != token.IDENT && p.peek().Type != token.TYPE_IDENT) {
-		return "", "", token.Token{}, token.Token{}, errorAt(aliasTok.Line, aliasTok.Col, "expected Go symbol name after '.'")
-	}
-	nameTok := p.peek()
-	p.advance()
-	return aliasTok.Lexeme, nameTok.Lexeme, aliasTok, nameTok, nil
 }
 
 // parseFunctionHeaderName parses a function's name after `fn` or `host fn`.
@@ -7334,12 +7228,8 @@ func (p *Parser) parseImportEntry(tok token.Token) (ast.Node, error) {
 	if p.peek().Type == token.EXTERN {
 		return nil, errorAt(p.peek().Line, p.peek().Col, "runtime-provided declarations use `host`, not `extern`")
 	}
-	if p.peek().Type == token.IDENT && p.peek().Lexeme == "go" &&
-		(p.peekAt(1).Type == token.STRING_LITERAL ||
-			p.peekAt(1).Type == token.IDENT ||
-			p.peekAt(1).Type == token.UNDERSCORE ||
-			p.peekAt(1).Type == token.LBRACE) {
-		return nil, errorAt(p.peek().Line, p.peek().Col, "Go package handles use `gopkg \"import/path\"`")
+	if p.atGoBinding() {
+		return nil, goBindingError(p.peek())
 	}
 
 	// Expect at least one import path segment. Keywords are allowed here:
@@ -7691,17 +7581,6 @@ func fileReExportError(entry *ast.ImportStmt, at token.Token) error {
 	}
 }
 
-func inferredGoImportAlias(importPath string) string {
-	importPath = strings.TrimSuffix(importPath, "/")
-	if importPath == "" {
-		return ""
-	}
-	if idx := strings.LastIndex(importPath, "/"); idx >= 0 {
-		return importPath[idx+1:]
-	}
-	return importPath
-}
-
 // makeImportNode creates an *Ident or *TypeIdent from a token, preserving position.
 func (p *Parser) makeImportNode(t token.Token) ast.Node {
 	if t.Type == token.DOTDOT {
@@ -7917,39 +7796,16 @@ func (p *Parser) parseTypeDef(public bool, opaque bool) (ast.Node, error) {
 	}, nil
 }
 
-func (p *Parser) parseTypeDefOrForeignBinding(public bool, opaque bool) (ast.Node, error) {
+// parseTypeDefOrGoBinding parses a `type` declaration, and refuses one
+// that names a Go type after its name (goBindingError).
+func (p *Parser) parseTypeDefOrGoBinding(public bool, opaque bool) (ast.Node, error) {
 	save := p.pos
-	typeTok := p.peek()
 	p.advance() // consume TYPE
-	name, localTok, err := p.parseQualifiedTypeDeclName("type")
-	if err != nil {
+	if _, _, err := p.parseQualifiedTypeDeclName("type"); err != nil {
 		return nil, err
 	}
-	p.skipSignatureSeparators()
-	if p.peekIsContextual("go") {
-		if p.peekAt(1).Type != token.LBRACE {
-			foreignAlias, foreignName, aliasTok, goNameTok, err := p.parseGoSelectorBinding()
-			if err != nil {
-				return nil, err
-			}
-			return &ast.ExternType{
-				Name:             name,
-				Public:           public,
-				Opaque:           opaque,
-				Line:             typeTok.Line,
-				Col:              localTok.Col,
-				ForeignAlias:     foreignAlias,
-				ForeignName:      foreignName,
-				ForeignAliasLine: aliasTok.Line,
-				ForeignAliasCol:  aliasTok.Col,
-				ForeignNameLine:  goNameTok.Line,
-				ForeignNameCol:   goNameTok.Col,
-			}, nil
-		}
-		return nil, errorAt(p.peek().Line, p.peek().Col, "a type has no `go { ... }` body; bind a Go type with `opaque type Name go alias.Symbol`, where a `gopkg` declaration introduces `alias`")
-	}
-	if p.peekIsContextual("from") {
-		return nil, errorAt(p.peek().Line, p.peek().Col, "Go-backed types use `go package.Type` bindings")
+	if p.atGoBinding() {
+		return nil, goBindingError(p.peek())
 	}
 	p.pos = save
 	return p.parseTypeDef(public, opaque)
@@ -10637,12 +10493,50 @@ func (p *Parser) parseExtern() (ast.Node, error) {
 	switch p.peek().Type {
 	case token.FN, token.TYPE:
 		return nil, errorAt(externTok.Line, externTok.Col, "runtime-provided declarations use `host %s`, not `extern %s`", p.peek().Lexeme, p.peek().Lexeme)
-	case token.STRING_LITERAL:
-		return nil, errorAt(externTok.Line, externTok.Col, "Go package handles use `gopkg %q`, not `extern`", p.peek().Lexeme)
 	default:
-		return nil, errorAt(externTok.Line, externTok.Col, "unexpected 'extern'; runtime-provided declarations use `host`, and Go package handles use `gopkg`")
+		return nil, errorAt(externTok.Line, externTok.Col, "unexpected 'extern'; runtime-provided declarations use `host`")
 	}
 }
+
+// atGoBinding reports whether the parser stands at what a Go binding
+// wrote: `gopkg` before a string on its line (a handle), or `go` before a
+// name, `_`, a string or `{` on its line (a symbol after a type's name, an
+// import, a block). Neither word is followed so in Nomi, which leaves `go`
+// and `gopkg` names everywhere else.
+func (p *Parser) atGoBinding() bool {
+	if p.atEnd() || p.peek().Type != token.IDENT {
+		return false
+	}
+	next := p.peekAt(1).Type
+	if p.peek().Lexeme == "gopkg" {
+		return next == token.STRING_LITERAL
+	}
+	if p.peek().Lexeme == "go" {
+		return next == token.IDENT || next == token.UNDERSCORE || next == token.STRING_LITERAL || next == token.LBRACE
+	}
+	return false
+}
+
+// goBindingError is the one error for source that binds Go code: a
+// `gopkg` handle, a `go alias.Symbol` after a function's or a type's
+// header, a `go { ... }` block or a `go "path"` import (atGoBinding, and
+// a `go` on a function's header line). Nomi source declares no Go code.
+// The hint names what reaches code outside Nomi: std, a WebAssembly
+// module run through std::wasm, and a Go host's table for a plain
+// `host fn`.
+func goBindingError(at token.Token) error {
+	return ParseError{
+		Line:    at.Line,
+		Col:     at.Col,
+		Message: GoBindingMessage,
+		Hints:   []string{goBindingHint},
+	}
+}
+
+// GoBindingMessage is goBindingError's message.
+const GoBindingMessage = "Nomi source does not bind Go code: there is no `gopkg` handle and no `go` binding"
+
+const goBindingHint = "use the standard library, run a WebAssembly build of the code through std::wasm, or run the program from a Go host (vmhost) that supplies a plain `host fn` from a host table"
 
 func (p *Parser) parseHost(public bool) (ast.Node, error) {
 	hostTok := p.peek()
@@ -10865,10 +10759,7 @@ func (p *Parser) parseExportFunc() (ast.Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	fd, ok := node.(*ast.FuncDef)
-	if !ok {
-		return nil, errorAt(exportTok.Line, exportTok.Col, "a Go binding cannot be exported; an `export fn` has a body")
-	}
+	fd := node.(*ast.FuncDef)
 	fd.Export = true
 	fd.ExportLine, fd.ExportCol = exportTok.Line, exportTok.Col
 	return fd, nil

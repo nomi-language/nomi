@@ -366,7 +366,7 @@ func TestBuildProject_MalformedManifestSurfacesAsTypeError(t *testing.T) {
 }
 
 // writeCratePackagingExample lays out a two-module tree on disk: a `todo/`
-// module whose `go.mod` replaces a sibling `stringkit/` module with its local
+// module whose nomi.toml names a sibling `stringkit/` module by its local
 // path.
 // Returns the path of the entry file the caller wants to build from.
 //
@@ -389,21 +389,15 @@ func writeCratePackagingExample(t *testing.T, todoMain string, stringkitPad stri
 	mustWrite(filepath.Join(stringkitRoot, "nomi.toml"), `[module]
 name = "stringkit"
 `)
-	mustWrite(filepath.Join(stringkitRoot, "go.mod"), "module stringkit\n\ngo 1.22\n")
 	mustWrite(filepath.Join(stringkitRoot, "pad.nomi"), stringkitPad)
 
 	// todo module
 	mustWrite(filepath.Join(todoRoot, "nomi.toml"), `[module]
 name = "todo"
 entry_points = ["main"]
-`)
-	mustWrite(filepath.Join(todoRoot, "go.mod"), `module todo
 
-go 1.22
-
-require stringkit v0.0.0
-
-replace stringkit => ../stringkit
+[dependencies]
+stringkit = { dir = "../stringkit" }
 `)
 	entryPath = filepath.Join(todoRoot, "main.nomi")
 	mustWrite(entryPath, todoMain)
@@ -416,7 +410,7 @@ replace stringkit => ../stringkit
 
 // TestBuildProject_CrossModuleImportResolves is the happy-path test
 // for cross-module imports: an `import stringkit::pad` in todo/main.nomi must resolve
-// against ../stringkit/pad.nomi (per todo/go.mod's replace directive)
+// against ../stringkit/pad.nomi (per todo/nomi.toml's dir entry)
 // and bring pad.nomi's symbols into the import-time scope of main.nomi.
 //
 // The assertion is on the side-effect proof of resolution: pad.nomi

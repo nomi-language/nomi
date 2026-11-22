@@ -19,7 +19,7 @@ s3's, which need no server.
 need a bucket policy, against any bucket the environment names. It writes
 objects under `conformance/` and `presigned/` in that bucket.
 
-```
+```sh
 NOMI_S3_TEST_ENDPOINT=https://nyc3.digitaloceanspaces.com \
 NOMI_S3_TEST_BUCKET=my-test-bucket \
 NOMI_S3_TEST_ACCESS_KEY=... NOMI_S3_TEST_SECRET_KEY=... \

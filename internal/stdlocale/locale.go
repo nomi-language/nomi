@@ -43,8 +43,8 @@ type LocaleAttempt struct {
 	Detail string
 }
 
-// FFIParse is `Locale.parse`, and it also backs the “Locale`…` “ literal.
-func FFIParse(tag string) LocaleAttempt { return parse(tag) }
+// HostParse is `Locale.parse`, and it also backs the “Locale`…` “ literal.
+func HostParse(tag string) LocaleAttempt { return parse(tag) }
 
 func parse(s string) LocaleAttempt {
 	if s == "" {
@@ -78,11 +78,11 @@ var posixModifiers = map[string]string{
 	"valencia":   "valencia",
 }
 
-// FFIFromPosix is `Locale.from_posix`: a POSIX locale value such as `LANG`
+// HostFromPosix is `Locale.from_posix`: a POSIX locale value such as `LANG`
 // holds (`language[_territory][.codeset][@modifier]`) as a Locale. `C` and
 // `POSIX`, with or without a codeset, are `und`: the portable locale names
 // no language.
-func FFIFromPosix(value string) LocaleAttempt {
+func HostFromPosix(value string) LocaleAttempt {
 	if value == "" {
 		return LocaleAttempt{Kind: KindEmpty}
 	}
@@ -120,15 +120,15 @@ func mustParse(tag string) language.Tag {
 	return t
 }
 
-// FFILanguage is `Locale.language`: the language subtag, `und` when the tag
+// HostLanguage is `Locale.language`: the language subtag, `und` when the tag
 // names none.
-func FFILanguage(tag string) string {
+func HostLanguage(tag string) string {
 	b, _, _ := mustParse(tag).Raw()
 	return b.String()
 }
 
-// FFIScript is `Locale.script`: the script subtag the tag spells, if any.
-func FFIScript(tag string) *string {
+// HostScript is `Locale.script`: the script subtag the tag spells, if any.
+func HostScript(tag string) *string {
 	_, s, _ := mustParse(tag).Raw()
 	if s.String() == "Zzzz" {
 		return nil
@@ -137,8 +137,8 @@ func FFIScript(tag string) *string {
 	return &out
 }
 
-// FFIRegion is `Locale.region`: the region subtag the tag spells, if any.
-func FFIRegion(tag string) *string {
+// HostRegion is `Locale.region`: the region subtag the tag spells, if any.
+func HostRegion(tag string) *string {
 	_, _, r := mustParse(tag).Raw()
 	if r.String() == "ZZ" {
 		return nil
@@ -303,13 +303,13 @@ func Extension(tag, key string) string {
 	return t.TypeForKey(key)
 }
 
-// FFIFallbacks is `Locale.fallbacks`.
-func FFIFallbacks(fr *rt.Frame, tag string) []string { return Fallbacks(Data(fr), tag) }
+// HostFallbacks is `Locale.fallbacks`.
+func HostFallbacks(fr *rt.Frame, tag string) []string { return Fallbacks(Data(fr), tag) }
 
-// FFIAvailable is `Locale.available`: the locales the program's nomi.toml
+// HostAvailable is `Locale.available`: the locales the program's nomi.toml
 // lists in `[i18n].locales`, in its order, or every locale the data has when
 // it lists none.
-func FFIAvailable(fr *rt.Frame) []string {
+func HostAvailable(fr *rt.Frame) []string {
 	d := Data(fr)
 	if tags, ok := d.Available(); ok {
 		return tags
@@ -323,10 +323,10 @@ func FFIAvailable(fr *rt.Frame) []string {
 	return out
 }
 
-// FFINegotiate is `Locale.negotiate`: the available locale that best
+// HostNegotiate is `Locale.negotiate`: the available locale that best
 // matches the requested ones, in order of preference, by CLDR language
 // matching, or fallback when none matches well enough.
-func FFINegotiate(requested, available []string, fallback string) string {
+func HostNegotiate(requested, available []string, fallback string) string {
 	if len(requested) == 0 || len(available) == 0 {
 		return fallback
 	}
@@ -345,9 +345,9 @@ func FFINegotiate(requested, available []string, fallback string) string {
 	return available[index]
 }
 
-// FFILoad is `locale_load_raw`, Locale.load: "" when tag is ready, else
+// HostLoad is `locale_load_raw`, Locale.load: "" when tag is ready, else
 // why not (localefiles.Load).
-func FFILoad(fr *rt.Frame, tag string) string {
+func HostLoad(fr *rt.Frame, tag string) string {
 	if fr == nil {
 		return ""
 	}
@@ -358,10 +358,10 @@ func FFILoad(fr *rt.Frame, tag string) string {
 	return localefiles.Load(store, localefiles.From(fr.Context()), Fallbacks(store.Data(), tag))
 }
 
-// FFILoaded is `locale_loaded_raw`, Locale.loaded: the available locales
+// HostLoaded is `locale_loaded_raw`, Locale.loaded: the available locales
 // whose data the program has now.
-func FFILoaded(fr *rt.Frame) []string {
-	available := FFIAvailable(fr)
+func HostLoaded(fr *rt.Frame) []string {
+	available := HostAvailable(fr)
 	if fr == nil {
 		return available
 	}

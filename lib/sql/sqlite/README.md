@@ -1,11 +1,9 @@
 # sqlite
 
-The SQLite driver for Nomi's `std/sql`, over
-[`modernc.org/sqlite`](https://pkg.go.dev/modernc.org/sqlite), a pure-Go
-build of SQLite: a program that uses it needs no C compiler, and
-`nomi build --target` cross-compiles it to any platform Go's SQLite port
-supports. In the browser it runs on SQLite's official WebAssembly build
-instead ([In the browser](#in-the-browser)).
+The SQLite driver for Nomi's `std/sql`. SQLite itself, compiled to
+WebAssembly, ships inside the module, and std::wasm runs it; the file
+layer SQLite reads and writes through is Nomi over std::fs ([How it
+runs](#how-it-runs)). A program that uses it needs no C compiler and no Go.
 
 ```nomi
 import
@@ -42,7 +40,12 @@ end
 
 - `sqlite.open(path)` opens (or creates) a database file; `sqlite.memory()`
   is a fresh in-memory database that lives as long as its connection, what a
-  test opens for each case. A connection is one SQLite connection, with
+  test opens for each case. `sqlite.open_in(dir, name)` opens the database
+  `name` in a `Dir` the program opened (`fs.open_dir`), and reaches no file
+  outside it: its journal is beside it, and its temporary files are in the
+  `Dir` passed as `temp:`, or in `dir`. The `Dir`s stay the caller's to
+  close. A test passes it a `Dir` from `std::fs::testing.dir`, which keeps
+  the database in memory. A connection is one SQLite connection, with
   foreign keys enforced. On a file database it sets `busy_timeout` to 5
   seconds: a statement that finds the file locked by another connection
   waits up to that long for it, then fails with `SQLITE_BUSY`.
@@ -158,56 +161,75 @@ foreign keys deferred, asks SQLite's `foreign_key_check` which key the
 statement breaks, and rolls the savepoint back. Any other error is
 `sql.Error.Database` with SQLite's result code (`SQLITE_ERROR`) and message.
 
-## In the browser
+## How it runs
 
-`modernc.org/sqlite` has no WebAssembly port, so a `js/wasm` build of the
-driver (`nomi build --web`, and the examples of the Nomi tour's Databases
-chapter) uses a second database/sql driver, `goside/sqlite_js.go`, over
-[SQLite's official WebAssembly build](https://sqlite.org/wasm)
-(`sqlite-wasm`, from sqlite.org's download page), called through its C API
-with `syscall/js`. It answers the same values and the same errors: the
-same `sqlite_test.nomi`, conformance suite and constraint names included,
-passes on both, and `goside`'s Go tests run on both (below).
+`engine/sqlite3.wasm` is SQLite 3.54.1 compiled with `engine/shim.c` by
+`engine/build.sh`, embedded in the module. Each connection is an instance
+of it. A statement crosses into the instance once: its SQL and parameters
+in, every row out (a statement `each_row` reads crosses once for each 64
+rows). The module imports SQLite's file layer from the driver
+(`internal/vfs.nomi`): files opened through a `Dir` as `std::fs`'s `File`, SQLite's own
+byte-range locks over `fs.lock`, and the clock, the machine's time zone,
+entropy and sleep. A
+module compiles once a process, and its machine code is kept in the
+artifact cache, so a later process opens SQLite in about 25 ms; the first
+open on a machine compiles it, about half a second.
 
-The page loads the build in the worker that runs the program before the
-program opens a database, and hands it over as `globalThis.sqlite3`:
+- **Locks.** A database's lock is SQLite's: the bytes it locks are the
+  ones every SQLite locks, so another program's SQLite on the same file,
+  the system's `sqlite3` among them, waits for this driver as it waits
+  for itself.
+- **Journal.** A connection keeps a rollback journal. WAL needs shared
+  memory, which the file layer does not have: `PRAGMA journal_mode = WAL`
+  answers `delete` and leaves the journal as it was, except on a
+  connection that set `PRAGMA locking_mode = EXCLUSIVE`, which keeps the
+  WAL index in its own memory and holds the file for itself.
+- **Sync.** A sync is the one SQLite's Unix layer makes: `File.sync_data`,
+  which on macOS is `fsync` and hands the data to the drive, and
+  `File.sync`, which there waits for the drive's own cache, only under
+  `PRAGMA fullfsync` or `checkpoint_fullfsync`. A new journal's directory
+  is synced with `sync_dir`, an `fsync` of the directory as SQLite's own,
+  so an autocommit on macOS takes about 0.9 ms.
+- **Stopping.** A statement stops when its task does: SQLite asks the
+  driver every 10,000 steps whether the task is stopping (its progress
+  handler) and ends the statement when it is, and the connection goes on.
+- **Local time.** `localtime` and `utc` in a date function read the zone
+  the machine is set to, `DateTime.local_zone` in std::calendar, at the
+  offset each moment has there, daylight saving included. Where the
+  machine's zone has no name std reads (a copied `/etc/localtime`, Windows
+  without `TZ`), they fail with SQLite's `local time unavailable`.
+- **Page cache.** 16 MiB a connection, where SQLite's default is 2 MiB: a
+  page the cache misses is a call out of the engine.
+- **Effects.** A program that opens its databases with `open_in` reaches
+  `std::calendar` (the machine's zone), `std::channels`, `std::instant`,
+  `std::random`, `std::timer` and `std::wasm` in the driver's code, and no
+  `std::fs`: the files are reached through the `Dir`, which the program's
+  own `fs.open_dir` opened. Its entry can say so:
 
-```js
-importScripts("sqlite3.js"); // or: import sqlite3InitModule from "./sqlite3.mjs"
-globalThis.sqlite3 = await sqlite3InitModule();
-```
+  ```toml
+  [effects.deps.modules]
+  "sqlite" = ["std::calendar", "std::channels", "std::instant", "std::random", "std::timer", "std::wasm"]
+  ```
 
-For a program built with `nomi build --web`, that is a setup module beside
-`nomi.js`, with `sqlite3.mjs` and `sqlite3.wasm` from the zip below, named
-by `run`'s (or `load`'s) `setup` option, which `nomi.js` imports and awaits
-where the program runs:
+  `sqlite.open` and `sqlite.memory` open their directories themselves, so
+  a program that calls either has `std::fs` in the driver too. The
+  module's own `nomi.toml` lists all seven.
+- **Targets.** On amd64 and arm64 the engine runs as machine code;
+  other architectures interpret it, 20 to 50 times slower. A `js/wasm`
+  build runs it on the browser's or Node's own engine. `wasip1/wasm` has no std::wasm, so `nomi build --target
+  wasip1/wasm` refuses a program that uses the driver.
 
-```js
-// setup.mjs
-import sqlite3InitModule from "./sqlite3.mjs";
-export default async () => {
-  globalThis.sqlite3 = await sqlite3InitModule();
-};
-```
-
-```js
-await run("./app.wasm", { setup: "./setup.mjs" });
-```
-
-A program that opens a database before that gets `Err(.Connection)` saying
-the build is not loaded. In the browser a database lives in the build's
-memory: `sqlite.memory()` is one per connection as everywhere, and
-`sqlite.open(path)` names one that lasts as long as the page.
-
-`goside`'s tests run under Node on the browser build with the runner in
-`goside/testdata`, given the `jswasm` folder of
-[`sqlite-wasm-3540100.zip`](https://sqlite.org/2026/sqlite-wasm-3540100.zip):
+To rebuild the engine, with zig 0.15.2 on `PATH`:
 
 ```console
-$ cd lib/sql/sqlite/goside
-$ SQLITE_WASM_DIR=<dir>/jswasm GOOS=js GOARCH=wasm \
-    go test -exec "node $PWD/testdata/wasm_exec_sqlite.cjs" .
+$ lib/sql/sqlite/engine/build.sh                  # fetches the pinned amalgamation
+$ lib/sql/sqlite/engine/build.sh <unpacked dir>   # or uses one at hand
 ```
+
+It checks the amalgamation's SHA-256, prints the module's, and writes it
+to `engine/sqlite3.wasm.sha256`, which a test holds the committed module
+to; the same amalgamation and zig build the same bytes. The compile
+options are listed at the top of the script.
 
 ## Describing statements
 
@@ -217,8 +239,6 @@ statement, answers its result columns with the table column each one reads
 and its `NOT NULL`, its parameter count and query plan, or SQLite's error
 and the byte it names. It reads SQLite's column metadata
 (`sqlite3_column_table_name`, `sqlite3_column_origin_name`,
-`sqlite3_table_column_metadata`, `sqlite3_error_offset`), which
-`database/sql` does not expose: natively through `modernc.org/sqlite`'s
-`lib` package, and in the browser through the WebAssembly build's C API,
-which compiles the column metadata in too. `nomi tool sqlkit generate` is
-built on it, so it runs in the browser as well.
+`sqlite3_table_column_metadata`, `sqlite3_error_offset`), which the engine
+compiles in. `nomi tool sqlkit generate` is built on it, so it runs in the
+browser as well.

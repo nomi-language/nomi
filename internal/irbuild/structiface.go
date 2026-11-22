@@ -3,7 +3,6 @@ package irbuild
 import (
 	"sync"
 
-	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
@@ -58,18 +57,13 @@ import (
 // and the wrong-answer hazard for this interface is closed by the front end as
 // well as by this file.
 //
-// The anchor is still the same triple every other family uses — `(declaring
-// module, name, validated declaration shape)` — and it is still not a name.
-// `fa.ModuleScope.Lookup` reaches an `*ast.ImportStmt` whose `ModulePath` is the
-// ORIGIN module even for a prelude drill-through re-export; `std` is unforgeable
-// as a module name (`LoadManifest` rejects `[package].name = "std"`); a LOCAL
-// declaration has `Resolved == nil` and no import statement so it can never
-// anchor; a sibling's or a dependency's resolves through a module path that is
-// not `std/structs`. And `stdIfaceNamed` asks `g.ifaceNamed` FIRST, so a local
-// declaration wins even where the anchor exists.
-//
-// That ordering stays as a second defence because the reservation is a checker
-// rule that could be relaxed, and this file must not need editing if it is.
+// The def is the same triple every other family's is — `(declaring module,
+// name, validated declaration shape)` — and it is not a name: a type the
+// checker solved, or an impl block's recorded interface, is std's `Struct`
+// when its origin is `std/structs` and std declares it in this file's shape
+// (stdSharedIface). `std` is unforgeable as a module name (`LoadManifest`
+// rejects `[package].name = "std"`), so a local, sibling or dependency
+// declaration of the name has another origin and never answers.
 //
 // # The shape check, and what it is FOR
 //
@@ -136,35 +130,6 @@ var structIfaceDef = sync.OnceValue(func() *ifaceDef {
 		unit: -1,
 	}
 })
-
-// structIfaceAnchored reports whether this module reaches std's `Struct`
-// through an import of `std/structs` AND that declaration has the shape this
-// file assumes.
-//
-// A free function rather than a gen method, on opaqueAnchors', stdEnumAnchors'
-// and stdIfaceAnchors' footing: one implementation of "is this the std
-// interface", so there is nothing for a second to drift from.
-func structIfaceAnchored(fa *analysis.FileAnalysis) bool {
-	if fa == nil || fa.ModuleScope == nil {
-		return false
-	}
-	sym := fa.ModuleScope.Lookup(structIfaceName)
-	if sym == nil {
-		return false
-	}
-	if mod, imported := stdImportModuleOf(sym, stdImporterOf(fa, sym)); !imported || mod != structIfaceModule {
-		// Not reached through an import of the DECLARING std module: a local
-		// declaration, a sibling's, or a dependency's. No anchor, and the
-		// ordinary paths report. See the file comment.
-		return false
-	}
-	res := sym
-	for res.Resolved != nil {
-		res = res.Resolved
-	}
-	decl, isDecl := res.Node.(*ast.InterfaceDef)
-	return isDecl && structIfaceMatches(decl)
-}
 
 // structIfaceMatches reports whether decl is the declaration this file
 // describes. See the file comment for what the check is for and what voids it.

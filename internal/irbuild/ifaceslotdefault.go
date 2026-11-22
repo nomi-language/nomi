@@ -71,7 +71,10 @@ type irIfaceSlotReq struct {
 	params []kind
 	frame  map[string]kind
 	types  map[string]analysis.Type
-	built  bool
+	// self is the checker's type of the implementor the accessor fills
+	// the slot for (fnSig.defaultSelfType), nil where the asker has none.
+	self  analysis.Type
+	built bool
 }
 
 // ifaceParamDefault reports where default node d is declared when it is a
@@ -116,7 +119,7 @@ func ifaceDefaultGeneric(o ifaceParamDefault) bool {
 
 // ifaceDefaultFrameAt binds the type parameters of the interface and the
 // function declaring parameter default o at the type arguments the checker
-// instantiated call t at (calleeTypedArgs), in this gen's kinds and as the
+// instantiated call t at (calleeTypeArgs), in this gen's kinds and as the
 // checker's types. ok is false when the record lacks one.
 func (g *gen) ifaceDefaultFrameAt(t *ast.Call, o ifaceParamDefault) (map[string]kind, map[string]analysis.Type, bool) {
 	var names []string
@@ -130,11 +133,11 @@ func (g *gen) ifaceDefaultFrameAt(t *ast.Call, o ifaceParamDefault) (map[string]
 }
 
 // callTypeArgFrame binds names, type parameters of call t's callee, at the
-// type arguments the checker instantiated t at (calleeTypedArgs), in this
+// type arguments the checker instantiated t at (calleeTypeArgs), in this
 // gen's kinds and as the checker's types. ok is false when the record lacks
 // one.
 func (g *gen) callTypeArgFrame(t *ast.Call, names []string) (map[string]kind, map[string]analysis.Type, bool) {
-	ks, ts, ok := g.calleeTypedArgs(t.Func, names)
+	ks, ts, ok := g.calleeTypeArgs(t.Func, names)
 	if !ok {
 		return nil, nil, false
 	}
@@ -164,20 +167,18 @@ func (bl *irScalarBuilder) defaultInFrame(p ast.Param, frame map[string]kind, ty
 	return src, k, ok
 }
 
-// ifaceSlotDefault fills slot i of a call from the parameter default o
-// declares, with args holding the slots before it at the kinds params give
-// and frame binding the type parameters (ifaceDefaultFrameAt): lowered here
-// when its names mean here what they mean there, else a call of the
-// declaring gen's accessor.
-func (bl *irScalarBuilder) ifaceSlotDefault(o ifaceParamDefault, p ast.Param, params []kind, frame map[string]kind, types map[string]analysis.Type, args []ir.Temp, i int) (ir.Temp, kind, bool) {
+// ifaceSlotDefault fills slot i of a call from the parameter default o, an
+// interface function's in another file, with args holding the slots before
+// it at the kinds params give and frame binding the type parameters
+// (ifaceDefaultFrameAt): a call of the declaring gen's accessor, built for
+// the implementor of checker type self (fnSig.defaultSelfType), or nil. The
+// declaring file lowers its own default, so it names what that file names,
+// a private function of it included.
+func (bl *irScalarBuilder) ifaceSlotDefault(o ifaceParamDefault, p ast.Param, params []kind, frame map[string]kind, types map[string]analysis.Type, self analysis.Type, args []ir.Temp, i int) (ir.Temp, kind, bool) {
 	g := bl.g
 	owner := g.unitGen(o.unit)
 	if owner == nil {
 		return ir.NoTemp, kindInvalid, false
-	}
-	if defaultNamesAgree(p.Default, owner, g) {
-		defer g.lowerNamesFrom(o.unit)()
-		return bl.defaultInFrame(p, frame, types, params[i])
 	}
 	if !irCallOperandKind(params[i]) {
 		return ir.NoTemp, kindInvalid, false
@@ -201,7 +202,7 @@ func (bl *irScalarBuilder) ifaceSlotDefault(o ifaceParamDefault, p ast.Param, pa
 			theirFrame[name] = ik
 		}
 	}
-	sym := owner.irIfaceSlotSym(o, theirs, theirFrame, types, -1)
+	sym := owner.irIfaceSlotSym(o, theirs, theirFrame, types, self, -1)
 	pos := g.irNodePos(p.Default)
 	operands := make([]ir.Temp, i)
 	for j, t := range args[:i] {
@@ -223,35 +224,23 @@ func (bl *irScalarBuilder) ifaceSlotDefault(o ifaceParamDefault, p ast.Param, pa
 	return cp.Dst(), params[i], true
 }
 
-// defaultNamesAgree reports whether every name default d mentions resolves
-// to the same declaration in owning's file and in g's, so lowering it in g
-// means what it means where it was written.
-func defaultNamesAgree(d ast.Node, owning, g *gen) bool {
-	names := map[string]bool{}
-	walkNames(d, names, pickAnyName)
-	for name := range names {
-		there, here := resolvedTypeSymbol(owning.fa, name), resolvedTypeSymbol(g.fa, name)
-		if (there == nil) != (here == nil) || (there != nil && there.Node != here.Node) {
-			return false
-		}
-	}
-	return true
-}
-
 // irIfaceSlotSym is the accessor symbol for slot o of an interface function
 // this gen's file declares, over params, the kinds of the parameters up to
 // and including the slot, in frame, queued for flushIfaceSlotDefaults the
 // first time any file asks. g is the DECLARING gen. A recv past the slot
 // makes it the accessor that also takes that receiver (keyedSlot), with
 // params running through it; -1 for none. types is frame as the checker's
-// types (the program's, so one file's serve another's), or nil.
-func (g *gen) irIfaceSlotSym(o ifaceParamDefault, params []kind, frame map[string]kind, types map[string]analysis.Type, recv int) *ir.Symbol {
+// types (the program's, so one file's serve another's), or nil, and self
+// the checker's type of the implementor the slot is filled for, which its
+// `self` stands for in the default (fnSig.defaultSelfType), or nil. The
+// accessor is keyed by kinds, so the first asker's types build it.
+func (g *gen) irIfaceSlotSym(o ifaceParamDefault, params []kind, frame map[string]kind, types map[string]analysis.Type, self analysis.Type, recv int) *ir.Symbol {
 	key := irIfaceSlotDefault{im: o.im, slot: o.slot, recv: recv, kinds: portableArgsKey(params) + portableFrameKey(frame)}
 	if r := g.ifaceSlotDefaults[key]; r != nil {
 		return r.sym
 	}
 	name := o.im.Name + " default " + strconv.Itoa(o.slot+1)
-	r := &irIfaceSlotReq{key: key, sym: g.irCalleeSym(key, name), name: name, params: params, frame: frame, types: types}
+	r := &irIfaceSlotReq{key: key, sym: g.irCalleeSym(key, name), name: name, params: params, frame: frame, types: types, self: self}
 	if g.ifaceSlotDefaults == nil {
 		g.ifaceSlotDefaults = map[irIfaceSlotDefault]*irIfaceSlotReq{}
 	}
@@ -273,7 +262,7 @@ func (g *gen) flushIfaceSlotDefaults() {
 				fd, params = keyedSlot(fd, params, slot, r.key.recv)
 				slot++
 			}
-			sig := &fnSig{params: params, decl: fd, lowerable: true, defaultFrame: r.frame, defaultTypes: r.types}
+			sig := &fnSig{params: params, decl: fd, lowerable: true, defaultFrame: r.frame, defaultTypes: r.types, defaultSelfType: r.self}
 			if len(r.frame) > 0 {
 				g.pushIfaceSubst(substIfaceDefault, r.key.im, r.frame, r.types)
 			}

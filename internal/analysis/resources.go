@@ -5,7 +5,6 @@ import (
 	"path"
 	"strings"
 	"unicode"
-	"unicode/utf8"
 
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/parser"
@@ -56,28 +55,82 @@ const ReturnLeakCode = "leaks-on-return"
 const DeferOnErrorNoFailureCode = "defer-on-error-cannot-fail"
 
 // isResourceImpl reports whether n is an `impl Release` or `impl Commit`,
-// whose functions' bodies name the type's usual release and commit.
-func isResourceImpl(n *ast.ImplBlock) bool {
+// whose functions' bodies name the type's usual release and commit. iface
+// is the name of the interface n's header names (implInterfaceName).
+func isResourceImpl(n *ast.ImplBlock, iface string) bool {
 	if n == nil || n.Interface == nil {
 		return false
 	}
-	switch TypeExprBaseName(n.Interface) {
+	switch iface {
 	case "Release", "Commit":
 		return true
 	}
 	return false
 }
 
+// stdReleaseFunc and stdCommitFunc are std's `Release.release` and
+// `Commit.commit`, which a call of releases or commits a value of any type
+// that implements them.
+var (
+	stdReleaseFunc = StdFunc{Module: "std/resources", Owner: "Release", Name: "release"}
+	stdCommitFunc  = StdFunc{Module: "std/resources", Owner: "Commit", Name: "commit"}
+)
+
 // resourceKind is what the rules need of a Release type: the call its
 // `release` makes, written as a caller writes it (`Writer.discard`), and,
-// for a Commit type, the call its `commit` makes (`Writer.close`). The
-// names are each call's own function name, which a deferred call or a
-// commit is recognized by.
+// for a Commit type, the call its `commit` makes (`Writer.close`).
+// releaseDecl and commitDecl are the declarations those calls name, as the
+// impl's file recorded them (resourceCallee), nil for an impl whose body is
+// not one call, and releaseImpl and commitImpl the impl's functions
+// (resourceImplFunc). A deferred call or a commit is recognized by them
+// (releases, commits).
 type resourceKind struct {
-	release   string
-	releaseFn string
-	commit    string
-	commitFn  string
+	release     string
+	releaseDecl ast.Node
+	releaseImpl *ast.FuncDef
+	commit      string
+	commitDecl  ast.Node
+	commitImpl  *ast.FuncDef
+}
+
+// releases reports whether call is a release of a value of k's type, by
+// the declaration its callee names (calleeDeclSymbol): the function the
+// impl's `release` calls, or the protocol's own function,
+// `Release.release` or the type's impl of it (callsProtocol). A program's
+// own function of the same name is neither.
+func (k *resourceKind) releases(fa *FileAnalysis, call *ast.Call) bool {
+	return fa.callsDecl(call, k.releaseDecl) || fa.callsProtocol(call, stdReleaseFunc, k.releaseImpl)
+}
+
+// commits is releases for k's commit; false for a type that is no Commit.
+func (k *resourceKind) commits(fa *FileAnalysis, call *ast.Call) bool {
+	if k.commit == "" {
+		return false
+	}
+	return fa.callsDecl(call, k.commitDecl) || fa.callsProtocol(call, stdCommitFunc, k.commitImpl)
+}
+
+// callsDecl reports whether call's callee names decl, a function's
+// declaration, by the declaration the checker resolved the callee's name
+// to; false for a nil decl.
+func (fa *FileAnalysis) callsDecl(call *ast.Call, decl ast.Node) bool {
+	if decl == nil {
+		return false
+	}
+	sym := fa.calleeDeclSymbol(call.Func)
+	return sym != nil && sym.Node == decl
+}
+
+// callsProtocol reports whether call's callee is std's protocol function
+// iface (`Release.release`, `Commit.commit`) or impl, a type's impl of it
+// (`Writer.commit`), by the declaration the checker resolved the callee's
+// name to (calleeDeclSymbol, stdFuncNamed): through an alias of the type
+// or the interface too, and never a program function of the same name.
+func (fa *FileAnalysis) callsProtocol(call *ast.Call, iface StdFunc, impl *ast.FuncDef) bool {
+	if impl != nil && fa.callsDecl(call, impl) {
+		return true
+	}
+	return fa.stdFuncNamed(call.Func) == iface
 }
 
 // resourceKindOf is ty's resourceKind, or nil when ty implements no
@@ -109,46 +162,121 @@ func (c *checker) resourceKindOf(ty Type) *resourceKind {
 		c.resourceKinds[key] = nil
 		return nil
 	}
-	k := &resourceKind{}
-	k.release, k.releaseFn = c.resourceCall(release, name, origin, "release")
+	k := &resourceKind{releaseImpl: release, releaseDecl: c.fa.resourceCallee(release)}
+	k.release = c.resourceCall(release, name, origin, "release")
 	if commit := c.resourceImplFunc(name, origin, "Commit", "commit"); commit != nil {
-		k.commit, k.commitFn = c.resourceCall(commit, name, origin, "commit")
+		k.commitImpl, k.commitDecl = commit, c.fa.resourceCallee(commit)
+		k.commit = c.resourceCall(commit, name, origin, "commit")
 	}
 	c.resourceKinds[key] = k
 	return k
 }
 
-// resourceCall reads the call fd, a Release or Commit impl's function
-// method for the type named name, makes: the body of `fn release(w: Writer)
-// { Writer.discard(w) }` gives `Writer.discard` and `discard`. A function
-// called by its bare name is qualified by its module, as a caller outside
-// it writes it (`sql.close_quietly`). A body that is not one call gives the
-// interface function itself (`Writer.release`).
-func (c *checker) resourceCall(fd *ast.FuncDef, name, origin, method string) (string, string) {
-	fallback := typeNameHead(name) + "." + method
-	if fd.Body == nil || len(fd.Body.Stmts) != 1 {
-		return fallback, method
+// resourceCallOf is the one call the body of fd, a Release or Commit impl's
+// function, makes, or nil for a body that is not one call.
+func resourceCallOf(fd *ast.FuncDef) *ast.Call {
+	if fd == nil || fd.Body == nil || len(fd.Body.Stmts) != 1 {
+		return nil
 	}
 	stmt := fd.Body.Stmts[0]
 	if es, ok := stmt.(*ast.ExprStmt); ok {
 		stmt = es.Expr
 	}
-	call, ok := stmt.(*ast.Call)
-	if !ok {
-		return fallback, method
+	call, _ := stmt.(*ast.Call)
+	return call
+}
+
+// resourceCall is the call fd, a Release or Commit impl's function method
+// for the type named name, makes, written as a caller writes it: the body
+// of `fn release(w: Writer) { Writer.discard(w) }` gives `Writer.discard`.
+// A function called by its bare name is qualified by its module, as a
+// caller outside it writes it (`sql.close_quietly`). A body that is not
+// one call gives the interface function itself (`Writer.release`): the
+// release is then fd itself.
+func (c *checker) resourceCall(fd *ast.FuncDef, name, origin, method string) string {
+	fallback := typeNameHead(name) + "." + method
+	call := resourceCallOf(fd)
+	if call == nil {
+		return fallback
 	}
 	switch f := call.Func.(type) {
 	case *ast.FieldAccess:
 		if q := qualifierText(f.Object); q != "" && f.Field != nil {
-			return q + "." + f.Field.Name, f.Field.Name
+			return q + "." + f.Field.Name
 		}
 	case *ast.Ident:
 		if origin == "" || origin == OriginUnresolved || origin == OriginEntry || origin == declaredOrigin(c.fa) {
-			return f.Name, f.Name
+			return f.Name
 		}
-		return strings.TrimSuffix(path.Base(origin), ".nomi") + "." + f.Name, f.Name
+		return strings.TrimSuffix(path.Base(origin), ".nomi") + "." + f.Name
 	}
-	return fallback, method
+	return fallback
+}
+
+// resourceSite is a function of an `impl Release` or `impl Commit` block,
+// whose body is one call that names the type's usual release or commit
+// (spec §9 *Releasing resources*). Another file's release check reads that
+// function, so it is part of the file's interface: the interface keeps
+// the body (stripBodies), and the inference phase (OnceTable) checks the
+// call's callee with a checker for the declaring file and records the
+// declaration it names in the file's analysis (FileDecls.resourceCalls),
+// in a build from source and from interfaces alike.
+type resourceSite struct {
+	fa    *FileAnalysis
+	nodes []ast.Node
+	owner string
+	fd    *ast.FuncDef
+}
+
+// resourceSitesOf answers the sites of node, a top-level declaration.
+func resourceSitesOf(fa *FileAnalysis, nodes []ast.Node, node ast.Node) []resourceSite {
+	block, ok := node.(*ast.ImplBlock)
+	if !ok || !isResourceImpl(block, implInterfaceName(fa, block.Interface)) || IsSynthesizedLine(block.Line) {
+		return nil
+	}
+	var out []resourceSite
+	for _, item := range block.Items {
+		if fd, ok := item.(*ast.FuncDef); ok {
+			out = append(out, resourceSite{fa: fa, nodes: nodes, owner: TypeExprBaseName(block.Receiver), fd: fd})
+		}
+	}
+	return out
+}
+
+// resolve checks the callee of the site's call, as its body is now, with a
+// checker for its own file and records the declaration it names, nil for a
+// body that is not one call or a callee that names no function. Errors
+// that check finds are dropped: the declaring file's own CheckTypes
+// reports them. It reports whether the record changed.
+func (s resourceSite) resolve() bool {
+	var decl ast.Node
+	if call := resourceCallOf(s.fd); call != nil {
+		sub := newChecker(s.fa, s.nodes)
+		sub.selfTypeName = s.owner
+		sub.checkNode(call.Func)
+		if sym := s.fa.calleeDeclSymbol(call.Func); sym != nil {
+			decl = sym.Node
+		}
+	}
+	was, had := s.fa.resourceCalls[s.fd]
+	if had && was == decl {
+		return false
+	}
+	if s.fa.resourceCalls == nil {
+		s.fa.resourceCalls = map[*ast.FuncDef]ast.Node{}
+	}
+	s.fa.resourceCalls[s.fd] = decl
+	return had
+}
+
+// resourceCallee is the declaration the body of fd, a Release or Commit
+// impl's function, calls, as the inference phase recorded it in the
+// declaring file's analysis; nil for a body that is not one call.
+func (fa *FileAnalysis) resourceCallee(fd *ast.FuncDef) ast.Node {
+	if home := fa.declaringFileOf(fd); home != nil {
+		return home.resourceCalls[fd]
+	}
+	return nil
 }
 
 // resourceImplFunc is the function method of the impl of iface for the type
@@ -261,8 +389,8 @@ func (c *checker) checkReleases(body *ast.Block, result Type, test, dropped, boo
 
 // propagatesInto reports whether a `?` can leave a body whose result is t.
 func propagatesInto(t Type) bool {
-	et, ok := resolveTypeVar(t).(*EnumType)
-	return ok && (et.Name == "Result" || et.Name == "Maybe")
+	t = resolveTypeVar(t)
+	return isStdType(t, stdResultType) || isStdType(t, stdMaybeType)
 }
 
 // markTailBlocks marks b and every block whose value is b's.
@@ -460,7 +588,7 @@ func (c *checker) acquired(e ast.Node) (Type, bool) {
 	e = stripResultOps(e)
 	switch v := e.(type) {
 	case *ast.Call:
-		if isConstructorCall(v) {
+		if c.fa.isConstructorCall(v) {
 			return nil, false
 		}
 	case *ast.Binary:
@@ -471,7 +599,7 @@ func (c *checker) acquired(e ast.Node) (Type, bool) {
 		return nil, false
 	}
 	held := resolveTypeVar(c.fa.ExprTypes[e])
-	if et, ok := held.(*EnumType); ok && et.Name == "Result" {
+	if et, ok := held.(*EnumType); ok && isStdType(et, stdResultType) {
 		if len(et.TypeArgs) == 0 {
 			return nil, false
 		}
@@ -584,34 +712,20 @@ func (c *checker) callTakes(call *ast.Call, sym *Symbol) bool {
 	return false
 }
 
-// calleeName is the name of the function call calls: `discard` for
-// `Writer.discard(w)`, `Err` for `.Err(e)`.
-func calleeName(call *ast.Call) string {
-	switch f := call.Func.(type) {
-	case *ast.Ident:
-		return f.Name
-	case *ast.TypeIdent:
-		return f.Name
-	case *ast.FieldAccess:
-		if f.Field != nil {
-			return f.Field.Name
-		}
-	case *ast.DotVariant:
-		return f.Name
-	}
-	return ""
-}
-
-// isConstructorCall reports whether call builds a value of a type: a
-// variant (`Ok(w)`, `Body.Stream(r)`, `.Some(c)`) or a distinct type
-// (`Handle(w)`), whose names are capitalized.
-func isConstructorCall(call *ast.Call) bool {
+// isConstructorCall reports whether call builds a value of a type: its
+// callee names a variant (`Ok(w)`, `Body.Stream(r)`, `.Some(c)`) or a type
+// (`Handle(w)`, a distinct type), by the declaration the checker resolved
+// its name to (calleeAt). A function whose name is capitalized
+// (`Lock.Take(name)` in `impl Lock`) is no constructor.
+func (fa *FileAnalysis) isConstructorCall(call *ast.Call) bool {
 	if _, ok := call.Func.(*ast.DotVariant); ok {
 		return true
 	}
-	name := calleeName(call)
-	r, _ := utf8.DecodeRuneInString(name)
-	return name != "" && unicode.IsUpper(r)
+	switch fa.calleeAt(call.Func).Kind {
+	case CalleeVariant, CalleeConstructor:
+		return true
+	}
+	return false
 }
 
 // scopeNodes are the statements a's name is in scope over.
@@ -629,7 +743,8 @@ func (a *acquisition) scopeNodes() []ast.Node {
 // exit; a `defer on error` only on an error exit, so a value it covers must
 // also be handed on.
 func (c *checker) checkAcquisition(rb *releaseBody, a *acquisition) {
-	deferAt, deferFn, errDeferAt := -1, "", -1
+	deferAt, errDeferAt := -1, -1
+	var deferCall *ast.Call
 	if a.block != nil {
 		for i := a.index + 1; i < len(a.block.Stmts); i++ {
 			d, ok := a.block.Stmts[i].(*ast.Defer)
@@ -646,7 +761,7 @@ func (c *checker) checkAcquisition(rb *releaseBody, a *acquisition) {
 				}
 				continue
 			}
-			deferAt, deferFn = i, calleeName(call)
+			deferAt, deferCall = i, call
 			break
 		}
 	}
@@ -676,7 +791,7 @@ func (c *checker) checkAcquisition(rb *releaseBody, a *acquisition) {
 		return
 	}
 	c.checkErrorExits(rb, a, deferAt, true)
-	if a.kind.commit == "" || (deferFn != a.kind.releaseFn && deferFn != "release") {
+	if a.kind.commit == "" || !a.kind.releases(c.fa, deferCall) {
 		// A deferred release that is not the discarding one (a writer's
 		// `close_quietly`) commits as it releases.
 		return
@@ -705,7 +820,7 @@ func (c *checker) checkErrorExits(rb *releaseBody, a *acquisition, releaseAt int
 		if c.handsOnIn(n, a.sym) || (i == len(nodes)-1 && releaseAt < 0 && c.yields(n, a.sym)) {
 			return
 		}
-		line, col, what := firstErrorExit(n)
+		line, col, what := c.firstErrorExit(n)
 		if line == 0 {
 			continue
 		}
@@ -735,7 +850,7 @@ func (c *checker) checkErrorExits(rb *releaseBody, a *acquisition, releaseAt int
 // firstErrorExit is the position of the first `?` or `return` of `Err` or
 // `None` in n outside a lambda or a nested function, and what it does as
 // the leak message words it.
-func firstErrorExit(n ast.Node) (int, int, string) {
+func (c *checker) firstErrorExit(n ast.Node) (int, int, string) {
 	line, col, what := 0, 0, ""
 	ast.Inspect(n, func(m ast.Node) bool {
 		if line != 0 {
@@ -747,7 +862,7 @@ func firstErrorExit(n ast.Node) (int, int, string) {
 		case *ast.TryOp:
 			line, col, what = v.Line, v.Col, "this `?` returns an error"
 		case *ast.Return:
-			if isFailureValue(v) {
+			if c.isFailureValue(v) {
 				line, col, what = v.Line, v.Col, "this `return` runs"
 			}
 		}
@@ -798,7 +913,7 @@ func (c *checker) handsOnAt(m ast.Node, sym *Symbol) bool {
 	case *ast.Binding:
 		return c.refersTo(v.Value, sym)
 	case *ast.Call:
-		return isConstructorCall(v) && c.callTakes(v, sym)
+		return c.fa.isConstructorCall(v) && c.callTakes(v, sym)
 	case *ast.ListLit:
 		return c.anyRefers(v.Operands(), sym)
 	case *ast.TupleLit:
@@ -1176,7 +1291,7 @@ func (f *pathFlow) returnAt(e ast.Node, stmt ast.Node) {
 	if f.handOn && f.carries(e) {
 		f.settled = true
 	}
-	if !isFailureValue(e) && !f.settled {
+	if !f.c.isFailureValue(e) && !f.settled {
 		line, col := stmtStart(e)
 		if span := stmtSpan(e); !span.IsZero() {
 			line, col = span.StartLine, span.StartCol
@@ -1231,28 +1346,45 @@ func (f *pathFlow) miss(m pathMiss) {
 	f.misses = append(f.misses, m)
 }
 
-// isFailureValue reports whether e is an `Err(...)` or a `None`, a return
-// that leaves by failing.
-func isFailureValue(e ast.Node) bool {
+// isFailureValue reports whether e is std's `Err(...)` or `None`, a
+// return that leaves by failing: the variant the checker resolved its name
+// to (variantAt), of std's Result or Maybe, however it is written
+// (`Result.Err(e)`, `.None`, `Fail(e)` under `import
+// std::results.Result.{Err as Fail}`), and never a program enum's variant
+// of the same name.
+func (c *checker) isFailureValue(e ast.Node) bool {
 	switch v := e.(type) {
 	case *ast.Return:
-		return v.Value != nil && isFailureValue(v.Value)
+		return v.Value != nil && c.isFailureValue(v.Value)
 	case *ast.ExprStmt:
-		return isFailureValue(v.Expr)
+		return c.isFailureValue(v.Expr)
 	case *ast.GroupedExpr:
-		return isFailureValue(v.Expr)
+		return c.isFailureValue(v.Expr)
 	case *ast.Call:
-		return calleeName(v) == "Err"
-	case *ast.Ident:
-		return v.Name == "None"
-	case *ast.TypeIdent:
-		return v.Name == "None"
-	case *ast.DotVariant:
-		return v.Name == "None"
-	case *ast.FieldAccess:
-		return v.Field != nil && v.Field.Name == "None"
+		et, name := c.fa.variantAt(v.Func)
+		return name == "Err" && isStdType(et, stdResultType)
 	}
-	return false
+	et, name := c.fa.variantAt(e)
+	return name == "None" && isStdType(et, stdMaybeType)
+}
+
+// variantAt is the enum and the declared name of the variant the checker
+// resolved n's name to (`Err`, `Result.Err`, `.Err`, an alias imported
+// for it); nil and "" when n names no variant.
+func (fa *FileAnalysis) variantAt(n ast.Node) (*EnumType, string) {
+	pos, named := calleeKey(n)
+	if !named {
+		return nil, ""
+	}
+	ref := fa.References[pos]
+	if ref == nil {
+		return nil, ""
+	}
+	sym := resolveRef(ref)
+	if sym.Kind != SymbolEnumVariant {
+		return nil, ""
+	}
+	return variantEnum(sym.Type), sym.Name
 }
 
 // node follows n, which does not end the body unless it holds a return.
@@ -1363,12 +1495,13 @@ func (f *pathFlow) inner(b *ast.Block) {
 // commit, or `commit` itself), or its release called outright, which
 // discards on purpose. Either way the path has decided what to keep.
 func (f *pathFlow) isCommit(call *ast.Call) bool {
-	return f.settles(calleeName(call)) && f.c.callTakes(call, f.a.sym)
+	return f.settles(call) && f.c.callTakes(call, f.a.sym)
 }
 
-func (f *pathFlow) settles(name string) bool {
-	k := f.a.kind
-	return name == k.commitFn || name == "commit" || name == k.releaseFn || name == "release"
+// settles reports whether call commits or releases a value of the path's
+// kind (resourceKind.commits, releases).
+func (f *pathFlow) settles(call *ast.Call) bool {
+	return f.a.kind.commits(f.c.fa, call) || f.a.kind.releases(f.c.fa, call)
 }
 
 // isCommitPipe reports whether b is `w |> Writer.close()`, or a pipe into
@@ -1381,7 +1514,7 @@ func (f *pathFlow) isCommitPipe(b *ast.Binary) bool {
 	if !ok {
 		return false
 	}
-	return f.settles(calleeName(call))
+	return f.settles(call)
 }
 
 func (f *pathFlow) containsCommit(n ast.Node) bool {

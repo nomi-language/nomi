@@ -18,9 +18,10 @@ fn take(p: {x: Int, y: Int}) -> Int
 end
 
 fn block_value(a: Int) -> Int
-    b = begin
-        a + 1
-    end
+    b =
+        begin
+            a + 1
+        end
 
     b
 end

@@ -1,7 +1,26 @@
-//# TOML text built from a literal. A `Toml` holds TOML source text, and
-//# `Toml.text` returns it. This module writes TOML; it does not read TOML
-//# into values. `Toml.parse` checks TOML text the program reads while it
-//# runs, by the rules a literal's text is checked by.
+//# TOML text to and from Nomi values. `Toml.decode` reads a document into
+//# its top-level table of `Toml.Value`s, and `Toml.encode` writes one.
+//# `Toml.decode_as<T>` reads a document as a typed value through
+//# `FromJson`, so a struct with `derive FromJson` reads TOML as it reads
+//# JSON. A `Toml` holds TOML source text, and `Toml.text` returns it.
+//#
+//# ```nomi
+//# import
+//#     std::json.FromJson
+//#     std::toml.Toml
+//# end
+//#
+//# struct Server
+//#     host: String
+//#     port: Int = 8080
+//# end
+//#
+//# derive FromJson for Server
+//#
+//# fn server(text: String) -> Result<Server, Toml.Error>
+//#     Toml.decode_as(text)
+//# end
+//# ```
 //#
 //# A `Toml` literal is a `Toml` in every quote style, never a `Result`. Its
 //# text is read as TOML when the program is checked, so text that is not
@@ -45,6 +64,7 @@ import
     float.Float
     int.Int
     iter.Iter
+    json.{FromJson, Json, ToJson}
     lists.List
     literals.{CheckedLiteral, Fragment, LiteralError}
     maps.Map
@@ -58,37 +78,183 @@ end
 /// apart from an arbitrary `String`, so a function that takes TOML says so.
 pub type Toml String
 
-/// Why text is not TOML, for `Toml.parse`: the code point `offset` into the
-/// text where reading stopped, and `message`, as a compile error at a
-/// `Toml"..."` literal of the text words it.
-pub struct TomlError
-    offset:  Int
+/// Why text is not TOML, and where, for `Toml.decode` and `Toml.parse`.
+/// `message` is the reader's, as a compile error at a `Toml"..."` literal
+/// of the text words it. `line` and `col` count from 1, for a reader.
+/// `offset` is the same place as a code point position counted from 0, and
+/// `col` counts code points too.
+//! import std::toml.Toml
+//!
+//! assert Toml.decode("a = 1\nb = = 2") == Err(
+//!     Toml.DecodeError{message: "expected value but found '=' instead", line: 2, col: 5, offset: 10}
+//! )
+//!
+//! assert Toml.decode("a = 1\na = 2") |> Result.map_err(&Display.to_string(&1)) == Err(
+//!     "toml decode error at line 2, col 1: Key 'a' has already been defined."
+//! )
+//
+pub struct Toml.DecodeError
     message: String
+    line:    Int
+    col:     Int
+    offset:  Int
 end
 
-derive Equatable for TomlError
+derive Equatable for Toml.DecodeError
 
-impl Display for TomlError
-    fn to_string(error: TomlError) -> String
-        error.message
+impl Display for Toml.DecodeError
+    fn to_string(e: Toml.DecodeError) -> String
+        "toml decode error at line ${e.line}, col ${e.col}: ${e.message}"
+    end
+end
+
+/// Why `Toml.decode_as` could not read its text as a `T`: the text is not
+/// TOML (`Decode`, with `Toml.decode`'s error), or its document does not
+/// have `T`'s shape (`Shape`, with `T.from_json`'s error). `Display` writes
+/// the error it holds.
+pub enum Toml.Error
+    Decode Toml.DecodeError
+    Shape Json.ShapeError
+end
+
+impl Display for Toml.Error
+    fn to_string(e: Toml.Error) -> String
+        case e
+            Toml.Error.Decode(d) -> Display.to_string(d)
+            Toml.Error.Shape(s)  -> Display.to_string(s)
+        end
     end
 end
 
 impl Toml
-    /// Reads `text` as TOML, by the rules a `Toml"..."` literal without
-    /// slots is checked by when the program is checked, or returns what is
-    /// wrong and where. Use it for TOML text the program reads while it
-    /// runs.
-    //! import std::toml.{Toml, TomlError}
+    /// Reads TOML text as a document: its top-level table, each key with
+    /// its `Toml.Value`, in the order the text gives them. A table, an
+    /// inline table and an array of tables' element are each a
+    /// `Toml.Value.Table`, and an array of tables is a `Toml.Value.Array`
+    /// of them. A date or time is the std::calendar type of its kind:
+    /// `Date`, `Time`, `NaiveDateTime` for a local date-time, and
+    /// `OffsetDateTime`. Returns `Err` with a `Toml.DecodeError` when the
+    /// text is not TOML, and when an offset date-time's offset is past the
+    /// ±18:00 an `OffsetDateTime` holds.
+    ///
+    /// `Toml.encode` writes a document that `decode` reads back as the same
+    /// document. The text's layout, comments and number and string forms
+    /// are not kept.
+    //! import std::toml.Toml
+    //!
+    //! text = """
+    //!     name = "demo"
+    //!     released = 2026-05-04
+    //!
+    //!     [server]
+    //!     ports = [8080, 8081]
+    //!     """
+    //!
+    //! assert Toml.decode(text) == Ok({
+    //!         "name"     => Toml.Value.String("demo"),
+    //!         "released" => Toml.Value.Date(Date"2026-05-04"),
+    //!         "server" => Toml.Value.Table({
+    //!             "ports" => Toml.Value.Array([Toml.Value.Int(8080), Toml.Value.Int(8081)]),
+    //!         }),
+    //!     })
+    //!
+    //! assert Ok(doc) = Toml.decode("b = 1\na = 2")
+    //! assert Map.keys(doc) == ["b", "a"]
+    //!
+    //! assert Toml.decode("at = 07:32") == Ok({"at" => Toml.Value.Time(Time"07:32:00")})
+    //!
+    //! assert Ok(nan) = Toml.decode("x = nan")
+    //! assert [Toml.Value.Float(x)] = Map.values(nan)
+    //! assert Float.is_nan(x)
+    //!
+    //! assert Result.is_err(Toml.decode("title = "))
+    //
+    pub fn decode(text: String) -> Result<Map<String, Toml.Value>, Toml.DecodeError>
+        (nodes, offset, line, col, message) = host.decode(text)
+
+        if offset >= 0 then
+            Err(Toml.DecodeError{message:, line:, col:, offset:})
+        else
+            case read_value(nodes)
+                (Toml.Value.Table(document), _) -> Ok(document)
+                _ -> unreachable "host.decode lists a document as a table"
+            end
+        end
+    end
+
+    /// Reads TOML text as a `T` in one step: `Toml.decode`, then
+    /// `T.from_json` of the document as `ToJson` writes a `Toml.Value`. So
+    /// a struct with `derive FromJson` reads its fields from a document's
+    /// keys, a `Date`, `Time` or `NaiveDateTime` field from a date or time
+    /// of its kind, and an `Instant` field from an offset date-time. An
+    /// `Err` is a `Toml.Error`, `Decode` when the text is not TOML and
+    /// `Shape` when its document is not a `T`. Give `T` with a binding's
+    /// annotation or as `Toml.decode_as<T>(text)`.
+    //! import std::toml.Toml
+    //!
+    //! config = Toml.decode_as<{name: String, port: Int}>("name = 'web'\nport = 80")
+    //! assert config == Ok({name: "web", port: 80})
+    //!
+    //! due: Result<{due: Date}, Toml.Error> = Toml.decode_as("due = 2026-05-04")
+    //! assert due == Ok({due: Date"2026-05-04"})
+    //!
+    //! shape = Toml.decode_as<{port: Int}>("port = 'eighty'") |> Result.map_err(&Display.to_string(&1))
+    //! assert shape == Err("port: expected Int, got string")
+    //!
+    //! syntax = Toml.decode_as<{port: Int}>("port = ") |> Result.map_err(&Display.to_string(&1))
+    //! assert syntax == Err("toml decode error at line 1, col 7: unexpected EOF; expected value")
+    //
+    pub fn decode_as<T>(text: String) -> Result<T, Toml.Error> where T: FromJson
+        case Toml.decode(text)
+            Ok(document) ->
+                case T.from_json(ToJson.to_json(Toml.Value.Table(document)))
+                    Ok(value) -> Ok(value)
+                    Err(e)    -> Err(Toml.Error.Shape(e))
+                end
+
+            Err(e) ->
+                Err(Toml.Error.Decode(e))
+        end
+    end
+
+    /// Writes a document as TOML text: a line for each key in the map's
+    /// order, `key = value`, with the key quoted and the value as
+    /// `Toml.Value.text` writes it, so a table is an inline table.
+    /// `Toml.decode` reads the text back as the same document when each
+    /// `Int` in it fits in 64 bits and each offset is within ±18:00.
+    //! import std::toml.Toml
+    //!
+    //! doc = {
+    //!     "name"   => Toml.Value.String("demo"),
+    //!     "server" => Toml.Value.Table({"port" => Toml.Value.Int(8080)}),
+    //! }
+    //!
+    //! text = Toml.encode(doc)
+    //! assert Toml.text(text) == "\"name\" = \"demo\"\n\"server\" = {\"port\" = 8080}\n"
+    //! assert Toml.decode(Toml.text(text)) == Ok(doc)
+    //
+    pub fn encode(document: Map<String, Toml.Value>) -> Toml
+        lines =
+            document
+            |> Iter.map(fn (key, value) -> host.quote(key) + " = " + Toml.Value.text(value) + "\n")
+            |> Iter.to_list()
+
+        Toml(String.join(lines, ""))
+    end
+
+    /// Reads `text` as TOML, as `Toml.decode` does, and returns the text as
+    /// a `Toml`, or what is wrong and where. Use it for TOML text the
+    /// program reads while it runs and passes on as text.
+    //! import std::toml.Toml
     //!
     //! assert Ok(t) = Toml.parse("title = 'demo'")
     //! assert Toml.text(t) == "title = 'demo'"
-    //! assert Err(TomlError{offset: 7, message: "unexpected EOF; expected value"}) = Toml.parse("title = ")
+    //!
+    //! assert Toml.parse("title = ")
+    //!     == Err(Toml.DecodeError{message: "unexpected EOF; expected value", line: 1, col: 8, offset: 7})
     //
-    pub fn parse(text: String) -> Result<Toml, TomlError>
-        Toml.check([text])
-        |> Result.map(fn _ -> Toml.build([Fragment.Static(text)]))
-        |> Result.map_err(fn e -> TomlError{offset: e.offset, message: e.message})
+    pub fn parse(text: String) -> Result<Toml, Toml.DecodeError>
+        Toml.decode(text) |> Result.map(fn _ -> Toml(text))
     end
 
     /// Returns the literal TOML text.
@@ -186,6 +352,130 @@ impl Toml.Value
 
                 "{" + String.join(pairs, ", ") + "}"
         end
+    end
+end
+
+impl ToJson for Toml.Value
+    /// The value as JSON: a string, number, boolean, array or table as
+    /// itself, a `Table` as an object, and a date or time as the text its
+    /// type's `FromJson` reads: a `Date`, `Time` or `NaiveDateTime` as its
+    /// ISO 8601 text, and an `OffsetDateTime` as RFC 3339 text, which
+    /// `Instant` reads. `Toml.decode_as` reads a document through it, and
+    /// `Json.to_dynamic` of it reads one with `Dynamic`'s accessors.
+    //! import std::toml.Toml
+    //!
+    //! value = Toml.Value.Table({
+    //!     "on" => Toml.Value.Date(Date"2026-05-04"),
+    //!     "at" => Toml.Value.OffsetDateTime(OffsetDateTime"2026-05-04T09:30:00+02:00"),
+    //!     "n"  => Toml.Value.Array([Toml.Value.Int(1), Toml.Value.Float(2.5)]),
+    //! })
+    //!
+    //! assert ToJson.to_json(value) == Json.Obj{
+    //!     "on" => Json.String("2026-05-04"),
+    //!     "at" => Json.String("2026-05-04T09:30:00+02:00"),
+    //!     "n"  => Json.Arr([Json.Int(1), Json.Float(2.5)]),
+    //! }
+    //
+    fn to_json(value: Toml.Value) -> Json
+        case value
+            .String(s) ->
+                Json.String(s)
+
+            .Int(n) ->
+                Json.Int(n)
+
+            .Float(x) ->
+                Json.Float(x)
+
+            .Bool(b) ->
+                Json.Bool(b)
+
+            .Date(d) ->
+                ToJson.to_json(d)
+
+            .Time(t) ->
+                ToJson.to_json(t)
+
+            .NaiveDateTime(t) ->
+                ToJson.to_json(t)
+
+            .OffsetDateTime(t) ->
+                Json.String("${t}")
+
+            .Array(items) ->
+                Json.Arr(
+                    items
+                    |> Iter.map(fn item -> ToJson.to_json(item))
+                    |> Iter.to_list()
+                )
+
+            .Table(entries) ->
+                Json.Obj(Map.map_values(entries, fn item -> ToJson.to_json(item)))
+        end
+    end
+end
+
+// One value from the front of `nodes`, host.decode's listing of a
+// document, and the nodes after it.
+fn read_value(nodes: List<String>) -> (Toml.Value, List<String>)
+    case nodes
+        ["string", s, ..rest] -> (Toml.Value.String(s), rest)
+        ["int", n, ..rest] -> (Toml.Value.Int(String.to_int(n)!), rest)
+        ["float", x, ..rest] -> (Toml.Value.Float(read_float(x)), rest)
+        ["bool", b, ..rest] -> (Toml.Value.Bool(b == "true"), rest)
+        ["date", d, ..rest] -> (Toml.Value.Date(Date.parse(d)!), rest)
+        ["time", t, ..rest] -> (Toml.Value.Time(Time.parse(t)!), rest)
+        ["naive", t, ..rest] -> (Toml.Value.NaiveDateTime(NaiveDateTime.parse(t)!), rest)
+        ["offset", t, ..rest] -> (Toml.Value.OffsetDateTime(OffsetDateTime.parse(t)!), rest)
+        ["array", n, ..rest] -> read_items(String.to_int(n)!, rest, [])
+        ["table", n, ..rest] -> read_entries(String.to_int(n)!, rest, {})
+        _ -> unreachable "host.decode lists each value as its kind and then its text or count"
+    end
+end
+
+// The next `count` values of `nodes` as an array, after the items in
+// `items`, which are in reverse.
+fn read_items(
+    count: Int,
+    nodes: List<String>,
+    items: List<Toml.Value>,
+) -> (Toml.Value, List<String>)
+    if count <= 0 then
+        (Toml.Value.Array(Iter.reverse(items)), nodes)
+    else
+        (item, rest) = read_value(nodes)
+        read_items(count - 1, rest, [item, ..items])
+    end
+end
+
+// The next `count` keys and values of `nodes` as a table, after the entries
+// in `entries`.
+fn read_entries(
+    count:   Int,
+    nodes:   List<String>,
+    entries: Map<String, Toml.Value>,
+) -> (Toml.Value, List<String>)
+    if count <= 0 then
+        (Toml.Value.Table(entries), nodes)
+    else
+        case nodes
+            [key, ..after] ->
+                (value, rest) = read_value(after)
+                read_entries(count - 1, rest, Map.put(entries, key, value))
+
+            [] ->
+                unreachable "host.decode lists each table entry's key"
+        end
+    end
+end
+
+// A float as host.float writes it.
+fn read_float(text: String) -> Float
+    case text
+        "inf"  -> Float.positive_infinity()
+        "-inf" -> Float.negative_infinity()
+        "nan"  -> Float.nan()
+        _      -> String.to_float(text)!
     end
 end
 

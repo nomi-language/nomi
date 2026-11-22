@@ -8,10 +8,11 @@ import std::io
 // would never run and the function's result would be the bare word rather than
 // the wrapped one.
 fn scoped(n: Int) -> String
-    classify = fn x: Int ->
-        if x > 0 then return "positive"
-        "non-positive"
-    end
+    classify =
+        fn x: Int ->
+            if x > 0 then return "positive"
+            "non-positive"
+        end
 
     inner = classify(n)
     io.print("  lambda returned ${inner}")
@@ -20,14 +21,16 @@ end
 
 // A `return` in a nested lambda exits only the INNER lambda.
 fn nested(n: Int) -> String
-    outer = fn x: Int ->
-        inner = fn y: Int ->
-            if y > 0 then return "inner-positive"
-            "inner-other"
-        end
+    outer =
+        fn x: Int ->
+            inner =
+                fn y: Int ->
+                    if y > 0 then return "inner-positive"
+                    "inner-other"
+                end
 
-        "outer(${inner(x)})"
-    end
+            "outer(${inner(x)})"
+        end
 
     "fn(${outer(n)})"
 end

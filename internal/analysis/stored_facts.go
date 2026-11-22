@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"slices"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/nomi-language/nomi/internal/ast"
@@ -28,6 +29,16 @@ import (
 // together. ReduceFacts runs the reductions over the facts of every file of
 // a program and answers what the passes over the program's analyses
 // answer, diagnostic for diagnostic (TestStoredReductionsMatchTheProgram).
+//
+// A check and ReduceFacts share each reduction's reading and rule, keyed
+// by declaration in a check and by DeclRef here: the once-cycle graph and
+// report (onceDeclsOf, onceCycleErrors, onceReport), the whole-file import
+// decision (implImportsOf, foreignImplsOf, unusedImports), the missing-impl
+// bucket and order (missingInBucket, missingInOrder) and the boot-only
+// reading, graph and report (bootReading, bootGraphOf, bootGraph.report),
+// where a call into std carries the callee's depth in std's own graph
+// (stdBootFact) in both. The application-field roots are CheckAppRoots' own
+// answer (AppFacts.Errors).
 //
 // A file's facts depend on the file's own check, and on nothing of
 // another file's bodies: a call names its callee by DeclRef, and a call
@@ -54,8 +65,8 @@ type FileFacts struct {
 	// Path is the file's path, and Base its name, as diagnostics name it
 	// ("orders.nomi").
 	Path, Base  string
-	Boot        BootFacts
-	Once        OnceFacts
+	Boot        BootFacts[DeclRef]
+	Once        OnceFacts[DeclRef]
 	App         AppFacts
 	ImplImports ImplImportFacts
 	// Demands is the file's own ImplManifest, bucket by bucket in order,
@@ -64,30 +75,35 @@ type FileFacts struct {
 	Demands []DemandFact
 }
 
-// BootFacts is the boot-only check's reading of one file.
-type BootFacts struct {
-	// Fns is each function the file defines with a body, by name: the
-	// program's graph is built from every file's.
-	Fns []BootFnFact
+// BootFacts is the boot-only check's reading of one file, each function
+// keyed by K: its DeclRef in a file's stored facts, its declaration in a
+// check (CheckBootScope).
+type BootFacts[K comparable] struct {
+	// Fns is each function the file defines with a body: the program's
+	// graph is built from every file's.
+	Fns []BootFnFact[K]
 	// Visits is what the file's report visits, in order: each function and
 	// each test body.
-	Visits []BootVisit
+	Visits []BootVisit[K]
 }
 
 // BootFnFact is one function's calls outside lambdas, and every project
-// function it calls, lambdas included.
-type BootFnFact struct {
-	Name   string
-	Calls  []BootCallFact
-	Called []DeclRef
+// function it calls, lambdas included. Entry says it is an entry boot (a
+// top-level `fn boot` of a file that defines `fn main`), which a test may
+// call.
+type BootFnFact[K comparable] struct {
+	Key    K
+	Entry  bool
+	Calls  []BootCallFact[K]
+	Called []K
 }
 
 // BootTarget is a function a body calls or names: a project file's (Fn),
 // or std's, with its depth from Supervisor.new (0 when it is not boot-only)
-// and the steps of its chain (bootSteps), which are the same in every
-// program.
-type BootTarget struct {
-	Fn       DeclRef
+// and the steps of its chain, which are the same in every program
+// (stdBootFact).
+type BootTarget[K comparable] struct {
+	Fn       K
 	Std      bool
 	StdDepth int
 	StdSteps []string
@@ -96,59 +112,61 @@ type BootTarget struct {
 }
 
 // BootCallFact is one call, to Supervisor.new or to Target.
-type BootCallFact struct {
+type BootCallFact[K comparable] struct {
 	Line, Col  int
 	Supervisor bool
-	Target     BootTarget
+	Target     BootTarget[K]
 }
 
 // BootValueFact is a function named as a value.
-type BootValueFact struct {
+type BootValueFact[K comparable] struct {
 	Line, Col int
-	Target    BootTarget
+	Target    BootTarget[K]
 }
 
-// BootVisit is one function or test body the report visits. A test body is
-// a root; a function is one unless Boot (it is `boot`, a function a test
-// group's boot calls, or an entry boot), and is `main`, or private and
-// called by no function of the program.
-type BootVisit struct {
+// BootVisit is one function or test body the report visits, a function
+// keyed by Key. A test body is a root; a function is one unless Boot (it is
+// `boot`, a function a test group's boot calls, or an entry boot), and is
+// `main`, or private and called by no function of the program.
+type BootVisit[K comparable] struct {
 	Test               bool
-	Name               string
+	Key                K
 	Main, Public, Boot bool
 	// Fn, when above zero, says the function is Fns[Fn-1], whose Calls are
 	// its calls, and Calls is empty.
 	Fn                 int
-	Calls, LambdaCalls []BootCallFact
-	Values             []BootValueFact
+	Calls, LambdaCalls []BootCallFact[K]
+	Values             []BootValueFact[K]
 }
 
-// OnceFacts is the once-cycle check's reading of one file.
-type OnceFacts struct {
+// OnceFacts is the once-cycle check's reading of one file, each
+// declaration keyed by K: its DeclRef in a file's stored facts, its node in
+// a check (programOnceGraph).
+type OnceFacts[K comparable] struct {
 	// Decls is each `once` with a value and each function with a body the
-	// file defines, by name: the program's graph is built from every
-	// file's.
-	Decls []OnceDeclFact
-	// Reports is the names of the file's `once` bindings in the order its
-	// report visits them.
-	Reports []string
+	// file defines: the program's graph is built from every file's.
+	Decls []OnceDeclFact[K]
+	// Reports is the file's `once` bindings in the order its report visits
+	// them.
+	Reports []K
 }
 
 // OnceDeclFact is one `once`'s initializer or one function's body: what it
 // reads and calls (onceRef), each target a project file's declaration.
 // Display is how a chain names it; Line and Col are a `once`'s declaration,
 // and TypeCycle says type inference reports it already.
-type OnceDeclFact struct {
-	Name, Display string
-	Once          bool
-	Line, Col     int
-	TypeCycle     bool
-	Refs          []OnceRefFact
+type OnceDeclFact[K comparable] struct {
+	Key       K
+	Display   string
+	Once      bool
+	Line, Col int
+	TypeCycle bool
+	Refs      []OnceRefFact[K]
 }
 
 // OnceRefFact is one read of a `once` or call of a function, at Line.
-type OnceRefFact struct {
-	Target  DeclRef
+type OnceRefFact[K comparable] struct {
+	Target  K
 	Read    bool
 	Line    int
 	Display string
@@ -163,27 +181,28 @@ type AppFacts struct {
 	Errors []TypeError
 }
 
-// ImplImportFacts is the whole-file import check's reading of one file.
+// ImplImportFacts is a file's stored reading for the whole-file import
+// check (CheckImplImports): the imports it decides, the impl functions of
+// other project files the file's references resolve or dispatch to, and
+// its impl blocks for a type it does not declare. A check reads the same
+// from each file's analysis, keyed by analysis and node (keptImplUses).
 type ImplImportFacts struct {
-	// Imports are the file's whole-file imports no name uses, each with the
-	// file it imports ("" for none of the program's) and its diagnostic.
-	Imports []ImplImportFact
-	// Uses are the impl functions of other project files its references
-	// resolve or dispatch to.
-	Uses []DeclRef
-	// Foreign are its impl blocks for a type it does not declare.
-	Foreign []ForeignImplFact
+	Imports []ImplImportFact[string]
+	Uses    []DeclRef
+	Foreign []ForeignImplFact[DeclRef]
 }
 
-// ImplImportFact is one whole-file import no name uses.
-type ImplImportFact struct {
-	Target string
+// ImplImportFact is one whole-file import no name uses: the file it imports,
+// keyed by F (the zero F for none of the program's), and its diagnostic.
+type ImplImportFact[F comparable] struct {
+	Target F
 	Err    TypeError
 }
 
-// ForeignImplFact is an impl block for a type its file does not declare.
-type ForeignImplFact struct {
-	Items        []string
+// ForeignImplFact is an impl block for a type its file does not declare,
+// its functions keyed by K.
+type ForeignImplFact[K comparable] struct {
+	Items        []K
 	Recv, Iface  string
 	HasInterface bool
 }
@@ -380,111 +399,24 @@ func FileFactsOf(key string, fa *FileAnalysis, nodes []ast.Node, namer *FactsNam
 		p := topLevelPos(node)
 		return DeclRef{File: key, Name: fmt.Sprintf("@%d:%d", p.Line, p.Col)}
 	}
-	std := stdFnsOf(fa.Program())
-	target := func(sym *Symbol) BootTarget {
-		fd := funcDefOf(sym)
-		t := BootTarget{Display: bootName(sym, fd)}
-		if fd == nil {
-			return t
-		}
-		if _, isOwn := own[fd]; isOwn {
-			t.Fn = DeclRef{File: key, Name: own[fd]}
-			return t
-		}
-		if r, ok := namer.ref(fd); ok {
-			t.Fn = r
-			return t
-		}
-		if sf := std(fd); sf != nil {
-			t.Std = true
-			t.StdDepth, t.StdSteps = stdBootFact(fd, std)
-			return t
-		}
-		t.Fn = ownRef(fd)
-		return t
-	}
-	calls := func(refs []bootRef) []BootCallFact {
-		out := make([]BootCallFact, 0, len(refs))
-		for _, r := range refs {
-			c := BootCallFact{Line: r.call.Line, Col: r.call.Col, Supervisor: r.supervisor}
-			if !r.supervisor {
-				c.Target = target(r.sym)
-			}
-			out = append(out, c)
-		}
-		return out
-	}
-	values := func(vs []bootValue) []BootValueFact {
-		out := make([]BootValueFact, 0, len(vs))
-		for _, v := range vs {
-			out = append(out, BootValueFact{Line: v.pos.Line, Col: v.pos.Col, Target: target(v.sym)})
-		}
-		return out
-	}
-
 	// The boot-only check.
 	bootMu.Lock()
-	s := fa.bootSummaryOf()
-	for fd, fn := range s.fns {
-		bf := BootFnFact{Name: ownRef(fd).Name, Calls: calls(fn.body.calls)}
-		seen := map[DeclRef]bool{}
-		for _, sym := range fn.called {
-			if t := target(sym); !t.Std && t.Fn.File != "" && !seen[t.Fn] {
-				seen[t.Fn] = true
-				bf.Called = append(bf.Called, t.Fn)
-			}
+	read := bootReading[DeclRef]{fa: fa, s: fa.bootSummaryOf(), std: stdFnsOf(fa.Program()), key: func(fd *ast.FuncDef) (DeclRef, bool) {
+		if name, isOwn := own[fd]; isOwn {
+			return DeclRef{File: key, Name: name}, true
 		}
-		f.Boot.Fns = append(f.Boot.Fns, bf)
-	}
-	sort.Slice(f.Boot.Fns, func(i, j int) bool { return f.Boot.Fns[i].Name < f.Boot.Fns[j].Name })
-	fnIndex := map[string]int{}
-	for i, bf := range f.Boot.Fns {
-		fnIndex[bf.Name] = i + 1
-	}
-	covered := map[*ast.FuncDef]bool{}
-	for _, node := range nodes {
-		if td, ok := node.(*ast.TestDecl); ok {
-			for _, sym := range s.testBootsOf(fa, td) {
-				if fd := funcDefOf(sym); fd != nil {
-					covered[fd] = true
-				}
-			}
+		if r, ok := namer.ref(fd); ok {
+			return r, true
 		}
-	}
-	visit := func(name string, body *bootBody) BootVisit {
-		return BootVisit{Name: name, Calls: calls(body.calls), LambdaCalls: calls(body.lambdaCalls), Values: values(body.values)}
-	}
-	var walk func(items []ast.Node)
-	walk = func(items []ast.Node) {
-		for _, node := range items {
-			switch n := node.(type) {
-			case *ast.FuncDef:
-				if n.Body == nil {
-					continue
-				}
-				v := visit(ownRef(n).Name, s.bodyOf(fa, n, n.Body))
-				if i := fnIndex[v.Name]; i > 0 && s.fns[n] != nil {
-					v.Fn, v.Calls = i, nil
-				}
-				v.Main, v.Public = n.Name == "main", n.Public
-				v.Boot = n.Name == "boot" || covered[n] || fa.Program().BootFunctions[n]
-				f.Boot.Visits = append(f.Boot.Visits, v)
-			case *ast.TestDecl:
-				if n.Body != nil {
-					v := visit("", s.bodyOf(fa, n, n.Body))
-					v.Test = true
-					f.Boot.Visits = append(f.Boot.Visits, v)
-				}
-			case *ast.ImplBlock:
-				walk(n.Items)
-			}
-		}
-	}
-	walk(nodes)
+		return ownRef(fd), false
+	}}
+	f.Boot.Fns = read.fns()
+	slices.SortFunc(f.Boot.Fns, func(a, b BootFnFact[DeclRef]) int { return strings.Compare(a.Key.Name, b.Key.Name) })
+	f.Boot.Visits = read.visits(nodes, f.Boot.Fns)
 	bootMu.Unlock()
 
 	// The once-cycle check.
-	f.Once = onceFactsOf(key, fa, nodes, namer, ownRef)
+	f.Once = onceFactsOf(fa, nodes, namer, ownRef)
 
 	// The application-field roots, when the file's answer is its own.
 	if !appTypes {
@@ -498,43 +430,23 @@ func FileFactsOf(key string, fa *FileAnalysis, nodes []ast.Node, namer *FactsNam
 			scopes[file.ModuleScope] = k
 		}
 	}
-	for _, ii := range fa.ImplImports {
-		target := scopes[ii.module]
-		if target == "" || target == OriginEntry {
+	f.ImplImports.Imports = implImportsOf(fa, func(s *Scope) string {
+		target, ok := scopes[s]
+		if ok && (target == "" || target == OriginEntry) {
 			// The program's check holds its entry under no key.
 			target = namer.entry
-			if _, ok := scopes[ii.module]; !ok {
-				target = ""
-			}
 		}
-		f.ImplImports.Imports = append(f.ImplImports.Imports, ImplImportFact{Target: target, Err: unusedImportError(ii.UnusedImport)})
-	}
+		return target
+	})
 	uses := map[DeclRef]bool{}
-	use := func(node ast.Node) {
+	implUsesOf(fa, func(node ast.Node) {
 		if !namer.isImplItem(node) {
 			return
 		}
 		if r, ok := namer.ref(node); ok && r.File != key {
 			uses[r] = true
 		}
-	}
-	for _, ref := range fa.References {
-		if ref == nil {
-			continue
-		}
-		if ref.DispatchImpl != nil {
-			use(ref.DispatchImpl)
-		}
-		for r := ref; r != nil; r = r.Resolved {
-			if r.Kind != SymbolFunction {
-				continue
-			}
-			switch r.Node.(type) {
-			case *ast.FuncDef, *ast.ExternFunc:
-				use(r.Node)
-			}
-		}
-	}
+	})
 	for r := range uses {
 		f.ImplImports.Uses = append(f.ImplImports.Uses, r)
 	}
@@ -542,26 +454,7 @@ func FileFactsOf(key string, fa *FileAnalysis, nodes []ast.Node, namer *FactsNam
 		a, b := f.ImplImports.Uses[i], f.ImplImports.Uses[j]
 		return a.File < b.File || a.File == b.File && a.Name < b.Name
 	})
-	declared := map[string]bool{}
-	collectDeclaredTypeNames(nodes, declared)
-	for _, n := range nodes {
-		block, ok := n.(*ast.ImplBlock)
-		if !ok || block.Receiver == nil {
-			continue
-		}
-		recv := TypeExprBaseName(block.Receiver)
-		if recv == "" || declared[recv] {
-			continue
-		}
-		fi := ForeignImplFact{Recv: recv, HasInterface: block.Interface != nil}
-		if block.Interface != nil {
-			fi.Iface = TypeExprBaseName(block.Interface)
-		}
-		for _, item := range block.Items {
-			fi.Items = append(fi.Items, own[item])
-		}
-		f.ImplImports.Foreign = append(f.ImplImports.Foreign, fi)
-	}
+	f.ImplImports.Foreign = foreignImplsOf(fa, nodes, func(item ast.Node) DeclRef { return DeclRef{File: key, Name: own[item]} })
 
 	// The demands.
 	for _, iface := range sortedKeys(fa.ImplManifest) {
@@ -609,27 +502,20 @@ func (f *FileFacts) recording(d *DemandFact) Recording {
 }
 
 // stdFnsOf answers the analysis of the std file of p that declares a
-// function with a body, or nil. Each std analysis is indexed once per
-// process: std's analyses are shared and never change.
+// function with a body, or nil.
 func stdFnsOf(p *Program) func(*ast.FuncDef) *FileAnalysis {
 	files := map[*FileAnalysis]bool{}
 	for _, f := range p.Files() {
-		if f == nil {
-			continue
+		if f != nil && isStdFile(f) {
+			files[f] = true
 		}
-		if _, ok := stdIndexed.Load(f); !ok {
-			if _, isStd := stdlibModuleForPath(f.FilePath); !isStd {
-				continue
-			}
-			for _, sym := range f.Definitions {
-				if fd, ok := sym.Node.(*ast.FuncDef); ok && sym.Kind == SymbolFunction && fd.Body != nil {
-					stdFnFile.Store(fd, f)
-				}
-			}
-			stdIndexed.Store(f, true)
-		}
-		files[f] = true
 	}
+	return stdFnsIn(files)
+}
+
+// stdFnsIn answers the analysis of the std file among files, std files
+// isStdFile indexed, that declares a function with a body, or nil.
+func stdFnsIn(files map[*FileAnalysis]bool) func(*ast.FuncDef) *FileAnalysis {
 	return func(fd *ast.FuncDef) *FileAnalysis {
 		if f, ok := stdFnFile.Load(fd); ok && files[f.(*FileAnalysis)] {
 			return f.(*FileAnalysis)
@@ -638,62 +524,28 @@ func stdFnsOf(p *Program) func(*ast.FuncDef) *FileAnalysis {
 	}
 }
 
+// isStdFile reports whether f is a std file, and indexes its functions
+// with bodies when it is (stdFnsIn). Each std analysis is indexed once per
+// process: std's analyses are shared and never change.
+func isStdFile(f *FileAnalysis) bool {
+	if _, ok := stdIndexed.Load(f); ok {
+		return true
+	}
+	if _, isStd := stdlibModuleForPath(f.FilePath); !isStd {
+		return false
+	}
+	for _, sym := range f.Definitions {
+		if fd, ok := sym.Node.(*ast.FuncDef); ok && sym.Kind == SymbolFunction && fd.Body != nil {
+			stdFnFile.Store(fd, f)
+		}
+	}
+	stdIndexed.Store(f, true)
+	return true
+}
+
 // stdFnFile holds each indexed std function's analysis, and stdIndexed the
 // std analyses indexed.
 var stdFnFile, stdIndexed sync.Map
-
-// stdBootFacts caches stdBootFact's answers: std's graph is closed, since
-// std's functions call only std's, so a std function's depth and chain are
-// the same in every program.
-var stdBootFacts sync.Map // *ast.FuncDef -> stdBootAnswer
-
-type stdBootAnswer struct {
-	depth int
-	steps []string
-}
-
-// stdBootFact answers fd's depth from Supervisor.new (0 when it is not
-// boot-only) and its chain's steps, over the std functions std declares.
-func stdBootFact(fd *ast.FuncDef, std func(*ast.FuncDef) *FileAnalysis) (int, []string) {
-	if a, ok := stdBootFacts.Load(fd); ok {
-		ans := a.(stdBootAnswer)
-		return ans.depth, ans.steps
-	}
-	g := &bootGraph{fns: map[*ast.FuncDef]*bootFn{}}
-	queue := []*ast.FuncDef{fd}
-	for len(queue) > 0 {
-		next := queue[0]
-		queue = queue[1:]
-		if g.fns[next] != nil {
-			continue
-		}
-		f := std(next)
-		if f == nil {
-			continue
-		}
-		var fn *bootFn
-		if cached, ok := stdBootFns.Load(next); ok {
-			fn = cached.(*bootFn)
-		} else if facts, ok := stdFactsBootFn(f, next); ok {
-			fn = facts
-			stdBootFns.Store(next, fn)
-		} else {
-			fn = &bootFn{fd: next, fa: f, sym: f.Definitions[Pos{Line: next.Line, Col: next.Col}]}
-			fn.calls = bootCallsOf(readBootRefs(f, next.Body, func(*Symbol) {}))
-			stdBootFns.Store(next, fn)
-		}
-		g.fns[next] = fn
-		for _, c := range fn.calls {
-			if c.callee != nil && g.fns[c.callee] == nil {
-				queue = append(queue, c.callee)
-			}
-		}
-	}
-	g.depth, g.why = bootDepths(g.fns)
-	ans := stdBootAnswer{depth: g.depth[fd], steps: bootSteps(g, fd)}
-	stdBootFacts.Store(fd, ans)
-	return ans.depth, ans.steps
-}
 
 // SupplyOf answers the supply side of the missing-impl check of fa's
 // program, a program checked from source, or nil when it has no impl index.
@@ -809,21 +661,26 @@ func cloneSet(m map[string]bool) map[string]bool {
 	return out
 }
 
-// StdContext is what the reductions read of the stdlib: its base's demands
-// (StdBase), the same for every program in a process.
-type StdContext struct {
+// stdContext is what the reductions read of the stdlib: its base's demands
+// (StdBase), the same for every program in a process. The facts hold no
+// file of the stdlib, so a reduction without them would read a program's
+// demands of std's impls, and std's of the program's, as unmet.
+type stdContext struct {
 	base *StdBase
 }
 
-// StdContextOf answers the stdlib fa's program reads, and false when the
-// program is not built over a stdlib base holding every std file, the
-// only form ReduceFacts reads.
-func StdContextOf(fa *FileAnalysis) (StdContext, bool) {
+// stdContextOf answers the stdlib fa's program reads, and false when the
+// program is not built over a stdlib base holding every std file, the only
+// form the reductions over facts read.
+func stdContextOf(fa *FileAnalysis) (stdContext, bool) {
+	if fa == nil {
+		return stdContext{}, false
+	}
 	p := fa.Program()
 	if p == nil || p.stdBase == nil || !p.stdBase.ownsAll(p.Files()) {
-		return StdContext{}, false
+		return stdContext{}, false
 	}
-	return StdContext{base: p.stdBase}, true
+	return stdContext{base: p.stdBase}, true
 }
 
 // Reductions is what the program's reductions over bodies report, by
@@ -850,8 +707,16 @@ func (r *Reductions) Clean(appTypes bool) bool {
 }
 
 // ReduceFacts runs the program's reductions over its project files' facts,
-// by module key, with the program's supply and the stdlib's demands.
-func ReduceFacts(files map[string]*FileFacts, supply *ProgramSupply, std StdContext) *Reductions {
+// by module key, with the program's supply and the stdlib over reads: over
+// is an analysis of one of the program's files, checked from source or
+// against interfaces. It answers false, and reduces nothing, when over's
+// program is not built over a stdlib base holding every std file, nil over
+// included: the stdlib's demands are then nowhere to read.
+func ReduceFacts(files map[string]*FileFacts, supply *ProgramSupply, over *FileAnalysis) (*Reductions, bool) {
+	std, ok := stdContextOf(over)
+	if !ok {
+		return nil, false
+	}
 	keys := sortedKeys(files)
 	r := &Reductions{Boot: map[string][]TypeError{}, Once: map[string][]TypeError{}, AppRoots: map[string][]TypeError{}, ImplImports: map[string][]TypeError{}, AppExact: true}
 	reduceBoot(files, keys, r)
@@ -868,189 +733,28 @@ func ReduceFacts(files map[string]*FileFacts, supply *ProgramSupply, std StdCont
 	}
 	reduceImplImports(files, keys, std, r)
 	r.Coherence = reduceCoherence(files, keys, supply, std)
-	return r
+	return r, true
 }
 
-// reduceBoot is CheckBootScope over facts: the program's graph of project
-// functions, boot-only by bootDepths' rule with std's callees at their
-// depths, then each file's visits.
+// reduceBoot is CheckBootScope over facts: the program's graph of every
+// file's functions (bootGraphOf), then each file's report.
 func reduceBoot(files map[string]*FileFacts, keys []string, r *Reductions) {
-	type fn struct {
-		file *FileFacts
-		fact *BootFnFact
+	read := make([]bootFile[DeclRef], len(keys))
+	for i, key := range keys {
+		read[i] = bootFile[DeclRef]{base: files[key].Base, fns: files[key].Boot.Fns}
 	}
-	fns := map[DeclRef]fn{}
-	called := map[DeclRef]bool{}
+	g := bootGraphOf(read)
 	for _, key := range keys {
-		f := files[key]
-		for i := range f.Boot.Fns {
-			bf := &f.Boot.Fns[i]
-			ref := DeclRef{File: key, Name: bf.Name}
-			if _, dup := fns[ref]; dup {
-				continue
-			}
-			fns[ref] = fn{file: f, fact: bf}
-			for _, c := range bf.Called {
-				called[c] = true
-			}
-		}
-	}
-	depth := map[DeclRef]int{}
-	targetDepth := func(c BootCallFact) (int, bool) {
-		switch {
-		case c.Supervisor:
-			return 0, true
-		case c.Target.Std:
-			return c.Target.StdDepth, c.Target.StdDepth > 0
-		}
-		d, ok := depth[c.Target.Fn]
-		return d, ok
-	}
-	for changed := true; changed; {
-		changed = false
-		for ref, f := range fns {
-			best := -1
-			for _, c := range f.fact.Calls {
-				if d, ok := targetDepth(c); ok && (best < 0 || d < best) {
-					best = d
-				}
-			}
-			if best < 0 {
-				continue
-			}
-			if d, ok := depth[ref]; !ok || best+1 < d {
-				depth[ref] = best + 1
-				changed = true
-			}
-		}
-	}
-	why := func(ref DeclRef) (BootCallFact, bool) {
-		d, ok := depth[ref]
-		if !ok {
-			return BootCallFact{}, false
-		}
-		for _, c := range fns[ref].fact.Calls {
-			if at, ok := targetDepth(c); ok && at == d-1 {
-				return c, true
-			}
-		}
-		return BootCallFact{}, false
-	}
-	bootOnly := func(t BootTarget) bool {
-		if t.Std {
-			return t.StdDepth > 0
-		}
-		_, ok := depth[t.Fn]
-		return ok
-	}
-	steps := func(t BootTarget) []string {
-		if t.Std {
-			return t.StdSteps
-		}
-		var out []string
-		seen := map[DeclRef]bool{}
-		ref := t.Fn
-		for !seen[ref] {
-			seen[ref] = true
-			c, ok := why(ref)
-			if !ok {
-				break
-			}
-			at := fmt.Sprintf("%s:%d", fns[ref].file.Base, c.Line)
-			if c.Supervisor {
-				out = append(out, "`Supervisor.new` at "+at)
-				break
-			}
-			out = append(out, "`"+c.Target.Display+"` at "+at)
-			if c.Target.Std {
-				out = append(out, c.Target.StdSteps...)
-				break
-			}
-			ref = c.Target.Fn
-		}
-		return out
-	}
-	// entryBoot is the program's BootFunctions over facts: a top-level
-	// `fn boot` of a file that defines `fn main`.
-	entryBoot := func(t BootTarget) bool {
-		if t.Std || t.Fn.Name != "boot" {
-			return false
-		}
-		f := files[t.Fn.File]
-		if f == nil {
-			return false
-		}
-		for _, v := range f.Boot.Visits {
-			if v.Main && !v.Test && v.Name == "main" {
-				return true
-			}
-		}
-		return false
-	}
-	for _, key := range keys {
-		var errs []TypeError
-		reported := map[Pos]bool{}
-		add := func(line, col int, msg string) {
-			pos := Pos{Line: line, Col: col}
-			if reported[pos] {
-				return
-			}
-			reported[pos] = true
-			errs = append(errs, TypeError{Line: line, Col: col, Message: msg})
-		}
-		reportCall := func(c BootCallFact) {
-			if c.Supervisor {
-				add(c.Line, c.Col, "a supervisor here would be a new one every time this runs, and each "+
-					"is kept for the life of the program with a `max_running` of its "+
-					"own — so the bound would be per call rather than per downstream. "+
-					"Create it while `boot` builds the app value: in boot, or in "+
-					"something boot calls")
-				return
-			}
-			if !bootOnly(c.Target) || entryBoot(c.Target) {
-				// A test's call of an entry boot runs it as boot, as in
-				// bootReport.reportCall.
-				return
-			}
-			add(c.Line, c.Col, fmt.Sprintf("%s, so it can only be called while `boot` builds "+
-				"the app value, in boot or in something boot calls: a supervisor made here would be a new one every time "+
-				"this runs, so the bound would be per call rather than per downstream", becauseText(c.Target.Display, steps(c.Target))))
-		}
-		lambdasAndValues := func(v *BootVisit) {
-			for _, c := range v.LambdaCalls {
-				reportCall(c)
-			}
-			for _, val := range v.Values {
-				if !bootOnly(val.Target) {
-					continue
-				}
-				add(val.Line, val.Col, fmt.Sprintf("%s, so it cannot be passed as a value: a function value may be called anywhere, "+
-					"and a supervisor can only be created while `boot` builds the app value. Call it in boot instead",
-					becauseText(val.Target.Display, steps(val.Target))))
-			}
-		}
-		for i := range files[key].Boot.Visits {
-			v := &files[key].Boot.Visits[i]
-			root := v.Test || !v.Boot && (v.Main || !called[DeclRef{File: key, Name: v.Name}] && !v.Public)
-			if root {
-				calls := v.Calls
-				if v.Fn > 0 {
-					calls = files[key].Boot.Fns[v.Fn-1].Calls
-				}
-				for _, c := range calls {
-					reportCall(c)
-				}
-			}
-			lambdasAndValues(v)
-		}
-		if len(errs) > 0 {
+		if errs := g.report(files[key].Boot); len(errs) > 0 {
 			r.Boot[key] = errs
 		}
 	}
 }
 
-// reduceImplImports is CheckImplImports over facts.
-func reduceImplImports(files map[string]*FileFacts, keys []string, std StdContext, r *Reductions) {
+// reduceImplImports is CheckImplImports over facts: the uses and demands
+// of every file, the stdlib base's demands among them, and each file's
+// imports decided by unusedImports.
+func reduceImplImports(files map[string]*FileFacts, keys []string, std stdContext, r *Reductions) {
 	usedBy := map[DeclRef]map[string]bool{}
 	pairs := map[implPair]bool{}
 	for _, key := range keys {
@@ -1066,32 +770,20 @@ func reduceImplImports(files map[string]*FileFacts, keys []string, std StdContex
 		}
 	}
 	demanded := func(p implPair) bool {
-		return pairs[p] || std.base != nil && std.base.pairs[p]
+		return pairs[p] || std.base.pairs[p]
 	}
-	usesImplIn := func(target string) bool {
-		f := files[target]
-		if f == nil {
-			return false
+	foreignOf := func(target string) ([]ForeignImplFact[DeclRef], bool) {
+		if f := files[target]; f != nil {
+			return f.ImplImports.Foreign, true
 		}
-		for _, block := range f.ImplImports.Foreign {
-			for _, item := range block.Items {
-				for from := range usedBy[DeclRef{File: target, Name: item}] {
-					if from != target {
-						return true
-					}
-				}
-			}
-			if block.HasInterface && demanded(implPair{typeName: block.Recv, iface: block.Iface}) {
-				return true
-			}
-		}
-		return false
+		return nil, false
 	}
 	for _, key := range keys {
 		var errs []TypeError
-		for _, ii := range files[key].ImplImports.Imports {
-			if ii.Target == "" || files[ii.Target] == nil || !usesImplIn(ii.Target) {
-				errs = append(errs, ii.Err)
+		imports := files[key].ImplImports.Imports
+		for i, unused := range unusedImports(imports, foreignOf, usedBy, demanded) {
+			if unused {
+				errs = append(errs, imports[i].Err)
 			}
 		}
 		if len(errs) > 0 {
@@ -1102,7 +794,7 @@ func reduceImplImports(files map[string]*FileFacts, keys []string, std StdContex
 
 // reduceCoherence is FinalizeCoherence over facts: programDemands' buckets
 // with the files in key order, then the stdlib base's.
-func reduceCoherence(files map[string]*FileFacts, keys []string, supply *ProgramSupply, std StdContext) []TypeError {
+func reduceCoherence(files map[string]*FileFacts, keys []string, supply *ProgramSupply, std stdContext) []TypeError {
 	if supply == nil {
 		return nil
 	}
@@ -1138,53 +830,38 @@ func reduceCoherence(files map[string]*FileFacts, keys []string, supply *Program
 			}
 		}
 	}
-	var errs []implPairErr
+	missing := map[implPair]TypeError{}
 	// identity is the identity index with the base's laid under the
 	// supply's, made on first use (ProgramSupply.over).
 	var identity map[ImplIdentityKey]bool
 	for p, b := range buckets {
-		if !b.wanted || !missingImplsChecked(p.iface) {
+		if !b.wanted {
 			continue
 		}
 		recs := slices.Clone(b.recs)
 		if std.base != nil {
 			recs = append(recs, std.base.demands[p.iface][p.typeName]...)
 		}
-		sortRecordings(recs)
-		recs = dropSortedDuplicates(recs)
-		impls, covered := supply.over(std.base, p.typeName, &identity)
-		ids := supply.Identity
-		if identity != nil {
-			ids = identity
-		}
-		idx := &ProjectImplIndex{
-			Impls:                 map[string]map[string]bool{p.typeName: impls},
-			ImplsByIdentity:       ids,
-			implNamesWithIdentity: map[string]map[string]bool{p.typeName: covered},
-		}
-		if e, ok := idx.missingImpl(p.iface, p.typeName, recs, nil); ok {
-			errs = append(errs, implPairErr{p, e})
+		_, e, ok := missingInBucket(p, recs, func() *ProjectImplIndex {
+			impls, covered := supply.over(std.base, p.typeName, &identity)
+			ids := supply.Identity
+			if identity != nil {
+				ids = identity
+			}
+			return &ProjectImplIndex{
+				Impls:                 map[string]map[string]bool{p.typeName: impls},
+				ImplsByIdentity:       ids,
+				implNamesWithIdentity: map[string]map[string]bool{p.typeName: covered},
+			}
+		})
+		if ok {
+			missing[p] = e
 		}
 	}
-	sort.Slice(errs, func(i, j int) bool {
-		if errs[i].pair.iface != errs[j].pair.iface {
-			return errs[i].pair.iface < errs[j].pair.iface
-		}
-		return errs[i].pair.typeName < errs[j].pair.typeName
-	})
-	out := make([]TypeError, len(errs))
-	for i, e := range errs {
-		out[i] = e.err
-	}
-	return out
+	return missingInOrder(missing)
 }
 
-type implPairErr struct {
-	pair implPair
-	err  TypeError
-}
-
-const factsMagic = "NOMIFACTS3"
+const factsMagic = "NOMIFACTS5"
 
 // Encode writes f.
 func (f *FileFacts) Encode() []byte {
@@ -1290,10 +967,6 @@ func (dm *DocumentManager) StoredFactsForTest(full *CheckedProgram) (fromSource,
 			whole.AppRoots[key] = errs
 		}
 	}
-	std, ok := StdContextOf(entry)
-	if !ok {
-		return fromSource, fromInterfaces, whole, nil
-	}
 	supply := SupplyOf(entry)
 	if supply != nil {
 		var err error
@@ -1301,7 +974,8 @@ func (dm *DocumentManager) StoredFactsForTest(full *CheckedProgram) (fromSource,
 			panic(err)
 		}
 	}
-	return fromSource, fromInterfaces, whole, ReduceFacts(decoded, supply, std)
+	stored, _ = ReduceFacts(decoded, supply, entry)
+	return fromSource, fromInterfaces, whole, stored
 }
 
 // Supply answers the supply side of the missing-impl check of the program

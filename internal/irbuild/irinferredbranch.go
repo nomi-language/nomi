@@ -7,11 +7,10 @@ import (
 
 // inferredRegionValue lowers an `if` or `case` used for its value with the
 // same arm lowering used by tail expressions. The region's kind is the
-// checker's type for it: an arm of a narrower type enters it, as a `List<T>`
-// enters an `Iter<T>` and a concrete value an interface. A region whose
-// type is no held value (Unit, Infallible) takes its arms' join. The typed
-// declaration is inserted only after that answer exists; the slot and its
-// type are immutable once constructed.
+// checker's type for it (regionSig): an arm of a narrower type enters it, as
+// a `List<T>` enters an `Iter<T>` and a concrete value an interface. The
+// typed declaration is inserted only after that answer exists; the slot and
+// its type are immutable once constructed.
 func (bl *irScalarBuilder) inferredRegionValue(value ast.Node, statement bool) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	// Inside an assertion subject a row recorded in an arm is an `ir.Record`
@@ -21,34 +20,32 @@ func (bl *irScalarBuilder) inferredRegionValue(value ast.Node, statement bool) (
 	outer := bl.sh.result
 	bl.sh.result = result
 	defer func() { bl.sh.result = outer }()
-	sig := irFuncSig{inferResult: true}
-	// Infallible is a leaf the callable domain holds, but a region of it
-	// holds no value: its arms each take the kind their position settled
-	// (a `todo` arm under `not` is Bool), and the join is theirs.
-	if ck := bl.g.checkedKind(value); ck != kindNever && irCallableValueKind(ck) {
-		sig = irFuncSig{result: ck}
+	sig, ok := bl.regionSig(value)
+	if !ok {
+		bl.g.dc.note("an `if` or `case` used for its value with no type in the checker's records")
+		return no()
 	}
 	var k kind
-	var ok bool
 	switch v := value.(type) {
 	case *ast.If:
 		k, ok = bl.ifRegion(v, sig)
 	case *ast.Case:
 		k, ok = bl.caseRegion(v, sig)
 	}
+	diverged := ok && (k == kindDiverged || !ir.Reachable(bl.f)[bl.b.ID()])
 	switch {
 	case !ok:
 		// The arm that declined named its reason.
-	case k == kindDiverged:
+	case diverged:
 		// A region whose every arm returned has no value to bind, and the
 		// statements after it cannot run; the checker rejects them.
 		bl.g.dc.note("an `if` or `case` whose every arm leaves the body, used for its value")
 	}
-	if !ok || k == kindDiverged {
+	if !ok || diverged {
 		bl.abandonRegion(value)
 		return no()
 	}
-	// The region's kind is its arms' join, each a lowered value's.
+	// The region's kind is the record's, which every arm met.
 	irHeldOperand(k, "an `if` or `case` used for its value")
 	// A held kind has an IR type: irTypeOf answers nil only for kindInvalid.
 	ty := bl.g.irTypeOf(k)
@@ -65,6 +62,17 @@ func (bl *irScalarBuilder) inferredRegionValue(value ast.Node, statement bool) (
 	}
 	bl.side(result, irScalarSide{k: k})
 	return result, k, true, true
+}
+
+// regionSig is the signature value, an `if` or `case` used for its value,
+// lowers its arms with: the kind the checker's records give it
+// (valueKind). A region of Infallible holds no value, each arm a trap or a
+// leave: it takes the type its position settled, as a `todo` does, or
+// stays Infallible. ok is false for a region with no record that names a
+// kind, which declines.
+func (bl *irScalarBuilder) regionSig(value ast.Node) (irFuncSig, bool) {
+	k, ok := bl.valueKind("region", value)
+	return irFuncSig{result: k}, ok
 }
 
 // abandonRegion leaves the builder on an open block after a region declined

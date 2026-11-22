@@ -90,11 +90,12 @@ impl Averageable<Float> for Float
         (total, lost, count) = Iter.reduce(values, (0.0, 0.0, 0), fn (total, lost, count), x ->
             next = total + x
 
-            dropped = if Float.abs(total) >= Float.abs(x) then
-                (total - next) + x
-            else
-                (x - next) + total
-            end
+            dropped =
+                if Float.abs(total) >= Float.abs(x) then
+                    (total - next) + x
+                else
+                    (x - next) + total
+                end
 
             (next, lost + dropped, count + 1)
         end)

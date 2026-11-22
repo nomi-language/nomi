@@ -20,18 +20,16 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/nomi-language/nomi/hostadapt"
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/cldrdata"
 	"github.com/nomi-language/nomi/internal/cldrfull"
 	"github.com/nomi-language/nomi/internal/doctest"
 	"github.com/nomi-language/nomi/internal/expectation"
-	"github.com/nomi-language/nomi/internal/ffirun"
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/internal/irbuild"
 	"github.com/nomi-language/nomi/internal/stdio"
-	"github.com/nomi-language/nomi/internal/tourgo"
+	"github.com/nomi-language/nomi/internal/tourmodules"
 	"github.com/nomi-language/nomi/internal/virtualproject"
 	"github.com/nomi-language/nomi/internal/vm"
 	"github.com/nomi-language/nomi/rt"
@@ -292,9 +290,6 @@ func vmOpenProgram(path string, out, errOut io.Writer) (*vm.Machine, *ir.Module,
 	if files := tourFiles(path); files != nil {
 		machine = machine.WithFiles(files)
 	}
-	if hosts, ok := tourHosts.Load(path); ok {
-		machine = machine.WithHosts(hosts.(vm.HostTable))
-	}
 	return machine, mod, ""
 }
 
@@ -367,15 +362,14 @@ func recordIDs(s *expectation.Set) []string {
 // corpus is a join against the population root, because a record
 // id IS the population-relative path. The tour is not: a block's id is
 // `chapter:L<line>` and the code lives in the markdown, so the blocks are
-// extracted with `internal/doctest`'s own extractor — the same call the
-// recorder and `internal/irbuild`'s tour probes make — and staged to a temp dir.
+// extracted with `internal/doctest`'s extractor, the recorder's, and staged
+// to a temp dir as the tour's runner writes them (stageTourBlock).
 //
-// A THIRD COPY OF THE STAGING EXISTS AND THE DRIFT RISK IS REAL, for
-// `runReference`'s reason and with `runReference`'s bound: both other copies
-// live in `_test.go` files and are unimportable, and all three are checked
-// against the SAME committed artifact, so a copy that staged a block
-// differently would produce a different transcript and fail. The evidence that
-// this copy is right is that `irbuild.Analyze` accepts every staged block.
+// The recorder loads a block through vmhost.LoadMarked. This harness runs
+// the machine bare, so it stages the block itself, and the committed records
+// hold the staging to the recorder's: a block staged differently runs to a
+// different transcript and fails. The files whose cases a block's report
+// holds after its entry's are tourTestFiles'.
 func vmPathResolver(t *testing.T, population string) func(string) (string, bool) {
 	t.Helper()
 	if root, ok := vmWholeProgramRoots[population]; ok {
@@ -451,28 +445,23 @@ func tourBlocksByID(t *testing.T) map[string]string {
 }
 
 // stageTourBlock writes one block's files to dir and answers its entry path.
+// The block's other files that declare tests are recorded by that path
+// (tourTestFiles).
 func stageTourBlock(t *testing.T, dir, code string) string {
 	t.Helper()
 	// A block that imports a module the tour links gets its files, as the
-	// tour's runner attaches them (tourgo.Source).
-	code = tourgo.Source(code)
+	// tour's runner attaches them (tourmodules.Source).
+	code = tourmodules.Source(code)
+	project, projectErr := virtualproject.FromMarkedSource(code)
 	// A block that names modules is its files already, as the tour's
-	// runner writes them (vmhost.LoadMarked), and its `go` bindings and
-	// its modules' are answered as the runner answers them.
-	if project, err := virtualproject.FromMarkedSource(code); err == nil && project.Files != nil {
+	// runner writes them (vmhost.LoadMarked).
+	if projectErr == nil && project.Files != nil {
 		root, err := project.Write(dir)
 		if err != nil {
 			t.Fatalf("staging a tour block: %v", err)
 		}
 		entry := filepath.Join(root, filepath.FromSlash(project.EntryName))
-		tourDataFiles.Store(entry, tourData{dir: project.Dir, files: project.DataFiles})
-		hosts, err := tourgo.MarkedHosts(code)
-		if err != nil {
-			t.Fatalf("a tour block's Go bindings: %v", err)
-		}
-		if hosts != nil {
-			tourHosts.Store(entry, hostadapt.ProjectTable(hosts))
-		}
+		storeTourBlock(t, entry, root, tourData{dir: project.Dir, files: project.DataFiles}, project.TestFiles)
 		return entry
 	}
 	entrySrc, entryName, virtual, manifest, splitErr := vmhost.SplitMultiFile(code)
@@ -492,8 +481,8 @@ func stageTourBlock(t *testing.T, dir, code string) string {
 		}
 	}
 	// The manifest is re-staged from the block's RAW text rather than from the
-	// parsed *analysis.Manifest, which is `tourResidueStage`'s reasoning: a
-	// round trip through a TOML writer would be a second encoding of one fact.
+	// parsed *analysis.Manifest: a round trip through a TOML writer would be a
+	// second encoding of one fact.
 	if manifest != nil {
 		if raw := tourRawManifest(code); raw != "" {
 			if err := os.WriteFile(filepath.Join(dir, "nomi.toml"), []byte(raw), 0o644); err != nil {
@@ -514,7 +503,6 @@ func stageTourBlock(t *testing.T, dir, code string) string {
 	if err != nil {
 		t.Fatalf("a tour block's data files: %v", err)
 	}
-	tourDataFiles.Store(entry, tourData{files: data})
 	// The front end reads the data files a block embeds from beside its
 	// entry, as the tour's runner hands them to it (vmhost.WithVirtualData);
 	// the run still reads the in-memory copies.
@@ -527,41 +515,57 @@ func stageTourBlock(t *testing.T, dir, code string) string {
 			t.Fatalf("staging %s: %v", name, err)
 		}
 	}
-	// A block's `go` bindings run on the Go the tour links
-	// (internal/tourgo), answered by the table tourgo gives the tour's
-	// runner. The front end checks a file on disk against the go.mod above
-	// it, so a go.mod names the block's own Go package as its module.
-	hosts, err := tourgo.Hosts(entryName, entrySrc, virtual)
-	if err != nil {
-		t.Fatalf("a tour block's Go bindings: %v", err)
+	var tests []string
+	if projectErr == nil {
+		tests = project.TestFiles
 	}
-	if hosts != nil {
-		tourHosts.Store(entry, hostadapt.ProjectTable(hosts))
-		for _, b := range tourgo.GoBindings(entryName, entrySrc, virtual) {
-			if !ffirun.IsStdPackage(b.ImportPath) {
-				if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module "+b.ImportPath+"\n"), 0o644); err != nil {
-					t.Fatalf("staging the go.mod: %v", err)
-				}
-			}
-		}
-	}
+	storeTourBlock(t, entry, dir, tourData{files: data}, tests)
 	return entry
 }
 
-// tourDataFiles is each staged tour block's data files, by its entry path.
+// storeTourBlock records a staged block, written under root with its entry
+// at entry: its data files under the entry's path and under the path of each
+// of its other files that declare tests (virtualproject.Project.TestFiles),
+// whose paths it records under the entry's (tourTestFiles).
+func storeTourBlock(t *testing.T, entry, root string, data tourData, testFiles []string) {
+	t.Helper()
+	for _, name := range testFiles {
+		path := filepath.Join(root, filepath.FromSlash(name))
+		if _, err := os.Stat(path); err != nil {
+			t.Fatalf("staging a tour block's test file %s: %v", name, err)
+		}
+		data.tests = append(data.tests, path)
+		tourDataFiles.Store(path, tourData{dir: data.dir, files: data.files})
+	}
+	tourDataFiles.Store(entry, data)
+}
+
+// tourDataFiles is each staged tour block's data files, by its entry path
+// and the path of each of its other test files.
 var tourDataFiles sync.Map // string -> tourData
 
 // tourData is a staged tour block's data files, by their paths from the
 // block's root, and its project's directory from there: "" unless the
-// block holds sibling projects (virtualproject.Project.Dir).
+// block holds sibling projects (virtualproject.Project.Dir). Under the
+// entry's path, tests is the staged path of each other file of the block
+// that declares tests, in block order.
 type tourData struct {
 	dir   string
 	files map[string]string
+	tests []string
 }
 
-// tourHosts is each staged tour block's host table for its `go` bindings,
-// by its entry path.
-var tourHosts sync.Map // string -> vm.HostTable
+// tourTestFiles is the staged path of each file of the tour block entered
+// at entry, other than the entry, that declares tests, in block order: the
+// files whose cases the tour runs after the entry's (vmhost.LoadMarked).
+// It is nil for a path that is no staged block's entry.
+func tourTestFiles(entry string) []string {
+	data, ok := tourDataFiles.Load(entry)
+	if !ok {
+		return nil
+	}
+	return data.(tourData).tests
+}
 
 // tourFiles is the in-memory file system a staged tour block runs against,
 // or nil for a program that is not one.

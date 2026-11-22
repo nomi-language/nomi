@@ -36,6 +36,12 @@ import (
 // them: the memory file system has one user, who may do everything, so a
 // rule about refusal is one the conformance suite does not hold it to.
 //
+// # Locks
+//
+// A File's locks are the process's own (locks.go), on the file's node, so
+// they follow the file through a rename and two handles on it exclude each
+// other as on the disk. A handle's close releases them.
+//
 // # Confinement
 //
 // `fs.within` on memory is a view (memView) whose working directory and
@@ -99,6 +105,8 @@ const (
 	OpMetadata
 	// OpClose is closing a file opened to read or write.
 	OpClose
+	// OpSync is File.sync, File.sync_data and fs.sync_dir.
+	OpSync
 )
 
 type memFailure struct {
@@ -630,6 +638,23 @@ func (f *memFile) Truncate(size int64) error {
 	return nil
 }
 
+// sync has nothing to do, since every write is in the node as it is made,
+// unless a Failure fails it. The log names which sync it was, `sync` or
+// `sync_data`, so a test sees which one a program asked for.
+func (f *memFile) sync(dataOnly bool) error {
+	f.m.mu.Lock()
+	defer f.m.mu.Unlock()
+	word := "sync"
+	if dataOnly {
+		word = "sync_data"
+	}
+	f.m.record(word, f.lexical)
+	if e := f.m.failure(OpSync, f.lexical); e != nil {
+		return rt.IOFailure{E: *e}
+	}
+	return nil
+}
+
 func (f *memFile) size() (int64, error) {
 	f.m.mu.Lock()
 	defer f.m.mu.Unlock()
@@ -665,7 +690,35 @@ func (v memView) OpenFile(p string, access Access) (rt.FileSource, *rt.IOError) 
 		return rt.FileSource{}, e
 	}
 	f := &memFile{m: v.m, lexical: lexical, abs: abs, node: n}
-	return rt.FileSource{Name: p, F: f, Size: f.size, Writable: access != AccessRead, Close: v.m.handle(lexical)}, nil
+	lock, unlockAll := inProcessLocker(n)
+	release := v.m.handle(lexical)
+	closeFile := func() error {
+		unlockAll()
+		return release()
+	}
+	return rt.FileSource{Name: p, F: f, Size: f.size, Writable: access != AccessRead, Close: closeFile, Sync: f.sync, Lock: lock}, nil
+}
+
+// SyncDir checks that dir is a directory: memory has nothing to make
+// durable.
+func (v memView) SyncDir(dir string) *rt.IOError {
+	_, e := v.begin("sync_dir", OpSync, dir)
+	defer v.m.mu.Unlock()
+	if e != nil {
+		return e
+	}
+	abs, e := v.resolve("open", dir, true)
+	if e != nil {
+		return e
+	}
+	n, e := v.lookup(dir, abs)
+	if e != nil {
+		return e
+	}
+	if !n.dir {
+		return errOf(rt.TagIONotADirectory, dir)
+	}
+	return nil
 }
 
 func (v memView) List(dir string) ([]DirEntry, *rt.IOError) {
@@ -1006,6 +1059,7 @@ func (m *Memory) Create(p string, mode WriteMode) (rt.WriteSink, *rt.IOError) {
 func (m *Memory) OpenFile(p string, access Access) (rt.FileSource, *rt.IOError) {
 	return m.view().OpenFile(p, access)
 }
+func (m *Memory) SyncDir(dir string) *rt.IOError                   { return m.view().SyncDir(dir) }
 func (m *Memory) List(dir string) ([]DirEntry, *rt.IOError)        { return m.view().List(dir) }
 func (m *Memory) CreateDir(p string, parents bool) *rt.IOError     { return m.view().CreateDir(p, parents) }
 func (m *Memory) Remove(p string) *rt.IOError                      { return m.view().Remove(p) }

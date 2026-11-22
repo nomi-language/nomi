@@ -1,22 +1,25 @@
 test "case expressions can match conditions values and guards"
     x = 5
 
-    ad_hoc = case
-        x > 10 -> "big"
-        x > 0  -> "positive"
-        _      -> "other"
-    end
+    ad_hoc =
+        case
+            x > 10 -> "big"
+            x > 0  -> "positive"
+            _      -> "other"
+        end
 
-    by_value = case x
-        1 -> "one"
-        5 -> "five"
-        _ -> "other"
-    end
+    by_value =
+        case x
+            1 -> "one"
+            5 -> "five"
+            _ -> "other"
+        end
 
-    with_guard = case x
-        n when n > 10 -> "big: ${n}"
-        n             -> "small: ${n}"
-    end
+    with_guard =
+        case x
+            n when n > 10 -> "big: ${n}"
+            n             -> "small: ${n}"
+        end
 
     assert ad_hoc == "positive"
     assert by_value == "five"
@@ -93,37 +96,42 @@ end
 test "nested variant patterns destructure recursive payloads"
     pair_opt = Some((1, "a"))
 
-    pair_text = case pair_opt
-        Some((_, s)) -> s
-        None         -> "none"
-    end
+    pair_text =
+        case pair_opt
+            Some((_, s)) -> s
+            None         -> "none"
+        end
 
     nested = Some(Ok(42))
 
-    variant_in_variant = case nested
-        Some(Ok(n))  -> n
-        Some(Err(_)) -> -1
-        None         -> 0
-    end
+    variant_in_variant =
+        case nested
+            Some(Ok(n))  -> n
+            Some(Err(_)) -> -1
+            None         -> 0
+        end
 
-    literal_in_variant = case Some(42)
-        Some(42) -> "match"
-        Some(_)  -> "other"
-        None     -> "none"
-    end
+    literal_in_variant =
+        case Some(42)
+            Some(42) -> "match"
+            Some(_)  -> "other"
+            None     -> "none"
+        end
 
     deep = Some(Some((7, "deep")))
 
-    deep_match = case deep
-        Some(Some((_, s))) -> s
-        _                  -> "miss"
-    end
+    deep_match =
+        case deep
+            Some(Some((_, s))) -> s
+            _                  -> "miss"
+        end
 
-    err_branch = case Some(Err("boom"))
-        Some(Ok(n))  -> n
-        Some(Err(_)) -> -1
-        None         -> 0
-    end
+    err_branch =
+        case Some(Err("boom"))
+            Some(Ok(n))  -> n
+            Some(Err(_)) -> -1
+            None         -> 0
+        end
 
     assert pair_text == "a"
     assert variant_in_variant == 42
@@ -167,9 +175,10 @@ end
 test "nested struct patterns work inside variants tuples and fields"
     pair = (Point{x: 5, y: 6}, 10)
 
-    pair_sum = case pair
-        (Point{x:, y:}, n) -> x + y + n
-    end
+    pair_sum =
+        case pair
+            (Point{x:, y:}, n) -> x + y + n
+        end
 
     assert sum(Wrapped.Pair(Point{x: 3, y: 4})) == 7
     assert sum(Wrapped.Empty) == 0

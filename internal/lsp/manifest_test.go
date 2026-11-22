@@ -13,16 +13,14 @@ import (
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
-// manifestProject is an app, example.com/app by its go.mod, whose main
-// calls into a dependency it requires, example.com/pricing, which has no
-// [capabilities] tables. It answers the app's directory.
+// manifestProject is an app, app by its go.mod, whose main
+// calls into a dependency it requires, pricing, which has no
+// [effects] tables. It answers the app's directory.
 func manifestProject(t *testing.T, manifest string) string {
 	t.Helper()
 	dir := writeProject(t, map[string]string{
-		"app/go.mod":         "module example.com/app\n\ngo 1.27.0\n\nrequire example.com/pricing v0.0.0\n\nreplace example.com/pricing => ../pricing\n",
-		"app/nomi.toml":      manifest,
+		"app/nomi.toml":      manifest + "\n[dependencies]\npricing = { dir = \"../pricing\" }\n",
 		"app/main.nomi":      "import\n    std::io\n    pricing::rules\nend\n\nfn main()\n    io.print(rules.load(\"prices.txt\"))\nend\n",
-		"pricing/go.mod":     "module example.com/pricing\n\ngo 1.27.0\n",
 		"pricing/nomi.toml":  "[module]\nname = \"pricing\"\n",
 		"pricing/rules.nomi": "import std::fs\n\npub fn load(path: String) -> String\n    fs.read_text(path) |> Result.with_default(\"\")\nend\n",
 	})
@@ -39,14 +37,14 @@ func manifestDiags(s *Server, uri string) []protocol.Diagnostic {
 // nomi.toml open in the editor is a document: the errors `nomi check`
 // reports about it are published in it at their lines, from its unsaved
 // text. Those the parser finds come from the text itself; those about
-// the [capabilities] tables that need the program come from the lowering
+// the [effects] tables that need the program come from the lowering
 // of the open Nomi document. Each edit replaces them.
 func TestManifestDocument_Diagnostics(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
 	const module = "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n"
-	const head = module + "[capabilities.self]\n"
+	const head = module + "[effects.self]\n"
 	const clean = head + "std = [\"std::io\", \"std::fs\"]\n"
 	app := manifestProject(t, clean)
 	uri := fileuri.FromPath(filepath.Join(app, "main.nomi"))
@@ -64,19 +62,21 @@ func TestManifestDocument_Diagnostics(t *testing.T) {
 		line       int
 		want       string
 	}{
-		{"an unknown key", clean + "stdd = []\n", 7, "[capabilities.self] has no key `stdd`"},
-		{"a key [capabilities] held directly", module + "[capabilities]\nstd = []\n", 6, "[capabilities] has no key `std`; it holds two tables"},
-		{"an unknown table", clean + "\n[capabilitys]\n", 8, "nomi.toml has no [capabilitys] table; did you mean [capabilities]?"},
-		{"a name of the wrong form", head + "std = [\n    \"std::io\",\n    \"fs\",\n]\n", 8, "[capabilities.self] std: \"fs\" is not a std module"},
-		{"a name listed twice", head + "std = [\"std::io\", \"std::fs\", \"std::io\"]\n", 6, "[capabilities.self] std lists std::io twice"},
+		{"an unknown key", clean + "stdd = []\n", 7, "[effects.self] has no key `stdd`"},
+		{"a key [effects] held directly", module + "[effects]\nstd = []\n", 6, "[effects] has no key `std`; it holds two tables"},
+		{"an unknown table", clean + "\n[effect]\n", 8, "nomi.toml has no [effect] table; did you mean [effects]?"},
+		{"a name of the wrong form", head + "std = [\n    \"std::io\",\n    \"fs\",\n]\n", 8, "[effects.self] std: \"fs\" is not a std module"},
+		{"a name listed twice", head + "std = [\"std::io\", \"std::fs\", \"std::io\"]\n", 6, "[effects.self] std lists std::io twice"},
 		{"a misspelled std name", head + "std = [\n    \"std::io\",\n    \"std::fz\",\n]\n", 8,
-			"[capabilities.self] std names std::fz, which is not a std module\nhelp: did you mean \"std::fs\"?"},
-		{"a module go.mod does not require", clean + "\n[capabilities.deps]\ngo = [\"example.com/nope\"]\n", 9,
-			"[capabilities.deps] go names example.com/nope, which go.mod does not require"},
-		{"the project's own path", clean + "\n[capabilities.deps.modules]\n\"example.com/app\" = []\n", 9,
-			"[capabilities.deps.modules] names example.com/app, which is this project"},
-		{"a dependency with no entry", clean + "\n[capabilities.deps]\nentries_required = true\n", 9,
-			"[capabilities.deps] entries_required: example.com/pricing has no entry"},
+			"[effects.self] std names std::fz, which is not a std module\nhelp: did you mean \"std::fs\"?"},
+		{"a go key", clean + "\n[effects.deps]\ngo = [\"pricing\"]\n", 9,
+			"[effects.deps] has no key `go`; `std` and `std_in_tests` list the most effects any dependency may have"},
+		{"a module the project does not need", clean + "\n[effects.deps.modules]\n\"nope\" = []\n", 9,
+			"[effects.deps.modules] names nope, which is not a dependency of this project"},
+		{"the project's own path", clean + "\n[effects.deps.modules]\n\"app\" = []\n", 9,
+			"[effects.deps.modules] names app, which is this project"},
+		{"a dependency with no entry", clean + "\n[effects.deps]\nentries_required = true\n", 9,
+			"[effects.deps] entries_required: pricing has no entry"},
 	}
 	for i, tc := range cases {
 		c.change(manifestURI, i+2, tc.text)
@@ -112,30 +112,23 @@ func TestManifestDocument_Diagnostics(t *testing.T) {
 }
 
 // completionProject is manifestProject with a second dependency,
-// example.com/textkit, whose code binds Go, and a third go.mod requires
-// whose files no program loads, with manifest as the app's nomi.toml.
+// textkit, and a third whose files no program loads, with manifest as the app's nomi.toml.
 func completionProject(t *testing.T, manifest string) string {
 	t.Helper()
 	dir := writeProject(t, map[string]string{
-		"app/go.mod": "module example.com/app\n\ngo 1.27.0\n\nrequire (\n\texample.com/pricing v0.0.0\n\texample.com/textkit v0.0.0\n\texample.com/other v0.0.0\n)\n\n" +
-			"replace example.com/pricing => ../pricing\n\nreplace example.com/textkit => ../textkit\n\nreplace example.com/other => ../other\n",
-		"app/nomi.toml":      manifest,
+		"app/nomi.toml":      manifest + "\n[dependencies]\npricing = { dir = \"../pricing\" }\ntextkit = { dir = \"../textkit\" }\nother = { dir = \"../other\" }\n",
 		"app/main.nomi":      "import\n    std::io\n    pricing::rules\n    textkit::loud\nend\n\nfn main()\n    io.print(loud.shout(rules.load(\"prices.txt\")))\nend\n",
-		"pricing/go.mod":     "module example.com/pricing\n\ngo 1.27.0\n",
 		"pricing/nomi.toml":  "[module]\nname = \"pricing\"\n",
 		"pricing/rules.nomi": "import std::fs\n\npub fn load(path: String) -> String\n    fs.read_text(path) |> Result.with_default(\"\")\nend\n",
-		"textkit/go.mod":     "module example.com/textkit\n\ngo 1.27.0\n",
 		"textkit/nomi.toml":  "[module]\nname = \"textkit\"\n",
-		"textkit/loud.nomi":  "gopkg \"strings\" as gostrings\n\npub fn shout(s: String) -> String go gostrings.ToUpper\n",
-		"other/go.mod":       "module example.com/other\n\ngo 1.27.0\n",
+		"textkit/loud.nomi":  "pub fn shout(s: String) -> String\n    String.uppercase(s)\nend\n",
 		"other/nomi.toml":    "[module]\nname = \"other\"\n",
 	})
 	return filepath.Join(dir, "app")
 }
 
-// Completion in nomi.toml offers std modules in every list of std names;
-// in [capabilities.deps]' go, the dependencies whose code binds Go; and as
-// a key under [capabilities.deps.modules], each dependency with its whole
+// Completion in nomi.toml offers std modules in every list of std names,
+// and as a key under [effects.deps.modules], each dependency with its whole
 // entry, what its own files reach, as the missing entry's fix writes it.
 // A dependency is a module the programs load, never the project's own nor
 // one go.mod requires and no program loads, and one the list or table
@@ -145,8 +138,8 @@ func TestManifestCompletion(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
-	text := "[module]\nname = \"app\"\nentry_points = [\"main\"]\n[capabilities.self]\nstd = [\"std::io\", ]\nstd_in_tests = [\"std::f\"]\n\n" +
-		"[capabilities.deps]\nstd = []\ngo = []\ngo_in_tests = [\"example.com/textkit\", ]\n\n[capabilities.deps.modules]\n\"example.com/pricing\" = []\n\n"
+	text := "[module]\nname = \"app\"\nentry_points = [\"main\"]\n[effects.self]\nstd = [\"std::io\", ]\nstd_in_tests = [\"std::f\"]\n\n" +
+		"[effects.deps]\nstd = []\nentries_required = false\n# not a list: \"textkit\", \n\n[effects.deps.modules]\n\"pricing\" = []\n\n"
 	app := completionProject(t, text)
 	uri := fileuri.FromPath(filepath.Join(app, "nomi.toml"))
 	s := NewServer()
@@ -160,8 +153,8 @@ func TestManifestCompletion(t *testing.T) {
 	}
 	// Without pricing's entry, the empty key line is 14, and line 15 is
 	// a key being typed, its closing quote written by the editor.
-	unlisted := strings.Replace(text, "\"example.com/pricing\" = []\n\n", "\n\"example.com/pr\"\n", 1)
-	pricingEntry := `"example.com/pricing" = ["std::fs"]`
+	unlisted := strings.Replace(text, "\"pricing\" = []\n\n", "\n\"example.com/pr\"\n", 1)
+	pricingEntry := `"pricing" = ["std::fs"]`
 	cases := []struct {
 		name, text string
 		pos        protocol.Position
@@ -170,16 +163,14 @@ func TestManifestCompletion(t *testing.T) {
 		replaced   string
 		excluded   []string
 	}{
-		{"in self's std", text, at(text, 5, `"std::io", `), "std::fs", `"std::fs"`, "", []string{"example.com/pricing"}},
+		{"in self's std", text, at(text, 5, `"std::io", `), "std::fs", `"std::fs"`, "", []string{"pricing"}},
 		{"in a string in std_in_tests", text, at(text, 6, `"std::f`), "std::fs", "std::fs", "std::f", nil},
-		{"in deps' std", text, at(text, 9, "["), "std::fs", `"std::fs"`, "", []string{"example.com/pricing"}},
-		{"in deps' go, the dependency that binds Go", text, at(text, 10, "["), "example.com/textkit", `"example.com/textkit"`, "",
-			[]string{"example.com/pricing", "example.com/app", "example.com/other"}},
-		{"in a dependency's entry", text, at(text, 14, "= ["), "std::fs", `"std::fs"`, "", []string{"example.com/pricing"}},
-		{"a key under [capabilities.deps.modules]", text, protocol.Position{Line: 14, Character: 0}, "example.com/textkit", `"example.com/textkit" = []`, "",
-			[]string{"example.com/pricing", "example.com/app", "example.com/other"}},
-		{"a key the table lacks", unlisted, protocol.Position{Line: 13, Character: 0}, "example.com/pricing", pricingEntry, "", nil},
-		{"a key being typed", unlisted, at(unlisted, 15, `"example.com/pr`), "example.com/pricing", pricingEntry, `"example.com/pr"`, nil},
+		{"in deps' std", text, at(text, 9, "["), "std::fs", `"std::fs"`, "", []string{"pricing"}},
+		{"in a dependency's entry", text, at(text, 14, "= ["), "std::fs", `"std::fs"`, "", []string{"pricing"}},
+		{"a key under [effects.deps.modules]", text, protocol.Position{Line: 14, Character: 0}, "textkit", `"textkit" = []`, "",
+			[]string{"pricing", "app", "other"}},
+		{"a key the table lacks", unlisted, protocol.Position{Line: 13, Character: 0}, "pricing", pricingEntry, "", nil},
+		{"a key being typed", unlisted, at(unlisted, 15, `"example.com/pr`), "pricing", pricingEntry, `"example.com/pr"`, nil},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -207,7 +198,7 @@ func TestManifestCompletion(t *testing.T) {
 			}
 		})
 	}
-	for _, pos := range []protocol.Position{at(text, 2, `"app`), at(text, 4, "[capab"), {Line: 10, Character: 0}, at(text, 11, `"example.com/textkit", `)} {
+	for _, pos := range []protocol.Position{at(text, 2, `"app`), at(text, 4, "[effec"), {Line: 10, Character: 0}, at(text, 11, `"textkit", `)} {
 		if items := s.manifestCompletion(uri, text, pos); len(items) != 0 {
 			t.Errorf("at %+v completion offers %d items; want none", pos, len(items))
 		}
@@ -215,7 +206,7 @@ func TestManifestCompletion(t *testing.T) {
 }
 
 // A std name nomi.toml's lists hold that nothing the list is for reaches,
-// as `nomi capabilities --check` finds it unused, is a hint at the name in
+// as `nomi effects --check` finds it unused, is a hint at the name in
 // the open nomi.toml, saying why. Its quick fix writes the tables without
 // the name, moving one only the tests reach to std_in_tests, and with the
 // edited text the hint is gone while the others stay.
@@ -224,9 +215,9 @@ func TestManifestDocument_UnusedNames(t *testing.T) {
 		t.Skip("lowers the stdlib; -short")
 	}
 	manifest := "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n" +
-		"[capabilities.self]\n# what the app does\nstd = [\"std::io\", \"std::net\", \"std::instant\"]\nstd_in_tests = [\"std::io\"]\n\n" +
-		"[capabilities.deps]\nstd = [\"std::fs\", \"std::http\"]\n\n" +
-		"[capabilities.deps.modules]\n\"example.com/pricing\" = [\"std::fs\", \"std::instant\"]\n"
+		"[effects.self]\n# what the app does\nstd = [\"std::io\", \"std::net\", \"std::instant\"]\nstd_in_tests = [\"std::io\"]\n\n" +
+		"[effects.deps]\nstd = [\"std::fs\", \"std::http\"]\n\n" +
+		"[effects.deps.modules]\n\"pricing\" = [\"std::fs\", \"std::instant\"]\n"
 	app := manifestProject(t, manifest)
 	if err := os.WriteFile(filepath.Join(app, "main_test.nomi"), []byte("import std::instant.{Instant}\n\ntest \"the clock has started\"\n    assert Instant.to_seconds(Instant.now()) > 0\nend\n"), 0o644); err != nil {
 		t.Fatal(err)
@@ -242,11 +233,11 @@ func TestManifestDocument_UnusedNames(t *testing.T) {
 		name, message string
 	}
 	want := []hint{
-		{7, "std::net", "nothing in this module's own code reaches std::net"},
-		{7, "std::instant", "only the tests reach std::instant, which std_in_tests is for"},
+		{7, "std::net", "nothing in this module's own code has the effect std::net"},
+		{7, "std::instant", "only the tests have the effect std::instant, which std_in_tests is for"},
 		{8, "std::io", "std already allows std::io to the tests"},
-		{11, "std::http", "no dependency reaches std::http"},
-		{14, "std::instant", "nothing in example.com/pricing reaches std::instant"},
+		{11, "std::http", "no dependency has the effect std::http"},
+		{14, "std::instant", "nothing in pricing has the effect std::instant"},
 	}
 	hintsOf := func(text string, ds []protocol.Diagnostic) []hint {
 		var out []hint
@@ -309,7 +300,7 @@ func TestManifestDocument_UnusedNames(t *testing.T) {
 		{want[1], "Move std::instant to std_in_tests", "std = [\"std::io\", \"std::instant\"]\nstd_in_tests = [\"std::io\"]", "std = [\"std::io\"]\nstd_in_tests = [\"std::io\", \"std::instant\"]"},
 		{want[2], "Remove std::io from std_in_tests", `std_in_tests = ["std::io", "std::instant"]`, `std_in_tests = ["std::instant"]`},
 		{want[3], "Remove std::http from std", `std = ["std::fs", "std::http"]`, `std = ["std::fs"]`},
-		{want[4], "Remove std::instant from the entry for example.com/pricing", `"example.com/pricing" = ["std::fs", "std::instant"]`, `"example.com/pricing" = ["std::fs"]`},
+		{want[4], "Remove std::instant from the entry for pricing", `"pricing" = ["std::fs", "std::instant"]`, `"pricing" = ["std::fs"]`},
 	}
 	text := manifest
 	for i, f := range fixes {
@@ -333,7 +324,7 @@ func TestManifestDocument_NoUnusedNamesWhileAProgramDoesNotCheck(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
-	manifest := "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[capabilities.self]\nstd = [\"std::io\", \"std::net\"]\n"
+	manifest := "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = [\"std::io\", \"std::net\"]\n"
 	app := manifestProject(t, manifest)
 	main := filepath.Join(app, "main.nomi")
 	good, err := os.ReadFile(main)
@@ -356,28 +347,26 @@ func TestManifestDocument_NoUnusedNamesWhileAProgramDoesNotCheck(t *testing.T) {
 	s.reaches.changed()
 	s.publishUnused(uri, 0)
 	got := manifestDiags(s, uri)
-	if len(got) != 1 || got[0].Message != "nothing in this module's own code reaches std::net" {
+	if len(got) != 1 || got[0].Message != "nothing in this module's own code has the effect std::net" {
 		t.Fatalf("once the program checks, nomi.toml holds %s; want the hint at std::net", renderDiagnostics(got))
 	}
 }
 
-// A hover on a dependency's path in nomi.toml, in [capabilities.deps]' go
-// and as a key under [capabilities.deps.modules], shows what its own files
-// reach, as `nomi add` prints it.
+// A hover on a dependency's name in nomi.toml, as a key under
+// [effects.deps.modules], shows what its own files reach, as `nomi add`
+// prints it.
 func TestManifestDocument_ModuleHover(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
-	manifest := "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[capabilities.deps]\ngo = [\"example.com/pricing\"]\n\n" +
-		"[capabilities.deps.modules]\n\"example.com/pricing\" = [\"std::fs\"]\n"
+	manifest := "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.deps]\n\n" +
+		"[effects.deps.modules]\n\"pricing\" = [\"std::fs\"]\n"
 	app := manifestProject(t, manifest)
 	uri := fileuri.FromPath(filepath.Join(app, "nomi.toml"))
 	s := NewServer()
-	want := "```text\nexample.com/pricing\n  std::fs\n```"
-	for _, line := range []int{6, 9} {
-		if got := manifestHoverText(t, s, uri, manifestAt(t, manifest, line, `"example.com/pricing"`)); got != want {
-			t.Errorf("hover on the module's path at line %d says\n%s\nwant\n%s", line, got, want)
-		}
+	want := "```text\npricing\n  std::fs\n```"
+	if got := manifestHoverText(t, s, uri, manifestAt(t, manifest, 8, `"pricing"`)); got != want {
+		t.Errorf("hover on the module's name says\n%s\nwant\n%s", got, want)
 	}
 	if got := manifestHoverText(t, s, uri, manifestAt(t, manifest, 3, `"main"`)); got != "" {
 		t.Errorf("hover on an entry point says %q; want nothing", got)
@@ -391,8 +380,8 @@ func TestManifestDocument_MissingEntryFix(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
-	manifest := "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[capabilities.self]\nstd = [\"std::io\"]\n\n" +
-		"[capabilities.deps]\n# every dependency is listed\nentries_required = true\nstd = [\"std::fs\"]\n"
+	manifest := "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = [\"std::io\"]\n\n" +
+		"[effects.deps]\n# every dependency is listed\nentries_required = true\nstd = [\"std::fs\"]\n"
 	app := manifestProject(t, manifest)
 	uri := fileuri.FromPath(filepath.Join(app, "main.nomi"))
 	manifestURI := fileuri.FromPath(filepath.Join(app, "nomi.toml"))
@@ -407,7 +396,7 @@ func TestManifestDocument_MissingEntryFix(t *testing.T) {
 	c.notify("textDocument/didOpen", protocol.DidOpenTextDocumentParams{TextDocument: protocol.TextDocumentItem{
 		URI: protocol.DocumentUri(manifestURI), LanguageID: "toml", Version: 1, Text: manifest,
 	}})
-	const message = "[capabilities.deps] entries_required: example.com/pricing has no entry"
+	const message = "[effects.deps] entries_required: pricing has no entry"
 	errorsIn := func() []protocol.Diagnostic {
 		return slices.DeleteFunc(manifestDiags(s, manifestURI), func(d protocol.Diagnostic) bool {
 			return *d.Severity != protocol.DiagnosticSeverityError
@@ -429,7 +418,7 @@ func TestManifestDocument_MissingEntryFix(t *testing.T) {
 	if len(actions) != 1 || actions[0].Edit == nil || len(actions[0].Edit.Changes[protocol.DocumentUri(manifestURI)]) != 1 {
 		t.Fatalf("the missing entry has actions %+v; want one edit of nomi.toml", actions)
 	}
-	if want := `Write "example.com/pricing" = ["std::fs"] under [capabilities.deps.modules]`; actions[0].Title != want {
+	if want := `Write "pricing" = ["std::fs"] under [effects.deps.modules]`; actions[0].Title != want {
 		t.Errorf("the fix is titled %q; want %q", actions[0].Title, want)
 	}
 	e := actions[0].Edit.Changes[protocol.DocumentUri(manifestURI)][0]
@@ -438,18 +427,18 @@ func TestManifestDocument_MissingEntryFix(t *testing.T) {
 		End:   parser.Pos{Line: int(e.Range.End.Line) + 1, Col: int(e.Range.End.Character) + 1},
 		Text:  e.NewText,
 	})
-	if want := manifest + "\n[capabilities.deps.modules]\n\"example.com/pricing\" = [\"std::fs\"]\n"; edited != want {
+	if want := manifest + "\n[effects.deps.modules]\n\"pricing\" = [\"std::fs\"]\n"; edited != want {
 		t.Fatalf("nomi.toml after the fix:\n%s\nwant:\n%s", edited, want)
 	}
 	// Completing the key writes the entry the fix wrote.
-	keyed := manifest + "\n[capabilities.deps.modules]\n\n"
-	written := strings.TrimPrefix(edited, manifest+"\n[capabilities.deps.modules]\n")
+	keyed := manifest + "\n[effects.deps.modules]\n\n"
+	written := strings.TrimPrefix(edited, manifest+"\n[effects.deps.modules]\n")
 	var offered []string
 	for _, it := range s.manifestCompletion(manifestURI, keyed, protocol.Position{Line: uint32(strings.Count(keyed, "\n") - 1)}) {
 		offered = append(offered, it.TextEdit.(protocol.TextEdit).NewText+"\n")
 	}
 	if !slices.Equal(offered, []string{written}) {
-		t.Errorf("completing a key under [capabilities.deps.modules] offers %q; want the fix's %q", offered, written)
+		t.Errorf("completing a key under [effects.deps.modules] offers %q; want the fix's %q", offered, written)
 	}
 	c.change(manifestURI, 2, edited)
 	deadline = time.Now().Add(60 * time.Second)

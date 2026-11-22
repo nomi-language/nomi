@@ -89,15 +89,16 @@ test "tasks started inside the run reach its sandbox"
 end
 
 test "two tasks in two sandboxes do not see each other's files"
-    both = concurrent
-        a = Task.spawn(fn -> testing.run(Sandbox{}, fn -> fs.write_text("x.txt", "a")))
-        b = Task.spawn(fn -> testing.run(Sandbox{}, fn -> fs.write_text("x.txt", "b")))
+    both =
+        concurrent
+            a = Task.spawn(fn -> testing.run(Sandbox{}, fn -> fs.write_text("x.txt", "a")))
+            b = Task.spawn(fn -> testing.run(Sandbox{}, fn -> fs.write_text("x.txt", "b")))
 
-        (
-            testing.text(Task.await(a), "/work/x.txt"),
-            testing.text(Task.await(b), "/work/x.txt"),
-        )
-    end
+            (
+                testing.text(Task.await(a), "/work/x.txt"),
+                testing.text(Task.await(b), "/work/x.txt"),
+            )
+        end
 
     assert both == (Some("a"), Some("b"))
 end

@@ -31,18 +31,20 @@ pub host type Infallible
 //! assert "${ok}" == "Ok(1)"
 //! assert "${failed}" == "Err(no)"
 //!
-//! parse = fn s: String ->
-//!     if s == "" then
-//!         Result.Err("empty")
-//!     else
-//!         Result.Ok(s)
+//! parse =
+//!     fn s: String ->
+//!         if s == "" then
+//!             Result.Err("empty")
+//!         else
+//!             Result.Ok(s)
+//!         end
 //!     end
-//! end
 //!
-//! value = case parse("hi")
-//!     .Ok(v)  -> v
-//!     .Err(_) -> "?"
-//! end
+//! value =
+//!     case parse("hi")
+//!         .Ok(v)  -> v
+//!         .Err(_) -> "?"
+//!     end
 //!
 //! assert value == "hi"
 //
@@ -99,13 +101,14 @@ impl Result<T, E>
     /// Applies `f`, which returns a Result itself, to the Ok value and
     /// returns what `f` returns, not a Result of a Result. An Err stays as
     /// it is.
-    //! parse_int = fn s: String ->
-    //!     if s == "1" then
-    //!         Result.Ok(1)
-    //!     else
-    //!         Result.Err("nope")
+    //! parse_int =
+    //!     fn s: String ->
+    //!         if s == "1" then
+    //!             Result.Ok(1)
+    //!         else
+    //!             Result.Err("nope")
+    //!         end
     //!     end
-    //! end
     //!
     //! assert Result.flat_map(Result.Ok("1"), &parse_int(&1)) == Result.Ok(1)
     //! assert Result.flat_map(Result.Ok("x"), &parse_int(&1)) == Result.Err("nope")

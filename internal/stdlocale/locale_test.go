@@ -46,7 +46,7 @@ func TestParse(t *testing.T) {
 		{"C", LocaleAttempt{Kind: KindMalformed, Detail: "C"}},
 		{"xx", LocaleAttempt{Kind: KindUnknownSubtag, Detail: "xx"}},
 	} {
-		if got := FFIParse(c.in); got != c.want {
+		if got := HostParse(c.in); got != c.want {
 			t.Errorf("parse(%q) = %+v, want %+v", c.in, got, c.want)
 		}
 	}
@@ -64,14 +64,14 @@ func TestFromPosix(t *testing.T) {
 		"C.UTF-8":          "und",
 		"fr":               "fr",
 	} {
-		if got := FFIFromPosix(in); got.Kind != KindOK || got.Value != want {
+		if got := HostFromPosix(in); got.Kind != KindOK || got.Value != want {
 			t.Errorf("from_posix(%q) = %+v, want %s", in, got, want)
 		}
 	}
-	if got := FFIFromPosix(""); got.Kind != KindEmpty {
+	if got := HostFromPosix(""); got.Kind != KindEmpty {
 		t.Errorf("from_posix(\"\") = %+v, want Empty", got)
 	}
-	if got := FFIFromPosix("not a locale"); got.Kind != KindMalformed || got.Detail != "not a locale" {
+	if got := HostFromPosix("not a locale"); got.Kind != KindMalformed || got.Detail != "not a locale" {
 		t.Errorf("from_posix(\"not a locale\") = %+v, want Malformed", got)
 	}
 }
@@ -120,29 +120,29 @@ func TestNegotiate(t *testing.T) {
 		{[]string{"de"}, "en-US"},
 		{nil, "en-US"},
 	} {
-		if got := FFINegotiate(c.requested, available, "en-US"); got != c.want {
+		if got := HostNegotiate(c.requested, available, "en-US"); got != c.want {
 			t.Errorf("negotiate(%v) = %s, want %s", c.requested, got, c.want)
 		}
 	}
-	if got := FFINegotiate([]string{"pl"}, nil, "en"); got != "en" {
+	if got := HostNegotiate([]string{"pl"}, nil, "en"); got != "en" {
 		t.Errorf("negotiate with nothing available = %s, want the fallback", got)
 	}
 }
 
 func TestParts(t *testing.T) {
-	if got := FFILanguage("zh-Hant-HK"); got != "zh" {
+	if got := HostLanguage("zh-Hant-HK"); got != "zh" {
 		t.Errorf("language = %s", got)
 	}
-	if s := FFIScript("zh-Hant-HK"); s == nil || *s != "Hant" {
+	if s := HostScript("zh-Hant-HK"); s == nil || *s != "Hant" {
 		t.Errorf("script = %v", s)
 	}
-	if s := FFIScript("pt-BR"); s != nil {
+	if s := HostScript("pt-BR"); s != nil {
 		t.Errorf("pt-BR spells no script, got %s", *s)
 	}
-	if r := FFIRegion("es-419"); r == nil || *r != "419" {
+	if r := HostRegion("es-419"); r == nil || *r != "419" {
 		t.Errorf("region = %v", r)
 	}
-	if r := FFIRegion("pl"); r != nil {
+	if r := HostRegion("pl"); r != nil {
 		t.Errorf("pl spells no region, got %s", *r)
 	}
 	if !slices.Equal(Fallbacks(full(t), "pl"), []string{"pl"}) {

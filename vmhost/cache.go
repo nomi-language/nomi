@@ -28,11 +28,10 @@ import (
 //
 // Only a program that checks and lowers cleanly is kept: no diagnostic, no
 // warning, no body the builder declined, and nothing its main, boot or test cases reach
-// that a machine could not run or its nomi.toml's [capabilities] lists do
+// that a machine could not run or its nomi.toml's [effects] lists do
 // not allow. So a hit says the program checks, and a
 // program a hit runs reports nothing a fresh load would have reported
-// differently. A program with Go bindings is never kept; its wrapper builds
-// it.
+// differently.
 type Cache struct {
 	entry *progcache.Entry
 	path  string
@@ -67,12 +66,22 @@ func OpenCacheFor(path, kind string) *Cache {
 	if _, _, ok := frontend.StdlibFile(abs); ok {
 		return nil
 	}
-	root := analysis.ProjectRoot(abs, "")
-	e := progcache.Open(kind, abs, []progcache.Tree{{Dir: root}})
+	e := progcache.Open(kind, abs, []progcache.Tree{sourceTree(analysis.ProjectRoot(abs, ""))})
 	if e == nil {
 		return nil
 	}
 	return &Cache{entry: e, path: abs, kind: kind}
+}
+
+// sourceTree is the tree a kept program's record walks under a module's
+// root, dir: every `.nomi` file by whether it is there, the text of the
+// program's own files, which the record names on their own (inputs), and
+// the text of every other file a build can read there (manifests,
+// catalogs, go.mod). A source the program does not load changes it only
+// by coming or going, which can change what an import names: a file
+// import where a directory import was (spec §14 *Directory imports*).
+func sourceTree(dir string) progcache.Tree {
+	return progcache.Tree{Dir: dir, NamedSources: true}
 }
 
 // loadKind names what a Cache keeps: one lowering of the program, which
@@ -159,6 +168,7 @@ func (c *Cache) Program(opts ...Option) (*Program, bool) {
 	if p.entry == nil || !p.runsClean() {
 		return nil, false
 	}
+	p.kept, _ = c.entry.Sum()
 	return p, true
 }
 
@@ -189,10 +199,10 @@ func WithCache(c *Cache) Option {
 // cacheable reports whether a program loaded with c is the program its files
 // on disk make, which is all the cache knows of: no host tables, virtual
 // files, manifest or root, no REPL session, and no host's list of
-// capabilities, which a load holds the program to.
+// effects, which a load holds the program to.
 func (c *config) cacheable() bool {
 	return len(c.hosts) == 0 && c.virtualFiles == nil && c.virtualData == nil && c.manifest == nil &&
-		c.projectRoot == "" && c.session == nil && !c.allowUnusedBindings && !c.held && !c.goHeld
+		c.projectRoot == "" && c.session == nil && !c.allowUnusedBindings && !c.held
 }
 
 // keep writes p to its load's cache, when it has one and p is clean.
@@ -208,9 +218,9 @@ func (p *Program) keep(checked bool) {
 		return
 	}
 	// A kept program is one `nomi check` passes, so a hit reads as one:
-	// one its nomi.toml's [capabilities] lists refuse is not kept. The
+	// one its nomi.toml's [effects] lists refuse is not kept. The
 	// record holds nomi.toml, so an edit to the lists misses it.
-	if !checked && p.capabilityError(p.checkedRoots()...) != nil {
+	if !checked && p.effectError(p.checkedRoots()...) != nil {
 		return
 	}
 	// A program with warnings is not kept, so each run reports them, and
@@ -324,15 +334,21 @@ func (p *Program) cacheImage() ([]byte, error) {
 	return ir.EncodeImage(ir.Image{Modules: mods, Entry: index, HostKeys: p.res.HostKeys(), HasMain: p.HasMain(), Root: p.prog.Root})
 }
 
-// inputs are what the program was built from: its root's tree, each other
-// module's root (a dependency's), each `embed` pattern's base (the
-// directory or file its literal leading names spell) with every file in it, and each of its files and the catalogs its phrases read.
+// inputs are what the program was built from: its root's tree and each
+// other module's root (a dependency's), each walked for its sources
+// (sourceTree), each `embed` pattern's base (the directory or file its
+// literal leading names spell) with every file in it, and each of its
+// files and the catalogs its phrases read. A program relinked from its
+// records answers what they name.
 func (p *Program) inputs() ([]progcache.Tree, []string) {
+	if p.recordTrees != nil {
+		return p.recordTrees, p.recordFiles
+	}
 	root := p.prog.Root
 	if root == "" {
 		root = filepath.Dir(p.prog.Entry().Path)
 	}
-	trees := []progcache.Tree{{Dir: root}}
+	trees := []progcache.Tree{sourceTree(root)}
 	var files []string
 	under := func(dir, path string) bool {
 		rel, err := filepath.Rel(dir, path)
@@ -347,7 +363,7 @@ func (p *Program) inputs() ([]progcache.Tree, []string) {
 		}
 		files = append(files, m.Path)
 		if !under(root, m.Path) {
-			trees = append(trees, progcache.Tree{Dir: analysis.ProjectRoot(m.Path, "")})
+			trees = append(trees, sourceTree(analysis.ProjectRoot(m.Path, "")))
 		}
 		for _, in := range analysis.ExpansionInputs(m.Nodes) {
 			if filepath.IsAbs(in.Path) {

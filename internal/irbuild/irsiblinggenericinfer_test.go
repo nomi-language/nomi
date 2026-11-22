@@ -12,7 +12,7 @@ import "testing"
 // generic enum's variant constructor returns, so `Tree.Node("a")` had no
 // declaring file to resolve against; and projectGenericInstance knew only
 // this file's templates. It now instantiates another file's template in that
-// file's gen (foreignTemplateAt, instantiateForeign), with each type
+// file's gen (foreignTemplateAt, instantiateForeignAt), with each type
 // argument imported there. zz.nomi is lowered after tree.nomi and asks it for
 // a new instance after its walk.
 func TestIRSiblingGenericInfer_InferredInstancesOfAnotherFilesTemplate(t *testing.T) {

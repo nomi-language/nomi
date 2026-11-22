@@ -42,7 +42,11 @@ func (c *checker) implCandidates(concrete Type, iface, origin string) []implCand
 
 func (fa *FileAnalysis) implCandidates(concrete Type, iface, origin string) []implCandidate {
 	if dt := refinementOf(concrete); dt != nil && dt.Inner != nil {
-		// A refinement has its parent's impls (refinement.go).
+		// A refinement has its parent's impls, save one that makes a
+		// value of its type (subtype_impls.go).
+		if fa.subtypeLacksImplNamed(dt, iface, origin) {
+			return nil
+		}
 		return fa.implCandidates(DistinctInner(dt), iface, origin)
 	}
 	name := concreteTypeName(concrete)
@@ -683,7 +687,7 @@ func (c *checker) checkImplInstantiations(n *ast.ImplBlock) {
 	if c == nil || c.fa == nil || n.Interface == nil {
 		return
 	}
-	ifaceName := TypeExprBaseName(n.Interface)
+	ifaceName := implInterfaceName(c.fa, n.Interface)
 	recvName := TypeExprBaseName(n.Receiver)
 	if ifaceName == "" || recvName == "" {
 		return
@@ -767,7 +771,7 @@ func (c *checker) checkCoveredByStdImpl(n *ast.ImplBlock, own *ImplTypeArgs, oth
 	var rivals []string
 	for _, o := range others {
 		if strings.HasPrefix(o.File, "std/") && ContainsTypeParam(&TupleType{Elems: o.Args}) && argsMayOverlap(own.Args, o.Args) {
-			rivals = append(rivals, "`"+(&InterfaceType{Name: TypeExprBaseName(n.Interface), TypeArgs: o.Args}).String()+"`")
+			rivals = append(rivals, "`"+(&InterfaceType{Name: implInterfaceName(c.fa, n.Interface), TypeArgs: o.Args}).String()+"`")
 		}
 	}
 	if len(rivals) == 0 {

@@ -740,18 +740,6 @@
   (host_keyword) @keyword)
 
 ; Function definitions
-(go_selector_binding
-  symbol: (type_identifier) @function)
-(go_selector_binding
-  symbol: (identifier) @function)
-(go_selector_binding
-  package: (identifier) @namespace)
-(go_selector_binding
-  "go" @keyword)
-(gopkg_declaration
-  alias: (identifier) @namespace)
-(gopkg_declaration
-  "gopkg" @keyword)
 (function_definition
   name: (type_identifier) @function)
 (function_definition

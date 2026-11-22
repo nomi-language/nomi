@@ -85,9 +85,7 @@ import (
 // body or binding; they move when the builder admits a caller before its
 // callee, which is not a machine gap (planted positives:
 // TestVMCoverage_TheLinkingClassifierCatchesItsPlant and
-// TestVMCoverage_TheHostClassifierCatchesItsPlant). UNLINKED is a host fn
-// that crosses into a project's Go binding this test binary does not link
-// (vmUnlinkedClass). NEVER takes an Infallible parameter, so nothing can call
+// TestVMCoverage_TheHostClassifierCatchesItsPlant). NEVER takes an Infallible parameter, so nothing can call
 // it. PROBE is an artifact of argument synthesis, not of the machine; the
 // corpus runs each member with real values.
 //
@@ -993,9 +991,8 @@ type vmProbeEntry struct {
 	// declaration lies outside the corpus. It keys the committed list, so a
 	// helper module's function keeps its line when a new program that
 	// imports it sorts first.
-	decl     string
-	links    []*ir.Module
-	unlinked map[string]bool
+	decl  string
+	links []*ir.Module
 }
 
 // vmCorpusPopulation lowers every front-end-accepted corpus program and lists
@@ -1047,7 +1044,7 @@ func vmCorpusPopulation(t *testing.T) (entries []vmProbeEntry, modules, copies i
 					decl = filepath.ToSlash(rel)
 				}
 				entries = append(entries, vmProbeEntry{mod: m, fn: fn, rel: f.Rel, decl: decl,
-					links: res.IRModules(), unlinked: res.irHostKeys})
+					links: res.IRModules()})
 			}
 		}
 	}
@@ -1206,7 +1203,7 @@ func TestIRRetainedPopulationRuns(t *testing.T) {
 			lines = append(lines, key+"\tran")
 			continue
 		}
-		class := vmFailureClass(res.err, e.unlinked)
+		class := vmFailureClass(res.err)
 		t.Logf("  %s:%s did not run: %v%s", e.rel, fn.Name(), res.err, vmDispatchNote(res.err))
 		failures[class] = append(failures[class], e.rel+":"+fn.Name())
 		lines = append(lines, key+"\t"+class)
@@ -1244,15 +1241,11 @@ func TestIRRetainedPopulationRuns(t *testing.T) {
 }
 
 // vmFailureClass is the bucket of a member that did not run, from the last
-// error its probe saw: the refusal's class, UNLINKED for a refused crossing
-// into one of the program's own Go bindings (unlinked), and otherwise PROBE,
-// since a member the machine entered without a refusal ran.
-func vmFailureClass(err error, unlinked map[string]bool) string {
+// error its probe saw: the refusal's class, and otherwise PROBE, since a
+// member the machine entered without a refusal ran.
+func vmFailureClass(err error) string {
 	if !vmRefused(err) {
 		return vmNotEnteredClass
-	}
-	if vmUnlinkedBinding(err, unlinked) {
-		return vmUnlinkedClass
 	}
 	return vmClassify(err)
 }
@@ -1276,7 +1269,6 @@ func vmCheckBuckets(t *testing.T, failures map[string][]string) {
 	known := map[string]bool{
 		"LINKING: a declaration this module did not retain": true,
 		"HOST: crosses into Go with no binding":             true,
-		vmUnlinkedClass:                                     true,
 		vmNotEnteredClass:                                   true,
 		vmNeverParamClass:                                   true,
 		vmNetworkClass:                                      true,
@@ -1573,26 +1565,6 @@ func vmClassify(err error) string {
 		return "HOST: crosses into Go with no binding"
 	}
 	return "OTHER: " + vmFirstWords(s, 10)
-}
-
-// vmUnlinkedClass is a crossing into a project's own Go-bound `host fn`. That
-// binding is reachable only inside ffirun's wrapper binary, which links the
-// project's Go package; this test binary is in another Go module
-// and cannot. It is neither a VM gap nor a missing std binding.
-const vmUnlinkedClass = "UNLINKED: a project Go binding this process does not link"
-
-// vmUnlinkedBinding reports whether err is a crossing into one of keys with no
-// binding.
-func vmUnlinkedBinding(err error, keys map[string]bool) bool {
-	if err == nil || !strings.Contains(err.Error(), "binds no implementation") {
-		return false
-	}
-	for key := range keys {
-		if strings.Contains(err.Error(), " "+key+" crosses into Go") {
-			return true
-		}
-	}
-	return false
 }
 
 func vmFirstWords(s string, n int) string {

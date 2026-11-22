@@ -39,10 +39,11 @@ test "a field takes its default's type"
 end
 
 test "a record variant's field takes its default's type"
-    radius = case (Shape.Circle{})
-        .Circle{radius:} -> radius
-        .Square{side:}   -> side
-    end
+    radius =
+        case (Shape.Circle{})
+            .Circle{radius:} -> radius
+            .Square{side:}   -> side
+        end
 
     assert radius == 1.0
 end

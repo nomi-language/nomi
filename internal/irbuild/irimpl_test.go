@@ -59,10 +59,10 @@ end
 	if err != nil {
 		t.Fatal(err)
 	}
-	// The three source bodies and the two auto-synthesized Debug bodies are
-	// all retained.
-	if len(c.retained) != 5 {
-		t.Fatalf("impl bodies retained %v; want all five bodies", c.retained)
+	// The three source bodies are all retained. Left and Right have no Debug
+	// impl, so the front end synthesizes no Debug body for either.
+	if len(c.retained) != 3 {
+		t.Fatalf("impl bodies retained %v; want all three bodies", c.retained)
 	}
 	var entry *ir.Module
 	for _, m := range res.IR {

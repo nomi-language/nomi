@@ -96,7 +96,7 @@
 //# `String.join`, ...) traps on such a source before it reads anything,
 //# instead of running until memory runs out:
 //#
-//# ```text
+//# ```console
 //# line 3: `Iter.to_list` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
 //# ```
 //#
@@ -864,9 +864,10 @@ impl Iter<T>
         // the consumer already said stop" is exactly what the protocol's Bool
         // return means, so it composes in Nomi.
         Seq{
-            run: fn yield: (T) -> Bool ->
-                if Iter.each_while(a, yield) then Iter.each_while(b, yield) else False
-            end,
+            run:
+                fn yield: (T) -> Bool ->
+                    if Iter.each_while(a, yield) then Iter.each_while(b, yield) else False
+                end,
         }
     end
 

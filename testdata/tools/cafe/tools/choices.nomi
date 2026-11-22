@@ -32,10 +32,11 @@ end
 
 // The enum line `number` declares.
 fn enum_of(number: Int, line: String) -> Result<String, String>
-    (name, words) = case String.split(line, ":") |> Iter.to_list()
-        [name, words] -> (String.trim(name), String.words(words))
-        _             -> return Err("enums.choices:${number}: write `Name: first second third`")
-    end
+    (name, words) =
+        case String.split(line, ":") |> Iter.to_list()
+            [name, words] -> (String.trim(name), String.words(words))
+            _             -> return Err("enums.choices:${number}: write `Name: first second third`")
+        end
 
     if Some(word) = Iter.find(words, fn w -> not is_snake_case(w)) then
         return Err("enums.choices:${number}: `${word}` is not a snake_case word")

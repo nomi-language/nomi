@@ -24,10 +24,11 @@ fn report(paths: List<String>) -> Result<Unit, String>
             Ok(Unit)
 
         [path, ..rest] ->
-            text = case fs.read_text(path)
-                Ok(t)  -> t
-                Err(e) -> return Err("${path}: ${e}")
-            end
+            text =
+                case fs.read_text(path)
+                    Ok(t)  -> t
+                    Err(e) -> return Err("${path}: ${e}")
+                end
 
             rows =
                 text

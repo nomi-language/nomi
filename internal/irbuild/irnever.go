@@ -80,7 +80,7 @@ func (bl *irScalarBuilder) neverOperand(n ast.Node) (ir.Temp, kind, bool, bool, 
 	// directly, and otherwise Infallible, which the consumer retypes
 	// (convertTo) or reads as it is.
 	// kindInvalid: lookup — no recorded type leaves the value Infallible.
-	if want := bl.neverResultKind(n); want != kindInvalid && want != kindNever {
+	if want, recorded := bl.g.recordedKind(n); recorded && want != kindInvalid && want != kindNever {
 		if retyped, ok := bl.neverAs(n, v, k, want); ok {
 			return retyped, want, false, true, true
 		}
@@ -94,9 +94,6 @@ func (bl *irScalarBuilder) neverOperand(n ast.Node) (ir.Temp, kind, bool, bool, 
 // caseRegion does.
 func (bl *irScalarBuilder) neverCaseRegion(t *ast.Case, sig irFuncSig) (kind, bool) {
 	want := sig.result
-	if sig.inferResult {
-		want = bl.neverResultKind(t)
-	}
 	// kindInvalid: reports — the decline note names the missing kind.
 	if want == kindInvalid {
 		bl.g.dc.note("a `case` on Infallible whose result has no kind")
@@ -125,9 +122,10 @@ func (bl *irScalarBuilder) isNeverOperand(n ast.Node) bool {
 	case *ast.Todo, *ast.Unreachable:
 		return true
 	case *ast.Ident:
-		return bl.localKindOf(t.Name) == kindNever
+		l, held := bl.heldLocal(t)
+		return held && l.k == kindNever
 	case *ast.Call:
-		if bl.g.fa != nil && bl.g.project(bl.g.srcFA().ExprTypes[n]) == kindNever {
+		if k, recorded := bl.g.recordedKind(n); recorded && k == kindNever {
 			return true
 		}
 		return bl.isNeverLedCall(t)
@@ -144,28 +142,6 @@ func (bl *irScalarBuilder) isNeverLedCall(call *ast.Call) bool {
 	return len(call.Args) > 0 && bl.neverCalleeIsName(call.Func) && bl.isNeverOperand(call.Args[0])
 }
 
-// localKindOf is the kind of the local name reads, or kindInvalid when name
-// is not a local: bound in this body or an enclosing one, or a parameter.
-func (bl *irScalarBuilder) localKindOf(name string) kind {
-	for scope := bl; scope != nil; scope = scope.parent {
-		if k, bound := scope.boundK[name]; bound {
-			return k
-		}
-	}
-	if l, bound := bl.g.lookup(name); bound {
-		return l.k
-	}
-	return kindInvalid
-}
-
-// neverResultKind is the checker's type for n.
-func (bl *irScalarBuilder) neverResultKind(n ast.Node) kind {
-	if bl.g.fa == nil {
-		return kindInvalid
-	}
-	return bl.g.project(bl.g.srcFA().ExprTypes[n])
-}
-
 // lowerNever lowers an operand isNeverOperand accepted at kindNever.
 func (bl *irScalarBuilder) lowerNever(n ast.Node) (ir.Temp, kind, bool, bool) {
 	switch t := bl.g.asTodo(n).(type) {
@@ -179,7 +155,7 @@ func (bl *irScalarBuilder) lowerNever(n ast.Node) (ir.Temp, kind, bool, bool) {
 		// A call the checker typed as something else, which never returns
 		// because its first argument does not: the call's value is that
 		// argument's, of Infallible, and the call itself is never made.
-		if !(bl.g.fa != nil && bl.g.project(bl.g.srcFA().ExprTypes[n]) == kindNever) && bl.isNeverLedCall(t) {
+		if k, recorded := bl.g.recordedKind(n); !(recorded && k == kindNever) && bl.isNeverLedCall(t) {
 			return bl.lowerNever(t.Args[0])
 		}
 	}
@@ -201,21 +177,6 @@ func (bl *irScalarBuilder) neverCalleeIsName(callee ast.Node) bool {
 		}
 	}
 	return false
-}
-
-// neverSettledKind is the kind the checker settled for n, an expression of
-// type Infallible, from its position (analysis's settleTodo): Bool for `!n`,
-// the other arm's type for an `if` arm. kindInvalid when it settled none, or
-// one this builder cannot represent.
-func (g *gen) neverSettledKind(n ast.Node) kind {
-	if g.fa == nil {
-		return kindInvalid
-	}
-	ty, ok := g.srcFA().ExpectedTypes[n]
-	if !ok {
-		return kindInvalid
-	}
-	return g.project(ty)
 }
 
 // neverAs retypes v, of kind have, to want when have is Infallible: `g(nev())`

@@ -17,10 +17,12 @@ end
 //# values that make up a string. An ASCII codepoint is written as a literal,
 //# `'a'` or `'\n'`; every other scalar value comes from `Int.to_codepoint`.
 
-/// A Unicode code point / scalar value: `0..=0x10FFFF`, excluding UTF-16
-/// surrogate code points. Backed by an `Int64`, but validated at construction.
-/// The 128 ASCII codepoints have a literal: `'a'`, `'\''`, `'\u{7F}'`.
-pub opaque type Codepoint Int64
+/// A Unicode scalar value: an Int from `0` through `0x10FFFF` that is not a
+/// UTF-16 surrogate, `0xD800` through `0xDFFF`, as its rule says. One comes
+/// from a literal, from `Int.to_codepoint`, which answers `None` for an Int
+/// the rule refuses, or from `String.to_codepoints`. The 128 ASCII
+/// codepoints have a literal: `'a'`, `'\''`, `'\u{7F}'`.
+pub opaque type Codepoint Int64 when fn n -> n >= 0 and n <= 0x10FFFF and (n < 0xD800 or n > 0xDFFF)
 
 impl Codepoint
     /// Returns the numeric Unicode scalar value.
@@ -101,6 +103,83 @@ impl Codepoint
     //! refute Codepoint.is_lower('A')
     //
     pub host fn is_lower(cp: Codepoint) -> Bool
+
+    /// Reports whether `cp` is a title-case letter: general category Lt, as
+    /// Go's `unicode.IsTitle` returns it. These are the digraphs whose first
+    /// part is capital, such as `ǅ` U+01C5, which start a word in title case.
+    //! dz = Int.to_codepoint(0x01C5)?
+    //! assert Codepoint.is_title(dz)
+    //! refute Codepoint.is_title('D')
+    //
+    pub host fn is_title(cp: Codepoint) -> Bool
+
+    /// Reports whether `cp` is a mark: general category M (Mn, Mc or Me), as
+    /// Go's `unicode.IsMark` returns it. A mark combines with the codepoint
+    /// before it, as U+0301 COMBINING ACUTE ACCENT puts an accent on a letter.
+    //! acute = Int.to_codepoint(0x0301)?
+    //! assert Codepoint.is_mark(acute)
+    //! refute Codepoint.is_mark('a')
+    //
+    pub host fn is_mark(cp: Codepoint) -> Bool
+
+    /// Reports whether `cp` is a number: general category N (Nd, Nl or No), as
+    /// Go's `unicode.IsNumber` returns it. Unlike `Codepoint.is_digit`, which
+    /// is ASCII-only, this counts the digits of every script, Roman numerals
+    /// such as `Ⅻ` U+216B and fractions such as `½` U+00BD.
+    //! assert Codepoint.is_number('7')
+    //! three = Int.to_codepoint(0x0663)?
+    //! assert Codepoint.is_number(three)
+    //! half = Int.to_codepoint(0x00BD)?
+    //! assert Codepoint.is_number(half)
+    //! refute Codepoint.is_number('x')
+    //
+    pub host fn is_number(cp: Codepoint) -> Bool
+
+    /// Reports whether `cp` is punctuation: general category P (Pc, Pd, Ps,
+    /// Pe, Pi, Pf or Po), as Go's `unicode.IsPunct` returns it. Some ASCII
+    /// characters a reader may call punctuation are symbols in Unicode: `+`,
+    /// `<`, `=`, `>`, `|`, `~`, `$`, `^` and the backtick.
+    //! assert Codepoint.is_punctuation('!')
+    //! guillemet = Int.to_codepoint(0x00AB)?
+    //! assert Codepoint.is_punctuation(guillemet)
+    //! refute Codepoint.is_punctuation('+')
+    //
+    pub host fn is_punctuation(cp: Codepoint) -> Bool
+
+    /// Reports whether `cp` is a symbol: general category S (Sm, Sc, Sk or
+    /// So), as Go's `unicode.IsSymbol` returns it: math signs such as `+`,
+    /// currency signs such as `$`, modifier symbols such as `^` and other
+    /// symbols such as `©` and most emoji.
+    //! assert Codepoint.is_symbol('+')
+    //! assert Codepoint.is_symbol('$')
+    //! copyright = Int.to_codepoint(0x00A9)?
+    //! assert Codepoint.is_symbol(copyright)
+    //! refute Codepoint.is_symbol('!')
+    //
+    pub host fn is_symbol(cp: Codepoint) -> Bool
+
+    /// Reports whether `cp` is a separator: general category Z (Zs, Zl or
+    /// Zp), the space characters and the line and paragraph separators.
+    /// `Codepoint.is_whitespace` answers the White_Space property instead,
+    /// which also holds `'\t'`, `'\n'` and the other control characters that
+    /// space text, none of them a separator.
+    //! assert Codepoint.is_separator(' ')
+    //! line = Int.to_codepoint(0x2028)?
+    //! assert Codepoint.is_separator(line)
+    //! refute Codepoint.is_separator('\t')
+    //
+    pub host fn is_separator(cp: Codepoint) -> Bool
+
+    /// Reports whether `cp` is a control character: general category Cc, the
+    /// C0 controls U+0000 to U+001F, U+007F and the C1 controls U+0080 to
+    /// U+009F, as Go's `unicode.IsControl` returns it. Format characters
+    /// (category Cf, such as U+200B ZERO WIDTH SPACE) are not controls.
+    //! assert Codepoint.is_control('\n')
+    //! zwsp = Int.to_codepoint(0x200B)?
+    //! refute Codepoint.is_control(zwsp)
+    //! refute Codepoint.is_control('a')
+    //
+    pub host fn is_control(cp: Codepoint) -> Bool
 end
 
 derive Equatable for Codepoint
@@ -132,12 +211,15 @@ impl Discrete for Codepoint
     fn next(cp: Codepoint) -> Maybe<Codepoint>
         n = Codepoint.to_int(cp)
 
+        // `cp` is a scalar value, so the next one is too: past the last
+        // one there is none, and past the last before the surrogates
+        // comes the first after them.
         if n == 1_114_111 then
             None
         else if n == 55_295 then
-            Int.to_codepoint(57_344)
+            Some(Codepoint.unchecked(57_344))
         else
-            Int.to_codepoint(n + 1)
+            Some(Codepoint.unchecked(n + 1))
         end
     end
 
@@ -170,13 +252,14 @@ impl Steppable for Codepoint
         else
             raw = n + by
 
-            adjusted = if by > 0 and n <= 55_295 and raw >= 55_296 then
-                raw + 2_048
-            else if by < 0 and n >= 57_344 and raw <= 57_343 then
-                raw - 2_048
-            else
-                raw
-            end
+            adjusted =
+                if by > 0 and n <= 55_295 and raw >= 55_296 then
+                    raw + 2_048
+                else if by < 0 and n >= 57_344 and raw <= 57_343 then
+                    raw - 2_048
+                else
+                    raw
+                end
 
             Int.to_codepoint(adjusted)
         end

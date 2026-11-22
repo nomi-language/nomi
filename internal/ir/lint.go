@@ -178,6 +178,11 @@ const (
 	// RuleStmtMark: every statement mark names an instruction of its block,
 	// in order, at a source position. See debuginfo.go.
 	RuleStmtMark LintRule = "stmt mark"
+	// RuleBoundCallAbstract: a call through a type parameter's bound
+	// (NewBoundCall) stands only in a module marked abstract
+	// (Module.SetAbstract), since no machine runs one. A module rule, as
+	// RuleModuleDeclaredOnce is: Lint of a lone function does not ask it.
+	RuleBoundCallAbstract LintRule = "bound call abstract"
 )
 
 // Violation is one node failing one rule.
@@ -247,11 +252,11 @@ func LintModule(m *Module) error {
 	var st moduleLintState
 	lintModuleDecls(m, &st, &vs)
 	for _, f := range m.Funcs() {
-		lintFunc(f, &vs)
+		lintModuleFunc(m, f, &vs)
 	}
 	for _, cell := range m.Cells() {
 		if f := cell.Initializer(); f != nil {
-			lintFunc(f, &vs)
+			lintModuleFunc(m, f, &vs)
 		}
 	}
 	if len(vs) == 0 {
@@ -288,11 +293,11 @@ func LintModuleAdded(m *Module) error {
 	fromFunc, fromCell := m.lint.funcs, m.lint.cells
 	lintModuleDecls(m, &m.lint, &vs)
 	for _, f := range m.funcs[fromFunc:] {
-		lintFunc(f, &vs)
+		lintModuleFunc(m, f, &vs)
 	}
 	for _, cell := range m.cells[fromCell:] {
 		if f := cell.Initializer(); f != nil {
-			lintFunc(f, &vs)
+			lintModuleFunc(m, f, &vs)
 		}
 	}
 	if len(vs) == 0 {
@@ -302,18 +307,35 @@ func LintModuleAdded(m *Module) error {
 }
 
 func lintFunc(f *Func, vs *[]Violation) {
-	lintFuncTree(f, vs, map[*Func]bool{})
+	lintFuncTree(f, vs, map[*Func]bool{}, true)
 }
 
-func lintFuncTree(f *Func, vs *[]Violation, seen map[*Func]bool) {
+// lintModuleFunc lints f, a function of m, with m's module rule for bound
+// calls (RuleBoundCallAbstract).
+func lintModuleFunc(m *Module, f *Func, vs *[]Violation) {
+	lintFuncTree(f, vs, map[*Func]bool{}, m.abstract)
+}
+
+// lintFuncTree lints f and the lambda bodies it makes; abstract admits a
+// call through a bound (RuleBoundCallAbstract).
+func lintFuncTree(f *Func, vs *[]Violation, seen map[*Func]bool, abstract bool) {
 	if seen[f] {
 		return
 	}
 	seen[f] = true
 	for _, b := range f.Blocks() {
-		for _, in := range b.Instrs() {
+		for i, in := range b.Instrs() {
 			if n, ok := in.(*FuncValue); ok {
-				lintFuncTree(n.Body(), vs, seen)
+				lintFuncTree(n.Body(), vs, seen, abstract)
+			}
+			c, _ := in.(*Call)
+			if d, ok := in.(*Defer); ok {
+				c = d.Call()
+			}
+			if c != nil && c.form == CalleeBound && !abstract {
+				*vs = append(*vs, Violation{Rule: RuleBoundCallAbstract, Pos: c.pos,
+					What: instrWhat(b, i, in),
+					Why:  "a call through a bound in " + f.Name() + ", of a module that is not abstract, which no machine runs"})
 			}
 		}
 	}

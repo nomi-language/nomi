@@ -23,12 +23,12 @@ func TestFormat_BodyThatIsOneBlockKeepsItsBraces(t *testing.T) {
 			"group \"0\"\n    setup begin\n        begin\n            defer f()\n            1\n        end\n    end\n\n    test \"\"\n        assert\n    end\nend\n",
 		},
 		"lambda, empty block": {
-			"fn f()\n    x = fn ->\n        begin end\n    end\nend\n",
-			"fn f()\n    x = fn ->\n        begin end\n    end\nend\n",
+			"fn f()\n    x =\n        fn ->\n            begin end\n        end\nend\n",
+			"fn f()\n    x =\n        fn ->\n            begin end\n        end\nend\n",
 		},
 		"lambda with a parameter, empty block": {
-			"fn f()\n    x = fn a ->\n        begin end\n    end\nend\n",
-			"fn f()\n    x = fn a ->\n        begin end\n    end\nend\n",
+			"fn f()\n    x =\n        fn a ->\n            begin end\n        end\nend\n",
+			"fn f()\n    x =\n        fn a ->\n            begin end\n        end\nend\n",
 		},
 		"tail lambda, empty block": {
 			"fn f()\n    g(1, fn ->\n        begin end\n    end)\nend\n",
@@ -36,7 +36,7 @@ func TestFormat_BodyThatIsOneBlockKeepsItsBraces(t *testing.T) {
 		},
 		"lambda, block holding a defer": {
 			"fn f()\n    x = fn ->\n        begin\n            defer g()\n 1\n        end\n    end\nend\n",
-			"fn f()\n    x = fn ->\n        begin\n            defer g()\n            1\n        end\n    end\nend\n",
+			"fn f()\n    x =\n        fn ->\n            begin\n                defer g()\n                1\n            end\n        end\nend\n",
 		},
 		"clock": {
 			"group \"g\"\n    clock begin\n        begin end\n    end test \"\"\n            assert\n        end\nend\n",
@@ -55,8 +55,8 @@ func TestFormat_BodyThatIsOneBlockKeepsItsBraces(t *testing.T) {
 			"fn f()\n    begin end\nend\n",
 		},
 		"if branches": {
-			"fn f()\n    y = if true then\n        begin end\n    else\n        begin end\n    end\nend\n",
-			"fn f()\n    y = if true then\n        begin end\n    else\n        begin end\n    end\nend\n",
+			"fn f()\n    y =\n        if true then\n            begin end\n        else\n            begin end\n        end\nend\n",
+			"fn f()\n    y =\n        if true then\n            begin end\n        else\n            begin end\n        end\nend\n",
 		},
 		"case arm": {
 			"fn f(x: Int)\n    case x\n        _ ->\n            begin end\n    end\nend\n",

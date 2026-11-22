@@ -54,19 +54,20 @@ test "a message brings its reply channel to a task"
     inbox = Channel.buffered<Msg>(1)
     reply = Channel.buffered<Msg>(1)
 
-    got = concurrent
-        t = Task.spawn(fn ->
-            case Receiver.receive(inbox.receiver)
-                Some(.Ask(back)) -> Sender.send(back.sender, Msg.Stop)
-                _                -> Ok(Unit)
-            end
-        end)
+    got =
+        concurrent
+            t = Task.spawn(fn ->
+                case Receiver.receive(inbox.receiver)
+                    Some(.Ask(back)) -> Sender.send(back.sender, Msg.Stop)
+                    _                -> Ok(Unit)
+                end
+            end)
 
-        _ = Sender.send(inbox.sender, Msg.Ask(reply))
-        r = Receiver.receive(reply.receiver)
-        _ = Task.await(t)
-        r
-    end
+            _ = Sender.send(inbox.sender, Msg.Ask(reply))
+            r = Receiver.receive(reply.receiver)
+            _ = Task.await(t)
+            r
+        end
 
     assert got is Some(.Stop)
 end

@@ -227,10 +227,11 @@ end
 }
 
 // A declared type with no block of the interface is answered by the rule
-// an operator through it has (noImplUse): `Struct.update` on any struct,
-// and the Debug of a type declared inside a body, structurally, even
-// where another module declares a type of the same name with its own
-// Debug (std/xml's Token).
+// an operator through it has (noImplUse): `Struct.update` on any struct
+// structurally, and `Debug.inspect` of a type declared inside a body that
+// is not opaque by its shape, which has no block, even where another
+// module declares a type of the same name with its own Debug (std/xml's
+// Token).
 func TestCalleeForm_ADeclaredTypeWithNoBlock(t *testing.T) {
 	fa, errs := checkEntry(t, `struct P
     x: Int
@@ -248,17 +249,27 @@ end
 	if len(errs) > 0 {
 		t.Fatalf("the checker rejects this source: %v", errs)
 	}
-	got := map[int]analysis.OperatorForm{}
+	got := map[int]analysis.Callee{}
+	var token ast.Node
 	for n, rc := range fa.Calls {
-		if call, ok := n.(*ast.Call); ok && (call.Line == 6 || call.Line == 11) && rc.Callee.Kind == analysis.CalleeInterface {
-			got[call.Line] = rc.Callee.Form
+		if call, ok := n.(*ast.Call); ok && (call.Line == 6 || call.Line == 11) && rc.Callee.Method != "" {
+			got[call.Line] = rc.Callee
+			if call.Line == 11 {
+				token = call.Args[0]
+			}
 		}
 	}
-	if got[6] != analysis.OperatorStructural {
-		t.Errorf("Struct.update on a struct: Form %d, want OperatorStructural", got[6])
+	if c := got[6]; c.Kind != analysis.CalleeInterface || c.Form != analysis.OperatorStructural {
+		t.Errorf("Struct.update on a struct: Kind %d Form %d, want an interface's function answered structurally", c.Kind, c.Form)
 	}
-	if got[11] != analysis.OperatorStructural {
-		t.Errorf("Debug.inspect of a block-local type: Form %d, want OperatorStructural", got[11])
+	if len(fa.BlockDebug) != 0 || token == nil {
+		t.Fatalf("the front end wrote %d universal Debug bodies for the block-local Token, or the checker recorded no Debug.inspect", len(fa.BlockDebug))
+	}
+	if c := got[11]; c.Kind != analysis.CalleeInterface || c.Form != analysis.OperatorStructural {
+		t.Errorf("Debug.inspect of a block-local type: Kind %d Form %d, want an interface's function answered structurally", c.Kind, c.Form)
+	}
+	if c := fa.InterfaceCallee(analysis.StdType{Module: "std/debug", Name: "Debug"}, "inspect", fa.ExprTypes[token]); c.Form != analysis.OperatorStructural {
+		t.Errorf("InterfaceCallee Debug.inspect at the block-local type: Form %d, want structural", c.Form)
 	}
 }
 

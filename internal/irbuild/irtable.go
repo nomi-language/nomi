@@ -39,9 +39,9 @@ func (g *gen) irTypes() *ir.Table {
 // so a kind carrying one of those tags with a nil pointer panics reading it.
 // That shape is a bug in this package rather than a program somebody wrote, and
 // a panic is the wrong report for it HERE specifically: this name is display
-// only — `ir.Type` and `ir.Decl` both state their identity is the pointer — so
-// a placeholder costs nothing an answer depends on, while a panic would turn a
-// malformed kind into a crash at a candidate filter.
+// only — `ir.Type` states its identity is the pointer — so a placeholder
+// costs nothing an answer depends on, while a panic would turn a malformed
+// kind into a crash where a slot's type is asked for.
 //
 // The `comp` short-circuit is `nomi()`'s own first line, kept so the two agree
 // for every kind either of them can name.
@@ -69,9 +69,8 @@ func irKindName(k kind) string {
 // irTypeOf is a kind as an IR type, or nil for `kindInvalid`.
 //
 // NIL ONLY FOR tagInvalid, and that nil is the semantics rather than a hole:
-// it is the shape an operand whose own lowering was refused arrives in, the
-// refusal has already been recorded, and `ir.Table.Accepts` reads a nil
-// argument type as "not a candidate".
+// it is the shape an operand whose own lowering was refused arrives in, and
+// the refusal has already been recorded.
 //
 // THE TOKEN IS THE KIND VALUE. `kind` is comparable — a tag plus four
 // declaration pointers — and its equality IS this package's type identity, so
@@ -86,8 +85,7 @@ func (g *gen) irTypeOf(k kind) *ir.Type {
 	}
 	if k.tag == tagIface {
 		// An existential is the one form whose values do not carry their own
-		// concrete type, which is the distinction `ir.Table.Widens` needs and
-		// the only thing `ir.TypeForm` records.
+		// concrete type, the only thing `ir.TypeForm` records.
 		ty, minted := g.irTypes().Existential(k, irKindName(k))
 		if v := g.irValType(k); minted && v != nil {
 			ty.SetVal(v)

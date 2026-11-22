@@ -82,11 +82,12 @@ fn puzzle(rows: Int, columns: Int) -> Jigsaw
     inside = Int.max(rows - 2, 0) * Int.max(columns - 2, 0)
     aspect_ratio = Int.to_float(columns) / Int.to_float(rows)
 
-    format = case Int.compare(columns, rows)
-        .Less    -> Format.Portrait
-        .Equal   -> .Square
-        .Greater -> .Landscape
-    end
+    format =
+        case Int.compare(columns, rows)
+            .Less    -> Format.Portrait
+            .Equal   -> .Square
+            .Greater -> .Landscape
+        end
 
     {pieces:, border: pieces - inside, inside:, rows:, columns:, aspect_ratio:, format:}
 end

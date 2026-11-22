@@ -21,7 +21,7 @@ func init() {
 			}
 			defer restore()
 			rep := vmhost.NewTestReport(&out)
-			tester := &vmcmd.Tester{Out: &out, Stderr: &errOut, Stdin: bytes.NewReader(nil), Rep: rep}
+			tester := &vmcmd.Tester{Out: &out, Stderr: &errOut, Rep: rep}
 			tester.File(path, vmhost.TestOptions{})
 			exit := 0
 			if rep.Summary() {

@@ -82,9 +82,11 @@ func wasmMemoryMinimum(t *testing.T, data []byte) uint64 {
 // declared initial memory stays under 16 MiB, and the reactor without the
 // network (`--no-network`), which leaves out net/http, under 13 MiB: Go
 // declares the end of its data and bss, the 4 MiB image area among them,
-// plus 1 MiB, so the bound follows the VM's code, whose tables and type
-// descriptors are most of the data (12.19 MiB on 2026-11-13). With no
-// --target it writes the same bytes as with --target wasip1/wasm.
+// plus 1 MiB, so the bound follows the VM's code. Most of the data is the
+// table Go keeps per function, about 620 bytes each in a wasm module (320
+// of them findfunctab's): 12,616 functions, 15.8 MiB, and 8,347 without
+// the network, 12.3 MiB, on 2026-11-21. With no --target it writes the
+// same bytes as with --target wasip1/wasm.
 func TestBuildCommand_ReactorLoadsOneProgramPerInstance(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; builds the wasip1 reactor; -short")
@@ -228,7 +230,7 @@ const reactor = await WebAssembly.compile(await readFile(reactorPath));
 
 async function start(module) {
   const wasi = new WASI({ version: "preview1", args: [], env: {}, stdout: 2, returnOnExit: true });
-  const instance = await WebAssembly.instantiate(module, wasi.getImportObject());
+  const instance = await WebAssembly.instantiate(module, { ...wasi.getImportObject(), nomi: { host_call: () => 0n } });
   wasi.initialize(instance);
   return instance.exports;
 }

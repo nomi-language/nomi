@@ -13,9 +13,8 @@ import "github.com/nomi-language/nomi/internal/ir"
 // It is a hook rather than a field, so the gen carries no node-keyed side
 // table for it. It costs one nil check per projection.
 //
-//	`k`     a builder-side value at every site: the kind irProjExpr's caller
-//	        resolved, `f.k` off the `*fieldDef`, `want` off the distinct's
-//	        inner kind. `ir.Proj.Shape` is filled from the same
+//	`k`     a builder-side value at every site: the kind the caller resolved,
+//	        `want` off the distinct's inner kind. `ir.Proj.Shape` is filled from the same
 //	        values, so comparing the two catches a producer that records one
 //	        shape and builds another.
 //	`site`  a literal, and the only possible source: which builder

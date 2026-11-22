@@ -339,10 +339,11 @@ end
 // no byte is missing.
 fn read_half(data: Bytes, start: Int) -> Int
     Iter.reduce(start..start + 8, 0, fn acc, i ->
-        byte = case Bytes.get(data, i)
-            Some(b) -> Byte.to_int(b)
-            None    -> 0
-        end
+        byte =
+            case Bytes.get(data, i)
+                Some(b) -> Byte.to_int(b)
+                None    -> 0
+            end
 
         Int.wrapping_mul(acc, 256) ||| byte
     end)

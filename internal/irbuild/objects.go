@@ -45,27 +45,9 @@ func relinkThroughObjects(res *Result) error {
 		return err
 	}
 	l := ir.NewLinker()
-	out := make([]*ir.Module, len(mods))
-	funcs := map[*ir.Func]*ir.Func{}
-	cells := map[*ir.Cell]*ir.Cell{}
-	for i, m := range mods {
-		data, err := ir.EncodeObject(m)
-		if err != nil {
-			return fmt.Errorf("irbuild: encoding %s as an object: %w", m.Name(), err)
-		}
-		im, err := ir.DecodeImage(data, ir.WithLinkedSymbols(l.Symbol))
-		if err != nil {
-			return fmt.Errorf("irbuild: decoding %s's object: %w", m.Name(), err)
-		}
-		dm := im.Modules[0]
-		for j, f := range m.Funcs() {
-			funcs[f] = dm.Funcs()[j]
-		}
-		for j, c := range m.Cells() {
-			cells[c] = dm.Cells()[j]
-		}
-		l.Define(dm)
-		out[i] = dm
+	out, funcs, cells, err := relinkObjects(l, mods)
+	if err != nil {
+		return err
 	}
 	modules := map[*ir.Module]*ir.Module{}
 	for i, m := range mods {
@@ -97,6 +79,13 @@ func relinkThroughObjects(res *Result) error {
 			x.Params[j].Decode = remap(x.Params[j].Decode)
 		}
 	}
+	for i := range res.HostFns {
+		h := &res.HostFns[i]
+		h.Decode = remap(h.Decode)
+		for j := range h.Params {
+			h.Params[j].Encode = remap(h.Params[j].Encode)
+		}
+	}
 	if err := relinkRefinementFuncs(res, l); err != nil {
 		return err
 	}
@@ -108,6 +97,35 @@ func relinkThroughObjects(res *Result) error {
 		}
 	}
 	return nil
+}
+
+// relinkObjects encodes each of mods as an object and decodes it with l,
+// answering the decoded modules and each function's and cell's decoded
+// copy.
+func relinkObjects(l *ir.Linker, mods []*ir.Module) ([]*ir.Module, map[*ir.Func]*ir.Func, map[*ir.Cell]*ir.Cell, error) {
+	out := make([]*ir.Module, len(mods))
+	funcs := map[*ir.Func]*ir.Func{}
+	cells := map[*ir.Cell]*ir.Cell{}
+	for i, m := range mods {
+		data, err := ir.EncodeObject(m)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("irbuild: encoding %s as an object: %w", m.Name(), err)
+		}
+		im, err := ir.DecodeImage(data, ir.WithLinkedSymbols(l.Symbol))
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("irbuild: decoding %s's object: %w", m.Name(), err)
+		}
+		dm := im.Modules[0]
+		for j, f := range m.Funcs() {
+			funcs[f] = dm.Funcs()[j]
+		}
+		for j, c := range m.Cells() {
+			cells[c] = dm.Cells()[j]
+		}
+		l.Define(dm)
+		out[i] = dm
+	}
+	return out, funcs, cells, nil
 }
 
 // relinkRefinementFuncs relinks the functions of no module that vmhost runs

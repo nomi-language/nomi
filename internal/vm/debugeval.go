@@ -7,9 +7,9 @@ package vm
 // whose parameters are the frame's variables. Scope is what it is evaluated
 // against: the frame's variables and the machine the frame runs on. Run
 // links the expression's lowering into a view of that machine and calls the
-// function there, refusing first when it can reach an effect (Effects) and
-// running under Limits, so an evaluation can neither change what the program
-// does next nor hang.
+// function there, refusing first when it can reach an effect or a call
+// whose cost no step bounds (Effects) and running under Limits, so an
+// evaluation can neither change what the program does next nor hang.
 //
 // THE VIEW LEAVES THE MACHINE AS IT IS. Machine.Extend makes another
 // lowering's module the machine's entry, which the REPL can do between
@@ -31,6 +31,7 @@ import (
 	"sync"
 
 	"github.com/nomi-language/nomi/internal/ir"
+	"github.com/nomi-language/nomi/rt"
 )
 
 // ScopeVar is one variable visible in a frame, with its value.
@@ -58,6 +59,9 @@ type Scope struct {
 	Replaying bool
 	m         *Machine
 	d         *Debugger
+	// app is the stopped frame's rt frame, whose lineage holds the app
+	// fields in force there, which an expression reads.
+	app *rt.Frame
 }
 
 // Var is the visible variable named name.
@@ -83,7 +87,7 @@ func (d *Debugger) Scope(frameID int) (*Scope, error) {
 	if ref.via || ref.fr == nil || ref.fr.c == nil || ref.fr.c.dbg == nil {
 		return nil, errors.New("this frame is a call into Go, which has no variables to evaluate in")
 	}
-	s := &Scope{Pos: ref.pos, Func: frameName(ref.fr.fn), Vars: visibleVars(ref.fr, ref.pos, ref.point), m: ref.m, d: d}
+	s := &Scope{Pos: ref.pos, Func: frameName(ref.fr.fn), Vars: visibleVars(ref.fr, ref.pos, ref.point), m: ref.m, d: d, app: ref.fr.runtime}
 	if ref.th != nil && ref.th.pass != nil {
 		s.Pass, s.Replaying = ref.th.pass.id, ref.th.pass.replaying.Load()
 	}
@@ -98,6 +102,18 @@ type EffectsError struct {
 
 func (e *EffectsError) Error() string {
 	return "the expression has effects:\n  " + strings.Join(e.Effects, "\n  ")
+}
+
+// UnboundedError is Run's refusal of an expression that can call a pure
+// function whose cost grows with an argument's value, which its limits
+// cannot stop.
+type UnboundedError struct {
+	// Calls names each such call reached, sorted.
+	Calls []string
+}
+
+func (e *UnboundedError) Error() string {
+	return "the expression calls functions whose cost grows with their arguments:\n  " + strings.Join(e.Calls, "\n  ")
 }
 
 // UnretainedError is Run's refusal of an expression that reaches code the
@@ -116,9 +132,13 @@ func (e *UnretainedError) Error() string {
 
 // Run calls f, the expression's function in the lowering entry and rest,
 // with args, on a view of the scope's machine (the file comment) and under
-// lim. Unless allowEffects, an f that can reach an effect is refused with an
-// *EffectsError before anything runs. It answers f's result, ErrLimit when
-// lim ran out, or the expression's own failure.
+// lim, reading the app fields in force in the stopped frame: reading one is
+// reading an input, and a `with` in the expression lasts for the
+// expression. Unless allowEffects, an f that can reach an effect is refused
+// with an *EffectsError before anything runs, and one that can call a
+// function whose cost grows with an argument's value with an
+// *UnboundedError. It answers f's result, ErrLimit when lim ran out, or the
+// expression's own failure.
 func (s *Scope) Run(entry *ir.Module, rest []*ir.Module, f *ir.Func, args []any, lim Limits, allowEffects bool) (any, error) {
 	if s.m == nil {
 		return nil, errors.New("vm: the frame's machine is gone")
@@ -128,11 +148,15 @@ func (s *Scope) Run(entry *ir.Module, rest []*ir.Module, f *ir.Func, args []any,
 		return nil, &UnretainedError{Found: found}
 	}
 	if !allowEffects {
-		if effects := view.Effects(f); len(effects) > 0 {
-			return nil, &EffectsError{Effects: effects}
+		found := view.Effects(f)
+		if len(found.Effects) > 0 {
+			return nil, &EffectsError{Effects: found.Effects}
+		}
+		if len(found.Unbounded) > 0 {
+			return nil, &UnboundedError{Calls: found.Unbounded}
 		}
 	}
-	return view.Evaluate(context.Background(), f, args, lim)
+	return view.evaluate(context.Background(), f, args, lim, s.app)
 }
 
 // evalViewKey names a view evalView built: the machine by its code table,

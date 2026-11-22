@@ -176,10 +176,11 @@ end
 impl Add<Statement, Statement> for Statement
     fn add(lhs: Statement, rhs: Statement) -> Statement
         // `lhs`'s last part and `rhs`'s first are one stretch of SQL.
-        (before, last) = case lhs.parts
-            [..before, last] -> (before, last)
-            []               -> ([], "")
-        end
+        (before, last) =
+            case lhs.parts
+                [..before, last] -> (before, last)
+                []               -> ([], "")
+            end
 
         first = rhs.parts |> Iter.first() |> Maybe.with_default("")
         after = rhs.parts |> Iter.drop(1) |> Iter.to_list()
@@ -770,10 +771,11 @@ impl Row
     pub fn get_position<T>(row: Row, position: Int) -> Result<T, Error> where T: FromSql
         value = Row.value_position(row, position)?
 
-        column = case Iter.get(row.columns, position)
-            Some(name) -> name
-            None       -> ""
-        end
+        column =
+            case Iter.get(row.columns, position)
+                Some(name) -> name
+                None       -> ""
+            end
 
         T.from_sql(value) |> Result.map_err(&decode_error(row, column, value, &1))
     end

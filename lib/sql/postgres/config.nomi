@@ -1,0 +1,276 @@
+//# What a connection string says: where the server is, who connects, how
+//# TLS is negotiated, the settings each connection starts with, and the
+//# limits of a pool. `config.parse` reads a URL
+//# (`postgres://user:password@host:5432/name?sslmode=require`) or a list of
+//# `key=value` words (`host=localhost user=app dbname=app`), with libpq's
+//# keys: `host`, `port`, `user`, `password`, `dbname`, `sslmode`,
+//# `sslrootcert`, `sslcert`, `sslkey`, `connect_timeout`, and the pool's
+//# `pool_max_conns`, `pool_max_conn_lifetime` and `pool_max_conn_idle_time`
+//# (a duration such as `30m`). Any other key is a setting the server
+//# applies to each connection, as `application_name` or `search_path`.
+
+import
+    std::duration.Duration
+    std::url.{Query, Url}
+end
+
+/// How a connection uses TLS: libpq's `sslmode`.
+pub enum SslMode
+    /// Never.
+    Disable
+    /// Plain first; TLS when the server refuses a plain connection.
+    Allow
+    /// TLS when the server offers it, with the certificate unchecked; plain
+    /// when it does not. The default.
+    Prefer
+    /// TLS, with the certificate unchecked.
+    Require
+    /// TLS, with the certificate checked against the roots.
+    VerifyCa
+    /// TLS, with the certificate checked against the roots and the host.
+    VerifyFull
+end
+
+derive Equatable for SslMode
+
+/// A connection's settings, from a connection string.
+pub struct Config
+    host:     String = "localhost"
+    port:     Int = 5432
+    user:     String = "postgres"
+    password: Maybe<String> = None
+    database: String = ""
+    ssl_mode: SslMode = SslMode.Prefer
+    /// The PEM file of the roots a server's certificate is checked against;
+    /// `None` is the system's.
+    ssl_root_cert: Maybe<String> = None
+    /// The PEM files of a certificate the client presents, and its key.
+    ssl_cert: Maybe<String> = None
+    ssl_key:  Maybe<String> = None
+    /// The longest connecting may take.
+    connect_timeout: Maybe<Duration> = None
+    /// The settings the startup message sends, in order.
+    settings: List<(String, String)> = []
+    /// How many connections a pool opens at most.
+    max_conns: PositiveInt = 4
+    /// How long a pool keeps a connection, from when it opened.
+    max_lifetime: Duration = Duration.hours(1)
+    /// How long a pool keeps a connection no statement uses.
+    max_idle: Duration = Duration.minutes(30)
+end
+
+derive Equatable for Config
+
+impl Config
+    /// `host:port`, as std::net dials it.
+    //! assert Config.address(Config{host: "db", port: 6432}) == "db:6432"
+    //! assert Config.address(Config{host: "::1"}) == "[::1]:5432"
+    //
+    pub fn address(config: Config) -> String
+        if String.contains(config.host, ":") then
+            "[${config.host}]:${config.port}"
+        else
+            "${config.host}:${config.port}"
+        end
+    end
+
+    /// The database a connection opens: the one named, else the user's.
+    //! assert Config.database_name(Config{user: "ann"}) == "ann"
+    //! assert Config.database_name(Config{user: "ann", database: "shop"}) == "shop"
+    //
+    pub fn database_name(config: Config) -> String
+        if config.database == "" then config.user else config.database
+    end
+
+    /// The settings the startup message sends: the user, the database, the
+    /// client encoding (UTF8 unless the string names one), and the rest.
+    //! s = Config.startup(Config{user: "ann", settings: [("application_name", "shop")]})
+    //!
+    //! assert s == [
+    //!     ("user",             "ann"),
+    //!     ("database",         "ann"),
+    //!     ("client_encoding",  "UTF8"),
+    //!     ("application_name", "shop"),
+    //! ]
+    //
+    pub fn startup(config: Config) -> List<(String, String)>
+        encoding =
+            if Iter.any_match(config.settings, fn (key, _) -> key == "client_encoding") then
+                []
+            else
+                [("client_encoding", "UTF8")]
+            end
+
+        [
+            ("user",     config.user),
+            ("database", Config.database_name(config)),
+        ] + encoding + config.settings
+    end
+end
+
+/// The settings `text` names, a URL or `key=value` words, or why it names
+/// none.
+//! c = parse("postgres://ann:s%40cret@db.example.com:6432/shop?sslmode=require&application_name=web")!
+//! assert c.host == "db.example.com" and c.port == 6432
+//! assert c.user == "ann" and c.password == Some("s@cret") and c.database == "shop"
+//! assert c.ssl_mode == SslMode.Require
+//! assert c.settings == [("application_name", "web")]
+//!
+//! w = parse("host=localhost port=5433 user=app dbname=app sslmode=disable connect_timeout=2")!
+//! assert w.port == 5433 and w.database == "app" and w.ssl_mode == SslMode.Disable
+//! assert w.connect_timeout == Some(Duration.seconds(2))
+//!
+//! assert parse("postgres://h/db?sslmode=sometimes") == Err(
+//!     "sslmode `sometimes` is not one of disable, allow, prefer, require, verify-ca, verify-full"
+//! )
+//
+pub fn parse(text: String) -> Result<Config, String>
+    if String.starts_with(text, "postgres://") or String.starts_with(text, "postgresql://") then
+        from_url(text)
+    else
+        from_words(text)
+    end
+end
+
+fn from_url(text: String) -> Result<Config, String>
+    url = Url.parse(text) |> Result.map_err(fn e -> "the connection URL ${e.reason}")?
+    query = Query.parse(Maybe.with_default(url.query, "")) |> Result.map_err(fn e -> e.reason)?
+    Query(pairs) = query
+
+    base = Config{
+        host:
+            if Url.hostname(url) == "" then
+                "localhost"
+            else
+                Url.hostname(url)
+            end,
+        database: String.strip_prefix(url.path, "/") |> Maybe.with_default(url.path),
+    }
+
+    with_port =
+        case Url.port(url)
+            Some(port) -> set(base, "port", port)?
+            None       -> base
+        end
+
+    with_user =
+        case url.user
+            Some(user) ->
+                named =
+                    if user.name == "" then
+                        with_port
+                    else
+                        {..with_port, user: user.name}
+                    end
+
+                {..named, password: user.password}
+
+            None ->
+                with_port
+        end
+
+    Iter.reduce(pairs, Ok(with_user), fn config, (key, value) -> set(config?, key, value))
+end
+
+fn from_words(text: String) -> Result<Config, String>
+    String.words(text)
+    |> Iter.reduce(Ok(Config{}), fn config, word ->
+        case String.split(word, "=")
+            [key, ..rest] when rest != [] -> set(config?, key, String.join(rest, "="))
+            _ -> Err("`${word}` in the connection string is not key=value")
+        end
+    end)
+end
+
+// config with the setting `key` given `value`.
+fn set(config: Config, key: String, value: String) -> Result<Config, String>
+    case key
+        "host" ->
+            Ok({..config, host: value})
+
+        "port" ->
+            port = String.to_int(value) |> Maybe.to_result("port `${value}` is not a number")?
+            Ok({..config, port:})
+
+        "user" ->
+            Ok({..config, user: value})
+
+        "password" ->
+            Ok({..config, password: Some(value)})
+
+        "dbname" ->
+            Ok({..config, database: value})
+
+        "sslmode" ->
+            Ok({..config, ssl_mode: ssl_mode(value)?})
+
+        "sslrootcert" ->
+            Ok({..config, ssl_root_cert: Some(value)})
+
+        "sslcert" ->
+            Ok({..config, ssl_cert: Some(value)})
+
+        "sslkey" ->
+            Ok({..config, ssl_key: Some(value)})
+
+        "connect_timeout" ->
+            seconds =
+                String.to_int(value)
+                |> Maybe.to_result("connect_timeout `${value}` is not a number")?
+
+            timeout = if seconds > 0 then Some(Duration.seconds(seconds)) else None
+            Ok({..config, connect_timeout: timeout})
+
+        "pool_max_conns" ->
+            n = String.to_int(value) |> Maybe.flat_map(PositiveInt.try_from)
+
+            Ok(
+                {
+                    ..config,
+                    max_conns: n
+                    |> Maybe.to_result("pool_max_conns `${value}` is not a positive number")?,
+                }
+            )
+
+        "pool_max_conn_lifetime" ->
+            Ok({..config, max_lifetime: duration(key, value)?})
+
+        "pool_max_conn_idle_time" ->
+            Ok({..config, max_idle: duration(key, value)?})
+
+        _ ->
+            Ok({..config, settings: .. + [(key, value)]})
+    end
+end
+
+fn duration(key: String, value: String) -> Result<Duration, String>
+    Duration.parse(value)
+    |> Result.map_err(fn _ -> "${key} `${value}` is not a duration such as 30m")
+end
+
+fn ssl_mode(value: String) -> Result<SslMode, String>
+    case value
+        "disable" ->
+            Ok(SslMode.Disable)
+
+        "allow" ->
+            Ok(SslMode.Allow)
+
+        "prefer" ->
+            Ok(SslMode.Prefer)
+
+        "require" ->
+            Ok(SslMode.Require)
+
+        "verify-ca" ->
+            Ok(SslMode.VerifyCa)
+
+        "verify-full" ->
+            Ok(SslMode.VerifyFull)
+
+        _ ->
+            Err(
+                "sslmode `${value}` is not one of disable, allow, prefer, require, verify-ca, verify-full"
+            )
+    end
+end

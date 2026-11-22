@@ -50,14 +50,14 @@ Ok(2026-05-27)
 
 To import several items from one type or file, list them in `{...}`:
 
-```nomi ignore
+```nomi
 import shape.Shape.{Circle, Rectangle}
 ```
 
 That imports the variants `Circle` and `Rectangle` of the `Shape` enum. To
 import `Shape` itself as well, add `self`:
 
-```nomi ignore
+```nomi
 import shape.Shape.{self, Circle, Rectangle}
 ```
 
@@ -437,20 +437,20 @@ Spec: [Re-exporting imported names](/spec/files-modules-and-imports/#re-exportin
 
 ## Nomi modules
 
-A `nomi.toml` alone makes a module. The standard library is one module, with
-a `nomi.toml` and no `go.mod`.
+A `nomi.toml` makes a directory a module. The standard library is one module.
 
-A module that uses other modules, or that you publish for others to use, also
-has a `go.mod` file. Nomi publishes and downloads modules the same way Go
-does, so it keeps Go's file to give the module's full name and list the
-modules it uses. You don't need Go installed, and you don't edit `go.mod`
-yourself: `nomi` writes it.
+A module lists the modules it uses in its `nomi.toml`'s `[dependencies]`
+table, one entry per dependency. The entry's key is the name your imports
+use. `nomi` writes the table, `nomi.lock` beside it, which locks each
+download's version and hash, and for a module with a path a one-line
+`go.mod`, so Go's module proxy can serve it. Commit all three. Published
+modules come through that proxy, but you don't need Go installed.
 
 - `nomi new github.com/you/myproject` starts a project in a new directory,
   and `nomi init` makes the current directory one.
 - `nomi add github.com/user/somelib` adds a dependency, downloading it and
-  recording its checksum in `go.sum`. `nomi add ../shared` adds a module
-  beside yours by its directory.
+  locking it in `nomi.lock`. `nomi add ../shared` adds a module beside
+  yours by its directory.
 - `nomi remove` and `nomi update` take one out or move it to a newer
   release, and `nomi fetch` downloads everything ahead of time.
 
@@ -458,8 +458,9 @@ The tooling reference's [Modules and dependencies](/tooling/modules-and-dependen
 covers each command, versions and working offline.
 
 This example holds two projects: `app`, which runs, and `shared` beside it,
-which `app` added with `nomi add ../shared`. `app/main.nomi` imports the
-function `greet` from `shared`'s file `shared.nomi`. Change the greeting in
+which `app` added with `nomi add ../shared`. That wrote the entry
+`shared = { dir = "../shared" }`. `app/main.nomi` imports the function
+`greet` from `shared`'s file `shared.nomi`. Change the greeting in
 `shared.nomi` and run it again.
 
 ```nomi-run
@@ -478,14 +479,8 @@ end
 name = "app"
 entry_points = ["main"]
 
-// FILE: app/go.mod
-module example.com/app
-
-go 1.27.0
-
-require example.com/shared v0.0.0
-
-replace example.com/shared => ../shared
+[dependencies]
+shared = { dir = "../shared" }
 
 // FILE: shared/shared.nomi
 /// A greeting for `name`.
@@ -496,35 +491,31 @@ end
 // FILE: shared/nomi.toml
 [module]
 name = "shared"
-
-// FILE: shared/go.mod
-module example.com/shared
-
-go 1.27.0
 ```
 <!-- expect
 Hello, Ada!
 -->
 
-To import a dependency's files, start the path with its short name, the
-`name` in its `nomi.toml`. If `somelib`'s `nomi.toml` says
-`name = "somelib"`, then `import somelib::parse` imports its file
-`parse.nomi`. `import somelib` alone imports the file at its root that has
-the module's name, `somelib.nomi`. If your own module also has a file
-named `somelib.nomi`, the import still means the dependency's file.
+To import a dependency's files, start the path with its name, the key of
+its entry in your `[dependencies]`. `nomi add` uses the `name` in the
+dependency's own `nomi.toml` unless you give another, as in
+`nomi add lib=github.com/user/somelib`. With the entry `somelib`,
+`import somelib::parse` imports the dependency's file `parse.nomi`.
+`import somelib` alone imports the file at its root that has that name,
+`somelib.nomi`. If your own module also has a file named `somelib.nomi`,
+the import still means the dependency's file. A dependency's own files
+import through its own `[dependencies]`, so the names you choose never
+change what its imports mean.
 
-A Nomi module is built on a Go module, which is why both use the word
-"module".
+## The effects a project may have
 
-## What a project may reach
-
-A project can list what its program may reach outside itself, such as
-files, the network, output and the clock. The list for its own code is
-`std` in a `[capabilities.self]` table in `nomi.toml`, and each entry is a
-std module as an import names it. `nomi capabilities --write` writes the
+A function is pure, or it has effects, such as files, the network,
+output and the clock. The list of effects its own code may have is
+`std` in an `[effects.self]` table in `nomi.toml`, and each entry is a
+std module as an import names it. `nomi effects --write` writes the
 tightest tables the program passes, for you to read and keep. `nomi
-check`, `run`, `test` and `build` refuse a program that reaches anything
-else, before it runs. This program only prints, so `std::io` is enough:
+check`, `run`, `test` and `build` refuse a program that has any other
+effect, before it runs. This program only prints, so `std::io` is enough:
 
 ```nomi-run
 // FILE: main.nomi
@@ -540,15 +531,15 @@ end
 name = "shop"
 entry_points = ["main"]
 
-[capabilities.self]
+[effects.self]
 std = ["std::io"]
 ```
 <!-- expect
 Total: 59.97
 -->
 
-Hovering a call that reaches outside the program, here and in your
-editor, says what it reaches and whether `nomi.toml` allows it. Hover over
+Hovering a call that has an effect, here and in your editor, says
+`Has effects: std::fs` and whether `nomi.toml` allows it. Hover over
 `read_text`:
 
 ```nomi-run
@@ -571,19 +562,41 @@ Buy milk.
 name = "notes"
 entry_points = ["main"]
 
-[capabilities.self]
+[effects.self]
 std = ["std::io", "std::fs"]
 ```
 <!-- expect
 Buy milk.
 -->
 
-A project can limit each dependency too. Under `[capabilities.deps.modules]`
-a dependency's entry lists what that dependency's own files may reach, and
-`entries_required = true` makes every dependency need one. Here `app`
-allows `receipts` to read files and allows `prices` nothing, since a
-module that prices things should only compute. This version of `prices`
-also reports each use to a server, so the program does not compile:
+The editor draws bold each call that can do something besides compute
+its result, and the name of each function whose body holds one, up to
+`main`. A call that acts only through a handle it is passed is bold too,
+and its hover says `Has effects on what it is passed.` Here `report`,
+`Writer.print`, both calls of `report` and `main` are bold, and the reads
+of `io.stdout` and `io.stderr` are not, since they only get a value:
+
+```nomi
+import std::io.{self, Error, Writer}
+
+fn report(to: Writer, count: Int) -> Result<Unit, Error>
+    to |> Writer.print("${count} items")
+end
+
+fn main() -> Result<Unit, Error>
+    report(io.stdout, 3)?
+    report(io.stderr, 0)?
+    Ok(Unit)
+end
+```
+
+A project can limit each dependency too. In the project's own `nomi.toml`,
+an entry under `[effects.deps.modules]`, keyed by the dependency's name in
+`[dependencies]`, lists the effects its files may have, and
+`entries_required = true` makes the project write one for every
+dependency; the dependency itself declares nothing. Here `app`
+allows `receipts` to read files and `prices` no effects. This version of
+`prices` also reports each use to a server, so the program does not compile:
 
 ```nomi-run error
 // FILE: app/main.nomi
@@ -603,29 +616,19 @@ end
 name = "app"
 entry_points = ["main"]
 
-[capabilities.self]
+[dependencies]
+prices = { dir = "../prices" }
+receipts = { dir = "../receipts" }
+
+[effects.self]
 std = ["std::io"]
 
-[capabilities.deps]
+[effects.deps]
 entries_required = true
 
-[capabilities.deps.modules]
-"lib.example/prices" = []
-"lib.example/receipts" = ["std::fs"]
-
-// FILE: app/go.mod
-module example.com/app
-
-go 1.27.0
-
-require (
-	lib.example/prices v0.0.0
-	lib.example/receipts v0.0.0
-)
-
-replace lib.example/prices => ../prices
-
-replace lib.example/receipts => ../receipts
+[effects.deps.modules]
+"prices" = []
+"receipts" = ["std::fs"]
 
 // FILE: prices/prices.nomi
 import
@@ -643,11 +646,6 @@ end
 [module]
 name = "prices"
 
-// FILE: prices/go.mod
-module lib.example/prices
-
-go 1.27.0
-
 // FILE: receipts/receipts.nomi
 import std::fs
 
@@ -659,30 +657,28 @@ end
 // FILE: receipts/nomi.toml
 [module]
 name = "receipts"
-
-// FILE: receipts/go.mod
-module lib.example/receipts
-
-go 1.27.0
 ```
 <!-- expect
-prices/prices.nomi:8:9: lib.example/prices reaches std::http, and its entry under [capabilities.deps.modules] allows it nothing outside the program
+prices/prices.nomi:8:9: prices has the effect std::http, and its entry under [effects.deps.modules] allows it no effects
 prices/prices.nomi:8:9: help: reached from `main`; `main` calls `total`
-prices/prices.nomi:8:9: help: add "std::http" to "lib.example/prices" under [capabilities.deps.modules] in nomi.toml, or remove the call
-app/main.nomi:8:24: note: your code reaches std::http in lib.example/prices here: `main` calls `total`
+prices/prices.nomi:8:9: help: add "std::http" to "prices" under [effects.deps.modules] in nomi.toml, or remove the call
+app/main.nomi:8:24: note: your code has the effect std::http in prices here: `main` calls `total`
 -->
 
 The error is at the call in `prices`, and its note points at the call in
 `app` that leads there, where the editor marks it too. A call counts even
 in a branch that never runs, and the error says how the program reaches
-it. A dependency can declare its own list in its own `[capabilities.self]`,
+it. A dependency can declare its own list in its own `[effects.self]`, which holds what its public functions can do, not only what its tests reach,
 and a project that limits its dependencies checks the dependency against
-that list too. Also under `[capabilities.deps]`,
-`std` is the most any one dependency may reach, whatever its entry says,
-and `go` names the dependencies whose Go runs.
-[Capability lists](/tooling/projects/#capability-lists)
+that list too. Also under `[effects.deps]`,
+`std` is the most effects any one dependency may have, whatever its entry
+says. The project's own modules
+can have entries too, under `[effects.self.modules]`, each keyed by
+the module as an import names it. To keep a module from obtaining access
+to anything, give it an empty entry, such as `"pricing" = []`.
+[Effects lists](/tooling/projects/#effects-lists)
 in the tooling reference covers lists for tests and for each dependency, and
-what counts as outside.
+what counts as an effect.
 
 ## The orphan rule
 

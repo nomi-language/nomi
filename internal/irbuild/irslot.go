@@ -15,6 +15,7 @@ package irbuild
 // value, and it stays on the builder's side (see irarith.go).
 
 import (
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -41,52 +42,25 @@ type irFuncShell struct {
 	result ir.Temp
 	// slot is the result slot's declaration node.
 	slot *ir.Slot
-	// syms maps visible local names to declaration identities. Lexical arms
-	// clone this table. A pattern binding installs a fresh symbol even when
-	// it shadows an outer name; reads and closure captures keep that identity.
-	syms map[string]*ir.Symbol
 	// params is the temporary each declared parameter's value arrives in,
 	// keyed on the Nomi name a body can read. A DESTRUCTURING parameter's
 	// synthesized `__destr_<line>_<col>` name is in here too and no body can
-	// spell it, which is exactly what the parameter is: see irparam.go.
+	// spell it: the body reads the names its pattern binds (irScalarBuild).
 	params map[string]ir.Temp
-	// paramTemps is the temporary of each declared parameter, in order.
+	// declared is each plain parameter a body can read, by the position its
+	// name is written at, with its kind and its declaration identity.
+	declared map[analysis.Pos]irLocal
+	// paramTemps is the temporary of each declared parameter, in order, and
+	// paramKinds the kind of each, kindInvalid past the kinds the caller
+	// gave.
 	paramTemps []ir.Temp
-	// frame is the kind of each temporary the destructuring prologue names.
-	frame *irFuncFrame
-	// prologue is how many of the entry block's leading instructions come
-	// before the body: the result `ir.Slot`, and then the `ir.Proj`s and
-	// `ir.Bind`s a destructuring parameter's names come out of.
-	prologue int
-	// patternOK is false when a destructuring parameter did not lower. The
-	// prologue is then partial — some names are bound at an invalid kind and
-	// some projections were never built — so the retained shape declines
-	// rather than retaining a graph with a hole in it.
-	patternOK bool
-	// orParams are the `or` patterns inside destructuring parameters, which
-	// the straight-line prologue holds the value of and the body's builder
-	// tests first (irorpattern.go).
-	orParams []irOrParam
-	// sides is what the PROLOGUE recorded per temporary: each `ir.Proj`'s
-	// kind. `irScalarBuilder` starts its own list from this one, so the
-	// body's facts and the prologue's are one list with one indexing.
-	sides []irScalarSide
-	// at is the declaration node every PROLOGUE instruction takes its
-	// position from — `g.irNodePos(fd)`, which is what `g.destructure`'s
-	// nodes already carry. Held on the shell because `gen.hold` has no
-	// `ast.Node` parameter and has to record a Copy while the prologue is
-	// open; see case.go.
+	paramKinds []kind
+	// unmatched is the function's NoMatch block for a pattern test whose
+	// failure edge no value takes (passOrFail), nil until one needs it.
+	unmatched *ir.Block
+	// at is the node the function is positioned at: its declaration, or the
+	// expression a default's accessor lowers.
 	at ast.Node
-}
-
-// localSym returns the visible identity, interning a new declaration if absent.
-func (s *irFuncShell) localSym(name string) *ir.Symbol {
-	if sym := s.syms[name]; sym != nil {
-		return sym
-	}
-	sym := ir.NewSymbol(name)
-	s.syms[name] = sym
-	return sym
 }
 
 // irFuncShellFor opens a shell for fd, or answers nil. `params[i]` is the kind
@@ -96,7 +70,7 @@ func (s *irFuncShell) localSym(name string) *ir.Symbol {
 // builder cannot place has no slot to size, and `ir.NewSlot` rejects one.
 //
 // EVERY DECLARED PARAMETER IS DECLARED HERE, a destructuring or a discarded
-// one included: the call site has exactly one operand for each. See irparam.go.
+// one included: the call site has exactly one operand for each.
 func (g *gen) irFuncShellFor(fd *ast.FuncDef, sig irFuncSig, params []kind) *irFuncShell {
 	if sig.decl == nil {
 		return nil
@@ -128,9 +102,8 @@ func (g *gen) irFuncShellAt(node ast.Node, declared []ast.Param, sig irFuncSig, 
 	}
 	at := g.irNodePos(node)
 	fn := ir.NewFuncFor(at, callee)
-	sh := &irFuncShell{fn: fn, syms: map[string]*ir.Symbol{}, params: map[string]ir.Temp{},
-		patternOK: true, at: node}
-	sh.frame = newIRFuncFrame(fn)
+	sh := &irFuncShell{fn: fn, params: map[string]ir.Temp{},
+		declared: map[analysis.Pos]irLocal{}, at: node}
 	for i, p := range declared {
 		// The SHAPE of the value this parameter receives, read off the kind
 		// the caller holds. A parameter's temporary is written by nothing, so
@@ -140,13 +113,19 @@ func (g *gen) irFuncShellAt(node ast.Node, declared []ast.Param, sig irFuncSig, 
 		if i < len(params) {
 			shape = irParamShape(params[i])
 		}
-		t := fn.AddParam(sh.paramSym(p), shape)
+		psym := sh.paramSym(p)
+		t := fn.AddParam(psym, shape)
+		k := kindInvalid
 		if i < len(params) {
-			g.irTypeTemp(fn, t, params[i])
-			sh.frame.setKind(t, params[i])
+			k = params[i]
+			g.irTypeTemp(fn, t, k)
 		}
 		sh.params[p.Name] = t
+		if p.Destructure == nil && !ast.IsDiscardName(p.Name) {
+			sh.declared[analysis.Pos{Line: p.Line, Col: p.Col}] = irLocal{temp: ir.NoTemp, k: k, sym: psym}
+		}
 		sh.paramTemps = append(sh.paramTemps, t)
+		sh.paramKinds = append(sh.paramKinds, k)
 		if i < len(params) {
 			g.irAddVar(fn, node, p.Name, t, params[i], p.Line, p.Col, g.irNameSite(p.Name, p.Line, p.Col))
 		}
@@ -156,26 +135,12 @@ func (g *gen) irFuncShellAt(node ast.Node, declared []ast.Param, sig irFuncSig, 
 	g.irTypeTemp(fn, sh.result, sig.result)
 	sh.slot = ir.NewSlot(at, sh.result, ty)
 	sh.entry.Append(sh.slot)
-	sh.prologue = len(sh.entry.Instrs())
 	return sh
 }
 
-// paramValue is declared parameter i as a value the prologue can destructure.
-func (sh *irFuncShell) paramValue(i int, k kind) expr {
-	return expr{t: sh.paramTemps[i], k: k}
-}
-
-// paramSym is the declaration identity of one parameter.
-//
-// A DISCARDED parameter gets a MINTED symbol rather than an interned one,
-// because `syms` is keyed on the NAME and `_` is not a name: two discarded
-// parameters are two declarations that happen to be spelled alike, and
-// interning them would give one function two `Param`s sharing one identity.
-// Nothing can read either — `_` is not spellable as an expression — so the
-// identity's only job is to be distinct.
+// paramSym is the declaration identity of one parameter: a symbol of its
+// own, which a read of it names (irLocal.sym), as each discarded parameter
+// has one too, so no two parameters share an identity.
 func (s *irFuncShell) paramSym(p ast.Param) *ir.Symbol {
-	if ast.IsDiscardName(p.Name) {
-		return ir.NewSymbol(p.Name)
-	}
-	return s.localSym(p.Name)
+	return ir.NewSymbol(p.Name)
 }

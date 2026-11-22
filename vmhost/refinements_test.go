@@ -365,10 +365,13 @@ func TestRefinement_ARuleThatCannotBeEvaluated(t *testing.T) {
 		"fn spin(n: Int) -> Bool\n    if n > 100000000 then True else spin(n + 1)\nend\n\n" +
 		"subtype Noisy Int when loud\n" +
 		"subtype Slow Int when spin\n" +
-		"subtype Trapping Int when fn n -> 10 / NonZeroInt.try_from(n)! > 1\n\n"
+		"subtype Trapping Int when fn n -> 10 / NonZeroInt.try_from(n)! > 1\n" +
+		"subtype Padded String when fn s -> String.length(String.repeat(s, 2)) < 10\n\n"
 	for _, tc := range []struct{ body, want string }{
 		{"    io.inspect(Noisy.try_from(1))\n",
 			"the rule of Noisy has effects (loud calls io.print): a rule is a pure function of the value it checks"},
+		{"    p: Padded = \"ab\"\n    io.inspect(p)\n",
+			"the rule of Padded calls a function whose cost grows with its argument (lambda calls strings.String.repeat): a rule must be bounded"},
 		{"    s: Slow = 1\n    io.inspect(s)\n",
 			"1 cannot be checked as a Slow when the program is compiled: its rule `spin` did not finish within 1000000 steps"},
 		{"    t: Trapping = 0\n    io.inspect(t)\n",
@@ -507,6 +510,46 @@ func TestRefinement_AGenericRuleOverPureImplsIsAccepted(t *testing.T) {
 		t.Fatalf("run: %v", err)
 	}
 	if got, want := out.String(), "True\nFalse\n[1, 2]\n"; got != want {
+		t.Errorf("output = %q, want %q", got, want)
+	}
+}
+
+// A rule may call std's pure parsers and checks: a header parser, a
+// signature parse and String.is_upper are pure, so each rule runs when the
+// program is compiled. A literal that breaks one is an error naming the
+// rule, and literals that keep them load and run.
+func TestRefinement_ARuleMayCallStdsPureParsers(t *testing.T) {
+	const decls = "import\n    std::http.Cookie\n    std::io\n    std::signatures.PublicKey\nend\n\n" +
+		"subtype CookieHeader String when fn s -> Cookie.parse_header(s) |> Result.is_ok()\n\n" +
+		"subtype PublicPem String when fn s -> PublicKey.from_pem(s) |> Result.is_ok()\n\n" +
+		"subtype Shout String when fn s -> String.is_upper(s)\n\n"
+	for _, tc := range []struct{ body, want string }{
+		{"    c: CookieHeader = \"\"\n    io.inspect(c)\n",
+			"\"\" is not a CookieHeader: `fn s -> Cookie.parse_header(s) |> Result.is_ok()` is false"},
+		{"    k: PublicPem = \"not a key\"\n    io.inspect(k)\n",
+			"\"not a key\" is not a PublicPem: `fn s -> PublicKey.from_pem(s) |> Result.is_ok()` is false"},
+		{"    s: Shout = \"quiet\"\n    io.inspect(s)\n",
+			"\"quiet\" is not a Shout: `fn s -> String.is_upper(s)` is false"},
+	} {
+		ds := literalDiagnostics(t, decls+"fn main()\n"+tc.body+"end\n")
+		if len(ds) != 1 || ds[0].Message != tc.want || ds[0].Code != InvalidRefinementCode {
+			t.Errorf("%s: diagnostics = %v, want one reading %q", strings.TrimSpace(tc.body), ds, tc.want)
+		}
+	}
+	p, err := LoadSource("main", decls+"fn main()\n"+
+		"    c: CookieHeader = \"a=1; b=2\"\n"+
+		"    k: PublicPem = \"-----BEGIN PUBLIC KEY-----\\nMCowBQYDK2VwAyEAGb9ECWmEzf6FQbrBZ9w7lshQhqowtrbLDFw4rXAxZuE=\\n-----END PUBLIC KEY-----\\n\"\n"+
+		"    s: Shout = \"LOUD\"\n"+
+		"    io.inspect((c, String.length(k) > 0, s))\n"+
+		"end\n")
+	if err != nil {
+		t.Fatalf("the program does not load: %v", err)
+	}
+	var out strings.Builder
+	if err := p.Run(context.Background(), &out, nil, false); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if got, want := out.String(), "(\"a=1; b=2\", True, \"LOUD\")\n"; got != want {
 		t.Errorf("output = %q, want %q", got, want)
 	}
 }

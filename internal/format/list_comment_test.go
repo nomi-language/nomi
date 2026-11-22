@@ -173,76 +173,83 @@ end
 end
 `},
 	{"list pattern", `fn main()
-    y = case xs
-        [
-            // the first
-            a,
-            b, // the second
-        ] -> a
-        _ -> 0
-    end
+    y =
+        case xs
+            [
+                // the first
+                a,
+                b, // the second
+            ] -> a
+            _ -> 0
+        end
 end
 `},
 	{"list pattern spread", `fn main()
-    y = case xs
-        [
-            a, // the first
-            ..rest
-        ] -> a
-        _ -> 0
-    end
+    y =
+        case xs
+            [
+                a, // the first
+                ..rest
+            ] -> a
+            _ -> 0
+        end
 end
 `},
 	{"tuple pattern", `fn main()
-    y = case xs
-        (
-            // the first
-            a, // the first's
-            b  // the second
-        ) -> a
-    end
+    y =
+        case xs
+            (
+                // the first
+                a, // the first's
+                b  // the second
+            ) -> a
+        end
 end
 `},
 	{"map pattern", `fn main()
-    y = case xs
-        {
-            // the first
-            "a" => a,
-            "b" => b, // the second
-        } -> a
-        _ -> 0
-    end
+    y =
+        case xs
+            {
+                // the first
+                "a" => a,
+                "b" => b, // the second
+            } -> a
+            _ -> 0
+        end
 end
 `},
 	{"struct pattern", `fn main()
-    y = case xs
-        P{
-            // the first
-            a:,
-            b:, // the second
-        } -> a
-    end
+    y =
+        case xs
+            P{
+                // the first
+                a:,
+                b:, // the second
+            } -> a
+        end
 end
 `},
 	{"anonymous struct pattern", `fn main()
-    y = case xs
-        {
-            a:, // the first
-            b: c,
-            // the end
-        } -> a
-    end
+    y =
+        case xs
+            {
+                a:, // the first
+                b: c,
+                // the end
+            } -> a
+        end
 end
 `},
 	{"variant payload pattern", `fn main()
-    y = case xs
-        .Pair(
-            // the first
-            a,
-            // the second
-            b
-        ) -> a
-    end
+    y =
+        case xs
+            .Pair(
+                // the first
+                a,
+                // the second
+                b
+            ) -> a
+        end
 end
 `},
 	{"enum payloads", `enum E
@@ -316,12 +323,13 @@ end
 end
 `},
 	{"case subject tuple", `fn main()
-    x = case (
-        a, // the first
-        b,
-    )
-        _ -> 0
-    end
+    x =
+        case (
+            a, // the first
+            b,
+        )
+            _ -> 0
+        end
 end
 `},
 	{"variant constructor", `fn main()
@@ -389,7 +397,7 @@ func TestListComment_BreaksAListWrittenFlat(t *testing.T) {
 			// A comment after a lambda parameter's comma keeps the
 			// header's own layout (TestFormat_LambdaParameterCommentStaysAfterItsComma).
 			"f = fn a, // the first\n    b -> a\n",
-			"f = fn a, // the first\n    b ->\n    a\nend\n",
+			"f =\n    fn a, // the first\n        b ->\n        a\n    end\n",
 		},
 		{
 			"f = fn a, b // the second\n-> a\n",
@@ -549,7 +557,7 @@ func TestListComment_KeepsMeaningOnFoundLayouts(t *testing.T) {
 			// and comments in parentheses around a parameter, a
 			// destructured name, a `with` value and a variant's payload.
 			"fn main()\n    also_same = {.. // c1\n           user, address: {..user.address, city: \"NYC\"}}\n    f = fn ( // a23\n     _acc1) = 1, e2 -> e2\n    (numbers, (\n    // b10\n  errors)) = pair\n    with App.clock = ( // a9\nFakeClock{at: 1})\n    y = case xs\n        .Dynamic( // a3\n         v) -> v\n    end\nend\n\ninterface Formatted\n    fn format(\n   // b1\n             value: self // c2\n            , // a3\n\tstyle: String) -> String // t4\nend\n",
-			"fn main()\n    also_same = {\n        ..user, // c1\n        address: {..user.address, city: \"NYC\"},\n    }\n\n    f = fn\n        // a23\n        _acc1 = 1,\n        e2\n    -> e2\n\n    (\n        numbers,\n        // b10\n        errors\n    ) = pair\n\n    with App.clock = (\n        // a9\n        FakeClock{at: 1}\n    )\n\n    y = case xs\n        .Dynamic(\n            // a3\n            v\n        ) -> v\n    end\nend\n\ninterface Formatted\n    fn format(\n        // b1\n        value: self, // c2\n        // a3\n        style: String,\n    ) -> String // t4\nend\n",
+			"fn main()\n    also_same = {\n        ..user, // c1\n        address: {..user.address, city: \"NYC\"},\n    }\n\n    f = fn\n        // a23\n        _acc1 = 1,\n        e2\n    -> e2\n\n    (\n        numbers,\n        // b10\n        errors\n    ) = pair\n\n    with App.clock = (\n        // a9\n        FakeClock{at: 1}\n    )\n\n    y =\n        case xs\n            .Dynamic(\n                // a3\n                v\n            ) -> v\n        end\nend\n\ninterface Formatted\n    fn format(\n        // b1\n        value: self, // c2\n        // a3\n        style: String,\n    ) -> String // t4\nend\n",
 		},
 	} {
 		formatsKeepingMeaning(t, c.src, c.want)

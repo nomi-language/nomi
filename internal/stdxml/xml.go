@@ -41,6 +41,7 @@ type tokens struct {
 	seenRoot, rootClosed bool
 
 	// The current token.
+	kind   int64
 	name   []string
 	attrs  []string
 	spaces []string
@@ -65,10 +66,30 @@ type failure struct {
 // Open is a token reader of the XML in r. A DOCTYPE is an error unless
 // allowDoctype, which makes it a token and reads no declaration in it.
 func Open(r rt.Reader, allowDoctype bool) rt.XmlTokens {
-	in := lineinput.New(r)
+	return rt.NewXmlTokens(open(lineinput.New(r), allowDoctype))
+}
+
+// Decode is every token of the XML in data, read whole by the reader Open
+// makes: each token's kind and its parts as Current gives them, and why
+// reading stopped and its message, as Stopped and Message describe them.
+// It reads no Reader, so it stops at the end or on a failure of kind 1,
+// never 2.
+func Decode(data rt.Bytes, allowDoctype bool) (*rt.List[int64], *rt.List[*rt.List[*rt.List[string]]], *rt.List[int64], string) {
+	t := open(lineinput.Text(data), allowDoctype)
+	var kinds []int64
+	var parts []*rt.List[*rt.List[string]]
+	for kind := t.next(); kind != kindStop; kind = t.next() {
+		kinds = append(kinds, kind)
+		parts = append(parts, t.parts())
+	}
+	return rt.ListFromGo(kinds, same[int64]), rt.ListFromGo(parts, same[*rt.List[*rt.List[string]]]),
+		t.stopped(), t.stop.message
+}
+
+func open(in *lineinput.Input, allowDoctype bool) *tokens {
 	dec := xml.NewDecoder(in)
 	dec.Strict = true
-	return rt.NewXmlTokens(&tokens{in: in, dec: dec, allowDoctype: allowDoctype})
+	return &tokens{in: in, dec: dec, allowDoctype: allowDoctype}
 }
 
 func of(h rt.XmlTokens) *tokens {
@@ -83,11 +104,17 @@ func of(h rt.XmlTokens) *tokens {
 // stopped: at the end of the document, or on a failure Stopped describes.
 func Next(fr *rt.Frame, h rt.XmlTokens) int64 {
 	t := of(h)
+	t.in.Frame = fr
+	defer func() { t.in.Frame = nil }()
+	return t.next()
+}
+
+// next reads the next token and returns its kind, or kindStop once reading
+// has stopped.
+func (t *tokens) next() int64 {
 	if t.done {
 		return kindStop
 	}
-	t.in.Frame = fr
-	defer func() { t.in.Frame = nil }()
 	for {
 		line, col := t.dec.InputPos()
 		t.in.Forget(line)
@@ -102,6 +129,7 @@ func Next(fr *rt.Frame, h rt.XmlTokens) int64 {
 			return t.syntax(msg, t.line, t.column)
 		}
 		if !skip {
+			t.kind = kind
 			return kind
 		}
 	}
@@ -310,44 +338,38 @@ func (t *tokens) lookup(prefix string) (string, bool) {
 	return "", prefix == ""
 }
 
-// Name is the current start or end tag's name: its prefix, local name and
-// namespace.
-func Name(h rt.XmlTokens) *rt.List[string] {
-	return rt.ListFromGo(of(h).name, same)
-}
+// Current is the parts of the token Next read last, by its kind: a start
+// tag's name (its prefix, local name and namespace), its attributes (four
+// items each: the prefix, the local name, the namespace and the value; no
+// namespace declaration is among them) and its namespace declarations (two
+// items each: the prefix, "" for the default namespace, and the
+// namespace); an end tag's name; an instruction's target and data; and the
+// text of a text, a comment or a DOCTYPE.
+func Current(h rt.XmlTokens) *rt.List[*rt.List[string]] { return of(h).parts() }
 
-// Attributes is the current start tag's attributes, four items each: the
-// prefix, the local name, the namespace and the value. Namespace
-// declarations are not among them.
-func Attributes(h rt.XmlTokens) *rt.List[string] {
-	return rt.ListFromGo(of(h).attrs, same)
-}
-
-// Namespaces is the current start tag's namespace declarations, two items
-// each: the prefix ("" for the default namespace) and the namespace.
-func Namespaces(h rt.XmlTokens) *rt.List[string] {
-	return rt.ListFromGo(of(h).spaces, same)
-}
-
-// Text is the current text, comment, instruction's data or DOCTYPE.
-func Text(h rt.XmlTokens) string { return of(h).text }
-
-// Target is the current instruction's target.
-func Target(h rt.XmlTokens) string { return of(h).target }
-
-// Position is the line and column, in code points, where the current
-// token starts.
-func Position(h rt.XmlTokens) *rt.List[int64] {
-	t := of(h)
-	return rt.ListFromGo([]int64{t.line, t.column}, func(n int64) int64 { return n })
+func (t *tokens) parts() *rt.List[*rt.List[string]] {
+	var parts [][]string
+	switch t.kind {
+	case kindStart:
+		parts = [][]string{t.name, t.attrs, t.spaces}
+	case kindEnd:
+		parts = [][]string{t.name}
+	case kindInstruction:
+		parts = [][]string{{t.target, t.text}}
+	case kindText, kindComment, kindDoctype:
+		parts = [][]string{{t.text}}
+	}
+	return rt.ListFromGo(parts, func(p []string) *rt.List[string] { return rt.ListFromGo(p, same[string]) })
 }
 
 // Stopped is why reading stopped, as [kind, line, column]: kind 0 at the end of the document or
 // while it has not, 1 a syntax error at line and column, 2 the Reader
 // failed (Failure has its error).
-func Stopped(h rt.XmlTokens) *rt.List[int64] {
-	s := of(h).stop
-	return rt.ListFromGo([]int64{s.kind, s.line, s.column}, func(n int64) int64 { return n })
+func Stopped(h rt.XmlTokens) *rt.List[int64] { return of(h).stopped() }
+
+func (t *tokens) stopped() *rt.List[int64] {
+	s := t.stop
+	return rt.ListFromGo([]int64{s.kind, s.line, s.column}, same[int64])
 }
 
 // Message is the message of the failure Stopped describes.
@@ -363,7 +385,7 @@ func Failure(h rt.XmlTokens) rt.IOError {
 	return *t.in.Failure
 }
 
-func same(s string) string { return s }
+func same[T any](v T) T { return v }
 
 // EscapeText is s as XML character data: &, < and > as entities, a
 // carriage return as &#13; so a reader keeps it, and each character XML

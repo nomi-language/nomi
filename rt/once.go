@@ -94,20 +94,17 @@ type forcing struct {
 // blocked inside an RHS is still working. The unwind leaves the cell unforced,
 // exactly as a faulting RHS does, so the next access runs the RHS again.
 //
-// The forcer's `scopedFields` and `scopedContext` deliberately do not travel:
-// a cached value must not depend on which caller's `with` overrides were in
-// force when it happened to be forced first. The RHS reads what boot
-// published instead (spec §15 *Scoped application fields*): the module-level app state, which holds
-// boot's result and none of the rebinds. A force before boot
-// has published sees no fields, and a read traps as any pre-boot read does.
+// The forcer's `app` deliberately does not travel: a cached value must not
+// depend on which caller's `with` overrides were in force when it happened
+// to be forced first. The RHS reads what boot published instead (spec §15
+// *Scoped application fields*): the module-level app state, which holds
+// boot's result and none of the rebinds. A force before boot has published
+// sees no fields, and a read traps as any pre-boot read does. A function
+// value the RHS makes keeps no fields (KeptFields), for the same reason.
 func (fr *Frame) forcingOnce(cell *onceID) *Frame {
-	child := &Frame{ctx: fr.ctx, forcing: &forcing{cell: cell, next: fr.forcing},
-		booted: fr.booted, inTask: fr.inTask, underDeadline: fr.underDeadline, stop: fr.stop, park: fr.park, capture: fr.capture,
+	return &Frame{ctx: fr.ctx, forcing: &forcing{cell: cell, next: fr.forcing},
+		app: fr.booted, booted: fr.booted, inTask: fr.inTask, underDeadline: fr.underDeadline, host: fr.host, stop: fr.stop, park: fr.park, capture: fr.capture,
 		files: fr.files, processes: fr.processes, network: fr.network, debug: fr.debug}
-	if fr.booted != nil {
-		child.scopedFields, child.scopedContext = fr.booted.fields, fr.booted.context
-	}
-	return child
 }
 
 // CyclicOnceText is the one spelling of the cyclic-`once` diagnostic.

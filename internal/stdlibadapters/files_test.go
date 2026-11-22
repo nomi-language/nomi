@@ -12,6 +12,25 @@ import (
 	"github.com/nomi-language/nomi/rt"
 )
 
+// frameless are the std/fs crossings that take no file system to act
+// through: `here`, which answers the frame's, and those over a sandbox or
+// a File.
+var frameless = map[string]bool{
+	"fs/host.here": true, "fs/host.new_sandbox": true, "fs/host.sandbox_fail": true,
+	"fs/host.sandbox_files": true, "fs/host.sandbox_log": true, "fs/host.sandbox_open": true,
+	"fs/host.release": true, "fs/host.lock": true,
+}
+
+// onFrame is args as key takes them on fr: a std/fs crossing that acts
+// through a file system is handed fr's first, as a path-taking std/fs
+// function hands it what `fs/host.here` answers.
+func onFrame(fr *rt.Frame, key string, args []any) []any {
+	if !strings.HasPrefix(key, "fs/host.") || frameless[key] {
+		return args
+	}
+	return append([]any{stdio.Here(fr)}, args...)
+}
+
 // TestRtFuncs_HandlesAndSandboxes holds the stream rows over handles, the
 // std/fs rows that answer a handle or read the machine's state, and the
 // sandbox rows to what they do, through the generated adapters: a writer
@@ -26,6 +45,7 @@ func TestRtFuncs_HandlesAndSandboxes(t *testing.T) {
 	}
 	call := func(fr *rt.Frame, key string, args ...any) any {
 		t.Helper()
+		args = onFrame(fr, key, args)
 		v, err := table[key](fr, args)
 		if err != nil {
 			t.Fatalf("%s: %v", key, err)
@@ -115,6 +135,12 @@ func TestRtFuncs_HandlesAndSandboxes(t *testing.T) {
 	call(disk, "fs/host.sandbox_fail", sandbox, "/work/locked.txt", int64(stdio.OpCreate),
 		rb.FieldVariant("io.Error", "PermissionDenied", "path", "locked.txt"), int64(0))
 	boxed := rt.EnterFiles(disk, sandbox)
+	if here := call(boxed, "fs/host.here").(rt.FileSystem); !here.Held() {
+		t.Error("here on a frame that reaches a sandbox answers a file system that is not held")
+	}
+	if here := call(disk, "fs/host.here").(rt.FileSystem); here.Held() {
+		t.Error("here on a frame that reaches the disk answers a held file system")
+	}
 	if got := text(ok(boxed, "fs/host.read_text", "in.txt")); got != `String("seed")` {
 		t.Errorf("a sandboxed read answered %s", got)
 	}
@@ -147,9 +173,10 @@ func TestRtFuncs_HandlesAndSandboxes(t *testing.T) {
 // TestRtFuncs_FilesAndWithin holds the File rows, link_metadata of a link,
 // and fs.within's crossings to what they do through the generated adapters:
 // a File reads and writes at a position on the disk, a write past the end
-// fills the gap, a handle opened to read refuses a write, a closed one
-// answers Closed, and a frame that enters what `within` answers reaches
-// only the directory, until `release`.
+// fills the gap, it syncs, its lock keeps another handle's out until it
+// unlocks, `sync_dir` takes only a directory, a handle opened to read
+// refuses a write, a closed one answers Closed, and a frame that enters what
+// `within` answers reaches only the directory, until `release`.
 func TestRtFuncs_FilesAndWithin(t *testing.T) {
 	table, err := Bind(&hostadapt.Env{})
 	if err != nil {
@@ -157,6 +184,7 @@ func TestRtFuncs_FilesAndWithin(t *testing.T) {
 	}
 	call := func(fr *rt.Frame, key string, args ...any) any {
 		t.Helper()
+		args = onFrame(fr, key, args)
 		v, err := table[key](fr, args)
 		if err != nil {
 			t.Fatalf("%s: %v", key, err)
@@ -197,6 +225,27 @@ func TestRtFuncs_FilesAndWithin(t *testing.T) {
 	if got := text(ok(disk, "io.File.size", f)); got != "Int(2)" {
 		t.Errorf("size after truncate is %s", got)
 	}
+	ok(disk, "io.File.sync", f)
+	ok(disk, "io.File.sync_data", f)
+	lock := func(f any, mode int64) string {
+		return text(ok(disk, "fs/host.lock", f, mode, int64(0), int64(0), hDur(0)))
+	}
+	other := ok(disk, "fs/host.open_file", p, int64(1))
+	if got := lock(f, 2); got != "Bool(true)" {
+		t.Errorf("an exclusive lock answered %s", got)
+	}
+	if got := lock(other, 1); got != "Bool(false)" {
+		t.Errorf("a shared lock beside another handle's exclusive one answered %s", got)
+	}
+	lock(f, 0)
+	if got := lock(other, 1); got != "Bool(true)" {
+		t.Errorf("a shared lock after the unlock answered %s", got)
+	}
+	ok(disk, "io.File.close", other)
+	ok(disk, "fs/host.sync_dir", dir)
+	if got := text(call(disk, "fs/host.sync_dir", p)); got != `results.Result/4.Err{0=io.Error/4.NotADirectory{path=String("`+p+`")}}` {
+		t.Errorf("sync_dir of a file answered %s", got)
+	}
 	ok(disk, "io.File.close", f)
 	if got := text(call(disk, "io.File.close", f)); got != "results.Result/4.Err{0=io.Error/4.Closed{}}" {
 		t.Errorf("a second close answered %s", got)
@@ -234,7 +283,30 @@ func TestRtFuncs_FilesAndWithin(t *testing.T) {
 	if got := text(call(inside, "fs/host.read_text", "../secret.txt")); !strings.Contains(got, "InvalidPath") {
 		t.Errorf("a read outside answered %s, want InvalidPath", got)
 	}
+	// A Dir hands the confined file system to each crossing itself, on a
+	// frame that reaches the whole disk.
+	held := func(key string, args ...any) any {
+		t.Helper()
+		v, err := table[key](disk, args)
+		if err != nil {
+			t.Fatalf("%s: %v", key, err)
+		}
+		return v
+	}
+	if got := text(held("fs/host.read_text", confined, "index.txt")); got != `results.Result/4.Ok{0=String("i")}` {
+		t.Errorf("a read through the Dir answered %s", got)
+	}
+	if got := text(held("fs/host.read_text", confined, dir+"/secret.txt")); !strings.Contains(got, "InvalidPath") {
+		t.Errorf("a read through the Dir of an absolute path outside answered %s, want InvalidPath", got)
+	}
+	name := text(held("fs/host.make_temp", confined, false))
+	if !strings.Contains(name, `String("nomi-`) {
+		t.Errorf("make_temp answered %s, want a fresh name", name)
+	}
 	call(disk, "fs/host.release", confined)
+	if got := text(held("fs/host.read_text", confined, "index.txt")); got != "results.Result/4.Err{0=io.Error/4.Closed{}}" {
+		t.Errorf("a read through the Dir after its release answered %s, want Closed", got)
+	}
 	if got := text(call(disk, "fs/host.within", dir+"/none")); !strings.Contains(got, "NotFound") {
 		t.Errorf("within of a missing directory answered %s", got)
 	}

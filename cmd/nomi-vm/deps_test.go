@@ -5,6 +5,8 @@ import (
 	"os/exec"
 	"strings"
 	"testing"
+
+	"github.com/nomi-language/nomi/internal/stdlibbindings/families"
 )
 
 // The browser and WASI runners cannot start a process or serve a test
@@ -41,32 +43,56 @@ func TestBrowserAndWASIVMsImportNoProcessOrTestServerCode(t *testing.T) {
 	}
 }
 
-// The runner built with the nomi_nonet tag, which `nomi build` appends a
-// program that reaches no network crossing to, links none of net/http,
-// crypto/tls, crypto/x509 or net: its network adapters are stubs
-// (internal/stdlibadapters/adapters_nonet_gen.go). On every target, since
-// the point is the size of each runner. A change that imports one of them
-// into the VM another way puts them back in every program, and fails here.
-func TestNoNetworkVMImportsNoNetworkCode(t *testing.T) {
-	forbidden := []string{"net/http", "crypto/tls", "crypto/x509", "net"}
-	for _, target := range [][2]string{{"js", "wasm"}, {"wasip1", "wasm"}, {"linux", "amd64"}, {"darwin", "arm64"}, {"windows", "amd64"}} {
-		cmd := exec.Command("go", "list", "-tags", "nomi_nonet", "-deps", ".")
-		cmd.Env = append(os.Environ(), "GOOS="+target[0], "GOARCH="+target[1])
+// The lean runner, built with every optional family's tag, which `nomi
+// build` appends a program that reaches no family's crossing to, links
+// none of net/http, crypto/tls, crypto/x509, net or wazero: its families'
+// adapters are stubs (internal/stdlibadapters/adapters_no*_gen.go). On
+// every target, since the point is the size of each runner. A change that
+// imports one of them into the VM another way puts them back in every
+// program, and fails here. Without the tags a native runner links wazero;
+// a wasip1 one does not, since no wasip1 runner has WebAssembly modules,
+// and a js one does not, since std::wasm runs there on the host's own
+// engine.
+func TestLeanVMImportsNoFamilyCode(t *testing.T) {
+	const wazero = "github.com/tetratelabs/wazero"
+	deps := func(goos, goarch string, tags ...string) map[string]bool {
+		t.Helper()
+		args := []string{"list", "-deps"}
+		if len(tags) > 0 {
+			args = append(args, "-tags", strings.Join(tags, ","))
+		}
+		cmd := exec.Command("go", append(args, ".")...)
+		cmd.Env = append(os.Environ(), "GOOS="+goos, "GOARCH="+goarch)
 		out, err := cmd.CombinedOutput()
 		if err != nil {
-			t.Fatalf("GOOS=%s go list -deps: %v\n%s", target[0], err, out)
+			t.Fatalf("GOOS=%s go list -deps: %v\n%s", goos, err, out)
 		}
-		deps := map[string]bool{}
+		got := map[string]bool{}
 		for _, line := range strings.Fields(string(out)) {
-			deps[line] = true
+			got[line] = true
 		}
-		if !deps["github.com/nomi-language/nomi/internal/stdlibadapters"] {
-			t.Fatalf("GOOS=%s: go list did not report the adapters; this test is checking nothing", target[0])
+		if !got["github.com/nomi-language/nomi/internal/stdlibadapters"] {
+			t.Fatalf("GOOS=%s: go list did not report the adapters; this test is checking nothing", goos)
 		}
+		return got
+	}
+	lean := families.LeanTags()
+	forbidden := []string{"net/http", "crypto/tls", "crypto/x509", "net", wazero}
+	for _, target := range [][2]string{{"js", "wasm"}, {"wasip1", "wasm"}, {"linux", "amd64"}, {"darwin", "arm64"}, {"windows", "amd64"}} {
+		got := deps(target[0], target[1], lean...)
 		for _, pkg := range forbidden {
-			if deps[pkg] {
-				t.Errorf("%s/%s with nomi_nonet: the VM imports %s", target[0], target[1], pkg)
+			if got[pkg] {
+				t.Errorf("%s/%s with %s: the VM imports %s", target[0], target[1], strings.Join(lean, ","), pkg)
 			}
 		}
+	}
+	if !deps("linux", "amd64")[wazero] {
+		t.Error("linux/amd64 without the tags: the VM does not import wazero, so no runner has std::wasm")
+	}
+	if deps("wasip1", "wasm")[wazero] {
+		t.Error("wasip1/wasm without the tags: the VM imports wazero, which no wasip1 runner has")
+	}
+	if deps("js", "wasm")[wazero] {
+		t.Error("js/wasm without the tags: the VM imports wazero, where std::wasm runs on the host's engine (internal/stdwasm's engine_js.go)")
 	}
 }

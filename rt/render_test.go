@@ -27,7 +27,7 @@ func TestRender_TheSixRowDebugDisagreements(t *testing.T) {
 			debug: `"hello"`}},
 		{"String", `f"\.txt`, nil, want{row: `"f\"\\.txt"`, display: `f"\.txt`, debug: `"f\"\\.txt"`}},
 		{"struct", point, nil, want{row: "Point{x: 1, y: 2}", display: "Point{x: 1, y: 2}",
-			debugErr: "Debug on an unrepresented receiver (Point)"}},
+			debug: "Point{y: 2, x: 1}"}},
 		{"record", record, nil, want{row: `{d: 1.50, s: "a\"b"}`, display: `{d: 1.50, s: "a\"b"}`,
 			debug: `{d: 1.50d, s: "a\"b"}`}},
 		{"hand impl", NewDistinctDesc("ids.Id", ptr(SlotInt)).Make(int64(5)),
@@ -224,7 +224,7 @@ func TestRender_PreludeEnumsCollectionsAndSets(t *testing.T) {
 }
 
 // A Set's members render through the same hook as a List's: a user enum
-// member has no structural Debug, so without the hook it is refused.
+// member whose impl the hook owns renders through it.
 func TestRender_SetMembersRenderThroughTheHook(t *testing.T) {
 	color := NewEnumDesc("shapes.Color", []VariantSpec{{Name: "Red"}, {Name: "Blue"}})
 	items := MapOf(Hash, Equal, []MapEntry[any, any]{{Key: color.NewVariant(0), Val: true}})
@@ -237,5 +237,140 @@ func TestRender_SetMembersRenderThroughTheHook(t *testing.T) {
 	}
 	if got, err := DebugText(set, hook); err != nil || got != "Set[<Red>]" {
 		t.Errorf("set debug %q %v", got, err)
+	}
+}
+
+// A declared type with no impl the hook owns renders as the literal that
+// builds it (the spec's universal Debug): a struct's fields in declaration
+// order, a variant by its shape, an `embeds` variant as the value it holds,
+// and a payload or inner value written as a tuple of its parts as those
+// parts, where one of a tuple type keeps its parentheses. A nested part
+// whose type the hook owns renders through the hook.
+func TestRender_DeclaredTypesRenderAsTheirLiterals(t *testing.T) {
+	pair := TupleDesc(SlotInt, SlotString).Make(int64(1), "x")
+	point := NewStructDesc("shapes.Point", []FieldSpec{{"y", SlotInt}, {"x", SlotInt}}).Make(int64(2), int64(1))
+	empty := NewStructDesc("shapes.Empty", nil).Make()
+	shape := NewEnumDesc("shapes.Shape", []VariantSpec{
+		{Name: "Dot", Shape: VariantBare},
+		{Name: "Circle", Shape: VariantPositional, Fields: []FieldSpec{{Type: SlotFloat}}},
+		{Name: "Duo", Shape: VariantPositional, Fields: []FieldSpec{{Type: SlotRef}}, Spread: true},
+		{Name: "Held", Shape: VariantPositional, Fields: []FieldSpec{{Type: SlotRef}}},
+		{Name: "Rect", Shape: VariantFields, Fields: []FieldSpec{{"w", SlotInt}, {"h", SlotInt}}},
+		{Name: "Point", Shape: VariantEmbedded, Fields: []FieldSpec{{Type: SlotRef}}},
+	})
+	coord := NewDistinctDesc("shapes.Coord", ptr(SlotRef))
+	coord.Spread = true
+	wrapped := NewDistinctDesc("shapes.Wrapped", ptr(SlotRef))
+	shown := NewStructDesc("shapes.Shown", []FieldSpec{{"v", SlotInt}}).Make(int64(7))
+	holder := NewStructDesc("shapes.Holder", []FieldSpec{{"s", SlotRef}, {"p", SlotRef}}).Make(shown, point)
+	hook := func(v any) (string, bool, error) {
+		if r, ok := v.(*Record); ok && r.Desc.Name == "shapes.Shown" {
+			return "Shown!", true, nil
+		}
+		return "", false, nil
+	}
+	for _, c := range []struct {
+		name string
+		v    any
+		want string
+	}{
+		{"struct", point, "Point{y: 2, x: 1}"},
+		{"empty struct", empty, "Empty{}"},
+		{"bare variant", shape.NewVariant(0), "Dot"},
+		{"positional variant", shape.MakeVariant(1, 1.5), "Circle(1.5)"},
+		{"spread variant", shape.MakeVariant(2, pair), `Duo(1, "x")`},
+		{"variant holding a tuple", shape.MakeVariant(3, pair), `Held((1, "x"))`},
+		{"struct-shaped variant", shape.MakeVariant(4, int64(3), int64(4)), "Rect{w: 3, h: 4}"},
+		{"embedded variant", shape.MakeVariant(5, point), "Point{y: 2, x: 1}"},
+		{"spread distinct", coord.Make(pair), `Coord(1, "x")`},
+		{"distinct holding a tuple", wrapped.Make(pair), `Wrapped((1, "x"))`},
+		{"a hooked part", holder, "Holder{s: Shown!, p: Point{y: 2, x: 1}}"},
+	} {
+		got, err := DebugText(c.v, hook)
+		if err != nil || got != c.want {
+			t.Errorf("%s: Debug %q, %v; want %q", c.name, got, err, c.want)
+		}
+	}
+}
+
+// Every rendering of a declared type writes a payload or an inner value
+// declared as a tuple of its parts as those parts, as the literal that
+// builds it does, and one of a tuple type with its parentheses: the
+// assertion row (with and without a hook), the structural Display, the
+// structural Debug and a debugger's one-line text, at the top and nested
+// in a List.
+func TestRender_EveryRendererWritesAPayloadOfPartsAsWritten(t *testing.T) {
+	pair := TupleDesc(SlotInt, SlotString).Make(int64(1), "x")
+	shape := NewEnumDesc("shapes.Shape", []VariantSpec{
+		{Name: "Duo", Shape: VariantPositional, Fields: []FieldSpec{{Type: SlotRef}}, Spread: true},
+		{Name: "Held", Shape: VariantPositional, Fields: []FieldSpec{{Type: SlotRef}}},
+	})
+	coord := NewDistinctDesc("shapes.Coord", ptr(SlotRef))
+	coord.Spread = true
+	wrapped := NewDistinctDesc("shapes.Wrapped", ptr(SlotRef))
+	noHook := func(any) (string, bool, error) { return "", false, nil }
+	renderers := []struct {
+		name   string
+		render func(any) (string, error)
+	}{
+		{"RowText", func(v any) (string, error) { return RowText(v), nil }},
+		{"RowTextWith", func(v any) (string, error) { return RowTextWith(v, noHook) }},
+		{"DisplayText", func(v any) (string, error) { return DisplayText(v), nil }},
+		{"DisplayTextWith", func(v any) (string, error) { return DisplayTextWith(v, RowText), nil }},
+		{"DebugText", func(v any) (string, error) { return DebugText(v, nil) }},
+		{"DebugText with a hook", func(v any) (string, error) { return DebugText(v, noHook) }},
+		{"Inspect", func(v any) (string, error) { return Inspect(v).Text(), nil }},
+	}
+	cases := []struct {
+		name string
+		v    any
+		want string
+	}{
+		{"variant of parts", shape.MakeVariant(0, pair), `Duo(1, "x")`},
+		{"variant of a tuple", shape.MakeVariant(1, pair), `Held((1, "x"))`},
+		{"distinct of parts", coord.Make(pair), `Coord(1, "x")`},
+		{"distinct of a tuple", wrapped.Make(pair), `Wrapped((1, "x"))`},
+	}
+	n := 0
+	for _, r := range renderers {
+		for _, c := range cases {
+			for _, nested := range []bool{false, true} {
+				v, want := c.v, c.want
+				if nested {
+					v, want = Cons[any](c.v, nil), "["+c.want+"]"
+				}
+				got, err := r.render(v)
+				if err != nil || got != want {
+					t.Errorf("%s of a %s (nested %v): %q, %v; want %q", r.name, c.name, nested, got, err, want)
+				}
+				n++
+			}
+		}
+	}
+	if n != len(renderers)*len(cases)*2 {
+		t.Fatalf("checked %d renderings, want %d", n, len(renderers)*len(cases)*2)
+	}
+}
+
+// A positional variant's Debug is the call that builds it when its payload
+// is a struct the variant shares its name with, `Click(Click{x: 1})`, as
+// the derived Debug writes it (spec §12 *Derive*), and a struct-payload
+// variant is its fields.
+func TestDebugText_APositionalVariantOfASameNamedStructIsACall(t *testing.T) {
+	click := NewStructDesc("ui.Click", []FieldSpec{{"x", SlotInt}})
+	event := NewEnumDesc("ui.Event", []VariantSpec{
+		{Name: "Click", Shape: VariantPositional, Fields: []FieldSpec{{Type: SlotRef}}},
+		{Name: "Rect", Shape: VariantFields, Fields: []FieldSpec{{"w", SlotInt}}},
+	})
+	for _, c := range []struct {
+		v    any
+		want string
+	}{
+		{event.MakeVariant(0, click.Make(int64(1))), "Click(Click{x: 1})"},
+		{event.MakeVariant(1, int64(2)), "Rect{w: 2}"},
+	} {
+		if got, err := DebugText(c.v, nil); err != nil || got != c.want {
+			t.Errorf("Debug %q, %v; want %q", got, err, c.want)
+		}
 	}
 }

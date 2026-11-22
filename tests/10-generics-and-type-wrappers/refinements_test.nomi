@@ -123,11 +123,12 @@ end
 test "a literal pattern matches a refined value"
     p: Port = 443
 
-    name = case p
-        80  -> "http"
-        443 -> "https"
-        _   -> "other"
-    end
+    name =
+        case p
+            80  -> "http"
+            443 -> "https"
+            _   -> "other"
+        end
 
     assert name == "https"
 end

@@ -120,9 +120,10 @@ func (g *gen) irStructuralValueKind(k kind) bool {
 	return g.irValType(k) != nil
 }
 
-// irMapTransportKind admits a declared struct key. Only mapMake builds one,
-// after irStructEqualityKind settles that native hashes and compares the key
-// structurally; Map calls and Debug keep their scalar-key checks.
+// irMapTransportKind admits a declared struct key. Only mapMake builds one;
+// the machine hashes and compares the key as `==` does, through the written
+// impls the key table names (irRecordKeyImpls). Map calls and Debug keep
+// their scalar-key checks.
 func irMapTransportKind(k kind) bool {
 	return k.tag == tagMap && k.comp != nil && len(k.comp.parts) == 2 &&
 		k.comp.parts[0].tag == tagNamed && k.comp.parts[0].def != nil && irRetainedStructKind(k.comp.parts[0].def) &&
@@ -190,12 +191,13 @@ func irSelfContainerEnum(k kind) bool {
 }
 
 func (bl *irScalarBuilder) mapMake(t *ast.MapLit) (ir.Temp, kind, bool, bool) {
-	return bl.mapMakeOf(t, nil)
+	// kindInvalid: sentinel — no position's kind; the literal's record gives its kind.
+	return bl.mapMakeOf(t, kindInvalid)
 }
 
-// mapMakeOf builds a map literal; wants, when not nil, is the expected key
-// and value kind each entry is lowered against.
-func (bl *irScalarBuilder) mapMakeOf(t *ast.MapLit, wants []kind) (ir.Temp, kind, bool, bool) {
+// mapMakeOf builds a map literal at its kind (literalKind: its record, or
+// want, the kind of the position, where the builder made it).
+func (bl *irScalarBuilder) mapMakeOf(t *ast.MapLit, want kind) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if t.TypeName != nil && !t.ShapeHead {
 		// `Json.Obj{"k" => v}` is the variant call over the anonymous map.
@@ -203,52 +205,48 @@ func (bl *irScalarBuilder) mapMakeOf(t *ast.MapLit, wants []kind) (ir.Temp, kind
 		anon.TypeName = nil
 		return bl.attachedVariant(t, t.TypeName, &anon)
 	}
-	if d := bl.g.literalDistinct(t); d != nil && t.TypeName == nil && wants == nil {
+	if d := bl.g.literalDistinct(t); d != nil && t.TypeName == nil {
 		// `kvs: Kvs = {"a" => 1}`: the distinct type the position expects,
 		// over the map.
 		anon := *t
-		return bl.compositeDistinctMake(&ast.Call{Args: []ast.Node{&anon}, Line: t.Line, Col: t.Col}, d)
+		return bl.compositeDistinctMake(t, []ast.Node{&anon}, d)
 	}
 	if len(t.Spreads) == 1 && t.Spreads[0].At == 0 {
 		if len(t.Entries) == 0 {
 			return no()
 		}
-		return bl.mapUpdate(t, wants)
+		return bl.mapUpdate(t, want)
 	}
 	if len(t.Spreads) > 0 {
 		return bl.mapSpreadLit(t)
 	}
 	if len(t.Entries) == 0 {
-		return bl.emptyMapLit(t, wants)
+		return bl.emptyLiteral(t, mapSpreadJoin, want)
 	}
-	return bl.mapEntries(t, wants)
-}
-
-// emptyMapLit builds `{}`, the empty map (emptyLiteral). wants, when not
-// nil, is the key and value kinds of the position it is lowered for.
-func (bl *irScalarBuilder) emptyMapLit(t ast.Node, wants []kind) (ir.Temp, kind, bool, bool) {
-	// kindInvalid: sentinel — no position's kind is given.
-	want := kindInvalid
-	if len(wants) == 2 {
-		want = bl.g.mapKind(wants[0], wants[1])
-	}
-	return bl.emptyLiteral(t, mapSpreadJoin, want)
+	return bl.mapEntries(t, want)
 }
 
 // mapUpdate builds `{..base, key => value}`, a map literal with one spread
 // written first: the base, then the entries as a map literal, then
 // `Map.merge(base, literal)`, so the entries win and keep the order
-// Map.merge gives them. The checker typed the literal as the base's
-// `Map<K, V>`, which is the kind both operands are lowered to.
-func (bl *irScalarBuilder) mapUpdate(t *ast.MapLit, wants []kind) (ir.Temp, kind, bool, bool) {
+// Map.merge gives them. The base enters the literal's kind, as any spread
+// does (collectSpread), and the entries are built at it.
+func (bl *irScalarBuilder) mapUpdate(t *ast.MapLit, want kind) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	spread := t.Spreads[0].Head
 	base, bk, _, ok := bl.lower(spread)
 	if !ok {
 		return no()
 	}
-	if wants == nil && bk.tag == tagMap && bk.comp != nil && len(bk.comp.parts) == 2 {
-		wants = bk.comp.parts
+	p, ok := bl.collectSpread(t, spreadPart{at: spread, v: base, k: bk}, mapSpreadJoin)
+	if !ok {
+		return no()
+	}
+	base, bk = p.v, p.k
+	if !mapSpreadJoin.typed(want) {
+		// A copy the builder made of a literal, which has no record, takes
+		// its base's kind.
+		want = bk
 	}
 	var lit ir.Temp
 	var lk kind
@@ -256,15 +254,15 @@ func (bl *irScalarBuilder) mapUpdate(t *ast.MapLit, wants []kind) (ir.Temp, kind
 		// An entry updates the value at its key, which it reads from the
 		// base: the base is read once per such entry and merged once.
 		base = bl.holdTemp(spread, base, bk)
-		lit, lk, _, ok = bl.mapEntriesOver(t, wants, base, bk)
+		lit, lk, _, ok = bl.mapEntriesOver(t, want, base, bk)
 	} else {
-		lit, lk, _, ok = bl.mapEntries(t, wants)
+		lit, lk, _, ok = bl.mapEntries(t, want)
 	}
 	if !ok {
 		return no()
 	}
-	// The entries are lowered at the base's key and value kinds, and a Map
-	// the callable domain holds is a retained one.
+	// The entries are built at the literal's kind, which the base entered,
+	// and a Map the callable domain holds is a retained one.
 	if bk != lk || !irRetainedMapKind(lk) {
 		panic("irbuild: a map update whose entries " + lk.nomi() + " are not its base's " + bk.nomi())
 	}
@@ -286,84 +284,54 @@ func mapHasHole(t *ast.MapLit) bool {
 	return false
 }
 
-// mapEntries builds a map literal's entries, ignoring a spread; wants is as
-// mapMakeOf's.
-func (bl *irScalarBuilder) mapEntries(t *ast.MapLit, wants []kind) (ir.Temp, kind, bool, bool) {
+// mapEntries builds a map literal's entries, ignoring a spread, at the
+// literal's kind (literalKind), want where it has no record.
+func (bl *irScalarBuilder) mapEntries(t *ast.MapLit, want kind) (ir.Temp, kind, bool, bool) {
 	// kindInvalid: sentinel — no base; no entry reads one.
-	return bl.mapEntriesOver(t, wants, ir.NoTemp, kindInvalid)
+	return bl.mapEntriesOver(t, want, ir.NoTemp, kindInvalid)
 }
 
 // mapEntriesOver is mapEntries for the entries of a map update over base, of
 // kind bk: an entry whose value is an update literal updates the value at its
-// key (updateEntry).
-func (bl *irScalarBuilder) mapEntriesOver(t *ast.MapLit, wants []kind, base ir.Temp, bk kind) (ir.Temp, kind, bool, bool) {
+// key (updateEntry). Keys and values are lowered in source order, each
+// against the literal's key or value kind, as an argument is against its
+// parameter.
+func (bl *irScalarBuilder) mapEntriesOver(t *ast.MapLit, want kind, base ir.Temp, bk kind) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	// Keys and values are lowered in source order. Entries whose keys (or
-	// values) differ only by an embedded type join to the enum that embeds
-	// it (`{1 => circle, 2 => shape}` is a `Map<Int, Shape>`), as the
-	// checker joins them; the embedded ones are widened afterwards.
-	var temps [2][]ir.Temp
-	var items [2][]ast.Node
-	var kinds [2][]kind
-	// A key or value type holding an embedded type's enum below its top
-	// (`Map<Int, (Int, Shape)>`) is each entry's context (literalParts).
-	if wants == nil {
-		wants = bl.literalParts(t, mapSpreadJoin)
+	k, ok := bl.builtLiteralKind(t, mapSpreadJoin, want)
+	if !ok {
+		return no()
 	}
+	parts := k.comp.parts
+	if !bl.g.irMapKeyOK(parts[0]) || (!irMapValueKind(parts[1]) && !bl.g.irStructuralValueKind(parts[1])) {
+		bl.g.dc.note("a map literal outside the retained maps: " + k.nomi())
+		return no()
+	}
+	values := make([]ir.Temp, 0, len(t.Entries)*2)
 	for _, entry := range t.Entries {
 		var key ir.Temp
 		for j, node := range []ast.Node{entry.Key, entry.Value} {
 			var v ir.Temp
-			var k kind
 			var ok bool
 			if j == 1 && base != ir.NoTemp && readsCurrent(node) {
-				v, k, ok = bl.updateEntry(node, key, base, bk)
-				if !ok {
+				var vk kind
+				if v, vk, ok = bl.updateEntry(node, key, base, bk); !ok || vk != parts[1] {
 					return no()
 				}
-				items[j], temps[j], kinds[j] = append(items[j], node), append(temps[j], v), append(kinds[j], k)
+				values = append(values, v)
 				continue
 			}
-			if wants != nil {
-				v, k, _, ok = bl.lowerWant(node, wants[j])
-			} else {
-				v, k, _, ok = bl.lower(node)
-			}
-			if !ok {
+			if v, _, _, ok = bl.lowerWant(node, parts[j]); !ok {
 				return no()
 			}
 			if j == 0 && base != ir.NoTemp && readsCurrent(entry.Value) {
 				// The key is read by the entry's update and by the map.
-				v = bl.holdTemp(node, v, k)
+				v = bl.holdTemp(node, v, parts[0])
 				key = v
 			}
-			items[j], temps[j], kinds[j] = append(items[j], node), append(temps[j], v), append(kinds[j], k)
+			values = append(values, v)
 		}
 	}
-	var parts [2]kind
-	for j := range parts {
-		k, joined := irEmbedsJoin(kinds[j])
-		if !joined {
-			// Entries that differ by an empty collection (`{1 => [], 2 =>
-			// [1]}`) take the checked key or value type, as a list's
-			// items do.
-			k, joined = bl.literalItemsCoerced(t, mapSpreadJoin, j, items[j], temps[j], kinds[j])
-		}
-		if !joined || (j == 0 && !irMapKeyKind(k) && !bl.g.irStructEqualityKind(k) && !bl.g.irStructuralValueKind(k)) || (j == 1 && !irMapValueKind(k) && !bl.g.irStructuralValueKind(k)) ||
-			!bl.widenEmbedded(items[j], temps[j], kinds[j], k) {
-			return no()
-		}
-		parts[j] = k
-	}
-	values := make([]ir.Temp, 0, len(t.Entries)*2)
-	for i := range t.Entries {
-		values = append(values, temps[0][i], temps[1][i])
-	}
-	ok := bl.g.irMapKeyOK(parts[0])
-	if !ok {
-		return no()
-	}
-	k := bl.g.mapKind(parts[0], parts[1])
 	n := ir.NewMakeMap(bl.g.irNodePos(t), bl.f.NewTemp(), values)
 	bl.b.Append(n)
 	bl.side(n.Dst(), irScalarSide{k: k})
@@ -427,11 +395,20 @@ func (bl *irScalarBuilder) mapCallPlan(t *ast.Call, args irQualArgs, method stri
 		args.temps[2], args.kinds[2] = v, got
 	}
 	if method == "get" {
-		if _, anchored := bl.g.preludeNamed("Maybe"); !anchored {
+		if _, anchored := preludeSpecAnchor(preludeSpecNamed("Maybe")); !anchored {
 			return nil
 		}
 	}
-	result, ok := bl.g.mapResultKind(fn.result, key, val, t)
+	// The result is the call's record. A call the builder writes for no
+	// source node carries the type the checker gives it (a std interface's
+	// thunk for a held type, stdProgThunk, carries InterfaceResult's); one
+	// for a value held by its kind alone carries none, its result is the
+	// row's, and noteUnrecordedKind counts it.
+	result, ok := bl.g.recordedKind(t)
+	if !ok {
+		bl.noteUnrecordedKind("Map result", t)
+		result, ok = bl.g.mapResultKind(fn.result, key, val, t)
+	}
 	if !ok || !irRetainedValueKind(result) {
 		return nil
 	}

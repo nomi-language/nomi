@@ -1,3 +1,0 @@
-[module]
-name = "context_ffi_app"
-entry_points = ["main"]

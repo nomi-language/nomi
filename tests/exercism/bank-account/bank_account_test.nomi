@@ -78,17 +78,18 @@ test "Can handle concurrent transactions"
     (opened, transactions, balance) = bank_account.with_account(fn account ->
         opened = Account.open(account)
 
-        transactions = concurrent
-            1..=1000
-            |> Task.spawn_all(
-                fn _ ->
-                    Account.deposit(account, 1)?
-                    Account.withdraw(account, 1)
-                end,
-                max_running: 100,
-            )
-            |> Task.await_all()
-        end
+        transactions =
+            concurrent
+                1..=1000
+                |> Task.spawn_all(
+                    fn _ ->
+                        Account.deposit(account, 1)?
+                        Account.withdraw(account, 1)
+                    end,
+                    max_running: 100,
+                )
+                |> Task.await_all()
+            end
 
         (opened, transactions, Account.balance(account))
     end)

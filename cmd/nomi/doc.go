@@ -1,10 +1,10 @@
-// Command nomi is the Nomi CLI: run, check, test, build, fmt, capabilities,
+// Command nomi is the Nomi CLI: run, check, test, build, fmt, effects,
 // the module commands, `nomi tool`, `nomi types`, the debug adapter, the
 // MCP server and, with no arguments, the REPL. docs/tooling.md documents
 // its commands and flags for users. This comment says how `nomi build` and
 // the REPL are put together; build.go, build_web.go, run_web.go,
 // build_vm.go and repl_vm.go open with what each command does, and
-// capabilities_cmd.go with what `nomi capabilities` prints and writes.
+// effects_cmd.go with what `nomi effects` prints and writes.
 //
 // # nomi build
 //
@@ -14,8 +14,6 @@
 // does with the image, the runner variants without the network, the image's
 // layout and embedded files, the WebAssembly forms, the wasip1 reactor,
 // .nomic files and runners from a release are in the vmrunner package doc.
-// A program with Go bindings gets its own runner and has its image lowered
-// in its FFI wrapper (internal/ffirun package doc).
 //
 // `--web` writes a browser folder (build_web.go): the js/wasm module
 // app.wasm, nomi.js (Go's wasm_exec.js wrapped in a function, then the
@@ -26,11 +24,7 @@
 // locale (fetched by Locale.load through nomi.js), and its image's phrase
 // tables omit those locales' texts. nomi.js's load starts the worker in
 // call mode, which runs one exported function at a time on the booted
-// program. A project with Go bindings gets its own runner for a
-// WebAssembly target too; `--web`'s image, nomi.d.ts and locale files come
-// from the wrapper. A bound package that does not build for the target is
-// reported at its `gopkg` with the import chain. A Go binding carries no
-// capability class: Go's build decides.
+// program.
 //
 // `nomi run --web` (run_web.go) serves the generated files from a
 // temporary directory and the static files in place, on localhost. It polls
@@ -110,13 +104,20 @@
 // import, or the PositiveDuration a range gives `Duration.seconds(2)`),
 // each std type is spelled through its module instead, which the files that
 // keep and read the value import under an alias (replStdSpelling).
-// The front end synthesizes a Debug impl for every type in its file, so a
-// later input's Debug impl, written or derived, is a second one in the
-// program; the lowering ranks them as the coherence check does: a
-// synthesized universal Debug (ast.FuncDef.AutoSynth) yields to a derived
-// or written one (irbuild's writtenImplMembers), and once the input ran its
-// functions are redirected as a redefined impl's are. An impl in a third
-// file (neither the type's nor the caller's) is found for a std generic
+// A type with no Debug block renders by its shape, so code an earlier
+// input compiled for it calls no Debug body. A later input's written
+// `impl Debug` for the type still reaches that code: the live machine,
+// which Extend has extended, renders a value no body of a rendering owns
+// through the hand-written Debug impl it holds for the value's type
+// (vm.Machine's debugImplHook, over the table an assertion's rows read),
+// and a later derive or impl that replaces the written one is reached
+// through the redirect. A derived Debug renders as the shape does. A
+// machine no later lowering extended, as every machine outside a session
+// is, renders as the builder said. The front end synthesizes a name-only
+// Debug only for an opaque or host type, which a later input's written or
+// derived one outranks (analysis.ImplPrecedence), and once the input ran
+// its functions are redirected as a redefined impl's are. An impl in a
+// third file (neither the type's nor the caller's) is found for a std generic
 // instance by the type's declaration (irbuild's implForDecl), as
 // `Json.encode_as(r)` needs for a later input's `derive ToJson for R`.
 //

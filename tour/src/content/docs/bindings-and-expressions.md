@@ -370,17 +370,18 @@ Spec: [Locally-determined bindings and turbofish](/spec/type-relations/#locally-
 
 ```nomi-run
 fn main()
-    total = begin
-        a = 10
-        b = 20
-        a + b
-    end
+    total =
+        begin
+            a = 10
+            b = 20
+            a + b
+        end
 
     dbg total
 end
 ```
 <!-- expect
-dbg line 8: total = 30
+dbg line 9: total = 30
 -->
 
 A `begin` ... `end` block runs its lines and gives the value of its last
@@ -416,28 +417,30 @@ fn main()
     size = if x > 50 then "big" else "small"
     dbg size
 
-    label = case x
-        0 -> "zero"
-        1 -> "one"
-        _ -> "many"
-    end
+    label =
+        case x
+            0 -> "zero"
+            1 -> "one"
+            _ -> "many"
+        end
 
     dbg label
 
-    range = case
-        x < 0   -> "negative"
-        x < 10  -> "small"
-        x < 100 -> "medium"
-        _       -> "large"
-    end
+    range =
+        case
+            x < 0   -> "negative"
+            x < 10  -> "small"
+            x < 100 -> "medium"
+            _       -> "large"
+        end
 
     dbg range
 end
 ```
 <!-- expect
 dbg line 5: size = "small"
-dbg line 13: label = "many"
-dbg line 22: range = "medium"
+dbg line 14: label = "many"
+dbg line 24: range = "medium"
 -->
 
 - `if` takes a `Bool` condition. With more after `then` on its line it is

@@ -1,0 +1,166 @@
+import
+    std::embed.Files
+    std::fs.{self, Dir}
+    sqlite::internal::engine.{self, Answer, Cell, Engine, Failure, Stepped}
+    sqlite::internal::vfs
+end
+
+fn started() -> Result<(Engine, Int), Failure>
+    started_in(vfs.Place{})
+end
+
+/// An engine whose files are in `place`, with an in-memory database open.
+fn started_in(place: vfs.Place) -> Result<(Engine, Int), Failure>
+    e = engine.start(place) |> Result.map_err(fn message -> Failure{code: -1, message:, at: -1})?
+    defer on error engine.stop(e)
+    db = engine.open(e, ":memory:")?
+    Ok((e, db))
+end
+
+test "a statement's rows cross with their columns and values"
+    (e, db) = started()?
+    defer engine.stop(e)
+
+    answer = engine.exec(
+        e,
+        db,
+        "SELECT ?1 AS i, ?2 AS f, ?3 AS t, ?4 AS b, ?5 AS n",
+        [
+            .Integer(-9_223_372_036_854_775_808),
+            .Real(0.5),
+            .Text("héllo"),
+            .Blob(Bytes.from_list([0, 255])),
+            .Null,
+        ],
+    )?
+
+    assert answer.columns.names == ["i", "f", "t", "b", "n"]
+
+    assert answer.rows == [
+        [
+            Cell.Integer(-9_223_372_036_854_775_808),
+            Cell.Real(0.5),
+            Cell.Text("héllo"),
+            Cell.Blob(Bytes.from_list([0, 255])),
+            Cell.Null,
+        ],
+    ]
+end
+
+test "statements run in turn, and the last one's rows are the answer"
+    (e, db) = started()?
+    defer engine.stop(e)
+
+    answer = engine.exec(
+        e,
+        db,
+        "CREATE TABLE t (n INTEGER DECIMAL); INSERT INTO t VALUES (1), (2); SELECT n FROM t",
+        [],
+    )?
+
+    assert answer.columns.types == ["INTEGER DECIMAL"]
+    assert answer.rows == [[Cell.Integer(1)], [Cell.Integer(2)]]
+    assert engine.exec(e, db, "UPDATE t SET n = n + 1", []) is Ok(Answer{changed: 2})
+end
+
+test "a failure is SQLite's code, message and byte"
+    (e, db) = started()?
+    defer engine.stop(e)
+
+    assert engine.exec(e, db, "CREATE TABLE t (n);\nSELECT nope FROM t", [])
+        == Err(Failure{code: 1, message: "no such column: nope", at: 27})
+end
+
+test "a statement is stepped a few rows at a time"
+    (e, db) = started()?
+    defer engine.stop(e)
+
+    prepared = engine.prepare(
+        e,
+        db,
+        "WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n LIMIT 5) SELECT i FROM n",
+        [],
+    )?
+
+    defer engine.finalize(e, prepared.handle)
+    first = engine.step(e, prepared.handle, 3, 1)?
+
+    assert first == Stepped{
+        rows:  [[.Integer(1)], [.Integer(2)], [.Integer(3)]],
+        ended: False,
+    }
+
+    rest = engine.step(e, prepared.handle, 3, 1)?
+
+    assert rest == Stepped{
+        rows:  [[.Integer(4)], [.Integer(5)]],
+        ended: True,
+    }
+end
+
+test "a file database is written through the file layer and read back"
+    dir = fs.make_temp_dir()?
+    defer fs.remove_all_quietly(dir)
+    d = fs.open_dir(dir)?
+    defer Dir.close(d)
+    (e, db) = started_in(vfs.Place{dir: Some(d)})?
+    defer engine.stop(e)
+    other = engine.open(e, "x.db")?
+    _ = engine.exec(e, other, "CREATE TABLE t (n); INSERT INTO t VALUES (42)", [])?
+    assert engine.close(e, other) == 0
+    assert engine.close(e, db) == 0
+    assert (fs.metadata("${dir}/x.db")?).size > 0
+
+    (again, db2) = started_in(vfs.Place{dir: Some(d)})?
+    defer engine.stop(again)
+    reopened = engine.open(again, "x.db")?
+    assert (engine.exec(again, reopened, "SELECT n FROM t", [])?).rows == [[Cell.Integer(42)]]
+    assert engine.close(again, reopened) == 0
+    assert engine.close(again, db2) == 0
+end
+
+embed recorded `engine/sqlite3.wasm.sha256`
+
+// engine/build.sh records the SHA-256 of the module it builds; the module
+// committed is the one it built.
+test "the embedded module is the one engine/build.sh recorded"
+    line = Files.read_text(recorded, "engine/sqlite3.wasm.sha256")!
+
+    assert Some(Files.sum(engine.sqlite_wasm, "engine/sqlite3.wasm")!)
+        == List.first(String.split(line, " "))
+end
+
+// The options build.sh compiles SQLite with.
+test "SQLite is compiled with what the driver needs"
+    (e, db) = started()?
+    defer engine.stop(e)
+    answer = engine.exec(e, db, "SELECT compile_options FROM pragma_compile_options", [])?
+
+    options =
+        answer.rows
+        |> Iter.flat_map(fn row ->
+            case row
+                [.Text(option)] -> [option]
+                _               -> []
+            end
+        end)
+        |> Iter.to_set()
+
+    wanted = [
+        "ENABLE_COLUMN_METADATA",
+        "ENABLE_FTS5",
+        "ENABLE_MATH_FUNCTIONS",
+        "ENABLE_RTREE",
+        "ENABLE_STAT4",
+        "THREADSAFE=0",
+    ]
+
+    assert wanted |> Iter.reject(&Set.contains(options, &1)) |> Iter.to_list() == []
+
+    assert (engine.exec(
+        e,
+        db,
+        "SELECT json_extract('{\"a\": [1, 2]}', '$.a[1]') AS j, sqrt(16.0) AS r",
+        [],
+    )?).rows == [[Cell.Integer(2), Cell.Real(4.0)]]
+end

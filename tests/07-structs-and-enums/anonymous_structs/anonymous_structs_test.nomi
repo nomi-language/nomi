@@ -20,10 +20,11 @@ test "anonymous structs destructure and match by field name"
     {x:, y:} = point
     {x: a, y: b} = point
 
-    label = case point
-        {x: 10, y:} -> "x is ten, y is ${y}"
-        _           -> "other"
-    end
+    label =
+        case point
+            {x: 10, y:} -> "x is ten, y is ${y}"
+            _           -> "other"
+        end
 
     assert x + y == 30
     assert a + b == 30

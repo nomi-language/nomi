@@ -175,12 +175,18 @@ type VariantSpec struct {
 	Name   string
 	Shape  VariantShape
 	Fields []FieldSpec
+	// Spread says a positional payload is written as a tuple of its parts
+	// (`Node(Tree, Tree)`), which renders as those parts: `Node(Leaf,
+	// Leaf)`, where a payload of one tuple type renders as the tuple,
+	// `Some((1, 2))`.
+	Spread bool
 }
 
 // VariantDesc is one variant of an enum descriptor.
 type VariantDesc struct {
-	Name  string
-	Shape VariantShape
+	Name   string
+	Shape  VariantShape
+	Spread bool // see VariantSpec.Spread
 	Layout
 	bare *Record // the shared value of a payload-free variant
 }
@@ -206,7 +212,11 @@ type TypeDesc struct {
 	Kind     RecordKind
 	Layout                 // struct, anonymous record, tuple, distinct
 	Variants []VariantDesc // enum
-	marker   *Record       // the shared value of a zero-sized distinct
+	// Spread says a distinct's inner type is written as a tuple of its
+	// parts (`type Coord (Int, Int)`), which renders as those parts:
+	// `Coord(3, 4)`.
+	Spread bool
+	marker *Record // the shared value of a zero-sized distinct
 }
 
 // NewStructDesc describes a named struct with fields in declaration order.
@@ -262,7 +272,7 @@ func NewEnumDesc(name string, variants []VariantSpec) *TypeDesc {
 					name, v.Name, shapeName(v.Shape), len(fields)))
 			}
 		}
-		d.Variants[i] = VariantDesc{Name: v.Name, Shape: v.Shape, Layout: newLayout(fields)}
+		d.Variants[i] = VariantDesc{Name: v.Name, Shape: v.Shape, Spread: v.Spread && v.Shape == VariantPositional, Layout: newLayout(fields)}
 	}
 	for i := range d.Variants {
 		if d.Variants[i].Shape == VariantBare {

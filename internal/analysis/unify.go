@@ -645,6 +645,12 @@ func unifyInterfaceAgainstConcrete(m unifyMode, iface *InterfaceType, concrete T
 		}
 		return fmt.Errorf("%s does not implement %s", concrete, iface)
 	}
+	// Every type implements Debug (spec §12 *Display and Debug*), with a
+	// block of it or by its shape, so a value of any type enters a `Debug`
+	// position, as it meets a `where T: Debug` bound (typeImplementsInterface).
+	if isStdType(iface, stdDebugType) {
+		return nil
+	}
 	// A type parameter conforms through its bounds: inside `fn f<T>(v: T)
 	// where T: Display`, `v` enters a `Display` position, and every type
 	// argument a caller passes implements it (spec §12 *Bounds and dispatch
@@ -654,8 +660,8 @@ func unifyInterfaceAgainstConcrete(m unifyMode, iface *InterfaceType, concrete T
 	}
 	// A tuple, an anonymous struct or a function has no impls of its own
 	// (structural_bounds.go).
-	if implements, decided := structuralConformance(concrete, iface, func(p Type) bool {
-		return containsTypeVar(p) || partMeetsInterfaceValue(p, iface, impls, implTypeArgs)
+	if implements, decided := structuralConformance(concrete, iface, func(p Type, need *InterfaceType) bool {
+		return containsTypeVar(p) || partMeetsInterfaceValue(p, need, impls, implTypeArgs)
 	}); decided {
 		if implements {
 			return nil
@@ -825,6 +831,11 @@ func implReceiverMatchesSeen(info *ImplTypeArgs, concrete Type, impls []ImplTabl
 	}
 	for tp, boundConcrete := range subs {
 		for _, bound := range tp.Bounds {
+			if interfaceReadsSubtype(bound) && ReadsSubtype([]*InterfaceType{bound}, boundConcrete) && !blockReadsSubtype(info, bound) {
+				// A block lowered once for its receiver's kind would read
+				// the subtype as its base (subtype_reads.go).
+				return false
+			}
 			if !typeSatisfiesInterfaceForImplMatch(boundConcrete, bound, impls, implTypeArgs, seen) {
 				return false
 			}
@@ -838,7 +849,11 @@ func typeSatisfiesInterfaceForImplMatch(concrete Type, iface *InterfaceType, imp
 		return true
 	}
 	if dt := refinementOf(concrete); dt != nil && dt.Inner != nil {
-		// A refinement has its parent's impls (refinement.go).
+		// A refinement has its parent's impls, save one that makes a
+		// value of its type (subtype_impls.go).
+		if subtypeLacksImpl(dt, iface) {
+			return false
+		}
 		return typeSatisfiesInterfaceForImplMatch(DistinctInner(dt), iface, impls, implTypeArgs, seen)
 	}
 	if tp, ok := concrete.(*TypeParam_); ok {
@@ -850,10 +865,13 @@ func typeSatisfiesInterfaceForImplMatch(concrete Type, iface *InterfaceType, imp
 		return false
 	}
 	if concreteIface, ok := concrete.(*InterfaceType); ok {
-		// An interface value satisfies its own interface, and Equatable and
-		// Hashable whatever it holds (existentialSatisfies).
-		return sameNominalIdentity(concreteIface.Origin, concreteIface.Name, iface.Origin, iface.Name) ||
-			!concreteIface.DefaultSelf && iface.Name != "Debug" && existentialSatisfies(concreteIface, iface.Name, iface.Origin)
+		// A default's `self` meets its own interface. An interface value
+		// meets a bound by the one rule for an interface type at a bound
+		// (existentialMeets).
+		if concreteIface.DefaultSelf || iface.Name == "Debug" {
+			return sameNominalIdentity(concreteIface.Origin, concreteIface.Name, iface.Origin, iface.Name)
+		}
+		return existentialMeets(concreteIface, iface)
 	}
 	if iface.Name == "Struct" {
 		return isStructShaped(concrete)
@@ -879,8 +897,8 @@ func typeSatisfiesInterfaceForImplMatch(concrete Type, iface *InterfaceType, imp
 			return implements
 		}
 	}
-	if implements, decided := structuralConformance(concrete, iface, func(p Type) bool {
-		return typeSatisfiesInterfaceForImplMatch(p, iface, impls, implTypeArgs, seen)
+	if implements, decided := structuralConformance(concrete, iface, func(p Type, need *InterfaceType) bool {
+		return typeSatisfiesInterfaceForImplMatch(p, need, impls, implTypeArgs, seen)
 	}); decided {
 		return implements
 	}
@@ -1232,7 +1250,7 @@ func substituteWithNominals(t Type, subs map[*TypeParam_]Type, visiting map[*Typ
 			if dt != v.DataType || emb != v.Embedded || !fieldsSamePointers(fields, v.Fields) {
 				changed = true
 			}
-			variants[i] = VariantDef{Name: v.Name, Kind: v.Kind, DataType: dt, Fields: fields, Embedded: emb}
+			variants[i] = VariantDef{Name: v.Name, Kind: v.Kind, DataType: dt, Fields: fields, Embedded: emb, WrittenAsParts: v.WrittenAsParts}
 		}
 		if !changed {
 			return t
@@ -1365,6 +1383,7 @@ func substituteWithNominals(t Type, subs map[*TypeParam_]Type, visiting map[*Typ
 			Origin:           t.Origin,
 			Name:             t.Name,
 			Inner:            t.Inner,
+			WrittenAsParts:   t.WrittenAsParts,
 			Rule:             t.Rule,
 			MoreParents:      t.MoreParents,
 			Subtype:          t.Subtype,
@@ -1466,10 +1485,7 @@ func isBoolVariantVsBool(a, b Type) bool {
 	if a != TypeTrue && a != TypeFalse {
 		return false
 	}
-	if bt, ok := b.(*EnumType); ok && bt.Name == "Bool" {
-		return true
-	}
-	return false
+	return isStdType(b, stdBoolType)
 }
 
 func isBoolVariantPair(a, b Type) bool {

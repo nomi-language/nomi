@@ -121,6 +121,7 @@ var vectorFuncs = map[string]vectorFn{
 	"set":       {vecs: 1, rest: []string{"int", "elem"}, result: "maybeVector"},
 	"concat":    {vecs: 2, result: "vector"},
 	"next_item": {vecs: 1, result: "nextItem"},
+	"slice":     {vecs: 1, rest: []string{"int", "int"}, result: "vector"},
 
 	"equal":     {vecs: 2, result: "bool"},
 	"compare":   {vecs: 2, result: "ordering"},
@@ -167,7 +168,8 @@ func vectorElem(k kind) (kind, bool) {
 
 // --- the call arm ------------------------------------------------------------
 
-// vectorResultKind is the kind a row's result string names.
+// vectorResultKind is the kind a row's result string names, for a Vector
+// function's call with no record (vectorCallPlan).
 func (g *gen) vectorResultKind(tag string, vk, elem kind, at ast.Node) (kind, bool) {
 	switch tag {
 	case "vector":

@@ -40,8 +40,12 @@ fn loud() -> Int
     1
 end
 
+fn doubled() -> String
+    String.repeat("ab", 2)
+end
+
 fn main()
-    io.print("${answer()} ${forever()} ${endless()} ${loud()}")
+    io.print("${answer()} ${forever()} ${endless()} ${loud()} ${doubled()}")
 end
 `
 
@@ -106,5 +110,23 @@ func TestEvaluate_RefusesAFunctionWithEffects(t *testing.T) {
 	}
 	if out.Len() != 0 {
 		t.Errorf("the refused function ran: %q", out.String())
+	}
+}
+
+// A function that calls one whose cost grows with its argument is refused
+// as unbounded, not as having effects: the limits cannot stop one call
+// into Go.
+func TestEvaluate_RefusesAFunctionWhoseCostIsUnbounded(t *testing.T) {
+	_, err := evaluateProgram(t).Evaluate(context.Background(), "doubled", EvalLimits{Steps: 10_000})
+	var unbounded *Unbounded
+	if !errors.As(err, &unbounded) {
+		t.Fatalf("a function that repeats a string answered %v, want *Unbounded", err)
+	}
+	var effectful *Effectful
+	if errors.As(err, &effectful) {
+		t.Errorf("a function that repeats a string answered %v, an *Effectful", err)
+	}
+	if want := []string{"doubled calls strings.String.repeat"}; strings.Join(unbounded.Calls, "|") != strings.Join(want, "|") {
+		t.Errorf("calls = %q, want %q", unbounded.Calls, want)
 	}
 }

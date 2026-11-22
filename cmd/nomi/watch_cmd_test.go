@@ -168,7 +168,7 @@ func startWatch(t *testing.T, body func(ctx context.Context) error) context.Cont
 }
 
 func TestRunWatch_RunsAgainOnEveryChange(t *testing.T) {
-	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
+	t.Setenv("NOMI_RUNNER_CACHE_ROOT", t.TempDir())
 	dir := t.TempDir()
 	app := filepath.Join(dir, "app.nomi")
 	lib := filepath.Join(dir, "lib.nomi")
@@ -238,7 +238,7 @@ func TestRunWatch_RefusesWhatItCannotWatch(t *testing.T) {
 }
 
 func TestTestWatch_RunsTheTestsAgainOnEveryChange(t *testing.T) {
-	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
+	t.Setenv("NOMI_RUNNER_CACHE_ROOT", t.TempDir())
 	dir := t.TempDir()
 	lib := filepath.Join(dir, "lib.nomi")
 	writeSource(t, lib, "pub fn double(n: Int) -> Int\n  n + 1\nend\n")
@@ -266,7 +266,7 @@ func TestRunWatch_CtrlCExitsWithTheSignalsStatus(t *testing.T) {
 	app := filepath.Join(dir, "app.nomi")
 	writeSource(t, app, "import std::io\n\nfn spin(n: Int) -> Int\n  spin(n + 1)\nend\n\nfn main()\n  io.print(\"spinning\")\n  io.print(spin(0))\nend\n")
 	cmd := exec.Command(nomiBin, "run", "--watch", app)
-	cmd.Env = append(os.Environ(), "NOMI_FFIRUN_CACHE_ROOT="+t.TempDir())
+	cmd.Env = append(os.Environ(), "NOMI_RUNNER_CACHE_ROOT="+t.TempDir())
 	var out watchOutput
 	cmd.Stdout, cmd.Stderr = &out, &out
 	if err := cmd.Start(); err != nil {

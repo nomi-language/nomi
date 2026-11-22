@@ -18,7 +18,7 @@ the shop's schema.
 | `main.nomi` | The program the tour's Databases chapter runs: it adds a user, places an order, marks it paid, reads the user back and prints each user's order count, on an in-memory database. |
 | `shop_test.nomi` | The tests. |
 
-```
+```sh
 nomi tool sqlkit generate --check   # the generated files match the SQL
 nomi test .
 nomi run main.nomi
@@ -30,5 +30,6 @@ revenue report declares its sum's type with
 `CAST(sum(o.total) AS DECIMAL(12, 2))` so it does too. See the
 [driver's notes on decimals](../../sqlite/README.md#decimals).
 
-The module requires `sqlite` and `sqlkit` and replaces them with the
-sibling directories, so it runs from a checkout of this repository.
+The module names `sqlite`, `sqlkit`, `migrate` and `postgres` with a
+`dir` entry for each sibling directory, so it runs from a checkout of
+this repository.

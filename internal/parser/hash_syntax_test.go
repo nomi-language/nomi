@@ -237,7 +237,6 @@ func TestReturnArrow(t *testing.T) {
 	}
 
 	parse(t, "pub host fn now() -> Int")
-	parse(t, "fn up(s: String) -> String go strings.ToUpper")
 	parse(t, "export fn add(a: Int, b: Int) -> Int\n    a + b\nend")
 }
 

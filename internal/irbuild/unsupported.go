@@ -249,7 +249,6 @@ var constructNames = map[string]string{
 	"DotVariant":    "dot variant",
 	"EnumDef":       "enum declaration",
 	"ExternFunc":    "host fn declaration",
-	"ExternPackage": "go import",
 	"ExternType":    "host type declaration",
 	"FieldAccess":   "field access",
 	"FieldAccessor": "field accessor",

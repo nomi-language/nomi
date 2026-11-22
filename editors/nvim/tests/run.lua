@@ -842,6 +842,18 @@ test('nomi-lsp attaches to a module\'s nomi.toml and catalogs and to no other TO
   eq(root_of(shop .. '/cart.nomi', 'nomi'), shop, 'a Nomi file\'s root')
 end)
 
+test('the effect modifier is bold, and a user\'s own style wins', function()
+  vim.g.nomi_lsp = false
+  vim.g.loaded_nomi = nil
+  dofile(plugin .. '/plugin/nomi.lua')
+  local group = '@lsp.mod.effect.nomi'
+  eq(vim.api.nvim_get_hl(0, { name = group }).bold, true, 'the plugin\'s ' .. group .. ' bold')
+  vim.api.nvim_set_hl(0, group, { underline = true })
+  vim.cmd('doautocmd ColorScheme')
+  local own = vim.api.nvim_get_hl(0, { name = group })
+  eq({ own.underline, own.bold }, { true, nil }, 'a user\'s ' .. group .. ' after a ColorScheme event')
+end)
+
 vim.fn.delete(dir, 'rf')
 if failures > 0 then
   io.stderr:write(failures .. ' failed\n')

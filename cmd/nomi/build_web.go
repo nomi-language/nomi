@@ -7,7 +7,7 @@ package main
 //	            custom section, its memory capped at 1 GiB
 //	nomi.js     one ES module: Go's JS support file wasm_exec.js, from the
 //	            toolchain that built the runner (cached beside it:
-//	            ffirun.WasmExec), unchanged inside a function, then
+//	            runners.WasmExec), unchanged inside a function, then
 //	            web/nomi.js, the loader with its run and load API, which
 //	            also starts itself as the module worker each run executes in
 //	            (webGlue)
@@ -29,11 +29,7 @@ package main
 //
 // The runner is the one `--target js/wasm` writes, so it carries the tour's
 // policy: files in memory only (internal/stdio/default_js.go) and call depth
-// capped at 1,000 (rt/calldepth_js.go). A project with Go bindings gets the
-// runner a native build of it gets, built for js/wasm: the generated adapters
-// and the bound Go packages linked beside the VM (ffirun.ProjectRunner), and
-// the image lowered in its wrapper (ffirun.BuildImageVM). A bound package
-// that does not build for js/wasm is an error at its `gopkg`.
+// capped at 1,000 (rt/calldepth_js.go).
 //
 // A build over a folder an earlier build wrote removes the files earlier
 // builds generated and this one does not (webRetired), but only those whose
@@ -54,8 +50,8 @@ import (
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/analysis"
-	"github.com/nomi-language/nomi/internal/ffirun"
 	"github.com/nomi-language/nomi/internal/localefiles"
+	"github.com/nomi-language/nomi/internal/runners"
 	"github.com/nomi-language/nomi/internal/wasmmem"
 	"github.com/nomi-language/nomi/vmhost"
 	"github.com/nomi-language/nomi/vmrunner"
@@ -295,7 +291,7 @@ func writeWebFolder(b buildArgs, runner string, image []byte, sources []vmhost.E
 	if err != nil {
 		return fmt.Errorf("nomi build: %w", err)
 	}
-	wasmExecPath, err := ffirun.WasmExec(runner)
+	wasmExecPath, err := runners.WasmExec(runner)
 	if err != nil {
 		return fmt.Errorf("nomi build: %w", err)
 	}

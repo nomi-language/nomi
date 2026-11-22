@@ -10,40 +10,11 @@ import (
 	"github.com/nomi-language/nomi/internal/stdlibbindings"
 )
 
-func (bl *irScalarBuilder) stdMethodCallPlan(t *ast.Call, args irQualArgs, owner, method string) *irQualPlan {
-	if _, local := bl.g.types[owner]; local && bl.g.stdModule != "" {
-		// Inside a stdlib module its own types are local, which the method
-		// reference resolver reads as a user shadow. So the call picks from
-		// this module's sibling index by operand kinds.
-		if !args.ok {
-			return nil
-		}
-		f := stdPick(bl.g.std.byType[owner+"."+method], args.kinds)
-		if f != nil && bl.g.leavesDefaults(t, len(f.params)) {
-			return bl.stdSiblingShortPlan(t, args, f)
-		}
-		return bl.stdFuncPlan(t, args, f)
-	}
-	f, why, _, handled := bl.g.stdMethodRefTarget(owner, method)
-	if handled && why == "function reference with a defaulted parameter" {
-		// A call that supplies every argument needs no default, which is the
-		// only thing a function reference cannot carry.
-		f, why = bl.g.stdFullArityTarget(owner, method, len(t.Args)), ""
-	}
-	if !handled || why != "" || f == nil {
-		// An overloaded spelling (`NaiveDateTime.add` over eleven operand
-		// types) names no single function to reference, and a call selects
-		// the one its operand kinds fit, as the operator route does.
-		// A gen built without the stdlib's index (std nil) has no
-		// overloads to pick from.
-		if _, local := bl.g.types[owner]; !local && args.ok && bl.g.std != nil && len(bl.g.std.byType[owner+"."+method]) > 1 {
-			if pick := stdPick(bl.g.std.byType[owner+"."+method], args.kinds); pick != nil {
-				return bl.stdFuncPlan(t, args, pick)
-			}
-		}
-		return nil
-	}
-	return bl.stdFuncPlan(t, args, f)
+// recordedStdFunc is the std function the call t's record names
+// (analysis.Callee.Std), read at the instance being built (calleeAt), or
+// nil when it names none the std index holds (stdFuncByID).
+func (bl *irScalarBuilder) recordedStdFunc(t *ast.Call) *stdFunc {
+	return bl.g.stdFuncByID(bl.g.calleeAt(t).Std)
 }
 
 // stdSiblingShortPlan plans `Type.method(args)` written inside the std
@@ -267,22 +238,3 @@ var stdlibExternRows = sync.OnceValue(func() map[string]stdlibbindings.Binding {
 	}
 	return rows
 })
-
-// stdFullArityTarget is the one lowerable stdlib function spelled
-// owner.member whose declared arity is n, for a call that writes every
-// argument.
-func (g *gen) stdFullArityTarget(owner, member string, n int) *stdFunc {
-	var only *stdFunc
-	for _, f := range g.std.byType[owner+"."+member] {
-		if f.lowerable() {
-			if only != nil {
-				return nil
-			}
-			only = f
-		}
-	}
-	if only == nil || len(only.params) != n {
-		return nil
-	}
-	return only
-}

@@ -9,10 +9,11 @@ package irbuild
 // as `assert`'s are, and one `ir.Assert` with `ir.KeywordCheck` judges it and
 // writes the `Result` to its destination.
 //
-// The callee is written `testing.check`, and this confirms the qualifier
-// resolves to std/testing, or it is a bare name a selective import bound to
-// std/testing's `check` (`import std::testing.{check as verify}`). Either way
-// it takes one positional argument.
+// The call is the one the checker recorded as std/testing's `check`
+// (isTestingCheck): `q.check(e)` with q the module std/testing by any name
+// (`testing`, or `t` after `import std::testing as t`), or a name a
+// selective import bound to the function (`import std::testing.{check as
+// verify}`). Either way it takes one positional argument.
 //
 // The subject may be a Bool, a `Maybe`/`Result` (judged by shape in the VM)
 // or a retained `Assertable`, whose `failure` impl the builder calls and hands
@@ -33,12 +34,14 @@ package irbuild
 // delivery is a value, so no boundary decides it.
 
 import (
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
-// testingCheckCall reports whether t is `testing.check(e)` with the
-// qualifier resolving to std/testing.
+// testingCheckCall reports whether t is a call of std/testing's `check`
+// with one positional argument, as the checker recorded its callee
+// (isTestingCheck).
 func (bl *irScalarBuilder) testingCheckCall(t *ast.Call) bool {
 	if len(t.Args) != 1 || len(t.TypeArgs) != 0 {
 		return false
@@ -46,23 +49,23 @@ func (bl *irScalarBuilder) testingCheckCall(t *ast.Call) bool {
 	if _, named := t.Args[0].(*ast.NamedArg); named {
 		return false
 	}
-	if _, bare := t.Func.(*ast.Ident); bare {
-		// `check(e)` after `import std::testing.check`, aliased or not.
-		return bl.g.calleeOf(t).Std == testingCheck
+	return isTestingCheck(bl.g.calleeOf(t))
+}
+
+// isTestingCheck reports whether c, the callee the checker recorded for a
+// call, is std/testing's `check`: the function itself, which a selective
+// import's name calls (`check(e)`, `verify(e)` after `import
+// std::testing.{check as verify}`), or the keyword form the checker types
+// `q.check(e)` as where q is the module std/testing, whose reference is
+// the `check` assertion (checkTestingCheckCall). A binding named `testing`
+// whose `check` field the call reads is a value callee, and a project
+// module named `testing` is its own, and neither.
+func isTestingCheck(c analysis.Callee) bool {
+	if c.Std == testingCheck {
+		return true
 	}
-	if !isTestingCheckCallee(t.Func) {
-		return false
-	}
-	owner, _ := ast.QualifierIdent(t.Func.(*ast.FieldAccess).Object)
-	if std, ok := bl.g.stdFileQualifier(owner); ok {
-		return std == "testing"
-	}
-	// std/testing naming itself from a source checked on its own (a tour
-	// reference editor, vmhost.StdlibReference): the qualifier resolves to
-	// this file's own scope, which the stdlib's module scopes list only as
-	// the cached module's.
-	return bl.g.stdModule == "testing" && bl.g.fa != nil &&
-		bl.g.qualifierScope(owner) == bl.g.fa.ModuleScope
+	return c.Kind == analysis.CalleeKeyword && c.Ref != nil && c.Ref.Kind == analysis.SymbolAssertion &&
+		c.Ref.Assertion != nil && c.Ref.Assertion.Keyword == "check"
 }
 
 // testingCheck lowers `testing.check(e)`.

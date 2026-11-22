@@ -1,2 +1,10 @@
 [module]
 name = "markdown"
+path = "github.com/nomi-language/nomi/lib/markdown"
+
+[effects.self]
+std = []
+std_in_tests = ["std::instant"]
+
+[effects.deps]
+std = []

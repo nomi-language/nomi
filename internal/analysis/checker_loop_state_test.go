@@ -223,10 +223,9 @@ end`
 	expectClean(t, errs)
 }
 
-// Aliased Iter callbacks go through the same symbol-resolution path
-// as selective imports: `import std::iter.Iter as It` + `It.map(...)` never
-// matches the syntactic "Iter.map" key in iterCallbackSlots, so break/continue
-// legality rests on discovering the imported owner scope through the alias.
+// An aliased Iter's callbacks are std's: `import std::iter.Iter as It` +
+// `It.map(...)` records std's `Iter.map` as the call's callee, which is what
+// iterCallbackSlots is keyed by.
 func TestIterCallback_ImportAliasWithBreak(t *testing.T) {
 	src := `import std::iter.Iter as It
 fn main() -> Unit

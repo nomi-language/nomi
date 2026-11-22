@@ -24,8 +24,8 @@
 //
 // # Rechecks
 //
-// [DocumentManager.Recheck] takes a checked program and an edit and returns
-// what a full check builds from the edited texts.
+// [DocumentManager.RecheckEdits] takes a checked program and edits to its
+// files and returns what a full check builds from the edited texts.
 //
 // An edit that leaves each edited file's interface fingerprint unchanged
 // rebuilds only those files' bodies, in place. A `once`'s value counts as a
@@ -98,24 +98,39 @@
 // The language server tells this package the text of each nomi.toml an
 // editor has open (SetEditedManifest), and every reader of a module's
 // nomi.toml reads it through ReadManifest: LoadManifest, so the front end
-// and the document manager, and vmhost's checks of the [capabilities]
+// and the document manager, and vmhost's checks of the [effects]
 // lists. A program the editor shows is checked and lowered as `nomi check`
 // checks it once the file is saved. Nothing else sets one, so the command
 // line reads the disk.
 //
 // ParseManifestIn answers a problem it can place as a *ManifestError, with
 // its line; ManifestErrorAt places any of its errors, the TOML decoder's
-// among them, as the language server shows them in the file.
+// among them, as the language server shows them in the file. A build
+// whose nomi.toml has a problem reports it once, on the entry, and checks
+// the program as one with no manifest: the walk of its imports still
+// runs (discoverProjectStd), so std's modules come from the shared
+// stdlib and report nothing.
 //
-// One writer edits the [capabilities.self], [capabilities.deps] and
-// [capabilities.deps.modules] tables of a nomi.toml's text
-// (WriteCapabilityTables, over ManifestTableLayout): `nomi capabilities
-// --write`, which writes the tightest tables, and the fix of a
-// capability-not-allowed error (AllowCapabilities), which adds one name or
-// sets one flag. Both keep every line outside the three tables, and the
+// One writer edits the [effects.self], [effects.self.modules],
+// [effects.deps] and [effects.deps.modules] tables of a
+// nomi.toml's text (WriteEffectTables, over ManifestTableLayout):
+// `nomi effects --write`, which writes the tightest tables, and the
+// fix of an effect-not-allowed error (AllowEffects), which adds
+// one name. The two tables of entries (EntryLists) are
+// read, compared and written by the same code, given which table
+// (Effects.Entries, SetEntry). Both keep every line outside the four
+// tables, and the
 // comments and layout inside them, by the same rules. Which keys a table
 // holds is manifestFile's, nested tables included, and an unknown key is
 // an error that says what the table's keys hold (unknownManifestKey).
+// WriteDependencies (manifest_deps_write.go) writes the [dependencies]
+// table for `nomi add`, `remove` and `update` by the same layout rules,
+// over ManifestTableLayout, keeping every line outside it, and checks only
+// that table, so an error elsewhere in the file never blocks the edit. A
+// top-level table named by the text's own [module].name or a key of its
+// own [dependencies] is a tool's (toolTables), read from the text and not
+// from a module graph, so the edit that adds a dependency is the one that
+// makes its tool's table valid.
 //
 // # Opening from a record
 //
@@ -143,8 +158,7 @@
 // checked in its program whole.
 //
 //   - A record is written only for a program that reads no file of another
-//     module and has no Go bindings. Go-binding projects keep no program;
-//     each document is built alone (buildOpen).
+//     module.
 //   - A program that reports what only the whole check words (its impls'
 //     errors, a missing impl, a noun's or phrase's disagreement, a catalog
 //     nothing reads, any diagnostic beside an application type, a
@@ -234,7 +248,7 @@
 // server's whole lowering when it wrote the record,
 // analyzedlowering.Kept). It does so with the record's texts too, lowering
 // the entry alone, since the program that links is what the walk for the
-// outside calls an editor's hover names reads. Another document takes its
+// effect calls an editor's hover names reads. Another document takes its
 // result from the record when the record lists it
 // ([DocumentManager.StoredLoweredClean]).
 //
@@ -278,11 +292,16 @@
 // instantiated at. [VerifyElaboration] checks a checked file against that
 // invariant, reading only the checker's records (ExprTypes, TypeExprTypes,
 // ExpectedTypes, References with each reference's CallType and DispatchImpl,
-// Calls, Memberships, Operators, CallDefaults, HoleDisplays, UnwrapFailures, each TypedLiteral's Failure, Coercions, IterViews, Conversions, ImplTypeArgSets, each reference's CallInterface, the `?` markers), and returns each place a record is
+// Calls, Memberships, Operators, CallDefaults, HoleDisplays, UnwrapFailures, each TypedLiteral's Failure and Tag, Coercions, IterViews, Conversions, ImplTypeArgSets, each reference's CallInterface, the `?` markers, the type each enum and distinct type declaration builds), and returns each place a record is
 // missing or open, by construct (call, expression, implicit operation) and
 // category. Its doc comment defines "closed": no unsolved inference
 // variable at any depth and no type parameter but the enclosing
-// declaration's own. Derive-synthesized bodies and the functions a
+// declaration's own. A type the checker instantiates from a declaration
+// keeps the declaration's Origin, and a type it makes for std's `Result`
+// with no declaration in hand (a `?` operand's expected type) names
+// std/results, so no struct, enum, distinct type or interface an
+// expression's type or expected type holds is OriginUnresolved, and the
+// builder finds every declaration by identity. Derive-synthesized bodies and the functions a
 // `phrase` or `noun` expands into are reported apart, by the declaration
 // around them.
 //
@@ -302,6 +321,35 @@
 // never in the band, and each reader that walks a whole map (references,
 // rename, highlights, the completion index, a served file's stored
 // references) skips the band.
+//
+// Every type implements Debug. A struct, enum or distinct type with no
+// written or derived Debug, declared at module level or in a body, has no
+// block of it: a use of Debug's function at it, `Debug.inspect(x)` or
+// `T.inspect(x)`, is answered by its shape (noImplUse), which rt renders as
+// the literal that builds it. `T.inspect` names Debug's own function there,
+// since Debug is among the interfaces that give every declared type a
+// member of the name (universalDebugFor), and a value of any type enters a
+// `Debug` interface value (unifyInterfaceAgainstConcrete), as it meets a
+// `where T: Debug` bound. An opaque type and a host type render other
+// than by their shape, by the name-only block the front end writes for
+// each with no explicit Debug (SynthesizeUniversalDebug): `<opaque T>` and
+// `T`. A type declared in a body can have no impl, and an opaque one gets
+// the name-only Debug a module-level opaque type gets.
+// The builder writes it (synthesizeBlockDebug) as it walks the declaring
+// block, in the
+// band's leftover slot (synthOriginBlock), keeps it by the declaration
+// (FileBodies.BlockDebug) and resolves it in the block's scope, where a
+// variant the block declares does not take a name the synthesized body
+// calls through (blockDebugScope); the type
+// builder types its function under the block's registry
+// (buildNestedFuncTypes) and the checker checks it there as it leaves the
+// block (enterBlock, checkBlockDebug). So its body carries the records a
+// module-level type's synthesized Debug carries, and the passes over a
+// file's calls and VerifyElaboration cover it (blockDebugImpls). A use of
+// an opaque block-local type's Debug names that body, as a module-level
+// type's names its block: it is no block of the impl index, and
+// implBlockFor reads it from the declaring file's BlockDebug
+// (blockImplOf).
 //
 // An impl block whose header writes no type arguments for a generic
 // interface (`impl Gets for Box`) has a record of the ones it implements
@@ -362,16 +410,52 @@
 // arguments do not share one. A module checked from its text reaches the
 // shared parse of itself too (an attached test's `import std::hex` in
 // std/hex), which its program keeps beside the edited one for this
-// (Program.reachedFiles).
+// (Program.reachedFiles). A check that treats a std function specially
+// reads this identity, never the name a call is written with, so an
+// alias of the owner (`import std::iter.{Iter as Seq}`) reaches the rule
+// and another type imported under the owner's name (`import
+// std::random.{Generator as Iter}`) does not: which callbacks may `break`
+// and `continue` (iterCallbackSlots, read from the record), and, while the
+// call is still being checked, a stateless `Iter.loop`, an `Iter.loop` that
+// never returns, `Iter.is_empty`'s narrowing and the element ranges a
+// callback takes (stdFuncNamed, the declaration behind the reference at the
+// callee's name, which needs the program's std files:
+// Program.reachedFiles). A loop that never returns is recorded on the
+// call's record (ResolvedCall.NeverReturns), which a block's type, the
+// unreachable-code rule and the IR builder read; so the unreachable-code
+// rule runs in the check, once the file's bodies are checked, and not as
+// the file is built. The checks that recognize a std function by the
+// symbol a later pass resolved read StdFuncOf of its declaration too:
+// `Task.spawn` and `Task.spawn_all` (structured concurrency),
+// `Supervisor.new` (boot scope) and the std functions an endless
+// iterator reaches (infinite_iter.go). stdFuncNamed answers for an
+// interface's function as for a `fn`: a `Struct.update` patch's update
+// positions are `Struct.update`'s by its declaration, and the release
+// rules' `Release.release` and `Commit.commit` are theirs. StdRuleFuncs
+// lists the functions those rules name, and TestStdRuleFuncsAreDeclared
+// holds each to one std declares. A rule keyed on the std type a call is
+// qualified with reads the declaration the qualifier names (qualifierOf),
+// not its spelling: the value ranges of Int's, Decimal's and Duration's
+// functions and of the collections' counts (callRange), and the hints for
+// `Route.to` and `Set.add`. A rule about a checked type asks whether it is
+// std's by its nominal identity (isStdType: origin and name, or a type the
+// checker builds for it with no declaration at hand), never by its name
+// alone: a `?` over a Result, a Maybe's payload, a Bool, a Vector, Iter,
+// Set, Range, `Localize` or `Fragment`. A prelude type's name is reserved
+// in a program's files, but `Localize` is not: a program's own interface
+// of that name is no phrase placeholder's. StdRuleTypes lists the types
+// both kinds of rule name, and TestStdRuleTypesAreDeclared holds each to
+// one std declares.
 // A call of an interface's function whose receiver's type is known where
 // it is checked names the impl block it reaches (Callee.Impl,
 // impl_reached.go) and the function that runs there: the block's `fn`, a
 // derive's synthesized one, its `host fn`, or the interface's default the
 // block inherits. The block is the one of the receiver's type and the
-// interface (FileAnalysis.ImplBlocks, each block with its resolved
-// receiver and its interface's origin, so a program's `Error` and
+// interface (FileAnalysis.ImplBlocks, each block's one record of the
+// interface it implements by identity, its resolved receiver and its
+// interface type arguments, ImplBlockTypeArgs, so a program's `Error` and
 // std/json's, or a file's `DateParts` and std/calendar's, are told apart;
-// the universal or derived Debug block of a std file that does not import
+// the name-only or derived Debug block of a std file that does not import
 // Debug is registered under std's own, compilerKnownSynthTypeOf),
 // chosen among several by the receiver's type arguments, or the one the
 // checker selected (impl_selection.go). Every call of an interface's
@@ -391,14 +475,20 @@
 // reaches a block, the one the
 // checker selected at the use or the one block of the interface for the
 // receiver's type, narrowed by the interface's type arguments at the
-// use (implBlockFor), whatever the receiver's shape: an Int, a String, a
-// List and a Map have std's blocks, a derived type its derived one;
+// use (implBlockFor) and by rank among the blocks found (ImplPrecedence:
+// written over derived over the name-only Debug of an opaque or host
+// type, so a REPL input's derive for an earlier input's opaque type is the
+// block a call at the type reaches, written there or at an instance),
+// whatever the receiver's
+// shape: an Int, a String, a List and a Map have std's blocks, a derived
+// type its derived one;
 // else OperatorStructural where the receiver's shape answers it (a
 // tuple, an anonymous struct, a collection with no block, a function
 // value: shapeUse) or the receiver is a declared type with no block of
 // the interface that meets it all the same (the Equatable and Hashable
-// of a type with no impl of its own, a block-local type's Debug, a
-// struct's Struct: noImplUse); OperatorDispatched on an interface value;
+// of a type with no impl of its own, the Debug of a type with no written
+// or derived one, a struct's Struct: noImplUse); OperatorDispatched on an
+// interface value;
 // and OperatorPerInstance through a type parameter or the `self` of an
 // interface default, which is the implementor and no interface value
 // (defaultSelfParam). A block is a type's when
@@ -413,8 +503,16 @@
 // interface declaration they name, so `impl a.Show for User` supplies no
 // `b.Show`. An impl header names its interface through its qualifier
 // (`impl a.Show`, `impl scale_a.Scale<Int>`) in the module it qualifies
-// it with, and the block is recorded under that declaration
-// (recordImplTypeArgsFromBlock, interfaceThrough). One rule names an
+// it with, else through its file's scope, and the block is recorded under
+// that declaration (recordImplTypeArgsFromBlock, interfaceThrough). Every
+// table that keys an impl by its interface keys it by the declaration's
+// name (implInterfaceName), never the header's spelling: after `import
+// std::resources.{Release as Freeable}`, `impl Freeable for Lock` is
+// Lock's Release, a duplicate of an `impl Release for Lock`, and its
+// identity's origin is read through the header (ImplIface). The passes
+// that run before a file has a scope (the universal Debug, a partner's
+// impls, a file's interface) read a header through the file's import
+// aliases (importedAs). One rule names an
 // interface in a diagnostic about whether a type implements it
 // (ProjectImplIndex.shownInterface): through its file (throughFile,
 // `b.Show`) where the type implements another interface of the name, else
@@ -552,10 +650,14 @@
 // literal's handler's `Result<T, E>` or a checked literal's check's
 // LiteralError (TypedLiteral.Failure), and the error a `!` over a Result
 // shows when it traps (UnwrapFailures) have the record a hole of that
-// type has, made with the holes' (recordDisplays).
+// type has, made with the holes' (recordDisplays). DisplayOf answers that
+// record for any type, which the builder asks for a value it renders by
+// Display where nothing written records one (`io.print(x)`, the error
+// `main` returns), as it asks InterfaceCallee for a call it writes.
 //
-// Each binary operator that goes through an interface, and each prefix
-// `~~~`, has a record of what it means (operator_uses.go, Operators),
+// Each binary operator that goes through an interface, each prefix
+// `~~~`, and each `dbg`, which renders its operand as `Debug.inspect`
+// does, has a record of what it means (operator_uses.go, Operators),
 // made once the file's variables are closed, by interfaceUse with the
 // impl the checker selected where it is written (a binary operator's
 // OperatorImpls record, else implMethodFor's block) as the block: the
@@ -750,8 +852,10 @@
 // the summaries of its own files (std's are left out: std imports no module
 // of the program, so no cycle through a program's `once` passes through
 // it), and each file reports the `once` bindings it declares that lie on a
-// cycle, with the shortest chain back. A program opened from its record
-// reduces the same graph from each file's OnceFacts.
+// cycle, with the shortest chain back. A summary is read as OnceFacts, keyed
+// by declaration node in a check and by DeclRef in a file's stored facts,
+// and one piece of code builds the graph from them and reports it, so a
+// program opened from its record or relinked reduces the same graph.
 //
 // The graph is precise where the checker resolved the target and silent
 // elsewhere, so the check has no false positives from dispatch: an arc is a
@@ -786,7 +890,23 @@
 // it. So that another file can read those bodies, a file's interface keeps
 // the bodies of its `impl Release` and `impl Commit` blocks (stripBodies in
 // interface.go), as it keeps interface defaults; every other body is
-// stripped.
+// stripped. What each body's call names is part of the file's interface
+// too: the inference phase that types unannotated `once` bindings
+// (OnceTable) checks the call's callee with a checker for the declaring
+// file and records the declaration it names (resourceSite,
+// FileDecls.resourceCalls), in a build from source and one from
+// interfaces alike, and the stdlib's state keeps the record. A call is the
+// type's usual release or commit when its callee names that declaration
+// (resourceKind.releases, commits), so a program's own `close` or
+// `discard` is neither. A body edit that changes what the call names
+// checks the program again (OnceTable.reinfer). A call of the protocol's
+// own function is recognized by the declaration the callee names:
+// `Release.release` and `Commit.commit` by their identity (StdFuncOf), and
+// `Writer.commit` as the impl's function, so a program's own `commit` or
+// `release` is neither. A return leaves by
+// failing when its value is std's `Err(...)` or `None` by the variant the
+// checker resolved (isFailureValue, variantAt), so `Fail(e)` under an
+// import of `Err as Fail` fails and a program enum's `Err` does not.
 //
 // collectAcquisitions walks the body for bindings whose name has a Release
 // type and whose value, without its `?`, `!` and parentheses, is an
@@ -1044,11 +1164,7 @@
 // literals and patterns, which name a variant or the type the literal's
 // ExprTypes records, a decorator's arguments, which a derive lowers to the
 // impl block it writes, and an impl item's ImplIface, which is its block's
-// Interface node. The universal Debug the builder writes for a type a
-// block declares is never checked, since no impl can name such a type;
-// [UniversalDebugTypes] gives its type expressions their types from the
-// checker's type for the declaration, and its patterns' heads their
-// variants.
+// Interface node.
 //
 // # Patterns' types
 //
@@ -1069,9 +1185,30 @@
 // its head keeps the record. A parameter's pattern is typed with the
 // declarations (paramPatternType), so that share is kept
 // (keptDecls.patternTypes) and survives a rebuild of the bodies, as
-// type expressions' records do. [VerifyElaboration] holds every pattern
-// node to a PatternTypes record and every variant-naming head to a
-// PatternVariants record, apart from the `_` arm of a `case` with no
+// type expressions' records do.
+//
+// Whether a pattern can fail is decided once. patternAlwaysMatches asks
+// the coverage matrix a `case` is checked with (uncoveredValue, Maranget's
+// usefulness check) about the one pattern, and checkPattern records the
+// answer for every pattern it checks against a known type in
+// FileAnalysis.IrrefutablePatterns: `(a, _)`, `Point{x:, y:}`, `Unit`, a
+// marker's name, `Port(n)` over a Port and `.L(n) or .R(n)` over a
+// two-variant enum always match; `80` over a Port does not, since a
+// literal over a subtype is the test it is over the base. The rules read
+// that record: a binding with no `else` must always match, and a binding
+// with one, an `if` pattern and an `is` pattern must be able to fail. A
+// parameter's pattern is held to checkParamPatternRefutable, the
+// parameter rule, which is stricter: a list pattern is refused there
+// whatever it matches. What a binding's `else` may fall back to, the
+// payload of the one variant its pattern names when the payload's own
+// pattern always matches (bindingFallbackPayload), is recorded in
+// FileAnalysis.BindingFallbacks for every binding with an `else`, nil
+// when every path must leave.
+//
+// [VerifyElaboration] holds every pattern node to a PatternTypes record
+// and an IrrefutablePatterns record, every variant-naming head to a
+// PatternVariants record, and every binding with an `else` to a
+// BindingFallbacks record, apart from the `_` arm of a `case` with no
 // subject, which matches no value; a literal pattern is a value of its own
 // type and is not held. Nothing is recorded about how a pattern is
 // lowered.
@@ -1085,10 +1222,15 @@
 // ([EncodeStdState], [DecodeStdState], state_codec.go) instead of running
 // the sweeps and forming the [StdBase] again.
 //
-// What is written is stdState: each module's [FileAnalysis], the nodes its
-// build checked and the interface nodes it was given, the base, the
-// errors, stdBootWhys' entries for the modules' functions (installing the
-// facts stores them) and bodyGenerations. Everything they reach is written,
+// What is written is stdState: the nodes each module's build checked and
+// the interface nodes it was given, then each module's [FileAnalysis], the
+// base, the errors, stdBootWhys' entries for the modules' functions (installing the
+// facts stores them) and bodyGenerations. The trees come first because a
+// symbol's node may be an element a tree holds in place (an interface's
+// function, its parameters' symbols), which the node codec reads back as
+// the element's address only after the tree (internal/ast/astcodec
+// package doc); TestStdState_ReadsBackAsTheBuild holds every function a
+// tree declares to the identity the build gives it. Everything they reach is written,
 // every field of every type, exported or not: the builders a file keeps for
 // rebuilding its bodies, the program, the scopes, symbols and types, the
 // type registries and the node-keyed maps. The encoder and decoder of each
@@ -1120,8 +1262,9 @@
 // internal/ast/astcodec in the same stream, sharing its pointer table, so a
 // map keyed by a FuncDef keys the decoded node the decoded nodes hold.
 // Strings are written once each, in a table, and a path under the
-// directory the stdlib was found in is written relative to it, so a state
-// reads back wherever a process finds the stdlib.
+// directory the stdlib's files are named under is written relative to it,
+// so a state reads back wherever a process names them ([StdFilesDir]: the
+// directory it finds the stdlib in, else the relative `std`).
 //
 // A build installs the canonical std types for the process
 // (installCanonicalStdTypes), and the state points at whichever Bool the
@@ -1201,7 +1344,7 @@
 // `try_from`: the checker resolves the generated call's owner through the
 // alias, and the IR builder calls the function by the declaration the
 // checker resolved it to, which this file may have no name for
-// (resolvedOwnerPlan).
+// (typeQualCall).
 //
 // A subtype's value is a value of the types it refines, its
 // parents: DistinctType.Inner, the first, and MoreParents, the rest of
@@ -1245,7 +1388,21 @@
 // included. Bindings are immutable, so a binding's range (bindRange)
 // holds wherever it is read, with no fixed point for loops or recursion;
 // nothing relates two bindings. An unannotated `once` takes the subtype
-// its value's range proves as its type (onceRangeType). Every other
+// its value's range proves as its type (onceRangeType). The same three
+// carry a List's, Vector's, Set's, Map's or String's holding something,
+// which one function answers of an expression (holdsSomething: a
+// non-empty type, a literal that holds something, a string literal with
+// any text among them, a read of a binding that does, and a block's tail
+// or every finishing branch of an `if` or `case`, through valueBranches
+// and finishingBranches, which exprRange shares, and callRange asks of a
+// length's or size's argument): bindRange
+// keeps it for a binding with no type written as a nonEmpty fact in
+// checker.symRanges, provenRefinement converts a value that holds
+// something where its std non-empty subtype is expected (provenNonEmpty),
+// recording the read as that subtype in ExprTypes, which is all the IR
+// builder reads, and onceRangeType gives such a `once` the subtype, so
+// it crosses to other files, interfaces and the stdlib's state as the
+// once's type. Every other
 // operation on a subtype is its base's. A type parameter bound
 // to a subtype widens the same way when a later argument is an
 // ancestor (widenToRefinementAncestor). A generic call, direct or piped,
@@ -1318,7 +1475,30 @@
 // shifts by a negative count; the VM's checks are a backstop.
 //
 // A subtype implements no interface of its own: it has its base's impls,
-// and at run time it is its base's value (irbuild erases it). So every
+// save those of an interface that makes a value of its type, whose
+// function names `self` in its result and has no default the interface
+// writes (interfaceMakesSelf; subtype_impls.go): `Parse`, `Summable`,
+// `Discrete` and the rest. The base's impl of one makes a value of the
+// base that no rule of the subtype checked, so every conformance site
+// asks subtypeLacksImpl before it reads the base's impls
+// (typeImplementsInterface, typeSatisfiesInterfaceForImplMatch,
+// implCandidates, recordConformanceRecording), and the error is
+// InheritedImplMakesBaseCode's (subtypeMakesBaseError). A reader,
+// FromJson, is the exception (subtypeReaders; subtype_reads.go): it reads
+// a subtype at its base, and the IR builder checks the value against the
+// subtype's rules by the record SubtypeReadAt answers for the call at the
+// instance's types, which names each `try_from` to call (SubtypeChecks)
+// and what a breach answers. A record read from texts asks Parse of a
+// subtype field's base (fieldDemand) and checks the field the same way.
+// An instance whose type parameter reads a subtype (ReadsSubtype) is one
+// of its own in the builder, so the check is never shared with the
+// instance at the base; a generic type's impl is one per kind, so the
+// `where` of any impl but std::json's own reads no subtype
+// (blockReadsSubtype, implReceiverMatches). A generic call
+// whose arguments solve a type parameter to a subtype under a bound of
+// such an interface is called at the base (widenPastMadeSelf), so
+// `Iter.sum(ports)` is an Int. At run time a subtype is its base's
+// value (irbuild erases it). So every
 // record the checker makes of a value's run-time shape reads a distinct
 // subtype as its base: the Iter view a source becomes (iterViewOf), a
 // spread's head (checkSpreadHeads), and whether a value enters an
@@ -1346,7 +1526,7 @@
 //     builds a subtype of that collection as the unnamed one does
 //     (shapeHeadSubtype). A literal of NonEmptyList, NonEmptyVector,
 //     NonEmptySet or NonEmptyMap themselves needs no literal parts when
-//     it writes an element or spreads a value of a non-empty type
+//     it writes an element or spreads a value that holds something
 //     (literalHoldsSomething): its shape proves the rule, so it is not
 //     recorded and no rule runs on it. Otherwise the rule is
 //     evaluated when the program is compiled (vmhost's checkRefinements
@@ -1384,4 +1564,18 @@
 //     that declares T;
 //   - an impl or function that returns T, whose body built it one of the
 //     ways above.
+//
+// For an opaque T the generated `try_from` and `unchecked` are
+// construction, refused outside T's file and its partner test as T's call
+// form is: one rule, refuseOpaqueConstruction, answers every construction
+// form of an opaque type. A function value of either is refused where the
+// checker resolves `T.try_from`, and a call once its impl is chosen
+// (refuseProvidedConversionCalls), so a `T.try_from` chosen among T's
+// `TryFrom` impls is refused too. The provided `TryFrom` impl counts toward
+// no bound outside T's file either (opaque_bounds.go): the checker asks
+// implementsOnlyByConstruction wherever it decides that T implements an
+// interface at a site, so a generic call bounded by `TryFrom`, an impl's
+// `where`, a conversion to a `TryFrom` value and `TryFrom.try_from(v)`
+// are each the missing impl, coded as opaque construction. A `try_from`
+// T's file writes in an impl of its own is its public function.
 package analysis

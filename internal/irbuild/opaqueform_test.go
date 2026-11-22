@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/std"
 )
@@ -36,19 +35,15 @@ func TestOpaqueSpecFormIsRequiredAndChecked(t *testing.T) {
 		if fa == nil {
 			t.Fatalf("%s: std has no module %q", s.nomi, module)
 		}
-		byDecl, byName := opaqueAnchors(fa)
-		if _, anchored := byName[s.nomi]; !anchored {
-			t.Fatalf("%s: no anchor built from %s", s.nomi, s.origin)
-		}
 		// The declaration std really carries must agree with the row's clause.
 		var decl *ast.TypeDef
-		for d, idx := range byDecl {
+		for d, idx := range opaqueAnchors(fa) {
 			if idx == i {
 				decl = d
 			}
 		}
 		if decl == nil {
-			t.Fatalf("%s: anchored by name but not by declaration", s.nomi)
+			t.Fatalf("%s: no anchor built from %s", s.nomi, s.origin)
 		}
 		wantOpaque := s.form == formOpaque
 		if decl.Opaque != wantOpaque {
@@ -59,7 +54,7 @@ func TestOpaqueSpecFormIsRequiredAndChecked(t *testing.T) {
 		// the field a check rather than a label.
 		flipped := *decl
 		flipped.Opaque = !decl.Opaque
-		if s.matches(&flipped, fa.ModuleScope.Lookup(s.nomi).Type.(*analysis.DistinctType).Inner) {
+		if s.matches(&flipped) {
 			t.Errorf("%s: a `%s` declaration matched a row declared for the other clause; "+
 				"a std edit to the clause would go unnoticed", s.nomi, clauseName(!wantOpaque))
 		}

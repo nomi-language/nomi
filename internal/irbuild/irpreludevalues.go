@@ -34,21 +34,19 @@ func (bl *irScalarBuilder) preludeCallWant(t *ast.Call, want kind) (ir.Temp, kin
 	}
 	if dot, isDot := t.Func.(*ast.DotVariant); isDot {
 		// `.Completed(42)` where an Outcome<Int> is expected: the analyzer
-		// records no reference at a dot, so the variant resolves from the
-		// checked enum's name, and the expected type is its instance.
-		a, anchored := bl.g.preludeNamed(dot.ResolvedEnum)
-		// A position that hands down no expected type (a nested fn's or a
-		// lambda's tail, an arm of either): the instance is the type the
-		// checker gave the call.
+		// records no reference at a dot, so the variant is the expected
+		// type's enum's, and the expected type is its instance. A position
+		// that hands down no expected type (a nested fn's or a lambda's tail,
+		// an arm of either): the instance is the type the checker gave the
+		// call.
 		// kindInvalid: sentinel — the caller passed no expected type, not an operand's kind.
 		if want == kindInvalid {
 			want = bl.g.project(bl.g.checkedExprType(t))
 		}
-		if !anchored || want.tag != tagNamed || want.def == nil || want.def.preludeOf == nil ||
-			a.spec != want.def.preludeOf.spec || !irRetainedEnumKind(want.def) {
+		if want.tag != tagNamed || want.def == nil || want.def.preludeOf == nil || !irRetainedEnumKind(want.def) {
 			return no()
 		}
-		vs, found := a.spec.variant(dot.Name)
+		vs, found := want.def.preludeOf.spec.variant(dot.Name)
 		if !found || !vs.carries() {
 			return no()
 		}
@@ -91,8 +89,13 @@ func (bl *irScalarBuilder) preludePayloadValue(t *ast.Call, k kind, vs preludeVa
 		// An empty literal (`Ok([])`) takes the payload's type, and a value
 		// of an embedded type (`Some(Wrapped(c))` where a Maybe<Shape> is
 		// expected) widens into its `embeds` variant. The payload is the
-		// call's one operand, so coercing it here reorders nothing.
+		// call's one operand, so coercing it here reorders nothing. The
+		// checker records the payload's coercion as a part of the call's
+		// conversion (recordedCoercion).
+		prev := bl.payloadOf
+		bl.payloadOf = t
 		src, actual, ok = bl.convertTo(t.Args[0], src, actual, v.payloads[0].k)
+		bl.payloadOf = prev
 	}
 	if !ok || actual != v.payloads[0].k {
 		return no()
@@ -113,14 +116,10 @@ func (bl *irScalarBuilder) preludeBareValue(at ast.Node, want kind) (ir.Temp, ki
 	}
 	var vs preludeVariantSpec
 	if dot, isDot := at.(*ast.DotVariant); isDot {
-		// `.Cancelled`: the analyzer records no reference at a dot, so this
-		// resolves it from the checked enum's name.
-		a, anchored := bl.g.preludeNamed(dot.ResolvedEnum)
-		if !anchored || a.spec != want.def.preludeOf.spec {
-			return no()
-		}
+		// `.Cancelled`: the analyzer records no reference at a dot, so the
+		// variant is the checked enum's, the expected type's.
 		found := false
-		if vs, found = a.spec.variant(dot.Name); !found || vs.carries() {
+		if vs, found = want.def.preludeOf.spec.variant(dot.Name); !found || vs.carries() {
 			return no()
 		}
 	} else {

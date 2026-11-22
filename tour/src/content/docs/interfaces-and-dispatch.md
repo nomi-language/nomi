@@ -467,7 +467,7 @@ A function in an interface can have its own `where` clause, written before
 its body if it has one. If it needs its own type parameter, declare it in
 `<...>` after the function's name:
 
-```nomi ignore
+```nomi
 interface Ranked<T>
     fn item(value: self) -> T
 

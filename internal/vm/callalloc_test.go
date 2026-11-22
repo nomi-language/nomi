@@ -126,3 +126,52 @@ func TestVMCrossingAllocations(t *testing.T) {
 			"of reused from the caller's activation record (see boundAt in vm.go)", perCrossing)
 	}
 }
+
+// A closure called once per activation, in a program with no app.
+const closureCalls = `import std::io
+
+fn down(n: Int, f: (Int) -> Int) -> Int
+  if n < 1 then 0 else f(down(n - 1, f))
+end
+
+fn main()
+  down(%d, fn x -> x + 1) |> io.print()
+end
+`
+
+// The same calls in a program whose closure reads an app field that nothing
+// replaces, so the closure keeps the fields every caller has.
+const closureCallsUnderAnApp = `import std::io
+
+struct App
+  step: Int
+end
+
+fn boot() -> Result<App, String>
+  Ok(App{step: 1})
+end
+
+fn down(n: Int, f: (Int) -> Int) -> Int
+  if n < 1 then 0 else f(down(n - 1, f))
+end
+
+fn main()
+  down(%d, fn x -> x + App.step) |> io.print()
+end
+`
+
+// A closure keeps the app fields in force where it is made, and a call of
+// it enters them only when they are not its caller's already
+// (rt.EnterKeptFields). In a program that replaces no field they always
+// are, so calling a closure costs no allocation the program without an app
+// does not make.
+func TestVMClosureCallsUnderAnAppAllocateNothingMore(t *testing.T) {
+	plain := allocsPerActivation(t, closureCalls)
+	underApp := allocsPerActivation(t, closureCallsUnderAnApp)
+	t.Logf("%.2f allocations per activation and closure call, %.2f under an app", plain, underApp)
+	if underApp > plain+0.1 {
+		t.Errorf("a closure call under an app no `with` replaces allocates %.2f times more "+
+			"than one with no app; want none. The likely cause is entering the kept fields "+
+			"when they are the caller's (rt.EnterKeptFields)", underApp-plain)
+	}
+}

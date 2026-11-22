@@ -6,10 +6,9 @@ import "testing"
 // both spellings: the selectively imported `Span{...}` and the file-qualified
 // `span.Span{...}` (testdata/sibling_generic_struct).
 //
-// The template table is per file, so both spellings used to miss it: the bare
-// name was looked up only among this file's own templates, and the qualified
-// one fell through to the variant reading. Both now resolve through
-// genericTemplateNamed, by declaration, and instantiate in the owner's file.
+// The template table is per file, so both spellings reach the template by
+// the type the checker gave the literal (genericTemplateOf), by declaration,
+// and instantiate in the owner's file.
 func TestIRSiblingGenericStruct_LiteralsNameTheDeclaringFilesTemplate(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")

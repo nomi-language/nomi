@@ -1,8 +1,6 @@
 package irbuild
 
 import (
-	"maps"
-
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -43,9 +41,6 @@ func (bl *irScalarBuilder) returnBranch(arm *ir.Block, body *ast.Block, ret *ast
 	if tail != ret {
 		return kindInvalid, false
 	}
-	bound, boundK, syms := bl.bound, bl.boundK, bl.sh.syms
-	bl.bound, bl.boundK, bl.sh.syms = maps.Clone(bound), maps.Clone(boundK), maps.Clone(syms)
-	defer func() { bl.bound, bl.boundK, bl.sh.syms = bound, boundK, syms }()
 	bl.b = arm
 	// The arm ends in `return`, which leaves the activation and so restores
 	// what a `with` in it replaced.

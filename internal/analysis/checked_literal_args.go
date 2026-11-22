@@ -117,11 +117,14 @@ func RouteWildcards(pattern string) []string {
 	return names
 }
 
+// stdRouteType is std/http's Route.
+var stdRouteType = StdType{Module: "std/http", Name: "Route"}
+
 // isRouteType reports whether t is std/http's Route, and its parameters
 // type.
 func isRouteType(t Type) (Type, bool) {
 	dt, ok := resolveTypeVar(t).(*DistinctType)
-	if !ok || dt.Origin != "std/http" || dt.Name != "Route" || len(dt.TypeArgs) != 1 {
+	if !ok || dt.Origin != stdRouteType.Module || dt.Name != stdRouteType.Name || len(dt.TypeArgs) != 1 {
 		return nil, false
 	}
 	return resolveTypeVar(dt.TypeArgs[0]), true
@@ -130,18 +133,19 @@ func isRouteType(t Type) (Type, bool) {
 // routeCallHint is the help for a route with parameters passed where a
 // `Route<Unit>` is expected, to `Route.path` or `Route.to`: the function
 // that takes the parameters. "" for any other mismatch.
-func routeCallHint(call *ast.Call, want, have Type) string {
-	return routeCalleeHint(call.Func, want, have)
+func (c *checker) routeCallHint(call *ast.Call, want, have Type) string {
+	return c.routeCalleeHint(call.Func, want, have)
 }
 
 // routeCalleeHint is routeCallHint for the callee callee, and the reverse
 // pick too: a handler of one parameter given to `Route.to_with` with a
-// route that has none, which `Route.to` takes.
-func routeCalleeHint(callee ast.Node, want, have Type) string {
+// route that has none, which `Route.to` takes. A qualified callee is
+// std's Route by the type its qualifier names (qualifierOf).
+func (c *checker) routeCalleeHint(callee ast.Node, want, have Type) string {
 	fn := ""
 	if fa, ok := callee.(*ast.FieldAccess); ok && fa.Field != nil {
 		fn = fa.Field.Name
-		if ti, ok := fa.Object.(*ast.TypeIdent); !ok || ti.Name != "Route" {
+		if c.fa.qualifierOf(fa.Object).Std != stdRouteType {
 			return ""
 		}
 	}

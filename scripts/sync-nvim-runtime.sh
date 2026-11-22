@@ -94,7 +94,7 @@ if "(attached_test_prompt" in text:
 keyword_groups = {
     "keyword.function": ["fn"],
     "keyword.type": ["type", "struct", "enum", "typealias", "interface", "impl"],
-    "keyword.import": ["import", "as", "gopkg"],
+    "keyword.import": ["import", "as"],
     "keyword.conditional": ["if", "else", "case", "when"],
     "keyword.repeat": ["break"],
     "keyword.return": ["return"],

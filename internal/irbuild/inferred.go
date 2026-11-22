@@ -76,37 +76,40 @@ const (
 	boolName   = "Bool"
 )
 
-// inferredParamKind is the type the checker solved for an unannotated
-// parameter, and that type projected into a kind.
-//
-// Three outcomes, and the caller has to distinguish all three because they are
-// three different amounts of work:
-//
-//   - (nil, kindInvalid) — the checker recorded nothing. The parameter's type
-//     is not known to anybody, so no builder change can lower it.
-//   - (ty, kindInvalid) — the checker knows, and this builder has no
-//     representation for the answer. That is representation work, and it is
-//     the SAME work as an annotation naming the same type.
-//   - (ty, k) — lowerable.
-func (g *gen) inferredParamKind(p ast.Param) (analysis.Type, kind) {
-	if g.fa == nil {
-		return nil, kindInvalid
+// paramSymbolType is the type the checker gave a parameter written with no
+// annotation and no pattern, which it records on the parameter's symbol
+// (analysis's attachParamType), or nil. The checker gives every such
+// parameter of a program it accepts a type: the function type its lambda's
+// position expects, the parameter at the same place in another element of
+// its collection literal, or its default's; a lambda parameter nothing
+// types is its "cannot infer type for parameter" error. A discard
+// parameter (`fn _ -> 7`) has a symbol named "_" too.
+func paramSymbolType(fa *analysis.FileAnalysis, p ast.Param) analysis.Type {
+	if fa == nil {
+		return nil
 	}
-	sym, found := g.srcFA().Definitions[analysis.Pos{Line: p.Line, Col: p.Col}]
-	if !found || sym.Kind != analysis.SymbolParam || sym.Name != p.Name || sym.Type == nil {
-		// The predicate mirrors attachParamType exactly — position, kind and
-		// NAME — so this asks the same question that recording answered, and
-		// cannot read some other symbol that happens to share a position.
-		//
-		// Despite the name match, a DISCARD parameter does NOT land here. `fn _ -> 7` gets a real SymbolParam named
-		// "_" carrying the caller's type, so it lowers, and
-		// testdata/lambda_inferred.nomi pins that. What lands here is a lambda
-		// in a position no expected type reaches — an element of a list or
-		// tuple literal, a map value — where the checker also records nothing
-		// because it solved nothing.
-		return nil, kindInvalid
+	// Position, kind and name, as attachParamType records it, so no other
+	// symbol at the position is read.
+	sym, found := fa.Definitions[analysis.Pos{Line: p.Line, Col: p.Col}]
+	if !found || sym.Kind != analysis.SymbolParam || sym.Name != p.Name {
+		return nil
 	}
-	return sym.Type, g.project(sym.Type)
+	return sym.Type
+}
+
+// onceSymbolType is the type the checker gave a `once` written with no
+// annotation, which checkOnce records on the binding's symbol (the record
+// hover reads), or nil.
+func onceSymbolType(fa *analysis.FileAnalysis, ob *ast.OnceBinding) analysis.Type {
+	if fa == nil {
+		return nil
+	}
+	// Position, kind and name, as checkOnce records it.
+	sym, found := fa.Definitions[analysis.Pos{Line: ob.Line, Col: ob.Col}]
+	if !found || sym.Kind != analysis.SymbolOnce || sym.Name != ob.Name {
+		return nil
+	}
+	return sym.Type
 }
 
 // project is the analysis.Type → kind projection. See the file comment for why
@@ -170,6 +173,26 @@ func (g *gen) project(t analysis.Type) kind {
 		// Maybe<A> { Some(x) }` refuse, on the spelling alone. Every caller
 		// takes its operand from the checker's own solved type at this
 		// position, which satisfies the rule by construction.
+		//
+		// With no gen (projectShared) there is no frame, no default and no
+		// dictionary, so a type parameter has no kind.
+		if g == nil {
+			return kindInvalid
+		}
+		// A type parameter an abstract body leaves open is held as its
+		// bounds (abstract.go), told by its identity, which no frame's
+		// name can shadow.
+		if open, isOpen := g.dc.openType(ty); isOpen {
+			// This gen's kind of its bounds, or where this gen's view names
+			// no bound (a std module's that does not import it), the kind
+			// where it was opened, which for a std interface is the same
+			// in every gen.
+			// kindInvalid: sentinel — no kind of the bounds here falls to the opener's.
+			if k := g.abstractHeldKind(open); k != kindInvalid {
+				return k
+			}
+			return g.dc.open[open]
+		}
 		if k, bound := g.genericSubstKind(ty.Name_); bound {
 			return k
 		}
@@ -260,7 +283,7 @@ func (g *gen) project(t analysis.Type) kind {
 		if d, isStdStruct := stdStructOfType(ty.Origin, ty.Name); isStdStruct {
 			return named(d)
 		}
-		return g.localNamed(ty, ty.Origin, ty.Name, func(d *typeDef) bool {
+		return g.localNamed(ty, func(d *typeDef) bool {
 			return !d.isEnum && !d.isDistinct
 		})
 
@@ -289,7 +312,7 @@ func (g *gen) project(t analysis.Type) kind {
 			}
 			return kindInvalid
 		}
-		return g.localNamed(ty, ty.Origin, ty.Name, func(d *typeDef) bool { return d.isEnum })
+		return g.localNamed(ty, func(d *typeDef) bool { return d.isEnum })
 
 	case *analysis.DistinctType:
 		if ty.Subtype {
@@ -328,9 +351,8 @@ func (g *gen) project(t analysis.Type) kind {
 		}
 		// A std DISTINCT with an rt Go type — `Duration`, `Days` —
 		// answered here for the reason the StructType and EnumType arms above
-		// give for theirs: every `opaqueSpecs` row is reachable by ANNOTATION
-		// (namedType consults opaqueNamed), so it must be reachable by
-		// INFERENCE too.
+		// give for theirs: every `opaqueSpecs` row is reachable by ANNOTATION,
+		// so it must be reachable by INFERENCE too.
 		//
 		// A miss here does not name this file or the type: `Some(Days(3))`
 		// would refuse as `non-scalar type argument (Maybe<Days>)` through
@@ -339,7 +361,7 @@ func (g *gen) project(t analysis.Type) kind {
 		if k, isStd := g.projectStdOpaque(ty); isStd {
 			return k
 		}
-		return g.localNamed(ty, ty.Origin, ty.Name, func(d *typeDef) bool { return d.isDistinct })
+		return g.localNamed(ty, func(d *typeDef) bool { return d.isDistinct })
 
 	case *analysis.ListType:
 		return g.listKind(g.project(ty.Elem))
@@ -399,6 +421,11 @@ func (g *gen) project(t analysis.Type) kind {
 		return g.funcKind(params, g.project(ty.Return))
 
 	case *analysis.ConjunctionType:
+		// A conjunction's members are interfaces, which have a kind only in
+		// a gen (below).
+		if g == nil {
+			return kindInvalid
+		}
 		return g.projectConjunction(ty)
 
 	case *analysis.InterfaceType:
@@ -421,6 +448,13 @@ func (g *gen) project(t analysis.Type) kind {
 		// stage) takes the implementor's kind, as the `self` parameters
 		// themselves do. A value annotated with the interface's name is not
 		// DefaultSelf and stays an existential.
+		//
+		// With no gen (projectShared) only an interface with a process-wide
+		// def has a kind, a stdIfaceSpecs row found by its identity; each gen
+		// holds its own defs of the other interfaces it reaches.
+		if g == nil {
+			return projectSharedStdIface(ty)
+		}
 		if k, isSelf := g.projectDefaultSelf(ty); isSelf {
 			return k
 		}
@@ -463,71 +497,33 @@ func (g *gen) project(t analysis.Type) kind {
 	return kindInvalid
 }
 
-// localNamed resolves a nominal type the analyzer solved — declared in THIS
-// module, or mirrored from a sibling FILE — or kindInvalid.
+// localNamed is the kind of a nominal type the analyzer solved that a
+// program file declares: a block of this file, this file, or a sibling FILE,
+// whose def is a mirror (programTypeDef); or, for one no program file
+// declares, the process's def of a type a shared std module declares in
+// Nomi (stdDeclaredDef), the only answer with no gen. kindInvalid for any
+// other, and for a def the builder refuses: a refused mirror records its OWN
+// reason, which declRefusal reports, and answering kindInvalid is what
+// routes it there.
+//
+// The sibling's def keeps its type reachable by INFERENCE as it is by
+// ANNOTATION. Without it project would answer kindInvalid, and the
+// reason-walk behind it would name `unlowered type` for a mirror that is
+// lowerable.
 //
 // shape cross-checks the declaration against what the analyzer says the type
 // is. It cannot fail while `(Origin, Name)` is a real identity — which is the
 // reason to check it: if it ever fails, the identity rule has broken somewhere
 // upstream, and a refusal is the only answer that does not lower against a
 // layout the analyzer disagrees with.
-//
-// The SIBLING branch keeps a sibling's type reachable by INFERENCE as it is by
-// ANNOTATION (namedType consults foreignType). Without it project would answer
-// kindInvalid, and the reason-walk behind it would name `unlowered type` for a
-// mirror that is lowerable.
-func (g *gen) localNamed(t analysis.Type, origin, name string, shape func(*typeDef) bool) kind {
-	if bd := g.blockLocalOfType(t); bd != nil {
-		// A type a block of this file declares, found by the checker's
-		// type for its declaration rather than by name, so a value of it
-		// that escapes its block (`w = { struct Loc {…}  Loc{n: 1} }`) is
-		// still that type where the name no longer resolves.
-		if !bd.lowerable || !shape(bd) {
-			return kindInvalid
-		}
-		return named(bd)
+func (g *gen) localNamed(t analysis.Type, shape func(*typeDef) bool) kind {
+	d, program := g.programTypeDef(t)
+	if !program {
+		// A type a shared std module declares, whose def is the process's
+		// (stdtypes.go); with no gen (projectShared) the only one.
+		d = g.stdDeclaredDef(t)
 	}
-	body := analysis.IsBodyOrigin(origin)
-	if bd, isBlockLocal := g.blockLocalNamed(name); isBlockLocal && (origin == "" || body || origin == g.fa.Origin) {
-		// A type the enclosing block declares, which the checker stamps with
-		// its declaration's body origin, or a type this file declares. Its
-		// identity here is the name, so a module-level type of the same
-		// name would be the same answer to it: that case declines rather
-		// than guess.
-		if _, found := g.types[name]; found || !bd.lowerable || !shape(bd) {
-			return kindInvalid
-		}
-		return named(bd)
-	}
-	if origin == "" || body || g.fa.Origin == "" {
-		return kindInvalid
-	}
-	if origin != g.fa.Origin {
-		return g.siblingNamed(origin, name, shape)
-	}
-	d, found := g.types[name]
-	if !found || !d.lowerable || !shape(d) {
-		return kindInvalid
-	}
-	return named(d)
-}
-
-// siblingNamed is localNamed for a type another USER FILE declares.
-//
-// Resolved by ORIGIN rather than by this file's imports, because the positions
-// that reach here are exactly the ones where the program never writes the name
-// — `fn w -> w.name` over a list a sibling's function returned. There is no import
-// binding to consult.
-func (g *gen) siblingNamed(origin, name string, shape func(*typeDef) bool) kind {
-	o := g.siblingOwner(origin, name)
-	if o == nil {
-		return kindInvalid
-	}
-	d := g.mirrorOf(o)
-	if !d.lowerable || !shape(d) {
-		// A mirror the declaring file or the import graph refuses.
-		// It records its OWN reason, which declRefusal reports; answering
-		// kindInvalid here is what routes it there.
+	if d == nil || !d.lowerable || !shape(d) {
 		return kindInvalid
 	}
 	return named(d)
@@ -570,4 +566,31 @@ func (g *gen) fieldTypeText(f ast.StructField) string {
 		return t.String()
 	}
 	return "?"
+}
+
+// projectShared is project with no gen: the stdlib signature pass
+// (collectStdCandidates, collectStdOnces), which runs
+// before any gen exists and keeps only kinds every gen shares. It answers a
+// scalar, a type std declares with a process-wide def (a std host, opaque,
+// enum, struct, marker or generic struct or host instance, or a type std
+// declares in Nomi, stdtypes.go), and a prelude or structural type over
+// those, a std interface with an rt table (`Display`), and `Infallible`. A
+// type parameter, any other interface, a conjunction, and a type a program
+// or a generic template declares, have a kind only in a gen, and answer
+// kindInvalid.
+func projectShared(t analysis.Type) kind {
+	var g *gen
+	k := g.project(t)
+	if k == kindNever {
+		// Infallible: a leaf with no def, which no gen owns. packageNeutral
+		// does not list it, so it is not admitted INSIDE a shared kind
+		// (`Result<String, Infallible>` refuses); at the top it is the kind
+		// of `impl Display for Infallible`'s receiver.
+		return k
+	}
+	// kindInvalid: propagates — project's answer for a type with no shared kind.
+	if k == kindInvalid || !k.packageNeutral() {
+		return kindInvalid
+	}
+	return k
 }

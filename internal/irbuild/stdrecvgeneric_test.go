@@ -6,8 +6,6 @@ import (
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
-	"github.com/nomi-language/nomi/internal/lexer"
-	"github.com/nomi-language/nomi/internal/parser"
 	"github.com/nomi-language/nomi/std"
 )
 
@@ -151,7 +149,7 @@ func tpNames(tp map[string]bool) []string {
 // wrong here, and `impl Range<T>` is the witness: `naturals` returns a
 // CONCRETE `Range<Int>` and mentions no parameter, so a block-level rule would
 // move it onto `stdlib generic function` and trade one false reason for
-// another. It is admitted by genStructSigKind instead. (`from` declares a
+// another. Its `Range<Int>` projects to the shared instance instead. (`from` declares a
 // type parameter of its own, so it is generic by its own signature.)
 //
 // So the two halves of this test are not two examples of one thing. `Map.hash`
@@ -318,8 +316,8 @@ func TestTypeNamesAnyWalksEveryCompositeForm(t *testing.T) {
 		}
 	}
 	if typeNamesAny(nil, tp) {
-		t.Error("typeNamesAny(nil) = true; a parameter with no annotation is stdParamKind's " +
-			"refusal to report, not a mention of a type parameter")
+		t.Error("typeNamesAny(nil) = true; a parameter with no annotation takes its " +
+			"pattern's or its default's type, and is not a mention of a type parameter")
 	}
 }
 
@@ -380,41 +378,6 @@ func parseStdTypeImporting(t *testing.T, item, src string) (ast.TypeExpr, analys
 	}
 	t.Fatalf("no `fn f` in the analysed program for `x: %s`", src)
 	return nil, nil
-}
-
-// parseStdTypeExprUnchecked is the same node from the same front end with the
-// CHECKER left out, for a spelling the checker rejects.
-//
-// WHY A SECOND HELPER RATHER THAN A FLAG ON THE FIRST: the two are not the same
-// question. Every existing caller wants an analysed node and should keep
-// fataling when the checker refuses, because a refused witness measures
-// nothing. This helper is for the
-// one case where the checker's refusal is the POINT: a unit test of a builder
-// arm's behaviour over an input the arm must own defensively.
-//
-// Its caller is `genStructSigKind`'s wrong-ARITY row. The checker rejects
-// `Range<Int, Int>`, so the row is not expressible through the analysed route,
-// but the arm's contract still covers it, so the row gets its node here.
-//
-// Still the PARSER's own node rather than a hand-built one, which is the
-// property parseStdTypeExpr's header is about: `parseEnumVariant` and friends
-// build shapes a literal `&ast.GenericType{…}` can get subtly wrong, and the
-// arm switches on those shapes.
-func parseStdTypeExprUnchecked(t *testing.T, src string) ast.TypeExpr {
-	t.Helper()
-	nodes, err := parser.Parse(lexer.Lex("fn f<T, K>(_x: " + src + ") -> Unit end\n"))
-	if err != nil {
-		t.Fatalf("`x: %s` does not PARSE, so there is no node to test the arm with: %v", src, err)
-	}
-	for _, n := range nodes {
-		fd, isFunc := n.(*ast.FuncDef)
-		if !isFunc || fd.Name != "f" || len(fd.Params) != 1 {
-			continue
-		}
-		return fd.Params[0].TypeAnnotation
-	}
-	t.Fatalf("no `fn f` in the parsed program for `x: %s`", src)
-	return nil
 }
 
 // A program impl of a function with no `self` operand for a std container,

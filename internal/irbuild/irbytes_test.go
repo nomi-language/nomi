@@ -59,10 +59,9 @@ end
 }
 
 // A user struct with a Bytes or Byte field is retained, as a std struct's is.
-// A request struct carrying `body: Bytes` is the shape a Go handler callback
-// crosses (testdata/go_calls_nomi_handler); while the struct
-// declined, so did every function naming it, and main blocked on the
-// `handle` it passes to a Go binding as "an ident bound nowhere".
+// A request struct carrying `body: Bytes` is the shape a handler callback
+// crosses; while the struct declined, so did every function naming it, and
+// main blocked on the `handle` it passes on as "an ident bound nowhere".
 func TestIRBytes_UserStructFieldsCrossCallsAndCallbacks(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 struct Request

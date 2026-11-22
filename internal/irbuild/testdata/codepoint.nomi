@@ -134,10 +134,11 @@ fn join_points(cps: List<Codepoint>) -> String
             "."
 
         Some(cp) ->
-            rest = case List.tail(cps)
-                Some(more) -> join_points(more)
-                None       -> "."
-            end
+            rest =
+                case List.tail(cps)
+                    Some(more) -> join_points(more)
+                    None       -> "."
+                end
 
             "${Codepoint.to_int(cp)}-${rest}"
     end

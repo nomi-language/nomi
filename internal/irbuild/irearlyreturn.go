@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
-	"maps"
 )
 
 // guardReturn retains a function's conditional exit. The false edge
@@ -14,8 +13,8 @@ import (
 // `continue`). It emits nothing, so a leading `if` of another shape can be
 // lowered as a statement region instead.
 func (bl *irScalarBuilder) guardShape(t *ast.If) bool {
-	// kindInvalid: sentinel — only ordinary lambdas may infer an unset result.
-	if bl.inTest || (bl.returnKind == kindInvalid && bl.inferReturn == nil) || t.Else != nil || t.CondPattern != nil || isNilNode(t.Cond) {
+	// kindInvalid: sentinel — an activation with no result has no `return`.
+	if bl.inTest || bl.returnKind == kindInvalid || t.Else != nil || t.CondPattern != nil || isNilNode(t.Cond) {
 		return false
 	}
 	_, tail := bl.g.irScalarBlock(t.Then)
@@ -40,9 +39,6 @@ func (bl *irScalarBuilder) guardReturn(t *ast.If) bool {
 	next := bl.f.NewBlock(bl.g.irNodePos(t), "next")
 	br := ir.NewBranch(bl.g.irNodePos(t.Cond), cond, arm.ID(), next.ID())
 	bl.b.SetTerm(br)
-	bound, boundK, syms := bl.bound, bl.boundK, bl.sh.syms
-	bl.bound, bl.boundK, bl.sh.syms = maps.Clone(bound), maps.Clone(boundK), maps.Clone(syms)
-	defer func() { bl.bound, bl.boundK, bl.sh.syms = bound, boundK, syms }()
 	bl.b = arm
 	// Every path through the arm leaves the activation, which restores
 	// what a `with` in it replaced.
@@ -73,13 +69,7 @@ func (bl *irScalarBuilder) explicitReturn(ret *ast.Return) (kind, bool) {
 	val, k := ir.NoTemp, kindUnit
 	if !isNilNode(ret.Value) {
 		var ok bool
-		// kindInvalid: sentinel — the first lambda return establishes its result.
-		if bl.returnKind == kindInvalid {
-			val, k, _, ok = bl.lower(ret.Value)
-		} else {
-			val, k, _, ok = bl.lowerWant(ret.Value, bl.returnKind)
-		}
-		if !ok {
+		if val, k, _, ok = bl.lowerWant(ret.Value, bl.returnKind); !ok {
 			return kindInvalid, false
 		}
 		if k == kindNever {
@@ -99,30 +89,25 @@ func (bl *irScalarBuilder) explicitReturn(ret *ast.Return) (kind, bool) {
 	return k, true
 }
 
-// settleReturn settles an exit's kind k against the activation's result.
+// settleReturn checks an exit's kind k against the activation's result.
 // It always agrees, so a disagreement panics:
 //
-//   - bl.returnKind and the inference's settled kind are the same once
-//     either is set: the builder sets returnKind only where it is built
-//     (a declared result, a fold callback's accumulator, a lambda's
-//     expected result) and here, from settle.
-//   - A value is lowered at returnKind when that is set (lowerWant, whose
-//     kind is then returnKind), and otherwise settles the unset result. An
-//     Infallible value (`return todo`) settles nothing: its trap ends the
-//     path before it returns, so its callers end the block there instead.
-//   - A bare `return` is Unit. Where the result is set and not Unit, the
-//     checker rejects it ("return type mismatch: boundary returns Int, got
-//     Unit"): the kinds the builder settled are projections of the
-//     checker's boundary type, so a Unit boundary settles only Unit.
-//   - A builder with neither a result nor an inference never reaches an
-//     exit: guardShape refuses that combination, a lambda's
-//     supplier (the only lambda with neither) lowers a parameter default,
-//     where the checker rejects `return` and `break`, and every other
-//     builder is built with its result kind.
+//   - The builder sets returnKind where it is built: a declared result, a
+//     fold callback's accumulator, a lambda's or a `concurrent` body's
+//     result as the checker's records give it.
+//   - A value is lowered at returnKind (lowerWant, whose kind is then
+//     returnKind). An Infallible value (`return todo`) answers nothing: its
+//     trap ends the path before it returns, so its callers end the block
+//     there instead.
+//   - A bare `return` is Unit. Where the result is not Unit, the checker
+//     rejects it ("return type mismatch: boundary returns Int, got Unit"):
+//     returnKind is a projection of the checker's boundary type, so a Unit
+//     boundary is Unit here.
+//   - A builder with no result never reaches an exit: guardShape refuses
+//     it, a lambda's supplier (the only lambda with none) lowers a
+//     parameter default, where the checker rejects `return` and `break`,
+//     and every other builder is built with its result kind.
 func (bl *irScalarBuilder) settleReturn(k kind, exit string) {
-	if bl.inferReturn != nil {
-		bl.returnKind, _ = bl.inferReturn.settle(k)
-	}
 	if k != bl.returnKind {
 		panic("irbuild: a `" + exit + "` of kind " + k.nomi() + " in an activation whose result is " + bl.returnKind.nomi())
 	}
@@ -164,13 +149,7 @@ func (bl *irScalarBuilder) ctlReturn(n ast.Node) bool {
 		var val ir.Temp
 		var k kind
 		var ok bool
-		// kindInvalid: sentinel — the first answer establishes an inferred result.
-		if bl.returnKind == kindInvalid {
-			val, k, _, ok = bl.lower(t.Value)
-		} else {
-			val, k, _, ok = bl.lowerWant(t.Value, bl.returnKind)
-		}
-		if !ok {
+		if val, k, _, ok = bl.lowerWant(t.Value, bl.returnKind); !ok {
 			return false
 		}
 		if k == kindNever {

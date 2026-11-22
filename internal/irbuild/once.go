@@ -54,7 +54,21 @@ type onceDef struct {
 	why string
 }
 
-func (o *onceDef) lowerable() bool { return o.why == "" }
+func (o *onceDef) lowerable() bool { return o.whyNot() == "" }
+
+// whyNot is why the binding does not lower, empty when it does: the reason
+// declareOnce refused it, or a kind no cell holds (irOnceKind). A kind the
+// value domain does not hold is a gap in the builder, refused at the
+// declaration as the reading sites decline it.
+func (o *onceDef) whyNot() string {
+	if o.why != "" {
+		return o.why
+	}
+	if !irOnceKind(o.k) {
+		return "a once of a kind outside the domain: " + o.k.nomi()
+	}
+	return ""
+}
 
 // declareOnces types every module-level `once` before any body is lowered.
 //
@@ -138,17 +152,7 @@ func (g *gen) declareOnce(ob *ast.OnceBinding, owner string) {
 // it: the answer is plumbed, never re-derived, and an analysis.Type the
 // builder cannot represent projects to kindInvalid so the caller refuses.
 func (g *gen) inferredOnceKind(ob *ast.OnceBinding) kind {
-	if g.fa == nil {
-		return kindInvalid
-	}
-	sym, found := g.fa.Definitions[analysis.Pos{Line: ob.Line, Col: ob.Col}]
-	if !found || sym.Kind != analysis.SymbolOnce || sym.Name != ob.Name {
-		// The predicate mirrors what checkOnce wrote — position, kind and NAME
-		// — so this asks the same question the recording answered and cannot
-		// read some other symbol sharing a position.
-		return kindInvalid
-	}
-	return g.project(sym.Type)
+	return g.project(onceSymbolType(g.fa, ob))
 }
 
 // onceDecl lowers one `once` binding: its cell and its initializer.
@@ -167,21 +171,17 @@ func (g *gen) onceDecl(ob *ast.OnceBinding) {
 		if ob.TypeAnnotation != nil {
 			detail = d.nomi + ": " + ob.TypeAnnotation.TypeString()
 		}
-		g.reject(d.why, detail, ob)
+		g.reject(d.whyNot(), detail, ob)
 		return
 	}
 
 	// The RHS is a function body, lowered through the machinery a `fn` uses:
-	// its own result kind, its own scope and no enclosing lambda's result
-	// inference. They are saved rather than
+	// its own result kind and its own scope. They are saved rather than
 	// assumed, so a caller's state never leaks in or out.
-	prevResult, prevInfer := g.result, g.inferResult
-	g.result, g.inferResult = d.k, nil
-	defer func() {
-		g.result, g.inferResult = prevResult, prevInfer
-	}()
+	prevResult := g.result
+	g.result = d.k
+	defer func() { g.result = prevResult }()
 
-	g.pushScope()
 	produced, retained := g.irOnceLower(d)
 	if !retained {
 		g.unloweredBody(irDeclined{})
@@ -196,7 +196,6 @@ func (g *gen) onceDecl(ob *ast.OnceBinding) {
 		g.reject("once binding type mismatch",
 			d.nomi+" is "+d.k.nomi()+" but its value is "+produced.nomi(), ob)
 	}
-	g.popScope()
 }
 
 // refSiblingOnce lowers a resolved cross-file `once` read. Shared by the
@@ -205,18 +204,20 @@ func (g *gen) onceDecl(ob *ast.OnceBinding) {
 // question and the same kind translation. Two spellings of one reference must
 // not be able to answer differently.
 func (g *gen) refSiblingOnce(at ast.Node, to int, d *onceDef) (kind, bool) {
-	// Not a `once` at all, or a private one — the latter falls through to the
-	// caller's own refusal rather than getting a key of its own, because `pub`
-	// governs cross-file visibility and the analyzer rejects the import first
-	// ("'secret' is private and cannot be imported"), so a privacy key here
-	// would report a gap nothing can reach.
-	if d == nil || (!d.pub && to != g.fileUnit && g.namesFrom != to+1) {
+	// Not a `once` at all, or a private one read from a file that is not its
+	// own or its partner test (spec §14 *Visibility*), as for a private
+	// function (siblingPrivate). The latter falls through to the caller's
+	// own refusal rather than getting a key of its own, because the analyzer
+	// rejects that read first ("'secret' is private and cannot be
+	// imported"), so a privacy key here would report a gap nothing can
+	// reach.
+	if d == nil || (!d.pub && to != g.fileUnit && g.namesFrom != to+1 && !g.partnerTestOf(to)) {
 		return kindInvalid, false
 	}
 	unit := g.files.units[to]
 	key := unit.key + "." + d.nomi
 	if !d.lowerable() {
-		g.reject(d.why, key, at)
+		g.reject(d.whyNot(), key, at)
 		return kindInvalid, true
 	}
 	// The kind belongs to the declaring file's gen, so it is translated before

@@ -205,15 +205,12 @@ func (g *gen) literalCell(t *ast.TaggedString, k kind) (*ir.Symbol, bool) {
 	name := fmt.Sprintf("literal %s at %d:%d", shown, t.Line, tagCol)
 	at := g.irNodePos(t)
 	f := ir.NewFunc(at, name)
-	sh := &irFuncShell{fn: f, syms: map[string]*ir.Symbol{}, params: map[string]ir.Temp{}, patternOK: true}
-	sh.frame = newIRFuncFrame(f)
+	sh := &irFuncShell{fn: f, params: map[string]ir.Temp{}}
 	sh.entry = f.NewBlock(at, "entry")
 	sh.result = f.NewTemp()
 	sh.slot = ir.NewSlot(at, sh.result, ty)
 	sh.entry.Append(sh.slot)
-	sh.prologue = 1
-	cb := &irScalarBuilder{g: g, sh: sh, f: f, b: sh.entry, returnKind: k,
-		bound: map[string]ir.Temp{}, boundK: map[string]kind{}, literalCell: t}
+	cb := &irScalarBuilder{g: g, sh: sh, f: f, b: sh.entry, returnKind: k, literalCell: t}
 	cb.openWithScope(true)
 	val, got, _, ok := cb.taggedLiteral(t)
 	if !ok {
@@ -276,15 +273,12 @@ func (g *gen) literalRender(t *ast.TaggedString, name string, errK kind) *ir.Fun
 			panic("irbuild: a fixed typed literal whose handler can fail with no record of how its error renders; the checker records one for each (analysis package doc, \"Elaboration\")")
 		}
 		shown := rec.Failure
-		// No checker type for the error (shown.Type): in std's own
-		// lowering, the record of Debug.inspect at an error another std
-		// module declares names that module's synthesized impl, which
-		// neither the lowering's gens (recordedImplItem) nor the std index
-		// (stdFuncByID) holds, so its nested Debug bodies are chosen by
-		// kind (debugImplNoType).
-		f, ok := g.irErrorRenderFunc(t, rname, sym, errK, nil, shown, t, false)
+		// The error's checker type (shown.Type): a Debug rendering calls
+		// the body the record of `Debug.inspect` at it names, as
+		// `Debug.inspect(e)` written over the error would.
+		f, ok := g.irErrorRenderFunc(t, rname, sym, errK, shown.Type, shown, t, false)
 		if !ok {
-			f, ok = g.irErrorRenderFunc(t, rname, sym, errK, nil, shown, t, true)
+			f, ok = g.irErrorRenderFunc(t, rname, sym, errK, shown.Type, shown, t, true)
 		}
 		if !ok {
 			return

@@ -168,10 +168,11 @@ impl Session<T>
     /// The session holding `value`. A session that held none starts its
     /// `max_age` now.
     pub fn set<T>(session: Session<T>, value: T) -> Session<T>
-        state = case session.value
-            Some(_) -> session.state
-            None    -> {..session.state, created: now()}
-        end
+        state =
+            case session.value
+                Some(_) -> session.state
+                None    -> {..session.state, created: now()}
+            end
 
         {..session, value: Some(value), state:}
     end
@@ -206,10 +207,11 @@ end
 //!
 //! store = CookieStore{key: SessionKey.derive("a test secret of 32 bytes or more")!}
 //!
-//! count = fn _: Request, session: Session<Int> ->
-//!     n = Maybe.with_default(session.value, 0) + 1
-//!     Response{body: Body.Text("${n}")} |> sessions.write(Session.set(session, n))
-//! end
+//! count =
+//!     fn _: Request, session: Session<Int> ->
+//!         n = Maybe.with_default(session.value, 0) + 1
+//!         Response{body: Body.Text("${n}")} |> sessions.write(Session.set(session, n))
+//!     end
 //!
 //! app = count |> sessions.with_session(store)
 //! first = app(testing.request(Method.Get, "/"))
@@ -266,10 +268,11 @@ pub fn write<T>(response: Response, session: Session<T>) -> Response where T: To
     at = now()
     left = state.created + Duration.as_seconds(store.max_age) - at
 
-    lifetime = case store.idle_timeout
-        Some(idle) -> Int.min(left, Duration.as_seconds(idle))
-        None       -> left
-    end
+    lifetime =
+        case store.idle_timeout
+            Some(idle) -> Int.min(left, Duration.as_seconds(idle))
+            None       -> left
+        end
 
     if (session.value == None and Iter.is_empty(state.outgoing)) or lifetime <= 0 then
         return replace_cookie(response, removal(store))
@@ -285,10 +288,11 @@ pub fn write<T>(response: Response, session: Session<T>) -> Response where T: To
         ),
     }
 
-    payload = case session.value
-        Some(v) -> Map.put(fields, "v", ToJson.to_json(v))
-        None    -> fields
-    end
+    payload =
+        case session.value
+            Some(v) -> Map.put(fields, "v", ToJson.to_json(v))
+            None    -> fields
+        end
 
     plain = String.to_bytes(Json.encode(Json.Obj(payload)))
 
@@ -344,10 +348,11 @@ fn open<T>(store: CookieStore, text: String, at: Int) -> Maybe<Session<T>> where
     plain = unseal(store, sealed)?
     decoded = Bytes.to_string(plain) |> Result.to_maybe()?
 
-    fields = case Json.decode(decoded)
-        Ok(Json.Obj(m)) -> m
-        _               -> return None
-    end
+    fields =
+        case Json.decode(decoded)
+            Ok(Json.Obj(m)) -> m
+            _               -> return None
+        end
 
     created = int_field(fields, "c")?
     seen = int_field(fields, "s")?
@@ -358,16 +363,17 @@ fn open<T>(store: CookieStore, text: String, at: Int) -> Maybe<Session<T>> where
     idle = store.idle_timeout |> Maybe.map(fn d -> at >= seen + Duration.as_seconds(d))
     if idle == Some(True) then return None
 
-    value = case Map.get(fields, "v")
-        Some(json) ->
-            Some(
-                T.from_json(json)
-                |> Result.to_maybe()?
-            )
+    value =
+        case Map.get(fields, "v")
+            Some(json) ->
+                Some(
+                    T.from_json(json)
+                    |> Result.to_maybe()?
+                )
 
-        None ->
-            None
-    end
+            None ->
+                None
+        end
 
     Some(Session{
         value:,
@@ -420,11 +426,12 @@ end
 fn replace_cookie(response: Response, cookie: Cookie) -> Response
     Headers(fields) = response.headers
 
-    other = fn header: (String, String) ->
-        (name, value) = header
-        name_of = Cookie.parse_set_cookie(value) |> Result.map(fn c -> c.name)
-        Headers.canonical_key(name) != "Set-Cookie" or name_of != Ok(cookie.name)
-    end
+    other =
+        fn header: (String, String) ->
+            (name, value) = header
+            name_of = Cookie.parse_set_cookie(value) |> Result.map(fn c -> c.name)
+            Headers.canonical_key(name) != "Set-Cookie" or name_of != Ok(cookie.name)
+        end
 
     kept = fields |> Iter.filter(other) |> Iter.to_list()
     Response.set_cookie({..response, headers: Headers(kept)}, cookie)

@@ -19,11 +19,12 @@
 //# AWS. Boot code picks one:
 //#
 //# ```nomi
-//# store = if production then
-//#     s3.store(config)?
-//# else
-//#     storage.local("tmp/files", public_base: Some(Url"/files/"))
-//# end
+//# store =
+//#     if production then
+//#         s3.store(config)?
+//#     else
+//#         storage.local("tmp/files", public_base: Some(Url"/files/"))
+//#     end
 //# ```
 //#
 //# std::storage::testing has `Memory`, a store kept in memory for tests,
@@ -70,7 +71,7 @@ import
     debug.Debug
     display.Display
     equatable.Equatable
-    fs.{self, Kind, WriteMode}
+    fs.{self, Dir, Entry as FsEntry, Kind, Metadata, WriteMode}
     hex
     http.{self, Headers, Request, Response, Status}
     instant.Instant
@@ -364,11 +365,12 @@ pub fn page(entries: Iter<Entry>, options: ListOptions) -> Listing
 
     shown = Iter.take(items, limit) |> Iter.to_list()
 
-    next = if Iter.count(items) > limit then
-        Iter.last(shown) |> Maybe.map(fn (text, _) -> text)
-    else
-        None
-    end
+    next =
+        if Iter.count(items) > limit then
+            Iter.last(shown) |> Maybe.map(fn (text, _) -> text)
+        else
+            None
+        end
 
     Listing{
         objects: shown |> Iter.flat_map(fn (_, entry) -> entry) |> Iter.to_list(),
@@ -513,7 +515,8 @@ end
 ///   point or two) do too.
 ///
 /// The calls go through std::fs, so `std::fs::testing.run` sandboxes the store in
-/// tests, and `fs.within` applies.
+/// tests, and `fs.within` applies. `storage.local_dir` keeps a store in a
+/// `Dir` instead.
 //! import std::fs::testing
 //!
 //! ran = testing.run(testing.Sandbox{}, fn ->
@@ -527,15 +530,115 @@ end
 //! assert testing.text(ran, "/work/files/.nomi-storage/types/a/b.txt") == Some("text/plain")
 //
 pub fn local(root: String, public_base: Maybe<Url> = None) -> Store
-    Local{root:, public_base:}
+    Local{root:, dir: None, public_base:}
 end
 
+/// A store in the directory `dir`, as `storage.local` keeps one at a path:
+/// each object a plain file under `dir`, and its content type beside it in
+/// `.nomi-storage/types/`. It reaches only what is under `dir`, so code
+/// handed it has no `std::fs` of its own, and a test hands it a `Dir` from
+/// `std::fs::testing.dir` to keep the store in memory.
+//! import std::fs::testing.{self, Sandbox}
+//!
+//! d = testing.dir(Sandbox{})
+//! defer Dir.close(d)
+//!
+//! store = local_dir(d, public_base: Some(Url"/files/"))
+//! assert Store.put(store, "a/b.txt", String.to_bytes("hi"), "text/plain") == Ok(Unit)
+//! assert Result.map(Store.get(store, "a/b.txt"), fn o -> o.info.content_type) == Ok("text/plain")
+//! assert Dir.read_text(d, "a/b.txt") == Ok("hi")
+//! assert Dir.read_text(d, ".nomi-storage/types/a/b.txt") == Ok("text/plain")
+//! assert Result.map(Store.list(store, ListOptions{}), fn l -> Iter.count(l.objects)) == Ok(1)
+//!
+//! import std::storage::testing as storage_testing
+//!
+//! // A store in a fresh directory under `root`, so each rule starts empty.
+//! fresh =
+//!     fn root: Dir ->
+//!         Dir.make_temp_dir(root)
+//!         |> Result.flat_map(fn name -> Dir.subdir(root, name))
+//!         |> Result.map(fn sub -> local_dir(sub, public_base: Some(Url"/files/")))
+//!         |> Result.map_err(fn e -> Error.Backend{code: "Io", message: "${e}"})
+//!     end
+//!
+//! assert storage_testing.conformance(fn -> fresh(d)) == []
+//!
+//! fn on_disk(
+//!     check: (Dir) -> List<storage_testing.Broken>,
+//! ) -> Result<List<storage_testing.Broken>, io.Error>
+//!     path = fs.make_temp_dir()?
+//!     defer fs.remove_all_quietly(path)
+//!     root = fs.open_dir(path)?
+//!     defer Dir.close(root)
+//!     Ok(check(root))
+//! end
+//!
+//! assert on_disk(fn root -> storage_testing.conformance(fn -> fresh(root))) == Ok([])
+//
+pub fn local_dir(dir: Dir, public_base: Maybe<Url> = None) -> Store
+    Local{root: ".", dir: Some(dir), public_base:}
+end
+
+/// A store's directory: a path, or the root of `dir` when it has one, which
+/// every call then goes through.
 struct Local
     root:        String
+    dir:         Maybe<Dir>
     public_base: Maybe<Url>
 end
 
+// A Local reaches its files through its Dir when it has one, and by path
+// otherwise: its first functions are each call it makes.
 impl Local
+    fn read(local: Local, p: String) -> Result<Bytes, io.Error>
+        case local.dir
+            Some(d) -> Dir.read(d, p)
+            None    -> fs.read(p)
+        end
+    end
+
+    fn read_text(local: Local, p: String) -> Result<String, io.Error>
+        case local.dir
+            Some(d) -> Dir.read_text(d, p)
+            None    -> fs.read_text(p)
+        end
+    end
+
+    fn write(local: Local, p: String, data: Bytes) -> Result<Unit, io.Error>
+        case local.dir
+            Some(d) -> Dir.write(d, p, data, mode: WriteMode.ReplaceAtomically)
+            None    -> fs.write(p, data, mode: WriteMode.ReplaceAtomically)
+        end
+    end
+
+    fn metadata(local: Local, p: String) -> Result<Metadata, io.Error>
+        case local.dir
+            Some(d) -> Dir.metadata(d, p)
+            None    -> fs.metadata(p)
+        end
+    end
+
+    fn remove(local: Local, p: String) -> Result<Unit, io.Error>
+        case local.dir
+            Some(d) -> Dir.remove(d, p)
+            None    -> fs.remove(p)
+        end
+    end
+
+    fn create_dir(local: Local, p: String) -> Result<Unit, io.Error>
+        case local.dir
+            Some(d) -> Dir.create_dir(d, p, parents: True)
+            None    -> fs.create_dir(p, parents: True)
+        end
+    end
+
+    fn walk(local: Local, root: String) -> Iter<Result<FsEntry, io.Error>>
+        case local.dir
+            Some(d) -> Dir.walk(d, root)
+            None    -> fs.walk(root)
+        end
+    end
+
     fn object_path(local: Local, key: String) -> String
         path.join_all([local.root, ..file_names(key)])
     end
@@ -550,7 +653,7 @@ impl Local
         key:   String,
         data:  () -> Result<Bytes, Error>,
     ) -> Result<String, Error>
-        case fs.read_text(Local.type_path(local, key))
+        case Local.read_text(local, Local.type_path(local, key))
             Ok(text)              -> Ok(text)
             Err(.NotFound{})      -> data() |> Result.map(http.detect_content_type)
             Err(.NotADirectory{}) -> data() |> Result.map(http.detect_content_type)
@@ -566,22 +669,22 @@ impl Store for Local
         check_content_type(content_type)?
         object = Local.object_path(local, key)
         type_file = Local.type_path(local, key)
-        make_parent(key, object)?
-        make_parent(key, type_file)?
+        make_parent(local, key, object)?
+        make_parent(local, key, type_file)?
 
-        fs.write_text(type_file, content_type, mode: WriteMode.ReplaceAtomically)
+        Local.write(local, type_file, String.to_bytes(content_type))
         |> Result.map_err(fn e -> from_io(key, e))?
 
-        fs.write(object, data, mode: WriteMode.ReplaceAtomically)
+        Local.write(local, object, data)
         |> Result.map_err(fn e -> from_io(key, e))
     end
 
     fn get(local: Local, key: String) -> Result<Object, Error>
         check_key(key)?
         object = Local.object_path(local, key)
-        meta = fs.metadata(object) |> Result.map_err(fn e -> missing(key, e))?
+        meta = Local.metadata(local, object) |> Result.map_err(fn e -> missing(key, e))?
         if meta.kind != Kind.File then return Err(Error.NotFound{key:})
-        data = fs.read(object) |> Result.map_err(fn e -> missing(key, e))?
+        data = Local.read(local, object) |> Result.map_err(fn e -> missing(key, e))?
         content_type = Local.content_type(local, key, fn -> Ok(data))?
 
         Ok(
@@ -596,10 +699,10 @@ impl Store for Local
         check_key(key)?
         object = Local.object_path(local, key)
 
-        case fs.metadata(object)
+        case Local.metadata(local, object)
             Ok(meta) when meta.kind == Kind.File ->
                 content_type = Local.content_type(local, key, fn ->
-                    fs.read(object) |> Result.map_err(fn e -> missing(key, e))
+                    Local.read(local, object) |> Result.map_err(fn e -> missing(key, e))
                 end)?
 
                 Ok(Some(Info{size: meta.size, content_type:, modified: meta.modified}))
@@ -619,20 +722,21 @@ impl Store for Local
         check_key(key)?
         object = Local.object_path(local, key)
 
-        is_file = case fs.metadata(object)
-            Ok(meta) ->
-                meta.kind == Kind.File
+        is_file =
+            case Local.metadata(local, object)
+                Ok(meta) ->
+                    meta.kind == Kind.File
 
-            Err(e) ->
-                case missing(key, e)
-                    .NotFound{} -> False
-                    other       -> return Err(other)
-                end
-        end
+                Err(e) ->
+                    case missing(key, e)
+                        .NotFound{} -> False
+                        other       -> return Err(other)
+                    end
+            end
 
-        if is_file then fs.remove(object) |> Result.map_err(fn e -> from_io(key, e))?
+        if is_file then Local.remove(local, object) |> Result.map_err(fn e -> from_io(key, e))?
 
-        case fs.remove(Local.type_path(local, key))
+        case Local.remove(local, Local.type_path(local, key))
             Ok(_) ->
                 Ok(Unit)
 
@@ -656,18 +760,19 @@ impl Store for Local
     fn list(local: Local, options: ListOptions) -> Result<Listing, Error>
         check_prefix(options.prefix)?
 
-        base = if String.ends_with(local.root, "/") then
-            local.root
-        else
-            "${local.root}/"
-        end
+        base =
+            if String.ends_with(local.root, "/") then
+                local.root
+            else
+                "${local.root}/"
+            end
 
         entries =
-            fs.walk(local.root)
+            Local.walk(local, local.root)
             |> Iter.map(fn walked ->
                 case walked
                     Ok(entry) when entry.kind == Kind.File ->
-                        local_entry(base, entry.path, options.prefix)
+                        local_entry(local, base, entry.path, options.prefix)
 
                     Ok(_) ->
                         Ok(None)
@@ -688,12 +793,17 @@ end
 // The entry for the file at `file`, under `base`, when it holds an object
 // whose key starts with `prefix`: no segment of its path starts with `.`,
 // which leaves out the types directory and a put's temporary files.
-fn local_entry(base: String, file: String, prefix: String) -> Result<Maybe<Entry>, Error>
+fn local_entry(
+    local:  Local,
+    base:   String,
+    file:   String,
+    prefix: String,
+) -> Result<Maybe<Entry>, Error>
     segments = String.split(String.drop(file, String.length(base)), "/")
     if Iter.any_match(segments, fn s -> String.starts_with(s, ".")) then return Ok(None)
     key = segments |> Iter.map(key_segment) |> String.join("/")
     if not String.starts_with(key, prefix) then return Ok(None)
-    meta = fs.metadata(file) |> Result.map_err(fn e -> from_io(key, e))?
+    meta = Local.metadata(local, file) |> Result.map_err(fn e -> from_io(key, e))?
     Ok(Some(Entry{key:, size: meta.size, modified: meta.modified}))
 end
 
@@ -759,9 +869,9 @@ fn is_device_name(segment: String) -> Bool
 end
 
 // Create the directories above the file at `file`, which holds `key`.
-fn make_parent(key: String, file: String) -> Result<Unit, Error>
+fn make_parent(local: Local, key: String, file: String) -> Result<Unit, Error>
     case path.parent(file)
-        Some(dir) -> fs.create_dir(dir, parents: True) |> Result.map_err(fn e -> from_io(key, e))
+        Some(dir) -> Local.create_dir(local, dir) |> Result.map_err(fn e -> from_io(key, e))
         None      -> Ok(Unit)
     end
 end

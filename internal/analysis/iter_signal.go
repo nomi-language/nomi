@@ -117,7 +117,7 @@ func (fa *FileAnalysis) topLevelFunc(fn ast.Node) *ast.FuncDef {
 // breaksIteration reports whether a callback can end its iteration: a
 // lambda or a capture with a `break` of its own, or an iter-sensitive
 // function whose own scope breaks, passed as the callback itself. Any other
-// function value cannot signal. LoopNeverBreaks asks it.
+// function value cannot signal. loopNeverBreaks asks it.
 func (fa *FileAnalysis) breaksIteration(cb ast.Node) bool {
 	switch t := cb.(type) {
 	case *ast.Lambda:

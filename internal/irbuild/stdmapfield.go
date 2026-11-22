@@ -3,59 +3,7 @@ package irbuild
 import (
 	"reflect"
 	"strings"
-
-	"github.com/nomi-language/nomi/internal/ast"
 )
-
-// mapSigKind is the kind a stdlib signature's `Map<K, V>` annotation names,
-// reporting whether the annotation was a Map at all.
-//
-// The sibling of listSigKind and resolved on identical terms. `Map` is not a
-// declaration anywhere — the front end builds it — so there is no declaration to
-// anchor to and nothing that could shadow it, which is why this resolves by NAME
-// where an opaque or a std struct resolves through `anchors`.
-//
-// Both arguments go through the same restricted `stdTypeKind` the outer position
-// uses, so `Map<String, Fragment<String>>` refuses on the `Fragment` rather than
-// admitting a kind this boundary cannot share, and `Map<String, List<Int>>`
-// works without a second rule.
-//
-// Reported as handled even when it refuses, for the reason listSigKind is: an
-// unrepresentable argument must be the ANSWER rather than falling through to a
-// lookup that would return the same kindInvalid for a different reason.
-//
-// This is the third of three layers a non-scalar stdlib field needs, and all
-// three must agree or the anchor silently fails to build: `stdMapField` states
-// the kind, `mapKindOfGoType` projects rt's Go type onto it, and this resolves
-// std's ANNOTATION onto it. `stdStructSpec.matches` compares the first and the
-// third; TestStdStructGoWidthMatchesTheDeclaredField compares the first and the
-// second.
-func mapSigKind(gt *ast.GenericType, anchors stdAnchors) (kind, bool) {
-	if gt.Name != "Map" {
-		return kindInvalid, false
-	}
-	if len(gt.Params) != 2 {
-		// stdTypeKind is the only caller, and it passes annotations from std
-		// source the checker accepted, which reports "Map expects 2 type
-		// arguments" for any other count. The guard keeps the two reads below
-		// in range: with fewer arguments Params[1] would panic, and with more
-		// the answer would be a Map of the first two. listSigKind applies the
-		// same rule to its arity.
-		return kindInvalid, true
-	}
-	key := stdTypeKind(gt.Params[0], anchors)
-	val := stdTypeKind(gt.Params[1], anchors)
-	// kindInvalid: propagates — the argument's own refusal is the answer.
-	if key == kindInvalid || val == kindInvalid {
-		return kindInvalid, true
-	}
-	// Nil gen: every kind stdTypeKind admits is package-neutral, so this interns
-	// in the process-wide table and is the entry a call site's own mapKind
-	// produces. A non-neutral argument would panic in internComp rather than
-	// yield a kind interned nowhere — the failure listSigKind's `!shared` arm
-	// treats as a refusal, made unrepresentable here instead.
-	return mapKindIn(nil, key, val), true
-}
 
 // mapKindOfGoType is the kind an rt signature's `rt.Map[K, V]` names, or
 // kindInvalid.

@@ -29,6 +29,16 @@ impl Tagged for Box
         b.n
     end
 end
+
+interface Shown
+    fn shown(s: self) -> String
+end
+
+impl Shown for Box
+    fn shown(Box) -> String
+        "box"
+    end
+end
 `
 
 // TestImplBlockTypeArgs_SolvedAndOpen: a header that writes no type
@@ -73,8 +83,59 @@ func TestImplBlockTypeArgs_VerifierHoldsTheRecord(t *testing.T) {
 	if n := count(); n != 0 {
 		t.Fatalf("recorded impl blocks are reported %d times", n)
 	}
-	fa.ImplTypeArgSets = nil
+	for _, byIface := range fa.ImplBlocks {
+		for iface, blocks := range byIface {
+			for _, b := range blocks {
+				if iface == "Gets" || iface == "Tagged" {
+					b.Args = nil
+				}
+			}
+		}
+	}
 	if n := count(); n != 2 {
-		t.Fatalf("want both blocks reported once their record is gone, got %d", n)
+		t.Fatalf("want both generic blocks reported once their arguments are gone, got %d", n)
+	}
+	blocks := 0
+	for _, n := range nodes {
+		if ib, ok := n.(*ast.ImplBlock); ok && ib.Interface != nil {
+			blocks++
+		}
+	}
+	fa.ImplBlocks = nil
+	missing := 0
+	for _, v := range VerifyElaboration(fa, nodes) {
+		if v.Category == ElabImplIfaceUnrecorded {
+			missing++
+		}
+	}
+	if missing != blocks {
+		t.Fatalf("want each of the %d impl blocks reported once no record is left, got %d", blocks, missing)
+	}
+}
+
+// TestImplBlockTypeArgs_EveryBlockNamesItsInterface: every impl block has
+// a record of the interface it implements, by its declaration's name and
+// origin, one of an interface with no type parameters included. The
+// derived and universal blocks std and the corpus hold are held by
+// TestElaborationGate (vmhost).
+func TestImplBlockTypeArgs_EveryBlockNamesItsInterface(t *testing.T) {
+	fa, nodes := checkNodes(t, implBlockArgsSrc)
+	got := map[string]*ImplTypeArgs{}
+	for _, n := range nodes {
+		ib, ok := n.(*ast.ImplBlock)
+		if !ok || ib.Interface == nil {
+			continue
+		}
+		rec := ImplBlockTypeArgs(fa, ib)
+		if rec == nil {
+			t.Fatalf("impl %s for %s has no record", ib.Interface.TypeString(), ib.Receiver.TypeString())
+		}
+		got[ib.Interface.TypeString()] = rec
+	}
+	if r := got["Shown"]; r == nil || r.Interface != "Shown" || r.Origin != fa.Origin || !r.Std().IsZero() || r.Args != nil {
+		t.Fatalf("Shown for Box: want the program's Shown with no arguments, got %+v", r)
+	}
+	if r := got["Gets"]; r == nil || r.Interface != "Gets" || len(r.Args) != 1 {
+		t.Fatalf("Gets for Box: want Gets at one argument, got %+v", r)
 	}
 }

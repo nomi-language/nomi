@@ -135,7 +135,7 @@ fn main() -> Unit
     end
 
     // --- extractors, both arms ----------------------------------------------
-    // as_string, which is the operation 18-ffi-and-dynamic/json_test.nomi reaches.
+    // as_string, which is the operation 18-json-and-dynamic/json_test.nomi reaches.
     case Dynamic.field(root, "name")
         Ok(d)  -> io.print(describe("as_string", Dynamic.as_string(d)))
         Err(_) -> io.print("as_string: no field")

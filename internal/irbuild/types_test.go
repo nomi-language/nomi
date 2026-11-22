@@ -195,7 +195,6 @@ func lookupTypeDef(t *testing.T, src, name string) *typeDef {
 		t.Fatal(err)
 	}
 	g := &gen{nomiPath: "main.nomi", fa: p.Modules[0].FA, funcs: map[string]*fnSig{}, types: map[string]*typeDef{}, ifaces: map[string]*ifaceDef{}}
-	g.pushScope()
 	// Interface shells first, exactly as declareTypes orders it: a payload may
 	// be interface-typed and typeOf can only answer that once the name
 	// resolves to an *ifaceDef.

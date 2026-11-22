@@ -1,3 +1,0 @@
-[module]
-name = "tagged_ffi_app"
-entry_points = ["main"]

@@ -162,17 +162,13 @@ func (g *gen) irStartupFunc(token any, fd *ast.FuncDef, arg ast.Node, row *testR
 	}
 	at := g.irNodePos(arg)
 	f := ir.NewFuncFor(at, sym)
-	sh := &irFuncShell{fn: f, syms: map[string]*ir.Symbol{}, params: map[string]ir.Temp{}, patternOK: true}
-	sh.frame = newIRFuncFrame(f)
+	sh := &irFuncShell{fn: f, params: map[string]ir.Temp{}}
 	sh.entry = f.NewBlock(at, "entry")
 	sh.result = f.NewTemp()
 	sh.slot = ir.NewSlot(at, sh.result, g.irTypeOf(k))
 	sh.entry.Append(sh.slot)
-	sh.prologue = 1
-	bl := &irScalarBuilder{g: g, sh: sh, f: f, b: sh.entry, returnKind: k, bound: map[string]ir.Temp{}, boundK: map[string]kind{}}
+	bl := &irScalarBuilder{g: g, sh: sh, f: f, b: sh.entry, returnKind: k}
 	if row != nil {
-		g.pushScope()
-		defer g.popScope()
 		if !bl.testBindRow(row) {
 			return nil, false
 		}

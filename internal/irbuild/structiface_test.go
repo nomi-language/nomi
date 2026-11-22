@@ -2,6 +2,8 @@ package irbuild
 
 import (
 	"testing"
+
+	"github.com/nomi-language/nomi/internal/analysis"
 )
 
 // TestStructIface_TheStdDeclarationStillHasTheShapeThisFileAssumes is
@@ -38,9 +40,10 @@ end
 		t.Fatalf("the fixture does not analyze, so no anchor was measured: %v", err)
 	}
 	if len(p.Modules) == 0 || p.Modules[0].FA == nil {
-		t.Fatal("no FileAnalysis, so structIfaceAnchored had nothing to resolve against")
+		t.Fatal("no FileAnalysis, so stdSharedIface had nothing to resolve against")
 	}
-	if !structIfaceAnchored(p.Modules[0].FA) {
+	g := &gen{fa: p.Modules[0].FA}
+	if g.stdSharedIface(analysis.StdType{Module: structIfaceModule, Name: structIfaceName}) != structIfaceDef() {
 		t.Fatal("std's `interface Struct` NO LONGER has the shape structiface.go assumes, so every " +
 			"`Struct` position now refuses under `stdlib interface`.\n\n" +
 			"structIfaceMatches requires: public, non-generic, no fields, no variants, no attached " +

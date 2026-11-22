@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
@@ -55,7 +56,10 @@ func (v ElabViolation) String() string {
 //   - Every value expression (the positions UnresolvedExprs counts) has a
 //     recorded type, and the type is closed. A call's named callee is not
 //     held to this: its type is its declaration's, and the call's record
-//     is its instance.
+//     is its instance. Every struct, enum, distinct type and interface in
+//     that type and in the type the position expects names its
+//     declaration (an Origin other than OriginUnresolved), so the builder
+//     finds the declaration by identity, never by the type's name.
 //   - The implicit operations the builder performs on the checker's
 //     decision are recorded: an operator over a value that is not a
 //     primitive has the record of what it means (Operators: an impl, a
@@ -75,19 +79,25 @@ func (v ElabViolation) String() string {
 //     callee receives as a view over the source, has the record of the
 //     view (IterViews). An expression whose type converts to the expected
 //     one below its top has the record of the conversion, each part that
-//     enters an interface at a closed type (Conversions). An impl block of
-//     a generic interface whose
-//     header writes no type arguments has the record of the ones it
-//     implements (ImplTypeArgSets, ImplBlockTypeArgs). A call of an
+//     enters an interface at a closed type (Conversions). Every impl block
+//     has the record of the interface it implements, and one of a generic
+//     interface of the type arguments it implements (ImplBlocks,
+//     ImplBlockTypeArgs). A call of an
 //     interface function the checker selected no impl for, with a
 //     recorded signature, has the record of the interface instance it
 //     goes through (Symbol.CallInterface).
 //   - Every type expression in the file's declarations and bodies has
 //     the record of the type it resolves to, or of none
 //     (TypeExprTypes), apart from the heads checkTypeRecords names.
-//   - Every pattern has the record of the type it matches (PatternTypes),
-//     and every pattern that names a variant has the variant's
-//     (PatternVariants).
+//   - Every pattern has the record of the type it matches (PatternTypes)
+//     and of whether it matches every value of that type
+//     (IrrefutablePatterns), every pattern that names a variant has the
+//     variant's (PatternVariants), and every binding with an `else` has
+//     the record of what its `else` may fall back to (BindingFallbacks).
+//   - Every enum and distinct type declaration has the type the checker
+//     built for it, an enum's with each of its variants (DeclaredType),
+//     which says whether a payload or an inner type is written as its
+//     parts.
 //
 // Closed means: no unsolved inference variable anywhere in the type, at
 // any depth, and no type parameter other than the enclosing declaration's
@@ -134,7 +144,14 @@ type ElabCounts struct {
 // VerifyElaborationCounting is VerifyElaboration that also counts the
 // value expressions, calls and generic calls it checked.
 func VerifyElaborationCounting(fa *FileAnalysis, nodes []ast.Node) ([]ElabViolation, ElabCounts) {
-	v := &elabVerifier{fa: fa, scopes: map[ast.Node]map[*TypeParam_]bool{}, names: map[ast.Node]map[string]bool{}, callees: map[ast.Node]bool{}, labels: map[ast.Node]string{}}
+	blockDebug := blockDebugImpls(fa, nodes)
+	nodes = append(slices.Clone(nodes), blockDebug...)
+	v := &elabVerifier{fa: fa, scopes: map[ast.Node]map[*TypeParam_]bool{}, names: map[ast.Node]map[string]bool{}, callees: map[ast.Node]bool{}, labels: map[ast.Node]string{}, blockDebug: map[*ast.ImplBlock]bool{}}
+	for _, n := range blockDebug {
+		if ib, ok := n.(*ast.ImplBlock); ok {
+			v.blockDebug[ib] = true
+		}
+	}
 	v.receivers = coercionReceivers(fa, nodes)
 	for _, top := range nodes {
 		v.assignScopes(top, nil, nil, "")
@@ -156,9 +173,20 @@ func VerifyElaborationCounting(fa *FileAnalysis, nodes []ast.Node) ([]ElabViolat
 	}
 	for _, top := range nodes {
 		v.checkTypeRecords(top)
+		if ef, ok := top.(*ast.ExternFunc); ok && !IsStdlibKey(fa.Origin) {
+			if _, recorded := fa.HostJSONForms[ef]; !recorded {
+				v.report(ef, "implicit", ElabHostJSONFormUnrecorded, ef.Name)
+			}
+		}
 	}
 	return v.out, v.counts
 }
+
+// ElabHostJSONFormUnrecorded is the category of a project's top-level
+// `host fn` with no record of whether its signature crosses as JSON
+// (FileAnalysis.HostJSONForms), which the IR builder reads to give a host
+// that answers in JSON the conversions of its arguments and result.
+const ElabHostJSONFormUnrecorded = "implicit: host function's JSON form not recorded"
 
 // checkTypeRecords reports each type expression at or below n with no
 // recorded type (TypeExprTypes), and each pattern with no record of the
@@ -198,6 +226,12 @@ func (v *elabVerifier) checkTypeRecords(n ast.Node) {
 		}
 	}
 	v.checkPattern(n)
+	v.checkDeclaredType(n)
+	if pb, isBinding := n.(*ast.PatternBinding); isBinding && pb.Else != nil {
+		if _, recorded := v.fa.BindingFallback(pb); !recorded {
+			v.report(n, "implicit", ElabBindingFallbackUnrecorded, "PatternBinding")
+		}
+	}
 	head := exemptHead(n)
 	ast.Children(n, func(c ast.Node) {
 		if c != head {
@@ -207,7 +241,8 @@ func (v *elabVerifier) checkTypeRecords(n ast.Node) {
 }
 
 // checkPattern reports n, when it is a pattern, that has no record of the
-// type it matches (PatternTypes), or that names a variant of the enum it matches and has
+// type it matches (PatternTypes) or of whether it always matches
+// (IrrefutablePatterns), or that names a variant of the enum it matches and has
 // no record of which (PatternVariants). A literal pattern is a value of
 // its own type and is not held here; `Unit` and `self(n)`, which name no
 // variant, need only their type.
@@ -237,12 +272,46 @@ func (v *elabVerifier) checkPattern(n ast.Node) {
 		v.report(n, "implicit", ElabPatternUnrecorded, fmt.Sprintf("%T", n))
 		return
 	}
+	if _, recorded := v.fa.PatternIrrefutable(n); !recorded {
+		v.report(n, "implicit", ElabPatternIrrefutableUnrecorded, fmt.Sprintf("%T", n))
+	}
 	if _, isEnum := resolveTypeVar(t).(*EnumType); isEnum && head != nil {
 		if _, named := v.fa.PatternVariants[head]; !named {
 			v.report(n, "implicit", ElabPatternVariantUnrecorded, fmt.Sprintf("%T %s", n, head.TypeString()))
 		}
 	}
 }
+
+// checkDeclaredType reports n, when it is an enum or a distinct type's
+// declaration, that has no type the checker built for it
+// (FileAnalysis.DeclaredType), or an enum's with a variant the type does
+// not hold: the builder reads from that type whether a payload or an
+// inner type is written as its parts (VariantDef.WrittenAsParts,
+// DistinctType.WrittenAsParts).
+func (v *elabVerifier) checkDeclaredType(n ast.Node) {
+	switch d := n.(type) {
+	case *ast.EnumDef:
+		et, ok := v.fa.DeclaredType(d).(*EnumType)
+		if !ok {
+			v.report(n, "implicit", ElabDeclaredTypeUnrecorded, "enum "+d.Name)
+			return
+		}
+		for _, dv := range d.Variants {
+			if findVariant(et, dv.Name) == nil {
+				v.report(n, "implicit", ElabDeclaredTypeUnrecorded, "enum "+d.Name+" variant "+dv.Name)
+			}
+		}
+	case *ast.TypeDef:
+		if _, ok := v.fa.DeclaredType(d).(*DistinctType); !ok {
+			v.report(n, "implicit", ElabDeclaredTypeUnrecorded, "type "+d.Name)
+		}
+	}
+}
+
+// ElabDeclaredTypeUnrecorded is the category of an enum or a distinct
+// type's declaration with no type the checker built for it, or an enum's
+// variant that type does not hold (FileAnalysis.DeclaredType).
+const ElabDeclaredTypeUnrecorded = "implicit: declared type not recorded"
 
 // exemptHead is n's head, when n is a literal or a pattern that names
 // one, or an impl item's interface, its block's node; else nil.
@@ -285,29 +354,55 @@ const ElabTypeExprUnrecorded = "implicit: type expression's type not recorded"
 const (
 	ElabPatternUnrecorded        = "implicit: pattern's type not recorded"
 	ElabPatternVariantUnrecorded = "implicit: pattern's variant not recorded"
+	// ElabPatternIrrefutableUnrecorded is the category of a pattern with a
+	// type and no record of whether it always matches
+	// (FileAnalysis.IrrefutablePatterns), and
+	// ElabBindingFallbackUnrecorded of a binding with an `else` and no
+	// record of what its `else` may fall back to
+	// (FileAnalysis.BindingFallbacks).
+	ElabPatternIrrefutableUnrecorded = "implicit: whether a pattern always matches not recorded"
+	ElabBindingFallbackUnrecorded    = "implicit: binding's fallback not recorded"
 )
 
-// checkImplBlockArgs reports an impl block of a generic interface whose
-// header writes no type arguments when the file has no record of the ones
-// it implements (ImplBlockTypeArgs).
+// checkImplBlockArgs reports an interface impl block of the file's
+// declarations with no record of the interface it implements
+// (ImplBlockTypeArgs), and one of a generic interface with no record of
+// the type arguments it implements. The universal Debug of a type
+// declared in a body (FileBodies.BlockDebug) is std's Debug by
+// construction and has no record.
 func (v *elabVerifier) checkImplBlockArgs(ib *ast.ImplBlock) {
-	if ib.Interface == nil || headerWritesTypeArgs(ib.Interface) {
+	if ib.Interface == nil || v.blockDebug[ib] {
+		return
+	}
+	rec := ImplBlockTypeArgs(v.fa, ib)
+	if rec == nil || rec.Interface == "" {
+		v.report(ib, "implicit", ElabImplIfaceUnrecorded, "impl "+ib.Interface.TypeString())
+		return
+	}
+	if headerWritesTypeArgs(ib.Interface) {
 		return
 	}
 	iface := lookupInterfaceType(v.fa, nil, TypeExprBaseName(ib.Interface))
-	if iface == nil || len(iface.TypeParamDefs) == 0 || ImplBlockTypeArgs(v.fa, ib) != nil {
+	if iface == nil || len(iface.TypeParamDefs) == 0 || len(rec.Args) == len(iface.TypeParamDefs) {
 		return
 	}
 	v.report(ib, "implicit", ElabImplArgsUnrecorded, "impl "+ib.Interface.TypeString())
 }
 
-// ElabImplArgsUnrecorded is the category of an impl block of a generic
-// interface, its header writing no type arguments, with no record of the
-// ones it implements (FileAnalysis.ImplTypeArgSets).
-const ElabImplArgsUnrecorded = "implicit: impl block's interface type arguments not recorded"
+// ElabImplIfaceUnrecorded is the category of an interface impl block with
+// no record of the interface it implements (FileAnalysis.ImplBlocks), and
+// ElabImplArgsUnrecorded of one of a generic interface, its header writing
+// no type arguments, with no record of the ones it implements.
+const (
+	ElabImplIfaceUnrecorded = "implicit: impl block's interface not recorded"
+	ElabImplArgsUnrecorded  = "implicit: impl block's interface type arguments not recorded"
+)
 
 type elabVerifier struct {
 	fa *FileAnalysis
+	// blockDebug holds the universal Debug of each type declared in a body
+	// (FileBodies.BlockDebug).
+	blockDebug map[*ast.ImplBlock]bool
 	// otherwise holds the `_` arm of each `case` with no subject, which
 	// matches no value (checkPattern).
 	otherwise map[*ast.WildcardPattern]bool
@@ -483,7 +578,7 @@ func (v *elabVerifier) visit(n ast.Node, value bool) {
 		if n.Op == "in" {
 			v.checkMembership(n)
 		}
-	case *ast.Unary:
+	case *ast.Unary, *ast.Dbg:
 		v.checkOperator(n)
 	case *ast.TryOp:
 		v.checkTryMarker(n, n.Line, n.Col, "`?`")
@@ -492,14 +587,35 @@ func (v *elabVerifier) visit(n ast.Node, value bool) {
 		v.checkUnwrapFailure(n)
 	case *ast.TaggedString:
 		v.checkLiteralFailure(n)
+		v.checkLiteralTag(n, n)
+	case *ast.StringLit:
+		if twin := v.fa.TargetLiterals[n]; twin != nil {
+			v.checkLiteralTag(n, twin)
+		}
 	case *ast.StringInterp:
 		// One read as a typed literal (TargetLiterals) passes its holes to
 		// the literal's handler, not through Display.
-		if _, typed := v.fa.TargetLiterals[n]; !typed {
+		if twin, typed := v.fa.TargetLiterals[n]; !typed {
 			v.checkInterpolation(n.Parts)
+		} else {
+			v.checkLiteralTag(n, twin)
 		}
 	}
 }
+
+// checkLiteralTag holds a typed literal lit, written at n (an untagged
+// literal at the twin its position reads it as), whose handler is an impl
+// of `Literal` or `CheckedLiteral`, to a record of the type that impl is
+// for (TypedLiteral.Tag).
+func (v *elabVerifier) checkLiteralTag(n ast.Node, lit *ast.TaggedString) {
+	if rec := v.fa.TypedLiterals[lit]; rec != nil && rec.Interface != "" && rec.Tag == nil {
+		v.report(n, "implicit", ElabLiteralTagUnrecorded, lit.Tag+" literal")
+	}
+}
+
+// ElabLiteralTagUnrecorded is the category of a typed literal with no
+// record of the type whose handler builds it (TypedLiteral.Tag).
+const ElabLiteralTagUnrecorded = "implicit: typed literal's type not recorded"
 
 // checkExpr holds a value expression to a recorded, closed type, and
 // lists the interface boxing its position implies.
@@ -511,6 +627,11 @@ func (v *elabVerifier) checkExpr(n ast.Node) {
 	}
 	if cat, why := v.openness(n, t); cat != "" {
 		v.report(n, "expr", "expr: "+cat, exprLabel(n)+": "+why)
+	}
+	for _, rec := range []Type{t, v.fa.ExpectedTypes[n]} {
+		if p := unresolvedNominal(rec); p != nil {
+			v.report(n, "expr", ElabNominalUnresolved, exprLabel(n)+": "+p.String()+" in "+resolveTypeVar(rec).String())
+		}
 	}
 	if exp, ok := v.fa.ExpectedTypes[n]; ok && exp != nil && !v.receivers[n] {
 		if conj, isConj := resolveTypeVar(exp).(*ConjunctionType); isConj {
@@ -544,6 +665,29 @@ func (v *elabVerifier) checkExpr(n ast.Node) {
 			}
 		}
 	}
+}
+
+// ElabNominalUnresolved is the category of an expression whose type or
+// expected type holds a struct, enum, distinct type or interface with no
+// declaration's identity (OriginUnresolved), which the builder could only
+// match to a declaration by its name.
+const ElabNominalUnresolved = "expr: nominal type with no declaration (OriginUnresolved)"
+
+// unresolvedNominal is the first nominal type in t, at any depth, whose
+// Origin names no declaration, or nil.
+func unresolvedNominal(t Type) Type {
+	var found Type
+	walkType(t, func(p Type) bool {
+		if found != nil {
+			return false
+		}
+		if origin, nominal := nominalOrigin(p); nominal && origin == OriginUnresolved {
+			found = p
+			return false
+		}
+		return true
+	})
+	return found
 }
 
 // ElabConversionUnrecorded is the category of an expression whose type
@@ -828,6 +972,11 @@ func (v *elabVerifier) checkPlacement(n *ast.Call, name string) {
 	if len(rc.Order) != len(n.Args) {
 		v.report(n, "implicit", ElabPlacementUnrecorded, fmt.Sprintf("%s: %d arguments ordered of %d", name, len(rc.Order), len(n.Args)))
 	}
+	if rc.NeverReturns && rc.Callee.Std != iterOwnerFunc("loop") {
+		// Decided as the call is checked (loopNeverBreaks), and held here
+		// to the callee the record settled on.
+		v.report(n, "implicit", ElabCalleeUnclassified, name+": never returns, and its callee is not std's Iter.loop")
+	}
 	switch rc.Callee.Kind {
 	case CalleeUnknown:
 		v.report(n, "implicit", ElabCalleeUnclassified, name)
@@ -1015,7 +1164,8 @@ func (v *elabVerifier) checkInterfaceCall(n *ast.Call, name string, sym *Symbol)
 	// in the type that qualifies it, or the enclosing default's own self.
 	recv := interfaceSelfIndex(v.fa, sym)
 	if recv < 0 || recv >= len(n.Args) {
-		if sym.CallReceiver != "" && !v.names[n][sym.CallReceiver] {
+		acc, qualified := n.Func.(*ast.FieldAccess)
+		if qualified && sym.CallReceiver != "" && v.fa.qualifierOf(acc.Object).Kind != QualTypeParam {
 			v.report(n, "call", "call: interface method on a concrete type, no impl recorded", name)
 		}
 		return
@@ -1055,7 +1205,7 @@ const (
 )
 
 // checkOperator holds every operator that goes through an interface (an
-// arithmetic, bitwise or comparison operator, a prefix `~~~`), whatever
+// arithmetic, bitwise or comparison operator, a prefix `~~~`, a `dbg`), whatever
 // its operand's type, a primitive's included, to a record of what it
 // means: std's impl for `Int + Int`, an impl of the operand's type, a
 // comparison by shape, a dispatch on two interface values, or a type
@@ -1082,13 +1232,15 @@ func (v *elabVerifier) checkOperator(n ast.Node) {
 	v.report(n, "implicit", cat, fmt.Sprintf("%s on %s", operatorToken(n), t))
 }
 
-// operatorToken is the operator a binary or unary node spells.
+// operatorToken is the operator a binary or unary node spells, and `dbg`.
 func operatorToken(n ast.Node) string {
 	switch n := n.(type) {
 	case *ast.Binary:
 		return n.Op
 	case *ast.Unary:
 		return n.Op
+	case *ast.Dbg:
+		return "dbg"
 	}
 	return ""
 }
@@ -1127,7 +1279,7 @@ func (v *elabVerifier) checkUnwrapFailure(n *ast.Unwrap) {
 	if sym == nil || sym.TryOp == nil {
 		return
 	}
-	if et, ok := resolveTypeVar(sym.TryOp.InputTy).(*EnumType); !ok || et.Name != "Result" {
+	if !isStdType(resolveTypeVar(sym.TryOp.InputTy), stdResultType) {
 		return
 	}
 	if v.fa.UnwrapFailures[n] == nil {

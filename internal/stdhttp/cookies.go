@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/nomi-language/nomi/rt"
 )
@@ -102,11 +103,17 @@ func ParseCookie(text string) rt.Result[*rt.List[*rt.List[string]], string] {
 	return rt.Ok[*rt.List[*rt.List[string]], string](cookieList(cs))
 }
 
-// ParseSetCookie is `std::http::host.parse_set_cookie`: Go's ParseSetCookie.
+// ParseSetCookie is `std::http::host.parse_set_cookie`: Go's ParseSetCookie,
+// with Expires in UTC whatever zone token it names (RFC 6265 section 5.1.1). Go
+// reads the token against the process's zone, so the expiry is read
+// again from raw_expires in the two forms Go takes.
 func ParseSetCookie(text string) rt.Result[*rt.List[string], string] {
 	c, err := http.ParseSetCookie(text)
 	if err != nil {
 		return rt.Err[*rt.List[string]](err.Error())
+	}
+	if t, err := gmtDate(c.RawExpires, time.RFC1123, "Mon, 02-Jan-2006 15:04:05 MST"); err == nil {
+		c.Expires = t
 	}
 	return rt.Ok[*rt.List[string], string](listOf(cookieParts(c)))
 }

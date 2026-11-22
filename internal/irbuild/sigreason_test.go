@@ -24,6 +24,7 @@ import (
 func TestSigReason_NamesAReasonForExactlyWhatTypeOfRefuses(t *testing.T) {
 	src := `import std::io
 import std::literals.Literal
+import std::html
 import std::html.Html
 
 struct Point
@@ -49,7 +50,8 @@ end
 
 // Handler is a LOWERED row: a module-level alias is transparent (typealias.go).
 // u: Literal<Int, Int> is a LOWERED row too, a boxed generic interface. w: Html
-// supplies the refused half: a std type with no representation here.
+// supplies the refused half: a std type with no representation here, and x
+// is the same type named through its module's qualifier.
 typealias Handler (String) -> String
 
 fn every(
@@ -74,7 +76,8 @@ fn every(
   _t: List<Ordering>,
   _u: Literal<Int, Int>,
   _v: Iter<Int>,
-  _w: Html
+  _w: Html,
+  _x: html.Html
 ) -> Int
   0
 end
@@ -114,11 +117,17 @@ end
 					t.Errorf("%s: a reason must name a construct AND an operand, got %q / %q",
 						prm.Name, construct, detail)
 				}
+				// A std type named through its module's qualifier is the
+				// type its bare name is, and is refused for the same reason.
+				if (prm.Name == "_w" || prm.Name == "_x") && (construct != "stdlib type" || detail != "std/html.Html") {
+					t.Errorf("%s: %s refused as %q (%s), want \"stdlib type\" (std/html.Html)",
+						prm.Name, prm.TypeAnnotation.TypeString(), construct, detail)
+				}
 			}
 		}
 	}
-	if checked != 22 {
-		t.Fatalf("expected to check 22 parameters, checked %d", checked)
+	if checked != 23 {
+		t.Fatalf("expected to check 23 parameters, checked %d", checked)
 	}
 	// Both halves must be non-empty or the property is vacuous: a typeRefusal
 	// that named everything would pass the first arm, and one that named

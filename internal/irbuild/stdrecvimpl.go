@@ -1,6 +1,8 @@
 package irbuild
 
 import (
+	"strings"
+
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
@@ -83,10 +85,10 @@ func (g *gen) stdRecvTemplateOf(ib *ast.ImplBlock) (*stdRecvTemplate, bool) {
 	if !generic || len(gt.Params) == 0 || ib.Interface == nil {
 		return nil, false
 	}
-	if g.blockLocalTemplate(gt.Name, nil) != nil || g.genericTemplates[gt.Name] != nil || !g.programIface(ib) {
+	if _, _, programType := g.receiverTemplate(ib); programType || !g.programIface(ib) {
 		return nil, false
 	}
-	params := analysis.ReceiverTypeParamNames(ib.Receiver, g.declaresTypeName)
+	params := g.receiverTypeParamNames(ib)
 	if len(params) != len(gt.Params) {
 		return nil, false
 	}
@@ -115,22 +117,17 @@ func (g *gen) stdRecvTemplateOf(ib *ast.ImplBlock) (*stdRecvTemplate, bool) {
 }
 
 // programIface reports whether ib implements an interface a file of the
-// program declares. Only such an impl may name a std container as its
-// receiver: the orphan rule refuses a std interface's (§12), and the
-// builder's std dispatch never reads one.
+// program declares, by the checker's record of the block
+// (implBlockRecord): one no std module declares, or one of a std module
+// declared with each program (programStdModules). Only such an impl may
+// name a std container as its receiver: the orphan rule refuses a std
+// interface's (§12), and the builder's std dispatch never reads one.
 func (g *gen) programIface(ib *ast.ImplBlock) bool {
-	if ib.Interface == nil {
+	rec := g.implBlockRecord(ib)
+	if rec == nil {
 		return false
 	}
-	name, named := ifaceHeaderName(ib.Interface)
-	if !named {
-		return false
-	}
-	if g.ifaceTemplate(name) != nil {
-		return true
-	}
-	_, found := g.ifaceNamed(name)
-	return found
+	return !analysis.IsStdlibKey(rec.Origin) || isProgramStd(strings.TrimPrefix(rec.Origin, "std/"))
 }
 
 // registerStdRecvTemplate records ib as one of this gen's blocks over a std
@@ -445,121 +442,15 @@ func (bl *irScalarBuilder) stdRecvCallPlan(t *ast.Call, args irQualArgs, k kind,
 	return bl.stdRecvPick(t, args, bl.g.stdRecvCandidates(k, kt, method, iface, item), method)
 }
 
-// stdRecvOwnerPlan is `List.show(xs)`: a call qualified by a std container
-// whose function a program impl supplies, at the instance an operand of
-// the container is, else the instance the checked result is.
+// stdRecvOwnerPlan is `List.show(xs)`, `List.from_sql(value)`: a call
+// qualified by a std container whose function a program's block supplies,
+// planned from the function its record names (recordedImplPlan), at the
+// instance an operand is, else at the one the record is for.
 func (bl *irScalarBuilder) stdRecvOwnerPlan(t *ast.Call, args irQualArgs, owner, method string) *irQualPlan {
 	if bl.g.stdModule != "" || !args.ok {
 		return nil
 	}
-	if p := bl.recordedImplPlan(t, args, owner+"."+method); p != nil {
-		// The program's function the call's record names.
-		return p
-	}
-	iface, item := bl.stdRecvCallee(t)
-	if iface == "" && item == nil {
-		return nil
-	}
-	at := func(k kind, kt analysis.Type) *irQualPlan {
-		if name, _ := undeclaredRecvOwner(k); name != owner {
-			return nil
-		}
-		if _, scalar := irDispatchScalarName(k); scalar {
-			// A scalar's impl in this file is the local routes'.
-			for _, d := range bl.g.implOrder {
-				if d.recv == k && d.items[method] != nil {
-					return nil
-				}
-			}
-		}
-		return bl.stdRecvCallPlan(t, args, k, kt, method)
-	}
-	for i, k := range args.kinds {
-		if name, ok := undeclaredRecvOwner(k); ok && name == owner {
-			var kt analysis.Type
-			if i < len(t.Args) {
-				kt = bl.g.operandCheckerType(t.Args[i])
-			}
-			return at(k, kt)
-		}
-	}
-	// kindInvalid: lookup — an owner naming no type tries the checked result.
-	if k := bl.ownerKind(t, owner); k != kindInvalid {
-		// `Date.from_sql(v)`, `Int.from_sql(v)`: a function with no operand
-		// of its owner's type, of an owner that takes no type arguments, is
-		// that owner's.
-		if name, ok := undeclaredRecvOwner(k); ok && name == owner {
-			if _, _, container := stdRecvParts(k); !container {
-				return at(k, nil)
-			}
-		}
-	}
-	ft := bl.g.checkedCallSignature(t)
-	if ft == nil || ft.Return == nil {
-		return nil
-	}
-	result := bl.g.project(ft.Return)
-	if p := at(result, bl.g.checkerTypeArg(ft.Return)); p != nil {
-		return p
-	}
-	// `Maybe.make(1)` typed `Result<Maybe<Int>, String>`, for an impl of
-	// `make(n: Int) -> Result<self, String>`: the instance is a part of the
-	// checked result. Each part the owner names is tried, and the one whose
-	// impl answers exactly the checked result is the call's.
-	var found *irQualPlan
-	var foundAt kind
-	ambiguous := false
-	var walk func(k kind, kt analysis.Type)
-	walk = func(k kind, kt analysis.Type) {
-		_, parts, container := stdRecvParts(k)
-		if !container && irRetainedTupleKind(k) {
-			parts = k.comp.parts
-		}
-		for i, part := range parts {
-			pt := partCheckerType(kt, k, i)
-			if name, ok := undeclaredRecvOwner(part); ok && name == owner && part != foundAt {
-				if p := at(part, pt); p != nil && p.result == result {
-					ambiguous = ambiguous || found != nil
-					found, foundAt = p, part
-				}
-			}
-			walk(part, pt)
-		}
-	}
-	walk(result, bl.g.checkerTypeArg(ft.Return))
-	if ambiguous {
-		return nil
-	}
-	return found
-}
-
-// ownerKind is the kind of the type t's qualifier names, owner: a builtin
-// scalar or a declared type by this file's tables, else the type the checker
-// bound the qualifier to (a std type no table here holds, `Date`).
-// kindInvalid when it names neither.
-func (bl *irScalarBuilder) ownerKind(t *ast.Call, owner string) kind {
-	// kindInvalid: lookup — a miss asks the checker.
-	if k := bl.g.qualifierKind(owner); k != kindInvalid {
-		return k
-	}
-	return bl.g.project(bl.ownerType(t, owner))
-}
-
-// ownerType is the type the checker bound t's qualifier, owner, to, or nil
-// when the qualifier names no type.
-func (bl *irScalarBuilder) ownerType(t *ast.Call, owner string) analysis.Type {
-	fa, qualified := t.Func.(*ast.FieldAccess)
-	if !qualified {
-		return nil
-	}
-	ti, isType := fa.Object.(*ast.TypeIdent)
-	if !isType || ti.Name != owner {
-		return nil
-	}
-	if sym := bl.g.checkedRef(ti.Line, ti.Col); sym != nil {
-		return sym.Type
-	}
-	return nil
+	return bl.planned(t, viaStdRecvOwnerRecord, bl.recordedImplPlan(t, args, owner+"."+method))
 }
 
 // undeclaredRecvOwner is the owner a call spells for k when k is a receiver
@@ -586,7 +477,8 @@ func stdNamedRecv(k kind) (string, bool) {
 		return "", false
 	}
 	d := k.def
-	if !d.rtDeclared || d.decl != nil || d.genStructOf != nil || d.genHostOf != nil || d.preludeOf != nil ||
+	processWide := (d.rtDeclared && d.decl == nil) || d.stdOrigin != ""
+	if !processWide || d.genStructOf != nil || d.genHostOf != nil || d.preludeOf != nil ||
 		d.genericOf != nil || d.foreign != "" {
 		return "", false
 	}

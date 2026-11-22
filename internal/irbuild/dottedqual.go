@@ -1,11 +1,6 @@
 package irbuild
 
-import (
-	"slices"
-	"strings"
-
-	"github.com/nomi-language/nomi/internal/ast"
-)
+import "github.com/nomi-language/nomi/internal/ast"
 
 // The VALUE side of a NAMESPACED (dotted) type name: `Probe.Reading.Steady` and
 // `Probe.Reading.Spike(3)`.
@@ -38,8 +33,8 @@ import (
 //
 // # WHY RESOLUTION IS EXACT RATHER THAN A SEARCH
 //
-// The candidate is the OUTERMOST FieldAccess's Object, flattened — one string,
-// not a set of prefixes to try. `Probe.Reading.Steady` offers `Probe.Reading`
+// The candidate is the OUTERMOST FieldAccess's Object — one chain, not a set
+// of prefixes to try. `Probe.Reading.Steady` offers `Probe.Reading`
 // and nothing else, because the last segment is the member being named and
 // every earlier one is part of the type's own name. Nomi has no `.method()`
 // postfix form and no nested-module member access, so there is no second
@@ -52,20 +47,20 @@ import (
 // and a root that is not bound resolves only if the whole spelling names a
 // type.
 
-// dottedTypeQualifier flattens a namespaced type name written as a FieldAccess
-// chain rooted at a type name, and answers only when the whole spelling names a
-// type this gen can resolve.
+// dottedTypeName reports whether n, a FieldAccess chain rooted at a type
+// name, a module qualifier or a directory path, names a type: the checker
+// resolved the chain's last name to a type declaration (dottedTypeRef).
 //
-// The resolution is part of the answer rather than left to the caller, and that
-// is the arm's identity check: `random.Seed` flattens to the same shape and is
-// NOT a type this gen holds, so it must fall through to the refusal that says so
-// rather than be lowered on the strength of looking dotted.
+// The checker's reference is the arm's identity check: `random.Seed` has the
+// same shape and is NOT a type this program declares, so it must fall
+// through to the std module's route rather than be lowered on the strength
+// of looking dotted.
 //
 // # The Ident root is a module qualifier
 //
-// `namedType` resolves `shapes.Shape` through the qualifier's own module scope
-// (modulequaltype.go), so an Ident-rooted spelling names a type exactly when
-// the root is a whole-file import. A loop that stopped at the Ident would send
+// The checker resolves `shapes.Shape` through the qualifier's own module
+// scope, so an Ident-rooted chain names a type exactly when the root is a
+// whole-file import. A loop that stopped at the Ident would send
 // `shapes.Colour.Red` in expression position to native.go's `file member`
 // refusal.
 //
@@ -81,44 +76,50 @@ import (
 // `pub enum probe.Reading { … }` parses. It is `analysis/checker.go`'s
 // `isPascalCase` loop that refuses it, with `enum "probe.Reading" must use
 // PascalCase segments`.
-func (bl *irScalarBuilder) dottedTypeQualifier(n ast.Node) (string, bool) {
+func (bl *irScalarBuilder) dottedTypeName(n ast.Node) bool {
 	fa, isFA := n.(*ast.FieldAccess)
 	if !isFA || fa.Field == nil {
-		return "", false
+		return false
 	}
-	segs := []string{fa.Field.Name}
 	obj := fa.Object
 	for {
-		var root string
 		switch o := obj.(type) {
-		case *ast.TypeIdent:
-			root = o.Name
+		case *ast.TypeIdent, *ast.FilePath:
+			// A namespaced declaration's root, or a path at a use, whose
+			// directory import binds the file under it.
 		case *ast.Ident:
 			// A MODULE QUALIFIER, or the root of an ordinary field chain. A
 			// name this scope binds is a VALUE and never a qualifier.
 			if bl.namesLocal(o) {
-				return "", false
+				return false
 			}
-			root = o.Name
-		case *ast.FilePath:
-			// A path at a use: its directory import binds the file under it.
-			root = o.Spelling()
 		case *ast.FieldAccess:
 			if o.Field == nil {
-				panic("irbuild: dottedTypeQualifier: parser always sets FieldAccess.Field (parser.go:1803/1817/2734/3450); a nil Field never reaches the builder from an accepted program")
+				panic("irbuild: dottedTypeName: parser always sets FieldAccess.Field (parser.go:1803/1817/2734/3450); a nil Field never reaches the builder from an accepted program")
 			}
-			segs = append(segs, o.Field.Name)
 			obj = o.Object
 			continue
 		default:
-			return "", false
+			return false
 		}
-		segs = append(segs, root)
-		slices.Reverse(segs)
-		name := strings.Join(segs, ".")
-		if _, known := bl.g.namedType(name); !known {
-			return "", false
-		}
-		return name, true
+		_, namespaced := obj.(*ast.TypeIdent)
+		return bl.g.dottedTypeRef(fa, namespaced)
 	}
+}
+
+// dottedTypeRef reports whether the checker resolved fa's last name to a
+// type declaration this gen has a def of (typeDeclDef). Through a module
+// qualifier (namespaced false) it must be a program file's declaration
+// (programTypeDef): a std type named through its module's qualifier is the
+// std owner route's, which names it by its module.
+func (g *gen) dottedTypeRef(fa *ast.FieldAccess, namespaced bool) bool {
+	sym := g.checkedRef(fa.Field.Line, fa.Field.Col)
+	if g.typeDeclDef(sym) == nil {
+		return false
+	}
+	if namespaced {
+		return true
+	}
+	_, program := g.programTypeDef(sym.Type)
+	return program
 }

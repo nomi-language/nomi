@@ -74,8 +74,8 @@ derive Hashable for Point
 	expectNoErrorContaining(t, errs, "undefined type or variant")
 	// Materialization is independent of the arg diagnostics: every (T, Iface)
 	// pair is still recorded, so a fixed import is the only step between the
-	// user and working derives.
-	for _, iface := range []string{"Comparable", "Display", "Equatable", "Hashable", "Debug"} {
+	// user and working derives. Point's Debug is its shape, with no block.
+	for _, iface := range []string{"Comparable", "Display", "Equatable", "Hashable"} {
 		if !fa.Impls["Point"][iface] {
 			t.Errorf("Point: (%s) impl not recorded in fa.Impls (got %v)", iface, fa.Impls["Point"])
 		}
@@ -121,10 +121,8 @@ derive ` + c.iface + " for Color\n"
 		errs = append(errs, BuildTypes(fa, nodes)...)
 		errs = append(errs, CheckTypes(fa, nodes)...)
 		expectNoErrors(t, errs)
-		for _, iface := range []string{c.iface, "Debug"} {
-			if !fa.Impls["Color"][iface] {
-				t.Errorf("Color: (%s) impl not recorded in fa.Impls (got %v)", iface, fa.Impls["Color"])
-			}
+		if !fa.Impls["Color"][c.iface] {
+			t.Errorf("Color: (%s) impl not recorded in fa.Impls (got %v)", c.iface, fa.Impls["Color"])
 		}
 	}
 }

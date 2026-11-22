@@ -453,10 +453,11 @@ fn main()
         |> http.security_headers()
         |> http.request_id()
 
-    get = fn token: String, path: String ->
-        request = testing.request(.Get, path)
-        app({..request, headers: Headers[("Authorization", "Bearer ${token}")]})
-    end
+    get =
+        fn token: String, path: String ->
+            request = testing.request(.Get, path)
+            app({..request, headers: Headers[("Authorization", "Bearer ${token}")]})
+        end
 
     dbg Response.text(get("bob", "/dashboard"))
     dbg get("bob", "/admin/stats").status
@@ -466,11 +467,11 @@ fn main()
 end
 ```
 <!-- expect
-dbg line 62: Response.text(get("bob", "/dashboard")) = Ok("hello, Bob")
-dbg line 63: get("bob", "/admin/stats").status = Status(403)
-dbg line 64: Response.text(get("ada", "/admin/stats")) = Ok("42 users")
-dbg line 65: app(testing.request(.Get, "/dashboard")).status = Status(401)
-dbg line 66: Headers.get(get("ada", "/dashboard").headers, "X-Frame-Options") = Some("DENY")
+dbg line 63: Response.text(get("bob", "/dashboard")) = Ok("hello, Bob")
+dbg line 64: get("bob", "/admin/stats").status = Status(403)
+dbg line 65: Response.text(get("ada", "/admin/stats")) = Ok("42 users")
+dbg line 66: app(testing.request(.Get, "/dashboard")).status = Status(401)
+dbg line 67: Headers.get(get("ada", "/dashboard").headers, "X-Frame-Options") = Some("DENY")
 -->
 
 `log_requests(logger)` writes one record per request with its method,
@@ -521,12 +522,13 @@ fn sign_out(request: Request, session: Session<Visit>) -> Response
 end
 
 fn require_user(handler: (Request, Visit) -> ToResponse) -> (Request) -> Response
-    check = fn request: Request, session: Session<Visit> ->
-        case session.value
-            Some(visit) -> ToResponse.to_response(handler(request, visit))
-            None        -> Response.redirect(request, "/sign-in", Status.see_other)
+    check =
+        fn request: Request, session: Session<Visit> ->
+            case session.value
+                Some(visit) -> ToResponse.to_response(handler(request, visit))
+                None        -> Response.redirect(request, "/sign-in", Status.see_other)
+            end
         end
-    end
 
     check |> sessions.with_session(store)
 end
@@ -565,9 +567,9 @@ fn main()
 end
 ```
 <!-- expect
-dbg line 63: Response.text(app(Request.add_cookie(testing.request(.Get, "/dashboard"), cookie))) = Ok("<h1>Hello, Ada</h1>")
-dbg line 64: app(testing.request(.Get, "/dashboard")).status = Status(303)
-dbg line 71: app(Request.add_cookie(forged, cookie)).status = Status(403)
+dbg line 64: Response.text(app(Request.add_cookie(testing.request(.Get, "/dashboard"), cookie))) = Ok("<h1>Hello, Ada</h1>")
+dbg line 65: app(testing.request(.Get, "/dashboard")).status = Status(303)
+dbg line 72: app(Request.add_cookie(forged, cookie)).status = Status(403)
 -->
 
 There is no CSRF token. `cross_origin_protection` refuses a `POST`, `PUT`,
@@ -589,7 +591,9 @@ stored = passwords.hash(form.password)?
 if passwords.verify(form.password, user.password_hash) == Ok(True) then ...
 ```
 
-Argon2id and bcrypt are in the `lib/password_hashers` module. For an
+Pass `hasher: Argon2id{}` to hash with Argon2id instead. `Scrypt` and
+`Bcrypt` are there too, and `verify` takes the list of hashers whose
+hashes the app may hold. For an
 API whose clients send a bearer token instead of a cookie,
 [std::jwt](/reference/jwt/) signs and checks JSON Web Tokens.
 

@@ -24,7 +24,7 @@ func strPrefixPattern(p ast.Node) (*ast.StringLit, *ast.IdentPattern, bool) {
 // subject is `lit + rest` exactly. A literal is a whole UTF-8 text, so the
 // rest starts on a sequence boundary and is a valid String; it may start with
 // a combining mark, as `"e" + rest` against "e\u{301}" binds "\u{301}".
-func (bl *irScalarBuilder) strPrefixTest(pat ast.Node, subj ir.Temp, k kind, arm, next *ir.Block) bool {
+func (bl *irScalarBuilder) strPrefixTest(pat ast.Node, subj ir.Temp, k kind, next *ir.Block) bool {
 	lit, rest, ok := strPrefixPattern(pat)
 	if !ok || k != kindString {
 		return false
@@ -37,8 +37,7 @@ func (bl *irScalarBuilder) strPrefixTest(pat ast.Node, subj ir.Temp, k kind, arm
 	m := ir.NewMatchStrPrefixInto(pos, bl.f.NewTemp(), subj, prefix)
 	bl.b.Append(m)
 	bl.side(m.Dst(), irScalarSide{k: kindBool})
-	bl.b.SetTerm(ir.NewBranch(pos, m.Dst(), arm.ID(), next.ID()))
-	bl.b = arm
+	bl.passOrFail(pat, m.Dst(), next)
 	if ast.IsDiscardName(rest.Name) {
 		return true
 	}

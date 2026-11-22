@@ -1,7 +1,6 @@
 package irbuild
 
 import (
-	"maps"
 	"strconv"
 
 	"github.com/nomi-language/nomi/internal/analysis"
@@ -20,14 +19,18 @@ import (
 //   - `P.field_texts(p)` is each field's Display text, in that order;
 //   - `P.parse_fields(texts)` reads text i with field i's type's
 //     `Parse.parse`, and is `Some` of the record when every one is `Ok`,
-//     and `None` at the first that is not.
+//     and `None` at the first that is not. A field of a subtype is read
+//     with its base's `Parse.parse` and checked by the subtype's
+//     `try_from` calls the checker names (analysis.FileAnalysis.SubtypeChecks;
+//     subtyperead.go), and the record is `None` when one is `None`.
 //
 // The checker admits the record only when each field implements `Parse`
-// and `Display` (analysis/structural_parse_fields.go).
+// and `Display`, a subtype's base its Parse (analysis/structural_parse_fields.go).
 
 // parseFieldsCall lowers t, a call of one of ParseFields' functions at the
-// record kind k. handled is false for any other call.
-func (bl *irScalarBuilder) parseFieldsCall(t *ast.Call, k kind, method string) (ir.Temp, kind, bool, bool, bool) {
+// record kind k, of checker type kt (nil when the instance has none).
+// handled is false for any other call.
+func (bl *irScalarBuilder) parseFieldsCall(t *ast.Call, k kind, kt analysis.Type, method string) (ir.Temp, kind, bool, bool, bool) {
 	unit := k == kindUnit
 	if !unit && (k.tag != tagAnonStruct || k.comp == nil) {
 		return ir.NoTemp, kindInvalid, false, false, false
@@ -62,10 +65,10 @@ func (bl *irScalarBuilder) parseFieldsCall(t *ast.Call, k kind, method string) (
 		v, rk, ok := bl.parseFieldNames(t, k)
 		return v, rk, false, ok, true
 	case "field_texts":
-		v, rk, ok := bl.parseFieldTexts(t, k)
+		v, rk, ok := bl.parseFieldTexts(t, k, kt)
 		return v, rk, false, ok, true
 	case "parse_fields":
-		v, rk, ok := bl.parseFieldsOf(t, k)
+		v, rk, ok := bl.parseFieldsOf(t, k, kt)
 		return v, rk, false, ok, true
 	}
 	return ir.NoTemp, kindInvalid, false, false, false
@@ -91,7 +94,11 @@ func (bl *irScalarBuilder) parseFieldNames(t *ast.Call, k kind) (ir.Temp, kind, 
 	return bl.stringList(t, items)
 }
 
-func (bl *irScalarBuilder) parseFieldTexts(t *ast.Call, k kind) (ir.Temp, kind, bool) {
+// parseFieldTexts is `P.field_texts(p)` at the record kind k, of checker
+// type kt (nil when the instance has none): each field rendered as an
+// interpolation of it renders, by the checker's rendering of the field's
+// type (displayValue), which names a declared type's own Display impl.
+func (bl *irScalarBuilder) parseFieldTexts(t *ast.Call, k kind, kt analysis.Type) (ir.Temp, kind, bool) {
 	if len(t.Args) != 1 {
 		return ir.NoTemp, kindInvalid, false
 	}
@@ -105,7 +112,7 @@ func (bl *irScalarBuilder) parseFieldTexts(t *ast.Call, k kind) (ir.Temp, kind, 
 		p := ir.NewProjRecordField(pos, bl.f.NewTemp(), subj, k.comp.names[i], irParamShape(part))
 		bl.b.Append(p)
 		bl.side(p.Dst(), irScalarSide{k: part})
-		text, ok := bl.displayValue(t, p.Dst(), part, nil)
+		text, ok := bl.displayValue(t, p.Dst(), part, partCheckerType(kt, k, i))
 		if !ok {
 			return ir.NoTemp, kindInvalid, false
 		}
@@ -114,7 +121,7 @@ func (bl *irScalarBuilder) parseFieldTexts(t *ast.Call, k kind) (ir.Temp, kind, 
 	return bl.stringList(t, items)
 }
 
-func (bl *irScalarBuilder) parseFieldsOf(t *ast.Call, k kind) (ir.Temp, kind, bool) {
+func (bl *irScalarBuilder) parseFieldsOf(t *ast.Call, k kind, kt analysis.Type) (ir.Temp, kind, bool) {
 	no := func(why string) (ir.Temp, kind, bool) {
 		bl.g.dc.note("ParseFields.parse_fields at " + k.nomi() + ": " + why)
 		return ir.NoTemp, kindInvalid, false
@@ -146,16 +153,12 @@ func (bl *irScalarBuilder) parseFieldsOf(t *ast.Call, k kind) (ir.Temp, kind, bo
 	cont := bl.f.NewBlock(pos, "fields read")
 	failed := bl.f.NewBlock(pos, "a field does not parse")
 
-	bound, boundK, syms := bl.bound, bl.boundK, bl.sh.syms
-	bl.bound, bl.boundK, bl.sh.syms = maps.Clone(bound), maps.Clone(boundK), maps.Clone(syms)
-	defer func() { bl.bound, bl.boundK, bl.sh.syms = bound, boundK, syms }()
-
 	vals := make([]ir.Temp, len(k.comp.parts))
 	for i, part := range k.comp.parts {
 		p := ir.NewProjElem(pos, bl.f.NewTemp(), texts, i, irParamShape(kindString))
 		bl.b.Append(p)
 		bl.side(p.Dst(), irScalarSide{k: kindString})
-		r, rk, ok := bl.parseCall(t, i, p.Dst(), part)
+		r, rk, ok := bl.parseCall(t, i, p.Dst(), part, partCheckerType(kt, k, i))
 		if !ok {
 			return no("no Parse.parse for " + part.nomi())
 		}
@@ -173,6 +176,23 @@ func (bl *irScalarBuilder) parseFieldsOf(t *ast.Call, k kind) (ir.Temp, kind, bo
 		bl.b.SetTerm(ir.NewBranch(pos, match.Dst(), parsed.ID(), failed.ID()))
 		bl.b = parsed
 		vals[i] = bl.variantPayload(t, r, rk.def, okV)
+		// A field of a subtype is read with its base's Parse, and the
+		// record is None when the value breaks a rule (subtyperead.go).
+		if pt := partCheckerType(kt, k, i); analysis.HoldsSubtype(pt) {
+			checks := bl.g.instanceFA().SubtypeChecks(pt)
+			if checks == nil {
+				return no("no check of the subtype " + analysis.Elaborate(pt).String())
+			}
+			for j, c := range checks {
+				holds, ok := bl.subtypeHolds(t, i*len(checks)+j, vals[i], part, c)
+				if !ok {
+					return no("a check of " + analysis.Elaborate(c.Type).String() + " that does not lower")
+				}
+				next := bl.f.NewBlock(pos, "field's rule holds")
+				bl.b.SetTerm(ir.NewBranch(pos, holds, next.ID(), failed.ID()))
+				bl.b = next
+			}
+		}
 	}
 	rec := ir.NewMakeRecord(pos, bl.f.NewTemp(), k.comp.names, vals)
 	bl.b.Append(rec)
@@ -194,59 +214,28 @@ func (bl *irScalarBuilder) parseFieldsOf(t *ast.Call, k kind) (ir.Temp, kind, bo
 	return slot, mk, true
 }
 
-// parseCall is `F.parse(text)` for the field kind part: a program type's
-// impl, or std's for a std type or a scalar.
-func (bl *irScalarBuilder) parseCall(t *ast.Call, i int, text ir.Temp, part kind) (ir.Temp, kind, bool) {
+// parseCall is `F.parse(text)` for the field kind part, of checker type
+// pt: the call `Parse.parse` the field's type answers, made here with the
+// record the checker writes for that call at pt (stdIfaceCallRecord), and
+// planned from the function the record names, a program type's impl or
+// std's. The checker checks `P.parse_fields` once, generically, and never
+// sees the record P stands for in this instance.
+func (bl *irScalarBuilder) parseCall(t *ast.Call, i int, text ir.Temp, part kind, pt analysis.Type) (ir.Temp, kind, bool) {
 	name := "%parse" + strconv.Itoa(t.Line) + "." + strconv.Itoa(t.Col) + "." + strconv.Itoa(i)
-	bl.patternBinding(t, name, text, kindString)
+	key := bl.patternBinding(t, name, text, kindString)
 	line := t.Line
 	call := &ast.Call{
 		Func: &ast.FieldAccess{
-			Object: &ast.TypeIdent{Name: part.nomi(), Line: line},
+			Object: &ast.TypeIdent{Name: stdParse.Name, Line: line},
 			Field:  &ast.Ident{Name: "parse", Line: line},
 			Line:   line,
 		},
-		Args: []ast.Node{&ast.Ident{Name: name, Line: line}},
+		Args: []ast.Node{bl.g.madeRead(name, key, line, 0)},
 		Line: line,
 	}
-	defer bl.g.carryCall(call, analysis.PositionalCall(1, 1))()
-	// Which function parses field i is chosen here from the field's kind:
-	// the checker checks `P.parse_fields` once, generically, and never
-	// sees the record P stands for in this instance.
-	bl.g.markUnchecked(call)
-	if irKindDeclared(part) {
-		v, rk, _, ok := bl.kindImplCall(call, part, nil, "parse")
-		return v, rk, ok
-	}
-	owner := part.nomi()
-	if part.tag == tagNamed && part.def != nil {
-		owner = part.def.nomi
-	}
-	if bl.g.std == nil {
-		return ir.NoTemp, kindInvalid, false
-	}
-	var f *stdFunc
-	for _, c := range bl.g.std.byType[owner+".parse"] {
-		if c.iface != "Parse" {
-			continue
-		}
-		if f != nil {
-			return ir.NoTemp, kindInvalid, false
-		}
-		f = c
-	}
-	if f == nil {
-		// The impl is in a std module lowered with the program, as
-		// std/parse's own for Int and String are: the type-qualified call
-		// reaches it as one the program wrote.
-		if v, rk, _, ok, handled := bl.stdKindQualCall(call, part, nil, "parse"); handled {
-			return v, rk, ok
-		}
-		v, rk, _, ok := bl.lower(call)
-		return v, rk, ok
-	}
+	defer bl.g.carryCall(call, bl.g.stdIfaceCallRecord(stdParse, "parse", 1, pt))()
 	args := bl.irQualLowerArgs(call)
-	plan := bl.stdFuncPlan(call, args, f)
+	plan := bl.recordedCallPlan(call, args, stdParse.Name+".parse")
 	if plan == nil {
 		return ir.NoTemp, kindInvalid, false
 	}

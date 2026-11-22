@@ -92,18 +92,20 @@ func TestFormat_LambdaBodyBelowParametersIsBraced(t *testing.T) {
 		"bound to a name": {
 			"fn f()\n    g = fn a_long_parameter_name: Int, another_long_parameter: Int -> a_long_parameter_name + another_long_parameter + 1\nend\n",
 			"fn f()\n" +
-				"    g = fn a_long_parameter_name: Int, another_long_parameter: Int ->\n" +
-				"        a_long_parameter_name + another_long_parameter + 1\n" +
-				"    end\n" +
+				"    g =\n" +
+				"        fn a_long_parameter_name: Int, another_long_parameter: Int ->\n" +
+				"            a_long_parameter_name + another_long_parameter + 1\n" +
+				"        end\n" +
 				"end\n",
 		},
 		"struct field": {
 			"fn f() -> Seq\n    Seq{run: fn yield: (Int) -> Bool -> if Iter.each_while(first_source, yield) then Iter.each_while(b, yield) else False}\nend\n",
 			"fn f() -> Seq\n" +
 				"    Seq{\n" +
-				"        run: fn yield: (Int) -> Bool ->\n" +
-				"            if Iter.each_while(first_source, yield) then Iter.each_while(b, yield) else False\n" +
-				"        end,\n" +
+				"        run:\n" +
+				"            fn yield: (Int) -> Bool ->\n" +
+				"                if Iter.each_while(first_source, yield) then Iter.each_while(b, yield) else False\n" +
+				"            end,\n" +
 				"    }\n" +
 				"end\n",
 		},

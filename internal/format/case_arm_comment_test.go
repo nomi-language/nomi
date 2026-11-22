@@ -56,13 +56,14 @@ func TestFormat_BrokenArmWithACommentKeepsMeaning(t *testing.T) {
 		"    end\n" +
 		"end\n"
 	want := "fn main()\n" +
-		"    g = case 3\n" +
-		"        1 ->\n" +
-		"            \"Hi\"\n" +
+		"    g =\n" +
+		"        case 3\n" +
+		"            1 ->\n" +
+		"                \"Hi\"\n" +
 		"\n" +
-		"        n ->\n" +
-		"            \"Hello \" + \"name_rather_long_rather_long_rather_long_rather_long name_rather_long_rather_long_rather_long\" // t11\n" +
-		"    end\n" +
+		"            n ->\n" +
+		"                \"Hello \" + \"name_rather_long_rather_long_rather_long_rather_long name_rather_long_rather_long_rather_long\" // t11\n" +
+		"        end\n" +
 		"end\n"
 	formatsKeepingMeaning(t, src, want)
 }

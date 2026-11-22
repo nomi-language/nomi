@@ -107,7 +107,7 @@ func TestMCP_InitializeAndListTools(t *testing.T) {
 	for _, tl := range c.call("tools/list", nil)["tools"].([]any) {
 		names = append(names, tl.(map[string]any)["name"].(string))
 	}
-	want := []string{"check", "type_at", "definition", "references", "search_std", "run_tests", "format", "explain"}
+	want := []string{"check", "type_at", "definition", "references", "search_std", "run_tests", "tests_reaching", "format", "explain"}
 	if !slices.Equal(names, want) {
 		t.Errorf("tools = %v, want %v", names, want)
 	}
@@ -244,6 +244,52 @@ func TestMCP_CheckAndRunTestsReadTheCLI(t *testing.T) {
 		t.Errorf("run_tests = %v", tests)
 	}
 	want := [][]string{{"check", "--format", "json", "a.nomi"}, {"test", "a.nomi", "--format", "json", "--line", "3"}}
+	if !slices.EqualFunc(calls, want, slices.Equal) {
+		t.Errorf("nomi ran with %v, want %v", calls, want)
+	}
+}
+
+// run_tests and tests_reaching pass `all` and `changed` to `nomi test`,
+// answer an unchanged test as a count unless `unchanged` lists it, say
+// whether each decided test is pure, and count the cases that ran.
+func TestMCP_RunTestsCountsUnchangedTests(t *testing.T) {
+	var calls [][]string
+	records := `{"type":"test","file":"/p/a_test.nomi","line":3,"name":"adds","status":"passed","cases":1,"decided":"unchanged"}` + "\n" +
+		`{"type":"test","file":"/p/a_test.nomi","line":7,"name":"prints","status":"passed","cases":1,"decided":"effects","effects":true}` + "\n" +
+		`{"type":"test","file":"/p/a_test.nomi","line":11,"name":"rounds","status":"failed","cases":1,"decided":"changed","message":"assert failed"}` + "\n" +
+		`{"type":"summary","passed":2,"failed":1,"blocked":0,"unchanged":1}` + "\n"
+	c := start(t, Options{Root: "/p", RunCLI: func(_ context.Context, _ string, args ...string) ([]byte, int, error) {
+		calls = append(calls, args)
+		return []byte(records), 1, nil
+	}})
+	got := c.tool("run_tests", map[string]any{"path": "a_test.nomi"})
+	tests := got["tests"].([]any)
+	if len(tests) != 2 || got["unchanged_tests"] != float64(1) || got["summary"].(map[string]any)["ran"] != float64(2) || got["ok"] != false {
+		t.Fatalf("run_tests = %v; want the two tests that ran, one unchanged test counted and 2 cases ran", got)
+	}
+	if prints := tests[0].(map[string]any); prints["name"] != "prints" || prints["pure"] != false || prints["effects"] != nil {
+		t.Errorf("the test with effects reads %v; want pure false in place of effects", prints)
+	}
+	if rounds := tests[1].(map[string]any); rounds["pure"] != true {
+		t.Errorf("the pure test reads %v; want pure true", rounds)
+	}
+	listed := c.tool("run_tests", map[string]any{"path": "a_test.nomi", "unchanged": true, "all": true})
+	if len(listed["tests"].([]any)) != 3 {
+		t.Errorf("run_tests with unchanged = %v; want all three tests", listed)
+	}
+	reaching := c.tool("tests_reaching", map[string]any{"file": "lib.nomi", "line": 4, "changed": true})
+	if len(reaching["tests"].([]any)) != 3 {
+		t.Errorf("tests_reaching = %v; want every test it found, unchanged ones too", reaching)
+	}
+	res := c.call("tools/call", map[string]any{"name": "run_tests", "arguments": map[string]any{"path": "a_test.nomi", "all": true, "changed": true}})
+	if res["isError"] != true {
+		t.Errorf("run_tests with all and changed = %v; want it refused", res)
+	}
+	want := [][]string{
+		{"test", "a_test.nomi", "--format", "json"},
+		{"test", "a_test.nomi", "--format", "json", "--all"},
+		{"test", ".", "--format", "json", "--reaching", filepath.Join("/p", "lib.nomi") + ":4", "--changed"},
+	}
 	if !slices.EqualFunc(calls, want, slices.Equal) {
 		t.Errorf("nomi ran with %v, want %v", calls, want)
 	}

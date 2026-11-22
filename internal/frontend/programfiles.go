@@ -12,7 +12,7 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 )
 
-// The programs a path names: the files `nomi check` and `nomi capabilities`
+// The programs a path names: the files `nomi check` and `nomi effects`
 // check as programs (CheckedFiles), and those `nomi test` runs
 // (TestFiles). The language server reads the same set to answer what a
 // project's programs reach in its nomi.toml.

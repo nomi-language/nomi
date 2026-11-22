@@ -233,7 +233,6 @@ func frontEndDiagnostics(dir string, names []string, files map[string]string) (r
 	if err != nil {
 		return frontEndResult{count: -1, text: err.Error()}
 	}
-	fc.SourceBoundProvided = true
 	hasTests, _ := frontend.FileDeclaresTests(entry)
 	_, err = frontend.New(fc).CheckFile(entry, frontend.Mode{Tests: hasTests})
 	if err == nil {

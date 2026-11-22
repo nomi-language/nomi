@@ -49,7 +49,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/nomi-language/nomi/internal/ffirun"
+	"github.com/nomi-language/nomi/internal/runners"
 	"github.com/nomi-language/nomi/vmhost"
 )
 
@@ -240,7 +240,7 @@ func (d *webDev) rebuild() {
 	d.mu.Unlock()
 	start := time.Now()
 	var report bytes.Buffer
-	err := build(buildArgs{entry: d.entry, out: out, target: ffirun.Target{GOOS: "js", GOARCH: "wasm"}, web: true, noStatic: true}, &report)
+	err := build(buildArgs{entry: d.entry, out: out, target: runners.Target{GOOS: "js", GOARCH: "wasm"}, web: true, noStatic: true}, &report)
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if err == nil {
@@ -326,7 +326,7 @@ func (d *webDev) staticFiles() []string {
 // (watch.go): a static change reloads the pages and a source change
 // rebuilds.
 func (d *webDev) watcher() *watcher {
-	sources := webSourceFiles(d.entry)
+	sources := programFiles(d.entry)
 	return newWatcher(
 		watchSet{
 			files: d.staticFiles,
@@ -342,28 +342,11 @@ func (d *webDev) watcher() *watcher {
 				fmt.Fprintf(d.stdout, "%s changed; rebuilding\n", names)
 				d.rebuild()
 				// The program may load other files now.
-				sources = webSourceFiles(d.entry)
+				sources = programFiles(d.entry)
 			},
 			then: d.announce,
 		},
 	)
-}
-
-// webSourceFiles are the files whose change rebuilds the page: the
-// program's files, and the go.mod and Go files beside them, which a project
-// with Go bindings links into app.wasm.
-func webSourceFiles(entry string) []string {
-	files := programFiles(entry)
-	dirs := map[string]bool{}
-	for _, f := range files {
-		dirs[filepath.Dir(f)] = true
-	}
-	for dir := range dirs {
-		goFiles, _ := filepath.Glob(filepath.Join(dir, "*.go"))
-		files = append(files, goFiles...)
-		files = append(files, filepath.Join(dir, "go.mod"))
-	}
-	return files
 }
 
 // webPlaceholder is the page served before any build has succeeded: the dev

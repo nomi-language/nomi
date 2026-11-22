@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"maps"
 	"slices"
 	"sort"
 	"strings"
@@ -106,11 +107,15 @@ func (w *reachWalk) run(roots []*ir.Func, boots []*ir.Symbol) (map[*ir.Func]bool
 	for _, f := range roots {
 		w.push(f, root)
 	}
-	for len(w.queue) > 0 {
-		f := w.queue[len(w.queue)-1]
-		w.queue = w.queue[:len(w.queue)-1]
-		w.cur = f
-		w.visit(f)
+	w.drain()
+	// A late root is taken once everything before it is walked, and only
+	// when nothing reached it, so a function both reach keeps the chain
+	// from the roots.
+	for _, f := range w.late {
+		w.pushLate(f, root)
+	}
+	if len(w.late) > 0 && w.edges != nil {
+		w.madeBodies(root)
 	}
 	out := make([]Unretained, 0, len(w.found))
 	for _, u := range w.found {
@@ -125,11 +130,110 @@ func (w *reachWalk) run(roots []*ir.Func, boots []*ir.Symbol) (map[*ir.Func]bool
 	return w.seen, out
 }
 
+// madeBodies roots, by root, every body outside std that a table or a
+// dispatch selects for a value of a declared type that code the late
+// roots reach makes (an ir.Make of the type), and then what those bodies
+// make, until no more: a caller of the late roots that is handed such a
+// value may render, compare, hash or dispatch on it. It follows the
+// edges the walk recorded, so a function the earlier roots reached first
+// counts too.
+func (w *reachWalk) madeBodies(root EdgeKind) {
+	bodies := w.m.typeBodies()
+	visited := map[*ir.Func]bool{}
+	made := map[string]bool{}
+	queue := slices.Clone(w.late)
+	for len(queue) > 0 {
+		f := queue[0]
+		queue = queue[1:]
+		if visited[f] {
+			continue
+		}
+		visited[f] = true
+		for _, b := range f.Blocks() {
+			for _, in := range b.Instrs() {
+				mk, ok := in.(*ir.Make)
+				if !ok || mk.Typ() == nil {
+					continue
+				}
+				name, _, _ := strings.Cut(mk.Typ().Name(), "<")
+				if made[name] {
+					continue
+				}
+				made[name] = true
+				for _, sym := range bodies[name] {
+					g, err := w.m.resolveFunc(sym, f.Name())
+					if err != nil || g.Pos().Stdlib() {
+						continue
+					}
+					w.pushLate(g, root)
+					queue = append(queue, g)
+				}
+			}
+		}
+		for _, e := range w.edges[f] {
+			queue = append(queue, e.to)
+		}
+	}
+}
+
+// pushLate takes f as a late root, by root, when nothing reached it yet,
+// and walks what it reaches.
+func (w *reachWalk) pushLate(f *ir.Func, root EdgeKind) {
+	if f == nil || w.seen[f] {
+		return
+	}
+	if w.lateRoots == nil {
+		w.lateRoots = map[*ir.Func]bool{}
+	}
+	w.lateRoots[f] = true
+	w.cur = nil
+	w.push(f, root)
+	w.drain()
+}
+
+// typeBodies is every body the machine's dispatch and its Display, row
+// Debug, Equatable and Hashable tables hold for each declared type, by
+// the type's name without its arguments, each table's in the order of
+// the names (byTypeName).
+func (m *Machine) typeBodies() map[string][]*ir.Symbol {
+	out := map[string][]*ir.Symbol{}
+	add := func(table map[string]*ir.Symbol) {
+		for _, name := range slices.Sorted(maps.Keys(table)) {
+			base, _, _ := strings.Cut(name, "<")
+			out[base] = append(out[base], table[name])
+		}
+	}
+	methods := slices.Collect(maps.Keys(m.dispatch))
+	sort.Slice(methods, func(i, j int) bool { return methods[i].Name() < methods[j].Name() })
+	for _, method := range methods {
+		add(m.dispatch[method])
+	}
+	for _, table := range []map[string]*ir.Symbol{m.displays, m.rowDebugs, m.equates, m.hashes} {
+		add(table)
+	}
+	return out
+}
+
+// drain visits every function queued and every one their visits queue.
+func (w *reachWalk) drain() {
+	for len(w.queue) > 0 {
+		f := w.queue[len(w.queue)-1]
+		w.queue = w.queue[:len(w.queue)-1]
+		w.cur = f
+		w.visit(f)
+	}
+}
+
 type reachWalk struct {
 	m     *Machine
 	seen  map[*ir.Func]bool
 	queue []*ir.Func
-	found map[string]Unretained
+	// late is the roots the walk starts from once it has walked
+	// everything the others reach (run).
+	late []*ir.Func
+	// lateRoots is each function the late phase took as a root (pushLate).
+	lateRoots map[*ir.Func]bool
+	found     map[string]Unretained
 	// keys marks every key body (keys.go) queued, which an instruction
 	// that may hash or compare a value whose type does not bound the
 	// declared types it holds reaches (keyOperands, heldTypes).
@@ -137,8 +241,14 @@ type reachWalk struct {
 	// held memoizes heldTypes by type and by whether the value is
 	// rendered.
 	held map[heldKey]heldTypes
-	// effects collects what Effects reports; nil for Unretained's walk.
-	effects map[string]bool
+	// effects and unbounded collect what Effects reports; nil for
+	// Unretained's walk.
+	effects, unbounded map[string]bool
+	// uses, when set, records the app fields each function's own body
+	// reads or replaces (appFieldOf), in instruction order, each once:
+	// what Effects reports as AppFields and EffectWalk.Uses spreads back
+	// along the edges.
+	uses map[*ir.Func][]string
 	// parent, when set, records for each function the function whose visit
 	// first reached it; a root and a boot have none. cur is the function
 	// being visited.
@@ -155,8 +265,8 @@ type reachWalk struct {
 	// each function.
 	kinds map[*ir.Func]EdgeKind
 	// edges, when set, records every edge the walk takes out of each
-	// function, a function already seen included: what OutsideCalls
-	// follows to name an outside call (outside.go).
+	// function, a function already seen included: what EffectCalls
+	// follows to name an effect call (effects.go).
 	edges map[*ir.Func][]reachEdge
 }
 
@@ -192,7 +302,12 @@ func (w *reachWalk) keyBodies(held heldTypes, from string) {
 // function, is the same every time. With held, only the bodies of the types
 // it holds; with nil, every body.
 func byTypeName(table map[string]*ir.Symbol, held *heldTypes) []*ir.Symbol {
-	names := make([]string, 0, len(table))
+	// A bounded held selects a few of a table that holds every type's body,
+	// so only an unbounded one sizes the names to the table.
+	var names []string
+	if held == nil || held.any {
+		names = make([]string, 0, len(table))
+	}
 	for name := range table {
 		if held == nil || held.holds(name) {
 			names = append(names, name)
@@ -407,8 +522,15 @@ func (w *reachWalk) visit(f *ir.Func) {
 		for _, in := range b.Instrs() {
 			w.at = in
 			if w.effects != nil {
-				if e := w.m.effectOf(in, f.Name()); e != "" {
+				if e, unbounded := w.m.effectOf(in, f.Name()); unbounded {
+					w.unbounded[e] = true
+				} else if e != "" {
 					w.effects[e] = true
+				}
+			}
+			if w.uses != nil {
+				if field := appFieldOf(in); field != "" && !slices.Contains(w.uses[f], field) {
+					w.uses[f] = append(w.uses[f], field)
 				}
 			}
 			if uses := keyOperands(in); len(uses) > 0 {
@@ -479,8 +601,15 @@ func (w *reachWalk) call(n *ir.Call, from string) {
 			return
 		}
 		w.symbol(n.Callee(), from, NotRetained, EdgeCall)
-	case ir.CalleeDispatched:
-		impls := w.m.dispatch[n.Callee()]
+	case ir.CalleeDispatched, ir.CalleeBound:
+		// A bound call, in an abstract body, is the interface's function for
+		// some type, as a dispatch is for the operand's: either reaches every
+		// implementation the program retains, and a bound call those every
+		// file records (boundImpls).
+		impls := byTypeName(w.m.dispatch[n.Callee()], nil)
+		if n.Form() == ir.CalleeBound {
+			impls = w.m.boundImpls(n.Callee())
+		}
 		if len(impls) == 0 {
 			// A method no module implements at all never runs: no value
 			// of an implementing type exists, so the call is only ever
@@ -491,8 +620,47 @@ func (w *reachWalk) call(n *ir.Call, from string) {
 			}
 			return
 		}
-		for _, impl := range byTypeName(impls, nil) {
+		for _, impl := range impls {
 			w.symbol(impl, from, NotRetained, EdgeDispatch)
 		}
 	}
+}
+
+// boundImpls is every implementation of the interface function method
+// names that the program's modules record, under method and under every
+// other symbol of that name, each once, by type name and then name: a std
+// interface of a fixed table (Display, Debug, Comparable) has a symbol per
+// file, each recording that file's implementations, and a call through a
+// type parameter's bound may run any of them. Two interfaces of one name,
+// which only a program's own shadowing makes, answer each other's too,
+// which over-approximates.
+func (m *Machine) boundImpls(method *ir.Symbol) []*ir.Symbol {
+	type entry struct {
+		typ  string
+		impl *ir.Symbol
+	}
+	var all []entry
+	seen := map[*ir.Symbol]bool{}
+	for sym, table := range m.dispatch {
+		if sym != method && sym.Name() != method.Name() {
+			continue
+		}
+		for typ, impl := range table {
+			if !seen[impl] {
+				seen[impl] = true
+				all = append(all, entry{typ, impl})
+			}
+		}
+	}
+	sort.Slice(all, func(i, j int) bool {
+		if all[i].typ != all[j].typ {
+			return all[i].typ < all[j].typ
+		}
+		return all[i].impl.Name() < all[j].impl.Name()
+	})
+	out := make([]*ir.Symbol, len(all))
+	for i, e := range all {
+		out[i] = e.impl
+	}
+	return out
 }

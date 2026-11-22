@@ -11,17 +11,14 @@ import (
 // The owner of a type-qualified call, by the declaration the checker bound it
 // to.
 //
-// Most of the builder's owner routes key on the owner's NAME in this file's
-// tables (g.types, g.ifaces, the std indexes by owner name), and a name is the
-// declaration the module scope binds. That is the checker's answer wherever
-// the name means the same thing at the call as at module scope. It is not
-// where something between the two rebinds it: an `import` at the top of a
-// block (`import std::duration.Duration` in a test body, beside a module-level
-// `struct Duration`), or an alias of a std type whose own name this file
-// declares. There the checker's reference at the owner is the answer, and a
-// std owner it names is lowered through the module-qualified route
-// `duration.Duration.seconds(1)` takes, which resolves from that module's
-// declarations only.
+// A name in this file's tables (g.types, g.ifaces, the std indexes by owner
+// name) is the declaration the module scope binds, which is not what the name
+// means at a call where something between the two rebinds it: an `import` at
+// the top of a block (`import std::duration.Duration` in a test body, beside
+// a module-level `struct Duration`), an alias, a type reached through its
+// module or a directory path. So a qualified call reads its owner from its
+// record (analysis.Callee.RouteOwner) and the function from the declaration
+// the record names (typeQualCall), and nothing reads the owner's spelling.
 
 // checkedRef is the declaration the checker resolved the name written at
 // line:col to, followed through imports, or nil.
@@ -30,6 +27,29 @@ func (g *gen) checkedRef(line, col int) *analysis.Symbol {
 		return nil
 	}
 	return resolveSymbol(g.srcFA().References[analysis.Pos{Line: line, Col: col}])
+}
+
+// ownOwner reports whether the checker resolved the owner of at to a
+// declaration of the module being lowered: a call `T.m(...)` by its record
+// (routeCallee, analysis.Callee.RouteOwner), a reference `T.m` by the
+// reference at T. That is a type or interface one of the program's files
+// declares (Qualifier.Decl), or one the std module being lowered declares.
+// A std function of the owner's name is then not the one the owner names.
+// Any other owner (another std module's type, a type parameter, none) is
+// not.
+func (g *gen) ownOwner(at ast.Node) bool {
+	var q analysis.Qualifier
+	switch t := at.(type) {
+	case *ast.Call:
+		q = g.routeCallee(t).RouteOwner()
+	case *ast.FieldAccess:
+		ti, isType := t.Object.(*ast.TypeIdent)
+		if !isType || g.srcFA() == nil {
+			return false
+		}
+		q = g.srcFA().QualifierOfSymbol(g.checkedRef(ti.Line, ti.Col))
+	}
+	return q.Decl != nil || g.fa != nil && !q.Std.IsZero() && q.Std.Module == g.fa.Origin
 }
 
 // qualifierDecl is the declaration of the type or interface q names: a
@@ -49,6 +69,29 @@ func (g *gen) qualifierDecl(q analysis.Qualifier) ast.Node {
 		return nil
 	}
 	return sym.Node
+}
+
+// qualOwnerName is the name of what the call t is qualified with, as the
+// declaration the checker resolved it to names itself
+// (analysis.Callee.RouteOwner): `Error` for `net.Error.of_tls(e)`, `Post`
+// for `db::schema.Post.blank()`, `Gadget` for `Doodad.make(3)` where
+// `Doodad` is an import alias of `Gadget`. It names a plan
+// (`Owner.method`), and a symbol only through the plan's declaration,
+// which every plan interns by. "" for a call with no such record.
+func (g *gen) qualOwnerName(t *ast.Call) string {
+	q := g.routeCallee(t).RouteOwner()
+	switch {
+	case !q.Std.IsZero():
+		return q.Std.Name
+	case q.Decl != nil:
+		if et, host := q.Decl.(*ast.ExternType); host {
+			return et.Name
+		}
+		return typeDeclName(q.Decl)
+	case q.Kind == analysis.QualTypeParam && q.Param != nil:
+		return q.Param.Name
+	}
+	return ""
 }
 
 // funcDeclAt is the declaration of the module function (a `fn` or a `host
@@ -85,57 +128,27 @@ func stdTypeModule(sym *analysis.Symbol) (string, bool) {
 	return mod, isStd && mod != "" && !isProgramStd(mod)
 }
 
-// stdNameTaken reports whether this file's name-keyed tables bind name to a
-// declaration of their own here: a type or interface this file declares or
-// mirrors, a generic template, or a type an enclosing block declares. A std
-// type's name taken here does not reach that std type by name.
-func (g *gen) stdNameTaken(name string) bool {
-	if _, isBlockLocal := g.blockLocalNamed(name); isBlockLocal {
-		return true
-	}
-	if g.blockLocalTemplate(name, nil) != nil {
-		return true
-	}
-	if _, local := g.types[name]; local {
-		return true
-	}
-	if _, iface := g.ifaces[name]; iface {
-		return true
-	}
-	return g.genericTemplates[name] != nil
-}
-
 // bareStdMethodCall lowers a bare call whose callee the checker resolved to a
 // std type's method, brought into scope by a selective import
 // (`import std::maybe.Maybe.{with_default}`, then `with_default(m, 0)`). The
 // owner is the method's declared owning type, and the call takes the route
 // its qualified spelling takes over the call as written, so the checker's
 // facts about this call node (its solved signature, the types of its bare
-// operands) are the ones every arm reads. Where this file's tables bind the
-// owner's name to another declaration (a local `struct Date`), the route is
-// the module-qualified one (`calendar.Date.parse`). handled is false when the
-// callee is not such a method.
-func (bl *irScalarBuilder) bareStdMethodCall(t *ast.Call, callee *ast.Ident, sym *analysis.Symbol) (ir.Temp, kind, bool, bool, bool) {
+// operands) are the ones every arm reads. The owner is the record's
+// (typeQualCall), so a declaration this file has of the owner's name (a
+// local `struct Date`) is not the call's. Whether the callee is such a
+// method is the record's too: a std function of an owning type the std
+// index holds (Callee.Std, byID). handled is false when it is not.
+func (bl *irScalarBuilder) bareStdMethodCall(t *ast.Call) (ir.Temp, kind, bool, bool, bool) {
 	g := bl.g
 	if g.std == nil {
 		return ir.NoTemp, kindInvalid, false, false, false
 	}
-	if sym == nil || sym.OwningType == "" || sym.Name == "" || len(g.std.byType[sym.OwningType+"."+sym.Name]) == 0 {
+	std := g.calleeOf(t).Std
+	if std.Owner == "" || g.std.byID[std] == nil {
 		return ir.NoTemp, kindInvalid, false, false, false
 	}
-	lower := func() (ir.Temp, kind, bool, bool) {
-		if g.stdNameTaken(sym.OwningType) {
-			mod, found := g.stdMethodModule(sym)
-			if !found {
-				return ir.NoTemp, kindInvalid, false, false
-			}
-			if v, k, mobile, ok, handled := bl.stdModuleOwnerCall(t, mod, sym.OwningType, sym.Name, false); handled {
-				return v, k, mobile, ok
-			}
-			return ir.NoTemp, kindInvalid, false, false
-		}
-		return bl.typeQualCall(t, &ast.TypeIdent{Name: sym.OwningType, Line: callee.Line, Col: callee.Col}, sym.Name)
-	}
+	lower := func() (ir.Temp, kind, bool, bool) { return bl.typeQualCall(t, std.Name) }
 	var v ir.Temp
 	var k kind
 	var mobile, ok bool
@@ -149,158 +162,15 @@ func (bl *irScalarBuilder) bareStdMethodCall(t *ast.Call, callee *ast.Ident, sym
 	return v, k, mobile, ok, true
 }
 
-// stdMethodModule is the std module that declares the method sym, an impl
-// member of a std type (`Date.parse`): the module of the index entry whose
-// declaration sym is, or for a `host fn`, whose index entry keeps no
-// declaration, the one module that declares a member of that spelling.
-func (g *gen) stdMethodModule(sym *analysis.Symbol) (string, bool) {
-	if g.std == nil || sym == nil {
-		return "", false
-	}
-	fs := g.std.byType[sym.OwningType+"."+sym.Name]
-	for _, f := range fs {
-		if f.decl != nil && ast.Node(f.decl) == sym.Node {
-			return f.module, true
-		}
-	}
-	if _, isFunc := sym.Node.(*ast.FuncDef); isFunc || len(fs) == 0 {
-		return "", false
-	}
-	mod := fs[0].module
-	for _, f := range fs[1:] {
-		if f.module != mod {
-			return "", false
-		}
-	}
-	return mod, true
-}
-
 // stdTypeRebind reports whether a block import that binds sym may rebind a
 // name the module scope binds to something else: sym is a monomorphic std
 // struct, enum or distinct type, which every route the builder takes for the
-// name reaches by its declaration (bindBlockImports, qualOwner).
+// name reaches by its declaration (the type the checker recorded,
+// typeQualCall).
 func (g *gen) stdTypeRebind(sym *analysis.Symbol) bool {
 	if _, isStd := stdTypeModule(sym); !isStd {
 		return false
 	}
 	d := g.importedTypeDef(sym)
 	return d != nil && d.foreign == ""
-}
-
-// qualOwnerRoute is how qualCallLowered reaches a type-qualified call's
-// owner (qualOwner).
-type qualOwnerRoute uint8
-
-const (
-	// ownerTyped: the owner's routes, by the name qualOwner answers,
-	// which names the qualifier's declaration in this file.
-	ownerTyped qualOwnerRoute = iota
-	// ownerStdModule: a std type this file does not reach by its name;
-	// the call is the module-qualified one (`duration.Duration.seconds`).
-	ownerStdModule
-	// ownerResolved: a program's type this file does not reach by its
-	// name; the call is the function of its block the checker resolved
-	// it to (resolvedOwnerPlan).
-	ownerResolved
-)
-
-// qualOwner is how the call t, written `ti.m(...)`, reaches the type or
-// interface the checker resolved ti to (analysis.Callee.Qualifier): by the
-// name of that declaration where this file's tables bind the name to it,
-// else through the declaration's module or its owner function.
-func (bl *irScalarBuilder) qualOwner(t *ast.Call, ti *ast.TypeIdent) (route qualOwnerRoute, name, module string) {
-	g := bl.g
-	if g.isUnchecked(t) || g.isRespelled(t) {
-		// Code the checker never checked has no record (markUnchecked),
-		// and a copy the builder respelled names an owner the builder's
-		// tables bind (isRespelled): its owner is the one the builder
-		// wrote.
-		return ownerTyped, ti.Name, ""
-	}
-	q := g.routeCallee(t).Qualifier
-	fa := g.srcFA()
-	// reaches reports whether name, written here, names the qualifier's
-	// declaration through this file's scope and tables.
-	reaches := func(name string) bool {
-		sym := resolvedTypeSymbol(fa, name)
-		return sym != nil && fa.QualifierOfSymbol(sym) == q
-	}
-	// writtenReaches: the name as written reaches the declaration in the
-	// scope at the call, or through an import at the top of a block.
-	writtenReaches := false
-	if scope := fa.ScopeAt(analysis.Pos{Line: t.Line, Col: t.Col}); scope != nil {
-		if sym := resolveSymbol(scope.Lookup(ti.Name)); sym != nil {
-			writtenReaches = fa.QualifierOfSymbol(sym) == q
-		}
-	}
-	if _, imported := g.blockImportedNamed(ti.Name); imported {
-		writtenReaches = true
-	}
-	switch {
-	case q.Kind == analysis.QualType && !q.Std.IsZero():
-		canon := q.Std.Name
-		// This file's tables take the name (a program's type of the name,
-		// a block-local one, an edited std module's own declarations in a
-		// program's lowering): the module-qualified call, which resolves
-		// from that module's declarations only.
-		if g.stdModule == "" && !isProgramStd(stdShortModule(q.Std.Module)) && g.stdNameTaken(canon) {
-			return ownerStdModule, canon, stdShortModule(q.Std.Module)
-		}
-		// The name reaches another declaration here: the module-qualified
-		// call.
-		if sym := resolvedTypeSymbol(fa, canon); sym != nil && fa.QualifierOfSymbol(sym) != q {
-			return ownerStdModule, canon, stdShortModule(q.Std.Module)
-		}
-		if _, local := g.blockLocalNamed(canon); local {
-			return ownerStdModule, canon, stdShortModule(q.Std.Module)
-		}
-		// Neither the written name nor the declaration's own reaches it
-		// here (a subtype's refinement check in a file that binds no name
-		// to the subtype): the module-qualified call.
-		if !writtenReaches && !reaches(canon) && !reaches(ti.Name) {
-			return ownerStdModule, canon, stdShortModule(q.Std.Module)
-		}
-		return ownerTyped, canon, ""
-	case q.Kind == analysis.QualInterface && !q.Std.IsZero():
-		// An alias of the interface (`import std::iter.Iter as It`): its
-		// own name, where nothing else here takes it.
-		if canon := q.Std.Name; canon != ti.Name && reaches(ti.Name) && !g.stdNameTaken(canon) {
-			return ownerTyped, canon, ""
-		}
-	case (q.Kind == analysis.QualType || q.Kind == analysis.QualInterface) && q.Decl != nil:
-		canon := typeDeclName(q.Decl)
-		if et, host := q.Decl.(*ast.ExternType); host {
-			canon = et.Name
-		}
-		_, local := g.blockLocalNamed(ti.Name)
-		if sym := resolvedTypeSymbol(fa, ti.Name); !local && canon != "" && canon != ti.Name &&
-			sym != nil && sym.Kind == analysis.SymbolTypeAlias && fa.QualifierOfSymbol(sym) == q {
-			// The written name is a typealias of the declaration (`Tiny`
-			// in the parent check `type Bit Tiny` generates, for
-			// `typealias Tiny Small`), which no route keys a type's
-			// functions on: the declaration's own name where that
-			// reaches it, else its owner function.
-			if reaches(canon) {
-				return ownerTyped, canon, ""
-			}
-			return ownerResolved, ti.Name, ""
-		}
-		if local || writtenReaches || reaches(ti.Name) {
-			return ownerTyped, ti.Name, ""
-		}
-		if canon != ti.Name && resolvedTypeSymbol(fa, ti.Name) != nil {
-			// The builder wrote another owner over the call (an
-			// interface's function for the type it is called for,
-			// `Pair.decode` for `Decode.decode`): that owner's routes.
-			// The declaration's own name bound here to another type of
-			// that name (a literal's check of another file's `Many` in a
-			// file declaring its own) is no such owner.
-			return ownerTyped, ti.Name, ""
-		}
-		if canon != "" && reaches(canon) {
-			return ownerTyped, canon, ""
-		}
-		return ownerResolved, ti.Name, ""
-	}
-	return ownerTyped, ti.Name, ""
 }

@@ -68,47 +68,51 @@ func TestFormat_PatternGroupCommentsStayInParentheses(t *testing.T) {
 		"    0\n" +
 		"end\n"
 	want := "fn f(p: (Int, Int), xs: List<Int>, frag: Fragment<String>) -> Int\n" +
-		"    a = case p\n" +
-		"        (\n" +
-		"            x,\n" +
-		"            y\n" +
-		"            // c1\n" +
-		"        ) -> x // t1\n" +
-		"        (x, y) -> x + y\n" +
-		"    end\n" +
+		"    a =\n" +
+		"        case p\n" +
+		"            (\n" +
+		"                x,\n" +
+		"                y\n" +
+		"                // c1\n" +
+		"            ) -> x // t1\n" +
+		"            (x, y) -> x + y\n" +
+		"        end\n" +
 		"\n" +
-		"    b = case xs\n" +
-		"        [\n" +
-		"            // c2\n" +
-		"            h,\n" +
-		"            ..rest\n" +
-		"        ] -> h // t2\n" +
-		"        [\n" +
-		"            h,\n" +
-		"            // c3\n" +
-		"            ..rest\n" +
-		"            // c4\n" +
-		"        ] -> h // t5\n" +
-		"        _ -> 0\n" +
-		"    end\n" +
+		"    b =\n" +
+		"        case xs\n" +
+		"            [\n" +
+		"                // c2\n" +
+		"                h,\n" +
+		"                ..rest\n" +
+		"            ] -> h // t2\n" +
+		"            [\n" +
+		"                h,\n" +
+		"                // c3\n" +
+		"                ..rest\n" +
+		"                // c4\n" +
+		"            ] -> h // t5\n" +
+		"            _ -> 0\n" +
+		"        end\n" +
 		"\n" +
-		"    c = case frag\n" +
-		"        .Dynamic((\n" +
-		"            // c6\n" +
-		"            v\n" +
-		"        ) as w) -> 1 // t6\n" +
-		"        .Other(Point{x: (\n" +
-		"            // c7\n" +
-		"            px\n" +
-		"        )}) -> px // t7\n" +
-		"    end\n" +
+		"    c =\n" +
+		"        case frag\n" +
+		"            .Dynamic((\n" +
+		"                // c6\n" +
+		"                v\n" +
+		"            ) as w) -> 1 // t6\n" +
+		"            .Other(Point{x: (\n" +
+		"                // c7\n" +
+		"                px\n" +
+		"            )}) -> px // t7\n" +
+		"        end\n" +
 		"\n" +
-		"    d = case p\n" +
-		"        (\n" +
-		"            x\n" +
-		"            // c8\n" +
-		"        ) -> 0 // t8\n" +
-		"    end\n" +
+		"    d =\n" +
+		"        case p\n" +
+		"            (\n" +
+		"                x\n" +
+		"                // c8\n" +
+		"            ) -> 0 // t8\n" +
+		"        end\n" +
 		"\n" +
 		"    0\n" +
 		"end\n"

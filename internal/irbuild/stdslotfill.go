@@ -163,25 +163,20 @@ func (bl *irScalarBuilder) stdTemplateDefaults(fa *ast.FieldAccess, rec *analysi
 	if !isFunc || g.std == nil || len(fd.Params) != len(rec.Params) {
 		return nil
 	}
-	owner, module, isStd := bl.stdShortOwner(fa)
-	if !isStd {
+	f := g.stdFuncByID(g.srcFA().StdFuncOf(fd))
+	if f == nil || f.decl != fd || f.module == g.stdModule {
 		return nil
 	}
-	for _, f := range g.stdShortCandidates(owner, fa.Field.Name, module) {
-		if f.decl != fd || f.module == g.stdModule {
-			continue
-		}
-		if g.stdInsts == nil {
-			// The shared lowering builds no instance, so a body of it
-			// that makes this call declines.
-			if len(fd.TypeParams) != 0 {
-				return f
-			}
-			continue
-		}
-		if tps, _ := g.stdInsts.stdTemplateParams(f); len(tps) != 0 {
+	if g.stdInsts == nil {
+		// The shared lowering builds no instance, so a body of it that
+		// makes this call declines.
+		if len(fd.TypeParams) != 0 {
 			return f
 		}
+		return nil
+	}
+	if tps, _ := g.stdInsts.stdTemplateParams(f); len(tps) != 0 {
+		return f
 	}
 	return nil
 }
@@ -202,7 +197,7 @@ func (bl *irScalarBuilder) fillStdTemplateDefaults(t *ast.Call, f *stdFunc, kind
 	// The call names the function itself, so every type argument is the
 	// checker's for the call: no receiver selected an impl block.
 	tps, _ := s.stdTemplateParams(f)
-	args, types, ok := g.calleeTypedArgs(t.Func, tps)
+	args, types, ok := g.calleeTypeArgs(t.Func, tps)
 	if !ok {
 		return false
 	}

@@ -95,7 +95,7 @@ Without the `where` clause, `Iter.sort` is an error:
 
 To require more than one interface, join them with `and`:
 
-```nomi ignore
+```nomi
 fn largest_label<T>(xs: List<T>) -> String where T: Comparable and Display
 ```
 
@@ -111,7 +111,7 @@ shows.
 
 Types and derives can have a `where` clause too:
 
-```nomi ignore
+```nomi
 struct Span<T> where T: Comparable
     start: T
     stop:  T

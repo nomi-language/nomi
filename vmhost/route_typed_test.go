@@ -431,6 +431,131 @@ end
 	}
 }
 
+// A link fills a route's parameters of a declared type with that type's own
+// Display text, as a hole does: std/uuid's Uuid, and a program's distinct
+// types, enum and struct that implement Parse and Display. The same routes
+// read those parameters from a request's path, and one that does not parse
+// is a 404.
+func TestRoutePathWith_DeclaredParameterTypes(t *testing.T) {
+	src := strings.ReplaceAll(`import
+    std::http.{Body, Method, Response, Route, Router}
+    std::http::testing
+    std::io
+    std::parse.Parse
+    std::uuid.{self, Uuid}
+end
+
+type UserId Uuid
+
+impl Parse<uuid.Error> for UserId
+    fn parse(text: String) -> Result<UserId, uuid.Error>
+        Uuid.parse(text) |> Result.map(UserId)
+    end
+end
+
+impl Display for UserId
+    fn to_string(id: UserId) -> String
+        UserId(u) = id
+        "${u}"
+    end
+end
+
+type Page Int
+
+impl Parse<String> for Page
+    fn parse(text: String) -> Result<Page, String>
+        Int.parse(text) |> Result.map(Page)
+    end
+end
+
+impl Display for Page
+    fn to_string(p: Page) -> String
+        Page(n) = p
+        "${n}"
+    end
+end
+
+enum Tab
+    Posts
+    Likes
+end
+
+impl Parse<String> for Tab
+    fn parse(text: String) -> Result<Tab, String>
+        case text
+            "posts" -> Ok(Tab.Posts)
+            "likes" -> Ok(Tab.Likes)
+            _ -> Err("no tab ${text}")
+        end
+    end
+end
+
+impl Display for Tab
+    fn to_string(t: Tab) -> String
+        case t
+            Tab.Posts -> "posts"
+            Tab.Likes -> "likes"
+        end
+    end
+end
+
+struct Slug
+    text: String
+end
+
+impl Parse<String> for Slug
+    fn parse(text: String) -> Result<Slug, String>
+        Ok(Slug{text:})
+    end
+end
+
+impl Display for Slug
+    fn to_string(s: Slug) -> String
+        s.text
+    end
+end
+
+fn main()
+    nil = Uuid.nil()
+    io.print(Route.path_with(´GET /s/{x}´ as Route<{x: String}>, {x: "a b"}))
+    io.print(Route.path_with(´GET /i/{x}´ as Route<{x: Int}>, {x: 7}))
+    io.print(Route.path_with(´GET /u/{x}´ as Route<{x: Uuid}>, {x: nil}))
+    io.print(Route.path_with(´GET /d/{x}´ as Route<{x: UserId}>, {x: UserId(nil)}))
+    io.print(Route.path_with(´GET /p/{x}´ as Route<{x: Page}>, {x: Page(3)}))
+    io.print(Route.path_with(´GET /t/{x}´ as Route<{x: Tab}>, {x: Tab.Likes}))
+    io.print(Route.path_with(´GET /g/{x}´ as Route<{x: Slug}>, {x: Slug{text: "hi there"}}))
+    mixed = ´GET /m/{user}/{tab}/{n}´ as Route<{user: UserId, tab: Tab, n: Int}>
+    io.print(Route.path_with(mixed, {user: UserId(nil), tab: Tab.Posts, n: 2}))
+    router = Router.new([
+        Route.to_with(mixed, fn _, p -> Response{body: Body.Text("${p.user} ${p.tab} ${p.n}")}),
+        Route.to_with(´GET /g/{x}´ as Route<{x: Slug}>, fn _, p -> Response{body: Body.Text("${p.x}")}),
+        Route.to_with(´GET /p/{x}´ as Route<{x: Page}>, fn _, p -> Response{body: Body.Text("${p.x}")}),
+    ])!
+    get = fn target: String -> Router.serve(router, testing.request(Method.Get, target))
+    io.print(Response.text(get("/m/00000000-0000-0000-0000-000000000000/likes/5")))
+    io.print(get("/m/00000000-0000-0000-0000-000000000000/other/5").status)
+    io.print(Response.text(get("/g/hello")))
+    io.print(Response.text(get("/p/9")))
+    io.print(get("/p/x").status)
+end
+`, "´", "`")
+	var out strings.Builder
+	p, err := LoadSource("main", src)
+	if err != nil {
+		t.Fatalf("the front end rejects the program, so nothing below is tested: %v", err)
+	}
+	if err := p.Run(context.Background(), &out, nil, false); err != nil {
+		t.Fatal(err)
+	}
+	const zero = "00000000-0000-0000-0000-000000000000"
+	want := "/s/a%20b\n/i/7\n/u/" + zero + "\n/d/" + zero + "\n/p/3\n/t/likes\n/g/hi%20there\n" +
+		"/m/" + zero + "/posts/2\n" +
+		"Ok(" + zero + " likes 5)\n404 Not Found\nOk(hello)\nOk(9)\n404 Not Found\n"
+	if out.String() != want {
+		t.Errorf("output:\n%s\nwant:\n%s", out.String(), want)
+	}
+}
+
 // A route literal whose wildcards are not the fields of the parameters a
 // middleware's handler takes is an error at the wildcard, as it is beside
 // the handler itself.

@@ -1,6 +1,7 @@
 package irbuild
 
 import (
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
@@ -63,11 +64,10 @@ import (
 // admit and this builder cannot serve — a user type implementing Discrete, whose
 // impl is a Nomi body in the user's own module rather than in the std index.
 //
-// The Codepoint row is why stdenum.go has stdEnumSynthAnchors. `derive
-// Comparable for Codepoint` synthesises `compare(a: Codepoint, b: Codepoint):
-// Ordering` into a file that never imports `Ordering`, so resolving the anchor
-// through that file's imports would refuse this whole element type under a key
-// claiming a missing representation.
+// `derive Comparable for Codepoint` synthesises `compare(a: Codepoint, b:
+// Codepoint): Ordering` into a file that never imports `Ordering`, so its
+// `Ordering` is the type the checker recorded for the result, which
+// projectStdEnum reads by (origin, name), never a name in that file's scope.
 //
 // # What is NOT here, and each absence is std's rather than the builder's
 //
@@ -167,8 +167,8 @@ func (g *gen) rangeDiscrete(elem kind, at ast.Node) bool {
 	maybeElem, shared := g.sharedMaybe(elem)
 	maybeInt, sharedInt := g.sharedMaybe(kindInt)
 	if !shared || !sharedInt ||
-		g.stdIfaceFnAt("Discrete.next", elem, []kind{elem}, maybeElem) == nil ||
-		g.stdIfaceFnAt("Discrete.steps_between", elem, []kind{elem, elem}, maybeInt) == nil {
+		g.stdIfaceFnAt(stdDiscrete.Func("next"), elem, []kind{elem}, maybeElem) == nil ||
+		g.stdIfaceFnAt(stdDiscrete.Func("steps_between"), elem, []kind{elem, elem}, maybeInt) == nil {
 		g.reject("range over an element without a successor", elem.nomi(), at)
 		return false
 	}
@@ -180,8 +180,8 @@ func (g *gen) rangeDiscrete(elem kind, at ast.Node) bool {
 //
 // The shared table rather than preludeInstanceOf, and that is the correct
 // direction here rather than a shortcut: these kinds are compared against a std
-// function's declared `result`, which stdTypeKind resolved through
-// preludeSigKind — the shared table. A per-gen instance would compare unequal to
+// function's declared `result`, which projectShared interned in the shared
+// table. A per-gen instance would compare unequal to
 // every std signature and every lookup below would report a mismatch that is not
 // one.
 func (g *gen) sharedMaybe(of kind) (kind, bool) {
@@ -197,11 +197,11 @@ func (g *gen) sharedMaybe(of kind) (kind, bool) {
 // choice for the identical reason and this is its generalisation; the two could
 // be one function and are not only because stdCompareAt's caller already holds
 // the Ordering def it wants to compare against.
-func (g *gen) stdIfaceFnAt(key string, recv kind, params []kind, result kind) *stdFunc {
+func (g *gen) stdIfaceFnAt(fn analysis.StdFunc, recv kind, params []kind, result kind) *stdFunc {
 	if g.std == nil {
 		return nil
 	}
-	f := stdPick(g.std.byIface[key][recv], params)
+	f := stdPick(g.std.stdIfaceImpls(fn, recv), params)
 	if f == nil || f.why != "" || len(f.params) != len(params) {
 		return nil
 	}

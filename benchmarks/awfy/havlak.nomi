@@ -89,11 +89,12 @@ impl ControlFlowGraph
     /// Adds the block named `name` unless it is there. Blocks are created in
     /// name order, so a new block's name is its index.
     fn create_node(cfg: ControlFlowGraph, name: Int) -> ControlFlowGraph
-        cfg = if name < ControlFlowGraph.num_nodes(cfg) then
-            cfg
-        else
-            {..cfg, basic_block_map: Vector.push(.., BasicBlock{name:})}
-        end
+        cfg =
+            if name < ControlFlowGraph.num_nodes(cfg) then
+                cfg
+            else
+                {..cfg, basic_block_map: Vector.push(.., BasicBlock{name:})}
+            end
 
         if ControlFlowGraph.num_nodes(cfg) == 1 then {..cfg, start_node: Some(name)} else cfg
     end
@@ -131,10 +132,11 @@ end
 
 impl SimpleLoop
     fn new(bb: Maybe<Int>, is_reducible: Bool, counter: Int) -> SimpleLoop
-        basic_blocks: Set<Int> = case bb
-            Some(b) -> [b]
-            None    -> []
-        end
+        basic_blocks: Set<Int> =
+            case bb
+                Some(b) -> [b]
+                None    -> []
+            end
 
         SimpleLoop{counter:, is_reducible:, basic_blocks:, header: bb}
     end
@@ -434,11 +436,12 @@ impl HavlakLoopFinder
                 // Copy nodePool to workList.
                 work_list = node_pool
 
-                f = if Vector.length(node_pool) != 0 then
-                    HavlakLoopFinder.set_type(f, w, .Reducible)
-                else
-                    f
-                end
+                f =
+                    if Vector.length(node_pool) != 0 then
+                        HavlakLoopFinder.set_type(f, w, .Reducible)
+                    else
+                        f
+                    end
 
                 (f, node_pool, finished) = HavlakLoopFinder.work(f, w, node_pool, work_list, 0)
 

@@ -1,8 +1,6 @@
 package irbuild
 
 import (
-	"maps"
-
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -21,8 +19,8 @@ import (
 // itself binds, because the checker resolves it there (analysis/builder.go
 // walks every key of a map pattern before it defines the pattern's names).
 // In `{"mode" => a, a => b}` the second key is the `a` bound before the
-// pattern. Each key is lowered in a copy of the scope the pattern started in
-// (mapKeyScope), so a name an earlier entry bound is not visible to it.
+// pattern. A key reads the declaration the checker resolved it to, so a
+// name an earlier entry bound is not what it reads (readKey).
 //
 // A pattern is partial: it names the keys it cares about and says nothing
 // about the rest, so `{}` matches every map.
@@ -32,7 +30,7 @@ import (
 
 // mapEntryGet lowers one entry's key and looks it up in subj: the Maybe the
 // lookup answers, its kind and its Some variant.
-func (bl *irScalarBuilder) mapEntryGet(at ast.Node, subj ir.Temp, mk kind, keyNode ast.Node, keys *irLexicalScope) (got ir.Temp, maybe kind, some *variantDef, ok bool) {
+func (bl *irScalarBuilder) mapEntryGet(at ast.Node, subj ir.Temp, mk kind, keyNode ast.Node) (got ir.Temp, maybe kind, some *variantDef, ok bool) {
 	if mk.tag != tagMap || !irRetainedMapKind(mk) {
 		return ir.NoTemp, kindInvalid, nil, false
 	}
@@ -41,17 +39,7 @@ func (bl *irScalarBuilder) mapEntryGet(at ast.Node, subj ir.Temp, mk kind, keyNo
 	// checker admits it (`{Color.Blue => v}` over a Map<Bool, String>): the
 	// lookup is made anyway and misses, so the key
 	// expression still runs.
-	var key ir.Temp
-	var kk kind
-	if keys != nil {
-		cur := bl.saveScope()
-		bl.restoreScope(*keys)
-		bl.cloneScope()
-		key, kk, _, ok = bl.lower(keyNode)
-		bl.restoreScope(cur)
-	} else {
-		key, kk, _, ok = bl.lower(keyNode)
-	}
+	key, kk, _, ok := bl.lower(keyNode)
 	if !ok || (kk != keyK && !irMapKeyKind(kk)) {
 		if ok {
 			bl.g.dc.note("a map pattern key of kind " + kk.nomi() + " over " + mk.nomi())
@@ -77,167 +65,29 @@ func (bl *irScalarBuilder) mapEntryGet(at ast.Node, subj ir.Temp, mk kind, keyNo
 	return c.Dst(), maybe, some, true
 }
 
-// mapKeyScope copies the scope a map pattern of n entries starts in, for its
-// keys to be lowered in. A pattern with one entry needs none: its only key is
-// lowered before the pattern binds anything.
-func (bl *irScalarBuilder) mapKeyScope(n int) *irLexicalScope {
-	if n < 2 {
-		return nil
-	}
-	return &irLexicalScope{maps.Clone(bl.bound), maps.Clone(bl.boundK), maps.Clone(bl.sh.syms)}
-}
-
 // mapSomeTest branches on whether got is Some, to found or miss, and leaves
 // the builder in found with the payload read.
 func (bl *irScalarBuilder) mapSomeTest(at ast.Node, got ir.Temp, maybe kind, some *variantDef, miss *ir.Block) (ir.Temp, kind) {
 	match := bl.variantTest(at, got, maybe.def, some)
 	bl.b.Append(match)
 	bl.side(match.Dst(), irScalarSide{k: kindBool})
-	found := bl.f.NewBlock(bl.g.irNodePos(at), "map value")
-	bl.b.SetTerm(ir.NewBranch(bl.g.irNodePos(at), match.Dst(), found.ID(), miss.ID()))
-	bl.b = found
+	bl.passOrFail(at, match.Dst(), miss)
 	return bl.variantPayload(at, got, maybe.def, some), some.payloads[0].k
 }
 
-// mapCaseTest tests a map pattern in a `case` arm: every entry's key present
-// and its value matching, in entry order. The builder ends in arm with the
-// entries' names bound; any failure branches to next.
-func (bl *irScalarBuilder) mapCaseTest(pattern ast.Node, subj ir.Temp, mk kind, arm, next *ir.Block) bool {
-	pat, ok := pattern.(*ast.MapPattern)
-	if !ok || pat.TypeName != nil {
-		return false
-	}
-	keys := bl.mapKeyScope(len(pat.Entries))
-	for i, e := range pat.Entries {
-		target := arm
-		if i < len(pat.Entries)-1 {
-			target = bl.f.NewBlock(bl.g.irNodePos(pat), "map entry")
-		}
-		got, maybe, some, ok := bl.mapEntryGet(pat, subj, mk, e.Key, keys)
+// mapCaseTest tests a map pattern with no prefix: every entry's key present
+// and its value matching, in entry order, with the entries' names bound.
+// Any failure branches to next.
+func (bl *irScalarBuilder) mapCaseTest(pat *ast.MapPattern, subj ir.Temp, mk kind, next *ir.Block) bool {
+	for _, e := range pat.Entries {
+		got, maybe, some, ok := bl.mapEntryGet(pat, subj, mk, e.Key)
 		if !ok {
 			return false
 		}
 		value, vk := bl.mapSomeTest(pat, got, maybe, some, next)
-		if !bl.patternValueTest(e.Pattern, value, vk, target, next) {
+		if !bl.patternTest(e.Pattern, value, vk, next) {
 			return false
 		}
-	}
-	if len(pat.Entries) == 0 {
-		bl.b.SetTerm(ir.NewJump(bl.g.irNodePos(pat), arm.ID()))
-		bl.b = arm
 	}
 	return true
-}
-
-// patternValueTest matches a nested pattern against a value already read,
-// ending in arm on success and branching to next on failure. A pattern it
-// cannot test is the decline's position, unless a pattern inside it is.
-func (bl *irScalarBuilder) patternValueTest(pat ast.Node, value ir.Temp, k kind, arm, next *ir.Block) bool {
-	if !bl.patternValueTestNode(pat, value, k, arm, next) {
-		bl.g.dc.patternFailed(pat)
-		return false
-	}
-	return true
-}
-
-func (bl *irScalarBuilder) patternValueTestNode(pat ast.Node, value ir.Temp, k kind, arm, next *ir.Block) bool {
-	jump := func() bool {
-		bl.b.SetTerm(ir.NewJump(bl.g.irNodePos(pat), arm.ID()))
-		bl.b = arm
-		return true
-	}
-	switch p := pat.(type) {
-	case *ast.WildcardPattern:
-		return jump()
-	case *ast.IdentPattern:
-		bl.patternBinding(p, p.Name, value, k)
-		return jump()
-	case *ast.AsPattern:
-		// `P as name`: P's test, then name bound on its success edge.
-		if !bl.patternValueTest(p.Pattern, value, k, arm, next) {
-			return false
-		}
-		bl.patternBinding(p, p.Name, value, k)
-		return true
-	case *ast.OrPattern:
-		return bl.orPatternTest(p, value, k, arm, next)
-	case *ast.IntLit, *ast.StringLit, *ast.CodepointLit, *ast.FloatLit, *ast.DecimalLit:
-		// A Float or Decimal literal is tested as a top-level `case` arm
-		// tests it (litFor): MatchLit, which the VM answers with rt.Equal,
-		// so EqFloat and EqDecimal decide at every depth.
-		lit, lk, _, ok := bl.litFor(p, k)
-		if !ok || lk != k {
-			return false
-		}
-		m := ir.NewMatchLitInto(bl.g.irNodePos(p), bl.f.NewTemp(), value, lit)
-		bl.b.Append(m)
-		bl.side(m.Dst(), irScalarSide{k: kindBool})
-		bl.b.SetTerm(ir.NewBranch(bl.g.irNodePos(p), m.Dst(), arm.ID(), next.ID()))
-		bl.b = arm
-		return true
-	case *ast.Binary:
-		return bl.strPrefixTest(p, value, k, arm, next)
-	case *ast.MapPattern:
-		if irDistinctOverKind(k, tagMap) {
-			return bl.nominalCaseTest(p, value, k, arm, next)
-		}
-		if p.TypeName != nil {
-			return bl.enumCaseTest(p, value, k, arm, next)
-		}
-		return bl.mapCaseTest(p, value, k, arm, next)
-	case *ast.TuplePattern:
-		// tupleCaseComponents holds k to irRetainedTupleKind for both.
-		if tupleCaseIrrefutable(p, k) {
-			bl.tupleCaseBindings(p, value, k)
-			return jump()
-		}
-		return bl.tupleCaseTest(p, value, k, arm, next)
-	case *ast.EnumPattern, *ast.StructPattern:
-		if irSingletonPattern(p, k) {
-			return jump()
-		}
-		if ep, isEnum := p.(*ast.EnumPattern); isEnum && bl.g.patternRefines(ep) {
-			// `Port(n)`: a subtype's value is its base's (spec §4
-			// *Subtypes*), so the payload matches the value itself.
-			if ep.Payload != nil {
-				return bl.patternValueTest(ep.Payload, value, k, arm, next)
-			}
-			if ep.Binding != "" {
-				bl.patternBinding(ep, ep.Binding, value, k)
-			}
-			return jump()
-		}
-		if irNominalCaseKind(k) {
-			return bl.nominalCaseTest(p, value, k, arm, next)
-		}
-		return bl.enumCaseTest(p, value, k, arm, next)
-	case *ast.ListPattern:
-		switch p.Kind {
-		case ast.SeqVector:
-			if irDistinctOverVector(k) {
-				return bl.nominalCaseTest(p, value, k, arm, next)
-			}
-			if p.TypeName != nil {
-				return bl.enumCaseTest(p, value, k, arm, next)
-			}
-			return bl.vectorCaseTest(p, value, k, arm, next)
-		case ast.SeqSet:
-			if irDistinctOverSet(k) {
-				return bl.nominalCaseTest(p, value, k, arm, next)
-			}
-			if p.TypeName != nil {
-				return bl.enumCaseTest(p, value, k, arm, next)
-			}
-			return bl.setCaseTest(p, value, k, arm, next)
-		default:
-			if irDistinctOverKind(k, tagList) {
-				return bl.nominalCaseTest(p, value, k, arm, next)
-			}
-			if p.TypeName != nil {
-				return bl.enumCaseTest(p, value, k, arm, next)
-			}
-			return bl.listCaseTest(p, value, k, arm, next)
-		}
-	}
-	return false
 }

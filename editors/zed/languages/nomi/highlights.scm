@@ -741,18 +741,6 @@
   (host_keyword) @keyword)
 
 ; Function definitions
-(go_selector_binding
-  symbol: (type_identifier) @function)
-(go_selector_binding
-  symbol: (identifier) @function)
-(go_selector_binding
-  package: (identifier) @module)
-(go_selector_binding
-  "go" @keyword)
-(gopkg_declaration
-  alias: (identifier) @module)
-(gopkg_declaration
-  "gopkg" @keyword)
 (function_definition
   name: (type_identifier) @function)
 (function_definition

@@ -2,8 +2,6 @@ package irbuild
 
 import (
 	"sync"
-
-	"github.com/nomi-language/nomi/internal/ast"
 )
 
 // Process-wide identity for the structural types whose components are the
@@ -166,15 +164,13 @@ func listKindIn(g *gen, elem kind) kind {
 	return kind{tag: tagList, comp: internComp(g, "List<"+elem.nomi()+">", elem)}
 }
 
-// sharedListKind is `List<elem>` for a caller that has no gen — the stdlib
-// signature boundary — and reports whether the element could be shared at all.
+// sharedListKind is `List<elem>` for a caller that has no gen (a host
+// function's rt signature, kindOfGoType) and reports whether the element
+// could be shared at all.
 //
 // A non-neutral element DECLINES rather than falling back, because the fallback
-// would be a per-gen kind and there is no gen: see stdTypeKind, which turns the
-// decline into the refusal it already had.
+// would be a per-gen kind and there is no gen.
 func sharedListKind(elem kind) (kind, bool) {
-	// A non-neutral element declines here; the element's own refusal is what
-	// listSigKind's caller reports, at the element's own position.
 	// kindInvalid: propagates — a kind CONSTRUCTOR; the element's decline is reported by the caller.
 	if elem == kindInvalid || !elem.packageNeutral() {
 		return kindInvalid, false
@@ -183,58 +179,6 @@ func sharedListKind(elem kind) (kind, bool) {
 }
 
 // --- the stdlib signature side ---------------------------------------------
-
-// listSigKind is the kind a stdlib signature's `List<…>` annotation names, and
-// reports whether the annotation named a List at all.
-//
-// Resolved by NAME, unlike the prelude arm beside it, and the asymmetry is
-// deliberate rather than an oversight. `Maybe` and `Result` are ordinary `enum`
-// DECLARATIONS in std/prelude.nomi, so a stdlib module declaring its own would
-// shadow them and the anchor is what makes the builder agree with the analyzer's
-// (Origin, Name) rule about which one was meant. `List` is not a declaration
-// anywhere — not in std, not in a user file; the front end builds it — so there
-// is no declaration to anchor to and nothing that could shadow it. The builder
-// already resolves it by name for user modules, in collections.go's
-// typeOf (`t.Name != "List"`), and a second rule here would be a
-// second convention for one question.
-//
-// The element is resolved by the same restricted stdTypeKind the outer position
-// uses, so `List<Fragment<String>>` refuses on the `Fragment` rather than
-// admitting a kind this boundary cannot share, and `List<List<String>>` works
-// without a second rule.
-//
-// Reported as handled even when it refuses, for the reason preludeSigKind is: an
-// unrepresentable element must be the answer rather than falling through to a
-// lookup that would return the same kindInvalid for a different reason.
-func listSigKind(gt *ast.GenericType, anchors stdAnchors) (kind, bool) {
-	if gt.Name != "List" {
-		return kindInvalid, false
-	}
-	if len(gt.Params) != 1 {
-		// The checker rejects a `List` with any other number of type
-		// arguments ("List expects 1 type argument", analysis's
-		// resolveTypeExpr), so no checked std annotation reaches this. Without
-		// the guard a `List` with no argument would panic on gt.Params[0]
-		// below, and one with two or more would get the kind of `List` over
-		// its first argument and drop the rest. preludeSigKind refuses a wrong
-		// arity the same way.
-		return kindInvalid, true
-	}
-	elem := stdTypeKind(gt.Params[0], anchors)
-	// kindInvalid: propagates — the element's own refusal is the answer.
-	if elem == kindInvalid {
-		return kindInvalid, true
-	}
-	k, shared := sharedListKind(elem)
-	if !shared {
-		// Unreachable while stdTypeKind admits only neutral kinds, and treated
-		// as a refusal rather than trusted: a *compKind interned in no gen at
-		// all would be a kind no call site could ever match, which is the
-		// failure this file removes and must not reintroduce silently.
-		return kindInvalid, true
-	}
-	return k, true
-}
 
 // sharedTupleKind is `(parts...)` for a caller that has no gen — the stdlib
 // signature boundary — and reports whether every part could be shared at all.
@@ -252,68 +196,4 @@ func sharedTupleKind(parts []kind) (kind, bool) {
 		}
 	}
 	return (*gen)(nil).tupleKind(parts), true
-}
-
-// tupleSigKind is the kind a stdlib signature's TUPLE annotation names, and
-// reports whether the annotation named a tuple at all.
-//
-// # Why a tuple needs its own arm
-//
-// `stdTypeKind`'s families are all NOMINAL plus a `*ast.GenericType` block for
-// the structural ones (`List`, `Map`, a prelude instance, a generic std struct).
-// A tuple is spelled neither way: the parser gives `(Int, Int)` as an
-// `*ast.FuncType` with a NIL Return, reusing one node for `(Int, Int)` and
-// `(Int) -> String` with the arrow as the only difference (collections.go's
-// typeOf says so). Without this arm a tuple annotation such as
-// `random.between_state(state: Int, from: Int, to: Int) -> (Int, Int)`'s would match nothing
-// and refuse as `stdlib function outside the scalar subset`, though a tuple
-// has an interned `tagTuple` kind.
-//
-// It is not the FFI projection. A Go multiple return projects to a Nomi tuple
-// element-by-element on the adapter side; this is the signature side of the
-// same type, and the two are independent.
-//
-// Admitted on exactly the List and Map arms' terms and no wider: a structural
-// type over package-neutral components has a process-wide `*compKind`, so the
-// kind is the same pointer in every module. Parts resolve through the same
-// restricted `stdTypeKind`, so `(Fragment<String>, Int)` refuses on the
-// `Fragment`.
-//
-// A tuple is admitted here in a parameter position as well as a result
-// position. The FFI direction rejects a tuple parameter, because Go has no
-// tuple type to receive it, so this arm serves both positions while the FFI
-// projection serves one.
-func tupleSigKind(te ast.TypeExpr, anchors stdAnchors) (kind, bool) {
-	ft, isFunc := te.(*ast.FuncType)
-	if !isFunc || ft.Return != nil {
-		// An arrow makes it a FUNCTION type, which is a separate question with
-		// no stdlib customer: no std signature names one, and admitting
-		// it here would be a projection with no reachable site. A `run` FIELD
-		// on `std/random.Generator<T>` is a function type, but a field is
-		// stdGenStructSpecs' business and answers through its own `kindOf`.
-		return kindInvalid, false
-	}
-	if len(ft.Params) < 2 {
-		// Nomi has no 1-tuple: `(T)` is a grouped type, which the parser also
-		// spells this way. Declining rather than refusing is right — the inner
-		// type is what was meant, and the caller's other arms should see it.
-		return kindInvalid, false
-	}
-	parts := make([]kind, 0, len(ft.Params))
-	for _, p := range ft.Params {
-		k := stdTypeKind(p, anchors)
-		// kindInvalid: propagates — the part's own refusal is the answer.
-		if k == kindInvalid {
-			return kindInvalid, true
-		}
-		parts = append(parts, k)
-	}
-	k, shared := sharedTupleKind(parts)
-	if !shared {
-		// Unreachable while stdTypeKind admits only neutral kinds, and treated
-		// as a refusal rather than trusted — listSigKind's clause, for its
-		// reason.
-		return kindInvalid, true
-	}
-	return k, true
 }

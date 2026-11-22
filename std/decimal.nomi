@@ -403,10 +403,11 @@ end
 // units left over one each to the nonzero ratios in order. The sign is set
 // apart, so a negative amount splits as its magnitude does.
 fn allocated(d: Decimal, ratios: List<Int>, scale: NonNegativeInt) -> List<Decimal>
-    digits: NonNegativeInt = case NonNegativeInt.try_from(Decimal.scale(d))
-        Some(own) -> if own > scale then own else scale
-        None      -> scale
-    end
+    digits: NonNegativeInt =
+        case NonNegativeInt.try_from(Decimal.scale(d))
+            Some(own) -> if own > scale then own else scale
+            None      -> scale
+        end
 
     // A power of ten is a PositiveDecimal.
     unit = Decimal.pow(10d, digits)
@@ -539,9 +540,9 @@ end
 
 impl Equatable for Decimal
     // Scale-insensitive Decimal equality — agrees with `hash`, so
-    // `1.50d == 1.5d` AND both hash equally. The host implementation is shared
-    // with the runtime's map-key equality (`value.DecimalEqual` in Go), so the
-    // operator path, `Equatable.equal`, and map keys all converge on one
+    // `1.50d == 1.5d` AND both hash equally. The host implementation is
+    // rt.EqDecimal, the runtime's equality of two Decimals, which `==` and
+    // map keys compare with too, so all three converge on one
     // function.
     host fn equal(a: Decimal, b: Decimal) -> Bool
 end

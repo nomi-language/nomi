@@ -20,7 +20,7 @@
 // --no-vm` wrote, handed to it by path or framed on stdin (imagefile.go,
 // bare.go).
 //
-// It is a public package because an FFI project's runner is generated into a
+// It is a public package because an embedder that runs compiled programs is a
 // separate Go module, which can import only this module's public packages.
 //
 // # Pruning
@@ -36,36 +36,38 @@
 // (vmhost's imageName): a stdlib module as `std/<file>.nomi`, a project file
 // by its path from the project root, and an embedded file's source the same
 // way. It records the project root only for a program that reaches
-// std/compiler. A Go-FFI runner recognizes an entry that declares its own
-// bindings by that relative name.
+// std/compiler.
 //
 // # Runner variants
 //
 // Every runner comes in two builds. The untagged one links every std
-// module's Go side. The nomi_nonet build (nomi-vm-nonet,
-// nomi-vm-reactor-nonet) fails the network crossings with an error, so it
-// links no net/http, crypto/tls, crypto/x509 or net. Leaving the packages
-// out is the only way to drop them, since importing net/http keeps its
-// client transport alive through DefaultTransport; the wasip1 reactor
-// goes from 27.9 to 17.9 MB stripped.
+// module's Go side. The lean build (nomi-vm-nonet, nomi-vm-reactor-nonet)
+// is built with every optional family's tag (stdlibadapters.LeanTags):
+// nomi_nonet fails the network crossings with an error, so it links no
+// net/http, crypto/tls, crypto/x509 or net, and nomi_nowasm fails std::wasm's,
+// so it links no wazero. Leaving the packages out is the only way to drop
+// them, since importing net/http keeps its client transport alive through
+// DefaultTransport; the wasip1 reactor goes from 27.9 to 17.9 MB stripped.
+// No wasip1 runner has WebAssembly modules, whatever its tags: with wazero
+// the reactor would declare 17.3 MiB of initial memory, past its 16 MiB.
 //
-// `go generate ./internal/stdlibadapters` writes the split
-// (internal/hostgen/stdtable/netsplit.go): adapters_gen.go holds every
-// adapter that does not call internal/stdhttp and NetworkNames,
-// adapters_net_gen.go the ones that do (untagged), and adapters_nonet_gen.go
-// an error stub for each (tagged), so Bind names the same crossings in
-// both. `nomi build` appends to the smaller runner when the pruned image
-// reaches none of NetworkNames (vmhost.Program.UsesNetwork);
-// ffirun.Variant.NoNetwork names, caches and finds it, and a prebuilt
-// runner's -tags must match its name. A runner without the network refuses
-// an image that reaches one before running anything (network.go).
+// `go generate ./internal/stdlibadapters` writes the split by family
+// (internal/hostgen/stdtable/familysplit.go, Families): adapters_gen.go holds
+// every adapter that calls no family's package and the table of families
+// with their crossings (stdlibadapters.Families), adapters_<key>_gen.go a
+// family's adapters, built where it is, and adapters_no<key>_gen.go an
+// error stub for each, built where it is not, so Bind names the same
+// crossings in every build. `nomi build` appends to the lean runner when
+// the pruned image reaches no family's crossing
+// (vmhost.Program.UsesFamilies), and refuses a program that reaches a
+// family no runner of its target has (runners.FamiliesOnTarget);
+// runners.Variant.NoNetwork names, caches and finds the lean runner, and a
+// prebuilt runner's -tags must match its name. A runner refuses an image
+// that reaches a family it does not link before running anything
+// (families.go).
 //
-// A Go-FFI project follows the same rule: its wrapper reports whether the
-// image reaches a network crossing (ffirun.BuiltImage.NoNetwork), and
-// ffirun.ProjectRunner builds the runner with nomi_nonet when it does not.
-// The tag drops only std's network adapters, never the project's own Go.
-// TestNoNetworkVMImportsNoNetworkCode (cmd/nomi-vm) holds the packages out
-// of the tagged build on every target.
+// TestLeanVMImportsNoFamilyCode (cmd/nomi-vm) holds the packages out of the
+// lean build on every target.
 //
 // # Image layout and embedded files
 //
@@ -74,12 +76,10 @@
 // once per SHA-256, back to back. The code's header gives its length
 // (ir.ImageCodeLen) and the code ends with the region's table,
 // ir.Image.Files (sum, size, offset). EncodeImage writes only the code, so
-// ffirun.BuildImage, the build cache (cmd/nomi's keptBuild) and an FFI
-// wrapper's image hold no file bytes. Whoever writes an output appends the
+// the build cache (cmd/nomi's keptBuild) holds no file bytes. Whoever writes an output appends the
 // region from disk (vmhost.WriteFilesRegion), streaming each file and
 // refusing one whose size or sum changed. The paths come from the
-// program's own lowering (Program.EmbeddedSources, which a wrapper writes
-// beside its image as `sources`). A native executable's trailer, a .nomic's
+// program's own lowering (Program.EmbeddedSources). A native executable's trailer, a .nomic's
 // header and a js/wasm module's nomi.image section count the region in the
 // image's length and are written head first (ImageFileHead,
 // WasmImageSectionHead) so the region streams. A wasip1 module's image goes
@@ -107,22 +107,25 @@
 // exporting `_initialize` and the generic call ABI of vmrunner/reactor. A
 // program without one stays a command module. The ABI is generic because Go
 // fixes export names when the runner is compiled and one runner serves
-// every program, so function names travel as data. A Go-binding project
-// with an `export fn` gets the reactor variant of its own runner, whose
-// generated main imports the //go:wasmexport functions from
-// vmrunner/reactor and passes its host table to them from init.
+// every program, so function names travel as data.
 //
 // Each `export fn` is recorded in the image with std/json's converters
 // instantiated at its parameters' and result's types, so a call crosses as
 // JSON text. A runner boots an image once, runs its `main`, then runs one
 // exported function at a time on that booted program (Instance, exports.go).
+// The same image records each of the program's own `host fn`s with the same
+// converters the other way (ir.HostFn), so a host that is not Go answers it
+// in JSON: WithHostCalls binds a host table whose functions encode the
+// operands on the calling frame, hand them to a HostCaller (the reactor's
+// nomi.host_call import), and decode its `{"ok": ...}` or fail the call
+// with its `{"error": ...}` (hostcalls.go).
 //
 // `nomi build-vm --reactor` copies out nomi-vm-reactor with nothing embedded
 // (image area length zero), so a host compiles it once, instantiates it per
 // script and hands each instance one .nomic through nomi_load, or
 // nomi_load_with, whose JSON options hold the script to a list of std
 // names and a list of host function keys ("std" and "host",
-// WithCapabilitiesFrom) and bound its boot and calls ("timeout_ms",
+// WithEffectsFrom) and bound its boot and calls ("timeout_ms",
 // WithStop and the context Instance.Call takes); nomi_call_with bounds one
 // call. The reactor's package doc lists the options. A reactor with an
 // embedded program refuses nomi_load of another. Releases ship the
@@ -139,25 +142,26 @@
 //
 // # Holding and bounding a program
 //
-// A host that loads programs it did not write holds each to a list of what
-// it may reach outside the machine (WithCapabilities, capability.go), or
+// A host that loads programs it did not write holds each to a list of the
+// effects it may have (WithEffects, effects.go), or
 // to a list of std names and one of host function keys, each holding only
-// its own kind of call (WithCapabilitiesFrom, the reactor's options). The
-// load runs the VM's reach walk (vm.ReachedOutsideCalls) over the decoded
+// its own kind of call (WithEffectsFrom, the reactor's options). The
+// load runs the VM's reach walk (vm.ReachedEffects) over the decoded
 // image from everything a host can run (hostRoots: main, the boot, each
-// exported function with its converters) and refuses, before the boot, any
-// outside call a list that holds it does not allow. The rule that names a
-// call and the
-// check against the list are internal/capability's, which vmhost calls for
+// exported function and `host fn` with its converters) and refuses, before the boot, any
+// effect a list that holds it does not allow. The rule that names an
+// effect and the check against the list are internal/effects's, which vmhost calls for
 // nomi.toml's lists and its own host list, and the refusal reads in
 // vmhost's words, at the file and line the image records, since a runner
 // has no source. What a runner cannot know it does not guess: an image
-// records no Go import path, so a Go binding is `host:<key>`. A `std::`
+// records no Go import path, so a `host fn` of the program's is
+// `host:<key>`. A `std::`
 // name is checked against the std modules as nomi.toml's lists are, by
-// capability.UnknownStdName over the list `go generate
-// ./internal/stdlibadapters` writes into internal/capability, so the
-// runner needs no front end to know them. Every std/compiler crossing counts as an outside call named
-// std::compiler, since the runner cannot read which of them are inside.
+// effects.UnknownStdName over the list `go generate
+// ./internal/stdlibadapters` writes into internal/effects, so the
+// runner needs no front end to know them. Every std/compiler crossing
+// counts as an effect named std::compiler, since the runner cannot read
+// which of them are pure.
 //
 // A load or run is bounded by WithStop's context, and each later call or
 // Main by its own (internal/vm's within.go, the mechanism a test case's
@@ -169,8 +173,7 @@
 // # Compiled programs
 //
 // `--no-vm` writes the image alone as a compiled program, <entry>.nomic,
-// whose header imagefile.go lays out. It needs no Go toolchain; Go-FFI
-// projects are refused. It records the exported functions, so a reactor can
+// whose header imagefile.go lays out. It needs no Go toolchain. It records the exported functions, so a reactor can
 // call them. A nomi-vm with nothing appended runs one by path or framed on
 // stdin, and `nomi run` runs one in process.
 //
@@ -180,13 +183,13 @@
 //
 // # Runners from a release
 //
-// Release archives ship nomi-vm, and `nomi build` uses the one beside
-// `nomi` only after checking it comes from the same commit. `--target`
-// downloads, checksum-verifies and caches another platform's runner from
-// the same release (internal/ffirun/prebuilt.go). A wasm runner's commit is
-// read from its data section (internal/gobuildinfo), since debug/buildinfo
-// cannot read a WebAssembly module. A project of lib/ modules at the
-// release's commit is appended to nomi-vm-lib from the target's lib
-// archive, found and checked the same way (internal/ffirun package doc,
-// "Prebuilt lib runners").
+// Release archives ship nomi-vm, and a second archive per target ships
+// std/compiler's runners. `nomi build` uses a runner beside `nomi` only
+// after checking it comes from the same commit and is the variant asked
+// for, by its build tags. A runner not installed, another platform's or
+// std/compiler's, is downloaded, checksum-verified and cached from the same
+// release (internal/runners/prebuilt.go), so a release `nomi` never builds
+// one. A wasm runner's commit is read from its data section
+// (internal/gobuildinfo), since debug/buildinfo cannot read a WebAssembly
+// module.
 package vmrunner

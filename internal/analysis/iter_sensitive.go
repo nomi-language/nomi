@@ -8,123 +8,85 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// iterCallbackSlots maps "Owner.function" / "module.function" / "Type.method" to the set of
-// 0-based argument indices that are designated iter-callback positions.
-// Lambdas and iter-sensitive functions passed in these positions have their
-// break/continue caught by the host HOF, so they are legal. Other call
-// spellings (selective-import bare names, imported-owner aliases) resolve through
-// the symbol path — see slotsForCall / resolveIterCallbackSyms.
+// iterCallbackSlots maps each std function that runs a callback as an
+// iteration's step to the 0-based argument indices of that callback,
+// counting a piped source as argument 0. A lambda or an iter-sensitive
+// function passed in such a slot may `break` and `continue`: the function
+// catches them. A function is named by its identity (StdFunc), and a call
+// is matched by the callee the checker recorded for it (iterCall), so an
+// alias, a selective import and a bare call inside std reach an entry, and
+// another type imported under the name `Iter` reaches none.
 //
-// NOT included (explicit comparators, non-iter HOFs):
-//   - Iter.sort_with: the comparator is NOT an iter-callback; `break` in a
-//     comparator has no well-defined semantics. (Iter.sort / Iter.sort_by take
-//     no callback or a key projection, not a comparator.)
-//
-// This list is hardcoded because parameter roles are not yet discoverable from
-// signatures. Once they are, the list should be derived from the stdlib rather
-// than maintained by hand.
-var iterCallbackSlots = map[string]map[int]bool{
-	// `loop` is an Iter type function that threads state rather than a
-	// collection input: `Iter.loop(start, f)`, or `Iter.loop(f)` for a
-	// stateless loop (callbackSlots).
-	"Iter.loop": {1: true},
+// `Iter.sort_with` is not listed: a comparator is no iteration's step, so
+// a `break` in one means nothing. TestStdRuleFuncsAreDeclared fails
+// for an entry no std module declares.
+var iterCallbackSlots = map[StdFunc]map[int]bool{
+	// `loop` threads state rather than walking a source:
+	// `Iter.loop(start, f)`, or `Iter.loop(f)` for a stateless loop
+	// (callbackSlots).
+	iterOwnerFunc("loop"): {1: true},
 
-	// Terminals: Iter owner functions that consume an iterator to a value.
-	// The callback-bearing ones are listed here.
-	"Iter.reduce":     {2: true},
-	"Iter.map_reduce": {2: true},
-	"Iter.each":       {1: true},
-	"Iter.find":       {1: true},
-	"Iter.any_match":  {1: true},
-	"Iter.all_match":  {1: true},
+	// Terminals that consume a source to a value.
+	iterOwnerFunc("reduce"):     {2: true},
+	iterOwnerFunc("map_reduce"): {2: true},
+	iterOwnerFunc("each"):       {1: true},
+	iterOwnerFunc("find"):       {1: true},
+	iterOwnerFunc("any_match"):  {1: true},
+	iterOwnerFunc("all_match"):  {1: true},
 
-	// Lazy adapters: Iter owner functions, separate from concrete
-	// collection-specific methods.
-	"Iter.iterate":    {1: true},
-	"Iter.map":        {1: true},
-	"Iter.scan":       {2: true},
-	"Iter.filter":     {1: true},
-	"Iter.take_while": {1: true},
-	"Iter.drop_while": {1: true},
-	"Iter.flat_map":   {1: true},
+	// Lazy adapters.
+	iterOwnerFunc("iterate"):    {1: true},
+	iterOwnerFunc("map"):        {1: true},
+	iterOwnerFunc("scan"):       {2: true},
+	iterOwnerFunc("filter"):     {1: true},
+	iterOwnerFunc("take_while"): {1: true},
+	iterOwnerFunc("drop_while"): {1: true},
+	iterOwnerFunc("flat_map"):   {1: true},
 
-	// Container-specific callback-bearing methods that survive on the type
-	// (Map's value/key transforms). Every *generic* terminal/adapter is now an
-	// `iter.*` module function above — there are no `lists.reduce` / `List.find` /
-	// `maps.reduce` callback spellings to list (those dissolved into `iter.*`
-	// when the Iter became the pure protocol).
-	"Map.map_values": {1: true},
-	"Map.map_keys":   {1: true},
+	// Map's value and key transforms.
+	{Module: "std/maps", Owner: "Map", Name: "map_values"}: {1: true},
+	{Module: "std/maps", Owner: "Map", Name: "map_keys"}:   {1: true},
 }
 
-// callSiteKey identifies a Call by its callee syntax as one of:
-//   - "module.name" for FieldAccess{Object=Ident("module"), Field=...}
-//   - "name" for bare idents (never matches the table — every key is
-//     qualified; bare calls like selective-import `loop(...)` are
-//     recognised via the symbol path in slotsForCall instead)
-//
-// It mirrors what iterCallbackSlots indexes, so direct lookup just works.
-func callSiteKey(call *ast.Call) string {
-	switch callee := call.Func.(type) {
-	case *ast.Ident:
-		return callee.Name
-	case *ast.FieldAccess:
-		if callee.Field == nil {
-			return ""
-		}
-		switch obj := callee.Object.(type) {
-		case *ast.Ident:
-			return obj.Name + "." + callee.Field.Name
-		case *ast.TypeIdent:
-			return obj.Name + "." + callee.Field.Name
-		}
-	}
-	return ""
+// iterOwnerFunc is std's `Iter.<name>`, a function of std/iter's `impl
+// Iter<T>`.
+func iterOwnerFunc(name string) StdFunc {
+	return StdFunc{Module: "std/iter", Owner: "Iter", Name: name}
 }
 
-// slotsForCall returns the iter-callback slot set for the given Call, by:
-//  1. Looking up the syntactic "module.name" key in iterCallbackSlots
-//     (handles the normal user-code path);
-//  2. Resolving the callee to a Symbol and matching its owner and name
-//     against the table (handles selective-import bare names like
-//     `import std::iter.Iter.{loop}` → `loop(...)`, and unqualified calls
-//     inside the stdlib module that defines the iter-callback function);
-//  3. Canonicalizing an imported owner alias (`import std::iter as it` →
-//     `it.map(...)`) back to its canonical "Owner.name" key. Inherent
-//     type-body methods (List.reduce et al.) have no module-scope symbol
-//     and no Reference at the field position, so the symbol path in (2)
-//     can't see them — but the alias's module symbol carries the
-//     module's Scope, which pointer-matches StdlibModuleScopes.
-//
-// Returns nil when the call is not to any known iter-callback function.
-func (s *iterSensitivity) slotsForCall(call *ast.Call) map[int]bool {
-	if slots, ok := iterCallbackSlots[callSiteKey(call)]; ok {
-		return slots
+// StdRuleFuncs is every std function a checker rule recognizes a call of
+// by its identity (iterCallbackSlots, `Iter.loop`, `Iter.is_empty`,
+// StdStructUpdate, stdReleaseFunc, stdCommitFunc), for the test that holds
+// each to a declaration std makes.
+func StdRuleFuncs() []StdFunc {
+	out := []StdFunc{iterOwnerFunc("loop"), iterOwnerFunc("is_empty"), StdStructUpdate, stdReleaseFunc, stdCommitFunc}
+	for f := range iterCallbackSlots {
+		out = append(out, f)
 	}
-	if sym := s.resolveIterCallbackSymbol(call.Func); sym != nil {
-		if slots := s.slotsForStdlibCallbackSymbol(sym); slots != nil {
-			return slots
-		}
-	}
-	if key := s.canonicalQualifiedOwnerKey(call); key != "" {
-		if slots, ok := iterCallbackSlots[key]; ok {
-			return slots
-		}
-	}
-	if key := s.canonicalStdlibKey(call); key != "" {
-		if slots, ok := iterCallbackSlots[key]; ok {
-			return slots
-		}
-	}
-	return nil
+	return out
 }
 
-// callbackSlots is slotsForCall for a call whose piped value is pipeLHS, or
-// nil: a stateless `Iter.loop(fn -> ...)`, with no starting state, has its
-// callback in slot 0.
+// iterCall is the std function call calls, read from the callee the
+// checker recorded for the call (Calls), with its callback slots, when
+// iterCallbackSlots lists it; the zero StdFunc and nil for any other call.
+func (s *iterSensitivity) iterCall(call *ast.Call) (StdFunc, map[int]bool) {
+	rc := s.fa.Calls[call]
+	if rc == nil {
+		return StdFunc{}, nil
+	}
+	slots := iterCallbackSlots[rc.Callee.Std]
+	if slots == nil {
+		return StdFunc{}, nil
+	}
+	return rc.Callee.Std, slots
+}
+
+// callbackSlots is the callback slots of call, whose piped value is
+// pipeLHS, or nil: a stateless `Iter.loop(fn -> ...)`, with no starting
+// state, has its callback in slot 0.
 func (s *iterSensitivity) callbackSlots(call *ast.Call, pipeLHS ast.Node) map[int]bool {
-	slots := s.slotsForCall(call)
-	if slots != nil && s.isIterOwnerCall(call, "loop") {
+	fn, slots := s.iterCall(call)
+	if fn == iterOwnerFunc("loop") {
 		if _, from := loopCallArgs(call, pipeLHS); from == nil {
 			return map[int]bool{0: true}
 		}
@@ -132,153 +94,14 @@ func (s *iterSensitivity) callbackSlots(call *ast.Call, pipeLHS ast.Node) map[in
 	return slots
 }
 
-func (s *iterSensitivity) slotsForStdlibCallbackSymbol(sym *Symbol) map[int]bool {
-	if sym == nil || s.fa == nil {
-		return nil
-	}
-	real := sym
-	if real.Resolved != nil {
-		real = real.Resolved
-	}
-	for key, slots := range iterCallbackSlots {
-		dot := strings.IndexByte(key, '.')
-		if dot < 0 {
-			continue
-		}
-		modName, funcName := key[:dot], key[dot+1:]
-		if real.Name != funcName {
-			continue
-		}
-		if real.OwningType == modName {
-			return slots
-		}
-		scope := s.fa.Program().StdlibModuleScopes[modName]
-		if scope == nil {
-			continue
-		}
-		candidate := scope.LookupLocal(funcName)
-		if candidate == nil {
-			continue
-		}
-		if candidate.Resolved != nil {
-			candidate = candidate.Resolved
-		}
-		if candidate == real {
-			return slots
-		}
-	}
-	return nil
-}
-
-// canonicalQualifiedOwnerKey rewrites an aliased module/interface owner
-// (`import std::iter as it` → `it.map`) to its canonical owner key
-// (`Iter.map`) by resolving the object ident and reading the real symbol name.
-func (s *iterSensitivity) canonicalQualifiedOwnerKey(call *ast.Call) string {
-	fieldAcc, ok := call.Func.(*ast.FieldAccess)
-	if !ok || fieldAcc.Field == nil {
+// iterationName is the iteration call calls, as std names it
+// ("Iter.reduce", "Map.map_values"), or "" when call has no callback slot.
+func (s *iterSensitivity) iterationName(call *ast.Call) string {
+	fn, slots := s.iterCall(call)
+	if slots == nil {
 		return ""
 	}
-	var pos Pos
-	switch obj := fieldAcc.Object.(type) {
-	case *ast.Ident:
-		pos = Pos{Line: obj.Line, Col: obj.Col}
-	case *ast.TypeIdent:
-		pos = Pos{Line: obj.Line, Col: obj.Col}
-	default:
-		return ""
-	}
-	sym, ok := s.fa.References[pos]
-	if !ok {
-		if s.fa.ModuleScope == nil {
-			return ""
-		}
-		sym = s.fa.ModuleScope.Lookup(objNameFromFieldAccess(fieldAcc))
-		if sym == nil {
-			return ""
-		}
-	}
-	real := sym
-	if real.Resolved != nil {
-		real = real.Resolved
-	}
-	if real.ModuleScope == nil || real.Name == "" {
-		return ""
-	}
-	switch real.Kind {
-	case SymbolModule, SymbolInterface:
-		return real.Name + "." + fieldAcc.Field.Name
-	default:
-		return ""
-	}
-}
-
-// canonicalStdlibKey rewrites an aliased owner-qualified callee
-// (`it.map` under `import std::iter as it`) to its canonical "Owner.field"
-// key by resolving the object ident to its module symbol and pointer-
-// matching the symbol's ModuleScope against the file's stdlib module
-// scopes. Returns "" when the callee isn't an owner-qualified field
-// access whose object resolves to a stdlib owner.
-func (s *iterSensitivity) canonicalStdlibKey(call *ast.Call) string {
-	fieldAcc, ok := call.Func.(*ast.FieldAccess)
-	if !ok || fieldAcc.Field == nil {
-		return ""
-	}
-	objName := objNameFromFieldAccess(fieldAcc)
-	if objName == "" {
-		return ""
-	}
-	var objPos Pos
-	switch obj := fieldAcc.Object.(type) {
-	case *ast.Ident:
-		objPos = Pos{Line: obj.Line, Col: obj.Col}
-	case *ast.TypeIdent:
-		objPos = Pos{Line: obj.Line, Col: obj.Col}
-	}
-	sym, ok := s.fa.References[objPos]
-	if !ok {
-		if s.fa.ModuleScope == nil {
-			return ""
-		}
-		sym = s.fa.ModuleScope.Lookup(objName)
-		if sym == nil {
-			return ""
-		}
-	}
-	real := sym
-	if real.Resolved != nil {
-		real = real.Resolved
-	}
-	if real.ModuleScope == nil && s.fa.ModuleScope != nil {
-		if local := s.fa.ModuleScope.Lookup(objName); local != nil {
-			localReal := local
-			if localReal.Resolved != nil {
-				localReal = localReal.Resolved
-			}
-			if localReal.ModuleScope != nil {
-				real = localReal
-			}
-		}
-	}
-	if real.Kind != SymbolModule || real.ModuleScope == nil {
-		return ""
-	}
-	for modName, scope := range s.fa.Program().StdlibModuleScopes {
-		if scope == real.ModuleScope {
-			return modName + "." + fieldAcc.Field.Name
-		}
-	}
-	return ""
-}
-
-func objNameFromFieldAccess(fieldAcc *ast.FieldAccess) string {
-	switch obj := fieldAcc.Object.(type) {
-	case *ast.Ident:
-		return obj.Name
-	case *ast.TypeIdent:
-		return obj.Name
-	default:
-		return ""
-	}
+	return fn.Owner + "." + fn.Name
 }
 
 // resolveIterCallbackSymbol returns the real (Resolved-chain-followed) Symbol
@@ -318,28 +141,6 @@ func (s *iterSensitivity) resolveIterCallbackSymbol(fn ast.Node) *Symbol {
 		real = real.Resolved
 	}
 	return real
-}
-
-// hasAllLocal reports whether scope defines (locally) every name in names as
-// a function symbol.
-func hasAllLocal(scope *Scope, names []string) bool {
-	if scope == nil {
-		return false
-	}
-	for _, n := range names {
-		sym := scope.LookupLocal(n)
-		if sym == nil {
-			return false
-		}
-		real := sym
-		if real.Resolved != nil {
-			real = real.Resolved
-		}
-		if real.Kind != SymbolFunction {
-			return false
-		}
-	}
-	return true
 }
 
 // iterSensitivity checks where a file places `break`, `continue` and the
@@ -499,22 +300,6 @@ func callbackShape(fd *ast.FuncDef, name, in string) string {
 	for _, iteration := range []string{"Iter.map", "Iter.reduce"} {
 		if fits(iteration) {
 			return write(iteration)
-		}
-	}
-	return ""
-}
-
-// iterationName is the canonical name of the iteration function call calls
-// with a callback slot ("Iter.reduce", "Map.map_values"), or "".
-func (s *iterSensitivity) iterationName(call *ast.Call) string {
-	for _, key := range []string{callSiteKey(call), s.canonicalQualifiedOwnerKey(call), s.canonicalStdlibKey(call)} {
-		if _, ok := iterCallbackSlots[key]; ok {
-			return key
-		}
-	}
-	if sym := s.resolveIterCallbackSymbol(call.Func); sym != nil && sym.OwningType != "" {
-		if key := sym.OwningType + "." + sym.Name; iterCallbackSlots[key] != nil {
-			return key
 		}
 	}
 	return ""
@@ -930,7 +715,7 @@ func firstOwnContinue(n ast.Node) ast.Node {
 // checkStatelessLoop reports a stateless `Iter.loop` (`fn -> ...`, whose
 // state is Unit) given a starting state.
 func (s *iterSensitivity) checkStatelessLoop(call *ast.Call, pipeLHS ast.Node) {
-	if !s.isIterOwnerCall(call, "loop") {
+	if fn, _ := s.iterCall(call); fn != iterOwnerFunc("loop") {
 		return
 	}
 	cb, from := loopCallArgs(call, pipeLHS)
@@ -939,17 +724,6 @@ func (s *iterSensitivity) checkStatelessLoop(call *ast.Call, pipeLHS ast.Node) {
 		e.Hints = []string{"remove the starting state, or give the callback a parameter for the state: `Iter.loop(<start>, fn state -> ...)`"}
 		s.errors = append(s.errors, e)
 	}
-}
-
-// isIterOwnerCall reports whether call calls std's `Iter.<name>`, however it
-// is spelled: owner-qualified, through an owner alias, or bare inside std's
-// own `impl Iter`. A program cannot declare its own `Iter`.
-func (s *iterSensitivity) isIterOwnerCall(call *ast.Call, name string) bool {
-	if callSiteKey(call) == "Iter."+name || s.canonicalQualifiedOwnerKey(call) == "Iter."+name {
-		return true
-	}
-	sym := s.resolveIterCallbackSymbol(call.Func)
-	return sym != nil && sym.OwningType == "Iter" && sym.Name == name
 }
 
 // seededIterFuncs are the `Iter` owner functions that fold from a starting
@@ -992,13 +766,18 @@ func (c *checker) routeAroundSeed(call *ast.Call, args []ast.Node, slots []int, 
 // statelessLoopSlot is the index of `Iter.loop`'s `from` parameter when call
 // is a stateless loop, `Iter.loop(fn -> ...)`, or -1 for any other call. A
 // stateless loop's state is Unit, so it leaves `from` out: the arity checks
-// count the parameter as optional for it alone.
+// count the parameter as optional for it alone. The call is still being
+// checked, so the callee is read from the reference at its name
+// (stdFuncNamed).
 func (c *checker) statelessLoopSlot(call *ast.Call) int {
-	if c.fa == nil || call == nil || !(&iterSensitivity{fa: c.fa}).isIterOwnerCall(call, "loop") {
+	if c.fa == nil || call == nil {
 		return -1
 	}
 	cb, from := loopCallArgs(call, nil)
 	if lam, ok := cb.(*ast.Lambda); !ok || len(lam.Params) != 0 || from != nil {
+		return -1
+	}
+	if c.fa.stdFuncNamed(call.Func) != iterOwnerFunc("loop") {
 		return -1
 	}
 	for i, name := range c.callDefParams(call.Func) {

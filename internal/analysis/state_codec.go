@@ -38,10 +38,14 @@ type StdState struct {
 }
 
 // stdState is what EncodeStdState writes: the stategen generator's root.
+// The trees come first: a symbol's node may be an element a tree holds in
+// place (an interface's function), which reads back as the element's
+// address only when its tree was written before it (astcodec's
+// Encoder.elem).
 type stdState struct {
-	files  map[string]*FileAnalysis
 	nodes  map[string][]ast.Node
 	ifaces map[string][]ast.Node
+	files  map[string]*FileAnalysis
 	base   *StdBase
 	errors map[string][]TypeError
 	// whys are stdBootWhys' entries for the state's functions, which
@@ -54,7 +58,7 @@ type stdState struct {
 // stateBootWhy is one entry of stdBootWhys.
 type stateBootWhy struct {
 	fd  *ast.FuncDef
-	why bootCall
+	why BootCallFact[*ast.FuncDef]
 }
 
 const (
@@ -163,7 +167,7 @@ func encodeStdState(s StdState, dir string, rec *stateRecording) (data []byte, e
 	}
 	stdBootWhys.Range(func(k, v any) bool {
 		if fd := k.(*ast.FuncDef); fds[fd] {
-			st.whys = append(st.whys, stateBootWhy{fd: fd, why: v.(bootCall)})
+			st.whys = append(st.whys, stateBootWhy{fd: fd, why: v.(BootCallFact[*ast.FuncDef])})
 		}
 		return true
 	})

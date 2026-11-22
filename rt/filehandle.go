@@ -3,8 +3,10 @@ package rt
 import (
 	"errors"
 	"io"
+	"math"
 	"runtime"
 	"sync"
+	"time"
 )
 
 // std/io's `File`: one file open for reads and writes at a position.
@@ -21,6 +23,13 @@ import (
 // as with the streams. The handle's value never changes; each call holds the
 // handle's lock, so two tasks sharing one never interleave inside a call. A
 // handle nobody closes is closed when the program no longer holds it.
+//
+// Its maker also says how the file is made durable (Sync) and how the
+// handle locks a range of the file's bytes (Lock). A lock belongs to the
+// handle, never to the process, and closing the handle releases it. Lock
+// never waits: FileLock waits by asking again, with the handle's lock let
+// go between attempts, so another task can unlock through the same handle,
+// and a wait ends when its task is cancelled as a sleep does.
 
 // File is std/io's `File`. The value names the open file and never changes.
 type File struct{ h *fileHandle }
@@ -49,7 +58,29 @@ type FileSource struct {
 	// Fail is the io.Error for err, a failure of operation op, when err is
 	// not an IOFailure. Nil makes such a failure Other.
 	Fail func(op string, err error) IOError
+	// Sync makes what was written to the file durable: its data and its
+	// metadata, or with dataOnly the data and what reading it back needs.
+	Sync func(dataOnly bool) error
+	// Lock sets the handle's lock on length bytes from start (0: from start
+	// to past any end the file can have) to mode, and reports whether it
+	// could: false, with nothing changed, when another handle holds a lock
+	// there that conflicts. It never waits. Close releases the handle's
+	// locks.
+	Lock func(mode LockMode, start, length int64) (bool, error)
 }
+
+// LockMode is what FileLock does with a range: std/io's mode codes.
+type LockMode int64
+
+const (
+	// LockNone unlocks the range.
+	LockNone LockMode = iota
+	// LockShared is a lock any number of handles may hold on the same
+	// bytes.
+	LockShared
+	// LockExclusive is a lock no other handle holds any lock beside.
+	LockExclusive
+)
 
 type fileHandle struct{ st *fileState }
 
@@ -238,6 +269,69 @@ func FileTruncate(f File, sizeArg Int) Result[Unit, IOError] {
 		}
 		return Ok[Unit, IOError](Unit{})
 	})
+}
+
+// FileSync is `File.sync`: what was written is durable, the metadata too.
+func FileSync(f File) Result[Unit, IOError] { return fileSync(f, false) }
+
+// FileSyncData is `File.sync_data`: the data and, of the metadata, what
+// reading it back needs reach the device (on macOS its cache).
+func FileSyncData(f File) Result[Unit, IOError] { return fileSync(f, true) }
+
+func fileSync(f File, dataOnly bool) Result[Unit, IOError] {
+	return fileDo(f, func(st *fileState) Result[Unit, IOError] {
+		if err := st.src.Sync(dataOnly); err != nil {
+			return Err[Unit](st.fail("sync", err))
+		}
+		return Ok[Unit, IOError](Unit{})
+	})
+}
+
+// FileLock is std/fs/host's `lock`, which `fs.lock`, `fs.try_lock` and
+// `fs.unlock` call: the handle's lock on length bytes from start (0: to
+// past any end) becomes mode. It answers false when
+// another handle holds a lock there that conflicts and wait has passed;
+// a wait of 0 or less asks once. An exclusive lock on a handle opened only
+// to read is PermissionDenied, on every system. A start past int64 is past
+// every file, as for a write, and a length that reaches past int64 is the
+// same as one to past any end.
+func FileLock(fr *Frame, f File, mode int64, startArg, lengthArg Int, wait Duration) Result[bool, IOError] {
+	deadline := time.Now().Add(time.Duration(wait))
+	pause := time.Millisecond
+	for {
+		got := fileDo(f, func(st *fileState) Result[bool, IOError] { return st.lock(LockMode(mode), startArg, lengthArg) })
+		if got.Tag != TagOk || got.Ok {
+			return got
+		}
+		left := time.Until(deadline)
+		if left <= 0 {
+			return got
+		}
+		if !SleepCtx(fr.Context(), Duration(min(pause, left))) {
+			CancelIfDone(fr)
+			return got
+		}
+		pause = min(2*pause, 50*time.Millisecond)
+	}
+}
+
+func (st *fileState) lock(mode LockMode, startArg, lengthArg Int) Result[bool, IOError] {
+	if mode == LockExclusive && !st.src.Writable {
+		return Err[bool](IOError{Tag: TagIOPermissionDenied, Path: st.src.Name})
+	}
+	start, ok := startArg.Int64()
+	if !ok {
+		return Err[bool](st.pastFile("lock", "EOVERFLOW"))
+	}
+	length := lengthArg.Saturated()
+	if length > math.MaxInt64-start {
+		length = 0
+	}
+	got, err := st.src.Lock(mode, start, length)
+	if err != nil {
+		return Err[bool](st.fail("lock", err))
+	}
+	return Ok[bool, IOError](got)
 }
 
 // FileClose is `File.close`. A handle closed twice answers Closed.

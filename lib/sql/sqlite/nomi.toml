@@ -1,2 +1,32 @@
 [module]
 name = "sqlite"
+path = "github.com/nomi-language/nomi/lib/sql/sqlite"
+
+# The driver's public functions have these effects: its engine is a
+# WebAssembly instance (std::wasm), a connection's turns are channels, and
+# its file layer reads the clock and the machine's time zone
+# (std::calendar, for SQLite's localtime), draws entropy and sleeps.
+# sqlite.open and sqlite.memory open their directories themselves
+# (std::fs); sqlite.open_in reaches files only through the Dir it is
+# handed, so a program that opens its databases that way leaves std::fs
+# out of the driver's entry. Its tests also start processes and tasks and
+# use std's fakes.
+[effects.self]
+std = [
+    "std::calendar",
+    "std::channels",
+    "std::fs",
+    "std::instant",
+    "std::random",
+    "std::timer",
+    "std::wasm",
+]
+std_in_tests = [
+    "std::fs::testing",
+    "std::process",
+    "std::sql::testing",
+    "std::tasks",
+]
+
+[effects.deps]
+std = []

@@ -151,7 +151,7 @@ pub enum Error
     /// The operation passed its deadline.
     TimedOut
     /// The target the program runs on cannot do `operation`, as
-    /// starting a process in a js/wasm module ([capability
+    /// starting a process in a js/wasm module ([effect
     /// classes](/tooling/building/)).
     Unsupported {operation: String, target: String}
     /// Any other failure: the operation, the path and the operating system's
@@ -987,6 +987,12 @@ host fn collected(w: Writer) -> Bytes
 /// `File.read_at` and `File.write_at` name their own position and leave
 /// the file's where it was. For reading or writing a whole file in order,
 /// `fs.open` and `fs.create` are the simpler handles.
+///
+/// A write reaches the file, and every reader of it, as it is made, and
+/// reaches the disk later. `File.sync` waits until it has, so it outlasts a
+/// crash. `fs.lock` and `fs.try_lock` take a lock on the file or a range of
+/// its bytes, which other handles on the file respect, in this program and
+/// in others.
 pub host type File
 
 impl File
@@ -1057,6 +1063,39 @@ impl File
     /// File.truncate(f, 0)?
     /// ```
     pub host fn truncate(f: File, size: NonNegativeInt) -> Result<Unit, Error>
+
+    /// Waits until what was written to the file is on the storage device,
+    /// its data and its metadata (the size, the times), so it outlasts a
+    /// crash or a power cut. A database calls it before it reports a commit.
+    /// It is slow: it waits for the device, which can take tens of
+    /// milliseconds. On macOS it is `F_FULLFSYNC`, which asks the drive to
+    /// write its own cache to the media, since a plain `fsync` there leaves
+    /// the data in that cache. A new file's name is in its directory, which
+    /// `fs.sync_dir` makes durable. On Windows a file opened with
+    /// `Access.Read` has written nothing, and syncing it does nothing. In
+    /// memory there is nothing to make durable.
+    ///
+    /// ```nomi
+    /// File.write_at(f, 0, page)?
+    ///
+    /// File.sync(f)?
+    /// ```
+    pub host fn sync(f: File) -> Result<Unit, Error>
+
+    /// As `File.sync`, for the data and the metadata reading it back needs
+    /// (the size), leaving out the times: `fdatasync` on Linux, which can
+    /// save the device a write. On macOS it is `fsync`, which hands the
+    /// data to the drive and does not flush the drive's own cache, so a
+    /// power cut can still lose it; `File.sync` waits for the media. It is
+    /// the sync SQLite makes there unless `PRAGMA fullfsync` is on.
+    /// Elsewhere it is `File.sync`.
+    ///
+    /// ```nomi
+    /// File.write_at(f, offset, record)?
+    ///
+    /// File.sync_data(f)?
+    /// ```
+    pub host fn sync_data(f: File) -> Result<Unit, Error>
 
     /// Closes the file. A second close is `Closed`, as is every call on a
     /// closed file. A write reaches the file as it is made, so nothing is
@@ -1270,7 +1309,7 @@ end
 /// the script writes it. The assertion above the diff writes that literal
 /// collapsed, as `==`'s does:
 ///
-/// ```text
+/// ```console
 ///   line 12: the transcript differs from the script
 ///     assert io.replay(""" lines 14-18 """, main)
 ///     io.replay: the transcript (-) and what main printed (+) differ
@@ -1287,14 +1326,15 @@ end
 /// dropped: it neither appears in the transcript nor fails the replay, so a
 /// program's warnings need not be written into every script. Check them
 /// with `io.capture`'s `errors`.
-//! greet = fn ->
-//!     write("name: ")
+//! greet =
+//!     fn ->
+//!         write("name: ")
 //!
-//!     case read_line()
-//!         Ok(Some(name)) -> print("hello, ${name}")
-//!         _              -> print("hello, stranger")
+//!         case read_line()
+//!             Ok(Some(name)) -> print("hello, ${name}")
+//!             _              -> print("hello, stranger")
+//!         end
 //!     end
-//! end
 //!
 //! assert replay(
 //!     """
@@ -1312,10 +1352,11 @@ end
 //!     greet,
 //! )
 //!
-//! table = fn ->
-//!     print("-10.0 C |   14.0 F")
-//!     print(" -5.0 C |   23.0 F")
-//! end
+//! table =
+//!     fn ->
+//!         print("-10.0 C |   14.0 F")
+//!         print(" -5.0 C |   23.0 F")
+//!     end
 //!
 //! assert replay(
 //!     """
@@ -1335,14 +1376,15 @@ end
 //!     greet,
 //! )
 //!
-//! repl = fn ->
-//!     write("> ")
+//! repl =
+//!     fn ->
+//!         write("> ")
 //!
-//!     case read_line()
-//!         Ok(Some(word)) -> print("you said ${word}")
-//!         _              -> print("bye")
+//!         case read_line()
+//!             Ok(Some(word)) -> print("you said ${word}")
+//!             _              -> print("bye")
+//!         end
 //!     end
-//! end
 //!
 //! assert replay(
 //!     """
@@ -1353,10 +1395,11 @@ end
 //!     repl,
 //! )
 //!
-//! warned = fn ->
-//!     eprint("warning: no config")
-//!     print("ready")
-//! end
+//! warned =
+//!     fn ->
+//!         eprint("warning: no config")
+//!         print("ready")
+//!     end
 //!
 //! assert replay(
 //!     """
@@ -1365,13 +1408,14 @@ end
 //!     warned,
 //! )
 //!
-//! ages = fn ->
-//!     print("What is your name?")
-//!     name = read_line() |> Result.with_default(None) |> Maybe.with_default("")
-//!     write("Hello, ${name}. Your age: ")
-//!     age = read_line() |> Result.with_default(None) |> Maybe.with_default("")
-//!     print("${name} is ${age}")
-//! end
+//! ages =
+//!     fn ->
+//!         print("What is your name?")
+//!         name = read_line() |> Result.with_default(None) |> Maybe.with_default("")
+//!         write("Hello, ${name}. Your age: ")
+//!         age = read_line() |> Result.with_default(None) |> Maybe.with_default("")
+//!         print("${name} is ${age}")
+//!     end
 //!
 //! assert replay(
 //!     """

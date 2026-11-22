@@ -20,11 +20,12 @@ fn boot(startup: Startup) -> Result<App, String>
 end
 
 fn main() -> Result<Unit, String>
-    check = case App.args
-        []          -> False
-        ["--check"] -> True
-        _           -> return Err("usage: nomi tool csvdata generate [--check]")
-    end
+    check =
+        case App.args
+            []          -> False
+            ["--check"] -> True
+            _           -> return Err("usage: nomi tool csvdata generate [--check]")
+        end
 
     paths = fs.glob("data/*.csv") |> Result.map_err(fn e -> "data: ${e}")?
     tables = paths |> Iter.sort() |> Iter.map(table) |> Result.collect()?
@@ -99,16 +100,17 @@ fn table(path: String) -> Result<String, String>
     text = fs.read_text(path) |> Result.map_err(fn e -> "${path}: ${e}")?
     lines = String.lines(text) |> Iter.filter(fn l -> l != "") |> Iter.to_list()
 
-    (key, value, rows) = case lines
-        [first, ..rows] ->
-            case String.split(first, ",") |> Iter.map(field) |> Iter.to_list()
-                [Some(k), Some(v)] -> (k, v, rows)
-                _                  -> return Err("${path}:1: the header is `key: Type,value: Type`")
-            end
+    (key, value, rows) =
+        case lines
+            [first, ..rows] ->
+                case String.split(first, ",") |> Iter.map(field) |> Iter.to_list()
+                    [Some(k), Some(v)] -> (k, v, rows)
+                    _ -> return Err("${path}:1: the header is `key: Type,value: Type`")
+                end
 
-        [] ->
-            return Err("${path}: the file is empty; its first line is `key: Type,value: Type`")
-    end
+            [] ->
+                return Err("${path}: the file is empty; its first line is `key: Type,value: Type`")
+        end
 
     (key_name, key_type) = key
     (value_name, value_type) = value

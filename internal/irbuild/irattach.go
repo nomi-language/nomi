@@ -13,7 +13,6 @@ import (
 // positional call over the anonymous literal. A prefix that names a distinct type, or a
 // variant the builder does not retain, declines.
 func (bl *irScalarBuilder) attachedVariant(at ast.Node, prefix ast.TypeExpr, anon ast.Node) (ir.Temp, kind, bool, bool) {
-	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	line, col := nodePos(at)
 	call := &ast.Call{Args: []ast.Node{anon}, Line: line, Col: col}
 	// The call has no type of its own; a generic enum's instance is the
@@ -29,7 +28,7 @@ func (bl *irScalarBuilder) attachedVariant(at ast.Node, prefix ast.TypeExpr, ano
 			// `kinds.Kvs{"a" => 1}`: a distinct named through its module
 			// is its constructor over the literal, as the bare `Kvs{...}`
 			// below is. The checker typed the literal as the distinct.
-			return bl.compositeDistinctMake(call, d)
+			return bl.compositeDistinctMake(call, call.Args, d)
 		}
 		member, ok := tn.Member.(*ast.SimpleType)
 		if !ok {
@@ -51,24 +50,26 @@ func (bl *irScalarBuilder) attachedVariant(at ast.Node, prefix ast.TypeExpr, ano
 			Field:  &ast.Ident{Name: member.Name, Line: line, Col: col},
 			Line:   line, Col: col,
 		}
+		bl.g.noteVariantOwner(fa, at)
 	case *ast.DotVariantType:
 		if tn.ResolvedEnum == "" {
-			return no()
+			panic("irbuild: attachedVariant: a `.X[...]` or `.X{...}` the checker resolved against no enum, which it reports as an error")
 		}
 		fa = &ast.FieldAccess{
-			Object: &ast.TypeIdent{Name: bl.g.dotEnumName(tn.ResolvedEnum), Line: line, Col: col},
+			Object: &ast.TypeIdent{Name: tn.ResolvedEnum, Line: line, Col: col},
 			Field:  &ast.Ident{Name: tn.Name, Line: line, Col: col},
 			Line:   line, Col: col,
 		}
+		bl.g.noteVariantOwner(fa, at)
 	case *ast.SimpleType:
 		// A bare std variant, bound by a selective or aliased import. The
 		// analyzer records its reference at the prefix's own position.
 		ti := &ast.TypeIdent{Name: tn.Name, Line: tn.Line, Col: tn.Col}
 		call.Func = ti
-		if d, found := bl.g.namedType(tn.Name); found {
+		if d := bl.g.typeDeclDef(bl.g.checkedRef(tn.Line, tn.Col)); d != nil {
 			// `Kvs{"a" => 1}`: the distinct's constructor over the literal.
-			if d = bl.g.distinctInstanceAt(d, tn.Name, at); d != nil && irCompositeDistinct(d) {
-				return bl.compositeDistinctMake(call, d)
+			if d = bl.g.distinctInstanceAt(d, at); d != nil && irCompositeDistinct(d) {
+				return bl.compositeDistinctMake(call, call.Args, d)
 			}
 		}
 		return bl.importedVariantCall(call, ti)

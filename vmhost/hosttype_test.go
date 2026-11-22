@@ -11,7 +11,7 @@ import (
 	"github.com/nomi-language/nomi/rt"
 )
 
-// A plain user `host type` (no `go` binding) is an opaque handle an
+// A user `host type` is an opaque handle an
 // embedder's host table creates and reads, as a plain `host fn` is a
 // crossing it answers: the program holds values of it, passes them back,
 // and never looks inside.
@@ -76,7 +76,7 @@ func TestLoad_APlainHostTypeNeedsOnlyItsFunctions(t *testing.T) {
 	if err == nil {
 		t.Fatal("a program whose host functions nothing answers loaded")
 	}
-	if !strings.Contains(err.Error(), "3 externs declared but not registered") ||
+	if !strings.Contains(err.Error(), "no host table answers 3 `host` declarations") ||
 		strings.Contains(err.Error(), "Counter\t") {
 		t.Fatalf("load error %q: want the three functions and not the type", err)
 	}

@@ -146,8 +146,7 @@ func (g *gen) irFieldDefaultRetain(r *irFieldDefaultReq) {
 		g.dc.note("no function shell")
 		return
 	}
-	bl := &irScalarBuilder{g: g, sh: sh, f: sh.fn, b: sh.entry, returnKind: r.k, sides: sh.sides,
-		bound: map[string]ir.Temp{}, boundK: map[string]kind{}}
+	bl := &irScalarBuilder{g: g, sh: sh, f: sh.fn, b: sh.entry, returnKind: r.k}
 	v, ok := bl.declDefault(r.deflt, r.k)
 	if !ok {
 		g.dc.note("a default that does not lower")

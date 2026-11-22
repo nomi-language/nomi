@@ -35,15 +35,14 @@ func (bl *irScalarBuilder) membership(t *ast.Binary) (ir.Temp, kind, bool, bool)
 		x = c.Dst()
 	}
 	name := membershipValueName(t)
-	bl.bound[name], bl.boundK[name] = x, xk
+	key := bl.g.madeLocal()
+	bl.declareKey(key, x, xk)
 	defer func() {
-		delete(bl.bound, name)
-		delete(bl.boundK, name)
 	}()
 	// x may itself be a capture's `&1`, which holeSubst already reads as
 	// the capture's parameter; that reading comes back after the call.
 	prev, had := bl.g.holeSubst[t.Left]
-	undo := bl.g.substHoles(map[ast.Node]string{t.Left: name})
+	undo := bl.g.substHoles(map[ast.Node]madeName{t.Left: {name, key}})
 	defer func() {
 		undo()
 		if had {

@@ -5,56 +5,91 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
+	"strconv"
 	"strings"
 	"sync"
 
-	"golang.org/x/mod/modfile"
 	"golang.org/x/mod/module"
 	"golang.org/x/mod/semver"
 )
 
 // Dep is one module the project needs.
 type Dep struct {
+	// Version is the module's path and the version selected for it. A
+	// local module's Version is the one its entry writes, which may be
+	// empty, and a local module whose nomi.toml gives no path has no
+	// Path.
 	module.Version
-	// Dir is the module's root directory: the local replace target, or the
+	// Name is the module's name in the program: the first segment of each
+	// of its files' keys, and the key of its entry under
+	// [effects.deps.modules]. It is the project's name for the module when
+	// the project names it, and otherwise the name the first module that
+	// reaches it gives it, with a `~2` suffix (`~3`, ...) when another
+	// module or a file at the project's root already has that name.
+	Name string
+	// Dir is the module's root directory: the local directory, or the
 	// extracted copy in the module cache. Empty when the module is Missing.
 	Dir string
-	// Local is set for a module the project's go.mod replaces with a local
-	// directory.
+	// Local is set for a module loaded from a directory: one a dir entry
+	// of the project names, or a dir entry of another module loaded from a
+	// directory (localModules).
 	Local bool
 	// Nomi is set when Dir holds a nomi.toml.
 	Nomi bool
-	// Direct is set for a direct require of the project's go.mod.
+	// Direct is set for a module the project's nomi.toml names.
 	Direct bool
-	// Source is the module whose files Dir holds when the project's go.mod
-	// replaces Version with another module version; otherwise Version.
-	Source module.Version
+	// Self is the module's own [module].name, which names it in the
+	// project only when the project's key for it is the same: an effects
+	// list that writes it is told the key (Name).
+	Self string
+	// Names is each name the module's own files import a module by, its
+	// own [module].name (Self) among them, and that module's Name.
+	Names map[string]string
 }
 
 // Graph is what Load answers for a project.
 type Graph struct {
-	// Root is the directory holding the project's go.mod.
+	// Root is the directory holding the project's nomi.toml.
 	Root string
-	// GoMod is the project's parsed go.mod.
-	GoMod *modfile.File
+	// Module is the project's nomi.toml, as this package reads it.
+	Module *ModuleFile
+	// Names is each name the project's files import a dependency by, and
+	// that dependency's Name.
+	Names map[string]string
 	// Deps are the modules the project needs, in the order they were
-	// found: direct requires first, sorted by path, then what Nomi modules
-	// among them require.
+	// found: the project's dependencies first, sorted by name, then what
+	// they need.
 	Deps []Dep
-	// Missing are the needed modules that are not in the module cache, by
-	// the version the project's go.mod requires.
+	// Missing are the needed modules that are not in the module cache, at
+	// the versions selected for them.
 	Missing []module.Version
-	// Unlisted are modules a needed Nomi module requires that the project's
-	// go.mod does not list, at the highest version any needed Nomi module
-	// requires.
-	Unlisted []module.Version
 }
 
-// Find answers the dependency dir path, or false.
+// Find answers the dependency with module path path, or false.
 func (g *Graph) Find(path string) (Dep, bool) {
 	for _, d := range g.Deps {
-		if d.Path == path {
+		if d.Path == path && path != "" {
+			return d, true
+		}
+	}
+	return Dep{}, false
+}
+
+// Named answers the dependency whose Name is name, or false.
+func (g *Graph) Named(name string) (Dep, bool) {
+	for _, d := range g.Deps {
+		if d.Name == name {
+			return d, true
+		}
+	}
+	return Dep{}, false
+}
+
+// At answers the dependency whose root is dir, or false.
+func (g *Graph) At(dir string) (Dep, bool) {
+	for _, d := range g.Deps {
+		if d.Dir != "" && sameDir(d.Dir, dir) {
 			return d, true
 		}
 	}
@@ -67,197 +102,353 @@ func (g *Graph) Find(path string) (Dep, bool) {
 type Materialize func(m module.Version) (string, error)
 
 // MainModuleEnv names the environment variable `nomi tool` sets to the
-// project's directory, the main module a tool runs in. A Go module's
-// requires and replaces apply only when it is the main module, and a
-// dependency's tool runs in the project's build, so the go.mod at the
-// tool's own root, whose replaces name sibling directories of its checkout
-// that a module cache copy does not hold, is not read: the tool's graph is
-// the project's (MainModule). It is an environment variable so that the FFI
-// wrapper the run may start reads the same graph.
+// project's directory, the main module a tool runs in. A downloaded
+// module's dir entries are not read, and a dependency's tool runs in the
+// project's build, so the nomi.toml at the tool's own root,
+// whose dir entries name sibling directories of its checkout that a
+// module cache copy does not hold, is not read as the main module's: the
+// tool's graph is the project's (MainModule). It is an environment
+// variable so that a process the run starts reads the same graph.
 const MainModuleEnv = "NOMI_MAIN_MODULE"
 
-// MainModule is the directory whose go.mod lists the modules of a program
-// rooted at root: MainModuleEnv's directory when root is the directory of a
-// module that directory's go.mod needs, else root. It reads only the disk.
+// MainModule is the directory whose nomi.toml is the main module of a
+// program rooted at root: MainModuleEnv's directory when root is the
+// directory of a module that directory needs, else root. It reads only the
+// disk.
 func MainModule(root string) string {
 	main := os.Getenv(MainModuleEnv)
 	if main == "" || sameDir(main, root) {
 		return root
 	}
-	g, err := walk(main, cacheOnly)
+	g, err := walk(main, cacheOnly, true)
 	if err != nil || g == nil {
 		return root
 	}
-	for _, d := range g.Deps {
-		if d.Dir != "" && sameDir(d.Dir, root) {
-			return main
-		}
+	if _, ok := g.At(root); ok {
+		return main
 	}
 	return root
 }
 
-// Walk reads the go.mod of root's main module (MainModule) and answers the
-// graph, with each non-local module's directory from materialize. A go.mod
-// that is missing answers a nil graph and no error.
+// Walk reads the nomi.toml of root's main module (MainModule) and the
+// nomi.toml of each module it needs, and answers the graph, with each
+// module from the proxy in the directory materialize answers. A missing
+// nomi.toml answers a nil graph and no error.
+//
+// A version is selected for each module path the walk reaches: the
+// highest of the version the main module's nomi.lock locks it at and the
+// versions any reached module's [dependencies] asks for. The walk reads the
+// requirements of the selected versions only, and repeats until no reached
+// module asks for a higher one. With the lock current, that is the lock's
+// build list, read without a version the lock does not hold.
 func Walk(root string, materialize Materialize) (*Graph, error) {
-	return walk(MainModule(root), materialize)
+	return walk(MainModule(root), materialize, true)
 }
 
-func walk(root string, materialize Materialize) (*Graph, error) {
-	path := filepath.Join(root, "go.mod")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("read %s: %w", path, err)
+// Resolve is Walk without the lock: the versions the requirements alone
+// select, which `nomi fetch`, `add`, `remove` and `update` lock.
+func Resolve(root string, materialize Materialize) (*Graph, error) {
+	return walk(MainModule(root), materialize, false)
+}
+
+func walk(root string, materialize Materialize, locked bool) (*Graph, error) {
+	mf, err := ReadModuleFile(root)
+	if err != nil || mf == nil {
+		return nil, err
 	}
-	f, err := modfile.Parse(path, data, nil)
-	if err != nil {
-		return nil, fmt.Errorf("parse %s: %w", path, err)
-	}
-	g := &Graph{Root: root, GoMod: f}
-	self := ""
-	if f.Module != nil {
-		self = f.Module.Mod.Path
-	}
-	listed := map[string]*modfile.Require{}
-	for _, r := range f.Require {
-		listed[r.Mod.Path] = r
-	}
-	seen := map[string]bool{}
-	unlisted := map[string]string{}
-	var queue []module.Version
-	direct := map[string]bool{}
-	for _, r := range f.Require {
-		if !r.Indirect {
-			direct[r.Mod.Path] = true
-		}
-		// A local replace costs nothing to read, so an indirect require
-		// with one is read too.
-		if _, local := localReplace(f, root, r.Mod); !r.Indirect || local {
-			queue = append(queue, r.Mod)
-		}
-	}
-	sort.Slice(queue, func(i, j int) bool { return queue[i].Path < queue[j].Path })
-	for len(queue) > 0 {
-		m := queue[0]
-		queue = queue[1:]
-		if seen[m.Path] {
-			continue
-		}
-		seen[m.Path] = true
-		dep := Dep{Version: m, Direct: direct[m.Path], Source: m}
-		if dir, local := localReplace(f, root, m); local {
-			info, statErr := os.Stat(dir)
-			switch {
-			case statErr != nil:
-				return nil, fmt.Errorf("replace target for %q does not exist: %s", m.Path, dir)
-			case !info.IsDir():
-				return nil, fmt.Errorf("replace target for %q is not a directory: %s", m.Path, dir)
-			}
-			dep.Dir, dep.Local = dir, true
-		} else {
-			dep.Source = replacedVersion(f, m)
-			dir, err := materialize(dep.Source)
-			if err != nil {
-				return nil, err
-			}
-			if dir == "" {
-				g.Missing = append(g.Missing, m)
-				g.Deps = append(g.Deps, dep)
-				continue
-			}
-			dep.Dir = dir
-		}
-		dep.Nomi = isFile(filepath.Join(dep.Dir, "nomi.toml"))
-		g.Deps = append(g.Deps, dep)
-		if !dep.Nomi {
-			continue
-		}
-		reqs, err := requiresOf(dep.Dir)
+	selected := map[string]string{}
+	if locked {
+		lock, err := ReadLock(root)
 		if err != nil {
 			return nil, err
 		}
-		for _, r := range reqs {
-			if r.Path == self {
-				continue
-			}
-			if l, ok := listed[r.Path]; ok {
-				queue = append(queue, l.Mod)
-				continue
-			}
-			if v, ok := unlisted[r.Path]; !ok || semver.Compare(r.Version, v) > 0 {
-				unlisted[r.Path] = r.Version
-			}
+		for _, m := range lock.Modules {
+			selected[m.Path] = m.Version.Version
 		}
 	}
-	for path, v := range unlisted {
-		g.Unlisted = append(g.Unlisted, module.Version{Path: path, Version: v})
-	}
-	sort.Slice(g.Unlisted, func(i, j int) bool { return g.Unlisted[i].Path < g.Unlisted[j].Path })
-	return g, nil
-}
-
-// requiresOf is the require list of the go.mod in dir.
-func requiresOf(dir string) ([]module.Version, error) {
-	path := filepath.Join(dir, "go.mod")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil, nil
+	for {
+		g, want, err := explore(root, mf, selected, materialize)
+		if err != nil {
+			return nil, err
 		}
-		return nil, fmt.Errorf("read %s: %w", path, err)
+		raised := false
+		for path, v := range want {
+			if semver.Compare(v, selected[path]) > 0 {
+				selected[path] = v
+				raised = true
+			}
+		}
+		if !raised {
+			return g, nil
+		}
 	}
-	f, err := modfile.ParseLax(path, data, nil)
-	if err != nil {
-		return nil, fmt.Errorf("parse %s: %w", path, err)
-	}
-	out := make([]module.Version, 0, len(f.Require))
-	for _, r := range f.Require {
-		out = append(out, r.Mod)
-	}
-	return out, nil
 }
 
-// localReplace answers the directory f replaces m with, when it is a local
-// one. A replace naming a version applies to that version only.
-func localReplace(f *modfile.File, root string, m module.Version) (string, bool) {
-	r := replaceFor(f, m)
-	if r == nil || r.New.Version != "" || r.New.Path == "" {
-		return "", false
-	}
-	dir := r.New.Path
-	if !filepath.IsAbs(dir) {
-		dir = filepath.Join(root, dir)
-	}
-	return filepath.Clean(dir), true
+// local is a module loaded from a directory: one a dir entry of the main
+// module names, or a dir entry of another module loaded from a directory.
+type local struct {
+	dir  string
+	file *ModuleFile
+	req  Requirement
+	// requires is file's [dependencies] as the walk reads them, and dirs
+	// the module each of its dir entries is, by the entry's name. An entry
+	// dirs lacks is read by its module path and version.
+	requires []Requirement
+	dirs     map[string]*local
 }
 
-// replacedVersion answers the module version whose files stand for m: the
-// target of a module-to-module replace, else m.
-func replacedVersion(f *modfile.File, m module.Version) module.Version {
-	r := replaceFor(f, m)
-	if r == nil || r.New.Version == "" {
-		return m
+// localModules reads the modules loaded from directories: those the main
+// module's dir entries name, then those the dir entries of each module so
+// loaded name, each relative to the directory of the nomi.toml that writes
+// it, since that directory is on disk. It answers the main module's, by
+// entry name, and the module each module path stands for.
+//
+// The main module's entry for a module path wins: a dependency's dir entry
+// for a path the main module names, by a dir or a version, is read by its
+// path. Otherwise the first directory reached for a path stands for it. A
+// directory reached again is the module read before, so a cycle of
+// directories ends, and a dir entry for the main module's own directory is
+// not read. A downloaded module's dir entries are never read: its
+// directory is a module cache copy, and they name its author's disk.
+func localModules(root string, mf *ModuleFile) (top, byPath map[string]*local, err error) {
+	named := map[string]bool{}
+	for _, r := range mf.Requires {
+		if r.Module != "" {
+			named[r.Module] = true
+		}
 	}
-	return r.New
-}
-
-func replaceFor(f *modfile.File, m module.Version) *modfile.Replace {
-	var any *modfile.Replace
-	for _, r := range f.Replace {
-		if r.Old.Path != m.Path {
+	byDir := map[string]*local{}
+	byPath = map[string]*local{}
+	var queue []*local
+	read := func(owner string, r Requirement) (*local, string, error) {
+		dir := r.LocalDir(owner)
+		key := dir
+		if real, err := filepath.EvalSymlinks(dir); err == nil {
+			key = real
+		}
+		l, ok := byDir[key]
+		if !ok {
+			info, err := os.Stat(dir)
+			switch {
+			case err != nil:
+				return nil, "", fmt.Errorf("%s: [dependencies] %s: directory %s does not exist", filepath.Join(owner, ManifestName), r.Name, r.Dir)
+			case !info.IsDir():
+				return nil, "", fmt.Errorf("%s: [dependencies] %s: %s is not a directory", filepath.Join(owner, ManifestName), r.Name, r.Dir)
+			}
+			file, err := ReadModuleFile(dir)
+			if err != nil {
+				return nil, "", err
+			}
+			l = &local{dir: dir, file: file, req: r, dirs: map[string]*local{}}
+			if file != nil {
+				l.requires = file.Requires
+			}
+			byDir[key] = l
+			queue = append(queue, l)
+		}
+		path := r.Module
+		if path == "" && l.file != nil {
+			path = l.file.Path
+		}
+		return l, path, nil
+	}
+	top = map[string]*local{}
+	for _, r := range mf.Requires {
+		if r.Dir == "" {
 			continue
 		}
-		if r.Old.Version == m.Version {
-			return r
+		l, path, err := read(root, r)
+		if err != nil {
+			return nil, nil, err
 		}
-		if r.Old.Version == "" {
-			any = r
+		if path != "" {
+			byPath[path] = l
+		}
+		top[r.Name] = l
+	}
+	for len(queue) > 0 {
+		owner := queue[0]
+		queue = queue[1:]
+		requires := slices.Clone(owner.requires)
+		for i, r := range requires {
+			if r.Dir == "" || named[r.Module] || sameDir(r.LocalDir(owner.dir), root) {
+				continue
+			}
+			l, path, err := read(owner.dir, r)
+			if err != nil {
+				return nil, nil, err
+			}
+			switch bound, ok := byPath[path]; {
+			case named[path]:
+				// An entry with only a dir, whose directory holds a module
+				// path the main module names: it is read by that path.
+				requires[i].Module, requires[i].Dir = path, ""
+				continue
+			case ok:
+				l = bound
+			case path != "":
+				byPath[path] = l
+			}
+			owner.dirs[r.Name] = l
+		}
+		owner.requires = requires
+	}
+	return top, byPath, nil
+}
+
+// explore is one pass of walk: the modules reached from root's
+// requirements through the requirements of each reached module, each from
+// the proxy at selected's version when that is higher than the one asked
+// for, and the highest version each module path is asked for.
+func explore(root string, mf *ModuleFile, selected map[string]string, materialize Materialize) (*Graph, map[string]string, error) {
+	g := &Graph{Root: root, Module: mf, Names: map[string]string{}}
+	want := map[string]string{}
+	localOf, locals, err := localModules(root, mf)
+	if err != nil {
+		return nil, nil, err
+	}
+	taken := rootNames(root, mf)
+	unique := func(name string) string {
+		out := name
+		for n := 2; taken[out]; n++ {
+			out = name + "~" + strconv.Itoa(n)
+		}
+		taken[out] = true
+		return out
+	}
+	for _, r := range mf.Requires {
+		taken[r.Name] = true
+	}
+	type item struct {
+		owner map[string]string
+		req   Requirement
+		l     *local
+		root  bool
+	}
+	var queue []item
+	for _, r := range mf.Requires {
+		queue = append(queue, item{owner: g.Names, req: r, l: localOf[r.Name], root: true})
+	}
+	byID := map[string]int{}
+	for len(queue) > 0 {
+		it := queue[0]
+		queue = queue[1:]
+		r := it.req
+		l := it.l
+		version := ""
+		if l == nil {
+			if r.Module == "" {
+				// A downloaded module's entry with only a dir names its
+				// author's disk, and is not read.
+				continue
+			}
+			l = locals[r.Module]
+			if l == nil && r.Version == "" {
+				// An entry with no version, for a path the main module
+				// names, is the main module's: its queue items come first.
+				if i, seen := byID[r.Module]; seen {
+					it.owner[r.Name] = g.Deps[i].Name
+				}
+				continue
+			}
+		}
+		id := ""
+		if l != nil {
+			id = "dir:" + l.dir
+		} else {
+			id = r.Module
+			if semver.Compare(r.Version, want[r.Module]) > 0 {
+				want[r.Module] = r.Version
+			}
+			version = r.Version
+			if semver.Compare(selected[r.Module], version) > 0 {
+				version = selected[r.Module]
+			}
+		}
+		if i, seen := byID[id]; seen {
+			it.owner[r.Name] = g.Deps[i].Name
+			continue
+		}
+		name := r.Name
+		if it.root {
+			taken[name] = true
+		} else {
+			name = unique(name)
+		}
+		dep := Dep{Name: name, Direct: it.root, Names: map[string]string{}}
+		var file *ModuleFile
+		if l != nil {
+			dep.Version = module.Version{Path: l.req.Module, Version: l.req.Version}
+			if dep.Path == "" && l.file != nil {
+				dep.Path = l.file.Path
+			}
+			dep.Dir, dep.Local, file = l.dir, true, l.file
+		} else {
+			dep.Version = module.Version{Path: r.Module, Version: version}
+			dir, err := materialize(dep.Version)
+			if err != nil {
+				return nil, nil, err
+			}
+			if dir == "" {
+				g.Missing = append(g.Missing, dep.Version)
+			} else if file, err = ReadModuleFile(dir); err != nil {
+				return nil, nil, err
+			}
+			dep.Dir = dir
+		}
+		byID[id] = len(g.Deps)
+		it.owner[r.Name] = name
+		dep.Nomi = file != nil
+		if file != nil {
+			dep.Self = file.Name
+			if file.Name != "" {
+				dep.Names[file.Name] = name
+			}
+			requires, dirs := file.Requires, map[string]*local(nil)
+			if l != nil {
+				requires, dirs = l.requires, l.dirs
+			}
+			for _, sub := range requires {
+				queue = append(queue, item{owner: dep.Names, req: sub, l: dirs[sub.Name]})
+			}
+		}
+		g.Deps = append(g.Deps, dep)
+	}
+	return g, want, nil
+}
+
+// rootNames are the names a module the project does not name may not take
+// in the program: `std`, the project's own name, and each file and
+// directory at its root, which the project's own imports name.
+func rootNames(root string, mf *ModuleFile) map[string]bool {
+	taken := map[string]bool{"std": true}
+	if mf.Name != "" {
+		taken[mf.Name] = true
+	}
+	entries, _ := os.ReadDir(root)
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() {
+			taken[name] = true
+		} else if base, ok := strings.CutSuffix(name, ".nomi"); ok {
+			taken[base] = true
 		}
 	}
-	return any
+	return taken
+}
+
+// NamesAt is each name the files of the module rooted at dir import a
+// module by, and that module's Name: the project's own names when dir is
+// the project's root, a dependency's when it is the dependency's, nil when
+// it is neither.
+func (g *Graph) NamesAt(dir string) map[string]string {
+	if sameDir(dir, g.Root) {
+		return g.Names
+	}
+	if d, ok := g.At(dir); ok {
+		return d.Names
+	}
+	return nil
 }
 
 // Root is the Go module cache: GOMODCACHE, else pkg/mod in the first GOPATH
@@ -344,6 +535,10 @@ func cacheOnly(m module.Version) (string, error) {
 	return Cached(cache, m), nil
 }
 
+// CacheOnly is the Materialize that reads the module cache and never
+// downloads.
+func CacheOnly(m module.Version) (string, error) { return cacheOnly(m) }
+
 var (
 	fetchMu sync.Mutex
 	fetcher func(root string) error
@@ -383,11 +578,7 @@ func fetchOnce(root string) error {
 	if err, ok := fetched[abs]; ok {
 		return err
 	}
-	// Only a Nomi module (nomi.toml beside go.mod) has dependencies fetched
-	// for it. A Go module that happens to hold .nomi files, such as a Go
-	// project with a Nomi script in it, keeps its Go dependencies to the go
-	// command; what of them is in the cache is still read.
-	if !isFile(filepath.Join(abs, "nomi.toml")) {
+	if !isFile(filepath.Join(abs, ManifestName)) {
 		return nil
 	}
 	err = fetcher(abs)
@@ -396,8 +587,8 @@ func fetchOnce(root string) error {
 }
 
 // MissingHint is the hint a diagnostic about an import that names no file
-// gives when the project's go.mod requires modules the module cache does
-// not hold, or "" when it holds them all. It never downloads.
+// gives when the project needs modules the module cache does not hold, or
+// "" when it holds them all. It never downloads.
 func MissingHint(root string) string {
 	g, err := Walk(root, cacheOnly)
 	if err != nil || g == nil || len(g.Missing) == 0 {
@@ -408,50 +599,47 @@ func MissingHint(root string) string {
 		names = append(names, m.Path+" "+m.Version)
 	}
 	if len(names) == 1 {
-		return "go.mod requires module " + names[0] + ", which is not in the module cache; run `nomi fetch` to download it"
+		return "the project needs module " + names[0] + ", which is not in the module cache; run `nomi fetch` to download it"
 	}
-	return "go.mod requires modules " + strings.Join(names, ", ") +
+	return "the project needs modules " + strings.Join(names, ", ") +
 		", which are not in the module cache; run `nomi fetch` to download them"
 }
 
-// ImportProblem says what the go.mod at root lacks for an import of the
-// module named name (its path, or the last element of its path), for a
-// diagnostic about an import that names no file. problem and hint are ""
-// when there is no go.mod, or when go.mod requires a Nomi module of that
-// name. A module go.mod requires whose directory holds no nomi.toml is
-// that problem; unlisted is set when go.mod has no require line for it at
-// all, which a project file the import meant would also explain. It never
-// downloads.
+// ImportProblem says what the project at root lacks for an import whose
+// first name is name, for a diagnostic about an import that names no file.
+// problem and hint are "" when root has no nomi.toml, or when name is a
+// Nomi module the project depends on. A dependency whose directory holds
+// no nomi.toml is that problem; unlisted is set when no dependency has the
+// name at all, which a project file the import meant would also explain.
+// It never downloads.
 func ImportProblem(root, name string) (problem, hint string, unlisted bool) {
 	g, err := Walk(root, cacheOnly)
 	if err != nil || g == nil {
 		return "", "", false
 	}
-	named := func(p string) bool { return p == name || pathBase(p) == name }
-	for _, d := range g.Deps {
-		if !d.Direct || !named(d.Path) || d.Dir == "" {
-			continue
-		}
-		if d.Nomi {
+	if key, ok := g.NamesAt(root)[name]; ok {
+		d, _ := g.Named(key)
+		if d.Dir == "" || d.Nomi {
 			return "", "", false
 		}
 		hint = fmt.Sprintf("a Nomi module's root holds a nomi.toml naming it: `[module]`, then `name = %q`", name)
 		if d.Local {
-			return fmt.Sprintf("go.mod replaces `%s` with %s, which has no nomi.toml", d.Path, replaceFor(g.GoMod, d.Version).New.Path), hint, false
+			return fmt.Sprintf("[dependencies] %s is the directory %s, which has no nomi.toml", name, AddArg(relTo(root, d.Dir))), hint, false
 		}
 		return fmt.Sprintf("module `%s` has no nomi.toml, so it is not a Nomi module", d.Path), hint, false
 	}
-	problem = fmt.Sprintf("go.mod has no `require` line for `%s`", name)
-	for _, r := range g.GoMod.Replace {
-		if named(r.Old.Path) && r.New.Version == "" {
-			return problem, fmt.Sprintf("go.mod replaces `%s` with %s but does not require it; run `nomi add %s`",
-				r.Old.Path, r.New.Path, AddArg(r.New.Path)), true
-		}
-	}
+	problem = fmt.Sprintf("nomi.toml has no dependency named `%s`", name)
 	if dir := findLocalModule(root, name); dir != "" {
 		return problem, fmt.Sprintf("run `nomi add %s` to add the module in that directory", dir), true
 	}
 	return problem, "run `nomi add <module path>` to add a published module, or `nomi add <directory>` for one on disk", true
+}
+
+func relTo(root, dir string) string {
+	if rel, err := filepath.Rel(root, dir); err == nil {
+		return rel
+	}
+	return dir
 }
 
 // AddArg spells a directory, relative to the project root, as `nomi add`
@@ -466,22 +654,20 @@ func AddArg(dir string) string {
 }
 
 // findLocalModule answers, relative to root, a directory near root that
-// holds a Nomi module of that name (a nomi.toml naming it, or a go.mod whose
-// module path ends in it, beside a nomi.toml): one under root, at most three
-// levels down, or a sibling of root. "" when there is none or several.
+// holds a Nomi module of that name (a nomi.toml whose [module] name is
+// name, or whose path ends in it): one under root, at most three levels
+// down, or a sibling of root. "" when there is none or several.
 func findLocalModule(root, name string) string {
 	var found []string
 	consider := func(dir string) {
-		if sameDir(dir, root) || !isFile(filepath.Join(dir, "nomi.toml")) {
+		if sameDir(dir, root) {
 			return
 		}
-		data, err := os.ReadFile(filepath.Join(dir, "go.mod"))
-		if err != nil {
+		mf, err := ReadModuleFile(dir)
+		if err != nil || mf == nil {
 			return
 		}
-		path := modfile.ModulePath(data)
-		manifest, _ := os.ReadFile(filepath.Join(dir, "nomi.toml"))
-		if path == name || pathBase(path) == name || manifestNames(string(manifest), name) {
+		if mf.Name == name || mf.Path != "" && PathBase(mf.Path) == name {
 			found = append(found, dir)
 		}
 	}
@@ -523,34 +709,10 @@ func findLocalModule(root, name string) string {
 	return AddArg(rel)
 }
 
-// manifestNames reports whether a nomi.toml's text gives its module the
-// name name, read loosely: a `name = "..."` line.
-func manifestNames(text, name string) bool {
-	for _, line := range strings.Split(text, "\n") {
-		key, value, ok := strings.Cut(line, "=")
-		if ok && strings.TrimSpace(key) == "name" && strings.Trim(strings.TrimSpace(value), `"'`) == name {
-			return true
-		}
-	}
-	return false
-}
-
 func sameDir(a, b string) bool {
 	ai, errA := os.Stat(a)
 	bi, errB := os.Stat(b)
 	return errA == nil && errB == nil && os.SameFile(ai, bi)
-}
-
-// LocalReplace answers the directory f, the go.mod at root, replaces m with
-// when it is a local one.
-func LocalReplace(f *modfile.File, root string, m module.Version) (string, bool) {
-	return localReplace(f, root, m)
-}
-
-// ReplacedVersion answers the module version whose files stand for m under
-// f's replace directives.
-func ReplacedVersion(f *modfile.File, m module.Version) module.Version {
-	return replacedVersion(f, m)
 }
 
 // PathBase is the last element of a module path, without a /vN major
@@ -559,11 +721,6 @@ func PathBase(p string) string {
 	if prefix, _, ok := module.SplitPathVersion(p); ok && prefix != "" {
 		p = prefix
 	}
-	return pathBase(p)
-}
-
-// pathBase is the last element of a module path.
-func pathBase(p string) string {
 	if i := strings.LastIndex(p, "/"); i >= 0 {
 		return p[i+1:]
 	}

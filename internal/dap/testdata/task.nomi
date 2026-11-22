@@ -9,10 +9,11 @@ fn work(n: Int) -> Int
 end
 
 fn main()
-    v = concurrent
-        t = Task.spawn(fn -> work(21))
-        Task.await(t)
-    end
+    v =
+        concurrent
+            t = Task.spawn(fn -> work(21))
+            Task.await(t)
+        end
 
     io.print("${v}")
 end

@@ -316,8 +316,8 @@ end
 // `with` statements in the shapes that are not a named function's own
 // straight body: a lambda's body, a body that returns early after the
 // `with`, a branch, and a closure made after a `with` line and called after
-// the function returned. Each retains and runs; the closure reads the field in
-// force where it is called.
+// the function returned. Each retains and runs; the closure keeps the field
+// in force where it was made.
 func TestIRAppBoot_WithStatementShapesRun(t *testing.T) {
 	verifyDeferProgram(t, `import std::io
 
@@ -375,7 +375,7 @@ fn main()
   io.print(f())
   io.print(label())
 end
-`, "early\nlate early\nbranch\nbase\n[lambda 1, lambda 2]\nbase\nmain\nmain\n",
+`, "early\nlate early\nbranch\nbase\n[lambda 1, lambda 2]\nmade\nmade\nmain\n",
 		"boot", "label", "early", "branch", "mapped", "maker", "main")
 }
 
