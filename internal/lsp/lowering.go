@@ -88,7 +88,9 @@ import (
 // diagnostics until the next run replaces them. While an edit waits for its
 // run they keep the ranges of the text they were found in. A run whose
 // buffer the front end rejects reports none: the front end's own
-// diagnostics are already shown. A compiler panic during the lowering, or a
+// diagnostics are already shown. It keeps the effect calls of the
+// declarations that checked, when vmhost.CheckLowering finds them (the
+// package doc, "The effects a call has"). A compiler panic during the lowering, or a
 // panic in the server around it, is one diagnostic at the top of the file,
 // never a crash.
 

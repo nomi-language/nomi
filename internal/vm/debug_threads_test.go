@@ -128,7 +128,7 @@ const stdStepSrc = `import std::io
 
 fn main()
   m = Some(2)
-  r = Maybe.map(m, fn v ->
+  r = Option.map(m, fn v ->
     w = v * 3
     w
   end)
@@ -136,32 +136,32 @@ fn main()
 end
 `
 
-// maybeMapLine is the line of `pub fn map` in std's maybe.nomi, read from the
+// optionMapLine is the line of `pub fn map` in std's option.nomi, read from the
 // embedded source so an edit above it in std does not move these tests.
-func maybeMapLine(t *testing.T) int {
+func optionMapLine(t *testing.T) int {
 	t.Helper()
-	src, ok := std.ReadFile("maybe")
+	src, ok := std.ReadFile("option")
 	if !ok {
-		t.Fatal("std has no maybe.nomi")
+		t.Fatal("std has no option.nomi")
 	}
 	for i, line := range strings.Split(string(src), "\n") {
 		if strings.HasPrefix(strings.TrimSpace(line), "pub fn map<") {
 			return i + 1
 		}
 	}
-	t.Fatal("maybe.nomi declares no `pub fn map`")
+	t.Fatal("option.nomi declares no `pub fn map`")
 	return 0
 }
 
 func TestDebug_StepInPassesThroughSkippedFiles(t *testing.T) {
-	// Maybe.map's body is a case whose Some arm calls f on the second line.
-	call := "Maybe<Int>.map:" + strconv.Itoa(maybeMapLine(t)+2)
+	// Option.map's body is a case whose Some arm calls f on the second line.
+	call := "Option<Int>.map:" + strconv.Itoa(optionMapLine(t)+2)
 	s := debugProgram(t, stdStepSrc)
 	s.d.SetSkipFiles(std.IsSourcePath)
 	s.breakAt(5)
 	s.run()
 	st := s.stop()
-	s.at(st, vm.StopBreakpoint, "main:5", "m: Maybe<Int> = Some(2)")
+	s.at(st, vm.StopBreakpoint, "main:5", "m: Option<Int> = Some(2)")
 	s.d.StepIn(st.Thread)
 	st = s.stop()
 	s.at(st, vm.StopStep, "<lambda>:6 "+call+" main:5", "v: Int = 2")
@@ -170,7 +170,7 @@ func TestDebug_StepInPassesThroughSkippedFiles(t *testing.T) {
 	s.at(st, vm.StopStep, "<lambda>:7 "+call+" main:5", "v: Int = 2, w: Int = 6")
 	s.d.StepOver(st.Thread)
 	st = s.stop()
-	s.at(st, vm.StopStep, "main:9", "m: Maybe<Int> = Some(2), r: Maybe<Int> = Some(6)")
+	s.at(st, vm.StopStep, "main:9", "m: Option<Int> = Some(2), r: Option<Int> = Some(6)")
 	s.d.Continue()
 	if err := s.finish(); err != nil {
 		t.Fatal(err)
@@ -178,7 +178,7 @@ func TestDebug_StepInPassesThroughSkippedFiles(t *testing.T) {
 }
 
 func TestDebug_StepInEntersTheStandardLibraryWhenNothingIsSkipped(t *testing.T) {
-	first := "Maybe<Int>.map:" + strconv.Itoa(maybeMapLine(t)+1)
+	first := "Option<Int>.map:" + strconv.Itoa(optionMapLine(t)+1)
 	s := debugProgram(t, stdStepSrc)
 	s.breakAt(5)
 	s.run()

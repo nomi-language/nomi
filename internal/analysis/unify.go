@@ -1,6 +1,9 @@
 package analysis
 
-import "fmt"
+import (
+	"fmt"
+	"maps"
+)
 
 // Unify attempts to make two types equal by resolving type variables.
 // It also handles TypeParam_ bindings via the optional subs map: when a TypeParam_
@@ -12,7 +15,7 @@ func Unify(a, b Type) error {
 
 // UnifyWith is like Unify but also resolves TypeParam_ pointers into the subs
 // map. Subs is keyed by *TypeParam_ pointer identity rather than name so that
-// distinct scopes carrying same-named type parameters (e.g. Maybe<T> and
+// distinct scopes carrying same-named type parameters (e.g. Option<T> and
 // Result<T, E>) don't collide.
 func UnifyWith(a, b Type, subs map[*TypeParam_]Type) error {
 	return unifyFull(a, b, subs, nil, nil)
@@ -127,7 +130,7 @@ func (m unifyMode) widensRefinement() bool {
 }
 
 // nested is the mode for a covariant type argument: a List's, Vector's,
-// Set's, Maybe's or Result's, a Map's key and value, and a declared
+// Set's, Option's or Result's, a Map's key and value, and a declared
 // generic type's covariant parameter (unifyArg).
 func (m unifyMode) nested() unifyMode {
 	switch m {
@@ -355,11 +358,11 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 	// converts down or across, a join (unifySym) admits neither way, and
 	// an invariant type argument compares exactly.
 	//
-	// A subtype with no rule of its own, an intersection of subtypes among
+	// A refinement with no rule of its own, an intersection of refinements among
 	// them, has exactly the values of all its parents, so a value that
 	// converts to each parent converts into it: a PositiveInt is a
 	// `NonNegativeInt and NonZeroInt`.
-	if m.widensRefinement() && intoRulelessSubtype(b, a, func(have, parent Type) bool {
+	if m.widensRefinement() && intoRulelessRefinement(b, a, func(have, parent Type) bool {
 		return unifyIn(m, parent, have, subs, impls, implTypeArgs, rigid) == nil
 	}) {
 		return nil
@@ -615,7 +618,7 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 // This binds *any* generic interface's type parameters from a concrete
 // receiver — `Iter<T>` against `List<Int>` binds `T → Int` exactly like
 // before (its template's single arg `T` solves from `next`'s declared
-// `Maybe<(T, self)>` shape), and so does a user `Chooser<T>` whose default
+// `Option<(T, self)>` shape), and so does a user `Chooser<T>` whose default
 // returns bare `T`. Non-generic interfaces (no type args) and pairs with no
 // recorded template fall through to accepting the conformance without binding
 // — the same permissive fallback as the prior "unknown element" path.
@@ -675,6 +678,29 @@ func unifyInterfaceAgainstConcrete(m unifyMode, iface *InterfaceType, concrete T
 	if !interfaceImplemented(concrete, iface.Name, iface.Origin, impls) {
 		return typeErrorf("%s does not implement %s", concrete, receiversOf(impls).shownInterfaceFor(concrete, iface, true))
 	}
+	cargs := concreteTypeArgs(concrete)
+	// implArgs is the interface's type arguments info's impl gives at
+	// concrete's own type arguments, or false when the impl gives none to
+	// bind (a non-generic interface, an arity mismatch from a malformed
+	// impl).
+	implArgs := func(info *ImplTypeArgs) ([]Type, bool) {
+		if len(iface.TypeArgs) == 0 || len(info.Args) != len(iface.TypeArgs) {
+			return nil, false
+		}
+		args := make([]Type, len(info.Args))
+		for i, a := range info.Args {
+			args[i] = substituteTypeParamDefs(info.TypeParamDefs, cargs, a)
+		}
+		return args, true
+	}
+	bind := func(args []Type, into map[*TypeParam_]Type) error {
+		for i := range iface.TypeArgs {
+			if err := unifyIn(m.iterElem(iface), iface.TypeArgs[i], args[i], into, impls, implTypeArgs, rigid); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 	// Every impl of the interface the receiver has: a generic interface may
 	// be implemented at several type arguments, and the interface's own
 	// arguments here choose among them (impl_selection.go).
@@ -686,9 +712,22 @@ func unifyInterfaceAgainstConcrete(m unifyMode, iface *InterfaceType, concrete T
 		}
 		recorded = true
 		// A trial: matching a receiver solves the inference variables
-		// concrete holds (`None`'s `Maybe<?>` against `Maybe<String>`), and
-		// only the one impl that fits may keep that solution.
-		saved := saveTypeVars(concrete)
+		// concrete holds (`None`'s `Option<?>` against `Option<String>`), and
+		// only the one impl that fits may keep that solution. The
+		// interface's arguments as they stand solve what they can of those
+		// variables first, so the impl's bounds are checked at the types
+		// the call gives them: `a in [Ok(25)]` with `a` a Result<Int,
+		// String> meets List's `T: Equatable` at Result<Int, String>, where
+		// the literal alone is a Result<Int, ?E> whose E no bound can be
+		// checked at.
+		held := append([]Type{concrete}, iface.TypeArgs...)
+		for _, t := range subs {
+			held = append(held, t)
+		}
+		saved := saveTypeVars(held...)
+		if args, ok := implArgs(info); ok && bind(args, maps.Clone(subs)) != nil {
+			saved.restore()
+		}
 		matches := implReceiverMatches(info, concrete, impls, implTypeArgs)
 		saved.restore()
 		if matches {
@@ -701,21 +740,17 @@ func unifyInterfaceAgainstConcrete(m unifyMode, iface *InterfaceType, concrete T
 	if len(infos) == 1 && containsTypeVar(concrete) {
 		// One impl fits a value whose type is not yet solved: the value is
 		// of that impl's receiver, as `show(None)` against `impl Opt for
-		// Maybe<String>` is a Maybe<String>.
+		// Option<String>` is an Option<String>.
 		implReceiverMatches(infos[0], concrete, impls, implTypeArgs)
 	}
 	if len(iface.TypeArgs) == 0 {
 		return nil
 	}
-	cargs := concreteTypeArgs(concrete)
 	var lists [][]Type
 	for _, info := range infos {
-		if len(info.Args) != len(iface.TypeArgs) {
+		args, ok := implArgs(info)
+		if !ok {
 			continue
-		}
-		args := make([]Type, len(info.Args))
-		for i, a := range info.Args {
-			args[i] = substituteTypeParamDefs(info.TypeParamDefs, cargs, a)
 		}
 		dup := false
 		for _, l := range lists {
@@ -732,14 +767,6 @@ func unifyInterfaceAgainstConcrete(m unifyMode, iface *InterfaceType, concrete T
 		// No recorded template (or an arity mismatch from a malformed impl):
 		// accept the conformance without binding the interface's type args,
 		// leaving them as fresh vars at the use site.
-		return nil
-	}
-	bind := func(args []Type, into map[*TypeParam_]Type) error {
-		for i := range iface.TypeArgs {
-			if err := unifyIn(m.iterElem(iface), iface.TypeArgs[i], args[i], into, impls, implTypeArgs, rigid); err != nil {
-				return err
-			}
-		}
 		return nil
 	}
 	if len(lists) == 1 {
@@ -831,9 +858,9 @@ func implReceiverMatchesSeen(info *ImplTypeArgs, concrete Type, impls []ImplTabl
 	}
 	for tp, boundConcrete := range subs {
 		for _, bound := range tp.Bounds {
-			if interfaceReadsSubtype(bound) && ReadsSubtype([]*InterfaceType{bound}, boundConcrete) && !blockReadsSubtype(info, bound) {
+			if interfaceReadsRefinement(bound) && ReadsRefinement([]*InterfaceType{bound}, boundConcrete) && !blockReadsRefinement(info, bound) {
 				// A block lowered once for its receiver's kind would read
-				// the subtype as its base (subtype_reads.go).
+				// the refinement as its base (refinement_reads.go).
 				return false
 			}
 			if !typeSatisfiesInterfaceForImplMatch(boundConcrete, bound, impls, implTypeArgs, seen) {
@@ -850,8 +877,8 @@ func typeSatisfiesInterfaceForImplMatch(concrete Type, iface *InterfaceType, imp
 	}
 	if dt := refinementOf(concrete); dt != nil && dt.Inner != nil {
 		// A refinement has its parent's impls, save one that makes a
-		// value of its type (subtype_impls.go).
-		if subtypeLacksImpl(dt, iface) {
+		// value of its type (refinement_impls.go).
+		if refinementLacksImpl(dt, iface) {
 			return false
 		}
 		return typeSatisfiesInterfaceForImplMatch(DistinctInner(dt), iface, impls, implTypeArgs, seen)
@@ -1101,7 +1128,7 @@ func typeVarOccursIn(tv *TypeVar, t Type) bool {
 
 // Substitute replaces TypeParam_ nodes in a type with their bindings from subs.
 // Subs is keyed by *TypeParam_ pointer identity — not by name — because two
-// distinct generic scopes (e.g. Maybe<T> and Result<T, E>) can each have a
+// distinct generic scopes (e.g. Option<T> and Result<T, E>) can each have a
 // type parameter named "T" without meaning the same thing. Keying by pointer
 // keeps each scope's substitution self-contained so nested instantiations
 // don't wrongly replace an inner scope's T with the outer scope's binding.
@@ -1377,16 +1404,17 @@ func substituteWithNominals(t Type, subs map[*TypeParam_]Type, visiting map[*Typ
 			return t
 		}
 		if t.Intersection {
-			return NewSubtypeIntersection(args)
+			return NewRefinementIntersection(args)
 		}
 		return &DistinctType{
 			Origin:           t.Origin,
 			Name:             t.Name,
 			Inner:            t.Inner,
+			InnerOfNoType:    t.InnerOfNoType,
 			WrittenAsParts:   t.WrittenAsParts,
 			Rule:             t.Rule,
 			MoreParents:      t.MoreParents,
-			Subtype:          t.Subtype,
+			Refinement:       t.Refinement,
 			Opaque:           t.Opaque,
 			OwningSourceFile: t.OwningSourceFile,
 			TypeParams:       t.TypeParams,

@@ -182,7 +182,7 @@ func TestCompletion_ImplStubGenericImpl(t *testing.T) {
 	if got := insertOf(t, items, "each_while"); got != "fn each_while(box: Box<T>, yield: (${1:T}) -> Bool) -> Bool\n    $0\nend" {
 		t.Fatalf("each_while = %q", got)
 	}
-	if got := insertOf(t, items, "known_count"); got != "fn known_count(box: Box<T>) -> Maybe<Int>\n    $0\nend" {
+	if got := insertOf(t, items, "known_count"); got != "fn known_count(box: Box<T>) -> Option<Int>\n    $0\nend" {
 		t.Fatalf("known_count = %q", got)
 	}
 	if got := insertOf(t, items, "is_infinite"); got != "fn is_infinite(box: Box<T>) -> Bool\n    $0\nend" {
@@ -191,7 +191,7 @@ func TestCompletion_ImplStubGenericImpl(t *testing.T) {
 }
 
 func TestCompletion_ImplStubGenericInterfaceArguments(t *testing.T) {
-	iface := "interface Store<K, V>\n    fn get(store: self, key: K) -> Maybe<V>\n    fn put(store: self, key: K, value: V) -> self\nend\n\nstruct Cache<T>\n    items: List<T>\nend\n\n"
+	iface := "interface Store<K, V>\n    fn get(store: self, key: K) -> Option<V>\n    fn put(store: self, key: K, value: V) -> self\nend\n\nstruct Cache<T>\n    items: List<T>\nend\n\n"
 	t.Run("from the header", func(t *testing.T) {
 		items := completeWith(t, true, iface+"impl Store<String, T> for Cache<T>\n    "+cursorMark+"\nend\n")
 		if got := insertOf(t, items, "put"); got != "fn put(cache: Cache<T>, key: String, value: T) -> Cache<T>\n    $0\nend" {
@@ -199,7 +199,7 @@ func TestCompletion_ImplStubGenericInterfaceArguments(t *testing.T) {
 		}
 	})
 	t.Run("pinned by a written function", func(t *testing.T) {
-		src := iface + "impl Store for Cache<T>\n    fn get(cache: Cache<T>, key: Int) -> Maybe<T>\n        if key > 0 then List.first(cache.items) else None\n    end\n\n    " + cursorMark + "\nend\n"
+		src := iface + "impl Store for Cache<T>\n    fn get(cache: Cache<T>, key: Int) -> Option<T>\n        if key > 0 then List.first(cache.items) else None\n    end\n\n    " + cursorMark + "\nend\n"
 		items := completeWith(t, true, src)
 		if got := insertOf(t, items, "put"); got != "fn put(cache: Cache<T>, key: Int, value: T) -> Cache<T>\n    $0\nend" {
 			t.Fatalf("put = %q", got)
@@ -207,12 +207,12 @@ func TestCompletion_ImplStubGenericInterfaceArguments(t *testing.T) {
 	})
 	t.Run("unpinned", func(t *testing.T) {
 		items := completeWith(t, true, iface+"impl Store for Cache<T>\n    "+cursorMark+"\nend\n")
-		want := "fn get(cache: Cache<T>, key: ${1:K}) -> Maybe<${2:V}>\n    ${3}\nend\n\nfn put(cache: Cache<T>, key: ${1:K}, value: ${2:V}) -> Cache<T>\n    ${4}\nend"
+		want := "fn get(cache: Cache<T>, key: ${1:K}) -> Option<${2:V}>\n    ${3}\nend\n\nfn put(cache: Cache<T>, key: ${1:K}, value: ${2:V}) -> Cache<T>\n    ${4}\nend"
 		if got := insertOf(t, items, "all missing functions"); got != want {
 			t.Fatalf("all =\n%s\nwant\n%s", got, want)
 		}
 		plain := completeWith(t, false, iface+"impl Store for Cache<T>\n    "+cursorMark+"\nend\n")
-		if got := insertOf(t, plain, "get"); got != "fn get(cache: Cache<T>, key: K) -> Maybe<V> end" {
+		if got := insertOf(t, plain, "get"); got != "fn get(cache: Cache<T>, key: K) -> Option<V> end" {
 			t.Fatalf("plain get = %q", got)
 		}
 	})

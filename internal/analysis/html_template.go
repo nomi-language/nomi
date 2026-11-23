@@ -340,10 +340,10 @@ func (c *checker) checkHtmlLiteral(n *ast.TaggedString, expansion ast.Node) Type
 // itself (`ToHtml`), else `slot_text_display`, which escapes any `Display`
 // value as text; a value that is neither keeps `slot_text`, whose argument
 // check reports it. In a context that writes a `Display` value's text (a
-// quoted attribute value, `<title>`'s text, a URL after its start), a
-// `Maybe` moves to the context's `_maybe` function, which writes its value
-// or nothing, so a `Maybe`'s `Some(...)` is never written; a `Maybe` of a
-// `Maybe` is an error there. The value's type is kept for the slot's call,
+// quoted attribute value, `<title>`'s text, a URL after its start), an
+// `Option` moves to the context's `_option` function, which writes its value
+// or nothing, so an `Option`'s `Some(...)` is never written; an `Option` of an
+// `Option` is an error there. The value's type is kept for the slot's call,
 // which does not check it again.
 func (c *checker) chooseHtmlTextSlots(expansion ast.Node) {
 	for _, slot := range htmlSlotCalls(expansion) {
@@ -359,13 +359,13 @@ func (c *checker) chooseHtmlTextSlots(expansion ast.Node) {
 		c.checkedSlots[arg] = ty
 		if *name != "slot_text" {
 			line, col := exprStartLineCol(arg)
-			if inner := maybePayload(ty); inner != nil && c.htmlSlotWritesInner(inner, c.recPos(line, col)) {
-				if maybePayload(inner) != nil {
-					e := errAt(arg, fmt.Sprintf("this slot does not show a `%s`", ty))
-					e.Hints = []string{htmlNestedMaybeHelp}
+			if inner := optionPayload(ty); inner != nil && c.htmlSlotWritesInner(inner, c.recPos(line, col)) {
+				if optionPayload(inner) != nil {
+					e := errAt(arg, fmt.Sprintf("this slot does not show an `%s`", ty))
+					e.Hints = []string{htmlNestedOptionHelp}
 					c.report(e)
 				}
-				c.retargetHtmlSlot(slot, *name+"_maybe")
+				c.retargetHtmlSlot(slot, *name+"_option")
 			}
 			continue
 		}
@@ -376,8 +376,8 @@ func (c *checker) chooseHtmlTextSlots(expansion ast.Node) {
 	}
 }
 
-// htmlSlotWritesInner reports whether a `Maybe<inner>` in a slot that
-// writes a `Display` value's text moves to the slot's `_maybe` function:
+// htmlSlotWritesInner reports whether an `Option<inner>` in a slot that
+// writes a `Display` value's text moves to the slot's `_option` function:
 // inner is `Display`, or not yet known. Another keeps the slot's own
 // function, whose argument check says what the slot takes.
 func (c *checker) htmlSlotWritesInner(inner Type, at Pos) bool {
@@ -388,7 +388,7 @@ func (c *checker) htmlSlotWritesInner(inner Type, at Pos) bool {
 }
 
 // htmlDisplaySlots is the slot functions that write a `Display` value's
-// text, each with a `_maybe` twin in std/html for a `Maybe`.
+// text, each with a `_option` twin in std/html for an `Option`.
 var htmlDisplaySlots = map[string]bool{
 	"slot_rcdata":       true,
 	"slot_attribute":    true,
@@ -399,7 +399,7 @@ var htmlDisplaySlots = map[string]bool{
 
 // htmlTextTakesDisplay reports whether an element-content slot writes a
 // value of type t through `Display` rather than `ToHtml`: t does not
-// implement `ToHtml` and does implement `Display`, and is not a `Maybe`, a
+// implement `ToHtml` and does implement `Display`, and is not an `Option`, a
 // `Result` or a collection, whose text is not the value's. A value of
 // interface type goes by its interface; a type parameter keeps `ToHtml`.
 func (c *checker) htmlTextTakesDisplay(t Type, at Pos) bool {
@@ -508,23 +508,23 @@ func htmlSlotCallee(slot *ast.Call) *string {
 // htmlSlotHelps is the help for a slot whose value has no rendering where
 // it stands, by the function its context calls.
 var htmlSlotHelps = map[string]string{
-	"slot_text":               "an element's content takes a value that renders itself (`ToHtml`: a `String`, a number, an `Html`, a `List<Html>`, a `Maybe` of one), or any other `Display` value, escaped as text",
+	"slot_text":               "an element's content takes a value that renders itself (`ToHtml`: a `String`, a number, an `Html`, a `List<Html>`, an `Option` of one), or any other `Display` value, escaped as text",
 	"slot_rcdata":             "`<title>` and `<textarea>` hold text, not markup: pass a `String`",
-	"slot_attribute":          "an attribute's value is text: pass a `String` or another `Display` value, or a `Maybe` of one, which writes nothing for `None`",
-	"slot_url_path":           "a slot after the start of a URL is text, escaped for its part of the URL: pass a `String` or another `Display` value, or a `Maybe` of one",
-	"slot_url_query":          "a slot after the start of a URL is text, escaped for its part of the URL: pass a `String` or another `Display` value, or a `Maybe` of one",
-	"slot_url_fragment":       "a slot after the start of a URL is text, escaped for its part of the URL: pass a `String` or another `Display` value, or a `Maybe` of one",
+	"slot_attribute":          "an attribute's value is text: pass a `String` or another `Display` value, or an `Option` of one, which writes nothing for `None`",
+	"slot_url_path":           "a slot after the start of a URL is text, escaped for its part of the URL: pass a `String` or another `Display` value, or an `Option` of one",
+	"slot_url_query":          "a slot after the start of a URL is text, escaped for its part of the URL: pass a `String` or another `Display` value, or an `Option` of one",
+	"slot_url_fragment":       "a slot after the start of a URL is text, escaped for its part of the URL: pass a `String` or another `Display` value, or an `Option` of one",
 	"slot_url_start":          "a URL attribute's value starts with a `Url` (`Url.parse(text)`) or a `SafeUrl` the program vouches for, so data cannot make a `javascript:` link",
 	"slot_css":                "a `style` value takes a number, or a `Css` the program vouches for",
-	"slot_optional_attribute": "`name=${...}` writes the attribute or leaves it out: pass a `Bool` or a `Maybe<String>`; to write text, quote the value, `name=\"${...}\"`",
+	"slot_optional_attribute": "`name=${...}` writes the attribute or leaves it out: pass a `Bool` or an `Option<String>`; to write text, quote the value, `name=\"${...}\"`",
 }
 
 // The help for an element-content slot whose value is a wrapper or a
 // collection that is `Display` but not `ToHtml`.
 const (
-	htmlTextWrapperHelp    = "a `Maybe` or a `Result` would show as `Some(...)` or `Ok(...)`: unwrap it; a `Maybe` of a `ToHtml` value shows its value, and `None` nothing"
+	htmlTextWrapperHelp    = "an `Option` or a `Result` would show as `Some(...)` or `Ok(...)`: unwrap it; an `Option` of a `ToHtml` value shows its value, and `None` nothing"
 	htmlTextCollectionHelp = "a collection would show as its `Display` form, `[a, b]`: render its elements with `Html.each`, or join them into a `String`"
-	htmlNestedMaybeHelp    = "a `Maybe` writes its value or nothing, and the inner `Maybe` would show as `Some(...)`: flatten it with `Maybe.flatten`"
+	htmlNestedOptionHelp   = "an `Option` writes its value or nothing, and the inner `Option` would show as `Some(...)`: flatten it with `Option.flatten`"
 	htmlTextTupleHelp      = "a tuple would show as `(a, b)`: put each part in a slot of its own"
 )
 
@@ -607,7 +607,7 @@ const (
 	htmlTextTuple
 )
 
-// htmlTextShape is whether t is std's `Maybe` or `Result`, one of its
+// htmlTextShape is whether t is std's `Option` or `Result`, one of its
 // collections, a tuple, or none of these.
 func htmlTextShape(t Type) int {
 	t = resolveTypeVar(t)
@@ -622,7 +622,7 @@ func htmlTextShape(t Type) int {
 		return htmlTextScalar
 	}
 	switch concreteTypeName(t) {
-	case "Maybe", "Result":
+	case "Option", "Result":
 		return htmlTextWrapper
 	case "Set", "Vector":
 		return htmlTextCollection

@@ -29,8 +29,8 @@ func TestFormat_CaseArmSpacingFollowsTheLayout(t *testing.T) {
 			want: "fn f(x: Int) -> Int\n    case x\n        _ -> 0\n    end\nend\n",
 		},
 		"a one-statement block arm is a full block and breaks the others": {
-			src:  "fn f(x: Maybe<Int>)\n    case x\n        Some(n) ->\n            assert n > 0\n        None -> assert False\n    end\nend\n",
-			want: "fn f(x: Maybe<Int>)\n    case x\n        Some(n) ->\n            assert n > 0\n\n        None ->\n            assert False\n    end\nend\n",
+			src:  "fn f(x: Option<Int>)\n    case x\n        Some(n) ->\n            assert n > 0\n        None -> assert False\n    end\nend\n",
+			want: "fn f(x: Option<Int>)\n    case x\n        Some(n) ->\n            assert n > 0\n\n        None ->\n            assert False\n    end\nend\n",
 		},
 		"subject-less case with flat arms": {
 			src:  "fn f(x: Int) -> String\n    case\n        x > 0 -> \"positive\"\n\n        x < 0 -> \"negative\"\n        _ -> \"zero\"\n    end\nend\n",

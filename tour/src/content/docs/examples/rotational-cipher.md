@@ -20,7 +20,7 @@ pub fn rotate(text: String, key: Int) -> String
 
     text
     |> String.to_codepoints()
-    |> Iter.map(fn letter -> Map.get(cipher, letter) |> Maybe.with_default(letter))
+    |> Iter.map(fn letter -> Map.get(cipher, letter) |> Option.with_default(letter))
     |> Iter.to_list()
     |> String.from_codepoints()
 end
@@ -64,7 +64,7 @@ test result: ok. 10 passed, 0 failed
 
 ## How it's written
 
-- The cipher is a `Map<Codepoint, Codepoint>` built once per call from the ranges `'a'..='z'` and `'A'..='Z'`: each range zipped with itself cycled and dropped by the key. A character that is not a key, such as a space or a digit, maps to itself through `Maybe.with_default`.
+- The cipher is a `Map<Codepoint, Codepoint>` built once per call from the ranges `'a'..='z'` and `'A'..='Z'`: each range zipped with itself cycled and dropped by the key. A character that is not a key, such as a space or a digit, maps to itself through `Option.with_default`.
 - The map avoids codepoint arithmetic, which would pick `'a'` or `'A'` by the letter's case, take its offset modulo 26 and turn the sum back with `Int.to_codepoint(...)!`. The map needs none of that, and a character outside both alphabets needs no test of its own.
 - `Int.modulo(key, 26)` keeps the key in one turn of the alphabet, so a negative key would rotate backwards. The canonical keys are all from 0 to 26.
 - The text is read with `String.to_codepoints`, since the alphabet ranges are codepoints, and written back with `String.from_codepoints`. That takes a `List`, as `to_codepoints` gives one, so the lazy map ends in `Iter.to_list()`.

@@ -35,7 +35,7 @@ import
     iter.Iter
     lists.List
     maps.Map
-    maybe.Maybe.{self, None, Some}
+    option.Option.{self, None, Some}
     process::host
     results.Result.{self, Err, Ok}
     strings.String
@@ -68,7 +68,7 @@ pub struct Answer
     /// The program it matches, as the command names it.
     program: String
     /// The arguments it matches; `None` matches any.
-    args: Maybe<List<String>> = None
+    args: Option<List<String>> = None
     /// The exit code.
     code: Int64 = 0
     /// What the program writes to its standard output.
@@ -76,7 +76,7 @@ pub struct Answer
     /// What it writes to its standard error.
     stderr: String = ""
     /// The error starting it fails with, in place of running.
-    error: Maybe<Error> = None
+    error: Option<Error> = None
 end
 
 /// One start the fake responded to, or refused.
@@ -84,7 +84,7 @@ pub struct Call
     program: String
     args:    List<String> = []
     /// The directory the command asked for.
-    dir: Maybe<String> = None
+    dir: Option<String> = None
     /// The variables the command added to the environment.
     env: Map<String, String> = {}
     /// Everything the program was given on its standard input.
@@ -122,7 +122,7 @@ pub fn run<T>(answers: List<Answer>, body: () -> T) -> Ran<T>
     fake = host.new_fake()
 
     Iter.each(answers, fn a ->
-        args = Maybe.with_default(a.args, [])
+        args = Option.with_default(a.args, [])
         any_args = a.args == None
 
         case a.error

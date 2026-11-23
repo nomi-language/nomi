@@ -7,7 +7,7 @@ package rt
 //
 // A function crossing into an adapter is called from one place, and that
 // place can import whatever it names. A value is stored: in a local, a struct
-// field, a list element, a `Maybe` payload, in code that never calls the
+// field, a list element, an `Option` payload, in code that never calls the
 // adapter. What every consumer can name is rt, so the handle type belongs here
 // and only the implementation lives with the adapter. The handle mechanism
 // (a Go value with no Nomi-visible structure, carried through a lowered

@@ -114,7 +114,7 @@ test "captures gives the groups of the first match as a tuple, without the whole
     assert String.captures("no address", pair) == None
 end
 
-test "a group a match can leave out is a Maybe, and an empty one is Some(\"\")"
+test "a group a match can leave out is an Option, and an empty one is Some(\"\")"
     assert String.captures("b", Regex"(a)|(b)") == Some((None, Some("b")))
     assert String.captures("y", Regex"(x*)(y)") == Some(("", "y"))
     assert String.captures("ac", Regex"a(b)?c") == Some(None)

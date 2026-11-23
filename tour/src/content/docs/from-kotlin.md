@@ -7,7 +7,7 @@ Much of Kotlin carries over: `val` bindings, data classes, sealed
 hierarchies matched by an exhaustive `when`, named arguments with defaults,
 lambdas with inferred parameters, string templates, and structured
 concurrency. What differs most: nothing is mutable at all, nullable types
-become `Maybe`, errors are values rather than exceptions, and there are no
+become `Option`, errors are values rather than exceptions, and there are no
 methods or extension functions: a function is called through its owner.
 
 The [cheat sheet](/cheat-sheet/) lists the rules in one place.
@@ -19,7 +19,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `val x = 1`, `var x` | `x = 1`. There is no `var`; a later `x = ...` binds the name again. |
 | `list.map { it.name }` | `Iter.map(list, .name)`: there are no method calls on a value |
 | `fun String.shout() = ..`, `"a".shout()` | A plain function, `shout("a")`, or one in `impl` called through its type |
-| `String?`, `?.`, `?:` | `Maybe<String>`, `Maybe.map`, `Maybe.with_default`, or `Maybe.otherwise` when the fallback may be missing too |
+| `String?`, `?.`, `?:` | `Option<String>`, `Option.map`, `Option.with_default`, or `Option.otherwise` when the fallback may be missing too |
 | `throw`, `runCatching` | Return `Result<T, E>`; a postfix `?` passes an `Err` up |
 | `x.toDouble()`, `x as Shape` | `Int.to_float(x)`. Nomi's `x as T` never casts or throws: it only states a type the value already fits (`[] as List<String>`) |
 | `a / b` throws `ArithmeticException` when `b` is 0, and an `Int` wraps on overflow | `/` and `%` on two `Int`s take a `NonZeroInt` divisor, so the check for zero comes before the division: a literal other than 0 is one, and so is `b` after `if b == 0 then return ..`. An `Int` is exact at any size and never overflows. |
@@ -105,7 +105,7 @@ fn replay(account: Account, events: List<Event>) -> Result<Account, String>
     Iter.try_reduce(events, account, apply)
 end
 
-fn find_owner(accounts: List<Account>, owner: String) -> Maybe<Account>
+fn find_owner(accounts: List<Account>, owner: String) -> Option<Account>
     Iter.find(accounts, fn account -> account.owner == owner)
 end
 

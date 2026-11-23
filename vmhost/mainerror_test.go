@@ -94,7 +94,7 @@ func TestRun_MainOkAndUnitMainsSucceed(t *testing.T) {
 func TestLoad_MainReturningAValueIsRejected(t *testing.T) {
 	for _, src := range []string{
 		"fn main() -> Result<String, String>\n    Ok(\"hello\")\nend\n",
-		"fn main() -> Maybe<Int>\n    None\nend\n",
+		"fn main() -> Option<Int>\n    None\nend\n",
 		"fn main() -> Int\n    1\nend\n",
 	} {
 		_, err := vmhost.LoadSource("main.nomi", src)

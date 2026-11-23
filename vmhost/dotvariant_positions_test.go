@@ -33,7 +33,7 @@ fn parse(s: String) -> Result<Int, String>
 end
 
 fn main()
-    fn none() -> Maybe<Int>
+    fn none() -> Option<Int>
         .None
     end
 
@@ -47,7 +47,7 @@ fn main()
         end
     end
 
-    fn first(xs: List<Int>) -> Maybe<Int>
+    fn first(xs: List<Int>) -> Option<Int>
         Some(x) = List.first(xs) else
             return .None
         end
@@ -61,7 +61,7 @@ fn main()
         .Ok(n)
     end
 
-    fn pick<T>(x: T, keep: Bool) -> Maybe<T>
+    fn pick<T>(x: T, keep: Bool) -> Option<T>
         if keep then .Some(x) else .None
     end
 
@@ -72,7 +72,7 @@ fn main()
         end
     end
 
-    positive: (Int) -> Maybe<Int> = fn n -> if n > 0 then .Some(n) else .None
+    positive: (Int) -> Option<Int> = fn n -> if n > 0 then .Some(n) else .None
     length: (String) -> Result<Int, String> = fn s -> case s
         "" -> .Err("empty")
         _ -> .Ok(String.length(s))

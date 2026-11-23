@@ -115,5 +115,5 @@ func TestConjunction_HoldsOnlyInterfaces(t *testing.T) {
     0
 end`
 	_, errs := checkSource(src)
-	expectError(t, errs, "`and` joins interfaces or subtypes, and Int is neither")
+	expectError(t, errs, "`and` joins interfaces or refinements, and Int is neither")
 }

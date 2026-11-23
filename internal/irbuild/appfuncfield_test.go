@@ -25,7 +25,7 @@ struct App
   add: (Int) -> Int
   scale: (Int) -> Int
   cfg: Cfg
-  hook: Maybe<(Int) -> Int>
+  hook: Option<(Int) -> Int>
   context: Context
 end
 
@@ -66,11 +66,11 @@ fn main()
   io.print("with ${tripled(10)}")
   io.print("after with ${App.steps(10)}")
   case App.hook
-    Some(h) -> io.print("maybe ${h(5)}")
+    Some(h) -> io.print("option ${h(5)}")
     None -> io.print("none")
   end
 end
-`, "call 20\nvalue 20\nargument [2, 4, 6]\npipe 20\npartial 101\nclosure 14\nstruct field 2\nwith 60\nafter with 20\nmaybe 4\n",
+`, "call 20\nvalue 20\nargument [2, 4, 6]\npipe 20\npartial 101\nclosure 14\nstruct field 2\nwith 60\nafter with 20\noption 4\n",
 		"boot", "tripled", "main")
 }
 

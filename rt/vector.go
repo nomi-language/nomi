@@ -433,7 +433,7 @@ func (v Vector[T]) At(i int) T { return VectorAt(v, int64(i)) }
 // bounds.
 //
 // A negative index is None rather than a wrap-around, and the corpus reads it: `Vector.get(v, -1) == None`.
-func VectorGet[T any](v Vector[T], index int64) Maybe[T] {
+func VectorGet[T any](v Vector[T], index int64) Option[T] {
 	if !vectorInRange(v, index) {
 		return None[T]()
 	}
@@ -578,7 +578,7 @@ func VectorToSlice[T any](v Vector[T]) []T {
 // std's own comment at that declaration says what this must be: the push loop
 // is an index walk with no per-element view to rebuild. So it walks the
 // window a leaf at a time and allocates nothing per element; a `next_item`
-// loop would build one `Maybe` and one tuple per element to throw both away.
+// loop would build one `Option` and one tuple per element to throw both away.
 func VectorEachWhile[T any](fr *Frame, v Vector[T], yield func(fr *Frame, item T) bool) bool {
 	return vectorChunks(v, func(c []T) bool {
 		for _, x := range c {
@@ -604,7 +604,7 @@ func VectorSeq[T any](v Vector[T]) Seq[T] {
 // answers `Some(length(vector))`, which is O(1). Keeping it O(1) is the point —
 // `Iter.count` over a Vector must not degrade to a walk behind a name std
 // documents as free.
-func VectorKnownCount[T any](v Vector[T]) Maybe[int64] { return Some(VectorLength(v)) }
+func VectorKnownCount[T any](v Vector[T]) Option[int64] { return Some(VectorLength(v)) }
 
 // --- identity ---------------------------------------------------------------
 

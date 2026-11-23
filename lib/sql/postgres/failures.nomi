@@ -96,7 +96,7 @@ fn constraint(report: Report, kind: ConstraintKind, column: String) -> sql.Error
     sql.Error.Constraint{kind:, name: named, table: present(report.table), column: present(column)}
 end
 
-fn present(text: String) -> Maybe<String>
+fn present(text: String) -> Option<String>
     if text == "" then None else Some(text)
 end
 

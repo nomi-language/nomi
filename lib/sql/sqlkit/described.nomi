@@ -56,7 +56,7 @@ derive Equatable for Column
 derive Equatable for QueryError
 
 /// The column `column` of the table `table`.
-pub fn column(tables: List<Table>, table: String, column: String) -> Maybe<TableColumn>
+pub fn column(tables: List<Table>, table: String, column: String) -> Option<TableColumn>
     Iter.find(tables, fn t -> t.name == table)
-    |> Maybe.flat_map(fn t -> Iter.find(t.columns, fn c -> c.name == column))
+    |> Option.flat_map(fn t -> Iter.find(t.columns, fn c -> c.name == column))
 end

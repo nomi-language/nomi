@@ -170,7 +170,7 @@
 // type's inner, an interface method's parameters and result) by its
 // spelling, compared as typeText renders it with the row's own. A row
 // states that spelling where it is not the kind's own name (`decl`: a
-// subtype `month: Int64`, a container, a std newtype) and derives it for
+// refinement `month: Int64`, a container, a std newtype) and derives it for
 // the five scalars (kind.nomi). No validator resolves a type, so a row
 // needs no other row admitted first, two rows that name each other are
 // each checked on their own, and an interface's anchor does not depend on
@@ -399,7 +399,7 @@
 // names its owner; only `stdIfacePlan` still picks among
 // std's overloads by the operands' kinds (`stdPick`). A std function a program
 // instantiates for itself (a generic one, or one whose body std does not
-// retain: `Generator.bool()`, `Maybe.hash(x)`) is instantiated from the
+// retain: `Generator.bool()`, `Option.hash(x)`) is instantiated from the
 // function the record names (`stdGenericQualCall` over
 // `recordedStdTemplate`), as a module's function is (`stdGenericFileCall`);
 // a call its record qualifies with an interface that reaches an impl's
@@ -411,7 +411,7 @@
 // for another gen's generic instance, `siblingSitePlan` and
 // `siblingOwnerPlanFor` for another file's, `callerItemPlan` for a
 // program's item called from a std instance built for the program (a
-// derived `Maybe<Written>.hash` calling `Written`'s), `siblingMethodPlan` for another
+// derived `Option<Written>.hash` calling `Written`'s), `siblingMethodPlan` for another
 // gen's withheld function, `stdRecvItemPlan` for another file's impl on a
 // receiver no file declares (`impl Multiply<Shares, Decimal> for
 // Decimal`), `stdFuncPlan` and `stdSiblingShortPlan` for std's.
@@ -622,7 +622,7 @@
 // own impl is compared by its shape, as rt.Equal compares a part inside a
 // container, through the written bodies the key table names
 // (`irRecordKeyImpls`, vm/keys.go). An `==` the builder writes
-// for a call (`Maybe.equal(a, b)`, `Equatable.equal(a, b)`) carries the
+// for a call (`Option.equal(a, b)`, `Equatable.equal(a, b)`) carries the
 // call's record (`carryUse`).
 //
 // `<`, `<=`, `>` and `>=` are one switch on the record too (`ordering`,
@@ -659,7 +659,7 @@
 // carried onto the operator (`operatorUseOfCall`, `carryUse`), so `a == b`
 // and `Equatable.equal(a, b)` end in one arm of `equality` (the call is
 // lowered as the written `==` is, operands and all, by `compare`, so
-// `Maybe.equal(Some(circle), Some(shape))` widens its Circle into Shape
+// `Option.equal(Some(circle), Some(shape))` widens its Circle into Shape
 // as `==` does), and `Int.add(a, b)` in `arithmetic`'s; by any other
 // impl, the call of it the record names, which the routes after the
 // switch plan (`recordedCallPlan`); by shape, Equatable's as `==` by
@@ -840,7 +840,7 @@
 //
 // The std calls `typeQualCall` lowers by a route of its own (a seeded
 // `Iter.reduce`, `ToJson.to_json` over a record, `Display.to_string` over a
-// scalar, `Maybe.is_some`) are a second table in stdroutes.go,
+// scalar, `Option.is_some`) are a second table in stdroutes.go,
 // `stdQualRoutes`, keyed by what the call is qualified with: the record's
 // std type or interface (RouteOwner().Std) and the method, which
 // `recordedQualRoute` reads once per call. An exact key names one function; a key
@@ -1073,8 +1073,8 @@
 //
 // The node type chooses the test. The checker's records decide what the
 // node cannot: the variant a head names (PatternVariants, variantOf),
-// whether a head names a subtype (PatternTypes, patternRefines: a
-// subtype's value is its base's, so `Port(n)` binds the value itself),
+// whether a head names a refinement (PatternTypes, patternRefines: a
+// refinement's value is its base's, so `Port(n)` binds the value itself),
 // whether the pattern can fail at all (IrrefutablePatterns), and what a
 // bracket pattern takes apart (ListPattern.Kind). The value's kind shapes
 // only the IR of the test the node chose: a field read off a struct or off
@@ -1142,6 +1142,19 @@
 // built, [frontend.StdlibErrors] reports every check error the shared
 // analysis recorded, so a case fails with the error rather than blocking.
 //
+// A program the front end refuses is lowered only for an editor's marks,
+// when every error is in a function, an impl function, a test or a group.
+// AnalyzeFile, AnalyzeFileSource and AnalyzeVirtual answer such a program
+// beside the error only to a caller that sets frontend.Config.ErrorDecls
+// (frontend.Project.ErrorDecls); every other caller gets a nil Program and
+// the error. Program.ErrorDecls names those
+// declarations, and the builder leaves each unlowered before attempting
+// anything in it (errorDeclBody, in funcDecl, implFunc and testCase): no
+// decline is noted, since the front end has refused the program already,
+// and a call of one reaches an unretained function, as a call of a
+// declined body does. The rest lowers as in a program that checks, which
+// every type and signature is, since no error is in one.
+//
 // A decline is for a program the builder does not lower yet. A state no
 // checked program reaches panics instead, naming what was missing, and the
 // host reports it as an internal error (vmhost.InternalError, "internal
@@ -1189,7 +1202,7 @@
 // irLoweredRecordRetained and irHeldUpdateBase on a tuple, record or update
 // base the callable domain holds that is not retained (none is), and a
 // construct's own panic on a kind built from held parts that its predicate
-// refuses (a Set or Maybe over a held element, a List of a spread's held
+// refuses (a Set or Option over a held element, a List of a spread's held
 // elements, a map update's entries). Held are a lowered value's kind; a
 // lowered body's result, the kind the checker's records give it (a
 // lambda, a `concurrent` body, an `if` or `case` used for its value); a
@@ -1216,7 +1229,7 @@
 //
 // The domain guards that remain ask what the entry did not hold: a kind
 // joined from operands that differ (a map literal's entries), an instance
-// that may fail to form (genStructInstance, a List function's Maybe), a probe that
+// that may fail to form (genStructInstance, a List function's Option), a probe that
 // takes another route. A
 // marker, std's own (`ChannelClosed`) among them, is a retained leaf
 // (irRetainedMarker), so it passes each narrower predicate as any leaf
@@ -1224,7 +1237,7 @@
 // its elements holds any value of the domain, Unit included: a List or
 // Vector element (irRetainedValueKind), a Map value (irMapValueKind), an
 // `Iter<Unit>` (irSeqKindOf), a channel or a task's payload
-// (irConcHandleKind), a Maybe's or Result's payload
+// (irConcHandleKind), an Option's or Result's payload
 // (irRetainedPreludePayload), a list pattern's subject (irCaseListKind) and
 // a Vector literal's items. What reads an element (equality, hashing,
 // Debug) keeps its own check. A stage that builds a List from the elements
@@ -1382,13 +1395,13 @@
 // names its lowering holds while it runs, `holdDeclKeys`) and a
 // process-wide std interface (`stdIfaceDefs`) by its spec's module and
 // name, so a bundle's reader and writer name `impl CheckedLiteral<Display,
-// Url> for Url`'s functions alike. An instance that reads a subtype, one
+// Url> for Url`'s functions alike. An instance that reads a refinement, one
 // whose type parameter is bounded by an interface that makes a value of its
-// type and stands for a type that holds a subtype, is an instance of its own,
+// type and stands for a type that holds a refinement, is an instance of its own,
 // and after each such argument its name adds `!` and where the argument
-// holds its subtypes, each by its declaring file and name
-// (`std/json.Json.decode_as<2!std/int.NonNegativeInt>`; subtypeinst.go); every other
-// instance at a subtype is its base's. An impl function adds its block's
+// holds its refinements, each by its declaring file and name
+// (`std/json.Json.decode_as<2!std/int.NonNegativeInt>`; refinementinst.go); every other
+// instance at a refinement is its base's. An impl function adds its block's
 // receiver and substitution, a default accessor its slot (after the type
 // arguments, for a generic std function's); an interface method a program
 // interns for a std interface (`stdIfaceMethodToken`) is the program's.
@@ -1494,7 +1507,7 @@
 // ([KeptRefinement], KeptUnit.Rules): a literal's value and the
 // `try_from` of each step of its chain by linkage name, and a literal's
 // Build and each generic step's Check, the functions that make its value
-// and call a generic subtype's `try_from` at its type arguments, in an
+// and call a generic refinement's `try_from` at its type arguments, in an
 // object of its own (KeptUnit.Builds). A declared generic rule's Check is
 // not kept: its Instances prefix finds the instance it calls in the kept
 // objects. A lowering of one
@@ -1549,7 +1562,7 @@
 // call through the bound, ir.NewBoundCall (boundcall.go). An instance an
 // abstract body asks for at its type parameters keeps them open, so
 // another generic function it calls, and an impl its record resolves at
-// `Maybe<T>`, is read the same way. The impl blocks over a generic type
+// `Option<T>`, is read the same way. The impl blocks over a generic type
 // are built at its instance at its own type parameters, and a generic
 // function of a block at its own.
 //
@@ -1755,7 +1768,7 @@
 // declaration, and a generic one is instantiated per type arguments as a
 // program template is. The signatures are std's source: while they
 // resolve, `srcFA` returns std's file, so a position-keyed lookup
-// (`Maybe<String>` in `Matcher.find_in`) reads what the checker recorded
+// (`Option<String>` in `Matcher.find_in`) reads what the checker recorded
 // there, and a type expression's kind is the projection of the type std's
 // checker recorded for it (`typeOf`), so `ToJson`'s `Json` needs no import
 // and stays std's in a file that declares its own `Json`. A file that binds a prelude enum's name to its own type (`struct
@@ -1788,7 +1801,7 @@
 // type. A thunk is keyed by the box's type name, so the first value to
 // ask for it gives its type, and two checker types of one kind share it:
 // what projection drops never changes which body a value reaches, since
-// a subtype has its base's impls (spec §4 *Subtypes*), an alias is its
+// a refinement has its base's impls (spec §4 *Refinements*), an alias is its
 // target and a host type's phantom argument (`Regex<C>`) has one
 // representation and std's impl is generic over it. Where the file binds
 // the interface's bare name to something else, the thunk calls the std
@@ -1969,7 +1982,7 @@
 //
 // Range's own functions are intrinsics (irrange.go): `contains`,
 // `is_bounded` and its parts `start`, `stop` and `is_inclusive`, which the
-// VM reads off the range's record with no element method, so a subtype
+// VM reads off the range's record with no element method, so a refinement
 // rule generic over a Comparable element (`ClosedRange`, `BoundedRange`)
 // lowers and runs as any body does, at compile time too. Range's and
 // Iter's own protocols (`known_count`, `is_infinite`, `steps_between` as a
@@ -2058,7 +2071,7 @@
 // rather than its own record: an equality's bare prelude variant beside a
 // typed operand takes that operand's (`x == None`, `None == x`,
 // `bareEqualityOperands`), and so does a prelude constructor call there
-// (`x == Maybe.Some(v)`, `preludeCallWant`).
+// (`x == Option.Some(v)`, `preludeCallWant`).
 //
 // `convertTo` converts a value of one kind to the representation a
 // position of another kind holds: a value of Infallible retyped
@@ -2106,7 +2119,7 @@
 //     a dispatch reads the value's own type name (`erasesUnboxed`).
 //   - a function into one whose parameters and result convert as above: no
 //     work. A call passes and returns the same values.
-//   - a std container, a `Maybe` or `Result`, a std leaf (`Decimal`,
+//   - a std container, an `Option` or `Result`, a std leaf (`Decimal`,
 //     `Bytes`), an `embeds` enum, or a tuple into a std interface, into an
 //     interface: a box per element (`irBoxPlan`), by the impl the checker's
 //     record of the conversion names (analysis.FileAnalysis.Conversions,
@@ -2128,7 +2141,7 @@
 // (internal/hoverdoc/conversions.go), so it says what the builder does; a
 // record that says free where the kinds cannot relabel is a decline, never
 // a silent rebuild. [ir.ValType.Accepts] accepts the copy: two
-// instances of Maybe or of Result (`sameCovariantEnum`), and a function
+// instances of Option or of Result (`sameCovariantEnum`), and a function
 // parameter either way round. A relabelled record may hold an `Int` in a
 // word slot where its new type says a reference, so the VM reads a field
 // through the record's own descriptor (`frame.writeField`, `opProjF`,
@@ -2141,7 +2154,7 @@
 //
 // A std operation the builder lowers itself or crosses to the host
 // (`List.concat`, `Vector.push`, `Set.union`, `Map.put`,
-// `Maybe.with_default`, `Iter.concat`) types its operands at the checker's
+// `Option.with_default`, `Iter.concat`) types its operands at the checker's
 // instantiation of the call (`recordedTypeArg`, `solvedParamKind`), not at
 // its first operand's kind, and a std body instantiated at its receiver
 // (`Map.merge_with`) takes the receiver at that instantiation. So an
@@ -2155,7 +2168,7 @@
 // keys are hashed again (a box hashes and compares by its static type and
 // then that type's equality, so the rebuilt collection has the size it
 // had); a tuple, record or struct made again from its converted fields; a
-// generic enum (Maybe, Result, a user enum) through an adapter that
+// generic enum (Option, Result, a user enum) through an adapter that
 // matches each variant. A declared generic type is never relabelled, even
 // where each element would be: its instance's descriptor names its type
 // arguments ([rt.TypeDesc].Inst, `main.Box<Int>`), and a dispatch on an
@@ -2220,23 +2233,23 @@
 // TestFilesLowerOnTheirOwnAsInTheProgram (internal/expectation), and
 // TestStdBundle_DecodesToTheLowering and TestStdObjects_* (here).
 //
-// # Subtypes and validated types
+// # Refinements and validated types
 //
-// A subtype (spec §4 *Subtypes*; refinement.go),
-// `subtype Port Int when ...`, introduces a type the checker keeps apart, and no
+// A refinement (spec §4 *Refinements*; refinement.go),
+// `refine Port Int when ...`, introduces a type the checker keeps apart, and no
 // representation: a Port is an Int at run time. So the builder has no def
 // for it, as it has none for a `typealias`: an annotation naming it
 // (refinementKind) and a type the checker solved to it (project's
 // DistinctType arm) are its base's kind, every conversion up to a parent or
 // ancestor costs nothing, and a literal checked as a Port is the Int
 // constant. Its call form `Port(8080)`, its `unchecked` and its
-// destructuring `Port(n) = port` are the value itself. A subtype
+// destructuring `Port(n) = port` are the value itself. A refinement
 // implements no interface (the checker refuses an impl), so no dispatch
 // table can confuse it with its base.
 //
 // Its generated functions, `try_from` and `unchecked`
 // (analysis/refinement_synthesis.go), are an inherent block with no
-// receiver kind of its own, an owner block reached by the subtype's name
+// receiver kind of its own, an owner block reached by the refinement's name
 // as an interface's inherent block is (ownerimpl.go). `try_from` calls its
 // rule through the VM intrinsic `vm.refinement_rule` (ast.RefinementRule),
 // which answers False when the rule traps, so a value whose rule traps is
@@ -2244,7 +2257,7 @@
 // it at the literal. A parent named through a typealias is called by the
 // declaration the checker resolved the call to (typeQualCall), whether or
 // not the file has a name for it. A validated type, or a `type` over a
-// subtype, has a def, and its `try_from` is its TryFrom impl's; a generic one takes the
+// refinement, has a def, and its `try_from` is its TryFrom impl's; a generic one takes the
 // base at its impl's parameters and is built at the
 // type arguments the checker solved for the generated `unchecked` node.
 //
@@ -2252,25 +2265,25 @@
 // construction is checked. Its `unchecked` builds it from the record of its
 // fields, as the call form `Span({...})` does.
 //
-// A read of a subtype (subtyperead.go) is a call of FromJson's function at
-// a subtype, which reaches its base's impl: the checker's record of the
-// call at the instance's types (analysis.FileAnalysis.SubtypeReadAt)
+// A read of a refinement (refinementread.go) is a call of FromJson's function at
+// a refinement, which reaches its base's impl: the checker's record of the
+// call at the instance's types (analysis.FileAnalysis.RefinementReadAt)
 // names each `try_from` that decides the value, and the builder calls
 // them on what the base's impl answered (typeQualCall's readNarrowed, and
 // the field reads irrecordjson.go writes), answering the record's breach,
 // a ShapeError or None, when one is None. A record read from texts checks
-// each field of a subtype after its base's Parse (irparsefields.go), a
+// each field of a refinement after its base's Parse (irparsefields.go), a
 // breach the record's None. A container needs nothing more: its impl
 // reads each element through the element's own call, in an instance that
-// reads the subtype and so is its own (subtypeinst.go). A `try_from` is
+// reads the refinement and so is its own (refinementinst.go). A `try_from` is
 // called by the record the checker made of it, its reference carried at
-// the callee (carryCall, calleeRef) for a generic subtype's type
-// arguments, and reached from another module, a private subtype's
+// the callee (carryCall, calleeRef) for a generic refinement's type
+// arguments, and reached from another module, a private refinement's
 // included (fileOwnFunc).
 //
-// Each literal the checker typed as a subtype
+// Each literal the checker typed as a refinement
 // (analysis.FileAnalysis.RefinedLiterals) becomes a RefinementSite: the
-// literal, and the `try_from` of each subtype whose rule it must
+// literal, and the `try_from` of each refinement whose rule it must
 // satisfy (analysis.RefinementChecks) by linkage name (implFuncLink: a
 // shared std module's by the function's declaration, a listed one's and
 // a program's by its block, with an interface impl's written arguments,
@@ -2292,8 +2305,8 @@
 // PlantMissingRefinementCheckForTest makes the builder miss one, so a
 // test holds that.
 //
-// A generic subtype is its base at its type arguments: an annotation
-// `NonEmptyList<Int>` is List<Int>'s kind (project's subtype arm, over the
+// A generic refinement is its base at its type arguments: an annotation
+// `NonEmptyList<Int>` is List<Int>'s kind (project's refinement arm, over the
 // checker's type for the annotation), and so is a type the checker solved
 // to one. In a std
 // signature, `BoundedRange<Int>` in `Generator.int`, it is the same
@@ -2301,10 +2314,10 @@
 // lowering retains as it does a body over the base. A
 // literal of one
 // is checked by a function of no arguments that builds the literal and
-// calls the subtype's `try_from` instance at the literal's type
+// calls the refinement's `try_from` instance at the literal's type
 // arguments, the call the checker typed (RefinementSiteStep.Check,
 // refinementCheckBuild), its owner the declaration the checker recorded,
-// whatever the file binds the subtype's name to (typeQualCall); the sites
+// whatever the file binds the refinement's name to (typeQualCall); the sites
 // are built before the late instances
 // other files asked for are flushed, so an instance such a call asks
 // another file for is built. Its declaration's RefinementRuleSite has a
@@ -2317,11 +2330,11 @@
 // linked program has (an impl function's symbol carries its interface,
 // ir.Symbol.Impl), which the kept lowering keeps.
 //
-// A std signature that names a subtype, `Int.pow(n: Int, exp:
+// A std signature that names a refinement, `Int.pow(n: Int, exp:
 // NonNegativeInt)`, has its base's kind (projectShared), a scalar, a
 // Decimal or a type std declares, and its host adapter takes the base's
-// value (internal/hostgen's shape of a subtype is its parent's). A
-// subtype of any other base, a collection or range at fixed arguments
+// value (internal/hostgen's shape of a refinement is its parent's). A
+// refinement of any other base, a collection or range at fixed arguments
 // (`Ratios`, `List<Int>`; `FiniteRange`, `Range<Float>`), a struct or an
 // enum std declares (`FieldBits`, `JsonObject`), has the kind of its first
 // parent as its declaration writes it.

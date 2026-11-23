@@ -131,7 +131,7 @@ func TestQuestion_AfterAName(t *testing.T) {
 
 // A `?` that starts a line is not written against the line above.
 func TestQuestion_OnTheExpressionsLine(t *testing.T) {
-	if _, err := Parse(lexer.Lex("fn f() -> Maybe<Int>\n    x = g()\n    ?\nend")); err == nil {
+	if _, err := Parse(lexer.Lex("fn f() -> Option<Int>\n    x = g()\n    ?\nend")); err == nil {
 		t.Errorf("a `?` alone on a line parsed")
 	}
 }

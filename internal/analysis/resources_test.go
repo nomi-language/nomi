@@ -54,7 +54,7 @@ func at(line, col int, msg string) string {
 }
 
 func TestReleaseDeferredIsAccepted(t *testing.T) {
-	expectReleaseErrors(t, `fn first(path: String) -> Result<Maybe<String>, Error>
+	expectReleaseErrors(t, `fn first(path: String) -> Result<Option<String>, Error>
     r = fs.open(path)?
     defer Reader.close_quietly(r)
     Reader.read_line(r)
@@ -346,13 +346,13 @@ func TestReleaseStreamedResponse(t *testing.T) {
 	expectReleaseErrors(t, `import std::http.{self, Request, StreamedResponse}
 import std::url.Url
 
-fn first(url: Url) -> Result<Maybe<String>, http.Error>
+fn first(url: Url) -> Result<Option<String>, http.Error>
     response = http.stream(Request{url:})?
     defer StreamedResponse.close(response)
     Reader.read_line(response.body) |> Result.map_err(fn e -> http.Error.Body{error: e})
 end
 
-fn forgotten(url: Url) -> Result<Maybe<String>, http.Error>
+fn forgotten(url: Url) -> Result<Option<String>, http.Error>
     response = http.stream(Request{url:})?
     Reader.read_line(response.body) |> Result.map_err(fn e -> http.Error.Body{error: e})
 end
@@ -687,7 +687,7 @@ func leakMsg(name, release string) string {
 }
 
 func TestReleaseAPathThatDropsAHandedOnValueIsAnError(t *testing.T) {
-	expectReleaseErrors(t, `fn maybe_open(path: String, want: Bool) -> Result<Maybe<Reader>, Error>
+	expectReleaseErrors(t, `fn option_open(path: String, want: Bool) -> Result<Option<Reader>, Error>
     r = fs.open(path)?
     defer on error Reader.close_quietly(r)
     if not want then
@@ -696,7 +696,7 @@ func TestReleaseAPathThatDropsAHandedOnValueIsAnError(t *testing.T) {
     Ok(Some(r))
 end
 `, at(5, 9, leakMsg("r", "Reader.close_quietly")))
-	expectReleaseErrors(t, `fn maybe_open(path: String, want: Bool) -> Result<Maybe<Reader>, Error>
+	expectReleaseErrors(t, `fn option_open(path: String, want: Bool) -> Result<Option<Reader>, Error>
     r = fs.open(path)?
     if not want then
         return Ok(None)
@@ -704,12 +704,12 @@ end
     Ok(Some(r))
 end
 `, at(4, 9, leakMsg("r", "Reader.close_quietly")))
-	expectReleaseErrors(t, `fn maybe_open(path: String, want: Bool) -> Result<Maybe<Reader>, Error>
+	expectReleaseErrors(t, `fn option_open(path: String, want: Bool) -> Result<Option<Reader>, Error>
     r = fs.open(path)?
     if want then Ok(Some(r)) else Ok(None)
 end
 `, at(3, 35, leakMsg("r", "Reader.close_quietly")))
-	expectReleaseErrors(t, `fn by_mode(path: String, mode: Int, no: Error) -> Result<Maybe<Reader>, Error>
+	expectReleaseErrors(t, `fn by_mode(path: String, mode: Int, no: Error) -> Result<Option<Reader>, Error>
     r = fs.open(path)?
     defer on error Reader.close_quietly(r)
     case mode
@@ -726,7 +726,7 @@ func TestReleaseEveryPathHandingOnIsAccepted(t *testing.T) {
     reader: Reader
 end
 
-fn deferred(path: String, want: Bool) -> Result<Maybe<String>, Error>
+fn deferred(path: String, want: Bool) -> Result<Option<String>, Error>
     r = fs.open(path)?
     defer Reader.close_quietly(r)
     if not want then
@@ -735,12 +735,12 @@ fn deferred(path: String, want: Bool) -> Result<Maybe<String>, Error>
     Ok(Some(Reader.read_all_text(r)?))
 end
 
-fn both(path: String, wrap: Bool) -> Result<Maybe<Reader>, Error>
+fn both(path: String, wrap: Bool) -> Result<Option<Reader>, Error>
     r = fs.open(path)?
     if wrap then Ok(Some(r)) else Ok(Some(r))
 end
 
-fn held(path: String, want: Bool) -> Result<Maybe<Holder>, Error>
+fn held(path: String, want: Bool) -> Result<Option<Holder>, Error>
     r = fs.open(path)?
     h = Holder{reader: r}
     if not want then
@@ -749,7 +749,7 @@ fn held(path: String, want: Bool) -> Result<Maybe<Holder>, Error>
     Ok(Some(h))
 end
 
-fn released(path: String, want: Bool) -> Result<Maybe<Reader>, Error>
+fn released(path: String, want: Bool) -> Result<Option<Reader>, Error>
     r = fs.open(path)?
     defer on error Reader.close_quietly(r)
     if not want then
@@ -768,7 +768,7 @@ fn fails(path: String, want: Bool, no: Error) -> Result<Reader, Error>
     Ok(r)
 end
 
-fn as_a_value(path: String, want: Bool) -> Result<Maybe<Reader>, Error>
+fn as_a_value(path: String, want: Bool) -> Result<Option<Reader>, Error>
     r = fs.open(path)?
     found = if want then
         Some(r)
@@ -782,7 +782,7 @@ end
 }
 
 func TestReleasePathLeakFixReleasesBeforeTheReturn(t *testing.T) {
-	errs := expectReleaseErrors(t, `fn maybe_open(path: String, want: Bool) -> Result<Maybe<Reader>, Error>
+	errs := expectReleaseErrors(t, `fn option_open(path: String, want: Bool) -> Result<Option<Reader>, Error>
     r = fs.open(path)?
     if not want then
         return Ok(None)
@@ -799,7 +799,7 @@ end
 		t.Errorf("edit = %+v", e)
 	}
 	// A return that shares its line with what comes before it gets no fix.
-	errs = expectReleaseErrors(t, `fn maybe_open(path: String, want: Bool) -> Result<Maybe<Reader>, Error>
+	errs = expectReleaseErrors(t, `fn option_open(path: String, want: Bool) -> Result<Option<Reader>, Error>
     r = fs.open(path)?
     if want then Ok(Some(r)) else Ok(None)
 end

@@ -1,7 +1,7 @@
 import
     bool.Bool
     lists.List
-    maybe.Maybe
+    option.Option
     strings.String
 end
 
@@ -47,5 +47,5 @@ pub interface Matcher
     fn find_all_in(m: self, text: String) -> List<String>
     /// The first match in `text`, the leftmost: the first element `find_all_in`
     /// returns, or `None` when there is no match.
-    fn find_in(m: self, text: String) -> Maybe<String>
+    fn find_in(m: self, text: String) -> Option<String>
 end

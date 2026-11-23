@@ -31,17 +31,17 @@ pub fn find_fewest_coins(coins: List<Int>, target: Int) -> Result<List<Int>, Err
         end)
 
     Vector.get(fewest, target)!
-    |> Maybe.map(Iter.sort)
-    |> Maybe.to_result(.CannotMakeTarget)
+    |> Option.map(Iter.sort)
+    |> Option.to_result(.CannotMakeTarget)
 end
 
 /// The fewest coins that make `amount`, given `table`, which holds the
 /// fewest coins for every smaller amount, or `None` where none make it.
-fn best(table: Vector<Maybe<List<Int>>>, coins: List<Int>, amount: Int) -> Maybe<List<Int>>
+fn best(table: Vector<Option<List<Int>>>, coins: List<Int>, amount: Int) -> Option<List<Int>>
     coins
     |> Iter.filter(&(&1 <= amount))
     |> Iter.flat_map(fn coin ->
-        Vector.get(table, amount - coin)! |> Maybe.map(fn rest -> [coin, ..rest])
+        Vector.get(table, amount - coin)! |> Option.map(fn rest -> [coin, ..rest])
     end)
     |> Iter.min_by(Iter.count)
 end

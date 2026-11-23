@@ -35,7 +35,7 @@ import "github.com/nomi-language/nomi/internal/ast"
 //
 // The rule covers every type parameter the result holds where a value
 // converts: at the top (Iter.loop's T), as an Iter's element (Iter.filter's
-// T), and at any covariant or contravariant position below (a Maybe's or a
+// T), and at any covariant or contravariant position below (an Option's or a
 // List's element, a Result's error, a tuple's item, a function type's
 // parameter or result, a declared generic type's parameter that is not
 // invariant), since the result then converts element by element (spec §5

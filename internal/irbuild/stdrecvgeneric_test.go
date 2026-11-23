@@ -301,8 +301,8 @@ func TestTypeNamesAnyWalksEveryCompositeForm(t *testing.T) {
 		{"List<Int>", false},
 		{"Map<K, Int>", true},
 		{"Map<String, Int>", false},
-		{"Maybe<List<T>>", true},
-		{"Maybe<List<Int>>", false},
+		{"Option<List<T>>", true},
+		{"Option<List<Int>>", false},
 		{"(T) -> Bool", true},
 		{"(Int) -> Bool", false},
 		{"(Int) -> T", true},
@@ -382,9 +382,9 @@ func parseStdTypeImporting(t *testing.T, item, src string) (ast.TypeExpr, analys
 
 // A program impl of a function with no `self` operand for a std container,
 // called qualified by the container, takes the instance the checked result
-// holds: `Maybe.make(1)` typed `Result<Maybe<Int>, String>` for
+// holds: `Option.make(1)` typed `Result<Option<Int>, String>` for
 // `make(n: Int) -> Result<self, String>`, and `List.make(2)` at a List of
-// Maybes.
+// Options.
 func TestStdRecvGeneric_SelflessCallQualifiedByTheContainer(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
@@ -398,8 +398,8 @@ impl Make for Int
     end
 end
 
-impl Make for Maybe<T> where T: Make
-    fn make(n: Int) -> Result<Maybe<T>, String>
+impl Make for Option<T> where T: Make
+    fn make(n: Int) -> Result<Option<T>, String>
         T.make(n) |> Result.map(Some)
     end
 end
@@ -411,9 +411,9 @@ impl Make for List<T> where T: Make
 end
 
 fn main()
-    r: Result<Maybe<Int>, String> = Maybe.make(1)
+    r: Result<Option<Int>, String> = Option.make(1)
     io.print(Debug.inspect(r))
-    l: Result<List<Maybe<Int>>, String> = List.make(2)
+    l: Result<List<Option<Int>>, String> = List.make(2)
     io.print(Debug.inspect(l))
 end`, "Ok(Some(1))\nOk([Some(2), Some(2)])\n")
 }

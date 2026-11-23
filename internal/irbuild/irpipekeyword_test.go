@@ -35,7 +35,7 @@ fn choose(b: Bool) -> String
       "no"
   end |> String.lowercase()
 end
-fn describe(m: Maybe<Int>) -> Int
+fn describe(m: Option<Int>) -> Int
   m |> case
       Some(n) -> n + 1
       None -> 0
@@ -54,7 +54,7 @@ end
 // as its condition or scrutinee, so the region's type is the one the checker
 // recorded for the stage. A region typed as an `Iter<T>` whose first arm is
 // a List, Vector or Set, a region of an interface type whose arms are
-// concrete, and a subtype beside its base each run piped as they do
+// concrete, and a refinement beside its base each run piped as they do
 // unpiped: bare and prefixed (`case id()`, `if is_zero() then`), bound,
 // as a pipe's last stage, as a middle stage and as a statement.
 func TestIRPipeKeyword_RegionsTakeTheStagesRecordedType(t *testing.T) {

@@ -3,12 +3,12 @@ package vmhost_test
 import "testing"
 
 // A `?` right after a name propagates that name's value: `handler?(x)`
-// propagates a Maybe of a function and calls its payload. `try` is an
+// propagates an Option of a function and calls its payload. `try` is an
 // ordinary name, for a binding and a function alike.
 func TestQuestion_AfterANameThenCallRuns(t *testing.T) {
 	got := runSourceOutput(t, `import std::io
 
-fn apply(handler: Maybe<(Int) -> Int>, x: Int) -> Maybe<Int>
+fn apply(handler: Option<(Int) -> Int>, x: Int) -> Option<Int>
     Some(handler?(x))
 end
 

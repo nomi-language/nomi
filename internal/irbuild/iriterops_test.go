@@ -7,7 +7,7 @@ import "testing"
 // and must print the expected output.
 func TestIRIterOps_ProgramsRunOnTheVM(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"find, first and last answer a Maybe", `import std::io
+		{"find, first and last answer an Option", `import std::io
 
 fn main()
   xs = [3, 8, 5, 12]

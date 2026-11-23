@@ -24,7 +24,7 @@ import (
 //
 // A variant of a generic enum named as a value (`Iter.map(xs, Some)`,
 // `Result.map_err(r, Err)`) is a generic constructor and is instantiated the
-// same way: `Some` is `(T) -> Maybe<T>`, and the position solves T.
+// same way: `Some` is `(T) -> Option<T>`, and the position solves T.
 //
 // An interface function named as a value (`Iter.map(xs, Display.to_string)`)
 // is instantiated the same way: its `self` is a type parameter of its own, so
@@ -133,7 +133,7 @@ func uninstantiatedRefMessage(name string, own []*TypeParam_) string {
 		return fmt.Sprintf(
 			"cannot infer type parameter %s of generic constructor '%s' used as a value: "+
 				"nothing here gives it a function type; annotate the binding its results flow into "+
-				"(`xs: List<Maybe<Int>> = Iter.map(ns, Some) |> Iter.to_list()`) or the function (`f: (Int) -> Maybe<Int> = Some`)",
+				"(`xs: List<Option<Int>> = Iter.map(ns, Some) |> Iter.to_list()`) or the function (`f: (Int) -> Option<Int> = Some`)",
 			strings.Join(names, ", "), name)
 	}
 	return fmt.Sprintf(

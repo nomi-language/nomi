@@ -25,7 +25,7 @@ fn count(n: Int) -> Int
   Iter.count(1..=n)
 end
 
-fn known(n: Int) -> Maybe<Int>
+fn known(n: Int) -> Option<Int>
   Iter.known_count(1..n)
 end
 
@@ -92,7 +92,7 @@ enum Drawing
   Blank
 end
 
-fn describe(s: Maybe<Shape>) -> String
+fn describe(s: Option<Shape>) -> String
   case s
     Some(Shape.Box{w: 2, h:}) -> "narrow box of height ${h}"
     Some(Shape.Box{w:, h: 0}) -> "flat box of width ${w}"
@@ -151,7 +151,7 @@ enum Code
   Word(String)
 end
 
-fn get_id(m: Maybe<Req>) -> Int
+fn get_id(m: Option<Req>) -> Int
   if Some(Req.Get(n)) = m then
     n
   else
@@ -159,7 +159,7 @@ fn get_id(m: Maybe<Req>) -> Int
   end
 end
 
-fn put_key(m: Maybe<Req>) -> String
+fn put_key(m: Option<Req>) -> String
   if Some(Req.Put{key:, value: 0}) = m then
     "zero " + key
   else

@@ -12,7 +12,7 @@ struct EqualsAssertion
 end
 
 impl Assertable for EqualsAssertion
-    fn failure(assertion: EqualsAssertion) -> Maybe<AssertionDetails>
+    fn failure(assertion: EqualsAssertion) -> Option<AssertionDetails>
         if assertion.actual == assertion.expected then
             None
         else

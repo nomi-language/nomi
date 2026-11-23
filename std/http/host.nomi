@@ -10,7 +10,7 @@ import
     int.{Int, NonNegativeInt}
     io.{Error, Reader, Writer}
     lists.List
-    maybe.Maybe.{self, None, Some}
+    option.Option.{self, None, Some}
     results.Result
     strings.String
     unit.Unit
@@ -81,14 +81,14 @@ pub host fn send(
     headers:        List<String>,
     body_kind:      Int,
     data:           Bytes,
-    input:          Maybe<Reader>,
+    input:          Option<Reader>,
     content_length: Int,
     host:           String,
     close:          Bool,
     trailers:       List<String>,
     stream:         Bool,
     max_body:       Int,
-    tracer:         Maybe<Handle>,
+    tracer:         Option<Handle>,
 ) -> Result<Exchange, List<String>>
 
 pub host fn status(exchange: Exchange) -> Int
@@ -174,7 +174,7 @@ pub host fn address(listener: Listener) -> String
 
 /// The next request, or `None` once the server has shut down or the task
 /// is stopped.
-pub host fn next(listener: Listener) -> Maybe<Incoming>
+pub host fn next(listener: Listener) -> Option<Incoming>
 
 /// Go's `Server.Shutdown`, waiting up to `timeout` nanoseconds.
 pub host fn shutdown(listener: Listener, timeout: Int) -> Unit
@@ -195,7 +195,7 @@ pub host fn in_body(incoming: Incoming) -> Reader
 pub host fn in_local(incoming: Incoming) -> String
 
 /// The connection's TLS state, as `tls_state_parts` returns it.
-pub host fn in_tls(incoming: Incoming) -> Maybe<List<List<String>>>
+pub host fn in_tls(incoming: Incoming) -> Option<List<List<String>>>
 
 /// Go's `ResponseController.SetReadDeadline`, `by` nanoseconds from now,
 /// 0 for none.
@@ -296,7 +296,7 @@ pub host fn limit_body(r: Reader, max: NonNegativeInt) -> Reader
 /// What `r` holds, read until its end or until `max` bytes are read, and
 /// the error a read failed with before either, beside the bytes read until
 /// then.
-pub host fn read_at_most(r: Reader, max: Int) -> (Bytes, Maybe<Error>)
+pub host fn read_at_most(r: Reader, max: Int) -> (Bytes, Option<Error>)
 
 /// A cookie jar: Go's net/http/cookiejar.
 pub host type Jar
@@ -342,7 +342,7 @@ end
 
 /// What the installed fake returns for `request`, recording it; `None` with no
 /// fake installed.
-pub fn answered<Q, A>(request: Q) -> Maybe<A>
+pub fn answered<Q, A>(request: Q) -> Option<A>
     answer_on(request, fn a -> Some(a), fn -> None)
 end
 
@@ -415,7 +415,7 @@ pub host fn tls_config(
     session_cache:       Int,
     renegotiation:       Int,
     client_auth:         Int,
-    certificate_for:     (Handle) -> Maybe<Certificate>,
+    certificate_for:     (Handle) -> Option<Certificate>,
     has_certificate_for: Bool,
     verify:              (List<List<String>>) -> String,
     has_verify:          Bool,
@@ -478,7 +478,7 @@ pub host fn conn_deadline(conn: Conn, which: Int, at: Int) -> Unit
 /// cipher suite, curve, protocol and server name; the local certificate's
 /// info; the peer's certificates, each info joined by newlines; then each
 /// verified chain the same way. `None` when it is not TLS.
-pub host fn tls_state_parts(conn: Conn) -> Maybe<List<List<String>>>
+pub host fn tls_state_parts(conn: Conn) -> Option<List<List<String>>>
 
 /// A ClientHello's server name, its protocols, versions (10 to 13) and
 /// cipher suite IDs.
@@ -491,7 +491,7 @@ pub host fn hello_supports(hello: Handle, certificate: Certificate) -> String
 pub host fn tls_wrap_listener(listener: TcpListener, config: TlsConfig) -> TcpListener
 
 /// The response's TLS state, as `tls_state_parts` returns it.
-pub host fn exchange_tls(exchange: Exchange) -> Maybe<List<List<String>>>
+pub host fn exchange_tls(exchange: Exchange) -> Option<List<List<String>>>
 
 /// A recorder of what Go's httptrace reports.
 pub host fn new_tracer() -> Handle
@@ -652,7 +652,7 @@ pub host fn gzip_reader(r: Reader, level: Int) -> Reader
 pub host fn multipart_reader(r: Reader, boundary: String, raw: Bool) -> Handle
 
 /// The next part, `None` after the last.
-pub host fn next_part(reader: Handle) -> Result<Maybe<Handle>, String>
+pub host fn next_part(reader: Handle) -> Result<Option<Handle>, String>
 
 pub host fn part_headers(part: Handle) -> List<String>
 pub host fn part_reader(part: Handle) -> Reader
@@ -674,7 +674,7 @@ pub host fn seal(key: Bytes, data: Bytes, label: Bytes) -> Result<Bytes, String>
 
 /// What `seal` sealed under `key` and `label`, or `None` for anything
 /// else (`rt.Open`).
-pub host fn open_sealed(key: Bytes, sealed: Bytes, label: Bytes) -> Maybe<Bytes>
+pub host fn open_sealed(key: Bytes, sealed: Bytes, label: Bytes) -> Option<Bytes>
 
 /// Sec-WebSocket-Accept for a Sec-WebSocket-Key (RFC 6455).
 pub host fn ws_accept_key(key: String) -> String
@@ -706,7 +706,7 @@ pub host fn ws_id(ws: Handle) -> Int
 
 /// The next message, its first byte 1 for text or 2 for binary, then its
 /// payload; `None` after a clean close.
-pub host fn ws_receive(ws: Handle) -> Result<Maybe<Bytes>, List<String>>
+pub host fn ws_receive(ws: Handle) -> Result<Option<Bytes>, List<String>>
 
 pub host fn ws_send(ws: Handle, text: Bool, data: Bytes) -> Result<Unit, List<String>>
 pub host fn ws_ping(ws: Handle, data: Bytes) -> Result<Unit, List<String>>

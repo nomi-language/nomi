@@ -1,4 +1,4 @@
-// `Maybe.hash` / `Result.hash` — the DERIVED Hashable half of the two prelude
+// `Option.hash` / `Result.hash` — the DERIVED Hashable half of the two prelude
 // enums, which is `declIndex * 31 + Hashable.hash(payload)` and is NOT the
 // structural map-key hash next door in maps.go.
 //
@@ -33,8 +33,8 @@ fn main()
     // mix from no mix, a 0-based index from a 1-based one, or a wrapping add
     // from a trapping one. Three derivations collapse into one observation here,
     // which is why the index-1 group below exists.
-    io.print("some int:     ${Maybe.hash(Some(4))}")
-    io.print("some str:     ${Maybe.hash(Some("bad"))}")
+    io.print("some int:     ${Option.hash(Some(4))}")
+    io.print("some str:     ${Option.hash(Some("bad"))}")
     io.print("ok int:       ${Result.hash(Ok(4))}")
     io.print("ok str:       ${Result.hash(Ok("bad"))}")
 
@@ -42,21 +42,21 @@ fn main()
     // pins the index's own base (1, not the builder's 1-based variant tag of 2,
     // and not 31), `err str` pins `1 * 31 + h`, and `err wrap` pins that the mix
     // WRAPS: rt.AddInt would trap on this addition and print nothing at all.
-    io.print("none:         ${Maybe.hash(None)}")
+    io.print("none:         ${Option.hash(None)}")
     io.print("err str:      ${Result.hash(Err("bad"))}")
     io.print("err wrap:     ${Result.hash(Err(9223372036854775807))}")
 
     // The payload routes through `Hashable.hash`, in BOTH variant positions.
-    io.print("some written: ${Maybe.hash(Some(Written{x: 1}))}")
+    io.print("some written: ${Option.hash(Some(Written{x: 1}))}")
     io.print("err written:  ${Result.hash(Err(Written{x: 1}))}")
-    io.print("some derived: ${Maybe.hash(Some(Derived{a: 2, b: 3}))}")
+    io.print("some derived: ${Option.hash(Some(Derived{a: 2, b: 3}))}")
     io.print("err derived:  ${Result.hash(Err(Derived{a: 2, b: 3}))}")
 
     // Reached through the pipe spelling, and as an operand.
-    io.print("piped some:   ${Some(7) |> Maybe.hash()}")
-    io.print("piped none:   ${None |> Maybe.hash()}")
-    agree = Maybe.hash(Some(4)) == Maybe.hash(Some(4))
-    differ = Maybe.hash(Some(4)) == Maybe.hash(None)
+    io.print("piped some:   ${Some(7) |> Option.hash()}")
+    io.print("piped none:   ${None |> Option.hash()}")
+    agree = Option.hash(Some(4)) == Option.hash(Some(4))
+    differ = Option.hash(Some(4)) == Option.hash(None)
     io.print("agree:        ${agree}")
     io.print("differ:       ${differ}")
 end

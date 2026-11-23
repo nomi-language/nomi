@@ -38,8 +38,8 @@ import
     io.Writer
     iter.Iter
     lists.List
-    maybe.Maybe.{self, None, Some}
     net.Connection
+    option.Option.{self, None, Some}
     results.Result.{self, Err, Ok}
     strings.String
     tasks.Task
@@ -222,7 +222,7 @@ pub struct TestServer
     url: Url
     /// A client that trusts the server's certificate.
     client:      Client
-    certificate: Maybe<CertificateInfo>
+    certificate: Option<CertificateInfo>
     listener:    Listener
 end
 

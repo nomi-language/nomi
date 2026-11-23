@@ -29,7 +29,7 @@ Each part after the name is optional
 
 database main
 noun item `{{item}}`
-query user_by_email(email: String) -> Maybe<User> `select 1`
+query user_by_email(email: String) -> Option<User> `select 1`
 
 --------------------------------------------------------------------------------
 

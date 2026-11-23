@@ -183,23 +183,23 @@ test result: ok. 1 passed, 0 failed
   `derive Interface for Type` declarations.
 - `type UserId Int` is a distinct type: `UserId(5)` builds one, and the pattern
   `UserId(n)` opens it.
-- `subtype Port Int when fn p -> p >= 1` is an Int. A literal Port is
-  checked when compiling; another Int needs `Port.try_from(n)`, a Maybe.
-  `type Email String when ...` converts to nothing, built the same way.
+- `refine Port Int when fn p -> p >= 1` is an Int. A literal Port is
+  checked when compiling; another Int needs `Port.try_from(n)`, an Option.
+  `type Email String when ...` converts to nothing, built alike.
   `PositiveInt` is `NonNegativeInt and NonZeroInt`. `Int.clamp(n, 0..=10)`
-  takes a range subtype.
+  takes a range refinement.
 - With `n` a `NonNegativeInt`, `n + 1` is a `PositiveInt`, `n - 1` an
   Int. After `if d == 0 then return`, `d` is a `NonZeroInt`, as `/`
   needs. Each `d` in `1..=n` is 1 or more, so `n % d` compiles.
   A count (`Iter.take(xs, n)`) is a `NonNegativeInt`.
 - A value converts to wider type arguments through every position that
-  only holds them: a `List<Maybe<Int>>` passes where a `List<Display>` is
+  only holds them: a `List<Option<Int>>` passes where a `List<Display>` is
   expected, and a `Box<Int>` where a `Box<Display>` is when Box's fields
   only hold its `T`.
   A function's parameter converts the other way, and a parameter a type
   both holds and takes compares exactly. Where nothing says which way values
   flow (`a + b`, two branches, two list elements), their types must be one,
-  or a subtype and its ancestor, which join as it.
+  or a refinement and its ancestor, which join as it.
 - There are no method calls. `x.name` only reads a field. A function is called
   through its owner:
   - a type: `String.trim(s)`, `Map.get(m, k)`, `Shape.area(shape)`;
@@ -297,15 +297,15 @@ test result: ok. 1 passed, 0 failed
   `shape: Shape = if round then Circle{r: 1.0} else Square{side: 2.0}`.
 - An `if` without `else` is a statement, as in Rust: its branch is `Unit`,
   leaves (`return`, `?`) or ends in `assert` or `dbg`, and so is an `else
-  if` chain with no final `else`. Any other branch is an error, a `Maybe`
-  included: write `if n > 0 then Some("positive") else None`, or `_ = ...`
+  if` chain with no final `else`. Any other branch is an error, even an
+  `Option`: write `if n > 0 then Some("positive") else None`, or `_ = ...`
   in a statement's branch that drops a value. In an `Html` literal,
   `${if c then Some(Html"...") else None}` shows the part or nothing, as
   does `class='badge ${if c then Some("on") else None}'` in a quoted value;
   unquoted, `class=${if c then Some("on") else None}` writes the attribute
   or leaves it out.
-- There are no exceptions. A function that can fail returns `Maybe<T>`
-  (`Some(v)` or `None`) or `Result<T, E>` (`Ok(v)` or `Err(e)`).
+- There are no exceptions. A function that can fail returns `Option<T>`
+  (`Some(v)`, `None`) or `Result<T, E>` (`Ok(v)`, `Err(e)`).
 - A postfix `?` returns an `Err` or `None` from the enclosing function, lambda
   or test. A postfix `!` traps on one. A program's `main` may return a
   `Result`.
@@ -317,8 +317,8 @@ test result: ok. 1 passed, 0 failed
   declared result does not convert. Without an impl, convert at the site
   with `|> Result.map_err(...)?`.
 - A field that must tell a JSON key left out from one set to `null`, as in a
-  PATCH body, is std::presence's `Presence<Maybe<T>>`: `Absent`,
-  `Present(None)` or `Present(Some(v))`. A `Maybe<T>` field reads both as
+  PATCH body, is std::presence's `Presence<Option<T>>`: `Absent`,
+  `Present(None)` or `Present(Some(v))`. An `Option<T>` field reads both as
   `None`. `Presence.with_default(p, current)` merges it, and `?` and `!` do
   not take a `Presence`.
 - Inside a lambda, `return` and `?` leave the lambda.
@@ -346,7 +346,7 @@ import
 end
 
 fn parse_age(text: String) -> Result<Int, String>
-    age = String.to_int(text) |> Maybe.to_result("not a number: ${text}")?
+    age = String.to_int(text) |> Option.to_result("not a number: ${text}")?
 
     if age < 0 then
         Err("negative: ${age}")
@@ -378,7 +378,7 @@ fn handler() -> Result<Int, ApiError>
     Ok(n)
 end
 
-fn describe(age: Maybe<Int>) -> String
+fn describe(age: Option<Int>) -> String
     case age
         Some(n) when n >= 18 -> "adult"
         Some(_)              -> "minor"
@@ -395,7 +395,7 @@ test "branching and errors"
     assert String.to_int("7")! == 7
     assert Some(1) is Some(_)
 
-    patch = Json.decode_as<{due: Presence<Maybe<Int>>}>(`{"due": null}`)!
+    patch = Json.decode_as<{due: Presence<Option<Int>>}>(`{"due": null}`)!
     assert patch.due == Presence.Present(None)
     assert Presence.with_default(patch.due, Some(5)) == None
 end
@@ -543,7 +543,7 @@ struct App
 end
 
 fn boot(startup: Startup) -> Result<App, String>
-    Ok(App{greeting: Map.get(startup.env, "GREETING") |> Maybe.with_default("hello")})
+    Ok(App{greeting: Map.get(startup.env, "GREETING") |> Option.with_default("hello")})
 end
 
 fn greet(name: String) -> String

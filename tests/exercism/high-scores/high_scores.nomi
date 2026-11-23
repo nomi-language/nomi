@@ -7,12 +7,12 @@ pub fn scores(scores: List<Int>) -> List<Int>
 end
 
 /// The most recent score, or `None` before the first game.
-pub fn latest(scores: List<Int>) -> Maybe<Int>
+pub fn latest(scores: List<Int>) -> Option<Int>
     Iter.last(scores)
 end
 
 /// The highest score, or `None` before the first game.
-pub fn personal_best(scores: List<Int>) -> Maybe<Int>
+pub fn personal_best(scores: List<Int>) -> Option<Int>
     Iter.max(scores)
 end
 

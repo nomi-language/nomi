@@ -38,7 +38,7 @@ package ir
 //
 // WHAT IS NOT TAKEN. No producer SETS a fault edge, because no Nomi construct
 // catches a fault: `?` is Nomi's non-local exit
-// over `Result`/`Maybe` and is a different mechanism, and an assertion's
+// over `Result`/`Option` and is a different mechanism, and an assertion's
 // failure is a Render plus a report rather than a caught trap. So the
 // population of set edges is empty in production and the lint rule below is
 // checked against planted graphs. THAT IS STATED RATHER THAN SMOOTHED OVER:

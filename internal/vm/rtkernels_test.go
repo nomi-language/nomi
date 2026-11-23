@@ -138,7 +138,7 @@ func TestRTKernels_RecordedEquality(t *testing.T) {
 			mapOf(nil, []rt.MapEntry[any, any]{{Key: "b", Val: int64(1)}, {Key: "a", Val: int64(2)}}),
 			mapOf(nil, []rt.MapEntry[any, any]{{Key: "a", Val: int64(2)}, {Key: "b", Val: int64(1)}}), true},
 		{"Set in two insertion orders", newSet([]any{int64(1), int64(2)}), newSet([]any{int64(2), int64(1)}), true},
-		{"Some over two descriptors", some(int64(1)), rtVariant("maybe.Maybe", "Some", int64(1)), true},
+		{"Some over two descriptors", some(int64(1)), rtVariant("option.Option", "Some", int64(1)), true},
 		{"same short name, two modules", rtStruct("a.Point", "x", int64(1)), rtStruct("b.Point", "x", int64(1)), true},
 		{"anonymous record against a struct", rtStruct("", "x", int64(1)), rtStruct("a.Point", "x", int64(1)), false},
 		{"empty List against empty Vector", (*list)(nil), rt.VectorOf[any](nil), false},

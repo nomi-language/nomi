@@ -8,7 +8,7 @@ import (
 )
 
 func TestIRPreludeValues_DeclaringIdentity(t *testing.T) {
-	p, err := AnalyzeSource("main.nomi", "fn some() -> Maybe<Int>\n    Some(42)\nend\nfn none() -> Maybe<Int>\n    None\nend\nfn ok() -> Result<Int, String>\n    Ok(7)\nend\nfn err() -> Result<Int, String>\n    Err(\"bad\")\nend")
+	p, err := AnalyzeSource("main.nomi", "fn some() -> Option<Int>\n    Some(42)\nend\nfn none() -> Option<Int>\n    None\nend\nfn ok() -> Result<Int, String>\n    Ok(7)\nend\nfn err() -> Result<Int, String>\n    Err(\"bad\")\nend")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -16,7 +16,7 @@ func TestIRPreludeValues_DeclaringIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := map[string]string{"some": "maybe.Maybe", "none": "maybe.Maybe", "ok": "results.Result", "err": "results.Result"}
+	want := map[string]string{"some": "option.Option", "none": "option.Option", "ok": "results.Result", "err": "results.Result"}
 	for _, mod := range res.IR {
 		for _, fn := range mod.Funcs() {
 			name, found := want[fn.Name()]
@@ -43,7 +43,7 @@ func TestIRPreludeValues_MissingCheckedSignatureKeepsNativeFallback(t *testing.T
 	// No expected type reaches line 3's constructor: an unannotated
 	// binding. An expected instance of the same enum would type it, which is
 	// not metadata the checker lost.
-	p, err := AnalyzeSource("main.nomi", "import std::io\nfn make() -> Int\n    x = Some(42)\n read(x)\nend\nfn read(v: Maybe<Int>) -> Int\n    case v\n        Some(n) -> n\n        None -> 0\n    end\nend\nfn main()\n    io.print(make())\nend")
+	p, err := AnalyzeSource("main.nomi", "import std::io\nfn make() -> Int\n    x = Some(42)\n read(x)\nend\nfn read(v: Option<Int>) -> Int\n    case v\n        Some(n) -> n\n        None -> 0\n    end\nend\nfn main()\n    io.print(make())\nend")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +75,7 @@ func TestIRPreludeValues_CompletePrograms(t *testing.T) {
 		{"cached stdlib refinement", `import
     std::io
 end
-fn present(v: Maybe<PositiveInt>) -> Bool
+fn present(v: Option<PositiveInt>) -> Bool
     case v
         Some(_) -> True
         None -> False
@@ -100,28 +100,28 @@ fn main()
   io.print(text(Fragment.Dynamic(42)))
 end`, "literal\nnumber 42\n"},
 		{"qualified and aliased values", `import
-    std::io std::maybe.Maybe.{Some as Just, None as Nothing}
+    std::io std::option.Option.{Some as Just, None as Nothing}
 end
-fn choose(flag: Bool) -> Maybe<Int>
+fn choose(flag: Bool) -> Option<Int>
     if flag then Just(42) else Nothing
 end
-fn read(v: Maybe<Int>) -> Int
+fn read(v: Option<Int>) -> Int
     case v
         Some(n) -> n
         None -> 0
     end
 end
-fn empty() -> Maybe<Int>
-    Maybe.None
+fn empty() -> Option<Int>
+    Option.None
 end
 fn main()
   io.print(read(choose(True)))
   io.print(read(choose(False)))
-  io.print(read(Maybe.Some(7)))
+  io.print(read(Option.Some(7)))
   io.print(read(empty()))
 end`, "42\n0\n7\n0\n"},
 		{"argument and default context", `import std::io
-fn read(v: Maybe<Int> = None) -> Int
+fn read(v: Option<Int> = None) -> Int
     case v
         Some(n) -> n
         None -> 0
@@ -137,16 +137,16 @@ fn mark(n: Int) -> Int
     io.print(n)
     return n
 end
-fn wrap<T>(x: T) -> Maybe<T>
+fn wrap<T>(x: T) -> Option<T>
     Some(x)
 end
-fn number(v: Maybe<Int>) -> Int
+fn number(v: Option<Int>) -> Int
     case v
         Some(n) -> n
         None -> 0
     end
 end
-fn text(v: Maybe<String>) -> String
+fn text(v: Option<String>) -> String
     case v
         Some(s) -> s
         None -> "empty"
@@ -156,8 +156,8 @@ fn main()
   io.print(number(wrap(mark(42))))
   io.print(text(wrap("yes")))
 end`, "42\n42\nyes\n"},
-		{"Maybe cases", `import std::io
-fn lookup(id: Int) -> Maybe<String>
+		{"Option cases", `import std::io
+fn lookup(id: Int) -> Option<String>
   case id
     1 -> Some("Alice")
     _ -> None

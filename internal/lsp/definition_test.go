@@ -278,23 +278,23 @@ func TestFindDefinition_StdlibSelectiveImportResolvesToRealDefinition(t *testing
 }
 
 // Go-to-def on a drill-through selective-import name (e.g. `Some` in
-// `import std::maybe.Maybe.{Some, None}`) should land at the real
-// variant definition inside maybe.nomi. Same bug as the flat selective
+// `import std::option.Option.{Some, None}`) should land at the real
+// variant definition inside option.nomi. Same bug as the flat selective
 // case — manifests on every drill-through stdlib variant in
 // prelude.nomi.
 func TestFindDefinition_StdlibDrillThroughVariantResolvesToRealDefinition(t *testing.T) {
-	input := "import std::maybe.Maybe.{Some, None}\n"
+	input := "import std::option.Option.{Some, None}\n"
 	uri := "file:///test.nomi"
 
 	s := NewServer()
 	s.docs.Open(uri, input)
 
-	// `Some` is at column 26 (1-based) in the import line.
-	// Place the cursor at line 0 char 25 (zero-based) — inside `Some`.
+	// `Some` is at column 28 (1-based) in the import line.
+	// Place the cursor at line 0 char 27 (zero-based) — inside `Some`.
 	params := &protocol.DefinitionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-			Position:     protocol.Position{Line: 0, Character: 25},
+			Position:     protocol.Position{Line: 0, Character: 27},
 		},
 	}
 
@@ -309,7 +309,7 @@ func TestFindDefinition_StdlibDrillThroughVariantResolvesToRealDefinition(t *tes
 	if !ok {
 		t.Fatalf("expected *protocol.Location, got %T", result)
 	}
-	wantURI := protocol.DocumentUri(s.std.FileURI("maybe"))
+	wantURI := protocol.DocumentUri(s.std.FileURI("option"))
 	if loc.URI != wantURI {
 		t.Errorf("expected URI %q, got %q", wantURI, loc.URI)
 	}
@@ -675,22 +675,22 @@ end
 }
 
 // Go-to-def on the `self` marker in a drill-through selective import
-// (`import std::maybe.Maybe.{self, Some, None}`) should land on the
-// enum's real definition inside maybe.nomi, the same place a click on
-// `Maybe` (the trailing path segment) goes.
+// (`import std::option.Option.{self, Some, None}`) should land on the
+// enum's real definition inside option.nomi, the same place a click on
+// `Option` (the trailing path segment) goes.
 func TestFindDefinition_SelfMarkerDrillThroughStdlib(t *testing.T) {
-	input := "import std::maybe.Maybe.{self, Some, None}\n"
+	input := "import std::option.Option.{self, Some, None}\n"
 	uri := "file:///test.nomi"
 
 	s := NewServer()
 	s.docs.Open(uri, input)
 
-	// `self` sits at 1-based cols 25–28; LSP 0-based char anywhere
-	// in [24, 27] hits it.
+	// `self` sits at 1-based cols 28–31; LSP 0-based char anywhere
+	// in [27, 30] hits it.
 	params := &protocol.DefinitionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-			Position:     protocol.Position{Line: 0, Character: 25},
+			Position:     protocol.Position{Line: 0, Character: 28},
 		},
 	}
 
@@ -705,7 +705,7 @@ func TestFindDefinition_SelfMarkerDrillThroughStdlib(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected *protocol.Location, got %T", result)
 	}
-	wantURI := protocol.DocumentUri(s.std.FileURI("maybe"))
+	wantURI := protocol.DocumentUri(s.std.FileURI("option"))
 	if loc.URI != wantURI {
 		t.Errorf("expected URI %q, got %q", wantURI, loc.URI)
 	}

@@ -124,10 +124,10 @@ back at the end, finish with [`Iter.to_list()`](/reference/iter/#iterto_list).
 this.
 
 A function that needs at least one element takes a
-[`NonEmptyList`](/structs-enums-distinct/#subtypes), whose
-`NonEmptyList.first` and `NonEmptyList.max` return the element rather than a
-`Maybe`; `NonEmptyVector`, `NonEmptyMap` and `NonEmptySet` do the same for
-the other collections. `List.first` on a NonEmptyList is still a `Maybe`,
+[`NonEmptyList`](/structs-enums-distinct/#refinements), whose
+`NonEmptyList.first` and `NonEmptyList.max` return the element rather than an
+`Option`; `NonEmptyVector`, `NonEmptyMap` and `NonEmptySet` do the same for
+the other collections. `List.first` on a NonEmptyList is still an `Option`,
 and the editor hints `NonEmptyList.first` there.
 
 ## Vectors
@@ -165,15 +165,15 @@ items up by index or add them at the end. Use a list when you add items at the
 front.
 
 Indexes start at 0.
-[`Vector.get`](/reference/vectors/#vectorget) returns a
-[`Maybe`](/reference/maybe/): `Some(item)` when the index is inside the
+[`Vector.get`](/reference/vectors/#vectorget) returns an
+[`Option`](/reference/option/): `Some(item)` when the index is inside the
 vector, `None` when it is not. Use it when the index comes from data.
 `Vector.get(names, 1)!`, with a
 [postfix `!`](/pattern-matching/#calls-that-cannot-fail), returns the item
 itself and stops the program when the index is outside, so use it when your
 code guarantees the index.
 [`Vector.set`](/reference/vectors/#vectorset) replaces the item at an index and
-returns a `Maybe` the same way, so `Vector.set(names, 1, "Bo")!` is the new
+returns an `Option` the same way, so `Vector.set(names, 1, "Bo")!` is the new
 vector when your code guarantees the index.
 
 `xs + ys` joins two lists, or two vectors, as do
@@ -202,7 +202,7 @@ dbg line 6: Map.get(config, "user") = None
 
 You write a map as `{"key" => value, ...}`, and the empty map as `{}`.
 
-[`Map.get`](/reference/maps/#mapget) also returns a `Maybe`: `Some(value)`
+[`Map.get`](/reference/maps/#mapget) also returns an `Option`: `Some(value)`
 when the key is there and `None` when it is not.
 [Pattern Matching](/pattern-matching/) shows how to get the value out.
 
@@ -349,7 +349,7 @@ the same way ([Updating a struct](/structs-enums-distinct/#updating-a-struct)).
 <p class="tour-details-label">Fine print</p>
 
 - A list, vector or set spread can be any `Iter` of the elements, including
-  a `Maybe`, which adds zero or one: `[1, ..Some(2), ..None]` is `[1, 2]`.
+  an `Option`, which adds zero or one: `[1, ..Some(2), ..None]` is `[1, 2]`.
 - A map spread must be a map of the literal's type. A later key replaces an
   earlier one's value and keeps its position.
 - A literal holding one spread of its own type and nothing else is an
@@ -446,7 +446,7 @@ A range whose end is below its start, such as `5..=1`, is empty. To count
 down, step by a negative amount: `Range.step_by(5..=1, -1)` gives 5, 4, 3,
 2 and 1.
 
-A function that needs a range with something in it takes a subtype of
+A function that needs a range with something in it takes a refinement of
 `Range`: `Int.clamp(n, 0..=10)` takes a `ClosedRange` and
 `Generator.int(1..=6)` a `BoundedRange`, so `Int.clamp(n, 10..=0)` is an
 error when the program is compiled. A range computed when it runs goes

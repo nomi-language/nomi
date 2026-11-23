@@ -142,7 +142,7 @@ func buildTypeShellInScope(fa *FileAnalysis, scope *Scope, node ast.Node) {
 				Opaque:           sym.Opaque,
 				OwningSourceFile: sym.SourceFile,
 				Rule:             RuleText(n.Rule),
-				Subtype:          n.Subtype,
+				Refinement:       n.Refinement,
 				unbuilt:          newUnbuilt(n.TypeParams),
 			}
 		}
@@ -257,7 +257,7 @@ func startFileTyping(fa *FileAnalysis, nodes []ast.Node, aliases *projectAliases
 	reg.suggest = fa.scopeNames(true)
 
 	// Pre-populate registry with types from parent scopes (e.g. primitives types
-	// like Result, Maybe) so that modules can reference them. The
+	// like Result, Option) so that modules can reference them. The
 	// parent scope is the prelude's ModuleScope when this is a user file —
 	// most type symbols there are import aliases (Resolved → real type), so
 	// follow the Resolved chain when checking for a type.
@@ -321,7 +321,7 @@ func startFileTyping(fa *FileAnalysis, nodes []ast.Node, aliases *projectAliases
 		case *ast.TypeDef:
 			name, line, col = n.Name, n.Line, n.Col
 			shell = func(sym *Symbol) Type {
-				dt := &DistinctType{Origin: declaredOrigin(fa), Name: n.Name, Rule: RuleText(n.Rule), Subtype: n.Subtype, unbuilt: newUnbuilt(n.TypeParams)}
+				dt := &DistinctType{Origin: declaredOrigin(fa), Name: n.Name, Rule: RuleText(n.Rule), Refinement: n.Refinement, unbuilt: newUnbuilt(n.TypeParams)}
 				if sym != nil {
 					dt.Opaque, dt.OwningSourceFile = sym.Opaque, sym.SourceFile
 				}
@@ -544,7 +544,7 @@ func buildBodyTypes(fa *FileAnalysis, reg *TypeRegistry, nodes []ast.Node) []Typ
 	// and its Type left nil, so checkNestedFunc's `sym.Type.(*FuncType)` missed
 	// and the body went unchecked — which meant no generic call inside it ever
 	// recorded an instantiated CallType, and the IR builder refused `Some(1)`
-	// inside `test "…" { fn f() -> Maybe<Int> { Some(1) } }` under `generic enum
+	// inside `test "…" { fn f() -> Option<Int> { Some(1) } }` under `generic enum
 	// over a type parameter` while the identical declaration inside `fn main`
 	// lowered.
 	//
@@ -697,7 +697,7 @@ func recordImplTypeArgsFromBlock(fa *FileAnalysis, reg *TypeRegistry, n *ast.Imp
 		// A non-generic interface on a receiver with no type arguments: the
 		// receiver's name is the whole match, so it is no template.
 		// One with type arguments (`impl OptionalAttribute for
-		// Maybe<String>`) records its receiver, so a Maybe<Int> is refused
+		// Option<String>`) records its receiver, so an Option<Int> is refused
 		// and a bare `None` is solved to the one instance that implements it
 		// (unifyInterfaceAgainstConcrete).
 		return
@@ -1261,6 +1261,11 @@ func buildStructType(fa *FileAnalysis, reg *TypeRegistry, n *ast.StructDef) []Ty
 			if te, ok := err.(TypeError); ok {
 				errs = append(errs, te)
 			}
+			// A field whose type names nothing is still a field, of no
+			// type, as a parameter is (buildFuncTypeWithBase): a literal that
+			// sets it and a read of it are quiet, and the error at its type
+			// is the one error.
+			fields = append(fields, FieldDef{Name: f.Name, HasDefault: f.Default != nil})
 			continue
 		}
 		fields = append(fields, FieldDef{Name: f.Name, Type: resolved, HasDefault: f.Default != nil})
@@ -1334,6 +1339,8 @@ func buildEnumType(fa *FileAnalysis, reg *TypeRegistry, n *ast.EnumDef) []TypeEr
 					if te, ok := err.(TypeError); ok {
 						errs = append(errs, te)
 					}
+					// Still a field, of no type, as a struct's is.
+					fields = append(fields, FieldDef{Name: f.Name, HasDefault: f.Default != nil})
 					continue
 				}
 				// HasDefault, which this loop omitted while the struct loop
@@ -1529,10 +1536,14 @@ func buildTypeDef(fa *FileAnalysis, reg *TypeRegistry, n *ast.TypeDef) []TypeErr
 	dt.TypeParams = typeParamNames(n.TypeParams)
 	dt.TypeParamDefs = typeParamDefsFromMap(n.TypeParams, tp)
 	dt.WrittenAsParts = writtenParts(n.InnerTypeExpr) != nil
+	dt.InnerOfNoType = false
 
 	if n.InnerTypeExpr != nil {
 		resolved, err := ResolveDeclaredType(n.InnerTypeExpr, reg, tp, fa)
 		if err != nil {
+			// An inner type that names nothing is a part of no type: the
+			// type is not zero-sized, and its uses are quiet.
+			dt.InnerOfNoType = true
 			if te, ok := err.(TypeError); ok {
 				return append(errs, te)
 			}
@@ -1542,6 +1553,7 @@ func buildTypeDef(fa *FileAnalysis, reg *TypeRegistry, n *ast.TypeDef) []TypeErr
 			// The inner type is left unset, so the type stays a finite
 			// graph for everything that walks it after this error.
 			dt.Inner = nil
+			dt.InnerOfNoType = true
 			errs = append(errs, distinctCycleError(n, path))
 		} else {
 			dt.Inner = resolved
@@ -1842,9 +1854,9 @@ func buildTypeAlias(fa *FileAnalysis, reg *TypeRegistry, n *ast.TypeAlias) []Typ
 		errs = append(errs, applyWhereBoundsToTypeParams(fa, reg, typeParams, n.WhereClauses, "typealias "+n.Name)...)
 	}
 
-	// `typealias Name A and B`: an intersection of subtypes, or of
+	// `typealias Name A and B`: an intersection of refinements, or of
 	// interfaces, which in a `where` bound is a list of bounds.
-	if len(n.Bounds) > 0 && (len(params) > 0 || boundsNameSubtype(n.Bounds, reg)) {
+	if len(n.Bounds) > 0 && (len(params) > 0 || boundsNameRefinement(n.Bounds, reg)) {
 		conj := &ast.ConjunctionType{Members: n.Bounds, Line: n.Line, Col: n.Col}
 		resolved, err := ResolveDeclaredType(conj, reg, typeParams, fa)
 		if err != nil {
@@ -1901,9 +1913,9 @@ func buildTypeAlias(fa *FileAnalysis, reg *TypeRegistry, n *ast.TypeAlias) []Typ
 	return errs
 }
 
-// boundsNameSubtype reports whether a member of a typealias's `A and B`
-// names a subtype, which makes the alias an intersection of subtypes.
-func boundsNameSubtype(bounds []ast.TypeExpr, reg *TypeRegistry) bool {
+// boundsNameRefinement reports whether a member of a typealias's `A and B`
+// names a refinement, which makes the alias an intersection of refinements.
+func boundsNameRefinement(bounds []ast.TypeExpr, reg *TypeRegistry) bool {
 	for _, b := range bounds {
 		if t, err := ResolveTypeExpr(b, reg, nil, nil); err == nil && refinementOf(t) != nil {
 			return true

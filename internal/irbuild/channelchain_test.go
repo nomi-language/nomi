@@ -90,7 +90,7 @@ end
 
 fn size(m: M) -> Int
     Channel.select([
-        Arm.receive(m.state.receiver, fn s -> Maybe.with_default(s, {}) |> Map.size()),
+        Arm.receive(m.state.receiver, fn s -> Option.with_default(s, {}) |> Map.size()),
     ])
 end
 

@@ -14,7 +14,7 @@ import
     json.Json
     lists.List
     log.{Field, Level, Logger, Value}
-    maybe.Maybe.{self, None, Some}
+    option.Option.{self, None, Some}
     results.Result.{self, Ok}
     strings.String
 end
@@ -65,7 +65,7 @@ pub fn messages(records: List<Record>) -> List<String>
     records |> Iter.map(.message) |> Iter.to_list()
 end
 
-fn record(line: String) -> Maybe<Record>
+fn record(line: String) -> Option<Record>
     case Json.decode(line)
         Ok(.Arr([.Int(nanos), .String(level), .String(message), .Arr(fields)])) ->
             Some(Record{
@@ -89,7 +89,7 @@ fn level_named(name: String) -> Level
     end
 end
 
-fn field(encoded: Json) -> Maybe<Field>
+fn field(encoded: Json) -> Option<Field>
     case encoded
         .Arr([.String(key), .String("int"), .Int(n)]) ->
             Some(Field{key:, value: Value.Int(n)})

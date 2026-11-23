@@ -10,12 +10,12 @@ import (
 	"github.com/nomi-language/nomi/std"
 )
 
-const calleeStdSrc = `import std::maybe.Maybe.{with_default}
-import std::maybe.Maybe as Optional
+const calleeStdSrc = `import std::option.Option.{with_default}
+import std::option.Option as Optional
 import std::duration.Duration
 
 fn qualified() -> Int
-    Maybe.with_default(Some(1), 0)
+    Option.with_default(Some(1), 0)
 end
 
 fn selective() -> Int
@@ -54,7 +54,7 @@ func TestCalleeStd_IsTheDeclarations(t *testing.T) {
 			byLine[call.Line] = rc.Callee.Std
 		}
 	}
-	withDefault := analysis.StdFunc{Module: "std/maybe", Owner: "Maybe", Name: "with_default"}
+	withDefault := analysis.StdFunc{Module: "std/option", Owner: "Option", Name: "with_default"}
 	want := map[int]analysis.StdFunc{
 		6:  withDefault,
 		10: withDefault,
@@ -88,11 +88,11 @@ func TestCalleeQualifier_IsTheDeclarations(t *testing.T) {
 			byLine[call.Line] = got{rc.Callee.Qualifier.Kind, rc.Callee.Qualifier.Std, rc.Callee.Method}
 		}
 	}
-	maybe := got{analysis.QualType, analysis.StdType{Module: "std/maybe", Name: "Maybe"}, "with_default"}
+	option := got{analysis.QualType, analysis.StdType{Module: "std/option", Name: "Option"}, "with_default"}
 	want := map[int]got{
-		6:  maybe,
+		6:  option,
 		10: {method: "with_default"},
-		14: maybe,
+		14: option,
 		18: {analysis.QualType, analysis.StdType{Module: "std/duration", Name: "Duration"}, "seconds"},
 		26: {},
 	}
@@ -108,7 +108,7 @@ func TestCalleeQualifier_IsTheDeclarations(t *testing.T) {
 // interface function called through the interface records the type it is
 // called for.
 func TestCalleeOwnerAndFor(t *testing.T) {
-	fa, errs := checkEntry(t, `import std::maybe.Maybe.{with_default}
+	fa, errs := checkEntry(t, `import std::option.Option.{with_default}
 import std::json.{Json, FromJson}
 
 fn bare() -> Int
@@ -140,8 +140,8 @@ end
 			}
 		}
 	}
-	if owner.Kind != analysis.QualType || owner.Std != (analysis.StdType{Module: "std/maybe", Name: "Maybe"}) {
-		t.Errorf("bare with_default: routed by %+v, want std/maybe's Maybe", owner)
+	if owner.Kind != analysis.QualType || owner.Std != (analysis.StdType{Module: "std/option", Name: "Option"}) {
+		t.Errorf("bare with_default: routed by %+v, want std/option's Option", owner)
 	}
 	if forType != "Int" {
 		t.Errorf("FromJson.from_json<Int>: for %q, want Int", forType)

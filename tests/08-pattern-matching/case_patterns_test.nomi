@@ -40,21 +40,21 @@ fn shape_label(s: Shape) -> String
     end
 end
 
-fn maybe_value(m: Maybe<Int>) -> Int
+fn option_value(m: Option<Int>) -> Int
     case m
         Some(n) -> n
         None    -> 0
     end
 end
 
-fn maybe_or_default(m: Maybe<Int>) -> Int
+fn option_or_default(m: Option<Int>) -> Int
     case m
         Some(n) -> n
         _       -> -1
     end
 end
 
-fn unwrap_or(m: Maybe<Result<Int, String>>) -> Int
+fn unwrap_or(m: Option<Result<Int, String>>) -> Int
     case m
         Some(Ok(n))  -> n
         Some(Err(_)) -> -1
@@ -62,7 +62,7 @@ fn unwrap_or(m: Maybe<Result<Int, String>>) -> Int
     end
 end
 
-fn first_of_pair(m: Maybe<(Int, String)>) -> Int
+fn first_of_pair(m: Option<(Int, String)>) -> Int
     case m
         Some((n, _)) -> n
         None         -> 0
@@ -80,10 +80,10 @@ test "enum case expressions cover variants and nested payloads"
     assert shape_label(Shape.Circle) == "circle"
     assert shape_label(Shape.Square) == "square"
     assert shape_label(Shape.Triangle) == "triangle"
-    assert maybe_value(Some(42)) == 42
-    assert maybe_value(None) == 0
-    assert maybe_or_default(Some(7)) == 7
-    assert maybe_or_default(None) == -1
+    assert option_value(Some(42)) == 42
+    assert option_value(None) == 0
+    assert option_or_default(Some(7)) == 7
+    assert option_or_default(None) == -1
     assert unwrap_or(Some(Ok(99))) == 99
     assert unwrap_or(Some(Err("nope"))) == -1
     assert unwrap_or(None) == 0
@@ -222,7 +222,7 @@ fn classify_list(xs: List<Int>) -> String
     end
 end
 
-fn classify_maybe(m: Maybe<Int>) -> String
+fn classify_option(m: Option<Int>) -> String
     case m
         Some(-2) -> "some neg two"
         _        -> "other"
@@ -244,6 +244,6 @@ test "negative numeric literals can appear in pattern positions"
     assert classify_decimal(-2.50d) == "neg decimal"
     assert classify_pair((-1, -2)) == "both neg"
     assert classify_list([-1, 2]) == "neg head"
-    assert classify_maybe(Some(-2)) == "some neg two"
+    assert classify_option(Some(-2)) == "some neg two"
     assert classify_map(neg_value_map) == "neg val"
 end

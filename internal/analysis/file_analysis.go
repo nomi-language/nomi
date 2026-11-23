@@ -290,7 +290,7 @@ type FileBodies struct {
 	// (noteRestatedPaths). The editor shows a hint that `..` writes it.
 	// Nil until the first record.
 	RestatedPaths map[*ast.FieldAccess]string
-	// PlainCounterparts holds each call whose Maybe result the value's
+	// PlainCounterparts holds each call whose Option result the value's
 	// refinement answers plainly, `List.first(names)` for a NonEmptyList
 	// `names` (notePlainCounterpart). The editor shows a hint naming
 	// `NonEmptyList.first`. Nil until the first record.
@@ -453,8 +453,8 @@ type FileBodies struct {
 	// view from this record. Nil until the first record.
 	IterViews map[ast.Node]*IterView
 	// Conversions maps each expression checked against a type that is no
-	// interface, whose own type converts to it below the top (a
-	// `Maybe<List<Int>>` where a `Maybe<Display>` is expected), to the
+	// interface, whose own type converts to it below the top (an
+	// `Option<List<Int>>` where an `Option<Display>` is expected), to the
 	// conversion: the two types and each part that enters an interface,
 	// with its impl (conversions.go). The IR builder boxes each such part
 	// by this record. Nil until the first record.

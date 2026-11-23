@@ -30,7 +30,7 @@
 //   - Float: float64. Bool: bool. String: a Go string. Byte: a uint8.
 //     Bytes: rt.Bytes or a byte slice.
 //   - List<T>: a Go slice of T's Go type other than a byte, or *rt.List[T].
-//   - Maybe<T>: rt.Maybe[T]; as a result, also *T, where nil is None.
+//   - Option<T>: rt.Option[T]; as a result, also *T, where nil is None.
 //   - Result<T, E>: rt.Result[T, E]. A Go function whose last result is an
 //     error answers `Result<_, String>`, the error's text as the Err.
 //   - Map<String, V>: rt.Map[string, V].
@@ -53,7 +53,7 @@
 // frame. A Go function answers at least one value.
 //
 // An Int position carries the range its declared type admits (IntRange),
-// read off a subtype chain's `when` bounds and an intersection's members.
+// read off a refinement chain's `when` bounds and an intersection's members.
 // A Nomi-to-Go Int position takes a fixed-width Go integer only when that
 // range fits it (fits): std's `Instant.as_nanos` is an `Int64` and fills
 // an int64; a plain `Int` does not, and its Go function takes rt.Int.
@@ -68,7 +68,7 @@
 // engine's registers as they are. A scalar operand is read unboxed and
 // narrowed to its Go type, an Int into an rt.Int without a box; any other
 // goes through the conversion an adapter over boxed values uses. The answer
-// is written by the same rule, a tuple's components and a Maybe's or a
+// is written by the same rule, a tuple's components and an Option's or a
 // Result's payload each into a slot; an answer of more than MaxSlots parts
 // is refused. The form is a row of the file's regRows, which Bind hands to
 // hostadapt.BindRows: it goes to Env.AddRegs with its operands' and its

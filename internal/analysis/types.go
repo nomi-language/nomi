@@ -258,7 +258,7 @@ type EnumType struct {
 	Variants      []VariantDef
 	TypeParams    []string
 	TypeParamDefs []*TypeParam_ // the actual TypeParam_ pointers referenced by Variants
-	TypeArgs      []Type        // concrete type arguments, e.g. [Int] for Maybe<Int>
+	TypeArgs      []Type        // concrete type arguments, e.g. [Int] for Option<Int>
 	// Opaque is true when the type's defining module exported it as
 	// `opaque <name>`. Construction and pattern destructuring are
 	// private to the defining module.
@@ -285,7 +285,12 @@ type DistinctType struct {
 	// Origin is the declaring file's build key; see StructType.Origin.
 	Origin string
 	Name   string
-	Inner  Type // nil for zero-sized
+	Inner  Type // nil for zero-sized, and for an inner type of no type
+	// InnerOfNoType says the declaration writes an inner type that has no
+	// type: it names nothing, or holds the type itself. Inner is nil, and
+	// the type is not zero-sized: its inner type is a part of no type, as
+	// a field's is when its FieldDef.Type is nil (hasPartOfNoType).
+	InnerOfNoType bool
 	// WrittenAsParts says the inner type is declared as a tuple of its
 	// parts, `type Coord (Int, Int)`, which the type's literal writes as
 	// its arguments: `Coord(3, 4)`. An inner type declared as one type is
@@ -317,19 +322,19 @@ type DistinctType struct {
 	// Rule is the rule as written after `when`, on one line (`fn port ->
 	// port >= 1`), and empty for a declaration with none.
 	Rule string
-	// Subtype is set for a `subtype` declaration, and for the intersection
-	// of subtypes `A and B` (Intersection). A subtype's value is a value
+	// Refinement is set for a `refine` declaration, and for the intersection
+	// of refinements `A and B` (Intersection). A refinement's value is a value
 	// of Inner: it converts up to Inner and each of Inner's ancestors, and
 	// is Inner at run time (refinement.go). Without it, a distinct type
 	// with a Rule is a validated type: it converts to nothing, and is
 	// built only through a check of its rule.
-	Subtype bool
-	// Intersection is set for `A and B` of subtypes, an anonymous subtype
+	Refinement bool
+	// Intersection is set for `A and B` of refinements, an anonymous refinement
 	// whose parents are its members: TypeArgs holds them, sorted, and Inner
-	// and MoreParents are the same members (NewSubtypeIntersection).
+	// and MoreParents are the same members (NewRefinementIntersection).
 	Intersection bool
-	// MoreParents are a subtype's parents after Inner, its first:
-	// `subtype PositiveInt NonNegativeInt and NonZeroInt when ...` holds
+	// MoreParents are a refinement's parents after Inner, its first:
+	// `refine PositiveInt NonNegativeInt and NonZeroInt when ...` holds
 	// NonZeroInt. Every parent reaches the same base, and a value converts
 	// up to each of them and their ancestors (refinement.go).
 	MoreParents []Type
@@ -703,7 +708,7 @@ func TypesEqual(a, b Type) bool {
 }
 
 // TypesIdentical reports whether a and b are one type with no `embeds`
-// coercion anywhere in them: a Maybe<Circle> is not a Maybe<Shape>.
+// coercion anywhere in them: an Option<Circle> is not an Option<Shape>.
 func TypesIdentical(a, b Type) bool {
 	return typesEqualIn(a, b, eqStrict)
 }

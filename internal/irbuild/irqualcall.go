@@ -421,7 +421,7 @@ func (bl *irScalarBuilder) qualCallLowered(t *ast.Call, fa *ast.FieldAccess) (ir
 	ti, isType := fa.Object.(*ast.TypeIdent)
 	if isType && method == "unchecked" && len(t.Args) == 1 {
 		if bl.g.refinementAt(ti.Line, ti.Col) {
-			// A subtype's `unchecked` is its value, which is its base's
+			// A refinement's `unchecked` is its value, which is its base's
 			// (uncheckedRefinement): `ClosedRange.unchecked(r)` in a std
 			// body the shared lowering retains, which builds no instance
 			// of the generic `unchecked`.
@@ -489,9 +489,9 @@ func (bl *irScalarBuilder) markSignalCallback(cb ast.Node) (func(), bool) {
 
 // typeQualCall lowers a call qualified with a type, an interface or a type
 // parameter (typeQualRoutes), and checks the value a reader's function
-// makes at a subtype (readNarrowed).
+// makes at a refinement (readNarrowed).
 func (bl *irScalarBuilder) typeQualCall(t *ast.Call, method string) (ir.Temp, kind, bool, bool) {
-	read := bl.subtypeReadOf(t)
+	read := bl.refinementReadOf(t)
 	v, k, mobile, ok := bl.typeQualRoutes(t, method)
 	if read == nil || !ok {
 		return v, k, mobile, ok
@@ -735,7 +735,7 @@ func (bl *irScalarBuilder) qualPreResolve(t *ast.Call, obj *ast.Ident, isType bo
 }
 
 // checkedBareOperands types each payload-free prelude variant operand of a
-// qualified call (`Maybe.with_default(Maybe.None, 0)`) by the parameter type
+// qualified call (`Option.with_default(Option.None, 0)`) by the parameter type
 // the checker solved for the call, which the variant's own reference does not
 // carry. An operand the solved signature does not type as an instance of the
 // same prelude enum is left to ordinary lowering (kindInvalid), and nil means

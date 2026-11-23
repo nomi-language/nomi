@@ -10,7 +10,7 @@ end
 /// Classifies three side lengths, or answers `None` when they do not make a
 /// triangle: a side is not positive, or one side is longer than the other two
 /// together.
-pub fn kind((a, b, c): (Float, Float, Float)) -> Maybe<Kind>
+pub fn kind((a, b, c): (Float, Float, Float)) -> Option<Kind>
     positive = a > 0.0 and b > 0.0 and c > 0.0
     inequality = a + b >= c and b + c >= a and a + c >= b
     if not (positive and inequality) then return None

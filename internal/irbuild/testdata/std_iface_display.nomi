@@ -76,7 +76,7 @@ fn pick(flag: Bool) -> Display
 end
 
 // TYPE ARGUMENT: a prelude enum instantiated at an existential.
-fn render_maybe(m: Maybe<Display>) -> String
+fn render_option(m: Option<Display>) -> String
     case m
         Some(d) -> render(d)
         None    -> "none"
@@ -135,9 +135,9 @@ fn main()
     io.print(render(pick(True)))
     io.print(render(pick(False)))
 
-    io.print(render_maybe(Some(a_tag("wrapped"))))
-    io.print(render_maybe(Some(a_count(3))))
-    io.print(render_maybe(None))
+    io.print(render_option(Some(a_tag("wrapped"))))
+    io.print(render_option(Some(a_count(3))))
+    io.print(render_option(None))
 
     io.print(describe(Slot{label: "one", held: Tag{name: "held"}}))
     io.print(describe(Slot{label: "two", held: Count{n: 99}}))

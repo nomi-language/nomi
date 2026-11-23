@@ -86,7 +86,7 @@ fn no_shape(_v: Shape) -> Bool
     False
 end
 
-fn no_maybe(_v: Maybe<Int>) -> Bool
+fn no_option(_v: Option<Int>) -> Bool
     False
 end
 
@@ -94,7 +94,7 @@ fn no_result(_v: Result<Int, String>) -> Bool
     False
 end
 
-fn no_maybe_point(_v: Maybe<Point>) -> Bool
+fn no_option_point(_v: Option<Point>) -> Bool
     False
 end
 
@@ -190,12 +190,12 @@ end
 
 test "Some"
     m = Some(5)
-    assert no_maybe(m)
+    assert no_option(m)
 end
 
 test "None"
-    m: Maybe<Int> = None
-    assert no_maybe(m)
+    m: Option<Int> = None
+    assert no_option(m)
 end
 
 test "Ok"
@@ -210,5 +210,5 @@ end
 
 test "a prelude enum over a struct"
     m = Some(Point{x: 1, y: "two"})
-    assert no_maybe_point(m)
+    assert no_option_point(m)
 end

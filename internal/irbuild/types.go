@@ -625,7 +625,7 @@ func (g *gen) assignTypeSlots() {
 // are laid out.
 //
 // Prelude instances created while resolving these declarations join the
-// relaxation: `struct A { m: Maybe<B> }` must be refused when B is. They
+// relaxation: `struct A { m: Option<B> }` must be refused when B is. They
 // carry no refusals of their own, so they can only ever be retracted
 // through a payload. See prelude.go.
 //

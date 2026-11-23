@@ -7,7 +7,7 @@
 //# `refute condition` returns `False` when the condition is `False`.
 //#
 //# `assert result` requires `Ok(_)`, while `refute result` requires `Err(_)`.
-//# `assert maybe` requires `Some(_)`, while `refute maybe` requires `None`.
+//# `assert option` requires `Some(_)`, while `refute option` requires `None`.
 //# These forms return the original subject value; use `assert Pattern = expr`
 //# when you want to extract payloads.
 //#
@@ -17,7 +17,7 @@
 import
     int.Int64
     lists.List
-    maybe.Maybe.{self, None}
+    option.Option.{self, None}
     strings.String
 end
 
@@ -63,8 +63,8 @@ end
 /// `expected`, `+` lines only in `actual`.
 pub struct AssertionDetails
     reason:   String = "assertion failed"
-    actual:   Maybe<String> = None
-    expected: Maybe<String> = None
+    actual:   Option<String> = None
+    expected: Option<String> = None
     details:  List<AssertionDetail> = []
 end
 
@@ -74,14 +74,14 @@ end
 /// `failure(value)` returns `None` when the value passes, or `Some(details)`
 /// when it fails. The runtime wraps those details in an `AssertionFailure`.
 pub interface Assertable
-    fn failure(value: self) -> Maybe<AssertionDetails>
+    fn failure(value: self) -> Option<AssertionDetails>
 end
 
 /// Structured failure produced by `assert`, `refute`, `testing.check` and
 /// `subtests`.
 ///
 /// `actual` is present when the failure report should show the whole assertion
-/// subject value, such as a non-matching Result or Maybe shape.
+/// subject value, such as a non-matching Result or Option shape.
 /// `binding` is present when the assertion was made against a bound name and
 /// the runtime can show where that value came from. `values` captures observed
 /// sub-expressions such as the left and right sides of a comparison, plus
@@ -94,8 +94,8 @@ pub struct AssertionFailure
     keyword:    String
     expression: String
     reason:     String
-    actual:     Maybe<String>
-    binding:    Maybe<AssertionBinding>
+    actual:     Option<String>
+    binding:    Option<AssertionBinding>
     values:     List<AssertionValue>
     details:    List<AssertionDetail>
     subtests:   List<SubtestFailure> = []

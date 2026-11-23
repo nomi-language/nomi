@@ -82,7 +82,7 @@ func TestRtFuncs_HandlesAndSandboxes(t *testing.T) {
 	}
 
 	r := ok(disk, "fs/host.open", out)
-	if got := text(ok(disk, "io.read_up_to", r, int64(2))); got != `maybe.Maybe/4.Some{0=Bytes("on")}` {
+	if got := text(ok(disk, "io.read_up_to", r, int64(2))); got != `option.Option/4.Some{0=Bytes("on")}` {
 		t.Errorf("read_up_to answered %s", got)
 	}
 	if got := text(ok(disk, "io.Reader.read_all_text", r)); got != `String("e\ntwo\n")` {
@@ -215,10 +215,10 @@ func TestRtFuncs_FilesAndWithin(t *testing.T) {
 		t.Errorf("the file holds %q; a File writes through, filling a gap with zeros", data)
 	}
 	ok(disk, "io.File.seek", f, int64(1))
-	if got := text(ok(disk, "io.file_read", f, int64(3))); got != `maybe.Maybe/4.Some{0=Bytes("ell")}` {
+	if got := text(ok(disk, "io.file_read", f, int64(3))); got != `option.Option/4.Some{0=Bytes("ell")}` {
 		t.Errorf("file_read answered %s", got)
 	}
-	if got := text(ok(disk, "io.File.read_at", f, int64(8), int64(4))); got != "maybe.Maybe/4.None{}" {
+	if got := text(ok(disk, "io.File.read_at", f, int64(8), int64(4))); got != "option.Option/4.None{}" {
 		t.Errorf("read_at the end answered %s", got)
 	}
 	ok(disk, "io.File.truncate", f, int64(2))

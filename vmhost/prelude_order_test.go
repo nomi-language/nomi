@@ -10,8 +10,8 @@ import (
 	"github.com/nomi-language/nomi/vmhost"
 )
 
-// Each program's only call that answers a prelude `Maybe` is a std owner
-// call whose builder arm asks whether `Maybe` is anchored. The anchors were
+// Each program's only call that answers a prelude `Option` is a std owner
+// call whose builder arm asks whether `Option` is anchored. The anchors were
 // loaded on first use, so the arm declined unless something earlier in the
 // same program (a `Map.size` before the `Map.get`) had loaded them.
 var preludeOrderPrograms = []struct{ name, src, want string }{

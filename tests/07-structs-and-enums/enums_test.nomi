@@ -54,21 +54,20 @@ test "enum struct variants expose fields and defaults"
             Error.ConnectionRefused          -> "refused"
         end
 
-    assert err.status == 404
-    refute err.retryable
+    assert Error.HttpError{status: 404, retryable: False} = err
     assert result == "not found"
 end
 
 test "embedded enum variants expose embedded fields"
     c = Drawable.Circle2{radius: 5.0}
 
-    assert c.radius == 5.0
+    assert Drawable.Circle2{radius:} = c
+    assert radius == 5.0
 end
 
 enum Op
     Unary {f: (Int) -> Int, name: String}
     Scaled {f: (Int) -> Int, name: String, by: Int}
-    Nop
 end
 
 test "an enum field holding a function reads and calls"

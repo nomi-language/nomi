@@ -1,16 +1,16 @@
 import std::compiler
 
-subtype Port Int when fn port -> port >= 1 and port <= 65535
+refine Port Int when fn port -> port >= 1 and port <= 65535
 
-subtype Even Int when fn n -> n % 2 == 0
+refine Even Int when fn n -> n % 2 == 0
 
 fn is_tag(s: String) -> Bool
     String.length(s) > 0 and not String.contains(s, " ")
 end
 
-subtype Tag String when is_tag
+refine Tag String when is_tag
 
-subtype Celsius Float when fn c -> c >= -273.15
+refine Celsius Float when fn c -> c >= -273.15
 
 impl Celsius
     fn warmer(c: Celsius, by: NonNegativeFloat) -> Celsius
@@ -85,7 +85,7 @@ test "a container of a refinement passes as a container of its base"
     assert Set.size(ports) == 2
     named: Map<String, Port> = {"http" => 80}
     assert Map.get(named, "http") == Some(80)
-    assert Maybe.with_default(Port.try_from(22), 1) == 22
+    assert Option.with_default(Port.try_from(22), 1) == 22
 end
 
 test "a refinement's impl keeps its rule with unchecked"
@@ -141,7 +141,7 @@ fn first_error(source: String) -> String
 end
 
 test "the checker rejects a value no rule vouched for"
-    decls = "subtype Even Int when fn n -> n % 2 == 0\nsubtype Odd Int when fn n -> n % 2 == 1\n"
+    decls = "refine Even Int when fn n -> n % 2 == 0\nrefine Odd Int when fn n -> n % 2 == 1\n"
 
     assert first_error(decls + "fn f(e: Even) -> Odd\n    e\nend\n")
         == "return type mismatch: expected Odd, got Even"

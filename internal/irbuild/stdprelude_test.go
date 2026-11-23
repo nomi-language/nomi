@@ -12,8 +12,8 @@ import (
 //
 // The hazard is a plain map assignment on a key that does not distinguish its
 // members, the same shape TestStdlibIndexKeysCarryTheirReceiver guards in the
-// stdlib index. Here the consequence would be worse than lost coverage: a
-// `Maybe<String>` def answering for `Maybe<Int>` is a wrong PAYLOAD TYPE.
+// stdlib index. Here the consequence would be worse than lost coverage: an
+// `Option<String>` def answering for `Option<Int>` is a wrong PAYLOAD TYPE.
 //
 // Three instantiations, one per neutral shape, asserted DISTINCT by pointer and
 // by rendered Go type.
@@ -22,21 +22,21 @@ func TestSharedPreludeInternKeysOnTheWholeInstantiation(t *testing.T) {
 	// covers every instantiation std's own signatures reach rather than only the
 	// three this test writes.
 	stdlibLowering()
-	maybe := &preludeSpecs[0]
-	if maybe.nomi != "Maybe" {
-		t.Fatalf("preludeSpecs[0] is %q, not Maybe — this test names the spec positionally", maybe.nomi)
+	option := &preludeSpecs[0]
+	if option.nomi != "Option" {
+		t.Fatalf("preludeSpecs[0] is %q, not Option — this test names the spec positionally", option.nomi)
 	}
-	ints, shared := sharedPreludeInstance(maybe, []kind{kindInt})
+	ints, shared := sharedPreludeInstance(option, []kind{kindInt})
 	if !shared {
-		t.Fatal("Maybe<Int> was not interned as shared; its argument is a scalar")
+		t.Fatal("Option<Int> was not interned as shared; its argument is a scalar")
 	}
-	strs, shared := sharedPreludeInstance(maybe, []kind{kindString})
+	strs, shared := sharedPreludeInstance(option, []kind{kindString})
 	if !shared {
-		t.Fatal("Maybe<String> was not interned as shared")
+		t.Fatal("Option<String> was not interned as shared")
 	}
-	nz, shared := sharedPreludeInstance(maybe, []kind{opaqueKind(opaqueSpecIndex(t, "Codepoint"))})
+	nz, shared := sharedPreludeInstance(option, []kind{opaqueKind(opaqueSpecIndex(t, "Codepoint"))})
 	if !shared {
-		t.Fatal("Maybe<Codepoint> was not interned as shared; an anchored opaque newtype is neutral")
+		t.Fatal("Option<Codepoint> was not interned as shared; an anchored opaque newtype is neutral")
 	}
 	seen := map[string]kind{}
 	for _, k := range []kind{ints, strs, nz} {
@@ -46,16 +46,16 @@ func TestSharedPreludeInternKeysOnTheWholeInstantiation(t *testing.T) {
 		}
 		seen[k.def.nomi] = k
 	}
-	for _, want := range []string{"Maybe<Int>", "Maybe<String>", "Maybe<Codepoint>"} {
+	for _, want := range []string{"Option<Int>", "Option<String>", "Option<Codepoint>"} {
 		if _, made := seen[want]; !made {
 			t.Fatalf("no instantiation is spelled %q; got %v", want, sortedKeysOf(presence(seen)))
 		}
 	}
 	// The same call twice is the SAME pointer, which is what makes a stdFunc's
 	// result kind comparable against a call site's in another gen.
-	again, _ := sharedPreludeInstance(maybe, []kind{kindInt})
+	again, _ := sharedPreludeInstance(option, []kind{kindInt})
 	if again.def != ints.def {
-		t.Fatal("Maybe<Int> interned twice; a stdFunc kind would not compare equal to a call site's")
+		t.Fatal("Option<Int> interned twice; a stdFunc kind would not compare equal to a call site's")
 	}
 }
 
@@ -63,7 +63,7 @@ func TestSharedPreludeInternKeysOnTheWholeInstantiation(t *testing.T) {
 // *compKind lives, in both directions.
 //
 // The false rows matter more than the true ones. Structural kinds over
-// neutral components (`List<Int>`, `Maybe<List<Int>>`, `(Int, Int)`,
+// neutral components (`List<Int>`, `Option<List<Int>>`, `(Int, Int)`,
 // `(Int) -> Int`) are neutral, because sharedcomp.go interns them
 // process-wide.
 //
@@ -73,7 +73,7 @@ func TestSharedPreludeInternKeysOnTheWholeInstantiation(t *testing.T) {
 // declare a `Point`. Those rows are below, and they are the point of the table.
 func TestPackageNeutralIsClosed(t *testing.T) {
 	g := preludeGenForTest(t)
-	maybeInt := g.preludeInstance(preludeAnchorForTest(g, "Maybe"), []kind{kindInt})
+	optionInt := g.preludeInstance(preludeAnchorForTest(g, "Option"), []kind{kindInt})
 	duration := opaqueKind(opaqueSpecIndex(t, "Duration"))
 
 	for _, tc := range []struct {
@@ -87,19 +87,19 @@ func TestPackageNeutralIsClosed(t *testing.T) {
 		{"Float", kindFloat, true},
 		{"Unit", kindUnit, true},
 		{"an anchored opaque newtype", duration, true},
-		{"Maybe<Int>", maybeInt, true},
-		{"Maybe<Duration>", g.preludeInstance(preludeAnchorForTest(g, "Maybe"), []kind{duration}), true},
-		{"Result<Maybe<Int>, String>", g.preludeInstance(preludeAnchorForTest(g, "Result"), []kind{maybeInt, kindString}), true},
+		{"Option<Int>", optionInt, true},
+		{"Option<Duration>", g.preludeInstance(preludeAnchorForTest(g, "Option"), []kind{duration}), true},
+		{"Result<Option<Int>, String>", g.preludeInstance(preludeAnchorForTest(g, "Result"), []kind{optionInt, kindString}), true},
 		{"kindInvalid", kindInvalid, false},
 		{"List<Int>", g.listKind(kindInt), true},
-		{"Maybe<List<Int>>", g.preludeInstance(preludeAnchorForTest(g, "Maybe"), []kind{g.listKind(kindInt)}), true},
+		{"Option<List<Int>>", g.preludeInstance(preludeAnchorForTest(g, "Option"), []kind{g.listKind(kindInt)}), true},
 		{"(Int, Int)", g.tupleKind([]kind{kindInt, kindInt}), true},
 		{"(Int) -> Int", g.funcKind([]kind{kindInt}, kindInt), true},
 		{"a generated package's own type", named(localDefForTest()), false},
 		{"List<that type>", g.listKind(named(localDefForTest())), false},
 		{"(Int, that type)", g.tupleKind([]kind{kindInt, named(localDefForTest())}), false},
-		{"Maybe<List<that type>>",
-			g.preludeInstance(preludeAnchorForTest(g, "Maybe"), []kind{g.listKind(named(localDefForTest()))}), false},
+		{"Option<List<that type>>",
+			g.preludeInstance(preludeAnchorForTest(g, "Option"), []kind{g.listKind(named(localDefForTest()))}), false},
 	} {
 		if got := tc.k.packageNeutral(); got != tc.want {
 			t.Errorf("%s: packageNeutral() = %v, want %v", tc.name, got, tc.want)
@@ -124,11 +124,11 @@ func localDefForTest() *typeDef {
 // construction, and it walks `g.typeOrder` plus `g.preludeOrder`. A def reached
 // from every gen must not be in either list, or one module's refusal would
 // retract a type another module is using. A NON-neutral instance must still BE
-// in the list, because `Maybe<Node>` really does have to be retracted when Node
+// in the list, because `Option<Node>` really does have to be retracted when Node
 // is refused.
 func TestSharedPreludeDefsAreNeverInPreludeOrder(t *testing.T) {
-	const src = "struct Node\n  next: Maybe<Node>\nend\n\n" +
-		"fn head() -> Maybe<Int>\n  None\nend\n\nfn main()\n  _ = head()\nend\n"
+	const src = "struct Node\n  next: Option<Node>\nend\n\n" +
+		"fn head() -> Option<Int>\n  None\nend\n\nfn main()\n  _ = head()\nend\n"
 	p, err := AnalyzeSource("main", src)
 	if err != nil {
 		t.Fatalf("analyze: %v", err)
@@ -155,8 +155,8 @@ func TestSharedPreludeDefsAreNeverInPreludeOrder(t *testing.T) {
 	}
 	// And the neutral one really was built by this program, so its absence above
 	// is the split working rather than nothing having happened.
-	if k, shared := sharedPreludeInstance(&preludeSpecs[0], []kind{kindInt}); !shared || k.def.nomi != "Maybe<Int>" {
-		t.Fatalf("Maybe<Int> is not in the shared table: shared=%v", shared)
+	if k, shared := sharedPreludeInstance(&preludeSpecs[0], []kind{kindInt}); !shared || k.def.nomi != "Option<Int>" {
+		t.Fatalf("Option<Int> is not in the shared table: shared=%v", shared)
 	}
 }
 
@@ -175,11 +175,11 @@ func TestPreludeKindOfGoTypeReadsTheArgumentsOffTheFields(t *testing.T) {
 		t    reflect.Type
 		want string
 	}{
-		{reflect.TypeFor[rt.Maybe[int64]](), "Maybe<Int>"},
-		{reflect.TypeFor[rt.Maybe[string]](), "Maybe<String>"},
-		{reflect.TypeFor[rt.Maybe[rt.Codepoint]](), "Maybe<Codepoint>"},
+		{reflect.TypeFor[rt.Option[int64]](), "Option<Int>"},
+		{reflect.TypeFor[rt.Option[string]](), "Option<String>"},
+		{reflect.TypeFor[rt.Option[rt.Codepoint]](), "Option<Codepoint>"},
 		{reflect.TypeFor[rt.Result[int64, string]](), "Result<Int, String>"},
-		{reflect.TypeFor[rt.Result[rt.Maybe[int64], string]](), "Result<Maybe<Int>, String>"},
+		{reflect.TypeFor[rt.Result[rt.Option[int64], string]](), "Result<Option<Int>, String>"},
 	} {
 		k := preludeKindOfGoType(tc.t)
 		if k == kindInvalid {
@@ -191,10 +191,10 @@ func TestPreludeKindOfGoTypeReadsTheArgumentsOffTheFields(t *testing.T) {
 		}
 		// The whole point of the shared table: the projected kind IS the one a
 		// call site resolves an annotation to.
-		if tc.t == reflect.TypeFor[rt.Maybe[rt.Codepoint]]() {
+		if tc.t == reflect.TypeFor[rt.Option[rt.Codepoint]]() {
 			want, _ := sharedPreludeInstance(&preludeSpecs[0], []kind{opaqueKind(nzIdx)})
 			if k != want {
-				t.Errorf("the registry's Maybe<Codepoint> is not the annotation's: %v vs %v", k.def, want.def)
+				t.Errorf("the registry's Option<Codepoint> is not the annotation's: %v vs %v", k.def, want.def)
 			}
 		}
 	}

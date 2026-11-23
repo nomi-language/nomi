@@ -8,7 +8,7 @@
 //#
 //# rows = csv.decode_rows("name,age\nAda,36\n")?
 //#
-//# ages = rows |> Iter.map(fn row -> csv.Row.get(row, "age")) |> Maybe.values()
+//# ages = rows |> Iter.map(fn row -> csv.Row.get(row, "age")) |> Option.values()
 //# ```
 //#
 //# `csv.decode` reads text whole into records, and `csv.decode_rows` reads
@@ -40,7 +40,7 @@ import
     iter.Iter
     lists.List
     maps.Map
-    maybe.Maybe.{self, None, Some}
+    option.Option.{self, None, Some}
     results.Result.{self, Err, Ok}
     strings.String
     unit.Unit
@@ -57,7 +57,7 @@ end
 //! assert Delimiter.try_from('\n') == None
 //! assert Delimiter.try_from(';') == Some(';')
 //
-pub subtype Delimiter Codepoint when fn c ->
+pub refine Delimiter Codepoint when fn c ->
     c != '"' and c != '\r' and c != '\n' and c != '\u{0}' and Codepoint.to_int(c) != 0xFFFD
 end
 
@@ -90,7 +90,7 @@ pub struct Options
     delimiter: Delimiter = ','
     /// A line that starts with this, with nothing before it, is skipped.
     /// It may not be the delimiter.
-    comment: Maybe<Delimiter> = None
+    comment: Option<Delimiter> = None
     /// Drop the white space at the start of each field, even when the
     /// delimiter is white space.
     trim_leading_space: Bool = False
@@ -157,9 +157,9 @@ impl Row
     //! assert Row.get(row, "name") == Some("Ada")
     //! assert Row.get(row, "email") == None
     //
-    pub fn get(row: Row, column: String) -> Maybe<String>
+    pub fn get(row: Row, column: String) -> Option<String>
         Iter.find_index(row.header, fn name -> name == column)
-        |> Maybe.flat_map(fn index -> Iter.get(row.fields, index))
+        |> Option.flat_map(fn index -> Iter.get(row.fields, index))
     end
 
     /// The fields by column name. When the header names a column twice,
@@ -310,7 +310,7 @@ fn field_count(options: Options) -> Int
 end
 
 // Why reading stopped, or None at the end of the input.
-fn stopped(records: host.Records) -> Maybe<Error>
+fn stopped(records: host.Records) -> Option<Error>
     case host.stopped(records)
         [2, ..] -> Some(Error.Io{error: host.failure(records)})
         stop    -> failure(stop, host.message(records))
@@ -319,7 +319,7 @@ end
 
 // The failure a stop other than the Reader's (`host.stopped`) and its
 // message describe, or None at the end of the input.
-fn failure(stop: List<Int>, message: String) -> Maybe<Error>
+fn failure(stop: List<Int>, message: String) -> Option<Error>
     case stop
         [1, line, column] -> Some(Error.Syntax{message:, line:, column:})
         [3, ..]           -> Some(Error.InvalidOptions{message:})

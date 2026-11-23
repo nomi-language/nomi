@@ -45,11 +45,11 @@ func (bl *irScalarBuilder) stdFieldDefault(at ast.Node, f *fieldDef) (ir.Temp, b
 		return c.Dst(), true
 	case stdDefaultVariant:
 		if f.k.tag != tagNamed || !irRetainedEnumKind(f.k.def) {
-			panic("irbuild: stdFieldDefault: stdNoneDefault anchors are on Maybe fields std declares (stdstruct.go:535-591)")
+			panic("irbuild: stdFieldDefault: stdNoneDefault anchors are on Option fields std declares (stdstruct.go:535-591)")
 		}
 		v := f.k.def.variant(lit.text)
 		if v == nil || len(v.payloads) != 0 {
-			panic("irbuild: stdFieldDefault: None is payload-free in std/maybe")
+			panic("irbuild: stdFieldDefault: None is payload-free in std/option")
 		}
 		dst, k, _, ok := bl.variantValue(at, f.k.def, v, nil, true)
 		return dst, ok && k == f.k

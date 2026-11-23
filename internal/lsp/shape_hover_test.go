@@ -208,7 +208,7 @@ func TestHover_LiteralSpreads(t *testing.T) {
 		{"a .. operand's second dot", in(alice, "older = {..alice, age: .▮. + 1}"), "the current value of `alice.age`, a `Int`"},
 		{"a .. operand in a nested update", "fn main()\n  h = Home{owner: User{name: \"A\", age: 1}, rooms: 2}\n  older = {..h, owner: {.., name: String.trim(▮..)}}\n  io.inspect(older)\nend\n",
 			"the current value of `h.owner.name`, a `String`"},
-		{"a .. operand in a lambda", in(alice, "older = {..alice, name: Some(\"x\") |> Maybe.map(fn s -> s + ▮..) |> Maybe.with_default(\"\")}"),
+		{"a .. operand in a lambda", in(alice, "older = {..alice, name: Some(\"x\") |> Option.map(fn s -> s + ▮..) |> Option.with_default(\"\")}"),
 			"the current value of `alice.name`, a `String`"},
 		{"a .. operand at a map key", "fn main()\n  m = {\"a\" => [1]}\n  older = {..m, \"a\" => ▮.. + [2]}\n  io.inspect(older)\nend\n",
 			"the current value of the key `\"a\"` of `m`, a `List<Int>`"},

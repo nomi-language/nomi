@@ -56,7 +56,7 @@ struct TodoTask
     priority: Priority = Priority.Medium
 end
 
-fn parse_status(s: String) -> Maybe<Status>
+fn parse_status(s: String) -> Option<Status>
     case s
         "open"        -> Some(Status.Open)
         "in-progress" -> Some(Status.InProgress)
@@ -65,7 +65,7 @@ fn parse_status(s: String) -> Maybe<Status>
     end
 end
 
-fn parse_priority(s: String) -> Maybe<Priority>
+fn parse_priority(s: String) -> Option<Priority>
     case s
         "high"   -> Some(Priority.High)
         "medium" -> Some(Priority.Medium)

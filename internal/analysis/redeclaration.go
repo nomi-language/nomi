@@ -181,8 +181,8 @@ func (b *builder) collidesWithImportedModule(scope *Scope, name, what string, li
 //     synth band and has no user-visible position to report at. A local
 //     declaration of a prelude name is diagnosed at its own site by
 //     checkReservedTypeName.
-//   - An import landing on another import's slot. `import std::maybe.{Maybe}`
-//     beside the prelude's own injected `Maybe` is the explicit-is-better
+//   - An import landing on another import's slot. `import std::option.{Option}`
+//     beside the prelude's own injected `Option` is the explicit-is-better
 //     idiom that stdlib files must write, and two selective imports of the
 //     same name have always resolved last-wins. Import-vs-import precedence
 //     is a separate open question; this check leaves it exactly as it was.

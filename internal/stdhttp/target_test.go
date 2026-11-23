@@ -29,7 +29,7 @@ fn ask(address: String, method: String, target: String) -> String
     _ = Writer.write_text(Connection.writer(conn), "${method} ${target} HTTP/1.1\r\nHost: served.example\r\nConnection: close\r\n\r\n")
     text = Reader.read_all_text(Connection.reader(conn))!
     Connection.close(conn)
-    String.split(text, "\n") |> Iter.last() |> Maybe.with_default("")
+    String.split(text, "\n") |> Iter.last() |> Option.with_default("")
 end
 
 fn main()

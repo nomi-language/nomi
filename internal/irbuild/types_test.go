@@ -56,8 +56,8 @@ func TestEnumSlotsDedupByGoTypeNotLayout(t *testing.T) {
 		},
 		{
 			name:  "a zero-sized payload gets no slot",
-			src:   "struct Nothing end\n\nenum Maybe0\n  Absent\n  embeds Nothing\nend\n",
-			enum:  "Maybe0",
+			src:   "struct Nothing end\n\nenum Option0\n  Absent\n  embeds Nothing\nend\n",
+			enum:  "Option0",
 			slots: nil,
 			why:   "a zero-sized value carries no information to store",
 		},

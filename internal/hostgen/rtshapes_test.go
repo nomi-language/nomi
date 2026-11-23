@@ -49,7 +49,7 @@ func TestTaggedLayoutMatchesRtTagConstants(t *testing.T) {
 		}
 		return &Module{Name: name, Nodes: nodes}
 	}
-	for _, name := range []string{"json", "comparable", "supervisors", "duration", "maybe", "results"} {
+	for _, name := range []string{"json", "comparable", "supervisors", "duration", "option", "results"} {
 		mods = append(mods, load(name))
 	}
 	res := NewResolver(mods...)

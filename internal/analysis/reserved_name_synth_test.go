@@ -33,8 +33,8 @@ func TestReservedName_OneErrorWordedForTheDeclaration(t *testing.T) {
 	cases := []struct{ name, src, want string }{
 		{"enum Unit", "pub enum Unit\n  Ohms\nend\n",
 			"1:10: type name 'Unit' is reserved by the language and cannot be redeclared as an enum; pick a different name (e.g. `enum MyUnit`)"},
-		{"enum Maybe", "enum Maybe\n  Nope\nend\n",
-			"1:6: type name 'Maybe' is reserved by the language and cannot be redeclared as an enum; pick a different name (e.g. `enum MyMaybe`)"},
+		{"enum Option", "enum Option\n  Nope\nend\n",
+			"1:6: type name 'Option' is reserved by the language and cannot be redeclared as an enum; pick a different name (e.g. `enum MyOption`)"},
 		{"enum Ordering", "enum Ordering\n  Less\nend\n",
 			"1:6: type name 'Ordering' is reserved by the language and cannot be redeclared as an enum; pick a different name (e.g. `enum MyOrdering`)"},
 		{"struct Int", "struct Int\n  x: Float\nend\n",

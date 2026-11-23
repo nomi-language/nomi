@@ -76,7 +76,7 @@ fn scan(text: String, chars: Vector<String>, i: Int, acc: List<Token>) -> List<T
 end
 
 fn at(chars: Vector<String>, i: Int) -> String
-    Vector.get(chars, i) |> Maybe.with_default("")
+    Vector.get(chars, i) |> Option.with_default("")
 end
 
 fn token_at(chars: Vector<String>, i: Int, c: String) -> (Kind, Int)
@@ -157,8 +157,8 @@ end
 /// be, and `"name: Type"` (or `"name!: Type"`) gives its Nomi type.
 pub struct Override
     column:    String
-    nullable:  Maybe<Bool>
-    type_text: Maybe<String>
+    nullable:  Option<Bool>
+    type_text: Option<String>
     token:     Token
 end
 
@@ -166,13 +166,13 @@ end
 //! t = Token{kind: Kind.Quoted, text: "\"n!: Int\"", start: 0, stop: 9}
 //! o = sqltext.override(t)
 //!
-//! assert o |> Maybe.map(fn x -> (x.column, x.nullable, x.type_text)) == Some(
+//! assert o |> Option.map(fn x -> (x.column, x.nullable, x.type_text)) == Some(
 //!     ("n", Some(False), Some("Int"))
 //! )
 //!
 //! assert sqltext.override({..t, text: "\"n\""}) == None
 //
-pub fn override(token: Token) -> Maybe<Override>
+pub fn override(token: Token) -> Option<Override>
     if token.kind != Kind.Quoted then return None
     inner = token.text |> cut_prefix("\"") |> cut_suffix("\"")
 
@@ -287,9 +287,9 @@ end
 /// The token of the SQL `sqlite_sql` writes at byte `offset`: where an
 /// error SQLite reports at that offset is in the query's SQL.
 //! tokens = sqltext.tokens("SELECT  @x, nope")
-//! assert sqltext.token_at_offset(tokens, 11) |> Maybe.map(fn t -> t.text) == Some("nope")
+//! assert sqltext.token_at_offset(tokens, 11) |> Option.map(fn t -> t.text) == Some("nope")
 //
-pub fn token_at_offset(tokens: List<Token>, offset: Int) -> Maybe<Token>
+pub fn token_at_offset(tokens: List<Token>, offset: Int) -> Option<Token>
     (found, _, _) = Iter.reduce(pieces(tokens), (None, 0, 0), fn acc, piece ->
         (found, at, params) = acc
         (token, text) = piece
@@ -426,7 +426,7 @@ end
 //!     fn text: String ->
 //!         sqltext.select_items(sqltext.tokens(text))
 //!         |> Iter.first()
-//!         |> Maybe.flat_map(sqltext.cast_type)
+//!         |> Option.flat_map(sqltext.cast_type)
 //!     end
 //!
 //! assert cast("SELECT CAST(sum(o.total) AS DECIMAL(12, 2)) AS \"revenue!\" FROM o")
@@ -436,14 +436,14 @@ end
 //! assert cast("SELECT CAST(x AS INTEGER) + 1 FROM o") == None
 //! assert cast("SELECT total FROM o") == None
 //
-pub fn cast_type(item: List<Token>) -> Maybe<String>
+pub fn cast_type(item: List<Token>) -> Option<String>
     words = solid(item) |> Iter.to_vector()
 
     text_at =
         fn i: Int ->
             Vector.get(words, i)
-            |> Maybe.map(fn t -> String.uppercase(t.text))
-            |> Maybe.with_default("")
+            |> Option.map(fn t -> String.uppercase(t.text))
+            |> Option.with_default("")
         end
 
     if text_at(0) != "CAST" or text_at(1) != "(" then return None
@@ -599,7 +599,7 @@ pub fn outer_joined(
     tokens: List<Token>,
     plan:   List<String>,
     tables: List<String>,
-) -> Maybe<List<String>>
+) -> Option<List<String>>
     left =
         plan
         |> Iter.filter(fn line -> "LEFT-JOIN" in line)
@@ -611,7 +611,7 @@ pub fn outer_joined(
         table_names(tokens)
         |> Iter.flat_map(fn (t, alias) ->
             Iter.find(tables, fn s -> String.lowercase(s) == String.lowercase(t))
-            |> Maybe.map(fn s -> (s, alias))
+            |> Option.map(fn s -> (s, alias))
             |> listed()
         end)
         |> Iter.to_list()
@@ -656,16 +656,16 @@ end
 
 /// `s` without `prefix`, or `s` when it does not start with it.
 pub fn cut_prefix(s: String, prefix: String) -> String
-    String.strip_prefix(s, prefix) |> Maybe.with_default(s)
+    String.strip_prefix(s, prefix) |> Option.with_default(s)
 end
 
 /// `s` without `suffix`, or `s` when it does not end with it.
 pub fn cut_suffix(s: String, suffix: String) -> String
-    String.strip_suffix(s, suffix) |> Maybe.with_default(s)
+    String.strip_suffix(s, suffix) |> Option.with_default(s)
 end
 
-/// The value a `Maybe` holds, as a list of none or one.
-pub fn listed<T>(m: Maybe<T>) -> List<T>
+/// The value an `Option` holds, as a list of none or one.
+pub fn listed<T>(m: Option<T>) -> List<T>
     case m
         Some(v) -> [v]
         None    -> []
@@ -679,5 +679,5 @@ end
 pub fn position(text: String, index: Int) -> (Int, String)
     before = String.slice(text, 0, index)
     lines = String.split(before, "\n")
-    (Iter.count(lines) - 1, Iter.last(lines) |> Maybe.with_default(""))
+    (Iter.count(lines) - 1, Iter.last(lines) |> Option.with_default(""))
 end

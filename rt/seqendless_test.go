@@ -29,13 +29,13 @@ func TestSeqEndlessPerSourceAndAdapter(t *testing.T) {
 	pair := func(a, b int64) int64 { return a + b }
 	eq := func(a, b int64) bool { return a == b }
 	finite, empty := ListCellSeq[int64, List[int64]](listOf([]int64{1, 2})), ListCellSeq[int64, List[int64]](nil)
-	finite.Count = func(*Frame) Maybe[int64] { return Some[int64](2) }
-	empty.Count = func(*Frame) Maybe[int64] { return Some[int64](0) }
+	finite.Count = func(*Frame) Option[int64] { return Some[int64](2) }
+	empty.Count = func(*Frame) Option[int64] { return Some[int64](0) }
 	repeat := SeqRepeat[int64](7)
 	unbounded := Range[int64]{Start: 1, End: None[int64]()}
 	nearMax := Range[int64]{Start: math.MaxInt64 - 3, End: None[int64]()}
-	next := func(_ *Frame, v int64) Maybe[int64] { return Some(v + 1) }
-	step := func(_ *Frame, v, by int64) Maybe[int64] { return Some(v + by) }
+	next := func(_ *Frame, v int64) Option[int64] { return Some(v + 1) }
+	step := func(_ *Frame, v, by int64) Option[int64] { return Some(v + by) }
 
 	for _, c := range []struct {
 		name string
@@ -95,11 +95,11 @@ func TestSeqEndlessPerSourceAndAdapter(t *testing.T) {
 func TestSeqTakeKnowsItsCount(t *testing.T) {
 	fr := NewFrame(nil)
 	counted := ListCellSeq[int64, List[int64]](listOf([]int64{1, 2}))
-	counted.Count = func(*Frame) Maybe[int64] { return Some[int64](2) }
+	counted.Count = func(*Frame) Option[int64] { return Some[int64](2) }
 	for _, c := range []struct {
 		name string
 		seq  Seq[int64]
-		want Maybe[int64]
+		want Option[int64]
 	}{
 		{"of an infinite source", SeqTake(SeqRepeat[int64](1), 3), Some[int64](3)},
 		{"a negative count", SeqTake(SeqRepeat[int64](1), -2), Some[int64](0)},

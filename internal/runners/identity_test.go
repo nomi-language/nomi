@@ -74,7 +74,7 @@ func stageIdentityTree(t *testing.T) string {
 	writeAt("compiler/std/std.go", "package std\n\nimport \"embed\"\n\n//go:embed *.nomi\nvar fs embed.FS\n")
 	writeAt("compiler/std/io.nomi", "pub fn print(s: String)\n")
 	writeAt("compiler/README.md", "not a build input\n")
-	writeAt("compiler/rt/prelude.go", "package rt\n\ntype Maybe[T any] struct{}\n")
+	writeAt("compiler/rt/prelude.go", "package rt\n\ntype Option[T any] struct{}\n")
 	return compiler
 }
 
@@ -154,7 +154,7 @@ func TestIdentity_HashTracksLinkInputsOnly(t *testing.T) {
 		{
 			name:   "runtime package source",
 			rel:    "compiler/rt/prelude.go",
-			body:   "package rt\n\ntype Maybe[T any] struct{ Tag int }\n",
+			body:   "package rt\n\ntype Option[T any] struct{ Tag int }\n",
 			moves:  true,
 			reason: "rt is a package of the compiler module, which a runner links",
 		},

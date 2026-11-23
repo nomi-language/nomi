@@ -31,7 +31,7 @@ once neighbours = [(0, -1), (0, 1), (-1, 0), (-1, 1), (1, -1), (1, 0)]
 /// The player whose stones join their two sides of `board`, or `None`.
 /// Each row of the board is its cells separated by spaces, `X`, `O` or `.`,
 /// indented to show the shift.
-pub fn winner(board: List<String>) -> Maybe<Player>
+pub fn winner(board: List<String>) -> Option<Player>
     rows =
         board
         |> Iter.map(fn line -> line |> String.trim() |> String.split(" ") |> Iter.to_list())
@@ -54,7 +54,7 @@ fn connects(rows: List<List<String>>, player: Player) -> Bool
         |> Iter.to_set()
 
     last_row = Iter.count(rows) - 1
-    width = rows |> Iter.first() |> Maybe.map(Iter.count) |> Maybe.with_default(0)
+    width = rows |> Iter.first() |> Option.map(Iter.count) |> Option.with_default(0)
     last_column = width - 1
 
     (is_start, is_goal) =
@@ -242,7 +242,7 @@ test result: ok. 12 passed, 0 failed
 
 ## How it's written
 
-- `winner` returns `Maybe<Player>`, a `Player` enum of `X` and `O`, where the canonical data writes `"X"`, `"O"` and `""` for no winner.
+- `winner` returns `Option<Player>`, a `Player` enum of `X` and `O`, where the canonical data writes `"X"`, `"O"` and `""` for no winner.
 - The board is read as the canonical rows: each is trimmed of its indentation and split on spaces, so cell `(row, column)` is the column-th symbol of the row. The indentation is only the picture of the shift, which the neighbour offsets carry: a cell touches its two sides, the cell above and the one above and right, and the cell below and the one below and left.
 - A player's stones are collected once into a `Set<Cell>`, so the search asks set membership and never indexes the grid or checks bounds; a cell off the board holds no stone.
 - `connects` sets the start and goal edges per player as a pair of predicates, and `reaches` is a depth-first search from every stone on the start edge, with a frontier list and a set of cells seen. It stops at the first cell on the goal edge.

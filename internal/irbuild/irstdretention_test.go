@@ -30,7 +30,7 @@ fn text(n: Int) -> String
   Int.to_string(n)
 end
 
-fn whole(x: Float) -> Maybe<Int>
+fn whole(x: Float) -> Option<Int>
   Float.to_int(x)
 end
 
@@ -113,10 +113,10 @@ fn entry_value(entry: (String, String)) -> String
   value
 end
 
-fn lookup(entries: List<(String, String)>, key: String) -> Maybe<String>
+fn lookup(entries: List<(String, String)>, key: String) -> Option<String>
   case Iter.find(entries, fn entry -> entry_name(entry) == key)
-    .Some(entry) -> Maybe.Some(entry_value(entry))
-    .None -> Maybe.None
+    .Some(entry) -> Option.Some(entry_value(entry))
+    .None -> Option.None
   end
 end
 
@@ -189,7 +189,7 @@ fn main()
 end
 `, "2:3\njson decode error at line 2, col 3: bad\n2\nJson.ShapeError{path: [\"a\", \"b\"], expected: \"Int\", got: \"String\"}\n",
 			[]string{"failure", "position", "shape", "depth", "main"}},
-		// Project carries a prelude Maybe in a field whose default std
+		// Project carries a prelude Option in a field whose default std
 		// declares, and a spread replaces it.
 		{"std/compiler's Project", `import std::io
 import std::compiler.Project

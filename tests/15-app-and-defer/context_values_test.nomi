@@ -34,7 +34,7 @@ fn accepts_marker(marker: Marker) -> Bool
     marker == Marker
 end
 
-fn lookup_marker(c: Context, marker_type: Type<Marker>) -> Maybe<Marker>
+fn lookup_marker(c: Context, marker_type: Type<Marker>) -> Option<Marker>
     Context.value(c, marker_type)
 end
 

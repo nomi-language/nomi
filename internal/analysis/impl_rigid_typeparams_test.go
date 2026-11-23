@@ -12,7 +12,7 @@ import (
 // own impl one.
 
 const rigidStoreDecls = `interface Store<K, V>
-    fn get(store: self, key: K) -> Maybe<V>
+    fn get(store: self, key: K) -> Option<V>
     fn put(store: self, key: K, value: V) -> self
 end
 
@@ -57,12 +57,12 @@ func TestImplRigidTypeParams_Rejected(t *testing.T) {
 	}{
 		{
 			"return type names a concrete type where the interface has the impl's parameter",
-			rigidStoreDecls + "impl Store<String, T> for Cache<T>\n    fn get(cache: Cache<T>, key: String) -> Maybe<Int>\n        _ = Map.get(cache.items, key)\n        None\n    end\n\n    fn put(cache: Cache<T>, key: String, value: T) -> Cache<T>\n        Cache{items: Map.put(cache.items, key, value)}\n    end\nend\n",
-			[]string{"impl function 'get': return type Maybe<Int> does not match interface 'Store' return type Maybe<T>"},
+			rigidStoreDecls + "impl Store<String, T> for Cache<T>\n    fn get(cache: Cache<T>, key: String) -> Option<Int>\n        _ = Map.get(cache.items, key)\n        None\n    end\n\n    fn put(cache: Cache<T>, key: String, value: T) -> Cache<T>\n        Cache{items: Map.put(cache.items, key, value)}\n    end\nend\n",
+			[]string{"impl function 'get': return type Option<Int> does not match interface 'Store' return type Option<T>"},
 		},
 		{
 			"parameter type names a concrete type where the interface has the impl's parameter",
-			rigidStoreDecls + "impl Store<String, T> for Cache<T>\n    fn get(cache: Cache<T>, key: String) -> Maybe<T>\n        Map.get(cache.items, key)\n    end\n\n    fn put(cache: Cache<T>, key: String, value: Int) -> Cache<T>\n        _ = (key, value)\n        cache\n    end\nend\n",
+			rigidStoreDecls + "impl Store<String, T> for Cache<T>\n    fn get(cache: Cache<T>, key: String) -> Option<T>\n        Map.get(cache.items, key)\n    end\n\n    fn put(cache: Cache<T>, key: String, value: Int) -> Cache<T>\n        _ = (key, value)\n        cache\n    end\nend\n",
 			[]string{"impl function 'put': parameter 3 has type Int, but interface 'Store' declares T"},
 		},
 		{
@@ -72,8 +72,8 @@ func TestImplRigidTypeParams_Rejected(t *testing.T) {
 		},
 		{
 			"nested generic with a concrete argument",
-			rigidStoreDecls + "impl Store<String, List<T>> for Cache<T>\n    fn get(cache: Cache<T>, key: String) -> Maybe<List<Int>>\n        _ = (cache, key)\n        None\n    end\n\n    fn put(cache: Cache<T>, key: String, value: List<T>) -> Cache<T>\n        _ = (key, value)\n        cache\n    end\nend\n",
-			[]string{"impl function 'get': return type Maybe<List<Int>> does not match interface 'Store' return type Maybe<List<T>>"},
+			rigidStoreDecls + "impl Store<String, List<T>> for Cache<T>\n    fn get(cache: Cache<T>, key: String) -> Option<List<Int>>\n        _ = (cache, key)\n        None\n    end\n\n    fn put(cache: Cache<T>, key: String, value: List<T>) -> Cache<T>\n        _ = (key, value)\n        cache\n    end\nend\n",
+			[]string{"impl function 'get': return type Option<List<Int>> does not match interface 'Store' return type Option<List<T>>"},
 		},
 		{
 			"function-level parameter fixed to a concrete type",
@@ -123,11 +123,11 @@ func TestImplRigidTypeParams_Accepted(t *testing.T) {
 	for _, tc := range []struct{ name, src string }{
 		{
 			"the impl's parameter where the interface has it",
-			rigidStoreDecls + "impl Store<String, T> for Cache<T>\n    fn get(cache: Cache<T>, key: String) -> Maybe<T>\n        Map.get(cache.items, key)\n    end\n\n    fn put(cache: Cache<T>, key: String, value: T) -> Cache<T>\n        Cache{items: Map.put(cache.items, key, value)}\n    end\nend\n",
+			rigidStoreDecls + "impl Store<String, T> for Cache<T>\n    fn get(cache: Cache<T>, key: String) -> Option<T>\n        Map.get(cache.items, key)\n    end\n\n    fn put(cache: Cache<T>, key: String, value: T) -> Cache<T>\n        Cache{items: Map.put(cache.items, key, value)}\n    end\nend\n",
 		},
 		{
 			"nested generic over the impl's parameter",
-			rigidStoreDecls + "impl Store<String, List<T>> for Cache<T>\n    fn get(cache: Cache<T>, key: String) -> Maybe<List<T>>\n        _ = (cache, key)\n        None\n    end\n\n    fn put(cache: Cache<T>, key: String, value: List<T>) -> Cache<T>\n        _ = (key, value)\n        cache\n    end\nend\n",
+			rigidStoreDecls + "impl Store<String, List<T>> for Cache<T>\n    fn get(cache: Cache<T>, key: String) -> Option<List<T>>\n        _ = (cache, key)\n        None\n    end\n\n    fn put(cache: Cache<T>, key: String, value: List<T>) -> Cache<T>\n        _ = (key, value)\n        cache\n    end\nend\n",
 		},
 		{
 			"two impl parameters in place",

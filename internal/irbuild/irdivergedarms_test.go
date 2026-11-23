@@ -586,7 +586,7 @@ fn pair(a: Int, b: Int) -> (Int, Int)
     (a, b)
 end
 
-fn wrap(a: Int) -> Maybe<Int>
+fn wrap(a: Int) -> Option<Int>
     Some(a)
 end
 

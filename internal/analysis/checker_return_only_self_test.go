@@ -26,17 +26,17 @@ end`
 // call is seeded from it) is still recorded as the call's return-only self,
 // which is how the IR builder knows which impl the call names. Recorded as
 // an argument-solved self instead, it carried no ReturnSelf, and the builder
-// ran Int's impl where `Maybe<Int>`'s was asked for: "a value of kind Int
-// where Maybe<Int> is expected".
+// ran Int's impl where `Option<Int>`'s was asked for: "a value of kind Int
+// where Option<Int> is expected".
 func TestReturnOnlySelf_SeededFromTheExpectedTypeIsRecorded(t *testing.T) {
 	bodies := map[string]string{
-		"under ?":         "  _ = json\n  m: Maybe<Int> = FromJson.from_json(Json.Null)?\n  Ok(m)",
-		"annotated":       "  _ = json\n  r: Result<Maybe<Int>, Json.ShapeError> = FromJson.from_json(Json.Null)\n  r",
-		"argument solved": "  m: Maybe<Int> = FromJson.from_json(json)?\n  Ok(m)",
+		"under ?":         "  _ = json\n  m: Option<Int> = FromJson.from_json(Json.Null)?\n  Ok(m)",
+		"annotated":       "  _ = json\n  r: Result<Option<Int>, Json.ShapeError> = FromJson.from_json(Json.Null)\n  r",
+		"argument solved": "  m: Option<Int> = FromJson.from_json(json)?\n  Ok(m)",
 	}
 	for name, body := range bodies {
 		t.Run(name, func(t *testing.T) {
-			src := "import std::json.{FromJson, Json}\n\nfn read(json: Json) -> Result<Maybe<Int>, Json.ShapeError>\n" + body + "\nend\n"
+			src := "import std::json.{FromJson, Json}\n\nfn read(json: Json) -> Result<Option<Int>, Json.ShapeError>\n" + body + "\nend\n"
 			fa, errs := checkSourceWithStdlib(src)
 			expectClean(t, errs)
 			pos, found := analysis.Pos{}, false
@@ -53,8 +53,8 @@ func TestReturnOnlySelf_SeededFromTheExpectedTypeIsRecorded(t *testing.T) {
 			if ref == nil {
 				t.Fatalf("no reference at the call's from_json (%d:%d)", pos.Line, pos.Col)
 			}
-			if ref.ReturnSelf == nil || ref.ReturnSelf.String() != "Maybe<Int>" {
-				t.Fatalf("the call's return-only self is %v, want Maybe<Int>", ref.ReturnSelf)
+			if ref.ReturnSelf == nil || ref.ReturnSelf.String() != "Option<Int>" {
+				t.Fatalf("the call's return-only self is %v, want Option<Int>", ref.ReturnSelf)
 			}
 		})
 	}

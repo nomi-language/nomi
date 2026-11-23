@@ -9,7 +9,7 @@ import (
 // TestPreludeFn_TheOwnerNamesAreReserved holds the property three
 // call-stealing arms rely on.
 //
-// The builder claims calls on `Maybe`/`Result`,
+// The builder claims calls on `Option`/`Result`,
 // `List` and `Map` without checking whether the module declares its own type
 // of that name. That is sound only because the front end RESERVES these names
 // (`checkReservedTypeName`: "type name '...' is reserved by the language and
@@ -22,7 +22,7 @@ import (
 // in both directions so this cannot rot into a one-sided claim.
 func TestPreludeFn_TheOwnerNamesAreReserved(t *testing.T) {
 	const decl = "enum %s\n  A Int\n  B\nend\n\nfn f() -> Int\n  1\nend\n"
-	for _, name := range []string{"Maybe", "Result", "List", "Map"} {
+	for _, name := range []string{"Option", "Result", "List", "Map"} {
 		_, err := AnalyzeSource("main", fmt.Sprintf(decl, name))
 		if err == nil || !strings.Contains(err.Error(), "reserved") {
 			t.Fatalf("`enum %s` is not a front-end error, so preludeFnCall, listCall and mapCall need local-declaration guards (err = %v)", name, err)

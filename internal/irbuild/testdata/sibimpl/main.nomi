@@ -9,8 +9,8 @@
 // it rather than the call that arrived.
 //
 // Seven shapes, each pinning a different half: a zero-argument constructor, a
-// one-String constructor, a two-argument one, a Bool predicate, a
-// `Maybe<String>` accessor whose result crosses the package boundary as a
+// one-String constructor, a two-argument one, a Bool predicate, an
+// `Option<String>` accessor whose result crosses the package boundary as a
 // prelude instance, and an INTERFACE impl function (`Tag.inspect`) whose
 // name is minted from the interface as well as the receiver. The file-qualified
 // `shapes.tag` beside them is the control: that route already worked, and a

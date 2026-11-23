@@ -39,7 +39,7 @@ func TestProgramOfModulesAnswersEachTab(t *testing.T) {
 	prog := highlight.AnalyzeProgram(src, t.TempDir(), std.Shared())
 
 	got := prog.HoverIn("main.nomi", 7, colOf(t, prog, "main.nomi", 7, "rates"), nil)
-	if !strings.Contains(got, "fn rates(code: String) -> Maybe<Int>") {
+	if !strings.Contains(got, "fn rates(code: String) -> Option<Int>") {
 		t.Errorf("hover on tables.rates in main.nomi = %q; want the function the generator wrote", got)
 	}
 	for _, name := range []string{"main.nomi", "tables.nomi", "csvdata/csvdata.nomi"} {
@@ -423,7 +423,7 @@ fn draft(n: Int) -> Int
     dbg n
 end
 
-fn first<T>(xs: List<T>) -> Maybe<T>
+fn first<T>(xs: List<T>) -> Option<T>
     xs |> dbg |> List.first()
 end
 
@@ -444,10 +444,11 @@ entry_points = ["main"]
 std = ["std::io"]
 `
 
-// The tour's editors mark the keyword of each `dbg`, the call that prints,
-// as the language server does, and its hover keeps the keyword's text and
-// ends with what it reaches, which no list names and every list allows.
-func TestProgramTokensAndHoverMarkADbg(t *testing.T) {
+// The tour's editors leave the keyword of each `dbg`, the call that
+// prints, plain, as the language server does, and mark the function that
+// holds it; its hover keeps the keyword's text and ends with what it
+// reaches, which no list names and every list allows.
+func TestProgramTokensAndHoverOfADbg(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
@@ -458,7 +459,7 @@ func TestProgramTokensAndHoverMarkADbg(t *testing.T) {
 	prog := highlight.AnalyzeProgram(dbgReachSrc, t.TempDir(), std.Shared())
 	f, _ := prog.File("main.nomi")
 	got := effectTokens(f.Source, prog.SemanticTokensIn("main.nomi", reached))
-	want := map[[2]int]string{{3, 4}: "draft", {4, 5}: "dbg", {7, 4}: "first", {8, 11}: "dbg", {11, 4}: "main", {12, 8}: "print", {12, 17}: "dbg", {16, 12}: "dbg"}
+	want := map[[2]int]string{{3, 4}: "draft", {7, 4}: "first", {11, 4}: "main", {12, 8}: "print"}
 	if fmt.Sprint(got) != fmt.Sprint(want) {
 		t.Errorf("main.nomi marks %v as having effects; want %v", got, want)
 	}

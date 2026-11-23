@@ -43,13 +43,13 @@ dbg line 16: user = User{first_name: "Ada", age: 36}
 `Json.encode_as` turns a value into JSON text, and `Json.decode_as` reads it
 back. The annotation `user: User` tells `decode_as` which type to read, since
 no argument says so. [`std::json`](/reference/json/) has the other options,
-and how enums, `Maybe` fields and `Result` values map to JSON.
+and how enums, `Option` fields and `Result` values map to JSON.
 
 A shape used in one place needs no struct. An anonymous struct is JSON when
 each field is, as a struct deriving both with no options: its field names
-are the keys, and a missing `Maybe` field reads as `None`. A PATCH body that
+are the keys, and a missing `Option` field reads as `None`. A PATCH body that
 must tell a key left out from one set to `null` types the field
-`Presence<Maybe<T>>` ([`std::presence`](/reference/presence/)): a missing key
+`Presence<Option<T>>` ([`std::presence`](/reference/presence/)): a missing key
 is `Absent`, `null` is `Present(None)`, and an `Absent` field is left out
 when written.
 
@@ -60,7 +60,7 @@ fn main() -> Result<Unit, Json.Error>
     reply = Json.encode_as({error: "no todo 99"})
     dbg reply
 
-    todo = Json.decode_as<{title: String, order: Maybe<Int>}>(`{"title": "milk"}`)?
+    todo = Json.decode_as<{title: String, order: Option<Int>}>(`{"title": "milk"}`)?
     dbg todo
 
     Ok(Unit)

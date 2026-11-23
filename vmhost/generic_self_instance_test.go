@@ -8,13 +8,13 @@ import (
 )
 
 // genericSelfShapes are types that hold their own instance: a user generic
-// enum whose payload holds `Tree<T>` through a List, a Maybe, a tuple, a Map,
+// enum whose payload holds `Tree<T>` through a List, an Option, a tuple, a Map,
 // a Set, a struct-shaped variant's field or an Iter; a user generic struct
-// holding `Rose<T>` through a List or a Maybe; a generic struct and enum
+// holding `Rose<T>` through a List or an Option; a generic struct and enum
 // holding each other; two generic enums holding each other; and the same Set
-// and Maybe payloads without generics. Deciding whether the enum lowers used
+// and Option payloads without generics. Deciding whether the enum lowers used
 // to decide the instance again without the walk's stack, until the
-// compiler's stack overflowed; the Maybe, struct-shaped Maybe and Iter
+// compiler's stack overflowed; the Option, struct-shaped Option and Iter
 // payloads declined.
 var genericSelfShapes = map[string]string{
 	"list": `enum Tree<T>
@@ -26,9 +26,9 @@ fn main()
   io.inspect(Tree.Node([Tree.Leaf(1), Tree.Node([])]))
 end
 `,
-	"maybe": `enum Tree<T>
+	"option": `enum Tree<T>
   Leaf(T)
-  Node(Maybe<Tree<T>>)
+  Node(Option<Tree<T>>)
 end
 
 fn main()
@@ -71,9 +71,9 @@ fn main()
   io.inspect(Tree.Node{kids: [Tree.Leaf(1)], label: "x"})
 end
 `,
-	"struct-shaped maybe": `enum Tree<T>
+	"struct-shaped option": `enum Tree<T>
   Leaf(T)
-  Node {next: Maybe<Tree<T>>}
+  Node {next: Option<Tree<T>>}
 end
 
 fn main()
@@ -105,9 +105,9 @@ fn main()
   io.inspect(Rose{value: 1, kids: [Rose{value: 2, kids: []}]})
 end
 `,
-	"generic struct maybe": `struct Link<T>
+	"generic struct option": `struct Link<T>
   value: T
-  next: Maybe<Link<T>>
+  next: Option<Link<T>>
 end
 
 fn main()
@@ -150,9 +150,9 @@ fn main()
   io.inspect(Tree.Node(Set[Tree.Leaf(1)]))
 end
 `,
-	"non-generic maybe": `enum Tree
+	"non-generic option": `enum Tree
   Leaf(Int)
-  Node(Maybe<Tree>)
+  Node(Option<Tree>)
 end
 
 fn main()
@@ -166,19 +166,19 @@ end
 func TestCheck_GenericTypeHoldingItsOwnInstanceLowers(t *testing.T) {
 	want := map[string]string{
 		"list":                    "Node([Leaf(1), Node([])])\n",
-		"maybe":                   "Node(Some(Leaf(1)))\n",
+		"option":                  "Node(Some(Leaf(1)))\n",
 		"tuple":                   "Node(Leaf(1), Leaf(2))\n",
 		"map":                     "Node({\"a\" => Leaf(1)})\n",
 		"set":                     "Node(Set[Leaf(1)])\n",
 		"struct-shaped variant":   "Node{kids: [Leaf(1)], label: \"x\"}\n",
-		"struct-shaped maybe":     "Node{next: Some(Leaf(1))}\n",
+		"struct-shaped option":    "Node{next: Some(Leaf(1))}\n",
 		"iter":                    "2\n",
 		"generic struct list":     "Rose{value: 1, kids: [Rose{value: 2, kids: []}]}\n",
-		"generic struct maybe":    "Link{value: 1, next: Some(Link{value: 2, next: None})}\n",
+		"generic struct option":   "Link{value: 1, next: Some(Link{value: 2, next: None})}\n",
 		"generic struct and enum": "N(Node{value: 1, kids: [Leaf]})\n",
 		"mutual":                  "E([O(Zero(1))])\n",
 		"non-generic set":         "Node(Set[Leaf(1)])\n",
-		"non-generic maybe":       "Node(Some(Leaf(1)))\n",
+		"non-generic option":      "Node(Some(Leaf(1)))\n",
 	}
 	for name, body := range genericSelfShapes {
 		t.Run(name, func(t *testing.T) {
@@ -344,7 +344,7 @@ end
 	}
 }
 
-// The other forms: Maybe, tuple and Map payloads, a generic struct holding a
+// The other forms: Option, tuple and Map payloads, a generic struct holding a
 // List of itself, and two generic enums holding each other, each built,
 // matched, compared, printed, hashed and built 1000 deep.
 func TestRun_GenericSelfInstanceForms(t *testing.T) {
@@ -361,7 +361,7 @@ derive Display for Point
 
 enum Chain<T>
     End T
-    Next Maybe<Chain<T>>
+    Next Option<Chain<T>>
 end
 
 derive Equatable for Chain<T>
@@ -444,7 +444,7 @@ fn build_pair(n: Int, acc: Pair<String>) -> Pair<String>
     end
 end
 
-fn lookup(d: Dict<Point>, k: String) -> Maybe<Dict<Point>>
+fn lookup(d: Dict<Point>, k: String) -> Option<Dict<Point>>
     case d
         Dict.Obj(m) -> Map.get(m, k)
         Dict.Val(_) -> None
@@ -729,8 +729,8 @@ fn main()
 
     we: Even<Shape> = e
     io.inspect(we)
-    m: Maybe<Tree<Circle>> = Some(t)
-    wm: Maybe<Tree<Shape>> = m
+    m: Option<Tree<Circle>> = Some(t)
+    wm: Option<Tree<Shape>> = m
     io.inspect(wm)
 end
 `)

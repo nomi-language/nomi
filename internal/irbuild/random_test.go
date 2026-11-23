@@ -14,7 +14,7 @@ import (
 //
 // The negative half is what makes this more than a smoke test: with a
 // NON-NEUTRAL type argument and no gen there is no table to intern in, and the
-// row must DECLINE rather than panic — the `Range` row's `Maybe<T>` field
+// row must DECLINE rather than panic — the `Range` row's `Option<T>` field
 // honours its `!shared` the same way.
 func TestGenerator_FieldKindAnswersAtTheNilGenBoundary(t *testing.T) {
 	if k := generatorFieldKind(nil, kindInt); k == kindInvalid {

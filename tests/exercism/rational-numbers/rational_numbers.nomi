@@ -8,7 +8,7 @@ pub opaque struct Rational
 end
 
 /// A Rational other than zero: what `/` divides by.
-pub subtype NonZeroRational Rational when fn r -> r.numerator != 0
+pub refine NonZeroRational Rational when fn r -> r.numerator != 0
 
 impl Rational
     /// `numerator / denominator` in lowest terms. The denominator is not

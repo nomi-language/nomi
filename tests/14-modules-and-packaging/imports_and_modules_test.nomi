@@ -1,5 +1,5 @@
 import
-    std::maybe.Maybe.{None as Nothing, Some as Just}
+    std::option.Option.{None as Nothing, Some as Just}
     std::strings.String.{length as len, starts_with as has}
 end
 

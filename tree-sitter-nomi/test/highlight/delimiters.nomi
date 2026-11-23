@@ -299,7 +299,7 @@ fn nested_bindings(nested: ((Int, Int), Int), p: Point) -> Int
     a + b + c + y + q.x
 end
 
-fn else_bindings(found: Maybe<(Int, List<Int>)>, r: Result<{a: Int}, String>) -> Int
+fn else_bindings(found: Option<(Int, List<Int>)>, r: Result<{a: Int}, String>) -> Int
     Some((n, [first, .._rest])) = found else
         //   ^ type
         //                  ^ type
@@ -348,7 +348,7 @@ fn case_arms(r: Result<(Int, Point), String>, v: List<Int>, m: Map<String, Int>)
     from_r + from_v + from_m
 end
 
-fn guard_arms(found: Maybe<(Int, Int)>) -> Int
+fn guard_arms(found: Option<(Int, Int)>) -> Int
     found |> case
         Some((a, b)) when a > b -> a
         //  ^ type
@@ -377,10 +377,10 @@ test "pattern assertion"
     //              ^ type
     //               ^ type
     assert n == 2
-    found: Maybe<(Int, List<Int>)> = Some((1, [2, 3]))
-    //                                   ^ type
+    found: Option<(Int, List<Int>)> = Some((1, [2, 3]))
     //                                    ^ type
-    //                                        ^ type
+    //                                     ^ type
+    //                                         ^ type
     //                                              ^ type
     //                                               ^ type
     assert Some((m, [first, .._rest])) = found
@@ -415,7 +415,7 @@ fn variant_call() -> Result<Int, String>
     //     ^ type
 end
 
-fn some_call() -> Maybe<Int>
+fn some_call() -> Option<Int>
     Some(1)
     //  ^ type
     //    ^ type
@@ -461,7 +461,7 @@ fn function_calls(n: Int) -> String
     //                                         ^ punctuation.bracket
 end
 
-fn pipe_constructs(n: Int) -> (Maybe<Int>, Result<Int, String>)
+fn pipe_constructs(n: Int) -> (Option<Int>, Result<Int, String>)
     pair = (n |> Some(), n |> then &Ok(&1))
     //     ^ type
     //               ^ type
@@ -556,7 +556,7 @@ fn module_variant_patterns(r: Result<Int, json.Json>, c: json.Json.Case) -> Int
     from_r + from_c
 end
 
-fn as_pattern(found: Maybe<(Int, Int)>) -> Int
+fn as_pattern(found: Option<(Int, Int)>) -> Int
     Some((a, b)) as m = found else
         // <- type
         //    ^ type

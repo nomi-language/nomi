@@ -201,7 +201,7 @@ end
 
 /// The escape the HTML writer puts for byte `c`, or None for a byte it
 /// writes as it is.
-fn html_escape(c: Int) -> Maybe<String>
+fn html_escape(c: Int) -> Option<String>
     case c
         0  -> Some("�")
         34 -> Some("&quot;")
@@ -273,7 +273,7 @@ fn text_run(out: Builder, data: Bytes, start: Int, i: Int, to: Int, escaped: Boo
         skip =
             Bytes.slice(data, i, to)
             |> Bytes.index_of_any(text_specials)
-            |> Maybe.with_default(to - i)
+            |> Option.with_default(to - i)
 
         if skip > 0 then return text_run(out, data, start, i + skip, to, False)
     end
@@ -314,7 +314,7 @@ end
 /// one, as the index after its `;` and what writes its character escaped;
 /// or None when there is none. `hex_limit` bounds a hexadecimal
 /// reference's digits.
-fn reference_at(data: Bytes, i: Int, to: Int, hex_limit: Int) -> Maybe<(Int, (Builder) -> Builder)>
+fn reference_at(data: Bytes, i: Int, to: Int, hex_limit: Int) -> Option<(Int, (Builder) -> Builder)>
     next = i + 1
 
     if next < to and at(data, next) == 35 then
@@ -357,7 +357,7 @@ fn reference_at(data: Bytes, i: Int, to: Int, hex_limit: Int) -> Maybe<(Int, (Bu
             name = Bytes.slice(data, next, stop) |> Bytes.to_string_lossy()
 
             entity(name)
-            |> Maybe.map(fn chars ->
+            |> Option.map(fn chars ->
                 (stop + 1, fn out -> write_raw_all(out, String.to_bytes(chars)))
             end)
         else
@@ -502,7 +502,7 @@ end
 /// What the named reference `&name;` stands for, as goldmark v1.8.7
 /// resolves it: every name of the HTML5 table but `Abreve`, which its
 /// table leaves out.
-fn entity(name: String) -> Maybe<String>
+fn entity(name: String) -> Option<String>
     if name == "Abreve" then
         None
     else

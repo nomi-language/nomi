@@ -154,7 +154,7 @@ func TestOrphanRule_RejectsForeignIfaceForNonPreludeStdlibType_E2E(t *testing.T)
 // base-name-collapsed index says.
 //
 // Fixture shape matters: the project's shadowing type lives in a
-// sibling module that carries an explicit stdlib import (`std/maybe`)
+// sibling module that carries an explicit stdlib import (`std/option`)
 // — the same shape as the opaque cross-module tests where the
 // regression first surfaced. The explicit stdlib import is what makes
 // discovery walk into the std package so std/int (with its inherent
@@ -172,7 +172,7 @@ func TestOrphanRule_ProjectTypeShadowingStdlibInherentReceiver_NoFalsePositive(t
 
 pub opaque type PosCount Int
 
-pub fn from_int(n: Int) -> Maybe<PosCount>
+pub fn from_int(n: Int) -> Option<PosCount>
   if n > 0 then Some(PosCount(n)) else None
 end
 `,

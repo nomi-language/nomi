@@ -45,7 +45,7 @@ enum Shape
   Box {w: Int, h: Int}
 end
 
-fn classify(m: Maybe<Shape>) -> Int
+fn classify(m: Option<Shape>) -> Int
   case m
     Some(Shape.Circle(r)) -> r * 3
     Some(Shape.Square(4)) -> 100
@@ -313,7 +313,7 @@ enum Shape
   Dot
 end
 
-fn pick(m: Maybe<Shape>) -> Int
+fn pick(m: Option<Shape>) -> Int
   case m
     Some(Shape.Box{w: 2.0, h:}) -> h
     Some(_) -> 0
@@ -339,7 +339,7 @@ func TestIRNestedPattern_PatternAssertion(t *testing.T) {
   Dot
 end
 
-fn pick(n: Int) -> Maybe<Shape>
+fn pick(n: Int) -> Option<Shape>
   if n > 0 then Some(Shape.Circle(n)) else Some(Shape.Dot)
 end
 

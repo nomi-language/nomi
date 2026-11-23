@@ -11,21 +11,21 @@
 # T <transcript line>, verbatim
 population irbuild
 what one record per program an internal/irbuild test compares the VM against, keyed <entry>@<sha256(its files, .nomi files as tokens)[:16]>, run as the command that owns it would run it. <dir> is the program's directory. A temp program carries its files as source; a repository program's entry is its path from the worktree root.
-records 380
+records 379
 declared-cases 0
-failing 85
-C assert_subject_test.nomi@295b6bb031afecb5
+failing 84
+C assert_subject_test.nomi@cbda3e84c0be00e0
 E 1
 N 0
 H ea2c94caa8bd40549f69c92bb1b116486d19f399da9728a7d095656772c86cfc
-S -- assert_subject_test.nomi 1120 --
+S -- assert_subject_test.nomi 1121 --
 S
 S import
 S   std::assertions.AssertionFailure
 S   std::testing
 S end
 S
-S fn find(n: Int) -> Maybe<String>
+S fn find(n: Int) -> Option<String>
 S   if n == 1 then Some("Ada") else None
 S end
 S
@@ -125,11 +125,11 @@ T ok <dir>/boot_test.nomi :: group / reads the group's app
 T   booted!
 T test result: ok. 1 passed, 0 failed
 T
-C context_value_test.nomi@1c2213ffc405e0bc
+C context_value_test.nomi@85da209ff195e63a
 E 1
 N 0
 H d520bf05e8041c0b1ac37dfe07a0e575c6f3083710aed3227066531cca897c78
-S -- context_value_test.nomi 1511 --
+S -- context_value_test.nomi 1513 --
 S type UserId Int
 S
 S type RequestId Int
@@ -140,11 +140,11 @@ S struct Tag
 S   name: String
 S end
 S
-S fn user_of(c: Context) -> Maybe<UserId>
+S fn user_of(c: Context) -> Option<UserId>
 S   Context.value(c, UserId)
 S end
 S
-S fn find_in(c: Context, witness: Type<Tag>) -> Maybe<Tag>
+S fn find_in(c: Context, witness: Type<Tag>) -> Option<Tag>
 S   Context.value(c, witness)
 S end
 S
@@ -305,78 +305,6 @@ T ok <dir>/control_test.nomi :: binds two names
 T FAIL <dir>/control_test.nomi :: traps
 T   todo reached at <dir>/control_test.nomi:11
 T test result: FAILED. 1 passed, 1 failed
-T
-C control_test.nomi@06e34d3e2518006f
-E 1
-N 0
-H c4f2f94733af0c6eb690195c5b13282cf3483e9a3263a80f99fdd58849d282ab
-S -- control_test.nomi 564 --
-S fn parse(n: Int) -> Result<Int, String>
-S   if n < 0 then
-S     Err("negative")
-S   else
-S     Ok(n)
-S   end
-S end
-S
-S fn half(n: Int) -> Maybe<Int>
-S   if n % 2 == 0 then
-S     Some(n / 2)
-S   else
-S     None
-S   end
-S end
-S
-S test "an Ok passes through"
-S   v = parse(3)?
-S   assert v == 3
-S end
-S
-S test "an Err ends the case"
-S   v = parse(-1)?
-S   assert v == 1
-S end
-S
-S test "a None ends the case"
-S   h = half(3)?
-S   assert h == 1
-S end
-S
-S test "a piped try"
-S   v = -1 |> parse()?
-S   assert v == 0
-S end
-S
-S test "a try after an assertion that passed"
-S   assert 1 == 1
-S   _ = half(4)?
-S   _ = half(5)?
-S   assert 2 == 3
-S end
-S
-S
-T ok <dir>/control_test.nomi :: an Ok passes through
-T FAIL <dir>/control_test.nomi :: an Err ends the case
-T   line 23: test returned early
-T     parse(-1)?
-T     returned:
-T       Err("negative")
-T FAIL <dir>/control_test.nomi :: a None ends the case
-T   line 28: test returned early
-T     half(3)?
-T     returned:
-T       None
-T FAIL <dir>/control_test.nomi :: a piped try
-T   line 33: test returned early
-T     -1 |> parse()?
-T     returned:
-T       Err("negative")
-T FAIL <dir>/control_test.nomi :: a try after an assertion that passed
-T   line 40: test returned early
-T     half(5)?
-T     returned:
-T       None
-T test result: FAILED. 1 passed, 4 failed
 T
 C control_test.nomi@15890d571c7191cf
 E 0
@@ -597,6 +525,78 @@ T ok <dir>/control_test.nomi :: a subject's operand that leaves
 T   operand left
 T test result: FAILED. 3 passed, 1 failed
 T
+C control_test.nomi@3027523200454d2f
+E 1
+N 0
+H c4f2f94733af0c6eb690195c5b13282cf3483e9a3263a80f99fdd58849d282ab
+S -- control_test.nomi 565 --
+S fn parse(n: Int) -> Result<Int, String>
+S   if n < 0 then
+S     Err("negative")
+S   else
+S     Ok(n)
+S   end
+S end
+S
+S fn half(n: Int) -> Option<Int>
+S   if n % 2 == 0 then
+S     Some(n / 2)
+S   else
+S     None
+S   end
+S end
+S
+S test "an Ok passes through"
+S   v = parse(3)?
+S   assert v == 3
+S end
+S
+S test "an Err ends the case"
+S   v = parse(-1)?
+S   assert v == 1
+S end
+S
+S test "a None ends the case"
+S   h = half(3)?
+S   assert h == 1
+S end
+S
+S test "a piped try"
+S   v = -1 |> parse()?
+S   assert v == 0
+S end
+S
+S test "a try after an assertion that passed"
+S   assert 1 == 1
+S   _ = half(4)?
+S   _ = half(5)?
+S   assert 2 == 3
+S end
+S
+S
+T ok <dir>/control_test.nomi :: an Ok passes through
+T FAIL <dir>/control_test.nomi :: an Err ends the case
+T   line 23: test returned early
+T     parse(-1)?
+T     returned:
+T       Err("negative")
+T FAIL <dir>/control_test.nomi :: a None ends the case
+T   line 28: test returned early
+T     half(3)?
+T     returned:
+T       None
+T FAIL <dir>/control_test.nomi :: a piped try
+T   line 33: test returned early
+T     -1 |> parse()?
+T     returned:
+T       Err("negative")
+T FAIL <dir>/control_test.nomi :: a try after an assertion that passed
+T   line 40: test returned early
+T     half(5)?
+T     returned:
+T       None
+T test result: FAILED. 1 passed, 4 failed
+T
 C control_test.nomi@3762838aab89050c
 E 0
 N 0
@@ -647,207 +647,6 @@ T ok <dir>/control_test.nomi :: a namespaced type's impl function
 T ok <dir>/control_test.nomi :: a stdlib module's type-owned function
 T test result: ok. 3 passed, 0 failed
 T
-C control_test.nomi@3e8711ef80ae3aed
-E 1
-N 0
-H a49b49858e8073d52fcbe065136e33e2ed3a0637a64cd8da8bf3ce6d458c7d83
-S -- control_test.nomi 2299 --
-S import std::io
-S
-S enum Code
-S   Num(Int)
-S   Word(String)
-S   Blank
-S end
-S
-S fn parse(s: String) -> Result<Int, String>
-S   case s
-S     "one" -> Ok(1)
-S     _ -> Err("not a number: " + s)
-S   end
-S end
-S
-S fn found(n: Int) -> Maybe<Int>
-S   if n > 0 then Some(n) else None
-S end
-S
-S fn three() -> Code
-S   Code.Num(3)
-S end
-S
-S test "an if statement asserts in its taken arm"
-S   n = 4
-S   if n > 3 then
-S     assert n * 2 == 8
-S     io.print("then")
-S   else
-S     assert n == 0
-S     io.print("else")
-S   end
-S   io.print("after if")
-S end
-S
-S test "a failing assertion inside an else arm"
-S   n = 1
-S   if n > 3 then
-S     assert n == 4
-S   else
-S     doubled = n * 2
-S     matches = doubled == 3
-S     assert matches
-S   end
-S end
-S
-S test "an if without else and an else-if chain"
-S   n = 7
-S   if n == 7 then
-S     io.print("seven")
-S   end
-S   if n < 5 then
-S     io.print("small")
-S   else if n < 10 then
-S     io.print("medium")
-S     assert n < 9
-S     io.print("checked")
-S   else
-S     io.print("large")
-S   end
-S end
-S
-S test "a case statement over an Int"
-S   n = 2
-S   case n
-S     1 -> False
-S     2 ->
-S       label = "two"
-S       assert label == "three"
-S     _ -> True
-S   end
-S end
-S
-S test "a case statement over a user enum"
-S   c = Code.Word("hi")
-S   case c
-S     Code.Num(n) ->
-S       assert n == 3
-S       io.print("num")
-S     Code.Word(w) ->
-S       io.print(w)
-S       assert String.length(w) == 2
-S       io.print("word")
-S     Code.Blank -> io.print("blank")
-S   end
-S   io.print("after case")
-S end
-S
-S test "a case statement over Maybe and Result constructors"
-S   case found(5)
-S     Some(v) ->
-S       assert v == 5
-S       io.print("some")
-S     None -> io.print("none")
-S   end
-S   case parse("x")
-S     Ok(v) -> assert v == 1
-S     Err(e) -> assert e == "not a number: y"
-S   end
-S end
-S
-S test "constructors compared in assertions"
-S   assert found(2) == Some(2)
-S   assert parse("one") == Ok(1)
-S   assert Code.Word(_) = three()
-S end
-S
-S test "a pattern if statement and a pattern if value"
-S   c = three()
-S   if Code.Num(n) = c then
-S     io.print(n)
-S   end
-S   got = if Code.Num(n) = c then
-S     n
-S   else
-S     0
-S   end
-S   assert got == 4
-S end
-S
-S test "a case statement over a list"
-S   xs = [1, 2, 3]
-S   case xs
-S     [] -> io.print("empty")
-S     [h, ..t] ->
-S       assert h == 1
-S       assert t == [3]
-S       io.print("unreached")
-S   end
-S end
-S
-S test "a case value binding"
-S   n = 3
-S   word = case n
-S     1 -> "one"
-S     3 -> "three"
-S     _ -> "many"
-S   end
-S   assert word == "tree"
-S end
-S
-S
-T ok <dir>/control_test.nomi :: an if statement asserts in its taken arm
-T   then
-T   after if
-T FAIL <dir>/control_test.nomi :: a failing assertion inside an else arm
-T   line 43: assertion failed
-T     assert matches
-T     defined as:
-T       doubled == 3
-T ok <dir>/control_test.nomi :: an if without else and an else-if chain
-T   seven
-T   medium
-T   checked
-T FAIL <dir>/control_test.nomi :: a case statement over an Int
-T   line 69: assertion failed
-T     assert label == "three"
-T     values:
-T       label
-T         = "two"
-T ok <dir>/control_test.nomi :: a case statement over a user enum
-T   hi
-T   word
-T   after case
-T FAIL <dir>/control_test.nomi :: a case statement over Maybe and Result constructors
-T   some
-T   line 98: assertion failed
-T     assert e == "not a number: y"
-T     values:
-T       e
-T         = "not a number: x"
-T FAIL <dir>/control_test.nomi :: constructors compared in assertions
-T   line 105: pattern did not match
-T     assert Code.Word(_) = three()
-T     actual: Num(3)
-T FAIL <dir>/control_test.nomi :: a pattern if statement and a pattern if value
-T   3
-T   line 118: assertion failed
-T     assert got == 4
-T     values:
-T       got
-T         = 3
-T FAIL <dir>/control_test.nomi :: a case statement over a list
-T   line 127: assertion failed
-T     assert t == [3]
-T     values:
-T       t
-T         = [2, 3]
-T FAIL <dir>/control_test.nomi :: a case value binding
-T   line 139: assertion failed
-T     assert word == "tree"
-T     values:
-T       word
-T         = "three"
-T test result: FAILED. 3 passed, 7 failed
-T
 C control_test.nomi@40b3c4cac74c1392
 E 0
 N 0
@@ -891,12 +690,12 @@ S
 T ok <dir>/control_test.nomi :: statement blocks declare types
 T test result: ok. 1 passed, 0 failed
 T
-C control_test.nomi@420ec92fb474a707
+C control_test.nomi@48134d4cb9e1ce49
 E 1
 N 0
 H 0bbdc477fbeb087e9e82adbbc7267cbf0d48cbd25f4a94c7a0c2b95dc4ebb6ac
-S -- control_test.nomi 262 --
-S fn find(n: Int) -> Maybe<Int>
+S -- control_test.nomi 263 --
+S fn find(n: Int) -> Option<Int>
 S   if n > 0 then
 S     Some(n)
 S   else
@@ -932,6 +731,41 @@ T     values:
 T       find(4)
 T         = Some(4)
 T test result: FAILED. 1 passed, 2 failed
+T
+C control_test.nomi@489f6900893972f6
+E 0
+N 0
+H 386e00694d85b5eb758d88454bcd41c0ad34f3bcf9001c926d2a9e78ab442899
+S -- control_test.nomi 685 --
+S import std::json.{Json, FromJson}
+S
+S struct User
+S   name: String
+S   age: Option<Int>
+S   nick: Option<String>
+S end
+S
+S derive FromJson for User
+S
+S fn decode(src: String) -> Result<User, String>
+S   case Json.decode(src)
+S     Ok(j) -> Result.map_err(User.from_json(j), fn e -> Json.ShapeError.to_string(e))
+S     Err(_) -> Err("bad json")
+S   end
+S end
+S
+S test "present, absent and mistyped optional fields"
+S   assert Ok(a) = decode("{\"name\": \"a\", \"age\": 3}")
+S   assert a.age == Some(3)
+S   assert a.nick == None
+S   assert Ok(b) = decode("{\"name\": \"b\", \"nick\": \"bee\"}")
+S   assert b.nick == Some("bee")
+S   assert decode("{\"name\": \"c\", \"age\": \"old\"}") == Err("age: expected Int, got string")
+S end
+S
+S
+T ok <dir>/control_test.nomi :: present, absent and mistyped optional fields
+T test result: ok. 1 passed, 0 failed
 T
 C control_test.nomi@4e84a88e12d046d3
 E 1
@@ -1221,6 +1055,27 @@ T       Duration.as_millis(d)
 T         = 1000
 T ok <dir>/control_test.nomi :: the module-level name outside the block
 T test result: FAILED. 1 passed, 1 failed
+T
+C control_test.nomi@88605ada4ea0ceea
+E 1
+N 0
+H 76f79c6671bf9a0999bd3ce3ede1e9e65310b5fc3919ba045cb75b50fe6a440d
+S -- control_test.nomi 169 --
+S import std::option.Option.{with_default}
+S
+S test "bare prelude methods in an assertion"
+S     assert with_default(Some(1), 2) == 1
+S     assert with_default(None, 2) == 3
+S end
+S
+S
+T FAIL <dir>/control_test.nomi :: bare prelude methods in an assertion
+T   line 5: assertion failed
+T     assert with_default(None, 2) == 3
+T     values:
+T       with_default(None, 2)
+T         = 2
+T test result: FAILED. 0 passed, 1 failed
 T
 C control_test.nomi@8f19f31e65a8ef5c
 E 1
@@ -1798,62 +1653,6 @@ T       u.text
 T         = "ABC"
 T test result: FAILED. 0 passed, 6 failed
 T
-C control_test.nomi@f4d6c9180c86da02
-E 0
-N 0
-H 386e00694d85b5eb758d88454bcd41c0ad34f3bcf9001c926d2a9e78ab442899
-S -- control_test.nomi 683 --
-S import std::json.{Json, FromJson}
-S
-S struct User
-S   name: String
-S   age: Maybe<Int>
-S   nick: Maybe<String>
-S end
-S
-S derive FromJson for User
-S
-S fn decode(src: String) -> Result<User, String>
-S   case Json.decode(src)
-S     Ok(j) -> Result.map_err(User.from_json(j), fn e -> Json.ShapeError.to_string(e))
-S     Err(_) -> Err("bad json")
-S   end
-S end
-S
-S test "present, absent and mistyped optional fields"
-S   assert Ok(a) = decode("{\"name\": \"a\", \"age\": 3}")
-S   assert a.age == Some(3)
-S   assert a.nick == None
-S   assert Ok(b) = decode("{\"name\": \"b\", \"nick\": \"bee\"}")
-S   assert b.nick == Some("bee")
-S   assert decode("{\"name\": \"c\", \"age\": \"old\"}") == Err("age: expected Int, got string")
-S end
-S
-S
-T ok <dir>/control_test.nomi :: present, absent and mistyped optional fields
-T test result: ok. 1 passed, 0 failed
-T
-C control_test.nomi@f590f4008b2eba7c
-E 1
-N 0
-H 76f79c6671bf9a0999bd3ce3ede1e9e65310b5fc3919ba045cb75b50fe6a440d
-S -- control_test.nomi 167 --
-S import std::maybe.Maybe.{with_default}
-S
-S test "bare prelude methods in an assertion"
-S     assert with_default(Some(1), 2) == 1
-S     assert with_default(None, 2) == 3
-S end
-S
-S
-T FAIL <dir>/control_test.nomi :: bare prelude methods in an assertion
-T   line 5: assertion failed
-T     assert with_default(None, 2) == 3
-T     values:
-T       with_default(None, 2)
-T         = 2
-T test result: FAILED. 0 passed, 1 failed
-T
 C control_test.nomi@fc2cbecfc37f6ce9
 E 1
 N 0
@@ -1908,6 +1707,207 @@ T ok <dir>/control_test.nomi :: debug keeps the range syntax
 T   1..4
 T   [1..=2, 3..4]
 T test result: FAILED. 1 passed, 3 failed
+T
+C control_test.nomi@fdfb687acf162859
+E 1
+N 0
+H dc6c78946a7c302b67f158e0505170dc4dd6c228b62fcc1cc0d7e38a38d97e27
+S -- control_test.nomi 2301 --
+S import std::io
+S
+S enum Code
+S   Num(Int)
+S   Word(String)
+S   Blank
+S end
+S
+S fn parse(s: String) -> Result<Int, String>
+S   case s
+S     "one" -> Ok(1)
+S     _ -> Err("not a number: " + s)
+S   end
+S end
+S
+S fn found(n: Int) -> Option<Int>
+S   if n > 0 then Some(n) else None
+S end
+S
+S fn three() -> Code
+S   Code.Num(3)
+S end
+S
+S test "an if statement asserts in its taken arm"
+S   n = 4
+S   if n > 3 then
+S     assert n * 2 == 8
+S     io.print("then")
+S   else
+S     assert n == 0
+S     io.print("else")
+S   end
+S   io.print("after if")
+S end
+S
+S test "a failing assertion inside an else arm"
+S   n = 1
+S   if n > 3 then
+S     assert n == 4
+S   else
+S     doubled = n * 2
+S     matches = doubled == 3
+S     assert matches
+S   end
+S end
+S
+S test "an if without else and an else-if chain"
+S   n = 7
+S   if n == 7 then
+S     io.print("seven")
+S   end
+S   if n < 5 then
+S     io.print("small")
+S   else if n < 10 then
+S     io.print("medium")
+S     assert n < 9
+S     io.print("checked")
+S   else
+S     io.print("large")
+S   end
+S end
+S
+S test "a case statement over an Int"
+S   n = 2
+S   case n
+S     1 -> False
+S     2 ->
+S       label = "two"
+S       assert label == "three"
+S     _ -> True
+S   end
+S end
+S
+S test "a case statement over a user enum"
+S   c = Code.Word("hi")
+S   case c
+S     Code.Num(n) ->
+S       assert n == 3
+S       io.print("num")
+S     Code.Word(w) ->
+S       io.print(w)
+S       assert String.length(w) == 2
+S       io.print("word")
+S     Code.Blank -> io.print("blank")
+S   end
+S   io.print("after case")
+S end
+S
+S test "a case statement over Option and Result constructors"
+S   case found(5)
+S     Some(v) ->
+S       assert v == 5
+S       io.print("some")
+S     None -> io.print("none")
+S   end
+S   case parse("x")
+S     Ok(v) -> assert v == 1
+S     Err(e) -> assert e == "not a number: y"
+S   end
+S end
+S
+S test "constructors compared in assertions"
+S   assert found(2) == Some(2)
+S   assert parse("one") == Ok(1)
+S   assert Code.Word(_) = three()
+S end
+S
+S test "a pattern if statement and a pattern if value"
+S   c = three()
+S   if Code.Num(n) = c then
+S     io.print(n)
+S   end
+S   got = if Code.Num(n) = c then
+S     n
+S   else
+S     0
+S   end
+S   assert got == 4
+S end
+S
+S test "a case statement over a list"
+S   xs = [1, 2, 3]
+S   case xs
+S     [] -> io.print("empty")
+S     [h, ..t] ->
+S       assert h == 1
+S       assert t == [3]
+S       io.print("unreached")
+S   end
+S end
+S
+S test "a case value binding"
+S   n = 3
+S   word = case n
+S     1 -> "one"
+S     3 -> "three"
+S     _ -> "many"
+S   end
+S   assert word == "tree"
+S end
+S
+S
+T ok <dir>/control_test.nomi :: an if statement asserts in its taken arm
+T   then
+T   after if
+T FAIL <dir>/control_test.nomi :: a failing assertion inside an else arm
+T   line 43: assertion failed
+T     assert matches
+T     defined as:
+T       doubled == 3
+T ok <dir>/control_test.nomi :: an if without else and an else-if chain
+T   seven
+T   medium
+T   checked
+T FAIL <dir>/control_test.nomi :: a case statement over an Int
+T   line 69: assertion failed
+T     assert label == "three"
+T     values:
+T       label
+T         = "two"
+T ok <dir>/control_test.nomi :: a case statement over a user enum
+T   hi
+T   word
+T   after case
+T FAIL <dir>/control_test.nomi :: a case statement over Option and Result constructors
+T   some
+T   line 98: assertion failed
+T     assert e == "not a number: y"
+T     values:
+T       e
+T         = "not a number: x"
+T FAIL <dir>/control_test.nomi :: constructors compared in assertions
+T   line 105: pattern did not match
+T     assert Code.Word(_) = three()
+T     actual: Num(3)
+T FAIL <dir>/control_test.nomi :: a pattern if statement and a pattern if value
+T   3
+T   line 118: assertion failed
+T     assert got == 4
+T     values:
+T       got
+T         = 3
+T FAIL <dir>/control_test.nomi :: a case statement over a list
+T   line 127: assertion failed
+T     assert t == [3]
+T     values:
+T       t
+T         = [2, 3]
+T FAIL <dir>/control_test.nomi :: a case value binding
+T   line 139: assertion failed
+T     assert word == "tree"
+T     values:
+T       word
+T         = "three"
+T test result: FAILED. 3 passed, 7 failed
 T
 C control_test.nomi@fe4dafd42607b020
 E 1
@@ -1989,11 +1989,11 @@ T   "hi"
 T   dbg line 10: Json.to_dynamic(Json.String("four")) = "four"
 T test result: ok. 1 passed, 0 failed
 T
-C entry.nomi@545c4a4519237e7d
+C entry.nomi@22df1faa396ec0c0
 E 0
 N 0
 H 810c5fde28a51f84e7ac3c618d5b15ffe13c7a324c960b28ff29044d13d36dea
-S -- entry.nomi 1066 --
+S -- entry.nomi 1067 --
 S import std::io
 S import std::matcher.Matcher
 S import std::regex.Regex
@@ -2013,7 +2013,7 @@ S     cs |> Iter.filter(fn c -> x in c) |> Iter.count()
 S end
 S
 S fn found(ms: List<Matcher>, text: String) -> List<String>
-S     ms |> Iter.map(&(Matcher.find_in(&1, text) |> Maybe.with_default("-"))) |> Iter.to_list()
+S     ms |> Iter.map(&(Matcher.find_in(&1, text) |> Option.with_default("-"))) |> Iter.to_list()
 S end
 S
 S fn main()
@@ -2214,56 +2214,6 @@ T ok <dir>/group_test.nomi :: group / plain
 T ok <dir>/group_test.nomi :: overridden / reads the setup's override
 T ok <dir>/group_test.nomi :: overridden / reads its own override
 T test result: ok. 3 passed, 0 failed
-T
-C group_test.nomi@1c62f1ba5bf660ea
-E 0
-N 0
-H 350efb91cc8aa888cdfe1c8f9e305e4e5cc50526e58f2273a291512d3e7c10a0
-S -- group_test.nomi 275 --
-S import
-S   server.{self, App}
-S end
-S
-S group "defaulted"
-S   boot server.boot()
-S
-S   test "reads the default"
-S     assert App.first == "default"
-S   end
-S end
-S
-S group "given"
-S   boot server.boot(Startup{args: ["given"]})
-S
-S   test "reads the argument"
-S     assert App.first == "given"
-S   end
-S end
-S
-S -- server.nomi 318 --
-S import std::io
-S
-S pub struct App
-S   first: String
-S end
-S
-S fn default_startup() -> Startup
-S   Startup{args: ["default"]}
-S end
-S
-S pub fn boot(startup: Startup = default_startup()) -> Result<App, String>
-S   io.print("boot ${startup.args}")
-S   Ok(App{first: Iter.first(startup.args) |> Maybe.with_default("none")})
-S end
-S
-S fn main() end
-S
-S
-T ok <dir>/group_test.nomi :: defaulted / reads the default
-T   boot [default]
-T ok <dir>/group_test.nomi :: given / reads the argument
-T   boot [given]
-T test result: ok. 2 passed, 0 failed
 T
 C group_test.nomi@5b33bb4d3009e43a
 E 1
@@ -2595,6 +2545,95 @@ T ok <dir>/group_test.nomi :: virtual / a group's work is flushed in virtual tim
 T   slow work done
 T test result: ok. 2 passed, 0 failed
 T
+C group_test.nomi@c2513f46f6d279a1
+E 1
+N 0
+H 2e7cbd02625b424f2f68da1c20fb11a74804c9ebb4ccb0a218f8a5d705114678
+S -- group_test.nomi 1162 --
+S import
+S   std::channels.{Channel, Receiver, Sender}
+S   std::duration.Duration
+S end
+S
+S pub struct App
+S   context: Context
+S   done: Channel<Int>
+S end
+S
+S pub fn boot() -> Result<App, String>
+S   Ok(App{context: Context.root(), done: Channel.buffered<Int>(4)})
+S end
+S
+S fn main() end
+S
+S group "channel equality"
+S   boot boot()
+S
+S   test "a received value equals Some"
+S     _ = Sender.send(App.done.sender, 1)
+S     assert Receiver.receive(App.done.receiver) == Some(1)
+S   end
+S
+S   test "a failing receive shows the call's row and both operands"
+S     _ = Sender.send(App.done.sender, 2)
+S     assert Receiver.receive(App.done.receiver) == Some(1)
+S   end
+S
+S   test "a piped receive records no call row"
+S     _ = Sender.send(App.done.sender, 3)
+S     assert App.done.receiver |> Receiver.receive() == Some(1)
+S   end
+S
+S   test "a piped qualified call records no call row"
+S     s = "abc"
+S     assert s |> String.length() == 4
+S   end
+S
+S   test "std equality shows its operands"
+S     d = Duration.seconds(2)
+S     assert d == Duration.seconds(1)
+S   end
+S
+S   test "a closed channel answers None"
+S     Sender.close(App.done.sender)
+S     none: Option<Int> = None
+S     assert Receiver.receive(App.done.receiver) == none
+S   end
+S end
+S
+S
+T ok <dir>/group_test.nomi :: channel equality / a received value equals Some
+T FAIL <dir>/group_test.nomi :: channel equality / a failing receive shows the call's row and both operands
+T   line 27: assertion failed
+T     assert Receiver.receive(App.done.receiver) == Some(1)
+T     values:
+T       App.done.receiver
+T         = <channel>
+T       Receiver.receive(App.done.receiver)
+T         = Some(2)
+T FAIL <dir>/group_test.nomi :: channel equality / a piped receive records no call row
+T   line 32: assertion failed
+T     assert App.done.receiver |> Receiver.receive() == Some(1)
+T     values:
+T       App.done.receiver |> Receiver.receive()
+T         = Some(3)
+T FAIL <dir>/group_test.nomi :: channel equality / a piped qualified call records no call row
+T   line 37: assertion failed
+T     assert s |> String.length() == 4
+T     values:
+T       s |> String.length()
+T         = 3
+T FAIL <dir>/group_test.nomi :: channel equality / std equality shows its operands
+T   line 42: assertion failed
+T     assert d == Duration.seconds(1)
+T     values:
+T       d
+T         = Duration(2000000000)
+T       Duration.seconds(1)
+T         = Duration(1000000000)
+T ok <dir>/group_test.nomi :: channel equality / a closed channel answers None
+T test result: FAILED. 2 passed, 4 failed
+T
 C group_test.nomi@c9a21f773c6fdf40
 E 0
 N 0
@@ -2847,6 +2886,56 @@ T test result: ok. 4 passed, 0 failed
 T --- stderr ---
 T nomi: background task errored (attempt 1): line 103: `NonZeroInt.try_from(0)` found nothing — retrying in <jitter>
 T
+C group_test.nomi@da33d13d978e693e
+E 0
+N 0
+H 350efb91cc8aa888cdfe1c8f9e305e4e5cc50526e58f2273a291512d3e7c10a0
+S -- group_test.nomi 275 --
+S import
+S   server.{self, App}
+S end
+S
+S group "defaulted"
+S   boot server.boot()
+S
+S   test "reads the default"
+S     assert App.first == "default"
+S   end
+S end
+S
+S group "given"
+S   boot server.boot(Startup{args: ["given"]})
+S
+S   test "reads the argument"
+S     assert App.first == "given"
+S   end
+S end
+S
+S -- server.nomi 319 --
+S import std::io
+S
+S pub struct App
+S   first: String
+S end
+S
+S fn default_startup() -> Startup
+S   Startup{args: ["default"]}
+S end
+S
+S pub fn boot(startup: Startup = default_startup()) -> Result<App, String>
+S   io.print("boot ${startup.args}")
+S   Ok(App{first: Iter.first(startup.args) |> Option.with_default("none")})
+S end
+S
+S fn main() end
+S
+S
+T ok <dir>/group_test.nomi :: defaulted / reads the default
+T   boot [default]
+T ok <dir>/group_test.nomi :: given / reads the argument
+T   boot [given]
+T test result: ok. 2 passed, 0 failed
+T
 C group_test.nomi@dd45159c9281cc2a
 E 1
 N 0
@@ -2953,95 +3042,6 @@ T   line 80: assertion failed
 T     assert drain() |> Iter.all_match(fn m -> m == "y")
 T test result: FAILED. 2 passed, 2 failed
 T
-C group_test.nomi@e43098017555aa3b
-E 1
-N 0
-H 2e7cbd02625b424f2f68da1c20fb11a74804c9ebb4ccb0a218f8a5d705114678
-S -- group_test.nomi 1161 --
-S import
-S   std::channels.{Channel, Receiver, Sender}
-S   std::duration.Duration
-S end
-S
-S pub struct App
-S   context: Context
-S   done: Channel<Int>
-S end
-S
-S pub fn boot() -> Result<App, String>
-S   Ok(App{context: Context.root(), done: Channel.buffered<Int>(4)})
-S end
-S
-S fn main() end
-S
-S group "channel equality"
-S   boot boot()
-S
-S   test "a received value equals Some"
-S     _ = Sender.send(App.done.sender, 1)
-S     assert Receiver.receive(App.done.receiver) == Some(1)
-S   end
-S
-S   test "a failing receive shows the call's row and both operands"
-S     _ = Sender.send(App.done.sender, 2)
-S     assert Receiver.receive(App.done.receiver) == Some(1)
-S   end
-S
-S   test "a piped receive records no call row"
-S     _ = Sender.send(App.done.sender, 3)
-S     assert App.done.receiver |> Receiver.receive() == Some(1)
-S   end
-S
-S   test "a piped qualified call records no call row"
-S     s = "abc"
-S     assert s |> String.length() == 4
-S   end
-S
-S   test "std equality shows its operands"
-S     d = Duration.seconds(2)
-S     assert d == Duration.seconds(1)
-S   end
-S
-S   test "a closed channel answers None"
-S     Sender.close(App.done.sender)
-S     none: Maybe<Int> = None
-S     assert Receiver.receive(App.done.receiver) == none
-S   end
-S end
-S
-S
-T ok <dir>/group_test.nomi :: channel equality / a received value equals Some
-T FAIL <dir>/group_test.nomi :: channel equality / a failing receive shows the call's row and both operands
-T   line 27: assertion failed
-T     assert Receiver.receive(App.done.receiver) == Some(1)
-T     values:
-T       App.done.receiver
-T         = <channel>
-T       Receiver.receive(App.done.receiver)
-T         = Some(2)
-T FAIL <dir>/group_test.nomi :: channel equality / a piped receive records no call row
-T   line 32: assertion failed
-T     assert App.done.receiver |> Receiver.receive() == Some(1)
-T     values:
-T       App.done.receiver |> Receiver.receive()
-T         = Some(3)
-T FAIL <dir>/group_test.nomi :: channel equality / a piped qualified call records no call row
-T   line 37: assertion failed
-T     assert s |> String.length() == 4
-T     values:
-T       s |> String.length()
-T         = 3
-T FAIL <dir>/group_test.nomi :: channel equality / std equality shows its operands
-T   line 42: assertion failed
-T     assert d == Duration.seconds(1)
-T     values:
-T       d
-T         = Duration(2000000000)
-T       Duration.seconds(1)
-T         = Duration(1000000000)
-T ok <dir>/group_test.nomi :: channel equality / a closed channel answers None
-T test result: FAILED. 2 passed, 4 failed
-T
 C group_test.nomi@f171de16a6d57868
 E 0
 N 0
@@ -3096,7 +3096,7 @@ T ok <dir>/group_test.nomi :: group / binds the value with a nested pattern
 T   boot [group]
 T test result: ok. 3 passed, 0 failed
 T
-C internal/irbuild/testdata/anon_recursive.nomi@08321feaa96ecb04
+C internal/irbuild/testdata/anon_recursive.nomi@98328af8628a69c5
 E 0
 N 0
 H a23c9e491c7f53f7ce9ea426ce849525c4373091b668c3c8606ad8859a3b4670
@@ -3216,15 +3216,15 @@ T     defined as:
 T       assert 1 == 1
 T test result: FAILED. 4 passed, 2 failed
 T
-C internal/irbuild/testdata/assert_shape.nomi@4009726e11b92b66
+C internal/irbuild/testdata/assert_shape.nomi@9f9764a9e88886d6
 E 1
 N 0
-H ee2bf1c5604ac0a66f3bfa11b29f0ede81939a61a75574bf89f4c47cdfcc9796
-T FAIL <dir>/assert_shape.nomi :: a Maybe subject that is None fails
+H 9a07c5c68aac0adbb4e3dea589ddc1ecda328fcb8ac0a013601b0d3f93756602
+T FAIL <dir>/assert_shape.nomi :: an Option subject that is None fails
 T   line 37: assertion failed
 T     assert find(2)
 T     actual: None
-T ok <dir>/assert_shape.nomi :: a Maybe subject that is Some passes and carries the variant through
+T ok <dir>/assert_shape.nomi :: an Option subject that is Some passes and carries the variant through
 T FAIL <dir>/assert_shape.nomi :: refuting a Some fails in its own words
 T   line 47: refute failed
 T     refute find(1)
@@ -3247,7 +3247,7 @@ T       find(2)
 T     actual: None
 T test result: FAILED. 3 passed, 5 failed
 T
-C internal/irbuild/testdata/assertable_subject.nomi@61bf738000067cd4
+C internal/irbuild/testdata/assertable_subject.nomi@496f32e7a17fa905
 E 1
 N 0
 H a16c28275f375a445e3d88dcc068dc75eb60c3f5e2f85b9dd94f95dc06f65551
@@ -3299,7 +3299,7 @@ T         196   │   refute equals(3, 3)
 T ok <dir>/assertable_subject.nomi :: a bound Assertable subject carries its defining expression
 T test result: FAILED. 4 passed, 4 failed
 T
-C internal/irbuild/testdata/assertable_subject_report.nomi@789acd6d68da4d51
+C internal/irbuild/testdata/assertable_subject_report.nomi@b6ef4b7eed881e54
 E 1
 N 0
 H fe0e44e001c249d5b289728bbba4fb655ed5605ac7544c918c1856cf7afaf1c2
@@ -3359,7 +3359,7 @@ T twice via alias and qualified agree: True
 T has = True
 T qualified label = Grace
 T
-C internal/irbuild/testdata/binding_else.nomi@fe31df2f1b0758ef
+C internal/irbuild/testdata/binding_else.nomi@d52be916071a515b
 E 0
 N 0
 H ddb3a7f32adc053740915d334b839cf4976f2100a1297d100472d9d8bf3c0ceb
@@ -3414,7 +3414,7 @@ T 5
 T 42
 T 3 7
 T
-C internal/irbuild/testdata/branch_untyped_literal.nomi@ff6a4825511fabe7
+C internal/irbuild/testdata/branch_untyped_literal.nomi@522982dcdfee8c45
 E 0
 N 0
 H 71f655e2cda60293ca062a7ab030e4ca46251073ba203640bbf9650c313b3884
@@ -3743,7 +3743,7 @@ T n=7
 T built 500
 T huge
 T
-C internal/irbuild/testdata/case_order.nomi@e763c7a78b89059c
+C internal/irbuild/testdata/case_order.nomi@a6cd9f22db6de867
 E 0
 N 0
 H afe27364fafc38b5f92b728b8f01f62a93e08e4450634ef85a732774dd7b9821
@@ -3758,7 +3758,7 @@ T low
 T not low
 T not low
 T
-C internal/irbuild/testdata/case_ordering.nomi@4acc73c96c6c88ac
+C internal/irbuild/testdata/case_ordering.nomi@8ff7857cde3d801f
 E 0
 N 0
 H a49c95e7b4026d30f564784f2ac36694985aecd514ee985380679ff70ca68095
@@ -3798,7 +3798,7 @@ T strings = ab
 T second_ctor = 99
 T both = 41
 T
-C internal/irbuild/testdata/check_project.nomi@7daea34fe49db5f5
+C internal/irbuild/testdata/check_project.nomi@82c9d09deb74fa3e
 E 0
 N 0
 H 19845bdd207b1256a62fdd3a196cdc90f7743bfd4ac294e00e18aba02eaaaa67
@@ -3810,27 +3810,27 @@ T it names main: True
 T it names other: True
 T first diagnostic line is 1, col 12
 T
-C internal/irbuild/testdata/check_shape.nomi@d67ae5ff03aa40d7
+C internal/irbuild/testdata/check_shape.nomi@839b9fc0a23205bb
 E 1
 N 0
-H fc14979c8bf9361a749fe0978779547fae2150ccdc37f8f10b787f8ebf9f3b8e
-T ok <dir>/check_shape.nomi :: a passing Maybe check is Ok carrying the Some, not Ok(True)
+H 9b1fcfde4e2dbeede007c3afcfbe763cc4a4f175ce7e9a265dc5c6276d7d56be
+T ok <dir>/check_shape.nomi :: a passing Option check is Ok carrying the Some, not Ok(True)
 T ok <dir>/check_shape.nomi :: a passing Result check is Ok carrying the Ok
-T FAIL <dir>/check_shape.nomi :: a failing Maybe check renders the whole subject as actual
+T FAIL <dir>/check_shape.nomi :: a failing Option check renders the whole subject as actual
 T   line 82: assertion failed
 T     assert observed.line == 83
 T     values:
 T       observed.line
 T         = 79
 T ok <dir>/check_shape.nomi :: a failing Result check renders the Err payload with its quotes
-T ok <dir>/check_shape.nomi :: a failing Maybe check at a second payload type does not collapse
+T ok <dir>/check_shape.nomi :: a failing Option check at a second payload type does not collapse
 T ok <dir>/check_shape.nomi :: a shape check over a package-local payload uses the per-package instance
 T ok <dir>/check_shape.nomi :: a bound shape subject carries its defining expression
 T ok <dir>/check_shape.nomi :: a shape check result is an ordinary value
 T ok <dir>/check_shape.nomi :: check and assert agree about which shapes hold
 T test result: FAILED. 8 passed, 1 failed
 T
-C internal/irbuild/testdata/check_shape_report.nomi@d7750eea20e59bcc
+C internal/irbuild/testdata/check_shape_report.nomi@f30fb09fe35ce158
 E 1
 N 0
 H 0a05733ea75a6d7378b9e7553fff435c9e8b59d183993dab9484b25b1e93df2a
@@ -3854,7 +3854,7 @@ T inner y = 900
 T outer(1) = 11
 T adder(3)(4) = 7
 T
-C internal/irbuild/testdata/codepoint.nomi@61298938941a202d
+C internal/irbuild/testdata/codepoint.nomi@68bba19691c97b78
 E 0
 N 0
 H c37445a6bcf90c7173fad3efe4fcfc657aaebc15233a1ca40ecd84d31f354336
@@ -3952,7 +3952,7 @@ T ok <dir>/concurrent_try.nomi :: a concurrent block with no `?` produces its ta
 T   in block
 T test result: ok. 4 passed, 0 failed
 T
-C internal/irbuild/testdata/context_deadlines.nomi@4c559440fdebf99c
+C internal/irbuild/testdata/context_deadlines.nomi@50a46666b66167d5
 E 0
 N 0
 H 980f39f0338d890031101bf4209aca430bb590ce0960713b779cd986a966e100
@@ -3980,7 +3980,7 @@ T value:  Some(TraceId("t-1"))
 T --- stderr ---
 T line 69: deadline exceeded: the context in force when `main` blocked ran out, so the remaining work was not run
 T
-C internal/irbuild/testdata/context_values_report.nomi@d287b21cd48691da
+C internal/irbuild/testdata/context_values_report.nomi@9f70a98d972f822d
 E 1
 N 0
 H c426b79affa739c0e3a3bbd646c2f8c1a480fddd78ad0f92e82919bdea39701c
@@ -4067,7 +4067,7 @@ T dbg line 83: "first\nsecond\tthird" = "first\nsecond\tthird"
 T h=first
 T second	third
 T
-C internal/irbuild/testdata/dbg_surfaces.nomi@4a0b606e3ff6db04
+C internal/irbuild/testdata/dbg_surfaces.nomi@064539fd870fe7f8
 E 1
 N 0
 H 27c63093c48236424ee644d71e75a296d21eaef8ac2b8abe1c011b5b4fe3616e
@@ -4124,7 +4124,7 @@ T met: completed 2
 T plain: completed 2
 T after: completed 2
 T
-C internal/irbuild/testdata/debug_containers.nomi@49259d2f7bf74da8
+C internal/irbuild/testdata/debug_containers.nomi@c3c20db63d73b027
 E 0
 N 0
 H 4892b11d68b1c92fbd3c4bfdc82584786e20b0e5b915e426f7c5445322d5ca40
@@ -4276,7 +4276,7 @@ T       r
 T         = Rev{alpha: 2, zeta: 1}
 T test result: FAILED. 1 passed, 1 failed
 T
-C internal/irbuild/testdata/decimal.nomi@9b67571ae768fc70
+C internal/irbuild/testdata/decimal.nomi@68a2f79123c0996c
 E 1
 N 0
 H d31b156b6528c8fca0b4dcb1973b37804a8b623447926626d62de8a1c9484375
@@ -4331,7 +4331,7 @@ T set has absent = False
 T returned = {0.99 => 1, 19.99 => 2}
 T total = 2
 T
-C internal/irbuild/testdata/decimal_render.nomi@ff95640520eb1258
+C internal/irbuild/testdata/decimal_render.nomi@f0347dab143908b3
 E 0
 N 0
 H 8c31c62013b19d31f7b8835102ee8c32aff6a65c071f9db87f3f31f242b9dbff
@@ -4495,7 +4495,7 @@ T distinct diff: True
 T duration eq: True
 T duration ne: True
 T
-C internal/irbuild/testdata/distinct_tuple_and_container.nomi@00e12f54091002f4
+C internal/irbuild/testdata/distinct_tuple_and_container.nomi@f603b2cc2e7bb57b
 E 0
 N 0
 H ab3b562d03cdcce0093404463f532c46b6ac47deb7a04d29a7fb12aa943d60ed
@@ -4546,7 +4546,7 @@ T ok <dir>/dotted_distinct_shadow.nomi :: a PascalCase impl function wins over a
 T ok <dir>/dotted_distinct_shadow.nomi :: the namespaced type is still usable as a TYPE under the collision
 T test result: ok. 2 passed, 0 failed
 T
-C internal/irbuild/testdata/dotted_values.nomi@2df727b18b6128d7
+C internal/irbuild/testdata/dotted_values.nomi@1f584791fac01326
 E 0
 N 0
 H 2d181e6895ccf4e04d0df2c75c97bc5b05411bc9c9e64a53c606c2cc392a59e4
@@ -4566,35 +4566,20 @@ T differ = False
 T bare same = True
 T cross = False
 T
-C internal/irbuild/testdata/enum_field_read.nomi@7376e20790358f26
+C internal/irbuild/testdata/enum_field_read.nomi@6d827d3c4ce577a9
 E 0
 N 0
-H 67026faf6b7d05d3432b884b301d9d8fadbca41e43211c1199a324f584406d83
+H a17eb5f4cbe9e455815dd28269f63dcce06ef0a7e73ecfc60fbabc8f48e6e867
 T ok <dir>/enum_field_read.nomi :: a struct-shaped variant's field reads through the tag
 T ok <dir>/enum_field_read.nomi :: an embeds variant's field reads through the embedded struct
 T ok <dir>/enum_field_read.nomi :: a positional struct payload's field reads through the tag
 T ok <dir>/enum_field_read.nomi :: the tag decides which provider answers, not the declaration order
+T ok <dir>/enum_field_read.nomi :: an accessor reads the field as a field read does
 T ok <dir>/enum_field_read.nomi :: the subject is evaluated once, however impure it is
 T   picked
-T test result: ok. 5 passed, 0 failed
+T test result: ok. 6 passed, 0 failed
 T
-C internal/irbuild/testdata/enum_field_read_trap.nomi@14e07ee1f4b31190
-E 1
-N 0
-H 1578430b45216a19f0b072f65403fc6c0756d4cd1d6fb787a4108be12cf190fe
-T FAIL <dir>/enum_field_read_trap.nomi :: struct-shaped payload without the name
-T   line 42: variant 'Rect' has no field 'radius'
-T FAIL <dir>/enum_field_read_trap.nomi :: positional struct payload without the name
-T   line 48: variant 'Wrap' has no field 'height'
-T FAIL <dir>/enum_field_read_trap.nomi :: a scalar payload has no fields at all
-T   line 54: cannot access field 'height' on variant 'Num'
-T FAIL <dir>/enum_field_read_trap.nomi :: an embeds of a distinct carries no struct
-T   line 60: cannot access field 'height' on variant 'Marker'
-T FAIL <dir>/enum_field_read_trap.nomi :: a bare variant carries nothing
-T   line 66: cannot access field 'height' on variant 'Point'
-T test result: FAILED. 0 passed, 5 failed
-T
-C internal/irbuild/testdata/enum_tuple.nomi@b294f62186fe4fdc
+C internal/irbuild/testdata/enum_tuple.nomi@fdb62ae20969553c
 E 0
 N 0
 H 20523c7be67fd400f21e0ce829e8075af77f61b4545642fd444cf2b5e2fc87b5
@@ -4639,7 +4624,7 @@ T evalf 0.5
 T eval 9
 T done
 T
-C internal/irbuild/testdata/erased_element.nomi@5d84935a23c65cb5
+C internal/irbuild/testdata/erased_element.nomi@0f422d9456c5f387
 E 0
 N 0
 H c20319a6f8c0fd631df7b4db2c30d046ad65dac1fe28f30810ea37dbec9ac862
@@ -4835,7 +4820,7 @@ T clean = False
 T clean-first = none
 T own = mine
 T
-C internal/irbuild/testdata/fragment.nomi@009c95681aacce1f
+C internal/irbuild/testdata/fragment.nomi@7275eab1e7582245
 E 0
 N 0
 H 42d5787d5a36a3a9a9653d5a1fbc2572039d6d98b0672cdd3a2213ab526d46ad
@@ -4963,7 +4948,7 @@ T value
 T (1, 2)
 T 42
 T
-C internal/irbuild/testdata/generic_mono.nomi@b5897fa46f439ce2
+C internal/irbuild/testdata/generic_mono.nomi@668305bd0030e1e5
 E 0
 N 0
 H 0850432a0191514baf539f69b5828bf4f1dfbdefb55706de50672f32d5f9c1ca
@@ -5336,7 +5321,7 @@ T ok <dir>/io_files.nomi :: a write whose parent is not a directory reports NotA
 T ok <dir>/io_files.nomi :: io.Error values compare by variant and payload
 T test result: ok. 7 passed, 0 failed
 T
-C internal/irbuild/testdata/io_inspect_surfaces.nomi@3d40525715dd6fd4
+C internal/irbuild/testdata/io_inspect_surfaces.nomi@6df76c839870ecb3
 E 0
 N 0
 H c8ee0791cca17f69c5ef723ac6ed9767e8f20c232b58ccb361a73cc30548bba5
@@ -5495,7 +5480,7 @@ T   src 2
 T   seed 100
 T 103
 T
-C internal/irbuild/testdata/iter_sources.nomi@bfe320a0fa9adea5
+C internal/irbuild/testdata/iter_sources.nomi@88681254637b975d
 E 0
 N 0
 H 285081a4d3cc774ee97a0daddd0f23768896ace7c5f530874da19f3ea631c7a1
@@ -5552,7 +5537,7 @@ T [[(0, 2), (1, 3)], [(2, 4), (3, 5)]]
 T [1, 2, 1]
 T [1, 2, 1]
 T
-C internal/irbuild/testdata/iter_terminals.nomi@4245b8cc36cb239b
+C internal/irbuild/testdata/iter_terminals.nomi@e81d06041283b8ec
 E 0
 N 0
 H 560183231f2adff9bc44049f2b97bab2854e296068c8ea09dff2503f17a222cf
@@ -5614,7 +5599,7 @@ T [1, 2, 3]
 T [3, 1]
 T [3, 1]
 T
-C internal/irbuild/testdata/iter_to_map.nomi@c9cae524b6181470
+C internal/irbuild/testdata/iter_to_map.nomi@61cb4a8f5ff18ead
 E 0
 N 0
 H eeb730fca9ca2c84814adb7d95d962e1b9cf9118840ce20531fb7de991db2733
@@ -5634,7 +5619,7 @@ T get     True
 T miss    False
 T empty   True
 T
-C internal/irbuild/testdata/iter_untyped_containers.nomi@232c559f34c5e53d
+C internal/irbuild/testdata/iter_untyped_containers.nomi@87aa017cc254b062
 E 0
 N 0
 H 02b16afea69f5fc989550d9b58bd43c782fbc97f8736fd35c851ae9070ed4ffb
@@ -5652,7 +5637,7 @@ T a
 T b
 T 2
 T
-C internal/irbuild/testdata/iter_user_source.nomi@c57184db234c212a
+C internal/irbuild/testdata/iter_user_source.nomi@f50493b9996f9550
 E 0
 N 0
 H 969bd65fead316ddb746753295eb207253d4fd93bc0ce4fd0a3e55b14089217c
@@ -5786,7 +5771,7 @@ N 0
 H 73a1fd45efde8f8e3333d3db01a0af1986dcf2b3e7230e8fa9279c58c5ca003a
 T all rows agree
 T
-C internal/irbuild/testdata/list_methods.nomi@af6279809d22dd3b
+C internal/irbuild/testdata/list_methods.nomi@1c58f896dbd37792
 E 0
 N 0
 H 573a3cbb7a6dbf96f5eade918d5f86a090f044a0b0ccfeb410e7ea14460b7b21
@@ -5993,7 +5978,7 @@ T evaluating mode
 T ordered = localhost debug
 T nested = 8080
 T
-C internal/irbuild/testdata/map_user_hashable.nomi@c6bd4a9f1992ef39
+C internal/irbuild/testdata/map_user_hashable.nomi@33709a839bd67109
 E 0
 N 0
 H c5e89b7b66fb927bbf048858a23e061522e3033bb084097429ec76195fb3d616
@@ -6005,7 +5990,7 @@ T get Id(1) = Some(two)
 T get Id(2) = Some(two)
 T get Id(3) = Some(two)
 T
-C internal/irbuild/testdata/maps.nomi@2f4f49bb3e797aa0
+C internal/irbuild/testdata/maps.nomi@e3ac472b4a2e24c2
 E 0
 N 0
 H 28385053b56c04022b0ce9b1aa7b89da0cd94467259b36d950e62ee883c2860b
@@ -6264,7 +6249,7 @@ T     assert [a, b] = ["one"]
 T     actual: ["one"]
 T test result: FAILED. 3 passed, 4 failed
 T
-C internal/irbuild/testdata/pattern_if.nomi@a3610cb6b84f74cc
+C internal/irbuild/testdata/pattern_if.nomi@dfd4239b9f6a1fe2
 E 0
 N 0
 H c4e679b2f7ee5dc769032e6f42dc46513eb0fefa736e6067def11388ad996b5a
@@ -6325,7 +6310,7 @@ T       3 |> scaled(double(2 + 3))
 T         = 30
 T test result: FAILED. 0 passed, 4 failed
 T
-C internal/irbuild/testdata/pipe_keyword_stages.nomi@124be4ab6723d1be
+C internal/irbuild/testdata/pipe_keyword_stages.nomi@e18c91af33d7a70b
 E 0
 N 0
 H 22de4e58a533b32b2c65828350f17397f189ba2a4bd05355fd17fdf288b2e22d
@@ -6350,7 +6335,7 @@ T once kw = eq
 T lambda_early = [n1, seven, n9]
 T flag = True
 T
-C internal/irbuild/testdata/pipe_stage_keyword_report.nomi@cba0bad2e40cb300
+C internal/irbuild/testdata/pipe_stage_keyword_report.nomi@d970b0053e49b851
 E 1
 N 0
 H 1c0f99fe73af02c91e9177b1a3a2e2caed9be8d478696cfaf34438225f696c95
@@ -6545,32 +6530,32 @@ T describe = open
 T once = True
 T beat = True
 T
-C internal/irbuild/testdata/prelude_fn.nomi@4f015be0f74da766
+C internal/irbuild/testdata/prelude_fn.nomi@96830249a8c8d6b5
 E 0
 N 0
-H 84289a39d8f2a1080c423ae8cfadddb3c591f56f742695bafaf185afc4c2e9ca
-T ok <dir>/prelude_fn.nomi :: Maybe.equal and == agree on two Some values
-T ok <dir>/prelude_fn.nomi :: Maybe.equal and == agree when a variant differs
-T ok <dir>/prelude_fn.nomi :: Maybe.equal is symmetric across the variant boundary
-T ok <dir>/prelude_fn.nomi :: Maybe.equal at a Bool payload
-T ok <dir>/prelude_fn.nomi :: Maybe.equal is reflexive on NaN, where Go equality is not
-T ok <dir>/prelude_fn.nomi :: Maybe.equal compares a List payload structurally
-T ok <dir>/prelude_fn.nomi :: Maybe.equal reached as a pipe stage
+H 9616eb31c1200a1ff32f90d4213bde38990d0418c08b9c65b65184cca1e86666
+T ok <dir>/prelude_fn.nomi :: Option.equal and == agree on two Some values
+T ok <dir>/prelude_fn.nomi :: Option.equal and == agree when a variant differs
+T ok <dir>/prelude_fn.nomi :: Option.equal is symmetric across the variant boundary
+T ok <dir>/prelude_fn.nomi :: Option.equal at a Bool payload
+T ok <dir>/prelude_fn.nomi :: Option.equal is reflexive on NaN, where Go equality is not
+T ok <dir>/prelude_fn.nomi :: Option.equal compares a List payload structurally
+T ok <dir>/prelude_fn.nomi :: Option.equal reached as a pipe stage
 T ok <dir>/prelude_fn.nomi :: a bare None is answerable on both sides of equal
 T ok <dir>/prelude_fn.nomi :: a bare None receiver takes its type from the default
-T ok <dir>/prelude_fn.nomi :: Maybe.is_some and Maybe.is_none read the variant
-T ok <dir>/prelude_fn.nomi :: Maybe.is_some at a non-scalar payload
-T ok <dir>/prelude_fn.nomi :: Maybe.with_default takes the payload or the default
-T ok <dir>/prelude_fn.nomi :: Maybe.with_default at a List payload returns the list itself
+T ok <dir>/prelude_fn.nomi :: Option.is_some and Option.is_none read the variant
+T ok <dir>/prelude_fn.nomi :: Option.is_some at a non-scalar payload
+T ok <dir>/prelude_fn.nomi :: Option.with_default takes the payload or the default
+T ok <dir>/prelude_fn.nomi :: Option.with_default at a List payload returns the list itself
 T ok <dir>/prelude_fn.nomi :: Result.equal and == agree
 T ok <dir>/prelude_fn.nomi :: Result.is_ok and Result.is_err read the variant
 T ok <dir>/prelude_fn.nomi :: Result.with_default takes the Ok payload or the default
-T ok <dir>/prelude_fn.nomi :: Maybe.to_result converts both variants
-T ok <dir>/prelude_fn.nomi :: Result.to_maybe discards the error value
+T ok <dir>/prelude_fn.nomi :: Option.to_result converts both variants
+T ok <dir>/prelude_fn.nomi :: Result.to_option discards the error value
 T ok <dir>/prelude_fn.nomi :: the two conversions round-trip
 T test result: ok. 19 passed, 0 failed
 T
-C internal/irbuild/testdata/prelude_hash.nomi@f1c43c7e58db85a3
+C internal/irbuild/testdata/prelude_hash.nomi@c12c73054bc24493
 E 0
 N 0
 H 95330062bc199c94cf15d56ef8ff031eaaa9dc96e073c4d0fb66856367152be3
@@ -6590,16 +6575,16 @@ T piped none:   1
 T agree:        True
 T differ:       False
 T
-C internal/irbuild/testdata/prelude_hof.nomi@f27d0c77b2d38979
+C internal/irbuild/testdata/prelude_hof.nomi@42555a38daeb4e32
 E 0
 N 0
-H 42b56b2b97878f75c4e62f904ab3829f6657733007467e4617790c43a4b209ea
-T ok <dir>/prelude_hof.nomi :: Maybe.map transforms a Some and leaves a None alone
-T ok <dir>/prelude_hof.nomi :: Maybe.map may change the payload TYPE
-T ok <dir>/prelude_hof.nomi :: Maybe.map takes a function reference, which is the corpus spelling
+H aa91a74a8e7eb8efd8eeef8d80c83e52b9a2c652f577d6d0c932af89539e5727
+T ok <dir>/prelude_hof.nomi :: Option.map transforms a Some and leaves a None alone
+T ok <dir>/prelude_hof.nomi :: Option.map may change the payload TYPE
+T ok <dir>/prelude_hof.nomi :: Option.map takes a function reference, which is the corpus spelling
 T ok <dir>/prelude_hof.nomi :: a bare None receiver takes its type from the callback's parameter
-T ok <dir>/prelude_hof.nomi :: Maybe.flat_map flattens rather than nesting
-T ok <dir>/prelude_hof.nomi :: Maybe.flat_map can turn a present value into an absent one
+T ok <dir>/prelude_hof.nomi :: Option.flat_map flattens rather than nesting
+T ok <dir>/prelude_hof.nomi :: Option.flat_map can turn a present value into an absent one
 T ok <dir>/prelude_hof.nomi :: Result.map transforms an Ok and carries the Err VALUE across
 T ok <dir>/prelude_hof.nomi :: Result.map may change the Ok TYPE and still carry the Err value
 T ok <dir>/prelude_hof.nomi :: Result.map takes a function reference, which is the corpus spelling
@@ -6609,7 +6594,7 @@ T ok <dir>/prelude_hof.nomi :: Result.map_err may change the error TYPE
 T ok <dir>/prelude_hof.nomi :: the higher-order half composes with the rest of the surface
 T test result: ok. 13 passed, 0 failed
 T
-C internal/irbuild/testdata/prelude_maybe.nomi@f5549e6859e3adc8
+C internal/irbuild/testdata/prelude_option.nomi@f0cac958020de5e7
 E 0
 N 0
 H 07ad62b3e5cbe15aa19ab38e1d6346f5cd824ad8b3c9d4429a34c1db226a57de
@@ -6630,7 +6615,7 @@ T 0.5
 T NaN
 T [1, 2, 3]
 T
-C internal/irbuild/testdata/prelude_result.nomi@7649599c8cee9b93
+C internal/irbuild/testdata/prelude_result.nomi@090a06a324418690
 E 0
 N 0
 H 18b462345624f3938d8d9e919dd88d462032962d4a19eb0cde966afae716f19f
@@ -6648,7 +6633,7 @@ T ok 4
 T err inner
 T absent
 T
-C internal/irbuild/testdata/prelude_unsolved.nomi@6a14244aa49c779c
+C internal/irbuild/testdata/prelude_unsolved.nomi@00ab34cc3b009979
 E 0
 N 0
 H 58f20684a245511867d7ea73db08b167710fcac18642f63119db5bb803c476b7
@@ -6672,7 +6657,7 @@ H 4ff5f12ba4d28d29fcee8a449e73034b0ec4f7a2134aefd130f4c2e296216f05
 T label=staged
 T tier=7
 T
-C internal/irbuild/testdata/ranges.nomi@9af32011d458b592
+C internal/irbuild/testdata/ranges.nomi@8eab5caca843a060
 E 0
 N 0
 H a70248c59fc13f38a409040f940d68d8b2ea979d8787ccdefd975015a12d5649
@@ -6768,7 +6753,7 @@ T 1 pt5
 T pt6
 T pt7
 T
-C internal/irbuild/testdata/run_file/main.nomi@a17f223e498c2311
+C internal/irbuild/testdata/run_file/main.nomi@60875b7e5ad4bbc0
 E 0
 N 0
 H daf9ffb34b5cd91077f0a0a45cdfe3b0e9e3eed1946b987d0d8ce21e26c0f036
@@ -6805,7 +6790,7 @@ T geo nan:     True
 T local same:  True
 T local diff:  False
 T
-C internal/irbuild/testdata/seed_function_value.nomi@9efe5db4e6c8a5a7
+C internal/irbuild/testdata/seed_function_value.nomi@50ada45361e6601e
 E 0
 N 0
 H 8f221c680225939632cb74346cd5bfe9639b2c94cdb428a8958be7574c8389a8
@@ -6888,7 +6873,7 @@ H f3c035e5741076909849deee3825ecc55e569d7408785094872ff64d4c2cf7a1
 T A12
 T written<5>
 T
-C internal/irbuild/testdata/sibimpl/main.nomi@abc7b8c5c1df382e
+C internal/irbuild/testdata/sibimpl/main.nomi@5a723e6d14c85d5e
 E 0
 N 0
 H 25903ab3ef35f25a8d4c9fcc93106fce5d0455cbd3e22ce2a90606e9d2c1ed15
@@ -6900,7 +6885,7 @@ T reason: maintenance
 T tag:x
 T <opaque Status>
 T
-C internal/irbuild/testdata/sibimpl/report_test.nomi@0db865dfba5e55ef
+C internal/irbuild/testdata/sibimpl/report_test.nomi@3699f9bf77ae14ca
 E 1
 N 0
 H ea5a96278d0dbee15638f1ffc05a4864de903fa5a51a841e552bc7b1247242bb
@@ -6938,7 +6923,7 @@ T very high 9
 T high 2
 T custom odd
 T
-C internal/irbuild/testdata/sibling_field_defaults/main.nomi@974f3734fd9f468c
+C internal/irbuild/testdata/sibling_field_defaults/main.nomi@5d7302785d66c2b9
 E 0
 N 0
 H e9d4036f32d20a896cab52de8d1486f79b7ad16812f0c988108defdcf8a8569b
@@ -6964,7 +6949,7 @@ T label = a..z
 T label bare = m..n
 T equal = True
 T
-C internal/irbuild/testdata/siblingcompare_alias/main.nomi@4b91ce0c06c87993
+C internal/irbuild/testdata/siblingcompare_alias/main.nomi@dd20f343368ef891
 E 0
 N 0
 H a20f020d90886f35c197a1d254bddab5172e280c4f14dc5d27f3c81417656fcb
@@ -7151,7 +7136,7 @@ T       chosen()
 T         = HalfEven
 T test result: FAILED. 4 passed, 1 failed
 T
-C internal/irbuild/testdata/std_host_type_boundary.nomi@d587622778819795
+C internal/irbuild/testdata/std_host_type_boundary.nomi@9870a6a03ebe1900
 E 0
 N 0
 H 1443bb69a564d63f4641fa5649efc849a3536ee4271f71b1a306f63b8b410c97
@@ -7167,7 +7152,7 @@ T b255 255
 T bneg out of range
 T b256 out of range
 T
-C internal/irbuild/testdata/std_iface_display.nomi@306df4fdf773641b
+C internal/irbuild/testdata/std_iface_display.nomi@f43bb663e7fc96f3
 E 0
 N 0
 H 99c4ea9ab335d10c0f370710b36d24b0819dbadeaa4cabc3385ef620df507e6a
@@ -7201,7 +7186,7 @@ H 0705ac138e952a20316e87e75e86af891f0a2b829d9db6e0f1f3aabcc5937341
 T mine(1)
 T mine(2)
 T
-C internal/irbuild/testdata/std_maybe_boundary.nomi@cf6ee2fac33eb115
+C internal/irbuild/testdata/std_option_boundary.nomi@bc1f7ee3c6d71139
 E 0
 N 0
 H 125f27e8deb6802e3ee7d3acbb94b34cd3885423634c516d0e83fdebb9bf6e92
@@ -7342,7 +7327,7 @@ T before
 T --- stderr ---
 T line 9: shift count 100000000000 is too large: the result would have more than 17179869184 bits
 T
-C internal/irbuild/testdata/stdstruct_defaults.nomi@81bd8660c46ff3ea
+C internal/irbuild/testdata/stdstruct_defaults.nomi@24090b137e405b19
 E 0
 N 0
 H 711d554bb553c14b7038c5d50a2bdd180c8cdac309b74f4c0577073c9548c4a0
@@ -7506,7 +7491,7 @@ H 8d58f634a5b5051db5ee0bb9d005779b382be410e8ebd5144590f2f0429f9220
 T 2
 T 2
 T
-C internal/irbuild/testdata/task_outcome.nomi@db91a2b0801f8396
+C internal/irbuild/testdata/task_outcome.nomi@012f7891fa588d7a
 E 0
 N 0
 H 0fb3b2e3f8168fc6392766ff686a3b28c145af1edfe82ef9aa240678eefd1f55
@@ -7533,7 +7518,7 @@ T qualified agrees = True
 T failed same = True
 T failed differ = False
 T
-C internal/irbuild/testdata/testing_check.nomi@8cbfc051f3ac9ece
+C internal/irbuild/testdata/testing_check.nomi@af61d13155a39514
 E 0
 N 0
 H d9b7d2d8f51cb83346f749b5a4d35bce2ef05f56b9f88172c6abae9ffda7613b
@@ -7744,10 +7729,10 @@ T     assert 1 == 2
 T ok <dir>/tests_mixed.nomi :: third still runs
 T test result: FAILED. 2 passed, 1 failed
 T
-C internal/irbuild/testdata/tests_operands.nomi@d8c05ce5db341823
+C internal/irbuild/testdata/tests_operands.nomi@01d0c7bd18e94e7a
 E 1
 N 0
-H 255f0ff61674f7d87ecc5d57e5739b3f0b9fcb0f3af7bcd691f666b6d457977d
+H 2a72b7e14c5530e70594737e3cab8e4a3db3541496b980aae4158947db7de738
 T FAIL <dir>/tests_operands.nomi :: a list of Int
 T   line 103: assertion failed
 T     assert no_list(xs)
@@ -7846,13 +7831,13 @@ T       s
 T         = Expired
 T FAIL <dir>/tests_operands.nomi :: Some
 T   line 193: assertion failed
-T     assert no_maybe(m)
+T     assert no_option(m)
 T     values:
 T       m
 T         = Some(5)
 T FAIL <dir>/tests_operands.nomi :: None
 T   line 198: assertion failed
-T     assert no_maybe(m)
+T     assert no_option(m)
 T     values:
 T       m
 T         = None
@@ -7870,7 +7855,7 @@ T       r
 T         = Err("bad")
 T FAIL <dir>/tests_operands.nomi :: a prelude enum over a struct
 T   line 213: assertion failed
-T     assert no_maybe_point(m)
+T     assert no_option_point(m)
 T     values:
 T       m
 T         = Some(Point{x: 1, y: "two"})
@@ -7955,7 +7940,7 @@ T       Err("negative")
 T ok <dir>/try_attached.nomi :: an ordinary test declaration is the other test boundary spelling
 T test result: FAILED. 2 passed, 1 failed
 T
-C internal/irbuild/testdata/try_boundary.nomi@34135252b336ff08
+C internal/irbuild/testdata/try_boundary.nomi@214458a31883b33b
 E 0
 N 0
 H 74bb47d56cc7c505c4b5e6dfdf4a85386e546a70fac55137171ec1e992de6c3d
@@ -8002,7 +7987,7 @@ T       Err("negative -1")
 T ok <dir>/try_check_in_test.nomi :: the case after a propagating one still runs
 T test result: FAILED. 2 passed, 3 failed
 T
-C internal/irbuild/testdata/try_in_test.nomi@b3ebf4734ef1075b
+C internal/irbuild/testdata/try_in_test.nomi@032d7a013353c2db
 E 1
 N 0
 H 8b3af3525fc6781681b090289f076b4a1ee2ec6ee1c1f1496f7a207d624b435a
@@ -8033,7 +8018,7 @@ T   after the lambda
 T ok <dir>/try_in_test.nomi :: the case after a propagating one still runs
 T test result: FAILED. 3 passed, 4 failed
 T
-C internal/irbuild/testdata/tuple_coerce_and_pattern.nomi@48575dd80977b9c9
+C internal/irbuild/testdata/tuple_coerce_and_pattern.nomi@f8a6713dbcd93a67
 E 0
 N 0
 H f7417b0b336cecaddde47cd35eeedbf61ff98fff935b4b37132e7cf113aaaafa
@@ -8073,7 +8058,7 @@ T other
 T [(1, a), (2, b)]
 T seven=7 then []
 T
-C internal/irbuild/testdata/type_alias.nomi@07d00c1031b61e7f
+C internal/irbuild/testdata/type_alias.nomi@1e4343fd2754fc58
 E 0
 N 0
 H 0258b0e55ea1803d891509c9f95680bf6203f2064d720669cc082653fa0bbaca
@@ -8144,7 +8129,7 @@ T       nothing()
 T         = Unit
 T test result: FAILED. 2 passed, 1 failed
 T
-C internal/irbuild/testdata/untyped_equality.nomi@4d31d79019716ee3
+C internal/irbuild/testdata/untyped_equality.nomi@6dd8ecd57254374e
 E 0
 N 0
 H adb7b7d2e8e6b4bade01a1cdce85a21edf3ece7dade8df8049418e45c488770d
@@ -8165,7 +8150,7 @@ T map-empty-eq True True
 T map-full-eq  False False
 T map-ne       True False
 T
-C internal/irbuild/testdata/untyped_equality_report.nomi@5416495034b1e461
+C internal/irbuild/testdata/untyped_equality_report.nomi@f45fe9e4bc5f7785
 E 1
 N 0
 H 18863978b574ea1855760ae15761f7f0f7ec2c444062b974a4beeb8793d47951
@@ -8190,7 +8175,7 @@ T       xs
 T         = [1, 2]
 T test result: FAILED. 1 passed, 3 failed
 T
-C internal/irbuild/testdata/untyped_list_calls.nomi@db32cdda176c17d3
+C internal/irbuild/testdata/untyped_list_calls.nomi@1188eed31aca63a6
 E 0
 N 0
 H ada6de4ca1d3624f614b99fc08dd4a06d3314c00920cbb3ba854ff3fe05c659f
@@ -8245,7 +8230,7 @@ T       Ordering.Equal
 T         = Equal
 T test result: FAILED. 1 passed, 4 failed
 T
-C internal/irbuild/testdata/variant_alias.nomi@3f4b446ffd84a3e1
+C internal/irbuild/testdata/variant_alias.nomi@a9ca589d6c663223
 E 0
 N 0
 H d7afac1bc4eb48a3013f89d56632cc6322f4f0fd40da031a1aee5fc6d6036bb5
@@ -8261,7 +8246,7 @@ T str:deep
 T lt
 T eq
 T
-C internal/irbuild/testdata/variant_name_collision.nomi@285c63ce0f343c75
+C internal/irbuild/testdata/variant_name_collision.nomi@29f731dfee0023c6
 E 0
 N 0
 H bb85b5c29ddf10a17d2a45616c66540cbb53b012862b310bcba117405a2f18ca
@@ -8283,10 +8268,10 @@ T 5/1
 T lib
 T entry
 T
-C internal/irbuild/testdata/vectors.nomi@4179a2d720eb04b1
+C internal/irbuild/testdata/vectors.nomi@e1306e14ed082a73
 E 0
 N 0
-H c28d7fbe3450164cdb00b0c10d3489e4301f231f1db6b49d614205d71cab212a
+H b60254e3648ce07dd1b460406cec24d9fb2023db393d7a464a9a064e64b0d328
 T len 3
 T count 3
 T at0 1
@@ -8339,10 +8324,10 @@ T nested len 2
 T nested eq True
 T nested debug Vector[Vector[1, 2], Vector[3]]
 T nested show Vector[Vector[1, 2], Vector[3]]
-T maybe eq none True
-T maybe eq some True
-T maybe eq no False
-T maybe scalar True
+T option eq none True
+T option eq some True
+T option eq no False
+T option scalar True
 T key hit True
 T key miss True
 T key window True
@@ -9284,14 +9269,14 @@ T ok <dir>/main_test.nomi :: records in another file's signatures
 T ok <dir>/main_test.nomi :: Infallible in another file's signature
 T test result: ok. 3 passed, 0 failed
 T
-C main_test.nomi@681dd1115cc36594
+C main_test.nomi@6acb27acc6672ba0
 E 0
 N 0
-H 37efc40ef9f38b55cfef054ead0df272cd267d110e7d2fbbac2b28ce3fbbf6c5
-S -- main_test.nomi 284 --
+H ed957daf824681a1679c8d469a95a5aa80412a87d13be327ce7e70b7ed7e54b0
+S -- main_test.nomi 285 --
 S import other
 S
-S test "a qualified Maybe in another file's signature"
+S test "a qualified Option in another file's signature"
 S   assert other.first([4, 5]) == Some(4)
 S   assert other.first([]) == None
 S end
@@ -9301,13 +9286,13 @@ S   assert other.checked(2) == Ok(2)
 S   assert other.checked(-1) == Err("negative")
 S end
 S
-S -- other.nomi 211 --
+S -- other.nomi 214 --
 S import
-S   std::maybe
+S   std::option
 S   std::results
 S end
 S
-S pub fn first(xs: List<Int>) -> maybe.Maybe<Int>
+S pub fn first(xs: List<Int>) -> option.Option<Int>
 S   List.first(xs)
 S end
 S
@@ -9316,7 +9301,7 @@ S   if n > 0 then Ok(n) else Err("negative")
 S end
 S
 S
-T ok <dir>/main_test.nomi :: a qualified Maybe in another file's signature
+T ok <dir>/main_test.nomi :: a qualified Option in another file's signature
 T ok <dir>/main_test.nomi :: a qualified Result in another file's signature
 T test result: ok. 2 passed, 0 failed
 T
@@ -9530,11 +9515,43 @@ T     assert [a, b] = ["one"]
 T     actual: ["one"]
 T test result: FAILED. 2 passed, 2 failed
 T
-C pattern_test.nomi@4afc0d424d578ff8
+C pattern_test.nomi@6f5dc6719913f2cb
+E 1
+N 0
+H 63849230e5586810a3269740175d2a63fca72e5f09ee9b48718c05adcd15c01c
+S -- pattern_test.nomi 352 --
+S enum Shape
+S   Circle Int
+S   Dot
+S end
+S
+S fn pick(n: Int) -> Option<Shape>
+S   if n > 0 then Some(Shape.Circle(n)) else Some(Shape.Dot)
+S end
+S
+S test "a nested pattern binds the inner payload"
+S   assert Some(Shape.Circle(r)) = pick(3)
+S   assert r == 3
+S end
+S
+S test "an inner tag mismatch fails the assertion"
+S   assert Some(Shape.Circle(r)) = pick(0)
+S   assert r == 0
+S end
+S
+S
+T ok <dir>/pattern_test.nomi :: a nested pattern binds the inner payload
+T FAIL <dir>/pattern_test.nomi :: an inner tag mismatch fails the assertion
+T   line 16: pattern did not match
+T     assert Some(Shape.Circle(r)) = pick(0)
+T     actual: Some(Dot)
+T test result: FAILED. 1 passed, 1 failed
+T
+C pattern_test.nomi@bd76f7be07419d50
 E 1
 N 0
 H b8b9b7fe55b3e41c1c9cab60d285a42e34d41a5f6c514a5ad1269547d745a17f
-S -- pattern_test.nomi 1376 --
+S -- pattern_test.nomi 1377 --
 S fn compute() -> Int
 S   7
 S end
@@ -9547,7 +9564,7 @@ S fn parse(s: String) -> Result<Int, String>
 S   Err("not a number: " + s)
 S end
 S
-S fn found(n: Int) -> Maybe<Int>
+S fn found(n: Int) -> Option<Int>
 S   Some(n)
 S end
 S
@@ -9657,39 +9674,7 @@ T       3 < 4
 T ok <dir>/pattern_test.nomi :: a passing bare name
 T test result: FAILED. 4 passed, 7 failed
 T
-C pattern_test.nomi@c28e44c070e9b233
-E 1
-N 0
-H 63849230e5586810a3269740175d2a63fca72e5f09ee9b48718c05adcd15c01c
-S -- pattern_test.nomi 351 --
-S enum Shape
-S   Circle Int
-S   Dot
-S end
-S
-S fn pick(n: Int) -> Maybe<Shape>
-S   if n > 0 then Some(Shape.Circle(n)) else Some(Shape.Dot)
-S end
-S
-S test "a nested pattern binds the inner payload"
-S   assert Some(Shape.Circle(r)) = pick(3)
-S   assert r == 3
-S end
-S
-S test "an inner tag mismatch fails the assertion"
-S   assert Some(Shape.Circle(r)) = pick(0)
-S   assert r == 0
-S end
-S
-S
-T ok <dir>/pattern_test.nomi :: a nested pattern binds the inner payload
-T FAIL <dir>/pattern_test.nomi :: an inner tag mismatch fails the assertion
-T   line 16: pattern did not match
-T     assert Some(Shape.Circle(r)) = pick(0)
-T     actual: Some(Dot)
-T test result: FAILED. 1 passed, 1 failed
-T
-C tests/01-foundations/inline_annotations/inline_annotations_test.nomi@19989ba9f7bb49cf
+C tests/01-foundations/inline_annotations/inline_annotations_test.nomi@af2549d778cb53b2
 E 0
 N 0
 H 5021b367003179fc2b49a2322a84aea55c7880ec1461fcbec43b7bf84f8e5451
@@ -9733,7 +9718,7 @@ T ok <dir>/dbg_test.nomi :: dbg expression prints source and returns value
 T ok <dir>/dbg_test.nomi :: dbg pipe stage prints source and passes the value through
 T test result: ok. 2 passed, 0 failed
 T
-C tests/03-tooling-and-diagnostics/formatting_test.nomi@51564d171d138db4
+C tests/03-tooling-and-diagnostics/formatting_test.nomi@5ef04ba72f7127e4
 E 0
 N 0
 H 87e33a9a852ce0988ab214be2ae4be8516c91906447ed1feee4f44af456bd563
@@ -9827,7 +9812,7 @@ T ok <dir>/call_semantics_test.nomi :: a positional before a named argument does
 T ok <dir>/call_semantics_test.nomi :: trailing lambdas route across defaulted parameters and pipes
 T test result: ok. 8 passed, 0 failed
 T
-C tests/10-generics-and-type-wrappers/bound_type_params_test.nomi@22810dba5556e47d
+C tests/10-generics-and-type-wrappers/bound_type_params_test.nomi@5d6d24bb5674f5ef
 E 0
 N 0
 H a1b9da415bb3252e59825c35236105426dbcd08b8b64422d9dc4e19fd2a84790
@@ -9875,7 +9860,7 @@ T ok <dir>/structural_interfaces_test.nomi :: Struct bounds reject non-struct va
 T ok <dir>/structural_interfaces_test.nomi :: Struct cannot be implemented by hand
 T test result: ok. 8 passed, 0 failed
 T
-C tests/11-interfaces-and-impls/type_argument_inference/type_argument_inference_test.nomi@0487d7a84f53440f
+C tests/11-interfaces-and-impls/type_argument_inference/type_argument_inference_test.nomi@885d624a65ba89f9
 E 0
 N 0
 H 3378004fafe35b94eab0b8fd9d42d43a0781738033bfe6aab99b03c43220a4a3
@@ -9906,7 +9891,7 @@ T ok <dir>/pipes_test.nomi :: pipes into dispatch functions preserve interface d
 T ok <dir>/pipes_test.nomi :: tap stages run a function by name and pass the value on
 T test result: ok. 5 passed, 0 failed
 T
-C tests/15-app-and-defer/context_values_test.nomi@7798ba0aeb8768de
+C tests/15-app-and-defer/context_values_test.nomi@bdf7ad93dc42eb50
 E 0
 N 0
 H 26327c0eeae26f152d41c62c3cfb2484bdd241dcfa1fe5ab48d0d06372a4458c

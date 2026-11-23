@@ -4,14 +4,14 @@ package mcp
 // TestEveryDiagnosticCodeIsExplained holds it to the codes the compiler
 // declares.
 var explanations = map[string]string{
-	"literal-breaks-rule": "A literal stands where a subtype or a validated type is expected (`subtype Port Int when fn p -> p >= 1`, " +
+	"literal-breaks-rule": "A literal stands where a refinement or a validated type is expected (`refine Port Int when fn p -> p >= 1`, " +
 		"`type Email String when is_email`), and the type's rule, or a rule up its chain, is false for it: `Port(0)`, or `0` passed where a " +
 		"`Port` is expected. The rule runs when the program is compiled. Change the literal, or, for a value known only when the program runs, " +
-		"check it with `Port.try_from(x)`, which answers a `Maybe<Port>`.",
-	"unchecked-literal": "A literal of a subtype or a validated type could not be checked against its rule when the program was compiled, " +
+		"check it with `Port.try_from(x)`, which answers an `Option<Port>`.",
+	"unchecked-literal": "A literal of a refinement or a validated type could not be checked against its rule when the program was compiled, " +
 		"so the program is refused rather than run with a value no rule vouched for. A message that starts `internal:` is a bug in Nomi: " +
 		"the compiler lost the function that checks the rule; report it. Otherwise the rule reaches something the compiler does not " +
-		"support yet; until it does, build the value with the type's `try_from`, which answers a `Maybe`.",
+		"support yet; until it does, build the value with the type's `try_from`, which answers an `Option`.",
 	"literal-zero-divisor": "An `Int`, `Decimal` or `Duration` `/` or `%`, or its named form (`Int.divide`, `Int.remainder`, " +
 		"`Decimal.remainder`), divides by a value that is always zero: a literal zero (`x / 0`, `x % -0`, `d / 0d`), or a binding " +
 		"or expression whose value the compiler knows is 0 (`zero = 0` then `7 % zero`). Divide by the value you meant. " +
@@ -20,17 +20,17 @@ var explanations = map[string]string{
 		"`NonZeroDecimal`, `NonZeroDuration`; a `Duration` divided by an `Int` takes a `NonZeroInt`), and `<<<` and `>>>` a " +
 		"`NonNegativeInt` count, so a checked program never divides by zero or shifts by a negative count. The operand here is not " +
 		"shown to be one. Check it first: after `if d == 0 then return ...`, or in the `else` of `if d == 0`, `d` is a `NonZeroInt`. " +
-		"Or take the subtype as the parameter's type (`fn per(total: Int, d: NonZeroInt)`), or check a computed value with " +
-		"`NonZeroInt.try_from(...)`, which answers a `Maybe`. A non-zero literal, and a value whose range rules zero out " +
+		"Or take the refinement as the parameter's type (`fn per(total: Int, d: NonZeroInt)`), or check a computed value with " +
+		"`NonZeroInt.try_from(...)`, which answers an `Option`. A non-zero literal, and a value whose range rules zero out " +
 		"(`n + 1` with `n` a `NonNegativeInt`), pass as they are.",
-	"inherited-impl-makes-base": "A subtype has its base's impls, except those of an interface with a function that makes a value " +
+	"refinement-impl-makes-base": "A refinement has its base's impls, except those of an interface with a function that makes a value " +
 		"of its type: `Parse`, `FromSql`, `Summable`, `Productable`, `Discrete`, `Steppable`, `From`, `TryFrom`. The " +
-		"base's impl makes a value of the base, which no rule of the subtype has checked, so `Parse.parse<Port>(text)` and " +
+		"base's impl makes a value of the base, which no rule of the refinement has checked, so `Parse.parse<Port>(text)` and " +
 		"`Summable.empty_sum<Port>()` are refused. Make a value " +
-		"of the base and check it: `Port.try_from(n)` answers a `Maybe<Port>`. A call whose type argument nothing pins to the " +
-		"subtype is made at the base instead, so with `ports` a `List<Port>`, `Iter.sum(ports)` is an `Int`. `FromJson` is a " +
-		"reader: it reads a subtype at its base and checks its rules, a value that breaks one being the read's shape error, and a " +
-		"record read from texts reads a field of a subtype with its base's `Parse` and checks it the same way.",
+		"of the base and check it: `Port.try_from(n)` answers an `Option<Port>`. A call whose type argument nothing pins to the " +
+		"refinement is made at the base instead, so with `ports` a `List<Port>`, `Iter.sum(ports)` is an `Int`. `FromJson` is a " +
+		"reader: it reads a refinement at its base and checks its rules, a value that breaks one being the read's shape error, and a " +
+		"record read from texts reads a field of a refinement with its base's `Parse` and checks it the same way.",
 	"effect-not-allowed": "The project's nomi.toml lists the effects its program may have (files, the network, " +
 		"processes, output and input, the clock, randomness, the environment, tasks, channels and other state it makes) in two tables. " +
 		"A function is pure, or it has effects; each effect is named by the std module the code called. " +
@@ -93,7 +93,7 @@ var explanations = map[string]string{
 		"`fn label<T>(value: T) where T: Named`). `nomi check` warns and passes the file; the fix writes the interface value " +
 		"and calls `Named.name(value)` for `T.name(value)`. Keep the type parameter when the caller's type matters past the call.",
 	"redundant-prelude-import": "An import names something the prelude already gives every file " +
-		"(`Maybe`, `Result`, `List`, `Iter`, ...). Remove it.",
+		"(`Option`, `Result`, `List`, `Iter`, ...). Remove it.",
 	"redundant-nested-spread": "A nested struct update spells the value its field already holds as a path: " +
 		"`{..ada, address: {..ada.address, city: \"NYC\"}}`. Inside an update a bare `..` stands for that value, " +
 		"so write `.{..ada, address: .{.., city: \"NYC\"}}`; the fix does. A spread naming another value " +
@@ -176,6 +176,9 @@ var explanations = map[string]string{
 		"or give it a default in the declaration.",
 	"missing-impl-function": "An `impl Iface for T` block lacks a function the interface requires and gives no default for. " +
 		"Write the function in the block with the signature the interface declares.",
+	"enum-field-not-in-every-variant": "A field is read off a value typed as an enum (`s.w`), and some variant of the enum " +
+		"has no such field, so a value of that variant would have nothing to read. The message names the variants that lack it. " +
+		"Match the value with `case` and read the field in the arms whose variants have it, or give every variant the field.",
 	"non-exhaustive-case": "A `case` has no arm for some value of its subject. Add an arm for each value the message names, " +
 		"or a `_` arm that takes the rest. A guarded arm does not count toward coverage.",
 	"bare-pipe-stage": "A pipe stage is a name without parentheses (`3 |> double`). A stage is a call that the pipe fills at " +

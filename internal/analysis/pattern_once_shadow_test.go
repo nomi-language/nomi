@@ -134,7 +134,7 @@ end
 			name: "a pattern if",
 			src: `once not_found: Int = 404
 
-pub fn describe(m: Maybe<Int>) -> Int
+pub fn describe(m: Option<Int>) -> Int
   if Some(not_found) = m then
     not_found
   else
@@ -149,7 +149,7 @@ end
 			name: "a binding with else",
 			src: `once not_found: Int = 404
 
-pub fn describe(m: Maybe<Int>) -> Int
+pub fn describe(m: Option<Int>) -> Int
   Some(not_found) = m else
       return 0
   end

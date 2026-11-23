@@ -45,7 +45,7 @@ func undefinedVariableConfusion(e TypeError, n *ast.Ident) (TypeError, bool) {
 		lit := strings.ToUpper(n.Name[:1]) + n.Name[1:]
 		return e.WithHint("the Bool literal is '" + lit + "'").withFix(nameFix("Write `"+lit+"`", n, lit)), true
 	case nullNames[n.Name]:
-		return e.WithHint("Nomi has no null: a value that may be absent is a `Maybe<T>`, `None` or `Some(value)`").
+		return e.WithHint("Nomi has no null: a value that may be absent is an `Option<T>`, `None` or `Some(value)`").
 			withFix(nameFix("Write `None`", n, "None")), true
 	}
 	return e, false

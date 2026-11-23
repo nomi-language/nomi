@@ -69,7 +69,7 @@ var encodedFields = map[reflect.Type]string{
 	reflect.TypeFor[ir.Todo]():          "pos dst reason",
 	reflect.TypeFor[ir.Unreachable]():   "pos dst reason",
 	reflect.TypeFor[ir.Not]():           "pos dst val",
-	reflect.TypeFor[ir.Proj]():          "pos dst subj kind sym text idx faults shape field embeds drop",
+	reflect.TypeFor[ir.Proj]():          "pos dst subj kind sym text idx shape field embeds drop",
 	reflect.TypeFor[ir.Make]():          "pos dst kind typ text names ops tail incl embeds",
 	reflect.TypeFor[ir.Slot]():          "pos slot ty",
 	reflect.TypeFor[ir.Store]():         "pos kind sym src",

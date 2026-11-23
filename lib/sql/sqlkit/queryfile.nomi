@@ -5,7 +5,7 @@
 //# ```sql
 //# -- import: shop.CustomerRevenue
 //#
-//# -- query: user_by_email(email: String) -> Maybe<User>
+//# -- query: user_by_email(email: String) -> Option<User>
 //# -- The user with this email, if any.
 //# SELECT id, email, name, created_at
 //# FROM users
@@ -40,7 +40,7 @@ pub struct Query
     params: List<Param>
 
     /// The result type as written after `->`, and its column.
-    result:     Maybe<String>
+    result:     Option<String>
     result_col: Int
 
     /// The doc lines after the annotation, without their `--`.
@@ -105,7 +105,7 @@ end
 struct State
     imports:  List<String>
     done:     List<Query>
-    current:  Maybe<Query>
+    current:  Option<Query>
     in_doc:   Bool
     lines:    List<String>
     problems: List<Problem>
@@ -472,7 +472,7 @@ fn split(chars: Vector<String>, from: Int, to: Int) -> List<(Int, String)>
 end
 
 // The index of the `)` that closes the bracket open before `i`.
-fn closing(chars: Vector<String>, i: Int, depth: Int) -> Maybe<Int>
+fn closing(chars: Vector<String>, i: Int, depth: Int) -> Option<Int>
     case Vector.get(chars, i)
         None ->
             None
@@ -492,7 +492,7 @@ fn closing(chars: Vector<String>, i: Int, depth: Int) -> Maybe<Int>
 end
 
 fn at(chars: Vector<String>, i: Int) -> String
-    Vector.get(chars, i) |> Maybe.with_default("")
+    Vector.get(chars, i) |> Option.with_default("")
 end
 
 fn slice(chars: Vector<String>, from: Int, to: Int) -> String

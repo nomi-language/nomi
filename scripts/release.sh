@@ -26,7 +26,14 @@
 # `nomi` is stamped with the release tag
 # (`-X github.com/nomi-language/nomi/internal/runners.ReleaseVersion=<version>`): `nomi build --target`
 # downloads another platform's archive from the release of that tag and
-# checks it against this script's checksum manifest.
+# checks it against this script's checksum manifest, and `nomi add` and
+# `nomi update` take the first-party lib/ modules at that version.
+#
+# This script makes no tag and pushes nothing, so it is safe to run as a dry
+# run. A release also needs a tag for the compiler and one per lib/ module
+# (lib/markdown/<version>), which the module proxy serves each library's
+# release from: scripts/release-tags.sh <version> lists them and checks that
+# the libraries name each other at <version>, and with --create makes them.
 #
 # Two more archives carry only runners: js/wasm and wasip1/wasm, for
 # `nomi build --target js/wasm`, `--target wasip1/wasm` and `--web`. The

@@ -11,7 +11,7 @@ import
     hashable.Hashable
     int.{Int, NonNegativeInt, PositiveInt}
     iter.Iter
-    maybe.Maybe.{self, None, Some}
+    option.Option.{self, None, Some}
     strings.String
     summable.Summable
 end
@@ -42,7 +42,7 @@ impl Vector<T>
     //! assert Vector.get(["a", "b"], -1) == None
     //! assert Vector.get(["a", "b"], 1)! == "b"
     //
-    pub host fn get<T>(vector: Vector<T>, index: Int) -> Maybe<T>
+    pub host fn get<T>(vector: Vector<T>, index: Int) -> Option<T>
 
     /// Returns a new vector with `item` appended to the end. O(log32 n).
     //! assert Vector.push([1, 2], 3) == [1, 2, 3]
@@ -57,7 +57,7 @@ impl Vector<T>
     //! assert Vector.set(["a", "b"], 2, "z") == None
     //! assert Vector.set(["a", "b"], 0, "z")! == ["z", "b"]
     //
-    pub host fn set<T>(vector: Vector<T>, index: Int, item: T) -> Maybe<Vector<T>>
+    pub host fn set<T>(vector: Vector<T>, index: Int, item: T) -> Option<Vector<T>>
 
     /// Concatenates two vectors, in time linear in the length of `b`.
     //! assert Vector.concat([1, 2], [3]) == [1, 2, 3]
@@ -69,7 +69,7 @@ impl Vector<T>
     //! assert Vector.next_item([1, 2]) == Some((1, [2]))
     //! assert Vector.next_item([]) == None
     //
-    pub host fn next_item<T>(vector: Vector<T>) -> Maybe<(T, Vector<T>)>
+    pub host fn next_item<T>(vector: Vector<T>) -> Option<(T, Vector<T>)>
 
     /// The elements from index `start` up to, not including, `stop`. An
     /// index outside the vector is clamped to it, and a `stop` at or before
@@ -88,7 +88,7 @@ impl Vector<T>
     //! assert Vector.pop([1, 2, 3]) == Some((3, [1, 2]))
     //! assert Vector.pop([]) == None
     //
-    pub fn pop<T>(vector: Vector<T>) -> Maybe<(T, Vector<T>)>
+    pub fn pop<T>(vector: Vector<T>) -> Option<(T, Vector<T>)>
         case vector
             [..rest, last] -> Some((last, rest))
             []             -> None
@@ -103,7 +103,7 @@ impl Vector<T>
     //! assert Vector.insert(["a"], 1, "b") == Some(["a", "b"])
     //! assert Vector.insert(["a"], 2, "b") == None
     //
-    pub fn insert<T>(vector: Vector<T>, index: Int, item: T) -> Maybe<Vector<T>>
+    pub fn insert<T>(vector: Vector<T>, index: Int, item: T) -> Option<Vector<T>>
         n = Vector.length(vector)
         if index < 0 or index > n then return None
         before = Vector.push(Vector.slice(vector, 0, index), item)
@@ -120,7 +120,7 @@ impl Vector<T>
     //! assert Vector.remove_at(["a", "b", "c"], 0)! == ["b", "c"]
     //! assert Vector.remove_at(["a", "b", "c"], 3) == None
     //
-    pub fn remove_at<T>(vector: Vector<T>, index: Int) -> Maybe<Vector<T>>
+    pub fn remove_at<T>(vector: Vector<T>, index: Int) -> Option<Vector<T>>
         n = Vector.length(vector)
         if index < 0 or index >= n then return None
         Some(Vector.concat(Vector.slice(vector, 0, index), Vector.slice(vector, index + 1, n)))
@@ -132,7 +132,7 @@ impl Iter for Vector<T>
     // walks it a leaf at a time with no per-element view to rebuild.
     host fn each_while(vector: Vector<T>, yield: (T) -> Bool) -> Bool
 
-    fn known_count(vector: Vector<T>) -> Maybe<Int>
+    fn known_count(vector: Vector<T>) -> Option<Int>
         Some(length(vector))
     end
 end
@@ -233,7 +233,7 @@ impl Comparable for Vector<T> where T: Comparable
 end
 
 /// A Vector with at least one element, so its first, last, largest and
-/// smallest elements are values rather than `Maybe`s. A literal is checked
+/// smallest elements are values rather than `Option`s. A literal is checked
 /// when the program is compiled; `NonEmptyVector.try_from(v)` checks a
 /// Vector computed at run time, and `NonEmptyVector.push(v, item)` builds
 /// one from any Vector. A NonEmptyVector is a Vector and passes wherever one
@@ -246,7 +246,7 @@ end
 //! none: Vector<Int> = []
 //! assert NonEmptyVector.try_from(none) == None
 //
-pub subtype NonEmptyVector<T> Vector<T> when fn vector -> Vector.length(vector) > 0
+pub refine NonEmptyVector<T> Vector<T> when fn vector -> Vector.length(vector) > 0
 
 impl NonEmptyVector<T>
     /// A NonEmptyVector of `first` followed by the elements of `rest`, which

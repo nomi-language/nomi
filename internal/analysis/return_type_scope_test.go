@@ -39,7 +39,7 @@ func expectBindingType(t *testing.T, src, name, want string) {
 const returnScopeF = `fn f() -> Result<Int, String>
     Ok(1)
 end
-fn mi() -> Maybe<Int>
+fn mi() -> Option<Int>
     Some(1)
 end
 `
@@ -108,18 +108,18 @@ end`, "r", "Result<Int, String>")
 
 func TestReturnTypeScope_SomeAndNoneInBoundArms(t *testing.T) {
 	expectBindingType(t, returnScopeF+`
-fn g(s: String) -> Maybe<String>
+fn g(s: String) -> Option<String>
   r = case s
     "a" -> mi()
     _ -> Some(2)
   end
   Some("x")
-end`, "r", "Maybe<Int>")
+end`, "r", "Option<Int>")
 	expectBindingType(t, returnScopeF+`
-fn g(s: String) -> Maybe<String>
+fn g(s: String) -> Option<String>
   r = if s == "a" then mi() else None
   Some("x")
-end`, "r", "Maybe<Int>")
+end`, "r", "Option<Int>")
 }
 
 // A bound `Err` whose T nothing fixes stays open; a later annotated use
@@ -183,13 +183,13 @@ fn tries(s: String) -> Result<Int, String>
   y = ret(s)?
   Ok(x + y)
 end
-fn fallback(m: Maybe<Int>) -> Result<Int, String>
+fn fallback(m: Option<Int>) -> Result<Int, String>
   Some(n) = m else
       return Err("none")
   end
   Ok(n)
 end
-fn wrapped() -> Maybe<Result<Int, String>>
+fn wrapped() -> Option<Result<Int, String>>
   Some(Err("boom"))
 end
 fn tail_color(s: String) -> Color
@@ -210,7 +210,7 @@ func TestReturnTypeScope_DotVariantInBoundArmStillNeedsAType(t *testing.T) {
   Red
   Blue
 end
-fn g(s: String) -> Maybe<Color>
+fn g(s: String) -> Option<Color>
   c = case s
     "a" -> .Red
     _ -> Color.Blue

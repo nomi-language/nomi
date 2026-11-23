@@ -154,7 +154,7 @@ var sharedModuleHolds = map[string]string{
 	"mail/host":       "host fn",
 	"maps":            "host fn",
 	"matcher":         "imported by a held module",
-	"maybe":           "imported by a held module",
+	"option":          "imported by a held module",
 	"money/format":    "host fn",
 	"multiply":        "imported by a held module",
 	"passwords/host":  "host fn",

@@ -222,7 +222,9 @@ func (h *harness) record(dir, what string, v any) {
 	fmt.Fprintf(&h.log, "%s %s%s\n", dir, what, normalize(text))
 }
 
-var socketPath = regexp.MustCompile(`[^"]*/nomi-dap-[^"/]*/terminal\.sock`)
+// socketPath is the terminal socket's path in a transcript line: under `/`,
+// or on Windows under `\`, which the transcript's JSON writes `\\`.
+var socketPath = regexp.MustCompile(`[^"]*(?:/|\\\\)nomi-dap-[^"/\\]*(?:/|\\\\)terminal\.sock`)
 
 // normalize replaces the paths a transcript would otherwise depend on.
 func normalize(s string) string {
@@ -278,6 +280,10 @@ func TestMaskDirTakesOutAWindowsPathInJSON(t *testing.T) {
 	got = maskDir(`{"output":"{\"file\":\"D:\\\\a\\\\nomi\\\\nomi\\\\internal\\\\dap\\\\testdata\\\\half_test.nomi\",\"line\":5}"}`, dir, "$TESTDATA")
 	if want := `{"output":"{\"file\":\"$TESTDATA/half_test.nomi\",\"line\":5}"}`; got != want {
 		t.Errorf("maskDir = %s, want %s", got, want)
+	}
+	got = socketPath.ReplaceAllString(`{"args":["nomi","dap-terminal","C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\nomi-dap-1194947467\\terminal.sock"]}`, "$$SOCKET")
+	if want := `{"args":["nomi","dap-terminal","$SOCKET"]}`; got != want {
+		t.Errorf("the socket's path = %s, want %s", got, want)
 	}
 }
 

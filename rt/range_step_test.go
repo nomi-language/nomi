@@ -10,7 +10,7 @@ import (
 // when the end lies the other way or the step does not move.
 func TestStepByRangeSeqWalksTheWayItsStepGoes(t *testing.T) {
 	fr := NewFrame(nil)
-	step := func(_ *Frame, v, by int64) Maybe[int64] { return Some(v + by) }
+	step := func(_ *Frame, v, by int64) Option[int64] { return Some(v + by) }
 	bounded := func(start, end int64, inclusive bool) Range[int64] {
 		return Range[int64]{Start: start, End: Some(end), Inclusive: inclusive}
 	}

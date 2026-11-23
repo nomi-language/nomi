@@ -1473,19 +1473,19 @@ derive Hashable for Pair<A, B>`
 }
 
 // TestDeriveOnGenericEnum pins the generic-enum case: `@derive Equatable
-// enum Maybe<T> { Some(T); None }` produces `T: Equatable` on the
+// enum Option<T> { Some(T); None }` produces `T: Equatable` on the
 // synthesized equals fn. Mirrors the struct test but exercises the EnumDef
 // branch of typeDeclTypeParams.
 func TestDeriveOnGenericEnum(t *testing.T) {
-	src := `enum Maybe<T>
+	src := `enum Option<T>
     Some T
     None
 end
-derive Equatable for Maybe<T>`
+derive Equatable for Option<T>`
 
-	fn := synthFnBy(t, src, "equal", "Equatable", "Maybe")
+	fn := synthFnBy(t, src, "equal", "Equatable", "Option")
 	if fn == nil {
-		t.Fatal("no synthesized Equatable impl (fn equals) for Maybe found")
+		t.Fatal("no synthesized Equatable impl (fn equals) for Option found")
 	}
 	if len(fn.TypeParams) != 1 {
 		t.Fatalf("expected 1 TypeParam, got %d", len(fn.TypeParams))

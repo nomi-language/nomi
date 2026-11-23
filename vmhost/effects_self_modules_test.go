@@ -150,7 +150,7 @@ func selfListProblems(t *testing.T, entry string, files map[string]string) (stri
 			fixes = append(fixes, d.Fix.Title)
 		}
 	}
-	return strings.ReplaceAll(ds.Error(), dir+string(filepath.Separator), ""), fixes
+	return inProject(ds.Error(), dir), fixes
 }
 
 // A key under [effects.self.modules] that names no module of the
@@ -244,7 +244,7 @@ func TestEffectDiagnostic_ADependencyOverItsOwnModuleEntry(t *testing.T) {
 	}
 	want = "pricing/nomi.toml:8: [effects.self.modules] \"rules\" names std::fss, which is not a std module\n" +
 		`pricing/nomi.toml:8: help: did you mean "std::fs"?`
-	if got := strings.ReplaceAll(list.Error(), dir+string(filepath.Separator), ""); got != want {
+	if got := inProject(list.Error(), dir); got != want {
 		t.Errorf("problems:\n%s\nwant:\n%s", got, want)
 	}
 }

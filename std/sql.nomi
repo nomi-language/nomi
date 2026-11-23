@@ -3,7 +3,7 @@
 //# talks to a database takes a `Conn` and sends `Statement`s, written with
 //# the `Sql"..."` typed literal, whose `${...}` slots become parameters and
 //# never SQL text. Values cross as `Value`, converted by `ToSql` and
-//# `FromSql`, with NULL as `Maybe`'s `None`. A result row is a `Row`, read
+//# `FromSql`, with NULL as `Option`'s `None`. A result row is a `Row`, read
 //# by column name or position. Failures are a `sql.Error`, which keeps a
 //# violated constraint's name. `sql.transaction` runs a body in a
 //# transaction, or in a savepoint when the connection already is one.
@@ -35,7 +35,7 @@ import
     json.Json
     lists.List
     literals.{Fragment, Literal}
-    maybe.Maybe.{self, None, Some}
+    option.Option.{self, None, Some}
     resources.Release
     results.Result.{self, Err, Ok}
     strings.String
@@ -182,7 +182,7 @@ impl Add<Statement, Statement> for Statement
                 []               -> ([], "")
             end
 
-        first = rhs.parts |> Iter.first() |> Maybe.with_default("")
+        first = rhs.parts |> Iter.first() |> Option.with_default("")
         after = rhs.parts |> Iter.drop(1) |> Iter.to_list()
         Statement{parts: before + [last + first] + after, params: lhs.params + rhs.params}
     end
@@ -396,9 +396,9 @@ end
 /// A type that can be sent as a parameter. std implements it for `Int`,
 /// `Float`, `Decimal`, `String`, `Bool`, `Bytes`, `Date`, `Time`,
 /// `NaiveDateTime`, `Instant`, `Uuid`, `Json`, `Value` itself,
-/// `Maybe<T>`, whose `None` is NULL, and `List<T>`, which is an `Array`.
+/// `Option<T>`, whose `None` is NULL, and `List<T>`, which is an `Array`.
 //! assert ToSql.to_sql(Some(3)) == Value.Int(3)
-//! nothing: Maybe<Int> = None
+//! nothing: Option<Int> = None
 //! assert ToSql.to_sql(nothing) == Value.Null
 //
 pub interface ToSql
@@ -409,7 +409,7 @@ end
 /// the name of the type it expected (`"Int"`) when the value is not one;
 /// `Row.get` turns that into an `Error.Decode`, or an
 /// `Error.UnexpectedNull` when the value was NULL. std implements it for
-/// the types `ToSql` covers; `Maybe<T>` reads NULL as `None`. Each type
+/// the types `ToSql` covers; `Option<T>` reads NULL as `None`. Each type
 /// maps to its own variant and reads back only from it, so
 /// `Float.from_sql(Value.Int(1))` is an `Err`.
 //! assert Int.from_sql(Value.Int(3)) == Ok(3)
@@ -613,8 +613,8 @@ impl FromSql for Json
     end
 end
 
-impl ToSql for Maybe<T> where T: ToSql
-    fn to_sql(value: Maybe<T>) -> Value
+impl ToSql for Option<T> where T: ToSql
+    fn to_sql(value: Option<T>) -> Value
         case value
             Some(v) -> T.to_sql(v)
             None    -> Value.Null
@@ -622,8 +622,8 @@ impl ToSql for Maybe<T> where T: ToSql
     end
 end
 
-impl FromSql for Maybe<T> where T: FromSql
-    fn from_sql(value: Value) -> Result<Maybe<T>, String>
+impl FromSql for Option<T> where T: FromSql
+    fn from_sql(value: Value) -> Result<Option<T>, String>
         case value
             .Null -> Ok(None)
             _     -> T.from_sql(value) |> Result.map(Some)
@@ -670,7 +670,7 @@ end
 //! assert Row.columns(row) == ["id", "name"]
 //! id: Int = Row.get(row, "id")?
 //! assert id == 7
-//! assert Row.get_position<Maybe<String>>(row, 1) == Ok(None)
+//! assert Row.get_position<Option<String>>(row, 1) == Ok(None)
 //
 pub opaque struct Row
     query:   String
@@ -748,7 +748,7 @@ impl Row
     /// The value of the column named `column` as a `T`. A value of another
     /// type is `Err(.Decode)`, whose `expected` is what `from_sql` returned
     /// and `found` the value's `Value.kind`, and NULL read as a type that is
-    /// not a `Maybe` is `Err(.UnexpectedNull)`. `T` is inferred from the
+    /// not an `Option` is `Err(.UnexpectedNull)`. `T` is inferred from the
     /// expected type (`n: Int = Row.get(row, "n")?`) or given
     /// (`Row.get<Int>(row, "n")`).
     //! row = Row.new("SELECT n, t", [("n", Value.Int(1)), ("t", Value.Null)])
@@ -759,7 +759,7 @@ impl Row
     //!     == Err(Error.Decode{query: "SELECT n, t", column: "n", expected: "String", found: "Int"})
     //!
     //! assert Row.get<String>(row, "t") == Err(Error.UnexpectedNull{query: "SELECT n, t", column: "t"})
-    //! assert Row.get<Maybe<String>>(row, "t") == Ok(None)
+    //! assert Row.get<Option<String>>(row, "t") == Ok(None)
     //
     pub fn get<T>(row: Row, column: String) -> Result<T, Error> where T: FromSql
         value = Row.value(row, column)?
@@ -840,7 +840,7 @@ pub enum Error
     /// driver for an engine that does not (SQLite reports columns or an
     /// expression) works them out from the schema. `table` and `column`
     /// are there when the driver knows them.
-    Constraint {kind: ConstraintKind, name: String, table: Maybe<String>, column: Maybe<String>}
+    Constraint {kind: ConstraintKind, name: String, table: Option<String>, column: Option<String>}
 
     /// The transaction conflicted with another and was rolled back. It
     /// should run again.
@@ -937,7 +937,7 @@ impl Display for Error
     end
 end
 
-fn place(table: Maybe<String>, column: Maybe<String>) -> String
+fn place(table: Option<String>, column: Option<String>) -> String
     case (table, column)
         (Some(t), Some(c)) -> " on `${t}.${c}`"
         (Some(t), None)    -> " on table `${t}`"

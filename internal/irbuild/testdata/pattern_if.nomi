@@ -16,17 +16,17 @@ end
 
 /// The two-armed form. Nothing subtle; it is the control the rest are read
 /// against.
-fn label(m: Maybe<String>) -> String
+fn label(m: Option<String>) -> String
     if Some(name) = m then name else "unknown"
 end
 
 /// NO else arm. The then-arm runs on a hit and NOT on a miss, and control
 /// continues past the `if` either way — the "after" line is what says so. The
 /// value is Unit either way, which the `== Unit` is for: an `if` with no
-/// else whose then-arm is Unit is Unit (one whose then-arm has a value is a
-/// Maybe, elseless_if.nomi), so the assertion is that the MISS produces Unit
+/// else whose then-arm is Unit is Unit (one whose then-arm has a value is an
+/// Option, elseless_if.nomi), so the assertion is that the MISS produces Unit
 /// too.
-fn side_effect(m: Maybe<Int>) -> Bool
+fn side_effect(m: Option<Int>) -> Bool
     result = if Some(n) = m then io.print("hit ${n}")
 
     io.print("after")
@@ -37,7 +37,7 @@ end
 /// pattern, then a literal test at the bottom that MISSES on the second call.
 /// An `else` attached to the outermost block instead of a labeled break would
 /// run the then-arm's tail after a deep miss.
-fn deep(s: Maybe<Shape>) -> String
+fn deep(s: Option<Shape>) -> String
     if Some(Shape.Circle{radius: 5}) = s then
         "unit circle"
     else
@@ -48,7 +48,7 @@ end
 /// The subject is evaluated ONCE and unconditionally, even when the pattern
 /// misses. The print is the assertion: exactly one line per call, and it appears
 /// for the miss too.
-fn noisy(n: Int) -> Maybe<Int>
+fn noisy(n: Int) -> Option<Int>
     io.print("subject ${n}")
     if n > 0 then return Some(n)
 
@@ -66,7 +66,7 @@ end
 /// A pattern-if whose else arm is another pattern-if, then a Bool `else if`,
 /// then a plain else. Four arms, one destination, and the bindings of each arm
 /// must not be visible in the next.
-fn chain(a: Maybe<Int>, b: Maybe<String>, n: Int) -> String
+fn chain(a: Option<Int>, b: Option<String>, n: Int) -> String
     if Some(x) = a then
         "a=${x}"
     else if Some(y) = b then
@@ -90,7 +90,7 @@ fn first_hit(start: Int) -> Int
     end)
 end
 
-fn halve(n: Int) -> Maybe<Int>
+fn halve(n: Int) -> Option<Int>
     if n == 4 then return Some(n / 2)
 
     None
@@ -100,9 +100,9 @@ end
 /// `return` is lambda-scoped, so this must leave the
 /// LAMBDA and not the enclosing function — the caller's own answer is appended
 /// after it, which is what proves it.
-fn in_lambda(m: Maybe<Int>) -> String
+fn in_lambda(m: Option<Int>) -> String
     f =
-        fn v: Maybe<Int> ->
+        fn v: Option<Int> ->
             if Some(n) = v then return "lambda:${n}"
 
             "lambda:none"

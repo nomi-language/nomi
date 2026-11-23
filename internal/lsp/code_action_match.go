@@ -9,7 +9,7 @@ import (
 )
 
 // "Pattern match on ..." writes a `case` over a value whose type is an enum
-// (a user enum, Maybe or Result, generic payloads included), with an arm
+// (a user enum, Option or Result, generic payloads included), with an arm
 // per variant in the "Add missing arms" fix's layout and the fill
 // placeholder as each arm's body:
 //

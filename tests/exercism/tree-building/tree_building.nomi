@@ -31,7 +31,7 @@ end
 /// The tree of `records`, in any order, or `None` for no records. The ids
 /// must be 0 to one less than the number of records, each once; the root,
 /// 0, is its own parent, and every other record's parent has a lower id.
-pub fn build_tree(records: List<Record>) -> Result<Maybe<Node>, Error>
+pub fn build_tree(records: List<Record>) -> Result<Option<Node>, Error>
     sorted = Iter.sort_by(records, .id)
 
     ids_in_order =
@@ -59,7 +59,7 @@ end
 /// The node `id` with its replies, from each parent's child records in id
 /// order.
 fn node(id: Int, children: Map<Int, List<Record>>) -> Node
-    replies = Map.get(children, id) |> Maybe.with_default([])
+    replies = Map.get(children, id) |> Option.with_default([])
 
     {id:, children: replies |> Iter.map(&node(&1.id, children)) |> Iter.to_list()}
 end

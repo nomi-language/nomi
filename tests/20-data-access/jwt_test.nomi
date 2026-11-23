@@ -145,6 +145,43 @@ test "each algorithm round trips with a fresh key"
     assert verified == [Ok(claims), Ok(claims), Ok(claims), Ok(claims)]
 end
 
+// `jwt.sign` unwraps `signatures.sign_with`, which fails only for a scheme
+// of another kind than its key's. Each constructor refuses a key of another
+// kind than its algorithm's, so every key it makes signs, and `hs256` takes
+// a secret, which signs with HMAC.
+test "each constructor takes only its algorithm's kind of key, so every key signs"
+    rsa = rsa_private()
+    ecdsa = PrivateKey.generate_ecdsa_p256()
+    ed25519 = PrivateKey.generate_ed25519()
+    claims = {"sub" => Json.String("ada"), "exp" => Json.Int(4_000_000_000)}
+
+    keys = [
+        SigningKey.hs256(secret())!,
+        SigningKey.rs256(rsa)!,
+        SigningKey.ps256(rsa)!,
+        SigningKey.es256(ecdsa)!,
+        SigningKey.eddsa(ed25519)!,
+    ]
+
+    assert Iter.all_match(keys, fn key ->
+        jwt.verify(jwt.sign(claims, key), SigningKey.verifying_key(key)) == Ok(claims)
+    end)
+
+    refused = [
+        SigningKey.rs256(ecdsa),
+        SigningKey.rs256(ed25519),
+        SigningKey.ps256(ecdsa),
+        SigningKey.ps256(ed25519),
+        SigningKey.es256(rsa),
+        SigningKey.es256(ed25519),
+        SigningKey.eddsa(rsa),
+        SigningKey.eddsa(ecdsa),
+    ]
+
+    assert Iter.all_match(refused, fn key -> key is Err(_))
+    assert SigningKey.es256(rsa) == Err("ES256 signs with an ECDSA P-256 key, not RSA")
+end
+
 struct Login
     sub:   String
     exp:   Int

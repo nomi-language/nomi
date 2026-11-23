@@ -1,5 +1,5 @@
 //# Lazy iteration over any `Iter<T>`: a `List`, `Vector`, `Set`, `Map`,
-//# `String`, `Maybe`, `Bytes` or range, and any type with an `Iter` impl.
+//# `String`, `Option`, `Bytes` or range, and any type with an `Iter` impl.
 //# Each function here is called as `Iter.map(xs, f)`, or as a stage of a
 //# pipe:
 //#
@@ -18,9 +18,9 @@
 //#
 //# A `List`, `Vector` or `Set` yields its elements, a `List` and a `Vector`
 //# in order. A `Map<K, V>` yields `(key, value)` pairs in insertion order, a
-//# `String` its grapheme clusters, and a range its values. A `Maybe` yields
+//# `String` its grapheme clusters, and a range its values. An `Option` yields
 //# its value when it is `Some`, so `Iter.flat_map(xs, f)` with an `f` that
-//# returns a `Maybe` keeps the `Some` values.
+//# returns an `Option` keeps the `Some` values.
 //#
 //# ## Adapters and terminals
 //#
@@ -50,7 +50,7 @@
 //# and `Iter.reverse` returns a List.
 //#
 //# `Iter.count` returns at once for a source that stores or can compute its
-//# count (`List`, `Vector`, `Map`, `Set`, `Maybe`, a bounded range whose
+//# count (`List`, `Vector`, `Map`, `Set`, `Option`, a bounded range whose
 //# element type can count steps) and walks any other source to its end.
 //#
 //# `Iter.loop` repeats a function with no source at all.
@@ -65,8 +65,8 @@
 //#
 //# There is no first-element fallback, so a reduction never fails at run time
 //# for an empty source. For the least or greatest element, which an empty
-//# source does not have, use `Iter.min` and `Iter.max`: each returns a
-//# `Maybe`, `None` when the source is empty.
+//# source does not have, use `Iter.min` and `Iter.max`: each returns an
+//# `Option`, `None` when the source is empty.
 //#
 //# `Iter.scan`, `Iter.map_reduce` and `Iter.try_reduce` take their starting
 //# value the same way, and so does `Iter.loop`, which has no source:
@@ -116,7 +116,7 @@
 //#
 //# | Adapter | Infinite when |
 //# |---|---|
-//# | `map`, `filter`, `drop`, `drop_while`, `with_index`, `intersperse`, `scan`, `chunk_by`, `chunk_equal`, `flat_map`, `flatten`, `Maybe.values` | the source is, unless the callback can `break` |
+//# | `map`, `filter`, `drop`, `drop_while`, `with_index`, `intersperse`, `scan`, `chunk_by`, `chunk_equal`, `flat_map`, `flatten`, `Option.values` | the source is, unless the callback can `break` |
 //# | `chunks(n)` | the source is |
 //# | `cycle` | the source is, or knows a count above zero |
 //# | `concat(a, b)` | either is |
@@ -137,7 +137,7 @@
 //# `Supervisor.spawn_all`, and `reduce`, `each` and `map_reduce` when their
 //# callback cannot `break`. The ones that may stop early do not: `first`,
 //# `find`, `any_match`, `all_match`, `contains`, `get`, `is_empty`,
-//# `each_while`, `Maybe.collect`, `Result.collect`, and a `reduce`, `each` or
+//# `each_while`, `Option.collect`, `Result.collect`, and a `reduce`, `each` or
 //# `map_reduce` whose callback can `break`.
 //#
 //# A source that never ends and does not say so, such as a `take_while` whose
@@ -182,9 +182,9 @@ import
     int.{Int, NonNegativeInt, PositiveInt}
     lists.{List, NonEmptyList}
     maps.Map
-    maybe.Maybe
-    maybe.Maybe.{None, Some}
     multiply.Multiply
+    option.Option
+    option.Option.{None, Some}
     productable.Productable
     results.Result.{self, Err, Ok}
     sets.Set
@@ -206,7 +206,7 @@ end
 /// twice yields the same elements. A stream's iterators (`Reader.lines`) read
 /// the stream as they run, and do not.
 ///
-/// `List`, `Vector`, `Set`, `Map`, `String`, `Maybe`, `Bytes` and ranges over
+/// `List`, `Vector`, `Set`, `Map`, `String`, `Option`, `Bytes` and ranges over
 /// `Discrete` values (`Int`, `Codepoint`) implement `Iter`. To implement it
 /// for a type of your own, walk the structure and stop as soon as `yield`
 /// says to:
@@ -234,7 +234,7 @@ pub interface Iter<T>
     /// cannot (a filtered chain, a `String`) or never ends (`is_infinite`
     /// reports that). `Iter.count` asks it first. `Iter.take(n)` knows its
     /// count when its source does or never ends.
-    open fn known_count(_collection: self) -> Maybe<Int>
+    open fn known_count(_collection: self) -> Option<Int>
         None
     end
 
@@ -397,7 +397,7 @@ impl Iter<T>
     //! assert Iter.find([1, 2], fn n -> n > 99) == None
     //! assert Iter.find(Iter.from(1), fn n -> n * n > 50) == Some(8)
     //
-    pub fn find<T>(source: Iter<T>, f: (T) -> Bool) -> Maybe<T>
+    pub fn find<T>(source: Iter<T>, f: (T) -> Bool) -> Option<T>
         reduce(source, None, fn _acc, item ->
             if f(item) then
                 break Some(item)
@@ -421,7 +421,7 @@ impl Iter<T>
     //!
     //! assert first_square_over_50 == Some(64)
     //
-    pub fn find_map<T, U>(source: Iter<T>, f: (T) -> Maybe<U>) -> Maybe<U>
+    pub fn find_map<T, U>(source: Iter<T>, f: (T) -> Option<U>) -> Option<U>
         reduce(source, None, fn _acc, item ->
             case f(item)
                 Some(found) -> break Some(found)
@@ -489,11 +489,11 @@ impl Iter<T>
     //! assert Iter.find_index([1, 2], &(&1 > 99)) == None
     //! assert Iter.find_index(Iter.from(10), &(&1 % 7 == 0)) == Some(4)
     //
-    pub fn find_index<T>(source: Iter<T>, f: (T) -> Bool) -> Maybe<NonNegativeInt>
+    pub fn find_index<T>(source: Iter<T>, f: (T) -> Bool) -> Option<NonNegativeInt>
         source
         |> Iter.with_index()
         |> Iter.find(fn (_, item) -> f(item))
-        |> Maybe.map(fn (index, _) -> index)
+        |> Option.map(fn (index, _) -> index)
     end
 
     /// The elements as a List, sorted by `compare`, which returns the
@@ -646,7 +646,7 @@ impl Iter<T>
     //! assert Iter.first([1, 2, 3]) == Some(1)
     //! assert Iter.first([]) == None
     //
-    pub fn first<T>(source: Iter<T>) -> Maybe<T>
+    pub fn first<T>(source: Iter<T>) -> Option<T>
         reduce(source, None, fn _acc, item ->
             break Some(item)
         end)
@@ -658,7 +658,7 @@ impl Iter<T>
     //! assert Iter.last([1, 2, 3]) == Some(3)
     //! assert Iter.last([]) == None
     //
-    pub fn last<T>(source: Iter<T>) -> Maybe<T>
+    pub fn last<T>(source: Iter<T>) -> Option<T>
         reduce(source, None, fn _acc, item -> Some(item))
     end
 
@@ -674,11 +674,11 @@ impl Iter<T>
     //! assert Iter.get([10, 20, 30], -1) == None
     //! assert Iter.get("héllo", 1) == Some("é")
     //
-    pub fn get<T>(source: Iter<T>, index: Int) -> Maybe<T>
+    pub fn get<T>(source: Iter<T>, index: Int) -> Option<T>
         if index < 0 then
             None
         else
-            countdown = reduce(source, (index, None), fn acc: (Int, Maybe<T>), item ->
+            countdown = reduce(source, (index, None), fn acc: (Int, Option<T>), item ->
                 (remaining, _found) = acc
 
                 if remaining == 0 then
@@ -722,7 +722,7 @@ impl Iter<T>
     //
     //! groups = Iter.group_by([1, 2, 3, 4], fn n -> n % 2)
     //! assert groups == {1 => [1, 3], 0 => [2, 4]}
-    //! assert groups |> Map.get(1) |> Maybe.map(NonEmptyList.first) == Some(1)
+    //! assert groups |> Map.get(1) |> Option.map(NonEmptyList.first) == Some(1)
     //!
     //! by_length = Iter.group_by(["fig", "pear", "plum"], String.length)
     //! assert by_length == {3 => ["fig"], 4 => ["pear", "plum"]}
@@ -730,7 +730,7 @@ impl Iter<T>
     pub fn group_by<T, K>(source: Iter<T>, key_fn: (T) -> K) -> Map<K, NonEmptyList<T>>
         bucketed = reduce(source, {}, fn acc: Map<K, NonEmptyList<T>>, item ->
             k = key_fn(item)
-            current: List<T> = Maybe.with_default(Map.get(acc, k), [])
+            current: List<T> = Option.with_default(Map.get(acc, k), [])
             Map.put(acc, k, NonEmptyList.prepend(current, item))
         end)
 
@@ -752,7 +752,7 @@ impl Iter<T>
     //
     pub fn frequencies<T>(source: Iter<T>) -> Map<T, Int>
         reduce(source, {}, fn acc: Map<T, Int>, item ->
-            Map.put(acc, item, Maybe.with_default(Map.get(acc, item), 0) + 1)
+            Map.put(acc, item, Option.with_default(Map.get(acc, item), 0) + 1)
         end)
     end
 
@@ -999,7 +999,7 @@ impl Iter<T>
 
     /// Lazy: calls `f` with each element of `source` and yields every element
     /// of what it returns, in order: a `map` whose results are joined into
-    /// one sequence. An `f` that returns a `Maybe` keeps the `Some` values
+    /// one sequence. An `f` that returns an `Option` keeps the `Some` values
     /// and drops the `None`s.
     //
     //! assert [1, 2, 3] |> Iter.flat_map(fn x -> [x, x * 10]) |> Iter.to_list() == [1, 10, 2, 20, 3, 30]
@@ -1239,7 +1239,7 @@ impl Iter<T>
     end
 
     /// The number of elements in `source`. A source that stores its size (a
-    /// `List`, `Vector`, `Map`, `Set`, `Maybe`, or a bounded range whose
+    /// `List`, `Vector`, `Map`, `Set`, `Option`, or a bounded range whose
     /// element type can count steps) answers at once, through `known_count`.
     /// Any other source, such as a `String` or a filtered chain, is walked to
     /// its end and counted.
@@ -1283,8 +1283,8 @@ impl Iter<T>
     //! assert Iter.min(["pear", "fig", "plum"]) == Some("fig")
     //! assert Iter.min([]) == None
     //
-    pub fn min<T>(source: Iter<T>) -> Maybe<T> where T: Comparable
-        reduce(source, None, fn least: Maybe<T>, item ->
+    pub fn min<T>(source: Iter<T>) -> Option<T> where T: Comparable
+        reduce(source, None, fn least: Option<T>, item ->
             case least
                 Some(m) -> if item < m then Some(item) else least
                 None    -> Some(item)
@@ -1299,8 +1299,8 @@ impl Iter<T>
     //! assert Iter.max(["pear", "fig", "plum"]) == Some("plum")
     //! assert Iter.max([]) == None
     //
-    pub fn max<T>(source: Iter<T>) -> Maybe<T> where T: Comparable
-        reduce(source, None, fn greatest: Maybe<T>, item ->
+    pub fn max<T>(source: Iter<T>) -> Option<T> where T: Comparable
+        reduce(source, None, fn greatest: Option<T>, item ->
             case greatest
                 Some(m) -> if item > m then Some(item) else greatest
                 None    -> Some(item)
@@ -1315,8 +1315,8 @@ impl Iter<T>
     //! assert Iter.min_by(["pear", "fig", "plum"], &String.length(&1)) == Some("fig")
     //! assert Iter.min_by([(1, "a"), (0, "b"), (0, "c")], fn (n, _) -> n) == Some((0, "b"))
     //
-    pub fn min_by<T, K>(source: Iter<T>, key: (T) -> K) -> Maybe<T> where K: Comparable
-        best = reduce(source, None, fn acc: Maybe<(T, K)>, item ->
+    pub fn min_by<T, K>(source: Iter<T>, key: (T) -> K) -> Option<T> where K: Comparable
+        best = reduce(source, None, fn acc: Option<(T, K)>, item ->
             k = key(item)
 
             case acc
@@ -1325,7 +1325,7 @@ impl Iter<T>
             end
         end)
 
-        Maybe.map(best, fn (item, _) -> item)
+        Option.map(best, fn (item, _) -> item)
     end
 
     /// The element whose `key` is greatest, or `None` for an empty source. Of
@@ -1335,8 +1335,8 @@ impl Iter<T>
     //! assert Iter.max_by(["pear", "fig", "plum"], &String.length(&1)) == Some("pear")
     //! assert Iter.max_by([(1, "a"), (0, "b"), (1, "c")], fn (n, _) -> n) == Some((1, "a"))
     //
-    pub fn max_by<T, K>(source: Iter<T>, key: (T) -> K) -> Maybe<T> where K: Comparable
-        best = reduce(source, None, fn acc: Maybe<(T, K)>, item ->
+    pub fn max_by<T, K>(source: Iter<T>, key: (T) -> K) -> Option<T> where K: Comparable
+        best = reduce(source, None, fn acc: Option<(T, K)>, item ->
             k = key(item)
 
             case acc
@@ -1345,7 +1345,7 @@ impl Iter<T>
             end
         end)
 
-        Maybe.map(best, fn (item, _) -> item)
+        Option.map(best, fn (item, _) -> item)
     end
 
     /// The elements added up with `+`, left to right. An empty source sums to
@@ -1393,7 +1393,7 @@ impl Iter<T>
     /// The element type's `Averageable` impl decides the result type and the
     /// rounding: Ints give a Float rounded once from the exact sum, Floats
     /// are summed with compensation, Decimals divide their exact sum with
-    /// Decimal's `/`, and Durations give the nearest nanosecond. A subtype is
+    /// Decimal's `/`, and Durations give the nearest nanosecond. A refinement is
     /// averaged as its base, so the mean of `NonNegativeInt` lengths is a
     /// Float. It reads the source once, so it works on a lazy source or a
     /// stream's; it traps on an infinite one.
@@ -1407,7 +1407,7 @@ impl Iter<T>
     //! none: List<Int> = []
     //! assert Iter.mean(none) == None
     //
-    pub fn mean<T, R>(source: Iter<T>) -> Maybe<R> where T: Averageable<R>
+    pub fn mean<T, R>(source: Iter<T>) -> Option<R> where T: Averageable<R>
         if Iter.is_infinite(source) then
             // The impl's fold would trap naming the impl; `count` traps
             // here first, naming `Iter.mean`, the call the program wrote.
@@ -1429,7 +1429,7 @@ impl Iter<T>
     //! none: List<String> = []
     //! assert Iter.mean_by(none, String.length) == None
     //
-    pub fn mean_by<T, N, R>(source: Iter<T>, key: (T) -> N) -> Maybe<R> where N: Averageable<R>
+    pub fn mean_by<T, N, R>(source: Iter<T>, key: (T) -> N) -> Option<R> where N: Averageable<R>
         if Iter.is_infinite(source) then
             // As in `Iter.mean`: trap naming the call the program wrote.
             _ = count(source)

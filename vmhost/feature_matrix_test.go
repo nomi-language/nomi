@@ -212,13 +212,13 @@ const (
 		"fn took<C, T>(c: C, x: T) -> String where C: Takes<T>\n    C.takes(c, x)\nend\n\n" +
 		"fn gives_text(g: Gives<String>) -> String\n    Gives.gives(g)\nend"
 	// A program interface implemented for std containers: generically over
-	// List and Maybe, at a concrete Map, and receiverless for List.
+	// List and Option, at a concrete Map, and receiverless for List.
 	mxShow = "interface Show\n    fn show(value: self) -> String\n    fn loud(value: self) -> String\n        Show.show(value) + \"!\"\n    end\nend\n\n" +
 		"interface Zero\n    fn zero(n: Int) -> self\nend\n\n" +
 		"impl Show for Int\n    fn show(n: Int) -> String\n        \"i${n}\"\n    end\nend\n\n" +
 		"impl Zero for Int\n    fn zero(n: Int) -> Int\n        n\n    end\nend\n\n" +
 		"impl Show for List<T> where T: Show\n    fn show(xs: List<T>) -> String\n        \"[\" + (xs |> Iter.map(&T.show(&1)) |> String.join(\" \")) + \"]\"\n    end\nend\n\n" +
-		"impl Show for Maybe<T> where T: Show\n    fn show(m: Maybe<T>) -> String\n        case m\n            Some(x) -> \"some \" + T.show(x)\n            None -> \"none\"\n        end\n    end\nend\n\n" +
+		"impl Show for Option<T> where T: Show\n    fn show(m: Option<T>) -> String\n        case m\n            Some(x) -> \"some \" + T.show(x)\n            None -> \"none\"\n        end\n    end\nend\n\n" +
 		"impl Show for Map<String, Int>\n    fn show(m: Map<String, Int>) -> String\n        \"map${Map.size(m)}\"\n    end\nend\n\n" +
 		"impl Zero for List<T> where T: Zero\n    fn zero(n: Int) -> List<T>\n        Iter.repeat(T.zero(n)) |> Iter.take(2) |> Iter.to_list()\n    end\nend\n\n" +
 		"fn shown<T>(x: T) -> String where T: Show\n    T.loud(x)\nend"
@@ -243,7 +243,7 @@ const (
 	// A generic enum whose impl block holds a generic owner function over a
 	// nested instance, as std/presence's Presence.flatten is.
 	mxOpt = "enum Opt<T>\n    Full T\n    Empty\nend\n\n" +
-		"impl Opt<T>\n    pub fn flat<T>(o: Opt<Maybe<T>>) -> Maybe<T>\n        case o\n            .Full(m) -> m\n            .Empty -> None\n        end\n    end\n" +
+		"impl Opt<T>\n    pub fn flat<T>(o: Opt<Option<T>>) -> Option<T>\n        case o\n            .Full(m) -> m\n            .Empty -> None\n        end\n    end\n" +
 		"    pub fn map<T, U>(o: Opt<T>, f: (T) -> U) -> Opt<U>\n        case o\n            .Full(v) -> Opt.Full(f(v))\n            .Empty -> Opt.Empty\n        end\n    end\nend"
 )
 
@@ -286,14 +286,14 @@ var mxFeatures = []mxFeature{
 	{name: "dot variant", decls: mxShape, typ: "Shape", expr: ".Circle(2.0)", want: "Circle(2.0)", tags: tagExpects,
 		reject: "requires a determinable enum type|resolves only to enum variants|cannot be resolved here|is not determined"},
 	{name: "distinct", decls: "type Meters Int", typ: "Meters", expr: "Meters(3)", want: "Meters(3)"},
-	{name: "refinement literal", decls: "subtype Port Int when fn p -> p >= 1", typ: "Port", expr: "Port(3)", want: "3"},
-	{name: "refinement try_from", decls: "subtype Port Int when fn p -> p >= 1", typ: "Maybe<Port>", expr: "Port.try_from(0)", want: "None"},
+	{name: "refinement literal", decls: "refine Port Int when fn p -> p >= 1", typ: "Port", expr: "Port(3)", want: "3"},
+	{name: "refinement try_from", decls: "refine Port Int when fn p -> p >= 1", typ: "Option<Port>", expr: "Port.try_from(0)", want: "None"},
 	{name: "validated type", decls: "type Tag String when fn s -> String.length(s) > 0", typ: "Tag", expr: `Tag("a")`, want: `Tag("a")`},
-	{name: "type over a subtype", decls: "type UserId PositiveInt", typ: "Maybe<UserId>", expr: "UserId.try_from(4)", want: "Some(UserId(4))"},
+	{name: "type over a refinement", decls: "type UserId PositiveInt", typ: "Option<UserId>", expr: "UserId.try_from(4)", want: "Some(UserId(4))"},
 	{name: "intersection parameter", typ: "NonNegativeInt and NonZeroInt", expr: "PositiveInt.try_from(3)!", want: "3"},
-	{name: "collection refinement", decls: "subtype Two List<Int> when fn xs -> List.length(xs) == 2", typ: "Two", expr: "Two([3, 4])",
+	{name: "collection refinement", decls: "refine Two List<Int> when fn xs -> List.length(xs) == 2", typ: "Two", expr: "Two([3, 4])",
 		obs: `"${Iter.sum($v)} ${List.length($v)} ${$v == [3, 4]}"`, want: "7 2 True"},
-	{name: "generic refinement", decls: "subtype Many<A> List<A> when fn xs -> not Iter.is_empty(xs)", typ: "Many<Int>", expr: "Many.try_from([3, 4])!",
+	{name: "generic refinement", decls: "refine Many<A> List<A> when fn xs -> not Iter.is_empty(xs)", typ: "Many<Int>", expr: "Many.try_from([3, 4])!",
 		obs: `"${Iter.sum($v)} ${List.length($v)} ${$v == [3, 4]}"`, want: "7 2 True"},
 	{name: "bitwise operator impl", decls: mxFlags, typ: "Flags", expr: "~~~(Flags(1) ||| Flags(4))", want: "Flags(-6)"},
 	{name: "unit", typ: "Unit", expr: "Unit", want: "Unit", tags: tagUnit},
@@ -416,13 +416,13 @@ var mxFeatures = []mxFeature{
 		obs: `$v |> Iter.map(fn d -> Display.to_string(d)) |> String.join(",")`, want: "1,a",
 		tags: tagExistential | tagExpects, reject: "list element type mismatch"},
 
-	// Maybe and Result.
-	{name: "some", typ: "Maybe<Int>", expr: "Some(3)", want: "Some(3)"},
-	{name: "none", typ: "Maybe<Int>", expr: "None", want: "None", tags: tagUntyped | tagBareOK, reject: mxUnsolved},
+	// Option and Result.
+	{name: "some", typ: "Option<Int>", expr: "Some(3)", want: "Some(3)"},
+	{name: "none", typ: "Option<Int>", expr: "None", want: "None", tags: tagUntyped | tagBareOK, reject: mxUnsolved},
 	{name: "ok", typ: "Result<Int, String>", expr: "Ok(1)", want: "Ok(1)", tags: tagPartial, reject: mxRows},
 	{name: "err", typ: "Result<Int, String>", expr: `Err("bad")`, want: `Err("bad")`, tags: tagPartial, reject: mxRows},
-	{name: "maybe map", typ: "Maybe<Int>", expr: "Maybe.map(Some(2), fn n -> n * 3)", want: "Some(6)"},
-	{name: "maybe grid", typ: "Maybe<Vector<Vector<Int>>>", expr: "Vector.get(Vector[Vector[Vector[1]], Vector[Vector[3]]], 1)",
+	{name: "option map", typ: "Option<Int>", expr: "Option.map(Some(2), fn n -> n * 3)", want: "Some(6)"},
+	{name: "option grid", typ: "Option<Vector<Vector<Int>>>", expr: "Vector.get(Vector[Vector[Vector[1]], Vector[Vector[3]]], 1)",
 		want: "Some(Vector[Vector[3]])"},
 	{name: "vector get!", typ: "String", expr: `Vector.get(Vector["a", "b"], 1)!`, want: `"b"`, tags: tagCall},
 	{name: "result bang", decls: mxHalf, typ: "Int", expr: `8 |> half()! |> half()!`, want: "2", tags: tagCall},
@@ -476,7 +476,7 @@ var mxFeatures = []mxFeature{
 	{name: "block", typ: "Int", expr: "begin\n    a = 2\n    a * 3\nend", want: "6", tags: tagNested},
 	{name: "try", decls: "fn half(n: Int) -> Result<Int, String>\n    Ok(n / 2)\nend", typ: "Result<Int, String>",
 		expr: "begin\n    f = fn ->\n        h = half(8)?\n        Ok(h + 1)\n    end\n    f()\nend", want: "Ok(5)", tags: tagNested},
-	{name: "maybe?", typ: "Maybe<Int>",
+	{name: "option?", typ: "Option<Int>",
 		expr: "begin\n    f = fn ->\n        h = Some(8)?\n        Some(h + 1)\n    end\n    f()\nend", want: "Some(9)", tags: tagNested},
 	{name: "dbg", typ: "Int", expr: "dbg 7", want: "7", tags: tagDbg},
 	{name: "and or", typ: "Bool", expr: "1 > 2 or (3 > 2 and True)", want: "True"},
@@ -540,20 +540,20 @@ var mxFeatures = []mxFeature{
 		want: `"007"`, tags: tagCall},
 	{name: "captured partial named call", decls: mxAdd3, typ: "Int", expr: "begin\n    g = &add3(&1, b: &2)\n    g(b: 2, 1)\nend",
 		want: "103", tags: tagCall | tagNested},
-	{name: "owner qualified call", typ: "Int", expr: "Maybe.with_default(Some(5), 0)", want: "5", tags: tagCall},
+	{name: "owner qualified call", typ: "Int", expr: "Option.with_default(Some(5), 0)", want: "5", tags: tagCall},
 	{name: "interface qualified call", typ: "String", expr: "Display.to_string(12)", want: `"12"`, tags: tagCall},
 	{name: "type parameter qualified call",
 		decls: "fn shown<T>(x: T) -> String where T: Display\n    T.to_string(x)\nend", typ: "String", expr: "shown(5)",
 		want: `"5"`, tags: tagCall},
 	// Generic owner functions, instantiated per call from the impl block's
 	// frame (irbuild's methodinst.go) rather than as a generic fn is.
-	{name: "owner generic function", decls: mxOpt, typ: "Maybe<Int>", expr: "Opt.flat(Opt.Full(Some(3)))", want: "Some(3)",
+	{name: "owner generic function", decls: mxOpt, typ: "Option<Int>", expr: "Opt.flat(Opt.Full(Some(3)))", want: "Some(3)",
 		tags: tagCall},
 	{name: "owner generic function callback", decls: mxOpt, typ: "Opt<String>", expr: `Opt.map(Opt.Full(2), fn n -> "${n * 3}")`,
 		want: `Full("6")`, tags: tagCall},
 	// The owner function's own T is open: nothing determines it, and no
 	// value of it is made.
-	{name: "owner generic function open type argument", decls: mxOpt, typ: "Maybe<Int>", expr: "Opt.flat(Opt.Full(None))",
+	{name: "owner generic function open type argument", decls: mxOpt, typ: "Option<Int>", expr: "Opt.flat(Opt.Full(None))",
 		want: "None", tags: tagCall | tagUntyped | tagBareOK, reject: mxUnsolved},
 
 	// Derived impls.
@@ -778,7 +778,7 @@ var mxWraps = append([]*mxContext{
 	wrapCtx("tuple element", true, mxFlows, func(b *mxBuild, n int) {
 		b.expr = fmt.Sprintf("(%d, %s).second", n, b.expr)
 	}),
-	wrapCtx("maybe payload", true, mxFlows, func(b *mxBuild, n int) {
+	wrapCtx("option payload", true, mxFlows, func(b *mxBuild, n int) {
 		b.expr = fmt.Sprintf("case Some(%s)\n    Some(p%d) -> p%d\n    None -> todo\nend", b.expr, n, n)
 	}),
 	wrapCtx("result payload", true, mxFlows, func(b *mxBuild, n int) {
@@ -792,7 +792,7 @@ var mxWraps = append([]*mxContext{
 	wrapCtx("Iter.loop callback", false, mxGives, func(b *mxBuild, n int) {
 		m, s := fmt.Sprintf("m%d", n), fmt.Sprintf("s%d", n)
 		b.expr = mxBlock(
-			fmt.Sprintf("%s = Iter.loop(None, fn %s: Maybe<%s> ->\n    case %s\n        Some(_) -> break %s\n        None -> Some(%s)\n    end\nend)",
+			fmt.Sprintf("%s = Iter.loop(None, fn %s: Option<%s> ->\n    case %s\n        Some(_) -> break %s\n        None -> Some(%s)\n    end\nend)",
 				m, s, b.typ, s, s, mxIndentTail(mxIndentTail(b.expr))),
 			fmt.Sprintf("case %s\n    Some(p%d) -> p%d\n    None -> todo\nend", m, n, n))
 	}),
@@ -836,7 +836,7 @@ var mxWraps = append([]*mxContext{
 	// A generic function of a std module lowered with each program
 	// (std/presence), instantiated at the feature's type.
 	wrapCtx("program std generic function", true, mxFlows, func(b *mxBuild, n int) {
-		b.expr = fmt.Sprintf("case Presence.to_maybe(Presence.Present(%s))\n    Some(p%d) -> p%d\n    None -> todo\nend", mxIndentTail(b.expr), n, n)
+		b.expr = fmt.Sprintf("case Presence.to_option(Presence.Present(%s))\n    Some(p%d) -> p%d\n    None -> todo\nend", mxIndentTail(b.expr), n, n)
 	}),
 	// An interface default declared in another file than the impl that
 	// inherits it: the impl's function forwards to the declaring file's
@@ -1125,15 +1125,15 @@ var mxStdImports = []struct{ name, module, item string }{
 
 var (
 	mxIdent = regexp.MustCompile(`[A-Za-z_][A-Za-z0-9_]*`)
-	// mxSubtypeDecl is a subtype a feature declares, its name and parent;
-	// mxStdSubtypes are the prelude's subtypes, which JSON reads as their
+	// mxRefinementDecl is a refinement a feature declares, its name and parent;
+	// mxStdRefinements are the prelude's refinements, which JSON reads as their
 	// bases.
-	mxSubtypeDecl   = regexp.MustCompile(`(?m)^subtype (\w+)(?:<([^>]*)>)? (\S+) when`)
-	mxStdSubtypes   = regexp.MustCompile(`\b(NonNegativeInt|NonZeroInt|PositiveInt|NonNegativeFloat|NonZeroFloat|PositiveFloat|NonEmptyString|NonEmptyList|NonEmptyVector|NonEmptySet|NonEmptyMap)\b`)
-	mxDeclName      = regexp.MustCompile(`(?m)^(?:struct|enum|type|subtype|interface|fn|once|typealias|phrase) ([A-Za-z_][A-Za-z0-9_]*)`)
-	mxValidatedType = regexp.MustCompile(`(?m)^(?:pub )?type [A-Za-z0-9_]+ [^\n]* when `)
-	mxPubDecl       = regexp.MustCompile(`(?m)^(struct|enum|type|subtype|interface|fn|once|typealias|phrase) `)
-	mxStrLit        = regexp.MustCompile(`"(?:[^"\\]|\\.)*"`)
+	mxRefinementDecl = regexp.MustCompile(`(?m)^refine (\w+)(?:<([^>]*)>)? (\S+) when`)
+	mxStdRefinements = regexp.MustCompile(`\b(NonNegativeInt|NonZeroInt|PositiveInt|NonNegativeFloat|NonZeroFloat|PositiveFloat|NonEmptyString|NonEmptyList|NonEmptyVector|NonEmptySet|NonEmptyMap)\b`)
+	mxDeclName       = regexp.MustCompile(`(?m)^(?:struct|enum|type|refine|interface|fn|once|typealias|phrase) ([A-Za-z_][A-Za-z0-9_]*)`)
+	mxValidatedType  = regexp.MustCompile(`(?m)^(?:pub )?type [A-Za-z0-9_]+ [^\n]* when `)
+	mxPubDecl        = regexp.MustCompile(`(?m)^(struct|enum|type|refine|interface|fn|once|typealias|phrase) `)
+	mxStrLit         = regexp.MustCompile(`"(?:[^"\\]|\\.)*"`)
 )
 
 // mxUses reports the names text uses as a plain identifier, one not after a
@@ -1327,7 +1327,7 @@ type mxStdImportItem struct {
 	mxStdFileImport
 }
 
-// mxStdImportItems reads one line of an import block (`maybe.Maybe`,
+// mxStdImportItems reads one line of an import block (`option.Option`,
 // `bool.Bool.{self, False, True}`) as the names it binds.
 func mxStdImportItems(line string) []mxStdImportItem {
 	split := func(path string) (string, string) {
@@ -1614,12 +1614,12 @@ func mxHasWrap(c mxCell, name string) bool {
 // mxJsonable reports whether the checker admits a field of type typ in a
 // struct deriving ToJson and FromJson: std's scalars and containers of
 // them, a Result of them, a Map keyed by String, an anonymous struct of
-// them, and a subtype of one of them, std's or one decls declares, which
-// FromJson reads at its base and checks (spec §4 *Subtypes*). A tuple
+// them, and a refinement of one of them, std's or one decls declares, which
+// FromJson reads at its base and checks (spec §4 *Refinements*). A tuple
 // implements neither (spec §12 *Tuples, anonymous structs and functions*),
 // and std's impls are for Map<String, V> alone.
 func mxJsonable(typ, decls string) bool {
-	for _, m := range mxSubtypeDecl.FindAllStringSubmatch(decls, -1) {
+	for _, m := range mxRefinementDecl.FindAllStringSubmatch(decls, -1) {
 		parent := m[3]
 		for _, param := range strings.Split(m[2], ",") {
 			if param = strings.TrimSpace(param); param != "" {
@@ -1631,7 +1631,7 @@ func mxJsonable(typ, decls string) bool {
 		}
 		typ = regexp.MustCompile(`\b`+m[1]+`\b`).ReplaceAllString(typ, "Int")
 	}
-	typ = mxStdSubtypes.ReplaceAllString(typ, "Int")
+	typ = mxStdRefinements.ReplaceAllString(typ, "Int")
 	typ = strings.ReplaceAll(typ, " and ", ", ")
 	if strings.Contains(typ, "->") || strings.Contains(typ, "(") {
 		return false
@@ -1645,7 +1645,7 @@ func mxJsonable(typ, decls string) bool {
 	t = strings.ReplaceAll(t, "Map<String, ", "Map<")
 	for _, id := range mxIdent.FindAllString(t, -1) {
 		switch id {
-		case "Int", "Float", "Decimal", "String", "Bool", "List", "Vector", "Set", "Map", "Maybe", "Result":
+		case "Int", "Float", "Decimal", "String", "Bool", "List", "Vector", "Set", "Map", "Option", "Result":
 		default:
 			return false
 		}

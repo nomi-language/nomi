@@ -50,14 +50,14 @@ fn add(x: Int, y: Int) -> Int
   x + y
 end
 
-fn first_of(m: Maybe<(Int, String)>) -> Int
+fn first_of(m: Option<(Int, String)>) -> Int
   case m
     Some((n, _)) -> n
     None -> 0
   end
 end
 
-fn unwrap(m: Maybe<Result<Int, String>>) -> Int
+fn unwrap(m: Option<Result<Int, String>>) -> Int
   case m
     Some(Ok(n)) -> n
     Some(Err(_)) -> -1
@@ -78,8 +78,8 @@ end
 test "prelude predicates"
   assert Result.is_err(Err("x"))
   refute Result.is_ok(Err("x"))
-  assert Maybe.is_some(Some(1))
-  refute Maybe.is_none(Some(1))
+  assert Option.is_some(Some(1))
+  refute Option.is_none(Some(1))
 end
 
 test "nested prelude payloads and tuple payload patterns"

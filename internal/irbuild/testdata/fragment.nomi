@@ -43,7 +43,7 @@ end
 
 // A nested instantiation, so the intern key is exercised at a type argument
 // that is itself an instance rather than a scalar.
-fn describe_nested(f: Fragment<Maybe<Int>>) -> String
+fn describe_nested(f: Fragment<Option<Int>>) -> String
     case f
         .Static(s) ->
             "static/" + s
@@ -72,7 +72,7 @@ fn main()
     io.print(describe_bool(Fragment.Dynamic(True)))
     io.print(describe_bool(Fragment.Dynamic(False)))
 
-    io.print(describe_nested(Fragment.Static<Maybe<Int>>("e")))
+    io.print(describe_nested(Fragment.Static<Option<Int>>("e")))
     io.print(describe_nested(Fragment.Dynamic(Some(9))))
     io.print(describe_nested(Fragment.Dynamic(None)))
 

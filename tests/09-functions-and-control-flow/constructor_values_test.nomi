@@ -28,7 +28,7 @@ test "a distinct type named as a value is its constructor"
 end
 
 test "a std variant named as a value is its constructor"
-    somes: List<Maybe<Int>> = Iter.map([1, 2], Some) |> Iter.to_list()
+    somes: List<Option<Int>> = Iter.map([1, 2], Some) |> Iter.to_list()
 
     oks: List<Result<Int, String>> = Iter.map([1], Ok) |> Iter.to_list()
 
@@ -36,7 +36,7 @@ test "a std variant named as a value is its constructor"
     err: (String) -> Result<Int, String> = Err
 
     assert somes == [Some(1), Some(2)]
-    assert Iter.map([1], Maybe.Some) |> Iter.to_list() == [Some(1)]
+    assert Iter.map([1], Option.Some) |> Iter.to_list() == [Some(1)]
     assert oks == [Ok(1)]
     assert Result.map_err(failed, Label) == Err(Label("bad"))
     assert err("e") == Err("e")
@@ -45,7 +45,7 @@ end
 
 test "a positional variant over a tuple takes the tuple"
     assert Iter.map([(1, 2)], Shape.Seg) |> Iter.to_list() == [Shape.Seg(1, 2)]
-    assert Maybe.map(Some(1.5), Shape.Circle) == Some(Shape.Circle(1.5))
+    assert Option.map(Some(1.5), Shape.Circle) == Some(Shape.Circle(1.5))
 end
 
 test "a type name and a generic constructor with nothing to solve it stay errors"

@@ -8,7 +8,7 @@ func TestIRPreludeEquality_CompletePrograms(t *testing.T) {
 	verifyLambdaProgram(t, `import
     std::io std::literals.Fragment
 end
-fn same(a: Maybe<String>, b: Maybe<String>) -> Bool
+fn same(a: Option<String>, b: Option<String>) -> Bool
     a == b
 end
 fn different(a: Result<Int, String>, b: Result<Int, String>) -> Bool
@@ -32,7 +32,7 @@ end
 
 func TestIRPreludeEquality_LambdaPipelineEffects(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn mark(s: String) -> Maybe<String>
+fn mark(s: String) -> Option<String>
     io.print(s)
     Some(s)
 end

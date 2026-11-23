@@ -1,6 +1,6 @@
 import std::testing
 
-fn find_name(id: Int) -> Maybe<String>
+fn find_name(id: Int) -> Option<String>
     if id == 1 then Some("Ada") else None
 end
 
@@ -11,24 +11,24 @@ fn parse_id(s: String) -> Result<Int, String>
     end
 end
 
-test "maybe values can be asserted directly"
+test "option values can be asserted directly"
     assert find_name(1) == Some("Ada")
     assert find_name(2) == None
 end
 
-test "maybe shape can be asserted with predicates"
-    assert Maybe.is_some(find_name(1))
-    assert Maybe.is_none(find_name(2))
+test "option shape can be asserted with predicates"
+    assert Option.is_some(find_name(1))
+    assert Option.is_none(find_name(2))
 end
 
-test "assert checks maybe success shape"
+test "assert checks option success shape"
     assert find_name(1)
 
     assert Some(name) = find_name(1)
     assert name == "Ada"
 end
 
-test "refute checks maybe empty shape"
+test "refute checks option empty shape"
     none = refute find_name(2)
     assert none == None
 end

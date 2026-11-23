@@ -140,11 +140,11 @@ fn described(
                 |> Iter.map(fn t ->
                     {
                         ..t,
-                        migration: Map.get(created, t.name) |> Maybe.with_default(""),
+                        migration: Map.get(created, t.name) |> Option.with_default(""),
                         columns: t.columns
                         |> Iter.map(fn c -> {
                             ..c,
-                            migration: Map.get(changed, key(t.name, c)) |> Maybe.with_default(""),
+                            migration: Map.get(changed, key(t.name, c)) |> Option.with_default(""),
                         })
                         |> Iter.to_list(),
                     }

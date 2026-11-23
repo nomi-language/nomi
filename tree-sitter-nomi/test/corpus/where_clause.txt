@@ -52,7 +52,7 @@ Where clause on impl block
 ================================================================================
 
 impl Iter for Range<T> where T: Discrete
-  fn next(r: Range<T>) -> Maybe<(T, Range<T>)>
+  fn next(r: Range<T>) -> Option<(T, Range<T>)>
     None
   end
 end
@@ -140,7 +140,7 @@ struct Box<T> where T: Display
   value: T
 end
 
-enum MaybeBox<T> where T: Display
+enum OptionBox<T> where T: Display
   Empty
   Full Box<T>
 end

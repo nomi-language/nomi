@@ -227,7 +227,7 @@ func (d *programDemands) read(fa *FileAnalysis) fileDemands {
 				continue
 			}
 			for _, rec := range recs {
-				if !isStdlibRecording(rec) {
+				if !isStdlibRecording(rec) && !fa.demandOfNoType(typeName, rec) {
 					part.wants = append(part.wants, b)
 					break
 				}
@@ -297,8 +297,11 @@ func (d *programDemands) remove(i int) {
 
 // settle works out bucket b's recordings and diagnostic again: the
 // recordings of the files that hold it in file order, then the base's
-// (missingInBucket). It is linear in the bucket's recordings, which for a
-// pair like (Add, Int) come from most files.
+// (missingInBucket). A demand of a type with a part of no type, or a
+// derive's demand of such a part, is left out (demandOfNoType) and makes
+// no bucket wanted (read), as the reduction over stored facts leaves it
+// out. It is linear in the bucket's recordings, which for a pair like
+// (Add, Int) come from most files.
 func (d *programDemands) settle(b implPair) {
 	bk := d.buckets[b]
 	delete(d.missing, b)
@@ -319,7 +322,12 @@ func (d *programDemands) settle(b implPair) {
 	}
 	recs := make([]Recording, 0, n+len(baseRecs))
 	for _, i := range bk.from {
-		recs = append(recs, d.manifest(d.files[i])[b.iface][b.typeName]...)
+		fa := d.files[i]
+		for _, rec := range d.manifest(fa)[b.iface][b.typeName] {
+			if !fa.demandOfNoType(b.typeName, rec) {
+				recs = append(recs, rec)
+			}
+		}
 	}
 	recs = append(recs, baseRecs...)
 	var e TypeError

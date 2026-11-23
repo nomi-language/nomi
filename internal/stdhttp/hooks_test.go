@@ -24,7 +24,7 @@ fn boot(_startup: Startup) -> Result<App, String>
 end
 
 fn who(request: Request) -> Response
-    secure = request.tls |> Maybe.map(fn s -> "${s.server_name} ${Maybe.is_some(s.local_certificate)}") |> Maybe.with_default("plain")
+    secure = request.tls |> Option.map(fn s -> "${s.server_name} ${Option.is_some(s.local_certificate)}") |> Option.with_default("plain")
     extended = Request.extend_read_deadline(request, Duration.seconds(5)) |> Result.is_ok()
     Response{body: Body.Text("${secure} ${request.local_address != ""} ${extended}")}
 end
@@ -65,7 +65,7 @@ fn main()
     url = Url.parse("https://${Listener.address(listener)}/")!
     response = Client.fetch(client, Request{url:, trace: Some(tracer)})!
     io.print("served ${Response.text(response)!}")
-    io.print("response tls ${response.tls |> Maybe.map(fn s -> s.handshake_complete)}")
+    io.print("response tls ${response.tls |> Option.map(fn s -> s.handshake_complete)}")
     events = Tracer.events(tracer)
     io.print("traced ${Iter.any_match(events, fn e -> e == TraceEvent.TlsStart)} ${Iter.any_match(events, fn e -> e == TraceEvent.FirstResponseByte)}")
 
@@ -81,7 +81,7 @@ fn main()
     _ = Supervisor.spawn(App.web, fn ->
         http.serve(upgrades, fn _r: Request ->
             Response.upgrade(headers: Headers[("Upgrade", "echo")], on_connection: fn c: Connection ->
-                line = Reader.read_line(Connection.reader(c))! |> Maybe.with_default("")
+                line = Reader.read_line(Connection.reader(c))! |> Option.with_default("")
                 _ = Writer.write_text(Connection.writer(c), "upgraded ${line}\n")
             end)
         end, App.web)
@@ -89,11 +89,11 @@ fn main()
 
     conn = net.dial(Listener.address(upgrades))!
     _ = Writer.write_text(Connection.writer(conn), "GET / HTTP/1.1\r\nHost: x\r\nConnection: Upgrade\r\nUpgrade: echo\r\n\r\nping\n")
-    status_line = Reader.read_line(Connection.reader(conn))! |> Maybe.with_default("")
+    status_line = Reader.read_line(Connection.reader(conn))! |> Option.with_default("")
     io.print("upgrade ${status_line}")
     _ = Reader.read_line(Connection.reader(conn))
     _ = Reader.read_line(Connection.reader(conn))
-    io.print("over it ${Reader.read_line(Connection.reader(conn))! |> Maybe.with_default("-")}")
+    io.print("over it ${Reader.read_line(Connection.reader(conn))! |> Option.with_default("-")}")
     Connection.close(conn)
     Listener.shutdown(upgrades)
 
@@ -104,7 +104,7 @@ fn main()
     end, App.web))
     (sconn, keys) = Writer.collect(fn log -> tls.dial(net.Listener.address(secure), {..trusted, server_name: Some("localhost"), key_log: Some(log)})!)
     io.print("key log ${String.contains(Bytes.to_string(keys)!, "SECRET")}")
-    io.print("wrap ${Reader.read_line(Connection.reader(sconn))! |> Maybe.with_default("-")}")
+    io.print("wrap ${Reader.read_line(Connection.reader(sconn))! |> Option.with_default("-")}")
     Connection.close(sconn)
     net.Listener.close(secure)
 end
@@ -115,8 +115,7 @@ end
 // a client's verify, a tracer's events, an upgraded connection, and a
 // wrapped TLS listener, end to end on 127.0.0.1.
 func TestHooks_RunOnTheWaitingTask(t *testing.T) {
-	certPath, keyPath := selfSigned(t, t.TempDir())
-	src := strings.ReplaceAll(strings.ReplaceAll(hooksProgram, `"CERT"`, `"`+certPath+`"`), `"KEY"`, `"`+keyPath+`"`)
+	src := withCertificate(t, hooksProgram)
 	got := run(t, src)
 	for _, w := range []string{
 		"served localhost True True True",

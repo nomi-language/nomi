@@ -15,7 +15,7 @@ fn kind(cp: Codepoint) -> String
     end
 end
 
-fn first(m: Maybe<Codepoint>) -> String
+fn first(m: Option<Codepoint>) -> String
     case m
         Some('x') -> "some x"
         Some(_)   -> "some other"

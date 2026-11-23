@@ -425,8 +425,8 @@ func TestListComment_ImportSelector(t *testing.T) {
 			"import std::comparable.{\n    Comparable,\n    Ordering, // the second\n}\n",
 		},
 		{
-			"import std::maybe.Maybe.{\n    self,\n    // the variant\n    Some,\n}\n",
-			"import std::maybe.Maybe.{\n    self,\n    // the variant\n    Some,\n}\n",
+			"import std::option.Option.{\n    self,\n    // the variant\n    Some,\n}\n",
+			"import std::option.Option.{\n    self,\n    // the variant\n    Some,\n}\n",
 		},
 		{
 			"import std::comparable.{\n    Comparable, // the first\n}\nimport std::comparable.Ordering\n",
@@ -481,8 +481,8 @@ func TestListComment_AtTheBrackets(t *testing.T) {
 		},
 		{
 			"a map pattern in a variant pattern",
-			"fn f(j: Maybe<Map<String, Int>>) -> Int\n    case j\n        Some({ // t10\n            \"a_rather_long_key_rather_long_key_rather_long_key\" => a,\n            \"b_rather_long_key_rather_long_key_rather_long_key\" => b,\n        }) -> a + b\n        _ -> 0\n    end\nend\n",
-			"fn f(j: Maybe<Map<String, Int>>) -> Int\n    case j\n        Some({\n            // t10\n            \"a_rather_long_key_rather_long_key_rather_long_key\" => a,\n            \"b_rather_long_key_rather_long_key_rather_long_key\" => b,\n        }) -> a + b\n        _ -> 0\n    end\nend\n",
+			"fn f(j: Option<Map<String, Int>>) -> Int\n    case j\n        Some({ // t10\n            \"a_rather_long_key_rather_long_key_rather_long_key\" => a,\n            \"b_rather_long_key_rather_long_key_rather_long_key\" => b,\n        }) -> a + b\n        _ -> 0\n    end\nend\n",
+			"fn f(j: Option<Map<String, Int>>) -> Int\n    case j\n        Some({\n            // t10\n            \"a_rather_long_key_rather_long_key_rather_long_key\" => a,\n            \"b_rather_long_key_rather_long_key_rather_long_key\" => b,\n        }) -> a + b\n        _ -> 0\n    end\nend\n",
 		},
 		{
 			// The parentheses stay for the comment, which they hold.

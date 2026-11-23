@@ -95,7 +95,9 @@ Then set up your editor from [Editor support](#editor-support) below.
 ## Usage
 
 ```sh
+nomi new hello                             # start a project in hello/: nomi.toml and main.nomi
 nomi run app.nomi                          # run a program
+nomi run hello                             # run a project's one entry point
 ./app.nomi a b                             # run a file whose first line is #!/usr/bin/env nomi
 nomi test                                  # run every test under the current directory
 nomi                                       # an interactive REPL
@@ -111,6 +113,7 @@ nomi-vm app.nomic a b                      #   by path, or
 cat app.nomic input | nomi-vm              #   framed on stdin, the rest being the program's input
 nomi check app.nomi                        # type-check without running
 nomi fmt -w .                              # format
+nomi help run                              # a command's usage, as nomi run --help prints it
 ```
 
 ## Editor support

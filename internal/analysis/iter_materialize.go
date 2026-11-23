@@ -93,8 +93,8 @@ func typeArgumentVarianceHint(want, have Type) string {
 
 // unimplementedPart says which part of have, a covariant position's type,
 // does not implement the interface want holds at the same place, or "" when
-// none is found: `Unit does not implement Display` for a Maybe<Unit> where
-// a Maybe<Display> is expected.
+// none is found: `Unit does not implement Display` for an Option<Unit> where
+// an Option<Display> is expected.
 func unimplementedPart(want, have Type) string {
 	want, have = resolveTypeVar(want), resolveTypeVar(have)
 	if containsTypeVar(want) || containsTypeVar(have) || TypesIdentical(want, have) {

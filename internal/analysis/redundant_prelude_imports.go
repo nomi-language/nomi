@@ -93,7 +93,7 @@ func FindRedundantPreludeImports(fa *FileAnalysis, nodes []ast.Node) []UnusedImp
 		if it.module || (it.selfItem && it.sym.Resolved == nil) {
 			// A file API object. The prelude exports none, so a module
 			// binding can never duplicate one. A `self` item under a type
-			// owner (`std/maybe.Maybe.{self}`) binds the type, and is
+			// owner (`std/option.Option.{self}`) binds the type, and is
 			// checked like any other item.
 			continue
 		}

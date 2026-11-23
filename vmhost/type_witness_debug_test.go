@@ -6,7 +6,7 @@ import "testing"
 // §4 *Type witnesses*), by every spelling of its Debug: the type's own
 // `Type.inspect`, which names std's impl by its type, the function as a
 // value, `Debug.inspect`, `io.inspect`, `dbg`, a generic function's
-// `Debug.inspect`, and as a part of a list and a Maybe. `Type.inspect` and
+// `Debug.inspect`, and as a part of a list and an Option. `Type.inspect` and
 // `dbg` printed `Type`, the bare name the universal Debug of a host type
 // writes.
 func TestTypeWitnessInspect_EverySpellingPrintsTheTypeItNames(t *testing.T) {

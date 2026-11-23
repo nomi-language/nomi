@@ -228,7 +228,7 @@ test "t"
 end`,
 			line: 6, col: 33,
 			msg:  "`?` cannot be used in the name of a `subtests` row: the name is evaluated on its own, before the row runs",
-			hint: "handle the Result or Maybe inside the name with `case`, or compute the name in a function",
+			hint: "handle the Result or Option inside the name with `case`, or compute the name in a function",
 		},
 		{
 			name: "an assertion in a name",

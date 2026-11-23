@@ -77,7 +77,7 @@ end
 
 fn main()
     io.inspect(["a", "b"] |> Iter.map(greet) |> Iter.to_list())
-    io.inspect(Maybe.map(Some("c"), lib.shout))
+    io.inspect(Option.map(Some("c"), lib.shout))
     io.inspect(["d"] |> Iter.map(shout) |> Iter.to_list())
     io.inspect([["e", "f"], ["g"]] |> Iter.map(String.join) |> Iter.to_list())
     f: (String) -> String = greet
@@ -128,7 +128,7 @@ fn run_all<T>(fs: List<(String) -> T>, s: String) -> List<T>
     fs |> Iter.map(fn f -> f(s)) |> Iter.to_list()
 end
 
-fn run_maybe<T>(f: (String) -> Maybe<T>, s: String) -> Maybe<T>
+fn run_option<T>(f: (String) -> Option<T>, s: String) -> Option<T>
     f(s)
 end
 
@@ -136,11 +136,11 @@ fn run_pairs<K, T>(ps: List<(K, (String) -> T)>, s: String) -> List<(K, T)>
     ps |> Iter.map(fn p -> (p.first, p.second(s))) |> Iter.to_list()
 end
 
-fn scale(s: String, by: Int = 10) -> Maybe<Int>
+fn scale(s: String, by: Int = 10) -> Option<Int>
     Some(String.length(s) * by)
 end
 
-fn twice(s: String) -> Maybe<Int>
+fn twice(s: String) -> Option<Int>
     Some(String.length(s) * 2)
 end
 
@@ -155,7 +155,7 @@ fn main()
     io.inspect((fn s -> s + "!") |> run("x"))
     io.inspect(run_all([scale, twice], "a"))
     io.inspect([scale, twice] |> run_all("a"))
-    io.inspect(scale |> run_maybe("abc"))
+    io.inspect(scale |> run_option("abc"))
     io.inspect([("ten", scale), ("two", twice)] |> run_pairs("a"))
 end
 `, `Some(20)

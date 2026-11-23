@@ -99,7 +99,7 @@ func TestShape_ARecordedProjShapeIsReadAtEveryPosition(t *testing.T) {
 		{"payload subject", ValString, ValVariant,
 			func(f *Func, b *Block, src Temp) Temp {
 				out := f.NewTemp()
-				b.Append(NewProjPayload(p, out, src, NewSymbol("Maybe"), "Some", 0, ValUnknown))
+				b.Append(NewProjPayload(p, out, src, NewSymbol("Option"), "Some", 0, ValUnknown))
 				return out
 			},
 			"the subject of this payload projection is String, not a variant"},

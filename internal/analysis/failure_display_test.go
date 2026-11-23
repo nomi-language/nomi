@@ -53,7 +53,7 @@ end
 fn total() -> Int
     _ = Word"x"
     _ = Bits"10"
-    m: Maybe<Int> = Some(1)
+    m: Option<Int> = Some(1)
     half(4)! + coded(1)! + force(half(2)) + m!
 end
 `)
@@ -86,7 +86,7 @@ end
 	}
 	const forceLine, mainLine = 35, 42
 	if len(bangs[mainLine]) != 2 {
-		t.Fatalf("line %d: %d `!` over a Result recorded, want 2 (a `!` over a Maybe shows no error): %v", mainLine, len(bangs[mainLine]), bangs)
+		t.Fatalf("line %d: %d `!` over a Result recorded, want 2 (a `!` over an Option shows no error): %v", mainLine, len(bangs[mainLine]), bangs)
 	}
 	for _, n := range bangs[mainLine] {
 		r := fa.UnwrapFailures[n]

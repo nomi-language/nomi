@@ -47,7 +47,7 @@ func orErrorsOf(t *testing.T, src string) []string {
 // Every accepted form checks with no error: each position, nested `or`,
 // `as` and `when`, and the alternatives covering an enum without `_`.
 func TestOrPattern_Accepts(t *testing.T) {
-	src := `fn arms(s: Shape, c: Color, t: Two, cs: List<Codepoint>, m: Maybe<Color>, word: String, n: Int) -> Float
+	src := `fn arms(s: Shape, c: Color, t: Two, cs: List<Codepoint>, m: Option<Color>, word: String, n: Int) -> Float
     a = case s
         .Circle{r:} or .Square{r:} when r > 10.0 -> r
         .Circle{r:} or .Square{r:} -> r * 2.0
@@ -177,12 +177,12 @@ end`, "30:23: `a` is bound twice in one pattern; give each binding its own name"
         .Red or .Green -> 1
     end
 end`, "29:5: non-exhaustive case on Color: missing Blue"},
-		"nested alternatives that miss a variant": {`fn f(m: Maybe<Color>) -> Int
+		"nested alternatives that miss a variant": {`fn f(m: Option<Color>) -> Int
     case m
         Some(.Red or .Green) -> 1
         None -> 2
     end
-end`, "29:5: non-exhaustive case on Maybe: missing Some"},
+end`, "29:5: non-exhaustive case on Option: missing Some"},
 		"a refutable or in a parameter": {`fn f(.Red or .Green: Color) -> Int
     1
 end`, "28:6: refutable pattern in parameter; bind the parameter and use a `case` in the body"},

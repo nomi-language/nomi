@@ -42,7 +42,7 @@ func TestReadLine_InvalidText(t *testing.T) {
 }
 
 // lineOf is the line a read answered and whether it answered one.
-func lineOf(r Result[Maybe[string], IOError]) (string, bool) {
+func lineOf(r Result[Option[string], IOError]) (string, bool) {
 	if r.Tag != TagOk || r.Ok.Tag != TagSome {
 		return "", false
 	}
@@ -50,6 +50,6 @@ func lineOf(r Result[Maybe[string], IOError]) (string, bool) {
 }
 
 // atEnd reports whether a read answered the end of input, Ok(None).
-func atEnd(r Result[Maybe[string], IOError]) bool {
+func atEnd(r Result[Option[string], IOError]) bool {
 	return r.Tag == TagOk && r.Ok.Tag == TagNone
 }

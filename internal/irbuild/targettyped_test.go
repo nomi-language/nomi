@@ -53,7 +53,7 @@ fn main()
   io.inspect(pick(1))
   by_name: Map<String, Address> = {"x" => {street: "6 Map", city: "Wells"}}
   io.inspect(by_name)
-  some: Maybe<Address> = Some({street: "7 Some", city: "Ripon"})
+  some: Option<Address> = Some({street: "7 Some", city: "Ripon"})
   io.inspect(some)
 end
 `, `Address{street: "1 Main", city: "Bath", zip: "00000"}
@@ -129,14 +129,14 @@ struct P<T>
   b: List<T>
 end
 
-fn pop<T>(xs: List<T>) -> Maybe<(T, P<T>)>
+fn pop<T>(xs: List<T>) -> Option<(T, P<T>)>
   case xs
     [] -> None
     [x, ..rest] -> Some((x, {a: rest, b: []}))
   end
 end
 
-fn first<T>(xs: List<T>) -> Result<(T, P<Maybe<T>>), String>
+fn first<T>(xs: List<T>) -> Result<(T, P<Option<T>>), String>
   case xs
     [] -> Err("empty")
     [x, ..] -> Ok((x, {a: [Some(x)], b: [None]}))

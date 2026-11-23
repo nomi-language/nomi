@@ -91,7 +91,7 @@ func SemanticTokens(code string, lib *std.StdLib, reached []analyzedlowering.Rea
 	if fa == nil {
 		return nil
 	}
-	toks = hoverdoc.MarkReaching(semtokens.Collect(fa), reached, inFile, code)
+	toks = hoverdoc.MarkReaching(semtokens.Collect(fa), reached, inFile)
 	return semtokens.UTF16(code, toks)
 }
 
@@ -314,6 +314,6 @@ func (p *Program) SemanticTokensIn(name string, reached []analyzedlowering.Reach
 			toks = nil
 		}
 	}()
-	toks = hoverdoc.MarkReaching(semtokens.Collect(f.FA), reached, InFile(name), f.Source)
+	toks = hoverdoc.MarkReaching(semtokens.Collect(f.FA), reached, InFile(name))
 	return semtokens.UTF16(f.Source, toks)
 }

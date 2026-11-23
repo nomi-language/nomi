@@ -97,7 +97,7 @@ func stdTypeKeyOf(t analysis.Type) (stdTypeKey, bool) {
 		}
 		origin, name = ty.Origin, ty.Name
 	case *analysis.DistinctType:
-		if ty.Subtype || len(ty.TypeArgs) > 0 {
+		if ty.Refinement || len(ty.TypeArgs) > 0 {
 			return stdTypeKey{}, false
 		}
 		origin, name = ty.Origin, ty.Name

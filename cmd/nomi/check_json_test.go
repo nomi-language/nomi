@@ -28,7 +28,13 @@ func TestCheckCommand_JSONLines(t *testing.T) {
 			t.Fatalf("line %q is not JSON: %v", line, err)
 		}
 	}
-	got := strings.ReplaceAll(out, dir, "<dir>")
+	// A path is in the output as a JSON string, so on Windows each `\` of
+	// it is `\\`.
+	inJSON := func(s string) string {
+		quoted, _ := json.Marshal(s)
+		return string(quoted[1 : len(quoted)-1])
+	}
+	got := strings.ReplaceAll(out, inJSON(dir+string(filepath.Separator)), "<dir>/")
 	golden := filepath.Join("cmd", "nomi", "testdata", "check_json.golden") // tests run at the repository root
 	if os.Getenv("NOMI_REGENERATE_EXPECTATIONS") == "1" {
 		if err := os.WriteFile(golden, []byte(got), 0o644); err != nil {

@@ -27,7 +27,7 @@ pub enum Message
     ReadyForQuery {status: TxStatus}
     RowDescription {fields: List<Field>}
     /// A row's values in column order, `None` for NULL.
-    DataRow {values: List<Maybe<Bytes>>}
+    DataRow {values: List<Option<Bytes>>}
     /// A statement's end, with its tag: `INSERT 0 1`, `UPDATE 3`, `CREATE TABLE`.
     CommandComplete {tag: String}
     EmptyQueryResponse
@@ -228,7 +228,7 @@ pub fn bind(
     portal:         String,
     statement:      String,
     param_formats:  List<Int>,
-    params:         List<Maybe<Bytes>>,
+    params:         List<Option<Bytes>>,
     result_formats: List<Int>,
 ) -> Bytes
     start =
@@ -334,7 +334,7 @@ end
 //! assert frame_at(data, 0) == Some((90, Bytes.from_list([73]), 6))
 //! assert frame_at(data, 6) == None
 //
-pub fn frame_at(data: Bytes, at: Int) -> Maybe<(Int, Bytes, Int)>
+pub fn frame_at(data: Bytes, at: Int) -> Option<(Int, Bytes, Int)>
     kind = Bytes.uint8_at(data, at)?
     length = Bytes.int32_be_at(data, at + 1)?
     stop = at + 1 + length
@@ -349,8 +349,8 @@ end
 //! assert frame_length(Bytes.from_list([68, 0, 1, 0, 0]), 0) == Some(65_537)
 //! assert frame_length(Bytes.from_list([68, 0]), 0) == None
 //
-pub fn frame_length(data: Bytes, at: Int) -> Maybe<Int>
-    Bytes.int32_be_at(data, at + 1) |> Maybe.map(&(&1 + 1))
+pub fn frame_length(data: Bytes, at: Int) -> Option<Int>
+    Bytes.int32_be_at(data, at + 1) |> Option.map(&(&1 + 1))
 end
 
 /// The message of kind `kind` with body `body`, or why it does not read as
@@ -376,13 +376,13 @@ pub fn decode(kind: Int, body: Bytes) -> Result<Message, String>
 
             // C
             67 ->
-                c_string_at(body, 0) |> Maybe.map(fn (tag, _) -> Message.CommandComplete{tag:})
+                c_string_at(body, 0) |> Option.map(fn (tag, _) -> Message.CommandComplete{tag:})
 
             // Z
             90 ->
                 Bytes.uint8_at(body, 0)
-                |> Maybe.flat_map(tx_status)
-                |> Maybe.map(fn status -> Message.ReadyForQuery{status:})
+                |> Option.flat_map(tx_status)
+                |> Option.map(fn status -> Message.ReadyForQuery{status:})
 
             // T
             84 ->
@@ -464,7 +464,7 @@ pub fn decode(kind: Int, body: Bytes) -> Result<Message, String>
                 Some(Message.Unknown{kind:})
         end
 
-    decoded |> Maybe.to_result("a message of kind ${kind} that does not read as one")
+    decoded |> Option.to_result("a message of kind ${kind} that does not read as one")
 end
 
 fn untyped(body: Bytes) -> Bytes
@@ -488,12 +488,12 @@ end
 
 // The text of the NUL-ended string at `at`, and where the next field
 // starts.
-fn c_string_at(body: Bytes, at: Int) -> Maybe<(String, Int)>
+fn c_string_at(body: Bytes, at: Int) -> Option<(String, Int)>
     stop = Bytes.index_of_byte(body, 0, from: at)?
     Some((Bytes.to_string_lossy(Bytes.slice(body, at, stop)), stop + 1))
 end
 
-fn tx_status(code: Int) -> Maybe<TxStatus>
+fn tx_status(code: Int) -> Option<TxStatus>
     case code
         // I
         73 -> Some(TxStatus.Idle)
@@ -505,7 +505,7 @@ fn tx_status(code: Int) -> Maybe<TxStatus>
     end
 end
 
-fn data_row(body: Bytes) -> Maybe<Message>
+fn data_row(body: Bytes) -> Option<Message>
     count = Bytes.int16_be_at(body, 0)?
     values = row_values(body, 2, count, [])?
     Some(Message.DataRow{values:})
@@ -517,8 +517,8 @@ fn row_values(
     body: Bytes,
     at:   Int,
     left: Int,
-    done: List<Maybe<Bytes>>,
-) -> Maybe<List<Maybe<Bytes>>>
+    done: List<Option<Bytes>>,
+) -> Option<List<Option<Bytes>>>
     if left <= 0 then return Some(Iter.reverse(done))
 
     length = Bytes.int32_be_at(body, at)?
@@ -532,13 +532,13 @@ fn row_values(
     end
 end
 
-fn row_description(body: Bytes) -> Maybe<Message>
+fn row_description(body: Bytes) -> Option<Message>
     count = Bytes.int16_be_at(body, 0)?
     fields = row_fields(body, 2, count, [])?
     Some(Message.RowDescription{fields:})
 end
 
-fn row_fields(body: Bytes, at: Int, left: Int, done: List<Field>) -> Maybe<List<Field>>
+fn row_fields(body: Bytes, at: Int, left: Int, done: List<Field>) -> Option<List<Field>>
     if left <= 0 then return Some(Iter.reverse(done))
 
     (name, after) = c_string_at(body, at)?
@@ -556,7 +556,7 @@ fn row_fields(body: Bytes, at: Int, left: Int, done: List<Field>) -> Maybe<List<
     row_fields(body, after + 18, left - 1, [field, ..done])
 end
 
-fn authentication(body: Bytes) -> Maybe<Message>
+fn authentication(body: Bytes) -> Option<Message>
     code = Bytes.int32_be_at(body, 0)?
     rest = Bytes.slice(body, 4, Bytes.length(body))
 
@@ -579,36 +579,36 @@ fn c_strings(body: Bytes, at: Int, done: List<String>) -> List<String>
     end
 end
 
-fn parameter_status(body: Bytes) -> Maybe<Message>
+fn parameter_status(body: Bytes) -> Option<Message>
     (name, after) = c_string_at(body, 0)?
     (value, _) = c_string_at(body, after)?
     Some(Message.ParameterStatus{name:, value:})
 end
 
-fn backend_key(body: Bytes) -> Maybe<Message>
+fn backend_key(body: Bytes) -> Option<Message>
     process = Bytes.int32_be_at(body, 0)?
     Some(Message.BackendKeyData{process:, secret: Bytes.slice(body, 4, Bytes.length(body))})
 end
 
-fn parameter_description(body: Bytes) -> Maybe<Message>
+fn parameter_description(body: Bytes) -> Option<Message>
     count = Bytes.int16_be_at(body, 0)?
 
     types =
         0..count
         |> Iter.map(fn i -> Bytes.uint32_be_at(body, 2 + 4 * i))
-        |> Maybe.collect()?
+        |> Option.collect()?
 
     Some(Message.ParameterDescription{types:})
 end
 
-fn notification(body: Bytes) -> Maybe<Message>
+fn notification(body: Bytes) -> Option<Message>
     process = Bytes.int32_be_at(body, 0)?
     (channel, after) = c_string_at(body, 4)?
     (payload, _) = c_string_at(body, after)?
     Some(Message.NotificationResponse{process:, channel:, payload:})
 end
 
-fn negotiate(body: Bytes) -> Maybe<Message>
+fn negotiate(body: Bytes) -> Option<Message>
     minor = Bytes.int32_be_at(body, 0)?
     Some(Message.NegotiateProtocolVersion{minor:, unrecognized: c_strings(body, 8, [])})
 end
@@ -646,7 +646,7 @@ fn with_field(report: Report, code: Int, value: String) -> Report
         // H
         72 -> {..report, hint: value}
         // P
-        80 -> {..report, position: String.to_int(value) |> Maybe.with_default(0)}
+        80 -> {..report, position: String.to_int(value) |> Option.with_default(0)}
         // s
         115 -> {..report, schema: value}
         // t

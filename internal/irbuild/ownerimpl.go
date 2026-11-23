@@ -68,7 +68,7 @@ func (g *gen) ownerBlockParams(ib *ast.ImplBlock) (map[string]bool, bool) {
 		return nil, false
 	}
 	rec, _ := g.recordedTypeExpr(ib.Receiver)
-	if dt, isDistinct := analysis.ResolveClosed(rec).(*analysis.DistinctType); isDistinct && dt.Subtype {
+	if dt, isDistinct := analysis.ResolveClosed(rec).(*analysis.DistinctType); isDistinct && dt.Refinement {
 		// A distinct refinement has no receiver kind of its own, so its
 		// functions, the generated ones included, are its owner's
 		// (refinement.go).

@@ -131,7 +131,7 @@ func scalarType(t analysis.Type) bool {
 // Nomi body can spell, as Unit's name-only Debug does, and as a marker's
 // derived Debug does (its name), and a distinct's over one scalar does
 // (`Meters(1)`). Its parts render through their own records
-// (nestedDebugImpls). A type with no Debug block (Maybe, Result, a struct
+// (nestedDebugImpls). A type with no Debug block (Option, Result, a struct
 // of the program's) has no row: the record answers it by its shape, and
 // the machine renders it so (debugRender). Every other Debug is called: a
 // struct's or an enum's derived or written one, an opaque type's

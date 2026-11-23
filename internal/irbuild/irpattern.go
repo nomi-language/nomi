@@ -20,7 +20,7 @@ import (
 //
 // The node type chooses the test. The checker's records decide what the
 // node cannot: the variant a head names (PatternVariants), whether a head
-// names a subtype (PatternTypes), whether the pattern can fail at all
+// names a refinement (PatternTypes), whether the pattern can fail at all
 // (IrrefutablePatterns) and what a bracket pattern takes apart
 // (ListPattern.Kind). The value's kind only shapes the IR the chosen test
 // is built from: a field read off a struct or a record, a distinct's inner
@@ -75,8 +75,8 @@ func (bl *irScalarBuilder) patternTestNode(pat ast.Node, value ir.Temp, k kind, 
 			return true
 		}
 		if ep, isEnum := p.(*ast.EnumPattern); isEnum && bl.g.patternRefines(ep) {
-			// `Port(n)`: a subtype's value is its base's (spec §4
-			// *Subtypes*), so the payload matches the value itself.
+			// `Port(n)`: a refinement's value is its base's (spec §4
+			// *Refinements*), so the payload matches the value itself.
 			if ep.Payload != nil {
 				return bl.patternTest(ep.Payload, value, k, next)
 			}

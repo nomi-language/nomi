@@ -427,7 +427,6 @@ var failureFixtures = []string{
 	"debug_embeds.nomi",
 	"debug_erased.nomi",
 	"decimal.nomi",
-	"enum_field_read_trap.nomi",
 	"erased_operand.nomi",
 	"erased_operand_row.nomi",
 	"func_operand_row.nomi",

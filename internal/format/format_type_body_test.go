@@ -204,7 +204,7 @@ pub fn label<T>(_c: Channel<T>) -> String
     "channel"
 end
 
-host fn next<T>(s: Channel<T>) -> Maybe<(T, Channel<T>)>
+host fn next<T>(s: Channel<T>) -> Option<(T, Channel<T>)>
 
 impl iter for Channel<T> end
 

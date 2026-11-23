@@ -480,7 +480,7 @@ func chaptersOf(files []exerciseFile) []chapter {
 					uses[chapterCollection] = true
 				case "Iter":
 					uses[chapterIteration] = true
-				case "Maybe", "Result":
+				case "Option", "Result":
 					uses[chapterPatterns] = true
 				}
 			}

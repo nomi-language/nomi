@@ -345,7 +345,7 @@ func stdEnumGatesABoundSignature(s *stdEnumSpec, programs []corpusFile) (string,
 // beyond one hop: no enum row is held by a field of another enum row's
 // payload, and an arm for a case that does not exist is a path with no member.
 //
-// Matching is by def POINTER through `kindMentionsDef`, so `Maybe<E>` and a
+// Matching is by def POINTER through `kindMentionsDef`, so `Option<E>` and a
 // bare `E` field both count and two same-shaped enums never can be
 // confused for one.
 func stdEnumHeldByAReachedStructField(i int, programs []corpusFile) (string, bool) {

@@ -10,7 +10,7 @@ import (
 // an enum payload, an interface function, a distinct type's inner type, a
 // bound and a typealias are typed before the files' signatures, and a file
 // typed before the one declaring the alias read it unbuilt: `kind:
-// Maybe<Kind>` was `unknown type "Kind"`, and a literal of the struct
+// Option<Kind>` was `unknown type "Kind"`, and a literal of the struct
 // `Form has no field 'kind'`. A function's parameter, typed later, always
 // worked.
 //
@@ -61,7 +61,7 @@ end
 			uses: `import %s.Kind
 
 pub struct Form
-    kind: Maybe<Kind>
+    kind: Option<Kind>
     all: List<Kind>
 end
 `,

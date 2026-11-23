@@ -290,6 +290,13 @@ func TestSingleFilesOutsideTheTreesAreTracked(t *testing.T) {
 	root := project(t)
 	outside := filepath.Join(t.TempDir(), "shared.nomi")
 	write(t, outside, "pub fn x() -> Int\n    1\nend\n")
+	// Older than the snapshot even where the clock is coarse: Windows can
+	// stamp a file written just before Open with the snapshot's own time,
+	// and a racyWindow of 0 still counts that time racy.
+	old := time.Now().Add(-time.Hour)
+	if err := os.Chtimes(outside, old, old); err != nil {
+		t.Fatal(err)
+	}
 	e := Open("load", filepath.Join(root, "main.nomi"), []Tree{{Dir: root}})
 	e.Store([]Tree{{Dir: root}}, []string{outside}, []byte("image"))
 	if got := lookup(t, root); got != "image" {

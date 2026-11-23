@@ -447,7 +447,7 @@ func (w *Writer) std(p *Program, origin, name string, args []analysis.Type, dept
 	switch name {
 	case "Bool":
 		return "boolean", true
-	case "Maybe":
+	case "Option":
 		return arg() + " | null", true
 	case "Set", "Vector":
 		return array(arg()), true

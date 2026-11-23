@@ -290,7 +290,7 @@ func (s *shapeSearch) lambdaSource(l *ast.Lambda) string {
 }
 
 // filledParam is the parameter a lambda argument fills, as
-// "`Maybe.map`'s `f: (T) -> U`", or "" when it is not known.
+// "`Option.map`'s `f: (T) -> U`", or "" when it is not known.
 func (s *shapeSearch) filledParam(arg lambdaArg) string {
 	callee := calleeText(arg.call.Func)
 	if callee == "" {

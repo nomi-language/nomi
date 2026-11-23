@@ -118,7 +118,7 @@ func (c *checker) recordRefinedLiteral(node ast.Node, t Type) {
 		} else if dt.Intersection {
 			dt = nil
 		}
-		if dt != nil && (len(dt.TypeArgs) > 0 || !dt.Subtype) {
+		if dt != nil && (len(dt.TypeArgs) > 0 || !dt.Refinement) {
 			var refused *TypeError
 			step.Check, refused = c.refinementCheckCall(node, dt, i)
 			if step.Check == nil {
@@ -377,7 +377,7 @@ func (c *checker) recordRefinementRuleCheck(n *ast.TypeDef) {
 // taken in the order they are written.
 func refinementVia(from, to Type) []Type {
 	if checked := checkedDistinctOf(from); checked != nil {
-		// A type over a subtype: the path starts at what it wraps.
+		// A type over a refinement: the path starts at what it wraps.
 		inner := DistinctInner(checked)
 		if TypesIdentical(inner, to) || TypesIdentical(from, to) {
 			return nil
@@ -462,11 +462,11 @@ func (c *checker) refinementCtorArg(arg ast.Node, dt *DistinctType, label string
 	c.report(refinementNeedsCheck(line, col, dt, argTy, label+"(...)"))
 }
 
-// checkedKindText names what dt is in a diagnostic: "a subtype" or "a
+// checkedKindText names what dt is in a diagnostic: "a refinement" or "a
 // validated type".
 func checkedKindText(dt *DistinctType) string {
-	if dt.Subtype {
-		return "a subtype"
+	if dt.Refinement {
+		return "a refinement"
 	}
 	return "a validated type"
 }
@@ -474,7 +474,7 @@ func checkedKindText(dt *DistinctType) string {
 // checkedCtorArg checks the one argument of the call form of a checked
 // distinct type (checkedDistinctOf), `Email("a@b.c")` or `UserId(5)`: a
 // literal is checked against the type's rules when the program is
-// compiled, a value already of a `type`'s inner subtype passes when the
+// compiled, a value already of a `type`'s inner refinement passes when the
 // type adds no rule, and any other value is an error naming `try_from`.
 func (c *checker) checkedCtorArg(arg ast.Node, dt *DistinctType, label string) {
 	if c.opaqueOutside(dt) != "" {
@@ -492,7 +492,7 @@ func (c *checker) checkedCtorArg(arg ast.Node, dt *DistinctType, label string) {
 	case *ast.ListLit, *ast.MapLit:
 		if dt.Rule == "" {
 			// `Ids([1, 2])` over `NonEmptyList<Int>`: the literal is the
-			// inner subtype's, checked as one.
+			// inner refinement's, checked as one.
 			if argTy := c.checkNodeExpecting(arg, inner); argTy != nil && !TypeAssignable(inner, argTy) {
 				line, col := startOf(arg)
 				c.report(checkedNeedsCheck(line, col, dt, argTy, label, arg))
@@ -537,18 +537,18 @@ func checkedNeedsCheck(line, col int, dt *DistinctType, got Type, label string, 
 		msg = fmt.Sprintf("%s(...) takes a literal: %s is a validated type, and %s computed when the program runs may not satisfy its rule `%s`",
 			label, dt.Name, what, dt.Rule)
 	default:
-		msg = fmt.Sprintf("%s(...) takes a literal or %s %s: %s wraps the subtype %s, and %s %s computed when the program runs may not be one",
+		msg = fmt.Sprintf("%s(...) takes a literal or %s %s: %s wraps the refinement %s, and %s %s computed when the program runs may not be one",
 			label, ArticleFor(inner), inner, dt.Name, inner, ArticleFor(formatTypeForError(got)), formatTypeForError(got))
 	}
 	return TypeError{Line: line, Col: col, Message: msg}.WithHint(fmt.Sprintf(
-		"check the value with `%s.try_from(%s)`, a `Maybe<%s>`", dt.Name, argText, formatTypeForError(dt)))
+		"check the value with `%s.try_from(%s)`, an `Option<%s>`", dt.Name, argText, formatTypeForError(dt)))
 }
 
 // refinementNeedsCheck is the error for a value of a refinement's base, or
 // of an ancestor, where the refinement is expected: its rules are checked
 // only on a literal, so the value goes through `try_from`.
 func refinementNeedsCheck(line, col int, dt *DistinctType, got Type, what string) TypeError {
-	msg := fmt.Sprintf("%s takes a literal: %s is a subtype, and %s %s computed when the program runs may not satisfy its rule",
+	msg := fmt.Sprintf("%s takes a literal: %s is a refinement, and %s %s computed when the program runs may not satisfy its rule",
 		what, dt.Name, ArticleFor(formatTypeForError(got)), formatTypeForError(got))
 	if what == "" {
 		msg = fmt.Sprintf("type mismatch: expected %s, got %s", dt.Name, formatTypeForError(got))
@@ -558,7 +558,7 @@ func refinementNeedsCheck(line, col int, dt *DistinctType, got Type, what string
 }
 
 // tryFromSomeWhen says when dt's try_from answers Some: when its rule
-// holds, or, for a subtype with no rule of its own (`subtype Pixels
+// holds, or, for a refinement with no rule of its own (`refine Pixels
 // PositiveInt and Int64`), when the value is each of its parents.
 func tryFromSomeWhen(dt *DistinctType) string {
 	if dt.Rule == "" {
@@ -581,7 +581,7 @@ func refinementMismatchHint(want, have Type) (string, bool) {
 		return "", false
 	}
 	if dt.Intersection {
-		return fmt.Sprintf("a value is %s when it is each of them: check it with `try_from` on each, or pass a subtype below all of them",
+		return fmt.Sprintf("a value is %s when it is each of them: check it with `try_from` on each, or pass a refinement below all of them",
 			dt.Name), true
 	}
 	for _, anc := range RefinementAncestors(dt) {
@@ -590,7 +590,7 @@ func refinementMismatchHint(want, have Type) (string, bool) {
 		args := map[*TypeParam_]Type{}
 		matchTypeParams(anc, have, args)
 		if TypesIdentical(anc, have) || len(args) > 0 && TypesIdentical(Substitute(anc, args), have) {
-			return fmt.Sprintf("%s is a subtype of %s; check the value with `%s.try_from(...)`, which is `Some` %s",
+			return fmt.Sprintf("%s is a refinement of %s; check the value with `%s.try_from(...)`, which is `Some` %s",
 				dt.Name, refinementParentsText(dt), dt.Name, tryFromSomeWhen(dt)), true
 		}
 	}
@@ -706,7 +706,7 @@ func (c *checker) refinementPipedArg(piped ast.Node, pipedTy Type, dt *DistinctT
 // file's nodes that the language rules out: an opaque one, whose point is
 // that its base is visible; a generic struct refinement; one written inside
 // a body; and an
-// enum variant that embeds one (spec §4 *Subtypes*).
+// enum variant that embeds one (spec §4 *Refinements*).
 func (b *builder) validateRefinementDecls(nodes []ast.Node) {
 	add := func(line, col int, msg string) {
 		b.file.TypeErrors = append(b.file.TypeErrors, TypeError{Line: line, Col: col, Message: msg})
@@ -715,16 +715,16 @@ func (b *builder) validateRefinementDecls(nodes []ast.Node) {
 	for _, node := range nodes {
 		switch d := node.(type) {
 		case *ast.TypeDef:
-			if !d.Subtype {
+			if !d.Refinement {
 				continue
 			}
 			refinements[d.Name] = true
 			if d.Opaque {
-				add(d.Line, d.Col, fmt.Sprintf("a subtype cannot be opaque: `%s`'s values are values of its parent, which every file sees; drop `opaque`, or declare a new type, `opaque type %s ...`, and check values in its constructor", d.Name, d.Name))
+				add(d.Line, d.Col, fmt.Sprintf("a refinement cannot be opaque: `%s`'s values are values of its parent, which every file sees; drop `opaque`, or declare a new type, `opaque type %s ...`, and check values in its constructor", d.Name, d.Name))
 			}
 		case *ast.StructDef:
 			if d.Rule != nil && len(d.TypeParams) > 0 {
-				add(d.TypeParams[0].Line, d.TypeParams[0].Col, fmt.Sprintf("a validated struct takes no type parameters: `%s`'s rule is checked on values of one struct; a generic subtype narrows a type, `subtype %s<T> ... when ...`", d.Name, d.Name))
+				add(d.TypeParams[0].Line, d.TypeParams[0].Col, fmt.Sprintf("a validated struct takes no type parameters: `%s`'s rule is checked on values of one struct; a generic refinement narrows a type, `refine %s<T> ... when ...`", d.Name, d.Name))
 			}
 		}
 	}
@@ -733,15 +733,15 @@ func (b *builder) validateRefinementDecls(nodes []ast.Node) {
 		case *ast.EnumDef:
 			for _, v := range d.Variants {
 				if v.Kind == "embedded" && refinements[TypeExprBaseName(v.EmbeddedTypeExpr)] {
-					add(v.Line, v.Col, fmt.Sprintf("an enum cannot embed the subtype `%s`: its values are values of its parent; embed that type, or declare a variant over it", TypeExprBaseName(v.EmbeddedTypeExpr)))
+					add(v.Line, v.Col, fmt.Sprintf("an enum cannot embed the refinement `%s`: its values are values of its parent; embed that type, or declare a variant over it", TypeExprBaseName(v.EmbeddedTypeExpr)))
 				}
 			}
 		case *ast.FuncDef, *ast.TestDecl, *ast.ImplBlock:
 			ast.Inspect(node, func(n ast.Node) bool {
 				switch inner := n.(type) {
 				case *ast.TypeDef:
-					if inner.Subtype {
-						add(inner.Line, inner.Col, fmt.Sprintf("a subtype is declared at the top of a file: move `%s` out of the body", inner.Name))
+					if inner.Refinement {
+						add(inner.Line, inner.Col, fmt.Sprintf("a refinement is declared at the top of a file: move `%s` out of the body", inner.Name))
 					} else if inner.Rule != nil {
 						add(inner.RuleLine, inner.RuleCol, fmt.Sprintf("a type with a rule is declared at the top of a file: move `%s` out of the body", inner.Name))
 					}
@@ -756,15 +756,15 @@ func (b *builder) validateRefinementDecls(nodes []ast.Node) {
 	}
 }
 
-// checkBodyTypesOverSubtypes reports a `type` inside a body whose inner
-// type resolves to a subtype, `type Local PositiveInt`. Such a type is a
+// checkBodyTypesOverRefinements reports a `type` inside a body whose inner
+// type resolves to a refinement, `type Local PositiveInt`. Such a type is a
 // validated type, built only through `try_from`, which is a generated impl
 // block, and an impl cannot stand in a body; so it is declared at the top
-// of a file, as a subtype and a type with a rule are
-// (validateRefinementDecls). Whether the inner type is a subtype is known
+// of a file, as a refinement and a type with a rule are
+// (validateRefinementDecls). Whether the inner type is a refinement is known
 // only once names resolve, which is why this is the checker's and not the
 // builder's.
-func (c *checker) checkBodyTypesOverSubtypes(nodes []ast.Node) {
+func (c *checker) checkBodyTypesOverRefinements(nodes []ast.Node) {
 	for _, node := range nodes {
 		switch node.(type) {
 		case *ast.FuncDef, *ast.TestDecl, *ast.ImplBlock:
@@ -773,13 +773,13 @@ func (c *checker) checkBodyTypesOverSubtypes(nodes []ast.Node) {
 		}
 		ast.Inspect(node, func(n ast.Node) bool {
 			td, ok := n.(*ast.TypeDef)
-			if !ok || td.Subtype || td.Rule != nil {
+			if !ok || td.Refinement || td.Rule != nil {
 				return true
 			}
 			sym := c.fa.Definitions[Pos{Line: td.Line, Col: td.Col}]
 			if sym != nil && checkedDistinctOf(sym.Type) != nil {
 				c.addError(td.Line, td.Col, fmt.Sprintf(
-					"a type over a subtype is declared at the top of a file: move `%s` out of the body, so that it has `%s.try_from`",
+					"a type over a refinement is declared at the top of a file: move `%s` out of the body, so that it has `%s.try_from`",
 					td.Name, td.Name))
 			}
 			return true
@@ -788,18 +788,18 @@ func (c *checker) checkBodyTypesOverSubtypes(nodes []ast.Node) {
 }
 
 // checkRefinementParents reports a refinement of several parents
-// (`subtype PositiveInt NonNegativeInt and NonZeroInt when ...`) whose parents
+// (`refine PositiveInt NonNegativeInt and NonZeroInt when ...`) whose parents
 // do not all reach one base, the type its values are at run time, or that
 // names one parent twice.
 func (c *checker) checkRefinementParents(n *ast.TypeDef) {
-	if !n.Subtype {
+	if !n.Refinement {
 		return
 	}
 	dt := refinementOf(c.reg.Lookup(n.Name))
 	if dt == nil || dt.Inner == nil {
 		return
 	}
-	if c.checkSubtypeHasARule(n, dt) || len(n.MoreParents) == 0 {
+	if c.checkRefinementHasARule(n, dt) || len(n.MoreParents) == 0 {
 		return
 	}
 	first := DistinctInner(dt)
@@ -832,19 +832,19 @@ func (c *checker) checkRefinementParents(n *ast.TypeDef) {
 			"the parents of %s narrow different types: %s is %s %s and %s is %s %s",
 			n.Name, formatTypeForError(first), ArticleFor(formatTypeForError(firstBase)), formatTypeForError(firstBase),
 			formatTypeForError(parent), ArticleFor(formatTypeForError(base)), formatTypeForError(base))}.WithHint(
-			"a subtype's value is one value at run time, its parents' base, so every parent narrows the same type"))
+			"a refinement's value is one value at run time, its parents' base, so every parent narrows the same type"))
 	}
 }
 
-// checkSubtypeHasARule reports a subtype that narrows nothing, and
+// checkRefinementHasARule reports a refinement that narrows nothing, and
 // answers whether it did: one with no rule anywhere in its chain,
-// `subtype Celsius Float` or `subtype Item Priced and Costed`, and one of a
-// single parent with no `when` of its own, `subtype Small Digit`, whose
-// values are its parent's. A subtype narrows with its own `when`, or as the
+// `refine Celsius Float` or `refine Item Priced and Costed`, and one of a
+// single parent with no `when` of its own, `refine Small Digit`, whose
+// values are its parent's. A refinement narrows with its own `when`, or as the
 // intersection of two or more parents with a rule among them. A `where`
 // bounds type arguments, not values, so it narrows nothing either. Each is
 // the type it names under another name, which is a typealias.
-func (c *checker) checkSubtypeHasARule(n *ast.TypeDef, dt *DistinctType) bool {
+func (c *checker) checkRefinementHasARule(n *ast.TypeDef, dt *DistinctType) bool {
 	if n.Rule != nil {
 		return false
 	}
@@ -877,12 +877,12 @@ func (c *checker) checkSubtypeHasARule(n *ast.TypeDef, dt *DistinctType) bool {
 		}
 		where = " where " + strings.Join(parts, ", ")
 	}
-	msg := fmt.Sprintf("a subtype with no rule has the same values as %s: `%s` adds no `when`, and nothing it narrows has one", target, n.Name)
+	msg := fmt.Sprintf("a refinement with no rule has the same values as %s: `%s` adds no `when`, and nothing it narrows has one", target, n.Name)
 	if !ruleless {
-		msg = fmt.Sprintf("a subtype of one parent with no rule of its own has the same values as %s: `%s` adds no `when`", target, n.Name)
+		msg = fmt.Sprintf("a refinement of one parent with no rule of its own has the same values as %s: `%s` adds no `when`", target, n.Name)
 	}
 	c.report(TypeError{Line: n.Line, Col: n.Col, Message: msg}.WithHint(fmt.Sprintf(
-		"name it with `typealias %s %s%s`, declare a new type with `type %s %s`, or give the subtype a rule with `when`",
+		"name it with `typealias %s %s%s`, declare a new type with `type %s %s`, or give the refinement a rule with `when`",
 		head, target, where, head, target)))
 	return true
 }
@@ -918,16 +918,16 @@ func (c *checker) checkRefinementImpl(n *ast.ImplBlock) {
 	if gt, generic := n.Interface.(*ast.GenericType); generic {
 		// `impl Add<Port, Int> for Int`: the impl would be selected at
 		// run time by Port's base, where the base's own impl already is.
-		// The right operand of `/`, `%`, `<<<` and `>>>` may be a subtype
-		// (operandSubtypeInterfaces): `impl Divide<NonZeroInt, Int> for Int`
+		// The right operand of `/`, `%`, `<<<` and `>>>` may be a refinement
+		// (operandRefinementInterfaces): `impl Divide<NonZeroInt, Int> for Int`
 		// states which divisors the operator takes.
 		for i, arg := range gt.Params {
-			if i == 0 && operandSubtypeInterfaces[iface] {
+			if i == 0 && operandRefinementInterfaces[iface] {
 				continue
 			}
 			if at, err := ResolveTypeExpr(arg, c.reg, nil, nil); err == nil && refinementOf(at) != nil {
 				c.report(TypeError{Line: line, Col: col, Message: fmt.Sprintf(
-					"an impl's interface cannot take the subtype `%s` as an argument: `%s` is %s %s at run time, so the impl is %s's",
+					"an impl's interface cannot take the refinement `%s` as an argument: `%s` is %s %s at run time, so the impl is %s's",
 					at, at, ArticleFor(formatTypeForError(RefinementBase(at))), formatTypeForError(RefinementBase(at)), formatTypeForError(RefinementBase(at)))}.WithHint(fmt.Sprintf(
 					"a %s passes wherever %s %s is expected, so the impl at %s serves it already",
 					at, ArticleFor(formatTypeForError(RefinementBase(at))), formatTypeForError(RefinementBase(at)), formatTypeForError(RefinementBase(at)))))
@@ -944,7 +944,7 @@ func (c *checker) checkRefinementImpl(n *ast.ImplBlock) {
 		return
 	}
 	c.report(TypeError{Line: line, Col: col, Message: fmt.Sprintf(
-		"a subtype implements no interface of its own: `%s` is %s %s at run time and has %s's impls",
+		"a refinement implements no interface of its own: `%s` is %s %s at run time and has %s's impls",
 		dt.Name, ArticleFor(formatTypeForError(RefinementBase(dt))), formatTypeForError(RefinementBase(dt)), formatTypeForError(RefinementBase(dt)))}.WithHint(fmt.Sprintf(
 		"to give `%s` behavior of its own, write functions in `impl %s`; for a type with its own `%s`, declare a distinct type, `type %s %s`, and check values in its constructor",
 		dt.Name, dt.Name, iface, dt.Name, formatTypeForError(dt.Inner))))
@@ -952,7 +952,7 @@ func (c *checker) checkRefinementImpl(n *ast.ImplBlock) {
 
 // refinementLiteralsTakeExpected reports whether a call's arguments hold a
 // literal that the expected type, which has a refinement in it, would check
-// as that refinement: `Some(22)` expected to be a `Maybe<Port>`. The call
+// as that refinement: `Some(22)` expected to be an `Option<Port>`. The call
 // seeds its type parameters from the expected type, as it does for a Byte
 // literal (byteLiteralsTakeExpected).
 func refinementLiteralsTakeExpected(args []ast.Node, expected Type) bool {
@@ -1012,7 +1012,7 @@ func holdsRefinementLiteral(n ast.Node) bool {
 func refinementInType(ty Type) bool {
 	return typeHolds(ty, func(t Type) bool {
 		d, ok := t.(*DistinctType)
-		return ok && d.Subtype
+		return ok && d.Refinement
 	})
 }
 
@@ -1046,7 +1046,7 @@ func (c *checker) checkCollectionRefinementLit(n ast.Node, ty Type) Type {
 			c.report(TypeError{Line: line, Col: col, Message: fmt.Sprintf(
 				"`%s` may be empty, and a %s holds something: none of its spreads holds something, and it writes no element",
 				RenderLiteral(n), dt.Name)}.WithHint(fmt.Sprintf(
-				"write an element beside the spread, spread a %s, or check the value with `%s.try_from(...)`, a `Maybe<%s>`",
+				"write an element beside the spread, spread a %s, or check the value with `%s.try_from(...)`, an `Option<%s>`",
 				dt.Name, dt.Name, formatTypeForError(dt))))
 			return ty
 		}
@@ -1056,9 +1056,9 @@ func (c *checker) checkCollectionRefinementLit(n ast.Node, ty Type) Type {
 		}
 		line, col := startOf(bad)
 		c.report(TypeError{Line: line, Col: col, Message: fmt.Sprintf(
-			"%s is a subtype: a literal of it is checked when the program is compiled, so each of its %s is a literal, and `%s` is not",
+			"%s is a refinement: a literal of it is checked when the program is compiled, so each of its %s is a literal, and `%s` is not",
 			dt.Name, parts, RenderLiteral(bad))}.WithHint(fmt.Sprintf(
-			"build a %s from values known only when the program runs with `%s.try_from(...)`, a `Maybe<%s>`, which checks `%s`",
+			"build a %s from values known only when the program runs with `%s.try_from(...)`, an `Option<%s>`, which checks `%s`",
 			dt.Name, dt.Name, formatTypeForError(dt), dt.Rule)))
 		return ty
 	}
@@ -1066,10 +1066,10 @@ func (c *checker) checkCollectionRefinementLit(n ast.Node, ty Type) Type {
 	return ty
 }
 
-// stdNonEmptySubtypes are the std subtypes whose only rule is that the
+// stdNonEmptyRefinements are the std refinements whose only rule is that the
 // value holds something, by declaring file and name: a collection's
 // (true) and the String's (false).
-var stdNonEmptySubtypes = map[[2]string]bool{
+var stdNonEmptyRefinements = map[[2]string]bool{
 	{"std/lists", "NonEmptyList"}:     true,
 	{"std/vectors", "NonEmptyVector"}: true,
 	{"std/maps", "NonEmptyMap"}:       true,
@@ -1077,26 +1077,26 @@ var stdNonEmptySubtypes = map[[2]string]bool{
 	{"std/strings", "NonEmptyString"}: false,
 }
 
-// isStdNonEmpty reports whether dt is one of stdNonEmptySubtypes, at any
-// type arguments. A subtype declared over one of them is not: its own
+// isStdNonEmpty reports whether dt is one of stdNonEmptyRefinements, at any
+// type arguments. A refinement declared over one of them is not: its own
 // rule says more.
 func isStdNonEmpty(dt *DistinctType) bool {
-	if dt == nil || !dt.Subtype || dt.Intersection {
+	if dt == nil || !dt.Refinement || dt.Intersection {
 		return false
 	}
-	_, ok := stdNonEmptySubtypes[[2]string{dt.Origin, dt.Name}]
+	_, ok := stdNonEmptyRefinements[[2]string{dt.Origin, dt.Name}]
 	return ok
 }
 
 // isStdNonEmptyCollection reports whether dt is NonEmptyList,
 // NonEmptyVector, NonEmptyMap or NonEmptySet, at any type arguments.
 func isStdNonEmptyCollection(dt *DistinctType) bool {
-	return isStdNonEmpty(dt) && stdNonEmptySubtypes[[2]string{dt.Origin, dt.Name}]
+	return isStdNonEmpty(dt) && stdNonEmptyRefinements[[2]string{dt.Origin, dt.Name}]
 }
 
 // nonEmptyByType reports whether a value of t holds something because of
-// its type: t is a std non-empty subtype of a List, Vector, Map, Set or
-// String, or a subtype below one.
+// its type: t is a std non-empty refinement of a List, Vector, Map, Set or
+// String, or a refinement below one.
 func nonEmptyByType(t Type) bool {
 	for _, s := range refinementChain(t) {
 		if isStdNonEmpty(refinementOf(s)) {
@@ -1252,7 +1252,7 @@ func (c *checker) checkStructRefinementLit(lit *ast.StructLit, st *StructType, p
 	if IsSynthesizedLine(lit.Line) {
 		return
 	}
-	hint := fmt.Sprintf("build a %s from values known only when the program runs with `%s.try_from({...})`, a `Maybe<%s>`, which checks `%s`",
+	hint := fmt.Sprintf("build a %s from values known only when the program runs with `%s.try_from({...})`, an `Option<%s>`, which checks `%s`",
 		st.Name, st.Name, st.Name, st.Rule)
 	if patch {
 		c.report(TypeError{Line: lit.Line, Col: lit.Col, Message: fmt.Sprintf(
@@ -1280,9 +1280,9 @@ func (c *checker) checkStructRefinementLit(lit *ast.StructLit, st *StructType, p
 }
 
 // checkIntersections reports each `A and B` the file writes whose members
-// are subtypes and interfaces, `NonNegativeInt and Display`, where the
-// subtypes' base does not implement an interface among them: no value is
-// both. The intersection of the subtypes is the type (type_resolver.go),
+// are refinements and interfaces, `NonNegativeInt and Display`, where the
+// refinements' base does not implement an interface among them: no value is
+// both. The intersection of the refinements is the type (type_resolver.go),
 // so the check is here, where impls are known.
 func (c *checker) checkIntersections(nodes []ast.Node) {
 	for _, n := range nodes {

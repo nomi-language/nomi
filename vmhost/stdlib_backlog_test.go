@@ -20,17 +20,17 @@ import (
 // `new` there. internal/expectation's TestExpectation_Stdlib holds what they
 // print to stdlib.expect; this test holds that they run.
 var stdlibBacklogCases = []struct{ cause, module, decl string }{
-	// `Maybe.None` written as a field access with no expected type.
-	{"Maybe.None field access", "maybe", "impl / is_some"},
-	{"Maybe.None field access", "maybe", "impl / is_none"},
+	// `Option.None` written as a field access with no expected type.
+	{"Option.None field access", "option", "impl / is_some"},
+	{"Option.None field access", "option", "impl / is_none"},
 	// A bare variant operand typed by the call's solved signature, and the
 	// prelude plans inside an assertion subject.
-	{"prelude with_default / to_result", "maybe", "impl / with_default"},
+	{"prelude with_default / to_result", "option", "impl / with_default"},
 	{"prelude with_default / to_result", "results", "impl / with_default"},
-	{"prelude with_default / to_result", "maybe", "impl / to_result"},
+	{"prelude with_default / to_result", "option", "impl / to_result"},
 	// A generic std call with a type argument nothing constrains.
 	{"unsolved generic std call", "results", "impl / map"},
-	{"unsolved generic std call", "results", "impl / to_maybe"},
+	{"unsolved generic std call", "results", "impl / to_option"},
 	// `List.first([])` and `List.tail([])`.
 	{"untyped empty list operand", "lists", "impl / first"},
 	{"untyped empty list operand", "lists", "impl / tail"},
@@ -67,9 +67,9 @@ var stdlibBacklogCases = []struct{ cause, module, decl string }{
 	{"std marker value", "channels", "impl / close"},
 	{"Decimal Range.contains", "ranges", "impl / contains"},
 	// A bound lambda whose `if` takes the checker's result type, a std
-	// generic instance over `[]` and a Maybe of a tuple, and a Vector
+	// generic instance over `[]` and an Option of a tuple, and a Vector
 	// intrinsic (vm-backlog-generics).
-	{"lambda result from the checker", "maybe", "impl / flat_map"},
+	{"lambda result from the checker", "option", "impl / flat_map"},
 	{"std instance over an empty list", "lists", "impl / next_item"},
 	{"Vector.next_item intrinsic", "vectors", "impl / next_item"},
 }
@@ -138,19 +138,19 @@ func TestStdlibBacklog_CasesRunOnTheVM(t *testing.T) {
 const stdlibBacklogUserSource = `import std::channels.{Channel, Sender, ChannelClosed}
 import std::tasks.{Task}
 
-test "Maybe.None as a field access"
-  assert Maybe.is_none(Maybe.None)
-  refute Maybe.is_some(Maybe.None)
+test "Option.None as a field access"
+  assert Option.is_none(Option.None)
+  refute Option.is_some(Option.None)
 end
 
 test "a bare variant typed by the call"
-  assert Maybe.with_default(Maybe.None, 4) == 4
-  assert Maybe.to_result(None, "missing") == Result.Err("missing")
+  assert Option.with_default(Option.None, 4) == 4
+  assert Option.to_result(None, "missing") == Result.Err("missing")
 end
 
 test "an unconstrained type argument"
   assert Result.map(Result.Ok(3), fn x -> x * 2) == Result.Ok(6)
-  assert Result.to_maybe(Result.Ok(3)) == Some(3)
+  assert Result.to_option(Result.Ok(3)) == Some(3)
 end
 
 test "untyped empty lists"

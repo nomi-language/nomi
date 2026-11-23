@@ -35,7 +35,7 @@ test "every kind of value reads back as itself, json keeping its text and jsonb 
 
     at = Instant.from_nanos(1_792_413_005_250_000_000)
     id = Uuid"0192f4c8-6f0e-7b39-9d6a-3c1f2b5e8a10"
-    ints: List<Maybe<Int>> = [Some(1), None, Some(3)]
+    ints: List<Option<Int>> = [Some(1), None, Some(3)]
     none: List<String> = []
 
     _ = Conn.exec(

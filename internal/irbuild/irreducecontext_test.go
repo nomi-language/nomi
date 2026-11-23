@@ -4,14 +4,14 @@ import "testing"
 
 func TestIRReduceContext_EarlyBareVariant(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn reduce(xs: List<Int>) -> Maybe<Int>
- Iter.reduce(xs, None, fn _acc: Maybe<Int>, x: Int ->
+fn reduce(xs: List<Int>) -> Option<Int>
+ Iter.reduce(xs, None, fn _acc: Option<Int>, x: Int ->
   if x == 0 then return None
   Some(x)
  end)
 end
-fn reverse(xs: List<Int>) -> Maybe<Int>
- Iter.reduce(xs, None, fn _acc: Maybe<Int>, x: Int ->
+fn reverse(xs: List<Int>) -> Option<Int>
+ Iter.reduce(xs, None, fn _acc: Option<Int>, x: Int ->
   if x != 0 then return Some(x)
   None
  end)

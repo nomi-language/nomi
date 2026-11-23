@@ -88,7 +88,7 @@ func TestStdlibPrompt_CachedAndFreshPathsShareTheModuleScope(t *testing.T) {
 	}
 
 	// The scope is the module's, not a user file's: std/regex imports
-	// maybe.Maybe but not its variants, so a bare `Some` is undefined there.
+	// option.Option but not its variants, so a bare `Some` is undefined there.
 	_, err = vmhost.StdlibReference("regex", "assert Some(1) != None", "", io.Discard)
 	if err == nil {
 		t.Fatal("a bare `Some` in a std/regex prompt is admitted; std/regex does not import it")

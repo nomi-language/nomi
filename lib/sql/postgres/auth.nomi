@@ -76,8 +76,8 @@ impl Scram
         iterations =
             field(fields, "i")?
             |> String.to_int()
-            |> Maybe.flat_map(PositiveInt.try_from)
-            |> Maybe.to_result("the server's iteration count is not a positive number")?
+            |> Option.flat_map(PositiveInt.try_from)
+            |> Option.to_result("the server's iteration count is not a positive number")?
 
         if not String.starts_with(nonce, scram.nonce) then
             return Err("the server's nonce does not extend the client's")
@@ -154,8 +154,8 @@ end
 fn field(fields: List<(String, String)>, name: String) -> Result<String, String>
     fields
     |> Iter.find(fn (key, _) -> key == name)
-    |> Maybe.map(.second)
-    |> Maybe.to_result("the server's SCRAM message has no `${name}`")
+    |> Option.map(.second)
+    |> Option.to_result("the server's SCRAM message has no `${name}`")
 end
 
 fn xor(a: Bytes, b: Bytes) -> Bytes

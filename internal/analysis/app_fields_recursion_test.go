@@ -97,7 +97,7 @@ impl Iter<Int> for Bag
   fn each_while(collection: Bag, yield: (Int) -> Bool) -> Bool
       Iter.each_while(collection.items, yield)
   end
-  fn known_count(_collection: Bag) -> Maybe<Int>
+  fn known_count(_collection: Bag) -> Option<Int>
       Some(App.n)
   end
 end

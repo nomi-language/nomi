@@ -16,7 +16,7 @@ import (
 var embedCycleShapes = map[string]string{
 	"direct": `struct Circle
   r: Int
-  inner: Maybe<Shape>
+  inner: Option<Shape>
 end
 
 enum Shape
@@ -61,7 +61,7 @@ end
 `,
 	"tuple": `struct Circle
   r: Int
-  pair: (Int, Maybe<Shape>)
+  pair: (Int, Option<Shape>)
 end
 
 enum Shape
@@ -80,7 +80,7 @@ end
 end
 
 struct Box
-  inner: Maybe<Shape>
+  inner: Option<Shape>
 end
 
 enum Shape
@@ -95,7 +95,7 @@ end
 `,
 	"distinct": `struct Circle
   r: Int
-  inner: Maybe<Shape>
+  inner: Option<Shape>
 end
 
 type Wrapped Circle
@@ -112,12 +112,12 @@ end
 `,
 	"mutual": `struct Circle
   r: Int
-  other: Maybe<Fruit>
+  other: Option<Fruit>
 end
 
 struct Apple
   w: Int
-  other: Maybe<Shape>
+  other: Option<Shape>
 end
 
 enum Shape
@@ -137,7 +137,7 @@ end
 `,
 	"tuple without embeds": `struct Node
   r: Int
-  pair: (Int, Maybe<Tree>)
+  pair: (Int, Option<Tree>)
 end
 
 enum Tree
@@ -187,7 +187,7 @@ func TestRun_EmbeddedStructReachingItsEnumBack(t *testing.T) {
 
 struct Circle
   r: Int
-  inner: Maybe<Shape>
+  inner: Option<Shape>
 end
 
 derive Equatable for Circle
@@ -294,12 +294,12 @@ end
 
 struct Ring
   r: Int
-  other: Maybe<Fruit>
+  other: Option<Fruit>
 end
 
 struct Apple
   w: Int
-  other: Maybe<Loop>
+  other: Option<Loop>
 end
 
 enum Loop

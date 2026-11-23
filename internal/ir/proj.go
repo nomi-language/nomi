@@ -48,8 +48,8 @@ import "strconv"
 // constantly true, and a consumer gets the answer by asking the SUBJECT rather
 // than by asking this node. `internal/irbuild` does exactly that.
 //
-// The one predicate that is not constant is Faults, and it is about delivery
-// rather than mobility: see ProjEnumField.
+// No projection faults. Each reads a component its subject's static type
+// guarantees, and ProjEnumField's field is one every variant has.
 //
 // Two kinds are valid only after a test, and they are not a new case.
 // `ProjElem` and `ProjSuffix` read past the front of a list, which is in
@@ -85,10 +85,8 @@ const (
 	// illustration in this class of where the line falls. Nomi says "read
 	// field f"; a consumer reads it off whatever the variant's payload is, or
 	// expands a switch over the tag with one arm per variant. Same operation,
-	// and the expansion is entirely the consumer's.
-	//
-	// It is also the only projection that can FAULT, which is what Faults
-	// reports. Owner: enumFieldRead.
+	// and the expansion is entirely the consumer's. Every variant has the
+	// field, which the checker requires of the read. Owner: enumFieldRead.
 	ProjEnumField
 	// ProjInner reads the value a distinct type wraps — `n` in `M(n) = m`
 	// for a `type M Int`. `Sym` is the distinct's declaration.
@@ -182,15 +180,14 @@ func (k ProjKind) String() string {
 
 // Proj reads one component out of a composite value.
 type Proj struct {
-	pos    Pos
-	dst    Temp
-	subj   Temp
-	kind   ProjKind
-	sym    *Symbol
-	text   string
-	idx    int
-	faults bool
-	shape  ValShape
+	pos   Pos
+	dst   Temp
+	subj  Temp
+	kind  ProjKind
+	sym   *Symbol
+	text  string
+	idx   int
+	shape ValShape
 	// field names a struct-shaped variant's payload; empty for a positional
 	// payload.
 	field string
@@ -271,16 +268,14 @@ func (p *Proj) PayloadEmbeds() *Symbol { return p.embeds }
 func (p *Proj) PayloadField() string { return p.field }
 
 // NewProjEnumField reads a field name off an enum value whose tag is not
-// known. faults says whether some variant of this enum does NOT supply the
-// name, which is a fact about the enum's declaration and not about this read.
-func NewProjEnumField(pos Pos, dst, subj Temp, enum *Symbol, field string, faults bool, shape ValShape) *Proj {
+// known. Every variant of the enum supplies the field.
+func NewProjEnumField(pos Pos, dst, subj Temp, enum *Symbol, field string, shape ValShape) *Proj {
 	if field == "" {
 		panic("ir.NewProjEnumField: a field read with no name reads nothing")
 	}
 	p := newProj(pos, dst, subj, ProjEnumField, shape, "NewProjEnumField")
 	p.sym = requireProjSym(enum, "NewProjEnumField")
 	p.text = field
-	p.faults = faults
 	return p
 }
 
@@ -445,19 +440,6 @@ func (p *Proj) Index() int { return p.idx }
 // `shapeOfTemp`, so the two either agree or contradict.
 func (p *Proj) Shape() ValShape { return p.shape }
 
-// Faults reports whether this read can fail at run time.
-//
-// TRUE ONLY FOR ProjEnumField, and only when some variant of the enum does not
-// supply the name — which is a property of the DECLARATION, so a producer
-// states it and this node does not derive it. Every other projection's
-// location is fixed by the subject's static type and is therefore total.
-//
-// It is not a mobility predicate and does not pair with `ir.Ref.Forces`. A
-// forcing read RUNS an initializer whose effect a consumer must order; a
-// faulting read runs nothing and either answers or aborts. What a consumer
-// does with it is deliver the fault in the arms that cannot answer.
-func (p *Proj) Faults() bool { return p.faults }
-
 func (p *Proj) Pos() Pos  { return p.pos }
 func (p *Proj) Dst() Temp { return p.dst }
 
@@ -482,9 +464,6 @@ func (p *Proj) String() string {
 		s += " " + p.sym.Name()
 	default:
 		s += "." + p.text
-	}
-	if p.faults {
-		s += " faults"
 	}
 	return s
 }

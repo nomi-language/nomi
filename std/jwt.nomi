@@ -41,7 +41,7 @@ import
     iter.Iter
     json.{FromJson, Json, JsonObject}
     maps.Map
-    maybe.Maybe.{self, None, Some}
+    option.Option.{self, None, Some}
     results.Result.{self, Err, Ok}
     signatures.{self, KeyKind, PrivateKey, PublicKey, Scheme}
     strings.String
@@ -224,14 +224,14 @@ pub struct Validation
     /// clocks that disagree a little.
     leeway: Duration = Duration.seconds(60)
     /// The `iss` a token must carry, or `None` to not check it.
-    issuer: Maybe<String> = None
+    issuer: Option<String> = None
     /// The audience the server is: a token must name it in `aud`. With
     /// `None`, a token that carries an `aud` is refused, as RFC 7519 says.
-    audience: Maybe<String> = None
+    audience: Option<String> = None
     /// Whether a token without `exp` is refused.
     require_expiry: Bool = True
     /// The time to check `exp` and `nbf` against, or `None` for the clock.
-    now: Maybe<Instant> = None
+    now: Option<Instant> = None
 end
 
 /// Why `verify` refused a token.
@@ -298,6 +298,10 @@ pub fn sign(claims: Map<String, Json>, key: SigningKey) -> String
                 hash.hmac_sha256(secret, String.to_bytes(input))
 
             .Key(private) ->
+                // sign_with fails only for a scheme of another kind than the
+                // key's. A key signer is made only by `keyed`, whose
+                // kind_check holds the key's kind to `kind(algorithm)`, and
+                // `scheme(algorithm)` is a scheme of that kind.
                 signatures.sign_with(private, scheme(key.algorithm), String.to_bytes(input))!
         end
 
@@ -410,7 +414,7 @@ fn checked_secret(secret: Bytes) -> Result<Unit, String>
 end
 
 /// The key kind an algorithm signs with.
-fn kind(algorithm: Algorithm) -> Maybe<KeyKind>
+fn kind(algorithm: Algorithm) -> Option<KeyKind>
     case algorithm
         .Hs256 -> None
         .Rs256 -> Some(.Rsa)
@@ -484,7 +488,7 @@ fn object(text: String, what: String) -> Result<Map<String, Json>, JwtError>
 end
 
 fn check_header(header: Map<String, Json>, algorithm: Algorithm) -> Result<Unit, JwtError>
-    if Map.get(header, "crit") |> Maybe.is_some() then
+    if Map.get(header, "crit") |> Option.is_some() then
         return Err(
             JwtError.Malformed(
                 "the header names critical extensions (`crit`), which are not supported"
@@ -514,7 +518,7 @@ end
 fn check_claims(claims: Map<String, Json>, validation: Validation) -> Result<Unit, JwtError>
     now = Instant.to_seconds(
         validation.now
-        |> Maybe.with_default(Instant.now())
+        |> Option.with_default(Instant.now())
     )
 
     leeway = Duration.as_seconds(validation.leeway)
@@ -540,7 +544,7 @@ fn check_claims(claims: Map<String, Json>, validation: Validation) -> Result<Uni
     end
 
     case (validation.audience, Map.get(claims, "aud"))
-        (_, None) when validation.audience |> Maybe.is_some() ->
+        (_, None) when validation.audience |> Option.is_some() ->
             Err(JwtError.WrongAudience)
 
         (None, Some(_)) ->
@@ -563,7 +567,7 @@ fn check_claims(claims: Map<String, Json>, validation: Validation) -> Result<Uni
 end
 
 /// A NumericDate claim, whole seconds since the Unix epoch, rounded down.
-fn seconds(claims: Map<String, Json>, name: String) -> Result<Maybe<Int>, JwtError>
+fn seconds(claims: Map<String, Json>, name: String) -> Result<Option<Int>, JwtError>
     case Map.get(claims, name)
         None ->
             Ok(None)

@@ -21,7 +21,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `coffee.price()` | `Priced.price(coffee)`, or `T.price(item)` in a generic |
 | `xs.filter { $0 > 1 }` | `Iter.filter(xs, &(&1 > 1))` |
 | `(a, b)`, `pair.0` | `(a, b)`, `pair.first` |
-| `Int?`, `if let x = maybe`, `guard let` | `Maybe<Int>`; `case`, `if Some(x) = maybe then ..`, or a postfix `?` |
+| `Int?`, `if let x = option`, `guard let` | `Option<Int>`; `case`, `if Some(x) = option then ..`, or a postfix `?` |
 | `throws`, `try`, `do / catch` | Return `Result<T, E>`; a postfix `?` passes an `Err` up |
 | `Double(x)`, `x as! Coffee` | `Int.to_float(x)`. Nomi's `x as T` is Swift's upcasting `as` only: it states a type the value already fits (`[] as List<String>`) |
 | `a / b` traps when `b` is 0, and an `Int` traps on overflow | `/` and `%` on two `Int`s take a `NonZeroInt` divisor, so the check for zero comes before the division: a literal other than 0 is one, and so is `b` after `if b == 0 then return ..`. An `Int` is exact at any size and never overflows. |
@@ -121,7 +121,7 @@ fn total(items: List<Priced>) -> Int
     Iter.sum_by(items, Priced.price)
 end
 
-fn first_large(coffees: List<Coffee>) -> Maybe<Coffee>
+fn first_large(coffees: List<Coffee>) -> Option<Coffee>
     Iter.find(coffees, fn coffee -> coffee.size == .Large)
 end
 

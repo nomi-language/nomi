@@ -94,11 +94,11 @@ func TestWiden_NotPastAFunctionArgument(t *testing.T) {
 		{"an enum value after a function of a variant", "    _ = apply(area, shape)",
 			"argument 2: expected Circle, got Shape\nhelp: Shape may hold a variant other than Circle, and only a match narrows it: `case value` with the arm `.Circle{} -> ...`", "shape"},
 		{"an ancestor after a function of a refinement", "    _ = apply(count, i)",
-			"argument 2: expected NonNegativeInt, got Int\nhelp: NonNegativeInt is a subtype of Int; check the value with `NonNegativeInt.try_from(...)`, which is `Some` when it satisfies `fn n -> n >= 0` and `None` when not", "i"},
+			"argument 2: expected NonNegativeInt, got Int\nhelp: NonNegativeInt is a refinement of Int; check the value with `NonNegativeInt.try_from(...)`, which is `Some` when it satisfies `fn n -> n >= 0` and `None` when not", "i"},
 		{"a list literal of the enum after a function of a variant", "    _ = apply_all(area, [shape])",
 			"list element type mismatch: expected Circle, got Shape\nhelp: Shape may hold a variant other than Circle, and only a match narrows it: `case value` with the arm `.Circle{} -> ...`", "shape"},
 		{"a list literal of an ancestor after a function of a refinement", "    _ = apply_all(count, [i])",
-			"list element type mismatch: expected NonNegativeInt, got Int\nhelp: NonNegativeInt is a subtype of Int; check the value with `NonNegativeInt.try_from(...)`, which is `Some` when it satisfies `fn n -> n >= 0` and `None` when not", "i"},
+			"list element type mismatch: expected NonNegativeInt, got Int\nhelp: NonNegativeInt is a refinement of Int; check the value with `NonNegativeInt.try_from(...)`, which is `Some` when it satisfies `fn n -> n >= 0` and `None` when not", "i"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			src := wideningSource(tc.body)

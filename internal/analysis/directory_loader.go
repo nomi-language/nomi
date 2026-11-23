@@ -10,7 +10,7 @@ import (
 
 // ErrNoSuchModule is what a FileLoader answers, wrapped, for a path it knows
 // names neither a file nor a directory, so resolution asks the disk
-// nothing: the embedded stdlib's loaders, for a path such as `maybe/Maybe`
+// nothing: the embedded stdlib's loaders, for a path such as `option/Option`
 // that an import of a type below its module tries first.
 var ErrNoSuchModule = errors.New("no such module")
 

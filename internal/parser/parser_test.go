@@ -744,7 +744,7 @@ func TestIfNoElse(t *testing.T) {
 }
 
 func TestIfPatternCondition(t *testing.T) {
-	expr := parseExpr(t, `if Some(name) = maybe_name then name else "none"`)
+	expr := parseExpr(t, `if Some(name) = option_name then name else "none"`)
 	ifNode, ok := expr.(*ast.If)
 	if !ok {
 		t.Fatalf("expected *ast.If, got %T", expr)
@@ -757,8 +757,8 @@ func TestIfPatternCondition(t *testing.T) {
 		t.Fatalf("expected enum pattern binding name, got %q", pat.Binding)
 	}
 	cond, ok := ifNode.Cond.(*ast.Ident)
-	if !ok || cond.Name != "maybe_name" {
-		t.Fatalf("expected cond Ident{maybe_name}, got %T %v", ifNode.Cond, ifNode.Cond)
+	if !ok || cond.Name != "option_name" {
+		t.Fatalf("expected cond Ident{option_name}, got %T %v", ifNode.Cond, ifNode.Cond)
 	}
 	if _, ok := ifNode.Else.(*ast.Block); !ok {
 		t.Fatalf("expected else *ast.Block, got %T", ifNode.Else)
@@ -1777,7 +1777,7 @@ func TestBlockExpression(t *testing.T) {
 }
 
 func TestBlockExpressionWithAnnotatedBinding(t *testing.T) {
-	expr := parseExpr(t, "begin\n    value: Maybe<Int> = None\n    value\nend")
+	expr := parseExpr(t, "begin\n    value: Option<Int> = None\n    value\nend")
 	block, ok := expr.(*ast.Block)
 	if !ok {
 		t.Fatalf("expected *ast.Block, got %T", expr)
@@ -1789,8 +1789,8 @@ func TestBlockExpressionWithAnnotatedBinding(t *testing.T) {
 	if !ok {
 		t.Fatalf("block stmt[0]: expected *ast.Binding, got %T", block.Stmts[0])
 	}
-	if b.TypeAnnotation == nil || b.TypeAnnotation.TypeString() != "Maybe<Int>" {
-		t.Fatalf("expected Maybe<Int> annotation, got %v", b.TypeAnnotation)
+	if b.TypeAnnotation == nil || b.TypeAnnotation.TypeString() != "Option<Int>" {
+		t.Fatalf("expected Option<Int> annotation, got %v", b.TypeAnnotation)
 	}
 }
 
@@ -2585,7 +2585,7 @@ func TestParseTypeAlias_HasNoRule(t *testing.T) {
 	if err == nil {
 		t.Fatal("parsed a typealias with a `when` rule, want an error")
 	}
-	want := "line 1, col 21: a typealias has no rule, since it is its target under another name: for the values of Int that satisfy a rule, declare `subtype Small Int when ...`"
+	want := "line 1, col 21: a typealias has no rule, since it is its target under another name: for the values of Int that satisfy a rule, declare `refine Small Int when ...`"
 	if !strings.Contains(err.Error(), want) {
 		t.Errorf("error %q, want it to contain %q", err.Error(), want)
 	}
@@ -2836,7 +2836,7 @@ func TestParseDbgCanBeNarrowedWithParens(t *testing.T) {
 }
 
 func TestParseTryKeywordWithTrailingQuestion(t *testing.T) {
-	// `foo()??` propagates twice: a Maybe<Maybe<T>> or a nested Result.
+	// `foo()??` propagates twice: an Option<Option<T>> or a nested Result.
 	expr := parseExpr(t, "foo()??")
 	outer, ok := expr.(*ast.TryOp)
 	if !ok {
@@ -3746,11 +3746,11 @@ end`)
 	}
 }
 
-// TestParser_EnumDef_Generic verifies that `enum Maybe<T> { None; Some T }`
+// TestParser_EnumDef_Generic verifies that `enum Option<T> { None; Some T }`
 // parses to an EnumDef with the expected name, public flag, type params,
 // and a bare + positional variant.
 func TestParser_EnumDef_Generic(t *testing.T) {
-	src := "pub enum Maybe<T>\n    None\n    Some T\nend"
+	src := "pub enum Option<T>\n    None\n    Some T\nend"
 	nodes := parse(t, src)
 	var ed *ast.EnumDef
 	for _, n := range nodes {
@@ -3762,8 +3762,8 @@ func TestParser_EnumDef_Generic(t *testing.T) {
 	if ed == nil {
 		t.Fatal("expected *ast.EnumDef among nodes")
 	}
-	if ed.Name != "Maybe" {
-		t.Errorf("expected name Maybe, got %q", ed.Name)
+	if ed.Name != "Option" {
+		t.Errorf("expected name Option, got %q", ed.Name)
 	}
 	if !ed.Public {
 		t.Error("expected public")
@@ -4045,24 +4045,24 @@ func TestImportBlock_CommaRejected(t *testing.T) {
 // `self` inside a selective brace list binds the brace-list owner alongside
 // the named items. For a file-level selector, the owner is the file API object.
 func TestImportSelfMarker_FileNamespace(t *testing.T) {
-	nodes := parse(t, `import std::maybe.{self, Maybe}`)
+	nodes := parse(t, `import std::option.{self, Option}`)
 	stmt := nodes[0].(*ast.ImportStmt)
 	if !stmt.IncludeParent {
 		t.Fatal("expected self marker to set IncludeParent")
 	}
-	if got := importNodeNames(stmt.ModulePath); !reflect.DeepEqual(got, []string{"std", "maybe"}) {
-		t.Fatalf("ModulePath = %v, want [std maybe]", got)
+	if got := importNodeNames(stmt.ModulePath); !reflect.DeepEqual(got, []string{"std", "option"}) {
+		t.Fatalf("ModulePath = %v, want [std option]", got)
 	}
-	if got := importNodeNames(stmt.Names); !reflect.DeepEqual(got, []string{"Maybe"}) {
-		t.Fatalf("Names = %v, want [Maybe]", got)
+	if got := importNodeNames(stmt.Names); !reflect.DeepEqual(got, []string{"Option"}) {
+		t.Fatalf("Names = %v, want [Option]", got)
 	}
 }
 
 func TestImportSelfMarker_DrillThrough(t *testing.T) {
-	nodes := parse(t, `import std::maybe.Maybe.{self, None, Some}`)
+	nodes := parse(t, `import std::option.Option.{self, None, Some}`)
 	imp := nodes[0].(*ast.ImportStmt)
 	if !imp.IncludeParent {
-		t.Errorf("expected IncludeParent=true on `Maybe.{self, None, Some}`")
+		t.Errorf("expected IncludeParent=true on `Option.{self, None, Some}`")
 	}
 	if len(imp.Names) != 2 || ast.ImportNodeName(imp.Names[0]) != "None" || ast.ImportNodeName(imp.Names[1]) != "Some" {
 		t.Errorf("expected names [None, Some], got %v", imp.Names)
@@ -4108,7 +4108,7 @@ func TestImportFileNamespaceAlias(t *testing.T) {
 }
 
 func TestImportSelectiveAlias(t *testing.T) {
-	nodes := parse(t, `import std::maybe.{Maybe as Opt, Some as Just, None}`)
+	nodes := parse(t, `import std::option.{Option as Opt, Some as Just, None}`)
 	imp := nodes[0].(*ast.ImportStmt)
 	if len(imp.Names) != 3 {
 		t.Fatalf("expected 3 names, got %d", len(imp.Names))
@@ -4121,11 +4121,11 @@ func TestImportSelectiveAlias(t *testing.T) {
 		ast.ImportNodeName(imp.Names[1]),
 		ast.ImportNodeName(imp.Names[2]),
 	}
-	if names[0] != "Maybe" || names[1] != "Some" || names[2] != "None" {
+	if names[0] != "Option" || names[1] != "Some" || names[2] != "None" {
 		t.Errorf("unexpected names: %v", names)
 	}
 	if imp.Aliases[0] == nil || ast.ImportNodeName(imp.Aliases[0]) != "Opt" {
-		t.Errorf("expected Maybe aliased to Opt, got %v", imp.Aliases[0])
+		t.Errorf("expected Option aliased to Opt, got %v", imp.Aliases[0])
 	}
 	if imp.Aliases[1] == nil || ast.ImportNodeName(imp.Aliases[1]) != "Just" {
 		t.Errorf("expected Some aliased to Just, got %v", imp.Aliases[1])
@@ -4151,7 +4151,7 @@ func TestParseImportSlashPaths(t *testing.T) {
 		{"bare slash path", "import std::lists", []string{"std", "lists"}, nil, ""},
 		{"bare slash path alias", "import std::lists as l", []string{"std", "lists"}, nil, "l"},
 		{"slash with selective brace", "import std::lists.{head, tail}", []string{"std", "lists"}, []string{"head", "tail"}, ""},
-		{"slash with drill-through", "import std::maybe.Maybe.{Some, None}", []string{"std", "maybe", "Maybe"}, []string{"Some", "None"}, ""},
+		{"slash with drill-through", "import std::option.Option.{Some, None}", []string{"std", "option", "Option"}, []string{"Some", "None"}, ""},
 		{"slash with lower-case single selective", "import std::io.print", []string{"std", "io"}, []string{"print"}, ""},
 		{"slash with single selective", "import models::users.User", []string{"models", "users"}, []string{"User"}, ""},
 	}
@@ -4218,7 +4218,7 @@ func TestParseImportTreatsDotAsSelector(t *testing.T) {
 // TestParseImportAllowsDottedDrillThrough confirms `.` is still valid as
 // the boundary between the resolved module and a drill-through type.
 func TestParseImportAllowsDottedDrillThrough(t *testing.T) {
-	if _, err := Parse(lexer.Lex("import std::maybe.Maybe.{Some, None}\n")); err != nil {
+	if _, err := Parse(lexer.Lex("import std::option.Option.{Some, None}\n")); err != nil {
 		t.Fatalf("drill-through must still parse: %v", err)
 	}
 }
@@ -4634,15 +4634,15 @@ func TestParser_Variant_PayloadTypeExpr_Function(t *testing.T) {
 }
 
 // TestParser_Variant_PayloadTypeExpr_Generic verifies a generic payload
-// parses: `| Inner Maybe<Int>`.
+// parses: `| Inner Option<Int>`.
 func TestParser_Variant_PayloadTypeExpr_Generic(t *testing.T) {
-	src := "enum Token\n    Inner Maybe<Int>\nend"
+	src := "enum Token\n    Inner Option<Int>\nend"
 	nodes := parse(t, src)
 	ed := nodes[0].(*ast.EnumDef)
 	v := ed.Variants[0]
 	gt, ok := v.DataTypeExpr.(*ast.GenericType)
-	if !ok || gt.Name != "Maybe" || len(gt.Params) != 1 {
-		t.Fatalf("expected GenericType{Maybe<Int>}, got %#v", v.DataTypeExpr)
+	if !ok || gt.Name != "Option" || len(gt.Params) != 1 {
+		t.Fatalf("expected GenericType{Option<Int>}, got %#v", v.DataTypeExpr)
 	}
 }
 
@@ -4985,7 +4985,7 @@ func TestParseStdlibDeclarations(t *testing.T) {
 host type Int
 
 /// A value that may or may not be present.
-enum Maybe<T>
+enum Option<T>
     Some T
     None
 end
@@ -6210,7 +6210,7 @@ end
 }
 
 func TestParseAttachedTestAllowsAnnotatedBindingInBlock(t *testing.T) {
-	nodes := parse(t, `//! value: Maybe<Int> = None
+	nodes := parse(t, `//! value: Option<Int> = None
 //! assert value == None
 fn ready() -> Bool
     True
@@ -6228,8 +6228,8 @@ end
 	if !ok {
 		t.Fatalf("expected annotated binding in test block, got %T", block.Stmts[0])
 	}
-	if binding.TypeAnnotation == nil || binding.TypeAnnotation.TypeString() != "Maybe<Int>" {
-		t.Fatalf("expected Maybe<Int> annotation, got %v", binding.TypeAnnotation)
+	if binding.TypeAnnotation == nil || binding.TypeAnnotation.TypeString() != "Option<Int>" {
+		t.Fatalf("expected Option<Int> annotation, got %v", binding.TypeAnnotation)
 	}
 }
 
@@ -6622,7 +6622,7 @@ func TestParseImplHeader_HostFn(t *testing.T) {
 	src := `pub host type List<T>
 
 impl iter for List<T>
-  host fn known_count(list: self) -> Maybe<Int>
+  host fn known_count(list: self) -> Option<Int>
 end
 
 `
@@ -6721,7 +6721,7 @@ end`
 // `impl Iter for Box<T> { ... }` — receiver generics are named by the receiver.
 func TestParseImplBlock_Generic(t *testing.T) {
 	src := `impl Iter for Box<T>
-  fn next(_b: self) -> Maybe<(T, self)>
+  fn next(_b: self) -> Option<(T, self)>
       None
   end
 end`
@@ -6743,7 +6743,7 @@ end`
 
 func TestParseImplBlock_WhereClause(t *testing.T) {
 	src := `impl iter for Box<T> where T: Display and Debug
-  fn next(_b: self) -> Maybe<(T, self)>
+  fn next(_b: self) -> Option<(T, self)>
       None
   end
 end`
@@ -6771,7 +6771,7 @@ func TestParseTypeDeclarations_WhereClause(t *testing.T) {
   value: T
 end
 
-enum MaybeBox<T> where T: Display
+enum OptionBox<T> where T: Display
   Empty
   Full Box<T>
 end
@@ -6856,7 +6856,7 @@ func TestParseDeriveOptionsBeforeWhereClause(t *testing.T) {
 // `host fn` methods are admitted inside an `impl ... for` block.
 func TestParseImplBlock_ExternFn(t *testing.T) {
 	src := `impl iter for List<T>
-  host fn known_count(list: self) -> Maybe<Int>
+  host fn known_count(list: self) -> Option<Int>
 end`
 	nodes := parse(t, src)
 	blk, ok := nodes[0].(*ast.ImplBlock)
@@ -6886,7 +6886,7 @@ func TestParseImplBlock_PubMethodRejected(t *testing.T) {
   end
 end`,
 		`impl iter for List<T>
-  pub host fn known_count(list: self) -> Maybe<Int>
+  pub host fn known_count(list: self) -> Option<Int>
 end`,
 	}
 	for _, src := range cases {
@@ -6903,7 +6903,7 @@ end`,
 
 func TestParseImplBlock_InterfaceTypeArgsAccepted(t *testing.T) {
 	src := `impl iter<T> for Box<T>
-  fn next(_b: self) -> Maybe<Int>
+  fn next(_b: self) -> Option<Int>
       None
   end
 end`

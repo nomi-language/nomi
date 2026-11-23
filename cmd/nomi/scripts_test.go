@@ -1,13 +1,17 @@
 package main
 
 import (
+	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"sort"
 	"strings"
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/modcache"
 	"github.com/nomi-language/nomi/internal/stdlibbindings/families"
 )
 
@@ -200,6 +204,68 @@ func TestScriptsAreExecutable(t *testing.T) {
 	}
 	if checked == 0 {
 		t.Fatal("no .sh files found under scripts/, so the assertion above is vacuous")
+	}
+}
+
+// TestReleaseTagsNameEveryLibModule: scripts/release-tags.sh prints the
+// root tag and one tag for each module under lib/ whose nomi.toml gives it
+// a path there, which the proxy serves a release of only from that tag, and
+// each such module has the go.mod the proxy reads its path from. A library
+// added without a go.mod, or one the script's search misses, fails here
+// rather than at a release `nomi`'s first `nomi add` of it.
+func TestReleaseTagsNameEveryLibModule(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("runs a bash script; the Unix jobs check it")
+	}
+	root, err := filepath.Abs(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	const version = "v0.0.1"
+	want := []string{version}
+	err = filepath.WalkDir(filepath.Join(root, "lib"), func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() && (d.Name() == "testdata" || strings.HasPrefix(d.Name(), ".")) {
+			return filepath.SkipDir
+		}
+		if d.IsDir() || d.Name() != modcache.ManifestName {
+			return nil
+		}
+		dir := filepath.Dir(path)
+		mf, err := modcache.ReadModuleFile(dir)
+		if err != nil {
+			return err
+		}
+		rel, _ := filepath.Rel(root, dir)
+		rel = filepath.ToSlash(rel)
+		if mf == nil || mf.Path != "github.com/nomi-language/nomi/"+rel {
+			t.Errorf("%s/nomi.toml does not give the module the path github.com/nomi-language/nomi/%s, which the proxy serves it at", rel, rel)
+			return nil
+		}
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err != nil {
+			t.Errorf("%s has a nomi.toml and no go.mod, so the module proxy cannot serve it", rel)
+		}
+		want = append(want, rel+"/"+version)
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sort.Strings(want[1:])
+	cmd := exec.Command("bash", filepath.Join(root, "scripts", "release-tags.sh"), version)
+	var stderr strings.Builder
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	// Exit 1 says entries between the libraries do not name the version yet,
+	// which a release fixes before tagging; the tags are printed either way.
+	if exit := (*exec.ExitError)(nil); err != nil && !(errors.As(err, &exit) && exit.ExitCode() == 1) {
+		t.Fatalf("release-tags.sh %s: %v\n%s", version, err, stderr.String())
+	}
+	got := strings.Fields(string(out))
+	if len(want) < 2 || strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Errorf("release-tags.sh %s printed\n%s\nwant the root tag and one per lib/ module\n%s", version, strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
 }
 

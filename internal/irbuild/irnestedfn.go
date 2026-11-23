@@ -184,17 +184,17 @@ func kindsKey(args []kind) string {
 }
 
 // nestedInstKey is the identity of fd's instance inst: its arguments'
-// kinds (kindsKey), and where they hold the subtypes the instance reads
-// (subtypeinst.go).
+// kinds (kindsKey), and where they hold the refinements the instance reads
+// (refinementinst.go).
 func (g *gen) nestedInstKey(fd *ast.FuncDef, inst nestedInst) string {
 	names := make([]string, len(fd.TypeParams))
 	for i, tp := range fd.TypeParams {
 		names[i] = tp.Name
 	}
-	reads := subtypeReads(names, inst.checked, func() map[string][]*analysis.InterfaceType {
+	reads := refinementReads(names, inst.checked, func() map[string][]*analysis.InterfaceType {
 		return analysis.DeclTypeParamBounds(g.srcFA(), fd, nil)
 	})
-	return kindsKey(inst.args) + subtypeReadsKey(reads)
+	return kindsKey(inst.args) + refinementReadsKey(reads)
 }
 
 // nestedInst is one tuple of type arguments a generic nested fn is called

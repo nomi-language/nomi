@@ -8,7 +8,7 @@ import (
 )
 
 // A name a pattern binds to a type nothing in the file fixes is an error at
-// the name, in every form that binds a pattern. `Maybe.to_result(None, "x")`
+// the name, in every form that binds a pattern. `Option.to_result(None, "x")`
 // is `Result<T, String>` with T free, so `Ok(z)` binds z to no type at all.
 func TestUndeterminedPatternBinding_Rejected(t *testing.T) {
 	cases := []struct {
@@ -16,15 +16,15 @@ func TestUndeterminedPatternBinding_Rejected(t *testing.T) {
 		line, col  int
 		binding    string
 	}{
-		{"a binding with else", "Ok(z) = Maybe.to_result(None, \"x\") else\n    return\nend\n  dbg z", 2, 6, "z"},
-		{"a binding with else arms", "Ok(z) = Maybe.to_result(None, \"x\") else\n    Err(_) -> return\n  end\n  dbg z", 2, 6, "z"},
+		{"a binding with else", "Ok(z) = Option.to_result(None, \"x\") else\n    return\nend\n  dbg z", 2, 6, "z"},
+		{"a binding with else arms", "Ok(z) = Option.to_result(None, \"x\") else\n    Err(_) -> return\n  end\n  dbg z", 2, 6, "z"},
 		{"a variant of a bare None", "Some(z) = None else\n    return\nend\n  dbg z", 2, 8, "z"},
-		{"an if pattern", "if Ok(z) = Maybe.to_result(None, \"x\") then\n    dbg z\n  end", 2, 9, "z"},
-		{"a case arm", "case Maybe.to_result(None, \"x\")\n    Ok(z) ->\n      dbg z\n      Unit\n    Err(_) -> Unit\n  end", 3, 8, "z"},
-		{"a case arm over a piped value", "Maybe.to_result(None, \"x\") |> case\n    Ok(z) ->\n      dbg z\n      Unit\n    Err(_) -> Unit\n  end", 3, 8, "z"},
+		{"an if pattern", "if Ok(z) = Option.to_result(None, \"x\") then\n    dbg z\n  end", 2, 9, "z"},
+		{"a case arm", "case Option.to_result(None, \"x\")\n    Ok(z) ->\n      dbg z\n      Unit\n    Err(_) -> Unit\n  end", 3, 8, "z"},
+		{"a case arm over a piped value", "Option.to_result(None, \"x\") |> case\n    Ok(z) ->\n      dbg z\n      Unit\n    Err(_) -> Unit\n  end", 3, 8, "z"},
 		{"the variant a value is not", "x = Ok(42)\n  case x\n    Ok(_) -> Unit\n    Err(e) ->\n      dbg e\n      Unit\n  end", 5, 9, "e"},
-		{"inside a tuple pattern", "case (Maybe.to_result(None, \"x\"), 1)\n    (Ok(z), _) ->\n      dbg z\n      Unit\n    _ -> Unit\n  end", 3, 9, "z"},
-		{"interpolated", "Ok(z) = Maybe.to_result(None, \"x\") else\n    return\nend\n  dbg \"${z}\"", 2, 6, "z"},
+		{"inside a tuple pattern", "case (Option.to_result(None, \"x\"), 1)\n    (Ok(z), _) ->\n      dbg z\n      Unit\n    _ -> Unit\n  end", 3, 9, "z"},
+		{"interpolated", "Ok(z) = Option.to_result(None, \"x\") else\n    return\nend\n  dbg \"${z}\"", 2, 6, "z"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -54,17 +54,17 @@ func TestUndeterminedPatternBinding_Accepted(t *testing.T) {
 		// The fallback is part of the binding and fixes the payload.
 		"Some(z) = None else\n    5\nend\n  dbg z",
 		// A later use fixes it.
-		"Ok(z) = Maybe.to_result(None, \"x\") else\n    return\nend\n  dbg z + 1",
-		"case Maybe.to_result(None, \"x\")\n    Ok(z) ->\n      dbg Int.to_string(z)\n      Unit\n    Err(_) -> Unit\n  end",
+		"Ok(z) = Option.to_result(None, \"x\") else\n    return\nend\n  dbg z + 1",
+		"case Option.to_result(None, \"x\")\n    Ok(z) ->\n      dbg Int.to_string(z)\n      Unit\n    Err(_) -> Unit\n  end",
 		// The matched value is typed.
-		"none: Maybe<Int> = None\n  Ok(z) = Maybe.to_result(none, \"x\") else\n      return\n  end\n  dbg z",
-		"Ok(z) = Maybe.to_result<Int, String>(None, \"x\") else\n    return\nend\n  dbg z",
+		"none: Option<Int> = None\n  Ok(z) = Option.to_result(none, \"x\") else\n      return\n  end\n  dbg z",
+		"Ok(z) = Option.to_result<Int, String>(None, \"x\") else\n    return\nend\n  dbg z",
 		// A destructured name whose wholly unresolved type a later use fixes.
 		"(a, b) = (None, 1)\n  dbg a == Some(2)\n  dbg b",
 		// A case arm's name whose type holds a free variable, a value like `None`.
 		"case Some(None)\n    Some(a) ->\n      dbg a\n      Unit\n    None -> Unit\n  end",
 		// Nothing is bound.
-		"case Maybe.to_result(None, \"x\")\n    Ok(_) -> Unit\n    Err(e) ->\n      dbg e\n      Unit\n  end",
+		"case Option.to_result(None, \"x\")\n    Ok(_) -> Unit\n    Err(e) ->\n      dbg e\n      Unit\n  end",
 		// A lambda parameter whose later lines fix what a destructure bound.
 		"pairs = Iter.reduce([1, 2], ([], []), fn state, item ->\n    (ts, fs) = state\n    ([item, ..ts], [Int.to_string(item), ..fs])\n  end)\n  dbg pairs",
 	}
@@ -94,7 +94,7 @@ func TestUndeterminedPatternBinding_CallIsNotRepeated(t *testing.T) {
 // lower the call that takes it.
 func TestUndeterminedDestructure_Rejected(t *testing.T) {
 	decls := `struct Box<T>
-  value: Maybe<T>
+  value: Option<T>
 end
 
 type Wrap<T> Box<T>
@@ -154,7 +154,7 @@ fn show<T>(handler: (Box<T>) -> String) -> String
 // Naming the type argument, as the error says, determines the binding.
 func TestUndeterminedDestructure_TypeArgumentDetermines(t *testing.T) {
 	src := `struct Box<T>
-  value: Maybe<T>
+  value: Option<T>
 end
 
 fn read<T>() -> (Box<T>, Bool)

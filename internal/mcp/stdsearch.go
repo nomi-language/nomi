@@ -551,7 +551,7 @@ func implementsName(t *typeNode, iface string) bool {
 }
 
 // refinementParents answers t's parents when t's type is a std refinement
-// (`subtype PositiveInt NonNegativeInt and NonZeroInt when ...`), in t's type
+// (`refine PositiveInt NonNegativeInt and NonZeroInt when ...`), in t's type
 // arguments, and nothing for any other type.
 func refinementParents(t *typeNode) []*typeNode {
 	var out []*typeNode
@@ -572,7 +572,7 @@ var stdRefinements = sync.OnceValue(func() map[string][]implRel {
 	for _, nodes := range std.All().Nodes {
 		for _, n := range nodes {
 			d, ok := n.(*ast.TypeDef)
-			if !ok || !d.Subtype || d.InnerTypeExpr == nil {
+			if !ok || !d.Refinement || d.InnerTypeExpr == nil {
 				continue
 			}
 			recv := &typeNode{name: d.Name}

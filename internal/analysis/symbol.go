@@ -62,7 +62,7 @@ const (
 	SymbolTestDecl
 	// SymbolTryOp is a synthetic, hover-only Symbol attached to a postfix
 	// `?` or `!` (TryOpInfo.Bang). Carries the operand's input type
-	// (Result<T,E> or Maybe<T>) and, for `?`, the boundary it unwinds to
+	// (Result<T,E> or Option<T>) and, for `?`, the boundary it unwinds to
 	// (enclosing fn name, or "lambda"), so hover can render the success
 	// type, the Err / None branch, and what happens on it in one place.
 	// See ast.TryOp, ast.Unwrap and analysis.TryOpInfo.
@@ -89,7 +89,7 @@ const (
 // type; consumed by lsp/hover.go's renderHover.
 type TryOpInfo struct {
 	// InputTy is the operand's static type before the `?` strips a layer:
-	// Result<T,E> or Maybe<T>. The hover renderer splits this into the
+	// Result<T,E> or Option<T>. The hover renderer splits this into the
 	// success type and the Err / None branch.
 	InputTy Type
 	// Boundary names the enclosing fn or lambda the `?` unwinds to on
@@ -227,7 +227,7 @@ type Symbol struct {
 	ModuleScope     *Scope   // for SymbolModule: the qualified member scope used to resolve `alias.Member`
 	Span            int      // hover-range length in source columns; 0 means use len(Name) for backward compatibility
 	ParamNames      []string // parallel to Type.(*FuncType).Params; non-nil when the binding came from a partial application and we want hover to surface the original param names. Empty string for unknown slots.
-	ReceiverDisplay string   // impl-block receiver spelling for hovers, e.g. Maybe<T>.
+	ReceiverDisplay string   // impl-block receiver spelling for hovers, e.g. Option<T>.
 	// VariantType is the instantiated enum type of a payload-free variant of
 	// a generic enum at a value site (`Tree.Leaf` in `[Tree.Leaf,
 	// Tree.Node(2)]`), set on the per-site copy the checker records there.

@@ -127,7 +127,7 @@ end
 
 // A `?` whose error is a structure the boundary's error type holds at wider
 // type arguments rebuilds it there: a List of Ints as a List of Displays,
-// a Maybe of an embedded struct as a Maybe of the enum.
+// an Option of an embedded struct as an Option of the enum.
 func TestTry_IntoAWiderStructuredErrorBoundary(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 struct Missing
@@ -144,10 +144,10 @@ fn shown(n: Int) -> Result<Int, List<Display>>
   a = codes(n)?
   Ok(a)
 end
-fn lookup(n: Int) -> Result<Int, Maybe<Missing>>
+fn lookup(n: Int) -> Result<Int, Option<Missing>>
     if n > 0 then Ok(n) else Err(Some(Missing{key: "k"}))
 end
-fn failed(n: Int) -> Result<Int, Maybe<Failure>>
+fn failed(n: Int) -> Result<Int, Option<Failure>>
   a = lookup(n)?
   Ok(a)
 end

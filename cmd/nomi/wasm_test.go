@@ -96,7 +96,7 @@ func TestWasm_ARuleRefusesAModuleRun(t *testing.T) {
 		"    upper = wasm.compile(hex.decode(\""+wasmUpper+"\")!)!\n"+
 		"    wasm.run(upper, \"upper\", String.to_bytes(text)) |> Result.map(Bytes.to_string_lossy) |> Result.with_default(\"\")\n"+
 		"end\n\n"+
-		"subtype Shouted String when fn s -> shout(s) == s\n\n"+
+		"refine Shouted String when fn s -> shout(s) == s\n\n"+
 		"fn main()\n    loud: Shouted = \"HI\"\n    io.print(loud)\nend\n")
 	r := runNomiIn(t, dir, t.TempDir(), "check", "main.nomi")
 	want := "the rule of Shouted calls a function whose cost grows with its argument (compile calls wasm/host.compile; run calls wasm/host.run): a rule must be bounded"

@@ -28,7 +28,7 @@ import (
 //
 // The implementations are std's own. `Discrete.next` at Codepoint is
 //
-//	fn next(cp: Codepoint) -> Maybe<Codepoint> {
+//	fn next(cp: Codepoint) -> Option<Codepoint> {
 //	  n = Codepoint.to_int(cp)
 //	  if n == 1_114_111 { None }
 //	  else if n == 55_295 { Int.to_codepoint(57_344) }
@@ -164,19 +164,19 @@ func (g *gen) rangeOrders(elem kind, at ast.Node) bool {
 // None, not the method being absent, and the two are distinguished here: an
 // absent method refuses, a `None` answer is passed through.
 func (g *gen) rangeDiscrete(elem kind, at ast.Node) bool {
-	maybeElem, shared := g.sharedMaybe(elem)
-	maybeInt, sharedInt := g.sharedMaybe(kindInt)
+	optionElem, shared := g.sharedOption(elem)
+	optionInt, sharedInt := g.sharedOption(kindInt)
 	if !shared || !sharedInt ||
-		g.stdIfaceFnAt(stdDiscrete.Func("next"), elem, []kind{elem}, maybeElem) == nil ||
-		g.stdIfaceFnAt(stdDiscrete.Func("steps_between"), elem, []kind{elem, elem}, maybeInt) == nil {
+		g.stdIfaceFnAt(stdDiscrete.Func("next"), elem, []kind{elem}, optionElem) == nil ||
+		g.stdIfaceFnAt(stdDiscrete.Func("steps_between"), elem, []kind{elem, elem}, optionInt) == nil {
 		g.reject("range over an element without a successor", elem.nomi(), at)
 		return false
 	}
 	return true
 }
 
-// sharedMaybe is `Maybe<of>` in the PROCESS-WIDE table, which is the instance
-// every std signature's own `Maybe` result is interned in.
+// sharedOption is `Option<of>` in the PROCESS-WIDE table, which is the instance
+// every std signature's own `Option` result is interned in.
 //
 // The shared table rather than preludeInstanceOf, and that is the correct
 // direction here rather than a shortcut: these kinds are compared against a std
@@ -184,8 +184,8 @@ func (g *gen) rangeDiscrete(elem kind, at ast.Node) bool {
 // table. A per-gen instance would compare unequal to
 // every std signature and every lookup below would report a mismatch that is not
 // one.
-func (g *gen) sharedMaybe(of kind) (kind, bool) {
-	return sharedPreludeInstance(preludeSpecFor("std/maybe", "Maybe"), []kind{of})
+func (g *gen) sharedOption(of kind) (kind, bool) {
+	return sharedPreludeInstance(preludeSpecFor("std/option", "Option"), []kind{of})
 }
 
 // stdIfaceFnAt resolves one std interface method at receiver kind recv, checking

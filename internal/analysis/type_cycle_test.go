@@ -22,27 +22,27 @@ func TestTypeCycle_RejectedAtTheDeclaration(t *testing.T) {
 		{"distinct over itself", "type E E\n", 1, "type 'E' is defined in terms of itself"},
 		{"two distinct types", "type A B\ntype B A\n", 2, "type 'B' is defined in terms of itself (B → A → B)"},
 		{"distinct over a list of itself", "type L List<L>\n", 1, "type 'L' is defined in terms of itself"},
-		{"distinct over a maybe of itself", "type M Maybe<M>\n", 1, "type 'M' is defined in terms of itself"},
+		{"distinct over an option of itself", "type M Option<M>\n", 1, "type 'M' is defined in terms of itself"},
 		{"distinct over a generic struct of itself", "struct Box<T>\n    v: T\nend\n\ntype B Box<B>\n", 5, "type 'B' is defined in terms of itself"},
 		{"distinct over a tuple holding itself", "type P (Int, P)\n", 1, "type 'P' is defined in terms of itself"},
 		{"distinct over a function of itself", "type F (F) -> Int\n", 1, "type 'F' is defined in terms of itself"},
-		{"distinct over an anonymous struct holding itself", "type R (Int, {next: Maybe<R>})\n", 1, "type 'R' is defined in terms of itself"},
-		{"distinct over an interface of itself", "interface Source<T>\n    fn pull(s: self) -> Maybe<T>\nend\n\ntype S Source<S>\n", 5, "type 'S' is defined in terms of itself"},
-		{"distinct over a conjunction holding itself", "interface Source<T>\n    fn pull(s: self) -> Maybe<T>\nend\n\ninterface Named\n    fn name(s: self) -> String\nend\n\ntype S Source<S> and Named\n", 9, "type 'S' is defined in terms of itself"},
+		{"distinct over an anonymous struct holding itself", "type R (Int, {next: Option<R>})\n", 1, "type 'R' is defined in terms of itself"},
+		{"distinct over an interface of itself", "interface Source<T>\n    fn pull(s: self) -> Option<T>\nend\n\ntype S Source<S>\n", 5, "type 'S' is defined in terms of itself"},
+		{"distinct over a conjunction holding itself", "interface Source<T>\n    fn pull(s: self) -> Option<T>\nend\n\ninterface Named\n    fn name(s: self) -> String\nend\n\ntype S Source<S> and Named\n", 9, "type 'S' is defined in terms of itself"},
 		{"distinct through a typealias", "type A B\n\ntypealias B List<A>\n", 1, "type 'A' is defined in terms of itself"},
 		// A use with type arguments is a copy of the declaration's type, so
 		// the cycle is found by the declaration, not the pointer.
 		{"generic distinct over another instance of itself", "type A<T> A<Int>\n", 1, "type 'A' is defined in terms of itself"},
 		{"generic distinct over itself", "type A<T> A<T>\n", 1, "type 'A' is defined in terms of itself"},
 		{"generic distinct over an instance of an instance of itself", "type A<T> A<A<T>>\n", 1, "type 'A' is defined in terms of itself"},
-		{"generic distinct over a maybe of another instance of itself", "type A<T> Maybe<A<Int>>\n", 1, "type 'A' is defined in terms of itself"},
+		{"generic distinct over an option of another instance of itself", "type A<T> Option<A<Int>>\n", 1, "type 'A' is defined in terms of itself"},
 		{"generic distinct over a generic struct of itself", "struct Box<T>\n    v: T\nend\n\ntype B<T> Box<B<T>>\n", 5, "type 'B' is defined in terms of itself"},
 		{"two distinct types through type arguments", "type A B<Int>\ntype B<T> A\n", 2, "type 'B' is defined in terms of itself (B → A → B)"},
 		{"two distinct types through type arguments, the other order", "type B<T> A\ntype A B<Int>\n", 2, "type 'A' is defined in terms of itself (A → B → A)"},
 		{"two generic distinct types", "type A<T> B<T>\ntype B<T> A<T>\n", 2, "type 'B' is defined in terms of itself (B → A → B)"},
 		{"generic validated type over another instance of itself", "type V<T> V<Int> when fn _n -> True\n", 1, "type 'V' is defined in terms of itself"},
-		{"generic subtype over itself", "subtype P<T> P<T> when fn _n -> True\n", 1, "type 'P' is defined in terms of itself"},
-		{"generic subtype whose further parent is itself", "subtype NonNeg Int when fn n -> n >= 0\nsubtype P<T> NonNeg and P<T> when fn n -> n > 0\n", 2, "type 'P' is defined in terms of itself"},
+		{"generic refinement over itself", "refine P<T> P<T> when fn _n -> True\n", 1, "type 'P' is defined in terms of itself"},
+		{"generic refinement whose further parent is itself", "refine NonNeg Int when fn n -> n >= 0\nrefine P<T> NonNeg and P<T> when fn n -> n > 0\n", 2, "type 'P' is defined in terms of itself"},
 		{"distinct inside a function body with type arguments", "fn main()\n    type A<T> A<Int>\nend\n", 2, "type 'A' is defined in terms of itself"},
 		{"two distinct types inside a function body through type arguments", "fn main()\n    type A B<Int>\n    type B<T> A\nend\n", 3, "type 'B' is defined in terms of itself (B → A → B)"},
 		{"typealias over itself with type arguments", "typealias A A<Int>\n", 1, "typealias 'A' refers to itself"},
@@ -95,13 +95,13 @@ func TestTypeCycle_RejectedAtTheDeclaration(t *testing.T) {
 // it.
 func TestTypeCycle_LegalRecursionAndOrderStayLegal(t *testing.T) {
 	src := `struct Node
-    next: Maybe<Node>
+    next: Option<Node>
     kids: List<Node>
 end
 
 struct Chain<T>
     v: T
-    next: Maybe<Chain<T>>
+    next: Option<Chain<T>>
 end
 
 enum Tree
@@ -117,18 +117,18 @@ end
 type Wrapped Expr
 
 struct W
-    b: Maybe<B>
+    b: Option<B>
 end
 
 type B W
 
-type C Maybe<W>
+type C Option<W>
 
 type Forest List<Tree>
 
 type Ids<T> List<T>
 
-type Nested<T> Maybe<Ids<T>>
+type Nested<T> Option<Ids<T>>
 
 struct Holds
     vec: Vector<Holds>
@@ -137,7 +137,7 @@ struct Holds
     make: (Int) -> Holds
     result: Result<Holds, String>
     tree: Tree
-    pair: (Int, Maybe<Holds>)
+    pair: (Int, Option<Holds>)
 end
 
 enum LeafLast
@@ -146,7 +146,7 @@ enum LeafLast
 end
 
 struct Defaulted
-    again: Maybe<Defaulted> = None
+    again: Option<Defaulted> = None
 end
 
 struct Param<T>
@@ -186,7 +186,7 @@ fn main()
     _u = Uses{p: Param{v: 1}}
     _r = Rec.Cons{head: 1, tail: Rec.Nil{}}
     struct Local
-        next: Maybe<Local>
+        next: Option<Local>
     end
     _lo = Local{next: None}
 end

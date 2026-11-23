@@ -45,12 +45,12 @@ var (
 // big `import std::prelude.{NAMES}`: the legacy pre-cutover path made
 // prelude's ModuleScope the parent scope of every user file, so bare
 // lookups for `Some`, `None`, `Equal`, etc. walked through prelude's
-// Maybe / Ordering enums and found them as Members. A flat
+// Option / Ordering enums and found them as Members. A flat
 // `import std::prelude.{None, Some, ...}` would trip the analyzer's
 // `cannot import variant 'X' directly` check (variants must be
 // drill-imported via `Enum.{Variant}` or fully qualified). Mirroring
 // prelude.nomi's actual structure — including its drill-through
-// `std/maybe.Maybe.{self, None, Some}` lines — sidesteps the check
+// `std/option.Option.{self, None, Some}` lines — sidesteps the check
 // the same way prelude.nomi itself does.
 //
 // prelude.nomi is read from stdlibPath when the stdlib source tree is on
@@ -221,9 +221,9 @@ func cloneImportStmtForInject(src *ast.ImportStmt, index int) *ast.ImportStmt {
 	// SelfCol slot) take cols 2, 3, … in the same synth-line band.
 	stmtLine, stmtCol := nextSynthPos()
 	// ModulePath gains a leading `std` segment. prelude.nomi is a stdlib
-	// file, so it writes its re-exports bare (`pub import maybe.Maybe.{self,
+	// file, so it writes its re-exports bare (`pub import option.Option.{self,
 	// None, Some}`) like any intra-module import; the clone is prepended to
-	// files OUTSIDE the stdlib, where the same module is `std/maybe`. Without
+	// files OUTSIDE the stdlib, where the same module is `std/option`. Without
 	// the segment every user file's prelude chain would resolve against the
 	// user's own project root and every prelude name would be undefined.
 	//

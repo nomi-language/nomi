@@ -56,8 +56,8 @@ func TestPatternQualifier_UnknownOrForeignIsRejected(t *testing.T) {
 			"unknown type \"ror\""},
 		{"an unknown module over a payload", "  s = Shape.Dot(1)\n  _ = case s\n    ror.Dot(n) -> n\n    _ -> 0\n  end\n",
 			"unknown type \"ror\""},
-		{"a misspelled prelude enum", "  m = Some(1)\n  _ = case m\n    Mabye.Some(n) -> n\n    _ -> 0\n  end\n",
-			"unknown type \"Mabye\"\nhelp: did you mean 'Maybe'?"},
+		{"a misspelled prelude enum", "  m = Some(1)\n  _ = case m\n    Optoin.Some(n) -> n\n    _ -> 0\n  end\n",
+			"unknown type \"Optoin\"\nhelp: did you mean 'Option'?"},
 		{"another enum with the variant", "  c = Color.Red\n  _ = case c\n    Mood.Blue -> 1\n    _ -> 0\n  end\n",
 			"pattern `Mood.Blue` is qualified by enum Mood, but the value matched is a Color\nhelp: write `Color.Blue`, or `.Blue`"},
 		{"another enum without the variant", "  c = Color.Red\n  _ = case c\n    Mood.Calm -> 1\n    _ -> 0\n  end\n",
@@ -102,7 +102,7 @@ func TestPatternQualifier_TheEnumItselfIsAccepted(t *testing.T) {
 		"  c = Color.Red\n  _ = case c\n    Color.Blue -> 1\n    .Red -> 0\n  end\n",
 		"  s = Shape.Dot(1)\n  _ = case s\n    Shape.Dot(n) -> n\n    Shape.Rect{w:} -> w\n  end\n",
 		"  enum Hue\n    Warm\n    Cool\n  end\n  h = Hue.Warm\n  _ = case h\n    Hue.Cool -> 1\n    Hue.Warm -> 0\n  end\n",
-		"  m = Some(1)\n  _ = case m\n    Maybe.Some(n) -> n\n    Maybe.None -> 0\n  end\n",
+		"  m = Some(1)\n  _ = case m\n    Option.Some(n) -> n\n    Option.None -> 0\n  end\n",
 		"  c = Color.Red\n  _ = case c\n    Tint.Blue -> 1\n    Tint.Red -> 0\n  end\n",
 	} {
 		src := patternQualifierDecls + "fn main()\n" + body + "end\n"
@@ -173,11 +173,11 @@ func TestPatternQualifier_ANameThatIsNotATypeIsRejected(t *testing.T) {
 		{"a variant of the generic enum matched", "  h = Holder.Of{value: 1}\n  _ = case h\n    Of.Of{value:} -> value\n  end\n",
 			"Of.Of", "`Of` is a variant of Holder, not a type\nhelp: write `Holder.Of`, or `.Of`"},
 		{"a prelude variant", "  m = Some(1)\n  _ = case m\n    Some.Some(n) -> n\n    _ -> 0\n  end\n",
-			"Some.Some", "`Some` is a variant of Maybe, not a type\nhelp: write `Maybe.Some`, or `.Some`"},
+			"Some.Some", "`Some` is a variant of Option, not a type\nhelp: write `Option.Some`, or `.Some`"},
 		{"another prelude variant", "  m = Some(1)\n  _ = case m\n    None.Some(n) -> n\n    _ -> 0\n  end\n",
-			"None.Some", "`None` is a variant of Maybe, not a type\nhelp: write `Maybe.Some`, or `.Some`"},
+			"None.Some", "`None` is a variant of Option, not a type\nhelp: write `Option.Some`, or `.Some`"},
 		{"a prelude variant over a user enum", "  s = Shape.Square(1)\n  _ = case s\n    Some.Square(n) -> n\n    _ -> 0\n  end\n",
-			"Some.Square", "`Some` is a variant of Maybe, not a type\nhelp: write `Shape.Square`, or `.Square`"},
+			"Some.Square", "`Some` is a variant of Option, not a type\nhelp: write `Shape.Square`, or `.Square`"},
 		{"a function", "  s = Shape.Square(1)\n  _ = case s\n    helper.Square(n) -> n\n    _ -> 0\n  end\n",
 			"helper.Square", "`helper` is a function, not a type\nhelp: write `Shape.Square`, or `.Square`"},
 		{"a binding", "  x = 3\n  s = Shape.Square(1)\n  _ = case s\n    x.Square(n) -> n\n    _ -> 0\n  end\n",
@@ -191,8 +191,8 @@ func TestPatternQualifier_ANameThatIsNotATypeIsRejected(t *testing.T) {
 		// Construction already rejected these; they stay rejected.
 		{"a variant qualifying a construction", "  s: Shape = Of.Square(4)\n  _ = s\n",
 			"Of.Square", "variant 'Of' must be qualified through its enum; use 'Holder.Of'"},
-		{"a prelude variant qualifying a construction", "  m: Maybe<Int> = Some.Some(4)\n  _ = m\n",
-			"Some(4)", "(T) -> Maybe<T> has no field 'Some'"},
+		{"a prelude variant qualifying a construction", "  m: Option<Int> = Some.Some(4)\n  _ = m\n",
+			"Some(4)", "(T) -> Option<T> has no field 'Some'"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			src := variantQualifierDecls + "fn main()\n" + tc.body + "end\n"
@@ -233,7 +233,7 @@ func TestPatternQualifier_TheEnumNameOverAVariantNameIsAccepted(t *testing.T) {
 		"  s = Shape.Square(1)\n  _ = case s\n    .Ring{r:} -> r\n    Shape.Square(n) -> n\n  end\n",
 		"  s = Shape.Square(1)\n  _ = case s\n    Shape.Ring{r:} -> r\n    .Square(n) -> n\n  end\n",
 		"  h = Holder.Of{value: 1}\n  _ = case h\n    Holder.Of{value:} -> value\n  end\n",
-		"  m = Some(1)\n  _ = case m\n    Maybe.Some(n) -> n\n    Maybe.None -> 0\n  end\n",
+		"  m = Some(1)\n  _ = case m\n    Option.Some(n) -> n\n    Option.None -> 0\n  end\n",
 	} {
 		src := variantQualifierDecls + "fn main()\n" + body + "end\n"
 		_, errs := checkSourceWithStdlib(src)

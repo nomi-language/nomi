@@ -7,7 +7,7 @@ import "testing"
 // around its two halves, by every spelling of their Debug: the type's own
 // `T.inspect`, which names std's impl by its type, `Debug.inspect`,
 // `io.inspect`, `dbg`, a generic function's `Debug.inspect`, and as a part
-// of a list and a Maybe. `Sender.inspect`, `Receiver.inspect`,
+// of a list and an Option. `Sender.inspect`, `Receiver.inspect`,
 // `Channel.inspect` and `Task.inspect` were declined by the builder, and
 // `Arm.inspect` printed `Arm`.
 func TestHandleInspect_EverySpellingPrintsTheSpecsText(t *testing.T) {

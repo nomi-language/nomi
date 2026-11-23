@@ -62,7 +62,7 @@ func (p *Parser) subscriptAt(start int) error {
 		break
 	}
 	return errorAt(open.Line, open.Col,
-		"Nomi has no `%s[%s]`: read an element with `List.get(%s, %s)`, which returns a Maybe (`Vector.get`, `Map.get` and `String.at` for those types), or take it apart with a pattern",
+		"Nomi has no `%s[%s]`: read an element with `List.get(%s, %s)`, which returns an Option (`Vector.get`, `Map.get` and `String.at` for those types), or take it apart with a pattern",
 		expr, index, expr, index)
 }
 

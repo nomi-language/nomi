@@ -54,8 +54,8 @@ import
     iter.Iter
     lists.List
     mail::host
-    maybe.Maybe.{self, None, Some}
     net.{self, Connection}
+    option.Option.{self, None, Some}
     random
     results.Result.{self, Err, Ok}
     strings.String
@@ -80,10 +80,10 @@ pub struct Message
     reply_to: List<Address> = []
     subject:  String = ""
     /// The plain-text body.
-    text: Maybe<String> = None
+    text: Option<String> = None
     /// The HTML body. With `text` too, the message is
     /// multipart/alternative and a reader shows the one it prefers.
-    html: Maybe<Html> = None
+    html: Option<Html> = None
     /// Further headers, in order: `List-Unsubscribe`, `In-Reply-To`, a
     /// provider's `X-` headers. A header std writes itself (`From`, `To`,
     /// `Cc`, `Bcc`, `Reply-To`, `Subject`, `Date`, `Message-ID`,
@@ -99,7 +99,7 @@ derive Equatable for Message
 pub struct Attachment
     /// The name a reader saves it as.
     filename: String
-    /// `type/subtype`, such as `application/pdf`.
+    /// `type/refinement`, such as `application/pdf`.
     content_type: String
     data:         Bytes
 end
@@ -166,10 +166,10 @@ impl Address
 
                     parts ->
                         // `before` is the name, the last `<` and the email.
-                        email = Iter.last(parts) |> Maybe.with_default("")
+                        email = Iter.last(parts) |> Option.with_default("")
 
                         name_part =
-                            String.strip_suffix(before, "<${email}") |> Maybe.with_default("")
+                            String.strip_suffix(before, "<${email}") |> Option.with_default("")
 
                         Address.new(email, name: unquote(String.trim(name_part)))
                         |> Result.map_err(fn _ ->
@@ -188,7 +188,7 @@ impl Address
     end
 
     /// The display name, or `None` when there is none.
-    pub fn name(address: Address) -> Maybe<String>
+    pub fn name(address: Address) -> Option<String>
         if address.name == "" then
             None
         else
@@ -218,7 +218,7 @@ end
 fn unquote(name: String) -> String
     inner =
         String.strip_prefix(name, "\"")
-        |> Maybe.flat_map(fn rest -> String.strip_suffix(rest, "\""))
+        |> Option.flat_map(fn rest -> String.strip_suffix(rest, "\""))
 
     case inner
         None ->
@@ -305,10 +305,10 @@ fn domain_problem(domain: String) -> Result<Unit, String>
             Some("a domain label starts or ends with a hyphen")
         else
             Iter.find(label, fn g -> not (g == "-" or is_letter_or_digit(code_of(g))))
-            |> Maybe.map(fn g -> "the domain holds ${String.to_literal(g)}")
+            |> Option.map(fn g -> "the domain holds ${String.to_literal(g)}")
         end
     end)
-    |> Maybe.to_result(Unit)
+    |> Option.to_result(Unit)
     |> flip()
 end
 
@@ -414,7 +414,7 @@ pub struct SmtpConfig
     /// Sent with AUTH PLAIN, or AUTH LOGIN when the server offers only
     /// that. Never sent without TLS, except to `localhost`, `::1` or a
     /// `127.` address: a send that would is `Err(.Protocol)`.
-    credentials: Maybe<Credentials> = None
+    credentials: Option<Credentials> = None
     /// The name this side gives in EHLO.
     hello: String = "localhost"
     /// The longest connecting, or waiting for any one reply, may take. The
@@ -590,7 +590,7 @@ fn hello(session: Session, config: SmtpConfig) -> Result<List<String>, Error>
     if reply.code == 250 then
         Ok(
             List.tail(reply.lines)
-            |> Maybe.with_default([])
+            |> Option.with_default([])
             |> Iter.map(String.uppercase)
             |> Iter.to_list()
         )
@@ -654,8 +654,8 @@ fn authenticate(
 
     mechanisms =
         extensions
-        |> Iter.find_map(fn e -> String.strip_prefix(e, "AUTH ") |> Maybe.map(String.words))
-        |> Maybe.with_default([])
+        |> Iter.find_map(fn e -> String.strip_prefix(e, "AUTH ") |> Option.map(String.words))
+        |> Option.with_default([])
 
     user = String.to_bytes(credentials.username)
     password = String.to_bytes(credentials.password)
@@ -843,7 +843,7 @@ fn check_attachment(attachment: Attachment) -> Result<Unit, Error>
             invalid(
                 "the attachment ${String.to_literal(name)} has the content type ${String.to_literal(
                     attachment.content_type
-                )}, not type/subtype"
+                )}, not type/refinement"
             )
     end
 end
@@ -893,8 +893,8 @@ end
 //
 pub fn render(
     message:    Message,
-    message_id: Maybe<String> = None,
-    date:       Maybe<Instant> = None,
+    message_id: Option<String> = None,
+    date:       Option<Instant> = None,
 ) -> Result<String, Error>
     check_message(message)?
 
@@ -929,7 +929,7 @@ pub fn render(
 end
 
 fn new_message_id(from: Address) -> String
-    domain = String.split(from.email, "@") |> Iter.last() |> Maybe.with_default("localhost")
+    domain = String.split(from.email, "@") |> Iter.last() |> Option.with_default("localhost")
     "<${hex.encode(random.secure_bytes(16))}@${domain}>"
 end
 
@@ -937,10 +937,10 @@ end
 fn content(message: Message) -> (List<String>, String)
     bodies =
         [
-            message.text |> Maybe.map(text_part),
-            message.html |> Maybe.map(fn html -> html_part(Html.to_string(html))),
+            message.text |> Option.map(text_part),
+            message.html |> Option.map(fn html -> html_part(Html.to_string(html))),
         ]
-        |> Maybe.values()
+        |> Option.values()
         |> Iter.to_list()
 
     main =
@@ -1135,8 +1135,8 @@ fn fold(line: String) -> String
     if String.length(line) <= 78 then return line
 
     words = String.split(line, " ")
-    first = List.first(words) |> Maybe.with_default("")
-    rest = List.tail(words) |> Maybe.with_default([])
+    first = List.first(words) |> Option.with_default("")
+    rest = List.tail(words) |> Option.with_default([])
 
     (done, last) = Iter.reduce(rest, ([], first), fn (done, current), word ->
         if word != "" and String.length(current) + 1 + String.length(word) > 78 then

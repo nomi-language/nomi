@@ -194,8 +194,15 @@
 // read every call and every place. CheckLowering, the language server's lowering, walks
 // from the roots `nomi check` holds once, lists or not, and answers each
 // call it reaches beside the problems (reachedCalls), with the line a
-// hover on it shows (effects.ReachedLine). CheckJSON writes `nomi
-// check --format json`'s records.
+// hover on it shows (effects.ReachedLine). For a program the front end
+// refuses whose errors are all in functions, impl functions, tests and
+// groups, it and ReachedMarked lower the rest (config.errored, which
+// lowerLocked fills and still answers the front end's error for) and
+// answer the calls the same walks find there, beside the error: no
+// problem, no list held, and nothing of the declarations that did not
+// check (irbuild.Program.ErrorDecls). Every other load refuses such a
+// program as it did. CheckJSON writes `nomi check --format json`'s
+// records.
 //
 // Reached and Program.Reach answer the effects a program has, from the roots
 // `nomi check` holds (Walk per root set), with the module each call is
@@ -235,12 +242,12 @@
 // on what it is passed (effects.HeldLine), and a call through an interface
 // only some of whose implementations can act the line that it may
 // (effects.MayLine), which stands alone at that call. A line is Marked,
-// and an editor draws its token bold, at each call that can act (a
-// `dbg` among them, at its keyword, shownSpan) and at
+// and an editor draws its token bold, at each call that can act and at
 // the name of each function, not a once, that can: a read of a once, a
 // function named as a value and a once's name keep their lines unmarked,
-// and so does a call the builder made where the source names a function as
-// a value, which has no call syntax (actingCalls). ReachedMarked is
+// and so do a call the builder made where the source names a function as
+// a value, which has no call syntax, and a `dbg`, whose keyword is its
+// callee (shownSpan) and shows the effect on its line (actingCalls). ReachedMarked is
 // reachedCalls for a tour block, whose hover in the browser ends with the
 // same lines as the editor's.
 // Program.StdEffects answers, for a std module LoadEmbeddedStdlib
@@ -343,9 +350,9 @@
 // The language server also evaluates double-quoted typed literals with no
 // `${...}` this way, for hovers and diagnostics.
 //
-// A literal the checker typed as a subtype (spec §4 *Subtypes*)
+// A literal the checker typed as a refinement (spec §4 *Refinements*)
 // is checked here too (refinements.go): irbuild lists each one as a
-// RefinementSite with the `try_from` of every subtype on its chain, and
+// RefinementSite with the `try_from` of every refinement on its chain, and
 // checkRefinements calls each on the literal, a validated struct's on the
 // record its literal fields build. A `None` is the error `-1.0 is not a
 // NonNegativeFloat: <rule> is false` at the literal, and a trap in a rule
@@ -356,7 +363,7 @@
 // machine cannot run is an error there that names it. Each declared rule
 // (irbuild.Result.RefinementRules) is refused when it can reach an effect,
 // whether or not a literal is checked against it, and a literal of a
-// subtype so refused is not reported again. A generic subtype's rule
+// refinement so refused is not reported again. A generic refinement's rule
 // is walked through its `try_from` at its bounds' interfaces, whose calls
 // dispatch to every implementation the program retains, at a witness
 // type, at every instance the linked program has, and with every function

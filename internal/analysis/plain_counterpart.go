@@ -8,8 +8,8 @@ import (
 	"github.com/nomi-language/nomi/internal/parser"
 )
 
-// PlainCounterpart is a call `Owner.name(value, ...)` whose result is a
-// Maybe while value's type is a refinement whose own function of that name
+// PlainCounterpart is a call `Owner.name(value, ...)` whose result is an
+// Option while value's type is a refinement whose own function of that name
 // and arity answers the payload itself: `List.first(names)` with `names` a
 // NonEmptyList, whose `NonEmptyList.first(names)` is the element. The
 // program means the same either way; the hint names the plain call
@@ -23,7 +23,7 @@ type PlainCounterpart struct {
 	// Value spells the value as written (`names`), "" for one no name
 	// spells.
 	Value string
-	// Payload is the counterpart's result, the Maybe's payload: `String`.
+	// Payload is the counterpart's result, the Option's payload: `String`.
 	Payload string
 	// Owner is the extent of the callee's owner (`List`), which the fix
 	// rewrites; zero when the refinement's name does not reach its type in
@@ -42,7 +42,7 @@ func (c *checker) notePlainCounterpart(call *ast.Call, value ast.Node, valueTy, 
 	if call == nil || value == nil || c.fa == nil {
 		return
 	}
-	payload := maybePayload(result)
+	payload := optionPayload(result)
 	if payload == nil {
 		return
 	}
@@ -64,7 +64,7 @@ func (c *checker) notePlainCounterpart(call *ast.Call, value ast.Node, valueTy, 
 		return
 	}
 	ft, ok := resolveTypeVar(sym.Type).(*FuncType)
-	if !ok || len(ft.Params) != arity || ft.DefaultCount != 0 || maybePayload(ft.Return) != nil {
+	if !ok || len(ft.Params) != arity || ft.DefaultCount != 0 || optionPayload(ft.Return) != nil {
 		return
 	}
 	calleeSpan, ok := spanOf(callee)
@@ -92,8 +92,8 @@ func (c *checker) notePlainCounterpart(call *ast.Call, value ast.Node, valueTy, 
 }
 
 // plainCounterpartHints are the hints for fa's PlainCounterparts, from
-// nodes. A call whose Maybe a `!` unwraps carries a fix that calls the
-// counterpart and drops the `!`; any other reads the Maybe, which the
+// nodes. A call whose Option a `!` unwraps carries a fix that calls the
+// counterpart and drops the `!`; any other reads the Option, which the
 // counterpart's result is not, so it carries none.
 func plainCounterpartHints(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 	unwrapped := map[*ast.Call]*ast.Unwrap{}
@@ -130,7 +130,7 @@ func plainCounterpartHints(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 		e := TypeError{
 			Line: pc.Callee.StartLine, Col: pc.Callee.StartCol, EndLine: pc.Callee.EndLine, EndCol: pc.Callee.EndCol,
 			Code: HintPlainCounterpart,
-			Message: fmt.Sprintf("%s is %s: `%s.%s(%s)` is %s, not a Maybe",
+			Message: fmt.Sprintf("%s is %s: `%s.%s(%s)` is %s, not an Option",
 				subject, withArticle(pc.Refinement), pc.Refinement, pc.Func, value, withArticle(pc.Payload)),
 		}
 		if u := unwrapped[call]; u != nil && pc.Owner.StartLine > 0 && u.Line > 0 {

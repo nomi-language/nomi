@@ -170,7 +170,7 @@ end
 // is not retained.
 func TestIRContext_UnsupportedShapesPreserveEmission(t *testing.T) {
 	for _, body := range []string{
-		// A Context value whose type (a generic Maybe) has no single-name identity.
+		// A Context value whose type (a generic Option) has no single-name identity.
 		"_ = Context.with_value(Context.with_timeout(Run.context, Duration.seconds(1)), Some(1))\n 1",
 	} {
 		p, err := AnalyzeSource("main.nomi", "import std::duration.Duration\nfn run() -> Int\n"+body+"\nend\nfn main()\n  _ = run()\nend\n"+

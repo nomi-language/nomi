@@ -15,7 +15,7 @@ const bankProgram = `import std::io
 fn main() -> Result<Unit, String>
     io.print("What is the starting balance?")
     balance = case io.read_line()
-        Ok(Some(line)) -> String.to_int(line) |> Maybe.with_default(0)
+        Ok(Some(line)) -> String.to_int(line) |> Option.with_default(0)
         _ -> 0
     end
     io.print("Your starting balance: ${balance}")
@@ -30,7 +30,7 @@ fn loop(balance: Int) -> Unit
     case io.read_line()
         Ok(Some(line)) -> case String.split(line, " ")
             ["deposit", n] ->
-                amount = String.to_int(n) |> Maybe.with_default(0)
+                amount = String.to_int(n) |> Option.with_default(0)
                 io.print("${amount} deposited, new balance is ${balance + amount}")
                 loop(balance + amount)
             _ ->
@@ -105,9 +105,9 @@ func TestReplay_APartialLinePromptIsOutput(t *testing.T) {
 
 fn main()
     io.print("What is your name?")
-    name = io.read_line() |> Result.with_default(None) |> Maybe.with_default("")
+    name = io.read_line() |> Result.with_default(None) |> Option.with_default("")
     io.write("Hello, ${name}. Your age: ")
-    age = io.read_line() |> Result.with_default(None) |> Maybe.with_default("")
+    age = io.read_line() |> Result.with_default(None) |> Option.with_default("")
     io.print("${name} is ${age}")
 end
 

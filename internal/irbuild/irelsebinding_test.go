@@ -56,7 +56,7 @@ func TestBindingElse_EveryFunctionIsRetained(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	src := `fn shown(email: Maybe<String>) -> String
+	src := `fn shown(email: Option<String>) -> String
     Some(e) = email else
         "none"
     end
@@ -100,7 +100,7 @@ end
 func TestBindingElse_BareReturnLeavesALambda(t *testing.T) {
 	src := `import std::io
 
-fn block(xs: List<Maybe<Int>>)
+fn block(xs: List<Option<Int>>)
     Iter.each(xs, fn m ->
         Some(v) = m else
             return
@@ -109,7 +109,7 @@ fn block(xs: List<Maybe<Int>>)
     end)
 end
 
-fn statements(xs: List<Maybe<Int>>)
+fn statements(xs: List<Option<Int>>)
     Iter.each(xs, fn m ->
         Some(v) = m else
             io.print("none")
@@ -131,7 +131,7 @@ fn arms(xs: List<Result<Int, String>>)
 end
 
 fn named()
-    show = fn m: Maybe<String> ->
+    show = fn m: Option<String> ->
         Some(s) = m else
             return
         end
@@ -140,7 +140,7 @@ fn named()
     show(None)
 end
 
-fn nested(rows: List<List<Maybe<Int>>>)
+fn nested(rows: List<List<Option<Int>>>)
     Iter.each(rows, fn row ->
         Iter.each(row, fn m ->
             Some(v) = m else

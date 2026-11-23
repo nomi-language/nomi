@@ -813,7 +813,7 @@ func tourTypingSeeds(tb testing.TB) []typingSeed {
 var quickSeeds = []string{
 	"tests/05-calendar-and-time/dates_test.nomi",
 	"tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi",
-	"std/maybe.nomi",
+	"std/option.nomi",
 	"tour/pattern-matching.md",
 	"tour/pipes.md",
 	"tour/modules-and-imports.md",

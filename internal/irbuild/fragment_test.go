@@ -15,7 +15,7 @@ import (
 // `std/literals.Fragment<T>`, the preludeSpec that mixes a concrete payload
 // with a parametric one.
 //
-// `Maybe` and `Result` are uniformly parametric; Fragment has to distinguish
+// `Option` and `Result` are uniformly parametric; Fragment has to distinguish
 // "this payload is the type argument" from "this payload is always a String",
 // and at `T = String`, the instantiation the corpus uses, the two are
 // indistinguishable by layout. So:
@@ -24,7 +24,7 @@ import (
 //     and `T` differ whatever T is (prelude.go's matches),
 //   - the layout guard reflects over `rt.Fragment[int64]`, where the two
 //     payloads are different Go types (TestPreludeLayoutMatchesRT),
-//   - and the fixture below runs Fragment at Int, Bool and Maybe<Int> as well
+//   - and the fixture below runs Fragment at Int, Bool and Option<Int> as well
 //     as String, so a swapped spec changes the transcript.
 //
 // A comparison of two runs on its own can see NONE of this, because both would
@@ -101,13 +101,13 @@ func TestFragmentInternKeyCarriesTheTypeArguments(t *testing.T) {
 	}
 	// And a nested instance, so the key is exercised at an argument that is
 	// itself interned rather than a scalar.
-	mi := g.preludeInstance(preludeAnchorForTest(g, "Maybe"), []kind{kindInt})
+	mi := g.preludeInstance(preludeAnchorForTest(g, "Option"), []kind{kindInt})
 	fm := g.preludeInstance(a, []kind{mi})
-	if got := fm.nomi(); got != "Fragment<Maybe<Int>>" {
-		t.Fatalf("Fragment<Maybe<Int>> renders as %q", got)
+	if got := fm.nomi(); got != "Fragment<Option<Int>>" {
+		t.Fatalf("Fragment<Option<Int>> renders as %q", got)
 	}
 	if fm == fi || fm == fs {
-		t.Fatal("Fragment<Maybe<Int>> collapsed onto a scalar instantiation")
+		t.Fatal("Fragment<Option<Int>> collapsed onto a scalar instantiation")
 	}
 }
 
@@ -152,7 +152,7 @@ func TestTryOperandSetsAgreeWithTheChecker(t *testing.T) {
 // TestFragmentIdentityIsNotAName checks that a module declaring its own
 // `Fragment` does not have it lowered to rt's.
 //
-// `Fragment` is not a reserved name the way `Maybe` and `Result` are (the
+// `Fragment` is not a reserved name the way `Option` and `Result` are (the
 // analyzer rejects redeclaring those outright), so a user declaration of the
 // same name is reachable, and the anchor's (Origin, Name) rule carries the
 // weight on its own.

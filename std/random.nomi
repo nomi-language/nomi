@@ -33,7 +33,7 @@ import
     int.{Int, NonNegativeInt}
     iter.Iter
     lists.{List, NonEmptyList}
-    maybe.Maybe.{self, None, Some}
+    option.Option.{self, None, Some}
     ranges.{BoundedRange, Range}
     results.Result.{self, Err, Ok}
     strings.String
@@ -56,9 +56,9 @@ end
 //! assert FiniteRange.try_from(1.0..0.0) == None
 //! assert FiniteRange.try_from(0.0..1.0) == Some(0.0..1.0)
 //
-pub subtype FiniteRange BoundedRange<Float> when fn r ->
+pub refine FiniteRange BoundedRange<Float> when fn r ->
     Float.is_finite(Range.start(r))
-        and Float.is_finite(Maybe.with_default(Range.stop(r), Float.nan()))
+        and Float.is_finite(Option.with_default(Range.stop(r), Float.nan()))
 end
 
 /// Errors returned when weights cannot make a generator, or when OS entropy is

@@ -78,7 +78,7 @@ func intoSlots(s *hostadapt.Slots, in []rt.SlotType, args []rt.Value) bool {
 
 // sameRegs holds a register form's answer to the adapter's whole answer for
 // the same operands: a failure for a failure, and the answer's parts for
-// the answer: the value itself, a tuple's components, or for a Maybe or a
+// the answer: the value itself, a tuple's components, or for an Option or a
 // Result the payload's parts with carried, or the None or Err record
 // without. shapeOnly compares which of these it was and not the values,
 // for an answer that differs from call to call. It answers whether the
@@ -121,7 +121,7 @@ func sameRegs(t *testing.T, key string, regs hostadapt.Regs, whole hostOutcome, 
 	if regs.Carries {
 		rec, isRec := want.(*rt.Record)
 		if !isRec || rec.Desc.Kind != rt.KindEnum {
-			t.Errorf("%s: the adapter answers %T, not a Maybe or a Result", key, want)
+			t.Errorf("%s: the adapter answers %T, not an Option or a Result", key, want)
 			return true
 		}
 		variant := rec.Desc.Variants[rec.Tag].Name
@@ -138,7 +138,7 @@ func sameRegs(t *testing.T, key string, regs hostadapt.Regs, whole hostOutcome, 
 		}
 		want = rec.Field(0)
 	} else if !carried {
-		t.Errorf("%s: a register form that carries no Maybe answers carried = false", key)
+		t.Errorf("%s: a register form that carries no Option answers carried = false", key)
 		return true
 	}
 	if shapeOnly {

@@ -10,7 +10,7 @@
 // is still callable as `Tag.inspect`.
 //
 // The enum is `opaque` on purpose: outside this file the variant set is hidden,
-// so smart constructors and `Maybe`-returning accessors are the ONLY way in.
+// so smart constructors and `Option`-returning accessors are the ONLY way in.
 // That is what makes a type-qualified call to an inherent impl function the
 // whole interface of the type rather than a convenience.
 pub opaque enum Status
@@ -39,7 +39,7 @@ impl Status
         end
     end
 
-    pub fn reason(s: Status) -> Maybe<String>
+    pub fn reason(s: Status) -> Option<String>
         case s
             .Inactive(r)        -> Some(r)
             .Suspended{reason:} -> Some(reason)

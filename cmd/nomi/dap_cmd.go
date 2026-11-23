@@ -7,11 +7,13 @@ import (
 	"github.com/nomi-language/nomi/internal/dap"
 )
 
+const dapUsage = "usage: nomi dap"
+
 // runDAP is `nomi dap`: a Debug Adapter Protocol server on stdin and stdout
 // for one debug session, which an editor starts and talks to.
 func runDAP(args []string) int {
 	if len(args) > 0 {
-		fmt.Fprintf(os.Stderr, "nomi dap: unexpected argument %q\nusage: nomi dap\n", args[0])
+		fmt.Fprintf(os.Stderr, "nomi dap: unexpected argument %q\n%s\n", args[0], dapUsage)
 		return 1
 	}
 	s := dap.NewServer(os.Stdin, os.Stdout)

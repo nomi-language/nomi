@@ -158,7 +158,7 @@
 //     there into the destination's register, so an Int that fits int64, a
 //     Float, a Bool, a Byte, a String and a Bytes cross without a box, and a
 //     tuple answered into a split destination builds no record. A
-//     destination that keeps a Maybe, a Result or a tuple whole gets it
+//     destination that keeps an Option, a Result or a tuple whole gets it
 //     built from the parts (hostadapt.Regs.Answer). Any other
 //     crossing's operands go in a scratch slice the activation record keeps
 //     (frame.hostArgs) and clears after the call: a host reads its operands
@@ -166,9 +166,9 @@
 //     keeps the value, not the slice). A debug or profiling machine runs
 //     every crossing boxed, and a debug machine records its operands, so it
 //     takes a fresh slice.
-//   - A call answering a Maybe or a Result that every use takes apart
-//     (variant tests, the payload read, `?`, `Maybe.with_default` and
-//     `Result.with_default`) keeps it fused (maybefuse.go): the payload of
+//   - A call answering an Option or a Result that every use takes apart
+//     (variant tests, the payload read, `?`, `Option.with_default` and
+//     `Result.with_default`) keeps it fused (optionfuse.go): the payload of
 //     a Some or an Ok goes in a register of the payload's bank, or a tuple
 //     payload's components each in one, the None or Err record in the
 //     result's reference register and the tag in a word register, and the
@@ -176,9 +176,9 @@
 //     default `opDefaultM`, the payload read with the default for a None
 //     or an Err, so a Some or an Ok allocates nothing and neither does its
 //     payload or a default. A crossing is `opHostM` and fuses when it can
-//     answer in parts: every adapter whose register form carries a Maybe or
+//     answer in parts: every adapter whose register form carries an Option or
 //     a Result, and Map.get, Vector.get, Vector.set and the Bytes reads by
-//     fast paths of their own (maybefuse.go's fastPaths). Two of those are
+//     fast paths of their own (optionfuse.go's fastPaths). Two of those are
 //     reads of a value's storage that opHostM runs in the dispatch loop
 //     itself (frame.readFused): Vector.get, and `Bytes.get` with the
 //     fixed-width integer reads (`Bytes.uint8_at` and its siblings), the
@@ -233,7 +233,7 @@
 // instead of the fast path, so the debugger records it and the profiler
 // samples at its return.
 //
-// TestOpCosts_* (opcosts_test.go), TestMaybeFuse_*, TestMaybeTuple_*,
+// TestOpCosts_* (opcosts_test.go), TestOptionFuse_*, TestOptionTuple_*,
 // TestHostSlots_* and TestTupleSplit_* count each path's allocations.
 //
 // The construction handler (makeValue) runs a cons, a list or vector
@@ -293,8 +293,8 @@
 // through the views around it, and views nest at most maxInlineDepth deep.
 // An operand whose parameter the callee only takes apart (takenApart)
 // fuses in the caller as if the callee's tests and reads were the
-// caller's, so a Maybe a crossing answers and a small function matches is
-// never built (maybefuse.go). A debug, profiling or entry-counting machine
+// caller's, so an Option a crossing answers and a small function matches is
+// never built (optionfuse.go). A debug, profiling or entry-counting machine
 // compiles no views, so its stops, samples and counts are per function as
 // written; NoInlineEnv and WithoutInlining turn them off on any machine.
 // A profile still names a view's function under its caller (profile.go).
@@ -349,8 +349,8 @@
 //     on each header, map root and node, so the operation writes the nodes
 //     its value's lineage stamped and copies any other once. A set, or a
 //     put over a key the map has, answers the operand's own box, so it
-//     allocates nothing. `Vector.set` answers a Maybe; the vector a `!` or
-//     a `Some` pattern reads out of it is owned as the Maybe is (ir package
+//     allocates nothing. `Vector.set` answers an Option; the vector a `!` or
+//     a `Some` pattern reads out of it is owned as the Option is (ir package
 //     doc, "Updates written in place"), so the next set writes it too. The lookups (`Vector.get`, `Map.size`, the
 //     others in borrowingHosts) keep nothing of their operands, so they do
 //     not end a collection's ownership. A profiling machine's crossings go
@@ -432,7 +432,7 @@
 // record and no call. A Range of any other element calls its linked impls
 // per element. A Range's parts (`Range.start`, `Range.stop`,
 // `Range.is_inclusive`) are pure hosts over its record (rangehosts.go),
-// so a subtype rule that reads them runs when a literal is checked.
+// so a refinement rule that reads them runs when a literal is checked.
 //
 // `Iter.zip` pulls its right side one element per left element. When the
 // right side is the view of a List, a Vector or a `Range<Int>` (its Src),

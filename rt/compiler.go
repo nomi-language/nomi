@@ -70,14 +70,14 @@ type Hover struct {
 //     components are package-neutral, so the kind compares equal to the one a
 //     call site's own `mapKind` produces. A kind interned per-gen would be one
 //     no other gen could match.
-//   - `Manifest` is a `Maybe` over the manifest's text, and it carries a
+//   - `Manifest` is an `Option` over the manifest's text, and it carries a
 //     field default of `None` — so the builder must supply that value at a
-//     construction site that omits it rather than leaving a zero `Maybe`,
+//     construction site that omits it rather than leaving a zero `Option`,
 //     whose Tag is neither Some nor None and matches no arm of a `case`.
 type Project struct {
 	EntryPoint string
 	Files      Map[string, string]
-	Manifest   Maybe[string]
+	Manifest   Option[string]
 }
 
 // RunFile is the input to `compiler.run_file` as data —
@@ -96,7 +96,7 @@ type Project struct {
 // function, and the mistake would be a wrong answer rather than a compile error.
 //
 // `Env` carries a field default of `{}`, which is why the builder needs
-// a value to supply at a construction site that omits it. Unlike `Maybe`, an
+// a value to supply at a construction site that omits it. Unlike `Option`, an
 // omitted `rt.Map` zero value is a perfectly good empty map — the trie root is a
 // nil pointer and the count is zero — so the default here is not load-bearing
 // against a wrong answer the way `Project.Manifest`'s `None` is. It is supplied

@@ -6,7 +6,7 @@ import (
 )
 
 const storeDecls = `interface Store<K, V>
-    fn get(store: self, key: K) -> Maybe<V>
+    fn get(store: self, key: K) -> Option<V>
     fn put(store: self, key: K, value: V) -> self
 end
 
@@ -45,27 +45,27 @@ func TestImplHeaderTypeArgs_ConformanceChecksRun(t *testing.T) {
 			},
 		},
 		"parameter type": {
-			block: "impl Store<String, T> for Cache<T>\n    fn get(cache: Cache<T>, key: Int) -> Maybe<T>\n        _ = key\n        Map.get(cache.items, \"k\")\n    end\n\n    fn put(cache: Cache<T>, key: String, value: T) -> Cache<T>\n        Cache{items: Map.put(cache.items, key, value)}\n    end\nend\n",
+			block: "impl Store<String, T> for Cache<T>\n    fn get(cache: Cache<T>, key: Int) -> Option<T>\n        _ = key\n        Map.get(cache.items, \"k\")\n    end\n\n    fn put(cache: Cache<T>, key: String, value: T) -> Cache<T>\n        Cache{items: Map.put(cache.items, key, value)}\n    end\nend\n",
 			want:  []string{"impl function 'get': parameter 2 has type Int, but interface 'Store' declares String"},
 		},
 		"return type": {
 			block: "impl Store<String, T> for Cache<T>\n    fn get(cache: Cache<T>, key: String) -> Int\n        _ = (cache, key)\n        1\n    end\n\n    fn put(cache: Cache<T>, key: String, value: T) -> Cache<T>\n        Cache{items: Map.put(cache.items, key, value)}\n    end\nend\n",
-			want:  []string{"impl function 'get': return type Int does not match interface 'Store' return type Maybe<T>"},
+			want:  []string{"impl function 'get': return type Int does not match interface 'Store' return type Option<T>"},
 		},
 		"parameter count": {
-			block: "impl Store<String, T> for Cache<T>\n    fn get(cache: Cache<T>, key: String) -> Maybe<T>\n        Map.get(cache.items, key)\n    end\n\n    fn put(cache: Cache<T>, key: String, value: T, more: Int) -> Cache<T>\n        _ = more\n        Cache{items: Map.put(cache.items, key, value)}\n    end\nend\n",
+			block: "impl Store<String, T> for Cache<T>\n    fn get(cache: Cache<T>, key: String) -> Option<T>\n        Map.get(cache.items, key)\n    end\n\n    fn put(cache: Cache<T>, key: String, value: T, more: Int) -> Cache<T>\n        _ = more\n        Cache{items: Map.put(cache.items, key, value)}\n    end\nend\n",
 			want:  []string{"impl function 'put' takes 4 parameters, but interface 'Store' declares 3"},
 		},
 		"parameter name": {
-			block: "impl Store<String, T> for Cache<T>\n    fn get(cache: Cache<T>, key: String) -> Maybe<T>\n        Map.get(cache.items, key)\n    end\n\n    fn put(cache: Cache<T>, k: String, value: T) -> Cache<T>\n        Cache{items: Map.put(cache.items, k, value)}\n    end\nend\n",
+			block: "impl Store<String, T> for Cache<T>\n    fn get(cache: Cache<T>, key: String) -> Option<T>\n        Map.get(cache.items, key)\n    end\n\n    fn put(cache: Cache<T>, k: String, value: T) -> Cache<T>\n        Cache{items: Map.put(cache.items, k, value)}\n    end\nend\n",
 			want:  []string{"impl function 'put': parameter name 'k' does not match interface declaration 'key'"},
 		},
 		"extra function": {
-			block: "impl Store<String, T> for Cache<T>\n    fn get(cache: Cache<T>, key: String) -> Maybe<T>\n        Map.get(cache.items, key)\n    end\n\n    fn put(cache: Cache<T>, key: String, value: T) -> Cache<T>\n        Cache{items: Map.put(cache.items, key, value)}\n    end\n\n    fn size(cache: Cache<T>) -> Int\n        Map.size(cache.items)\n    end\nend\n",
+			block: "impl Store<String, T> for Cache<T>\n    fn get(cache: Cache<T>, key: String) -> Option<T>\n        Map.get(cache.items, key)\n    end\n\n    fn put(cache: Cache<T>, key: String, value: T) -> Cache<T>\n        Cache{items: Map.put(cache.items, key, value)}\n    end\n\n    fn size(cache: Cache<T>) -> Int\n        Map.size(cache.items)\n    end\nend\n",
 			want:  []string{"impl 'Store' for 'Cache': function 'size' is not part of the interface"},
 		},
 		"complete": {
-			block: "impl Store<String, T> for Cache<T>\n    fn get(cache: Cache<T>, key: String) -> Maybe<T>\n        Map.get(cache.items, key)\n    end\n\n    fn put(cache: Cache<T>, key: String, value: T) -> Cache<T>\n        Cache{items: Map.put(cache.items, key, value)}\n    end\nend\n",
+			block: "impl Store<String, T> for Cache<T>\n    fn get(cache: Cache<T>, key: String) -> Option<T>\n        Map.get(cache.items, key)\n    end\n\n    fn put(cache: Cache<T>, key: String, value: T) -> Cache<T>\n        Cache{items: Map.put(cache.items, key, value)}\n    end\nend\n",
 		},
 	} {
 		got := implErrors(storeDecls + tc.block)

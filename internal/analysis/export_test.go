@@ -243,20 +243,20 @@ func ReduceSourceFactsForTest(full *CheckedProgram, over *FileAnalysis) (red *Re
 
 // InterfaceMakesSelfForTest reports whether the interface named name that
 // origin declares, as fa reaches it, makes a value of its implementing
-// type (subtype_impls.go). found is false when fa reaches no such
+// type (refinement_impls.go). found is false when fa reaches no such
 // interface.
 func InterfaceMakesSelfForTest(fa *FileAnalysis, name, origin string) (makes, found bool) {
 	iface := fa.interfaceNamed(name, origin)
 	return interfaceMakesSelf(iface), iface != nil
 }
 
-// SubtypeReaderBreachesForTest is, for each interface that reads a subtype
-// at its base (subtypeReaders), each of its functions whose result names
-// its type, with the breach a read of a subtype answers there (zero for
+// RefinementReaderBreachesForTest is, for each interface that reads a refinement
+// at its base (refinementReaders), each of its functions whose result names
+// its type, with the breach a read of a refinement answers there (zero for
 // none).
-func SubtypeReaderBreachesForTest(fa *FileAnalysis) map[string]SubtypeBreach {
-	out := map[string]SubtypeBreach{}
-	for _, s := range subtypeReaders {
+func RefinementReaderBreachesForTest(fa *FileAnalysis) map[string]RefinementBreach {
+	out := map[string]RefinementBreach{}
+	for _, s := range refinementReaders {
 		iface := fa.stdInterface(s)
 		if iface == nil {
 			out[s.Name] = 0
@@ -264,7 +264,7 @@ func SubtypeReaderBreachesForTest(fa *FileAnalysis) map[string]SubtypeBreach {
 		}
 		for _, m := range iface.Methods {
 			if m.Return != nil && typeMentionsParam(m.Return, iface.SelfParam) {
-				out[s.Name+"."+m.Name] = subtypeBreachOf(m.Return, iface.SelfParam)
+				out[s.Name+"."+m.Name] = refinementBreachOf(m.Return, iface.SelfParam)
 			}
 		}
 	}

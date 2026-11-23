@@ -17,7 +17,7 @@ impl Equatable for Gadget
 end
 
 impl Steppable<Int> for Gadget
-    fn step_by(value: Gadget, by: Int) -> Maybe<Gadget>
+    fn step_by(value: Gadget, by: Int) -> Option<Gadget>
         Some(Gadget{n: value.n + by})
     end
 end
@@ -38,7 +38,7 @@ end
 derive Comparable for Meters
 
 impl Steppable<Int> for Meters
-    fn step_by(value: Meters, by: Int) -> Maybe<Meters>
+    fn step_by(value: Meters, by: Int) -> Option<Meters>
         Some(Meters{n: value.n + by})
     end
 end

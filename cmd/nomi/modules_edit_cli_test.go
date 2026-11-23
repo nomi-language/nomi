@@ -12,10 +12,12 @@ import (
 	"github.com/nomi-language/nomi/internal/modfetch"
 )
 
-// moduleCLI runs nomiBin in a directory with a file:// module proxy, no
-// checksum database, a private module cache and no `go` on PATH.
+// moduleCLI runs bin, nomiBin unless a test sets it, in a directory with a
+// file:// module proxy, no checksum database, a private module cache and no
+// `go` on PATH.
 type moduleCLI struct {
 	t     *testing.T
+	bin   string
 	proxy string
 	env   []string
 }
@@ -42,12 +44,12 @@ func newModuleCLI(t *testing.T) *moduleCLI {
 	if p := os.Getenv("NOMI_STD_PATH"); p != "" {
 		env = append(env, "NOMI_STD_PATH="+p)
 	}
-	return &moduleCLI{t: t, proxy: proxy, env: env}
+	return &moduleCLI{t: t, bin: nomiBin, proxy: proxy, env: env}
 }
 
 func (c *moduleCLI) run(dir string, args ...string) (stdout, stderr string, err error) {
 	c.t.Helper()
-	cmd := exec.Command(nomiBin, args...)
+	cmd := exec.Command(c.bin, args...)
 	cmd.Dir = dir
 	cmd.Env = c.env
 	var out, errOut bytes.Buffer
@@ -119,9 +121,65 @@ func TestModules_NewStartsAProject(t *testing.T) {
 		t.Errorf("nomi new . printed\n%s", out)
 	}
 
-	_, stderr, err = c.run(work, "new", "not a path")
-	if err == nil || !strings.Contains(stderr, `nomi new: "not a path" is not a module path`) {
-		t.Errorf("nomi new with a bad path: %v\n%s", err, stderr)
+}
+
+// `nomi new <name>` starts a module nobody downloads: its nomi.toml has no
+// path and it has no go.mod, and it runs, checks and builds by its
+// directory.
+func TestNew_ANameAloneStartsAProject(t *testing.T) {
+	c := newModuleCLI(t)
+	work := t.TempDir()
+	out := c.must(work, "new", "hello")
+	if want := "wrote hello/nomi.toml, hello/main.nomi and hello/AGENTS.md\nnext: cd hello && nomi run main.nomi"; out != want {
+		t.Fatalf("nomi new hello printed\n%s\nwant\n%s", out, want)
+	}
+	dir := filepath.Join(work, "hello")
+	if got := mustRead(t, filepath.Join(dir, "nomi.toml")); got != "[module]\nname = \"hello\"\nentry_points = [\"main\"]\n" {
+		t.Errorf("nomi.toml is\n%s", got)
+	}
+	if isRegular(filepath.Join(dir, "go.mod")) {
+		t.Error("nomi new hello wrote a go.mod")
+	}
+	agents := mustRead(t, filepath.Join(dir, "AGENTS.md"))
+	if !strings.Contains(agents, "`nomi run .`") || strings.Contains(agents, "go.mod") {
+		t.Errorf("AGENTS.md of a module with no path:\n%s", agents)
+	}
+	for _, args := range [][]string{{"run", "."}, {"run", "main.nomi"}} {
+		if out := c.must(dir, args...); out != "hello" {
+			t.Errorf("nomi %s printed %q", strings.Join(args, " "), out)
+		}
+	}
+	if out := c.must(dir, "check", "."); out != "ok main.nomi" {
+		t.Errorf("nomi check . printed %q", out)
+	}
+	if out := c.must(work, "run", "hello"); out != "hello" {
+		t.Errorf("nomi run hello printed %q", out)
+	}
+}
+
+// A refused `nomi new` writes nothing: a name that is no module name, a
+// path that is no module path, std, and a directory that is a project.
+func TestNew_ARefusedNewWritesNothing(t *testing.T) {
+	c := newModuleCLI(t)
+	work := t.TempDir()
+	for _, tc := range []struct{ arg, want string }{
+		{"not a path", `nomi new: "not a path" is not a module name: a name is lowercase letters, digits and _, not starting with a digit, such as hello_world; ` +
+			"a module others download is named by the path it is published at, such as github.com/you/hello_world"},
+		{"Hello", `nomi new: "Hello" is not a module name`},
+		{"hello-world", `nomi new: "hello-world" is not a module name`},
+		{"2fast", `nomi new: "2fast" is not a module name`},
+		{"hello/world", `nomi new: "hello/world" is not a module path: malformed module path "hello/world": missing dot in first path element; ` +
+			"a module path is usually its repository's address, such as github.com/you/project"},
+		{"std", "nomi new: std is the standard library's name; choose another"},
+		{"example.com/std", "nomi new: example.com/std gives no usable module name (its last element names the module); choose another path"},
+	} {
+		_, stderr, err := c.run(work, "new", tc.arg)
+		if err == nil || !strings.HasPrefix(stderr, tc.want) {
+			t.Errorf("nomi new %q: %v\n%s\nwant it to start\n%s", tc.arg, err, stderr, tc.want)
+		}
+	}
+	if entries, err := os.ReadDir(work); err != nil || len(entries) != 0 {
+		t.Errorf("a refused nomi new wrote %v (%v)", entries, err)
 	}
 }
 
@@ -369,7 +427,7 @@ func TestModules_CommandsWithNoManifestNameNomiNew(t *testing.T) {
 	dir := t.TempDir()
 	for _, args := range [][]string{{"add", "example.com/x"}, {"remove", "x"}, {"update"}} {
 		_, stderr, err := c.run(dir, args...)
-		if err == nil || !strings.Contains(stderr, "no nomi.toml in") || !strings.Contains(stderr, "nomi new <module path>") {
+		if err == nil || !strings.Contains(stderr, "no nomi.toml in") || !strings.Contains(stderr, "nomi new <name>") {
 			t.Errorf("nomi %s with no nomi.toml: %v\n%s", args[0], err, stderr)
 		}
 	}

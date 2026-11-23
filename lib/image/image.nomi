@@ -40,14 +40,14 @@ once engine: Module = wasm.compile(Files.read(engine_wasm, "engine/image.wasm")!
 
 /// A number of pixels: a width, a height, or how many an image may hold.
 /// It is at least 1, and at most a signed 64-bit integer.
-pub subtype Pixels PositiveInt and Int64
+pub refine Pixels PositiveInt and Int64
 
 /// How far into an image a crop starts, in pixels: 0 at the left or top
 /// edge.
-pub subtype Offset NonNegativeInt and Int64
+pub refine Offset NonNegativeInt and Int64
 
 /// A JPEG's quality, 1 to 100: higher keeps more detail in a larger file.
-pub subtype Quality Int when fn n -> n >= 1 and n <= 100
+pub refine Quality Int when fn n -> n >= 1 and n <= 100
 
 /// The file format an image was decoded from.
 pub enum Format
@@ -244,7 +244,7 @@ pub opaque struct Image
 
     /// The format it was decoded from; `None` for an image a resize or a
     /// crop made.
-    format: Maybe<Format>
+    format: Option<Format>
 end
 
 /// `n`, or 1 when it is less: a size computed from a box rounds to no
@@ -310,7 +310,7 @@ impl Image
 
     /// The format the image was decoded from, or `None` for one a resize
     /// or a crop made.
-    pub fn format(image: Image) -> Maybe<Format>
+    pub fn format(image: Image) -> Option<Format>
         image.format
     end
 

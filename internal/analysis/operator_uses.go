@@ -89,7 +89,7 @@ func (c *checker) recordOperatorUses() {
 // operatorSubject is the interface and function the operator n goes
 // through, and the type that implements it: a comparison's compared
 // operand's (comparedOperand), any other binary operator's left
-// operand's, `~~~`'s operand's (a subtype's value is its base's, as
+// operand's, `~~~`'s operand's (a refinement's value is its base's, as
 // checkBitwiseNot types it), and a `dbg`'s operand's, which it renders as
 // `Debug.inspect` does (spec §12 *Display and Debug*): `dbg e`'s e, and
 // for a pipe stage's bare `dbg` the value piped in, which is the stage's
@@ -218,7 +218,7 @@ func operatorUseOf(fa *FileAnalysis, n ast.Node) *OperatorUse {
 // Nil where none answers: a type with several blocks none of which is
 // selected, an unsolved variable, a primitive with no block.
 func (fa *FileAnalysis) interfaceUse(iface, method, origin string, recv Type, args []Type, chosen *ast.ImplBlock) (*OperatorUse, *ast.ImplBlock) {
-	// A variable the checker closed (`Maybe<?1>` of `Debug.inspect(None)`)
+	// A variable the checker closed (`Option<?1>` of `Debug.inspect(None)`)
 	// is its closed type, at any depth.
 	recv = Elaborate(recv)
 	t := resolveTypeVar(ResolveClosed(recv))

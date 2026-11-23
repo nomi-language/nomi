@@ -99,11 +99,11 @@ end`, "13:8", "Int", ""},
 // refutable part.
 func TestIfPattern_RefutableIsAccepted(t *testing.T) {
 	for name, body := range map[string]string{
-		"a variant": `fn f(m: Maybe<Int>) -> Int
+		"a variant": `fn f(m: Option<Int>) -> Int
     if Some(v) = m then return v
     0
 end`,
-		"a tuple with a variant": `fn f(p: (Int, Maybe<Int>)) -> Int
+		"a tuple with a variant": `fn f(p: (Int, Option<Int>)) -> Int
     if (a, Some(b)) = p then return a + b
     0
 end`,

@@ -16,8 +16,8 @@ pub struct Chan<T>
     receiver: Half<T>
 end
 
-fn recv<T>(r: Half<T>) -> Maybe<T>
-    Maybe.Some(r.slot)
+fn recv<T>(r: Half<T>) -> Option<T>
+    Option.Some(r.slot)
 end
 
 /// The reply channel is `Chan<Int>` regardless of what the outer channel
@@ -59,7 +59,7 @@ test "a nested instantiation keeps its own type argument through an inferred scr
 end
 
 test "an annotated scrutinee agrees with an inferred one"
-    scrutinee: Maybe<Request> = recv(inbox_of().receiver)
+    scrutinee: Option<Request> = recv(inbox_of().receiver)
 
     got =
         case scrutinee

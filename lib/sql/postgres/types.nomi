@@ -142,7 +142,7 @@ end
 //! assert decode(codec(1186), 0, Some(String.to_bytes("1 day"))) == Ok(Value.Text("1 day"))
 //! assert decode(codec(16), 1, None) == Ok(Value.Null)
 //
-pub fn decode(codec: Codec, format: Int, data: Maybe<Bytes>) -> Result<Value, String>
+pub fn decode(codec: Codec, format: Int, data: Option<Bytes>) -> Result<Value, String>
     Some(bytes) = data else
         None -> return Ok(Value.Null)
     end
@@ -182,25 +182,25 @@ pub fn binary_value(kind: Kind, data: Bytes) -> Result<Value, String>
     read =
         case kind
             .Bool ->
-                Bytes.uint8_at(data, 0) |> Maybe.map(fn b -> Value.Bool(b != 0))
+                Bytes.uint8_at(data, 0) |> Option.map(fn b -> Value.Bool(b != 0))
 
             .Int16 ->
-                Bytes.int16_be_at(data, 0) |> Maybe.map(Value.Int)
+                Bytes.int16_be_at(data, 0) |> Option.map(Value.Int)
 
             .Int32 ->
-                Bytes.int32_be_at(data, 0) |> Maybe.map(Value.Int)
+                Bytes.int32_be_at(data, 0) |> Option.map(Value.Int)
 
             .Int64 ->
-                Bytes.int64_be_at(data, 0) |> Maybe.map(Value.Int)
+                Bytes.int64_be_at(data, 0) |> Option.map(Value.Int)
 
             .Oid ->
-                Bytes.uint32_be_at(data, 0) |> Maybe.map(Value.Int)
+                Bytes.uint32_be_at(data, 0) |> Option.map(Value.Int)
 
             .Float32 ->
-                Bytes.float32_be_at(data, 0) |> Maybe.map(Value.Float)
+                Bytes.float32_be_at(data, 0) |> Option.map(Value.Float)
 
             .Float64 ->
-                Bytes.float64_be_at(data, 0) |> Maybe.map(Value.Float)
+                Bytes.float64_be_at(data, 0) |> Option.map(Value.Float)
 
             .Numeric ->
                 numeric_value(data)
@@ -226,22 +226,22 @@ pub fn binary_value(kind: Kind, data: Bytes) -> Result<Value, String>
                 )
 
             .Uuid ->
-                Uuid.from_bytes(data) |> Result.to_maybe() |> Maybe.map(Value.Uuid)
+                Uuid.from_bytes(data) |> Result.to_option() |> Option.map(Value.Uuid)
 
             .Date ->
-                Bytes.int32_be_at(data, 0) |> Maybe.map(date_value)
+                Bytes.int32_be_at(data, 0) |> Option.map(date_value)
 
             .Time ->
-                Bytes.int64_be_at(data, 0) |> Maybe.map(time_value)
+                Bytes.int64_be_at(data, 0) |> Option.map(time_value)
 
             .Timestamp ->
-                Bytes.int64_be_at(data, 0) |> Maybe.map(timestamp_value)
+                Bytes.int64_be_at(data, 0) |> Option.map(timestamp_value)
 
             .Timestamptz ->
-                Bytes.int64_be_at(data, 0) |> Maybe.map(timestamptz_value)
+                Bytes.int64_be_at(data, 0) |> Option.map(timestamptz_value)
         end
 
-    read |> Maybe.to_result("a value of ${Bytes.length(data)} bytes that does not read as ${kind}")
+    read |> Option.to_result("a value of ${Bytes.length(data)} bytes that does not read as ${kind}")
 end
 
 fn date_value(days: Int) -> Value
@@ -293,11 +293,10 @@ end
 //! big = Bytes.from_list([0, 2, 0, 2, 0x40, 0, 0, 0, 0, 1, 0, 2])
 //! assert numeric_value(big) == Some(Value.Decimal(-100020000d))
 //!
-//! assert numeric_value(Bytes.from_list([0, 0, 0, 0, 0xC0, 0, 0, 0])) |> Maybe.map(Value.kind) == Some(
-//!     "Float"
-//! )
+//! assert numeric_value(Bytes.from_list([0, 0, 0, 0, 0xC0, 0, 0, 0]))
+//! |> Option.map(Value.kind) == Some("Float")
 //
-pub fn numeric_value(data: Bytes) -> Maybe<Value>
+pub fn numeric_value(data: Bytes) -> Option<Value>
     count = Bytes.int16_be_at(data, 0)?
     weight = Bytes.int16_be_at(data, 2)?
     sign = Bytes.uint16_be_at(data, 4)?
@@ -318,13 +317,13 @@ pub fn numeric_value(data: Bytes) -> Maybe<Value>
 
     Some(
         String.to_decimal(signed)
-        |> Maybe.map(Value.Decimal)
-        |> Maybe.with_default(Value.Text(signed))
+        |> Option.map(Value.Decimal)
+        |> Option.with_default(Value.Text(signed))
     )
 end
 
 // The base-10000 digits from the `at`th on, after `whole`, as one integer.
-fn numeric_digits(data: Bytes, at: Int, count: Int, whole: Int) -> Maybe<Int>
+fn numeric_digits(data: Bytes, at: Int, count: Int, whole: Int) -> Option<Int>
     if at >= count then return Some(whole)
     digit = Bytes.int16_be_at(data, 8 + 2 * at)?
     numeric_digits(data, at + 1, count, whole * 10_000 + digit)
@@ -358,14 +357,14 @@ end
 // element's length (-1 for NULL) and bytes.
 fn array_value(kind: Kind, data: Bytes) -> Result<Value, String>
     malformed = "an array that does not read as one"
-    dimensions = Bytes.int32_be_at(data, 0) |> Maybe.to_result(malformed)?
+    dimensions = Bytes.int32_be_at(data, 0) |> Option.to_result(malformed)?
 
     case dimensions
         0 ->
             Ok(Value.Array([]))
 
         1 ->
-            count = Bytes.int32_be_at(data, 12) |> Maybe.to_result(malformed)?
+            count = Bytes.int32_be_at(data, 12) |> Option.to_result(malformed)?
             elements(kind, data, 20, count, []) |> Result.map(Value.Array)
 
         _ ->
@@ -382,7 +381,7 @@ fn elements(
 ) -> Result<List<Value>, String>
     if left <= 0 then return Ok(Iter.reverse(done))
 
-    length = Bytes.int32_be_at(data, at) |> Maybe.to_result("an array that ends too soon")?
+    length = Bytes.int32_be_at(data, at) |> Option.to_result("an array that ends too soon")?
 
     if length < 0 then
         elements(kind, data, at + 4, left - 1, [Value.Null, ..done])
@@ -412,7 +411,7 @@ end
 //! assert encode(Value.Array([Value.Int(1), Value.Text("a")]), 1016)
 //!     == Err("an Array's elements must all be of one kind")
 //
-pub fn encode(value: Value, oid: Int) -> Result<(Int, Maybe<Bytes>), String>
+pub fn encode(value: Value, oid: Int) -> Result<(Int, Option<Bytes>), String>
     kind = codec(oid).kind
 
     case value

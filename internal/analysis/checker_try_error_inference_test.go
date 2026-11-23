@@ -81,10 +81,10 @@ end`
 	expectConcurrentError(t, analyzeConcurrent(src), "inconsistent error types in `?` expressions")
 }
 
-// A `Maybe`-flavored boundary is unaffected: `?` on a `Maybe` carries no
-// error type, so nothing is accumulated and the block infers `Maybe<T>`.
-func TestTryErrInference_MaybeBoundaryUnaffected(t *testing.T) {
-	src := `fn find() -> Maybe<Int>
+// An `Option`-flavored boundary is unaffected: `?` on an `Option` carries no
+// error type, so nothing is accumulated and the block infers `Option<T>`.
+func TestTryErrInference_OptionBoundaryUnaffected(t *testing.T) {
+	src := `fn find() -> Option<Int>
   Some(1)
 end
 fn demo() -> Int

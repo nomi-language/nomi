@@ -3,7 +3,7 @@ If condition can match a pattern
 ================================================================================
 
 fn main()
-  label = if Some(name) = maybe_name then
+  label = if Some(name) = option_name then
     name
   else
     "unknown"
@@ -217,7 +217,7 @@ end
 A construction compared after if is an expression, not a pattern
 ================================================================================
 
-fn f(c: Int, w: Maybe<Int>) -> Bool
+fn f(c: Int, w: Option<Int>) -> Bool
     if Some(c) != w and Shape.Circle(c) == s then True else False
 end
 

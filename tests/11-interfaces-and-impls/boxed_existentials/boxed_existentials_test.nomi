@@ -49,7 +49,7 @@ test "a parameter, a result, a list element, a field and a payload"
     assert (xs |> Iter.map(&Show.show(&1)) |> String.join(",")) == "[i1],['s'],[[i2]],i7"
     h = Holder{s: [8, 9]}
     assert Show.show(h.s) == "[i8 i9]"
-    m: Maybe<Show> = Some(Vector["v"])
+    m: Option<Show> = Some(Vector["v"])
 
     shown =
         case m

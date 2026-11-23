@@ -11,7 +11,7 @@ import
     iter.Iter
     lists.NonEmptyList
     maps.Map
-    maybe.Maybe.{self, None, Some}
+    option.Option.{self, None, Some}
     strings.String
     subtract.Subtract
     summable.Summable
@@ -124,7 +124,7 @@ impl Iter for Set<T>
     end
 
     // A Set stores its element count, so report it directly (O(1)).
-    fn known_count(s: Set<T>) -> Maybe<Int>
+    fn known_count(s: Set<T>) -> Option<Int>
         Some(Set.size(s))
     end
 end
@@ -200,7 +200,7 @@ end
 /// A Set with at least one element. A literal is checked when the program
 /// is compiled; `NonEmptySet.try_from(s)` checks a Set computed at run
 /// time, and `NonEmptySet.insert(s, item)` builds one from any Set. Its
-/// smallest and largest elements are values rather than `Maybe`s. A
+/// smallest and largest elements are values rather than `Option`s. A
 /// NonEmptySet is a Set and passes wherever one is expected. It is in the
 /// prelude.
 //! tags: NonEmptySet<String> = ["b", "a"]
@@ -210,7 +210,7 @@ end
 //! none: Set<String> = []
 //! assert NonEmptySet.try_from(none) == None
 //
-pub subtype NonEmptySet<T> Set<T> when fn s -> Set.size(s) > 0
+pub refine NonEmptySet<T> Set<T> when fn s -> Set.size(s) > 0
 
 impl NonEmptySet<T>
     /// A NonEmptySet of `first` and the elements of `rest`, which may be

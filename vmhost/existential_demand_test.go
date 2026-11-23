@@ -74,8 +74,8 @@ end
 		},
 		{
 			name: "maximum",
-			bad:  "fn f(xs: List<Scale>) -> Maybe<Scale>\n    Iter.max(xs)\nend\n",
-			good: "fn f<T>(xs: List<T>) -> Maybe<T> where T: Scale and Comparable\n    Iter.max(xs)\nend\n",
+			bad:  "fn f(xs: List<Scale>) -> Option<Scale>\n    Iter.max(xs)\nend\n",
+			good: "fn f<T>(xs: List<T>) -> Option<T> where T: Scale and Comparable\n    Iter.max(xs)\nend\n",
 			want: "main.nomi:8:14: `xs` holds values of `Scale`, and Scale does not require Comparable of its implementors: values of different types have no order",
 			help: "`where T: Scale and Comparable`",
 		},

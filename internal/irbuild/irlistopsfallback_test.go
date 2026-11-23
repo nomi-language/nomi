@@ -10,7 +10,7 @@ func TestIRListOps_NominalElementsRetain(t *testing.T) {
 	p, err := AnalyzeSource("main.nomi", `struct Box
     value: Int
 end
-fn choose(xs: List<Box>) -> Maybe<Box>
+fn choose(xs: List<Box>) -> Option<Box>
     List.first(xs)
 end
 fn main()

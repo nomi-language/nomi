@@ -49,7 +49,7 @@ import
     equatable.Equatable
     int.PositiveInt
     iter.Iter
-    maybe.Maybe.{None, Some}
+    option.Option.{None, Some}
     results.Result.{self, Err, Ok}
     strings.String
     supervisors.Supervisor

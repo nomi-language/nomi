@@ -40,7 +40,7 @@ fn main()
     io.print("get Id(3) = ${found(m, Id(3))}")
 end
 
-// `Map.get` returns `Maybe<String>`, and rendering a Maybe is another slice's
+// `Map.get` returns `Option<String>`, and rendering an Option is another slice's
 // gap, so the result goes through a `case` — which also makes the Some/None
 // distinction explicit rather than hidden in a Display impl.
 fn found(m: Map<Id, String>, key: Id) -> String

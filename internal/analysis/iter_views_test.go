@@ -79,7 +79,7 @@ func TestIterViews_RecordEachSource(t *testing.T) {
 		"RangeLit@33":  {analysis.IterViewRange, "Int", nil},
 		"Ident@33":     {analysis.IterViewMap, "(String, Int)", nil},
 		"StructLit@34": {analysis.IterViewImpl, "Int", impls["Countdown"]},
-		"Call@34":      {analysis.IterViewMaybe, "Int", nil},
+		"Call@34":      {analysis.IterViewOption, "Int", nil},
 		"Ident@27":     {analysis.IterViewBound, "", nil},
 		"StructLit@23": {analysis.IterViewImpl, "T", impls["Stepped<T, S>"]},
 	}

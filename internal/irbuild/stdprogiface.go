@@ -210,7 +210,7 @@ func (g *gen) stdProgIfaceOf(sym *analysis.Symbol) *ifaceDef {
 
 // withStdSrc makes std module's file the source srcFA answers, for
 // resolving the signatures of an interface it declares (resolveIface), and
-// returns what restores the previous source. `Maybe<String>` in `Matcher.find_in` is
+// returns what restores the previous source. `Option<String>` in `Matcher.find_in` is
 // resolved by the position std wrote it at (typeOf), which only std's
 // file records; this file's maps hold nothing, or something else, there.
 func (g *gen) withStdSrc(module string) func() {
@@ -284,7 +284,7 @@ func (g *gen) stdProgBinds(d *ifaceDef, k kind, kt analysis.Type) bool {
 	if typ := g.stdProgHeldType(k); typ != nil {
 		for _, m := range d.order {
 			// A function no erased receiver can dispatch (`Steppable.step_by`'s
-			// `Maybe<self>`) is refused at its call, as a program
+			// `Option<self>`) is refused at its call, as a program
 			// interface's is, and asks nothing of the value.
 			if m.dispatchable() && g.stdProgThunk(d, m, k, kt, typ.Name()) == nil {
 				return false

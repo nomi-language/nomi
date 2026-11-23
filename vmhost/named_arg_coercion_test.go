@@ -49,7 +49,7 @@ fn by_parameter(
     l: List<String>,
     v: Vector<Int>,
     s: Set<String>,
-    maybe: Maybe<List<Int>>,
+    option: Option<List<Int>>,
     nested: {inner: Map<String, List<String>>},
     note: Note,
 )
@@ -57,7 +57,7 @@ fn by_parameter(
     io.print(body(Response.json({errors: l}, status: Status.unprocessable_entity)))
     io.print(body(Response.json({errors: v}, status: Status.unprocessable_entity)))
     io.print(body(Response.json({errors: s}, status: Status.unprocessable_entity)))
-    io.print(body(Response.json({errors: maybe}, status: Status.unprocessable_entity)))
+    io.print(body(Response.json({errors: option}, status: Status.unprocessable_entity)))
     io.print(body(Response.json({errors: nested}, status: Status.unprocessable_entity)))
     io.print(body(Response.json({errors: note}, status: Status.unprocessable_entity)))
 end

@@ -25,14 +25,14 @@ fn f() -> Result<Int, String>
 end`,
 			line: 1, col: 15,
 			msg:  "`?` cannot be used in the initializer of `once n`: a `once` has no function to return from",
-			hint: "bind the Result or Maybe and handle it where `n` is read, or compute the value inside a function",
+			hint: "bind the Result or Option and handle it where `n` is read, or compute the value inside a function",
 		},
 		{
 			// Read from a function whose own return type would admit the
 			// `?`: the once is checked from its read, and the reader's
 			// boundary must not count.
 			name: "try stage in a once read above it",
-			src: `fn f() -> Maybe<Int>
+			src: `fn f() -> Option<Int>
     Some(n)
 end
 
@@ -107,12 +107,12 @@ end`,
 		},
 		{
 			name: "try in a fn parameter default",
-			src: `fn f(x: Int = Some(3)?) -> Maybe<Int>
+			src: `fn f(x: Int = Some(3)?) -> Option<Int>
     Some(x)
 end`,
 			line: 1, col: 22,
 			msg:  "`?` cannot be used in the default of parameter 'x': a default has no function to return from",
-			hint: "handle the Result or Maybe inside the default with `case`, or compute the value inside the function",
+			hint: "handle the Result or Option inside the default with `case`, or compute the value inside the function",
 		},
 		{
 			name: "return in a fn parameter default",
@@ -129,7 +129,7 @@ end`,
 		},
 		{
 			name: "try in a lambda parameter default",
-			src: `fn f() -> Maybe<Int>
+			src: `fn f() -> Option<Int>
     g = fn x: Int = Some(3)? -> x + 1
     Some(g())
 end`,
@@ -138,7 +138,7 @@ end`,
 		},
 		{
 			name: "try in an unannotated lambda parameter default",
-			src: `fn f() -> Maybe<Int>
+			src: `fn f() -> Option<Int>
     g = fn x = Some(3)? -> x + 1
     Some(g())
 end`,
@@ -152,7 +152,7 @@ end`,
 end`,
 			line: 2, col: 21,
 			msg:  "`?` cannot be used in the default of field 'x' of P: a default has no function to return from",
-			hint: "handle the Result or Maybe inside the default with `case`, or compute the value in a function and pass the field",
+			hint: "handle the Result or Option inside the default with `case`, or compute the value in a function and pass the field",
 		},
 		{
 			name: "return in a variant field default",
@@ -209,8 +209,8 @@ end`},
     end
     0
 end`},
-		{"try in a nested fn in a once", `once g: Maybe<Int> = begin
-    fn h(x: Maybe<Int>) -> Maybe<Int>
+		{"try in a nested fn in a once", `once g: Option<Int> = begin
+    fn h(x: Option<Int>) -> Option<Int>
         Some(x?)
     end
     h(Some(4))
@@ -225,11 +225,11 @@ end`},
     end
     x
 end) |> Iter.to_list()`},
-		{"try in a lambda in a parameter default", `fn f(g: (Maybe<Int>) -> Maybe<Int> = fn m -> Some(m? + 1)) -> Maybe<Int>
+		{"try in a lambda in a parameter default", `fn f(g: (Option<Int>) -> Option<Int> = fn m -> Some(m? + 1)) -> Option<Int>
     g(Some(1))
 end`},
 		{"try in a lambda in a field default", `struct P
-    g: (Maybe<Int>) -> Maybe<Int> = fn m -> Some(m? + 1)
+    g: (Option<Int>) -> Option<Int> = fn m -> Some(m? + 1)
 end`},
 	}
 	for _, tc := range cases {

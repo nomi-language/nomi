@@ -174,7 +174,7 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string,
 		}
 		result = kindBool
 		if method == "find" {
-			mk, ok := bl.iterMaybeKind(elem)
+			mk, ok := bl.iterOptionKind(elem)
 			if !ok {
 				return no()
 			}
@@ -245,7 +245,7 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string,
 	if method == "known_count" {
 		// The families whose count std overrides, and the families that
 		// inherit the declining default without a view.
-		mk, ok := bl.iterMaybeKind(kindInt)
+		mk, ok := bl.iterOptionKind(kindInt)
 		if !ok {
 			return no()
 		}
@@ -263,8 +263,8 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string,
 			over = ir.IterOverMap
 		case analysis.IterViewSet:
 			over = ir.IterOverSet
-		case analysis.IterViewMaybe:
-			over = ir.IterOverMaybe
+		case analysis.IterViewOption:
+			over = ir.IterOverOption
 		}
 		if over != ir.IterOverNothing {
 			return appendOp(t, ir.IterKnownCount, over, mk, src), mk, false, true
@@ -289,8 +289,8 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string,
 		src = bl.mapView(t.Args[0], src, sk, elem)
 	case analysis.IterViewSet:
 		src = appendOp(t.Args[0], ir.IterView, ir.IterOverSet, seqKindIn(bl.g, elem), src)
-	case analysis.IterViewMaybe:
-		src = appendOp(t.Args[0], ir.IterView, ir.IterOverMaybe, seqKindIn(bl.g, elem), src)
+	case analysis.IterViewOption:
+		src = appendOp(t.Args[0], ir.IterView, ir.IterOverOption, seqKindIn(bl.g, elem), src)
 	case analysis.IterViewVector:
 		src = appendOp(t.Args[0], ir.IterView, ir.IterOverVector, seqKindIn(bl.g, elem), src)
 	case analysis.IterViewImpl:
@@ -307,7 +307,7 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string,
 	}
 	switch method {
 	case "first", "last":
-		mk, ok := bl.iterMaybeKind(elem)
+		mk, ok := bl.iterOptionKind(elem)
 		if !ok {
 			return no()
 		}
@@ -319,14 +319,14 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string,
 	case "known_count":
 		// A Bytes or user source inherits the declining default, reached
 		// through the view.
-		mk, _ := bl.iterMaybeKind(kindInt)
+		mk, _ := bl.iterOptionKind(kindInt)
 		return appendOp(t, ir.IterKnownCount, ir.IterOverSeq, mk, src), mk, false, true
 	case "is_infinite":
 		// Every family is asked through its view: a collection's view never
 		// ends, a Range's and a user source's answer their own.
 		return appendOp(t, ir.IterInfinite, ir.IterOverSeq, kindBool, src), kindBool, false, true
 	case "get":
-		mk, ok := bl.iterMaybeKind(elem)
+		mk, ok := bl.iterOptionKind(elem)
 		if !ok || args.kinds[1] != kindInt {
 			return no()
 		}
@@ -646,7 +646,7 @@ func (bl *irScalarBuilder) userSource(sk kind, u userIterImpl) (*userIterSource,
 	src := &userIterSource{each: each}
 	if kc := u.d.items["known_count"]; kc != nil && !kc.inherited {
 		f, ok := u.fn(bl.g, "known_count")
-		if mk, shared := bl.g.sharedMaybe(kindInt); !ok || !shared || len(f.params) != 1 || f.params[0] != sk || f.result != mk {
+		if mk, shared := bl.g.sharedOption(kindInt); !ok || !shared || len(f.params) != 1 || f.params[0] != sk || f.result != mk {
 			return nil, kindInvalid
 		}
 		src.knownCount = &f
@@ -692,10 +692,10 @@ func (bl *irScalarBuilder) userView(at ast.Node, src ir.Temp, sk kind, us *userI
 	return n.Dst()
 }
 
-// maybeIterElem is the element a prelude `Maybe<T>` pushes as an `Iter`
-// source (std's `impl Iter for Maybe<T>`): its payload, zero or one times.
-func maybeIterElem(k kind) (kind, bool) {
-	if !irMaybeKind(k) || len(k.def.preludeArgs) != 1 {
+// optionIterElem is the element a prelude `Option<T>` pushes as an `Iter`
+// source (std's `impl Iter for Option<T>`): its payload, zero or one times.
+func optionIterElem(k kind) (kind, bool) {
+	if !irOptionKind(k) || len(k.def.preludeArgs) != 1 {
 		return kindInvalid, false
 	}
 	elem := k.def.preludeArgs[0]
@@ -721,9 +721,9 @@ func (bl *irScalarBuilder) rangeView(at ast.Node, src ir.Temp, elem kind, elemTy
 	if _, ok := bl.sortComparator(elem, elemType); !ok {
 		return nil, false
 	}
-	maybeElem, _ := bl.g.sharedMaybe(elem)
+	optionElem, _ := bl.g.sharedOption(elem)
 	cmp, _ := bl.elemComparator(at, elem, elemType)
-	next, ok := bl.discreteRef(at, elem, "next", []kind{elem}, maybeElem)
+	next, ok := bl.discreteRef(at, elem, "next", []kind{elem}, optionElem)
 	if !ok {
 		return nil, false
 	}
@@ -736,7 +736,7 @@ func (bl *irScalarBuilder) rangeView(at ast.Node, src ir.Temp, elem kind, elemTy
 // own impls; the VM drives the rt function over the linked bodies.
 func (bl *irScalarBuilder) rangeKnownCount(t *ast.Call, src ir.Temp, elem kind, elemType analysis.Type) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	mk, ok := bl.iterMaybeKind(kindInt)
+	mk, ok := bl.iterOptionKind(kindInt)
 	if !ok {
 		return no()
 	}
@@ -744,12 +744,12 @@ func (bl *irScalarBuilder) rangeKnownCount(t *ast.Call, src ir.Temp, elem kind, 
 	if !bl.rangeWalksAt(elem, at) {
 		return no()
 	}
-	maybeInt, shared := bl.g.sharedMaybe(kindInt)
+	optionInt, shared := bl.g.sharedOption(kindInt)
 	if _, ok := bl.sortComparator(elem, elemType); !ok || !shared {
 		return no()
 	}
 	cmp, _ := bl.elemComparator(at, elem, elemType)
-	steps, ok := bl.discreteRef(at, elem, "steps_between", []kind{elem, elem}, maybeInt)
+	steps, ok := bl.discreteRef(at, elem, "steps_between", []kind{elem, elem}, optionInt)
 	if !ok {
 		return no()
 	}
@@ -980,29 +980,29 @@ func (bl *irScalarBuilder) markCtlRef(ref ast.Node) func() {
 	return func() { delete(bl.ctlRefs, ref) }
 }
 
-// iterMaybeKind is the positional terminals' `Maybe<elem>`, answered when the
-// std declares Maybe in the spec's shape: the process-wide instance for a
+// iterOptionKind is the positional terminals' `Option<elem>`, answered when the
+// std declares Option in the spec's shape: the process-wide instance for a
 // package-neutral element, and this gen's own instance for a declared
 // type's.
-func (bl *irScalarBuilder) iterMaybeKind(elem kind) (kind, bool) {
-	if _, anchored := preludeSpecAnchor(preludeSpecNamed("Maybe")); !anchored {
+func (bl *irScalarBuilder) iterOptionKind(elem kind) (kind, bool) {
+	if _, anchored := preludeSpecAnchor(preludeSpecNamed("Option")); !anchored {
 		return kindInvalid, false
 	}
-	mk, shared := bl.g.sharedMaybe(elem)
+	mk, shared := bl.g.sharedOption(elem)
 	if !shared && irCallableValueKind(elem) {
-		// `Maybe<Point>` renders package-relative, so it is this gen's
+		// `Option<Point>` renders package-relative, so it is this gen's
 		// instance, as `List.first` over the same list asks for it. The
 		// callable domain, not only the retained one: an interface element
-		// (`List<Named>`) is held as the concrete value, and `maybeOf`, which
-		// `Map.get` and `List.first` ask, already instantiates Maybe at it.
-		mk = bl.g.preludeInstanceOf(preludeSpecNamed("Maybe"), []kind{elem})
-		// kindInvalid: propagates — preludeInstance answers kindInvalid for an element Maybe cannot be instantiated at, and the terminal declines.
+		// (`List<Named>`) is held as the concrete value, and `optionOf`, which
+		// `Map.get` and `List.first` ask, already instantiates Option at it.
+		mk = bl.g.preludeInstanceOf(preludeSpecNamed("Option"), []kind{elem})
+		// kindInvalid: propagates — preludeInstance answers kindInvalid for an element Option cannot be instantiated at, and the terminal declines.
 		shared = mk != kindInvalid
 	}
-	// elem is a lowered sequence's element, so callable or Unit, and Maybe
+	// elem is a lowered sequence's element, so callable or Unit, and Option
 	// carries any value of the domain (irRetainedPreludePayload).
 	if !shared || !irRetainedValueKind(mk) {
-		panic("irbuild: no retained Maybe over the element " + elem.nomi())
+		panic("irbuild: no retained Option over the element " + elem.nomi())
 	}
 	return mk, true
 }
@@ -1037,8 +1037,8 @@ func (bl *irScalarBuilder) iterPlainView(at ast.Node, src ir.Temp, sk kind) (ir.
 		return view(ir.IterOverVector)
 	case analysis.IterViewSet:
 		return view(ir.IterOverSet)
-	case analysis.IterViewMaybe:
-		return view(ir.IterOverMaybe)
+	case analysis.IterViewOption:
+		return view(ir.IterOverOption)
 	case analysis.IterViewMap, analysis.IterViewRange, analysis.IterViewImpl:
 		// `Iter.zip(xs, m)`, `Iter.zip(xs, 5..9)`: a Map pushes its `(K, V)`
 		// pairs, a Range its elements and a user source what its

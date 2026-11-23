@@ -5,7 +5,7 @@ fn parse(s: String) -> Result<Int, String>
     end
 end
 
-fn find(s: String) -> Maybe<Int>
+fn find(s: String) -> Option<Int>
     case s
         "" -> None
         _  -> Some(String.length(s))
@@ -23,7 +23,7 @@ group "`?` on a Result in setup"
     end
 end
 
-group "`?` on a Maybe in setup"
+group "`?` on an Option in setup"
     setup begin
         n = find("abcd")?
         {n:}

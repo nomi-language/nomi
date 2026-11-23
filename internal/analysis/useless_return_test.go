@@ -127,7 +127,7 @@ func TestUselessReturn_Accepted(t *testing.T) {
 		{"tail if with work in a branch", "import std::io\n\nfn f(x: Int)\n    if x > 0 then\n        io.print(\"x\")\n    end\nend\n"},
 		{"bare return after dbg", "fn f()\n    dbg 1\n    return\nend\n"},
 		{"bare return after a dbg stage", "fn f()\n    1 |> dbg\n\n    return\nend\n"},
-		{"return in a binding else", "fn f(x: Maybe<Int>) -> Int\n    n = x else\n        return 0\n    end\n    n\nend\n"},
+		{"return in a binding else", "fn f(x: Option<Int>) -> Int\n    n = x else\n        return 0\n    end\n    n\nend\n"},
 		{"early return in a test body", "test \"t\"\n    if 1 > 2 then return\n    assert 1 == 1\nend\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

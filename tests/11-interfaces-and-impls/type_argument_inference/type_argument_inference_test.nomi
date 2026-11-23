@@ -34,8 +34,8 @@ impl Chooser for Pair<E>
     end
 end
 
-fn first<T, I>(it: I) -> Maybe<T> where I: Iter<T>
-    Iter.reduce(it, None, fn _acc: Maybe<T>, x ->
+fn first<T, I>(it: I) -> Option<T> where I: Iter<T>
+    Iter.reduce(it, None, fn _acc: Option<T>, x ->
         break Some(x)
     end)
 end
@@ -47,7 +47,7 @@ fn saw_any<T, I>(it: I) -> Bool where I: Iter<T>
     Iter.each_while(it, fn _x -> False) == False
 end
 
-fn label<T>(prefix: String, m: Maybe<T>) -> String where T: Display
+fn label<T>(prefix: String, m: Option<T>) -> String where T: Display
     case m
         Some(v) -> prefix + Display.to_string(v)
         None    -> prefix + "none"

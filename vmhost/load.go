@@ -40,6 +40,14 @@ type config struct {
 	// lowering, when set, stops a lowering when it is done (CheckLowering):
 	// the load answers its error.
 	lowering context.Context
+	// errored, when set, receives the program lowered from the
+	// declarations that checked, when the front end refuses a program whose
+	// errors are all in functions, impl functions and tests
+	// (irbuild.Program.ErrorDecls): what an editor's marks read
+	// (editorReached). It asks the front end for those declarations
+	// (frontend.Config.ErrorDecls), which no other load does. The load
+	// still fails with the front end's error.
+	errored **Program
 	// allowUnusedBindings drops unused-binding errors. See
 	// WithUnusedBindingsAllowed.
 	allowUnusedBindings bool
@@ -258,6 +266,7 @@ func (c *config) frontendConfig() (frontend.Config, error) {
 		AllowUnusedImports:  c.session != nil,
 		AllowUnusedBindings: c.allowUnusedBindings,
 		StandaloneEntry:     c.standalone,
+		ErrorDecls:          c.errored != nil,
 	}, nil
 }
 
@@ -391,6 +400,9 @@ func lowerLocked(cfg config, analyze func() (*irbuild.Program, error)) (*Program
 	var details []*irbuild.Decline
 	var prog *irbuild.Program
 	var res *irbuild.Result
+	// refused is the front end's error for a program lowered all the same,
+	// for cfg.errored.
+	var refused error
 	err := func() (err error) {
 		// A panic in the front end or the IR builder (an `ir.Lint`
 		// violation, say) is a compiler bug, never the program's fault. It
@@ -409,7 +421,10 @@ func lowerLocked(cfg config, analyze func() (*irbuild.Program, error)) (*Program
 		irbuild.PrefetchStdBundle()
 		prog, err = analyze()
 		if err != nil {
-			return err
+			if cfg.errored == nil || prog == nil {
+				return err
+			}
+			refused = err
 		}
 		prog.Declines = irbuild.DeclineHooks{
 			Observed: func(fn, reason string) { declines[fn] = reason },
@@ -432,10 +447,19 @@ func lowerLocked(cfg config, analyze func() (*irbuild.Program, error)) (*Program
 		return err
 	}()
 	if err != nil {
+		if refused != nil && cfg.loweringStopped() == nil {
+			// A lowering of a program that does not check that fails, or
+			// panics, leaves the editor nothing to show.
+			return nil, refused
+		}
 		return nil, err
 	}
 	p := newProgram(prog, res, declines, cfg)
 	p.declineDetails = details
+	if refused != nil {
+		*cfg.errored = p
+		return nil, refused
+	}
 	return p, nil
 }
 

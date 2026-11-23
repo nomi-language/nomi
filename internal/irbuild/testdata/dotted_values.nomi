@@ -74,8 +74,8 @@ fn level_name(l: Signal.Level) -> String
 end
 
 // A dotted value NESTED inside a prelude variant, so the descent reaches it
-// rather than stopping at the `Maybe`.
-fn inner_severity(m: Maybe<Probe.Reading>) -> Int
+// rather than stopping at the `Option`.
+fn inner_severity(m: Option<Probe.Reading>) -> Int
     case m
         Some(Probe.Reading.Steady)    -> 0
         Some(Probe.Reading.Spike(n))  -> n

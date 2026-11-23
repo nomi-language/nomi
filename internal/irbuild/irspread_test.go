@@ -54,7 +54,7 @@ end
 }
 
 // A literal with spreads is the kind the checker gave it, not its first
-// spread's: a `List<Int>`, a Set, a Maybe or a Range spread into a List,
+// spread's: a `List<Int>`, a Set, an Option or a Range spread into a List,
 // Vector or Set of an interface, beside elements of another type, with the
 // spread first, last, in the middle and twice.
 func TestIRSpread_AtAnInterfaceElement(t *testing.T) {

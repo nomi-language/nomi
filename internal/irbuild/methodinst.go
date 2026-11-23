@@ -27,8 +27,8 @@ import (
 // The block's frame is its instance's. A type-qualified call names the
 // instance the checker instantiated the block's own parameters at
 // (templateCallInstance), not the receiver operand's: `Box.flat(b)` with
-// `fn flat(b: Box<Maybe<T>>) -> Maybe<T>` in `impl Box<T>` over a
-// `Box<Maybe<Int>>` is `Box<Int>`'s.
+// `fn flat(b: Box<Option<T>>) -> Option<T>` in `impl Box<T>` over a
+// `Box<Option<Int>>` is `Box<Int>`'s.
 //
 // The body is built after the caller's, by flushMethodInsts, for
 // flushMonoInstances' reason: the call names the item's symbol, and building
@@ -186,10 +186,10 @@ func (g *gen) methodInstance(d *implDef, method string, w withheldMember, own []
 		args = append(args, own[i].key())
 	}
 	names := w.typeParamNames()
-	reads := subtypeReads(names, ownTypes, func() map[string][]*analysis.InterfaceType {
+	reads := refinementReads(names, ownTypes, func() map[string][]*analysis.InterfaceType {
 		return analysis.DeclTypeParamBounds(g.srcFA(), w.decl, d.decl)
 	})
-	key := fmt.Sprintf("%p\x00%s\x00%s", d, method, strings.Join(args, "\x00")) + subtypeReadsKey(reads)
+	key := fmt.Sprintf("%p\x00%s\x00%s", d, method, strings.Join(args, "\x00")) + refinementReadsKey(reads)
 	if mi := g.methodInsts[key]; mi != nil {
 		return mi.it
 	}
@@ -249,8 +249,8 @@ func (g *gen) methodInstance(d *implDef, method string, w withheldMember, own []
 		}
 	}
 	if reads != nil {
-		// An instance that reads a subtype is named apart from the one at
-		// its base (subtypeinst.go).
+		// An instance that reads a refinement is named apart from the one at
+		// its base (refinementinst.go).
 		it.instKey += "!" + strings.Join(reads, ",")
 	}
 	if g.methodInsts == nil {

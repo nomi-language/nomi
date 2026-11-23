@@ -1,4 +1,4 @@
-// `assert e` / `refute e` where `e` is a `Result` or a `Maybe` — a SHAPE
+// `assert e` / `refute e` where `e` is a `Result` or an `Option` — a SHAPE
 // subject, judged on which variant it is rather than converted to a Bool.
 //
 // The file EXITS 1. Five of its eight cases fail on purpose, because the whole
@@ -14,7 +14,7 @@
 //     string (`Err("not a number")`). A lowering that inspected the PAYLOAD
 //     rather than the variant prints `not a number`.
 //   - `assert` on a Some — the passing direction, and the VALUE: the assertion
-//     evaluates to the original `Maybe<String>`, not to a Bool and not to the
+//     evaluates to the original `Option<String>`, not to a Bool and not to the
 //     unwrapped payload, so `found == Some("Ada")` type-checks and holds.
 //   - `refute` on a Some and on an Ok — the mirror failing direction. Its reason
 //     is `refute failed` and not `assertion failed`, which is
@@ -25,7 +25,7 @@
 //   - a BOUND shape subject — the `defined as:` row sits ABOVE the `actual:` row.
 //     Two report sections from one failure, so a builder that wrote them in the
 //     other order diverges even though both are present.
-fn find(id: Int) -> Maybe<String>
+fn find(id: Int) -> Option<String>
     if id == 1 then Some("Ada") else None
 end
 
@@ -33,11 +33,11 @@ fn parse(s: String) -> Result<Int, String>
     if s == "42" then Ok(42) else Err("not a number")
 end
 
-test "a Maybe subject that is None fails"
+test "an Option subject that is None fails"
     assert find(2)
 end
 
-test "a Maybe subject that is Some passes and carries the variant through"
+test "an Option subject that is Some passes and carries the variant through"
     found = assert find(1)
 
     assert found == Some("Ada")

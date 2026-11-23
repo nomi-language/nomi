@@ -17,13 +17,13 @@ import (
 
 // declOrderBlocks are mutually referring declarations, each with its derives:
 // a generic enum whose payload is a struct (Tree<Int>'s `Node Child`), a
-// generic struct holding another declaration (Pair<T, Child>), a Maybe of a
+// generic struct holding another declaration (Pair<T, Child>), an Option of a
 // generic instance, an enum that embeds a marker, and a distinct type.
 var declOrderBlocks = []string{
 	`pub struct Parent
     t: Tree<Int>
     k: Kind
-    p: Maybe<Pair<Child, Mark>>
+    p: Option<Pair<Child, Mark>>
 end`,
 	`pub struct Child
     n: Int

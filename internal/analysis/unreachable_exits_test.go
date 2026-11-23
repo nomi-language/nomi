@@ -28,7 +28,7 @@ fn chain(n: Int) -> Int
   n
 end
 
-fn arms(m: Maybe<Int>) -> Int
+fn arms(m: Option<Int>) -> Int
   case m
     Some(n) -> return n
     None ->

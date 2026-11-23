@@ -183,7 +183,7 @@ func TestTodo_InABindingsScopeReadsTheBinding(t *testing.T) {
 	}
 }
 
-const todoBindingsSrc = "fn apply(todo: Int) -> Int\n    todo + 1\nend\n\nfn pick(m: Maybe<Int>) -> Int\n    case m\n        Some(todo) -> todo\n        None -> todo\n    end\nend\n\nfn later(todo: Int) -> Int\n    todo \"reasoned\"\nend\n"
+const todoBindingsSrc = "fn apply(todo: Int) -> Int\n    todo + 1\nend\n\nfn pick(m: Option<Int>) -> Int\n    case m\n        Some(todo) -> todo\n        None -> todo\n    end\nend\n\nfn later(todo: Int) -> Int\n    todo \"reasoned\"\nend\n"
 
 func parseTodoBindings(t *testing.T) []ast.Node {
 	t.Helper()

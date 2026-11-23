@@ -26,7 +26,7 @@ func TestCheckMainReturn_RejectsAValue(t *testing.T) {
 	for _, tc := range []struct{ name, ret, body string }{
 		{"Ok payload", "Result<String, String>", `Ok("hello")`},
 		{"plain value", "String", `"hello"`},
-		{"Maybe", "Maybe<Int>", "None"},
+		{"Option", "Option<Int>", "None"},
 		{"Int", "Int", "1"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

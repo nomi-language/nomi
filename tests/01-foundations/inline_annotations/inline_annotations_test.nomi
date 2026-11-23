@@ -42,7 +42,7 @@ test "function annotations drive lambda parameter types"
 end
 
 test "variant constructors compose with annotations"
-    opt: Maybe<Int> = Some(7)
+    opt: Option<Int> = Some(7)
     res: Result<Int, String> = Ok(42)
 
     assert opt == Some(7)

@@ -110,7 +110,7 @@ func TestCompletion_PipeKeywordStages(t *testing.T) {
 	// Mid-chain, and on a new line.
 	items = complete(t, "fn f(xs: List<Int>) -> Int\n    xs\n    |> List.tail()\n    |> "+cursorMark+"\n    |> Iter.count()\nend\n")
 	labelsInclude(t, items, "dbg")
-	labelsBefore(t, items, "Maybe.map", "dbg")
+	labelsBefore(t, items, "Option.map", "dbg")
 
 	// Typed, it matches as any word does.
 	items = complete(t, "fn f(xs: List<Int>) -> Int\n    xs |> db"+cursorMark+"\nend\n")

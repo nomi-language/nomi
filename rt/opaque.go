@@ -31,7 +31,7 @@ import (
 //   - A named type's identity in internal/irbuild is the *typeDef its
 //     declaration produced, and a std type needs one Go type every module's
 //     code can name. rt is that one place. Same answer prelude.go gives for
-//     `rt.Maybe[T]`.
+//     `rt.Option[T]`.
 //   - The externs below have Duration and Instant in their signatures, and the
 //     host binding tables derive every signature from the Go function value by
 //     reflection, so the type has to be a Go type rt can write down.
@@ -42,7 +42,7 @@ import (
 //
 // # The Go zero value is a real value, deliberately
 //
-// rt.Maybe reserves tag 0 so a Go zero value is detectably invalid. That is the
+// rt.Option reserves tag 0 so a Go zero value is detectably invalid. That is the
 // opposite of the decision here, and the difference is not taste: tag 0 is not a
 // legal Nomi tag, so an enum had a spare state to reserve. int64 has none —
 // every one of its values is a legal Duration, and `Duration.nanoseconds(0)` is

@@ -57,7 +57,7 @@ func TestStdDynamicIsLowerable(t *testing.T) {
 	}
 
 	// AND THE THREE THAT MUST STILL REFUSE, with the reason, because a row that
-	// admitted them would be over-reaching rather than progress. `as_maybe`,
+	// admitted them would be over-reaching rather than progress. `as_option`,
 	// `at_field` and `at_index` are generic Nomi bodies over a CALLBACK, so their
 	// obstacle is the function-value gap and not this type.
 	//
@@ -66,7 +66,7 @@ func TestStdDynamicIsLowerable(t *testing.T) {
 	// and if a future callback mechanism admits them these rows should go red so
 	// somebody moves them up rather than leaving a stale claim here.
 	for _, key := range []string{
-		"dynamic.Dynamic.as_maybe",
+		"dynamic.Dynamic.as_option",
 		"dynamic.Dynamic.at_field",
 		"dynamic.Dynamic.at_index",
 	} {

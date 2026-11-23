@@ -7,7 +7,7 @@ import "testing"
 // is. std/regex's `impl Debug for Regex` calls std/strings'
 // `String.contains<M>`, so the shared std cache cannot retain it; every way
 // a program reaches it (io.inspect, Debug.inspect, the impl's own name,
-// `dbg`, inside a list, a struct and a Maybe) runs the per-program body.
+// `dbg`, inside a list, a struct and an Option) runs the per-program body.
 // `String.strip_prefix` and `strip_suffix` call their own module's generic
 // `starts_with` and `ends_with`.
 func TestStdCrossModuleGeneric_NonGenericBodyCallsAnotherModulesGeneric(t *testing.T) {

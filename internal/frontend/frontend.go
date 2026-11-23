@@ -2,6 +2,7 @@ package frontend
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -62,6 +63,12 @@ type Config struct {
 	// entry_points placement check skips the entry; the project files it
 	// imports are still held to it.
 	StandaloneEntry bool
+	// ErrorDecls asks for Project.ErrorDecls: on a program whose check
+	// reports errors, the declarations that hold them. An editor that
+	// lowers the declarations that checked, to show their effects, is the
+	// one user (vmhost's CheckLowering and ReachedMarked). irbuild answers
+	// a Program beside the error only to a caller that sets it.
+	ErrorDecls bool
 }
 
 // allowed reports whether the configuration drops e.
@@ -113,6 +120,10 @@ type Checker struct {
 	manifestRead bool
 	// last is the program Analyze last built, for Interfaces.
 	last *analyzedProgram
+	// errorDecls is the declarations whose check reported an error, of the
+	// program Analyze last refused (errorDeclarations), for the
+	// Project answered beside the error when Config.ErrorDecls asks.
+	errorDecls map[ast.Node]bool
 }
 
 // analyzedProgram is a program Analyze built: the entry's analysis and
@@ -364,6 +375,7 @@ func (c *Checker) Analyze(nodes []ast.Node) (*analysis.FileAnalysis, map[string]
 		return nil, map[string][]ast.Node{"": nodes}, nil
 	}
 	c.siblingSyntax = nil
+	c.errorDecls = nil
 	fa, siblingFAs, siblingNodes := analysis.BuildProjectFromEntryWithManifest(
 		c.entryPath,
 		nodes,
@@ -469,6 +481,7 @@ func (c *Checker) Analyze(nodes []ast.Node) (*analysis.FileAnalysis, map[string]
 	}
 	var sibDiags Diagnostics
 	sibDiagsOf := map[string]Diagnostics{}
+	sibOwn := map[string][]analysis.TypeError{}
 	for _, key := range sibKeys {
 		sibFA := siblingFAs[key]
 		if _, shared := c.sharedStdlib(key, sibFA); shared {
@@ -486,6 +499,7 @@ func (c *Checker) Analyze(nodes []ast.Node) (*analysis.FileAnalysis, map[string]
 		if len(own) == 0 {
 			continue
 		}
+		sibOwn[key] = own
 		sibDiagsOf[key] = c.fileDiagnostics(sibPath, "", own)
 		sibDiags = append(sibDiags, sibDiagsOf[key]...)
 	}
@@ -562,7 +576,32 @@ func (c *Checker) Analyze(nodes []ast.Node) (*analysis.FileAnalysis, map[string]
 	if len(errs) == 0 && len(sibDiags) == 0 {
 		return fa, modules, nil
 	}
+	if c.cfg.ErrorDecls {
+		c.errorDecls = errorDeclarations(nodes, errs, siblingNodes, sibOwn)
+	}
 	return fa, modules, append(c.entryDiagnostics(fa, errs), sibDiags...)
+}
+
+// errorDeclarations is the declarations of the entry, whose nodes are
+// nodes and whose errors are errs, and of each other file, by its key in
+// siblingNodes and in errsOf, that hold an error
+// (analysis.ErrorDeclarations); nil when an error is in none.
+func errorDeclarations(nodes []ast.Node, errs []analysis.TypeError, siblingNodes map[string][]ast.Node, errsOf map[string][]analysis.TypeError) map[ast.Node]bool {
+	out, ok := analysis.ErrorDeclarations(nodes, errs)
+	if !ok {
+		return nil
+	}
+	for key, own := range errsOf {
+		decls, ok := analysis.ErrorDeclarations(siblingNodes[key], own)
+		if !ok {
+			return nil
+		}
+		if out == nil {
+			out = map[ast.Node]bool{}
+		}
+		maps.Copy(out, decls)
+	}
+	return out
 }
 
 // anyReservedNameRefusal reports whether any file's errors refuse a
@@ -742,6 +781,14 @@ type Project struct {
 	Root string
 	// Files is every non-entry file, stdlib excluded, in key order.
 	Files []ProjectFile
+	// ErrorDecls, on a Project answered beside its check's errors, is each
+	// declaration of its files whose check reported one of them: a
+	// function, an impl function, a test or a group
+	// (analysis.ErrorDeclarations). Nil when an error is outside every
+	// such declaration, or the program's `host` declarations are not all
+	// answered, on a Project that checked, and unless Config.ErrorDecls
+	// asks for it.
+	ErrorDecls map[ast.Node]bool
 }
 
 // ProjectFile is one file in a checked entry's import graph other than the
@@ -858,6 +905,9 @@ func (c *Checker) analyze(path, entryModRel string, placeEntry bool, src string,
 	}
 	p := &Project{Path: path, Nodes: nodes, FA: fa, Root: c.root, Files: c.projectFiles}
 	if err != nil {
+		if c.errorDecls != nil && c.ValidateHosts(modules) == nil {
+			p.ErrorDecls = c.errorDecls
+		}
 		return p, err
 	}
 	if err := c.ValidateHosts(modules); err != nil {

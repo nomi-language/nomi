@@ -5,8 +5,8 @@ import (
 )
 
 // A bare list or map pattern in a variant's payload over a distinct of a
-// list or a map (`Some([a, ..])` over a `Maybe<Items>`, `Some({"a" => v})`
-// over a `Maybe<Kvs>`) matches the distinct's inner collection, as the same
+// list or a map (`Some([a, ..])` over an `Option<Items>`, `Some({"a" => v})`
+// over an `Option<Kvs>`) matches the distinct's inner collection, as the same
 // pattern does at the top of a `case` arm, in each position a variant
 // pattern takes.
 func TestRun_ABareCollectionPatternInAPayloadMatchesADistinctsInner(t *testing.T) {
@@ -15,7 +15,7 @@ func TestRun_ABareCollectionPatternInAPayloadMatchesADistinctsInner(t *testing.T
 type Items List<Int>
 type Kvs Map<String, Int>
 
-fn first(m: Maybe<Items>) -> Int
+fn first(m: Option<Items>) -> Int
   case m
     Some([a, ..]) -> a
     Some([]) -> 0
@@ -23,7 +23,7 @@ fn first(m: Maybe<Items>) -> Int
   end
 end
 
-fn look(m: Maybe<Kvs>) -> Int
+fn look(m: Option<Kvs>) -> Int
   case m
     Some({"a" => v}) -> v
     Some(_) -> 0
@@ -31,14 +31,14 @@ fn look(m: Maybe<Kvs>) -> Int
   end
 end
 
-fn bound(m: Maybe<Items>) -> Int
+fn bound(m: Option<Items>) -> Int
   Some([a, b]) = m else
     return -1
   end
   a + b
 end
 
-fn in_if(m: Maybe<Kvs>) -> String
+fn in_if(m: Option<Kvs>) -> String
   if Some({"b" => v}) = m then
     "if: ${v}"
   else

@@ -17,8 +17,8 @@ impl Sized for List<Int>
     end
 end
 
-impl Sized for Maybe<String>
-    fn size(m: Maybe<String>) -> Int
+impl Sized for Option<String>
+    fn size(m: Option<String>) -> Int
         case m
             Some(s) -> String.length(s)
             None    -> 0
@@ -60,9 +60,9 @@ end
 test "a type-qualified call"
     assert List.show(["x"]) == "['x']"
     assert Vector.show([5, 6]) == "Vector[i5 i6]"
-    assert Maybe.show(Some(7)) == "some i7"
+    assert Option.show(Some(7)) == "some i7"
     assert List.size([1, 2, 3]) == 3
-    assert Maybe.size(Some("four")) == 4
+    assert Option.size(Some("four")) == 4
 end
 
 test "nested instances"
@@ -73,7 +73,7 @@ end
 
 test "an interface default the impl does not override"
     assert Show.loud([1]) == "[i1]!"
-    assert Maybe.loud(Some(2)) == "some i2!"
+    assert Option.loud(Some(2)) == "some i2!"
 end
 
 test "a call through a bound"
@@ -86,10 +86,10 @@ end
 
 test "a receiverless function, by turbofish, result type and bound"
     assert Zero.zero<List<Int>>(3) == [3, 3]
-    assert Zero.zero<Maybe<List<Int>>>(1) == Some([1, 1])
+    assert Zero.zero<Option<List<Int>>>(1) == Some([1, 1])
     nested: List<List<Int>> = Zero.zero(2)
     assert nested == [[2, 2], [2, 2]]
-    some: Maybe<Int> = made(5)
+    some: Option<Int> = made(5)
     assert some == Some(5)
 end
 

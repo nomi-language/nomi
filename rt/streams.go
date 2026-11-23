@@ -354,7 +354,7 @@ func (w Writer) Standard() bool { return w.stream == streamStdout || w.stream ==
 // ReaderReadLine is `Reader.read_line`: the next line without its `\n` and a
 // `\r` before it, or Ok(None) at the end. On standard input it reads what
 // `io.read_line` reads.
-func ReaderReadLine(fr *Frame, r Reader) Result[Maybe[string], IOError] {
+func ReaderReadLine(fr *Frame, r Reader) Result[Option[string], IOError] {
 	switch r.stream {
 	case streamStdin:
 		return ReadLine(fr)
@@ -363,23 +363,23 @@ func ReaderReadLine(fr *Frame, r Reader) Result[Maybe[string], IOError] {
 		st.mu.Lock()
 		defer st.mu.Unlock()
 		if st.closed {
-			return Err[Maybe[string]](IOError{Tag: TagIOClosed})
+			return Err[Option[string]](IOError{Tag: TagIOClosed})
 		}
 		st.at(fr)
 		line, err := st.r.ReadString('\n')
 		if err != nil && !errors.Is(err, io.EOF) {
-			return Err[Maybe[string]](st.fail("read", err))
+			return Err[Option[string]](st.fail("read", err))
 		}
 		if err != nil && line == "" {
-			return Ok[Maybe[string], IOError](None[string]())
+			return Ok[Option[string], IOError](None[string]())
 		}
 		line = strings.TrimSuffix(strings.TrimSuffix(line, "\n"), "\r")
 		if !utf8.ValidString(line) {
-			return Err[Maybe[string]](IOError{Tag: TagIOInvalidText, Path: st.src.Name, Offset: SmallInt(int64(InvalidUTF8Offset(line)))})
+			return Err[Option[string]](IOError{Tag: TagIOInvalidText, Path: st.src.Name, Offset: SmallInt(int64(InvalidUTF8Offset(line)))})
 		}
-		return Ok[Maybe[string], IOError](Some(line))
+		return Ok[Option[string], IOError](Some(line))
 	}
-	return Err[Maybe[string]](IOError{Tag: TagIOClosed})
+	return Err[Option[string]](IOError{Tag: TagIOClosed})
 }
 
 // ReaderRead is `Reader.read`: up to max bytes, at least one unless the
@@ -389,7 +389,7 @@ func ReaderReadLine(fr *Frame, r Reader) Result[Maybe[string], IOError] {
 //
 // max is an Int of any size; a read returns at most what one read of the
 // source gives, so one past readChunk reads as readChunk does.
-func ReaderRead(fr *Frame, r Reader, maxArg Int) Result[Maybe[Bytes], IOError] {
+func ReaderRead(fr *Frame, r Reader, maxArg Int) Result[Option[Bytes], IOError] {
 	if maxArg.Sign() <= 0 {
 		Trap("Reader.read: max is " + maxArg.String() + "; it must be at least 1")
 	}
@@ -402,17 +402,17 @@ func ReaderRead(fr *Frame, r Reader, maxArg Int) Result[Maybe[Bytes], IOError] {
 		st.mu.Lock()
 		defer st.mu.Unlock()
 		if st.closed {
-			return Err[Maybe[Bytes]](IOError{Tag: TagIOClosed})
+			return Err[Option[Bytes]](IOError{Tag: TagIOClosed})
 		}
 		st.at(fr)
 		return readSome(st.r, max, st.fail)
 	}
-	return Err[Maybe[Bytes]](IOError{Tag: TagIOClosed})
+	return Err[Option[Bytes]](IOError{Tag: TagIOClosed})
 }
 
 // readSome reads up to max bytes from r: what is buffered, or one read's
 // worth when nothing is.
-func readSome(r *bufio.Reader, max int64, failure func(string, error) IOError) Result[Maybe[Bytes], IOError] {
+func readSome(r *bufio.Reader, max int64, failure func(string, error) IOError) Result[Option[Bytes], IOError] {
 	n := int(max)
 	if b := r.Buffered(); b > 0 && b < n {
 		n = b
@@ -421,13 +421,13 @@ func readSome(r *bufio.Reader, max int64, failure func(string, error) IOError) R
 	for {
 		got, err := r.Read(buf)
 		if got > 0 {
-			return Ok[Maybe[Bytes], IOError](Some(Bytes(buf[:got])))
+			return Ok[Option[Bytes], IOError](Some(Bytes(buf[:got])))
 		}
 		if errors.Is(err, io.EOF) {
-			return Ok[Maybe[Bytes], IOError](None[Bytes]())
+			return Ok[Option[Bytes], IOError](None[Bytes]())
 		}
 		if err != nil {
-			return Err[Maybe[Bytes]](failure("read", err))
+			return Err[Option[Bytes]](failure("read", err))
 		}
 	}
 }
@@ -608,20 +608,20 @@ func stdinInput(fr *Frame) (in *Input, replay *Capture) {
 // stdinRead is `Reader.read` on standard input. Inside `io.replay` each read
 // answers the script's next input line and its newline, which the transcript
 // records as a line read.
-func stdinRead(fr *Frame, max int64) Result[Maybe[Bytes], IOError] {
+func stdinRead(fr *Frame, max int64) Result[Option[Bytes], IOError] {
 	in, replay := stdinInput(fr)
 	if replay != nil {
 		line := replay.readLine()
 		if line.Tag != TagOk {
-			return Err[Maybe[Bytes]](line.Err)
+			return Err[Option[Bytes]](line.Err)
 		}
 		if line.Ok.Tag != TagSome {
-			return Ok[Maybe[Bytes], IOError](None[Bytes]())
+			return Ok[Option[Bytes], IOError](None[Bytes]())
 		}
-		return Ok[Maybe[Bytes], IOError](Some(Bytes(line.Ok.Some + "\n")))
+		return Ok[Option[Bytes], IOError](Some(Bytes(line.Ok.Some + "\n")))
 	}
 	if in == nil {
-		return Ok[Maybe[Bytes], IOError](None[Bytes]())
+		return Ok[Option[Bytes], IOError](None[Bytes]())
 	}
 	return in.readSome(fr, max)
 }

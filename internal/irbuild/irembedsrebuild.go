@@ -9,9 +9,9 @@ import (
 
 // A value, not a construction, whose type converts below its top to the
 // type expected (spec §5 *Covariant conversion*), where an element is not
-// already a value of the wider type: `w: Maybe<Shape> = m` for `m:
-// Maybe<Circle>` and `enum Shape { embeds Circle }`, `d: Maybe<Display> = m`
-// for `m: Maybe<List<Int>>`, `b: Box<Display> = bx` for `bx: Box<Int>`, or
+// already a value of the wider type: `w: Option<Shape> = m` for `m:
+// Option<Circle>` and `enum Shape { embeds Circle }`, `d: Option<Display> = m`
+// for `m: Option<List<Int>>`, `b: Box<Display> = bx` for `bx: Box<Int>`, or
 // the narrower operand of `m == Some(Shape.Dot)`. A construction in that
 // position is built at the expected type, so its element converts where it
 // sits. A value already built is not the same runtime value: a Shape holding
@@ -25,7 +25,7 @@ import (
 //   - a tuple, an anonymous record or a user generic struct is made again
 //     from its parts, each converted to the wider part (convertTo, which
 //     widens an embedded value and comes back here for a nested one);
-//   - a generic enum instance (`Maybe`, `Result`, a user `Box<T>`) goes
+//   - a generic enum instance (`Option`, `Result`, a user `Box<T>`) goes
 //     through an adapter function that matches each variant and makes it
 //     again at the wider instance with its payloads converted. The adapter
 //     takes itself as a capture, so an enum holding its own instance
@@ -158,7 +158,7 @@ func (bl *irScalarBuilder) rebuildRecord(at ast.Node, v ir.Temp, have, want kind
 }
 
 // rebuildDistinct makes a user generic distinct type again at want from its
-// inner value converted: `Ids<Maybe<Int>>` as an `Ids<Display>` unwraps the
+// inner value converted: `Ids<Option<Int>>` as an `Ids<Display>` unwraps the
 // List, rebuilds it, and wraps it at the wider instance.
 func (bl *irScalarBuilder) rebuildDistinct(at ast.Node, v ir.Temp, have, want kind) (ir.Temp, bool) {
 	hd, wd := have.def, want.def

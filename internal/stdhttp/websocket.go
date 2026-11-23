@@ -93,19 +93,19 @@ func WsID(h rt.HTTPHandle) int64 { return wsOf(h).id }
 // WsReceive is `std::http::host.ws_receive`: the next message, its first byte 1
 // for text and 2 for binary before the payload, or None after a clean
 // close.
-func WsReceive(fr *rt.Frame, h rt.HTTPHandle) rt.Result[rt.Maybe[rt.Bytes], *rt.List[string]] {
+func WsReceive(fr *rt.Frame, h rt.HTTPHandle) rt.Result[rt.Option[rt.Bytes], *rt.List[string]] {
 	m, ok, err := wsOf(h).c.Receive(frameContext(fr))
 	if err != nil {
-		return rt.Err[rt.Maybe[rt.Bytes]](listOf(wsErrParts(err, "")))
+		return rt.Err[rt.Option[rt.Bytes]](listOf(wsErrParts(err, "")))
 	}
 	if !ok {
-		return rt.Ok[rt.Maybe[rt.Bytes], *rt.List[string]](rt.None[rt.Bytes]())
+		return rt.Ok[rt.Option[rt.Bytes], *rt.List[string]](rt.None[rt.Bytes]())
 	}
 	kind := "\x02"
 	if m.Text {
 		kind = "\x01"
 	}
-	return rt.Ok[rt.Maybe[rt.Bytes], *rt.List[string]](rt.Some(rt.Bytes(kind + string(m.Data))))
+	return rt.Ok[rt.Option[rt.Bytes], *rt.List[string]](rt.Some(rt.Bytes(kind + string(m.Data))))
 }
 
 // WsSend is `std::http::host.ws_send`.

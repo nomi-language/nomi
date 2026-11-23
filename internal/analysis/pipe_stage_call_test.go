@@ -40,7 +40,7 @@ func TestPipeStage_BareNameIsRejected(t *testing.T) {
 		{"x = 3 |> double |> Int.to_string()", "a pipe stage is a call: write `double()`", 12},
 		{"x = 3 |> Int.to_string", "a pipe stage is a call: write `Int.to_string()`", 12},
 		{"x: Result<Int, String> = 3 |> Ok", "a pipe stage is a call: write `Ok()`", 33},
-		{"x: Maybe<Int> = 3 |> Some", "a pipe stage is a call: write `Some()`", 24},
+		{"x: Option<Int> = 3 |> Some", "a pipe stage is a call: write `Some()`", 25},
 		{"x = 3 |> Box.make", "a pipe stage is a call: write `Box.make()`", 12},
 		{"x = 3 |> (double)", "a pipe stage is a call: write `double()`", 12},
 		{"x: Dir = 3 |> .North", "a pipe stage is a call: write the variant through its enum, as in `Enum.North()`", 17},
@@ -80,10 +80,10 @@ func TestPipeStage_CallsLambdasAndKeywordsAreAccepted(t *testing.T) {
 		"x = 3 |> dbg",
 		"x = True |> if then 1 else 0",
 		"x = 3 |> case\n    3 -> True\n    _ -> False\n  end",
-		"x = Some(3) |> Maybe.map(fn v -> v)?",
+		"x = Some(3) |> Option.map(fn v -> v)?",
 		"x = [1, 2] |> Iter.map(double) |> Iter.to_list()",
 	} {
-		src := pipeStageDecls + "fn demo() -> Maybe<Unit>\n  " + stmt + "\n  _ = x\n  Some(Unit)\nend\n"
+		src := pipeStageDecls + "fn demo() -> Option<Unit>\n  " + stmt + "\n  _ = x\n  Some(Unit)\nend\n"
 		_, errs := checkSourceWithStdlib(src)
 		expectNoStdlibErrors(t, errs)
 	}

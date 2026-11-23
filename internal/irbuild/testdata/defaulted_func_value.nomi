@@ -4,7 +4,7 @@ import std::io
 // through a lambda or a partial application, which leave the default to the
 // call. Named bare, it has both parameters and fits no one-parameter type,
 // which the checker rejects (analysis/func_value_defaults.go).
-fn parse(s: String, strict: Bool = False) -> Maybe<Int>
+fn parse(s: String, strict: Bool = False) -> Option<Int>
     if strict and String.starts_with(s, "+") then
         None
     else
@@ -12,7 +12,7 @@ fn parse(s: String, strict: Bool = False) -> Maybe<Int>
     end
 end
 
-fn apply(f: (String) -> Maybe<Int>, s: String) -> Maybe<Int>
+fn apply(f: (String) -> Option<Int>, s: String) -> Option<Int>
     f(s)
 end
 
@@ -40,7 +40,7 @@ fn main()
         )
     )
 
-    io.print(Debug.inspect(Maybe.flat_map(Some("3"), fn s -> parse(s))))
-    lenient: (String) -> Maybe<Int> = &parse(&1)
+    io.print(Debug.inspect(Option.flat_map(Some("3"), fn s -> parse(s))))
+    lenient: (String) -> Option<Int> = &parse(&1)
     io.print(Debug.inspect(apply(lenient, "+4")))
 end

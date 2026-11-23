@@ -17,7 +17,7 @@ end
 
 fn main()
     u = users.make()
-    m = users.maybe()
+    m = users.option()
     p = Point{x: 1}
     xs = [p]
     pair = (p, u)
@@ -42,7 +42,7 @@ func TestTypeDefinition(t *testing.T) {
 		}
 	}
 	write("nomi.toml", "[module]\nname = \"app\"\nentry_points = [\"main\"]\n")
-	write("models/users.nomi", "pub struct User\n    name: String\nend\n\npub fn make() -> User\n    User{name: \"a\"}\nend\n\npub fn maybe() -> Maybe<User>\n    None\nend\n")
+	write("models/users.nomi", "pub struct User\n    name: String\nend\n\npub fn make() -> User\n    User{name: \"a\"}\nend\n\npub fn option() -> Option<User>\n    None\nend\n")
 	src := strings.Replace(typeDefMain, "import models::users\n", "import models::users\nimport std::io\n", 1)
 	write("main.nomi", src)
 	s := NewServer()
@@ -60,7 +60,7 @@ func TestTypeDefinition(t *testing.T) {
 		atLine int    // 0-based, -1 to skip
 	}{
 		{"binding of a type from another file", occ(src, "u = ", 0, 0), "users.nomi", "User", 0},
-		{"generic instantiation lands on the generic type", occ(src, "m = ", 0, 0), "maybe.nomi", "Maybe", -1},
+		{"generic instantiation lands on the generic type", occ(src, "m = ", 0, 0), "option.nomi", "Option", -1},
 		{"binding of this file's struct", occ(src, "p = ", 0, 0), "main.nomi", "Point", 3},
 		{"use of a binding", occ(src, "p.x,", 0, 0), "main.nomi", "Point", 3},
 		{"list", occ(src, "xs = ", 0, 0), "lists.nomi", "List", -1},

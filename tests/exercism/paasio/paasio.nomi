@@ -37,9 +37,9 @@ impl MeteredReader
     pub fn read(
         meter: MeteredReader,
         max:   PositiveInt = 65536,
-    ) -> Result<(Maybe<Bytes>, MeteredReader), io.Error>
+    ) -> Result<(Option<Bytes>, MeteredReader), io.Error>
         data = Reader.read(meter.reader, max)?
-        bytes = data |> Maybe.map(Bytes.length) |> Maybe.with_default(0)
+        bytes = data |> Option.map(Bytes.length) |> Option.with_default(0)
 
         Ok((data, {..meter, stats: Stats.add(.., bytes)}))
     end

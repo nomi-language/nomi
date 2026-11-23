@@ -47,8 +47,12 @@ func (c *checker) checkDistinctCtorCall(n *ast.Call, dt *DistinctType) Type {
 		line, col = n.Line, 1
 	}
 	if dt.Inner == nil {
+		// A type whose inner type has none takes what it is given: the
+		// error at its declaration is the one error.
 		c.checkArgs(n.Args)
-		c.addError(line, col, zeroSizedTypeCallMessage(label))
+		if !dt.InnerOfNoType {
+			c.addError(line, col, zeroSizedTypeCallMessage(label))
+		}
 		return dt
 	}
 	if len(n.Args) != 1 || isNamedArg(n.Args[0]) {
@@ -59,7 +63,7 @@ func (c *checker) checkDistinctCtorCall(n *ast.Call, dt *DistinctType) Type {
 			ArticleFor(formatTypeForError(dt.Inner)), formatTypeForError(dt.Inner), len(n.Args)))
 		return dt
 	}
-	if dt.Subtype {
+	if dt.Refinement {
 		c.refinementCtorArg(n.Args[0], dt, label)
 		return dt
 	}
@@ -89,10 +93,11 @@ func (c *checker) freshDistinct(dt *DistinctType) *DistinctType {
 		Origin:           dt.Origin,
 		Name:             dt.Name,
 		Inner:            dt.Inner,
+		InnerOfNoType:    dt.InnerOfNoType,
 		WrittenAsParts:   dt.WrittenAsParts,
 		Rule:             dt.Rule,
 		MoreParents:      dt.MoreParents,
-		Subtype:          dt.Subtype,
+		Refinement:       dt.Refinement,
 		Opaque:           dt.Opaque,
 		OwningSourceFile: dt.OwningSourceFile,
 		TypeParams:       dt.TypeParams,
@@ -113,7 +118,9 @@ func (c *checker) checkPipedDistinctCtor(call *ast.Call, piped ast.Node, pipedTy
 	}
 	if dt.Inner == nil {
 		c.checkArgs(call.Args)
-		c.addError(line, col, zeroSizedTypeCallMessage(label))
+		if !dt.InnerOfNoType {
+			c.addError(line, col, zeroSizedTypeCallMessage(label))
+		}
 		return dt
 	}
 	c.checkOpaqueConstructor(call.Func, dt)
@@ -125,7 +132,7 @@ func (c *checker) checkPipedDistinctCtor(call *ast.Call, piped ast.Node, pipedTy
 			"%s takes the piped value as its only argument, got %d more", label, len(call.Args)))
 		return dt
 	}
-	if dt.Subtype || checkedDistinctOf(dt) != nil {
+	if dt.Refinement || checkedDistinctOf(dt) != nil {
 		c.refinementPipedArg(piped, pipedTy, dt, label)
 		return dt
 	}

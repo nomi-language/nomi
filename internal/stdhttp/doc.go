@@ -71,7 +71,11 @@
 // `std::http::host.listen` carries the `listen` class (not on js/wasm or
 // wasip1). A listener registers a drain hook (rt.OnDrain), so draining runs
 // `Server.Shutdown` before any grace period: accepting stops, taken requests
-// finish, `serve` returns and the drain ends. `http.serve_here` serves
+// finish, `serve` returns and the drain ends. Go's Shutdown waits for no
+// request whose connection is hijacked, so the listener holds each request
+// the program took until its `finish` and waits for those too, within the
+// same budget: a WebSocket whose handler is still returning after its
+// client closed is not cancelled by the shutdown. `http.serve_here` serves
 // requests as tasks of the enclosing `concurrent` block;
 // `std::http::testing.with_server` uses it with a certificate from
 // `std::http::host.test_certificate`.
@@ -91,7 +95,7 @@
 // expected type is typed from its wildcards
 // (internal/analysis/checked_literal_args.go), and `P`'s fields are held to
 // `Parse` and `Display` there. `Route.to` and `to_with` make an `Entry` (a
-// pattern and `(Request) -> Maybe<Response>`, `None` a 404); `to_with`
+// pattern and `(Request) -> Option<Response>`, `None` a 404); `to_with`
 // reads path values through `parse.read_fields`. `ParseFields` at an
 // anonymous struct has no impl: the checker admits it when each field
 // implements `Parse` and `Display`
@@ -103,7 +107,10 @@
 //
 // `Response.redirect` and `Response.content` run Go's `Redirect` and
 // `ServeContent` on a recorder; `http.serve_file` reads through std/fs and
-// hands the bytes to `ServeContent`. Go's Header is a map, so every header
+// hands the bytes to `ServeContent`. A response with no `Content-Type` gets
+// one before ServeContent runs (contentTypeOf): Go's own table for the
+// name's extension, else the data's sniffed type, never the machine's mime
+// tables, which ServeContent would read. Go's Header is a map, so every header
 // list that crosses to Nomi (a response, a request, a recorder's, a
 // multipart part's) is sorted by name, each name's values in order
 // (`flatHeader`), and the same header always crosses as the same list,

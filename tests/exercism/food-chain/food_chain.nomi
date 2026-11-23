@@ -4,7 +4,7 @@
 /// she swallows it, and what follows its name when it is the one caught.
 struct Animal
     name:     String
-    reaction: Maybe<String> = None
+    reaction: Option<String> = None
     detail:   String = ""
 end
 

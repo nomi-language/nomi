@@ -58,7 +58,7 @@ func TestJsonRejectsTuplesAndMapsWithOtherKeys(t *testing.T) {
 	// So is one keyed by an alias of String: the derive's component type
 	// is the alias's target.
 	fa = buildWithStdlibForDerive(anonJsonDecls + "\ntypealias Key String\n\n" +
-		"struct W\n  m: Map<Key, Int>\n  n: Maybe<Map<Key, List<Key>>>\nend\n\nderive ToJson for W\nderive FromJson for W\n")
+		"struct W\n  m: Map<Key, Int>\n  n: Option<Map<Key, List<Key>>>\nend\n\nderive ToJson for W\nderive FromJson for W\n")
 	if len(fa.TypeErrors) != 0 {
 		t.Fatalf("the checker rejects a Map keyed by an alias of String:\n%s", errorsText(fa.TypeErrors))
 	}

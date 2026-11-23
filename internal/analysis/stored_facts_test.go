@@ -358,6 +358,94 @@ end
 	}
 }
 
+// A derive over a field whose type names nothing demands no impl of it, in
+// the reduction over stored facts as in the check (DemandFact.NoType), and
+// a derive's demand of a field beside it still draws its missing impl.
+func TestStoredReductions_ADeriveOverAPartOfNoTypeDemandsNothing(t *testing.T) {
+	p := incrementalProject{name: "part-of-no-type", entry: "main", texts: map[string]string{
+		"changes": `pub struct Thing
+    f: (Int) -> Int
+end
+
+pub struct Changes
+    email: Maybe<String>
+    thing: Thing
+end
+
+derive Equatable for Changes
+`,
+		"main": `import
+    changes
+end
+
+fn main()
+    dbg changes.Changes
+end
+`,
+	}}
+	if diff := storedDiff(p, p.texts); diff != "" {
+		t.Fatal(diff)
+	}
+	dm := newManager()
+	_, _, _, stored := dm.StoredFactsForTest(dm.CheckProgram(p.root(), p.entry, p.texts))
+	if stored == nil {
+		t.Fatal("the program is not reduced over stored facts")
+	}
+	var got []string
+	for _, e := range stored.Coherence {
+		got = append(got, e.Message)
+	}
+	want := "no impl of `Equatable` for `Thing` (required via `derive Equatable for Changes`, field `thing`)"
+	if strings.Join(got, "\n") != want {
+		t.Errorf("the reduction over stored facts reports:\n%s\nwant:\n%s", strings.Join(got, "\n"), want)
+	}
+}
+
+// A demand that is no derive's, of a type another file declares with a
+// field whose type names nothing, demands nothing, in the reduction over
+// stored facts as in the check (DemandFact.NoType), and the same demand of
+// a healthy type beside it still draws its missing impl.
+func TestStoredReductions_ADemandOfATypeWithAPartOfNoTypeDemandsNothing(t *testing.T) {
+	p := incrementalProject{name: "demand-of-no-type", entry: "main", texts: map[string]string{
+		"changes": `pub struct Thing
+    n: Int
+end
+
+pub struct Changes
+    email: Nope
+end
+`,
+		"main": `import
+    changes.{Changes, Thing}
+end
+
+fn main()
+    c = Changes{email: 1}
+    t = Thing{n: 1}
+    _ = c < c
+    _ = Comparable.compare(c, c)
+    _ = t < t
+end
+`,
+	}}
+	if diff := storedDiff(p, p.texts); diff != "" {
+		t.Fatal(diff)
+	}
+	dm := newManager()
+	_, _, _, stored := dm.StoredFactsForTest(dm.CheckProgram(p.root(), p.entry, p.texts))
+	if stored == nil {
+		t.Fatal("the program is not reduced over stored facts")
+	}
+	var got []string
+	for _, e := range stored.Coherence {
+		got = append(got, e.Message)
+	}
+	want := "no impl of `Comparable` for `Thing` (required via ordering operator `<`)"
+	if strings.Join(got, "\n") != want {
+		t.Errorf("the reduction over stored facts reports:\n%s\nwant:\n%s", strings.Join(got, "\n"), want)
+	}
+}
+
 // A call of std's Worker.new in a lambda and in a test body, with no
 // function of the program calling it elsewhere, is reported by the check
 // and by the reduction over stored facts alike.

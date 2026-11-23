@@ -5,7 +5,7 @@ pub type Grams Int
 derive Comparable for Grams
 
 impl Steppable<Int> for Grams
-    fn step_by(value: Grams, by: Int) -> Maybe<Grams>
+    fn step_by(value: Grams, by: Int) -> Option<Grams>
         Grams(g) = value
         Some(Grams(g + by))
     end

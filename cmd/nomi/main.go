@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/dap"
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/termcolor"
@@ -12,6 +13,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -27,7 +29,9 @@ var (
 const usage = `usage:
   nomi                                  start the REPL (bindings, functions and types carry between inputs)
   nomi run <file> [args]                run a program on the VM, from its source or
-                                        from a compiled program (.nomic) nomi build --no-vm wrote
+                                        from a compiled program (.nomic) nomi build --no-vm wrote;
+                                        a project directory whose nomi.toml lists one
+                                        entry point runs that entry
   nomi run --watch <file> [args]        run the program, and stop it and run it again
                                         whenever a file it is built from changes
   nomi run --profile[=<file>] <file> [args]
@@ -81,11 +85,14 @@ const usage = `usage:
                                         file, -l lists the files that would change, -d prints
                                         the changes, -check lists them and exits 1 if any would;
                                         with no path, formats standard input
-  nomi new <module path> [dir]          start a project: nomi.toml and a main.nomi, in
-                                        dir (default: the path's last element)
-  nomi init [module path]               make the current directory a project: write its
+  nomi new <name> [dir]                 start a project: nomi.toml and a main.nomi, in
+                                        dir (default: the name)
+  nomi new <module path> [dir]          the same, for a module others download by that
+                                        path, with the go.mod it is served with; dir
+                                        defaults to the path's last element
+  nomi init [name | module path]        make the current directory a project: write its
                                         nomi.toml, listing each file with a fn main as an
-                                        entry point, and a go.mod beside Go code
+                                        entry point, and a module path's go.mod
   nomi add [<name>=]<module>[@version]  add a dependency to nomi.toml's [dependencies]:
                                         its latest release when no version is given,
                                         downloaded and locked in nomi.lock; prints the
@@ -106,6 +113,7 @@ const usage = `usage:
   nomi build <file> [-o <out>] [--target <goos>/<goarch>] [--allow-unsupported <class>]
                                         build a single executable: nomi-vm with the
                                         program's IR appended (runs at nomi run speed);
+                                        a project directory builds its one entry point;
                                         a program that reaches a call its target cannot
                                         make (files in a browser) is refused, unless
                                         --allow-unsupported names the call's class
@@ -136,188 +144,231 @@ const usage = `usage:
   nomi phrases accept <locale> <name>   mark a locale's translation of a phrase
                                         current, recording the phrase's text as
                                         the source it was translated from
+  nomi help [command]                   print this, or a command's usage, as
+                                        nomi <command> --help does
   nomi version                          print the version
 `
 
+// command is one `nomi` subcommand. main runs the one its first argument
+// names with the words after it, and answers `--help` or `-h` among the
+// command's own words, and `nomi help <name>`, with its usage on stdout.
+type command struct {
+	name string
+	// aliases are other spellings of the command: `--help` and `-h` for
+	// help, `--version` for version.
+	aliases []string
+	// usage is the command's usage, which --help prints and an error in
+	// its arguments ends with.
+	usage string
+	// programArgs is set for a command whose words after its first one
+	// that is not a flag are a program's own, run's program's or tool's
+	// tool's: only the flags before that word are the command's.
+	programArgs bool
+	// offline and allCalls are set for a command that takes --offline
+	// (offlineFlag) or --all-calls (allCallsFlag).
+	offline, allCalls bool
+	// downloads is set for a command that may download a module the
+	// project needs (enableDownloads). The debugger is started by an
+	// editor, which never downloads, and the others build nothing.
+	downloads bool
+	// libNote is set for a command that checks or runs a program, whose
+	// project's first fetch notes the lib/ modules off this release
+	// (noteLibRelease).
+	libNote bool
+	// run runs the command. An error it returns is printed, unless it says
+	// the command printed its reasons already (alreadyReported), and the
+	// process exits 1.
+	run func(args []string, offline bool) error
+}
+
+// commandTable is every `nomi` subcommand. It is a function, not a
+// variable, since help's run reads it.
+func commandTable() []command {
+	return []command{
+		{name: "run", usage: runUsage, programArgs: true, offline: true, allCalls: true, downloads: true, libNote: true,
+			run: func(args []string, _ bool) error { return runCommand(args) }},
+		{name: "test", usage: testUsage, offline: true, allCalls: true, downloads: true, libNote: true,
+			run: func(args []string, _ bool) error { return runTest(args) }},
+		{name: "check", usage: checkUsage, offline: true, allCalls: true, downloads: true, libNote: true,
+			run: func(args []string, _ bool) error {
+				path, err := parseCheckArgs(args)
+				if err != nil {
+					return err
+				}
+				return runCheck(path)
+			}},
+		{name: "build", usage: buildUsage, offline: true, allCalls: true, downloads: true, libNote: true,
+			run: func(args []string, _ bool) error { return runBuild(args) }},
+		{name: "effects", usage: effectsUsage, offline: true, downloads: true,
+			run: func(args []string, _ bool) error { return runEffects(os.Stdout, args) }},
+		{name: "types", usage: typesUsage, offline: true, downloads: true,
+			run: func(args []string, _ bool) error { return runTypes(args) }},
+		{name: "fmt", usage: fmtUsage,
+			run: func(args []string, _ bool) error { return runFmt(args) }},
+		{name: "new", usage: newUsage,
+			run: func(args []string, _ bool) error { return runNew(args) }},
+		{name: "init", usage: initUsage,
+			run: func(args []string, _ bool) error { return runInit(args) }},
+		{name: "add", usage: addUsage, offline: true, downloads: true, run: runAdd},
+		{name: "remove", usage: removeUsage,
+			run: func(args []string, _ bool) error { return runRemove(args) }},
+		{name: "update", usage: updateUsage, downloads: true,
+			run: func(args []string, _ bool) error { return runUpdate(args) }},
+		{name: "fetch", usage: fetchUsage, offline: true, downloads: true, run: runFetch},
+		{name: "build-vm", usage: buildVMUsage, downloads: true,
+			run: func(args []string, _ bool) error { return runBuildVM(args) }},
+		{name: "dap", usage: dapUsage,
+			run: func(args []string, _ bool) error { os.Exit(runDAP(args)); return nil }},
+		{name: "mcp", usage: mcpUsage,
+			run: func(args []string, _ bool) error { os.Exit(runMCP(args)); return nil }},
+		// Hidden: what a debugger's terminal runs to carry a program's
+		// input and output (internal/dap's RunTerminal).
+		{name: dap.TerminalCommand, usage: terminalUsage,
+			run: func(args []string, _ bool) error {
+				if len(args) != 1 {
+					return errors.New(terminalUsage)
+				}
+				os.Exit(dap.RunTerminal(args[0], os.Stdin, os.Stdout))
+				return nil
+			}},
+		{name: "tool", usage: toolUsage, programArgs: true, downloads: true,
+			run: func(args []string, _ bool) error { return runTool(args) }},
+		{name: "phrases", usage: phrasesUsage,
+			run: func(args []string, _ bool) error { return runPhrases(args) }},
+		{name: "version", aliases: []string{"--version"}, usage: versionUsage,
+			run: func([]string, bool) error { runVersion(); return nil }},
+		{name: "help", aliases: []string{"--help", "-h"}, usage: helpUsage, run: runHelp},
+	}
+}
+
+const terminalUsage = "usage: nomi " + dap.TerminalCommand + " <socket>"
+
+// lookupCommand is the command that name, or one of its aliases, spells.
+func lookupCommand(name string) (command, bool) {
+	for _, c := range commandTable() {
+		if c.name == name || slices.Contains(c.aliases, name) {
+			return c, true
+		}
+	}
+	return command{}, false
+}
+
+// helpRequested reports whether `--help` or `-h` is among c's own words in
+// args.
+func helpRequested(c command, args []string) bool {
+	for _, arg := range args {
+		if arg == "--help" || arg == "-h" {
+			return true
+		}
+		if c.programArgs && !isFlag(arg) {
+			return false
+		}
+	}
+	return false
+}
+
+const helpUsage = "usage: nomi help [command]"
+
+// runHelp is `nomi help`: the command summary, or with a command's name
+// that command's usage, as `nomi <command> --help` prints it.
+func runHelp(args []string, _ bool) error {
+	switch len(args) {
+	case 0:
+		fmt.Print(usage)
+		return nil
+	case 1:
+		c, ok := lookupCommand(args[0])
+		if !ok {
+			return fmt.Errorf("nomi help: unknown command %q\nrun `nomi help` for usage", args[0])
+		}
+		fmt.Println(c.usage)
+		return nil
+	}
+	return errors.New(helpUsage)
+}
+
+// alreadyReported reports whether err says that the command printed its
+// reasons already, so main prints nothing more.
+func alreadyReported(err error) bool {
+	for _, done := range []error{errCheckFailed, errTestsFailed, errBuildRefused, errTypesFailed, errFormatFailed} {
+		if errors.Is(err, done) {
+			return true
+		}
+	}
+	return false
+}
+
 func main() {
-	command := ""
-	if len(os.Args) > 1 {
-		command = os.Args[1]
+	if len(os.Args) < 2 {
+		enableDownloads(false, false, os.Stderr)
+		runReplVM()
+		return
+	}
+	name, args := os.Args[1], os.Args[2:]
+	c, ok := lookupCommand(name)
+	if !ok {
+		if isScriptPath(name) {
+			// `nomi hi.nomi a b` is `nomi run hi.nomi a b`, which is what the
+			// kernel runs for a `#!/usr/bin/env nomi` script invoked as
+			// `./hi.nomi a b`, or as `hi a b` for an extensionless one on PATH.
+			enableDownloads(false, true, os.Stderr)
+			runFileVM(name, args...)
+			return
+		}
+		// The REPL takes no argument, so anything else is a mistake rather
+		// than a REPL session.
+		if isFlag(name) {
+			fmt.Fprintln(os.Stderr, unknownFlag("nomi", name, "run `nomi help` for usage"))
+		} else {
+			fmt.Fprintf(os.Stderr, "nomi: unknown command %q\nrun `nomi help` for usage\n", name)
+		}
+		os.Exit(1)
+	}
+	if helpRequested(c, args) {
+		fmt.Println(c.usage)
+		return
 	}
 	offline := false
-	switch command {
-	case "run", "test", "check", "build", "fetch", "add", "types", "effects":
-		var rest []string
-		rest, offline = takeFlag(command, offlineFlag, os.Args[2:])
-		os.Args = append([]string{os.Args[0], command}, rest...)
+	if c.offline {
+		args, offline = takeFlag(c, offlineFlag, args)
 	}
-	switch command {
-	case "run", "test", "check", "build":
-		rest, allCalls := takeFlag(command, allCallsFlag, os.Args[2:])
-		os.Args = append([]string{os.Args[0], command}, rest...)
-		if allCalls {
+	if c.allCalls {
+		var allCalls bool
+		if args, allCalls = takeFlag(c, allCallsFlag, args); allCalls {
 			_ = os.Setenv(vmhost.AllCallsEnv, "1")
 		}
 	}
-	switch command {
-	case "dap", "mcp", dap.TerminalCommand, "fmt", "phrases", "version", "help", "--help", "-h", "new", "init", "remove":
-		// The debugger is started by an editor, which never downloads, and
-		// the others build nothing.
-	default:
-		enableDownloads(offline, os.Stderr)
+	if c.downloads {
+		enableDownloads(offline, c.libNote, os.Stderr)
 	}
-
-	if versionRequested(os.Args) {
-		runVersion()
-	} else if len(os.Args) > 1 && (os.Args[1] == "help" || os.Args[1] == "--help" || os.Args[1] == "-h") {
-		fmt.Print(usage)
-	} else if len(os.Args) > 1 && os.Args[1] == "run" {
-		args := takeProfileFlag(os.Args[2:])
-		if len(args) < 1 {
-			fmt.Fprintln(os.Stderr, runUsage)
-			os.Exit(1)
-		}
-		// Everything after the file is the program's own arguments. A flag
-		// before it is --watch's (watch_cmd.go) or the browser dev loop's
-		// (run_web.go), whose flags may also follow the file.
-		if isFlag(args[0]) {
-			watch, entry, progArgs, err := parseRunWatchArgs(args)
-			if err != nil {
-				fmt.Fprintln(os.Stderr, err)
-				os.Exit(1)
-			}
-			if watch {
-				os.Exit(runWatchCommand(entry, progArgs))
-			}
-			if err := runWebCommand(args); err != nil {
-				fmt.Fprintln(os.Stderr, err)
-				os.Exit(1)
-			}
-			return
-		}
-		runFileVM(args[0], args[1:]...)
-	} else if len(os.Args) > 1 && os.Args[1] == "check" {
-		path, err := parseCheckArgs(os.Args[2:])
-		if err != nil {
+	if err := c.run(args, offline); err != nil {
+		if !alreadyReported(err) {
 			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		if err := runCheck(path); err != nil {
-			if !errors.Is(err, errCheckFailed) {
-				fmt.Fprintln(os.Stderr, err)
-			}
-			os.Exit(1)
-		}
-	} else if len(os.Args) > 1 && os.Args[1] == "build" {
-		if err := runBuild(os.Args[2:]); err != nil {
-			if !errors.Is(err, errBuildRefused) {
-				fmt.Fprintln(os.Stderr, err)
-			}
-			os.Exit(1)
-		}
-	} else if command == "effects" {
-		if err := runEffects(os.Stdout, os.Args[2:]); err != nil {
-			if !errors.Is(err, errCheckFailed) {
-				fmt.Fprintln(os.Stderr, err)
-			}
-			os.Exit(1)
-		}
-	} else if command == "fetch" {
-		if err := runFetch(os.Args[2:], offline); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-	} else if command == "add" {
-		if err := runAdd(os.Args[2:], offline); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-	} else if command == "new" {
-		if err := runNew(os.Args[2:]); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-	} else if command == "init" {
-		if err := runInit(os.Args[2:]); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-	} else if command == "remove" {
-		if err := runRemove(os.Args[2:]); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-	} else if command == "update" {
-		if err := runUpdate(os.Args[2:]); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-	} else if len(os.Args) > 1 && os.Args[1] == "build-vm" {
-		if err := runBuildVM(os.Args[2:]); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-	} else if len(os.Args) > 1 && os.Args[1] == "test" {
-		if err := runTest(os.Args[2:]); err != nil {
-			if !errors.Is(err, errTestsFailed) {
-				fmt.Fprintln(os.Stderr, err)
-			}
-			os.Exit(1)
-		}
-	} else if len(os.Args) > 1 && os.Args[1] == "dap" {
-		os.Exit(runDAP(os.Args[2:]))
-	} else if command == "mcp" {
-		os.Exit(runMCP(os.Args[2:]))
-	} else if len(os.Args) > 1 && os.Args[1] == dap.TerminalCommand {
-		// Hidden: what a debugger's terminal runs to carry a program's
-		// input and output (internal/dap's RunTerminal).
-		if len(os.Args) != 3 {
-			fmt.Fprintf(os.Stderr, "usage: nomi %s <socket>\n", dap.TerminalCommand)
-			os.Exit(1)
-		}
-		os.Exit(dap.RunTerminal(os.Args[2], os.Stdin, os.Stdout))
-	} else if command == "tool" {
-		if err := runTool(os.Args[2:]); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-	} else if command == "types" {
-		if err := runTypes(os.Args[2:]); err != nil {
-			if !errors.Is(err, errTypesFailed) {
-				fmt.Fprintln(os.Stderr, err)
-			}
-			os.Exit(1)
-		}
-	} else if command == "phrases" {
-		if err := runPhrases(os.Args[2:]); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-	} else if len(os.Args) > 1 && os.Args[1] == "fmt" {
-		if err := runFmt(os.Args[2:]); err != nil {
-			if !errors.Is(err, errFormatFailed) {
-				fmt.Fprintln(os.Stderr, err)
-			}
-			os.Exit(1)
-		}
-	} else if len(os.Args) > 1 && isScriptPath(os.Args[1]) {
-		// `nomi hi.nomi a b` is `nomi run hi.nomi a b`, which is what the
-		// kernel runs for a `#!/usr/bin/env nomi` script invoked as
-		// `./hi.nomi a b`, or as `hi a b` for an extensionless one on PATH.
-		runFileVM(os.Args[1], os.Args[2:]...)
-	} else if len(os.Args) > 1 {
-		// The REPL takes no argument, so anything else is a mistake rather
-		// than a REPL session.
-		arg := os.Args[1]
-		if isFlag(arg) {
-			fmt.Fprintln(os.Stderr, unknownFlag("nomi", arg, "run `nomi help` for usage"))
-		} else {
-			fmt.Fprintf(os.Stderr, "nomi: unknown command %q\nrun `nomi help` for usage\n", arg)
 		}
 		os.Exit(1)
-	} else {
-		runReplVM()
 	}
+}
+
+// runCommand is `nomi run`. Everything after the file is the program's own
+// arguments. A flag before it is --watch's (watch_cmd.go) or the browser
+// dev loop's (run_web.go), whose flags may also follow the file.
+func runCommand(args []string) error {
+	args = takeProfileFlag(args)
+	if len(args) < 1 {
+		return errors.New(runUsage)
+	}
+	if isFlag(args[0]) {
+		watch, entry, progArgs, err := parseRunWatchArgs(args)
+		if err != nil {
+			return err
+		}
+		if watch {
+			os.Exit(runWatchCommand(entry, progArgs))
+		}
+		return runWebCommand(args)
+	}
+	runFileVM(args[0], args[1:]...)
+	return nil
 }
 
 // isScriptPath reports whether `nomi`'s first argument names a program file
@@ -357,8 +408,9 @@ var checkHints bool
 // exactly one path, and the diagnostics format, which it selects for the
 // process through NOMI_DIAGNOSTICS. With json, runCheck writes the
 // records.
+const checkUsage = "usage: nomi check [--format full|short|json] [--hints] <path>"
+
 func parseCheckArgs(args []string) (string, error) {
-	const checkUsage = "usage: nomi check [--format full|short|json] [--hints] <path>"
 	var paths []string
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
@@ -516,20 +568,70 @@ func pathError(path string, err error) error {
 	return err
 }
 
-// entryFileError is why path cannot be the program `nomi <cmd>` runs or
-// builds, or nil when it can: it must be an existing .nomi file, or a file
-// of any name whose first line is a `#!` line (an extensionless script).
-func entryFileError(cmd, path string) error {
+// programEntry is the absolute path of the program `nomi <cmd> path` runs
+// or builds from source, or why path cannot be one. path is a .nomi file, a
+// file of any name whose first line is a `#!` line (an extensionless
+// script), or a project's directory whose nomi.toml lists one entry point
+// (projectEntry). A test file and a stdlib module are not programs.
+func programEntry(cmd, path string) (string, error) {
+	if info, err := os.Stat(path); err == nil && info.IsDir() {
+		entry, err := projectEntry(cmd, path)
+		if err != nil {
+			return "", err
+		}
+		path = entry
+	}
 	info, err := os.Stat(path)
 	switch {
 	case err != nil:
-		return fmt.Errorf("nomi %s: %w", cmd, pathError(path, err))
+		return "", fmt.Errorf("nomi %s: %w", cmd, pathError(path, err))
 	case info.IsDir():
-		return fmt.Errorf("nomi %s: %s is a directory; name the program's .nomi file", cmd, path)
+		return "", fmt.Errorf("nomi %s: %s is a directory; name the program's .nomi file", cmd, path)
 	case filepath.Ext(path) != ".nomi" && !frontend.StartsWithShebang(path):
-		return fmt.Errorf("nomi %s: %s is not a .nomi file and does not start with a #! line", cmd, path)
+		return "", fmt.Errorf("nomi %s: %s is not a .nomi file and does not start with a #! line", cmd, path)
 	}
-	return nil
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	if strings.HasSuffix(filepath.Base(absPath), "_test.nomi") {
+		return "", fmt.Errorf("nomi %s: %s is a test file; use `nomi test %s`",
+			cmd, vmhost.DisplayPath(absPath), vmhost.DisplayPath(absPath))
+	}
+	if isStdlibTestPath(absPath) {
+		// A stdlib file is a module, not a program: it has no `main`, and
+		// its `//!` prompts are tests.
+		return "", fmt.Errorf("nomi %s: %s is a stdlib module, not a program; to run its tests, use `nomi test %s`",
+			cmd, vmhost.DisplayPath(absPath), vmhost.DisplayPath(absPath))
+	}
+	return absPath, nil
+}
+
+// projectEntry is the file of the one entry point that dir's nomi.toml
+// lists (frontend.EntryFile), as `nomi check dir` finds its entries, or why
+// dir names no one program: it has no nomi.toml, its nomi.toml lists no
+// entry point, or it lists several, which the error names.
+func projectEntry(cmd, dir string) (string, error) {
+	mfst, err := analysis.LoadManifest(dir)
+	if errors.Is(err, analysis.ErrManifestMissing) || err == nil && len(mfst.EntryPoints) == 0 {
+		return "", fmt.Errorf("nomi %s: %s is a directory; name the program's .nomi file", cmd, dir)
+	}
+	if err != nil {
+		return "", fmt.Errorf("nomi %s: %w", cmd, err)
+	}
+	files := make([]string, len(mfst.EntryPoints))
+	for i, entry := range mfst.EntryPoints {
+		abs, err := frontend.EntryFile(dir, entry)
+		if err != nil {
+			return "", err
+		}
+		files[i] = vmhost.DisplayPath(abs)
+	}
+	if len(files) > 1 {
+		return "", fmt.Errorf("nomi %s: %s's nomi.toml lists %d entry points, %s; name the one to %s, such as `nomi %s %s`",
+			cmd, dir, len(files), joinAnd(files), cmd, cmd, files[0])
+	}
+	return files[0], nil
 }
 
 // ownLines reports whether err's text is lines that each stand on their own,

@@ -52,8 +52,8 @@ func (c *checker) recordTypedLiteral(n *ast.TaggedString, tag Type, checked bool
 }
 
 // recordHtmlLiteral records what each slot of the `Html` literal n takes,
-// from the slot calls of its checked expansion. A `_maybe` slot function
-// takes a `Maybe` of what its plain twin takes, which is what the slot is
+// from the slot calls of its checked expansion. A `_option` slot function
+// takes an `Option` of what its plain twin takes, which is what the slot is
 // said to take.
 func (c *checker) recordHtmlLiteral(n *ast.TaggedString, expansion ast.Node) {
 	rec := &TypedLiteral{}
@@ -62,7 +62,7 @@ func (c *checker) recordHtmlLiteral(n *ast.TaggedString, expansion ast.Node) {
 		if name == nil {
 			continue
 		}
-		sym, _ := c.htmlSlotFunc(slot, strings.TrimSuffix(*name, "_maybe"))
+		sym, _ := c.htmlSlotFunc(slot, strings.TrimSuffix(*name, "_option"))
 		if sym == nil {
 			continue
 		}

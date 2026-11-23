@@ -51,7 +51,7 @@ func SeqToListCells[T any, N ListCellShape[T, N]](fr *Frame, src Seq[T]) *N {
 }
 
 // ListCellHead reads the first element without copying cells.
-func ListCellHead[T any, N ListCellShape[T, N]](xs *N) Maybe[T] {
+func ListCellHead[T any, N ListCellShape[T, N]](xs *N) Option[T] {
 	if xs == nil {
 		return None[T]()
 	}
@@ -59,7 +59,7 @@ func ListCellHead[T any, N ListCellShape[T, N]](xs *N) Maybe[T] {
 }
 
 // ListCellTail distinguishes an empty input from a singleton's empty tail.
-func ListCellTail[T any, N ListCellShape[T, N]](xs *N) Maybe[*N] {
+func ListCellTail[T any, N ListCellShape[T, N]](xs *N) Option[*N] {
 	if xs == nil {
 		return None[*N]()
 	}

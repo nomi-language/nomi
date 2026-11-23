@@ -13,8 +13,8 @@ import (
 // a statement, of type Unit (spec §8 *`if`/`else`*). Its branches are Unit,
 // leave (`return`, `break`, a `?` that propagates, a call that never
 // returns) or end in a statement whose value a block drops (`assert`,
-// `dbg`). Any other branch type is an error, a `Maybe` included: its fix
-// adds `else None` for a Maybe, and drops the value with `_ = ...` where a
+// `dbg`). Any other branch type is an error, an `Option` included: its fix
+// adds `else None` for an Option, and drops the value with `_ = ...` where a
 // statement drops it.
 
 // ifChainLacksElse reports whether n, followed through its `else if`
@@ -50,13 +50,13 @@ func ifChainLinks(n *ast.If) []*ast.If {
 
 // checkElselessIf checks n, the head of a chain with no final `else`. The
 // chain's branches are checked as the branches of an `if` with an `else`
-// are, against the expected type when it is a Maybe (so the error's
+// are, against the expected type when it is an Option (so the error's
 // `else None` fix leaves a branch like `Some(.Circle(1.0))` resolved) and
 // against Unit otherwise, as a statement's are. The chain is Unit when they
 // are Unit or all leave, and an error otherwise.
 func (c *checker) checkElselessIf(n *ast.If, condTy, expected Type, patternInput bool, narrowSym *Symbol, narrowTy Type) Type {
 	want := Type(TypeUnit)
-	if maybePayload(expected) != nil {
+	if optionPayload(expected) != nil {
 		want = expected
 	}
 	dropped := c.statementIf == n || isUnitLike(expected)
@@ -83,7 +83,7 @@ func (c *checker) checkElselessIf(n *ast.If, condTy, expected Type, patternInput
 	default:
 		c.reportElselessValue(links, joined, dropped)
 		ty = nil
-		if !dropped && maybePayload(joined) != nil {
+		if !dropped && optionPayload(joined) != nil {
 			// The `else None` the error asks for gives the `if` this
 			// type, so what follows checks as it will once it is written.
 			ty = joined
@@ -110,7 +110,7 @@ func isBareValue(t Type) bool {
 // reportElselessValue reports the first branch of links, a chain with no
 // final `else`, whose value is not Unit, or the head's when no branch's own
 // type says (joined is the branches' type). Where a statement drops the
-// value (dropped), the fix writes `_ = ` before it; otherwise, for a Maybe
+// value (dropped), the fix writes `_ = ` before it; otherwise, for an Option
 // branch, the fix adds `else None`, and for any other branch the help says
 // to add an `else`.
 func (c *checker) reportElselessValue(links []*ast.If, joined Type, dropped bool) {
@@ -144,8 +144,8 @@ func (c *checker) reportElselessValue(links []*ast.If, joined Type, dropped bool
 		c.report(e.WithHint("`_ = ...` runs the branch for its effect and drops its value"))
 		return
 	}
-	if maybePayload(ty) != nil {
-		e := TypeError{Message: head + ". Add `else None` to make the `if` a `" + name + "`"}
+	if optionPayload(ty) != nil {
+		e := TypeError{Message: head + ". Add `else None` to make the `if` " + article + " `" + name + "`"}
 		e = c.placeElselessError(e, at)
 		e.Fix = c.elseNoneFix(links)
 		c.report(e.WithHint("an `if` has a value only with an `else`; `else None` gives it `None` when no branch runs"))
@@ -219,10 +219,10 @@ func (c *checker) dropValueFix(links []*ast.If, link *ast.If, at ast.Node) *pars
 	}}}
 }
 
-// maybePayload is T when t is `Maybe<T>`, or nil.
-func maybePayload(t Type) Type {
+// optionPayload is T when t is `Option<T>`, or nil.
+func optionPayload(t Type) Type {
 	et, ok := resolveTypeVar(t).(*EnumType)
-	if !ok || !isStdType(et, stdMaybeType) || len(et.TypeArgs) != 1 {
+	if !ok || !isStdType(et, stdOptionType) || len(et.TypeArgs) != 1 {
 		return nil
 	}
 	return et.TypeArgs[0]

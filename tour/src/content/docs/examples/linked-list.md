@@ -43,7 +43,7 @@ impl LinkedList<T>
 
     /// The last value of `list` and the list without it, or `None` when it is
     /// empty.
-    pub fn pop(list: LinkedList<T>) -> Maybe<(T, LinkedList<T>)>
+    pub fn pop(list: LinkedList<T>) -> Option<(T, LinkedList<T>)>
         case list.back
             [last, ..back] ->
                 Some((last, {..list, back:}))
@@ -58,7 +58,7 @@ impl LinkedList<T>
 
     /// The first value of `list` and the list without it, or `None` when it
     /// is empty.
-    pub fn shift(list: LinkedList<T>) -> Maybe<(T, LinkedList<T>)>
+    pub fn shift(list: LinkedList<T>) -> Option<(T, LinkedList<T>)>
         case list.front
             [first, ..front] ->
                 Some((first, {..list, front:}))
@@ -253,7 +253,7 @@ test result: ok. 20 passed, 0 failed
 
 - Adapted: the exercise asks for a doubly linked list, whose nodes point both ways and are edited in place. Nomi values cannot change, so no node can point back at one built after it; the port keeps the operations and their cost instead, as a persistent double-ended list. Each operation answers a new list.
 - `LinkedList<T>` is an opaque struct of two `List`s, the front values in order and the back values newest first, so both ends are a list head: `push`, `unshift` and a `pop` or `shift` that finds its end non-empty take constant time. An end that runs out reverses the other list once, which every value pays at most once on its way through.
-- `pop` and `shift` answer `Maybe<(T, LinkedList<T>)>`, the value and the list without it, with `None` for an empty list. The canonical data never empties a list too far, and the test file adds one case, marked not canonical, that does.
+- `pop` and `shift` answer `Option<(T, LinkedList<T>)>`, the value and the list without it, with `None` for an empty list. The canonical data never empties a list too far, and the test file adds one case, marked not canonical, that does.
 - `impl Iter<T> for LinkedList<T>` walks the front, then the back reversed, so the count is std's `Iter.count` and `delete` reads the values in order with `Iter.to_list`. `delete` takes out the first equal value with `List.remove` and answers the rest as one front list.
 - The canonical cases are lists of operations, so the test file follows circular-buffer and simple-linked-list: each is a list of `Step`s (`Push(7)`, `Pop(7)`, `Shift(17)`, `Unshift(23)`, `Count(2)`, `Delete(83)`), `replay` runs them on an empty list with one `Iter.map_reduce`, and each row asserts `replay(steps) == steps`. Where a canonical pop or shift gives no expected value, its step names the value it takes.
 - The 19 canonical cases are one `subtests` table named by the description column.

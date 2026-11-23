@@ -642,7 +642,7 @@ var stdBootFns sync.Map // *ast.FuncDef -> bootFile[*ast.FuncDef]
 // stdBootFacts caches stdBootFact's answers: std's graph is closed, since
 // std's functions call only std's, so a std function's depth and chain are
 // the same in every program.
-var stdBootFacts sync.Map // *ast.FuncDef -> stdBootAnswer
+var stdBootFacts ownedCache[ast.FuncDef, stdBootAnswer]
 
 type stdBootAnswer struct {
 	depth int
@@ -653,8 +653,7 @@ type stdBootAnswer struct {
 // boot-only) and its chain's steps, in the graph of the std functions std
 // declares that fd reaches.
 func stdBootFact(fd *ast.FuncDef, std func(*ast.FuncDef) *FileAnalysis) (int, []string) {
-	if a, ok := stdBootFacts.Load(fd); ok {
-		ans := a.(stdBootAnswer)
+	if ans, ok := stdBootFacts.load(fd); ok {
 		return ans.depth, ans.steps
 	}
 	var files []bootFile[*ast.FuncDef]
@@ -681,7 +680,7 @@ func stdBootFact(fd *ast.FuncDef, std func(*ast.FuncDef) *FileAnalysis) (int, []
 	}
 	g := bootGraphOf(files)
 	ans := stdBootAnswer{depth: g.depth[fd], steps: g.steps(BootTarget[*ast.FuncDef]{Fn: fd})}
-	stdBootFacts.Store(fd, ans)
+	ans = stdBootFacts.store(fd, ans)
 	return ans.depth, ans.steps
 }
 

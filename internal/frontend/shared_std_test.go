@@ -33,29 +33,29 @@ import std::calendar.{Days}
 import std::json.Json.{self, Null}
 import helper.{greet}
 
-pub enum Maybe.Extra
+pub enum Option.Extra
   A
 end
 
 fn main()
-  m: Maybe<Int> = Some(1)
+  m: Option<Int> = Some(1)
   d: Days = Days(3)
   v: Json = Null
   io.print(greet("x"))
   io.print(Debug.inspect(m))
   io.print(Debug.inspect(v))
   io.print(Debug.inspect(d))
-  io.print(Debug.inspect(Maybe.Extra.A))
+  io.print(Debug.inspect(Option.Extra.A))
 end
 `
 	const helper = `import std::calendar.{Days}
 import std::io
 
 pub fn greet(name: String) -> String
-  m: Maybe<String> = Some(name)
+  m: Option<String> = Some(name)
   io.print(Debug.inspect(Days(1)))
   io.print(name)
-  Maybe.with_default(m, "")
+  Option.with_default(m, "")
 end
 `
 	const workers = 6
@@ -142,7 +142,7 @@ func TestSharedStd_ChecksLeaveItUnchanged(t *testing.T) {
 	for _, src := range []string{
 		"import std::json.{Json}\n\nimpl Json\n  pub fn extra() -> Int\n    1\n  end\nend\n",
 		"import std::json.{Json}\n\npub enum Json.Extra\n  A\nend\n",
-		"pub enum Maybe.Extra\n  A\nend\n",
+		"pub enum Option.Extra\n  A\nend\n",
 	} {
 		nodes, err := parser.Parse(lexer.Lex(src))
 		if err != nil {

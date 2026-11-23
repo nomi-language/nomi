@@ -31,11 +31,11 @@ func TestLoad_CodepointTryFromOutsideStdIsRejected(t *testing.T) {
 // rule, not only Int64's range: `Some` for a Unicode scalar value, `None`
 // for a negative Int, a surrogate and a value past 0x10FFFF.
 func TestStdlib_CodepointTryFromChecksTheRule(t *testing.T) {
-	body := `assert Maybe.map(Codepoint.try_from(65), Codepoint.to_int) == Some(65)
-assert Maybe.map(Codepoint.try_from(0), Codepoint.to_int) == Some(0)
-assert Maybe.map(Codepoint.try_from(0xD7FF), Codepoint.to_int) == Some(0xD7FF)
-assert Maybe.map(Codepoint.try_from(0xE000), Codepoint.to_int) == Some(0xE000)
-assert Maybe.map(Codepoint.try_from(0x10FFFF), Codepoint.to_int) == Some(0x10FFFF)
+	body := `assert Option.map(Codepoint.try_from(65), Codepoint.to_int) == Some(65)
+assert Option.map(Codepoint.try_from(0), Codepoint.to_int) == Some(0)
+assert Option.map(Codepoint.try_from(0xD7FF), Codepoint.to_int) == Some(0xD7FF)
+assert Option.map(Codepoint.try_from(0xE000), Codepoint.to_int) == Some(0xE000)
+assert Option.map(Codepoint.try_from(0x10FFFF), Codepoint.to_int) == Some(0x10FFFF)
 assert Codepoint.try_from(-1) == None
 assert Codepoint.try_from(0xD800) == None
 assert Codepoint.try_from(0xDFFF) == None

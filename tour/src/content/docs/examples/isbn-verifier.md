@@ -22,7 +22,7 @@ pub fn is_valid(isbn: String) -> Bool
         |> String.replace("-", "")
         |> Iter.with_index()
         |> Iter.map(fn (i, character) -> value(character, is_check: i == 9))
-        |> Maybe.collect()
+        |> Option.collect()
 
     case values
         Some(values) when Iter.count(values) == 10 -> checksum(values) % 11 == 0
@@ -32,7 +32,7 @@ end
 
 /// The value of one ISBN character: a digit, or `X` for 10 in the check
 /// position.
-fn value(character: String, is_check: Bool) -> Maybe<Int>
+fn value(character: String, is_check: Bool) -> Option<Int>
     case character
         "X" when is_check -> Some(10)
         _                 -> String.to_int(character)
@@ -85,7 +85,7 @@ test result: ok. 21 passed, 0 failed
 
 ## How it's written
 
-- Dashes are removed first, then each grapheme becomes a value with its position from `Iter.with_index`, and `Maybe.collect` makes one `Maybe<List<Int>>`. A character that is neither a digit nor a check-position `X` makes the whole ISBN invalid in that one step.
+- Dashes are removed first, then each grapheme becomes a value with its position from `Iter.with_index`, and `Option.collect` makes one `Option<List<Int>>`. A character that is neither a digit nor a check-position `X` makes the whole ISBN invalid in that one step.
 - `value` takes the position as a named Bool, `value(character, is_check: i == 9)`, so the `case` arm reads `"X" when is_check -> Some(10)`.
 - The length rule is a `when` guard on the `Some` arm, as in luhn, rather than a separate `if` before the conversion. The weights come from the index too, `v * (10 - i)`.
 - All 21 cases are one `subtests` table.

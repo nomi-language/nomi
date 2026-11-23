@@ -98,11 +98,11 @@ type operIfaceSpec struct {
 	// op is the surface operator that dispatches to it, or "" for an
 	// interface no operator spells (Steppable).
 	op string
-	// maybeSelf marks an interface with ONE type parameter whose method
-	// returns `Maybe<self>`: `Steppable<S>`'s `step_by(value: self, by: S):
-	// Maybe<self>`. The arithmetic four have two, `Rhs` and `Out`, and return
+	// optionSelf marks an interface with ONE type parameter whose method
+	// returns `Option<self>`: `Steppable<S>`'s `step_by(value: self, by: S):
+	// Option<self>`. The arithmetic four have two, `Rhs` and `Out`, and return
 	// `Out`.
-	maybeSelf bool
+	optionSelf bool
 	// unary marks an interface with ONE type parameter, `Out`, whose method
 	// takes `self` alone and returns it: `BitwiseNot<Out>`'s
 	// `bitwise_not(value: self) -> Out`, the prefix `~~~`.
@@ -127,7 +127,7 @@ var operIfaceSpecs = []operIfaceSpec{
 	{module: "std/multiply", nomi: "Multiply", method: "multiply", op: "*"},
 	{module: "std/divide", nomi: "Divide", method: "divide", op: "/"},
 	{module: "std/remainder", nomi: "Remainder", method: "remainder", op: "%"},
-	{module: "std/steppable", nomi: "Steppable", method: "step_by", maybeSelf: true},
+	{module: "std/steppable", nomi: "Steppable", method: "step_by", optionSelf: true},
 	{module: "std/bitwise", nomi: "BitwiseAnd", method: "bitwise_and", op: "&&&"},
 	{module: "std/bitwise", nomi: "BitwiseOr", method: "bitwise_or", op: "|||"},
 	{module: "std/bitwise", nomi: "BitwiseXor", method: "bitwise_xor", op: "^^^"},
@@ -200,7 +200,7 @@ func (g *gen) operIfaceOf(id analysis.StdType) (*operIfaceSpec, bool) {
 // block's header instantiates. See operShapeRefusal.
 func (s *operIfaceSpec) matchesDecl(decl *ast.InterfaceDef) bool {
 	typeParams := 2
-	if s.maybeSelf || s.unary {
+	if s.optionSelf || s.unary {
 		typeParams = 1
 	}
 	switch {
@@ -230,18 +230,18 @@ func (s *operIfaceSpec) matchesDecl(decl *ast.InterfaceDef) bool {
 		return false
 	case !isNamedTypeExpr(m.Params[1].TypeAnnotation, decl.TypeParams[0].Name):
 		return false
-	case s.maybeSelf:
-		return isMaybeSelfTypeExpr(m.ReturnTypeExpr)
+	case s.optionSelf:
+		return isOptionSelfTypeExpr(m.ReturnTypeExpr)
 	case !isNamedTypeExpr(m.ReturnTypeExpr, decl.TypeParams[1].Name):
 		return false
 	}
 	return true
 }
 
-// isMaybeSelfTypeExpr reports whether te is the annotation `Maybe<self>`.
-func isMaybeSelfTypeExpr(te ast.TypeExpr) bool {
+// isOptionSelfTypeExpr reports whether te is the annotation `Option<self>`.
+func isOptionSelfTypeExpr(te ast.TypeExpr) bool {
 	gt, generic := te.(*ast.GenericType)
-	return generic && gt.Name == "Maybe" && len(gt.Params) == 1 && isSelfTypeExpr(gt.Params[0])
+	return generic && gt.Name == "Option" && len(gt.Params) == 1 && isSelfTypeExpr(gt.Params[0])
 }
 
 // isSelfTypeExpr reports whether te is the annotation `self`.
@@ -283,7 +283,7 @@ func (g *gen) admitOperImpl(d *implDef, ib *ast.ImplBlock, name string, iface an
 		return false
 	}
 	args, explicit := ifaceHeaderArgs(ib.Interface)
-	one := s.maybeSelf || s.unary
+	one := s.optionSelf || s.unary
 	if !explicit || (one && len(args) != 1) || (!one && len(args) != 2) {
 		return false
 	}
@@ -300,11 +300,11 @@ func (g *gen) admitOperImpl(d *implDef, ib *ast.ImplBlock, name string, iface an
 		return true
 	}
 	rhs := g.typeOf(args[0])
-	// The header's `Out`, or for a maybeSelf interface `Maybe<self>`, which
+	// The header's `Out`, or for an optionSelf interface `Option<self>`, which
 	// names the receiver and is completed once the receiver resolves
 	// (operShapeRefusal). kindUnit stands in until then.
 	out := kindUnit
-	if !s.maybeSelf {
+	if !s.optionSelf {
 		out = g.typeOf(args[1])
 	}
 	// An unrepresentable type argument is not an operator impl this builder can
@@ -333,11 +333,11 @@ func (g *gen) admitOperImpl(d *implDef, ib *ast.ImplBlock, name string, iface an
 // is the second.
 func (g *gen) operShapeRefusal(d *implDef) (string, string) {
 	label := d.oper.nomi + " for " + d.recv.nomi()
-	if d.oper.maybeSelf {
-		// `Maybe<self>`: the receiver resolved after admitOperImpl ran.
-		a, anchored := preludeSpecAnchor(preludeSpecNamed("Maybe"))
+	if d.oper.optionSelf {
+		// `Option<self>`: the receiver resolved after admitOperImpl ran.
+		a, anchored := preludeSpecAnchor(preludeSpecNamed("Option"))
 		if !anchored {
-			return "operator impl shape", label + " needs the prelude Maybe"
+			return "operator impl shape", label + " needs the prelude Option"
 		}
 		d.operOut = g.preludeInstance(a, []kind{d.recv})
 	}
@@ -402,7 +402,7 @@ func (d *implDef) operLabel() string {
 	if d.oper.unary {
 		return fmt.Sprintf("%s<%s> for %s", d.ifaceName, d.operOut.nomi(), d.recv.nomi())
 	}
-	if d.oper.maybeSelf {
+	if d.oper.optionSelf {
 		return fmt.Sprintf("%s<%s> for %s", d.ifaceName, d.operRhs.nomi(), d.recv.nomi())
 	}
 	return fmt.Sprintf("%s<%s, %s> for %s",

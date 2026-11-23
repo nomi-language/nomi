@@ -134,7 +134,7 @@ func TestResolveTypeExpr_MapStringInt(t *testing.T) {
 	}
 }
 
-// registerStdlibEnumsForTest pre-populates a registry with Maybe and Result
+// registerStdlibEnumsForTest pre-populates a registry with Option and Result
 // as they would appear after stdlib is loaded, plus Wrapper (a representative
 // generic multi-variant enum) — generic enums keyed by TypeParam_ pointers so
 // use-site instantiations can substitute concrete TypeArgs into the variants.
@@ -142,8 +142,8 @@ func TestResolveTypeExpr_MapStringInt(t *testing.T) {
 // but still need these names to resolve.
 func registerStdlibEnumsForTest(reg *TypeRegistry) {
 	tT := &TypeParam_{Name_: "T"}
-	maybe := &EnumType{
-		Name:          "Maybe",
+	option := &EnumType{
+		Name:          "Option",
 		TypeParams:    []string{"T"},
 		TypeParamDefs: []*TypeParam_{tT},
 		Variants: []VariantDef{
@@ -151,7 +151,7 @@ func registerStdlibEnumsForTest(reg *TypeRegistry) {
 			{Name: "None"},
 		},
 	}
-	reg.Register("Maybe", maybe)
+	reg.Register("Option", option)
 
 	rT := &TypeParam_{Name_: "T"}
 	rE := &TypeParam_{Name_: "E"}
@@ -182,11 +182,11 @@ func registerStdlibEnumsForTest(reg *TypeRegistry) {
 	reg.Register("Wrapper", wrapper)
 }
 
-func TestResolveTypeExpr_MaybeInt(t *testing.T) {
+func TestResolveTypeExpr_OptionInt(t *testing.T) {
 	reg := NewTypeRegistry()
 	registerStdlibEnumsForTest(reg)
 	te := &ast.GenericType{
-		Name:   "Maybe",
+		Name:   "Option",
 		Params: []ast.TypeExpr{&ast.SimpleType{Name: "Int", Line: 1, Col: 7}},
 		Line:   1,
 		Col:    1,
@@ -199,8 +199,8 @@ func TestResolveTypeExpr_MaybeInt(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected *EnumType, got %T", got)
 	}
-	if et.Name != "Maybe" {
-		t.Fatalf("expected name Maybe, got %s", et.Name)
+	if et.Name != "Option" {
+		t.Fatalf("expected name Option, got %s", et.Name)
 	}
 	if len(et.Variants) != 2 {
 		t.Fatalf("expected 2 variants, got %d", len(et.Variants))
@@ -349,11 +349,11 @@ func TestResolveTypeExpr_ResultType(t *testing.T) {
 	}
 }
 
-func TestResolveTypeExpr_MaybeIntTypeArgs(t *testing.T) {
+func TestResolveTypeExpr_OptionIntTypeArgs(t *testing.T) {
 	reg := NewTypeRegistry()
 	registerStdlibEnumsForTest(reg)
 	te := &ast.GenericType{
-		Name:   "Maybe",
+		Name:   "Option",
 		Params: []ast.TypeExpr{&ast.SimpleType{Name: "Int", Line: 1, Col: 1}},
 		Line:   1, Col: 1,
 	}
@@ -365,14 +365,14 @@ func TestResolveTypeExpr_MaybeIntTypeArgs(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected EnumType, got %T", resolved)
 	}
-	if et.Name != "Maybe" {
-		t.Fatalf("expected base name Maybe, got %s", et.Name)
+	if et.Name != "Option" {
+		t.Fatalf("expected base name Option, got %s", et.Name)
 	}
 	if len(et.TypeArgs) != 1 || et.TypeArgs[0] != TypeInt {
 		t.Fatalf("expected TypeArgs [Int], got %v", et.TypeArgs)
 	}
-	if et.String() != "Maybe<Int>" {
-		t.Fatalf("expected Maybe<Int>, got %s", et.String())
+	if et.String() != "Option<Int>" {
+		t.Fatalf("expected Option<Int>, got %s", et.String())
 	}
 }
 

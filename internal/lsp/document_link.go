@@ -65,7 +65,7 @@ func (s *Server) importLinkTarget(imp *ast.ImportStmt, root, moduleName string) 
 			return "", 0
 		}
 		// The module is the last segment that names one: in
-		// `std/maybe.Maybe.{None}` the path is std/maybe.
+		// `std/option.Option.{None}` the path is std/option.
 		for i := len(imp.ModulePath) - 1; i >= 1; i-- {
 			if name := ast.ImportNodeName(imp.ModulePath[i]); name != "" {
 				if _, ok := s.std.Modules[name]; ok {

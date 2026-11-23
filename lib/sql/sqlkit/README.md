@@ -91,10 +91,10 @@ also import a type of the same name as a row, such as an application's own
 ```sql
 -- import: models.{Post}
 
--- query: post(id: Int) -> Maybe<Post>
+-- query: post(id: Int) -> Option<Post>
 SELECT id, title FROM posts WHERE id = @id;
 
--- query: post_row(id: Int) -> Maybe<schema.Post>
+-- query: post_row(id: Int) -> Option<schema.Post>
 SELECT id, title, body, created_at FROM posts WHERE id = @id;
 ```
 
@@ -111,7 +111,7 @@ nomi.toml.
 
 When the bare name means the import but the SQL selects columns only the
 row has, the generated code does not check, and the error is at the
-field the imported type lacks. Had `post_row` written `-> Maybe<Post>`,
+field the imported type lacks. Had `post_row` written `-> Option<Post>`,
 `nomi check` would say so at `body`, and a comment just above names the
 row:
 
@@ -129,7 +129,7 @@ error: Post has no field 'body'
     runtime.optional(conn, "post_row", statement, fn row -> Ok(Post{
 ```
 
-Write `-> Maybe<schema.Post>` for the row.
+Write `-> Option<schema.Post>` for the row.
 
 ## Queries
 
@@ -137,7 +137,7 @@ A query file holds queries, each an annotation that gives its Nomi name,
 parameters and result, optional doc lines, and its SQL, ending in `;`:
 
 ```sql
--- query: user_by_email(email: String) -> Maybe<User>
+-- query: user_by_email(email: String) -> Option<User>
 -- The user with this email, if any.
 SELECT id, email, name, created_at
 FROM users
@@ -148,7 +148,7 @@ WHERE email = @email;
 
 ```nomi
 /// The user with this email, if any.
-pub fn user_by_email(conn: sql.Conn, email: String) -> Result<Maybe<User>, sql.Error>
+pub fn user_by_email(conn: sql.Conn, email: String) -> Result<Option<User>, sql.Error>
     statement = runtime.statement(
         [`SELECT id, email, name, created_at FROM users WHERE email = `, ``],
         [runtime.bind(email)],
@@ -221,7 +221,7 @@ each `@name` is written as `?1`, `?2`, ... in order, the form std/sql's
 | Result | The function answers | Zero rows | Several rows |
 |---|---|---|---|
 | `-> T` | `Result<T, sql.Error>` | `Err(.RowCount)` | `Err(.RowCount)` |
-| `-> Maybe<T>` | `Result<Maybe<T>, sql.Error>` | `Ok(None)` | `Err(.RowCount)` |
+| `-> Option<T>` | `Result<Option<T>, sql.Error>` | `Ok(None)` | `Err(.RowCount)` |
 | `-> List<T>` | `Result<List<T>, sql.Error>` | `Ok([])` | all |
 | `-> Rows<T>` | `Rows<T>`, read with `Rows.fold` | | streamed |
 | none | `Result<List<{...}>, sql.Error>`, anonymous rows of the columns | `Ok([])` | all |
@@ -230,10 +230,10 @@ each `@name` is written as `?1`, `?2`, ... in order, the form std/sql's
 
 `T` is a struct whose fields are the columns, by name, or for a query of
 one column one of std's value types (`-> Int` for `INSERT ... RETURNING
-id`) or one of the schema's enums (`-> Maybe<OrderStatus>` for `SELECT
-status`), read as the column itself. Such a `T` is a `Maybe` exactly when
+id`) or one of the schema's enums (`-> Option<OrderStatus>` for `SELECT
+status`), read as the column itself. Such a `T` is an `Option` exactly when
 the column may be NULL: a nullable `status` read as at most one row is
-`-> Maybe<Maybe<OrderStatus>>`, and as every row `-> List<Maybe<OrderStatus>>`.
+`-> Option<Option<OrderStatus>>`, and as every row `-> List<Option<OrderStatus>>`.
 
 SQL that returns no rows (an `UPDATE` or `DELETE` without `RETURNING`)
 writes `-> Changed` for the number of rows it changed, or `-> Unit` to
@@ -241,7 +241,7 @@ ignore it. `Changed` is sqlkit's struct `Changed{rows: Int}`, not an `Int`,
 so taking `RETURNING id` off an `INSERT ... -> Int` is an error rather than
 a function that answers 1 where it answered an id.
 
-A column is a `Maybe` when it may be NULL: a table column without `NOT
+A column is an `Option` when it may be NULL: a table column without `NOT
 NULL`, a column of a table an outer join may leave out (SQLite's query plan
 says which), and every expression. The column's alias says otherwise, as
 sqlx's do: `count(*) AS "n!"` asserts it is never NULL, `AS "email?"` that it
@@ -250,11 +250,11 @@ report (an anonymous row needs one). The marker is taken out of the SQL that
 is sent.
 
 A view's column is the column it reads: a `NOT NULL` column a view reads
-through inner joins is not a `Maybe`, and one an outer join in the view may
+through inner joins is not an `Option`, and one an outer join in the view may
 leave out is. SQLite's plan names the tables inside a view, a subquery or a
 CTE by the aliases written there, not by the query's own, so on SQLite an
-outer join inside one, or of one, makes every column of the query a
-`Maybe`; `AS "n!"` says otherwise.
+outer join inside one, or of one, makes every column of the query an
+`Option`; `AS "n!"` says otherwise.
 
 ### What is checked
 
@@ -273,7 +273,7 @@ error: 1 problem in the SQL; nothing was written
 - A result type that does not fit whether the SQL returns rows: none, or a
   row type, on SQL that returns no rows; `-> Unit` or `-> Changed` on SQL
   that returns rows.
-- A result that names no row type: `-> List` or `-> Maybe` with no type
+- A result that names no row type: `-> List` or `-> Option` with no type
   argument, `-> Result<...>` or another generic, a lower-case name, and a
   value type such as `-> Int` on a query of more than one column.
 - A qualified name whose module is neither the schema's nor one the file
@@ -302,7 +302,7 @@ db/queries/queries.sql:11:62: `insert_user` returns no rows, so it cannot answer
 
 The checker then checks the generated code like any other. A column read
 into a field of the wrong type, or a NULL-able one into a field that is not
-a `Maybe`, is an error at the column's reader in the generated file:
+an `Option`, is an error at the column's reader in the generated file:
 
 ```console
 error: Int does not implement SqlNumeric (required by `where T: SqlNumeric`)
@@ -416,7 +416,7 @@ end
 A constraint the schema leaves unnamed gets the name Postgres would give
 it, so a broken `UNIQUE` on `users.email` is a `sql.Error.Constraint` named
 `users_email_key` on either database. The shop example's `shop_test.nomi`
-has eleven such tests: joins, `Maybe` columns of an outer join, decimal
+has eleven such tests: joins, `Option` columns of an outer join, decimal
 scale, transactions over queries and a `-> Changed` count.
 
 ### In an application
@@ -432,7 +432,7 @@ pub struct App
 end
 
 pub fn boot(startup: Startup) -> Result<App, Error>
-    path = Map.get(startup.env, "SHOP_DATABASE") |> Maybe.with_default(":memory:")
+    path = Map.get(startup.env, "SHOP_DATABASE") |> Option.with_default(":memory:")
     db = sqlite.open(path)?
     defer sql.close_quietly(db)
     sqlkit.migrate(db, schema.migrations)?

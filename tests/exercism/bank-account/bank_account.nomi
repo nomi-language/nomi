@@ -111,7 +111,7 @@ fn serve(inbox: Receiver<Request>)
 end
 
 /// Answers `request` against `balance` and returns the balance after it.
-fn handle(balance: Maybe<Int>, request: Request) -> Maybe<Int>
+fn handle(balance: Option<Int>, request: Request) -> Option<Int>
     case request
         .Open{reply:} ->
             answer(reply, balance, opened(balance))
@@ -126,7 +126,7 @@ fn handle(balance: Maybe<Int>, request: Request) -> Maybe<Int>
             answer(reply, balance, withdrawn(balance, amount))
 
         .Balance{reply:} ->
-            _ = Sender.send(reply.sender, Maybe.to_result(balance, .AccountNotOpen))
+            _ = Sender.send(reply.sender, Option.to_result(balance, .AccountNotOpen))
             balance
     end
 end
@@ -135,35 +135,35 @@ end
 /// it: the new one, or `balance` unchanged.
 fn answer(
     reply:   Channel<Result<Unit, Error>>,
-    balance: Maybe<Int>,
-    next:    Result<Maybe<Int>, Error>,
-) -> Maybe<Int>
+    balance: Option<Int>,
+    next:    Result<Option<Int>, Error>,
+) -> Option<Int>
     _ = Sender.send(reply.sender, Result.map(next, fn _ -> Unit))
     Result.with_default(next, balance)
 end
 
-fn opened(balance: Maybe<Int>) -> Result<Maybe<Int>, Error>
+fn opened(balance: Option<Int>) -> Result<Option<Int>, Error>
     case balance
         Some(_) -> Err(.AccountAlreadyOpen)
         None    -> Ok(Some(0))
     end
 end
 
-fn closed(balance: Maybe<Int>) -> Result<Maybe<Int>, Error>
+fn closed(balance: Option<Int>) -> Result<Option<Int>, Error>
     case balance
         Some(_) -> Ok(None)
         None    -> Err(.AccountNotOpen)
     end
 end
 
-fn deposited(balance: Maybe<Int>, amount: Int) -> Result<Maybe<Int>, Error>
+fn deposited(balance: Option<Int>, amount: Int) -> Result<Option<Int>, Error>
     Some(current) = balance else return Err(.AccountNotOpen)
     if amount <= 0 then return Err(.AmountNotPositive)
 
     Ok(Some(current + amount))
 end
 
-fn withdrawn(balance: Maybe<Int>, amount: Int) -> Result<Maybe<Int>, Error>
+fn withdrawn(balance: Option<Int>, amount: Int) -> Result<Option<Int>, Error>
     Some(current) = balance else return Err(.AccountNotOpen)
     if amount <= 0 then return Err(.AmountNotPositive)
 

@@ -94,16 +94,16 @@ end
 }
 
 // A prelude enum named through its std file's qualifier in a signature
-// (`maybe.Maybe<Int>`, `results.Result<Int, String>`) is the type the bare name
+// (`option.Option<Int>`, `results.Result<Int, String>`) is the type the bare name
 // is, so another file calls the function and reads its result.
 func TestCrossFileSignature_QualifiedPreludeTypes(t *testing.T) {
 	irBacklogProgramVM(t, map[string]string{
 		"other.nomi": `import
-  std::maybe
+  std::option
   std::results
 end
 
-pub fn first(xs: List<Int>) -> maybe.Maybe<Int>
+pub fn first(xs: List<Int>) -> option.Option<Int>
   List.first(xs)
 end
 
@@ -113,7 +113,7 @@ end
 `,
 		"main_test.nomi": `import other
 
-test "a qualified Maybe in another file's signature"
+test "a qualified Option in another file's signature"
   assert other.first([4, 5]) == Some(4)
   assert other.first([]) == None
 end

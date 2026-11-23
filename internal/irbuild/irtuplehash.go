@@ -72,7 +72,7 @@ func (bl *irScalarBuilder) tupleHashCall(t *ast.Call) (v ir.Temp, k kind, mobile
 // whose checker type is st: a tuple's i-th element, an anonymous record's
 // field named as sk's i-th, and a std generic container's i-th type
 // argument, in the order stdRecvParts lists sk's (a List's element, a
-// Map's key and value, a Maybe's payload), and an Iter's element. Nil when
+// Map's key and value, an Option's payload), and an Iter's element. Nil when
 // st is nil or not that shape.
 func partCheckerType(st analysis.Type, sk kind, i int) analysis.Type {
 	containerArg := func(args []analysis.Type) analysis.Type {

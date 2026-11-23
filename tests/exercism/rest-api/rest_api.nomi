@@ -72,7 +72,7 @@ impl RestApi
 
     /// Returns a `GET` of `url`: `/users` lists every user, or the users
     /// `payload` names, by name.
-    pub fn get(api: RestApi, url: String, payload: Maybe<String> = None) -> Result<String, Error>
+    pub fn get(api: RestApi, url: String, payload: Option<String> = None) -> Result<String, Error>
         if url != "/users" then return Err(.NotFound(url))
 
         names =
@@ -123,13 +123,13 @@ impl RestApi
 end
 
 fn find(api: RestApi, name: String) -> Result<User, Error>
-    Map.get(api.users, name) |> Maybe.to_result(.UnknownUser(name))
+    Map.get(api.users, name) |> Option.to_result(.UnknownUser(name))
 end
 
 /// What `other` owes `user`, less what `user` owes `other`.
 fn net_owed(user: User, other: String) -> Float
-    owed = Map.get(user.owed_by, other) |> Maybe.with_default(0.0)
-    owing = Map.get(user.owes, other) |> Maybe.with_default(0.0)
+    owed = Map.get(user.owed_by, other) |> Option.with_default(0.0)
+    owing = Map.get(user.owes, other) |> Option.with_default(0.0)
     owed - owing
 end
 

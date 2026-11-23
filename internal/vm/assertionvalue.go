@@ -89,11 +89,11 @@ func nomiFailureOf(v any) (rt.NomiAssertionFailure, bool) {
 		s, _ := x.(string)
 		return s
 	}
-	maybeStr := func(x any) rt.Maybe[string] {
-		if p, some, _ := maybeParts(x); some {
+	optionStr := func(x any) rt.Option[string] {
+		if p, some, _ := optionParts(x); some {
 			return rt.Some(str(p))
 		}
-		return rt.Maybe[string]{}
+		return rt.Option[string]{}
 	}
 	stages := func(x any) *rt.List[rt.NomiAssertionPipelineStage] {
 		xs, _ := x.(*list)
@@ -110,9 +110,9 @@ func nomiFailureOf(v any) (rt.NomiAssertionFailure, bool) {
 	line := intIndex(field("line"))
 	f := rt.NomiAssertionFailure{
 		Line: line, Keyword: str(field("keyword")), Expression: str(field("expression")),
-		Reason: str(field("reason")), Actual: maybeStr(field("actual")),
+		Reason: str(field("reason")), Actual: optionStr(field("actual")),
 	}
-	if p, some, _ := maybeParts(field("binding")); some {
+	if p, some, _ := optionParts(field("binding")); some {
 		if br, ok := structRecord(p, "assertions.AssertionBinding"); ok {
 			n, _ := br.FieldNamed("name")
 			e, _ := br.FieldNamed("expression")

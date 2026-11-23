@@ -115,8 +115,8 @@ func TestEmbedDowncast_EveryPositionRefusesTheEnum(t *testing.T) {
 			"type mismatch: expected (Circle, Int), got (Shape, Int)" + downcastHint},
 		{"a record field", "", "  r: {c: Circle} = {c: s}\n  _ = r\n",
 			"type mismatch: expected {c: Circle}, got {c: Shape}" + downcastHint},
-		{"a type argument", "", "  m: Maybe<Circle> = Some(s)\n  _ = m\n",
-			"type mismatch: expected Maybe<Circle>, got Maybe<Shape>" + downcastHint},
+		{"a type argument", "", "  m: Option<Circle> = Some(s)\n  _ = m\n",
+			"type mismatch: expected Option<Circle>, got Option<Shape>" + downcastHint},
 		{"a list argument", "", "  ss: List<Shape> = [s]\n  _ = takes(ss)\n",
 			"argument 1: expected List<Circle>, got List<Shape>" + downcastHint},
 		{"a function's result", "", "  f: () -> Circle = fn -> s\n  _ = f\n",
@@ -139,7 +139,7 @@ func TestEmbedDowncast_EveryPositionRefusesTheEnum(t *testing.T) {
 			"argument 1: expected Circle, got Shape" + downcastHint},
 		{"elements no side of which takes the other", "", "  _ = [(Circle{radius: 1.0}, s), (s, Circle{radius: 1.0})]\n",
 			"list element type mismatch: expected (Circle, Shape), got (Shape, Circle)" + downcastHint},
-		{"a binding's fallback", "", "  m: Maybe<Circle> = None\n  Some(c) = m else\n      s\n  end\n  _ = c\n",
+		{"a binding's fallback", "", "  m: Option<Circle> = None\n  Some(c) = m else\n      s\n  end\n  _ = c\n",
 			"the fallback stands in for Some's payload of type Circle, got Shape" + downcastHint},
 		{"a Struct.update patch", "", "  h = Holder{c: Circle{radius: 1.0}}\n  _ = Struct.update(h, {c: s})\n",
 			"field 'c' of Holder: expected Circle, got Shape" + downcastHint},
@@ -195,7 +195,7 @@ func TestEmbedDowncast_WideningAndNarrowingAreAccepted(t *testing.T) {
 		{"an annotated binding", "  x: Shape = c\n  _ = x\n"},
 		{"a list element", "  xs: List<Shape> = [c, Shape.Point]\n  _ = xs\n"},
 		{"a list argument", "  _ = Iter.count([c, s])\n"},
-		{"a type argument", "  m: Maybe<Shape> = Some(c)\n  _ = m\n"},
+		{"a type argument", "  m: Option<Shape> = Some(c)\n  _ = m\n"},
 		{"an if join", "  x = if wants(s) then c else s\n  _ = wants(x)\n"},
 		{"a case join", "  x = case s\n    .Point -> c\n    _ -> s\n  end\n  _ = wants(x)\n"},
 		{"a map join", "  m = {1 => c, 2 => s}\n  ss: Map<Int, Shape> = m\n  _ = ss\n"},
@@ -234,8 +234,8 @@ func TestEmbedDowncast_AFunctionOverTheEmbeddedTypeIsRefusedAsACallback(t *testi
 			"argument 2: `take` takes a Circle, but `Iter.map` calls it with a Shape, and a Shape may hold a variant other than Circle" + takeHint},
 		{"a pipe stage", "  _ = ss |> Iter.map(take) |> Iter.count()\n",
 			"argument 2: `take` takes a Circle, but `Iter.map` calls it with a Shape, and a Shape may hold a variant other than Circle" + takeHint},
-		{"Maybe.map", "  _ = Maybe.map(Some(s), take)\n",
-			"argument 2: `take` takes a Circle, but `Maybe.map` calls it with a Shape, and a Shape may hold a variant other than Circle" + takeHint},
+		{"Option.map", "  _ = Option.map(Some(s), take)\n",
+			"argument 2: `take` takes a Circle, but `Option.map` calls it with a Shape, and a Shape may hold a variant other than Circle" + takeHint},
 		{"a lambda", "  _ = Iter.map(ss, fn c: Circle -> c.radius) |> Iter.count()\n",
 			"argument 2: the lambda takes a Circle, but `Iter.map` calls it with a Shape, and a Shape may hold a variant other than Circle\nhelp: pass a function that takes a Shape and matches it first, with `case value` and the arm `.Circle{} -> ...`"},
 		{"a nested parameter", "  nested: List<List<Shape>> = [[s]]\n  _ = Iter.map(nested, takes) |> Iter.count()\n",
@@ -257,7 +257,7 @@ func TestEmbedDowncast_AFunctionOverTheEmbeddedTypeIsRefusedAsACallback(t *testi
 // The mirror: a function over the enum fits where a function over an
 // embedded type is expected, since every Circle is a Shape.
 func TestEmbedDowncast_AFunctionOverTheEnumIsAcceptedAsACallback(t *testing.T) {
-	src := embedDowncastDecls + "fn main()\n  cs = [Circle{radius: 1.0}]\n  _ = Iter.map(cs, wants) |> Iter.to_list()\n  _ = cs |> Iter.map(wants) |> Iter.count()\n  _ = Maybe.map(Some(Circle{radius: 1.0}), wants)\nend\n"
+	src := embedDowncastDecls + "fn main()\n  cs = [Circle{radius: 1.0}]\n  _ = Iter.map(cs, wants) |> Iter.to_list()\n  _ = cs |> Iter.map(wants) |> Iter.count()\n  _ = Option.map(Some(Circle{radius: 1.0}), wants)\nend\n"
 	_, errs := checkSourceWithStdlib(src)
 	expectNoStdlibErrors(t, errs)
 }
@@ -267,7 +267,7 @@ func TestEmbedDowncast_AFunctionOverTheEnumIsAcceptedAsACallback(t *testing.T) {
 // when the other's is the narrower by `embeds`: `[c, c] == [s, Shape.Point]`
 // compares a List<Circle> with a List<Shape> as `[c] == [s]` does. It once
 // reported "list element type mismatch: expected Circle, got Shape" at each
-// Shape item. Either order, for a list, a tuple, a Maybe and a map (key and
+// Shape item. Either order, for a list, a tuple, an Option and a map (key and
 // value), and a bound name on the narrow side.
 func TestEmbedDowncast_AComparisonOperandKeepsTheWiderType(t *testing.T) {
 	for _, tc := range []struct{ name, body, wide string }{
@@ -276,11 +276,11 @@ func TestEmbedDowncast_AComparisonOperandKeepsTheWiderType(t *testing.T) {
 		{"a bound list", "  cs = [c]\n  _ = cs == [Shape.Point]\n", "List<Shape>"},
 		{"a tuple", "  _ = (c, Shape.Point) == (s, Shape.Point)\n", "(Shape, Shape)"},
 		{"a tuple, narrow on the right", "  _ = (s, Shape.Point) == (c, Shape.Point)\n", "(Shape, Shape)"},
-		{"a Maybe", "  m = Some(c)\n  _ = m == Some(Shape.Point)\n", "Maybe<Shape>"},
-		{"a Maybe, narrow on the right", "  m = Some(c)\n  _ = Some(Shape.Point) != m\n", "Maybe<Shape>"},
+		{"an Option", "  m = Some(c)\n  _ = m == Some(Shape.Point)\n", "Option<Shape>"},
+		{"an Option, narrow on the right", "  m = Some(c)\n  _ = Some(Shape.Point) != m\n", "Option<Shape>"},
 		{"a map key and value", "  _ = {c => c} == {s => Shape.Point}\n", "Map<Shape, Shape>"},
 		{"a map, narrow on the right", "  _ = {s => Shape.Point} == {c => c}\n", "Map<Shape, Shape>"},
-		{"a list of Maybe", "  _ = [Some(c)] == [Some(s), Some(Shape.Point)]\n", "List<Maybe<Shape>>"},
+		{"a list of Option", "  _ = [Some(c)] == [Some(s), Some(Shape.Point)]\n", "List<Option<Shape>>"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			src := embedDowncastDecls + "fn main()\n  s = Shape.Point\n  c = Circle{radius: 1.0}\n" + tc.body + "end\n"

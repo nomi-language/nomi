@@ -199,7 +199,7 @@ func jsonConcrete(t Type) bool {
 // jsonHint says how bad, which does not implement iface, can.
 func jsonHint(bad Type, name, iface string) string {
 	if !programDeclares(bad) {
-		return "a parameter's type must implement `FromJson` and a result's `ToJson`: std implements both for Int, Float, String, Bool, List, Vector, Set, Maybe, Result and Map with String keys, and a struct or enum the program declares can derive them"
+		return "a parameter's type must implement `FromJson` and a result's `ToJson`: std implements both for Int, Float, String, Bool, List, Vector, Set, Option, Result and Map with String keys, and a struct or enum the program declares can derive them"
 	}
 	return fmt.Sprintf("add `derive %s for %s`", iface, name)
 }

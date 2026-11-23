@@ -31,7 +31,7 @@ import strings.String
 //# | `Vector<T>` | `Vector[Display(v1), ...]`, `Vector[]` for empty | `Vector[Debug(...), ...]` |
 //# | `Set<T>` | `Set[Display(v1), ...]`, `Set[]` for empty | `Set[Debug(...), ...]` |
 //# | `Map<K, V>` | `{Display(k) => Display(v), ...}`, `{}` for empty | `{Debug(...) => Debug(...), ...}` |
-//# | `Maybe<T>` | `Some(Display(v))`, `None` | `Some(Debug(v))`, `None` |
+//# | `Option<T>` | `Some(Display(v))`, `None` | `Some(Debug(v))`, `None` |
 //# | `Result<T, E>` | `Ok(Display(v))`, `Err(Display(e))` | `Ok(Debug(v))`, `Err(Debug(e))` |
 //# | `Range<T>` | `Debug(start)..Debug(end)`, `Debug(start)..=Debug(end)`, `Debug(start)..` for unbounded integer ranges | identical |
 //# | Tuple `(...)` | `(Display(a), Display(b), ...)` | `(Debug(a), Debug(b), ...)` |
@@ -50,9 +50,9 @@ import strings.String
 //# missing element impl is reported as the element's
 //# (``no impl of `Display` for `Foo` ``).
 //#
-//# For `Maybe` and `Result`, the variant constructor is always rendered
+//# For `Option` and `Result`, the variant constructor is always rendered
 //# (`Some(...)`, `None`, `Ok(...)`, `Err(...)`), never unwrapped. Display
-//# keeps the variant: the user-facing form of `Maybe.None` is `"None"`, not
+//# keeps the variant: the user-facing form of `Option.None` is `"None"`, not
 //# the empty string.
 
 /// Protocol for a developer-facing `String` form of a value.

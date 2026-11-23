@@ -161,11 +161,16 @@ type supervisor struct {
 	// record the program-level failure it implies.
 	reg *supervisorRegistry
 
-	// wg counts enrolled tasks — incremented by the spawning goroutine before
-	// its worker starts, so a `Supervisor.flush` that begins after the spawn
-	// returned always sees the task. Adding inside the goroutine would leave a
-	// window where the supervisor looks idle and a flush silently misses work.
-	wg sync.WaitGroup
+	// enrolled counts enrolled tasks, under enrolMu: incremented by the
+	// spawning goroutine before its worker starts, so a `Supervisor.flush`
+	// that begins after the spawn returned always sees the task. Adding
+	// inside the goroutine would leave a window where the supervisor looks
+	// idle and a flush silently misses work. idleCh is closed while the
+	// count is 0, and a new one is made when it leaves 0, so whoever waits
+	// for the supervisor to go idle (idle) sees at once that it is.
+	enrolMu  sync.Mutex
+	enrolled int64
+	idleCh   chan struct{}
 
 	// sem is the `max_running` semaphore: a buffered channel with one slot per
 	// permitted concurrent task, held by a worker for the duration of its body.
@@ -321,7 +326,9 @@ func SupervisorNewExact(
 		giveUp:          onGiveUp,
 		park:            &parkTracker{},
 		diag:            diagnosticOutput(fr.ctx),
+		idleCh:          make(chan struct{}),
 	}
+	close(g.idleCh)
 	reg.groups = append(reg.groups, g)
 	return Supervisor{s: g}
 }
@@ -409,8 +416,8 @@ func supervisorEnrol(fr *Frame, sup Supervisor, body func(*Frame) Unit) Task[Uni
 	stopWithSupervisor := context.AfterFunc(g.ctx, taskCancel)
 	t := &task[Unit]{done: make(chan struct{}), cancel: taskCancel}
 
-	// Enrol before returning. See supervisor.wg.
-	g.wg.Add(1)
+	// Enrol before returning. See supervisor.enrolled.
+	g.enrol()
 
 	forcing := (*forcing)(nil)
 	var app, booted *AppFields
@@ -436,7 +443,7 @@ func supervisorEnrol(fr *Frame, sup Supervisor, body func(*Frame) Unit) Task[Uni
 	}
 
 	go func() {
-		defer g.wg.Done()
+		defer g.leave()
 		defer close(t.done)
 		defer stopWithSupervisor()
 		defer taskCancel()
@@ -769,11 +776,7 @@ func SupervisorFlushBounded(fr *Frame, sup Supervisor, bound Wait) FlushOutcome 
 		Trap("Supervisor.flush: supervisor has no runtime state")
 	}
 
-	done := make(chan struct{})
-	go func() {
-		g.wg.Wait()
-		close(done)
-	}()
+	done := g.idle()
 
 	var expired <-chan time.Time
 	if bound.Tag == TagUpTo {
@@ -804,6 +807,14 @@ func SupervisorFlushBounded(fr *Frame, sup Supervisor, bound Wait) FlushOutcome 
 	park.enter()
 	defer park.exit()
 
+	// An idle supervisor is Flushed whatever the bound, a bound of 0 too:
+	// its channel is closed already, and a select would pick at random
+	// between it and a timer that has fired.
+	select {
+	case <-done:
+		return FlushOutcome{Tag: TagFlushed}
+	default:
+	}
 	select {
 	case <-done:
 		return FlushOutcome{Tag: TagFlushed}
@@ -910,12 +921,35 @@ func OnDrain(f func()) (unregister func()) {
 // it owns have stopped (§15 *Cleanup and boot failure*). The wait is bounded
 // for item 2's reason in the file header: a task that never reaches a safe
 // point is still abandoned.
+// enrol counts one more task under g, and leave one fewer.
+func (g *supervisor) enrol() {
+	g.enrolMu.Lock()
+	defer g.enrolMu.Unlock()
+	if g.enrolled == 0 {
+		g.idleCh = make(chan struct{})
+	}
+	g.enrolled++
+}
+
+func (g *supervisor) leave() {
+	g.enrolMu.Lock()
+	defer g.enrolMu.Unlock()
+	g.enrolled--
+	if g.enrolled == 0 {
+		close(g.idleCh)
+	}
+}
+
+// idle is a channel closed once nothing is enrolled under g: closed already
+// when nothing is now.
+func (g *supervisor) idle() <-chan struct{} {
+	g.enrolMu.Lock()
+	defer g.enrolMu.Unlock()
+	return g.idleCh
+}
+
 func (g *supervisor) drainOnce() {
-	done := make(chan struct{})
-	go func() {
-		g.wg.Wait()
-		close(done)
-	}()
+	done := g.idle()
 	g.grace(done)
 	// Cancel on every path out, including the one where it went idle on its
 	// own: the context is a child of the registry root and would otherwise stay

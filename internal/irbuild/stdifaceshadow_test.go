@@ -242,7 +242,7 @@ end
 // declares its own `interface Assertable` with an impl for the type: the
 // builder reads std's impls under the key the file files them under
 // (stdIfaceImplKey). It used to take the file's own impl, whose
-// `Maybe<String>` the VM refused.
+// `Option<String>` the VM refused.
 func TestIRStdIface_AssertableBesideALocalAssertable(t *testing.T) {
 	verifyLambdaProgram(t, `import
     std::assertions
@@ -252,7 +252,7 @@ func TestIRStdIface_AssertableBesideALocalAssertable(t *testing.T) {
 end
 
 interface Assertable
-    fn failure(value: self) -> Maybe<String>
+    fn failure(value: self) -> Option<String>
 end
 
 struct Check
@@ -260,7 +260,7 @@ struct Check
 end
 
 impl assertions.Assertable for Check
-    fn failure(c: Check) -> Maybe<AssertionDetails>
+    fn failure(c: Check) -> Option<AssertionDetails>
         if c.ok then
             None
         else
@@ -270,7 +270,7 @@ impl assertions.Assertable for Check
 end
 
 impl Assertable for Check
-    fn failure(c: Check) -> Maybe<String>
+    fn failure(c: Check) -> Option<String>
         if c.ok then Some("local failure") else None
     end
 end

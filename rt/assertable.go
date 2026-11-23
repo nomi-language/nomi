@@ -6,11 +6,11 @@ package rt
 // std/assertions declares the interface as
 //
 //	pub interface Assertable {
-//	  fn failure(value: self) -> Maybe<AssertionDetails>
+//	  fn failure(value: self) -> Option<AssertionDetails>
 //	}
 //
 // so a subject answers its own verdict, and the answer's polarity is the
-// opposite of a `Maybe` subject's: `assert` holds on `None` and fails on
+// opposite of an `Option` subject's: `assert` holds on `None` and fails on
 // `Some(details)`, `refute` is the mirror, and either way the assertion's value
 // is the original subject. Getting that inversion backwards is invisible to any
 // output comparison over this repository's corpus, because a passing
@@ -33,7 +33,7 @@ package rt
 // in the report's shapes rather than Nomi's.
 //
 // Two shapes exist for one type on purpose and nomiassertion.go's header says
-// why: `NomiAssertionDetails` is what a Nomi program holds (a `Maybe[string]`
+// why: `NomiAssertionDetails` is what a Nomi program holds (an `Option[string]`
 // and a `*List`), and a report wants a `string` and a slice. This is the report
 // side, so the conversion happens once, at the boundary, rather than inside the
 // judgement.
@@ -61,20 +61,20 @@ type AssertableDetails struct {
 	Details     []AssertionDetailContext
 }
 
-// AssertableDetailsOf reads the `Maybe<AssertionDetails>` an `Assertable`
+// AssertableDetailsOf reads the `Option<AssertionDetails>` an `Assertable`
 // answered into the report-shaped ingredients the judgement takes.
 //
-// `TagSome` rather than a comparison against 0: a zero `Maybe` is neither Some
+// `TagSome` rather than a comparison against 0: a zero `Option` is neither Some
 // nor None, so a tag test written the other way round would treat an
 // uninitialised value as a failure report.
-func AssertableDetailsOf(answer Maybe[NomiAssertionDetails]) *AssertableDetails {
+func AssertableDetailsOf(answer Option[NomiAssertionDetails]) *AssertableDetails {
 	if answer.Tag != TagSome {
 		return nil
 	}
 	return &AssertableDetails{
 		Reason:      answer.Some.Reason,
-		Actual:      reportMaybeString(answer.Some.Actual),
-		Expected:    reportMaybeString(answer.Some.Expected),
+		Actual:      reportOptionString(answer.Some.Actual),
+		Expected:    reportOptionString(answer.Some.Expected),
 		HasExpected: answer.Some.Expected.Tag == TagSome,
 		Details:     reportDetails(answer.Some.Details),
 	}

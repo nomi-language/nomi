@@ -78,7 +78,7 @@ type stdStructField struct {
 	// std's own source resolves through.
 	nomi string
 	// decl is the field's type as std's declaration writes it, in typeText's
-	// form: `Int64`, `List<AssertionValue>`, `Map<String, String>`. A subtype
+	// form: `Int64`, `List<AssertionValue>`, `Map<String, String>`. A refinement
 	// is written as itself (`month: Int64`), though its kind is its base's.
 	decl string
 	// kindOf is the field's kind, given the def shell of every spec in the
@@ -94,7 +94,7 @@ type stdStructField struct {
 	// Not restricted to scalars. What the field must be is PACKAGE-NEUTRAL,
 	// which is what makes the shared def correct in every gen (see the
 	// header); sharedcomp.go gives structural kinds process-wide identity.
-	// `List<AssertionValue>` and `Maybe<String>` are built over scalars and
+	// `List<AssertionValue>` and `Option<String>` are built over scalars and
 	// process-wide defs and nothing else, so they are neutral by
 	// construction; `List<Point>` is not. TestStdStructDefsArePackageNeutral
 	// asserts the property.
@@ -171,14 +171,14 @@ func stdListOfEnumField(nomi, decl string, i int) stdStructField {
 	}}
 }
 
-// stdMaybeField is a field holding `Maybe<k>`.
+// stdOptionField is a field holding `Option<k>`.
 //
 // Routed through sharedPreludeInstance rather than buildPreludeDef, so the def
 // a field carries is the SAME pointer a signature position or a call site gets
 // for the same instantiation — the identity rule stdprelude.go exists to state.
-func stdMaybeField(nomi, decl string, of func(defs []*typeDef) kind) stdStructField {
+func stdOptionField(nomi, decl string, of func(defs []*typeDef) kind) stdStructField {
 	return stdStructField{nomi: nomi, decl: decl, kindOf: func(defs []*typeDef) kind {
-		k, shared := sharedPreludeInstance(preludeSpecFor("std/maybe", "Maybe"), []kind{of(defs)})
+		k, shared := sharedPreludeInstance(preludeSpecFor("std/option", "Option"), []kind{of(defs)})
 		if !shared {
 			// Unreachable while every argument here is neutral, and honoured
 			// rather than assumed: a def interned nowhere would be a kind no
@@ -202,7 +202,7 @@ func stdMaybeField(nomi, decl string, of func(defs []*typeDef) kind) stdStructFi
 // and by the same mechanism.
 //
 // key and val are functions rather than kinds so a field can name a def from
-// the table being built, exactly as stdMaybeField's `of` does. Both must be
+// the table being built, exactly as stdOptionField's `of` does. Both must be
 // package-neutral: a non-neutral component with a nil gen panics in internComp
 // rather than yielding a kind interned nowhere, which is the loud version of
 // the failure that guard exists for.
@@ -291,7 +291,7 @@ func stdStringDefault(want string) *stdFieldDefault {
 	}, lit: stdDefaultLit{form: stdDefaultString, text: want}}
 }
 
-// stdNoneDefault is `= None` on a Maybe field, the spelling std writes it in.
+// stdNoneDefault is `= None` on an Option field, the spelling std writes it in.
 // What the check is FOR is a default that changed VALUE — to `Some(0)`, or to a
 // call — and the shape below rejects every one of those.
 func stdNoneDefault() *stdFieldDefault {
@@ -490,8 +490,8 @@ var stdStructSpecs = []stdStructSpec{{
 		stdScalarField("keyword", "String", kindString),
 		stdScalarField("expression", "String", kindString),
 		stdScalarField("reason", "String", kindString),
-		stdMaybeField("actual", "Maybe<String>", func([]*typeDef) kind { return kindString }),
-		stdMaybeField("binding", "Maybe<AssertionBinding>", func(defs []*typeDef) kind {
+		stdOptionField("actual", "Option<String>", func([]*typeDef) kind { return kindString }),
+		stdOptionField("binding", "Option<AssertionBinding>", func(defs []*typeDef) kind {
 			return named(defs[stdSpecAssertionBinding])
 		}),
 		stdListField("values", "List<AssertionValue>", stdSpecAssertionValue),
@@ -514,9 +514,9 @@ var stdStructSpecs = []stdStructSpec{{
 	fields: []stdStructField{
 		withDefault(stdScalarField("reason", "String", kindString),
 			stdStringDefault("assertion failed")),
-		withDefault(stdMaybeField("actual", "Maybe<String>", func([]*typeDef) kind { return kindString }),
+		withDefault(stdOptionField("actual", "Option<String>", func([]*typeDef) kind { return kindString }),
 			stdNoneDefault()),
-		withDefault(stdMaybeField("expected", "Maybe<String>", func([]*typeDef) kind { return kindString }),
+		withDefault(stdOptionField("expected", "Option<String>", func([]*typeDef) kind { return kindString }),
 			stdNoneDefault()),
 		withDefault(stdListField("details", "List<AssertionDetail>", stdSpecAssertionDetail),
 			stdEmptyListDefault()),
@@ -550,7 +550,7 @@ var stdStructSpecs = []stdStructSpec{{
 	//     components are package-neutral, so it is the same entry a call site's
 	//     own `mapKind` produces. That equality is the whole requirement — a
 	//     per-gen kind here would match no call site anywhere.
-	//   - `manifest` is a `Maybe<String>` with a default of `None`, which a
+	//   - `manifest` is an `Option<String>` with a default of `None`, which a
 	//     literal that omits the field takes.
 	//
 	// NOT transparent: std declares it `pub struct Project` without `opaque`,
@@ -566,7 +566,7 @@ var stdStructSpecs = []stdStructSpec{{
 		stdMapField("files", "Map<String, String>",
 			func([]*typeDef) kind { return kindString },
 			func([]*typeDef) kind { return kindString }),
-		withDefault(stdMaybeField("manifest", "Maybe<String>", func([]*typeDef) kind {
+		withDefault(stdOptionField("manifest", "Option<String>", func([]*typeDef) kind {
 			return kindString
 		}), stdNoneDefault()),
 	},
@@ -1141,7 +1141,7 @@ func (s *stdStructSpec) mismatch(decl *ast.StructDef) string {
 			return fmt.Sprintf("%s: field %d is %s in std, %s in the row", row, i, f.Name, want.nomi)
 		}
 		// The written spelling, compared by typeText as every std spec
-		// compares a written type. A widened `List<String>` or a subtype
+		// compares a written type. A widened `List<String>` or a refinement
 		// swapped for its base is a different spelling.
 		if got := typeText(f.TypeAnnotation); got != want.decl {
 			return fmt.Sprintf("%s.%s: std writes `%s`, the row says `%s`", row, f.Name, got, want.decl)

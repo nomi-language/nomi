@@ -31,7 +31,7 @@ fn describe_root(jv: Json) -> String
     end
 end
 
-fn extract_first_tag(jv: Json) -> Maybe<String>
+fn extract_first_tag(jv: Json) -> Option<String>
     case jv
         .Obj{"tags" => .Arr[.String(t), ..]} -> Some(t)
         _                                    -> None

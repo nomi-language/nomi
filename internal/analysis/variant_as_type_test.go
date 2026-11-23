@@ -24,7 +24,7 @@ end
 		{"Shape.Rectangle", `unknown type "Shape.Rectangle"`, inline},
 		{"Rectangle", `unknown type "Rectangle"`, inline},
 		{"Shape.Circle", `unknown type "Shape.Circle"`, "write `Circle`, the embedded variant's own type"},
-		{"Some", `unknown type "Some"`, "`Some` is a variant of `Maybe`, not a type: take a `Maybe`"},
+		{"Some", `unknown type "Some"`, "`Some` is a variant of `Option`, not a type: take an `Option`"},
 	} {
 		t.Run(tc.typ, func(t *testing.T) {
 			_, errs := checkSourceWithStdlib(decls + "\nfn f(_: " + tc.typ + ") -> Int\n  1\nend\n")

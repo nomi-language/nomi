@@ -297,6 +297,9 @@ type gen struct {
 	dc       *declineCensus
 	nomiPath string
 	pkg      string
+	// errorDecls is the program's declarations whose check reported an
+	// error (Program.ErrorDecls), which errorDeclBody leaves unlowered.
+	errorDecls map[ast.Node]bool
 	// stdUnlowered names, for a stdlib gen, each function whose body the IR
 	// did not lower, with the reason. See irnative.go.
 	stdUnlowered map[string]string
@@ -1418,6 +1421,9 @@ func irSigDomainKind(sig *fnSig, k kind) bool {
 
 func (g *gen) funcDecl(fd *ast.FuncDef) {
 	g.at(fd.Line)
+	if g.errorDeclBody(fd) {
+		return
+	}
 	// Guarded on the declaration POINTER, not just on nil: funcDecl also sees
 	// impl functions, and g.funcs is keyed on a bare name that an impl method
 	// may share with a free `fn`. Without this an impl `foo` would be reported

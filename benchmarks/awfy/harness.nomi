@@ -25,7 +25,7 @@ pub fn config(startup: Startup) -> Result<Config, String>
 end
 
 fn count(arg: String) -> Result<Int, String>
-    String.to_int(arg) |> Maybe.to_result("not a number: ${arg}")
+    String.to_int(arg) |> Option.to_result("not a number: ${arg}")
 end
 
 /// Runs `inner_loop` once per outer iteration, as the suite's `Run.doRuns`

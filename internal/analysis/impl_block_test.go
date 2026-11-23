@@ -828,7 +828,7 @@ end
 			"fn read<T>(x: T) -> String where T: HasName\n    T.name(x)\nend"},
 		{"a field accessor over a bounded type parameter",
 			"fn apply<T>(x: T, f: (T) -> String) -> String\n    f(x)\nend\nfn read<T>(x: T) -> String where T: HasName\n    apply(x, .name)\nend",
-			"`.name` reads a field of a struct, a record or a tuple, and T is none of those",
+			"`.name` reads a field of a struct, an enum, a record or a tuple, and T is none of those",
 			"fn apply<T>(x: T, f: (T) -> String) -> String\n    f(x)\nend\nfn read<T>(x: T) -> String where T: HasName\n    apply(x, fn y -> T.name(y))\nend"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

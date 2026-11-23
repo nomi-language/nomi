@@ -18,14 +18,14 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 pub fn triplets_with_sum(n: Int) -> List<(Int, Int, Int)>
     1..n / 3
     |> Iter.map(&triplet(n, &1))
-    |> Maybe.values()
+    |> Option.values()
     |> Iter.to_list()
 end
 
 /// The triplet summing to `n` whose shortest side is `a`, if there is one.
 /// With `c = n - a - b`, `a² + b² = c²` gives `b = (n² - 2na) / (2(n - a))`,
 /// so `b` is whole or there is no such triplet.
-fn triplet(n: Int, a: Int) -> Maybe<(Int, Int, Int)>
+fn triplet(n: Int, a: Int) -> Option<(Int, Int, Int)>
     top = n * n - 2 * n * a
     // `a` is below `n / 3`, so `n - a` is above 0.
     bottom = PositiveInt.try_from(2 * (n - a))!
@@ -84,5 +84,5 @@ test result: ok. 7 passed, 0 failed
 
 - A triplet is a tuple, `(a, b, c)`, and the answer a `List` of them, smallest `a` first, as the canonical data lists them. The three sides are read together and never apart, so a struct would only name them.
 - The search runs over `a` alone. With `c = n - a - b`, the equation solves to `b = (n² - 2na) / (2(n - a))`, so each `a` has at most one triplet, and it exists when that division is exact and `a < b`. `a` is below `n / 3`, so `2(n - a)` is above zero, which `PositiveInt.try_from(...)!` states so `/` and `%` take it. That is one pass of `n / 3` steps, which keeps the largest case (`n = 30000`) to 10,000 divisions instead of a nested loop over `a` and `b`.
-- `triplet` answers a `Maybe` per `a`, and `Maybe.values` keeps the ones that exist. The derivation sits in `triplet`'s doc comment, so the arithmetic is explained where it is written.
+- `triplet` answers an `Option` per `a`, and `Option.values` keeps the ones that exist. The derivation sits in `triplet`'s doc comment, so the arithmetic is explained where it is written.
 - The seven canonical cases are one `subtests` table named by the description column.

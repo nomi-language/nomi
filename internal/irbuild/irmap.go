@@ -17,7 +17,7 @@ func irRetainedMapKind(k kind) bool {
 // Hashable (recorded by irRecordKeyImpls), everything else structurally
 // (vm/keys.go). So a key may be a scalar leaf, Unit (one value, rt.HashUnit),
 // a Decimal (scale-insensitive: rt.EqDecimal and rt.HashDecimal), a tuple, a
-// list, a retained struct or enum (a prelude Maybe among them), a
+// list, a retained struct or enum (a prelude Option among them), a
 // Dynamic (by its contents: rt.DynamicEqual and rt.DynamicHash), or a
 // `Type<T>` witness (by the type it names: rt.TypeWitnessEqual and
 // rt.TypeWitnessHash).
@@ -395,7 +395,7 @@ func (bl *irScalarBuilder) mapCallPlan(t *ast.Call, args irQualArgs, method stri
 		args.temps[2], args.kinds[2] = v, got
 	}
 	if method == "get" {
-		if _, anchored := preludeSpecAnchor(preludeSpecNamed("Maybe")); !anchored {
+		if _, anchored := preludeSpecAnchor(preludeSpecNamed("Option")); !anchored {
 			return nil
 		}
 	}

@@ -6,19 +6,19 @@ import (
 	"sync"
 )
 
-// A prelude enum instantiated at PACKAGE-NEUTRAL type arguments — `Maybe<Int>`,
-// `Result<String, String>`, `Maybe<Duration>` — as a type a stdlib signature may
+// A prelude enum instantiated at PACKAGE-NEUTRAL type arguments — `Option<Int>`,
+// `Result<String, String>`, `Option<Duration>` — as a type a stdlib signature may
 // name.
 //
 // # Identity across gens
 //
-// `Maybe<Int>` has a representation (prelude.go). What a stdlib signature also
+// `Option<Int>` has a representation (prelude.go). What a stdlib signature also
 // needs is IDENTITY ACROSS GENS, for the reason opaque.go gives for sharing an
 // opaque def: "a stdFunc's parameter and result kinds are built once in
 // stdCandidateFor and compared by POINTER against a call site's argument kinds
 // in a different gen, so a per-gen def would make `Duration.as_nanos(d)`
 // mismatch against itself." `Codepoint.next` returns
-// `Maybe<Codepoint>`, which is how that type is reached.
+// `Option<Codepoint>`, which is how that type is reached.
 //
 // This is that argument applied to a PARAMETERIZED type, and the applicability
 // is conditional rather than automatic, which is the whole content of this
@@ -28,9 +28,9 @@ import (
 //
 // A def may be shared process-wide when it reaches no declaration of one
 // program. A shared def outlives the program that first built it and is
-// compared by pointer against every later program's kinds. `Maybe<Int>`
-// reaches a scalar and `Maybe<Duration>` a process-wide def rt declares.
-// `Maybe<Point>` reaches a type one program's file declares, and two files
+// compared by pointer against every later program's kinds. `Option<Int>`
+// reaches a scalar and `Option<Duration>` a process-wide def rt declares.
+// `Option<Point>` reaches a type one program's file declares, and two files
 // may each declare a `Point`, so it is not shareable and keeps the per-gen
 // path.
 //
@@ -65,7 +65,7 @@ import (
 // `g.comps`, `g.implsByIface` — is keyed BY the def and never writes to it.
 
 // preludeNomi is one instantiation's Nomi spelling, arguments included
-// (`Maybe<Int>`). It is the def's name and the key sharedPreludeDefs groups
+// (`Option<Int>`). It is the def's name and the key sharedPreludeDefs groups
 // its entries by.
 func preludeNomi(spec *preludeSpec, args []kind) string {
 	var nomi strings.Builder
@@ -106,8 +106,8 @@ func buildPreludeDef(spec *preludeSpec, args []kind) *typeDef {
 			vd.kind = "positional"
 			vd.payloads = []payload{{k: pk, slot: len(d.slots)}}
 			d.slots = append(d.slots, slotDef{k: pk})
-			// The payload graph, so a struct whose field is `Maybe<Bad>`
-			// refuses with it and a `Maybe<Node>` inside a Node is boxed
+			// The payload graph, so a struct whose field is `Option<Bad>`
+			// refuses with it and an `Option<Node>` inside a Node is boxed
 			// rather than laid out at infinite size.
 			d.note(pk)
 		}
@@ -263,10 +263,10 @@ func (k kind) packageNeutral() bool {
 var (
 	sharedPreludeMu sync.Mutex
 	// sharedPreludeDefs is keyed on the FULL instantiation's spelling —
-	// `Maybe<Int>`, not `Maybe`.
+	// `Option<Int>`, not `Option`.
 	//
 	// Keying on the base name would make a Go map assignment a silent
-	// overwrite: `Maybe<String>` would take `Maybe<Int>`'s slot and every
+	// overwrite: `Option<String>` would take `Option<Int>`'s slot and every
 	// later mention would resolve to the wrong payload type, a wrong ANSWER
 	// rather than a refusal.
 	sharedPreludeDefs = map[string][]*typeDef{}
@@ -314,7 +314,7 @@ func internSharedPrelude(nomi string, args []kind, build func() *typeDef) *typeD
 
 // --- the extern registry side ----------------------------------------------
 
-// preludeKindOfGoType is the kind an rt signature's `rt.Maybe[T]` /
+// preludeKindOfGoType is the kind an rt signature's `rt.Option[T]` /
 // `rt.Result[T, E]` names, or kindInvalid.
 //
 // kindOfGoType's direction, read off the Go type rather than declared, so a
@@ -323,12 +323,12 @@ func internSharedPrelude(nomi string, args []kind, build func() *typeDef) *typeD
 // bracket, and the tag field plus one field per payload variant — because a
 // hand-written `reflect.Type` per instantiation would be an unbounded table and
 // a name-only match would accept an unrelated rt type that happened to be
-// spelled `Maybe`.
+// spelled `Option`.
 //
 // The type ARGUMENTS come out of the payload FIELDS, which is the only place
-// reflect exposes them: `rt.Maybe[int64]`'s `Some` field is `int64`. That also
-// makes the projection recursive for free, so `rt.Result[rt.Maybe[int64], string]`
-// answers `Result<Maybe<Int>, String>`.
+// reflect exposes them: `rt.Option[int64]`'s `Some` field is `int64`. That also
+// makes the projection recursive for free, so `rt.Result[rt.Option[int64], string]`
+// answers `Result<Option<Int>, String>`.
 func preludeKindOfGoType(t reflect.Type) kind {
 	if t == nil || t.Kind() != reflect.Struct || t.PkgPath() != rtModulePath {
 		return kindInvalid

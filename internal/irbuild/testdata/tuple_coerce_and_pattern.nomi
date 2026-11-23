@@ -83,7 +83,7 @@ fn main()
             end
         end)
 
-    // Compared rather than interpolated: `"${a_Maybe}"` is a separate gap
+    // Compared rather than interpolated: `"${a_Option}"` is a separate gap
     // (`rendering a non-scalar value`) and this file is not about that one.
     io.print("pattern: a4=${Map.get(counts, "a") == Some(4)} b2=${Map.get(counts, "b") == Some(2)}")
 

@@ -472,10 +472,10 @@ func bodyTypeHelp(iface, typeName string) string {
 // A bound declared inside a body has no impl at all (bodyInterfaceHelp).
 // An operator interface keeps missingImplHelp's block shape.
 func (c *checker) boundHelp(concrete Type, bound *InterfaceType) string {
-	if sub := c.subtypeMissing(concrete, bound); sub != nil {
-		return subtypeMakesBaseHelp(sub)
+	if sub := c.refinementMissing(concrete, bound); sub != nil {
+		return refinementMakesBaseHelp(sub)
 	}
-	if help, ok := c.subtypeReadByKindHelp(concrete, bound); ok {
+	if help, ok := c.refinementReadByKindHelp(concrete, bound); ok {
 		return help
 	}
 	name := fmt.Sprint(concrete)
@@ -632,7 +632,7 @@ func (c *checker) requiredSignatures(bound *InterfaceType, concrete Type) []stri
 }
 
 // callCol is where a diagnostic about call n points: the callee as written
-// (`Maybe.hash` in `Maybe.hash(x)`), or the call when it names none.
+// (`Option.hash` in `Option.hash(x)`), or the call when it names none.
 func callCol(n *ast.Call) int {
 	switch f := n.Func.(type) {
 	case *ast.FieldAccess:
@@ -706,14 +706,19 @@ func (c *checker) dropDemandsAt(concrete Type, ifaceName string, pos Pos) {
 // boundError is a call's unmet interface bound: at the call, naming the
 // bound it violates, with the missing-impl help. It reports whether it
 // reported an error; a bound an impl's own bounds leave unmet is recorded
-// as their demand instead.
+// as their demand instead. A type with a part of no type draws none
+// (hasPartOfNoType): the part's error is the one error, as it is for a
+// demand of the type (demandOfNoType).
 func (c *checker) boundError(line, col int, concrete Type, bound *InterfaceType, param string, over ...ast.Node) bool {
-	if sub := c.subtypeMissing(concrete, bound); sub != nil {
+	if hasPartOfNoType(concrete) {
+		return false
+	}
+	if sub := c.refinementMissing(concrete, bound); sub != nil {
 		required := fmt.Sprintf("`where %s: %s`", param, c.shownInterfaceFor(concrete, bound, true))
 		if !TypesIdentical(sub, concrete) {
 			required += fmt.Sprintf(" at %s", concrete)
 		}
-		c.report(subtypeMakesBaseError(line, col, sub, bound, required))
+		c.report(refinementMakesBaseError(line, col, sub, bound, required))
 		return true
 	}
 	if c.implBoundsUnmetByNamedTypes(concrete, bound) {

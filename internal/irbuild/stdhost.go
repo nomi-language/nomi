@@ -202,7 +202,7 @@ func (s *stdHostSpec) declaredHostType(decl *ast.ExternType) bool {
 var stdHostSpecs = []stdHostSpec{
 	// Two rows for two types: `Byte` is one octet and `Bytes` a buffer of
 	// them, and they are separate Nomi types, so a single row would collapse
-	// `Bytes.get(data, i) -> Maybe<Byte>`'s two positions onto one.
+	// `Bytes.get(data, i) -> Option<Byte>`'s two positions onto one.
 	{prim: analysis.TypeByte, nomi: "Byte", goType: reflect.TypeFor[rt.Byte]()},
 	{prim: analysis.TypeBytes, nomi: "Bytes", goType: reflect.TypeFor[rt.Bytes]()},
 	// `Decimal` differs from its two neighbours in one way that matters to the
@@ -240,7 +240,7 @@ var stdHostSpecs = []stdHostSpec{
 	// project onto every declaration whose parameter has no representation, which
 	// is the same wrong-anchor `rt.Bytes` avoids by not being a plain `string`.
 	//
-	// `as_maybe`, `at_field` and `at_index` are generic Nomi bodies taking a
+	// `as_option`, `at_field` and `at_index` are generic Nomi bodies taking a
 	// callback; they are the stdlib index's generic question, not this
 	// family's.
 	{origin: "std/dynamic", nomi: "Dynamic", goType: reflect.TypeFor[rt.Dynamic]()},

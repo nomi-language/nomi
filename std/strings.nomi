@@ -16,7 +16,7 @@ import
     lists.List
     locale.Locale
     matcher.Matcher
-    maybe.Maybe.{self, None, Some}
+    option.Option.{self, None, Some}
     regex.Regex
     summable.Summable
 end
@@ -532,7 +532,7 @@ impl String
     //! assert String.find("banana", "x") == None
     //! assert String.find("none", Regex`\d+`) == None
     //
-    pub fn find<M>(s: String, needle: M) -> Maybe<String> where M: Matcher
+    pub fn find<M>(s: String, needle: M) -> Option<String> where M: Matcher
         M.find_in(needle, s)
     end
 
@@ -541,11 +541,11 @@ impl String
     /// shapes them. The groups are the pattern's from group 1, in the order
     /// it opens them: the whole match is not one, and `String.find` gives
     /// it. A `Regex` literal's `C` has one part per group, `String` for a
-    /// group every match fills and `Maybe<String>` for one a match can leave
+    /// group every match fills and `Option<String>` for one a match can leave
     /// out, such as either side of `(a)|(b)`: a tuple of them, an anonymous
     /// struct when every group is named, the one part alone for a single
     /// unnamed group, and `Unit` when there is none. A regex compiled while
-    /// the program runs is a `Regex<List<Maybe<String>>>`, whose groups are
+    /// the program runs is a `Regex<List<Option<String>>>`, whose groups are
     /// a list.
     //! import std::regex.Regex
     //!
@@ -557,7 +557,7 @@ impl String
     //! assert String.captures("no address", Regex`(\w+)@(\w+)`) == None
     //! assert String.captures("a1", Regex.compile("(\\w)(\\d)")?) == Some([Some("a"), Some("1")])
     //
-    pub fn captures<C>(s: String, re: Regex<C>) -> Maybe<C>
+    pub fn captures<C>(s: String, re: Regex<C>) -> Option<C>
         case capture_groups(s, re)
             Some(groups) -> Some(capture_shape(re, groups))
             None         -> None
@@ -623,7 +623,7 @@ impl String
     //! assert String.to_int("4.0") == None
     //! assert String.to_int("") == None
     //
-    pub host fn to_int(s: String) -> Maybe<Int>
+    pub host fn to_int(s: String) -> Option<Int>
 
     /// Parses `s` as a base-10 Float, the same in every locale: an optional
     /// sign, digits, an optional `.` with digits on both sides, and an
@@ -640,7 +640,7 @@ impl String
     //! assert String.to_float(".5") == None
     //! assert String.to_float("1e400") == None
     //
-    pub host fn to_float(s: String) -> Maybe<Float>
+    pub host fn to_float(s: String) -> Option<Float>
 
     /// Parses `s` as a plain base-10 Decimal. It accepts an optional sign,
     /// `_` digit separators and one fractional part, and the number of
@@ -653,7 +653,7 @@ impl String
     //! assert String.to_decimal(" 1.50") == None
     //! assert String.to_decimal("oops") == None
     //
-    pub host fn to_decimal(s: String) -> Maybe<Decimal>
+    pub host fn to_decimal(s: String) -> Option<Decimal>
 
     /// The bytes of `s`'s UTF-8 encoding.
     //! assert String.to_bytes("ab")
@@ -684,7 +684,7 @@ impl String
     //!     "abc"
     //!     |> String.to_codepoints()
     //!     |> Iter.map(&Int.to_codepoint(Codepoint.to_int(&1) + 1))
-    //!     |> Maybe.values()
+    //!     |> Option.values()
     //!     |> Iter.to_list()
     //!     |> String.from_codepoints()
     //!
@@ -766,7 +766,7 @@ impl String
     //! assert String.strip_prefix("hello world", "hello ") == Some("world")
     //! assert String.strip_prefix("hello", "xyz") == None
     //
-    pub fn strip_prefix(s: String, prefix: String) -> Maybe<String>
+    pub fn strip_prefix(s: String, prefix: String) -> Option<String>
         if starts_with(s, prefix) then
             new_start = length(prefix)
 
@@ -781,7 +781,7 @@ impl String
     //! assert String.strip_suffix("hello.txt", ".txt") == Some("hello")
     //! assert String.strip_suffix("hello", "xyz") == None
     //
-    pub fn strip_suffix(s: String, suffix: String) -> Maybe<String>
+    pub fn strip_suffix(s: String, suffix: String) -> Option<String>
         if ends_with(s, suffix) then
             new_end = length(s) - length(suffix)
 
@@ -818,7 +818,7 @@ end
 //! assert NonEmptyString.try_from(String.trim("  ")) == None
 //! assert NonEmptyString.try_from(String.trim(" x ")) == Some("x")
 //
-pub subtype NonEmptyString String when fn s -> s != ""
+pub refine NonEmptyString String when fn s -> s != ""
 
 /// What a list `String.join_list` writes means: CLDR's list pattern types.
 pub enum ListStyle
@@ -851,16 +851,16 @@ host fn join_list_raw(locale: Locale, items: List<String>, style: Int64, width: 
 // The capture groups of re's leftmost match in s, group 1 onward, each
 // `Some` of its text or `None` when it took no part; `None` when nothing
 // matches. Behind `String.captures`, which shapes them.
-host fn capture_groups<C>(s: String, re: Regex<C>) -> Maybe<List<Maybe<String>>>
+host fn capture_groups<C>(s: String, re: Regex<C>) -> Option<List<Option<String>>>
 
 // capture_groups for every non-overlapping match, left to right.
-host fn capture_groups_all<C>(s: String, re: Regex<C>) -> List<List<Maybe<String>>>
+host fn capture_groups_all<C>(s: String, re: Regex<C>) -> List<List<Option<String>>>
 
 // The C value of a match whose groups are groups: the tuple, struct, text,
 // Unit or list the checker gave re's type (analysis/regex_literal.go). A VM
 // intrinsic built by C alone (irbuild's captureShapeCall), since C is
 // phantom in the handle.
-host fn capture_shape<C>(re: Regex<C>, groups: List<Maybe<String>>) -> C
+host fn capture_shape<C>(re: Regex<C>, groups: List<Option<String>>) -> C
 
 /// Byte-lexicographic comparison of UTF-8 bytes. Returns -1 if `a < b`,
 /// 1 if `a > b`, 0 if equal. Private helper backing the `Comparable` impl.
@@ -902,7 +902,7 @@ impl Matcher for String
     host fn find_all_in(needle: String, text: String) -> List<String>
 
     /// `needle` itself when it occurs in `text`.
-    fn find_in(needle: String, text: String) -> Maybe<String>
+    fn find_in(needle: String, text: String) -> Option<String>
         if String.is_contained_in(needle, text) then Some(needle) else None
     end
 end
@@ -945,7 +945,7 @@ impl Matcher for Codepoint
         String.find_all_in(Codepoint.to_string(cp), text)
     end
 
-    fn find_in(cp: Codepoint, text: String) -> Maybe<String>
+    fn find_in(cp: Codepoint, text: String) -> Option<String>
         String.find_in(Codepoint.to_string(cp), text)
     end
 end

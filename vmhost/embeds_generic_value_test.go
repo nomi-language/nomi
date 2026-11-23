@@ -10,12 +10,12 @@ import (
 
 // A value, not a construction, of a type holding an embedded type, where the
 // same type at the embedding enum is expected, is rebuilt at the wider type:
-// `w: Maybe<Shape> = m` for `m: Maybe<Circle>`. A Shape holding a Circle is
+// `w: Option<Shape> = m` for `m: Option<Circle>`. A Shape holding a Circle is
 // another record than the Circle, so the value is made again, not relabelled.
-// Each shape runs: Maybe (Some and None), Result (Ok and Err), a tuple, a
+// Each shape runs: Option (Some and None), Result (Ok and Err), a tuple, a
 // list, a set, a map (keys and values), a user generic enum's positional,
 // struct-shaped and bare variants, a user generic struct, a nested
-// List<Maybe<Circle>> and Maybe<Maybe<Circle>>, and an embedded distinct.
+// List<Option<Circle>> and Option<Option<Circle>>, and an embedded distinct.
 // Each position runs: a binding, a function argument, a return, and either
 // side of `==` and `!=`.
 func TestRun_EmbeddedValueInsideAGenericValueIsRebuilt(t *testing.T) {
@@ -51,14 +51,14 @@ fn describe(s: Shape) -> String
   end
 end
 
-fn take(m: Maybe<Shape>) -> String
+fn take(m: Option<Shape>) -> String
   case m
     Some(s) -> "some ${describe(s)}"
     None -> "none"
   end
 end
 
-fn give(m: Maybe<Circle>) -> Maybe<Shape>
+fn give(m: Option<Circle>) -> Option<Shape>
   m
 end
 
@@ -74,8 +74,8 @@ fn main()
   c = Circle{r: 1}
   s: Shape = c
   m = Some(c)
-  none: Maybe<Circle> = None
-  w: Maybe<Shape> = m
+  none: Option<Circle> = None
+  w: Option<Shape> = m
   io.inspect(w)
   io.inspect(Some(c) == w)
   io.print(take(m))
@@ -127,20 +127,20 @@ fn main()
   io.inspect(b == Box.Full(s))
   io.inspect(Box.Full(s) != b)
   nested = [Some(c), None]
-  nw: List<Maybe<Shape>> = nested
+  nw: List<Option<Shape>> = nested
   io.print(nw |> Iter.map(take) |> String.join(", "))
   io.inspect(nested == [Some(s), None])
   io.inspect(nested == [Some(Shape.Dot), None])
   wrapped = Some(Wrapped(Circle{r: 9}))
-  ww: Maybe<Shape> = wrapped
+  ww: Option<Shape> = wrapped
   io.print(take(ww))
   io.inspect(wrapped == Some(Shape.Wrapped(Circle{r: 9})))
   h = Holder{value: c}
   hw: Holder<Shape> = h
   io.print(describe(hw.value))
   io.inspect(h == Holder{value: Shape.Dot})
-  mm: Maybe<Maybe<Circle>> = Some(m)
-  mmw: Maybe<Maybe<Shape>> = mm
+  mm: Option<Option<Circle>> = Some(m)
+  mmw: Option<Option<Shape>> = mm
   io.inspect(mmw)
 end
 `)
@@ -271,7 +271,7 @@ False
 // A comparison operand that needs an expected type (a literal holding
 // `Plain.Spot`) is typed at the wider of the two operands' types when the
 // other operand's is the narrower by `embeds`, in either order: a list, a
-// tuple, a Maybe and a map, equal and not.
+// tuple, an Option and a map, equal and not.
 func TestRun_ComparisonLiteralTakesTheWiderType(t *testing.T) {
 	out, err := runVM(t, `import std::io
 
@@ -336,7 +336,7 @@ enum Plain
   Spot
 end
 
-test "a Maybe value against a wider construction"
+test "an Option value against a wider construction"
   c = Circle{r: 1}
   m = Some(c)
   assert Some(c) == Some(Plain.Circle{r: 1})

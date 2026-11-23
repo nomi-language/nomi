@@ -88,11 +88,11 @@ func TestHover_PipeCallStages(t *testing.T) {
   lines = ["1", "x"]
   total = lines
   |> Iter.map(fn s -> String.to_int(s))
-  ▮|> Maybe.values()
+  ▮|> Option.values()
   |> Iter.sum()
   io.inspect(total)
 end
-`, "`Iter<Maybe<Int>>` → `Maybe.values(maybes)` → `Iter<Int>`\n\n```nomi\nfn values(maybes: Iter<Maybe<Int>>) -> Iter<Int>\n```\n\nThe piped value fills `maybes`."},
+`, "`Iter<Option<Int>>` → `Option.values(options)` → `Iter<Int>`\n\n```nomi\nfn values(options: Iter<Option<Int>>) -> Iter<Int>\n```\n\nThe piped value fills `options`."},
 		{"a call with a lambda, on one line", `fn main()
   io.inspect([1, 2, 3] ▮|> Iter.filter(fn x -> x > 2) |> Iter.to_list())
 end
@@ -158,14 +158,14 @@ end
 end
 `, "`Int` → `tap io.inspect` → `Int`\n\n`io.inspect` runs on the `Int` for its effect and the value passes on unchanged."},
 		{"a ? in a function", `fn parse(s: String) -> Result<Int, String>
-  n = s |> String.to_int() ▮|> Maybe.to_result("bad")?
+  n = s |> String.to_int() ▮|> Option.to_result("bad")?
   Ok(n)
 end
 
 fn main()
   io.inspect(parse("1"))
 end
-`, "`Maybe<Int>` → `Maybe.to_result(maybe, error)` → `Result<Int, String>` → `?` → `Int`\n\n```nomi\nfn to_result(maybe: Maybe<Int>, error: String) -> Result<Int, String>\n```\n\nThe piped value fills `maybe`.\n\nAnswers the success value, or returns the `Err` from `fn parse`."},
+`, "`Option<Int>` → `Option.to_result(option, error)` → `Result<Int, String>` → `?` → `Int`\n\n```nomi\nfn to_result(option: Option<Int>, error: String) -> Result<Int, String>\n```\n\nThe piped value fills `option`.\n\nAnswers the success value, or returns the `Err` from `fn parse`."},
 		{"a ? in a lambda", `fn main()
   f = fn s: String ->
     n = s ▮|> String.to_int()?
@@ -173,15 +173,15 @@ end
   end
   io.inspect(f("1"))
 end
-`, "`String` → `String.to_int(s)` → `Maybe<Int>` → `?` → `Int`\n\n```nomi\nfn to_int(s: String) -> Maybe<Int>\n```\n\nThe piped value fills `s`.\n\nAnswers the success value, or returns `None` from the enclosing lambda."},
+`, "`String` → `String.to_int(s)` → `Option<Int>` → `?` → `Int`\n\n```nomi\nfn to_int(s: String) -> Option<Int>\n```\n\nThe piped value fills `s`.\n\nAnswers the success value, or returns `None` from the enclosing lambda."},
 		{"a ? in a test body", `fn main() {}
 
 test "parses"
-  n = "4" |> String.to_int() ▮|> Maybe.to_result("no")?
+  n = "4" |> String.to_int() ▮|> Option.to_result("no")?
   assert n == 4
 end
-`, "`Maybe<Int>` → `Maybe.to_result(maybe, error)` → `Result<Int, String>` → `?` → `Int`\n\n```nomi\nfn to_result(maybe: Maybe<Int>, error: String) -> Result<Int, String>\n```\n\nThe piped value fills `maybe`.\n\nAnswers the success value, or returns the `Err` from `test \"parses\"`."},
-		{"a ? after a call", `fn parse(s: String) -> Maybe<Int>
+`, "`Option<Int>` → `Option.to_result(option, error)` → `Result<Int, String>` → `?` → `Int`\n\n```nomi\nfn to_result(option: Option<Int>, error: String) -> Result<Int, String>\n```\n\nThe piped value fills `option`.\n\nAnswers the success value, or returns the `Err` from `test \"parses\"`."},
+		{"a ? after a call", `fn parse(s: String) -> Option<Int>
   n = s ▮|> String.to_int()?
   Some(n)
 end
@@ -189,7 +189,7 @@ end
 fn main()
   io.inspect(parse("1"))
 end
-`, "`String` → `String.to_int(s)` → `Maybe<Int>` → `?` → `Int`\n\n```nomi\nfn to_int(s: String) -> Maybe<Int>\n```\n\nThe piped value fills `s`.\n\nAnswers the success value, or returns `None` from `fn parse`."},
+`, "`String` → `String.to_int(s)` → `Option<Int>` → `?` → `Int`\n\n```nomi\nfn to_int(s: String) -> Option<Int>\n```\n\nThe piped value fills `s`.\n\nAnswers the success value, or returns `None` from `fn parse`."},
 		{"dbg", `fn main()
   n = 3 ▮|> dbg
   io.inspect(n)

@@ -288,15 +288,15 @@ func PositionPath(path string) string {
 }
 
 // MaterializedURI is the file:// URI of rel, a slash-separated path under
-// std/ such as "maybe.nomi", in this std version's materialized directory:
+// std/ such as "option.nomi", in this std version's materialized directory:
 // ~/.cache/nomi/std/<version>/, where <version> is a hash of the embedded
 // files (internal/stdcache). It writes the directory first if it is missing.
 func MaterializedURI(rel string) string {
 	return fileuri.FromPath(materialized().Path(rel))
 }
 
-// ReadFile reads a stdlib .nomi file by logical module name: "maybe" maps to
-// maybe.nomi, and a nested module such as "storage/testing" maps to
+// ReadFile reads a stdlib .nomi file by logical module name: "option" maps to
+// option.nomi, and a nested module such as "storage/testing" maps to
 // storage/testing.nomi.
 func ReadFile(moduleName string) ([]byte, bool) {
 	path, ok := embeddedStdlibSourcePath(moduleName)

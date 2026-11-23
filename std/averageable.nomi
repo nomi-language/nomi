@@ -6,7 +6,7 @@ import
     int.{Int, PositiveInt}
     iter.Iter
     lists.List
-    maybe.Maybe.{self, None, Some}
+    option.Option.{self, None, Some}
 end
 
 /// A type whose values have a mean of type `R`: `mean(values)` is the
@@ -34,8 +34,8 @@ end
 /// type Celsius Float
 ///
 /// impl Averageable<Celsius> for Celsius
-///     fn mean(values: Iter<Celsius>) -> Maybe<Celsius>
-///         values |> Iter.map(fn Celsius(c) -> c) |> Iter.mean() |> Maybe.map(Celsius)
+///     fn mean(values: Iter<Celsius>) -> Option<Celsius>
+///         values |> Iter.map(fn Celsius(c) -> c) |> Iter.mean() |> Option.map(Celsius)
 ///     end
 /// end
 /// ```
@@ -43,7 +43,7 @@ end
 //! assert Iter.mean([1.5, 2.5]) == Some(2.0)
 //
 pub interface Averageable<R>
-    fn mean(values: Iter<self>) -> Maybe<R>
+    fn mean(values: Iter<self>) -> Option<R>
 end
 
 impl Averageable<Float> for Int
@@ -58,7 +58,7 @@ impl Averageable<Float> for Int
     //! none: List<Int> = []
     //! assert Int.mean(none) == None
     //
-    fn mean(values: Iter<Int>) -> Maybe<Float>
+    fn mean(values: Iter<Int>) -> Option<Float>
         (total, count) = Iter.reduce(values, (0, 0), fn (total, count), x -> (total + x, count + 1))
 
         if count > 0 then Some(int_ratio_to_float(total, count)) else None
@@ -82,11 +82,11 @@ impl Averageable<Float> for Float
     //! assert Float.mean([1.5, 2.5]) == Some(2.0)
     //! assert Float.mean([1.0e100, 1.0, -1.0e100]) == Some(0.3333333333333333)
     //! assert Float.mean([1.0, Float.positive_infinity()]) == Some(Float.positive_infinity())
-    //! assert Float.mean([1.0, Float.nan()]) |> Maybe.map(Float.is_nan) == Some(True)
+    //! assert Float.mean([1.0, Float.nan()]) |> Option.map(Float.is_nan) == Some(True)
     //! none: List<Float> = []
     //! assert Float.mean(none) == None
     //
-    fn mean(values: Iter<Float>) -> Maybe<Float>
+    fn mean(values: Iter<Float>) -> Option<Float>
         (total, lost, count) = Iter.reduce(values, (0.0, 0.0, 0), fn (total, lost, count), x ->
             next = total + x
 
@@ -115,14 +115,14 @@ impl Averageable<Decimal> for Decimal
     /// half-even to 34. Reads `values` once.
     //! assert Decimal.mean([1.50d, 2.50d]) == Some(2d)
     //!
-    //! assert Decimal.mean([1d, 2d, 2d]) |> Maybe.map(Decimal.to_string) == Some(
+    //! assert Decimal.mean([1d, 2d, 2d]) |> Option.map(Decimal.to_string) == Some(
     //!     "1.666666666666666666666666666666667"
     //! )
     //!
     //! none: List<Decimal> = []
     //! assert Decimal.mean(none) == None
     //
-    fn mean(values: Iter<Decimal>) -> Maybe<Decimal>
+    fn mean(values: Iter<Decimal>) -> Option<Decimal>
         (total, count) = Iter.reduce(values, (0d, 0), fn (total, count), x ->
             (total + x, count + 1)
         end)
@@ -145,7 +145,7 @@ impl Averageable<Duration> for Duration
     //! none: List<Duration> = []
     //! assert Duration.mean(none) == None
     //
-    fn mean(values: Iter<Duration>) -> Maybe<Duration>
+    fn mean(values: Iter<Duration>) -> Option<Duration>
         (total, count) = Iter.reduce(values, (0, 0), fn (total, count), d ->
             (total + Duration.as_nanos(d), count + 1)
         end)

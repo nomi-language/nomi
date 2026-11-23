@@ -91,7 +91,7 @@ end
 
 fn main()
     t = Instant.as_nanos(Instant.now())
-    line = Result.with_default(io.read_line(), None) |> Maybe.with_default("none")
+    line = Result.with_default(io.read_line(), None) |> Option.with_default("none")
     x = twice(3)
     io.print("${line} ${x}")
     y = x + 1

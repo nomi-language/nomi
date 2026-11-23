@@ -57,7 +57,7 @@ group "channel equality"
 
   test "a closed channel answers None"
     Sender.close(App.done.sender)
-    none: Maybe<Int> = None
+    none: Option<Int> = None
     assert Receiver.receive(App.done.receiver) == none
   end
 end
@@ -65,7 +65,7 @@ end
 
 // deadline_floor_test.nomi's grouped case, plus failing variants whose reports
 // carry the rows a channel call, a pipe and a std equality record.
-func TestIRGroupGaps_ChannelAndMaybeEqualityInASubject(t *testing.T) {
+func TestIRGroupGaps_ChannelAndOptionEqualityInASubject(t *testing.T) {
 	run := irTestGroupVM(t, irGroupGapsChannelSource, 6)
 	for _, want := range []string{"Some(2)", "Duration.seconds(1)", "2 passed"} {
 		if !strings.Contains(run.vm.stdout, want) {

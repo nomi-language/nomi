@@ -1,18 +1,18 @@
 // A refinement of a collection or a String is its base at run time, so
 // every operation on the base works on a refined value as on the base.
-subtype Pair List<Int> when fn xs -> List.length(xs) == 2
+refine Pair List<Int> when fn xs -> List.length(xs) == 2
 
-subtype Scores Map<String, Int> when fn m -> Map.size(m) > 0
+refine Scores Map<String, Int> when fn m -> Map.size(m) > 0
 
-subtype Word String when fn s -> String.length(s) > 0 and not String.contains(s, " ")
+refine Word String when fn s -> String.length(s) > 0 and not String.contains(s, " ")
 
-subtype Row Vector<Int> when fn v -> Vector.length(v) == 3
+refine Row Vector<Int> when fn v -> Vector.length(v) == 3
 
-subtype Tags Set<String> when fn s -> Set.size(s) > 0
+refine Tags Set<String> when fn s -> Set.size(s) > 0
 
-subtype SmallPair Pair when fn xs -> Iter.all_match(xs, &(&1 < 10))
+refine SmallPair Pair when fn xs -> Iter.all_match(xs, &(&1 < 10))
 
-subtype OneScore Scores when fn m -> Map.size(m) == 1
+refine OneScore Scores when fn m -> Map.size(m) == 1
 
 fn total(xs: List<Int>) -> Int
     Iter.sum(xs)

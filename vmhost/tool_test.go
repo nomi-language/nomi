@@ -35,7 +35,7 @@ end
 
 fn main() -> Result<Unit, String>
     text = fs.read_text("count.txt") |> Result.map_err(fn e -> "${e}")
-    n = String.to_int(String.trim(text?)) |> Maybe.with_default(0)
+    n = String.to_int(String.trim(text?)) |> Option.with_default(0)
     _ = fs.write_text("count.txt", "${n + 1}\n") |> Result.map_err(fn e -> "${e}")
     io.print("bumped to ${n + 1}")
     Ok(Unit)
@@ -95,7 +95,7 @@ fn boot(startup: Startup) -> Result<App, String>
 end
 
 fn main()
-    io.print(Map.get(App.env, "` + vmhost.ToolModuleEnv + `") |> Maybe.with_default("unset"))
+    io.print(Map.get(App.env, "` + vmhost.ToolModuleEnv + `") |> Option.with_default("unset"))
 end
 
 // FILE: nomi.toml

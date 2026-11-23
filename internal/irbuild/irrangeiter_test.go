@@ -64,7 +64,7 @@ end
 }
 
 func TestIRRangeIter_TourCodepointRange(t *testing.T) {
-	verifyLambdaProgram(t, `fn run() -> Maybe<List<String>>
+	verifyLambdaProgram(t, `fn run() -> Option<List<String>>
   a = Int.to_codepoint(97)?
   d = Int.to_codepoint(100)?
 

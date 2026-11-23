@@ -79,7 +79,7 @@ pub interface Seq<T>
 end
 
 impl Seq<T>
-  pub fn find<T>(source: List<T>, f: (T) -> Bool) -> Maybe<T>
+  pub fn find<T>(source: List<T>, f: (T) -> Bool) -> Option<T>
     out: List<T> = Iter.filter(source, f) |> Iter.to_list()
     List.first(out)
   end

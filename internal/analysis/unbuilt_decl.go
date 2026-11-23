@@ -8,7 +8,7 @@ import "github.com/nomi-language/nomi/internal/ast"
 // interface's Methods and Fields, and each one's TypeParams and
 // TypeParamDefs. The body is built in BuildTypes, and a type annotation that
 // names the declaration can be resolved before that: a signature in a file
-// built earlier (std/maybe.nomi's `Maybe.to_result` returns std/results'
+// built earlier (std/option.nomi's `Option.to_result` returns std/results'
 // Result, and the two files import each other), a field declared above the
 // generic type it names, or a recursive variant (`Node(Tree<T>)`, resolved
 // while Tree is being built). No order of building fixes the last one.
@@ -128,6 +128,7 @@ func distinctBuilt(dt *DistinctType) {
 	for _, inst := range u.instances {
 		if inst, ok := inst.(*DistinctType); ok {
 			inst.Inner = dt.Inner
+			inst.InnerOfNoType = dt.InnerOfNoType
 			inst.WrittenAsParts = dt.WrittenAsParts
 			inst.MoreParents = dt.MoreParents
 			inst.TypeParams = dt.TypeParams

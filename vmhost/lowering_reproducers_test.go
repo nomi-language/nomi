@@ -151,7 +151,7 @@ impl Iter for Pair
         if yield(p.a) then yield(p.b) else False
     end
 
-    fn known_count(_p: Pair) -> Maybe<Int>
+    fn known_count(_p: Pair) -> Option<Int>
         Some(2)
     end
 end
@@ -244,7 +244,7 @@ end
 		src: `import std::io
 
 fn main()
-    m: Maybe<Int> = Some(3)
+    m: Option<Int> = Some(3)
 
     n = Iter.loop(0, fn n ->
         if n > 3 then break n
@@ -293,7 +293,7 @@ impl Iter for Pair
         if yield(p.a) then yield(p.b) else False
     end
 
-    fn known_count(_p: Pair) -> Maybe<Int>
+    fn known_count(_p: Pair) -> Option<Int>
         Some(2)
     end
 end
@@ -331,11 +331,11 @@ derive Equatable for Id
 derive Comparable for Id
 
 impl Discrete for Id
-    fn next(Id(n)) -> Maybe<Id>
+    fn next(Id(n)) -> Option<Id>
         Some(Id(n + 1))
     end
 
-    fn steps_between(Id(a), Id(b)) -> Maybe<Int>
+    fn steps_between(Id(a), Id(b)) -> Option<Int>
         Some(b - a)
     end
 end
@@ -415,7 +415,7 @@ end
 
 type Pair (Int, String)
 
-fn f(m: Maybe<(Pair, Int)>) -> Int
+fn f(m: Option<(Pair, Int)>) -> Int
     Some((Pair(x, _), y)) = m else
         (Pair(0, ""), 0)
     end
@@ -651,7 +651,7 @@ end
     std::iter.Iter.loop
 end
 
-fn find(n: Int) -> Maybe<Int>
+fn find(n: Int) -> Option<Int>
     if n > 3 then None else Some(n)
 end
 
@@ -675,7 +675,7 @@ end
     std::iter.Iter.loop
 end
 
-fn find(n: Int) -> Maybe<Maybe<Int>>
+fn find(n: Int) -> Option<Option<Int>>
     if n > 3 then None else Some(Some(n))
 end
 
@@ -770,7 +770,7 @@ struct Box<T>
 end
 
 impl Box<T>
-    fn pick<T>(_b: Box<T>, other: Maybe<T> = None, n: Int = 0) -> Int
+    fn pick<T>(_b: Box<T>, other: Option<T> = None, n: Int = 0) -> Int
         case other
             Some(_) -> n + 1
             None -> n
@@ -908,7 +908,7 @@ fn main()
     io.print(lib.show(1))
 end
 // FILE: lib.nomi
-fn is_some<T>(m: Maybe<T>) -> Bool
+fn is_some<T>(m: Option<T>) -> Bool
     case m
         Some(_) -> True
         None -> False
@@ -1258,7 +1258,7 @@ end
 		src: `import std::io
 
 fn main()
-    io.inspect(Maybe.map<Int, String>(Some(1), fn x -> "${x}"))
+    io.inspect(Option.map<Int, String>(Some(1), fn x -> "${x}"))
 end
 `,
 	},

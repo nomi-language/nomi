@@ -105,7 +105,8 @@ func AddDecimal(a, b Decimal) Decimal { return a.Add(b) }
 // SubDecimal is Nomi's `-` on Decimal. Exact; never fails.
 func SubDecimal(a, b Decimal) Decimal { return a.Sub(b) }
 
-// MulDecimal is Nomi's `*` on Decimal. Exact; never fails.
+// MulDecimal is Nomi's `*` on Decimal. Exact; it traps only when the
+// operands' scales add past a Decimal's (Decimal.Mul).
 func MulDecimal(a, b Decimal) Decimal { return a.Mul(b) }
 
 // DivDecimal is Nomi's `/` on Decimal: the quotient rounded to 34 significant

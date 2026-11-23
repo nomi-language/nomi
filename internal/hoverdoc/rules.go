@@ -8,7 +8,7 @@ import (
 )
 
 // Hovers that state a rule the text does not show, from what the checker
-// recorded: an `if` with no `else` is a Maybe or a statement (spec §8
+// recorded: an `if` with no `else` is an Option or a statement (spec §8
 // *`if`/`else`*), and a binding's `else` runs when the pattern does not
 // match and leaves or gives a fallback (spec §10 *Bindings with `else`*).
 // Each writes the construct as this file spells it, the condition, value

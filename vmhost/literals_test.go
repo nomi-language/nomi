@@ -41,8 +41,8 @@ func TestLiteralWithoutSlots_IsItsHandlersOkValue(t *testing.T) {
 		"    plain: Regex<Unit> = Regex\"\\\\d\"\n" +
 		"    triple: Regex<Unit> = Regex\"\"\"\n        \\w\n        \"\"\"\n" +
 		"    word = \"an\"\n" +
-		"    spliced: Result<Regex<List<Maybe<String>>>, String> = Regex\"${word}+\"\n" +
-		"    bad: Result<Regex<List<Maybe<String>>>, String> = Regex\"[${word}\"\n" +
+		"    spliced: Result<Regex<List<Option<String>>>, String> = Regex\"${word}+\"\n" +
+		"    bad: Result<Regex<List<Option<String>>>, String> = Regex\"[${word}\"\n" +
 		"    io.print(Debug.inspect(plain))\n" +
 		"    io.print(Debug.inspect(triple))\n" +
 		"    io.print(Debug.inspect(spliced))\n" +
@@ -137,10 +137,10 @@ func TestLiteralWithoutSlots_EffectfulHandlerIsACompileError(t *testing.T) {
 }
 
 // `?` on a literal without slots is the checker's "try requires a Result or
-// Maybe" error, with the hint.
+// Option" error, with the hint.
 func TestLiteralWithoutSlots_TryIsRejected(t *testing.T) {
 	ds := literalDiagnostics(t, "import std::regex.Regex\n\nfn main() -> Result<Unit, String>\n    _ = Regex`\\d+`?\n    Ok(Unit)\nend\n")
-	if len(ds) != 1 || ds[0].Message != "`?` requires a Result or Maybe, got Regex<Unit>" {
+	if len(ds) != 1 || ds[0].Message != "`?` requires a Result or Option, got Regex<Unit>" {
 		t.Fatalf("diagnostics = %v", ds)
 	}
 	if len(ds[0].Hints) != 1 || !strings.Contains(ds[0].Hints[0], "checked at compile time") {

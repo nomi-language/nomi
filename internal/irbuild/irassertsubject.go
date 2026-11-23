@@ -2,7 +2,7 @@ package irbuild
 
 // The two assertion subjects that are not a Bool.
 //
-// The judgement is read off the value: a `Maybe`/`Result`
+// The judgement is read off the value: an `Option`/`Result`
 // is a SHAPE subject (`assert` needs Some/Ok, `refute` the other variant, and
 // the assertion's value is the subject either way), and any other non-Bool is
 // an `Assertable` whose own `failure` impl answers the verdict. The VM reads
@@ -51,7 +51,7 @@ func (bl *irScalarBuilder) fnAssertion(line, col int) bool {
 // `Some(n) = assert m else ... end`), a block's final statement, or an `if`
 // or `case` arm whose value is used. Its value is the judged subject (spec
 // §17): True for `assert` of a Bool, False for `refute`, and the subject
-// itself for a Maybe, Result or Assertable. A failure leaves through the
+// itself for an Option, Result or Assertable. A failure leaves through the
 // same boundary a statement assertion's does.
 func (bl *irScalarBuilder) assertionExpr(t *ast.Assertion) (ir.Temp, kind, bool, bool) {
 	if !bl.fnAssertion(t.Line, t.Col) {
@@ -63,14 +63,14 @@ func (bl *irScalarBuilder) assertionExpr(t *ast.Assertion) (ir.Temp, kind, bool,
 	return v, k, true, ok
 }
 
-// irAssertShapeKind reports whether k is a retained prelude Maybe or Result,
+// irAssertShapeKind reports whether k is a retained prelude Option or Result,
 // the kinds an assertion judges by shape.
 func irAssertShapeKind(k kind) bool {
 	if k.tag != tagNamed || k.def == nil || k.def.preludeOf == nil || !irRetainedEnumKind(k.def) {
 		return false
 	}
 	spec := k.def.preludeOf.spec
-	return spec == preludeSpecFor("std/maybe", "Maybe") || spec == preludeSpecFor("std/results", "Result")
+	return spec == preludeSpecFor("std/option", "Option") || spec == preludeSpecFor("std/results", "Result")
 }
 
 // assertableImpl is the `Assertable.failure` a subject kind selects: this
@@ -98,7 +98,7 @@ func (bl *irScalarBuilder) assertableFailure(k kind) *assertableImpl {
 	if it == nil || !it.lowerable || irImplSource(it) == nil || len(it.params) != 1 || it.params[0] != k {
 		return nil
 	}
-	if !irMaybeKind(it.result) {
+	if !irOptionKind(it.result) {
 		return nil
 	}
 	return &assertableImpl{it: it}
@@ -108,7 +108,7 @@ func (bl *irScalarBuilder) assertableFailure(k kind) *assertableImpl {
 // subject kind (stdlibImplOf), or nil.
 func (bl *irScalarBuilder) stdAssertableFailure(k kind) *assertableImpl {
 	f := bl.g.stdlibImplOf(stdAssertable.Func("failure"), k, k)
-	if f == nil || !irMaybeKind(f.result) {
+	if f == nil || !irOptionKind(f.result) {
 		return nil
 	}
 	// The operand is the subject, which assertableAnswer places.
@@ -121,14 +121,14 @@ func (bl *irScalarBuilder) stdAssertableFailure(k kind) *assertableImpl {
 	return &assertableImpl{std: p, call: call, k: k}
 }
 
-// irMaybeKind reports whether r is a prelude Maybe, what `failure` returns.
-func irMaybeKind(r kind) bool {
+// irOptionKind reports whether r is a prelude Option, what `failure` returns.
+func irOptionKind(r kind) bool {
 	return r.tag == tagNamed && r.def != nil && r.def.preludeOf != nil &&
-		r.def.preludeOf.spec == preludeSpecFor("std/maybe", "Maybe")
+		r.def.preludeOf.spec == preludeSpecFor("std/option", "Option")
 }
 
 // assertableAnswer calls the subject's `Assertable.failure` impl and answers
-// the `Maybe<AssertionDetails>` it returns. It runs after the subject and its
+// the `Option<AssertionDetails>` it returns. It runs after the subject and its
 // rows, with recording off, so the impl's own operands are never rows.
 func (bl *irScalarBuilder) assertableAnswer(at ast.Node, a *assertableImpl, subj ir.Temp) ir.Temp {
 	if a.std != nil {

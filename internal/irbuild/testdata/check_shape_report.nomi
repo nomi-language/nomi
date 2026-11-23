@@ -16,12 +16,12 @@
 // check_shape.nomi reads the failure's FIELDS, which pins each value. This one
 // pins the whole rendered object: the second case destructures a failing check
 // with `assert Ok(_) = …`, so the report's `actual:` row renders
-// the entire `AssertionFailure` value: eight fields including two `Maybe`s and
+// the entire `AssertionFailure` value: eight fields including two `Option`s and
 // two `List`s, composed and sorted by rt.InspectStruct. That is the widest
 // rendering surface in the family and no field-by-field assertion reaches it.
 import std::testing
 
-fn find_name(id: Int) -> Maybe<String>
+fn find_name(id: Int) -> Option<String>
     if id == 1 then Some("Ada") else None
 end
 

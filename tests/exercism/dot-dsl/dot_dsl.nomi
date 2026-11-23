@@ -123,7 +123,7 @@ end
 /// The value written `text`: quoted text, a whole number, `true` or
 /// `false`, or else unquoted text.
 fn value_of(text: String) -> Value
-    quoted = String.strip_prefix(text, "\"") |> Maybe.flat_map(&String.strip_suffix(&1, "\""))
+    quoted = String.strip_prefix(text, "\"") |> Option.flat_map(&String.strip_suffix(&1, "\""))
 
     case (quoted, String.to_int(text), text)
         (Some(inner), _, _)  -> .Text(inner)

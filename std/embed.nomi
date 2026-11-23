@@ -51,7 +51,7 @@ import
     iter.Iter
     lists.List
     maps.Map
-    maybe.Maybe.{self, None, Some}
+    option.Option.{self, None, Some}
     path
     results.Result.{self, Err, Ok}
     strings.String
@@ -153,7 +153,7 @@ fn tree(files: Map<String, Contents>, empty: List<String>) -> Files
                 add_parents(acc, d, True),
                 d,
                 Map.get(acc, d)
-                |> Maybe.with_default({}),
+                |> Option.with_default({}),
             )
         end)
         |> Map.map_values(fn names ->
@@ -161,7 +161,7 @@ fn tree(files: Map<String, Contents>, empty: List<String>) -> Files
             |> Map.keys()
             |> Iter.sort()
             |> Iter.map(fn name ->
-                (name, Map.get(names, name) |> Maybe.with_default(False))
+                (name, Map.get(names, name) |> Option.with_default(False))
             end)
             |> Iter.to_list()
         end)
@@ -172,7 +172,7 @@ fn tree(files: Map<String, Contents>, empty: List<String>) -> Files
             dirs,
             ".",
             Map.get(dirs, ".")
-            |> Maybe.with_default([]),
+            |> Option.with_default([]),
         ),
     }
 end
@@ -184,9 +184,9 @@ fn add_parents(
     p:      String,
     is_dir: Bool,
 ) -> Map<String, Map<String, Bool>>
-    parent = path.parent(p) |> Maybe.with_default(".")
-    names = Map.get(dirs, parent) |> Maybe.with_default({})
-    known = Map.get(names, path.base(p)) |> Maybe.is_some()
+    parent = path.parent(p) |> Option.with_default(".")
+    names = Map.get(dirs, parent) |> Option.with_default({})
+    known = Map.get(names, path.base(p)) |> Option.is_some()
     added = Map.put(dirs, parent, Map.put(names, path.base(p), is_dir))
 
     if known or parent == "." then
@@ -392,8 +392,11 @@ impl Files
     //
     pub fn exists(files: Files, p: String) -> Bool
         case key(p)
-            Ok(k) -> Maybe.is_some(Map.get(files.files, k)) or Maybe.is_some(Map.get(files.dirs, k))
-            Err(_) -> False
+            Ok(k) ->
+                Option.is_some(Map.get(files.files, k)) or Option.is_some(Map.get(files.dirs, k))
+
+            Err(_) ->
+                False
         end
     end
 

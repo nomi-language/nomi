@@ -64,7 +64,7 @@ const BytesTypeName = "bytes.Bytes"
 func ByteInRange(n int64) bool { return n >= 0 && n <= 255 }
 
 // IntToByte is `Int.to_byte`.
-func IntToByte(n Int) Maybe[Byte] {
+func IntToByte(n Int) Option[Byte] {
 	x, ok := n.Int64()
 	if !ok || !ByteInRange(x) {
 		return None[Byte]()
@@ -85,7 +85,7 @@ func BytesLength(data Bytes) int64 { return int64(len(data)) }
 
 // BytesGet is `Bytes.get`: the byte at index, or None when out of range,
 // BytesWordAt one byte wide. An index past int64's range is past any buffer.
-func BytesGet(data Bytes, at Int) Maybe[Byte] {
+func BytesGet(data Bytes, at Int) Option[Byte] {
 	u, ok := BytesWordAt(data, at.Saturated(), 1, false, false)
 	if !ok {
 		return None[Byte]()

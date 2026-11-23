@@ -26,11 +26,11 @@ once hostile = [
 // climb the path. A leading `/.` is the literal's own, written to keep a path
 // that starts with `//` from naming a host, not a segment a slot wrote.
 fn climbs(u: Url) -> Bool
-    path = Maybe.with_default(u.raw_path, u.path)
+    path = Option.with_default(u.raw_path, u.path)
 
     String.strip_prefix(path, "/./")
-    |> Maybe.map(&("/" + &1))
-    |> Maybe.with_default(path)
+    |> Option.map(&("/" + &1))
+    |> Option.with_default(path)
     |> String.split("/")
     |> Iter.any_match(fn segment -> segment == "." or segment == "..")
 end

@@ -160,7 +160,7 @@ func irRetainedEnumKindIn(d *typeDef, outer []*typeDef) bool {
 }
 
 // irReachingPayload decides a user enum's payload that reaches a type the
-// walk is deciding, d among them: `Node(Set<Tree>)`, `Node(Maybe<Tree<T>>)`,
+// walk is deciding, d among them: `Node(Set<Tree>)`, `Node(Option<Tree<T>>)`,
 // `Node {kids: List<Tree<T>>}`, `O(Even<T>)` inside Even's own payload. Such
 // a payload is decided with the walk's stack, co-inductively, as a struct
 // field that reaches its struct is (irRecursiveFieldKind), and never through
@@ -212,11 +212,11 @@ func irSeqPayload(d *typeDef, k kind, outer []*typeDef) bool {
 	return !declared(e) && irRetainedValueKind(e)
 }
 
-// irPreludeVariantField is a user enum's struct-shaped variant field that is a
-// Maybe or Result (`List {filter: Maybe<Status>}`) over scalar leaves, lists,
+// irPreludeVariantField is a user enum's struct-shaped variant field that is an
+// Option or Result (`List {filter: Option<Status>}`) over scalar leaves, lists,
 // Unit and user enums without embedded variants: the field a struct admits
 // (irUserStructFieldKind). A user enum payload is decided co-inductively with
-// d on the walk, so `Node {next: Maybe<Tree>}` inside Tree does not recurse.
+// d on the walk, so `Node {next: Option<Tree>}` inside Tree does not recurse.
 func irPreludeVariantField(d *typeDef, k kind, outer []*typeDef) bool {
 	if k.tag != tagNamed || k.def == nil || k.def.preludeOf == nil || !k.def.isEnum || !k.def.lowerable || len(k.def.variants) == 0 {
 		return false
@@ -333,7 +333,7 @@ func irSelfTuplePayload(d *typeDef, k kind) bool {
 // irFlatPayload admits a user enum's positional payload whose own shape
 // cannot reach the enum back: a distinct over a tuple, map or list of scalar
 // leaves (`Coord Pair`, `Counts Kvs`), a prelude instance over scalar leaves
-// (`Inner Maybe<Int>`), a function over scalar leaves (`Computation (Int) ->
+// (`Inner Option<Int>`), a function over scalar leaves (`Computation (Int) ->
 // Int`) and a local interface's existential (`Render Renderable`). Each is
 // held in the variant's reference slot.
 func irFlatPayload(k kind) bool {
@@ -360,8 +360,8 @@ func irFlatPayload(k kind) bool {
 }
 
 // irAcyclicValuePayload admits a user enum's payload of any value the VM
-// carries (`Has Maybe<Maybe<Int>>`, `Has (Shape, String)`, `Has
-// Maybe<Result<Int, String>>`) that reaches no type the walk is deciding.
+// carries (`Has Option<Option<Int>>`, `Has (Shape, String)`, `Has
+// Option<Result<Int, String>>`) that reaches no type the walk is deciding.
 // The VM holds the payload in the variant's slot as it holds any operand,
 // and a payload that reaches the enum back is left to the self and
 // co-inductive arms, so deciding this one cannot re-enter the walk.
@@ -472,7 +472,7 @@ func irRetainedEmbed(d *typeDef, v *variantDef) bool {
 
 // irRetainedEmbedIn is irRetainedEmbed inside a walk already deciding the
 // types on outer. The embedded type is decided with d on the walk, so a
-// struct whose fields reach d back (`struct Circle { inner: Maybe<Shape> }`,
+// struct whose fields reach d back (`struct Circle { inner: Option<Shape> }`,
 // `kids: List<Shape>`, or the same through `type Wrapped Circle`) is decided
 // once, each type assuming the other, as a positional payload's is
 // (irNominalCoinductive). The slot may be boxed: the layout boxes it to
@@ -565,7 +565,7 @@ func irRetainedPreludePayload(k kind) bool {
 	}
 	if k.tag == tagNamed && irCompositeDistinct(k.def) {
 		// A distinct over a tuple, a list, a map or a function
-		// (`Maybe<Pair>` for `type Pair (Int, String)`), held as its record.
+		// (`Option<Pair>` for `type Pair (Int, String)`), held as its record.
 		return true
 	}
 	if irRetainedSeqKind(k) {
@@ -573,14 +573,14 @@ func irRetainedPreludePayload(k kind) bool {
 		return true
 	}
 	if irListTransportKind(k) {
-		// A list of represented elements (`List<Maybe<Int>>`); Debug and
+		// A list of represented elements (`List<Option<Int>>`); Debug and
 		// equality over the payload keep their own checks.
 		return true
 	}
 	if elem, vector := vectorElem(k); vector && irCallOperandKind(elem) ||
 		k.tag == tagList && k.comp != nil && len(k.comp.parts) == 1 && irCallOperandKind(k.comp.parts[0]) {
 		// A List or Vector of any value the callable domain holds
-		// (`Maybe<Vector<Int>>`, what `Vector.get` answers over a
+		// (`Option<Vector<Int>>`, what `Vector.get` answers over a
 		// grid; `Ok([f, g])`), as irRetainedValueKind admits one: the VM's
 		// containers hold values of every kind.
 		return true
@@ -590,8 +590,8 @@ func irRetainedPreludePayload(k kind) bool {
 		return true
 	}
 	if irRetainedSetKind(k) || irRetainedRecordKind(k) {
-		// A set (`Maybe<Set<Int>>`) or an anonymous record
-		// (`Maybe<{x: Int}>`), held as its record.
+		// A set (`Option<Set<Int>>`) or an anonymous record
+		// (`Option<{x: Int}>`), held as its record.
 		return true
 	}
 	if k.tag == tagNamed && k.def != nil && !k.def.isEnum && irRetainedStructKind(k.def) {
@@ -606,7 +606,7 @@ func irRetainedPreludePayload(k kind) bool {
 		return true
 	}
 	if k.tag == tagFunc && irCallableValueKind(k) {
-		// A function value (`List.first(fns)`'s `Maybe<(Int) -> Int>`), held
+		// A function value (`List.first(fns)`'s `Option<(Int) -> Int>`), held
 		// in the variant's reference slot.
 		return true
 	}

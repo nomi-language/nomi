@@ -11,16 +11,21 @@ import (
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
-// effectDbgMain holds a `dbg` in main, in a function nothing calls, in a
-// generic function nothing instantiates and in a test, and an `assert`, a
-// `todo` and a `?`, which stop or leave and act on nothing.
+// effectDbgMain holds a `dbg` in main, in a function main calls, in a
+// function nothing calls, in a generic function nothing instantiates and
+// in a test, and an `assert`, a `todo` and a `?`, which stop or leave and
+// act on nothing.
 const effectDbgMain = `import std::io
 
 fn draft(n: Int) -> Int
     dbg n
 end
 
-fn first<T>(xs: List<T>) -> Maybe<T>
+fn traced(n: Int) -> Int
+    dbg n + 1
+end
+
+fn first<T>(xs: List<T>) -> Option<T>
     xs |> dbg |> List.first()
 end
 
@@ -36,6 +41,7 @@ end
 fn main()
     io.print("${dbg 1 + 1}")
     _ = later(1)
+    _ = traced(1)
 end
 
 test "two"
@@ -43,14 +49,15 @@ test "two"
 end
 `
 
-// The keyword of a `dbg` is the call that prints: it carries the effect
-// modifier, as the callee of a call that acts does, and its hover keeps the
-// keyword's text and ends with what it reaches, in a function main
-// reaches, one nothing calls, a generic one nothing instantiates and a
+// The keyword of a `dbg` is the call that prints: its hover keeps the
+// keyword's text and ends with what it reaches, in main, in a function
+// main calls, one nothing calls, a generic one nothing instantiates and a
 // test, under a list that names only std::io, since no list names a `dbg`
-// and every list allows it. The other keywords that stop or leave carry
-// no modifier and no line.
-func TestSemanticTokens_EffectModifierOnADbg(t *testing.T) {
+// and every list allows it. The keyword carries no effect modifier, since
+// it shows the effect on its line; the call of a function that holds one,
+// and each such function's name, carry it. The other keywords that stop or
+// leave carry no modifier and no line.
+func TestSemanticTokens_ADbgKeywordIsNotMarked(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
@@ -58,7 +65,8 @@ func TestSemanticTokens_EffectModifierOnADbg(t *testing.T) {
 	dir := writeProject(t, map[string]string{"main.nomi": effectDbgMain, "nomi.toml": manifest})
 	s, c := startEffectServer(t, dir, map[string]string{"main.nomi": effectDbgMain})
 	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
-	for _, needle := range []string{"dbg n", "dbg |>", "dbg 1", "dbg 2"} {
+	waitReachAt(t, s, c, uri, effectDbgMain, "traced(1)", "Has effects: `dbg`.")
+	for _, needle := range []string{"dbg n", "dbg n + 1", "dbg |>", "dbg 1", "dbg 2"} {
 		waitReachAt(t, s, c, uri, effectDbgMain, needle, "Has effects: `dbg`.")
 		var hover protocol.Hover
 		if err := c.conn.Call(context.Background(), "textDocument/hover", map[string]any{
@@ -81,13 +89,16 @@ func TestSemanticTokens_EffectModifierOnADbg(t *testing.T) {
 		needle, word string
 		want         bool
 	}{
-		{"dbg n", "dbg", true},
+		{"dbg n", "dbg", false},
 		{"fn draft", "draft", true},
-		{"dbg |>", "dbg", true},
+		{"dbg n + 1", "dbg", false},
+		{"fn traced", "traced", true},
+		{"traced(1)", "traced", true},
+		{"dbg |>", "dbg", false},
 		{"fn first", "first", true},
-		{"dbg 1", "dbg", true},
+		{"dbg 1", "dbg", false},
 		{"fn main", "main", true},
-		{"dbg 2", "dbg", true},
+		{"dbg 2", "dbg", false},
 		{"assert", "assert", false},
 		{"todo", "todo", false},
 		{"fn later", "later", false},

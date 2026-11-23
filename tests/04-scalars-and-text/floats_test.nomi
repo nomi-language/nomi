@@ -33,17 +33,17 @@ test "float rounding can feed int conversion through pipes"
     assert 3.7
         |> Float.round()
         |> Float.to_int()
-        |> Maybe.equal(Some(4))
+        |> Option.equal(Some(4))
 
     assert 3.7
         |> Float.floor()
         |> Float.to_int()
-        |> Maybe.equal(Some(3))
+        |> Option.equal(Some(3))
 
     assert 3.2
         |> Float.ceil()
         |> Float.to_int()
-        |> Maybe.equal(Some(4))
+        |> Option.equal(Some(4))
 end
 
 test "float special values can be produced and classified"

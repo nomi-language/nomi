@@ -255,7 +255,7 @@ var machineCases = []machineCase{
 		[]string{"Alias(Name{text: \"a\"})", "Alias(Name{text: \"A\"})", "Alias(Name{text: \"b\"})"}},
 	{machineImpl{derived: derivedImpl{"Equatable", derivedWrapping}}, "Meters", "Meters.equal", []string{"Meters(1)", "Meters(2)"}},
 	{machineImpl{derived: derivedImpl{"Equatable", derivedMarker}}, "Done", "Done.equal", []string{"Done"}},
-	{machineImpl{derived: derivedImpl{"Equatable", derivedEnum}}, "Maybe<Float>", "Maybe.equal", []string{"None", "Some(1.0)", "Some(Float.nan())"}},
+	{machineImpl{derived: derivedImpl{"Equatable", derivedEnum}}, "Option<Float>", "Option.equal", []string{"None", "Some(1.0)", "Some(Float.nan())"}},
 
 	{debugRow("std/int", "Int"), "Int", "Int.inspect",
 		[]string{"0", "-7", "9223372036854775807", "92233720368547758070", "-92233720368547758070"}},
@@ -275,13 +275,13 @@ var machineCases = []machineCase{
 	{debugRow("std/lists", "List"), "List<String>", "List.inspect", []string{`["a", "b\"c"]`}},
 	{debugRow("std/lists", "List"), "List<Float>", "List.inspect", []string{"[1.0, 2.5, Float.nan()]"}},
 	{debugRow("std/lists", "List"), "List<Decimal>", "List.inspect", []string{"[1.50d, 2d]"}},
-	{debugRow("std/lists", "List"), "List<Maybe<Int>>", "List.inspect", []string{"[Some(1), None]"}},
+	{debugRow("std/lists", "List"), "List<Option<Int>>", "List.inspect", []string{"[Some(1), None]"}},
 	{debugRow("std/vectors", "Vector"), "Vector<Int>", "Vector.inspect", []string{"Vector[]", "Vector[1, 2]"}},
 	{debugRow("std/vectors", "Vector"), "Vector<List<Int>>", "Vector.inspect", []string{"Vector[[1], []]"}},
 	{debugRow("std/vectors", "Vector"), "Vector<Decimal>", "Vector.inspect", []string{"Vector[1.5d]"}},
 	{debugRow("std/maps", "Map"), "Map<String, Int>", "Map.inspect", []string{"{}", `{"b" => 2, "a" => 1}`}},
 	{debugRow("std/maps", "Map"), "Map<Int, List<String>>", "Map.inspect", []string{`{1 => ["x"], 2 => []}`}},
-	{debugRow("std/maps", "Map"), "Map<String, Maybe<Int>>", "Map.inspect", []string{`{"a" => Some(1), "b" => None}`}},
+	{debugRow("std/maps", "Map"), "Map<String, Option<Int>>", "Map.inspect", []string{`{"a" => Some(1), "b" => None}`}},
 	{debugRow("std/sets", "Set"), "Set<Int>", "Set.inspect", []string{"Set[]", "Set[3, 1]"}},
 	{debugRow("std/sets", "Set"), "Set<String>", "Set.inspect", []string{`Set["b", "a"]`}},
 	{debugRow("std/sets", "Set"), "Set<Decimal>", "Set.inspect", []string{"Set[1.5d, 2d]"}},
@@ -516,7 +516,7 @@ func machineCaseRows(t *testing.T) []machineImpl {
 // probe of item 14 compared at every Debug site: big Ints, Float edge
 // values, String
 // escapes and control characters, Decimal scales, empty and nested
-// collections, and Maybe, Result, Dynamic and Context values. The call
+// collections, and Option, Result, Dynamic and Context values. The call
 // is made through a function value, which lowers to a call of the impl's
 // body, never to the operator or the renderer.
 //

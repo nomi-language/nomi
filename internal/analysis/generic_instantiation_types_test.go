@@ -219,13 +219,13 @@ func TestExprTypes_GenericCallsInsideGenericFunctions(t *testing.T) {
 	src := `fn keep<T>(xs: List<T>) -> List<T>
   xs |> Iter.filter(fn _x -> True) |> Iter.to_list()
 end
-fn first<T, I>(it: I) -> Maybe<T> where I: Iter<T>
-  Iter.reduce(it, None, fn _acc: Maybe<T>, x ->
+fn first<T, I>(it: I) -> Option<T> where I: Iter<T>
+  Iter.reduce(it, None, fn _acc: Option<T>, x ->
       break Some(x)
   end)
 end
 fn demo() -> Int
-  Iter.count(keep([1])) + Maybe.with_default(first([2]), 0)
+  Iter.count(keep([1])) + Option.with_default(first([2]), 0)
 end`
 	fa, errs := checkSourceWithStdlib(src)
 	expectNoErrorsT(t, errs)
@@ -260,6 +260,6 @@ end`
 	wantRecorded(t, fa, "Binary", 2, "Iter<T>", "List<T>")
 	// `break Some(x)` is `return Some(x)` then stop, so the callback's
 	// result is the accumulator's type.
-	wantRecorded(t, fa, "Lambda", 5, "(Maybe<T>, T) -> Maybe<T>")
+	wantRecorded(t, fa, "Lambda", 5, "(Option<T>, T) -> Option<T>")
 	wantNoTypeParamsBetween(t, fa, 7, 9)
 }

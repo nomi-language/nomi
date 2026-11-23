@@ -211,13 +211,13 @@ profiles' shares below were taken while other test runs shared it.
   160, and `rt.MapLookup` (the trie walk and `rt.(*Keys).Equal`) about
   14 ns of the 200.
 - **The `Some` is the biggest single cost.** The host returns an
-  `rt.Maybe`, and `vm.maybeOf` → `vm.some` → `rt.(*TypeDesc).MakeVariant`
-  → `rt.allocRecord` builds the prelude's `Maybe` record. Its payload is an
+  `rt.Option`, and `vm.optionOf` → `vm.some` → `rt.(*TypeDesc).MakeVariant`
+  → `rt.allocRecord` builds the prelude's `Option` record. Its payload is an
   `any`, so the variant takes a reference slot, and `allocRecord`
   allocates the slot slice (`r.R = make([]any, l.NR)`) beside the record:
   two allocations for one `Some(Int)`. This path is 14 to 16% of each
   profile, and the collector work it causes (`gcBgMarkWorker`) about as
-  much again. A `Maybe<Int>` built by Nomi code (`opMake`) puts the `Int`
+  much again. An `Option<Int>` built by Nomi code (`opMake`) puts the `Int`
   in the word bank in one allocation; the host path could use the
   variant's typed layout the same way, or, when the caller matches the
   result at once, return the tag and payload in registers with no record
@@ -286,7 +286,7 @@ iteration, most of it the call through a closure).
   `frame.read` and `frame.write`. Matching the two scrutinees directly,
   without building the tuple, would remove both.
 - **`Map.get`: confirmed in shape, a little lower.** 183 ns on 10 entries
-  (the figure includes the `case` on the `Maybe`) and 1.1 µs on 3 million,
+  (the figure includes the `case` on the `Option`) and 1.1 µs on 3 million,
   where the HAMT walk misses the cache at each level.
 
 ## Bugs found while porting

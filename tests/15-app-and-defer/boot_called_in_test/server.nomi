@@ -27,7 +27,7 @@ fn close(store: String) -> Unit
 end
 
 pub fn boot(startup: Startup) -> Result<App, String>
-    store = Map.get(startup.env, "STORE") |> Maybe.with_default("memory")
+    store = Map.get(startup.env, "STORE") |> Option.with_default("memory")
     if store == "postgres" then return Err("STORE=postgres needs DATABASE_URL")
     defer close(store)
     work = Supervisor.new(max_running: 2)

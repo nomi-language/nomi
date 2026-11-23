@@ -328,7 +328,8 @@ const maxReaches = 64
 // and each function that can reach one, with the line a hover there ends
 // with and the token the page marks (vmhost.ReachedMarked,
 // hoverdoc.AppendReach, hoverdoc.MarkReaching), as the language server
-// shows them; nil when the block does not load.
+// shows them; in a block that does not compile, those of the functions and
+// tests that check, and nil when an error is outside every one of them.
 func reachedOf(src string) []vmhost.ReachedCall {
 	if calls, done := reaches[src]; done {
 		return calls

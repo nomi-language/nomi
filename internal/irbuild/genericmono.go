@@ -20,7 +20,7 @@ import (
 // monoTemplateFor derives the template. It is asked from two places.
 // declaredSignature (native.go) asks it when genericSignature (generic.go)
 // declined the declaration, a type parameter mentioned inside `List<T>`,
-// `Maybe<T>`, `Half<T>`, `(T, Int)` or `(A) -> B` among the reasons, and
+// `Option<T>`, `Half<T>`, `(T, Int)` or `(A) -> B` among the reasons, and
 // records the answer as `sig.mono`. irMonoTemplate (irfuncbody.go) asks it for
 // a declaration dictSignature or genericSignature claimed, so a call to one of
 // those lowers an instance too.
@@ -106,8 +106,8 @@ type monoInst struct {
 	// types is args as the checker's types, nil where the call that made
 	// the instance had none (substFrame).
 	types []analysis.Type
-	// reads is where each of args holds the subtypes the instance reads,
-	// or nil when it reads none (subtypeinst.go).
+	// reads is where each of args holds the refinements the instance reads,
+	// or nil when it reads none (refinementinst.go).
 	reads []string
 	// sig is an ordinary monomorphic signature: `tps` nil, `dict` nil,
 	// `lowerable` true, `genericWhy` empty. The call path swaps it in and
@@ -279,10 +279,10 @@ func calleeRefPos(callee ast.Node) (int, int) {
 // resolveMonoInstance owns interning and signature resolution. Reporting is
 // separate so a retained attempt can decline without duplicating a refusal.
 func (g *gen) resolveMonoInstance(tpl *monoTemplate, args []kind, types []analysis.Type, name string) (*monoInst, string, string) {
-	reads := subtypeReads(tpl.params, types, func() map[string][]*analysis.InterfaceType {
+	reads := refinementReads(tpl.params, types, func() map[string][]*analysis.InterfaceType {
 		return analysis.DeclTypeParamBounds(g.srcFA(), tpl.decl, nil)
 	})
-	key := openInstKey(g.dc, monoInstKey(tpl, args), types) + subtypeReadsKey(reads)
+	key := openInstKey(g.dc, monoInstKey(tpl, args), types) + refinementReadsKey(reads)
 	if got, found := g.monoInsts[key]; found {
 		return got, "", ""
 	}
@@ -371,7 +371,7 @@ func monoInstKey(tpl *monoTemplate, args []kind) string {
 //
 // The SAME stack generictype.go pushes a struct template's frame onto, and that
 // sharing is the point rather than a convenience: `g.genericSubst` is consulted
-// from typeOf's `*ast.SimpleType` arm, so `Half<T>`, `List<Maybe<T>>` and
+// from typeOf's `*ast.SimpleType` arm, so `Half<T>`, `List<Option<T>>` and
 // `(T) -> Bool` are all covered at every depth by one insertion point that
 // already exists. A separate stack for functions would be a second answer to
 // "what does this name mean here", reachable from the same typeOf.

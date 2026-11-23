@@ -4,12 +4,12 @@ package rt
 //
 // # Why it is here at all, and why it is not in prelude.go
 //
-// prelude.go's argument for putting `Maybe` and `Result` in rt is about
+// prelude.go's argument for putting `Option` and `Result` in rt is about
 // identity and applies unchanged: the IR builder (internal/irbuild) gives a
 // generic std enum one Go type, and that type has to live in a package every
 // caller shares, or one Nomi type would be N mutually unassignable Go types.
 //
-// What does not carry over is the word "prelude". `Maybe` and `Result` are in
+// What does not carry over is the word "prelude". `Option` and `Result` are in
 // every file's scope whether it imports them or not; `Fragment` is an ordinary
 // `pub enum` in std/literals that a file has to import. The builder's
 // `preludeSpecs` table is really "the generic std enums whose Go type rt
@@ -17,7 +17,7 @@ package rt
 // third row rather than a third prelude. The one observable consequence is
 // stated where it bites: a module that does not have `Fragment` in scope gets
 // no anchor for it and refuses every mention, which is the same rule that keeps
-// a user's own `Maybe` out.
+// a user's own `Option` out.
 //
 // # Why the builder needs it
 //
@@ -32,7 +32,7 @@ package rt
 //
 // A tagged struct, tag 0 reserved invalid, one payload field per variant.
 //
-// Unlike `Maybe` and `Result`, Fragment mixes payload kinds. std/literals.nomi
+// Unlike `Option` and `Result`, Fragment mixes payload kinds. std/literals.nomi
 // declares
 //
 //	pub enum Fragment<T> {
@@ -40,7 +40,7 @@ package rt
 //	  Dynamic T
 //	}
 //
-// so `Static`'s payload is concrete and `Dynamic`'s is parametric. `Maybe` and
+// so `Static`'s payload is concrete and `Dynamic`'s is parametric. `Option` and
 // `Result` are uniformly parametric, so their layout never has to tell the two
 // apart. At `T = String`, the instantiation typed literals usually use, the
 // two are indistinguishable by layout: both fields are `string`.

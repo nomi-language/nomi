@@ -239,15 +239,15 @@ end
 }
 
 func TestFormat_Block_NestedImportsSeparatedFromBody(t *testing.T) {
-	src := `fn first() -> Maybe<Int>
-    import std::maybe: Maybe as Local
+	src := `fn first() -> Option<Int>
+    import std::option: Option as Local
     import std::results: Result as Outcome
     Outcome.Ok(Local.Some(1))
 end
 `
-	want := `fn first() -> Maybe<Int>
+	want := `fn first() -> Option<Int>
     import
-        std::maybe.Maybe as Local
+        std::option.Option as Local
         std::results.Result as Outcome
     end
 
@@ -261,14 +261,14 @@ end
 }
 
 func TestFormat_Block_NestedImportsMoveToTop(t *testing.T) {
-	src := `fn first() -> Maybe<Int>
+	src := `fn first() -> Option<Int>
     x = 1
-    import std::maybe: Maybe as Local
+    import std::option: Option as Local
     Local.Some(x)
 end
 `
-	want := `fn first() -> Maybe<Int>
-    import std::maybe.Maybe as Local
+	want := `fn first() -> Option<Int>
+    import std::option.Option as Local
 
     x = 1
     Local.Some(x)
@@ -528,7 +528,7 @@ end
 }
 
 func TestFormat_PipeTryPrefixStaysPrefix(t *testing.T) {
-	src := `fn main(m: Maybe<Int>) -> Result<Int, String>
+	src := `fn main(m: Option<Int>) -> Result<Int, String>
     m
     |> to_result()?
     |> Ok()
@@ -697,8 +697,8 @@ func TestFormat_Binding_NonPipeMultilineRHS_NoBreakAfterEquals(t *testing.T) {
 }
 
 func TestFormat_IfPatternCondition(t *testing.T) {
-	src := "result = if Some(name)=maybe_name then name else \"none\"\n"
-	want := "result = if Some(name) = maybe_name then name else \"none\"\n"
+	src := "result = if Some(name)=option_name then name else \"none\"\n"
+	want := "result = if Some(name) = option_name then name else \"none\"\n"
 	got, err := Format(src)
 	if err != nil {
 		t.Fatal(err)
@@ -1510,14 +1510,14 @@ func TestFormat_AttachedTestStripsBlankBeforeDeclaration(t *testing.T) {
 //! assert first([1, 2, 3]) == Some(1)
 //! assert first([]) == None
 
-pub fn first<T>(_source: Iter<T>) -> Maybe<T>
+pub fn first<T>(_source: Iter<T>) -> Option<T>
     None
 end
 `
 	want := `/// Returns the first element.
 //! assert first([1, 2, 3]) == Some(1)
 //! assert first([]) == None
-pub fn first<T>(_source: Iter<T>) -> Maybe<T>
+pub fn first<T>(_source: Iter<T>) -> Option<T>
     None
 end
 `
@@ -1535,7 +1535,7 @@ func TestFormat_AttachedTestUsesCommentSeparatorBeforeDeclaration(t *testing.T) 
 //! assert first([1, 2, 3]) == Some(1)
 //! assert first([]) == None
 //!
-pub fn first<T>(_source: Iter<T>) -> Maybe<T>
+pub fn first<T>(_source: Iter<T>) -> Option<T>
     None
 end
 `
@@ -1543,7 +1543,7 @@ end
 //! assert first([1, 2, 3]) == Some(1)
 //! assert first([]) == None
 //
-pub fn first<T>(_source: Iter<T>) -> Maybe<T>
+pub fn first<T>(_source: Iter<T>) -> Option<T>
     None
 end
 `
@@ -1605,7 +1605,7 @@ func TestFormat_AttachedTestUsesCommentSeparatorAfterDocComment(t *testing.T) {
 ///
 //! assert first([1, 2, 3]) == Some(1)
 //! assert first([]) == None
-pub fn first<T>(_source: Iter<T>) -> Maybe<T>
+pub fn first<T>(_source: Iter<T>) -> Option<T>
     None
 end
 `
@@ -1613,7 +1613,7 @@ end
 //
 //! assert first([1, 2, 3]) == Some(1)
 //! assert first([]) == None
-pub fn first<T>(_source: Iter<T>) -> Maybe<T>
+pub fn first<T>(_source: Iter<T>) -> Option<T>
     None
 end
 `
@@ -1630,14 +1630,14 @@ func TestFormat_AttachedTestPreservesCommentSeparatorAfterDocComment(t *testing.
 	src := `/// Returns the first element, or None if the iterator is empty.
 //
 //! assert first([1, 2, 3]) == Some(1)
-pub fn first<T>(_source: Iter<T>) -> Maybe<T>
+pub fn first<T>(_source: Iter<T>) -> Option<T>
     None
 end
 `
 	want := `/// Returns the first element, or None if the iterator is empty.
 //
 //! assert first([1, 2, 3]) == Some(1)
-pub fn first<T>(_source: Iter<T>) -> Maybe<T>
+pub fn first<T>(_source: Iter<T>) -> Option<T>
     None
 end
 `
@@ -1704,7 +1704,7 @@ func TestFormat_AttachedTestUsesCommentSeparatorForTrailingBlankDocLine(t *testi
 /// Some docs
 /// Other docs
 ///
-pub fn from_int(_n: Int) -> Maybe<Codepoint>
+pub fn from_int(_n: Int) -> Option<Codepoint>
     None
 end
 `
@@ -1714,7 +1714,7 @@ end
 /// Some docs
 /// Other docs
 //
-pub fn from_int(_n: Int) -> Maybe<Codepoint>
+pub fn from_int(_n: Int) -> Option<Codepoint>
     None
 end
 `
@@ -2806,7 +2806,7 @@ end
 
 func TestFormat_Interface_Generic(t *testing.T) {
 	src := `interface Iter<T>
-  next(collection: self): Maybe<(T, self)>
+  next(collection: self): Option<(T, self)>
 end
 `
 	got, _ := Format(src)
@@ -3728,7 +3728,7 @@ end
 		},
 		{
 			name: "case arm",
-			src: `fn avatar_html(avatar: Maybe<String>, initial: String) -> Html
+			src: `fn avatar_html(avatar: Option<String>, initial: String) -> Html
     case avatar
         Some(url) -> Html"""
         <img src="${url}" alt="">
@@ -3737,7 +3737,7 @@ end
     end
 end
 `,
-			want: `fn avatar_html(avatar: Maybe<String>, initial: String) -> Html
+			want: `fn avatar_html(avatar: Option<String>, initial: String) -> Html
     case avatar
         Some(url) -> Html"""
             <img src="${url}" alt="">
@@ -4123,7 +4123,7 @@ func TestFormat_Import_SlashOutput(t *testing.T) {
 		want string
 	}{
 		{"slash output for stdlib path", "import std::io\n", "import std::io\n"},
-		{"drill-through type stays dot", "import std::maybe.Maybe.{Some, None}\n", "import std::maybe.Maybe.{None, Some}\n"},
+		{"drill-through type stays dot", "import std::option.Option.{Some, None}\n", "import std::option.Option.{None, Some}\n"},
 		{"single value selector stays path dotted", "import std::io: print\n", "import std::io.print\n"},
 		{"single drill-through selector stays dotted", "import std::json: Json.Case.Camel\n", "import std::json.Json.Case.Camel\n"},
 		{"dotted selector can sit inside owner braces", "import\n    std::json: FromJson, ToJson, Json.{self, Case.Camel}\nend\n", "import\n    std::json.{FromJson, ToJson}\n    std::json.Json.{self, Case.Camel}\nend\n"},
@@ -4151,8 +4151,8 @@ func TestFormat_Import_Simple(t *testing.T) {
 }
 
 func TestFormat_Import_Selective(t *testing.T) {
-	src := "import std::maybe.{None, Some}\n"
-	want := "import std::maybe.{None, Some}\n"
+	src := "import std::option.{None, Some}\n"
+	want := "import std::option.{None, Some}\n"
 	got, _ := Format(src)
 	if got != want {
 		t.Errorf("got %q\nwant %q", got, want)
@@ -4161,8 +4161,8 @@ func TestFormat_Import_Selective(t *testing.T) {
 
 func TestFormat_Import_SelectiveAlias(t *testing.T) {
 	// Selective list is sorted by pre-alias original name: None before Some.
-	src := "import std::maybe.{None as Nothing, Some as Just}\n"
-	want := "import std::maybe.{None as Nothing, Some as Just}\n"
+	src := "import std::option.{None as Nothing, Some as Just}\n"
+	want := "import std::option.{None as Nothing, Some as Just}\n"
 	got, _ := Format(src)
 	if got != want {
 		t.Errorf("got %q\nwant %q", got, want)
@@ -4221,8 +4221,8 @@ import std::maps: Map as A
 }
 
 func TestFormat_ImportSort_SelectiveListByOriginalName(t *testing.T) {
-	src := "import std::maybe.{Some as Just, None as Nothing}\n"
-	want := "import std::maybe.{None as Nothing, Some as Just}\n"
+	src := "import std::option.{Some as Just, None as Nothing}\n"
+	want := "import std::option.{None as Nothing, Some as Just}\n"
 	got, _ := Format(src)
 	if got != want {
 		t.Errorf("got %q\nwant %q", got, want)
@@ -4871,14 +4871,14 @@ end
 func TestFormat_ImportBlock_SelectiveEntryKeepsCommas(t *testing.T) {
 	src := `import
   std::io
-  std::maybe.Maybe.{Some, None}
+  std::option.Option.{Some, None}
 end
 `
 	got, err := Format(src)
 	if err != nil {
 		t.Fatalf("expected parse to succeed, got: %v", err)
 	}
-	if !strings.Contains(got, "std::maybe.Maybe.{None, Some}") {
+	if !strings.Contains(got, "std::option.Option.{None, Some}") {
 		t.Errorf("expected selective name list to keep commas (sorted), got:\n%s", got)
 	}
 }
@@ -4911,12 +4911,12 @@ end
 
 func TestFormat_ImportBlock_OwnerSelfCanonical(t *testing.T) {
 	src := `import
-    std::maybe: Maybe, Maybe.{Some, None}
+    std::option: Option, Option.{Some, None}
 end
 `
 	want := `import
-    std::maybe.Maybe
-    std::maybe.Maybe.{None, Some}
+    std::option.Option
+    std::option.Option.{None, Some}
 end
 `
 	got, err := Format(src)
@@ -5303,14 +5303,14 @@ end
 // pattern three levels deep breaks; the depth-2 pattern inside it fits and
 // stays on one line. Wrapper variants (Ok, String) add no level.
 func TestFormat_CompoundDepth_Depth3_BreaksEvenWhenFits(t *testing.T) {
-	src := `fn extract(x: Maybe<JV>) -> Maybe<String>
+	src := `fn extract(x: Option<JV>) -> Option<String>
     case x
         Ok(Obj{"a" => Obj{"b" => Obj{"c" => String(v)}}}) -> Some(v)
         _ -> None
     end
 end
 `
-	want := `fn extract(x: Maybe<JV>) -> Maybe<String>
+	want := `fn extract(x: Option<JV>) -> Option<String>
     case x
         Ok(Obj{
             "a" => Obj{"b" => Obj{"c" => String(v)}},
@@ -5430,7 +5430,7 @@ end
   end
 end
 `,
-		`fn extract(x: Maybe<JV>) -> Maybe<String>
+		`fn extract(x: Option<JV>) -> Option<String>
   case x
     Ok(Obj{"a" => Obj{"b" => Obj{"c" => String(v)}}}) -> Some(v)
     _ -> None

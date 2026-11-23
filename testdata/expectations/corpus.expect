@@ -12,7 +12,7 @@
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise. N is the case count vmcmd.Tester.File answers, each `subtests` row a case.
 records 739
-declared-cases 4205
+declared-cases 4206
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -48,12 +48,12 @@ T
 C 01-foundations/if_else/if_else_test.nomi
 E 0
 N 15
-H 58a0a0c6b61b99e5b9f3491f7ccd1fb4db7071c4371f2156c6f6b26f26a1246e
+H d8c3edaecc31bf5b8b1848450932c1d0c0b7a80adad817771ce97203e1b9a6f5
 T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if else is an expression
 T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if without else returns Unit either way
-T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: else None makes an if a Maybe
-T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: an else if chain ending in else None is its branches' Maybe
-T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if without else whose branch is a Maybe is an error
+T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: else None makes an if an Option
+T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: an else if chain ending in else None is its branches' Option
+T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if without else whose branch is an Option is an error
 T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: a forgotten else names the branch's type
 T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if without else allows Unit side effects
 T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if without else allows early return branches
@@ -288,11 +288,11 @@ T
 C 02-testing/assertion_unwrap_test.nomi
 E 0
 N 9
-H 455cbf2d3513809fcf25b9bccebada882620cf40a8b22a8431859f2d11e45c88
-T ok <root>/tests/02-testing/assertion_unwrap_test.nomi :: maybe values can be asserted directly
-T ok <root>/tests/02-testing/assertion_unwrap_test.nomi :: maybe shape can be asserted with predicates
-T ok <root>/tests/02-testing/assertion_unwrap_test.nomi :: assert checks maybe success shape
-T ok <root>/tests/02-testing/assertion_unwrap_test.nomi :: refute checks maybe empty shape
+H 37bca789b3681e0ecca4bb291a5d491d02a9feede22e534e35549dd1295ba968
+T ok <root>/tests/02-testing/assertion_unwrap_test.nomi :: option values can be asserted directly
+T ok <root>/tests/02-testing/assertion_unwrap_test.nomi :: option shape can be asserted with predicates
+T ok <root>/tests/02-testing/assertion_unwrap_test.nomi :: assert checks option success shape
+T ok <root>/tests/02-testing/assertion_unwrap_test.nomi :: refute checks option empty shape
 T ok <root>/tests/02-testing/assertion_unwrap_test.nomi :: result values can be asserted directly
 T ok <root>/tests/02-testing/assertion_unwrap_test.nomi :: result shape can be asserted with predicates
 T ok <root>/tests/02-testing/assertion_unwrap_test.nomi :: assert checks result ok shape
@@ -412,9 +412,9 @@ T
 C 02-testing/setup_try_test.nomi
 E 0
 N 5
-H 9935341ae3330b9c0a6a098f7f2211007cdde406f506411d11fac39a9766c7a5
+H d5ca709d09caca0424ec90223c2214a2d5988089276d0b9037ebced7ac50002b
 T ok <root>/tests/02-testing/setup_try_test.nomi :: `?` on a Result in setup / the setup's value reaches the case
-T ok <root>/tests/02-testing/setup_try_test.nomi :: `?` on a Maybe in setup / the setup's value reaches the case
+T ok <root>/tests/02-testing/setup_try_test.nomi :: `?` on an Option in setup / the setup's value reaches the case
 T ok <root>/tests/02-testing/setup_try_test.nomi :: `?` in a pipe stage in setup / the setup's value reaches the case
 T ok <root>/tests/02-testing/setup_try_test.nomi :: `?` after other statements in setup / the setup's earlier bindings reach the result of the `?`
 T ok <root>/tests/02-testing/setup_try_test.nomi :: assert in setup / the setup's assertion held
@@ -505,12 +505,12 @@ T
 C 03-tooling-and-diagnostics/try_error_type/try_error_type_test.nomi
 E 0
 N 7
-H c0b6f8038e0b84442a7f206eaee799cea64447f17fc5cd64ecc47375553d5105
+H 811a864145cb4649c4324e12cf8ec757fb4a733349469b69d2db1d68358604a8
 T ok <root>/tests/03-tooling-and-diagnostics/try_error_type/try_error_type_test.nomi :: `?` may not launder the error type
 T ok <root>/tests/03-tooling-and-diagnostics/try_error_type/try_error_type_test.nomi :: a matching `?` error type is clean
 T ok <root>/tests/03-tooling-and-diagnostics/try_error_type/try_error_type_test.nomi :: converting the error at the `?` site is clean
-T ok <root>/tests/03-tooling-and-diagnostics/try_error_type/try_error_type_test.nomi :: `?` on a Maybe may not propagate out of a Result boundary
-T ok <root>/tests/03-tooling-and-diagnostics/try_error_type/try_error_type_test.nomi :: `?` needs a Result or Maybe boundary to propagate into
+T ok <root>/tests/03-tooling-and-diagnostics/try_error_type/try_error_type_test.nomi :: `?` on an Option may not propagate out of a Result boundary
+T ok <root>/tests/03-tooling-and-diagnostics/try_error_type/try_error_type_test.nomi :: `?` needs a Result or Option boundary to propagate into
 T ok <root>/tests/03-tooling-and-diagnostics/try_error_type/try_error_type_test.nomi :: a `?` with no From impl names the impl and Result.map_err
 T ok <root>/tests/03-tooling-and-diagnostics/try_error_type/try_error_type_test.nomi :: a `?` applies one From impl, never a chain
 T test result: ok. 7 passed, 0 failed
@@ -704,14 +704,14 @@ T
 C 04-scalars-and-text/interpolate_composite_test.nomi
 E 0
 N 8
-H 5f00d20691be7b29ebb8c0855e5d5897b9452eaaec8f6aec85202b7cefbdd475
-T ok <root>/tests/04-scalars-and-text/interpolate_composite_test.nomi :: a tuple holding a Maybe renders the variant
+H f4fd4e3151db5c6c21f7f4c81b93d4dcb295e11edc8af117f1e08dc09240305e
+T ok <root>/tests/04-scalars-and-text/interpolate_composite_test.nomi :: a tuple holding an Option renders the variant
 T ok <root>/tests/04-scalars-and-text/interpolate_composite_test.nomi :: a tuple holding a Result renders the variant
 T ok <root>/tests/04-scalars-and-text/interpolate_composite_test.nomi :: a tuple holding a collection renders its elements by Display
 T ok <root>/tests/04-scalars-and-text/interpolate_composite_test.nomi :: a tuple holding a declared type renders through its impl
 T ok <root>/tests/04-scalars-and-text/interpolate_composite_test.nomi :: a nested tuple renders each level by Display
-T ok <root>/tests/04-scalars-and-text/interpolate_composite_test.nomi :: an anonymous record holding a Maybe renders the variant
-T ok <root>/tests/04-scalars-and-text/interpolate_composite_test.nomi :: a list of tuples holding a Maybe renders each tuple
+T ok <root>/tests/04-scalars-and-text/interpolate_composite_test.nomi :: an anonymous record holding an Option renders the variant
+T ok <root>/tests/04-scalars-and-text/interpolate_composite_test.nomi :: a list of tuples holding an Option renders each tuple
 T ok <root>/tests/04-scalars-and-text/interpolate_composite_test.nomi :: a type parameter bounded by Display renders a tuple
 T test result: ok. 8 passed, 0 failed
 T
@@ -831,7 +831,7 @@ T
 C 04-scalars-and-text/strings_test.nomi
 E 0
 N 19
-H 937c8f0f1166acf9bc694ba89fde4d8301f16ea3fc88cc22167baae8ad73cae0
+H 13b636491f5917672f4fd8e252f4a3642d036ec9db3a2f6903faa030f92708c7
 T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: strings report length containment and slices
 T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: strings join and split text
 T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: strings expose bytes, graphemes, and codepoints
@@ -842,7 +842,7 @@ T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: grapheme transforms m
 T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: normalization is explicit before byte-based equality
 T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: join reads any iterator of strings and defaults to no separator
 T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: captures gives the groups of the first match as a tuple, without the whole match
-T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: a group a match can leave out is a Maybe, and an empty one is Some("")
+T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: a group a match can leave out is an Option, and an empty one is Some("")
 T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: one group is its text, and a pattern with none answers Unit
 T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: a pattern whose every group is named gives a struct
 T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: a regex compiled while the program runs lists its groups
@@ -1014,13 +1014,13 @@ T
 C 06-collections/any_value_in_a_container_test.nomi
 E 0
 N 9
-H dd3b1859214732b91f647811c0826c30f3ef1e876a095c2c0051a6ca282c7bfa
+H 173097d3dd73507fdf8f38520b185404d7d2cfceb297dc888a0cbe27a7926c56
 T ok <root>/tests/06-collections/any_value_in_a_container_test.nomi :: Unit in a Vector, an Iter and a zip
 T ok <root>/tests/06-collections/any_value_in_a_container_test.nomi :: a list pattern over lists of any element
 T ok <root>/tests/06-collections/any_value_in_a_container_test.nomi :: map values of any kind
 T ok <root>/tests/06-collections/any_value_in_a_container_test.nomi :: channel halves in containers
 T ok <root>/tests/06-collections/any_value_in_a_container_test.nomi :: a Map entering an Iter of interface values
-T ok <root>/tests/06-collections/any_value_in_a_container_test.nomi :: a Context in a Maybe and a task's outcome
+T ok <root>/tests/06-collections/any_value_in_a_container_test.nomi :: a Context in an Option and a task's outcome
 T ok <root>/tests/06-collections/any_value_in_a_container_test.nomi :: a field of a function over Unit
 T ok <root>/tests/06-collections/any_value_in_a_container_test.nomi :: Debug of a tuple holding a List of functions
 T ok <root>/tests/06-collections/any_value_in_a_container_test.nomi :: interface values in tasks and channels
@@ -1155,14 +1155,14 @@ T
 C 06-collections/spreads_test.nomi
 E 0
 N 10
-H 79475672533848dc2744b30f72e31dbad3c7d9ba7378fcd0437f0f6666bcc273
+H 6dfdb88f351d4930c79f83ffea15482c1b2a560e29c8f6dac02511ba26453072
 T ok <root>/tests/06-collections/spreads_test.nomi :: a list spread goes first, between elements, last, or several times
 T ok <root>/tests/06-collections/spreads_test.nomi :: a vector spread goes first, between elements, last, or several times
 T ok <root>/tests/06-collections/spreads_test.nomi :: a set spread goes first, between elements, last, or several times
 T ok <root>/tests/06-collections/spreads_test.nomi :: a map spread goes first, between entries, last, or several times
 T ok <root>/tests/06-collections/spreads_test.nomi :: a repeated map key takes the later value and keeps the first place
 T ok <root>/tests/06-collections/spreads_test.nomi :: a bare spread stands anywhere, and a map entry after spreads updates what they hold
-T ok <root>/tests/06-collections/spreads_test.nomi :: a list spread takes any Iter of its elements: a Maybe, an Iter chain, a Set
+T ok <root>/tests/06-collections/spreads_test.nomi :: a list spread takes any Iter of its elements: an Option, an Iter chain, a Set
 T ok <root>/tests/06-collections/spreads_test.nomi :: a vector spread takes any Iter of its elements
 T ok <root>/tests/06-collections/spreads_test.nomi :: a set spread takes any Iter of its elements
 T ok <root>/tests/06-collections/spreads_test.nomi :: a map entry after a spread enters its value type as a plain entry does
@@ -1291,7 +1291,7 @@ T
 C 07-structs-and-enums/nested_update/nested_update_test.nomi
 E 0
 N 23
-H 4eadafcd59cb604803c7da5363acac2e24864e020708a6dac5735cc51a11458e
+H 5ece9af0baaea9ee9f8d1ff6ad0291caacee2710f9e29ae990081c4ac54fb668
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a `..` literal at a struct field changes only the fields it writes
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a brace without `..` replaces the field whole
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: updates nest three deep
@@ -1311,7 +1311,7 @@ T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: 
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a brace without `..` at an update must be whole
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a bare `..` outside a field or key of an update has no value
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a missing key needs a default for every field not written
-T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a bare `..` cannot reach inside a Maybe
+T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a bare `..` cannot reach inside an Option
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a `..` at a position of another kind is refused
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: an opaque struct's fields stay closed through a nested `..`
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: hover inside a `..` literal reads the field of the old value
@@ -1320,9 +1320,9 @@ T
 C 07-structs-and-enums/recursive_structs_test.nomi
 E 0
 N 5
-H 67e94fc4346c2ceaaf9fc4d49cb9f4af618c39bcde86cfbf832baac8bddee263
+H d4c0ad8030d5d3a7425c1e1aeb5e7129ae11ec565d13d35297ae45a3d821d744
 T ok <root>/tests/07-structs-and-enums/recursive_structs_test.nomi :: a struct holds itself through a List
-T ok <root>/tests/07-structs-and-enums/recursive_structs_test.nomi :: a struct holds itself through a Maybe
+T ok <root>/tests/07-structs-and-enums/recursive_structs_test.nomi :: a struct holds itself through an Option
 T ok <root>/tests/07-structs-and-enums/recursive_structs_test.nomi :: a struct holds itself through a Map
 T ok <root>/tests/07-structs-and-enums/recursive_structs_test.nomi :: a struct holds itself through an Iter
 T ok <root>/tests/07-structs-and-enums/recursive_structs_test.nomi :: two structs hold each other through lists
@@ -1553,13 +1553,13 @@ T ok <root>/tests/08-pattern-matching/marker_patterns_test.nomi :: a marker payl
 T ok <root>/tests/08-pattern-matching/marker_patterns_test.nomi :: a marker in a record pattern
 T test result: ok. 2 passed, 0 failed
 T
-C 08-pattern-matching/maybe_result_test.nomi
+C 08-pattern-matching/option_result_test.nomi
 E 0
 N 3
-H 5f40e65b1b11507be8634bddf9715358f750f56d9727bd9fcb462be1a3b64ae0
-T ok <root>/tests/08-pattern-matching/maybe_result_test.nomi :: maybe and result values render their variant shapes
-T ok <root>/tests/08-pattern-matching/maybe_result_test.nomi :: maybe helpers map and default values
-T ok <root>/tests/08-pattern-matching/maybe_result_test.nomi :: result helpers map and default values
+H 24300cce39e1eb989a5a823da13a23d28a12c6b8bf4d5aa3a1c672d293a25d45
+T ok <root>/tests/08-pattern-matching/option_result_test.nomi :: option and result values render their variant shapes
+T ok <root>/tests/08-pattern-matching/option_result_test.nomi :: option helpers map and default values
+T ok <root>/tests/08-pattern-matching/option_result_test.nomi :: result helpers map and default values
 T test result: ok. 3 passed, 0 failed
 T
 C 08-pattern-matching/or_patterns_test.nomi
@@ -1619,20 +1619,20 @@ T
 C 08-pattern-matching/try_test.nomi
 E 0
 N 4
-H 3c167c97487257ac5adb5c7a51e349edc451ff942504406aeea258b311e266c0
+H 60d9f00f2c5569ba84446b2e1a8c53098597e0d0240dc8caf87b55aa6b9afbc3
 T ok <root>/tests/08-pattern-matching/try_test.nomi :: unwraps? Result values and propagates Err values
 T ok <root>/tests/08-pattern-matching/try_test.nomi :: `?` unwraps only its immediate operand in surrounding expressions
-T ok <root>/tests/08-pattern-matching/try_test.nomi :: unwraps? Maybe values and propagates None
+T ok <root>/tests/08-pattern-matching/try_test.nomi :: unwraps? Option values and propagates None
 T ok <root>/tests/08-pattern-matching/try_test.nomi :: `?` can unwrap the previous pipe stage
 T test result: ok. 4 passed, 0 failed
 T
 C 08-pattern-matching/unit_patterns_test.nomi
 E 0
 N 4
-H 431f61412f99fe7b1514210447c311eeebd3c08a8c2c5bf8d8f823fdcd93094b
+H cbc2b972d368ac8556e8ee7632aa789812c7e931c4b378506449f64e691f568c
 T ok <root>/tests/08-pattern-matching/unit_patterns_test.nomi :: Ok(Unit) matches a Result<Unit, E>
 T ok <root>/tests/08-pattern-matching/unit_patterns_test.nomi :: Unit alone covers a Unit scrutinee
-T ok <root>/tests/08-pattern-matching/unit_patterns_test.nomi :: Unit in tuples, struct fields and Maybe
+T ok <root>/tests/08-pattern-matching/unit_patterns_test.nomi :: Unit in tuples, struct fields and Option
 T ok <root>/tests/08-pattern-matching/unit_patterns_test.nomi :: Unit in binding else, is and or patterns
 T test result: ok. 4 passed, 0 failed
 T
@@ -1756,9 +1756,9 @@ T
 C 09-functions-and-control-flow/nested_fn_try_test.nomi
 E 0
 N 4
-H 3797ca763a74a4dbffca3840d77e07961ec4814933abf4c9325b095ebc598d83
+H c310a5dab35c74fd8ac5a091106aca6a6b5ddb637e395db320aee91c1fc8d72a
 T ok <root>/tests/09-functions-and-control-flow/nested_fn_try_test.nomi :: `?` in a nested fn leaves the nested fn
-T ok <root>/tests/09-functions-and-control-flow/nested_fn_try_test.nomi :: `?` on a Maybe in a nested fn
+T ok <root>/tests/09-functions-and-control-flow/nested_fn_try_test.nomi :: `?` on an Option in a nested fn
 T ok <root>/tests/09-functions-and-control-flow/nested_fn_try_test.nomi :: a nested fn's `?` inside a named fn
 T ok <root>/tests/09-functions-and-control-flow/nested_fn_try_test.nomi :: a recursive nested fn with `?`
 T test result: ok. 4 passed, 0 failed
@@ -1917,8 +1917,8 @@ T
 C 10-generics-and-type-wrappers/covariant_conversion_test.nomi
 E 0
 N 7
-H 511eb2797944186fe355f4c8d6bad316ba68cb8a1f60ccb775821db3cf1a087a
-T ok <root>/tests/10-generics-and-type-wrappers/covariant_conversion_test.nomi :: Maybe and List
+H babd8b843c8e428e575e446e93b79544a64d88aaf561de509b314fff938b9ae2
+T ok <root>/tests/10-generics-and-type-wrappers/covariant_conversion_test.nomi :: Option and List
 T ok <root>/tests/10-generics-and-type-wrappers/covariant_conversion_test.nomi :: Result, from a call's arguments
 T ok <root>/tests/10-generics-and-type-wrappers/covariant_conversion_test.nomi :: user enums and structs
 T ok <root>/tests/10-generics-and-type-wrappers/covariant_conversion_test.nomi :: Map, Set and Vector
@@ -2026,10 +2026,10 @@ T
 C 10-generics-and-type-wrappers/opaque_types/opaque_types_test.nomi
 E 0
 N 3
-H 3081a4e8d5ec14855d60334fc0849048486fbc9d6eb3e3567790612703f8b3ec
+H 82028c4fcccf2bb229c13e63e6736e78d4e3504880230c0d6b1e732a1a8f020a
 T ok <root>/tests/10-generics-and-type-wrappers/opaque_types/opaque_types_test.nomi :: opaque distinct types expose smart constructors and accessors
 T ok <root>/tests/10-generics-and-type-wrappers/opaque_types/opaque_types_test.nomi :: opaque structs expose exported constructors updaters and accessors
-T ok <root>/tests/10-generics-and-type-wrappers/opaque_types/opaque_types_test.nomi :: opaque enums expose predicates and maybe-returning accessors
+T ok <root>/tests/10-generics-and-type-wrappers/opaque_types/opaque_types_test.nomi :: opaque enums expose predicates and option-returning accessors
 T test result: ok. 3 passed, 0 failed
 T
 C 10-generics-and-type-wrappers/opaque_types/status.nomi
@@ -2038,6 +2038,18 @@ N 0
 H 0ef8acd590713201da9feae80bfd8f745db519b3b41c25693a378be935094c0b
 T --- stderr ---
 T nomi run: <root>/tests/10-generics-and-type-wrappers/opaque_types/status.nomi declares no `fn main`, so there is no program to run
+T
+C 10-generics-and-type-wrappers/refined_types_test.nomi
+E 0
+N 6
+H 0c55320920a127ffcd1a1f8b0f68df0b015a8ce7beceaf227c7c92887f8308f1
+T ok <root>/tests/10-generics-and-type-wrappers/refined_types_test.nomi :: a validated type is built from a checked literal or try_from
+T ok <root>/tests/10-generics-and-type-wrappers/refined_types_test.nomi :: a type over a refinement checks the refinement's rules
+T ok <root>/tests/10-generics-and-type-wrappers/refined_types_test.nomi :: a rule's type implements TryFrom of its base
+T ok <root>/tests/10-generics-and-type-wrappers/refined_types_test.nomi :: an intersection of refinements takes a value of each
+T ok <root>/tests/10-generics-and-type-wrappers/refined_types_test.nomi :: a generic alias is its target
+T ok <root>/tests/10-generics-and-type-wrappers/refined_types_test.nomi :: the checker refuses what converts nowhere
+T test result: ok. 6 passed, 0 failed
 T
 C 10-generics-and-type-wrappers/refinement_modules/refinement_modules_test.nomi
 E 0
@@ -2074,27 +2086,15 @@ T
 C 10-generics-and-type-wrappers/std_refinements_test.nomi
 E 0
 N 7
-H 8c454be88a3dda49d10d98d4ac1d0bfb5ba5367ba7cb699c9f313a947a673f25
+H e34418e221dd79947f35e6fcaf3e3d03ee6026f660a137045d1c91b52aec8aee
 T ok <root>/tests/10-generics-and-type-wrappers/std_refinements_test.nomi :: the prelude's numeric refinements take literals
 T ok <root>/tests/10-generics-and-type-wrappers/std_refinements_test.nomi :: a PositiveInt passes as a NonNegativeInt, a NonZeroInt and an Int
 T ok <root>/tests/10-generics-and-type-wrappers/std_refinements_test.nomi :: try_from checks each parent's rule and its own
 T ok <root>/tests/10-generics-and-type-wrappers/std_refinements_test.nomi :: the converted functions take refined arguments
 T ok <root>/tests/10-generics-and-type-wrappers/std_refinements_test.nomi :: a PositiveDuration takes a typed literal
 T ok <root>/tests/10-generics-and-type-wrappers/std_refinements_test.nomi :: a computed value goes through try_from
-T ok <root>/tests/10-generics-and-type-wrappers/std_refinements_test.nomi :: arithmetic keeps the std numeric subtypes where they hold
+T ok <root>/tests/10-generics-and-type-wrappers/std_refinements_test.nomi :: arithmetic keeps the std numeric refinements where they hold
 T test result: ok. 7 passed, 0 failed
-T
-C 10-generics-and-type-wrappers/subtypes_test.nomi
-E 0
-N 6
-H cacf4e249de058a7ca224b1bf004e8142c82290fdb3d3b88aef1b0e9071698e0
-T ok <root>/tests/10-generics-and-type-wrappers/subtypes_test.nomi :: a validated type is built from a checked literal or try_from
-T ok <root>/tests/10-generics-and-type-wrappers/subtypes_test.nomi :: a type over a subtype checks the subtype's rules
-T ok <root>/tests/10-generics-and-type-wrappers/subtypes_test.nomi :: a rule's type implements TryFrom of its base
-T ok <root>/tests/10-generics-and-type-wrappers/subtypes_test.nomi :: an intersection of subtypes takes a value of each
-T ok <root>/tests/10-generics-and-type-wrappers/subtypes_test.nomi :: a generic alias is its target
-T ok <root>/tests/10-generics-and-type-wrappers/subtypes_test.nomi :: the checker refuses what converts nowhere
-T test result: ok. 6 passed, 0 failed
 T
 C 10-generics-and-type-wrappers/turbofish_test.nomi
 E 0
@@ -2113,12 +2113,12 @@ T
 C 10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi
 E 0
 N 8
-H cdbbc10a72de87d282badc6c651668e28072cd6aea1855190fbd22218b12599a
+H 0c79893b5aea966a6256071bdf1a82330037684e0d8431bab56fc517b55e2088
 T ok <root>/tests/10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi :: the route list of an app
 T ok <root>/tests/10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi :: List
 T ok <root>/tests/10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi :: branches and generic calls
 T ok <root>/tests/10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi :: nested collections
-T ok <root>/tests/10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi :: Maybe and Result
+T ok <root>/tests/10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi :: Option and Result
 T ok <root>/tests/10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi :: functions
 T ok <root>/tests/10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi :: tuples, records and fields
 T ok <root>/tests/10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi :: Map and Set
@@ -2297,14 +2297,14 @@ T
 C 11-interfaces-and-impls/existential_equality/existential_equality_test.nomi
 E 0
 N 12
-H fcff5210076dca592ebedb0c87bec6ae77f5ec7920c56ca645ce35516c65ac38
+H a8aeae035a6a77924fce5fb863c56c53fea7444a0afb7194238d45d04ba947a9
 T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_equality_test.nomi :: two values of one struct type compare by its fields
 T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_equality_test.nomi :: values of two concrete types are unequal
 T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_equality_test.nomi :: a hand-written Equatable decides
 T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_equality_test.nomi :: a boxed container compares by the type it was held at, then its value
 T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_equality_test.nomi :: an embeds enum's value is unequal to its embedded struct's
 T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_equality_test.nomi :: an embeds enum's hand-written Equatable decides for its values
-T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_equality_test.nomi :: inside a tuple, a Maybe and a list
+T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_equality_test.nomi :: inside a tuple, an Option and a list
 T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_equality_test.nomi :: a Set keeps one of each equal value
 T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_equality_test.nomi :: a Map keyed by interface values
 T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_equality_test.nomi :: a Map keyed by lists of interface values
@@ -2735,14 +2735,14 @@ T ok <root>/tests/12-derives-and-standard-interfaces/host_values_as_display_test
 T ok <root>/tests/12-derives-and-standard-interfaces/host_values_as_display_test.nomi :: a Bytes or a Regex inside a container held as Display
 T test result: ok. 3 passed, 0 failed
 T
-C 12-derives-and-standard-interfaces/maybe_result_equatable_test.nomi
+C 12-derives-and-standard-interfaces/option_result_equatable_test.nomi
 E 0
 N 4
-H 47bbdd27f7dff2c2aaea0d58aa511b114d4a6ab1cbaa2024d95cdf8b72369840
-T ok <root>/tests/12-derives-and-standard-interfaces/maybe_result_equatable_test.nomi :: maybe values support type-qualified equality
-T ok <root>/tests/12-derives-and-standard-interfaces/maybe_result_equatable_test.nomi :: result values support type-qualified equality
-T ok <root>/tests/12-derives-and-standard-interfaces/maybe_result_equatable_test.nomi :: maybe and result values support structural hashing
-T ok <root>/tests/12-derives-and-standard-interfaces/maybe_result_equatable_test.nomi :: maybe equality works as a pipeline predicate
+H f41c99b53c177fb5887d2836e425b0a4e0a8f5ebb6f1f9b584655d26a922536e
+T ok <root>/tests/12-derives-and-standard-interfaces/option_result_equatable_test.nomi :: option values support type-qualified equality
+T ok <root>/tests/12-derives-and-standard-interfaces/option_result_equatable_test.nomi :: result values support type-qualified equality
+T ok <root>/tests/12-derives-and-standard-interfaces/option_result_equatable_test.nomi :: option and result values support structural hashing
+T ok <root>/tests/12-derives-and-standard-interfaces/option_result_equatable_test.nomi :: option equality works as a pipeline predicate
 T test result: ok. 4 passed, 0 failed
 T
 C 12-derives-and-standard-interfaces/ordering/ordering_test.nomi
@@ -2763,6 +2763,13 @@ H 237c5977cadc3f265580afb495787a9124ed0dcd2f04f9edad205da1586c69e9
 T --- stderr ---
 T nomi run: <root>/tests/12-derives-and-standard-interfaces/ordering/test_helpers.nomi declares no `fn main`, so there is no program to run
 T
+C 12-derives-and-standard-interfaces/refinement_fields_test.nomi
+E 0
+N 1
+H 3b3b1a22a3d010c39bb557088e00bcaae70ecd60484c0754f642263aafafb555
+T ok <root>/tests/12-derives-and-standard-interfaces/refinement_fields_test.nomi :: refinement fields compare and hash as their base values do
+T test result: ok. 1 passed, 0 failed
+T
 C 12-derives-and-standard-interfaces/set_debug_test.nomi
 E 0
 N 3
@@ -2781,13 +2788,6 @@ T ok <root>/tests/12-derives-and-standard-interfaces/std_generics_over_program_t
 T ok <root>/tests/12-derives-and-standard-interfaces/std_generics_over_program_types_test.nomi :: an interface value inside a tuple entering a Map or a default
 T ok <root>/tests/12-derives-and-standard-interfaces/std_generics_over_program_types_test.nomi :: List.compare over tuples holding a program's Comparable
 T test result: ok. 4 passed, 0 failed
-T
-C 12-derives-and-standard-interfaces/subtype_fields_test.nomi
-E 0
-N 1
-H d1f2eda118e9bde1580de5908d0611846b88b0245185b6f14ddd91299404cdd0
-T ok <root>/tests/12-derives-and-standard-interfaces/subtype_fields_test.nomi :: subtype fields compare and hash as their base values do
-T test result: ok. 1 passed, 0 failed
 T
 C 12-derives-and-standard-interfaces/summable_test.nomi
 E 0
@@ -2860,16 +2860,16 @@ T
 C 13-iterators-and-pipes/collect_results_test.nomi
 E 0
 N 9
-H 5d8def3b3642fff6e0eda8659fe7cebe6098b3a2c9953e5096ec9a4670a7f6e8
+H 2359d1f840677c7f44df9a644a6bf7e0a3041c1d434dfe9e76748bf5b0e8833a
 T ok <root>/tests/13-iterators-and-pipes/collect_results_test.nomi :: Result.collect keeps every Ok value in order
 T ok <root>/tests/13-iterators-and-pipes/collect_results_test.nomi :: Result.collect returns the first Err
 T ok <root>/tests/13-iterators-and-pipes/collect_results_test.nomi :: Result.collect accepts a list, a vector and an empty input
 T ok <root>/tests/13-iterators-and-pipes/collect_results_test.nomi :: Result.collect stops pulling at the first Err
 T ok <root>/tests/13-iterators-and-pipes/collect_results_test.nomi :: Result.collect under `?`
 T ok <root>/tests/13-iterators-and-pipes/collect_results_test.nomi :: Result.partition keeps input order on both sides
-T ok <root>/tests/13-iterators-and-pipes/collect_results_test.nomi :: Maybe.collect of a user struct
-T ok <root>/tests/13-iterators-and-pipes/collect_results_test.nomi :: Maybe.collect stops pulling at the first None
-T ok <root>/tests/13-iterators-and-pipes/collect_results_test.nomi :: Maybe.values drops every None
+T ok <root>/tests/13-iterators-and-pipes/collect_results_test.nomi :: Option.collect of a user struct
+T ok <root>/tests/13-iterators-and-pipes/collect_results_test.nomi :: Option.collect stops pulling at the first None
+T ok <root>/tests/13-iterators-and-pipes/collect_results_test.nomi :: Option.values drops every None
 T test result: ok. 9 passed, 0 failed
 T
 C 13-iterators-and-pipes/constrained_sort/constrained_sort_test.nomi
@@ -2897,11 +2897,11 @@ T
 C 13-iterators-and-pipes/control_flow_test.nomi
 E 0
 N 8
-H 1af2f8a8c56befbe525fbefc0988a2696ae0113405f9e2838608b2b2b81e2a9c
+H 938c103c77f9b683d3d5b14f14d6d450ec6a8df8bb19b3636e67d2317a45c5f0
 T ok <root>/tests/13-iterators-and-pipes/control_flow_test.nomi :: reduce supports break and continue
 T ok <root>/tests/13-iterators-and-pipes/control_flow_test.nomi :: map supports break and continue
 T ok <root>/tests/13-iterators-and-pipes/control_flow_test.nomi :: filter supports break values
-T ok <root>/tests/13-iterators-and-pipes/control_flow_test.nomi :: find returns Maybe values
+T ok <root>/tests/13-iterators-and-pipes/control_flow_test.nomi :: find returns Option values
 T ok <root>/tests/13-iterators-and-pipes/control_flow_test.nomi :: each accepts break continue and return in callbacks
 T ok <root>/tests/13-iterators-and-pipes/control_flow_test.nomi :: return inside iter callbacks is lambda scoped
 T ok <root>/tests/13-iterators-and-pipes/control_flow_test.nomi :: reduce with a pattern seed supports continue
@@ -2920,7 +2920,7 @@ T
 C 13-iterators-and-pipes/infinite_test.nomi
 E 0
 N 9
-H e42021aa6b3d7fb5e659731d18c71205786de599724729d72ba95de7681ef344
+H dac4e1bb34093cd1e8a7df8e265271342ed8aa064644cca72ab896f3191c2868
 T ok <root>/tests/13-iterators-and-pipes/infinite_test.nomi :: the sources that never end say so
 T ok <root>/tests/13-iterators-and-pipes/infinite_test.nomi :: finite sources do not
 T ok <root>/tests/13-iterators-and-pipes/infinite_test.nomi :: a user source that does not write is_infinite behaves as before
@@ -2929,7 +2929,7 @@ T ok <root>/tests/13-iterators-and-pipes/infinite_test.nomi :: adapters that can
 T ok <root>/tests/13-iterators-and-pipes/infinite_test.nomi :: zip is infinite only when both sides are, concat when either is
 T ok <root>/tests/13-iterators-and-pipes/infinite_test.nomi :: take counts what it keeps
 T ok <root>/tests/13-iterators-and-pipes/infinite_test.nomi :: terminals that can stop early finish on an infinite source
-T ok <root>/tests/13-iterators-and-pipes/infinite_test.nomi :: Maybe.collect stops an infinite source at the first miss
+T ok <root>/tests/13-iterators-and-pipes/infinite_test.nomi :: Option.collect stops an infinite source at the first miss
 T test result: ok. 9 passed, 0 failed
 T
 C 13-iterators-and-pipes/iter_equality_test.nomi
@@ -3037,18 +3037,6 @@ T ok <root>/tests/13-iterators-and-pipes/loop_control_test.nomi :: a loop answer
 T ok <root>/tests/13-iterators-and-pipes/loop_control_test.nomi :: a generic seed pins the loop state type
 T test result: ok. 5 passed, 0 failed
 T
-C 13-iterators-and-pipes/maybe_iter_test.nomi
-E 0
-N 6
-H fe70eec3ea859fd51696c369886ccb453efff3400a360d55bf02b0ab84b2ffbf
-T ok <root>/tests/13-iterators-and-pipes/maybe_iter_test.nomi :: a Some pushes its value and a None pushes nothing
-T ok <root>/tests/13-iterators-and-pipes/maybe_iter_test.nomi :: a Maybe knows its count
-T ok <root>/tests/13-iterators-and-pipes/maybe_iter_test.nomi :: flat_map keeps the Some values a function answers
-T ok <root>/tests/13-iterators-and-pipes/maybe_iter_test.nomi :: a Maybe enters an Iter position
-T ok <root>/tests/13-iterators-and-pipes/maybe_iter_test.nomi :: Maybe.map and Iter.map stay apart
-T ok <root>/tests/13-iterators-and-pipes/maybe_iter_test.nomi :: a lambda in a pipeline compares a prelude Maybe
-T test result: ok. 6 passed, 0 failed
-T
 C 13-iterators-and-pipes/mean_test.nomi
 E 0
 N 9
@@ -3078,6 +3066,18 @@ T ok <root>/tests/13-iterators-and-pipes/min_max_test.nomi :: Iter.min and Iter.
 T ok <root>/tests/13-iterators-and-pipes/min_max_test.nomi :: Iter.min_by and Iter.max_by compare a key, first on ties
 T ok <root>/tests/13-iterators-and-pipes/min_max_test.nomi :: an empty list literal needs no element type
 T test result: ok. 9 passed, 0 failed
+T
+C 13-iterators-and-pipes/option_iter_test.nomi
+E 0
+N 6
+H 74bb671b14b5c8ac72940bfefbc154e32e8dd361ae15af2cbefe344ea0e99315
+T ok <root>/tests/13-iterators-and-pipes/option_iter_test.nomi :: a Some pushes its value and a None pushes nothing
+T ok <root>/tests/13-iterators-and-pipes/option_iter_test.nomi :: an Option knows its count
+T ok <root>/tests/13-iterators-and-pipes/option_iter_test.nomi :: flat_map keeps the Some values a function answers
+T ok <root>/tests/13-iterators-and-pipes/option_iter_test.nomi :: an Option enters an Iter position
+T ok <root>/tests/13-iterators-and-pipes/option_iter_test.nomi :: Option.map and Iter.map stay apart
+T ok <root>/tests/13-iterators-and-pipes/option_iter_test.nomi :: a lambda in a pipeline compares a prelude Option
+T test result: ok. 6 passed, 0 failed
 T
 C 13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi
 E 0
@@ -4239,9 +4239,9 @@ T
 C 17-typed-literals/html_templates_test.nomi
 E 0
 N 14
-H 8491001c0e9518f6ee19ecb5da35fbaf2a6169a002551c13b322189d5a59489b
+H 2fb17d3be003d1e17920a1a5fbaea6960ace508ce27134bcdbfd82fc6735cc4d
 T ok <root>/tests/17-typed-literals/html_templates_test.nomi :: element text escapes a String and keeps an Html
-T ok <root>/tests/17-typed-literals/html_templates_test.nomi :: a List, a Maybe and a program's own type render in element text
+T ok <root>/tests/17-typed-literals/html_templates_test.nomi :: a List, an Option and a program's own type render in element text
 T ok <root>/tests/17-typed-literals/html_templates_test.nomi :: a quoted attribute escapes both quotes, in either quote
 T ok <root>/tests/17-typed-literals/html_templates_test.nomi :: the start of a URL takes a Url or a SafeUrl, and refuses a javascript scheme
 T ok <root>/tests/17-typed-literals/html_templates_test.nomi :: a slot later in a URL is escaped for its part
@@ -4252,8 +4252,8 @@ T ok <root>/tests/17-typed-literals/html_templates_test.nomi :: a multi-line tem
 T ok <root>/tests/17-typed-literals/html_templates_test.nomi :: a raw literal is a template with no slots
 T ok <root>/tests/17-typed-literals/html_templates_test.nomi :: Html values are equal by their text
 T ok <root>/tests/17-typed-literals/html_templates_test.nomi :: element text writes any other Display value as escaped text
-T ok <root>/tests/17-typed-literals/html_templates_test.nomi :: a Maybe in a quoted attribute writes its value, or nothing for None
-T ok <root>/tests/17-typed-literals/html_templates_test.nomi :: a Maybe in a URL, a style value or a title writes its value, or nothing
+T ok <root>/tests/17-typed-literals/html_templates_test.nomi :: an Option in a quoted attribute writes its value, or nothing for None
+T ok <root>/tests/17-typed-literals/html_templates_test.nomi :: an Option in a URL, a style value or a title writes its value, or nothing
 T test result: ok. 14 passed, 0 failed
 T
 C 17-typed-literals/toml_literal_test.nomi
@@ -4357,10 +4357,10 @@ T
 C 18-json-and-dynamic/json_anon_struct_test.nomi
 E 0
 N 6
-H 46905d85244344699c622a864ed44c55aea7b8e681ccd03ba29919be518aa379
+H 3fce4601b2d12e109ceaebc361b375e1ac45443870fd34dd1f83a7f84af28e4b
 T ok <root>/tests/18-json-and-dynamic/json_anon_struct_test.nomi :: an anonymous struct encodes as an object of its fields
 T ok <root>/tests/18-json-and-dynamic/json_anon_struct_test.nomi :: a None field encodes as null
-T ok <root>/tests/18-json-and-dynamic/json_anon_struct_test.nomi :: an anonymous struct decodes from an object, a missing Maybe field as None
+T ok <root>/tests/18-json-and-dynamic/json_anon_struct_test.nomi :: an anonymous struct decodes from an object, a missing Option field as None
 T ok <root>/tests/18-json-and-dynamic/json_anon_struct_test.nomi :: a decode error names the field that does not read
 T ok <root>/tests/18-json-and-dynamic/json_anon_struct_test.nomi :: anonymous structs nest in each other, in containers and in a named struct
 T ok <root>/tests/18-json-and-dynamic/json_anon_struct_test.nomi :: an anonymous struct reads back what it writes
@@ -4369,10 +4369,10 @@ T
 C 18-json-and-dynamic/json_container_decode_test.nomi
 E 0
 N 7
-H bcfc6808f2d6c1eba2da28d3b556ceef5d17c7aeed791aa7d1cb5316eae8646c
+H a348f3558fb2dcdeb3394f78ba633b02ac4da39e364245cdde99864d445a7090
 T ok <root>/tests/18-json-and-dynamic/json_container_decode_test.nomi :: scalar decode still resolves through the call-site type argument
 T ok <root>/tests/18-json-and-dynamic/json_container_decode_test.nomi :: List decode binds the element type from the type argument
-T ok <root>/tests/18-json-and-dynamic/json_container_decode_test.nomi :: Maybe decode binds the payload type and maps null to None
+T ok <root>/tests/18-json-and-dynamic/json_container_decode_test.nomi :: Option decode binds the payload type and maps null to None
 T ok <root>/tests/18-json-and-dynamic/json_container_decode_test.nomi :: Map decode binds the value type
 T ok <root>/tests/18-json-and-dynamic/json_container_decode_test.nomi :: nested containers bind an inner type parameter at each level
 T ok <root>/tests/18-json-and-dynamic/json_container_decode_test.nomi :: container decode failures report the offending path
@@ -4718,18 +4718,19 @@ T test result: ok. 23 passed, 0 failed
 T
 C 20-data-access/jwt_test.nomi
 E 0
-N 9
-H 030a0a1f49871183f1c9fa00a44fb9ce2d19a28ffa85f2f873f3de4808533dcb
+N 10
+H 453b38528333eaa42f5b93138489be767de8c99a1b597b5d620899d01c546dbb
 T ok <root>/tests/20-data-access/jwt_test.nomi :: RFC 7515 A.2: an RS256 token verifies, and signing again makes the same token
 T ok <root>/tests/20-data-access/jwt_test.nomi :: RFC 7515 A.3: an ES256 token verifies
 T ok <root>/tests/20-data-access/jwt_test.nomi :: RFC 8037 A.4: an EdDSA token signs as the RFC's
 T ok <root>/tests/20-data-access/jwt_test.nomi :: each algorithm round trips with a fresh key
+T ok <root>/tests/20-data-access/jwt_test.nomi :: each constructor takes only its algorithm's kind of key, so every key signs
 T ok <root>/tests/20-data-access/jwt_test.nomi :: claims as a typed struct
 T ok <root>/tests/20-data-access/jwt_test.nomi :: a tampered token does not verify
 T ok <root>/tests/20-data-access/jwt_test.nomi :: an unsigned token, and one signed with another algorithm, are refused
 T ok <root>/tests/20-data-access/jwt_test.nomi :: issuer, audience and a missing expiry
 T ok <root>/tests/20-data-access/jwt_test.nomi :: expiry / a token expires at exp plus the leeway, and is not valid before nbf
-T test result: ok. 9 passed, 0 failed
+T test result: ok. 10 passed, 0 failed
 T
 C 20-data-access/passwords_test.nomi
 E 0
@@ -4773,18 +4774,18 @@ T
 C 20-data-access/sql_test.nomi
 E 0
 N 20
-H 6bad6271a0a1fc7589d40e41b71b8338a044a7109737f8ea3b83d8e23cc92922
+H 26eb55214e3dcc99b1b4595bce9275f6a4c65153f593c04799d76eb11cc04221
 T ok <root>/tests/20-data-access/sql_test.nomi :: a literal's slots are parameters, and its text is the SQL around them
 T ok <root>/tests/20-data-access/sql_test.nomi :: a literal with no slots is one part
 T ok <root>/tests/20-data-access/sql_test.nomi :: slots side by side and at either end keep the parts one more than the params
 T ok <root>/tests/20-data-access/sql_test.nomi :: a value never becomes SQL text, whatever it holds
-T ok <root>/tests/20-data-access/sql_test.nomi :: a NULL parameter is Maybe's None
+T ok <root>/tests/20-data-access/sql_test.nomi :: a NULL parameter is Option's None
 T ok <root>/tests/20-data-access/sql_test.nomi :: a slot takes any ToSql value, each its own Value
-T ok <root>/tests/20-data-access/sql_test.nomi :: a row reads every std type, and Maybe of each
+T ok <root>/tests/20-data-access/sql_test.nomi :: a row reads every std type, and Option of each
 T ok <root>/tests/20-data-access/sql_test.nomi :: a statement is a value: equal when its parts and parameters are
 T ok <root>/tests/20-data-access/sql_test.nomi :: each std type round-trips through Value
 T ok <root>/tests/20-data-access/sql_test.nomi :: each std type becomes its own Value variant
-T ok <root>/tests/20-data-access/sql_test.nomi :: NULL round-trips as None, and a Maybe holding a value as that value
+T ok <root>/tests/20-data-access/sql_test.nomi :: NULL round-trips as None, and an Option holding a value as that value
 T ok <root>/tests/20-data-access/sql_test.nomi :: from_sql names the type it expected when the value is not one
 T ok <root>/tests/20-data-access/sql_test.nomi :: a row reads by column name
 T ok <root>/tests/20-data-access/sql_test.nomi :: a row reads by position, from 0

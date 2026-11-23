@@ -26,7 +26,7 @@ end
 fn handle(request: Request) -> Response
     case request.url.path
         "/hello" ->
-            Response{body: Body.Text("hello ${Request.user_agent(request) |> Maybe.with_default("?")}")}
+            Response{body: Body.Text("hello ${Request.user_agent(request) |> Option.with_default("?")}")}
 
         "/echo" ->
             text = Bytes.to_string(Body.read_all(request.body)!)!
@@ -43,7 +43,7 @@ fn handle(request: Request) -> Response
             }
 
         "/deadline" ->
-            Response{body: Body.Text("${Context.deadline(App.context) |> Maybe.is_some()} ${Context.deadline(request.context) |> Maybe.is_some()}")}
+            Response{body: Body.Text("${Context.deadline(App.context) |> Option.is_some()} ${Context.deadline(request.context) |> Option.is_some()}")}
 
         "/trap" ->
             todo
@@ -52,7 +52,7 @@ fn handle(request: Request) -> Response
             Response.set_cookie(Response{body: Body.Text("in")}, Cookie{name: "user", value: "ann", path: Some("/")})
 
         "/whoami" ->
-            Response{body: Body.Text(Request.cookie(request, "user") |> Maybe.map(fn c -> c.value) |> Maybe.with_default("nobody"))}
+            Response{body: Body.Text(Request.cookie(request, "user") |> Option.map(fn c -> c.value) |> Option.with_default("nobody"))}
 
         _ ->
             Response{status: Status.not_found, body: Body.Text("no ${request.url.path}")}
@@ -119,7 +119,7 @@ import std::http::testing as http_testing
 import std::io
 
 fn show(r: Response) -> String
-    "${Status.code(r.status)} ${Headers.get(r.headers, "Content-Type") |> Maybe.with_default("-")} ${Headers.get(r.headers, "Location") |> Maybe.with_default("-")} ${Response.text(r) |> Result.with_default("?")}"
+    "${Status.code(r.status)} ${Headers.get(r.headers, "Content-Type") |> Option.with_default("-")} ${Headers.get(r.headers, "Location") |> Option.with_default("-")} ${Response.text(r) |> Result.with_default("?")}"
 end
 
 fn main()
@@ -222,7 +222,7 @@ fn echo(request: Request) -> Response
     limited = if request.url.path == "/small" then Request.limit_body(request, 3) else request
 
     case Request.form(limited)
-        Ok(form) -> Response{body: Body.Text(Query.get(form, "a") |> Maybe.with_default(""))}
+        Ok(form) -> Response{body: Body.Text(Query.get(form, "a") |> Option.with_default(""))}
         Err(e) -> Response.error(Status.request_entity_too_large, "${e}")
     end
 end

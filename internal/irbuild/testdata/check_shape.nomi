@@ -1,4 +1,4 @@
-// `testing.check` over a SHAPE subject — a `Maybe` or a `Result` — end to end.
+// `testing.check` over a SHAPE subject — an `Option` or a `Result` — end to end.
 //
 // The rule is the runtime's assertSubject and not a generalisation of it: a check over
 // a shape holds on the CARRYING variant (`Some`, `Ok`) and its success value is
@@ -18,7 +18,7 @@
 // recorded golden pins that text.
 //
 // FOUR instantiations appear on purpose and none of them may collapse:
-// `Maybe<String>`, `Maybe<Int>`, `Result<Int, String>` and the
+// `Option<String>`, `Option<Int>`, `Result<Int, String>` and the
 // `Result<subject, AssertionFailure>` each check returns. Every one goes through
 // the shared prelude intern table; a table keyed on the constructor's rendered
 // name rather than on the whole instantiation would hand one entry back for two
@@ -29,11 +29,11 @@ import
     std::testing
 end
 
-fn find_name(id: Int) -> Maybe<String>
+fn find_name(id: Int) -> Option<String>
     if id == 1 then Some("Ada") else None
 end
 
-fn score(id: Int) -> Maybe<Int>
+fn score(id: Int) -> Option<Int>
     if id == 1 then Some(41) else None
 end
 
@@ -44,7 +44,7 @@ fn parse_id(s: String) -> Result<Int, String>
     end
 end
 
-// This file's OWN type, so `Maybe<Marker>` and `Result<Marker, Marker>` cannot
+// This file's OWN type, so `Option<Marker>` and `Result<Marker, Marker>` cannot
 // live in the process-wide prelude table. Two fields on purpose: the `actual:`
 // row sorts the composed `name: value` strings, which one field cannot witness.
 struct Marker
@@ -52,7 +52,7 @@ struct Marker
     count: Int
 end
 
-fn marker(id: Int) -> Maybe<Marker>
+fn marker(id: Int) -> Option<Marker>
     if id == 1 then Some(Marker{label: "one", count: 1}) else None
 end
 
@@ -60,7 +60,7 @@ fn missing_marker() -> Result<Int, Marker>
     Err(Marker{label: "two", count: 2})
 end
 
-test "a passing Maybe check is Ok carrying the Some, not Ok(True)"
+test "a passing Option check is Ok carrying the Some, not Ok(True)"
     assert Ok(found) = testing.check(find_name(1))
     assert Some(name) = found
     assert name == "Ada"
@@ -75,7 +75,7 @@ end
 // A `None` subject does not hold, and the failure it produces is the same one
 // `assert find_name(2)` would build: same reason words, same `actual:`
 // rendering, because both reach rt.AssertionSite.ShapeFailure.
-test "a failing Maybe check renders the whole subject as actual"
+test "a failing Option check renders the whole subject as actual"
     assert Err(failure) = testing.check(find_name(2))
     observed: AssertionFailure = failure
 
@@ -91,7 +91,7 @@ test "a failing Maybe check renders the whole subject as actual"
     assert rendered == "None"
 end
 
-// The other prelude shape, at a payload the Maybe cases do not use, so the two
+// The other prelude shape, at a payload the Option cases do not use, so the two
 // `Result<…, AssertionFailure>` instantiations in this file are distinct.
 test "a failing Result check renders the Err payload with its quotes"
     assert Err(failure) = testing.check(parse_id("wat"))
@@ -103,10 +103,10 @@ test "a failing Result check renders the Err payload with its quotes"
     assert rendered == "Err(\"expected a numeric id\")"
 end
 
-// A THIRD element type through the same machinery. `Maybe<Int>` and
-// `Maybe<String>` are two kinds; if the intern table collapsed
+// A THIRD element type through the same machinery. `Option<Int>` and
+// `Option<String>` are two kinds; if the intern table collapsed
 // them, the `actual:` row below would render through the wrong inspector.
-test "a failing Maybe check at a second payload type does not collapse"
+test "a failing Option check at a second payload type does not collapse"
     assert Err(failure) = testing.check(score(2))
     assert Some(rendered) = failure.actual
     assert rendered == "None"
@@ -116,7 +116,7 @@ test "a failing Maybe check at a second payload type does not collapse"
 end
 
 // A subject carrying THIS FILE's own type, which the process-wide prelude table
-// cannot hold: a Maybe of this file's own type is a different instance in
+// cannot hold: an Option of this file's own type is a different instance in
 // every program, so the instance is interned per program instead. The case
 // keeps the two tables' division of labour honest rather than adding a
 // payload type.

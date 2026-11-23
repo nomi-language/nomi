@@ -119,7 +119,7 @@ func TestSafePoint_ACancelledReduceOverARangeStops(t *testing.T) {
 func TestSafePoint_ACancelledIterationDrivenInGoStops(t *testing.T) {
 	// No Nomi callback per element: only the element safe point the
 	// machine wraps around the source can stop it.
-	assertCancelledMidWork(t, safePointTask("", "Iter.from(0) |> Iter.take(30_000_000) |> Iter.last() |> Maybe.with_default(0)"))
+	assertCancelledMidWork(t, safePointTask("", "Iter.from(0) |> Iter.take(30_000_000) |> Iter.last() |> Option.with_default(0)"))
 }
 
 // A deadline on the main line over a loop that never waits: the program

@@ -399,7 +399,7 @@ func IntToDigits(n, base Int) *List[Int] {
 // IntFromDigits is `Int.from_digits`: the Int whose digits in base, most
 // significant first, are digits; Some(0) for none. None when a digit is
 // outside 0 to base - 1. base is a Radix in Nomi; one below 2 faults.
-func IntFromDigits(digits *List[Int], base Int) Maybe[Int] {
+func IntFromDigits(digits *List[Int], base Int) Option[Int] {
 	if IntCompare(base.Value(), int64(2)) < 0 {
 		Trap(fmt.Sprintf("Int.from_digits: base %s is less than 2", base))
 	}

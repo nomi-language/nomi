@@ -13,8 +13,8 @@ import
     lists.List
     locale.Locale
     localize.NumberParseError
-    maybe.Maybe.{self, None, Some}
     multiply.Multiply
+    option.Option.{self, None, Some}
     productable.Productable
     ranges.{ClosedRange, Range}
     remainder.Remainder
@@ -88,11 +88,11 @@ impl Decimal
     /// (`1d` by `8d` is `0.125d`), and never below zero. `b` is a
     /// `NonZeroDecimal`, as `Decimal.divide`'s is, so it never traps.
     //! assert Decimal.divide_exact(10.00d, 4d) == Some(2.50d)
-    //! assert Decimal.divide_exact(10.00d, 4d) |> Maybe.map(Decimal.to_string) == Some("2.50")
+    //! assert Decimal.divide_exact(10.00d, 4d) |> Option.map(Decimal.to_string) == Some("2.50")
     //! assert Decimal.divide_exact(1d, 8d) == Some(0.125d)
     //! assert Decimal.divide_exact(10d, 3d) == None
     //
-    pub host fn divide_exact(a: Decimal, b: NonZeroDecimal) -> Maybe<Decimal>
+    pub host fn divide_exact(a: Decimal, b: NonZeroDecimal) -> Option<Decimal>
 
     /// Rounds `d` to exactly `scale` fractional digits using `mode`. Increasing
     /// the scale pads trailing zeros, which is always exact; decreasing it
@@ -110,10 +110,10 @@ impl Decimal
     /// the scale pads trailing zeros, so it is always `Some`. Write `!` after
     /// it where the digits are known to fit.
     //! assert Decimal.round_exact(1.50d, 1) == Some(1.5d)
-    //! assert Decimal.round_exact(1.5d, 3) |> Maybe.map(Decimal.to_string) == Some("1.500")
+    //! assert Decimal.round_exact(1.5d, 3) |> Option.map(Decimal.to_string) == Some("1.500")
     //! assert Decimal.round_exact(1.55d, 1) == None
     //
-    pub host fn round_exact(d: Decimal, scale: Int) -> Maybe<Decimal>
+    pub host fn round_exact(d: Decimal, scale: Int) -> Option<Decimal>
 
     /// `d` multiplied by itself `exp` times, exactly, as `*` multiplies: the
     /// scale is `exp` times `d`'s, so `1.5d` squared is `2.25d` and `1.50d`
@@ -147,10 +147,10 @@ impl Decimal
     /// The square root of `d` to exactly `scale` digits after the decimal
     /// point when it ends within them: `Some` of it, and `None` when the root
     /// would need rounding at `scale`.
-    //! assert Decimal.sqrt_exact(6.25d, 3) |> Maybe.map(Decimal.to_string) == Some("2.500")
+    //! assert Decimal.sqrt_exact(6.25d, 3) |> Option.map(Decimal.to_string) == Some("2.500")
     //! assert Decimal.sqrt_exact(2d, 4) == None
     //
-    pub host fn sqrt_exact(d: NonNegativeDecimal, scale: Int) -> Maybe<NonNegativeDecimal>
+    pub host fn sqrt_exact(d: NonNegativeDecimal, scale: Int) -> Option<NonNegativeDecimal>
 
     /// Strips trailing fractional zeros, returning the value at its smallest
     /// scale. Whole-number digits stay (`100d` stays `100d`, scale 0), and
@@ -564,7 +564,7 @@ impl Steppable for Decimal
     /// Returns `value + by`, exactly, as Decimal's `+` adds.
     //! assert Decimal.step_by(1.0d, 0.1d) == Some(1.1d)
     //
-    fn step_by(value: Decimal, by: Decimal) -> Maybe<Decimal>
+    fn step_by(value: Decimal, by: Decimal) -> Option<Decimal>
         Some(value + by)
     end
 end
@@ -576,7 +576,7 @@ end
 //! assert 10d / d == 2.5d
 //! assert NonZeroDecimal.try_from(0.00d) == None
 //
-pub subtype NonZeroDecimal Decimal when fn d -> d != 0d
+pub refine NonZeroDecimal Decimal when fn d -> d != 0d
 
 /// A Decimal that is zero or more: an amount, a rate, what `Decimal.sqrt`
 /// takes. A literal is checked when the program is compiled;
@@ -586,7 +586,7 @@ pub subtype NonZeroDecimal Decimal when fn d -> d != 0d
 //! assert Decimal.sqrt(r, 1, RoundingMode.HalfEven) == 2.5d
 //! assert NonNegativeDecimal.try_from(-0.01d) == None
 //
-pub subtype NonNegativeDecimal Decimal when fn d -> d >= 0d
+pub refine NonNegativeDecimal Decimal when fn d -> d >= 0d
 
 /// A Decimal greater than zero. It refines both `NonNegativeDecimal` and
 /// `NonZeroDecimal`, so a PositiveDecimal passes wherever either, or a
@@ -594,7 +594,7 @@ pub subtype NonNegativeDecimal Decimal when fn d -> d >= 0d
 //! assert PositiveDecimal.try_from(0.5d) == Some(0.5d)
 //! assert PositiveDecimal.try_from(0d) == None
 //
-pub subtype PositiveDecimal NonNegativeDecimal and NonZeroDecimal when fn d -> d > 0d
+pub refine PositiveDecimal NonNegativeDecimal and NonZeroDecimal when fn d -> d > 0d
 
 /// The ratios `Decimal.allocate` and `Money.allocate` split an amount by: at
 /// least one, none negative, and not all zero, so every part has a share to
@@ -610,7 +610,7 @@ pub subtype PositiveDecimal NonNegativeDecimal and NonZeroDecimal when fn d -> d
 //! assert Ratios.try_from([0, 0]) == None
 //! assert Ratios.try_from([0, 2]) == Some([0, 2])
 //
-pub subtype Ratios List<Int> when fn ratios ->
+pub refine Ratios List<Int> when fn ratios ->
     Iter.all_match(ratios, fn r -> r >= 0) and Iter.any_match(ratios, fn r -> r > 0)
 end
 

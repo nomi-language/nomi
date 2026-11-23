@@ -67,12 +67,12 @@ func TestDecoratorIsAParseError(t *testing.T) {
 }
 
 func TestRedundantPreludeImportIsACheckError(t *testing.T) {
-	rejects(t, "import std::iter.Iter\nimport std::float.Float\nimport std::maybe.Maybe.{self, None}\n\n"+
-		"fn main()\n  _n = Iter.count([1])\n  _s = Float.to_string(1.5)\n  _m: Maybe<Int> = None\nend\n",
+	rejects(t, "import std::iter.Iter\nimport std::float.Float\nimport std::option.Option.{self, None}\n\n"+
+		"fn main()\n  _n = Iter.count([1])\n  _s = Float.to_string(1.5)\n  _m: Option<Int> = None\nend\n",
 		"main.nomi:1:18: imported name 'Iter' is already in scope from the prelude — remove it from the import",
 		"main.nomi:2:19: imported name 'Float' is already in scope from the prelude — remove it from the import",
-		"main.nomi:3:26: imported name 'Maybe' is already in scope from the prelude — remove it from the import",
-		"main.nomi:3:32: imported name 'None' is already in scope from the prelude — remove it from the import")
+		"main.nomi:3:28: imported name 'Option' is already in scope from the prelude — remove it from the import",
+		"main.nomi:3:34: imported name 'None' is already in scope from the prelude — remove it from the import")
 }
 
 func TestLoadBearingStdImportsStayAdmitted(t *testing.T) {

@@ -97,7 +97,7 @@ end
 
 typealias S Shape
 
-typealias Count Maybe<Int>
+typealias Count Option<Int>
 
 fn shape_size(s: Shape) -> Int
     case s

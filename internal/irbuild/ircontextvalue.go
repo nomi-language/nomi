@@ -3,7 +3,7 @@ package irbuild
 // `Context.with_value(c, v)`, `Context.value(c, T)` and the `Type<T>` witness.
 //
 // std declares `with_value<T>(c: Context, value: T): Context` and
-// `value<T>(c: Context, value_type: Type<T>): Maybe<T>`. The store is keyed by
+// `value<T>(c: Context, value_type: Type<T>): Option<T>`. The store is keyed by
 // a type's IDENTITY, and rt.ContextWithValue says whose that is: the static
 // type of the argument, which only the call site knows. So both calls cross
 // to VM intrinsics (`Context.with_value`, `Context.value`) with a
@@ -20,7 +20,7 @@ package irbuild
 //
 // The witnessed types are the ones whose identity is a single name: a
 // scalar, or a non-generic struct, enum or distinct. A generic instance
-// (`Maybe<Int>`) declines, because its runtime name drops the arguments.
+// (`Option<Int>`) declines, because its runtime name drops the arguments.
 
 import (
 	"github.com/nomi-language/nomi/internal/ast"
@@ -217,7 +217,7 @@ func (bl *irScalarBuilder) contextValueCall(t *ast.Call, method string) (ir.Temp
 		}
 		a.temps[1], a.kinds[1], a.mobile[1] = w, wk, true
 		operands = append(operands, w)
-		result = bl.g.preludeInstanceOf(preludeSpecFor("std/maybe", "Maybe"), []kind{x})
+		result = bl.g.preludeInstanceOf(preludeSpecFor("std/option", "Option"), []kind{x})
 		// kindInvalid: propagates — preludeInstanceOf answers it for an argument it rejected.
 		if result == kindInvalid || !irRetainedValueKind(result) {
 			return no()

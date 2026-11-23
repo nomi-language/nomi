@@ -13,7 +13,7 @@ import (
 func TestGenericArgHead_ADifferentConstructorIsAMismatch(t *testing.T) {
 	errs := checkWithStdlib(`
 fn first_or<T>(xs: List<T>, d: T) -> T
-  Maybe.with_default(List.first(xs), d)
+  Option.with_default(List.first(xs), d)
 end
 
 fn main()
@@ -22,7 +22,7 @@ fn main()
   _ = List.first(begin end)
   _ = Map.size(1.5)
   _ = first_or(3, 1)
-  _ = Maybe.is_some(4)
+  _ = Option.is_some(4)
   _ = Set.size(Set[1])
   _ = first_or([1], 2)
   _ = List.first(1..3 |> Iter.to_list())
@@ -37,7 +37,7 @@ end
 		"9:18 argument 1: expected List<T>, got Unit",
 		"10:16 argument 1: expected Map<K, V>, got Float",
 		"11:16 argument 1: expected List<T>, got Int",
-		"12:21 argument 1: expected Maybe<T>, got Int",
+		"12:22 argument 1: expected Option<T>, got Int",
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("errors:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
@@ -55,7 +55,7 @@ import std::tasks.Task
 
 type UserId Int
 
-fn first<T>(xs: Vector<T>) -> Maybe<T>
+fn first<T>(xs: Vector<T>) -> Option<T>
   Vector.get(xs, 0)
 end
 

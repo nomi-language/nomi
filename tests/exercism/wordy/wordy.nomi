@@ -13,7 +13,7 @@ pub fn answer(question: String) -> Result<Int, Error>
     Some(problem) =
         question
         |> String.strip_prefix("What is")
-        |> Maybe.flat_map(&String.strip_suffix(&1, "?"))
+        |> Option.flat_map(&String.strip_suffix(&1, "?"))
     else
         return Err(.UnknownOperation)
     end

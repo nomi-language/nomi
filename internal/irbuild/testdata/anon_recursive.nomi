@@ -3,11 +3,11 @@ import std::io
 // A named type reaching itself through an anonymous struct field. The
 // declaration has to lower to a type of finite size. The tagAnonStruct arm in
 // appendInlineDefs decides that. Without it the builder would recurse into
-// `Node` through `wrap.inner` without end. The field is a Maybe, so a value
+// `Node` through `wrap.inner` without end. The field is an Option, so a value
 // can be built: a struct that holds itself with no way out is a checker error.
 struct Node
     n:    Int
-    wrap: {inner: Maybe<Node>, depth: Int}
+    wrap: {inner: Option<Node>, depth: Int}
 end
 
 fn depth_of(x: Node) -> Int

@@ -176,13 +176,13 @@ var stdGenStructSpecs = []stdGenStructSpec{
 		//     built from one, so it is package-neutral exactly when the
 		//     instantiation is — which sharedGenStructInstance already checks
 		//     for every argument, so this field needs no guard of its own.
-		//   - `end` is a `Maybe<T>`, a PRELUDE INSTANCE, so it goes through
+		//   - `end` is an `Option<T>`, a PRELUDE INSTANCE, so it goes through
 		//     sharedPreludeInstance rather than mapKindIn. That reaches the same
-		//     process-wide entry a call site's own `Maybe<Int>` annotation
+		//     process-wide entry a call site's own `Option<Int>` annotation
 		//     produces, which is the identity requirement stdprelude.go states;
 		//     a per-gen instance here would be a kind no call site could match.
 		//     Answering kindInvalid on a non-neutral argument is honoured rather
-		//     than asserted, exactly as stdMaybeField honours its `!shared`.
+		//     than asserted, exactly as stdOptionField honours its `!shared`.
 		//   - `inclusive` is a Bool, and it is the only field of either family
 		//     that is a bare scalar.
 		origin: "std/ranges", nomi: "Range",
@@ -193,9 +193,9 @@ var stdGenStructSpecs = []stdGenStructSpec{
 			nomi: "start", decl: "T",
 			kindOf: func(_ *gen, args []kind) kind { return args[0] },
 		}, {
-			nomi: "stop", decl: "Maybe<T>",
+			nomi: "stop", decl: "Option<T>",
 			kindOf: func(g *gen, args []kind) kind {
-				spec := preludeSpecFor("std/maybe", "Maybe")
+				spec := preludeSpecFor("std/option", "Option")
 				if g == nil {
 					// The stdlib signature boundary: no gen, so only the
 					// process-wide instance is reachable and a non-neutral
@@ -207,7 +207,7 @@ var stdGenStructSpecs = []stdGenStructSpec{
 					return k
 				}
 				// preludeInstanceOf is shared-then-per-gen already, so a
-				// `Range<Point>` field reaches the SAME `Maybe<Point>` def a
+				// `Range<Point>` field reaches the SAME `Option<Point>` def a
 				// call site's own annotation produces in this gen — which is
 				// the identity requirement, met rather than sidestepped.
 				return g.preludeInstanceOf(spec, []kind{args[0]})
@@ -608,8 +608,8 @@ func sharedGenStructInstance(spec *stdGenStructSpec, args []kind) (kind, bool) {
 //
 // No new `kind` and no new tag. An instance is the same `*typeDef` shape,
 // carrying `genStructOf` and `genStructArgs`, still `rtDeclared`. What differs
-// is which table it is interned in, which is prelude.go's split: `Maybe<Int>`
-// process-wide, `Maybe<Point>` per gen.
+// is which table it is interned in, which is prelude.go's split: `Option<Int>`
+// process-wide, `Option<Point>` per gen.
 //
 // `kind.packageNeutral`'s `genStructOf` arm answers by walking
 // `genStructArgs` (see stdprelude.go), so it answers false for

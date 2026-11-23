@@ -127,7 +127,7 @@ end
 // present renders only whether a deadline EXISTS. An absolute Instant is a
 // wall-clock value, so printing one would make this fixture disagree with itself
 // between two runs.
-fn present(m: Maybe<Instant>) -> String
+fn present(m: Option<Instant>) -> String
     case m
         Some(_) -> "Some"
         None    -> "None"
@@ -137,7 +137,7 @@ end
 // span renders a remaining Duration, and every call site above is arranged so
 // the value is CLAMPED to zero — the one span two independently-timed runs
 // agree on exactly.
-fn span(m: Maybe<Duration>) -> String
+fn span(m: Option<Duration>) -> String
     case m
         Some(d) -> "Some(${Duration.to_string(d)})"
         None    -> "None"

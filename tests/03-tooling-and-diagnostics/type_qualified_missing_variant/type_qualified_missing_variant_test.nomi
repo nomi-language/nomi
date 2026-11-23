@@ -7,10 +7,10 @@ test "type-qualified missing variant reports a diagnostic"
     diagnostics = compiler.check(
         """
           fn main()
-            dbg Maybe.Bogus
+            dbg Option.Bogus
           end
         """
     )
 
-    assert test_helpers.has_diagnostic(diagnostics, "type 'Maybe' has no member 'Bogus'")
+    assert test_helpers.has_diagnostic(diagnostics, "type 'Option' has no member 'Bogus'")
 end

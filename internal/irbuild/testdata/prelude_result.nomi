@@ -1,4 +1,4 @@
-// `Result<T, E>` end to end, and the two-type-parameter case `Maybe` cannot
+// `Result<T, E>` end to end, and the two-type-parameter case `Option` cannot
 // exercise.
 //
 // `Ok(v)` names T and says nothing about E; `Err(e)` names E and says nothing
@@ -67,7 +67,7 @@ fn show_same(r: Result<Int, Int>) -> String
 end
 
 // A prelude enum nested in the other one.
-fn maybe_result(m: Maybe<Result<Int, String>>) -> String
+fn option_result(m: Option<Result<Int, String>>) -> String
     case m
         Some(r) -> render(r)
         None    -> "absent"
@@ -103,7 +103,7 @@ fn main() -> Unit
     o = Outcome{parsed: parse("1")}
     io.print(render(o.parsed))
 
-    io.print(maybe_result(Some(Ok(4))))
-    io.print(maybe_result(Some(Err("inner"))))
-    io.print(maybe_result(None))
+    io.print(option_result(Some(Ok(4))))
+    io.print(option_result(Some(Err("inner"))))
+    io.print(option_result(None))
 end

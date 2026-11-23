@@ -38,8 +38,8 @@ func TestJudgeAssertableIsPinned(t *testing.T) {
 		answer *AssertableDetails
 		want   *AssertionFailure
 	}{{
-		// `assert` holds on no answer. The polarity is the opposite of a
-		// `Maybe` subject's, where `assert` needs `Some` — inverting it is
+		// `assert` holds on no answer. The polarity is the opposite of an
+		// `Option` subject's, where `assert` needs `Some` — inverting it is
 		// invisible to any comparison of passing runs, which is every
 		// comparison this repository's corpus can make.
 		name:   "assert holds when the subject answered nothing",
@@ -160,20 +160,20 @@ func TestJudgeAssertableIsPinned(t *testing.T) {
 }
 
 // TestAssertableDetailsOfIsPinned pins the boundary conversion: the
-// `Maybe<AssertionDetails>` a lowered `Assertable.failure` answers, read into
+// `Option<AssertionDetails>` a lowered `Assertable.failure` answers, read into
 // the report's shapes.
 //
-// A zero `Maybe` is neither Some nor None — its Tag is 0 where TagNone is 2 —
+// A zero `Option` is neither Some nor None — its Tag is 0 where TagNone is 2 —
 // and it is included because it is the one input on which a tag test written the
 // other way round (`!= TagNone`) reports a failure nobody asked for. std's
-// `actual: Maybe<String> = None` default is exactly the field where that
+// `actual: Option<String> = None` default is exactly the field where that
 // mistake would be reachable from ordinary source.
 func TestAssertableDetailsOfIsPinned(t *testing.T) {
 	if got := AssertableDetailsOf(None[NomiAssertionDetails]()); got != nil {
 		t.Errorf("None must be absence, got %+v", got)
 	}
-	if got := AssertableDetailsOf(Maybe[NomiAssertionDetails]{}); got != nil {
-		t.Errorf("a zero Maybe is not Some, got %+v", got)
+	if got := AssertableDetailsOf(Option[NomiAssertionDetails]{}); got != nil {
+		t.Errorf("a zero Option is not Some, got %+v", got)
 	}
 	rows := Cons(NomiAssertionDetail{Label: "actual", Value: "41"},
 		Cons(NomiAssertionDetail{Label: "expected", Value: "42"}, nil))
@@ -193,7 +193,7 @@ func TestAssertableDetailsOfIsPinned(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("conversion is not the pinned value.\n got %+v\nwant %+v", got, want)
 	}
-	// `None` becomes "" and not `Some("")`, which is the rule nomiMaybeString
+	// `None` becomes "" and not `Some("")`, which is the rule nomiOptionString
 	// states in the other direction and the rule the renderer relies on to
 	// print no `actual:` row at all.
 	empty := AssertableDetailsOf(Some(NomiAssertionDetails{Reason: "r", Actual: None[string]()}))

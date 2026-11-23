@@ -94,12 +94,12 @@ pub fn open(path: String) -> Result<Conn, sql.Error>
     dir =
         fs.open_dir(
             file_path.parent(path)
-            |> Maybe.with_default(".")
+            |> Option.with_default(".")
         )
         |> Result.map_err(unopened)?
 
     defer on error Dir.close(dir)
-    temp = fs.open_dir(fs.temp_dir()) |> Result.to_maybe()
+    temp = fs.open_dir(fs.temp_dir()) |> Result.to_option()
     connected(vfs.Place{dir: Some(dir), temp:, owned: True}, file_path.base(path))
 end
 
@@ -119,7 +119,7 @@ end
 /// db = sqlite.open_in(data, "todos.db")?
 /// defer sql.close_quietly(db)
 /// ```
-pub fn open_in(dir: Dir, name: String, temp: Maybe<Dir> = None) -> Result<Conn, sql.Error>
+pub fn open_in(dir: Dir, name: String, temp: Option<Dir> = None) -> Result<Conn, sql.Error>
     connected(vfs.Place{dir: Some(dir), temp:}, name)
 end
 
@@ -127,7 +127,7 @@ end
 /// what a test opens for each case. Its temporary files are in
 /// `fs.temp_dir()`.
 pub fn memory() -> Result<Conn, sql.Error>
-    temp = fs.open_dir(fs.temp_dir()) |> Result.to_maybe()
+    temp = fs.open_dir(fs.temp_dir()) |> Result.to_option()
     connected(vfs.Place{temp:, owned: True}, ":memory:")
 end
 
@@ -359,7 +359,7 @@ fn kept(stack: List<Int>, n: Int) -> List<Int>
     stack
     |> Iter.take(
         NonNegativeInt.try_from(n)
-        |> Maybe.with_default(0)
+        |> Option.with_default(0)
     )
     |> Iter.to_list()
 end
@@ -632,5 +632,5 @@ fn code_name(code: Int) -> String
             end
         end
 
-    named(code) |> Maybe.or_else(fn -> named(code &&& 0xff)) |> Maybe.with_default("${code}")
+    named(code) |> Option.or_else(fn -> named(code &&& 0xff)) |> Option.with_default("${code}")
 end

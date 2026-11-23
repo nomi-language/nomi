@@ -56,7 +56,7 @@ pricing = { dir = "../pricing" }
 	if err != nil {
 		t.Fatal(err)
 	}
-	got := strings.ReplaceAll(p.effectListProblems().Error(), filepath.Join(dir, "app")+string(filepath.Separator), "")
+	got := inProject(p.effectListProblems().Error(), filepath.Join(dir, "app"))
 	want := strings.Join([]string{
 		"nomi.toml:6: [effects.self] std names std::fss, which is not a std module",
 		`nomi.toml:6: help: did you mean "std::fs"?`,
@@ -100,7 +100,7 @@ prices = { dir = "../pricing" }
 	if err != nil {
 		t.Fatal(err)
 	}
-	got := strings.ReplaceAll(p.effectListProblems().Error(), filepath.Join(dir, "app")+string(filepath.Separator), "")
+	got := inProject(p.effectListProblems().Error(), filepath.Join(dir, "app"))
 	want := strings.Join([]string{
 		"nomi.toml:6: [effects.deps.modules] names example.com/pricing, which is not a dependency's name in this project",
 		`nomi.toml:6: help: did you mean "prices"? a dependency is named by its key under [dependencies]`,

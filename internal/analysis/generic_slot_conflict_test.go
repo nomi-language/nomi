@@ -61,7 +61,7 @@ fn floats<T>(xs: List<Float>, tag: T) -> T
     tag
 end
 
-fn maybe<T>(m: Maybe<Float>, tag: T) -> T
+fn option<T>(m: Option<Float>, tag: T) -> T
     _ = m
     tag
 end
@@ -120,7 +120,7 @@ func TestGenericSlotConflict_MismatchIsRejectedAtTheArgument(t *testing.T) {
 		{`x = first((1, "x"))`, `(1`, "argument 1: expected (Point, T), got (Int, String)"},
 		{`x = weight((1.0, "x", 2))`, `(1.0`, "argument 1: expected (Float, T), got (Float, String, Int)"},
 		{`x = record({w: 10, t: 1})`, `{w`, "argument 1: expected {w: Float, t: T}, got {w: Int, t: Int}"},
-		{`x = maybe(Some(10), 1)`, `Some`, "argument 1: expected Maybe<Float>, got Maybe<Int>"},
+		{`x = option(Some(10), 1)`, `Some`, "argument 1: expected Option<Float>, got Option<Int>"},
 		{`x = floats([10], 1)`, `10]`, "list element type mismatch: expected Float, got Int"},
 		{`x = Generator.weighted([(1.0, "ok"), (1, "x")])`, `1, "x"`, "type mismatch: expected NonNegativeFloat, got Int"},
 	} {
@@ -160,7 +160,7 @@ func TestGenericSlotConflict_MatchingArgumentsAreAccepted(t *testing.T) {
 		`x = weight_set(Set[(1.0, "x"), (2.5, "y")])`,
 		`x = weight_map({1.0 => "x", 2.5 => "y"})`,
 		`x = floats([10.0], 1)`,
-		`x = maybe(Some(10.0), 1)`,
+		`x = option(Some(10.0), 1)`,
 		`x = result(Ok(10.0))`,
 		`x = record({w: 10.0, t: 1})`,
 		`x = first((Point{x: 1}, "x"))`,

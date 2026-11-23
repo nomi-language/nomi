@@ -17,7 +17,7 @@ enum Outcome
 end
 
 impl Outcome
-    fn parse(word: String) -> Maybe<Outcome>
+    fn parse(word: String) -> Option<Outcome>
         case word
             "win"  -> Some(.Win)
             "draw" -> Some(.Draw)

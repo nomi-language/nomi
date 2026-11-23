@@ -33,7 +33,7 @@ fn main()
     r: {d: Display, x: Int} = {d: True, x: 2}
     io.print(Display.to_string(r.d))
     m: Map<String, Display> = Map.put({}, "k", 1.5)
-    io.print(Map.get(m, "k") |> Maybe.map(Display.to_string) |> Maybe.with_default(""))
+    io.print(Map.get(m, "k") |> Option.map(Display.to_string) |> Option.with_default(""))
     pair = (1, io.print("side"))
     io.inspect(pair)
     us |> Iter.each(io.inspect)

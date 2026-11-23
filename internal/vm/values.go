@@ -12,7 +12,7 @@ package vm
 //	List, Vector, Map          *rt.List[any], rt.Vector[any], rt.Map[any, any]
 //	struct, enum, tuple,       *rt.Record over an rt.TypeDesc
 //	record, distinct, Set,
-//	Range, Maybe, Result
+//	Range, Option, Result
 //	a lazy Iter                rt.Seq[any]
 //	a host type's value        rt.HostHandle
 //	function values, tasks,    this package's types, each an rt.Opaque
@@ -290,7 +290,7 @@ func buildDescOfType(t *ir.ValType) *rt.TypeDesc {
 // host answers. Every payload is a reference slot, because a host holds the
 // payload boxed.
 var (
-	maybeDesc = enumDesc("maybe.Maybe", []rt.VariantSpec{
+	optionDesc = enumDesc("option.Option", []rt.VariantSpec{
 		{Name: "Some", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotRef}}},
 		{Name: "None", Shape: rt.VariantBare},
 	})
@@ -322,14 +322,14 @@ var (
 )
 
 // The prelude's carrying enums, as values a host answers.
-var noneValue any = maybeDesc.NewVariant(1)
+var noneValue any = optionDesc.NewVariant(1)
 
-func some(v any) any     { return maybeDesc.MakeVariant(0, v) }
+func some(v any) any     { return optionDesc.MakeVariant(0, v) }
 func okValue(v any) any  { return resultDesc.MakeVariant(0, v) }
 func errValue(v any) any { return resultDesc.MakeVariant(1, v) }
 
-// maybeOf boxes an rt Maybe as the prelude's Maybe.
-func maybeOf[T any](m rt.Maybe[T]) any {
+// optionOf boxes an rt Option as the prelude's Option.
+func optionOf[T any](m rt.Option[T]) any {
 	if m.Tag == rt.TagSome {
 		return some(m.Some)
 	}
@@ -361,10 +361,10 @@ func payloadOf(r *rt.Record) (any, bool) {
 	return nil, false
 }
 
-// maybeParts reads a Maybe: its payload and whether it is Some.
-func maybeParts(v any) (payload any, isSome, ok bool) {
+// optionParts reads an Option: its payload and whether it is Some.
+func optionParts(v any) (payload any, isSome, ok bool) {
 	r, isEnumRec := enumRecord(v)
-	if !isEnumRec || !isEnum(r, "maybe.Maybe") {
+	if !isEnumRec || !isEnum(r, "option.Option") {
 		return nil, false, false
 	}
 	switch variantName(r) {

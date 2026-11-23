@@ -26,7 +26,7 @@ import std::io
 //   - The EMPTY group is the base case, `.Leaf`, which is the one arm that
 //     returns True without ever calling `yield` — so it pins that "exhausted"
 //     and "stopped" are not confused when nothing was pushed at all.
-// The `find` and `first` lines print a COMPARISON rather than the `Maybe` they
+// The `find` and `first` lines print a COMPARISON rather than the `Option` they
 // answer, because `rendering a non-scalar value` is a separate refusal that has
 // nothing to do with this source and would refuse the whole fixture.
 // The stop observation is unaffected: it lives in `note`'s output, not in the
@@ -97,7 +97,7 @@ fn main()
     // EMPTY. `.Leaf` pushes nothing and reports exhaustion.
     io.print("${Iter.to_list(Tree.Leaf)}")
     io.print("${Iter.count(Tree.Leaf)}")
-    io.print("${Maybe.with_default(Iter.first(Tree.Leaf), -1)}")
+    io.print("${Option.with_default(Iter.first(Tree.Leaf), -1)}")
 
     // PROTOCOL. True is "the source ran out", False is "the consumer stopped it".
     io.print("${Iter.each_while(tree, fn _x -> True)}")

@@ -131,7 +131,7 @@ func (c *checker) checkFieldDefaults(owner string, fields []ast.StructField, dec
 		if line == 0 {
 			line, col = f.Line, f.Col
 		}
-		declared := findFieldType(declaredFields, f.Name)
+		declared, _ := findFieldType(declaredFields, f.Name)
 		if f.TypeAnnotation == nil && declared != nil {
 			c.checkInferredDefault(fieldDefaultExitless(f.Name, owner), "field", f.Name, f.Default, declared, f.Line, f.Col, func(t Type) { set(f, t) })
 			continue

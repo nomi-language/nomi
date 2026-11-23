@@ -13,7 +13,7 @@ func TestIntRangeSeq_MatchesTheGenericWalk(t *testing.T) {
 	huge := IntFromBig(new(big.Int).Lsh(big.NewInt(1), 70))
 	negHuge := IntNeg(huge)
 	maxI := int64(math.MaxInt64)
-	some := func(v Value) Maybe[Value] { return Some(v) }
+	some := func(v Value) Option[Value] { return Some(v) }
 	ranges := []Range[Value]{
 		{Start: int64(0), End: some(int64(5))},
 		{Start: int64(0), End: some(int64(5)), Inclusive: true},
@@ -35,7 +35,7 @@ func TestIntRangeSeq_MatchesTheGenericWalk(t *testing.T) {
 		}
 		return Ordering{Tag: TagEqual}
 	}
-	next := func(_ *Frame, v Value) Maybe[Value] { return Some(IntAdd(v, int64(1))) }
+	next := func(_ *Frame, v Value) Option[Value] { return Some(IntAdd(v, int64(1))) }
 	walk := func(s Seq[Value]) string {
 		var out []string
 		s.Run(nil, func(_ *Frame, v Value) bool {
@@ -49,7 +49,7 @@ func TestIntRangeSeq_MatchesTheGenericWalk(t *testing.T) {
 		if got != want {
 			t.Errorf("%v..%v (inclusive %v): got %s, want %s", r.Start, r.End, r.Inclusive, got, want)
 		}
-		steps := func(_ *Frame, a, b Value) Maybe[Value] {
+		steps := func(_ *Frame, a, b Value) Option[Value] {
 			if IntCompare(a, b) > 0 {
 				return Some[Value](int64(0))
 			}

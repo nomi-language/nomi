@@ -147,7 +147,7 @@ fn parse(s: String) -> Result<Int, String>
   end
 end
 
-fn found(n: Int) -> Maybe<Int>
+fn found(n: Int) -> Option<Int>
   if n > 0 then Some(n) else None
 end
 
@@ -220,7 +220,7 @@ test "a case statement over a user enum"
   io.print("after case")
 end
 
-test "a case statement over Maybe and Result constructors"
+test "a case statement over Option and Result constructors"
   case found(5)
     Some(v) ->
       assert v == 5

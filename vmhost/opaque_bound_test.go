@@ -9,7 +9,7 @@ import "testing"
 // the type the defining file instantiated it at.
 func TestRun_ProvidedTryFromMeetsABoundInsideItsFile(t *testing.T) {
 	got := runProject(t, map[string]string{
-		"gen.nomi": `pub fn make<T>(n: Int) -> Maybe<T> where T: TryFrom<Int>
+		"gen.nomi": `pub fn make<T>(n: Int) -> Option<T> where T: TryFrom<Int>
     T.try_from(n)
 end
 `,
@@ -17,7 +17,7 @@ end
 
 pub opaque type Pct Int when fn n -> n >= 0 and n <= 100
 
-pub fn parse(n: Int) -> Maybe<Pct>
+pub fn parse(n: Int) -> Option<Pct>
     gen.make(n)
 end
 
@@ -31,8 +31,8 @@ end
 end
 
 fn main()
-    io.inspect(pct.parse(5) |> Maybe.map(pct.value))
-    io.inspect(pct.parse(500) |> Maybe.map(pct.value))
+    io.inspect(pct.parse(5) |> Option.map(pct.value))
+    io.inspect(pct.parse(500) |> Option.map(pct.value))
 end
 `,
 	})

@@ -464,7 +464,7 @@ func (bl *irScalarBuilder) recordedItemPlan(t *ast.Call, args irQualArgs, og *ge
 		return bl.implItemPlan(t, args, it, key)
 	}
 	if g.stdModule != "" && g.stdInsts != nil && g.stdInsts.caller != nil && og.stdModule == "" {
-		// `Hashable.hash(w)` in `Maybe<Written>`'s derived hash: the
+		// `Hashable.hash(w)` in `Option<Written>`'s derived hash: the
 		// program's impl, called from the instance.
 		return bl.callerItemPlan(t, args, og, it, key)
 	}

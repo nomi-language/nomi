@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -14,7 +15,7 @@ const groupSubtestsSource = `struct Config
 end
 
 fn boot(startup: Startup) -> Result<Config, String>
-  Ok(Config{store: Map.get(startup.env, "STORE") |> Maybe.with_default("none")})
+  Ok(Config{store: Map.get(startup.env, "STORE") |> Option.with_default("none")})
 end
 
 fn main() end
@@ -111,7 +112,7 @@ func TestCheckCommand_GroupSubtestsRefusals(t *testing.T) {
 	}
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
-	for _, c := range []struct {
+	for i, c := range []struct {
 		name, body, want string
 	}{
 		{"computed rows", "subtests rows(), n\n    test \"t\"\n      assert n > 0\n    end\n  end",
@@ -133,8 +134,10 @@ func TestCheckCommand_GroupSubtestsRefusals(t *testing.T) {
 		{"a block inside the block", "subtests [1, 2], n\n    subtests [3], m\n      test \"t\"\n        assert n < m\n      end\n    end\n  end",
 			"`subtests` in a group cannot hold another `subtests`: each row of the outer one boots the group once"},
 	} {
+		// A file is named for its case's place, not its name: Windows
+		// refuses a `?` in a file name.
+		path := filepath.Join(dir, fmt.Sprintf("case_%d_test.nomi", i))
 		t.Run(c.name, func(t *testing.T) {
-			path := filepath.Join(dir, strings.ReplaceAll(c.name, " ", "_")+"_test.nomi")
 			src := "fn rows() -> List<Int>\n  [1]\nend\n\nfn parse(s: String) -> Result<Int, String>\n  Int.parse(s) |> Result.map_err(fn _ -> s)\nend\n\n" +
 				"group \"g\"\n  " + c.body + "\nend\n"
 			mustWrite(t, path, src)

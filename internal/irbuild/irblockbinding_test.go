@@ -99,7 +99,7 @@ fn area(s: Shape) -> Int
     a + 1
 end
 
-fn first_even(xs: List<Int>) -> Maybe<Int>
+fn first_even(xs: List<Int>) -> Option<Int>
     found = begin
         evens = Iter.filter(xs, fn x -> x % 2 == 0) |> Iter.to_list()
         case List.first(evens)

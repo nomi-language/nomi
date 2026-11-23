@@ -169,11 +169,11 @@ func TestMCP_SearchStd(t *testing.T) {
 		{"io.print", "io.print"},
 		{"String, String -> List<String>", "String.split"},
 		// The parameters in either order.
-		{"String, Map<String, Int> -> Maybe<Int>", "Map.get"},
-		{"K, Map<K, V> -> Maybe<V>", "Map.get"},
+		{"String, Map<String, Int> -> Option<Int>", "Map.get"},
+		{"K, Map<K, V> -> Option<V>", "Map.get"},
 		// A concrete type instantiates a generic one.
-		{"List<Int> -> Maybe<Int>", "List.first"},
-		{"List<T> -> Maybe<T>", "List.first"},
+		{"List<Int> -> Option<Int>", "List.first"},
+		{"List<T> -> Option<T>", "List.first"},
 		// A List is an Iter (std's impl), and a defaulted parameter may be
 		// left out (String.join's separator).
 		{"List<T> -> Int", "Iter.count"},
@@ -192,8 +192,8 @@ func TestMCP_SearchStd(t *testing.T) {
 		}
 	}
 	// Exact and instantiating matches rank before ones through an impl.
-	if got := names("List<T> -> Maybe<T>"); len(got) == 0 || got[0] != "List.first" {
-		t.Errorf("search_std(List<T> -> Maybe<T>) = %v, want List.first first", got)
+	if got := names("List<T> -> Option<T>"); len(got) == 0 || got[0] != "List.first" {
+		t.Errorf("search_std(List<T> -> Option<T>) = %v, want List.first first", got)
 	}
 	// A bounded type variable takes only a type that implements its bound.
 	if got := names("Int -> Int"); slices.Contains(got, "Iter.count") {

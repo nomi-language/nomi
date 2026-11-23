@@ -68,7 +68,7 @@ end
 }
 
 func TestAnErrorExitBeforeTheDeferLeaks(t *testing.T) {
-	expectReleaseErrors(t, `fn first(path: String, other: String) -> Result<Maybe<String>, Error>
+	expectReleaseErrors(t, `fn first(path: String, other: String) -> Result<Option<String>, Error>
     r = fs.open(path)?
     _ = fs.read_text(other)?
     defer Reader.close_quietly(r)
@@ -109,7 +109,7 @@ fn fallible(n: Int) -> Result<Int, String>
     Ok(n)
 end
 
-fn optional(n: Int) -> Maybe<Int>
+fn optional(n: Int) -> Option<Int>
     defer on error note(n)
     Some(n)
 end

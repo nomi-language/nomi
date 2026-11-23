@@ -30,14 +30,14 @@ end
 
 enum Shape
     Circle(Float)
-    Named{label: Maybe<String>}
+    Named{label: Option<String>}
 end
 
 typealias Pairs (Int, Int)
 
-subtype Small Int when fn n -> n < 10
+refine Small Int when fn n -> n < 10
 
-subtype Many<T> List<T> when fn xs -> not Iter.is_empty(xs)
+refine Many<T> List<T> when fn xs -> not Iter.is_empty(xs)
 
 interface Sized
     fn size(x: self) -> Int
@@ -49,7 +49,7 @@ impl Sized for Box<T>
     end
 end
 
-fn largest<T>(xs: List<T>) -> Maybe<T> where T: Comparable
+fn largest<T>(xs: List<T>) -> Option<T> where T: Comparable
     List.first(xs)
 end
 
@@ -57,7 +57,7 @@ fn count(m: Many<Int>) -> Int
     List.length(m)
 end
 
-fn demo() -> (Int, Int, Small, Maybe<String>)
+fn demo() -> (Int, Int, Small, Option<String>)
     b: Box<Int> = Box{item: 1, rest: [2]}
     p: Pairs = (1, 2)
     s = 3 as Small
@@ -72,26 +72,26 @@ end`
 		line           int
 		spelling, want string
 	}{
-		{2, "T", "T"},                         // struct field
-		{3, "List<T>", "List<T>"},             // struct field, generic
-		{3, "T", "T"},                         // nested argument
-		{7, "Float", "Float"},                 // enum payload
-		{8, "Maybe<String>", "Maybe<String>"}, // enum record field
-		{11, "(Int, Int)", "(Int, Int)"},      // alias target
-		{13, "Int", "Int"},                    // subtype parent
-		{15, "List<T>", "List<T>"},            // generic subtype parent
-		{21, "Sized", "Sized"},                // impl header interface
-		{21, "Box<T>", "Box<T>"},              // impl header receiver
-		{22, "Box<T>", "Box<T>"},              // impl fn parameter
-		{27, "List<T>", "List<T>"},            // fn parameter
-		{27, "Maybe<T>", "Maybe<T>"},          // fn return
-		{27, "Comparable", "Comparable"},      // where bound
-		{31, "Many<Int>", "Many<Int>"},        // generic refinement
-		{36, "Box<Int>", "Box<Int>"},          // binding annotation
-		{36, "Int", "Int"},                    // its argument
-		{37, "Pairs", "(Int, Int)"},           // an alias names its target
-		{38, "Small", "Small"},                // ascription
-		{39, "String", "String"},              // type argument at a call
+		{2, "T", "T"},                           // struct field
+		{3, "List<T>", "List<T>"},               // struct field, generic
+		{3, "T", "T"},                           // nested argument
+		{7, "Float", "Float"},                   // enum payload
+		{8, "Option<String>", "Option<String>"}, // enum record field
+		{11, "(Int, Int)", "(Int, Int)"},        // alias target
+		{13, "Int", "Int"},                      // refinement parent
+		{15, "List<T>", "List<T>"},              // generic refinement parent
+		{21, "Sized", "Sized"},                  // impl header interface
+		{21, "Box<T>", "Box<T>"},                // impl header receiver
+		{22, "Box<T>", "Box<T>"},                // impl fn parameter
+		{27, "List<T>", "List<T>"},              // fn parameter
+		{27, "Option<T>", "Option<T>"},          // fn return
+		{27, "Comparable", "Comparable"},        // where bound
+		{31, "Many<Int>", "Many<Int>"},          // generic refinement
+		{36, "Box<Int>", "Box<Int>"},            // binding annotation
+		{36, "Int", "Int"},                      // its argument
+		{37, "Pairs", "(Int, Int)"},             // an alias names its target
+		{38, "Small", "Small"},                  // ascription
+		{39, "String", "String"},                // type argument at a call
 	} {
 		got, ok := typeExprRecordAt(fa, c.line+shift, c.spelling)
 		if !ok || got == nil {

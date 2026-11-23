@@ -37,7 +37,7 @@ import (
 // A program the front end rejects, or one the VM would block, is refused with
 // the text `nomi run` prints, and nothing is written.
 
-const buildUsage = "usage: nomi build <file.nomi> [-o <out>] [--target <goos>/<goarch> | --web [--static <dir>] | --no-vm] [--allow-unsupported <class>]"
+const buildUsage = "usage: nomi build <file|dir> [-o <out>] [--target <goos>/<goarch> | --web [--static <dir>] | --no-vm] [--allow-unsupported <class>]"
 
 // errBuildRefused is a build that already reported why on stderr.
 var errBuildRefused = errors.New("build refused")
@@ -143,7 +143,7 @@ func parseBuildArgs(args []string) (buildArgs, error) {
 			return b, fmt.Errorf("nomi build --no-vm: a compiled program runs on every target's nomi-vm, so it takes no --target\n%s", buildUsage)
 		}
 		if b.out == "" {
-			b.out = strings.TrimSuffix(filepath.Base(b.entry), ".nomi") + ".nomic"
+			b.out = programName(b.entry) + ".nomic"
 		}
 		return b, nil
 	}
@@ -156,17 +156,39 @@ func parseBuildArgs(args []string) (buildArgs, error) {
 		}
 		b.target = runners.Target{GOOS: "js", GOARCH: "wasm"}
 		if b.out == "" {
-			b.out = strings.TrimSuffix(filepath.Base(b.entry), ".nomi") + "-web"
+			b.out = programName(b.entry) + "-web"
 		}
 		return b, nil
 	}
 	b.target = runners.ResolveTarget(goos, goarch)
 	if b.out == "" {
-		// go build's default: the entry's base name, in the working
+		// go build's default: the program's name, in the working
 		// directory.
-		b.out = defaultExecutableName(strings.TrimSuffix(filepath.Base(b.entry), ".nomi"), b.target)
+		b.out = defaultExecutableName(programName(b.entry), b.target)
 	}
 	return b, nil
+}
+
+// outFileError is why out, the file a build writes, cannot be written
+// there: it is a directory, such as the project directory `nomi build
+// hello` names when run beside it.
+func outFileError(out string) error {
+	if info, err := os.Stat(out); err == nil && info.IsDir() {
+		return fmt.Errorf("nomi build: %s is a directory, so the program cannot be written there; name the file to write with -o", out)
+	}
+	return nil
+}
+
+// programName is the name what `nomi build` writes for entry has by
+// default: a file's name without .nomi, or a project directory's own name,
+// as go build names a package's executable.
+func programName(entry string) string {
+	if info, err := os.Stat(entry); err == nil && info.IsDir() {
+		if abs, err := filepath.Abs(entry); err == nil {
+			return filepath.Base(abs)
+		}
+	}
+	return strings.TrimSuffix(filepath.Base(entry), ".nomi")
 }
 
 // defaultExecutableName is name with the extension target's executables
@@ -194,6 +216,11 @@ func build(b buildArgs, stderr io.Writer) error {
 	absPath, err := programEntry("build", b.entry)
 	if err != nil {
 		return err
+	}
+	if !b.web {
+		if err := outFileError(b.out); err != nil {
+			return err
+		}
 	}
 	var static webStatic
 	if b.web && !b.noStatic {
@@ -258,27 +285,6 @@ func buildCommand(b buildArgs) string {
 		return "nomi build --web"
 	}
 	return "nomi build --target " + b.target.GOOS + "/" + b.target.GOARCH
-}
-
-// programEntry is the absolute path of entry, the program `nomi <cmd>`
-// builds, or why it cannot be one: it must be a program file, and neither a
-// test file nor a stdlib module.
-func programEntry(cmd, entry string) (string, error) {
-	if err := entryFileError(cmd, entry); err != nil {
-		return "", err
-	}
-	absPath, err := filepath.Abs(entry)
-	if err != nil {
-		return "", err
-	}
-	if strings.HasSuffix(filepath.Base(absPath), "_test.nomi") {
-		return "", fmt.Errorf("nomi %s: %s is a test file; use `nomi test %s`",
-			cmd, vmhost.DisplayPath(absPath), vmhost.DisplayPath(absPath))
-	}
-	if isStdlibTestPath(absPath) {
-		return "", fmt.Errorf("nomi %s: %s is a stdlib module, not a program", cmd, vmhost.DisplayPath(absPath))
-	}
-	return absPath, nil
 }
 
 // writeExecutable writes runner's bytes, then image (its code, then its

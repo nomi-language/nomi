@@ -22,7 +22,7 @@ fn make_shape() -> VariantShape
     VariantShape.Circle(2.0)
 end
 
-fn try_describe(s: Maybe<VariantShape>) -> String
+fn try_describe(s: Option<VariantShape>) -> String
     case s
         Some(.Circle(r)) -> "circle radius=${r}"
         Some(_)          -> "other shape"
@@ -155,8 +155,7 @@ test "dot-leading variants resolve from contextual enum types"
         |> Map.get("b")
 
     assert c1 == DotColor.Red
-    assert s2.w == 4.0
-    assert s2.h == 3.0
+    assert s2 == DotShape.Rect{w: 4.0, h: 3.0}
     assert v1 == DotValue.Obj{"k" => 1}
     assert v2 == DotValue.Arr[1, 2, 3]
     assert v3 == DotValue.Nil
@@ -182,7 +181,7 @@ fn classify_input(s: String) -> Result<Input, String>
 
     guess =
         String.to_int(s)
-        |> Maybe.to_result("invalid integer")?
+        |> Option.to_result("invalid integer")?
 
     Ok(.Guess(guess))
 end
@@ -195,7 +194,7 @@ fn classify_input_case(s: String) -> Result<Input, String>
         other ->
             guess =
                 String.to_int(other)
-                |> Maybe.to_result("invalid integer")?
+                |> Option.to_result("invalid integer")?
 
             Ok(.Guess(guess))
     end

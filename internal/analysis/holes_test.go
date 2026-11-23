@@ -9,7 +9,7 @@ import (
 // what type the place expects and which values in scope have it, nearest
 // binding first: a typed hole.
 func TestHole_NamesTheExpectedTypeAndWhatFits(t *testing.T) {
-	src := "fn pick(xs: List<String>, fallback: String, count: Int) -> String\n  label = \"x\"\n  first = List.first(xs)\n  Maybe.with_default(first, _)\nend\n"
+	src := "fn pick(xs: List<String>, fallback: String, count: Int) -> String\n  label = \"x\"\n  first = List.first(xs)\n  Option.with_default(first, _)\nend\n"
 	_, errs := checkSourceWithStdlib(src)
 	for _, e := range errs {
 		if !strings.Contains(e.Message, "`_` is a discard name, not a value") {

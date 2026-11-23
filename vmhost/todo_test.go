@@ -302,7 +302,7 @@ fn title_of(todo: Todo) -> String
     todo.title
 end
 
-fn pick(m: Maybe<Int>) -> Int
+fn pick(m: Option<Int>) -> Int
     case m
         Some(todo) -> todo
         None -> todo

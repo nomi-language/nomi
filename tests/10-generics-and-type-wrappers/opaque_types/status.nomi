@@ -11,10 +11,10 @@
 ///
 /// - one *smart constructor* per variant (`active`, `inactive`, `suspend`)
 /// - one *predicate* per variant of interest (`is_active`, `is_suspended`)
-/// - a `Maybe<T>`-returning *accessor* for each payload of interest
+/// - an `Option<T>`-returning *accessor* for each payload of interest
 /// (`inactive_reason`, `suspended_reason`, `suspended_until`)
 ///
-/// The `Maybe<T>` accessor is the standard idiom because outside callers
+/// The `Option<T>` accessor is the standard idiom because outside callers
 /// can't `case` over the value themselves — `None` stands in for "the
 /// value isn't this variant," and `Some(payload)` for "it is, here's the
 /// payload."
@@ -56,7 +56,7 @@ impl Status
     end
 
     /// Returns `Some(reason)` if `s` is `Inactive`, otherwise `None`.
-    pub fn inactive_reason(s: Status) -> Maybe<String>
+    pub fn inactive_reason(s: Status) -> Option<String>
         case s
             .Inactive(r) -> Some(r)
             _            -> None
@@ -64,7 +64,7 @@ impl Status
     end
 
     /// Returns `Some(reason)` if `s` is `Suspended`, otherwise `None`.
-    pub fn suspended_reason(s: Status) -> Maybe<String>
+    pub fn suspended_reason(s: Status) -> Option<String>
         case s
             .Suspended{reason:} -> Some(reason)
             _                   -> None
@@ -72,7 +72,7 @@ impl Status
     end
 
     /// Returns `Some(until)` if `s` is `Suspended`, otherwise `None`.
-    pub fn suspended_until(s: Status) -> Maybe<Int>
+    pub fn suspended_until(s: Status) -> Option<Int>
         case s
             .Suspended{until:} -> Some(until)
             _                  -> None

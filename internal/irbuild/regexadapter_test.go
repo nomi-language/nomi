@@ -34,7 +34,7 @@ import (
 // directly.
 //
 // The adapter is written for the host projection, which maps `(T, error)` onto
-// `Result<T, String>`, `*T` onto `Maybe<T>` and `[]T` onto `List<T>`. The
+// `Result<T, String>`, `*T` onto `Option<T>` and `[]T` onto `List<T>`. The
 // builder's registry does none of that, so none of the six can be bound as it
 // stands. The package resolves, because the shim beside it is registered, so
 // each refusal is about the SHAPE: a Go pointer to an adapter struct has no
@@ -114,7 +114,7 @@ func TestAdapterWall_AdapterGoTypesAreNotRepresentable(t *testing.T) {
 		typ  reflect.Type
 	}{
 		{"the handle itself (*regex.Regex)", reflect.TypeFor[*stdregex.Regex]()},
-		{"Find's result (*string), the host spelling of Maybe<String>", reflect.TypeFor[*string]()},
+		{"Find's result (*string), the host spelling of Option<String>", reflect.TypeFor[*string]()},
 		{"FindAll's result ([]string), the host spelling of List<String>", reflect.TypeFor[[]string]()},
 	} {
 		if k := kindOfGoType(tc.typ); k != kindInvalid {
@@ -124,13 +124,13 @@ func TestAdapterWall_AdapterGoTypesAreNotRepresentable(t *testing.T) {
 	}
 	// The PAIRED POSITIVES: the rt spellings of the SAME two Nomi types DO
 	// project, so the refusals above are about the Go shape rather than about
-	// Maybe and List being unrepresentable. This is what makes "the adapter
-	// needs shims" the right conclusion instead of "Maybe cannot be returned".
+	// Option and List being unrepresentable. This is what makes "the adapter
+	// needs shims" the right conclusion instead of "Option cannot be returned".
 	for _, tc := range []struct {
 		what string
 		typ  reflect.Type
 	}{
-		{"rt.Maybe[string]", reflect.TypeFor[rt.Maybe[string]]()},
+		{"rt.Option[string]", reflect.TypeFor[rt.Option[string]]()},
 		{"*rt.List[string]", reflect.TypeFor[*rt.List[string]]()},
 	} {
 		if k := kindOfGoType(tc.typ); k == kindInvalid {
@@ -145,7 +145,7 @@ func TestAdapterWall_AdapterGoTypesAreNotRepresentable(t *testing.T) {
 		typ  reflect.Type
 	}{
 		{"the shim's handle (rt.Regex)", reflect.TypeFor[rt.Regex]()},
-		{"the shim's Find result", reflect.TypeFor[rt.Maybe[string]]()},
+		{"the shim's Find result", reflect.TypeFor[rt.Option[string]]()},
 		{"the shim's FindAll result", reflect.TypeFor[*rt.List[string]]()},
 	} {
 		if kindOfGoType(tc.typ) == kindInvalid {

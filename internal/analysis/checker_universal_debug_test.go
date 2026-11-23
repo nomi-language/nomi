@@ -47,6 +47,7 @@ func checkUniversalDebugProject(t *testing.T, src string) []analysis.TypeError {
 	errs = append(errs, entryErrors(entryFA)...)
 	errs = append(errs, analysis.CheckTypes(entryFA, entryNodes)...)
 	errs = append(errs, analysis.FinalizeCoherence(entryFA)...)
+	checkNoGeneratedName(t, errs)
 	return errs
 }
 

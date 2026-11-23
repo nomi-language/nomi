@@ -17,7 +17,7 @@
 //	Date, Time, NaiveDateTime        string
 //	List, Vector, Set<T>             T[]
 //	Map<String, V>                   Record<string, V>
-//	Maybe<T>                         T | null
+//	Option<T>                         T | null
 //	a tuple payload                  [A, B]
 //	Unit (a result)                  void
 //	a derived struct                 an interface of its fields, by their JSON keys

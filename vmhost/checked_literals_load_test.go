@@ -16,7 +16,7 @@ const shoutTag = "import\n    std::io\n    std::literals.{CheckedLiteral, Fragme
 	"        bad = Iter.with_index(statics) |> Iter.find(fn (_, s) -> String.contains(s, \"!\"))\n\n" +
 	"        case bad\n" +
 	"            Some((i, s)) ->\n" +
-	"                before = String.split(s, \"!\") |> Iter.first() |> Maybe.with_default(\"\")\n\n" +
+	"                before = String.split(s, \"!\") |> Iter.first() |> Option.with_default(\"\")\n\n" +
 	"                Err(LiteralError{fragment: i, offset: String.length(before), message: \"no `!` in a shout\"})\n\n" +
 	"            None -> Ok(Unit)\n" +
 	"        end\n" +

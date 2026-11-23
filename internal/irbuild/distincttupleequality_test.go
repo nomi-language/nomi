@@ -4,7 +4,7 @@ import "testing"
 
 // TestDistinctTupleEquality_ContainersCompareOnTheVM pins `==`, `!=`, Set
 // membership and Map keys over containers of a distinct over a tuple. Each
-// was BLOCKED ("the comparison operator `==`", or `Maybe<Pair>` outside the
+// was BLOCKED ("the comparison operator `==`", or `Option<Pair>` outside the
 // value domain) before irEqualityListKind and irRetainedPreludePayload
 // admitted the element. The `tag-` lines run a hand-written Equatable whose
 // answers differ from structural equality, so a comparison that bypassed it
@@ -20,13 +20,13 @@ func TestDistinctTupleEquality_ContainersCompareOnTheVM(t *testing.T) {
 		"map-key=one\n" +
 		"map-eq=True\n" +
 		"map-value=False\n" +
-		"maybe=True\n" +
-		"list-of-maybe=True\n" +
+		"option=True\n" +
+		"list-of-option=True\n" +
 		"tuple=True\n" +
-		"maybe-debug=Some(Pair(3, \"c\"))\n" +
+		"option-debug=Some(Pair(3, \"c\"))\n" +
 		"tag-list=True\n" +
 		"tag-list-ne=True\n" +
-		"tag-maybe=True\n" +
+		"tag-option=True\n" +
 		"tag-result=True\n" +
 		"tag-set-size=1\n" +
 		"tag-set-has=True\n" +

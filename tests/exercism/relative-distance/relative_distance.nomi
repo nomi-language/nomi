@@ -7,7 +7,7 @@ pub fn degree_of_separation(
     family: Map<String, List<String>>,
     from:   String,
     to:     String,
-) -> Maybe<Int>
+) -> Option<Int>
     search([from], [from], 0, relatives(family), to)
 end
 
@@ -19,12 +19,12 @@ fn search(
     distance:  Int,
     relatives: Map<String, Set<String>>,
     to:        String,
-) -> Maybe<Int>
+) -> Option<Int>
     if to in frontier then return Some(distance)
 
     next =
         frontier
-        |> Iter.flat_map(&(Map.get(relatives, &1) |> Maybe.with_default([])))
+        |> Iter.flat_map(&(Map.get(relatives, &1) |> Option.with_default([])))
         |> Iter.reject(&(&1 in seen))
         |> Iter.to_set()
 

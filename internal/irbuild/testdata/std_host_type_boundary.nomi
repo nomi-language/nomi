@@ -25,9 +25,9 @@
 //   - `Bytes.concat` is ORDERED, checked by content: swapping the arguments
 //     gives 98, 97 and a length-only assertion would pass under it.
 //
-// The `Maybe<Byte>` rows carry a second load: they are a prelude instance over
+// The `Option<Byte>` rows carry a second load: they are a prelude instance over
 // an anchored blessed primitive, which is the same package-neutrality question
-// `Maybe<Codepoint>` answers for the opaque family.
+// `Option<Codepoint>` answers for the opaque family.
 //
 // # What is deliberately absent, and it is the best row this fixture could have
 //

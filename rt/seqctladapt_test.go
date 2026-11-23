@@ -336,7 +336,7 @@ func TestSeqCtlTerminalsAndStages(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		f    func(*Frame, int64) (bool, Ctl)
-		want Maybe[int64]
+		want Option[int64]
 	}{
 		{"skip passes over a match", at(4, CtlSkip, false, big), Some[int64](5)},
 		{"stop finds nothing", at(2, CtlStop, false, big), None[int64]()},

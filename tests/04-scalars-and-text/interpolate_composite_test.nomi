@@ -3,12 +3,12 @@
 //#
 //# `"${t}"` renders a tuple as `(Display(a), Display(b), ...)` and a record as
 //# `{f: Display(v), ...}`: each part through its own Display impl, std's for
-//# `Maybe`, `Result`, `Set` and the collections, the program's for its own
+//# `Option`, `Result`, `Set` and the collections, the program's for its own
 //# types. `Display.to_string(t)` and `io.print(t)` give the same text.
 
 struct Point
     x: Int
-    m: Maybe<Int>
+    m: Option<Int>
 end
 
 derive Display for Point
@@ -52,9 +52,9 @@ fn always() -> Result<Int, Infallible>
     Ok(3)
 end
 
-test "a tuple holding a Maybe renders the variant"
-    none: (Int, Maybe<Int>) = (1, None)
-    some: (Int, Maybe<Int>) = (1, Some(2))
+test "a tuple holding an Option renders the variant"
+    none: (Int, Option<Int>) = (1, None)
+    some: (Int, Option<Int>) = (1, Some(2))
     assert "${none}" == "(1, None)"
     assert "${some}" == "(1, Some(2))"
     assert Display.to_string(none) == "(1, None)"
@@ -72,8 +72,8 @@ test "a tuple holding a collection renders its elements by Display"
     assert "${(1, [2, 3])}" == "(1, [2, 3])"
     assert "${(1, {"a" => 2})}" == "(1, {a => 2})"
     assert "${(1, Set[2])}" == "(1, Set[2])"
-    maybes: (List<Maybe<Int>>, String) = ([Some(1), None], "x")
-    assert "${maybes}" == "([Some(1), None], x)"
+    options: (List<Option<Int>>, String) = ([Some(1), None], "x")
+    assert "${options}" == "([Some(1), None], x)"
 end
 
 test "a tuple holding a declared type renders through its impl"
@@ -86,24 +86,24 @@ test "a tuple holding a declared type renders through its impl"
 end
 
 test "a nested tuple renders each level by Display"
-    nested: (Int, (Maybe<Int>, String)) = (1, (Some(2), "x"))
+    nested: (Int, (Option<Int>, String)) = (1, (Some(2), "x"))
     assert "${nested}" == "(1, (Some(2), x))"
     assert "${([Greeter{name: "Cy"}], 2)}" == "([hi Cy], 2)"
 end
 
-test "an anonymous record holding a Maybe renders the variant"
-    r: {a: Int, b: Maybe<Int>} = {a: 1, b: None}
+test "an anonymous record holding an Option renders the variant"
+    r: {a: Int, b: Option<Int>} = {a: 1, b: None}
     assert "${r}" == "{a: 1, b: None}"
     assert "${{g: Greeter{name: "Di"}, n: 3}}" == "{g: hi Di, n: 3}"
 end
 
-test "a list of tuples holding a Maybe renders each tuple"
-    pairs: List<(Int, Maybe<Int>)> = [(1, None), (2, Some(3))]
+test "a list of tuples holding an Option renders each tuple"
+    pairs: List<(Int, Option<Int>)> = [(1, None), (2, Some(3))]
     assert "${pairs}" == "[(1, None), (2, Some(3))]"
 end
 
 test "a type parameter bounded by Display renders a tuple"
     assert show((1, Some(2))) == "[(1, Some(2))]"
-    nested: Maybe<(Int, Maybe<Int>)> = Some((1, None))
+    nested: Option<(Int, Option<Int>)> = Some((1, None))
     assert show(nested) == "[Some((1, None))]"
 end

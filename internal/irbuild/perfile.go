@@ -397,7 +397,7 @@ type KeptUnit struct {
 type KeptRefinement struct {
 	// Site is the site with no Build and no step's Check; Built says it
 	// had a Build, the next function of its unit's Builds, and Checks are
-	// the indexes of the steps that had a Check, a generic subtype's, each
+	// the indexes of the steps that had a Check, a generic refinement's, each
 	// the next function after that.
 	Site   RefinementSite
 	Built  bool

@@ -20754,6 +20754,10 @@
     "named": true
   },
   {
+    "type": "refine",
+    "named": false
+  },
+  {
     "type": "refute",
     "named": false
   },
@@ -20787,10 +20791,6 @@
   },
   {
     "type": "subtests",
-    "named": false
-  },
-  {
-    "type": "subtype",
     "named": false
   },
   {

@@ -73,7 +73,7 @@ end
 
 // A type argument converts by its parameter's variance (spec §5 *Covariant
 // conversion*): a std collection's (List, Vector, Set, Map keys and values,
-// Maybe, Result), nested, through a tuple's elements and a record's fields,
+// Option, Result), nested, through a tuple's elements and a record's fields,
 // a user struct's or enum's covariant parameter, a function's result and,
 // the other way, its parameter, at an argument, an annotation, a result and
 // a field. An element that enters its interface boxed, a function that
@@ -86,7 +86,7 @@ func TestTypeArgumentVariance_CovariantConverts(t *testing.T) {
 		"Map values":                   `m = {"a" => Pt{x: 1}}; n: Map<String, Named> = m; dbg Map.size(n)`,
 		"Map keys":                     `m = {1 => "a"}; n: Map<Hashable, String> = m; dbg Map.size(n)`,
 		"boxed Map keys":               `m = {Some(1) => "a"}; n: Map<Hashable, String> = m; dbg Map.size(n)`,
-		"Maybe":                        `x: Maybe<Int> = Some(1); y: Maybe<Display> = x; dbg Maybe.is_some(y)`,
+		"Option":                       `x: Option<Int> = Some(1); y: Option<Display> = x; dbg Option.is_some(y)`,
 		"Result":                       `x: Result<Int, String> = Ok(1); y: Result<Display, String> = x; dbg Result.is_ok(y)`,
 		"Result error":                 `x: Result<Int, Pt> = Err(Pt{x: 1}); y: Result<Int, Named> = x; dbg Result.is_ok(y)`,
 		"nested":                       `xs = [[1]]; ys: List<List<Display>> = xs; dbg Iter.count(ys)`,
@@ -95,8 +95,8 @@ func TestTypeArgumentVariance_CovariantConverts(t *testing.T) {
 		"function result":              `fs = [number]; gs: List<(Int) -> Display> = fs; dbg Iter.count(gs)`,
 		"function argument":            `fs = [shown]; gs: List<(Int) -> String> = fs; dbg Iter.count(gs)`,
 		"boxed element":                `xs = [Some(1)]; ys: List<Display> = xs; dbg Iter.count(ys)`,
-		"boxed Maybe payload":          `x = Some([1]); y: Maybe<Display> = x; dbg Maybe.is_some(y)`,
-		"wrapped function":             `fs = [shown]; gs: List<(Maybe<Int>) -> String> = fs; dbg Iter.count(gs)`,
+		"boxed Option payload":         `x = Some([1]); y: Option<Display> = x; dbg Option.is_some(y)`,
+		"wrapped function":             `fs = [shown]; gs: List<(Option<Int>) -> String> = fs; dbg Iter.count(gs)`,
 		"nested function":              `f = fn -> [1]; g: () -> List<Display> = f; dbg Iter.count(g())`,
 		"user struct":                  `b = Box{v: [1]}; c: Box<Display> = b; dbg Display.to_string(c.v)`,
 		"user enum":                    `o = Opt.Has(Some(1)); p: Opt<Display> = o; dbg Iter.count([p])`,

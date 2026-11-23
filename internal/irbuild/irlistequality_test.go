@@ -30,7 +30,7 @@ end
 
 func TestIRListEquality_FindLinksThroughProcess(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn find(list: List<Int>, target: Int) -> Maybe<Int>
+fn find(list: List<Int>, target: Int) -> Option<Int>
  if list == [] then
      None
  else
@@ -43,7 +43,7 @@ fn find(list: List<Int>, target: Int) -> Maybe<Int>
   )
  end
 end
-fn process(list: List<Int>) -> Maybe<Int>
+fn process(list: List<Int>) -> Option<Int>
     val = find(list, 3)?
     Some(val * 10)
 end

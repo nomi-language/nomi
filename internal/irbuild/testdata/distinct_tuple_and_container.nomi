@@ -86,9 +86,9 @@ fn main()
     // A distinct over a container used as a MAP KEY, which reaches the hash and
     // the equality unwrap — two more sites that spelled the conversion bare.
     keyed = {Items([1, 2]) => "one-two"}
-    hit = Map.get(keyed, Items([1, 2])) |> Maybe.with_default("?")
+    hit = Map.get(keyed, Items([1, 2])) |> Option.with_default("?")
 
-    miss = Map.get(keyed, Items([9])) |> Maybe.with_default("?")
+    miss = Map.get(keyed, Items([9])) |> Option.with_default("?")
 
     io.print("keyed=${hit}")
     io.print("keyed-miss=${miss}")

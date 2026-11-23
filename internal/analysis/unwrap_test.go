@@ -10,7 +10,7 @@ import (
 // unwrapDecls are the declarations the postfix `!` cases read.
 const unwrapDecls = `struct User
     name: String
-    nickname: Maybe<String>
+    nickname: Option<String>
 end
 
 fn half(n: Int) -> Result<Int, String>
@@ -21,7 +21,7 @@ fn half(n: Int) -> Result<Int, String>
     end
 end
 
-fn found(n: Int) -> Maybe<String>
+fn found(n: Int) -> Option<String>
     if n > 0 then Some("yes") else None
 end
 
@@ -34,20 +34,20 @@ fn small(n: Int) -> Bool
 end
 `
 
-// A postfix `!`'s type is the payload of the Result's Ok or the Maybe's
+// A postfix `!`'s type is the payload of the Result's Ok or the Option's
 // Some, on a call, a pipe stage, a field, a binding or a group.
 func TestUnwrap_IsThePayloadsType(t *testing.T) {
 	src := unwrapDecls + `
 fn main()
     u = User{name: "a", nickname: Some("b")}
-    maybe = found(2)
+    option = found(2)
     a = half(4)!
     b = found(1)!
     c = 8 |> half()!
     d = Map.get({"k" => 1.5}, "k")!
     e = "3" |> String.to_int()! |> Int.abs()
     f = u.nickname!
-    g = maybe!
+    g = option!
     h = (8 |> half())! + 1
     _ = (a, b, c, d, e, f, g, h)
 end
@@ -72,17 +72,17 @@ end
 	}
 }
 
-// A `!` on anything but a Result or a Maybe is an error at the `!`; on a
+// A `!` on anything but a Result or an Option is an error at the `!`; on a
 // Bool, its hint says to write an assertion. `?` over a `!` whose payload
-// is not a Result or a Maybe is `?`'s own error.
+// is not a Result or an Option is `?`'s own error.
 func TestUnwrap_RejectsOtherTypes(t *testing.T) {
 	cases := []struct {
 		body, msg, hint string
 		col             int
 	}{
-		{"    _ = count(1)!", "`!` unwraps a Result or a Maybe, and `count(1)` is Int", "remove the `!`", 17},
-		{"    _ = small(1)!", "`!` unwraps a Result or a Maybe, and `small(1)` is Bool", "write `assert small(1)`", 17},
-		{"    _ = [1] |> Iter.sum()!", "`!` unwraps a Result or a Maybe, and `[1] |> Iter.sum()` is Int", "remove the `!`", 26},
+		{"    _ = count(1)!", "`!` unwraps a Result or an Option, and `count(1)` is Int", "remove the `!`", 17},
+		{"    _ = small(1)!", "`!` unwraps a Result or an Option, and `small(1)` is Bool", "write `assert small(1)`", 17},
+		{"    _ = [1] |> Iter.sum()!", "`!` unwraps a Result or an Option, and `[1] |> Iter.sum()` is Int", "remove the `!`", 26},
 	}
 	for _, tc := range cases {
 		_, errs := checkSourceWithStdlib(unwrapDecls + "\nfn main()\n" + tc.body + "\nend\n")
@@ -102,7 +102,7 @@ func TestUnwrap_RejectsOtherTypes(t *testing.T) {
 	_, errs := checkSourceWithStdlib(unwrapDecls + "\nfn g() -> Result<Int, String>\n    Ok(half(4)!?)\nend\n")
 	var tryErr bool
 	for _, e := range errs {
-		tryErr = tryErr || strings.Contains(e.Message, "`?` requires a Result or Maybe, got Int")
+		tryErr = tryErr || strings.Contains(e.Message, "`?` requires a Result or Option, got Int")
 	}
 	if !tryErr {
 		t.Errorf("`half(4)!?`: %v", errs)

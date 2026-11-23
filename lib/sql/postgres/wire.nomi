@@ -97,9 +97,9 @@ pub struct Io
     cancelled: Bool = False
     /// The send a stopped task left the server answering, for the cancel
     /// request `flush_cancels` sends.
-    stopped_at: Maybe<Int> = None
+    stopped_at: Option<Int> = None
     /// Why the link cannot be used.
-    broken: Maybe<String> = None
+    broken: Option<String> = None
     /// The notifications heard and not yet taken, oldest first.
     heard:      List<Heard> = []
     status:     TxStatus = TxStatus.Idle
@@ -128,7 +128,7 @@ end
 /// A link to the server `config` names, opened now: TLS as its `sslmode`
 /// says, then the startup message and the password the server asks for.
 pub fn open(config: Config) -> Result<Link, sql.Error>
-    deadline = Instant.now() + Maybe.with_default(config.connect_timeout, open_timeout)
+    deadline = Instant.now() + Option.with_default(config.connect_timeout, open_timeout)
 
     case config.ssl_mode
         .Disable ->
@@ -155,7 +155,7 @@ pub fn open(config: Config) -> Result<Link, sql.Error>
 end
 
 fn plain(config: Config) -> Result<Connection, sql.Error>
-    options = DialOptions{timeout: Some(Maybe.with_default(config.connect_timeout, open_timeout))}
+    options = DialOptions{timeout: Some(Option.with_default(config.connect_timeout, open_timeout))}
 
     net.dial(Config.address(config), options)
     |> Result.map_err(fn e -> unreachable_server(config, "${e}"))
@@ -233,7 +233,11 @@ fn client_config(config: Config) -> Result<ClientConfig, sql.Error>
 end
 
 // One read, retried after each `poll` until `deadline`.
-fn read_until(conn: Connection, reader: Reader, deadline: Instant) -> Result<Maybe<Bytes>, io.Error>
+fn read_until(
+    conn:     Connection,
+    reader:   Reader,
+    deadline: Instant,
+) -> Result<Option<Bytes>, io.Error>
     Connection.set_read_deadline(conn, Some(Instant.now() + poll))
 
     case Reader.read(reader, max: 1)
@@ -286,8 +290,8 @@ end
 // Where the startup stands: the SCRAM exchange so far, and the key a
 // cancel request needs.
 struct Opening
-    scram: Maybe<Scram>
-    proof: Maybe<ScramProof>
+    scram: Option<Scram>
+    proof: Option<ScramProof>
     key:   CancelKey
 end
 
@@ -295,7 +299,7 @@ end
 fn handshake(
     link:     Link,
     config:   Config,
-    deadline: Maybe<Instant>,
+    deadline: Option<Instant>,
     queue:    List<Message>,
     at:       Opening,
 ) -> Result<CancelKey, sql.Error>
@@ -396,7 +400,7 @@ end
 
 fn password(config: Config) -> Result<String, sql.Error>
     config.password
-    |> Maybe.to_result(
+    |> Option.to_result(
         sql.Error.Connection{
             message: "${Config.address(config)} asks ${config.user} for a password, and the connection string has none",
         }
@@ -444,10 +448,11 @@ end
 /// The next messages the server sent, up to and including a
 /// `ReadyForQuery`, waiting for one; a notification goes to the link's
 /// heard ones instead. `deadline` bounds the wait, for opening a link.
-pub fn receive(link: Link, deadline: Maybe<Instant>) -> Result<List<Message>, sql.Error>
+pub fn receive(link: Link, deadline: Option<Instant>) -> Result<List<Message>, sql.Error>
     case Cell.update(link.io, take_frames)
         Ok([]) ->
-            if Maybe.map(deadline, fn at -> Instant.is_before(at, Instant.now())) == Some(True) then
+            if Option.map(deadline, fn at -> Instant.is_before(at, Instant.now()))
+                == Some(True) then
                 return Err(sql.Error.Connection{message: "the server did not answer in time"})
             end
 
@@ -462,7 +467,7 @@ end
 /// The next notification the link hears, waiting for one until
 /// `stopping` answers `True` at one of the waits between reads, which
 /// answers `None`.
-pub fn hear(link: Link, stopping: () -> Bool) -> Result<Maybe<Heard>, sql.Error>
+pub fn hear(link: Link, stopping: () -> Bool) -> Result<Option<Heard>, sql.Error>
     found = Cell.update(link.io, fn held ->
         (taken, frames) = take_frames(held)
 
@@ -498,7 +503,7 @@ fn absorb(cell: Cell<Io>, back: Sender<Io>, reader: Reader)
     defer absorbed(back, held, Reader.read(reader, max: 65_536))
 end
 
-fn absorbed(back: Sender<Io>, held: Io, read: Result<Maybe<Bytes>, io.Error>)
+fn absorbed(back: Sender<Io>, held: Io, read: Result<Option<Bytes>, io.Error>)
     next =
         case read
             Ok(Some(chunk)) ->
@@ -527,14 +532,14 @@ end
 // dropped.
 fn take_frames(held: Io) -> (Io, Result<List<Message>, sql.Error>)
     if held.broken != None and held.parts == [] and Bytes.length(held.pending) == 0 then
-        return (held, Err(sql.Error.Connection{message: Maybe.with_default(held.broken, "")}))
+        return (held, Err(sql.Error.Connection{message: Option.with_default(held.broken, "")}))
     end
 
     (after, taken) = frames_from(joined_bytes(held), [])
 
     case taken
         Ok(found) when found == [] and after.broken != None ->
-            (after, Err(sql.Error.Connection{message: Maybe.with_default(after.broken, "")}))
+            (after, Err(sql.Error.Connection{message: Option.with_default(after.broken, "")}))
 
         _ ->
             (after, taken)
@@ -548,7 +553,7 @@ fn joined_bytes(held: Io) -> Io
     if held.parts == [] then return held
 
     have = Bytes.length(held.pending) + held.parts_size
-    need = messages.frame_length(held.pending, 0) |> Maybe.with_default(5)
+    need = messages.frame_length(held.pending, 0) |> Option.with_default(5)
 
     if have < need and Bytes.length(held.pending) >= 5 then return held
 
@@ -637,7 +642,7 @@ pub fn flush_cancels()
     links = Cell.update(abandoned, fn links -> ([], links))
 
     Iter.each(links, fn link ->
-        if claim_cancel(link, Maybe.with_default(Cell.read(link.io).stopped_at, -1)) then
+        if claim_cancel(link, Option.with_default(Cell.read(link.io).stopped_at, -1)) then
             cancel(link.key)
         end
     end)
@@ -672,7 +677,7 @@ end
 /// connection `key` names is running. A failure to reach it is dropped: the
 /// statement then runs to its end.
 pub fn cancel(key: CancelKey)
-    deadline = Instant.now() + Maybe.with_default(key.config.connect_timeout, open_timeout)
+    deadline = Instant.now() + Option.with_default(key.config.connect_timeout, open_timeout)
 
     opened =
         if key.tls then
@@ -707,7 +712,7 @@ pub fn break_link(link: Link, reason: String)
 end
 
 /// The statement prepared for `sql` on the link, if it is.
-pub fn prepared(link: Link, sql: String) -> Maybe<Prepared>
+pub fn prepared(link: Link, sql: String) -> Option<Prepared>
     Map.get(Cell.read(link.io).statements, sql)
 end
 
@@ -753,7 +758,7 @@ pub fn used(link: Link) -> Instant
 end
 
 /// Why the link cannot be used, if it cannot.
-pub fn broken(link: Link) -> Maybe<String>
+pub fn broken(link: Link) -> Option<String>
     Cell.read(link.io).broken
 end
 

@@ -16,7 +16,7 @@ import "strconv"
 //
 // An error-only Defer, `defer on error close(conn)`, runs only on an error
 // exit: a fault, or a return whose value is `Err` (a function returning a
-// Result) or `None` (one returning a Maybe). Its RunDefer, at the scope's
+// Result) or `None` (one returning an Option). Its RunDefer, at the scope's
 // normal exit, drops it without running it, and so does a return of any
 // other value. A function that registers one makes no tail transfer
 // (TailTransfers), since the callee's value decides whether it runs.

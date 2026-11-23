@@ -42,7 +42,7 @@ var sweepTypes = []sweepType{
 	{"Struct", "P", "P{a: 1}", "P{a: 2}", true, true, false},
 	{"Enum", "Color", "Color.Red", "Color.Green", true, true, false},
 	{"Tuple", "(Int, String)", `(1, "a")`, `(2, "b")`, false, true, false},
-	{"Maybe", "Maybe<Int>", "Some(1)", "None", false, true, false},
+	{"Option", "Option<Int>", "Some(1)", "None", false, true, false},
 	{"List", "List<Int>", "[1]", "[2]", true, true, false},
 	{"Vector", "Vector<Int>", "Vector[1]", "Vector[2]", true, true, false},
 	{"Map", "Map<String, Int>", `{"k" => 1}`, `{"k" => 2}`, false, true, false},
@@ -72,7 +72,7 @@ var sweepConstructs = []sweepConstruct{
 	{"list filter count", sweepAll, "n = [$A, $B, $A] |> Iter.filter(fn x -> x == $A) |> Iter.count()\n  assert n == 2"},
 	{"list pattern", sweepAll, "case [$A, $B]\n    [h, ..] -> assert h == $A\n    [] -> assert False\n  end"},
 	{"list head", sweepAll, "assert List.first([$A, $B]) == Some($A)"},
-	{"maybe", sweepAll, "assert Maybe.with_default(Some($A), $B) == $A"},
+	{"option", sweepAll, "assert Option.with_default(Some($A), $B) == $A"},
 	{"result", sweepAll, "r: Result<$T, String> = Ok($A)\n  assert r == Ok($A)"},
 	{"tuple destructure", sweepAll, "(x, y) = ($A, $B as $T)\n  assert x == $A\n  assert y == $B"},
 	{"generic struct field", sweepAll, "box = Box{inner: $A}\n  assert box.inner == $A"},
@@ -91,7 +91,7 @@ var sweepConstructs = []sweepConstruct{
 	{"field default none", sweepAll, "o = Opt{}\n  assert o.v == None\n  assert Opt{v: Some($A)}.v == Some($A)"},
 	{"enum payload", sweepAll, "w = Wrap.One($A)\n  case w\n    .One(x) -> assert x == $A\n    .Zero -> assert False\n  end"},
 	{"fn roundtrip", sweepAll, "assert echo($A) == $A"},
-	{"fn case to maybe", sweepAll, "assert pick_first([$A, $B]) == Some($A)\n  assert pick_first([]) == None"},
+	{"fn case to option", sweepAll, "assert pick_first([$A, $B]) == Some($A)\n  assert pick_first([]) == None"},
 	{"fn result", sweepAll, "assert wrap_ok($A) == Ok($A)"},
 	{"fn reduce with equality", sweepAll, "assert count_eq([$A, $B, $A], $A) == 2"},
 	{"fn tail recursion", sweepAll, "assert tail_find([$A, $B], $B, 0) == 1"},
@@ -181,7 +181,7 @@ struct Holder
 end
 
 struct Opt
-  v: Maybe<$T> = Maybe.None
+  v: Option<$T> = Option.None
 end
 
 enum Wrap
@@ -195,7 +195,7 @@ fn echo(x: $T) -> $T
   x
 end
 
-fn pick_first(xs: List<$T>) -> Maybe<$T>
+fn pick_first(xs: List<$T>) -> Option<$T>
   case xs
     [h, ..] -> Some(h)
     [] -> None

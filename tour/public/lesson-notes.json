@@ -69,10 +69,10 @@
       "example": "fn doubled(xs: List<Int>) -> List<Int>\n    xs |> Iter.map(fn n -> n * 2)\nend\n"
     },
     {
-      "match": "return type mismatch: expected \\S+, got Maybe<",
-      "note": "This value might be missing, so it is a Maybe. Say what to give back when it is missing, with `Maybe.with_default`.",
+      "match": "return type mismatch: expected \\S+, got Option<",
+      "note": "This value might be missing, so it is an Option. Say what to give back when it is missing, with `Option.with_default`.",
       "link": {
-        "href": "/learn/maybe/",
+        "href": "/learn/option/",
         "label": "The lesson on missing values shows how"
       },
       "example": "fn age(name: String) -> Int\n    ages = {\"Ada\" => 36}\n    Map.get(ages, name)\nend\n"

@@ -121,8 +121,8 @@ func (bl *irScalarBuilder) viewSourceIn(dom analysis.IterViewDomain, impl *ast.I
 		if sk.tag == tagMap && sk.comp != nil && len(sk.comp.parts) == 2 {
 			vs.elem, ok = bl.g.tupleKind([]kind{sk.comp.parts[0], sk.comp.parts[1]}), true
 		}
-	case analysis.IterViewMaybe:
-		vs.elem, ok = maybeIterElem(sk)
+	case analysis.IterViewOption:
+		vs.elem, ok = optionIterElem(sk)
 	case analysis.IterViewImpl:
 		if u, found := bl.g.userIterImplByBlock(sk, impl); found {
 			vs.user, vs.elem = bl.userSource(sk, u)
@@ -162,8 +162,8 @@ func (bl *irScalarBuilder) viewSourceOfKind(sk kind) (viewSource, bool) {
 			dom = analysis.IterViewVector
 		} else if _, ok := setElem(sk); ok {
 			dom = analysis.IterViewSet
-		} else if _, ok := maybeIterElem(sk); ok {
-			dom = analysis.IterViewMaybe
+		} else if _, ok := optionIterElem(sk); ok {
+			dom = analysis.IterViewOption
 		} else if u, ok := bl.g.userIterImplOf(sk); ok {
 			vs := viewSource{dom: analysis.IterViewImpl}
 			vs.user, vs.elem = bl.userSource(sk, u)
@@ -204,8 +204,8 @@ func (bl *irScalarBuilder) seqView(at ast.Node, src ir.Temp, sk, elem kind) (ir.
 // concrete value. A source whose element is not elem but becomes it (`it:
 // Iter<Shape> = [circle]` for `enum Shape { embeds Circle }`) is viewed at
 // its own element, and each element converted as it is read
-// (rebuildAdapter: an embedded value widened, a Maybe<Circle> rebuilt as a
-// Maybe<Shape>, a List<Int> viewed as an Iter<Int>, a value that enters an
+// (rebuildAdapter: an embedded value widened, an Option<Circle> rebuilt as an
+// Option<Shape>, a List<Int> viewed as an Iter<Int>, a value that enters an
 // interface boxed boxed). A domain's own part is only the view over it
 // (viewOwn), so no domain decides what enters an interface.
 func (bl *irScalarBuilder) viewAs(at ast.Node, src ir.Temp, sk kind, vs viewSource, elem kind) (ir.Temp, bool) {
@@ -265,8 +265,8 @@ func (bl *irScalarBuilder) viewOwn(at ast.Node, src ir.Temp, sk kind, vs viewSou
 		return view(ir.IterOverVector, src)
 	case analysis.IterViewSet:
 		return view(ir.IterOverSet, src)
-	case analysis.IterViewMaybe:
-		return view(ir.IterOverMaybe, src)
+	case analysis.IterViewOption:
+		return view(ir.IterOverOption, src)
 	case analysis.IterViewMap:
 		if vs.elem == elem {
 			return bl.mapView(at, src, sk, vs.elem), true
@@ -300,11 +300,11 @@ func (bl *irScalarBuilder) viewOwn(at ast.Node, src ir.Temp, sk kind, vs viewSou
 		if bl.inheritsStepsBetween(own) {
 			return view(ir.IterOverRange, ops...)
 		}
-		maybeInt, shared := bl.g.sharedMaybe(kindInt)
+		optionInt, shared := bl.g.sharedOption(kindInt)
 		if !shared {
-			panic("irbuild: viewOwn: std's shared Maybe<Int> is always built")
+			panic("irbuild: viewOwn: std's shared Option<Int> is always built")
 		}
-		steps, ok := bl.discreteRef(at, own, "steps_between", []kind{own, own}, maybeInt)
+		steps, ok := bl.discreteRef(at, own, "steps_between", []kind{own, own}, optionInt)
 		if !ok {
 			return ir.NoTemp, false
 		}

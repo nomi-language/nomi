@@ -414,12 +414,12 @@ func TestHover_EnumOpaqueHidesVariants(t *testing.T) {
 }
 
 func TestHover_EnumWithData(t *testing.T) {
-	sym := buildSymbol("/// An optional value.\nenum Maybe<T>\n\tSome T\n\tNone\nend", "Maybe")
+	sym := buildSymbol("/// An optional value.\nenum Option<T>\n\tSome T\n\tNone\nend", "Option")
 	if sym == nil {
 		t.Fatal("symbol not found")
 	}
 	result := renderHover(sym)
-	expected := "```nomi\nenum Maybe<T>\n    Some T\n    None\nend\n```\n\nAn optional value."
+	expected := "```nomi\nenum Option<T>\n    Some T\n    None\nend\n```\n\nAn optional value."
 	if result != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", result, expected)
 	}
@@ -1262,10 +1262,10 @@ end
 		t.Fatal("no symbol at the try_from call-site position")
 	}
 	got := renderHover(sym)
-	if !strings.Contains(got, "fn try_from(value: Int) -> Maybe<PositiveInt>") {
+	if !strings.Contains(got, "fn try_from(value: Int) -> Option<PositiveInt>") {
 		t.Errorf("expected hover to render the refinement's base as the parameter type, got:\n%s", got)
 	}
-	if strings.Contains(got, "Maybe<self>") {
+	if strings.Contains(got, "Option<self>") {
 		t.Errorf("hover rendered the old concrete `self` spelling, got:\n%s", got)
 	}
 }
@@ -1277,12 +1277,12 @@ func TestHover_DerivedTypeQualifiedImplMethods(t *testing.T) {
 		wantParts []string
 	}{
 		{
-			name: "maybe equal",
+			name: "option equal",
 			input: `test "hover"
-  assert Maybe.▮equal(Some(4), Some(4))
+  assert Option.▮equal(Some(4), Some(4))
 end
 `,
-			wantParts: []string{"fn equal", "Maybe<Int>", "Bool"},
+			wantParts: []string{"fn equal", "Option<Int>", "Bool"},
 		},
 		{
 			name: "result equal",
@@ -1293,12 +1293,12 @@ end
 			wantParts: []string{"fn equal", "Result<Int, _>", "Bool"},
 		},
 		{
-			name: "maybe hash",
+			name: "option hash",
 			input: `test "hover"
-  assert Maybe.▮hash(Some(4)) == Maybe.hash(Some(4))
+  assert Option.▮hash(Some(4)) == Option.hash(Some(4))
 end
 `,
-			wantParts: []string{"fn hash", "Maybe<Int>", "Int"},
+			wantParts: []string{"fn hash", "Option<Int>", "Int"},
 		},
 	}
 
@@ -1336,13 +1336,13 @@ func TestHover_ImplMethodParamUsageRendersConcreteType(t *testing.T) {
   fn equal(a: self, b: self) -> Bool
 end
 
-enum Maybe<T>
+enum Option<T>
   Some T
   None
 end
 
-impl Equal for Maybe<T>
-  fn equal(a: Maybe<T>, b: Maybe<T>) -> Bool
+impl Equal for Option<T>
+  fn equal(a: Option<T>, b: Option<T>) -> Bool
     a == ▮b
   end
 end
@@ -1362,7 +1362,7 @@ end
 		t.Fatal("no symbol at impl method param usage")
 	}
 	got := renderHover(sym)
-	if !strings.Contains(got, "b: Maybe<T>") {
+	if !strings.Contains(got, "b: Option<T>") {
 		t.Errorf("expected hover to render concrete impl receiver type, got:\n%s", got)
 	}
 	if strings.Contains(got, "b: self") {
@@ -1987,10 +1987,10 @@ end`)
 }
 
 func TestHover_VariantPatternShowsInstantiatedType(t *testing.T) {
-	// Locally-declared Maybe / Result so the test doesn't depend on stdlib
+	// Locally-declared Option / Result so the test doesn't depend on stdlib
 	// being loaded. The substitution path through TypeParamDefs is the same
 	// as for the real stdlib types.
-	src := `enum Maybe<T>
+	src := `enum Option<T>
     Some T
     None
 end
@@ -1998,7 +1998,7 @@ enum Result<T, E>
     Ok T
     Err E
 end
-fn unwrap_or(m: Maybe<Result<Int, String>>) -> Int
+fn unwrap_or(m: Option<Result<Int, String>>) -> Int
   case m
     Some(Ok(n)) -> n
     Some(Err(_)) -> -1
@@ -2044,13 +2044,13 @@ func TestHover_VariantConstructorAtCallSite(t *testing.T) {
 		Name:     "Result",
 		TypeArgs: []analysis.Type{analysis.TypeInt, analysis.TypeString},
 	}
-	maybeResult := &analysis.EnumType{
-		Name:     "Maybe",
+	optionResult := &analysis.EnumType{
+		Name:     "Option",
 		TypeArgs: []analysis.Type{resultStrInt},
 	}
 	ft := &analysis.FuncType{
 		Params: []analysis.Type{resultStrInt},
-		Return: maybeResult,
+		Return: optionResult,
 	}
 	sym := &analysis.Symbol{
 		Name:     "Some",
@@ -2058,7 +2058,7 @@ func TestHover_VariantConstructorAtCallSite(t *testing.T) {
 		CallType: ft,
 	}
 	got := renderHover(sym)
-	want := "```nomi\nMaybe.Some(Result<Int, String>) -> Maybe<Result<Int, String>>\n```"
+	want := "```nomi\nOption.Some(Result<Int, String>) -> Option<Result<Int, String>>\n```"
 	if got != want {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", got, want)
 	}
@@ -2187,7 +2187,7 @@ func TestHover_SelfMarkerDrillThrough(t *testing.T) {
 	}
 	// Find the `self` definition whose Resolved enum is Color — the
 	// auto-prepended std prelude chain also emits
-	// drill-through self markers for Bool/Maybe/Result, so a plain
+	// drill-through self markers for Bool/Option/Result, so a plain
 	// "first self" lookup is ambiguous; filter by the enum's name.
 	var sym *analysis.Symbol
 	for _, def := range doc.Analysis.Definitions {
@@ -2244,15 +2244,15 @@ func TestHover_TryOp_Result(t *testing.T) {
 	}
 }
 
-// Same as above but for Maybe<T>: prose says `On None` (no payload type)
+// Same as above but for Option<T>: prose says `On None` (no payload type)
 // instead of `On Err: <type>`.
-func TestHover_TryOp_Maybe(t *testing.T) {
-	got := hoverAtMark(t, "enum Maybe<T>\n    Some T\n    None\nend\n"+
-		"fn lookup(m: Maybe<Int>) -> Int\n"+
+func TestHover_TryOp_Option(t *testing.T) {
+	got := hoverAtMark(t, "enum Option<T>\n    Some T\n    None\nend\n"+
+		"fn lookup(m: Option<Int>) -> Int\n"+
 		"  v = m▮?\n"+
 		"  v + 1\n"+
 		"end")
-	expected := "```nomi\n?: Maybe<Int> -> Int\n```\n\nOn `None`, unwinds to `fn lookup`."
+	expected := "```nomi\n?: Option<Int> -> Int\n```\n\nOn `None`, unwinds to `fn lookup`."
 	if got != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", got, expected)
 	}
@@ -2290,13 +2290,13 @@ func TestHover_TryOp_InLambda(t *testing.T) {
 
 // A `?` in a test body unwinds to the test.
 func TestHover_TryOp_InTest(t *testing.T) {
-	got := hoverAtMark(t, "enum Maybe<T>\n    Some T\n    None\nend\n"+
-		"fn find() -> Maybe<Int>\n    Maybe.Some(1)\nend\n"+
+	got := hoverAtMark(t, "enum Option<T>\n    Some T\n    None\nend\n"+
+		"fn find() -> Option<Int>\n    Option.Some(1)\nend\n"+
 		"test \"finds\"\n"+
 		"  v = find()▮?\n"+
 		"  assert v == 1\n"+
 		"end")
-	expected := "```nomi\n?: Maybe<Int> -> Int\n```\n\nOn `None`, unwinds to `test \"finds\"`."
+	expected := "```nomi\n?: Option<Int> -> Int\n```\n\nOn `None`, unwinds to `test \"finds\"`."
 	if got != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", got, expected)
 	}
@@ -2306,12 +2306,12 @@ func TestHover_TryOp_InTest(t *testing.T) {
 // traps on the Err or None.
 func TestHover_Bang(t *testing.T) {
 	for name, c := range map[string]struct{ src, want string }{
-		"maybe in a function": {
-			"enum Maybe<T>\n    Some T\n    None\nend\n" +
-				"fn first(m: Maybe<Int>) -> Int\n" +
+		"option in a function": {
+			"enum Option<T>\n    Some T\n    None\nend\n" +
+				"fn first(m: Option<Int>) -> Int\n" +
 				"  m▮!\n" +
 				"end",
-			"```nomi\n!: Maybe<Int> -> Int\n```\n\nOn `None`, traps.",
+			"```nomi\n!: Option<Int> -> Int\n```\n\nOn `None`, traps.",
 		},
 		"result in a lambda": {
 			"enum Result<T, E>\n    Ok T\n    Err E\nend\n" +
@@ -2548,12 +2548,12 @@ func TestHover_Refute_Result(t *testing.T) {
 	}
 }
 
-func TestHover_Check_Maybe(t *testing.T) {
+func TestHover_Check_Option(t *testing.T) {
 	src := "enum Result<T, E>\n    Ok T\n    Err E\nend\n" +
-		"enum Maybe<T>\n    Some T\n    None\nend\n" +
+		"enum Option<T>\n    Some T\n    None\nend\n" +
 		"host type AssertionFailure\n" +
 		"host fn check<T>(subject: T) -> Result<T, AssertionFailure>\n" +
-		"fn validate(m: Maybe<Int>)\n" +
+		"fn validate(m: Option<Int>)\n" +
 		"  checked = check(m)\n" +
 		"end"
 	file := checkedFile(src)
@@ -2564,7 +2564,7 @@ func TestHover_Check_Maybe(t *testing.T) {
 		t.Fatal("expected a symbol at the `check` position")
 	}
 	got := renderHover(sym)
-	expected := "```nomi\nfn check(subject: Maybe<Int>) -> Result<Maybe<Int>, AssertionFailure>\n```"
+	expected := "```nomi\nfn check(subject: Option<Int>) -> Result<Option<Int>, AssertionFailure>\n```"
 	if got != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", got, expected)
 	}
@@ -2618,11 +2618,11 @@ func TestHover_Subtests(t *testing.T) {
 }
 
 func TestHover_Assertion_PipelineBool(t *testing.T) {
-	inputWithMarker := `test "maybe equality works as a pipeline predicate"
+	inputWithMarker := `test "option equality works as a pipeline predicate"
   3.7
   |> Float.round()
   |> Float.to_int()
-  |> Maybe.equal(Some(4))
+  |> Option.equal(Some(4))
   |> ▮assert
 end
 `
@@ -2641,7 +2641,7 @@ end
 		t.Fatal("expected a symbol at the piped `assert` keyword position")
 	}
 	got := renderHover(sym)
-	expected := "```nomi\nassert: Bool -> Bool\n```\n\nRequires `True`. On `False`, returns `AssertionFailure` and unwinds to `test \"maybe equality works as a pipeline predicate\"`."
+	expected := "```nomi\nassert: Bool -> Bool\n```\n\nRequires `True`. On `False`, returns `AssertionFailure` and unwinds to `test \"option equality works as a pipeline predicate\"`."
 	if got != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", got, expected)
 	}
@@ -2696,8 +2696,8 @@ func TestHover_IfPatternKeyword(t *testing.T) {
   None
 end
 
-fn label(maybe_name: Box<String>) -> String
-  ▮if Box.Some(name) = maybe_name then name else "unknown"
+fn label(option_name: Box<String>) -> String
+  ▮if Box.Some(name) = option_name then name else "unknown"
 end
 `)
 	file := checkedFile(input)
@@ -2714,12 +2714,12 @@ end
 }
 
 func TestHover_CaseKeyword(t *testing.T) {
-	input, pos := hoverMarkerPosition(t, `enum Maybe<T>
+	input, pos := hoverMarkerPosition(t, `enum Option<T>
   Some T
   None
 end
 
-fn value(m: Maybe<Int>) -> Int
+fn value(m: Option<Int>) -> Int
   ▮case m
     Some(n) -> n
     None -> 0
@@ -2733,7 +2733,7 @@ end
 		t.Fatal("expected a symbol at the `case` keyword position")
 	}
 	got := renderHover(sym)
-	expected := "```nomi\ncase: Maybe<Int> -> Int\n```\n\nMatches the input value against patterns. Branch bodies must produce compatible values."
+	expected := "```nomi\ncase: Option<Int> -> Int\n```\n\nMatches the input value against patterns. Branch bodies must produce compatible values."
 	if got != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", got, expected)
 	}

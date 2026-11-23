@@ -1,5 +1,5 @@
 // A Bytes or a Regex held as `Display` renders through its own impl, on its
-// own and inside a list, a tuple, a map, a Maybe and a record, as it does
+// own and inside a list, a tuple, a map, an Option and a record, as it does
 // at its own type.
 import std::regex.Regex
 

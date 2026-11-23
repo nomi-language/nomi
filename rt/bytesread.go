@@ -43,8 +43,8 @@ func fixedAt(data Bytes, at Int, width int, big bool) (uint64, bool) {
 	return BytesWordAt(data, at.Saturated(), width, big, false)
 }
 
-// unsignedAt is fixedAt as std's Maybe of a non-negative Int.
-func unsignedAt(data Bytes, at Int, width int, big bool) Maybe[Int] {
+// unsignedAt is fixedAt as std's Option of a non-negative Int.
+func unsignedAt(data Bytes, at Int, width int, big bool) Option[Int] {
 	u, ok := fixedAt(data, at, width, big)
 	if !ok {
 		return None[Int]()
@@ -53,7 +53,7 @@ func unsignedAt(data Bytes, at Int, width int, big bool) Maybe[Int] {
 }
 
 // signedAt is BytesWordAt read as two's complement at its width.
-func signedAt(data Bytes, at Int, width int, big bool) Maybe[int64] {
+func signedAt(data Bytes, at Int, width int, big bool) Option[int64] {
 	u, ok := BytesWordAt(data, at.Saturated(), width, big, true)
 	if !ok {
 		return None[int64]()
@@ -65,36 +65,36 @@ func signedAt(data Bytes, at Int, width int, big bool) Maybe[int64] {
 // the other fixed-width reads: the integer in the width, signedness and
 // byte order the name says at index at, or None when its bytes are not all
 // inside data.
-func BytesUint8At(data Bytes, at Int) Maybe[Int]    { return unsignedAt(data, at, 1, true) }
-func BytesInt8At(data Bytes, at Int) Maybe[int64]   { return signedAt(data, at, 1, true) }
-func BytesUint16BEAt(data Bytes, at Int) Maybe[Int] { return unsignedAt(data, at, 2, true) }
-func BytesUint16LEAt(data Bytes, at Int) Maybe[Int] { return unsignedAt(data, at, 2, false) }
-func BytesInt16BEAt(data Bytes, at Int) Maybe[int64] {
+func BytesUint8At(data Bytes, at Int) Option[Int]    { return unsignedAt(data, at, 1, true) }
+func BytesInt8At(data Bytes, at Int) Option[int64]   { return signedAt(data, at, 1, true) }
+func BytesUint16BEAt(data Bytes, at Int) Option[Int] { return unsignedAt(data, at, 2, true) }
+func BytesUint16LEAt(data Bytes, at Int) Option[Int] { return unsignedAt(data, at, 2, false) }
+func BytesInt16BEAt(data Bytes, at Int) Option[int64] {
 	return signedAt(data, at, 2, true)
 }
-func BytesInt16LEAt(data Bytes, at Int) Maybe[int64] {
+func BytesInt16LEAt(data Bytes, at Int) Option[int64] {
 	return signedAt(data, at, 2, false)
 }
-func BytesUint32BEAt(data Bytes, at Int) Maybe[Int] { return unsignedAt(data, at, 4, true) }
-func BytesUint32LEAt(data Bytes, at Int) Maybe[Int] { return unsignedAt(data, at, 4, false) }
-func BytesInt32BEAt(data Bytes, at Int) Maybe[int64] {
+func BytesUint32BEAt(data Bytes, at Int) Option[Int] { return unsignedAt(data, at, 4, true) }
+func BytesUint32LEAt(data Bytes, at Int) Option[Int] { return unsignedAt(data, at, 4, false) }
+func BytesInt32BEAt(data Bytes, at Int) Option[int64] {
 	return signedAt(data, at, 4, true)
 }
-func BytesInt32LEAt(data Bytes, at Int) Maybe[int64] {
+func BytesInt32LEAt(data Bytes, at Int) Option[int64] {
 	return signedAt(data, at, 4, false)
 }
-func BytesUint64BEAt(data Bytes, at Int) Maybe[Int] { return unsignedAt(data, at, 8, true) }
-func BytesUint64LEAt(data Bytes, at Int) Maybe[Int] { return unsignedAt(data, at, 8, false) }
-func BytesInt64BEAt(data Bytes, at Int) Maybe[int64] {
+func BytesUint64BEAt(data Bytes, at Int) Option[Int] { return unsignedAt(data, at, 8, true) }
+func BytesUint64LEAt(data Bytes, at Int) Option[Int] { return unsignedAt(data, at, 8, false) }
+func BytesInt64BEAt(data Bytes, at Int) Option[int64] {
 	return signedAt(data, at, 8, true)
 }
-func BytesInt64LEAt(data Bytes, at Int) Maybe[int64] {
+func BytesInt64LEAt(data Bytes, at Int) Option[int64] {
 	return signedAt(data, at, 8, false)
 }
 
 // floatAt is the IEEE 754 float of width bytes at index at: a 32-bit one
 // widened exactly.
-func floatAt(data Bytes, at Int, width int, big bool) Maybe[float64] {
+func floatAt(data Bytes, at Int, width int, big bool) Option[float64] {
 	u, ok := fixedAt(data, at, width, big)
 	if !ok {
 		return None[float64]()
@@ -107,10 +107,10 @@ func floatAt(data Bytes, at Int, width int, big bool) Maybe[float64] {
 
 // BytesFloat32BEAt and its siblings are `Bytes.float32_be_at` and the other
 // float reads.
-func BytesFloat32BEAt(data Bytes, at Int) Maybe[float64] { return floatAt(data, at, 4, true) }
-func BytesFloat32LEAt(data Bytes, at Int) Maybe[float64] { return floatAt(data, at, 4, false) }
-func BytesFloat64BEAt(data Bytes, at Int) Maybe[float64] { return floatAt(data, at, 8, true) }
-func BytesFloat64LEAt(data Bytes, at Int) Maybe[float64] { return floatAt(data, at, 8, false) }
+func BytesFloat32BEAt(data Bytes, at Int) Option[float64] { return floatAt(data, at, 4, true) }
+func BytesFloat32LEAt(data Bytes, at Int) Option[float64] { return floatAt(data, at, 4, false) }
+func BytesFloat64BEAt(data Bytes, at Int) Option[float64] { return floatAt(data, at, 8, true) }
+func BytesFloat64LEAt(data Bytes, at Int) Option[float64] { return floatAt(data, at, 8, false) }
 
 // varintAt is a varint and the index after it, the tuple Bytes.uvarint_at
 // and Bytes.varint_at answer: an rt signature spells a Nomi tuple as an
@@ -124,7 +124,7 @@ type varintAt = struct {
 // integer starting at index at and the index after its last byte, or None
 // when data ends before a byte without its high bit set. The integer has
 // any size.
-func BytesUvarintAt(data Bytes, at Int) Maybe[varintAt] {
+func BytesUvarintAt(data Bytes, at Int) Option[varintAt] {
 	if v, next, ok := uvarintAt(data, at); ok {
 		return Some(varintAt{v, next})
 	}
@@ -173,7 +173,7 @@ func uvarintBig(data Bytes, start int) (Int, int64, bool) {
 
 // BytesVarintAt is std/bytes's `Bytes.varint_at`: BytesUvarintAt's integer
 // decoded from zigzag.
-func BytesVarintAt(data Bytes, at Int) Maybe[varintAt] {
+func BytesVarintAt(data Bytes, at Int) Option[varintAt] {
 	u, next, ok := uvarintAt(data, at)
 	if !ok {
 		return None[varintAt]()
@@ -203,9 +203,9 @@ func searchFrom(data Bytes, from Int) int {
 	return int(f)
 }
 
-// found is i, an index of data[start:] or -1, as std's Maybe of an index of
+// found is i, an index of data[start:] or -1, as std's Option of an index of
 // data.
-func found(start, i int) Maybe[int64] {
+func found(start, i int) Option[int64] {
 	if i < 0 {
 		return None[int64]()
 	}
@@ -214,14 +214,14 @@ func found(start, i int) Maybe[int64] {
 
 // BytesIndexOf is `Bytes.index_of`: the first index at or after from where
 // needle starts in data. An empty needle is found at from.
-func BytesIndexOf(data, needle Bytes, from Int) Maybe[int64] {
+func BytesIndexOf(data, needle Bytes, from Int) Option[int64] {
 	start := searchFrom(data, from)
 	return found(start, strings.Index(string(data[start:]), string(needle)))
 }
 
 // BytesIndexOfByte is `Bytes.index_of_byte`: the first index at or after
 // from that holds b.
-func BytesIndexOfByte(data Bytes, b Byte, from Int) Maybe[int64] {
+func BytesIndexOfByte(data Bytes, b Byte, from Int) Option[int64] {
 	start := searchFrom(data, from)
 	return found(start, strings.IndexByte(string(data[start:]), byte(b)))
 }
@@ -244,7 +244,7 @@ func (s *byteSet) has(b byte) bool { return s[b>>6]&(1<<(b&63)) != 0 }
 // from that holds one of the bytes of set. Each byte of set counts on its
 // own, unlike Go's bytes.IndexAny, which reads its set as UTF-8. A set of
 // one byte is BytesIndexOfByte's search.
-func BytesIndexOfAny(data, set Bytes, from Int) Maybe[int64] {
+func BytesIndexOfAny(data, set Bytes, from Int) Option[int64] {
 	start := searchFrom(data, from)
 	switch len(set) {
 	case 0:
@@ -263,7 +263,7 @@ func BytesIndexOfAny(data, set Bytes, from Int) Maybe[int64] {
 
 // BytesLastIndexOfAny is `Bytes.last_index_of_any`: the last index that
 // holds one of the bytes of set.
-func BytesLastIndexOfAny(data, set Bytes) Maybe[int64] {
+func BytesLastIndexOfAny(data, set Bytes) Option[int64] {
 	switch len(set) {
 	case 0:
 		return None[int64]()
@@ -281,13 +281,13 @@ func BytesLastIndexOfAny(data, set Bytes) Maybe[int64] {
 
 // BytesLastIndexOf is `Bytes.last_index_of`: the last index where needle
 // starts in data. An empty needle is found at the end.
-func BytesLastIndexOf(data, needle Bytes) Maybe[int64] {
+func BytesLastIndexOf(data, needle Bytes) Option[int64] {
 	return found(0, strings.LastIndex(string(data), string(needle)))
 }
 
 // BytesLastIndexOfByte is `Bytes.last_index_of_byte`: the last index that
 // holds b.
-func BytesLastIndexOfByte(data Bytes, b Byte) Maybe[int64] {
+func BytesLastIndexOfByte(data Bytes, b Byte) Option[int64] {
 	return found(0, strings.LastIndexByte(string(data), byte(b)))
 }
 

@@ -166,7 +166,7 @@ func TestDiagnosticShape(t *testing.T) {
 // enclosing value's type unknown, so no second mismatch follows from it.
 func TestDiagnosticShape_NoFollowOnMismatch(t *testing.T) {
 	for _, src := range []string{
-		"fn d() -> Maybe<(Int) -> Int>\n  Some(fn x: Int -> x + nope)\nend\n",
+		"fn d() -> Option<(Int) -> Int>\n  Some(fn x: Int -> x + nope)\nend\n",
 		"fn d() -> (Int) -> Int\n  fn _n: Int -> _\nend\n",
 		"fn d() -> (Int, Int)\n  (1, _)\nend\n",
 	} {
@@ -207,9 +207,9 @@ func TestDiagnosticShape_UndeterminedLambdaParameter(t *testing.T) {
 	// A typed parameter, or a function type expected, is accepted.
 	for _, src := range []string{
 		"fn d() -> Int\n  f = fn x: Int -> x\n  f(2)\nend\n",
-		"fn d() -> Maybe<Int>\n  Maybe.map(Some(1), fn x -> x + 1)\nend\n",
+		"fn d() -> Option<Int>\n  Option.map(Some(1), fn x -> x + 1)\nend\n",
 		"fn d() -> Int\n  f: (Int) -> Int = fn x -> x\n  f(1)\nend\n",
-		"fn d() -> Maybe<(Int) -> Int>\n  Some(fn x -> x + 1)\nend\n",
+		"fn d() -> Option<(Int) -> Int>\n  Some(fn x -> x + 1)\nend\n",
 	} {
 		if _, errs := checkSourceWithStdlib(src); len(errs) != 0 {
 			t.Errorf("%s: want no error, got %v", src, errs)

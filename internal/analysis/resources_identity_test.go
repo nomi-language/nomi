@@ -147,7 +147,7 @@ end
 func TestResourceIdentity_ABareNamedStdReleaseSettlesAPath(t *testing.T) {
 	expectReleaseErrors(t, `import std::sql.{self, Conn}
 
-fn maybe(connect: () -> Result<Conn, sql.Error>, want: Bool) -> Result<Maybe<Conn>, sql.Error>
+fn option(connect: () -> Result<Conn, sql.Error>, want: Bool) -> Result<Option<Conn>, sql.Error>
     conn = connect()?
     defer on error sql.close_quietly(conn)
     if not want then

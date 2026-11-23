@@ -28,8 +28,8 @@ fn boot(startup: Startup) -> Result<App, String>
             endpoint: Url`https://nyc3.digitaloceanspaces.com`,
             bucket: "photos",
             credentials: s3.Credentials{
-                access_key: Map.get(env, "SPACES_ACCESS_KEY") |> Maybe.with_default(""),
-                secret_key: Map.get(env, "SPACES_SECRET_KEY") |> Maybe.with_default(""),
+                access_key: Map.get(env, "SPACES_ACCESS_KEY") |> Option.with_default(""),
+                secret_key: Map.get(env, "SPACES_SECRET_KEY") |> Option.with_default(""),
             },
             acl: Some("public-read"),
             cache_control: Some("public, max-age=31536000, immutable"),

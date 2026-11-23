@@ -12,7 +12,7 @@ func TestUnitPatternChecksAndCoversItsType(t *testing.T) {
   done: Unit
 end
 
-fn f(r: Result<Unit, String>, u: Unit, p: (Int, Unit), j: Job, m: Maybe<Unit>) -> Int
+fn f(r: Result<Unit, String>, u: Unit, p: (Int, Unit), j: Job, m: Option<Unit>) -> Int
   a = case r
     Ok(Unit) -> 1
     Err(_) -> 2

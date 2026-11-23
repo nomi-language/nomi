@@ -46,13 +46,13 @@ fn show<T>(x: T) -> String where T: Display
 end
 
 fn main()
-    a: Maybe<Int> = Some(1)
+    a: Option<Int> = Some(1)
     b: Result<Int, String> = Ok(2)
     c: Shape = .Sq(3)
     d = Shape.Pair(4, 5)
     e = Shape.Id(6)
     f = &Some(&1)
-    g: Maybe<Int> = 7 |> Some()
+    g: Option<Int> = 7 |> Some()
     h = Two(8, "x")
     io.print(Debug.inspect((a, b, c, d, e, f(9), g, h)))
     p = Struct.update(updates: {x: say(10)}, original: mk())

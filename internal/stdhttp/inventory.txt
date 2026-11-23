@@ -17,8 +17,8 @@ CanonicalHeaderKey | covered | phase 2 | `Headers.canonical_key(name)`
 Client | mapped | phase 2 | `Client`, an opaque handle (it owns the connection pool) made by `Client.new(#ClientOptions{...})`
 Client.Transport | covered | phase 2 | `ClientOptions.transport: Transport` (options), or `ClientOptions.round_trip` to replace the transport
 Client.CheckRedirect | covered | phase 2 | `ClientOptions.redirects: Redirects` (`.Follow{max}`, `.Never`, and `.Decide`, a callback, from phase 4)
-Client.Jar | covered | phase 3 | `ClientOptions.cookies: Maybe<CookieJar>`
-Client.Timeout | covered | phase 2 | `ClientOptions.timeout: Maybe<Duration>`
+Client.Jar | covered | phase 3 | `ClientOptions.cookies: Option<CookieJar>`
+Client.Timeout | covered | phase 2 | `ClientOptions.timeout: Option<Duration>`
 Client.Get | covered | phase 2 | `Client.get(client, url)`
 Client.Do | covered | phase 2 | `Client.fetch(client, request)` (whole body) and `Client.stream(client, request)`, a `StreamedResponse`, with `defer StreamedResponse.close(response)` (streaming)
 Client.Post | covered | phase 2 | `Client.post(client, url, body)`
@@ -35,16 +35,16 @@ Cookie | covered | phase 3 | `Cookie` struct
 Cookie.Name | covered | phase 3 | `Cookie.name: String`
 Cookie.Value | covered | phase 3 | `Cookie.value: String`
 Cookie.Quoted | covered | phase 3 | `Cookie.quoted: Bool`
-Cookie.Path | covered | phase 3 | `Cookie.path: Maybe<String>`
-Cookie.Domain | covered | phase 3 | `Cookie.domain: Maybe<String>`
-Cookie.Expires | covered | phase 3 | `Cookie.expires: Maybe<Instant>`
-Cookie.RawExpires | covered | phase 3 | `Cookie.raw_expires: Maybe<String>` (set by parsing only)
+Cookie.Path | covered | phase 3 | `Cookie.path: Option<String>`
+Cookie.Domain | covered | phase 3 | `Cookie.domain: Option<String>`
+Cookie.Expires | covered | phase 3 | `Cookie.expires: Option<Instant>`
+Cookie.RawExpires | covered | phase 3 | `Cookie.raw_expires: Option<String>` (set by parsing only)
 Cookie.MaxAge | covered | phase 3 | `Cookie.max_age: MaxAge` (`.Unset`, `.DeleteNow`, `.Seconds(Int)`), in place of Go's 0 and negative codes
 Cookie.Secure | covered | phase 3 | `Cookie.secure: Bool`
 Cookie.HttpOnly | covered | phase 3 | `Cookie.http_only: Bool`
 Cookie.SameSite | covered | phase 3 | `Cookie.same_site: SameSite`
 Cookie.Partitioned | covered | phase 3 | `Cookie.partitioned: Bool`
-Cookie.Raw | covered | phase 3 | `Cookie.raw: Maybe<String>` (set by parsing only)
+Cookie.Raw | covered | phase 3 | `Cookie.raw: Option<String>` (set by parsing only)
 Cookie.Unparsed | covered | phase 3 | `Cookie.unparsed: List<String>` (set by parsing only)
 Cookie.String | covered | phase 3 | `Display for Cookie`: the `Set-Cookie` value
 Cookie.Valid | covered | phase 3 | `Cookie.validate(cookie) -> Result<Unit, Error>`
@@ -54,7 +54,7 @@ CookieJar.SetCookies | covered | phase 3 | `CookieJar.set_cookies(jar, url, cook
 CrossOriginProtection | covered | phase 4 | `CrossOrigin` options struct, made into middleware by `http.cross_origin_protection`
 CrossOriginProtection.AddTrustedOrigin | covered | phase 4 | `CrossOrigin.trusted_origins: List<Origin>`, each checked when it is made
 CrossOriginProtection.AddInsecureBypassPattern | covered | phase 4 | `CrossOrigin.bypass_patterns: List<Route>`
-CrossOriginProtection.SetDenyHandler | covered | phase 4 | `CrossOrigin.deny: Maybe<Handler>`
+CrossOriginProtection.SetDenyHandler | covered | phase 4 | `CrossOrigin.deny: Option<Handler>`
 CrossOriginProtection.Check | covered | phase 4 | `CrossOrigin.check(options, request) -> Result<Unit, Error>`
 CrossOriginProtection.Handler | covered | phase 4 | `http.cross_origin_protection(handler, options)`, which wraps a handler
 DefaultClient | covered | phase 2 | `http.default_client()`, the ambient client, one pool for the process as Go's is, `http.fetch` uses; `std::http::testing.run` replaces it
@@ -98,18 +98,18 @@ Flusher | mapped | phase 3 | `Writer.flush` inside a `Body.Produce` producer
 Flusher.Flush | covered | phase 3 | `Writer.flush(w)`
 Get | covered | phase 2 | `http.get(url) -> Result<Response, Error>`
 HTTP2Config | covered | phase 6 | `Http2Options` struct
-HTTP2Config.MaxConcurrentStreams | covered | phase 6 | `Http2Options.max_concurrent_streams: Maybe<Int>`
+HTTP2Config.MaxConcurrentStreams | covered | phase 6 | `Http2Options.max_concurrent_streams: Option<Int>`
 HTTP2Config.StrictMaxConcurrentRequests | covered | phase 6 | `Http2Options.strict_max_concurrent_requests: Bool`
-HTTP2Config.MaxDecoderHeaderTableSize | covered | phase 6 | `Http2Options.max_decoder_header_table_size: Maybe<Int>`
-HTTP2Config.MaxEncoderHeaderTableSize | covered | phase 6 | `Http2Options.max_encoder_header_table_size: Maybe<Int>`
-HTTP2Config.MaxReadFrameSize | covered | phase 6 | `Http2Options.max_read_frame_size: Maybe<Int>`
-HTTP2Config.MaxReceiveBufferPerConnection | covered | phase 6 | `Http2Options.max_receive_buffer_per_connection: Maybe<Int>`
-HTTP2Config.MaxReceiveBufferPerStream | covered | phase 6 | `Http2Options.max_receive_buffer_per_stream: Maybe<Int>`
-HTTP2Config.SendPingTimeout | covered | phase 6 | `Http2Options.send_ping_timeout: Maybe<Duration>`
-HTTP2Config.PingTimeout | covered | phase 6 | `Http2Options.ping_timeout: Maybe<Duration>`
-HTTP2Config.WriteByteTimeout | covered | phase 6 | `Http2Options.write_byte_timeout: Maybe<Duration>`
+HTTP2Config.MaxDecoderHeaderTableSize | covered | phase 6 | `Http2Options.max_decoder_header_table_size: Option<Int>`
+HTTP2Config.MaxEncoderHeaderTableSize | covered | phase 6 | `Http2Options.max_encoder_header_table_size: Option<Int>`
+HTTP2Config.MaxReadFrameSize | covered | phase 6 | `Http2Options.max_read_frame_size: Option<Int>`
+HTTP2Config.MaxReceiveBufferPerConnection | covered | phase 6 | `Http2Options.max_receive_buffer_per_connection: Option<Int>`
+HTTP2Config.MaxReceiveBufferPerStream | covered | phase 6 | `Http2Options.max_receive_buffer_per_stream: Option<Int>`
+HTTP2Config.SendPingTimeout | covered | phase 6 | `Http2Options.send_ping_timeout: Option<Duration>`
+HTTP2Config.PingTimeout | covered | phase 6 | `Http2Options.ping_timeout: Option<Duration>`
+HTTP2Config.WriteByteTimeout | covered | phase 6 | `Http2Options.write_byte_timeout: Option<Duration>`
 HTTP2Config.PermitProhibitedCipherSuites | covered | phase 6 | `Http2Options.permit_prohibited_cipher_suites: Bool`
-HTTP2Config.CountError | covered | phase 6 | `Http2Options.on_error_count: Maybe<(String) -> Unit>`
+HTTP2Config.CountError | covered | phase 6 | `Http2Options.on_error_count: Option<(String) -> Unit>`
 Handle | skipped | Registers on the global `DefaultServeMux`, skipped.
 HandleFunc | skipped | Registers on the global `DefaultServeMux`, skipped.
 Handler | mapped | phase 3 | A function `(Request) -> Response`: Nomi has no type aliases, so std/http writes the function type where Go writes Handler
@@ -120,7 +120,7 @@ Head | covered | phase 2 | `http.head(url)`
 Header | covered | phase 2 | `Headers`, an immutable, ordered, case-insensitive multi-map (`Headers[("Accept", "text/html")]`)
 Header.Add | covered | phase 2 | `Headers.add(headers, name, value) -> Headers`
 Header.Set | covered | phase 2 | `Headers.set(headers, name, value) -> Headers`
-Header.Get | covered | phase 2 | `Headers.get(headers, name) -> Maybe<String>`
+Header.Get | covered | phase 2 | `Headers.get(headers, name) -> Option<String>`
 Header.Values | covered | phase 2 | `Headers.values(headers, name) -> List<String>`
 Header.Del | covered | phase 2 | `Headers.remove(headers, name) -> Headers`
 Header.Write | covered | phase 5 | `Headers.write_to(headers, w)`
@@ -147,7 +147,7 @@ NoBody | covered | phase 3 | `Body.Empty`
 NotFound | covered | phase 3 | `Response.not_found() -> Response`
 NotFoundHandler | covered | phase 3 | `http.not_found: Handler`
 ParseCookie | covered | phase 3 | `Cookie.parse_header(text) -> Result<List<Cookie>, Error>`
-ParseHTTPVersion | covered | phase 5 | `Protocol.parse(text) -> Maybe<Protocol>`
+ParseHTTPVersion | covered | phase 5 | `Protocol.parse(text) -> Option<Protocol>`
 ParseSetCookie | covered | phase 3 | `Cookie.parse_set_cookie(text) -> Result<Cookie, Error>`
 ParseTime | covered | phase 3 | `http.parse_time(text) -> Result<Instant, Error>`
 Post | covered | phase 2 | `http.post(url, body)`
@@ -183,41 +183,41 @@ Request.ProtoMinor | covered | phase 2 | `Protocol.minor: Int`
 Request.Header | covered | phase 2 | `Request.headers: Headers`
 Request.Body | covered | phase 2 | `Request.body: Body` (a server's request body is `Body.Stream(reader)`)
 Request.GetBody | mapped | phase 2 | A body is a value. Every variant but `Stream` and `Produce` can be sent again on a redirect; those two stop the redirect, as Go does without `GetBody`
-Request.ContentLength | covered | phase 2 | `Request.content_length: Maybe<Int>`
+Request.ContentLength | covered | phase 2 | `Request.content_length: Option<Int>`
 Request.TransferEncoding | covered | phase 2 | `Request.transfer_encoding: List<String>`
 Request.Close | covered | phase 2 | `Request.close: Bool`
-Request.Host | covered | phase 2 | `Request.host: Maybe<String>`
+Request.Host | covered | phase 2 | `Request.host: Option<String>`
 Request.Form | covered | phase 4 | `Request.form(request) -> Result<Query, Error>`
 Request.PostForm | covered | phase 4 | `Request.post_form(request) -> Result<Query, Error>`
 Request.MultipartForm | covered | phase 4 | `Request.multipart_form(request, max_memory) -> Result<MultipartForm, Error>`
 Request.Trailer | covered | phase 2 | `Request.trailers: Headers` (client); `Request.read_trailers(request) -> Headers` after the body (server)
 Request.RemoteAddr | covered | phase 2 | `Request.remote_address: String`
 Request.RequestURI | covered | phase 2 | `Request.request_uri: String`
-Request.TLS | covered | phase 6 | `Request.tls: Maybe<tls.ConnectionState>`
+Request.TLS | covered | phase 6 | `Request.tls: Option<tls.ConnectionState>`
 Request.Cancel | skipped | Deprecated in Go; the context replaces it.
 Request.Response | mapped | phase 2 | `Redirects.Decide` receives the responses of the redirect chain
-Request.Pattern | covered | phase 2 | `Request.pattern: Maybe<String>`
+Request.Pattern | covered | phase 2 | `Request.pattern: Option<String>`
 Request.Context | covered | phase 2 | `Request.context: Context` (the server's per-request context)
 Request.WithContext | mapped | phase 2 | The call runs under the context in force (`with App.context = ...`, `Context.with_timeout`)
 Request.Clone | mapped | phase 2 | Values are immutable; nothing to copy
 Request.ProtoAtLeast | covered | phase 2 | `Protocol.is_at_least(protocol, major, minor) -> Bool`
-Request.UserAgent | covered | phase 2 | `Request.user_agent(request) -> Maybe<String>`
+Request.UserAgent | covered | phase 2 | `Request.user_agent(request) -> Option<String>`
 Request.Cookies | covered | phase 3 | `Request.cookies(request) -> List<Cookie>`
 Request.CookiesNamed | covered | phase 3 | `Request.cookies_named(request, name) -> List<Cookie>`
-Request.Cookie | covered | phase 3 | `Request.cookie(request, name) -> Maybe<Cookie>`
+Request.Cookie | covered | phase 3 | `Request.cookie(request, name) -> Option<Cookie>`
 Request.AddCookie | covered | phase 3 | `Request.add_cookie(request, cookie) -> Request`
-Request.Referer | covered | phase 2 | `Request.referer(request) -> Maybe<String>`
+Request.Referer | covered | phase 2 | `Request.referer(request) -> Option<String>`
 Request.MultipartReader | covered | phase 6 | `Request.parts(request) -> Result<Iter<Result<Part, Error>>, Error>`
 Request.Write | covered | phase 6 | `Request.write_to(request, w) -> Result<Unit, Error>`
 Request.WriteProxy | covered | phase 6 | `Request.write_to(request, w, proxy: True)`
-Request.BasicAuth | covered | phase 2 | `Request.basic_auth(request) -> Maybe<(String, String)>`
+Request.BasicAuth | covered | phase 2 | `Request.basic_auth(request) -> Option<(String, String)>`
 Request.SetBasicAuth | covered | phase 2 | `Request.with_basic_auth(request, user, password) -> Request`
 Request.ParseForm | mapped | phase 4 | `Request.form` parses on demand
 Request.ParseMultipartForm | mapped | phase 4 | `Request.multipart_form` parses on demand
-Request.FormValue | covered | phase 4 | `Request.form_value(request, key) -> Maybe<String>`
-Request.PostFormValue | covered | phase 4 | `Request.post_form_value(request, key) -> Maybe<String>`
+Request.FormValue | covered | phase 4 | `Request.form_value(request, key) -> Option<String>`
+Request.PostFormValue | covered | phase 4 | `Request.post_form_value(request, key) -> Option<String>`
 Request.FormFile | covered | phase 4 | `Request.form_file(request, field) -> Result<FormFile, Error>`
-Request.PathValue | covered | phase 2 | `Request.path_value(request, name) -> Maybe<String>`
+Request.PathValue | covered | phase 2 | `Request.path_value(request, name) -> Option<String>`
 Request.SetPathValue | covered | phase 2 | `Request.with_path_value(request, name, value) -> Request`
 Response | covered | phase 2 | `Response` struct
 Response.Status | covered | phase 2 | `Status.line(status) -> String` (`"404 Not Found"`)
@@ -227,36 +227,36 @@ Response.ProtoMajor | covered | phase 2 | `Protocol.major`
 Response.ProtoMinor | covered | phase 2 | `Protocol.minor`
 Response.Header | covered | phase 2 | `Response.headers: Headers`
 Response.Body | covered | phase 2 | `Response.body: Body`
-Response.ContentLength | covered | phase 2 | `Response.content_length: Maybe<Int>`
+Response.ContentLength | covered | phase 2 | `Response.content_length: Option<Int>`
 Response.TransferEncoding | covered | phase 2 | `Response.transfer_encoding: List<String>`
 Response.Close | covered | phase 2 | `Response.close: Bool`
 Response.Uncompressed | covered | phase 2 | `Response.uncompressed: Bool`
 Response.Trailer | covered | phase 2 | `Response.trailers: Headers` (a producer's trailers come from `Body.Produce`'s result)
-Response.Request | mapped | phase 2 | `Response.url: Maybe<Url>`, the URL after redirects; the request is the caller's own value
-Response.TLS | covered | phase 6 | `Response.tls: Maybe<tls.ConnectionState>`
+Response.Request | mapped | phase 2 | `Response.url: Option<Url>`, the URL after redirects; the request is the caller's own value
+Response.TLS | covered | phase 6 | `Response.tls: Option<tls.ConnectionState>`
 Response.Cookies | covered | phase 3 | `Response.cookies(response) -> List<Cookie>`
-Response.Location | covered | phase 2 | `Response.location(response) -> Result<Maybe<Url>, Error>`
+Response.Location | covered | phase 2 | `Response.location(response) -> Result<Option<Url>, Error>`
 Response.ProtoAtLeast | covered | phase 2 | `Protocol.is_at_least`
 Response.Write | covered | phase 6 | `Response.write_to(response, w) -> Result<Unit, Error>`
 ResponseController | mapped | phase 3 | Its operations are fields of `Response` or functions on `Request`
 ResponseController.Flush | covered | phase 3 | `Writer.flush(w)` inside a producer
 ResponseController.Hijack | mapped | phase 6 | `Response.upgrade`
 ResponseController.SetReadDeadline | covered | phase 6 | `Request.extend_read_deadline(request, by: Duration)`
-ResponseController.SetWriteDeadline | covered | phase 6 | `Response.write_timeout: Maybe<Duration>`
+ResponseController.SetWriteDeadline | covered | phase 6 | `Response.write_timeout: Option<Duration>`
 ResponseController.EnableFullDuplex | covered | phase 6 | `Response.full_duplex: Bool`
 ResponseWriter | mapped | phase 3 | The handler returns a `Response`; `Body.Produce` writes a body as it goes
 ResponseWriter.Header | covered | phase 3 | `Response.headers`
 ResponseWriter.Write | mapped | phase 3 | `Response.body`, or writes inside `Body.Produce`
 ResponseWriter.WriteHeader | covered | phase 3 | `Response.status`; a 1xx goes in `Response.informational: List<(Status, Headers)>`
-RoundTripper | covered | phase 2 | `ClientOptions.round_trip: Maybe<(Request) -> Result<Response, Error>>`, a function that answers every request
-RoundTripper.RoundTrip | covered | phase 2 | `ClientOptions.round_trip: Maybe<RoundTrip>`
+RoundTripper | covered | phase 2 | `ClientOptions.round_trip: Option<(Request) -> Result<Response, Error>>`, a function that answers every request
+RoundTripper.RoundTrip | covered | phase 2 | `ClientOptions.round_trip: Option<RoundTrip>`
 SameSite | covered | phase 3 | `SameSite` enum: `Default`, `Lax`, `Strict`, `None`
 Serve | covered | phase 3 | `http.serve(listener, handler, supervisor)` over a `Listener` from `http.listen`
-ServeContent | covered | phase 3 | `Response.content(request, name, modified: Maybe<Instant>, content: Content) -> Response` (ranges, `If-*`, `ETag`)
+ServeContent | covered | phase 3 | `Response.content(request, name, modified: Option<Instant>, content: Content) -> Response` (ranges, `If-*`, `ETag`)
 ServeFile | covered | phase 3 | `http.serve_file(request, path) -> Response`
 ServeFileFS | covered | phase 3 | `http.serve_file(request, path)` (std/fs's backend)
 ServeMux | covered | phase 3 | `Router`
-ServeMux.Handler | covered | phase 3 | `Router.find(router, request) -> Maybe<(Handler, String)>`
+ServeMux.Handler | covered | phase 3 | `Router.find(router, request) -> Option<(Handler, String)>`
 ServeMux.ServeHTTP | covered | phase 3 | `Router.handler(router) -> Handler`
 ServeMux.Handle | covered | phase 3 | `Router.new`, whose `(route, handler)` rows are Go's Handle calls
 ServeMux.HandleFunc | covered | phase 3 | `Router.new`, whose `(route, handler)` rows are Go's HandleFunc calls
@@ -265,16 +265,16 @@ Server | covered | phase 3 | `Server` options struct
 Server.Addr | covered | phase 3 | `Server.address: String = ":http"`
 Server.Handler | covered | phase 3 | `http.serve`'s `handler` argument
 Server.DisableGeneralOptionsHandler | covered | phase 6 | `Server.answer_options_star: Bool = True`
-Server.TLSConfig | covered | phase 5 | `Server.tls: Maybe<tls.ServerConfig>`
-Server.ReadTimeout | covered | phase 3 | `Server.read_timeout: Maybe<Duration>`
-Server.ReadHeaderTimeout | covered | phase 3 | `Server.read_header_timeout: Maybe<Duration>`
-Server.WriteTimeout | covered | phase 3 | `Server.write_timeout: Maybe<Duration>`
-Server.IdleTimeout | covered | phase 3 | `Server.idle_timeout: Maybe<Duration>`
+Server.TLSConfig | covered | phase 5 | `Server.tls: Option<tls.ServerConfig>`
+Server.ReadTimeout | covered | phase 3 | `Server.read_timeout: Option<Duration>`
+Server.ReadHeaderTimeout | covered | phase 3 | `Server.read_header_timeout: Option<Duration>`
+Server.WriteTimeout | covered | phase 3 | `Server.write_timeout: Option<Duration>`
+Server.IdleTimeout | covered | phase 3 | `Server.idle_timeout: Option<Duration>`
 Server.MaxHeaderBytes | covered | phase 3 | `Server.max_header_bytes: Int = 1_048_576`
-Server.MaxHeaderValueCount | covered | phase 6 | `Server.max_header_value_count: Maybe<Int>`
+Server.MaxHeaderValueCount | covered | phase 6 | `Server.max_header_value_count: Option<Int>`
 Server.TLSNextProto | skipped | Hands an ALPN protocol's connections to Go code. Go's built-in HTTP/2 covers what it was for.
-Server.ConnState | covered | phase 6 | `Server.on_connection_state: Maybe<(String, ConnState) -> Unit>`
-Server.ErrorLog | covered | phase 6 | `Server.on_error: Maybe<(String) -> Unit>`; standard error when `None`
+Server.ConnState | covered | phase 6 | `Server.on_connection_state: Option<(String, ConnState) -> Unit>`
+Server.ErrorLog | covered | phase 6 | `Server.on_error: Option<(String) -> Unit>`; standard error when `None`
 Server.BaseContext | mapped | phase 3 | Each request's context derives from the serving task's context
 Server.ConnContext | skipped | Per-connection context values. A handler sees the request's context; revisit with a use.
 Server.HTTP2 | covered | phase 6 | `Server.http2: Http2Options`
@@ -282,7 +282,7 @@ Server.Protocols | covered | phase 6 | `Server.protocols: Protocols`
 Server.DisableClientPriority | covered | phase 6 | `Server.client_priority: Bool = True`
 Server.Close | mapped | phase 3 | `Listener.shutdown` closes the connections still open once its `shutdown_timeout` passes
 Server.Shutdown | covered | phase 3 | `Listener.shutdown(listener)`: stop accepting, wait for requests in flight up to `Server.shutdown_timeout`, then close what is left; `http.serve` calls it when its task is stopped
-Server.RegisterOnShutdown | covered | phase 6 | `Server.on_shutdown: Maybe<() -> Unit>`
+Server.RegisterOnShutdown | covered | phase 6 | `Server.on_shutdown: Option<() -> Unit>`
 Server.ListenAndServe | covered | phase 3 | `http.serve`
 Server.Serve | covered | phase 3 | `http.serve(listener, handler, supervisor)`
 Server.ServeTLS | covered | phase 5 | `http.listen` with `Server.tls`
@@ -295,7 +295,7 @@ StripPrefix | covered | phase 3 | `http.strip_prefix(handler, prefix)`, which wr
 TimeoutHandler | covered | phase 4 | `http.timeout(handler, after, message)`, which wraps a handler
 Transport | covered | phase 2 | `Transport` options struct, inside `ClientOptions`
 Transport.Proxy | covered | phase 2 | `Transport.proxy: Proxy` (`.FromEnvironment`, `.None`, `.Fixed(Url)`, `.Choose(fn)`)
-Transport.OnProxyConnectResponse | covered | phase 6 | `Transport.on_proxy_connect: Maybe<(Url, Response) -> Result<Unit, Error>>`
+Transport.OnProxyConnectResponse | covered | phase 6 | `Transport.on_proxy_connect: Option<(Url, Response) -> Result<Unit, Error>>`
 Transport.DialContext | mapped | phase 2 | `Transport.dial: DialOptions` (std/net's timeout and keep-alive); a custom dial function is not offered
 Transport.Dial | skipped | Deprecated in Go.
 Transport.DialTLSContext | skipped | A custom TLS dial function. `Transport.tls` configures TLS; revisit with a use.
@@ -306,16 +306,16 @@ Transport.DisableKeepAlives | covered | phase 2 | `Transport.keep_alives: Bool =
 Transport.DisableCompression | covered | phase 2 | `Transport.compression: Bool = True`
 Transport.MaxIdleConns | covered | phase 2 | `Transport.max_idle: Int = 100`
 Transport.MaxIdleConnsPerHost | covered | phase 2 | `Transport.max_idle_per_host: Int = 2`
-Transport.MaxConnsPerHost | covered | phase 2 | `Transport.max_per_host: Maybe<Int>`
-Transport.IdleConnTimeout | covered | phase 2 | `Transport.idle_timeout: Maybe<Duration>`
-Transport.ResponseHeaderTimeout | covered | phase 2 | `Transport.response_header_timeout: Maybe<Duration>`
+Transport.MaxConnsPerHost | covered | phase 2 | `Transport.max_per_host: Option<Int>`
+Transport.IdleConnTimeout | covered | phase 2 | `Transport.idle_timeout: Option<Duration>`
+Transport.ResponseHeaderTimeout | covered | phase 2 | `Transport.response_header_timeout: Option<Duration>`
 Transport.ExpectContinueTimeout | covered | phase 2 | `Transport.expect_continue_timeout: Duration = Duration.seconds(1)`
 Transport.TLSNextProto | skipped | Same as `Server.TLSNextProto`.
 Transport.ProxyConnectHeader | covered | phase 6 | `Transport.proxy_connect_headers: Headers`
 Transport.GetProxyConnectHeader | skipped | Per-proxy computed headers. The fixed `proxy_connect_headers` covers the common case; revisit with a use.
-Transport.MaxResponseHeaderBytes | covered | phase 2 | `Transport.max_response_header_bytes: Maybe<Int>`
-Transport.WriteBufferSize | covered | phase 2 | `Transport.write_buffer_size: Maybe<Int>`
-Transport.ReadBufferSize | covered | phase 2 | `Transport.read_buffer_size: Maybe<Int>`
+Transport.MaxResponseHeaderBytes | covered | phase 2 | `Transport.max_response_header_bytes: Option<Int>`
+Transport.WriteBufferSize | covered | phase 2 | `Transport.write_buffer_size: Option<Int>`
+Transport.ReadBufferSize | covered | phase 2 | `Transport.read_buffer_size: Option<Int>`
 Transport.ForceAttemptHTTP2 | covered | phase 2 | `Transport.force_http2: Bool`
 Transport.HTTP2 | covered | phase 6 | `Transport.http2: Http2Options`
 Transport.Protocols | covered | phase 6 | `Transport.protocols: Protocols`
@@ -358,14 +358,14 @@ QueryEscape | covered | phase 1 | `url.escape_query` (exists)
 QueryUnescape | covered | phase 1 | `url.unescape_query` (exists)
 URL | covered | phase 1 | `Url` struct
 URL.Scheme | covered | phase 1 | `Url.scheme: String`
-URL.Opaque | covered | phase 1 | `Url.opaque_part: Maybe<String>` (`opaque` is a keyword)
-URL.User | covered | phase 1 | `Url.user: Maybe<Userinfo>`
+URL.Opaque | covered | phase 1 | `Url.opaque_part: Option<String>` (`opaque` is a keyword)
+URL.User | covered | phase 1 | `Url.user: Option<Userinfo>`
 URL.Host | covered | phase 1 | `Url.host: String`
 URL.Path | covered | phase 1 | `Url.path: String` (decoded)
-URL.Fragment | covered | phase 1 | `Url.fragment: Maybe<String>` (decoded)
-URL.RawQuery | covered | phase 1 | `Url.query: Maybe<String>` (encoded, without `?`)
-URL.RawPath | covered | phase 1 | `Url.raw_path: Maybe<String>`, set only when the escaped path is not the default encoding of `path`
-URL.RawFragment | covered | phase 1 | `Url.raw_fragment: Maybe<String>`, as `raw_path`
+URL.Fragment | covered | phase 1 | `Url.fragment: Option<String>` (decoded)
+URL.RawQuery | covered | phase 1 | `Url.query: Option<String>` (encoded, without `?`)
+URL.RawPath | covered | phase 1 | `Url.raw_path: Option<String>`, set only when the escaped path is not the default encoding of `path`
+URL.RawFragment | covered | phase 1 | `Url.raw_fragment: Option<String>`, as `raw_path`
 URL.ForceQuery | mapped | phase 1 | `query: Some("")` keeps a lone `?`
 URL.OmitHost | covered | phase 1 | `Url.omit_host: Bool`
 URL.EscapedPath | covered | phase 1 | `Url.escaped_path(url) -> String`
@@ -378,7 +378,7 @@ URL.ResolveReference | covered | phase 1 | `Url.resolve(base, reference: Url) ->
 URL.Query | covered | phase 1 | `Url.query_values(url) -> Query`
 URL.RequestURI | covered | phase 1 | `Url.request_uri(url) -> String`
 URL.Hostname | covered | phase 1 | `Url.hostname(url) -> String`
-URL.Port | covered | phase 1 | `Url.port(url) -> Maybe<String>`
+URL.Port | covered | phase 1 | `Url.port(url) -> Option<String>`
 URL.MarshalBinary | mapped | phase 1 | `Display for Url`, `ToJson for Url`
 URL.AppendBinary | mapped | phase 1 | `Display for Url`
 URL.UnmarshalBinary | mapped | phase 1 | `Url.parse`, `FromJson for Url`
@@ -388,10 +388,10 @@ User | covered | phase 1 | `#Userinfo{name: "ann"}`
 UserPassword | covered | phase 1 | `#Userinfo{name: "ann", password: Some("pw")}`
 Userinfo | covered | phase 1 | `Userinfo` struct
 Userinfo.Username | covered | phase 1 | `Userinfo.name: String`
-Userinfo.Password | covered | phase 1 | `Userinfo.password: Maybe<String>`
+Userinfo.Password | covered | phase 1 | `Userinfo.password: Option<String>`
 Userinfo.String | covered | phase 1 | `Display for Userinfo`
 Values | covered | phase 1 | `Query`, an immutable, ordered multi-map (`Query[("q", "nomi")]`)
-Values.Get | covered | phase 1 | `Query.get(query, key) -> Maybe<String>`
+Values.Get | covered | phase 1 | `Query.get(query, key) -> Option<String>`
 Values.Set | covered | phase 1 | `Query.set(query, key, value) -> Query`
 Values.Add | covered | phase 1 | `Query.add(query, key, value) -> Query`
 Values.Del | covered | phase 1 | `Query.remove(query, key) -> Query`
@@ -429,7 +429,7 @@ Server.Start | mapped | phase 5 | `with_server` starts it before the body
 Server.StartTLS | mapped | phase 5 | `with_server(..., tls: True)`
 Server.Close | mapped | phase 5 | `with_server` closes it after the body
 Server.CloseClientConnections | covered | phase 6 | `TestServer.close_client_connections(server)`
-Server.Certificate | covered | phase 5 | `TestServer.certificate: Maybe<tls.CertificateInfo>`
+Server.Certificate | covered | phase 5 | `TestServer.certificate: Option<tls.CertificateInfo>`
 Server.Client | covered | phase 5 | `TestServer.client: Client`, which trusts the server's certificate
 
 @ net/http/httputil
@@ -460,11 +460,11 @@ ProxyRequest.SetXForwarded | covered | phase 5 | `ProxyRequest.set_x_forwarded(p
 ReverseProxy | covered | phase 5 | `ReverseProxy` options struct; `http.reverse_proxy(options)` answers the handler
 ReverseProxy.Rewrite | covered | phase 5 | `ReverseProxy.rewrite: (ProxyRequest) -> ProxyRequest`
 ReverseProxy.Transport | covered | phase 5 | `ReverseProxy.client: Client = default_client()`
-ReverseProxy.FlushInterval | covered | phase 6 | `ReverseProxy.flush_interval: Maybe<Duration>`
-ReverseProxy.ErrorLog | covered | phase 6 | `ReverseProxy.on_error_log: Maybe<(String) -> Unit>`
+ReverseProxy.FlushInterval | covered | phase 6 | `ReverseProxy.flush_interval: Option<Duration>`
+ReverseProxy.ErrorLog | covered | phase 6 | `ReverseProxy.on_error_log: Option<(String) -> Unit>`
 ReverseProxy.BufferPool | skipped | Buffer reuse is the runtime's concern.
-ReverseProxy.ModifyResponse | covered | phase 5 | `ReverseProxy.modify_response: Maybe<(Response) -> Result<Response, Error>>`
-ReverseProxy.ErrorHandler | covered | phase 5 | `ReverseProxy.on_error: Maybe<(Request, Error) -> Response>`
+ReverseProxy.ModifyResponse | covered | phase 5 | `ReverseProxy.modify_response: Option<(Response) -> Result<Response, Error>>`
+ReverseProxy.ErrorHandler | covered | phase 5 | `ReverseProxy.on_error: Option<(Request, Error) -> Response>`
 ReverseProxy.Director | skipped | Go keeps it for compatibility; `Rewrite` replaces it.
 ReverseProxy.ServeHTTP | covered | phase 5 | `http.reverse_proxy`, which answers the handler
 
@@ -472,7 +472,7 @@ ReverseProxy.ServeHTTP | covered | phase 5 | `http.reverse_proxy`, which answers
 Jar | covered | phase 3 | `CookieJar` (std/http)
 Jar.Cookies | covered | phase 3 | `CookieJar.cookies(jar, url)`
 Jar.SetCookies | covered | phase 3 | `CookieJar.set_cookies(jar, url, cookies)`
-New | covered | phase 3 | `CookieJar.new(public_suffix: Maybe<(String) -> String> = None) -> CookieJar`
+New | covered | phase 3 | `CookieJar.new(public_suffix: Option<(String) -> String> = None) -> CookieJar`
 Options | mapped | phase 3 | `CookieJar.new`'s parameter
 Options.PublicSuffixList | covered | phase 3 | `CookieJar.new`'s `public_suffix`
 PublicSuffixList | mapped | phase 3 | A function from a domain to its public suffix
@@ -498,7 +498,7 @@ ClientTrace.WroteHeaders | covered | phase 6 | `TraceEvent.WroteHeaders`
 ClientTrace.Wait100Continue | covered | phase 6 | `TraceEvent.WaitContinue`
 ClientTrace.WroteRequest | covered | phase 6 | `TraceEvent.WroteRequest{error}`
 ContextClientTrace | mapped | phase 6 | A request names its `Tracer` (`Request.trace`); nothing is fetched from a context
-WithClientTrace | covered | phase 6 | `Request.trace: Maybe<Tracer>`
+WithClientTrace | covered | phase 6 | `Request.trace: Option<Tracer>`
 DNSDoneInfo | covered | phase 6 | `TraceEvent.DnsDone`'s fields
 DNSDoneInfo.Addrs | covered | phase 6 | `TraceEvent.DnsDone{addresses}`
 DNSDoneInfo.Err | covered | phase 6 | `TraceEvent.DnsDone{error}`
@@ -530,8 +530,8 @@ NewReader | covered | phase 6 | `http.multipart_parts(r: Reader, boundary) -> It
 NewWriter | covered | phase 4 | `Body.Multipart(parts)` for a request; `http.write_multipart(w, boundary, parts)` streams one to a Writer (phase 6)
 Part | covered | phase 6 | `Part` struct
 Part.Header | covered | phase 6 | `Part.headers: Headers`
-Part.FormName | covered | phase 6 | `Part.form_name(part) -> Maybe<String>`
-Part.FileName | covered | phase 6 | `Part.file_name(part) -> Maybe<String>`
+Part.FormName | covered | phase 6 | `Part.form_name(part) -> Option<String>`
+Part.FileName | covered | phase 6 | `Part.file_name(part) -> Option<String>`
 Part.Read | covered | phase 6 | `Part.body: Reader`
 Part.Close | mapped | phase 6 | The next part closes the one before
 Reader | mapped | phase 6 | The iterator `http.multipart_parts` answers
@@ -596,18 +596,18 @@ Config.Rand | skipped | Randomness stays the system's.
 Config.Time | skipped | Certificate checks use the real time; revisit if `Clock.Virtual` tests need it.
 Config.Certificates | covered | phase 5 | `ServerConfig.certificates`, `ClientConfig.certificates: List<Certificate>`
 Config.NameToCertificate | skipped | Deprecated in Go.
-Config.GetCertificate | covered | phase 6 | `ServerConfig.certificate_for: Maybe<(ClientHello) -> Maybe<Certificate>>`
+Config.GetCertificate | covered | phase 6 | `ServerConfig.certificate_for: Option<(ClientHello) -> Option<Certificate>>`
 Config.GetClientCertificate | skipped | Picks a client certificate per request; `ClientConfig.certificates` covers the common case.
 Config.GetConfigForClient | skipped | Swaps the whole config per handshake; revisit with a use.
 Config.VerifyPeerCertificate | skipped | Raw-certificate callback; `verify` sees the parsed chain.
-Config.VerifyConnection | covered | phase 6 | `ClientConfig.verify` and `ServerConfig.verify: Maybe<(ConnectionState) -> Result<Unit, String>>`
+Config.VerifyConnection | covered | phase 6 | `ClientConfig.verify` and `ServerConfig.verify: Option<(ConnectionState) -> Result<Unit, String>>`
 Config.RootCAs | covered | phase 5 | `ClientConfig.roots: Roots` (`.System`, `.Pem(String)`, `.Files(List<String>)`)
 Config.NextProtos | covered | phase 5 | `ClientConfig.next_protocols` and `ServerConfig.next_protocols`: `List<String>`
-Config.ServerName | covered | phase 5 | `ClientConfig.server_name: Maybe<String>`
+Config.ServerName | covered | phase 5 | `ClientConfig.server_name: Option<String>`
 Config.ClientAuth | covered | phase 5 | `ServerConfig.client_auth: ClientAuth`
 Config.ClientCAs | covered | phase 5 | `ServerConfig.client_roots: Roots`
 Config.InsecureSkipVerify | covered | phase 5 | `ClientConfig.insecure_skip_verify: Bool`
-Config.CipherSuites | covered | phase 5 | `ClientConfig.cipher_suites` and `ServerConfig.cipher_suites`: `Maybe<List<Int>>`
+Config.CipherSuites | covered | phase 5 | `ClientConfig.cipher_suites` and `ServerConfig.cipher_suites`: `Option<List<Int>>`
 Config.PreferServerCipherSuites | skipped | Deprecated in Go and ignored.
 Config.SessionTicketsDisabled | covered | phase 5 | `ClientConfig.session_tickets` and `ServerConfig.session_tickets`: `Bool = True`
 Config.SessionTicketKey | skipped | Ticket key management; Go rotates keys itself.
@@ -615,11 +615,11 @@ Config.ClientSessionCache | covered | phase 5 | `ClientConfig.session_cache: Int
 Config.UnwrapSession | skipped | Ticket key management.
 Config.WrapSession | skipped | Ticket key management.
 Config.MinVersion | covered | phase 5 | `ClientConfig.min_version` and `ServerConfig.min_version`: `Version = Version.Tls12`
-Config.MaxVersion | covered | phase 5 | `ClientConfig.max_version` and `ServerConfig.max_version`: `Maybe<Version>`
-Config.CurvePreferences | covered | phase 5 | `ClientConfig.curves` and `ServerConfig.curves`: `Maybe<List<Curve>>`
+Config.MaxVersion | covered | phase 5 | `ClientConfig.max_version` and `ServerConfig.max_version`: `Option<Version>`
+Config.CurvePreferences | covered | phase 5 | `ClientConfig.curves` and `ServerConfig.curves`: `Option<List<Curve>>`
 Config.DynamicRecordSizingDisabled | skipped | A performance knob; revisit with a measurement.
 Config.Renegotiation | covered | phase 5 | `ClientConfig.renegotiation: Renegotiation`
-Config.KeyLogWriter | covered | phase 6 | `ClientConfig.key_log` and `ServerConfig.key_log: Maybe<Writer>` (for Wireshark)
+Config.KeyLogWriter | covered | phase 6 | `ClientConfig.key_log` and `ServerConfig.key_log: Option<Writer>` (for Wireshark)
 Config.EncryptedClientHelloConfigList | skipped | Encrypted Client Hello; revisit when browsers settle on it.
 Config.EncryptedClientHelloRejectionVerify | skipped | Encrypted Client Hello.
 Config.GetEncryptedClientHelloKeys | skipped | Encrypted Client Hello.
@@ -642,7 +642,7 @@ Conn.Close | covered | phase 5 | `Connection.close(conn)`
 Conn.CloseWrite | covered | phase 5 | `Connection.close_write(conn)`
 Conn.Handshake | mapped | phase 5 | `tls.dial`, `tls.client` and `tls.server` finish the handshake before they answer
 Conn.HandshakeContext | mapped | phase 5 | The handshake runs under the context in force
-Conn.ConnectionState | covered | phase 5 | `tls.state(conn) -> Maybe<ConnectionState>`
+Conn.ConnectionState | covered | phase 5 | `tls.state(conn) -> Option<ConnectionState>`
 Conn.OCSPResponse | skipped | OCSP; revisit with a use.
 Conn.VerifyHostname | covered | phase 5 | `tls.verify_hostname(conn, host) -> Result<Unit, Error>`
 ConnectionState | covered | phase 5 | `ConnectionState` struct
@@ -650,8 +650,8 @@ ConnectionState.Version | covered | phase 5 | `ConnectionState.version: Version`
 ConnectionState.HandshakeComplete | covered | phase 5 | `ConnectionState.handshake_complete: Bool`
 ConnectionState.DidResume | covered | phase 5 | `ConnectionState.resumed: Bool`
 ConnectionState.CipherSuite | covered | phase 5 | `ConnectionState.cipher_suite: CipherSuite`
-ConnectionState.CurveID | covered | phase 5 | `ConnectionState.curve: Maybe<Curve>`
-ConnectionState.NegotiatedProtocol | covered | phase 5 | `ConnectionState.protocol: Maybe<String>`
+ConnectionState.CurveID | covered | phase 5 | `ConnectionState.curve: Option<Curve>`
+ConnectionState.NegotiatedProtocol | covered | phase 5 | `ConnectionState.protocol: Option<String>`
 ConnectionState.NegotiatedProtocolIsMutual | skipped | Deprecated in Go; always true.
 ConnectionState.ServerName | covered | phase 5 | `ConnectionState.server_name: String`
 ConnectionState.PeerCertificates | covered | phase 5 | `ConnectionState.peer_certificates: List<CertificateInfo>`
@@ -661,7 +661,7 @@ ConnectionState.OCSPResponse | skipped | OCSP; revisit with a use.
 ConnectionState.TLSUnique | skipped | Channel binding for TLS 1.2 only.
 ConnectionState.ECHAccepted | skipped | Encrypted Client Hello.
 ConnectionState.HelloRetryRequest | skipped | Handshake detail.
-ConnectionState.LocalCertificate | covered | phase 6 | `ConnectionState.local_certificate: Maybe<CertificateInfo>`
+ConnectionState.LocalCertificate | covered | phase 6 | `ConnectionState.local_certificate: Option<CertificateInfo>`
 ConnectionState.ExportKeyingMaterial | skipped | Key export for protocols built on TLS; revisit with a use.
 CurveID | covered | phase 5 | `Curve` enum
 CurveID.String | covered | phase 5 | `Display for Curve`
@@ -725,7 +725,7 @@ Conn.Close | covered | phase 5 | `Connection.close(conn)`
 Conn.LocalAddr | covered | phase 5 | `Connection.local_address(conn) -> String`
 Conn.Read | covered | phase 5 | `Connection.reader(conn) -> Reader`
 Conn.RemoteAddr | covered | phase 5 | `Connection.remote_address(conn) -> String`
-Conn.SetDeadline | covered | phase 5 | `Connection.set_deadline(conn, at: Maybe<Instant>)`
+Conn.SetDeadline | covered | phase 5 | `Connection.set_deadline(conn, at: Option<Instant>)`
 Conn.SetReadDeadline | covered | phase 5 | `Connection.set_read_deadline(conn, at)`
 Conn.SetWriteDeadline | covered | phase 5 | `Connection.set_write_deadline(conn, at)`
 Conn.Write | covered | phase 5 | `Connection.writer(conn) -> Writer`
@@ -735,7 +735,7 @@ DNSError | covered | phase 5 | `net.Error.Dns{host, reason, not_found}`
 DNSError.UnwrapErr | mapped | phase 5 | Match the variant
 DNSError.Err | covered | phase 5 | `net.Error.Dns`'s `reason`
 DNSError.Name | covered | phase 5 | `net.Error.Dns`'s `host`
-DNSError.Server | covered | phase 5 | `net.Error.Dns`'s `server: Maybe<String>`
+DNSError.Server | covered | phase 5 | `net.Error.Dns`'s `server: Option<String>`
 DNSError.IsTimeout | mapped | phase 5 | `net.Error.Timeout`
 DNSError.IsTemporary | skipped | Deprecated meaning in Go.
 DNSError.IsNotFound | covered | phase 5 | `net.Error.Dns`'s `not_found: Bool`
@@ -751,11 +751,11 @@ DialIP | skipped | Raw IP sockets; not TCP.
 DialUDP | skipped | UDP; later, its own roadmap item.
 DialUnix | skipped | Unix sockets; later, its own roadmap item.
 Dialer | covered | phase 5 | `DialOptions` struct
-Dialer.Timeout | covered | phase 5 | `DialOptions.timeout: Maybe<Duration>`
+Dialer.Timeout | covered | phase 5 | `DialOptions.timeout: Option<Duration>`
 Dialer.Deadline | mapped | phase 5 | The context's deadline
-Dialer.LocalAddr | covered | phase 5 | `DialOptions.local_address: Maybe<String>`
+Dialer.LocalAddr | covered | phase 5 | `DialOptions.local_address: Option<String>`
 Dialer.DualStack | skipped | Deprecated in Go; always on.
-Dialer.FallbackDelay | covered | phase 5 | `DialOptions.fallback_delay: Maybe<Duration>`
+Dialer.FallbackDelay | covered | phase 5 | `DialOptions.fallback_delay: Option<Duration>`
 Dialer.KeepAlive | covered | phase 5 | `DialOptions.keep_alive: KeepAlive`
 Dialer.KeepAliveConfig | covered | phase 5 | `DialOptions.keep_alive: KeepAlive`
 Dialer.Resolver | skipped | A custom resolver; the system resolver is used.
@@ -808,9 +808,9 @@ InvalidAddrError.* | covered | phase 5 | `net.Error.InvalidAddress`'s `address` 
 JoinHostPort | covered | phase 5 | `net.join_host_port(host, port) -> String`
 KeepAliveConfig | covered | phase 5 | `KeepAlive` struct
 KeepAliveConfig.Enable | covered | phase 5 | `KeepAlive.enabled: Bool = True`
-KeepAliveConfig.Idle | covered | phase 5 | `KeepAlive.idle: Maybe<Duration>`
-KeepAliveConfig.Interval | covered | phase 5 | `KeepAlive.interval: Maybe<Duration>`
-KeepAliveConfig.Count | covered | phase 5 | `KeepAlive.count: Maybe<Int>`
+KeepAliveConfig.Idle | covered | phase 5 | `KeepAlive.idle: Option<Duration>`
+KeepAliveConfig.Interval | covered | phase 5 | `KeepAlive.interval: Option<Duration>`
+KeepAliveConfig.Count | covered | phase 5 | `KeepAlive.count: Option<Int>`
 Listen | covered | phase 5 | `net.listen(address, options: ListenOptions = #ListenOptions{}) -> Result<Listener, Error>` (TCP)
 ListenConfig | covered | phase 5 | `ListenOptions` struct
 ListenConfig.Control | skipped | Raw socket options; no file descriptors in Nomi.
@@ -897,7 +897,7 @@ TCPConn.ReadFrom | mapped | phase 5 | `Reader.copy_to(r, Connection.writer(conn)
 TCPConn.WriteTo | mapped | phase 5 | `Reader.copy_to(Connection.reader(conn), w)`
 TCPConn.CloseRead | covered | phase 5 | `Connection.close_read(conn)`
 TCPConn.CloseWrite | covered | phase 5 | `Connection.close_write(conn)`
-TCPConn.SetLinger | covered | phase 5 | `Connection.set_linger(conn, Maybe<Duration>)`
+TCPConn.SetLinger | covered | phase 5 | `Connection.set_linger(conn, Option<Duration>)`
 TCPConn.SetKeepAlive | covered | phase 5 | `Connection.set_keep_alive(conn, KeepAlive)`
 TCPConn.SetKeepAlivePeriod | covered | phase 5 | `Connection.set_keep_alive(conn, #KeepAlive{interval: Some(d)})`
 TCPConn.SetNoDelay | covered | phase 5 | `Connection.set_no_delay(conn, Bool)`
@@ -909,7 +909,7 @@ TCPListener.AcceptTCP | covered | phase 5 | `Listener.accept`
 TCPListener.Accept | covered | phase 5 | `Listener.accept`
 TCPListener.Close | covered | phase 5 | `Listener.close`
 TCPListener.Addr | covered | phase 5 | `Listener.address`
-TCPListener.SetDeadline | covered | phase 5 | `Listener.set_deadline(listener, at: Maybe<Instant>)`
+TCPListener.SetDeadline | covered | phase 5 | `Listener.set_deadline(listener, at: Option<Instant>)`
 TCPListener.File | skipped | Raw file descriptor.
 UDPAddr | skipped | UDP; later.
 UDPAddr.* | skipped | UDP; later.

@@ -58,9 +58,9 @@ fn main()
     io.print("concat-r0 ${List.concat([1, 2], [])}")
     io.print("concat-sh ${List.concat(xs, ys)}")
 
-    // head/tail return a Maybe, so they are compared rather than rendered:
-    // rendering a Maybe is a separate gap (prelude.go) and not this fixture's
-    // subject. `case` reads the payload without needing Maybe equality.
+    // head/tail return an Option, so they are compared rather than rendered:
+    // rendering an Option is a separate gap (prelude.go) and not this fixture's
+    // subject. `case` reads the payload without needing Option equality.
     io.print("head      ${head_text(xs)}")
     io.print("head-0    ${head_text([])}")
     io.print("tail      ${tail_text(xs)}")

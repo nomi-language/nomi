@@ -1496,7 +1496,7 @@ func oneLineIfMaxWidth(v *ast.If) int {
 }
 
 // trivialElse reports whether an `else` branch is one atom: a name (`None`,
-// `default`, `True`), a qualified name (`Maybe.None`), a number (`0`,
+// `default`, `True`), a qualified name (`Option.None`), a number (`0`,
 // `-1`), the empty string, a variant with no payload (`.Empty`) or an empty
 // collection (`[]`, `{}`). Such a branch only closes the line, so the
 // 50-column limit for two branches side by side does not apply to it:
@@ -5042,7 +5042,7 @@ func emitEnumDeclVariant(v ast.EnumVariant) Doc {
 // emitEnumDef renders an enum declaration: its variants one per line,
 // closed by `end`:
 //
-//	[pub ][opaque ]enum Maybe<T>
+//	[pub ][opaque ]enum Option<T>
 //	  None
 //	  Some T
 //	end
@@ -5297,8 +5297,8 @@ func emitTypeAlias(v *ast.TypeAlias) Doc {
 	return Concat(parts...)
 }
 
-// emitTypeDef renders a distinct type or a subtype: `[pub ][opaque ]type Name [InnerType]`,
-// `[pub ]subtype Name Parent [and Parent...]`.
+// emitTypeDef renders a distinct type or a refinement: `[pub ][opaque ]type Name [InnerType]`,
+// `[pub ]refine Name Parent [and Parent...]`.
 // A zero-sized type (`type Expired`) has no inner type. The `opaque`
 // modifier (only valid on distinct types) renders after `pub` when both
 // are present.
@@ -5315,8 +5315,8 @@ func emitTypeDef(v *ast.TypeDef) Doc {
 		parts = append(parts, Text("opaque "))
 	}
 	keyword := "type "
-	if v.Subtype {
-		keyword = "subtype "
+	if v.Refinement {
+		keyword = "refine "
 	}
 	parts = append(parts, Text(keyword), Text(v.Name), emitTypeParams(v.TypeParams))
 	if v.InnerTypeExpr != nil {
@@ -5496,7 +5496,7 @@ func emitImportSelectorBody(path string, selectors []string) Doc {
 		return Text(path)
 	}
 	// A dotted name, `A.{B.C}`, stays in braces: without them its segments
-	// read as more of the path, `A.B.C`. An owner's selector, `Maybe.{Some}`,
+	// read as more of the path, `A.B.C`. An owner's selector, `Option.{Some}`,
 	// does not.
 	if len(selectors) == 1 && (!strings.Contains(selectors[0], ".") || strings.Contains(selectors[0], "{")) {
 		return Text(path + "." + selectors[0])

@@ -118,15 +118,15 @@ const (
 	opIR            // idx                an instruction run by its handler
 	opHost          // idx                a crossing into a bound host adapter
 	opFail          // idx                a compile-time refusal, raised on arrival
-	// A Maybe a crossing answers and its uses only take apart, held as a tag
-	// and a payload in registers instead of a record (maybefuse.go).
+	// An Option a crossing answers and its uses only take apart, held as a tag
+	// and a payload in registers instead of a record (optionfuse.go).
 	opHostM // idx | tag          the crossing: payload to its register (None to the ref register), 1 or 0 to tag
 	opTagIs // dst | tag | want   the variant test: tag == want
 	opProjM // dstT | srcT | tag | idx the payload read; the handler for a None
 	opTryM  // tag | idx          `?`: nothing for a Some, the handler for a None
 	opProjS // dstT | subj(ref) | i | idx  a tuple's component i, straight from its slot
 	opRetP  // srcT               a split tuple's return, in parts (tuplesplit.go)
-	// `Maybe.with_default` or `Result.with_default` of a fused Maybe or
+	// `Option.with_default` or `Result.with_default` of a fused Option or
 	// Result: the payload read, or for a None or an Err the default.
 	opDefaultM // dstT | srcT | tag | defT
 	// A comparison only its block's branch reads, and the branch, in one
@@ -251,7 +251,7 @@ type code struct {
 	// irs are the instructions opIR runs; fails the errors opFail raises.
 	irs []ir.Instr
 	// packed is, per temporary, how a value kept as registers instead of a
-	// record is held (a fused Maybe, a split tuple), or nil when the
+	// record is held (a fused Option, a split tuple), or nil when the
 	// function keeps none. A boxed read rebuilds the value (readPacked).
 	packed []packedTemp
 	// hostCalls are the crossings opHost makes, each resolved to its bound
@@ -381,8 +381,8 @@ type compiler struct {
 	// parameter's register, and the copies whose source was computed
 	// straight into the destination's register, so they compile to nothing.
 	aliased map[ir.Instr]bool
-	// fused are the temporaries holding a Maybe as a payload and a tag, and
-	// each one's tag register (maybefuse.go).
+	// fused are the temporaries holding an Option as a payload and a tag, and
+	// each one's tag register (optionfuse.go).
 	fused map[ir.Temp]uint32
 	// split are the temporaries holding a tuple as its components, and each
 	// component's register (tuplesplit.go).
@@ -445,7 +445,7 @@ func (m *Machine) compileBody(f *ir.Func, site *inlineSite) *code {
 		cp.viewTails = ir.TailTransfers(f)
 	}
 	cp.planInlines()
-	cp.fuseMaybes()
+	cp.fuseOptions()
 	cp.splitTuples()
 	if o := m.ownership(f); o != nil {
 		cp.inPlace, cp.moves, cp.takes = o.Updates, o.Moves, o.Takes
@@ -1298,7 +1298,7 @@ type hostCall struct {
 	name string
 	args []ir.Temp
 	dst  ir.Temp
-	// fast is an opHostM crossing's fast path (maybefuse.go), and inLoop
+	// fast is an opHostM crossing's fast path (optionfuse.go), and inLoop
 	// says the dispatch loop runs it, a read of the value's storage
 	// (frame.readFused).
 	fast   fastPath

@@ -17,7 +17,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 |---|---|
 | `const x = 1`, `let x = 1` | `x = 1`. Nothing is mutable; a later `x = ...` binds the name again. |
 | `xs.length`, `s.trim()`, `xs.map(f)` | `List.length(xs)`, `String.trim(s)`, `Iter.map(xs, f)`: there are no method calls. |
-| `x?: T`, `T \| undefined`, `null` | `Maybe<T>`: `Some(v)` or `None` |
+| `x?: T`, `T \| undefined`, `null` | `Option<T>`: `Some(v)` or `None` |
 | `throw new Error(..)`, `try { .. }` | Return `Result<T, E>`; a postfix `?` passes an `Err` up |
 | `switch (s.kind) { case "circle": .. }` | `case s` with arms such as `.Circle{radius:} -> ..`, then `end`; it must cover every variant |
 | `[a, b]` as a pair, `pair[0]` | `(a, b)`, `pair.first` |
@@ -82,12 +82,12 @@ fn total(items: List<Item>) -> Int
     Iter.reduce(items, 0, fn sum, item -> sum + item.price * item.qty)
 end
 
-fn cheapest(items: List<Item>) -> Maybe<String>
-    items |> Iter.min_by(.price) |> Maybe.map(.name)
+fn cheapest(items: List<Item>) -> Option<String>
+    items |> Iter.min_by(.price) |> Option.map(.name)
 end
 
 fn parse_qty(text: String) -> Result<Int, String>
-    qty = String.trim(text) |> String.to_int() |> Maybe.to_result("not a number: ${text}")?
+    qty = String.trim(text) |> String.to_int() |> Option.to_result("not a number: ${text}")?
 
     if qty < 1 then
         Err("bad quantity: ${qty}")

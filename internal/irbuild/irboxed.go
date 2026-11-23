@@ -15,7 +15,7 @@ import (
 // by the type name the value carries (vm.implOf). Two kinds of value carry no
 // name that identifies their impl of a program's interface:
 //
-//   - a std container instance (`List<Int>`, `Map<String, Int>`, `Maybe<T>`,
+//   - a std container instance (`List<Int>`, `Map<String, Int>`, `Option<T>`,
 //     a Set, a Vector, a Range): its runtime value names none of its type
 //     arguments, so `impl Show for List<Int>` and `impl Show for
 //     List<String>` cannot be told apart, and no descriptor names the
@@ -110,8 +110,8 @@ type irBoxTypeToken struct{ key string }
 //
 // A plan is made once per interface and kind, and its entries are built
 // for the type of the first coercion that asks: two checker types of one
-// kind reach the same impls, since a subtype has its base's (spec §4
-// *Subtypes*) and an alias is its target.
+// kind reach the same impls, since a refinement has its base's (spec §4
+// *Refinements*) and an alias is its target.
 func (g *gen) irBoxPlanFor(want, have kind, haveType analysis.Type, impl *ast.ImplBlock) *irBoxPlan {
 	if irConjKind(want) {
 		return g.conjBoxPlan(want, have, haveType, nil)
@@ -301,7 +301,7 @@ func (g *gen) irStdBoxPlan(d *ifaceDef, have kind, haveType analysis.Type) *irBo
 		structural := g.irDisplayErasedContainer(existential(d), have)
 		if !structural || irHoldsBoxedEnum(have) {
 			// A container whose text is not its shape around its elements'
-			// (a Maybe, a Result, a Set), or one holding an `embeds` enum's
+			// (an Option, a Result, a Set), or one holding an `embeds` enum's
 			// values, whose runtime type is the struct each embeds, so a
 			// structural rendering would select the struct's impl. The box
 			// renders through std's impl instantiated at the container's
@@ -383,7 +383,7 @@ func irHoldsBoxedEnum(k kind) bool {
 
 // irDisplayInstanceContainer reports whether have is a std container whose
 // Display std answers with an impl instantiated at have, and whose text is
-// not structural (irDisplayErasedContainer): a Maybe, a Result or a Set.
+// not structural (irDisplayErasedContainer): an Option, a Result or a Set.
 func (g *gen) irDisplayInstanceContainer(have kind, haveType analysis.Type) bool {
 	if _, _, container := stdRecvParts(have); !container || g.stdModule != "" {
 		return false
@@ -591,9 +591,9 @@ func (bl *irScalarBuilder) intoExistential(at ast.Node, v ir.Temp, want, have ki
 // entering want, an interface or a conjunction, at the expression at: the
 // coercion of the expression itself, or a part of its conversion
 // (analysis.FileAnalysis.Conversions: a `List<Int>` entering Display
-// inside a `Maybe<List<Int>>` converted to a `Maybe<Display>`). The
+// inside an `Option<List<Int>>` converted to an `Option<Display>`). The
 // payload of a prelude variant built at the converted type
-// (preludePayloadValue: `Some(Vector["v"])` where a `Maybe<Show>` is
+// (preludePayloadValue: `Some(Vector["v"])` where an `Option<Show>` is
 // expected) is a part of the call's conversion, which the checker records
 // on the call. Nil when it recorded none there. A std interface is want
 // through either of its defs (substKindsAgree): a std instance's body

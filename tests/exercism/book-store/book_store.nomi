@@ -38,7 +38,7 @@ fn group_sizes(basket: List<Int>) -> Map<Int, Int>
 end
 
 fn groups_of(groups: Map<Int, Int>, size: Int) -> Int
-    Map.get(groups, size) |> Maybe.with_default(0)
+    Map.get(groups, size) |> Option.with_default(0)
 end
 
 /// The price, in cents, of a group of `size` different books.

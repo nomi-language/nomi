@@ -11,7 +11,7 @@ import (
 // Spec §10 *Type Narrowing*: only an embedded struct or distinct type narrows.
 // Bool embeds the host singletons True and False, and narrowing there made
 // `x` in a `True -> assert x` arm a `True`, which `assert` rejected
-// ("expects Bool, Result, Maybe, or Assertable, got True").
+// ("expects Bool, Result, Option, or Assertable, got True").
 func TestTypeNarrowing_ABoolArmLeavesTheNameABool(t *testing.T) {
 	t.Setenv("NOMI_COLOR", "never")
 	const name = "bool_arm_test.nomi"
@@ -45,7 +45,7 @@ end
 }
 
 // A name matched against a plain, payload or struct-shaped variant, or a
-// prelude Bool, Maybe or Result variant, keeps its enum type in the arm, so
+// prelude Bool, Option or Result variant, keeps its enum type in the arm, so
 // it flows where that enum is expected.
 func TestTypeNarrowing_APlainVariantArmKeepsTheEnum(t *testing.T) {
 	got := runSourceOutput(t, `import std::io
@@ -88,10 +88,10 @@ fn bools(x: Bool) -> String
     end
 end
 
-fn maybes(m: Maybe<Int>) -> String
+fn options(m: Option<Int>) -> String
     case m
-        Some(_) -> Maybe.with_default(m, 0) |> Int.to_string()
-        None -> Maybe.with_default(m, -1) |> Int.to_string()
+        Some(_) -> Option.with_default(m, 0) |> Int.to_string()
+        None -> Option.with_default(m, -1) |> Int.to_string()
     end
 end
 
@@ -113,7 +113,7 @@ end
 
 fn main()
     io.print("${bools(True)} ${bools(False)}")
-    io.print("${maybes(Some(4))} ${maybes(None)}")
+    io.print("${options(Some(4))} ${options(None)}")
     io.print("${results(Ok(1))} ${results(Err("e"))}")
     io.print(shapes(Shape.Dot))
     io.print(shapes(Shape.Round(1.5)))

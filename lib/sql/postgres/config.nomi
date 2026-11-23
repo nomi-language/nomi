@@ -38,17 +38,17 @@ pub struct Config
     host:     String = "localhost"
     port:     Int = 5432
     user:     String = "postgres"
-    password: Maybe<String> = None
+    password: Option<String> = None
     database: String = ""
     ssl_mode: SslMode = SslMode.Prefer
     /// The PEM file of the roots a server's certificate is checked against;
     /// `None` is the system's.
-    ssl_root_cert: Maybe<String> = None
+    ssl_root_cert: Option<String> = None
     /// The PEM files of a certificate the client presents, and its key.
-    ssl_cert: Maybe<String> = None
-    ssl_key:  Maybe<String> = None
+    ssl_cert: Option<String> = None
+    ssl_key:  Option<String> = None
     /// The longest connecting may take.
-    connect_timeout: Maybe<Duration> = None
+    connect_timeout: Option<Duration> = None
     /// The settings the startup message sends, in order.
     settings: List<(String, String)> = []
     /// How many connections a pool opens at most.
@@ -134,7 +134,7 @@ end
 
 fn from_url(text: String) -> Result<Config, String>
     url = Url.parse(text) |> Result.map_err(fn e -> "the connection URL ${e.reason}")?
-    query = Query.parse(Maybe.with_default(url.query, "")) |> Result.map_err(fn e -> e.reason)?
+    query = Query.parse(Option.with_default(url.query, "")) |> Result.map_err(fn e -> e.reason)?
     Query(pairs) = query
 
     base = Config{
@@ -144,7 +144,7 @@ fn from_url(text: String) -> Result<Config, String>
             else
                 Url.hostname(url)
             end,
-        database: String.strip_prefix(url.path, "/") |> Maybe.with_default(url.path),
+        database: String.strip_prefix(url.path, "/") |> Option.with_default(url.path),
     }
 
     with_port =
@@ -189,7 +189,7 @@ fn set(config: Config, key: String, value: String) -> Result<Config, String>
             Ok({..config, host: value})
 
         "port" ->
-            port = String.to_int(value) |> Maybe.to_result("port `${value}` is not a number")?
+            port = String.to_int(value) |> Option.to_result("port `${value}` is not a number")?
             Ok({..config, port:})
 
         "user" ->
@@ -216,19 +216,19 @@ fn set(config: Config, key: String, value: String) -> Result<Config, String>
         "connect_timeout" ->
             seconds =
                 String.to_int(value)
-                |> Maybe.to_result("connect_timeout `${value}` is not a number")?
+                |> Option.to_result("connect_timeout `${value}` is not a number")?
 
             timeout = if seconds > 0 then Some(Duration.seconds(seconds)) else None
             Ok({..config, connect_timeout: timeout})
 
         "pool_max_conns" ->
-            n = String.to_int(value) |> Maybe.flat_map(PositiveInt.try_from)
+            n = String.to_int(value) |> Option.flat_map(PositiveInt.try_from)
 
             Ok(
                 {
                     ..config,
                     max_conns: n
-                    |> Maybe.to_result("pool_max_conns `${value}` is not a positive number")?,
+                    |> Option.to_result("pool_max_conns `${value}` is not a positive number")?,
                 }
             )
 

@@ -143,7 +143,7 @@ func nominalOrigin(t Type) (string, bool) {
 // with stdSetType.
 var (
 	stdResultType   = StdType{Module: "std/results", Name: "Result"}
-	stdMaybeType    = StdType{Module: "std/maybe", Name: "Maybe"}
+	stdOptionType   = StdType{Module: "std/option", Name: "Option"}
 	stdBoolType     = StdType{Module: "std/bool", Name: "Bool"}
 	stdRangeType    = StdType{Module: "std/ranges", Name: "Range"}
 	stdVectorType   = StdType{Module: "std/vectors", Name: "Vector"}
@@ -163,7 +163,7 @@ var (
 // to a type std declares.
 func StdRuleTypes() []StdType {
 	out := []StdType{
-		stdResultType, stdMaybeType, stdBoolType, stdRangeType, stdVectorType,
+		stdResultType, stdOptionType, stdBoolType, stdRangeType, stdVectorType,
 		stdIterType, stdDistinctType, stdStructType, stdToJsonType, stdFromJsonType,
 		stdLocalizeType, stdFragmentType, stdDebugType, stdRouteType, stdSetType,
 	}

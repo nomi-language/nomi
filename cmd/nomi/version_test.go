@@ -101,21 +101,6 @@ func TestVersionLineFor_ARelease(t *testing.T) {
 	}
 }
 
-func TestVersionRequested(t *testing.T) {
-	yes := [][]string{{"nomi", "--version"}, {"nomi", "version"}}
-	no := [][]string{{"nomi"}, {"nomi", "run", "x.nomi"}, {"nomi", "-version"}, {"nomi", "--versions"}, {"nomi", "run", "--version"}}
-	for _, args := range yes {
-		if !versionRequested(args) {
-			t.Errorf("versionRequested(%q) = false, want true", args)
-		}
-	}
-	for _, args := range no {
-		if versionRequested(args) {
-			t.Errorf("versionRequested(%q) = true, want false", args)
-		}
-	}
-}
-
 // TestVersionFlag_EveryBuildPathReportsItsRevision is the acceptance test, and
 // the reason it builds four binaries is that this repository produces `nomi`
 // three different ways and the fourth is the negative control.

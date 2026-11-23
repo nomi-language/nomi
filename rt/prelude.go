@@ -2,14 +2,14 @@ package rt
 
 // The two prelude enums, as Go generic types.
 //
-// `Maybe<T>` (std/maybe.nomi) and `Result<T, E>` (std/results.nomi) are
+// `Option<T>` (std/option.nomi) and `Result<T, E>` (std/results.nomi) are
 // ordinary Nomi enums — no compiler magic in the language — but most Nomi
 // programs are written in terms of them.
 //
 // # Why these two live in rt
 //
 // The tagged-struct representation itself needs nothing new: Go has generics,
-// so `Maybe<T>` is `struct { Tag uint8; Some T }` with the type parameter
+// so `Option<T>` is `struct { Tag uint8; Some T }` with the type parameter
 // carried directly, and no type-parameter dictionary is involved. What rt
 // gives is identity. A named type's identity in internal/irbuild is the
 // `*typeDef` its declaration produced, and a std type needs one Go type that
@@ -22,8 +22,8 @@ package rt
 //
 // A tagged struct, with
 // tag 0 reserved as invalid so a Go zero value is detectably never-constructed.
-// `var m Maybe[int64]` has Tag 0, which is neither Some nor None, and
-// `make([]Maybe[int64], n)` produces n detectably-invalid values rather than n
+// `var m Option[int64]` has Tag 0, which is neither Some nor None, and
+// `make([]Option[int64], n)` produces n detectably-invalid values rather than n
 // copies of the first variant. Nomi has no zero values, so the reservation
 // costs nothing and converts a silent wrong answer into a detectable one.
 //
@@ -49,17 +49,17 @@ package rt
 // A tag that is consistently wrong prints the same text, so a fixture that
 // only compares output cannot fail on it. The tags below are therefore pinned by
 // absolute assertions in prelude_test.go, and cross-checked against the
-// declaration order in std/maybe.nomi and std/results.nomi by
+// declaration order in std/option.nomi and std/results.nomi by
 // internal/irbuild's TestPreludeShapeMatchesStdSource. Neither test compares two
 // implementations; both spell out the expected answer.
 
 // Tag values. Written out rather than left implicit at the construction sites
 // because they are the one thing a reader has to be able to check against
-// std/maybe.nomi and std/results.nomi by eye.
+// std/option.nomi and std/results.nomi by eye.
 const (
 	// TagInvalid is the Go zero value: an enum that was never constructed.
 	TagInvalid uint8 = 0
-	// TagSome and TagNone are Maybe's variants, in declaration order.
+	// TagSome and TagNone are Option's variants, in declaration order.
 	TagSome uint8 = 1
 	TagNone uint8 = 2
 	// TagOk and TagErr are Result's variants, in declaration order.
@@ -67,11 +67,11 @@ const (
 	TagErr uint8 = 2
 )
 
-// Maybe is Nomi's `std/maybe.Maybe<T>`: `Some T` or `None`.
+// Option is Nomi's `std/option.Option<T>`: `Some T` or `None`.
 //
-// `None` carries nothing, so it needs no field of its own — a Maybe is one tag
+// `None` carries nothing, so it needs no field of its own — an Option is one tag
 // byte plus one T, and Go packs it exactly as the monomorphic form would.
-type Maybe[T any] struct {
+type Option[T any] struct {
 	// Tag is 1 for Some and 2 for None. 0 means never constructed.
 	Tag uint8
 	// Some is the payload of the Some variant, and is the T-typed zero value
@@ -88,16 +88,16 @@ type Result[T, E any] struct {
 	Err E
 }
 
-// Some builds a present Maybe.
+// Some builds a present Option.
 //
 // These four exist for rt's own use, where a hand-written host function
-// returns a Maybe or a Result. Writing the tag by hand at each of those sites is exactly
+// returns an Option or a Result. Writing the tag by hand at each of those sites is exactly
 // the drift this file exists to prevent.
-func Some[T any](v T) Maybe[T] { return Maybe[T]{Tag: TagSome, Some: v} }
+func Some[T any](v T) Option[T] { return Option[T]{Tag: TagSome, Some: v} }
 
-// None builds an absent Maybe. The type argument is explicit because there is
+// None builds an absent Option. The type argument is explicit because there is
 // no value to infer it from: `rt.None[int64]()`.
-func None[T any]() Maybe[T] { return Maybe[T]{Tag: TagNone} }
+func None[T any]() Option[T] { return Option[T]{Tag: TagNone} }
 
 // Ok builds a successful Result.
 func Ok[T, E any](v T) Result[T, E] { return Result[T, E]{Tag: TagOk, Ok: v} }
@@ -105,15 +105,15 @@ func Ok[T, E any](v T) Result[T, E] { return Result[T, E]{Tag: TagOk, Ok: v} }
 // Err builds a failed Result.
 func Err[T, E any](e E) Result[T, E] { return Result[T, E]{Tag: TagErr, Err: e} }
 
-// MaybeToResult reads Tag and never assumes the complement: a
-// never-constructed `Maybe[T]` has Tag 0, which is neither Some nor None, and
+// OptionToResult reads Tag and never assumes the complement: a
+// never-constructed `Option[T]` has Tag 0, which is neither Some nor None, and
 // answering Err for it is the only answer that does not invent a payload out
 // of a Go zero value. The absolute pins in prelude_test.go cover that case,
 // which no Nomi program can reach.
 
-// MaybeToResult is std/maybe's `to_result`: Some becomes Ok, None becomes
+// OptionToResult is std/option's `to_result`: Some becomes Ok, None becomes
 // Err carrying e.
-func MaybeToResult[T, E any](m Maybe[T], e E) Result[T, E] {
+func OptionToResult[T, E any](m Option[T], e E) Result[T, E] {
 	if m.Tag == TagSome {
 		return Result[T, E]{Tag: TagOk, Ok: m.Some}
 	}

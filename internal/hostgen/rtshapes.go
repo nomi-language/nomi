@@ -16,9 +16,9 @@ import (
 // the VM's `value`-based hosts in internal/vm/*hosts.go, and the parity
 // suite there holds them to it.
 //
-//   - rt's generic prelude types: rt.Maybe[T], rt.Result[T, E], *rt.List[T]
+//   - rt's generic prelude types: rt.Option[T], rt.Result[T, E], *rt.List[T]
 //     and rt.Map[K, V], each converted element by element to and from the
-//     VM's forms (a Maybe or Result record, *rt.List[any], rt.Map[any, any]).
+//     VM's forms (an Option or Result record, *rt.List[any], rt.Map[any, any]).
 //   - rt's tagged-struct encoding of a std enum (rt.Json, rt.Ordering,
 //     rt.Restart, rt.Backoff, rt.GiveUp, rt.Wait, rt.FlushOutcome): a Go
 //     struct whose first field is `Tag uint8`, 1-based in declaration order,
@@ -74,7 +74,7 @@ func rtGenericBase(t reflect.Type) string {
 }
 
 // isRtGeneric reports whether t is one of the named rt generic types as a
-// boundary carries it: *rt.List[T], or rt.Maybe, rt.Result, rt.Map by value.
+// boundary carries it: *rt.List[T], or rt.Option, rt.Result, rt.Map by value.
 func isRtGeneric(t reflect.Type, bases ...string) bool {
 	base := rtGenericBase(t)
 	if t.Kind() == reflect.Pointer {
@@ -105,7 +105,7 @@ func rtGenericArgs(t reflect.Type) (string, []reflect.Type, bool) {
 		return f.Type
 	}
 	switch base {
-	case "Maybe":
+	case "Option":
 		return base, []reflect.Type{field(t, "Some")}, true
 	case "Result":
 		return base, []reflect.Type{field(t, "Ok"), field(t, "Err")}, true
@@ -136,14 +136,14 @@ func (g *Generator) inRtGeneric(w *bytes.Buffer, s *Shape, t reflect.Type, goT s
 		elemOf = t.Elem()
 	}
 	base, args, _ := rtGenericArgs(elemOf)
-	want := map[string]ShapeKind{"Maybe": SMaybe, "Result": SResult, "List": SList, "Map": SMap}[base]
+	want := map[string]ShapeKind{"Option": SOption, "Result": SResult, "List": SList, "Map": SMap}[base]
 	if s.Kind != want {
 		return fmt.Errorf("Go %s projects to %s, not %s", t, base, s)
 	}
 	fail := "\t\treturn out, err\n"
 	switch base {
-	case "Maybe", "Result":
-		name, tags, fields := maybeName, []string{"Some", "None"}, []string{"Some", ""}
+	case "Option", "Result":
+		name, tags, fields := optionName, []string{"Some", "None"}, []string{"Some", ""}
 		consts := []string{"rt.TagSome", "rt.TagNone"}
 		if base == "Result" {
 			name, tags, fields = resultName, []string{"Ok", "Err"}, []string{"Ok", "Err"}
@@ -215,12 +215,12 @@ func (g *Generator) outRtGeneric(w *bytes.Buffer, s *Shape, t reflect.Type) erro
 		elemOf = t.Elem()
 	}
 	base, args, _ := rtGenericArgs(elemOf)
-	want := map[string]ShapeKind{"Maybe": SMaybe, "Result": SResult, "List": SList, "Map": SMap}[base]
+	want := map[string]ShapeKind{"Option": SOption, "Result": SResult, "List": SList, "Map": SMap}[base]
 	if s.Kind != want {
 		return fmt.Errorf("Go %s projects to %s, not %s", t, base, s)
 	}
 	switch base {
-	case "Maybe", "Result":
+	case "Option", "Result":
 		d := g.enumDesc(s)
 		tags, consts, fields := []string{"Some", "None"}, []string{"rt.TagSome", "rt.TagNone"}, []string{"Some", ""}
 		if base == "Result" {

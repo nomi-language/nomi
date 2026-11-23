@@ -168,8 +168,8 @@ func TestSpecSlugs(t *testing.T) {
 		}
 	}
 	s := newSlugger()
-	for _, want := range []string{"maybe", "maybe-1", "maybe-2"} {
-		if got := s.slug("Maybe"); got != want {
+	for _, want := range []string{"option", "option-1", "option-2"} {
+		if got := s.slug("Option"); got != want {
 			t.Errorf("a repeated heading's anchor is %q, want %q", got, want)
 		}
 	}

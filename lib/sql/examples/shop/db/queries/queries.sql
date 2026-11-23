@@ -2,13 +2,13 @@
 -- them, a function for each.
 -- import: shop.CustomerRevenue
 
--- query: user_by_email(email: String) -> Maybe<User>
+-- query: user_by_email(email: String) -> Option<User>
 -- The user with this email, if any.
 SELECT id, email, name, created_at
 FROM users
 WHERE email = @email;
 
--- query: insert_user(email: String, name: Maybe<String>) -> Int
+-- query: insert_user(email: String, name: Option<String>) -> Int
 -- Add a user, returning its id.
 INSERT INTO users (email, name) VALUES (@email, @name)
 RETURNING id;
@@ -67,7 +67,7 @@ SELECT id, user_id, status, total, placed_at, shipped_on FROM orders ORDER BY id
 -- One order's status: a query of one column reads it as the enum.
 SELECT status FROM orders WHERE id = @id;
 
--- query: status_if_placed(id: Int) -> Maybe<OrderStatus>
+-- query: status_if_placed(id: Int) -> Option<OrderStatus>
 -- An order's status, if there is such an order.
 SELECT status FROM orders WHERE id = @id;
 

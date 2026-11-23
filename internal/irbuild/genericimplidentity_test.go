@@ -37,7 +37,7 @@ pub enum Weekday
 end
 
 impl TryFrom<Int> for Weekday
-    fn try_from(value: Int) -> Maybe<Weekday>
+    fn try_from(value: Int) -> Option<Weekday>
         case value
             1 -> Some(Weekday.Monday)
             2 -> Some(Weekday.Tuesday)

@@ -779,7 +779,7 @@ pub fn swap%[1]d<A, B>(pair: Pair%[1]d<A, B>) -> Pair%[1]d<B, A>
 end
 
 /// The item at k, if there is one.
-pub fn pick%[1]d<T>(items: List<T>, k: Int) -> Maybe<T>
+pub fn pick%[1]d<T>(items: List<T>, k: Int) -> Option<T>
     Iter.get(items, k)
 end
 
@@ -871,7 +871,7 @@ derive Equatable for Link%[1]d
 		w(`/// A node of unit %[1]d, whose parent unit %[2]d declares.
 pub struct Node%[1]d
     rec: Rec%[1]d
-    parent: Maybe<%[3]s.Link%[2]d>
+    parent: Option<%[3]s.Link%[2]d>
 end
 
 derive Equatable for Node%[1]d
@@ -943,7 +943,7 @@ func renderFn(u *unit, k int, r *rand.Rand) string {
         s + Describe.weight(r) + Rank%[4]d.rank(r) + %[3]s
     end`, i, c, prev, u.headIndex)
 	case 3:
-		fallback := "(items |> Iter.first() |> Maybe.with_default(0))"
+		fallback := "(items |> Iter.first() |> Option.with_default(0))"
 		if u.usesUtil {
 			fallback = "util.first_or(items, 0)"
 		}
@@ -960,7 +960,7 @@ func renderFn(u *unit, k int, r *rand.Rand) string {
 	case 5:
 		body = fmt.Sprintf(`    table = {"a" => n, "b" => n + %[2]d, "c" => %[3]s}
     Map.get(table, "b")
-    |> Maybe.with_default(0)`, i, c, prev)
+    |> Option.with_default(0)`, i, c, prev)
 	case 6:
 		if u.usesText {
 			body = fmt.Sprintf(`    words = ["unit", "%[1]d", "${n}", " x "]

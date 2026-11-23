@@ -8,7 +8,7 @@ import (
 // The stdlib half of TestCheck_StructLit_StaysLenientWhereTheLanguageIs.
 //
 // These five rows are the ones whose field TYPE is a stdlib name — `Debug`,
-// `Display`, `Iter<Int>`, the universal `Struct`, and `Maybe<Int>` fed `None`.
+// `Display`, `Iter<Int>`, the universal `Struct`, and `Option<Int>` fed `None`.
 // They are the rows that carry the leniency argument, because each is a value
 // that is NOT equal to its field's declared type and is admitted anyway:
 // `argMatchesParam` reaches `ifaceParamAdmits` for the four interface-typed
@@ -41,8 +41,8 @@ func TestCheck_StructLit_StdlibTypedFieldsStayLenient(t *testing.T) {
 			src:  "struct P\n  x: Int\nend\nstruct Cfg\n  s: Struct\nend\nfn main()\n  _a = Cfg{s: P{x: 1}}\nend\n",
 		},
 		{
-			name: "None at Maybe<Int>",
-			src:  "struct Cfg\n  m: Maybe<Int>\nend\nfn main()\n  _a = Cfg{m: None}\nend\n",
+			name: "None at Option<Int>",
+			src:  "struct Cfg\n  m: Option<Int>\nend\nfn main()\n  _a = Cfg{m: None}\nend\n",
 		},
 	}
 	for _, tc := range cases {

@@ -105,9 +105,9 @@ end
 
 test "the `&` marks the function's body"
     assert ([-1, 2] |> Iter.map(&(Int.max(&1, 0) + 1)) |> Iter.to_list()) == [1, 3]
-    wrapped: Maybe<(Int) -> Int> = Some(&(&1 + 1))
-    assert Maybe.map(wrapped, fn f -> f(1)) == Some(2)
-    wrap: (Int) -> Maybe<Int> = &Some(&1 + 1)
+    wrapped: Option<(Int) -> Int> = Some(&(&1 + 1))
+    assert Option.map(wrapped, fn f -> f(1)) == Some(2)
+    wrap: (Int) -> Option<Int> = &Some(&1 + 1)
     assert wrap(1) == Some(2)
     pair = (&Int.max(&1, 0), 1)
     assert pair.first(-3) == 0

@@ -26,7 +26,7 @@ fn source(label: String, value: Int) -> List<Int>
   io.print(label)
   [value]
 end
-fn first_tail(nested: List<List<Int>>) -> Maybe<List<Int>>
+fn first_tail(nested: List<List<Int>>) -> Option<List<Int>>
   case List.first(nested)
     Some(xs) -> List.tail(xs)
     None -> None

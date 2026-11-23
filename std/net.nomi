@@ -28,7 +28,7 @@ import
     io.{Reader, Writer}
     iter.Iter
     lists.List
-    maybe.Maybe.{self, None, Some}
+    option.Option.{self, None, Some}
     results.Result.{self, Err, Ok}
     strings.String
     supervisors.Supervisor
@@ -74,15 +74,15 @@ impl Connection
     end
 
     /// Reads and writes past `at` fail with a timeout; `None` clears it.
-    pub fn set_deadline(conn: Connection, at: Maybe<Instant>) -> Unit
+    pub fn set_deadline(conn: Connection, at: Option<Instant>) -> Unit
         http_host.conn_deadline(conn.handle, 0, unix(at))
     end
 
-    pub fn set_read_deadline(conn: Connection, at: Maybe<Instant>) -> Unit
+    pub fn set_read_deadline(conn: Connection, at: Option<Instant>) -> Unit
         http_host.conn_deadline(conn.handle, 1, unix(at))
     end
 
-    pub fn set_write_deadline(conn: Connection, at: Maybe<Instant>) -> Unit
+    pub fn set_write_deadline(conn: Connection, at: Option<Instant>) -> Unit
         http_host.conn_deadline(conn.handle, 2, unix(at))
     end
 
@@ -99,12 +99,12 @@ impl Connection
 
     /// How long `close` waits to send what is unsent: `None` is the
     /// system's default, zero discards it.
-    pub fn set_linger(conn: Connection, wait: Maybe<Duration>) -> Unit
+    pub fn set_linger(conn: Connection, wait: Option<Duration>) -> Unit
         http_host.conn_linger(
             conn.handle,
             wait
-            |> Maybe.map(Duration.as_seconds)
-            |> Maybe.with_default(-1),
+            |> Option.map(Duration.as_seconds)
+            |> Option.with_default(-1),
         )
     end
 
@@ -115,7 +115,7 @@ impl Connection
             keep_alive.enabled,
             nanos(keep_alive.idle),
             nanos(keep_alive.interval),
-            Maybe.with_default(keep_alive.count, 0),
+            Option.with_default(keep_alive.count, 0),
         )
     end
 
@@ -135,8 +135,8 @@ impl Connection
     end
 end
 
-fn unix(at: Maybe<Instant>) -> Int
-    at |> Maybe.map(Instant.as_nanos) |> Maybe.with_default(0)
+fn unix(at: Option<Instant>) -> Int
+    at |> Option.map(Instant.as_nanos) |> Option.with_default(0)
 end
 
 /// TCP keep-alive probes on a connection.
@@ -144,25 +144,25 @@ pub struct KeepAlive
     enabled: Bool = True
     /// How long a connection is idle before the first probe; `None` is
     /// Go's 15 seconds.
-    idle: Maybe<Duration> = None
+    idle: Option<Duration> = None
     /// How long between probes; `None` is Go's 15 seconds.
-    interval: Maybe<Duration> = None
+    interval: Option<Duration> = None
     /// How many probes go unanswered before the connection is dropped;
     /// `None` is Go's 9.
-    count: Maybe<Int> = None
+    count: Option<Int> = None
 end
 
 /// How `dial` connects. A timeout past about 292 years, the longest wait the
 /// clock counts, never fires.
 pub struct DialOptions
     /// The longest connecting may take; the context's deadline applies too.
-    timeout:    Maybe<Duration> = None
+    timeout:    Option<Duration> = None
     keep_alive: KeepAlive = KeepAlive{}
     /// The local address to connect from, `host:port`.
-    local_address: Maybe<String> = None
+    local_address: Option<String> = None
     /// How long to wait for IPv6 before trying IPv4 too ("Happy
     /// Eyeballs"); `None` is Go's 300 milliseconds.
-    fallback_delay: Maybe<Duration> = None
+    fallback_delay: Option<Duration> = None
     /// Asks for Multipath TCP where the system has it.
     multipath: Bool = False
 end
@@ -190,7 +190,7 @@ pub enum Error
     /// An address that does not parse.
     InvalidAddress {address: String, reason: String}
     /// A name the resolver could not resolve.
-    Dns {host: String, reason: String, server: Maybe<String>, not_found: Bool}
+    Dns {host: String, reason: String, server: Option<String>, not_found: Bool}
     /// Any other failure of `op` (`dial`, `listen`, `lookup`) on `address`.
     Other {op: String, address: String, reason: String}
     Tls {error: tls.Error}
@@ -285,12 +285,12 @@ pub fn dial(address: String, options: DialOptions = DialOptions{}) -> Result<Con
         http_host.dial_with(
             address,
             nanos(options.timeout),
-            Maybe.with_default(options.local_address, ""),
+            Option.with_default(options.local_address, ""),
             nanos(options.fallback_delay),
             k.enabled,
             nanos(k.idle),
             nanos(k.interval),
-            Maybe.with_default(k.count, 0),
+            Option.with_default(k.count, 0),
             options.multipath,
         )
         |> Result.map_err(Error.from_parts)?
@@ -301,12 +301,12 @@ end
 /// For std::tls: a timeout in nanoseconds, 0 for `None`, held to the
 /// longest wait the clock counts, about 292 years either way: a longer
 /// timeout waits that long, so it never fires.
-pub fn nanos(d: Maybe<Duration>) -> Int
+pub fn nanos(d: Option<Duration>) -> Int
     d
-    |> Maybe.map(fn d ->
+    |> Option.map(fn d ->
         Duration.as_nanos(d) |> Int.clamp(-9_223_372_036_854_775_808..=9_223_372_036_854_775_807)
     end)
-    |> Maybe.with_default(0)
+    |> Option.with_default(0)
 end
 
 /// Two connections joined in memory, each end's writes the other's
@@ -361,7 +361,7 @@ fn lookup(kind: String, name: String) -> Result<List<String>, Error>
 end
 
 fn int(text: String) -> Int
-    String.to_int(text) |> Maybe.with_default(0)
+    String.to_int(text) |> Option.with_default(0)
 end
 
 /// The addresses of `host`, as the system resolver returns.
@@ -471,7 +471,7 @@ impl Listener
 
     /// An `accept` still waiting at `at` fails with `Error.Timeout`;
     /// `None` clears it.
-    pub fn set_deadline(listener: Listener, at: Maybe<Instant>) -> Unit
+    pub fn set_deadline(listener: Listener, at: Option<Instant>) -> Unit
         http_host.net_listener_deadline(listener.handle, unix(at))
     end
 
@@ -501,7 +501,7 @@ pub fn listen(address: String, options: ListenOptions = ListenOptions{}) -> Resu
             k.enabled,
             nanos(k.idle),
             nanos(k.interval),
-            Maybe.with_default(k.count, 0),
+            Option.with_default(k.count, 0),
             options.multipath,
         )
         |> Result.map_err(Error.from_parts)?

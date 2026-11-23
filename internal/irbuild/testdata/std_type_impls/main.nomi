@@ -21,9 +21,9 @@ fn main()
     io.print(Date.from_v(V.D(day)) == Ok(day))
     io.print(Int.from_v(V.I(3)) == Ok(3))
     io.print(lib.read<Date>(V.D(day)) == Ok(day))
-    io.print(lib.read<Maybe<Date>>(V.N) == Ok(None))
+    io.print(lib.read<Option<Date>>(V.N) == Ok(None))
     io.print(ToV.to_v(Some(at)) == V.At(at))
-    nothing: Maybe<Decimal> = None
+    nothing: Option<Decimal> = None
 
     io.print(
         all([day, 2.5d, at, Some(day), nothing]) == [V.D(day), V.Dec(2.5d), V.At(at), V.D(day), V.N]

@@ -94,7 +94,7 @@ fn main()
  io.print(which(-1, 0))
 end`, "both\nx only\ny only\nzero\nneither\n"},
 		{"pattern if chain", `import std::io
-fn pick(m: Maybe<Int>, loud: Bool) -> String
+fn pick(m: Option<Int>, loud: Bool) -> String
  if Some(n) = m then
   return "some ${n}"
  else if loud then

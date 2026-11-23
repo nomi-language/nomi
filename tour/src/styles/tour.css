@@ -1477,6 +1477,13 @@ dialog.nomi-modal::backdrop {
      wrap that orphans the last word under the mark. */
 }
 
+/* The tagline holds a link. Starlight styles links only inside Markdown
+   content, which the hero is not, so without this the browser's own link
+   colors show (purple once visited). */
+.hero .tagline a {
+  color: var(--sl-color-text-accent);
+}
+
 /* The Examples intro's filter (tour-client.mjs's filterExamples): a select
    per kind and the count, on one line that wraps on a narrow screen. The
    page ships it hidden; the script shows it. Starlight spaces a Markdown

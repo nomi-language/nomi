@@ -5,7 +5,7 @@ import "testing"
 // `None` in a lambda passed to a generic takes fresh inference variables
 // for its type parameters, which the other branch or the other argument
 // then solves. The checker rejected `if c then None else Some(2.5)` there
-// as a branch mismatch (`Maybe<T>` against `Maybe<Float>`), and recorded
+// as a branch mismatch (`Option<T>` against `Option<Float>`), and recorded
 // `pick(False, None, Some(x))` with `T` unsolved, so the builder declined it.
 // With None in the first branch, the builder takes None's type from what
 // the checker recorded for it rather than from the branch alone.
@@ -23,11 +23,11 @@ end
 fn main()
   io.inspect(apply(1, fn x -> if x > 5 then Some(2.5) else None))
   io.inspect(apply(9, fn x -> if x > 5 then Some(2.5) else None))
-  io.inspect(Maybe.map(Some(94), fn x -> pick(False, None, Some(x))))
-  io.inspect(Maybe.map(Some(94), fn x -> pick(True, None, Some(x))))
+  io.inspect(Option.map(Some(94), fn x -> pick(False, None, Some(x))))
+  io.inspect(Option.map(Some(94), fn x -> pick(True, None, Some(x))))
   io.inspect(apply("a", fn s -> pick(False, Err("bad"), Ok(s))))
-  io.inspect(Maybe.map(Some(1), fn x -> if x > 5 then None else Some(2.5)))
-  io.inspect(Maybe.map(Some(9), fn x -> if x > 5 then None else Some(2.5)))
+  io.inspect(Option.map(Some(1), fn x -> if x > 5 then None else Some(2.5)))
+  io.inspect(Option.map(Some(9), fn x -> if x > 5 then None else Some(2.5)))
 end
 `)
 	want := "None\nSome(2.5)\nSome(Some(94))\nSome(None)\nOk(\"a\")\nSome(Some(2.5))\nSome(None)\n"

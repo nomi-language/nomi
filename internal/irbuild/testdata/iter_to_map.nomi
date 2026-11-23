@@ -32,7 +32,7 @@ fn main()
     nankey = Iter.to_map([(0.0 / 0.0, "nan")])
     dupsize = Iter.to_map([("a", 1), ("b", 2), ("a", 3)])
     single = Iter.to_map([("a", 1)])
-    // `Map.get` returns a `Maybe`, and `==` on a prelude enum is a separate gap
+    // `Map.get` returns an `Option`, and `==` on a prelude enum is a separate gap
     // (prelude.go) rather than this fixture's subject, so the payload is read
     // with `case`. Reading it is also the stronger assertion: it distinguishes
     // Some("a") from Some("b"), which a bare `is_some` would not.
@@ -61,14 +61,14 @@ fn main()
     io.print("empty   ${Map.size(Iter.to_map([(1, 2)])) == 1}")
 end
 
-fn found(got: Maybe<String>, want: String) -> Bool
+fn found(got: Option<String>, want: String) -> Bool
     case got
         .Some(v) -> v == want
         .None    -> False
     end
 end
 
-fn found_int(got: Maybe<Int>, want: Int) -> Bool
+fn found_int(got: Option<Int>, want: Int) -> Bool
     case got
         .Some(v) -> v == want
         .None    -> False

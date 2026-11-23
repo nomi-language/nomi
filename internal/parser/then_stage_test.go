@@ -80,7 +80,7 @@ func TestThen_BracedBodyHoldsAPipe(t *testing.T) {
 // Everywhere else a lambda's body runs to the end of its expression: in a
 // call's parentheses, and at the head of a pipeline.
 func TestLambda_BodyRunsPastAPipe(t *testing.T) {
-	call := parseExpr(t, "Iter.map(xs, fn s -> String.to_int(s) |> Maybe.with_default(0))").(*ast.Call)
+	call := parseExpr(t, "Iter.map(xs, fn s -> String.to_int(s) |> Option.with_default(0))").(*ast.Call)
 	lam := call.Args[1].(*ast.Lambda)
 	if b, ok := lambdaBody(t, lam).(*ast.Binary); !ok || b.Op != "|>" {
 		t.Errorf("argument lambda body is %#v, want a pipe", lambdaBody(t, lam))

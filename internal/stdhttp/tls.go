@@ -217,7 +217,7 @@ func TLSConfig(
 	sessionTickets bool,
 	sessionCacheArg rt.Int,
 	renegotiationArg, clientAuthArg rt.Int,
-	certificateFor func(*rt.Frame, rt.HTTPHandle) rt.Maybe[rt.TLSCertificate],
+	certificateFor func(*rt.Frame, rt.HTTPHandle) rt.Option[rt.TLSCertificate],
 	hasCertificateFor bool,
 	verify func(*rt.Frame, *rt.List[*rt.List[string]]) string,
 	hasVerify bool,

@@ -17,8 +17,8 @@ import
     lists.List
     locale.Locale
     localize.NumberParseError
-    maybe.Maybe.{self, None, Some}
     multiply.Multiply
+    option.Option.{self, None, Some}
     productable.Productable
     remainder.Remainder
     results.Result.{self, Err, Ok}
@@ -31,7 +31,7 @@ end
 //# `Int`, the one integer type, and its operations. An Int is exact at any
 //# size: `+`, `-` and `*` never overflow.
 //#
-//# - **Subtypes.** `NonZeroInt`, `NonNegativeInt` and `PositiveInt` (all in
+//# - **Refinements.** `NonZeroInt`, `NonNegativeInt` and `PositiveInt` (all in
 //#   the prelude), `Radix` and `Int64` are Ints that passed a check. `/` and
 //#   `%` take a `NonZeroInt` divisor, `Int.pow` a `NonNegativeInt` exponent
 //#   and `Int.to_digits` a `Radix`, so none of them can fail while the
@@ -155,22 +155,22 @@ impl Int
     //! assert Int.to_byte(256) == None
     //! assert Int.to_byte(Int.pow(2, 70)) == None
     //
-    pub host fn to_byte(n: Int) -> Maybe<Byte>
+    pub host fn to_byte(n: Int) -> Option<Byte>
 
     /// The Codepoint numbered `n`, or `None` when `n` is not a Unicode
     /// scalar value: one from `0` through `0x10FFFF` that is not in the
     /// UTF-16 surrogate block, `0xD800` through `0xDFFF`.
     //! assert Int.to_codepoint(65) == Some('A')
-    //! assert Maybe.map(Int.to_codepoint(0), Codepoint.to_int) == Some(0)
-    //! assert Maybe.map(Int.to_codepoint(0xD7FF), Codepoint.to_int) == Some(0xD7FF)
-    //! assert Maybe.map(Int.to_codepoint(0xE000), Codepoint.to_int) == Some(0xE000)
-    //! assert Maybe.map(Int.to_codepoint(0x10FFFF), Codepoint.to_int) == Some(0x10FFFF)
+    //! assert Option.map(Int.to_codepoint(0), Codepoint.to_int) == Some(0)
+    //! assert Option.map(Int.to_codepoint(0xD7FF), Codepoint.to_int) == Some(0xD7FF)
+    //! assert Option.map(Int.to_codepoint(0xE000), Codepoint.to_int) == Some(0xE000)
+    //! assert Option.map(Int.to_codepoint(0x10FFFF), Codepoint.to_int) == Some(0x10FFFF)
     //! assert Int.to_codepoint(-1) == None
     //! assert Int.to_codepoint(0xD800) == None
     //! assert Int.to_codepoint(0xDFFF) == None
     //! assert Int.to_codepoint(0x110000) == None
     //
-    pub host fn to_codepoint(n: Int) -> Maybe<Codepoint>
+    pub host fn to_codepoint(n: Int) -> Option<Codepoint>
 
     /// 64-bit modular addition: the low 64 bits of `a + b`, read as a signed
     /// 64-bit integer (two's complement), so the result is between
@@ -406,6 +406,8 @@ impl Int
     /// for every `n`, `0` included. `exp` is a `NonNegativeInt`, since a
     /// negative exponent's result is a fraction, which is `Float.pow`'s; an
     /// exponent computed at run time goes through `NonNegativeInt.try_from`.
+    /// An `Int` has no fixed size, but one number of more than 2^34 bits is 2 GiB,
+    /// so asking for one traps, as a `<<<` count past 2^34 does: `Int.pow(2, 17179869185)`.
     //! assert Int.pow(2, 10) == 1024
     //! assert Int.pow(-3, 3) == -27
     //! assert Int.pow(0, 0) == 1
@@ -472,7 +474,7 @@ impl Int
     //! assert Int.from_digits([9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9])
     //!     == Some(99_999_999_999_999_999_999)
     //
-    pub fn from_digits(digits: List<Int>, base: Radix = 10) -> Maybe<NonNegativeInt>
+    pub fn from_digits(digits: List<Int>, base: Radix = 10) -> Option<NonNegativeInt>
         int_from_digits(digits, base)
     end
 
@@ -532,7 +534,7 @@ end
 
 host fn int_to_digits(n: Int, base: Int) -> List<NonNegativeInt>
 
-host fn int_from_digits(digits: List<Int>, base: Int) -> Maybe<NonNegativeInt>
+host fn int_from_digits(digits: List<Int>, base: Int) -> Option<NonNegativeInt>
 
 host fn int_format(locale: Locale, n: Int, grouping: Bool, min_digits: Int) -> String
 
@@ -735,11 +737,11 @@ impl Comparable for Int
 end
 
 impl Discrete for Int
-    fn next(n: Int) -> Maybe<Int>
+    fn next(n: Int) -> Option<Int>
         Some(n + 1)
     end
 
-    fn steps_between(start: Int, stop: Int) -> Maybe<Int>
+    fn steps_between(start: Int, stop: Int) -> Option<Int>
         if start > stop then
             Some(0)
         else
@@ -749,7 +751,7 @@ impl Discrete for Int
 end
 
 impl Steppable for Int
-    fn step_by(n: Int, by: Int) -> Maybe<Int>
+    fn step_by(n: Int, by: Int) -> Option<Int>
         Some(n + by)
     end
 end
@@ -764,7 +766,7 @@ end
 //! assert NonZeroInt.try_from(5) == Some(5)
 //! assert NonZeroInt.try_from(0) == None
 //
-pub subtype NonZeroInt Int when fn n -> n != 0
+pub refine NonZeroInt Int when fn n -> n != 0
 
 /// An Int that is zero or more: a count, an index, an exponent. A literal is
 /// checked when the program is compiled; `NonNegativeInt.try_from(n)` checks
@@ -774,9 +776,9 @@ pub subtype NonZeroInt Int when fn n -> n != 0
 //! assert NonNegativeInt.try_from(0) == Some(0)
 //! assert NonNegativeInt.try_from(-1) == None
 //
-pub subtype NonNegativeInt Int when fn n -> n >= 0
+pub refine NonNegativeInt Int when fn n -> n >= 0
 
-/// An Int greater than zero. It is a subtype of both `NonNegativeInt` and
+/// An Int greater than zero. It is a refinement of both `NonNegativeInt` and
 /// `NonZeroInt`, so a PositiveInt passes wherever either, or an Int, is
 /// expected. It is in the prelude.
 //! p: PositiveInt = 4
@@ -786,7 +788,7 @@ pub subtype NonNegativeInt Int when fn n -> n >= 0
 //! assert PositiveInt.try_from(-3) == None
 //! assert PositiveInt.try_from(0) == None
 //
-pub subtype PositiveInt NonNegativeInt and NonZeroInt when fn n -> n > 0
+pub refine PositiveInt NonNegativeInt and NonZeroInt when fn n -> n > 0
 
 /// A base to write digits in: an Int of 2 or more, which `Int.to_digits`
 /// and `Int.from_digits` take. A literal is checked when the program is
@@ -794,7 +796,7 @@ pub subtype PositiveInt NonNegativeInt and NonZeroInt when fn n -> n > 0
 //! assert Int.to_digits(5, 2) == [1, 0, 1]
 //! assert Radix.try_from(1) == None
 //
-pub subtype Radix Int when fn b -> b >= 2
+pub refine Radix Int when fn b -> b >= 2
 
 /// An Int that fits in 64 bits, from -9223372036854775808 to
 /// 9223372036854775807: what a Go `int64` holds. A std function or field
@@ -807,4 +809,4 @@ pub subtype Radix Int when fn b -> b >= 2
 //! assert Int64.try_from(-9223372036854775808) == Some(-9223372036854775808)
 //! assert Int64.try_from(9223372036854775808) == None
 //
-pub subtype Int64 Int when fn n -> n >= -9223372036854775808 and n <= 9223372036854775807
+pub refine Int64 Int when fn n -> n >= -9223372036854775808 and n <= 9223372036854775807

@@ -89,7 +89,7 @@ fn main()
     io.print("mixed = ${Result.equal(Ok(4), Err("bad"))}")
 
     // --- a hole under another type constructor -------------------------------
-    // `Some(Ok(42))` is `Maybe<Result<Int, ?>>`. In the corpus this reports
+    // `Some(Ok(42))` is `Option<Result<Int, ?>>`. In the corpus this reports
     // TWICE: once as the constructor's own refusal, and once as the enclosing
     // `Some`'s `non-scalar type argument`, because projecting the inner type
     // answered kindInvalid. One gap under two key names.

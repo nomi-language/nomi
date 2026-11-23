@@ -40,6 +40,10 @@ type listener struct {
 	// open is each connection the server holds, for CloseConnections.
 	mu   sync.Mutex
 	open map[net.Conn]struct{}
+	// serving is each request the program took (Next) and has not
+	// finished, for shutdown to wait for: Go's Shutdown waits for none
+	// whose connection is hijacked, as a WebSocket's is. Under mu.
+	serving map[*incoming]struct{}
 	// unhook removes the drain hook Listen registered.
 	unhook func()
 }
@@ -91,6 +95,9 @@ func (l *listener) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// Shutdown's budget ran out with this request unanswered: return,
 		// and refuse the program's later writes.
 	}
+	l.mu.Lock()
+	delete(l.serving, in)
+	l.mu.Unlock()
 	in.mu.Lock()
 	in.gone = true
 	in.mu.Unlock()
@@ -308,6 +315,7 @@ func listen(address string, durations, limits *rt.List[int64], flags *rt.List[bo
 	}
 	l.srv.SetKeepAlivesEnabled(at(fs, 0))
 	l.open = map[net.Conn]struct{}{}
+	l.serving = map[*incoming]struct{}{}
 	l.srv.ConnState = func(c net.Conn, s http.ConnState) {
 		l.mu.Lock()
 		switch s {
@@ -346,7 +354,7 @@ func Address(l rt.HTTPListener) string { return listenerOf(l).ln.Addr().String()
 
 // Next is `std::http::host.next`: the next request, or None once the server has
 // shut down or the calling task is stopped.
-func Next(fr *rt.Frame, l rt.HTTPListener) rt.Maybe[rt.HTTPIncoming] {
+func Next(fr *rt.Frame, l rt.HTTPListener) rt.Option[rt.HTTPIncoming] {
 	ln := listenerOf(l)
 	ctx := context.Background()
 	if fr != nil && fr.Context() != nil {
@@ -355,6 +363,11 @@ func Next(fr *rt.Frame, l rt.HTTPListener) rt.Maybe[rt.HTTPIncoming] {
 	for {
 		select {
 		case in := <-ln.incoming:
+			// Held before the program can touch it, so a shutdown that
+			// begins once the program has it waits for its answer.
+			ln.mu.Lock()
+			ln.serving[in] = struct{}{}
+			ln.mu.Unlock()
 			return rt.Some(rt.NewHTTPIncoming(in, in.r.Context()))
 		case <-ln.b.ready:
 			ln.b.run(fr)
@@ -371,8 +384,9 @@ func Next(fr *rt.Frame, l rt.HTTPListener) rt.Maybe[rt.HTTPIncoming] {
 
 // Shutdown is `std::http::host.shutdown`: Go's Server.Shutdown. The server stops
 // accepting and waits up to timeout (nanoseconds) for the requests it is
-// answering; then it closes every connection, and requests still
-// unanswered are abandoned. A second call does nothing.
+// answering, a hijacked one's included (awaitServing); then it closes every
+// connection, and requests still unanswered are abandoned. A second call
+// does nothing.
 func Shutdown(l rt.HTTPListener, timeoutArg rt.Int) rt.Unit {
 	timeout := timeoutArg.Saturated()
 	listenerOf(l).shutdown(timeout)
@@ -391,9 +405,30 @@ func (ln *listener) shutdown(timeout int64) {
 		defer cancel()
 		if err := ln.srv.Shutdown(ctx); err != nil {
 			_ = ln.srv.Close()
+		} else {
+			ln.awaitServing(ctx)
 		}
 		close(ln.closed)
 	})
+}
+
+// awaitServing waits, until ctx ends, for each request the program took
+// and has not finished. Go's Shutdown has waited for the rest; these are
+// the hijacked ones, a WebSocket finishing after its client closed.
+func (ln *listener) awaitServing(ctx context.Context) {
+	ln.mu.Lock()
+	waits := make([]chan struct{}, 0, len(ln.serving))
+	for in := range ln.serving {
+		waits = append(waits, in.done)
+	}
+	ln.mu.Unlock()
+	for _, done := range waits {
+		select {
+		case <-done:
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
 // The parts of a received request.
@@ -721,7 +756,8 @@ func badTarget() *rt.List[string] { return listOf([]string{"answer", "400", "inv
 // answering the ranges and conditional headers of the request. set is
 // the response's headers before ServeContent runs, name and value
 // alternating: an ETag there is what If-None-Match and If-Range are
-// checked against, and a Content-Type there is kept.
+// checked against, and a Content-Type there is kept; with none, the type is
+// contentTypeOf's.
 func AnswerContent(method, target string, headers *rt.List[string], name string, modifiedArg rt.Int, set *rt.List[string], data rt.Bytes) *rt.List[string] {
 	modified := modifiedArg.Saturated()
 	req, ok := synthetic(method, target, headers)
@@ -745,6 +781,9 @@ func AnswerContent(method, target string, headers *rt.List[string], name string,
 	rec := &matchRecorder{header: http.Header{}, status: http.StatusOK}
 	for l := set; l != nil && l.Tail != nil; l = l.Tail.Tail {
 		rec.header.Add(l.Head, l.Tail.Head)
+	}
+	if _, typed := rec.header["Content-Type"]; !typed {
+		rec.header.Set("Content-Type", contentTypeOf(name, []byte(data)))
 	}
 	http.ServeContent(rec, req, name, mod, bytes.NewReader([]byte(data)))
 	return answered(rec)
@@ -810,7 +849,7 @@ func LimitBody(fr *rt.Frame, r rt.Reader, maxArg rt.Int) rt.Reader {
 // until its end or until max are read, at most 64 KiB a read, and the
 // error a read failed with before either, beside the bytes read until
 // then. The bytes are a value, so reading a body whole makes no Writer.
-func ReadAtMost(fr *rt.Frame, r rt.Reader, maxArg rt.Int) (rt.Bytes, rt.Maybe[rt.IOError]) {
+func ReadAtMost(fr *rt.Frame, r rt.Reader, maxArg rt.Int) (rt.Bytes, rt.Option[rt.IOError]) {
 	left := maxArg.Saturated()
 	var data []byte
 	for left > 0 {
@@ -858,7 +897,7 @@ func InLocal(in rt.HTTPIncoming) string {
 
 // InTLS is `std::http::host.in_tls`: the TLS state of the connection the request
 // came in on, as stateParts lists it; None over plain HTTP.
-func InTLS(in rt.HTTPIncoming) rt.Maybe[*rt.List[*rt.List[string]]] {
+func InTLS(in rt.HTTPIncoming) rt.Option[*rt.List[*rt.List[string]]] {
 	if s := incomingOf(in).r.TLS; s != nil {
 		return rt.Some(stateParts(*s))
 	}

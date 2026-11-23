@@ -30,7 +30,7 @@ end
 fn b(_x: Bool) -> Int
     1
 end
-fn m(_x: Maybe<Int>) -> Int
+fn m(_x: Option<Int>) -> Int
     2
 end
 fn r(_x: Result<Int, String>) -> Int
@@ -45,7 +45,7 @@ fn f(bx: Bool) -> Int
     False -> b(bx)
   end
 end
-fn g(mx: Maybe<Int>) -> Int
+fn g(mx: Option<Int>) -> Int
   case mx
     Some(_) -> m(mx)
     None -> m(mx)
@@ -65,7 +65,7 @@ fn k(sx: Shape) -> Int
     .Wrapped(_) -> s(sx)
   end
 end
-fn i(mi: Maybe<Int>, bi: Bool) -> Int
+fn i(mi: Option<Int>, bi: Bool) -> Int
   one = if Some(_) = mi then m(mi) else 0
   two = if True = bi then b(bi) else 0
   one + two
@@ -95,10 +95,10 @@ end`
 		reads int
 	}{
 		{"bx", "Bool", 3},
-		{"mx", "Maybe<Int>", 3},
+		{"mx", "Option<Int>", 3},
 		{"rx", "Result<Int, String>", 3},
 		{"sx", "Shape", 5},
-		{"mi", "Maybe<Int>", 2},
+		{"mi", "Option<Int>", 2},
 		{"bi", "Bool", 2},
 		{"bj", "Bool", 3},
 		{"nx", "Named", 3},

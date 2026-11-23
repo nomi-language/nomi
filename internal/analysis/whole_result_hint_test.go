@@ -23,7 +23,7 @@ fn parse_flag(input: String) -> Result<Int, Int>
     Err(0)
 end
 
-fn lookup(input: String) -> Maybe<Int>
+fn lookup(input: String) -> Option<Int>
     None
 end
 
@@ -85,16 +85,16 @@ end
 			resultHelp,
 		},
 		{
-			"maybe catch-all arm",
-			`fn find(input: String) -> Maybe<Tx>
+			"option catch-all arm",
+			`fn find(input: String) -> Option<Tx>
     case lookup(input)
         Some(amount) -> Some(Tx{amount:})
         none -> none
     end
 end
 `,
-			"case branch type mismatch: expected Maybe<Tx>, got Maybe<Int>",
-			"`none` is the whole `Maybe<Int>`, so its `Some` type is still `Int`; " +
+			"case branch type mismatch: expected Option<Tx>, got Option<Int>",
+			"`none` is the whole `Option<Int>`, so its `Some` type is still `Int`; " +
 				"to pass the absence on, write `None -> None`, or propagate it with `?`",
 		},
 		{

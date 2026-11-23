@@ -159,7 +159,7 @@ fn first_odd(i: Int, n: Int, xs: Vector<Int>) -> Result<Int, String>
     if i == n then
         Err("none")
     else
-        x = Vector.get(xs, i) |> Maybe.to_result("short")?
+        x = Vector.get(xs, i) |> Option.to_result("short")?
         if x % 2 == 1 then Ok(x) else first_odd(i + 1, n, xs)
     end
 end

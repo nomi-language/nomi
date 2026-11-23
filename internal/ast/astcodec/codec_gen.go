@@ -7464,7 +7464,7 @@ func (e *Encoder) structTypeDef(x *ast.TypeDef) {
 		}
 	}
 	e.value(x.InnerTypeExpr)
-	e.bool(x.Subtype)
+	e.bool(x.Refinement)
 	e.len(x.MoreParents == nil, len(x.MoreParents))
 	if len(x.MoreParents) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.MoreParents)), len(x.MoreParents), "[]ast.TypeExpr") {
 		for i20 := range x.MoreParents {
@@ -7541,7 +7541,7 @@ func (d *Decoder) structTypeDef(x *ast.TypeDef) {
 	if v19 := d.value(); v19 != nil {
 		x.InnerTypeExpr = v19.(ast.TypeExpr)
 	}
-	x.Subtype = bool(d.bool())
+	x.Refinement = bool(d.bool())
 	if n21 := d.sharedLen(); n21 == 0 {
 		x.MoreParents = []ast.TypeExpr{}
 	} else if n21 > 0 {
@@ -8592,4 +8592,4 @@ var forms = []any{
 
 // CodecDigest is a digest of the code above it: a reader keys bytes this
 // codec wrote by it when the writer may be another binary.
-const CodecDigest = "8678e33a92eb370d"
+const CodecDigest = "311649e2c60964b4"

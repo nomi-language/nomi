@@ -88,7 +88,7 @@ func TestOpaqueDistinctInstantsCompareUnequal(t *testing.T) {
 }
 
 // TestOpaqueZeroValueIsARealValue pins the zero-value decision, which is the
-// OPPOSITE of rt.Maybe's reserved-invalid tag and had to be argued rather than
+// OPPOSITE of rt.Option's reserved-invalid tag and had to be argued rather than
 // copied.
 //
 // int64 has no spare state — every value is a legal Duration, and

@@ -30,8 +30,8 @@ func stdVariantDecl(module, line, name string) string {
 	return module + ".nomi: no `" + line + "` line"
 }
 
-// maybeSomeDecl is where std's maybe.nomi declares `Some`.
-func maybeSomeDecl() string { return stdVariantDecl("maybe", "Some T", "Some") }
+// optionSomeDecl is where std's option.nomi declares `Some`.
+func optionSomeDecl() string { return stdVariantDecl("option", "Some T", "Some") }
 
 // dotVariantMain uses the `.Variant` shorthand in every position the
 // checker resolves it from an expected type: an argument to a user
@@ -101,8 +101,8 @@ fn main()
     _k = tones.tint(.Warm)
     _l = fill(.Full(1))
     _m = fill(Slot.Full(1))
-    _n: Maybe<Int> = .Some(1)
-    _o: Maybe<Int> = Maybe.Some(1)
+    _n: Option<Int> = .Some(1)
+    _o: Option<Int> = Option.Some(1)
 end
 `
 
@@ -315,8 +315,8 @@ func TestDotVariant_NavigatesLikeTheWrittenVariant(t *testing.T) {
 			uses: []string{m("tones.tint(.Warm)", "Warm"), "tones.nomi:7:13"}},
 		{name: "std function argument", marker: "[3, 1, 2], .Descending", word: "Descending",
 			hover: "Direction.Descending", decl: stdVariantDecl("comparable", "Descending", "Descending"), uses: []string{m("[3, 1, 2], .Descending", "Descending")}, std: true},
-		{name: "prelude enum", marker: "= .Some(1)", written: "= Maybe.Some(1)", word: "Some",
-			hover: "Maybe.Some(Int) -> Maybe<Int>", decl: maybeSomeDecl(), uses: []string{m("= .Some(1)", "Some"), m("= Maybe.Some(1)", "Some")}, std: true},
+		{name: "prelude enum", marker: "= .Some(1)", written: "= Option.Some(1)", word: "Some",
+			hover: "Option.Some(Int) -> Option<Int>", decl: optionSomeDecl(), uses: []string{m("= .Some(1)", "Some"), m("= Option.Some(1)", "Some")}, std: true},
 		{name: "lambda result", marker: "fn _x, _y -> .Less", written: "fn _x, _y -> Ordering.Less", word: "Less",
 			hover: "Ordering.Less", decl: stdVariantDecl("comparable", "Less", "Less"), uses: []string{m("fn _x, _y -> .Less", "Less"), m("fn _x, _y -> Ordering.Less", "Less")}, std: true},
 	}

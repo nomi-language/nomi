@@ -351,7 +351,7 @@ fn main()
     end
   end)
   io.print(a)
-  m: Maybe<Int> = None
+  m: Option<Int> = None
   b = Iter.loop(0, fn n ->
     defer note("iteration b")
     Some(x) = m else

@@ -10,7 +10,7 @@ import
     int.Int
     io.{Error, Reader}
     lists.List
-    maybe.Maybe
+    option.Option
     strings.String
 end
 
@@ -23,7 +23,7 @@ pub host type Records
 pub host fn open(
     reader:    Reader,
     delimiter: Codepoint,
-    comment:   Maybe<Codepoint>,
+    comment:   Option<Codepoint>,
     trim:      Bool,
     lazy:      Bool,
     fields:    Int,
@@ -53,7 +53,7 @@ pub host fn failure(records: Records) -> Error
 pub host fn decode(
     data:      Bytes,
     delimiter: Codepoint,
-    comment:   Maybe<Codepoint>,
+    comment:   Option<Codepoint>,
     trim:      Bool,
     lazy:      Bool,
     fields:    Int,

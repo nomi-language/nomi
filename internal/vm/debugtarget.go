@@ -12,14 +12,14 @@ package vm
 // its own. Within them a target is:
 //
 //   - a direct call to a function with Nomi statements, named as the stack
-//     names it (`double`, `Account.deposit`, `maybe.Maybe.map<Int, Int>`);
+//     names it (`double`, `Account.deposit`, `option.Option.map<Int, Int>`);
 //   - a dispatched call, named by its interface method (`Display.to_string`),
 //     which any impl the program has enters;
 //   - a call through a function value whose function is known where the
 //     frame stopped, named by the variable that holds it;
 //   - a callback: a lambda or a named function passed to a call or an
 //     `Iter` operation of the statement, named by both as source code
-//     spells them, `Iter.map(fn n -> ...) callback`, `Maybe.map(double)
+//     spells them, `Iter.map(fn n -> ...) callback`, `Option.map(double)
 //     callback`.
 //
 // A call into Go (a host function) is not a target itself; a callback it

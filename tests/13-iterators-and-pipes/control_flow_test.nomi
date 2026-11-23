@@ -95,7 +95,7 @@ test "filter supports break values"
     assert exclude_last == [1]
 end
 
-test "find returns Maybe values"
+test "find returns Option values"
     found =
         [1, 2, 3, 4, 5]
         |> Iter.find(&(&1 == 3))

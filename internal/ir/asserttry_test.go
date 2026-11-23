@@ -108,7 +108,7 @@ func TestAssert_ONEJudgementTHREEDeliveries(t *testing.T) {
 
 // TestAssert_NoFieldCarriesAConsumerDecision, read field by field.
 //
-// Nothing on an `Assert` is: the subject's SHAPE (Bool, `Maybe`/`Result`,
+// Nothing on an `Assert` is: the subject's SHAPE (Bool, `Option`/`Result`,
 // `Assertable`), which is read off the operand's type; a reason
 // string, which rt picks from the polarity; a trace buffer, which is a
 // consumer's local; a boundary, which irbuild reads from the checker; or an

@@ -26,7 +26,7 @@ fn spin(n: Int) -> Int
     spin(n + 1)
 end
 
-fn never_negative() -> Maybe<Int>
+fn never_negative() -> Option<Int>
     Iter.iterate(0, &(&1 + 1)) |> Iter.find(&(&1 < 0))
 end
 
@@ -64,8 +64,8 @@ test "runs after"
     assert 1 == 1
 end
 
-fn through_std() -> Maybe<Int>
-    Maybe.map(Some(0), &spin(&1))
+fn through_std() -> Option<Int>
+    Option.map(Some(0), &spin(&1))
 end
 
 test "loops through a standard library call"
@@ -127,8 +127,8 @@ func TestTestTimeout_StopsEachCaseThatDoesNotFinishAndRunsTheRest(t *testing.T) 
 			t.Errorf("%s: want the stack to end in the case's body, got %s", r.Name, outer.Name)
 		}
 		if r.Name == "loops through a standard library call" {
-			// spin, the capture, Maybe.map in the stdlib, then through_std's
-			// tail call into it, whose activation Maybe.map replaced.
+			// spin, the capture, Option.map in the stdlib, then through_std's
+			// tail call into it, whose activation Option.map replaced.
 			if len(timedOut.Stack) != 5 || !timedOut.Stack[2].Pos.Stdlib() ||
 				timedOut.Stack[3].Name != "" || timedOut.Stack[3].Pos.Line() != 51 {
 				t.Errorf("%s: stack %+v", r.Name, timedOut.Stack)

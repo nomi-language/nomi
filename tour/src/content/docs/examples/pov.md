@@ -25,13 +25,13 @@ impl Tree
     /// each node on the way from it to the old root is a child of the node
     /// below it, keeping its other children. `None` when no node has the
     /// label.
-    pub fn from_pov(tree: Tree, from: String) -> Maybe<Tree>
+    pub fn from_pov(tree: Tree, from: String) -> Option<Tree>
         reroot(tree, from, [])
     end
 
     /// The labels on the way from the node labelled `from` to the node
     /// labelled `to`, both included. `None` when either label is missing.
-    pub fn path_to(tree: Tree, from: String, to: String) -> Maybe<List<String>>
+    pub fn path_to(tree: Tree, from: String, to: String) -> Option<List<String>>
         tree
         |> Tree.from_pov(from)?
         |> labels_to(to)
@@ -40,7 +40,7 @@ end
 
 /// `tree`, whose old parent is `above` re-hung as a tree (none at the old
 /// root), rerooted at the node labelled `label`.
-fn reroot(tree: Tree, label: String, above: List<Tree>) -> Maybe<Tree>
+fn reroot(tree: Tree, label: String, above: List<Tree>) -> Option<Tree>
     if tree.label == label then return Some({..tree, children: [.., ..above]})
 
     Iter.find_map(tree.children, fn child ->
@@ -54,7 +54,7 @@ end
 
 /// The labels from the root of `tree` down to the node labelled `label`,
 /// both included, or `None` when no node has the label.
-fn labels_to(tree: Tree, label: String) -> Maybe<List<String>>
+fn labels_to(tree: Tree, label: String) -> Option<List<String>>
     if tree.label == label then return Some([label])
 
     below = Iter.find_map(tree.children, &labels_to(&1, label))?
@@ -240,8 +240,8 @@ test "Reroot a tree so that its root is the specified node."
         ("Errors if target does not exist in a large tree", parent_with_kids, "nonexistent", None),
     ]
     |> subtests (description, tree, from, expected), description
-        rerooted = Tree.from_pov(tree, from) |> Maybe.map(in_label_order)
-        assert rerooted == Maybe.map(expected, in_label_order)
+        rerooted = Tree.from_pov(tree, from) |> Option.map(in_label_order)
+        assert rerooted == Option.map(expected, in_label_order)
     end
 end
 
@@ -305,7 +305,7 @@ test result: ok. 15 passed, 0 failed
 
 - `Tree` is a struct of a `String` label and a `List<Tree>` of children, which default to none, so a leaf is `{label: "x"}` and the tests write each canonical tree as nested literals.
 - `Tree.from_pov` is one recursion, `reroot`, that carries the old parent re-hung as a tree: at each node it tries every child, handing it the node without that child and with the node's own old parent added as a child. At the target the carried tree becomes the last child. Nothing is changed in place; each attempt builds its own nodes, and the attempts that do not reach the target are dropped.
-- The carried parent is a `List<Tree>` of none or one rather than a `Maybe<Tree>`, so it joins the children with a spread, `[.., ..above]`, and needs no case at the old root.
+- The carried parent is a `List<Tree>` of none or one rather than an `Option<Tree>`, so it joins the children with a spread, `[.., ..above]`, and needs no case at the old root.
 - A missing label is `None`, from `from_pov` and `path_to` alike. The canonical data's `null` names no error to report, and both lookups are of data the caller passes in.
 - `path_to` reroots at `from` and reads the labels from the new root down to `to` with `labels_to`, so the path through the old root comes for free. A missing `from` ends it at the reroot's `?`.
 - Each recursion takes the first child that answers with `Iter.find_map`, which stops at that child.

@@ -48,8 +48,8 @@ impl Show for Map<String, V> where V: Show
     end
 end
 
-impl Show for Maybe<T> where T: Show
-    fn show(m: Maybe<T>) -> String
+impl Show for Option<T> where T: Show
+    fn show(m: Option<T>) -> String
         case m
             Some(x) -> "some ${T.show(x)}"
             None    -> "none"

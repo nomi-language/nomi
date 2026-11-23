@@ -417,7 +417,7 @@ impl Queue for Table
         _ = Supervisor.spawn(supervisor, fn -> listen(t, wake, stop.receiver))
     end
 
-    fn last_tick(t: Table, schedule: String) -> Result<Maybe<Instant>, sql.Error>
+    fn last_tick(t: Table, schedule: String) -> Result<Option<Instant>, sql.Error>
         statement = Sql"SELECT last_tick FROM nomi_jobs_schedules WHERE name = ${schedule}"
         rows = Conn.query(t.db, in_table(t.table, statement))?
 
@@ -431,8 +431,8 @@ impl Queue for Table
         t:        Table,
         schedule: String,
         tick:     Instant,
-        job:      Maybe<NewJob>,
-    ) -> Result<Maybe<Enqueued>, sql.Error>
+        job:      Option<NewJob>,
+    ) -> Result<Option<Enqueued>, sql.Error>
         statement = Sql"""
             INSERT INTO nomi_jobs_schedules (name, last_tick) VALUES (${schedule}, ${tick})
             ON CONFLICT (name) DO UPDATE
@@ -454,7 +454,7 @@ end
 // gone by the time it is looked for, finished and pruned, frees the key, so
 // the insert is tried again, up to `tries` times.
 fn insert_job(t: Table, conn: Conn, job: NewJob, tries: Int) -> Result<Enqueued, sql.Error>
-    states = Maybe.map(job.unique_key, fn _ ->
+    states = Option.map(job.unique_key, fn _ ->
         case job.unique_across
             .Live -> "live"
             .Kept -> "kept"
@@ -518,7 +518,7 @@ fn listen(t: Table, wake: Sender<Unit>, stop: Receiver<Unit>)
     if stopped then return
 
     pause = Channel.select([
-        Arm.receive(stop, fn got -> Maybe.is_none(got)),
+        Arm.receive(stop, fn got -> Option.is_none(got)),
         Arm.after(Duration.seconds(5), fn -> False),
     ])
 
@@ -553,7 +553,7 @@ fn relay_until(
             end
         end),
         Arm.receive(stop, fn got ->
-            if Maybe.is_none(got) then Relay.Stopped else Relay.Again
+            if Option.is_none(got) then Relay.Stopped else Relay.Again
         end),
     ])
 

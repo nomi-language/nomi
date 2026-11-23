@@ -70,7 +70,7 @@ func TestExtractVariable_Refused(t *testing.T) {
 		// The whole value of a binding.
 		"binding value": "n = Iter.count‸([1])\nio.inspect(n)\n",
 		// A `.Variant` needs the type expected of it.
-		"dot variant": "m: Maybe<Int> = «.None»\nio.inspect(m)\n",
+		"dot variant": "m: Option<Int> = «.None»\nio.inspect(m)\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			refuseRefactor(t, fnMain(body), "Extract variable")
@@ -173,7 +173,7 @@ func TestInlineVariable_Refused(t *testing.T) {
 		// The name the value reads is rebound before the read.
 		"shadowed": "a = 1\nb‸ = a + 1\na = 5\nio.inspect(a + b)\n",
 		// An annotation gives the value its type.
-		"annotated": "m‸: Maybe<Int> = .None\nio.inspect(m)\n",
+		"annotated": "m‸: Option<Int> = .None\nio.inspect(m)\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			refuseRefactor(t, fnMain(body), "Inline variable")

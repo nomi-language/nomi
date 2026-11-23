@@ -439,14 +439,14 @@ T ok type PositiveDuration
 C dynamic
 E 0
 N 8
-H 10b278a4b92cfbe4d3df27df029e39d098e943734c6d9a9cb33702df70a19a5c
+H 71bc2d16e9200f484f720a2abaf8b51b23eaa1e194b00cd5c57f212c11727774
 T ok type Dynamic
 T ok Dynamic.field
 T ok Dynamic.index
 T ok Dynamic.path
 T ok Dynamic.as_int
 T ok Dynamic.as_float
-T ok Dynamic.as_maybe
+T ok Dynamic.as_option
 T ok Dynamic.at_field
 C embed
 E 0
@@ -1109,24 +1109,6 @@ E 0
 N 1
 H 90184696d8d380b04e0ccff629ad1df93c1ddaca7d61ee18d9d2f1d7931c48aa
 T ok interface Matcher
-C maybe
-E 0
-N 14
-H 536b16c7bb816ab6b3cc4952825b71fea0420d5715b29f55e807bf831d83709d
-T ok enum Maybe
-T ok Maybe.is_some
-T ok Maybe.is_none
-T ok Maybe.map
-T ok Maybe.with_default
-T ok Maybe.otherwise
-T ok Maybe.or_else
-T ok Maybe.to_result
-T ok Maybe.flat_map
-T ok Maybe.filter
-T ok Maybe.flatten
-T ok Maybe.collect
-T ok Maybe.values
-T ok Maybe.each_while (impl Iter for Maybe<T>)
 C money
 E 0
 N 22
@@ -1163,6 +1145,24 @@ T ok net.split_host_port
 T ok net.join_host_port
 T ok net.lookup_host [not run in the browser: connect]
 T ok net.lookup_port [not run in the browser: connect]
+C option
+E 0
+N 14
+H d73e5b8d2d6e9aa64b26c0c1cbffbb3cedfc48ec8489966dae6178deeea33fc3
+T ok enum Option
+T ok Option.is_some
+T ok Option.is_none
+T ok Option.map
+T ok Option.with_default
+T ok Option.otherwise
+T ok Option.or_else
+T ok Option.to_result
+T ok Option.flat_map
+T ok Option.filter
+T ok Option.flatten
+T ok Option.collect
+T ok Option.values
+T ok Option.each_while (impl Iter for Option<T>)
 C parse
 E 0
 N 3
@@ -1209,14 +1209,14 @@ T ok PluralCategory.ordinals
 C presence
 E 0
 N 10
-H e718b8f7b8adfb21cbb5f7dcb1285212c2489441294ae489b1b9f7eb289e4d8e
+H bc07150722243a97045a3fe12627f09175b706a7bc1d43959da03115a33f5662
 T ok enum Presence
 T ok Presence.is_present
 T ok Presence.is_absent
 T ok Presence.map
 T ok Presence.with_default
 T ok Presence.otherwise
-T ok Presence.to_maybe
+T ok Presence.to_option
 T ok Presence.flatten
 T ok Presence.to_json (impl ToJson for Presence<T>)
 T ok Presence.from_json (impl FromJson for Presence<T>)
@@ -1289,7 +1289,7 @@ T ok Regex.inspect (impl Debug for Regex<C>)
 C results
 E 0
 N 10
-H 8313988f80a4dd4c580ab83814fa4cfefd7714fd8bb55fdb836cfba38c547e84
+H 45e0e119befcaad51f20a41919f3e992bf2af2a91930f35c572980d0de38aedf
 T ok enum Result
 T ok Result.is_ok
 T ok Result.is_err
@@ -1297,7 +1297,7 @@ T ok Result.map
 T ok Result.with_default
 T ok Result.flat_map
 T ok Result.map_err
-T ok Result.to_maybe
+T ok Result.to_option
 T ok Result.collect
 T ok Result.partition
 C reverse

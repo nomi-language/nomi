@@ -293,10 +293,10 @@ end
 }
 
 // A prelude wrapper holds an enum with `embeds` variants: `None`,
-// `Some(Shape.Dot)` and `Ok(...)` pass to a Maybe<Shape> or Result<Shape,
+// `Some(Shape.Dot)` and `Ok(...)` pass to an Option<Shape> or Result<Shape,
 // String> parameter, and a value of the embedded type widens inside the
 // wrapper (`Some(Wrapped(c))`), as it does in a list or a tuple. A struct
-// field, `List.first`, `Map.get`, a nested Maybe and `==` over Maybe<Shape>
+// field, `List.first`, `Map.get`, a nested Option and `==` over Option<Shape>
 // run too.
 func TestRun_PreludeWrappersHoldAnEnumWithEmbeds(t *testing.T) {
 	out, err := runVM(t, `import std::io
@@ -318,10 +318,10 @@ enum Plain
 end
 
 struct Holder
-  shape: Maybe<Shape>
+  shape: Option<Shape>
 end
 
-fn maybe(m: Maybe<Shape>) -> String
+fn option(m: Option<Shape>) -> String
   case m
     Some(Shape.Wrapped({r:})) -> "some ${r}"
     Some(_) -> "some dot"
@@ -337,7 +337,7 @@ fn result(m: Result<Shape, String>) -> String
   end
 end
 
-fn plain(m: Maybe<Plain>) -> String
+fn plain(m: Option<Plain>) -> String
   case m
     Some(Plain.Circle{r:}) -> "plain ${r}"
     Some(_) -> "plain spot"
@@ -360,10 +360,10 @@ fn tuple(t: (Shape, Int)) -> String
 end
 
 fn main()
-  io.print(maybe(None))
-  io.print(maybe(Some(Shape.Dot)))
-  io.print(maybe(Some(Wrapped(Circle{r: 1}))))
-  io.print(maybe(Some(Shape.Wrapped(Circle{r: 2}))))
+  io.print(option(None))
+  io.print(option(Some(Shape.Dot)))
+  io.print(option(Some(Wrapped(Circle{r: 1}))))
+  io.print(option(Some(Shape.Wrapped(Circle{r: 2}))))
   io.print(result(Ok(Shape.Dot)))
   io.print(result(Err("x")))
   io.print(result(Ok(Wrapped(Circle{r: 3}))))
@@ -375,16 +375,16 @@ fn main()
   io.print(tuple((Shape.Dot, 1)))
   io.print(tuple((Wrapped(Circle{r: 6}), 1)))
   h = Holder{shape: Some(Shape.Dot)}
-  io.print(maybe(h.shape))
+  io.print(option(h.shape))
   shapes: List<Shape> = [Wrapped(Circle{r: 8}), Shape.Dot]
-  io.print(maybe(List.first(shapes)))
+  io.print(option(List.first(shapes)))
   m: Map<String, Shape> = {"a" => Shape.Dot}
-  io.print(maybe(Map.get(m, "a")))
-  io.print(maybe(Map.get(m, "b")))
-  nested: Maybe<Maybe<Shape>> = Some(Some(Shape.Dot))
+  io.print(option(Map.get(m, "a")))
+  io.print(option(Map.get(m, "b")))
+  nested: Option<Option<Shape>> = Some(Some(Shape.Dot))
   io.inspect(nested)
   io.inspect(Some(Shape.Dot) == Some(Shape.Dot))
-  one: Maybe<Shape> = Some(Wrapped(Circle{r: 1}))
+  one: Option<Shape> = Some(Wrapped(Circle{r: 1}))
   io.inspect(one == Some(Shape.Dot))
   io.inspect(one == Some(Shape.Wrapped(Circle{r: 1})))
 end

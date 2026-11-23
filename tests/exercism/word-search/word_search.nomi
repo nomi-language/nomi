@@ -18,7 +18,7 @@ once directions = [(0, 1), (0, -1), (1, 0), (-1, 0), (1, 1), (-1, -1), (1, -1), 
 
 /// Where each of `words` lies in the rows of `grid`, or `None` for a word
 /// that is not there.
-pub fn search(grid: List<String>, words: List<String>) -> Map<String, Maybe<Span>>
+pub fn search(grid: List<String>, words: List<String>) -> Map<String, Option<Span>>
     letters =
         grid
         |> Iter.map(Iter.to_vector)
@@ -31,7 +31,7 @@ end
 
 /// Where `word` lies in `letters`: the first cell and direction from which
 /// its letters read in order.
-fn find(letters: Vector<Vector<String>>, word: String) -> Maybe<Span>
+fn find(letters: Vector<Vector<String>>, word: String) -> Option<Span>
     spelling = Iter.to_list(word)
     last = Iter.count(spelling) - 1
 
@@ -64,6 +64,6 @@ fn reads(
     end)
 end
 
-fn letter_at(letters: Vector<Vector<String>>, row: Int, column: Int) -> Maybe<String>
+fn letter_at(letters: Vector<Vector<String>>, row: Int, column: Int) -> Option<String>
     letters |> Vector.get(row)? |> Vector.get(column)
 end

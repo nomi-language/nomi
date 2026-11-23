@@ -103,7 +103,7 @@ fn main() -> Result<Unit, http.Error>
     r = http.fetch(Request{url: Url.join_path(base, ["hello"]) |> Url.with_query(Query[("name", "ann")]), headers: Headers[("User-Agent", "nomi-test")]})?
     io.print(Status.line(r.status))
     io.print(Response.text(r)?)
-    io.print(Headers.get(r.headers, "x-seen-agent") |> Maybe.with_default("-"))
+    io.print(Headers.get(r.headers, "x-seen-agent") |> Option.with_default("-"))
     io.print(String.join(Headers.values(r.headers, "X-Many"), ","))
     io.print("${r.protocol}")
     p = http.post(Url.join_path(base, ["echo"]), Body.Json(Json.String("hi")))?
@@ -158,10 +158,10 @@ end
 fn main()
     base = Url.parse("BASE")!
     moved = http.get(Url.join_path(base, ["moved"]))!
-    io.print("${moved.status} ${Response.text(moved)!} ${moved.url |> Maybe.map(fn u -> u.path)}")
+    io.print("${moved.status} ${Response.text(moved)!} ${moved.url |> Option.map(fn u -> u.path)}")
     never = Client.new(ClientOptions{redirects: Redirects.Never})
     stay = Client.get(never, Url.join_path(base, ["moved"]))!
-    io.print("${stay.status} ${Response.location(stay)! |> Maybe.map(fn u -> u.path)}")
+    io.print("${stay.status} ${Response.location(stay)! |> Option.map(fn u -> u.path)}")
     io.print(failure(Client.get(Client.new(ClientOptions{redirects: Redirects.Follow{max: 3}}), Url.join_path(base, ["loop"]))))
     quick = Client.new(ClientOptions{timeout: Some(Duration.milliseconds(50))})
     io.print(failure(Client.get(quick, Url.join_path(base, ["slow"]))))

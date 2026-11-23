@@ -22,7 +22,7 @@ fn parse(s: String) -> Result<Int, String>
   end
 end
 
-fn find(s: String) -> Maybe<Int>
+fn find(s: String) -> Option<Int>
   case s
     "" -> None
     _ -> Some(String.length(s))

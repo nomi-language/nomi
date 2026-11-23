@@ -32,7 +32,7 @@ func IntToDecimal(n Int) Decimal {
 
 // StringToDecimal is `String.to_decimal`, and None matters here: it
 // parses plain base-10 only, so "1e5" is None rather than 100000.
-func StringToDecimal(s string) Maybe[Decimal] {
+func StringToDecimal(s string) Option[Decimal] {
 	d, err := ParseDecimal(s)
 	if err != nil {
 		return None[Decimal]()
@@ -70,7 +70,7 @@ func DecimalToFloat(d Decimal) float64 {
 // float64 is 0.1000000000000000055511151231257827, and rounding that at scale 2
 // with HalfEven is what yields 0.10 rather than something that happens to look
 // right. A `%g` round-trip would agree here and disagree somewhere unlisted.
-func FloatToDecimal(f float64, scale Int, mode RoundingMode) Maybe[Decimal] {
+func FloatToDecimal(f float64, scale Int, mode RoundingMode) Option[Decimal] {
 	if math.IsNaN(f) || math.IsInf(f, 0) {
 		return None[Decimal]()
 	}
@@ -85,8 +85,10 @@ func FloatToDecimal(f float64, scale Int, mode RoundingMode) Maybe[Decimal] {
 	return Some(rounded)
 }
 
-// DecimalDivide is `Decimal.divide`: the explicit-rounding division. Traps on
-// a zero divisor.
+// DecimalDivide is `Decimal.divide`: the explicit-rounding division. It traps
+// on a scale past a Decimal's, given or needed for the quotient, as
+// Decimal.round does. b is a NonZeroDecimal in Nomi; a zero one, which only
+// rt's own callers could pass, traps too.
 func DecimalDivide(a, b Decimal, scale Int, mode RoundingMode) Decimal {
 	res, err := a.DivRound(b, decimalScaleArg("Decimal.divide", scale), mode)
 	if err != nil {
@@ -99,7 +101,7 @@ func DecimalDivide(a, b Decimal, scale Int, mode RoundingMode) Decimal {
 // preferred scale (DivExact), or None when it does not terminate in base 10.
 // b is a NonZeroDecimal in Nomi; a zero one, which only rt's own callers
 // could pass, traps with Int's `/` text.
-func DecimalDivideExact(a, b Decimal) Maybe[Decimal] {
+func DecimalDivideExact(a, b Decimal) Option[Decimal] {
 	if b.IsZero() {
 		Trap(divByZeroMessage)
 	}
@@ -123,7 +125,7 @@ func DecimalRound(d Decimal, scale Int, mode RoundingMode) Decimal {
 // when that loses nothing, else None. Increasing the scale pads, so it is
 // always Some: the question is whether information is lost, not whether
 // digits move.
-func DecimalRoundExact(d Decimal, scale Int) Maybe[Decimal] {
+func DecimalRoundExact(d Decimal, scale Int) Option[Decimal] {
 	res, exact, err := d.RoundExact(decimalScaleArg("Decimal.round_exact", scale))
 	if err != nil {
 		decimalFault("Decimal.round_exact", err)
@@ -202,7 +204,7 @@ func DecimalSqrt(d Decimal, scale Int, mode RoundingMode) Decimal {
 
 // DecimalSqrtExact is `Decimal.sqrt_exact`: the square root of d at scale
 // digits when it ends within them, else None.
-func DecimalSqrtExact(d Decimal, scale Int) Maybe[Decimal] {
+func DecimalSqrtExact(d Decimal, scale Int) Option[Decimal] {
 	q, r, _, s := decimalSqrtParts("Decimal.sqrt_exact", d, scale)
 	if r.Sign() != 0 {
 		return None[Decimal]()

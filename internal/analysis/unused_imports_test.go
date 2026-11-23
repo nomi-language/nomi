@@ -70,7 +70,7 @@ func TestFindUnusedImports_BraceItemOneOfSeveral(t *testing.T) {
 }
 
 func TestFindUnusedImports_SelfMarker(t *testing.T) {
-	src := "import std::results.Result.{self, Ok}\n\nfn f() -> Maybe<Int>\n    o = Ok(1)\n  None\nend\n"
+	src := "import std::results.Result.{self, Ok}\n\nfn f() -> Option<Int>\n    o = Ok(1)\n  None\nend\n"
 	items, _, _ := findUnusedWithStdlib(t, src)
 	u := findOnlyUnused(t, items)
 	if u.ItemKind != analysis.UnusedSelfMarker {
@@ -208,9 +208,9 @@ end
 
 // A dead selective alias errors naming both the item and its binding.
 func TestUnusedImport_SelectiveAlias(t *testing.T) {
-	errs := buildErrsWithStdlib(t, `import std::maybe.Maybe.{Some as Just, None as Nothing}
+	errs := buildErrsWithStdlib(t, `import std::option.Option.{Some as Just, None as Nothing}
 
-fn f() -> Maybe<Int>
+fn f() -> Option<Int>
     Just(42)
 end
 `)
@@ -227,7 +227,7 @@ end
 func TestUnusedImport_SelfItem(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `import std::results.Result.{self, Ok}
 
-fn f() -> Maybe<Int>
+fn f() -> Option<Int>
     o = Ok(1)
   None
 end
@@ -246,7 +246,7 @@ end
 // owner type's `self` included. (The prelude is the canonical consumer of
 // this carve-out.)
 func TestUnusedImport_ReExportIsUse(t *testing.T) {
-	expectNoUnused(t, buildErrsWithStdlib(t, `pub import std::maybe.{Maybe}
+	expectNoUnused(t, buildErrsWithStdlib(t, `pub import std::option.{Option}
 `))
 	expectNoUnused(t, buildErrsWithStdlib(t, `pub import std::results.Result.{self, Ok}
 `))
@@ -268,9 +268,9 @@ derive Equatable for P
 // Pattern positions count as uses (`Some(v)` in a case arm references the
 // drill-through import).
 func TestUnusedImport_PatternIsUse(t *testing.T) {
-	expectNoUnused(t, buildErrsWithStdlib(t, `import std::maybe.Maybe.{Some, None}
+	expectNoUnused(t, buildErrsWithStdlib(t, `import std::option.Option.{Some, None}
 
-fn f(m: Maybe<Int>) -> Int
+fn f(m: Option<Int>) -> Int
   case m
     Some(v) -> v
     None -> 0
@@ -305,9 +305,9 @@ end
 // Drill-through granularity: the brace items are what's checked; using one
 // variant doesn't keep an unused sibling alive.
 func TestUnusedImport_DrillThroughPerItem(t *testing.T) {
-	errs := buildErrsWithStdlib(t, `import std::maybe.Maybe.{Some, None}
+	errs := buildErrsWithStdlib(t, `import std::option.Option.{Some, None}
 
-fn f() -> Maybe<Int>
+fn f() -> Option<Int>
     Some(1)
 end
 `)

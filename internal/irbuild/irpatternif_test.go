@@ -4,7 +4,7 @@ import "testing"
 
 func TestIRPatternIf_CompleteProgram(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn lookup(id: Int) -> Maybe<String>
+fn lookup(id: Int) -> Option<String>
   io.print(id)
   case id
     1 -> Some("Alice")

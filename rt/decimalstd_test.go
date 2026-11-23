@@ -55,7 +55,7 @@ func TestDecimalStdFaultsNameTheirFunction(t *testing.T) {
 func TestDecimalExactFormsAnswerNoneWhenInexact(t *testing.T) {
 	for _, c := range []struct {
 		name string
-		got  Maybe[Decimal]
+		got  Option[Decimal]
 		want string // "" for None
 	}{
 		{"round 1.50 to 1", DecimalRoundExact(mustParse(t, "1.50"), SmallInt(1)), "1.5"},

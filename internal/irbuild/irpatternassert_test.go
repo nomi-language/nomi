@@ -73,7 +73,7 @@ fn parse(s: String) -> Result<Int, String>
   Err("not a number: " + s)
 end
 
-fn found(n: Int) -> Maybe<Int>
+fn found(n: Int) -> Option<Int>
   Some(n)
 end
 

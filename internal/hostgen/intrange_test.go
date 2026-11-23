@@ -20,7 +20,7 @@ func intToRtInt(int64) rt.Int                        { return rt.Int{} }
 
 // TestIntPositionsFitTheirGoInteger holds the generator to the range an Int
 // position's declared type admits: a fixed-width Go integer takes it only
-// when every value the type admits fits, read off the subtype chain's
+// when every value the type admits fits, read off the refinement chain's
 // `when` bounds and an intersection's members. Anything wider is refused
 // at generation, naming the type to declare, rather than refused by the
 // adapter as the program runs. rt.Int takes any Int, and a result may be
@@ -30,10 +30,10 @@ func TestIntPositionsFitTheirGoInteger(t *testing.T) {
   int.{Int64, NonNegativeInt}
 end
 
-pub subtype Octet Int when fn n -> n >= 0 and n <= 255
-pub subtype Flipped Int when fn n -> 0 <= n and 255 >= n
-pub subtype Loose Int when fn n -> n >= 0 and Int.is_even(n)
-pub subtype Strict Octet when fn n -> n < 100
+pub refine Octet Int when fn n -> n >= 0 and n <= 255
+pub refine Flipped Int when fn n -> 0 <= n and 255 >= n
+pub refine Loose Int when fn n -> n >= 0 and Int.is_even(n)
+pub refine Strict Octet when fn n -> n < 100
 
 pub host fn plain(x: Int) -> Int
 pub host fn wide(x: Int64) -> Int
@@ -70,7 +70,7 @@ pub host fn callback64(f: (Int) -> Int64) -> Int
 		{"t.plain", uint64ToInt, "declare it `NonNegativeInt and Int64`"},
 		{"t.wide", uint64ToInt, "declare it `NonNegativeInt and Int64`"},
 		{"t.unsigned", uint64ToInt, ""},
-		{"t.wide", int32ToInt, "declare it a subtype whose `when` bounds it within -2147483648..2147483647"},
+		{"t.wide", int32ToInt, "declare it a refinement whose `when` bounds it within -2147483648..2147483647"},
 		{"t.octet", int32ToInt, ""},
 		{"t.list", int64sToInt, "element: Go int64 holds an Int"},
 		{"t.list64", int64sToInt, ""},

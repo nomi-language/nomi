@@ -19,7 +19,7 @@ prev: false
 # the mark cannot be seen.
 hero:
   title: "A friendly language that catches mistakes before your program runs."
-  tagline: "Statically typed, with values that never change. No null, no exceptions, no forgotten case."
+  tagline: '<a href="/runtime-failures/">No runtime errors</a>, and effects you can check.'
   image:
     alt: Nomi Lang
     light: ../../assets/nomi-wordmark.svg
@@ -47,6 +47,7 @@ Markdown inside it render, the live example included. -->
 
 ## Data flows down the page
 
+Nomi is written to be read: by you, by a reviewer, by a coding agent.
 A pipe passes a value to the next step, so the code reads in the order it
 runs, and `.paid` is short for a function that reads that field. The
 steps are lazy: nothing is computed until `Iter.sum` asks for it, and no
@@ -198,11 +199,11 @@ binds the text it carries, and `when` adds a condition to an arm.
 It also has to cover every possibility. This one forgets `Cash`, so Nomi
 won't run the program and says what is missing. Add the arm and it runs.
 
-There is no null. A lookup that can miss gives back a
-[`Maybe`](/pattern-matching/#maybet-and-resultt-e), and a call that can
-fail gives back a [`Result`](/pattern-matching/#maybet-and-resultt-e),
+There is no null. A lookup that can miss gives back an
+[`Option`](/pattern-matching/#optiont-and-resultt-e), and a call that can
+fail gives back a [`Result`](/pattern-matching/#optiont-and-resultt-e),
 so both outcomes are cases you have to cover.
-[What can still stop a program](/pattern-matching/#what-can-fail-at-run-time).
+[What can still stop a program](/runtime-failures/).
 
 </div>
 
@@ -241,11 +242,11 @@ main.nomi:8:5: help: add an arm for each missing variant, or a `_` arm
 
 ## A type can carry its rule
 
-A [`subtype`](/structs-enums-distinct/#subtypes) is the values of another
+A [refinement](/structs-enums-distinct/#refinements) is the values of another
 type that a rule allows. A literal is checked when the program compiles:
 change `8080` to `0` and it won't run. A value known only when the program
 runs, such as text a user typed, goes through `try_from`, which gives back
-a `Maybe`.
+an `Option`.
 
 Nomi comes with `PositiveInt`, `NonZeroInt`, `NonEmptyString`,
 `NonEmptyList` and more, and the library uses them. `/` takes a divisor
@@ -254,14 +255,14 @@ that cannot be zero, so `share` needs no check of its own.
 </div>
 
 ```nomi-run
-subtype Port Int when fn p -> p >= 1 and p <= 65535
+refine Port Int when fn p -> p >= 1 and p <= 65535
 
 fn serve(port: Port) -> String
     "listening on ${port}"
 end
 
-fn port_from(text: String) -> Maybe<Port>
-    text |> String.to_int() |> Maybe.flat_map(Port.try_from)
+fn port_from(text: String) -> Option<Port>
+    text |> String.to_int() |> Option.flat_map(Port.try_from)
 end
 
 fn share(total: Int, people: PositiveInt) -> Int
@@ -418,7 +419,7 @@ money.
 </div>
 <div class="nomi-home-feature">
 <h3>Tools that come with it</h3>
-<p><a href="/tooling/formatting/"><code>nomi fmt</code></a> lays every file out one way, with no settings to argue over. A language server, a <a href="/tooling/editors-and-debugger/#debugging">debugger</a>, a REPL and an <a href="/tooling/editors-and-debugger/#coding-agents-nomi-mcp">MCP server for coding agents</a> are built in.</p>
+<p><a href="/tooling/formatting/"><code>nomi fmt</code></a> lays every file out one way, with no settings to argue over. A language server, a <a href="/tooling/editors-and-debugger/#debugging">debugger</a>, a REPL and <a href="/tooling/editors-and-debugger/#coding-agents-nomi-mcp"><code>nomi mcp</code></a>, the compiler as tools for a coding agent, are built in.</p>
 </div>
 </div>
 
@@ -434,7 +435,7 @@ money.
 <a class="nomi-home-path is-primary" href="/learn/values/">
 <span class="nomi-home-path-for">New to programming, or to types</span>
 <span class="nomi-home-path-name">First Steps</span>
-<span class="nomi-home-path-what">Seventeen short lessons from the very start, each with a task you check in the page. Good too if types, values that never change or <code>Maybe</code> are new to you.</span>
+<span class="nomi-home-path-what">Seventeen short lessons from the very start, each with a task you check in the page. Good too if types, values that never change or <code>Option</code> are new to you.</span>
 </a>
 <a class="nomi-home-path" href="/introduction/">
 <span class="nomi-home-path-for">You program already</span>

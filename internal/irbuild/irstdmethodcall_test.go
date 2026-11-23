@@ -69,7 +69,7 @@ func TestIRStdMethodCall_RefinementsAndConversions(t *testing.T) {
 	verifyLambdaProgram(t, `import
     std::io std::duration.Duration std::instant.Instant
 end
-fn present(v: Maybe<PositiveInt>) -> Bool
+fn present(v: Option<PositiveInt>) -> Bool
     case v
         Some(_) -> True
         None -> False

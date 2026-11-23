@@ -54,7 +54,7 @@ end
 
 /// The score of a hand of five cards written as `"4S 5S 7H 8D JC"`.
 fn score(hand: String) -> Result<Score, Error>
-    Some(cards) = hand |> String.words() |> Iter.map(card) |> Maybe.collect() else
+    Some(cards) = hand |> String.words() |> Iter.map(card) |> Option.collect() else
         return Err(.InvalidHand(hand))
     end
 
@@ -89,7 +89,7 @@ end
 
 /// The ranks of a straight, highest first, when `ranks` (five different
 /// ones, highest first) make one. An ace counts low in `A 2 3 4 5`.
-fn straight(ranks: List<Int>) -> Maybe<List<Int>>
+fn straight(ranks: List<Int>) -> Option<List<Int>>
     case ranks
         [14, 5, 4, 3, 2] -> Some([5, 4, 3, 2, 1])
         [high, _, _, _, low] when high - low == 4 -> Some(ranks)
@@ -98,7 +98,7 @@ fn straight(ranks: List<Int>) -> Maybe<List<Int>>
 end
 
 /// A card written as its rank and its suit, `"10H"` or `"QS"`.
-fn card(text: String) -> Maybe<Card>
+fn card(text: String) -> Option<Card>
     length = String.length(text)
     suit = String.slice(text, length - 1, length)
 
@@ -117,7 +117,7 @@ fn card(text: String) -> Maybe<Card>
 end
 
 /// The rank of a numbered card, 2 to 10.
-fn pip_rank(digits: String) -> Maybe<Int>
+fn pip_rank(digits: String) -> Option<Int>
     n = String.to_int(digits)?
 
     if n in 2..=10 then Some(n) else None

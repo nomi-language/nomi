@@ -20,7 +20,7 @@ const (
 	SBytes
 	SUnit
 	SList     // Elems[0]
-	SMaybe    // Elems[0]
+	SOption   // Elems[0]
 	SResult   // Elems[0] ok, Elems[1] err
 	STuple    // Elems
 	SStruct   // Name, Fields
@@ -40,7 +40,7 @@ type Shape struct {
 	Fields []ShapeField
 	// Variants is an enum's variants in declaration order.
 	Variants []ShapeVariant
-	// Range is an Int's declared bounds, read off the subtype it is
+	// Range is an Int's declared bounds, read off the refinement it is
 	// declared as (IntRange); nil for a plain Int.
 	Range *IntRange
 }
@@ -62,7 +62,7 @@ type ShapeField struct {
 // The runtime identities of the prelude types a boundary names: the
 // module-qualified names the VM's records carry.
 const (
-	maybeName    = "maybe.Maybe"
+	optionName   = "option.Option"
 	resultName   = "results.Result"
 	durationName = "duration.Duration"
 	instantName  = "instant.Instant"
@@ -88,8 +88,8 @@ func (s *Shape) String() string {
 		return "Unit"
 	case SList:
 		return "List<" + s.Elems[0].String() + ">"
-	case SMaybe:
-		return "Maybe<" + s.Elems[0].String() + ">"
+	case SOption:
+		return "Option<" + s.Elems[0].String() + ">"
 	case SMap:
 		return "Map<" + s.Elems[0].String() + ", " + s.Elems[1].String() + ">"
 	case SResult:
@@ -176,7 +176,7 @@ func (r *Resolver) Shape(mod *Module, t ast.TypeExpr) (*Shape, error) {
 		}
 		return r.Shape(target, x.Member)
 	case *ast.ConjunctionType:
-		// `NonNegativeInt and Int64`: an intersection of Int subtypes is an
+		// `NonNegativeInt and Int64`: an intersection of Int refinements is an
 		// Int within every member's bounds.
 		var rng *IntRange
 		for _, m := range x.Members {
@@ -185,7 +185,7 @@ func (r *Resolver) Shape(mod *Module, t ast.TypeExpr) (*Shape, error) {
 				return nil, err
 			}
 			if ms.Kind != SInt {
-				return nil, fmt.Errorf("type %s: only an intersection of Int subtypes crosses the host boundary", x.TypeString())
+				return nil, fmt.Errorf("type %s: only an intersection of Int refinements crosses the host boundary", x.TypeString())
 			}
 			rng = rng.intersect(ms.Range)
 		}
@@ -240,8 +240,8 @@ func (r *Resolver) named(mod *Module, name string, params []ast.TypeExpr) (*Shap
 		return &Shape{Kind: k}, arity(0)
 	}
 	switch name {
-	case "List", "Maybe", "Result", "Map":
-		kinds := map[string]ShapeKind{"List": SList, "Maybe": SMaybe, "Result": SResult, "Map": SMap}
+	case "List", "Option", "Result", "Map":
+		kinds := map[string]ShapeKind{"List": SList, "Option": SOption, "Result": SResult, "Map": SMap}
 		n := 1
 		if name == "Result" || name == "Map" {
 			n = 2
@@ -291,10 +291,10 @@ func (r *Resolver) named(mod *Module, name string, params []ast.TypeExpr) (*Shap
 		}
 		return s, nil
 	case *ast.TypeDef:
-		if d.Subtype && d.InnerTypeExpr != nil {
-			// A subtype is its parent's value at run time, and
-			// so its base's (spec §4 *Subtypes*): it crosses as that. An
-			// Int subtype carries the bounds its chain states (IntRange).
+		if d.Refinement && d.InnerTypeExpr != nil {
+			// A refinement is its parent's value at run time, and
+			// so its base's (spec §4 *Refinements*): it crosses as that. An
+			// Int refinement carries the bounds its chain states (IntRange).
 			inner, err := r.Shape(home, d.InnerTypeExpr)
 			if err != nil {
 				return nil, fmt.Errorf("%s: %w", qualified, err)
@@ -333,7 +333,7 @@ func (r *Resolver) named(mod *Module, name string, params []ast.TypeExpr) (*Shap
 		return s, nil
 	case *ast.EnumDef:
 		// An enum resolves; whether it crosses is decided by the Go side. The
-		// marshaller projects only Bool, Maybe and Result as variants, so an
+		// marshaller projects only Bool, Option and Result as variants, so an
 		// enum crosses only where the Go type is rt's tagged-struct encoding
 		// of it (rt.Json, rt.Ordering, rt.Restart, ...); emit.go refuses the
 		// rest.

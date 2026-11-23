@@ -8,7 +8,7 @@ import (
 // Spec §11's `?` boundary rule, at a `fn` boundary with a DECLARED result
 // type. Three parts, all checked at the `?` and all naming both sides:
 //
-//  1. the boundary must be a `Result` or a `Maybe`;
+//  1. the boundary must be a `Result` or an `Option`;
 //  2. the flavours must agree;
 //  3. when both are `Result`s the ERROR TYPES must be the same type.
 //
@@ -68,8 +68,8 @@ end`
 	expectNoConcurrentError(t, analyzeConcurrentRaw(src), "`?` error type mismatch")
 }
 
-func TestTryBoundary_MaybeCannotPropagateIntoAResult(t *testing.T) {
-	src := `fn find() -> Maybe<Int>
+func TestTryBoundary_OptionCannotPropagateIntoAResult(t *testing.T) {
+	src := `fn find() -> Option<Int>
   None
 end
 fn f() -> Result<Int, String>
@@ -77,26 +77,26 @@ fn f() -> Result<Int, String>
   Ok(v)
 end`
 	expectConcurrentError(t, analyzeConcurrentRaw(src),
-		"`?` on a Maybe cannot propagate out of a function returning Result<Int, String>")
+		"`?` on an Option cannot propagate out of a function returning Result<Int, String>")
 }
 
-func TestTryBoundary_ResultCannotPropagateIntoAMaybe(t *testing.T) {
+func TestTryBoundary_ResultCannotPropagateIntoAOption(t *testing.T) {
 	src := `fn r() -> Result<Int, String>
   Err("boom")
 end
-fn f() -> Maybe<Int>
+fn f() -> Option<Int>
   v = r()?
   Some(v)
 end`
 	expectConcurrentError(t, analyzeConcurrentRaw(src),
-		"`?` on a Result cannot propagate out of a function returning Maybe<Int>")
+		"`?` on a Result cannot propagate out of a function returning Option<Int>")
 }
 
-func TestTryBoundary_MaybeIntoMaybeIsClean(t *testing.T) {
-	src := `fn find() -> Maybe<Int>
+func TestTryBoundary_OptionIntoOptionIsClean(t *testing.T) {
+	src := `fn find() -> Option<Int>
   None
 end
-fn f() -> Maybe<Int>
+fn f() -> Option<Int>
   v = find()?
   Some(v)
 end`
@@ -217,7 +217,7 @@ func TestTryBoundary_PipeStageIsChecked(t *testing.T) {
   Ok(n)
 end`
 	expectConcurrentError(t, analyzeConcurrentRaw(src),
-		"`?` on a Maybe cannot propagate out of a function returning Result<Int, String>")
+		"`?` on an Option cannot propagate out of a function returning Result<Int, String>")
 }
 
 // An INFERRING boundary keeps its own regime: resolveBoundaryErr binds or
@@ -245,7 +245,7 @@ end`
 
 // THE INFERRING HALF. A lambda declares no result, so there is nothing to
 // launder — its error type IS the `?` site's. What it can still get wrong is
-// clause 1: the lambda's result is not a Result or a Maybe at all, so the
+// clause 1: the lambda's result is not a Result or an Option at all, so the
 // propagated `Err`/`None` is handed to a caller expecting the success type.
 //
 // Closing the fn half alone would leave the hole reachable through a lambda.
@@ -263,11 +263,11 @@ end`
 		"`?` cannot propagate a Result out of a lambda whose result is Int")
 }
 
-// The `Maybe` flavour is the reason the accumulator carries a FLAVOUR and not
-// only an error type: a `?` on a `Maybe` contributes no error type, so an
+// The `Option` flavour is the reason the accumulator carries a FLAVOUR and not
+// only an error type: a `?` on an `Option` contributes no error type, so an
 // error-type-only accumulator is empty here and cannot see the violation.
-func TestTryBoundary_LambdaResultCannotHoldAPropagatedMaybe(t *testing.T) {
-	src := `fn find(n: Int) -> Maybe<Int>
+func TestTryBoundary_LambdaResultCannotHoldAPropagatedOption(t *testing.T) {
+	src := `fn find(n: Int) -> Option<Int>
   Some(n)
 end
 fn main()
@@ -277,7 +277,7 @@ fn main()
   end
 end`
 	expectConcurrentError(t, analyzeConcurrentRaw(src),
-		"`?` cannot propagate a Maybe out of a lambda whose result is Int")
+		"`?` cannot propagate an Option out of a lambda whose result is Int")
 }
 
 func TestTryBoundary_LambdaWithAResultTailIsClean(t *testing.T) {
@@ -293,13 +293,13 @@ end`
 	expectNoConcurrentError(t, analyzeConcurrentRaw(src), "cannot propagate")
 }
 
-// A lambda mixing flavours: the `Maybe` site cannot propagate out of a
+// A lambda mixing flavours: the `Option` site cannot propagate out of a
 // `Result`-tailed lambda.
 func TestTryBoundary_LambdaFlavourDisagreement(t *testing.T) {
 	src := `fn parse(n: Int) -> Result<Int, String>
   Ok(n)
 end
-fn find(n: Int) -> Maybe<Int>
+fn find(n: Int) -> Option<Int>
   Some(n)
 end
 fn main()
@@ -310,10 +310,10 @@ fn main()
   end
 end`
 	expectConcurrentError(t, analyzeConcurrentRaw(src),
-		"`?` on a Maybe cannot propagate out of a lambda whose result is Result")
+		"`?` on an Option cannot propagate out of a lambda whose result is Result")
 }
 
-// A `concurrent` block whose tail is not a Result/Maybe is the same violation
+// A `concurrent` block whose tail is not a Result/Option is the same violation
 // through the other inferring boundary, and the diagnostic says so.
 func TestTryBoundary_ConcurrentBlockResultCannotHoldIt(t *testing.T) {
 	src := `fn short_fail() -> Result<Int, String>
@@ -333,7 +333,7 @@ end`
 // A callback whose body only `break`s still has a result: `break value` is
 // `return value` then stop (spec §13), so `break v` with v an Int makes the
 // `Iter.loop` callback's result Int, and a `?` there has no Result or
-// Maybe to propagate into (spec §11, clause 1).
+// Option to propagate into (spec §11, clause 1).
 func TestTryBoundary_BreakOnlyLambdaBodyHasTheBreakValuesResult(t *testing.T) {
 	src := `fn parse(n: Int) -> Result<Int, String>
   Ok(n)

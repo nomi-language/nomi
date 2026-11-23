@@ -101,14 +101,14 @@ end
 
 /// A task's private data, whose variant also names the task's function.
 enum Record
-    Device {pending: Maybe<Packet>}
+    Device {pending: Option<Packet>}
     Handler {work_in: List<Packet>, device_in: List<Packet>}
     Idle {control: Int, count: Int}
     Worker {destination: Int, count: Int}
 end
 
 struct Task
-    link:     Maybe<Int>
+    link:     Option<Int>
     identity: Int
     priority: Int
     input:    List<Packet>
@@ -118,14 +118,14 @@ end
 
 struct Scheduler
     tasks:                 Vector<Task> = []
-    task_list:             Maybe<Int> = None
+    task_list:             Option<Int> = None
     current_task_identity: Int = 0
     queue_packet_count:    Int = 0
     hold_count:            Int = 0
 end
 
 /// The scheduler after a task's step, and the task to run next.
-typealias Step (Scheduler, Maybe<Int>)
+typealias Step (Scheduler, Option<Int>)
 
 impl Scheduler
     fn find_task(s: Scheduler, identity: Int) -> Task
@@ -213,7 +213,7 @@ impl Scheduler
         )
     end
 
-    fn device_function(s: Scheduler, work: Maybe<Packet>, pending: Maybe<Packet>) -> Step
+    fn device_function(s: Scheduler, work: Option<Packet>, pending: Option<Packet>) -> Step
         case (work, pending)
             (None, None) ->
                 Scheduler.mark_waiting(s)
@@ -228,7 +228,7 @@ impl Scheduler
 
     fn handler_function(
         s:         Scheduler,
-        work:      Maybe<Packet>,
+        work:      Option<Packet>,
         work_in:   List<Packet>,
         device_in: List<Packet>,
     ) -> Step
@@ -290,7 +290,7 @@ impl Scheduler
         end
     end
 
-    fn worker_function(s: Scheduler, work: Maybe<Packet>, destination: Int, count: Int) -> Step
+    fn worker_function(s: Scheduler, work: Option<Packet>, destination: Int, count: Int) -> Step
         case work
             None ->
                 Scheduler.mark_waiting(s)
@@ -392,7 +392,7 @@ impl Scheduler
         (Scheduler.with_task(s, {..t, state: {.., task_waiting: True}}), Some(t.identity))
     end
 
-    fn schedule(s: Scheduler, current: Maybe<Int>) -> Scheduler
+    fn schedule(s: Scheduler, current: Option<Int>) -> Scheduler
         case current
             None ->
                 s

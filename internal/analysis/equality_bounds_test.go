@@ -67,7 +67,7 @@ func TestEqualityBoundAcceptsATypeWithEquality(t *testing.T) {
 		"Hashable, custom equal": "key(Tag{name: \"a\"}) == 0",
 		"a tuple of one":         "key((1, Point{x: 1, y: 2})) == 0",
 		"a container of one":     "key([Point{x: 1, y: 2}]) == 0",
-		"a Maybe of one":         "same(Some(Point{x: 1, y: 2}), None)",
+		"an Option of one":       "same(Some(Point{x: 1, y: 2}), None)",
 		"an enum with no impls":  "same(Ordering.Less, Ordering.Less)",
 	} {
 		src := equalityBoundDecls + "fn f() -> Bool\n    " + body + "\nend\n"
@@ -87,9 +87,9 @@ func TestEqualityBoundRefusesATypeWithoutEquality(t *testing.T) {
 			"Op does not implement Hashable (required by `where T: Hashable`) | `Op` holds `(Int) -> Int`, and a function value has no equality"},
 		"Hashable.hash of a list": {"Hashable.hash([fn x: Int -> x]) == 0",
 			"List<(Int) -> Int> does not implement Hashable (required by `Hashable.hash`) | `List<(Int) -> Int>` holds `(Int) -> Int`, and a function value has no equality"},
-		"Hashable.hash of a Maybe": {"Hashable.hash(Some(fn x: Int -> x)) == 0",
-			"Maybe<(Int) -> Int> does not implement Hashable (required by `Hashable.hash`) | `Maybe<(Int) -> Int>` holds `(Int) -> Int`, and a function value has no equality"},
-		"Hashable.hash of a Maybe of a declared type": {"Hashable.hash(Some(Op{f: fn x -> x})) == 0",
+		"Hashable.hash of an Option": {"Hashable.hash(Some(fn x: Int -> x)) == 0",
+			"Option<(Int) -> Int> does not implement Hashable (required by `Hashable.hash`) | `Option<(Int) -> Int>` holds `(Int) -> Int`, and a function value has no equality"},
+		"Hashable.hash of an Option of a declared type": {"Hashable.hash(Some(Op{f: fn x -> x})) == 0",
 			"no impl of `Hashable` for `Op` (required via call site) | `Op` holds a function, an Iter or a handle to running state, which has no equality; write an `impl Hashable for Op` block that leaves it out"},
 		"Hashable.hash of a tuple": {"Hashable.hash((1, fn x: Int -> x)) == 0",
 			"(Int, (Int) -> Int) does not implement Hashable (required by `Hashable.hash`) | `(Int, (Int) -> Int)` holds `(Int) -> Int`, and a function value has no equality"},

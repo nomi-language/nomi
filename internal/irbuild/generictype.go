@@ -968,7 +968,7 @@ func (g *gen) unifyTypeParams(ann ast.TypeExpr, actual kind, params map[string]b
 				return
 			}
 		}
-		// `items: List<T>`, `m: Maybe<T>` — a structural or prelude container
+		// `items: List<T>`, `m: Option<T>` — a structural or prelude container
 		// whose component kinds are what the parameter is matched against.
 		parts := kindParts(actual)
 		if len(parts) != len(a.Params) {

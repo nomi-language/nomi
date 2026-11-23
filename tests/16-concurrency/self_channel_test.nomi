@@ -1,6 +1,6 @@
 // A type may carry a channel of itself: a message that brings its own reply
-// channel, at the top of a payload or a field, inside a tuple, or in a
-// Maybe.
+// channel, at the top of a payload or a field, inside a tuple, or in an
+// Option.
 import
     std::channels.{Channel, Receiver, Sender}
     std::tasks.Task
@@ -10,7 +10,7 @@ enum Msg
     Ask Channel<Msg>
     Pair (Channel<Msg>, Int)
     Get {reply: Channel<Msg>, n: Int}
-    Later Maybe<Channel<Msg>>
+    Later Option<Channel<Msg>>
     Stop
 end
 

@@ -54,15 +54,15 @@ func TestDotVariant_AliasThroughTheDotIsAFrontEndError(t *testing.T) {
 	// safe, but somebody should know, hence a red test rather than a comment.
 	const src = `import
   std::io
-  std::maybe.Maybe.{None as Nothing}
+  std::option.Option.{None as Nothing}
 end
 
 fn main()
-  m: Maybe<Int> = .Nothing
+  m: Option<Int> = .Nothing
   io.print("${m == m}")
 end
 `
-	if msg := i6FrontEndError(t, src); !strings.Contains(msg, "no variant 'Nothing' on enum Maybe") {
+	if msg := i6FrontEndError(t, src); !strings.Contains(msg, "no variant 'Nothing' on enum Option") {
 		t.Fatalf("the front end rejected the aliased dot for %q, not for the missing "+
 			"variant; the alias reachability argument in dotvariant.go rests on that reason", msg)
 	}

@@ -7,7 +7,7 @@ import (
 
 // A struct literal, or a record-variant literal, that omits a defaulted field
 // of a type ANOTHER file declares: `M{name: "a"}` after `import lib.M`, where
-// lib.nomi declares `drops: Maybe<Int> = None`.
+// lib.nomi declares `drops: Option<Int> = None`.
 //
 // A field default is Nomi source belonging to the declaring file. It may name
 // that file's private functions, onces and types the constructing file never

@@ -365,7 +365,7 @@ func TestStdlibHostFuncsAreReachable(t *testing.T) {
 //
 // Worse, `add` files every declaration under `byKey[f.key]` with a plain
 // assignment, so a receiverless key would SILENTLY ABSORB every declaration
-// that mapped onto it: `json.to_json` would hold `List`, `Map` and `Maybe`'s
+// that mapped onto it: `json.to_json` would hold `List`, `Map` and `Option`'s
 // three separate impls, `channels.inspect` `Channel`, `Receiver` and
 // `Sender`'s, and so on. TestEveryScalarHostFnIsBoundOrDeclared iterates
 // `byKey`, and a map overwrite leaves no trace, so that guard would report
@@ -394,7 +394,7 @@ func TestStdlibIndexKeysCarryTheirReceiver(t *testing.T) {
 		"sets.Set.size":         "Set",
 		"vectors.Vector.length": "Vector",
 		"ranges.Range.from":     "Range",
-		"maybe.Maybe.is_some":   "Maybe",
+		"option.Option.is_some": "Option",
 		"results.Result.is_ok":  "Result",
 		"channels.Sender.send":  "Sender",
 		"tasks.Task.spawn":      "Task",
@@ -403,9 +403,9 @@ func TestStdlibIndexKeysCarryTheirReceiver(t *testing.T) {
 		"json.Json.Case.to_string": "Json.Case",
 		// Three impls of one interface method, which a receiverless key would
 		// merge into one `json.to_json` entry.
-		"json.List.to_json":  "List",
-		"json.Map.to_json":   "Map",
-		"json.Maybe.to_json": "Maybe",
+		"json.List.to_json":   "List",
+		"json.Map.to_json":    "Map",
+		"json.Option.to_json": "Option",
 		// A `host fn` DEFAULT declared inside an interface, which the walk
 		// reaches through its InterfaceDef arm. The interface name is the
 		// receiver, which is what makes this the declaration's host key.

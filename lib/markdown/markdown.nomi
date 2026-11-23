@@ -117,7 +117,7 @@ fn render_block(out: Builder, doc: Doc, id: Int, has_next: Bool) -> Builder
 
                         stop =
                             Bytes.index_of_byte(language, 32)
-                            |> Maybe.with_default(Bytes.length(language))
+                            |> Option.with_default(Bytes.length(language))
 
                         out
                         |> Builder.push_string(" class=\"language-")
@@ -213,7 +213,7 @@ fn render_block(out: Builder, doc: Doc, id: Int, has_next: Bool) -> Builder
                 end
 
             ist = inline_of(doc, id)
-            origin = Vector.get(ist.lines.origins, 0) |> Maybe.with_default(0)
+            origin = Vector.get(ist.lines.origins, 0) |> Option.with_default(0)
 
             positions =
                 escapes
@@ -370,7 +370,7 @@ fn href(out: Builder, url: Bytes) -> Builder
     end
 end
 
-fn title_attribute(out: Builder, title: Maybe<Bytes>) -> Builder
+fn title_attribute(out: Builder, title: Option<Bytes>) -> Builder
     case title
         Some(t) ->
             out

@@ -95,7 +95,7 @@ group "the shop"
             end)
     end
 
-    test "an outer join's columns are Maybe, and an aggregate counts", db
+    test "an outer join's columns are Option, and an aggregate counts", db
         ada = queries.insert_user(db, "ada@example.com", None)?
         _ = queries.insert_user(db, "grace@example.com", None)?
         _ = queries.insert_order(db, ada, 3d)?

@@ -40,7 +40,7 @@ func intLiteralOperand(n ast.Node) bool {
 // holdsIntLiteral reports whether n is an Int literal or a negated one, or a
 // collection, tuple or map literal or a call's argument list with one inside:
 // an expression a type with Byte in it can change, `[0x81, 0x00]` against
-// `List<Byte>` or `Some(0x81)` against `Maybe<Byte>`.
+// `List<Byte>` or `Some(0x81)` against `Option<Byte>`.
 func holdsIntLiteral(n ast.Node) bool {
 	if intLiteralOperand(n) {
 		return true
@@ -84,7 +84,7 @@ func byteInType(ty Type) bool {
 
 // byteLiteralsTakeExpected reports whether a call's arguments hold an Int
 // literal that the expected type, which has Byte in it, would make a Byte:
-// `Some(0x81)` expected to be a `Maybe<Byte>`. The call seeds its type
+// `Some(0x81)` expected to be an `Option<Byte>`. The call seeds its type
 // parameters from the expected type, tentatively, as it does for a
 // dot-leading variant.
 func byteLiteralsTakeExpected(args []ast.Node, expected Type) bool {

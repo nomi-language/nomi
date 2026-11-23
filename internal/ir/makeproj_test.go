@@ -118,7 +118,7 @@ func TestProj_ReadsExactlyItsSubject(t *testing.T) {
 		NewProjRecordField(pos, 1, 9, "x", ValUnknown),
 		NewProjSlot(pos, 1, 9, 2, ValUnknown),
 		NewProjPayload(pos, 1, 9, sym, "Circle", 0, ValUnknown),
-		NewProjEnumField(pos, 1, 9, sym, "radius", true, ValUnknown),
+		NewProjEnumField(pos, 1, 9, sym, "radius", ValUnknown),
 		NewProjInner(pos, 1, 9, sym, ValUnknown),
 	} {
 		uses := p.AppendUses(nil)
@@ -143,7 +143,7 @@ func TestProj_TheProducerCannotBuildAReadThatNamesNothing(t *testing.T) {
 		{"a record field with no name", func() { NewProjRecordField(pos, 1, 2, "", ValUnknown) }},
 		{"a negative slot", func() { NewProjSlot(pos, 1, 2, -1, ValUnknown) }},
 		{"a payload with no variant", func() { NewProjPayload(pos, 1, 2, sym, "", 0, ValUnknown) }},
-		{"an enum field with no name", func() { NewProjEnumField(pos, 1, 2, sym, "", false, ValUnknown) }},
+		{"an enum field with no name", func() { NewProjEnumField(pos, 1, 2, sym, "", ValUnknown) }},
 		{"an unwrap with no declaration", func() { NewProjInner(pos, 1, 2, nil, ValUnknown) }},
 		{"a read with no subject", func() { NewProjSlot(pos, 1, NoTemp, 0, ValUnknown) }},
 		{"a read with no destination", func() { NewProjSlot(pos, NoTemp, 2, 0, ValUnknown) }},
@@ -163,7 +163,7 @@ func TestProj_TheProducerCannotBuildAReadThatNamesNothing(t *testing.T) {
 	NewProjRecordField(pos, 1, 2, "x", ValUnknown)
 	NewProjSlot(pos, 1, 2, 0, ValUnknown)
 	NewProjPayload(pos, 1, 2, sym, "Circle", 0, ValUnknown)
-	NewProjEnumField(pos, 1, 2, sym, "radius", false, ValUnknown)
+	NewProjEnumField(pos, 1, 2, sym, "radius", ValUnknown)
 	NewProjInner(pos, 1, 2, sym, ValUnknown)
 }
 
@@ -199,8 +199,8 @@ func TestMakeProj_StringNamesTheOperationAndItsOperands(t *testing.T) {
 		{NewProjSlot(pos, 1, 2, 3, ValUnknown).String(), "t1 = slot t2.3"},
 		{NewProjPayload(pos, 1, 2, sym, "Circle", 0, ValUnknown).String(),
 			"t1 = payload t2 Shape.Circle[0]"},
-		{NewProjEnumField(pos, 1, 2, sym, "radius", true, ValUnknown).String(),
-			"t1 = enumfield t2.radius faults"},
+		{NewProjEnumField(pos, 1, 2, sym, "radius", ValUnknown).String(),
+			"t1 = enumfield t2.radius"},
 	} {
 		if tc.got != tc.want {
 			t.Errorf("String() is %q, want %q", tc.got, tc.want)

@@ -3,8 +3,8 @@ import std::duration.Duration
 type Celsius Float
 
 impl Averageable<Celsius> for Celsius
-    fn mean(values: Iter<Celsius>) -> Maybe<Celsius>
-        values |> Iter.map(fn Celsius(c) -> c) |> Iter.mean() |> Maybe.map(fn c -> Celsius(c))
+    fn mean(values: Iter<Celsius>) -> Option<Celsius>
+        values |> Iter.map(fn Celsius(c) -> c) |> Iter.mean() |> Option.map(fn c -> Celsius(c))
     end
 end
 
@@ -39,13 +39,13 @@ test "a Float mean sums with compensation"
     assert Iter.mean([2.0, Float.positive_infinity()]) == Some(Float.positive_infinity())
 
     both = Iter.mean([Float.positive_infinity(), Float.negative_infinity()])
-    assert Maybe.map(both, Float.is_nan) == Some(True)
+    assert Option.map(both, Float.is_nan) == Some(True)
 end
 
 test "a Decimal mean divides the exact sum with Decimal's /"
     assert Iter.mean([1.10d, 2.20d, 3.30d]) == Some(2.2d)
 
-    third = Iter.mean([1d, 0d, 0d]) |> Maybe.map(Decimal.to_string)
+    third = Iter.mean([1d, 0d, 0d]) |> Option.map(Decimal.to_string)
     assert third == Some("0.3333333333333333333333333333333333")
 end
 
@@ -71,7 +71,7 @@ end
 
 test "NonNegativeInt lengths average as Ints, to a Float"
     lengths = ["ab", "c"] |> Iter.map(String.length) |> Iter.to_list()
-    m: Maybe<Float> = Iter.mean(lengths)
+    m: Option<Float> = Iter.mean(lengths)
     assert m == Some(1.5)
 end
 

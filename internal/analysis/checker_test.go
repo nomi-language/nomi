@@ -3044,14 +3044,14 @@ end`
 	expectNoErrors(t, errs)
 }
 
-func TestCheckTryOpMaybe(t *testing.T) {
-	src := `enum Maybe<T>
+func TestCheckTryOpOption(t *testing.T) {
+	src := `enum Option<T>
     Some T
     None
 end
-fn demo(m: Maybe<Int>) -> Maybe<Int>
+fn demo(m: Option<Int>) -> Option<Int>
   v = m?
-  Maybe.Some(v + 1)
+  Option.Some(v + 1)
 end`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
@@ -3074,7 +3074,7 @@ end`
 }
 
 func TestCheckTryOpBarePipeStage(t *testing.T) {
-	src := `enum Maybe<T>
+	src := `enum Option<T>
     Some T
     None
 end
@@ -3082,13 +3082,13 @@ enum Result<T, E>
     Ok T
     Err E
 end
-fn to_result(m: Maybe<Int>) -> Result<Int, String>
+fn to_result(m: Option<Int>) -> Result<Int, String>
   case m
     Some(n) -> Result.Ok(n)
     None -> Result.Err("missing")
   end
 end
-fn demo(m: Maybe<Int>) -> Result<Int, String>
+fn demo(m: Option<Int>) -> Result<Int, String>
   n =
     m
     |> to_result()?
@@ -3099,7 +3099,7 @@ end`
 }
 
 func TestCheckTryOpPipeStageAcceptsOperand(t *testing.T) {
-	src := `enum Maybe<T>
+	src := `enum Option<T>
     Some T
     None
 end
@@ -3107,13 +3107,13 @@ enum Result<T, E>
     Ok T
     Err E
 end
-fn to_result(m: Maybe<Int>) -> Result<Int, String>
+fn to_result(m: Option<Int>) -> Result<Int, String>
   case m
     Some(n) -> Result.Ok(n)
     None -> Result.Err("missing")
   end
 end
-fn demo(m: Maybe<Int>) -> Result<Int, String>
+fn demo(m: Option<Int>) -> Result<Int, String>
   n = m |> to_result()?
   Result.Ok(n)
 end`
@@ -3122,47 +3122,47 @@ end`
 }
 
 func TestCheckNullaryVariantInference(t *testing.T) {
-	src := `enum Maybe<T>
+	src := `enum Option<T>
     Some T
     None
 end
-fn find(x: Int) -> Maybe<Int>
-  if x > 0 then Maybe.Some(x) else Maybe.None
+fn find(x: Int) -> Option<Int>
+  if x > 0 then Option.Some(x) else Option.None
 end`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
 
 // Qualified construction inside a generic function body must instantiate the
-// variant's type params per call site. Otherwise `Maybe.Some(f(v))` and
-// `Maybe.None` inside `map<T, U>(...)` reuse the enum's original `T` pointer
-// across calls, and `case` branch unification fails with `expected Maybe<U>,
-// got Maybe<T>`. The bare path (`Some(f(v))` / `None`) flows through
+// variant's type params per call site. Otherwise `Option.Some(f(v))` and
+// `Option.None` inside `map<T, U>(...)` reuse the enum's original `T` pointer
+// across calls, and `case` branch unification fails with `expected Option<U>,
+// got Option<T>`. The bare path (`Some(f(v))` / `None`) flows through
 // `checkTypeIdent`, which already instantiates EnumType returns; the qualified
 // path goes through `checkFieldAccess`'s reference fallback, which until now
 // returned `sym.Type` raw.
 func TestCheckQualifiedVariantInGenericBody(t *testing.T) {
-	src := `enum Maybe<T>
+	src := `enum Option<T>
     Some T
     None
 end
-fn map<T, U>(m: Maybe<T>, f: (T) -> U) -> Maybe<U>
+fn map<T, U>(m: Option<T>, f: (T) -> U) -> Option<U>
   case m
-    Some(v) -> Maybe.Some(f(v))
-    None -> Maybe.None
+    Some(v) -> Option.Some(f(v))
+    None -> Option.None
   end
 end`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
 
-func TestCheckTryOpNonResultMaybe(t *testing.T) {
+func TestCheckTryOpNonResultOption(t *testing.T) {
 	src := `fn demo() -> Int
   v = 42?
   v
 end`
 	_, errs := checkSource(src)
-	expectError(t, errs, "`?` requires a Result or Maybe")
+	expectError(t, errs, "`?` requires a Result or Option")
 }
 
 func TestCheckTryOpWrongEnum(t *testing.T) {
@@ -3176,7 +3176,7 @@ fn demo() -> Color
   c
 end`
 	_, errs := checkSource(src)
-	expectError(t, errs, "`?` requires a Result or Maybe")
+	expectError(t, errs, "`?` requires a Result or Option")
 }
 
 // --- Argument count mismatch tests ---
@@ -3661,7 +3661,7 @@ end
 
 // Pattern exhaustiveness tests live in pattern_exhaustiveness_test.go
 // (external package) so they can use the real stdlib via
-// checkSourceWithStdlib — Maybe / Result / Bool aren't built-in language
+// checkSourceWithStdlib — Option / Result / Bool aren't built-in language
 // features, they're stdlib enums, and the resolver no longer hardcodes
 // them.
 
@@ -4176,7 +4176,7 @@ func TestVariantPattern_NestedBareDataCarrying_Rejected(t *testing.T) {
 	// The case the user noticed: `Some(Err)` for a Some<Result<Int, String>>
 	// scrutinee. Some has data (the Result), Err has data (the String). Both
 	// inner Err and outer Some need their payloads spelled out.
-	src := `enum Maybe<T>
+	src := `enum Option<T>
     Some T
     None
 end
@@ -4184,7 +4184,7 @@ enum Result<T, E>
     Ok T
     Err E
 end
-fn unwrap_or(m: Maybe<Result<Int, String>>) -> Int
+fn unwrap_or(m: Option<Result<Int, String>>) -> Int
   case m
     Some(Ok(n)) -> n
     Some(Err) -> -1
@@ -4197,11 +4197,11 @@ end`
 
 func TestVariantPattern_BareVariant_NoData_OK(t *testing.T) {
 	// None carries no data — bare `None` is the correct pattern.
-	src := `enum Maybe<T>
+	src := `enum Option<T>
     Some T
     None
 end
-fn f(m: Maybe<Int>) -> Int
+fn f(m: Option<Int>) -> Int
   case m
     Some(n) -> n
     None -> 0
@@ -4612,7 +4612,7 @@ func TestNaming_ImportSegmentMixed_Rejected(t *testing.T) {
 }
 
 func TestNaming_ImportTypeNameUnderscore_Rejected(t *testing.T) {
-	src := `import std::maybe.{Some_Thing}`
+	src := `import std::option.{Some_Thing}`
 	_, errs := checkSource(src)
 	expectError(t, errs, "PascalCase")
 }
@@ -4691,13 +4691,13 @@ end`,
 }
 
 func TestNaming_TypeImportAliasPascalCase_OK(t *testing.T) {
-	src := `import maybe.Maybe as Opt
+	src := `import option.Option as Opt
 
 fn f(value: Opt<Int>) -> Opt<Int>
     value
 end`
 	_, errs := checkSourceWithModules(t, src, map[string]string{
-		"maybe": `pub enum Maybe<T>
+		"option": `pub enum Option<T>
     Some T
     None
 end`,
@@ -4706,17 +4706,17 @@ end`,
 }
 
 func TestNaming_VariantImportAliasPascalCase_OK(t *testing.T) {
-	src := `import maybe.Maybe.{self, Some as Just, None as Nothing}
+	src := `import option.Option.{self, Some as Just, None as Nothing}
 
-fn f() -> Maybe<Int>
+fn f() -> Option<Int>
     Just(1)
 end`
 	src += `
-fn g() -> Maybe<Int>
+fn g() -> Option<Int>
     Nothing
 end`
 	_, errs := checkSourceWithModules(t, src, map[string]string{
-		"maybe": `pub enum Maybe<T>
+		"option": `pub enum Option<T>
     Some T
     None
 end`,
@@ -4725,9 +4725,9 @@ end`,
 }
 
 func TestNaming_VariantImportAliasSnakeCase_Rejected(t *testing.T) {
-	src := `import maybe.Maybe.{Some as just}`
+	src := `import option.Option.{Some as just}`
 	_, errs := checkSourceWithModules(t, src, map[string]string{
-		"maybe": `pub enum Maybe<T>
+		"option": `pub enum Option<T>
     Some T
     None
 end`,
@@ -5506,19 +5506,19 @@ end
 // generic payload type nested in an anon-struct field gets fully solved
 // during inference. Without an *AnonStructType case in containsTypeVar,
 // argMatchesParam does not fall through to unify for anon-struct args
-// containing fresh TypeVars (e.g. Maybe<?1> from a nullary Maybe.None).
+// containing fresh TypeVars (e.g. Option<?1> from a nullary Option.None).
 func TestChecker_AnonStructParam_GenericPayloadInfersTypeArg(t *testing.T) {
-	src := `enum Maybe<T>
+	src := `enum Option<T>
     Some(T)
     None
 end
 
-fn f(_p: {head: Maybe<Int>}) -> Int
+fn f(_p: {head: Option<Int>}) -> Int
     0
 end
 
 fn demo() -> Int
-  f({head: Maybe.None})
+  f({head: Option.None})
 end
 `
 	_, errs := checkSource(src)
@@ -5771,25 +5771,25 @@ fn takes_string(_x: String) end`
 // from checkStructVariantLit left ./analysis and ./lsp green; the rows below
 // are what now separate the two.
 func TestCheck_QualifiedStructVariantLit_SeedRequiresTheSameEnum(t *testing.T) {
-	// `Maybe<Int>` is expected and `Shape.Wrap{inner: "s"}` is supplied. The
-	// mis-seeding mutant binds Shape's `T` to Int from Maybe's argument list
+	// `Option<Int>` is expected and `Shape.Wrap{inner: "s"}` is supplied. The
+	// mis-seeding mutant binds Shape's `T` to Int from Option's argument list
 	// and then faults `inner` for being a String; the guard makes Shape infer
 	// `T = String` on its own, so the only fault is the enum mismatch.
 	src := `enum Shape<T>
     Wrap { inner: T }
 end
-enum Maybe2<T>
+enum Option2<T>
     Just { v: T }
 end
 fn main()
-  s: Maybe2<Int> = Shape.Wrap{inner: "s"}
+  s: Option2<Int> = Shape.Wrap{inner: "s"}
   take(s)
 end
-fn take(_x: Maybe2<Int>) end`
+fn take(_x: Option2<Int>) end`
 	_, errs := checkSource(src)
 	for _, e := range errs {
 		if strings.Contains(e.Message, "field 'inner'") {
-			t.Fatalf("Shape's T was seeded from Maybe2's argument list: %q", e.Message)
+			t.Fatalf("Shape's T was seeded from Option2's argument list: %q", e.Message)
 		}
 	}
 	expectError(t, errs, "Shape<String>")

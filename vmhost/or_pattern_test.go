@@ -43,7 +43,7 @@ struct P
     n: Int
 end
 
-fn tri(m: Maybe<Tri>) -> String
+fn tri(m: Option<Tri>) -> String
     case m
         Some(.Equilateral or .Isosceles) -> "two equal"
         Some(.Scalene) -> "none equal"
@@ -114,7 +114,7 @@ fn entry(m: Map<String, Int>) -> String
     end
 end
 
-fn nested(m: Maybe<Ev>) -> String
+fn nested(m: Option<Ev>) -> String
     case m
         Some(.A(n) or (.B(n) or .A(n))) or Some(.B(n)) -> "${n}"
         Some(.C(_)) or None -> "none"

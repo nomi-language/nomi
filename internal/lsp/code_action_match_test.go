@@ -25,7 +25,7 @@ func TestPatternMatch_GenericPayloads(t *testing.T) {
 }
 
 func TestPatternMatch_WrapsCall(t *testing.T) {
-	decls := "fn parse(s: String) -> Result<Int, String>\n    Maybe.with_default(String.to_int(s), 0) |> Ok()\nend\n\n"
+	decls := "fn parse(s: String) -> Result<Int, String>\n    Option.with_default(String.to_int(s), 0) |> Ok()\nend\n\n"
 	src := fnMainAfter(decls, "io.inspect(par‸se(\"4\"))\n")
 	got := checkRefactor(t, src, "Pattern match on the result of parse", rewrite)
 	want := fnMainAfter(decls, "io.inspect(\n    case parse(\"4\")\n        .Ok(value)  -> todo\n        .Err(value) -> todo\n    end\n)\n")
@@ -37,7 +37,7 @@ func TestPatternMatch_WrapsCall(t *testing.T) {
 // A call that is a binding's value becomes a `case` on the line below the
 // name, as `nomi fmt` writes one.
 func TestPatternMatch_WrapsABindingsCall(t *testing.T) {
-	decls := "fn parse(s: String) -> Result<Int, String>\n    Maybe.with_default(String.to_int(s), 0) |> Ok()\nend\n\n"
+	decls := "fn parse(s: String) -> Result<Int, String>\n    Option.with_default(String.to_int(s), 0) |> Ok()\nend\n\n"
 	src := fnMainAfter(decls, "n = par‸se(\"4\")\nio.inspect(n)\n")
 	got := checkRefactor(t, src, "Pattern match on the result of parse", rewrite)
 	want := fnMainAfter(decls, "n =\n    case parse(\"4\")\n        .Ok(value)  -> todo\n        .Err(value) -> todo\n    end\n\nio.inspect(n)\n")

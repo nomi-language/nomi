@@ -84,7 +84,7 @@ fn by_if(b: Bool, ys: List<Int>) -> List<Int>
     |> Iter.to_list()
 end
 
-fn by_case(m: Maybe<List<Int>>) -> List<Int>
+fn by_case(m: Option<List<Int>>) -> List<Int>
     Iter.filter(case m
         Some(o) -> o
         None -> pick(False, [7], [8])

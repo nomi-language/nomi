@@ -302,7 +302,7 @@ func (bl *irScalarBuilder) stdTestOwnType() bool {
 // one of:
 //
 //   - a name the module scope does not bind (`import std::duration.Duration`,
-//     `import std::io`, `import std::maybe.Maybe as Local`). No name-keyed
+//     `import std::io`, `import std::option.Option as Local`). No name-keyed
 //     lookup against the module scope finds it, so such a lookup declines,
 //     and every use the builder admits resolves by the checker's reference
 //     at its position (qualifierScope for a file qualifier).

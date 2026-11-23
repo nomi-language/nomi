@@ -24,7 +24,7 @@ func TestMarkReaching_MarksOnlyMarkedPlaces(t *testing.T) {
 		{Path: "main.nomi", Line: 2, Col: 5, EndLine: 2, EndCol: 17, Text: "Has effects on what it is passed.", Marked: true},
 		{Path: "main.nomi", Line: 2, Col: 20, EndLine: 2, EndCol: 27, Text: "Has effects: `std::io`."},
 		{Path: "main.nomi", Line: 4, Col: 4, EndLine: 4, EndCol: 8, Text: "Uses `App.out`.", Uses: true},
-	}, inFile, "")
+	}, inFile)
 	var marked []int
 	for i, tok := range toks {
 		if tok.Effect {

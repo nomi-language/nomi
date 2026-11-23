@@ -103,12 +103,12 @@ func NewModules(source func(module string) ([]byte, bool)) *Modules {
 // loaded and their tag order checked.
 func LoadModules(source func(module string) ([]byte, bool)) (*Modules, error) {
 	ms := NewModules(source)
-	for _, prelude := range []string{"maybe", "results"} {
+	for _, prelude := range []string{"option", "results"} {
 		if _, err := ms.Load(prelude); err != nil {
 			return nil, err
 		}
 	}
-	if err := checkPreludeTags(ms.byName["maybe"], "Maybe", "Some", "None"); err != nil {
+	if err := checkPreludeTags(ms.byName["option"], "Option", "Some", "None"); err != nil {
 		return nil, err
 	}
 	if err := checkPreludeTags(ms.byName["results"], "Result", "Ok", "Err"); err != nil {

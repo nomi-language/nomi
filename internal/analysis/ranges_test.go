@@ -6,16 +6,16 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// rangeDecls take the subtypes a value's range proves, so a case checks
+// rangeDecls take the refinements a value's range proves, so a case checks
 // only when the value passed has a range inside the parameter's.
 const rangeDecls = `import std::int.Int64
 import std::duration.{Duration, PositiveDuration}
 
-subtype Digit Int when fn n -> n >= 0 and n <= 9
+refine Digit Int when fn n -> n >= 0 and n <= 9
 
-subtype Odd Int when fn n -> n % 2 == 1
+refine Odd Int when fn n -> n % 2 == 1
 
-subtype Wide Int when fn n -> n >= 0 or n <= -10
+refine Wide Int when fn n -> n >= 0 or n <= -10
 
 fn nn(NonNegativeInt) -> Int
     1
@@ -67,8 +67,8 @@ func rangeSource(body string) string {
 }
 
 // A value's range, from comparisons with constants, literals, arithmetic and
-// std results, proves the subtypes it lies in (spec §4 *Value ranges*).
-func TestRanges_ProveSubtypes(t *testing.T) {
+// std results, proves the refinements it lies in (spec §4 *Value ranges*).
+func TestRanges_ProveRefinements(t *testing.T) {
 	for _, tc := range []struct{ name, body string }{
 		{"one less than a size above one", "    if size > 1 then pos(size - 1) else 0"},
 		{"a product of two positives", "    if a > 0 and b > 0 then pos(a * b) else 0"},
@@ -84,7 +84,7 @@ func TestRanges_ProveSubtypes(t *testing.T) {
 		{"literals alone, where expected", "    pos(1 + 2)"},
 		{"a literal if", "    pos(if n > 0 then 1 else 2)"},
 		{"bounds prove Int64", "    if n >= 0 and n < 1000 then int64(n) else 0"},
-		{"bounds prove a module subtype over Int", "    if n >= 0 and n <= 9 then digit(n) else 0"},
+		{"bounds prove a module refinement over Int", "    if n >= 0 and n <= 9 then digit(n) else 0"},
 		{"the larger of one and anything", "    pos(Int.max(1, n))"},
 		{"the larger of anything and two", "    pos(Int.max(n, 2))"},
 		{"the smaller of two non-zeros", "    nz(Int.min(p, -3))"},
@@ -136,8 +136,8 @@ func TestRanges_ProveSubtypes(t *testing.T) {
 }
 
 // What the ranges do not prove stays an error: no relation between two
-// bindings, a rule the checker does not read as bounds, a subtype over
-// another subtype, a computed value that is no binding, and a Float that
+// bindings, a rule the checker does not read as bounds, a refinement over
+// another refinement, a computed value that is no binding, and a Float that
 // may be NaN.
 func TestRanges_ProveNothingElse(t *testing.T) {
 	for _, tc := range []struct{ name, body, want string }{
@@ -147,7 +147,7 @@ func TestRanges_ProveNothingElse(t *testing.T) {
 		{"an upper bound alone", "    if n < 10 then nn(n) else 0", "expected NonNegativeInt, got Int"},
 		{"a product with a sign unknown", "    if a > 0 then pos(a * b) else 0", "expected PositiveInt, got Int"},
 		{"bounds past Int64", "    if n >= 0 then int64(n) else 0", "expected Int64, got NonNegativeInt"},
-		{"bounds past a module subtype", "    if n >= 0 and n <= 10 then digit(n) else 0", "expected Digit, got NonNegativeInt"},
+		{"bounds past a module refinement", "    if n >= 0 and n <= 10 then digit(n) else 0", "expected Digit, got NonNegativeInt"},
 		{"a rule that is no bounds", "    if n == 3 then odd(n) else 0", "expected Odd, got PositiveInt"},
 		{"a rule with an or", "    if n >= 0 then wide(n) else 0", "expected Wide, got NonNegativeInt"},
 		{"the larger of zero and anything", "    pos(Int.max(0, n))", "expected PositiveInt, got NonNegativeInt"},
@@ -164,7 +164,7 @@ func TestRanges_ProveNothingElse(t *testing.T) {
 		{"a remainder function of a dividend of any sign", "    nn(Int.remainder(n, p))", "expected NonNegativeInt, got Int"},
 		{"a clamp from below zero", "    nn(Int.clamp(n, -1..=9))", "expected NonNegativeInt, got Int"},
 		{"a clamp from a start below zero", "    nn(Int.clamp(n, Range.from(-1)))", "expected NonNegativeInt, got Int"},
-		{"a clamp past a subtype's end", "    digit(Int.clamp(n, 0..=10))", "expected Digit, got NonNegativeInt"},
+		{"a clamp past a refinement's end", "    digit(Int.clamp(n, 0..=10))", "expected Digit, got NonNegativeInt"},
 		{"a clamp to a range bound first", "    r = 0..=9\n    nn(Int.clamp(n, r))", "expected NonNegativeInt, got Int"},
 		{"a float clamp", "    pos_float(Float.clamp(x, 1.0..=9.0))", "expected PositiveFloat, got Float"},
 		{"the sign of anything", "    nn(Int.sign(n))", "expected NonNegativeInt, got Int"},
@@ -183,8 +183,8 @@ func TestRanges_ProveNothingElse(t *testing.T) {
 }
 
 // A value whose range rests on something other than literals has the
-// subtype it proves, which hover shows; one of literals alone keeps its
-// base and converts only where the subtype is expected.
+// refinement it proves, which hover shows; one of literals alone keeps its
+// base and converts only where the refinement is expected.
 func TestRanges_TheTypeAValueHas(t *testing.T) {
 	src := `once k = 60 * 60
 

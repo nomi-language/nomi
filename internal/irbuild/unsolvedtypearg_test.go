@@ -16,7 +16,7 @@ func TestUnsolvedTypeArg_AnInstanceAtUnitRuns(t *testing.T) {
     lib
 end
 
-fn is_some<T>(m: Maybe<T>) -> Bool
+fn is_some<T>(m: Option<T>) -> Bool
     case m
         Some(_) -> True
         None -> False
@@ -31,7 +31,7 @@ fn twice<T>(x: T) -> List<T>
     [x, x]
 end
 
-fn shown<T>(m: Maybe<T>, d: String) -> String where T: Display
+fn shown<T>(m: Option<T>, d: String) -> String where T: Display
     case m
         Some(x) -> T.to_string(x)
         None -> d
@@ -52,7 +52,7 @@ fn main()
     f(u())
     [u(), u()] |> Iter.each(io.inspect)
 end
-`, "False\nTrue\n[Unit, Unit]\nOk(1)\nnone\n1 False\nUnit\nUnit\n", map[string]string{"lib.nomi": `fn is_some<T>(m: Maybe<T>) -> Bool
+`, "False\nTrue\n[Unit, Unit]\nOk(1)\nnone\n1 False\nUnit\nUnit\n", map[string]string{"lib.nomi": `fn is_some<T>(m: Option<T>) -> Bool
     case m
         Some(_) -> True
         None -> False
@@ -156,14 +156,14 @@ end
     Iter.count(xs)
 end
 
-pub fn is_some<T>(m: Maybe<T>) -> Bool
+pub fn is_some<T>(m: Option<T>) -> Bool
     case m
         Some(_) -> True
         None -> False
     end
 end
 
-pub fn shown<T>(m: Maybe<T>, d: String) -> String where T: Display
+pub fn shown<T>(m: Option<T>, d: String) -> String where T: Display
     case m
         Some(x) -> T.to_string(x)
         None -> d

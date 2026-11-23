@@ -19,8 +19,8 @@ func irRunSource(t *testing.T, src, want string) (path string) {
 }
 
 // A generic instantiated at a function type runs: a user generic struct and
-// enum holding a function, the stdlib generics over one (`Maybe.with_default`,
-// `Result.with_default`, `Maybe.map`, `Result.map`), the Iter family over a
+// enum holding a function, the stdlib generics over one (`Option.with_default`,
+// `Result.with_default`, `Option.map`, `Result.map`), the Iter family over a
 // list of functions and producing one (`Iter.count`, `map`, `filter`,
 // `reduce`, `each`, `any_match`), `Debug.inspect` of a list of functions, a user
 // generic at `List<fn>` given an empty list, and a list of functions held in
@@ -49,7 +49,7 @@ enum Holder
 end
 
 fn first_or<T>(xs: List<T>, d: T) -> T
-    Maybe.with_default(List.first(xs), d)
+    Option.with_default(List.first(xs), d)
 end
 
 fn main()
@@ -61,11 +61,11 @@ fn main()
         .Has(g) -> io.inspect(g(2))
         .Nothing -> io.inspect(0)
     end
-    g = Maybe.with_default(Some(inc), dbl)
+    g = Option.with_default(Some(inc), dbl)
     io.inspect(g(3))
     h = Result.with_default(Ok<(Int) -> Int, String>(dbl), inc)
     io.inspect(h(4))
-    io.inspect(Maybe.map(Some(inc), fn f -> f(5)))
+    io.inspect(Option.map(Some(inc), fn f -> f(5)))
     io.inspect(Result.map(Ok<(Int) -> Int, String>(dbl), fn f -> f(6)))
     fs = [inc, dbl]
     io.inspect(Iter.count(fs))

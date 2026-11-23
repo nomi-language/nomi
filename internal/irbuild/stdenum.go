@@ -16,7 +16,7 @@ import (
 //
 // # Not the same population as prelude.go, and not the same as opaque.go
 //
-// prelude.go's subjects are generic (`Maybe<T>`, `Result<T, E>`): a mention
+// prelude.go's subjects are generic (`Option<T>`, `Result<T, E>`): a mention
 // carries type arguments, so its *typeDef is interned per gen unless its
 // arguments are package-neutral (stdprelude.go). opaque.go's subjects are
 // distinct types over a scalar.
@@ -269,7 +269,7 @@ func bareVariant(name string) stdEnumVariantSpec {
 // scalarVariant is the common carrying row: a payload whose kind is a fixed
 // scalar, stored in rt's `field`. A scalar is written as its own name, which
 // is the kind's (kind.nomi), so the row's spelling is derived rather than
-// stated twice; std writes no subtype in an enum payload.
+// stated twice; std writes no refinement in an enum payload.
 func scalarVariant(name, field string, k kind) stdEnumVariantSpec {
 	return stdEnumVariantSpec{nomi: name, form: payloadScalar, scalar: k, decl: k.nomi(), ref: -1, field: field}
 }
@@ -617,7 +617,7 @@ var stdEnumSpecs = []stdEnumSpec{{
 	// POSITIONALLY through the index constants below.
 	//
 	// `Result<String, Error>`, `Result<Unit, Error>` and
-	// `Result<Maybe<String>, Error>` are the result types of `io.read_line`,
+	// `Result<Option<String>, Error>` are the result types of `io.read_line`,
 	// the stream functions and std/fs's crossings, so without it
 	// none of those signatures projects.
 	//

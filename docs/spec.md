@@ -181,7 +181,7 @@ These words are reserved and cannot name anything:
 `and`, `as`, `assert`, `begin`, `break`, `case`, `continue`, `dbg`, `defer`,
 `else`, `end`, `enum`, `export`, `extern`, `fn`, `for`, `if`, `impl`,
 `import`, `in`, `interface`, `is`, `not`, `once`, `opaque`, `or`, `pub`,
-`refute`, `return`, `self`, `struct`, `subtype`, `tap`, `test`, `then`,
+`refine`, `refute`, `return`, `self`, `struct`, `tap`, `test`, `then`,
 `type`, `typealias`, `unreachable`, `when`, `where`, `with`.
 
 One written as a parameter, a binding, a field or a function's name is the
@@ -190,7 +190,7 @@ binding; name it something else, such as `kind` ``, which says what the
 word is for and offers another name.
 
 `when` stands only before an arm's guard (§10 *Guards*) and a type's rule
-(§4 *Subtypes*, §4 *Validated types*). `extern` has no construct:
+(§4 *Refinements*, §4 *Validated types*). `extern` has no construct:
 `extern fn` is the error
 ``runtime-provided declarations use `host fn`, not `extern fn` ``, and
 `extern` before any other declaration is
@@ -374,7 +374,7 @@ is expected in:
   a `Byte` field of a struct literal, and a function's result;
 - an element, key or value of a collection or tuple literal whose type is
   expected, and the payload of a generic constructor whose result is
-  expected (`Some(0x81)` as a `Maybe<Byte>`);
+  expected (`Some(0x81)` as an `Option<Byte>`);
 - each branch of an `if` or `case` whose value is expected, and an arm
   pattern over a `Byte` (`0x80 -> ...`, `Some(0x80) -> ...`).
 
@@ -705,7 +705,7 @@ end
 ```
 
 A spread in a list, vector or set literal is any `Iter` of the literal's
-elements: a collection, a `Maybe` (zero or one element), a `Range`, a lazy
+elements: a collection, an `Option` (zero or one element), a `Range`, a lazy
 `Iter` chain, or a type with an `impl Iter`. Its elements join in the order
 it hands them out. A spread that is no `Iter` is
 ``list spread `..` requires an Iter of the list's elements, got Int`` (or
@@ -729,7 +729,7 @@ conversion*). With `xs: List<Int>`, `["s", ..xs]` is
 spread of other elements, `[..xs, ..words]` with `words: List<String>`, is
 `list spread element type mismatch: expected Int, got String` at its `..`
 (or `vector`, `set`). An element or later spread of an ancestor of that
-type, or of a subtype that shares one with it, joins with it as the
+type, or of a refinement that shares one with it, joins with it as the
 nearest shared ancestor (§4 *Chains and conversion*): with
 `ps: List<PositiveInt>` and `n: Int`, `[..ps, n]` is a `List<Int>`. With
 `routes: List<(Route, Handler)>`, ``[(Route`GET /`, home), ..routes]`` is a
@@ -746,11 +746,11 @@ from the entries. An entry may repeat a key of a spread; two equal constant
 keys among the literal's own entries are the error of *Repeated keys*.
 
 A list, vector, set or map literal of one spread of its own type, or of a
-subtype of it, and nothing else is that spread, since values are immutable
+refinement of it, and nothing else is that spread, since values are immutable
 and the copy is the same value: `[..xs]` with `xs` a list is
 `` a list spread with no elements is its base value; write `xs` `` (or
 `vector`, `set`, `map ... with no entries`). A lone spread the literal
-converts is not one. A lone spread of another `Iter`, `Set[..maybe]` or
+converts is not one. A lone spread of another `Iter`, `Set[..option]` or
 `Vector[..xs]` with `xs` a list, builds the collection from it. So does a
 lone spread whose elements convert to the expected element type,
 `shapes: Vector<Shape> = [..circles]` with `circles: Vector<Circle>`, or
@@ -766,7 +766,7 @@ A spread has no named form, since the base already carries the type:
 and `Path[..base, 1]` is
 `` spread `..` has no named form; write `[..base, item]` — the spread head carries the type ``.
 The std collections' own names are the exception, since a spread of
-another `Iter` fixes no collection: `Vector[..iter, 1]`, `Set[..maybe]`.
+another `Iter` fixes no collection: `Vector[..iter, 1]`, `Set[..option]`.
 
 A struct literal takes one spread, first: that is a struct update (§4
 *Struct Updates*). At a field or key of an update a spread may be a bare
@@ -824,7 +824,7 @@ Taught in [Collections](/collections/#ranges).
 
 `a..b` is a half-open range and `a..=b` a closed one. Both operands must have
 the same `Comparable` type, and the literal is a `Range<T>` (§4 *Built-in
-Types*). A subtype and its ancestor join as a branch does, and a range
+Types*). A refinement and its ancestor join as a branch does, and a range
 with no type written for it ranges over the base (§4 *Chains and
 conversion*): `0..List.length(xs)` is a `Range<Int>`. An empty collection
 literal in one operand, whole or inside a tuple or list, takes its element
@@ -862,7 +862,7 @@ Reversed bounds give an empty range. An unbounded range comes from
 `Range.start(r)`, `Range.stop(r)` (its end, `None` when unbounded) and
 `Range.is_inclusive(r)`.
 
-The prelude holds three subtypes of `Range<T>` (§4 *Generic subtypes*).
+The prelude holds three refinements of `Range<T>` (§4 *Generic refinements*).
 `NonEmptyRange<T>` is a range that holds a value, `Range.contains(r,
 Range.start(r))`: `a..b` with `a < b`, `a..=b` with `a <= b`, or an
 unbounded range. `ClosedRange<T>` is a NonEmptyRange that holds its end or
@@ -1069,7 +1069,7 @@ Taught in [Collections](/collections/).
 The built-in types are immutable: every operation on a value returns a new
 value.
 
-- `Maybe<T>`, `Some(value)` or `None`, and `Result<T, E>`, `Ok(value)` or
+- `Option<T>`, `Some(value)` or `None`, and `Result<T, E>`, `Ok(value)` or
   `Err(error)`, are enums (§11).
 - `List<T>`, `Vector<T>`, `Map<K, V>` and `Set<T>` are the collections
   (below).
@@ -1216,7 +1216,7 @@ end
 A struct must have values: a field without a default may not hold the
 struct itself, directly or through other structs, distinct types, tuples
 and anonymous structs, unless something on the way can be built without
-one (a `Maybe`, a list, vector, set or map, a function, or an enum variant
+one (an `Option`, a list, vector, set or map, a function, or an enum variant
 that does not hold it), so `struct S` with a field `s: S` is
 `` struct 'S' is defined in terms of itself (S.s → S) ``, and an enum every
 variant of which holds itself is the same error.
@@ -1285,9 +1285,9 @@ and `North = 1` is
 
 #### Optional Fields
 
-A field whose value may be absent has type `Maybe<T>`. That is independent
+A field whose value may be absent has type `Option<T>`. That is independent
 of a default, which only spares the caller from writing a value:
-`nickname: Maybe<String> = None` is optional and defaults to absent.
+`nickname: Option<String> = None` is optional and defaults to absent.
 
 #### Construction
 
@@ -1340,9 +1340,9 @@ The positions that supply a struct are the ones that supply an enum to a
 - an operand of `==`, `!=`, `<`, `>`, `<=` or `>=`, against the other
   operand's type;
 - a generic position once its type argument is known
-  (`b: Box<Int> = {v: 3}`, `Some({...})` under `Maybe<Address>`), the
+  (`b: Box<Int> = {v: 3}`, `Some({...})` under `Option<Address>`), the
   enclosing function's own type parameters among them (`Some((x, {...}))`
-  under `Maybe<(T, Box<T>)>` builds a `Box<T>`).
+  under `Option<(T, Box<T>)>` builds a `Box<T>`).
 
 ```nomi
 struct Address
@@ -1467,7 +1467,7 @@ is then the value already there, with the field's type: `visits: .. + 1`,
 It belongs to the innermost field or key whose value holds it, so in
 `address: {.., street: rename(..)}` the first `..` is `address` and the one
 in `rename(..)` is `street`. It keeps that meaning inside a lambda written in
-the value (`street: Maybe.map(m, fn s -> s + ..)`). The update's base is
+the value (`street: Option.map(m, fn s -> s + ..)`). The update's base is
 evaluated once, however many `..`s read it.
 
 ```nomi
@@ -1539,10 +1539,10 @@ argument (`Some({.., ...})` included) or in a patch passed to another
 function, it is `` a bare `..` has no value to update here ``.
 
 A `..` must stand for a value of its literal's kind: `{.., f: v}` at a list
-field is `` struct spread `..` requires a struct, got List<Int> ``. A
-`Maybe` field has no `..` form, since it may hold no value; it takes a whole
-value: `{..p, a: {.., city: "x"}}` with `a: Maybe<A>` is
-`` struct spread `..` requires a struct, got Maybe<A> ``. A field of interface type takes values only:
+field is `` struct spread `..` requires a struct, got List<Int> ``. An
+`Option` field has no `..` form, since it may hold no value; it takes a whole
+value: `{..p, a: {.., city: "x"}}` with `a: Option<A>` is
+`` struct spread `..` requires a struct, got Option<A> ``. A field of interface type takes values only:
 `{..stage, who: {.., n: 2}}` is
 `` struct spread `..` requires a struct, got Speaker ``. A field whose type
 is a type parameter takes a `..` literal once the argument is known.
@@ -1621,7 +1621,7 @@ A variant is one of four kinds:
 #### Construction and Typing
 
 A variant constructor makes a value of the enum type. There is no separate
-variant type: `Some(42)` is a `Maybe<Int>`, and `Animal.Dog("Rex")` an
+variant type: `Some(42)` is an `Option<Int>`, and `Animal.Dog("Rex")` an
 `Animal` with no annotation.
 
 A variant is written qualified, `Shape.Circle(5.0)`, or dot-leading,
@@ -1706,7 +1706,7 @@ declaration. The walk passes through:
 A bracket literal checked against `Iter<T>` checks each item
 against `T`. The expected type may name the enclosing function's own type
 parameters: in `fn write<T>(b: Buffer<T>, item: T) -> Result<Buffer<T>, Error>`,
-`Err(.Full)` takes `E` as `Error`, and in `fn pop<T>(...) -> Maybe<(T, Stack<T>)>`,
+`Err(.Full)` takes `E` as `Error`, and in `fn pop<T>(...) -> Option<(T, Stack<T>)>`,
 `Some((x, {items: []}))` takes its payload as `(T, Stack<T>)`, so the literal
 builds a `Stack<T>`. A callee parameter is not pinned to a type that names the
 callee's own parameters, as a recursive call's expected type would.
@@ -1757,7 +1757,7 @@ The errors:
   In a literal with no expected type, the help asks to qualify the first
   element, and only the first refused variant is reported. An argument
   whose parameter type is an unsolved type parameter determines nothing:
-  in `String.to_int(s) |> Maybe.to_result(.SyntaxError)?` the message is
+  in `String.to_int(s) |> Option.to_result(.SyntaxError)?` the message is
   `.SyntaxError cannot be resolved here: nothing at this position determines its enum`,
   with help naming `E.SyntaxError` when one enum in scope declares it.
 - The expected type is not an enum:
@@ -1786,7 +1786,7 @@ the embedded type is accepted wherever the enum is expected: an argument, an
 annotated binding, a field, a return, a collection element, and a tuple
 item, record field or type argument of any of those that converts by its
 variance (§5 *Covariant conversion*): `List<Circle>` where `List<Shape>`
-is expected, `Maybe<Circle>` where `Maybe<Shape>` is. An invariant type
+is expected, `Option<Circle>` where `Option<Shape>` is. An invariant type
 argument takes no embedded type: a `Cell<Circle>` whose fields both hold
 and take a `T` is no `Cell<Shape>`. A construction in such a position
 builds the expected type. A type parameter an argument solved to an
@@ -1838,7 +1838,7 @@ neither side takes the other's values, as `(circle, shape)` beside
 `(shape, circle)`, they do not join and the literal is an error. `==`
 compares a `Circle` with a `Shape` as two `Shape`s, at any depth: with
 `s: Shape = c`, `Some(c) == Some(s)` and `[c, c] == [s, s]` compare two
-`Maybe<Shape>` and two `List<Shape>` values and are `True`, and
+`Option<Shape>` and two `List<Shape>` values and are `True`, and
 `Some(c) == Some(Shape.Point)` is `False`.
 
 An impl function may not take the embedded type where its interface's
@@ -1881,12 +1881,18 @@ impls hand an embedded variant to the embedded type's impl.
   (`Identifier.UserId(name)` binds the `String`);
 - for an embedded zero-sized type, nothing.
 
-**A field read off the enum.** `s.radius` on a value typed as the enum reads
-the field from whichever struct-shaped or embedded struct variant the value
-is. A value of a variant without the field traps:
-`line 8: variant 'Circle' has no field 'w'`. Every variant that has the
-field must give it one type, or the read is
-`field 'w' is Int in Shape.Rect and Float in Shape.Circle, so reading it off a Shape has no one type`.
+**A field read off the enum.** `s.w` on a value typed as the enum reads the
+field from whichever variant the value is. Every variant must have the
+field: a struct-shaped variant's own, an embedded struct's, or that of a
+variant whose one payload is a struct. A variant without it is an error at
+the field,
+`field 'w' is not in every variant of Shape: Circle has none`, with the help
+``match the value with `case` to read a field only some variants have``.
+Past three such variants the message names three and counts the rest. The
+variants must also give the field one type, or the read is
+`field 'w' is Int in Shape.Rect and Float in Shape.Circle, so reading it off a Shape has no one type`,
+which is reported first when both hold. The accessor `.w` follows the same
+rule (§7 *Field Accessors*).
 
 #### Variants as Parameter Types
 
@@ -1917,9 +1923,9 @@ type, its representation included. What follows the name decides its kind:
 - nothing: a zero-sized type (`type Expired`).
 
 A `type` declaration may add a `when` rule, which makes it a validated
-type (*Validated types* below), and a `type` over a subtype is built the
-same checked way. A `subtype` declaration is no new identity: its values
-are values of the types it names (*Subtypes* below). The rest of this
+type (*Validated types* below), and a `type` over a refinement is built the
+same checked way. A `refine` declaration is no new identity: its values
+are values of the types it names (*Refinements* below). The rest of this
 section is about distinct types without a rule.
 
 A `type` declaration has no body. `type Wrap (Int)` is `type Wrap Int`,
@@ -1989,7 +1995,7 @@ A type name is not a conversion, a function or a value:
 - `Int(id)`, `Int("4")` and `String(4)` are `` `Int` is a type, not a function ``.
   On a distinct argument the help names the destructuring to write; otherwise
   it names the conversion (`String.to_int`, `Int.to_float`, `"${x}"`).
-- Calling any other type name is that error too (`Dir(1)`, `Maybe(3)`). The
+- Calling any other type name is that error too (`Dir(1)`, `Option(3)`). The
   type names with a call form are a struct and a distinct type. A pipe into a
   type name is the same call: `1 |> Point()` is
   `Point expects an anonymous struct literal {...} matching its fields, got Int`.
@@ -2065,7 +2071,7 @@ public function like any other.
 // positive.nomi
 pub opaque type PositiveInt Int
 
-pub fn positive(n: Int) -> Maybe<PositiveInt>
+pub fn positive(n: Int) -> Option<PositiveInt>
     if n > 0 then Some(PositiveInt(n)) else None
 end
 
@@ -2097,11 +2103,11 @@ zero-sized type, a foreign type or a built-in type it is an error at the
 declaration. An opaque type's representation may be private, since no
 caller outside can reach it (§14).
 
-### Subtypes
+### Refinements
 
-Taught in [Structs, Enums & Distinct Types](/structs-enums-distinct/#subtypes).
+Taught in [Structs, Enums & Distinct Types](/structs-enums-distinct/#refinements).
 
-A `subtype` declaration names a narrower set of another type's values:
+A `refine` declaration names a narrower set of another type's values:
 its name, the types it narrows, its *parents*, joined by `and`, and a
 rule, `when` and a function from its first parent to `Bool`, a lambda or
 a function's name. A struct may declare a rule too, as its body's last
@@ -2109,17 +2115,17 @@ item, on its own line after every field; a rule over several lines keeps
 its own `end` inside the struct's. Such a struct is a *validated struct*.
 
 ```nomi
-subtype NonNegative Float when fn x -> x >= 0.0
+refine NonNegative Float when fn x -> x >= 0.0
 
-subtype Positive NonNegative when fn x -> x > 0.0
+refine Positive NonNegative when fn x -> x > 0.0
 
-subtype Port Int when fn port -> port >= 1 and port <= 65535
+refine Port Int when fn port -> port >= 1 and port <= 65535
 
 fn is_tag(s: String) -> Bool
     String.length(s) > 0 and not String.contains(s, " ")
 end
 
-subtype Tag String when is_tag
+refine Tag String when is_tag
 
 struct Span
     low:  Int
@@ -2141,7 +2147,7 @@ fn main()
 end
 ```
 
-The rule is checked as a `(P) -> Bool`, where P is the subtype's first
+The rule is checked as a `(P) -> Bool`, where P is the refinement's first
 parent: `fn x -> x + 1` is
 ``type mismatch: expected (Float) -> Bool, got (Float) -> Float``. A
 validated struct's rule takes the struct. A `when` after the struct's
@@ -2155,76 +2161,76 @@ and a rule that reaches an effect (§19 *Effects*) is an error at the declaratio
 So is a rule that reads an app field, since the compiler checks it with the value alone:
 ``the rule of Bounded reads `App.limit`: a rule is checked with the value alone, and an app field exists only while the program runs``.
 So is a rule that reaches a pure function whose cost grows with its argument, such as `String.repeat`, which §19 *Effects* calls unbounded.
-A subtype is declared at the top of a file. It cannot be `opaque`, since its point is that its base is visible:
-``a subtype cannot be opaque: `Secret`'s values are values of its parent, which every file sees; drop `opaque`, or declare a new type, `opaque type Secret ...`, and check values in its constructor``.
+A refinement is declared at the top of a file. It cannot be `opaque`, since its point is that its base is visible:
+``a refinement cannot be opaque: `Secret`'s values are values of its parent, which every file sees; drop `opaque`, or declare a new type, `opaque type Secret ...`, and check values in its constructor``.
 
-A subtype narrows. Its `when` is optional only where its parents narrow
-already: a subtype of two or more parents with a rule among them is
-their intersection, `subtype PositiveInt NonNegativeInt and NonZeroInt`,
-and needs no rule of its own. A subtype with no rule anywhere in its
+A refinement narrows. Its `when` is optional only where its parents narrow
+already: a refinement of two or more parents with a rule among them is
+their intersection, `refine PositiveInt NonNegativeInt and NonZeroInt`,
+and needs no rule of its own. A refinement with no rule anywhere in its
 chain is an error that names the alias it amounts to,
-``a subtype with no rule has the same values as Float: `Celsius` adds no `when`, and nothing it narrows has one`` with the help
-``name it with `typealias Celsius Float`, declare a new type with `type Celsius Float`, or give the subtype a rule with `when` ``,
+``a refinement with no rule has the same values as Float: `Celsius` adds no `when`, and nothing it narrows has one`` with the help
+``name it with `typealias Celsius Float`, declare a new type with `type Celsius Float`, or give the refinement a rule with `when` ``,
 and so is one of a single parent with no `when` of its own, whose rule
-is all in the parent: `subtype Small Digit` is
-``a subtype of one parent with no rule of its own has the same values as Digit: `Small` adds no `when` ``,
+is all in the parent: `refine Small Digit` is
+``a refinement of one parent with no rule of its own has the same values as Digit: `Small` adds no `when` ``,
 with the help naming `typealias Small Digit`. A `where` bounds the type
-arguments, not the values, so `subtype Sortable<T> NonEmptyList<T> where
+arguments, not the values, so `refine Sortable<T> NonEmptyList<T> where
 T: Comparable` with no `when` is that error too, whose help names
 `typealias Sortable<T> NonEmptyList<T> where T: Comparable`.
 
 #### Chains and conversion
 
-A subtype's parent may itself be a subtype, as `Positive` narrows
-`NonNegative`, and a subtype may have several parents joined by
-`and`: with `subtype NonZero Int when fn n -> n != 0` and `subtype Count
-Int when fn n -> n >= 0`, `subtype Size Count and NonZero when fn n -> n
+A refinement's parent may itself be a refinement, as `Positive` narrows
+`NonNegative`, and a refinement may have several parents joined by
+`and`: with `refine NonZero Int when fn n -> n != 0` and `refine Count
+Int when fn n -> n >= 0`, `refine Size Count and NonZero when fn n -> n
 > 0` is a `Count` and a `NonZero`. Its parents, their parents and so on
-are its *ancestors*. Following parents from a subtype reaches its *base*,
-the first type that is no subtype (`Float` for `Positive`), and every
-parent of a subtype reaches the same base, since the subtype's value is
+are its *ancestors*. Following parents from a refinement reaches its *base*,
+the first type that is no refinement (`Float` for `Positive`), and every
+parent of a refinement reaches the same base, since the refinement's value is
 that one value at run time:
 ``the parents of Mixed narrow different types: Count is an Int and Tag is a String``.
-A parent named twice, and a parent that reaches the subtype itself
-(`subtype A B and C when ...` with `subtype C A when ...`), are errors at
-the declaration. A value of a subtype is a value of each of its
+A parent named twice, and a parent that reaches the refinement itself
+(`refine A B and C when ...` with `refine C A when ...`), are errors at
+the declaration. A value of a refinement is a value of each of its
 ancestors: it converts to each of them and to its base wherever one is
 expected, implicitly, at the top and at every position a value converts
 at (§5 *Covariant conversion*), so a `List<Positive>` is a `List<Float>`
 and a `List<Size>` is a `List<NonZero>`. Nothing converts down or across:
 a `NonNegative` is no `Positive`, a `Count` is no `NonZero`, and of two
-subtypes of one parent, `subtype Even Int when ...` and `subtype Odd Int
+refinements of one parent, `refine Even Int when ...` and `refine Odd Int
 when ...`, neither converts to the other. The one conversion down is into
-a subtype with no rule of its own: its values are exactly the values of
+a refinement with no rule of its own: its values are exactly the values of
 all its parents, so a value of every parent converts into it. With
-`subtype Strict NonNegativeInt and NonZeroInt`, a `PositiveInt` passes
+`refine Strict NonNegativeInt and NonZeroInt`, a `PositiveInt` passes
 where a `Strict` is expected, and a `NonNegativeInt` does not.
 
 Where values meet with no type written for them (the branches of an `if`
 or `case`, the elements of a list, vector or set literal and a map
 literal's keys and values, a lambda's results, two arguments of one type
-parameter, a range's endpoints), a subtype and an ancestor of it, or
-two subtypes that share one, join as the nearest ancestor they share,
+parameter, a range's endpoints), a refinement and an ancestor of it, or
+two refinements that share one, join as the nearest ancestor they share,
 which is the base when nothing nearer is. `if c then List.length(xs) else
 -1` is an `Int`; `PositiveInt` beside `NonZeroInt` is a `NonZeroInt`, and
 `NonNegativeInt` beside `NonZeroInt` is an `Int`. They join the same way
 at every position a value converts at: `[Some(List.length(xs)), Some(-1)]`
-is a `List<Maybe<Int>>`. A literal beside values of a subtype there, in
-any order, is the nearest of that subtype and its ancestors that is a std
-numeric subtype (*Value ranges*) whose rules the literal
+is a `List<Option<Int>>`. A literal beside values of a refinement there, in
+any order, is the nearest of that refinement and its ancestors that is a std
+numeric refinement (*Value ranges*) whose rules the literal
 satisfies, which the compiler decides as it checks the program, and the
 values join as that type: with `n` a `NonNegativeInt`, `if c then n else
-0`, `if c then 0 else n`, `[0, n]` and `Maybe.with_default(Iter.find_index(xs,
-f), 0)` are `NonNegativeInt`s, and with `s` a `subtype Small NonNegativeInt
+0`, `if c then 0 else n`, `[0, n]` and `Option.with_default(Iter.find_index(xs,
+f), 0)` are `NonNegativeInt`s, and with `s` a `refine Small NonNegativeInt
 when fn n -> n < 10`, `if c then s else 1` is a `NonNegativeInt`. A
 literal that satisfies none is its base's, so
-`Maybe.with_default(Iter.find_index(xs, f), -1)` is an `Int`, and so is a
-literal beside a subtype whose rule only the built program runs: with `p`
+`Option.with_default(Iter.find_index(xs, f), -1)` is an `Int`, and so is a
+literal beside a refinement whose rule only the built program runs: with `p`
 a `Port`, `if c then p else 80` is an `Int`. A range with no type written
 ranges over its endpoints' base: `0..List.length(xs)` is a `Range<Int>`. A type written
 for the value still decides it, so `m: NonNegativeInt = if c then 1 else
 2` checks each literal against the rule. A type parameter solved to a
-subtype widens to the ancestor only where every argument it was solved
+refinement widens to the ancestor only where every argument it was solved
 from converts to it: with `fn apply<T>(f: (T) -> Int, x: T)`, `count` a
 `(NonNegativeInt) -> Int` and `i` an `Int`, `apply(count, i)` is
 `argument 2: expected NonNegativeInt, got Int`. A later argument that is
@@ -2234,89 +2240,89 @@ names the ancestor at a type argument that converts nothing: with `p` a
 `PositiveInt`, `Int.clamp(p, -5..=5)` takes a `ClosedRange<Int>`, solves
 `self` to `Int`, and `p` converts to it.
 
-A subtype's value is its base's at run time: converting up
+A refinement's value is its base's at run time: converting up
 costs nothing, and `Debug` and `Display` show the base value (`dbg p`
-prints `2.5`). It has its base's impls, so a subtype of a List, Map,
+prints `2.5`). It has its base's impls, so a refinement of a List, Map,
 Vector, Set or String is iterated, spread, matched and tested with `in`
 as its base is (`Iter.sum(p)` with `p: Pair`), and implements no
 interface of its own: `impl Display for Port` is
-``a subtype implements no interface of its own: `Port` is an Int at run time and has Int's impls``,
+``a refinement implements no interface of its own: `Port` is an Int at run time and has Int's impls``,
 and so is a `derive`. Functions in an inherent block, `impl Port`, are
-allowed. An interface impl whose interface takes a subtype as an
+allowed. An interface impl whose interface takes a refinement as an
 argument (`impl Add<Port, Int> for Int`) is an error, since the impl at
-the base serves the subtype already. The right operand of `/`, `%`, `<<<`
+the base serves the refinement already. The right operand of `/`, `%`, `<<<`
 and `>>>` is the exception: an impl of `Divide`, `Remainder`, `ShiftLeft`
-or `ShiftRight` may take a subtype there, which states the operands the
+or `ShiftRight` may take a refinement there, which states the operands the
 operator takes, as std's `impl Divide<NonZeroInt, Int> for Int` does
-(§8 *Integer division and remainder*). An operand of a subtype is its
+(§8 *Integer division and remainder*). An operand of a refinement is its
 base's value: `p + 1.0` is a `Float`, `port == 80` compares Ints, and a
 literal pattern matches a narrowed value as it matches the base's, one
 value of it, so a `case` over a `Port` whose arms are literals needs a
-`_` or `Port(n)` arm. The std numeric subtypes are
-the one exception: an operation on them is the subtype its value's range proves (*Value ranges*). An enum cannot embed a
-subtype. A validated struct is a struct: it converts to nothing, and
+`_` or `Port(n)` arm. The std numeric refinements are
+the one exception: an operation on them is the refinement its value's range proves (*Value ranges*). An enum cannot embed a
+refinement. A validated struct is a struct: it converts to nothing, and
 its rule only constrains how values are built.
 
-A subtype does not have its base's impl of an interface that makes a
+A refinement does not have its base's impl of an interface that makes a
 value of its type: one with a function whose result names `self` and
 whose body each impl writes. In std these are `Parse`, `ParseFields`,
 `FromJson`, `FromSql`, `Summable`, `Productable`, `Discrete`,
 `Steppable`, `From`, `TryFrom`, `Variants` and `Struct`. The base's
-impl makes a value of the base, which no rule of the subtype has
+impl makes a value of the base, which no rule of the refinement has
 checked. So `Parse.parse<Port>(text)` is the error
-``Port has no impl of Parse (required by `Parse.parse`): Port is a subtype of Int, and Int's `Parse.parse` makes an Int that Port's rule has not checked``
+``Port has no impl of Parse (required by `Parse.parse`): Port is a refinement of Int, and Int's `Parse.parse` makes an Int that Port's rule has not checked``
 with the help
 ``make an Int and check it with `Port.try_from(...)`, which is `Some` when it satisfies `fn port -> port >= 1 and port <= 65535` and `None` when not``,
 and so is `Summable.empty_sum<Port>()`.
 
 A reader is the exception: an interface function that makes a value from
 outside data and reports a failure the compiler can build reads a
-subtype at its base and checks the subtype's rules, a value that breaks
+refinement at its base and checks the refinement's rules, a value that breaks
 one being the read's failure. `FromJson` is the one: `from_json` at a
 `Port` is Int's `from_json` and then `Port.try_from` of the Int, and a
-breach is the `Json.ShapeError` that expects the subtype and got the
+breach is the `Json.ShapeError` that expects the refinement and got the
 value, `port: expected Port, got 0`. So `Json.decode_as<Port>(text)`,
 `Json.decode_as<List<Port>>(text)`, `Json.decode_as<{port: Port}>(text)`
 and a `derive FromJson` for a struct with a `Map<String, Port>` field
 each read Ints and check them, an intersection against each member's
-rules and a subtype of a subtype against every rule its `try_from`
+rules and a refinement of a refinement against every rule its `try_from`
 checks. A record read from texts, std::parse's `ParseFields`, reads a
-field of a subtype with its base's `Parse` and checks it the same way, a
+field of a refinement with its base's `Parse` and checks it the same way, a
 breach the record's `None`: `parse.read_fields<{v: Port}>({"v" => "0"})`
 is `None`, and a route's `{id: Port}` parameter that breaks the rule
 answers no route (404). `Parse.parse<Port>(text)` stays the error above,
 since a breach would need an error of Parse's `E`, which each impl
-chooses. Inside a generic type, std::json's own impls read a subtype
-(`List`, `Vector`, `Set`, `Maybe`, `Result` and `Map<String, V>`). Any
+chooses. Inside a generic type, std::json's own impls read a refinement
+(`List`, `Vector`, `Set`, `Option`, `Result` and `Map<String, V>`). Any
 other generic type, the program's or another std module's, has one impl
 for every instance of one kind, so its `where T: FromJson` reads no
-subtype: with `struct Box<T>` deriving FromJson,
+refinement: with `struct Box<T>` deriving FromJson,
 `Json.decode_as<Box<Port>>(text)` is
 ``Box<Port> does not implement FromJson (required by `where T: FromJson`)``
 with the help
 ``Box<Port> is read through an impl of FromJson that one generic type's instances share, which would read Port as its base; read Box<Int> and check the value with `Port.try_from(...)` ``.
 
-A generic call whose arguments solve a type parameter to a subtype,
+A generic call whose arguments solve a type parameter to a refinement,
 under a bound of an interface that makes a value, is called at the base
 instead: with `ports` a `List<Port>`,
-`Iter.sum(ports)` is an `Int` and `Discrete.next(p)` a `Maybe<Int>`, so
+`Iter.sum(ports)` is an `Int` and `Discrete.next(p)` an `Option<Int>`, so
 `total: Port = Iter.sum(ports)` is ``type mismatch: expected Port, got Int``,
 checked with `Port.try_from` as any Int is. A range iterates through
 `Discrete`, so a `Range<NonNegativeInt>` is no `Iter`; `0..n` ranges
 over Ints, and its elements keep their range. An interface whose
 functions that name `self` in their result are all defaults it writes
-still serves a subtype, since such a default answers a value it was
+still serves a refinement, since such a default answers a value it was
 given: `Comparable`'s `min`, `max` and `clamp`, so `Iter.max(ports)` is
-a `Maybe<Port>` and `Iter.sort(ports)` a `List<Port>`. `Display`,
+an `Option<Port>` and `Iter.sort(ports)` a `List<Port>`. `Display`,
 `Debug`, `ToJson`, `Equatable` and `Hashable` take a value and make
 none.
 
 ```nomi
 import std::parse.Parse
 
-subtype Port Int when fn port -> port >= 1 and port <= 65535
+refine Port Int when fn port -> port >= 1 and port <= 65535
 
-fn read_port(text: String) -> Maybe<Port>
+fn read_port(text: String) -> Option<Port>
     case Parse.parse<Int>(text)
         Ok(n)  -> Port.try_from(n)
         Err(_) -> None
@@ -2326,7 +2332,7 @@ end
 fn main()
     ports: List<Port> = [80, 443]
     dbg Iter.sum(ports)   // 523, an Int
-    dbg Iter.max(ports)   // Some(443), a Maybe<Port>
+    dbg Iter.max(ports)   // Some(443), an Option<Port>
     dbg read_port("0")    // None
     dbg read_port("8080") // Some(8080)
 end
@@ -2335,7 +2341,7 @@ end
 ```nomi
 import std::json.{FromJson, Json}
 
-subtype Port Int when fn port -> port >= 1 and port <= 65535
+refine Port Int when fn port -> port >= 1 and port <= 65535
 
 struct Server
     host:  String
@@ -2351,11 +2357,11 @@ fn main()
 end
 ```
 
-#### Intersections of subtypes
+#### Intersections of refinements
 
-`A and B` of subtypes of one base is a type wherever a type is written:
+`A and B` of refinements of one base is a type wherever a type is written:
 a parameter, a field, a result, a collection's element, a `type`'s inner
-type, a `typealias`'s target. It is the subtype whose parents are its
+type, a `typealias`'s target. It is the refinement whose parents are its
 members and which adds no rule, so a value converts into it when it
 converts to every member, and it converts to each member and to the base.
 A literal there is checked against every member's rule, and the error
@@ -2377,32 +2383,32 @@ end
 The order of the members does not matter, and a member that is an
 ancestor of another adds nothing: `NonNegativeInt and NonZeroInt` and `NonZeroInt and NonNegativeInt`
 are one type, and `PositiveInt and NonZeroInt` is `PositiveInt`. Members
-of different bases are an error, ``` `and` intersects subtypes of one type, and NonEmptyString is a String where NonNegativeInt is an Int ```,
-and so is a member that is neither an interface nor a subtype, ``` `and` joins interfaces or subtypes, and Int is neither ```. An
-interface beside subtypes is one their base must implement:
+of different bases are an error, ``` `and` intersects refinements of one type, and NonEmptyString is a String where NonNegativeInt is an Int ```,
+and so is a member that is neither an interface nor a refinement, ``` `and` joins interfaces or refinements, and Int is neither ```. An
+interface beside refinements is one their base must implement:
 `NonNegativeInt and Display` is a `NonNegativeInt`, and with `interface
 Named` that Int lacks, `NonNegativeInt and Named` is
 ``no value is both NonNegativeInt and Named: NonNegativeInt is an Int, and Int does not implement Named``.
-Intersections join as subtypes do: two of them meet at the nearest
+Intersections join as refinements do: two of them meet at the nearest
 ancestor they share.
 
-#### Generic subtypes
+#### Generic refinements
 
-A subtype may take type parameters, which its parents name:
-`subtype NonEmpty<T> List<T> when fn xs -> not Iter.is_empty(xs)`. A rule
+A refinement may take type parameters, which its parents name:
+`refine NonEmpty<T> List<T> when fn xs -> not Iter.is_empty(xs)`. A rule
 that needs an operation on the elements bounds a parameter with `where`,
 written after the parents and before `when`, as a generic function's
 `where` follows its signature. Parents may carry type arguments, and a
-subtype may fix its parent's (`subtype IntPair List<Int> when ...`).
+refinement may fix its parent's (`refine IntPair List<Int> when ...`).
 
 ```nomi
-subtype NonEmpty<T> List<T> when fn xs -> not Iter.is_empty(xs)
+refine NonEmpty<T> List<T> when fn xs -> not Iter.is_empty(xs)
 
-subtype Ascending<T> List<T> where T: Comparable when fn xs ->
+refine Ascending<T> List<T> where T: Comparable when fn xs ->
     Iter.zip(xs, Iter.drop(xs, 1)) |> Iter.all_match(fn (a, b) -> a <= b)
 end
 
-subtype Run<T> NonEmpty<T> and Ascending<T> where T: Comparable when fn _ -> True
+refine Run<T> NonEmpty<T> and Ascending<T> where T: Comparable when fn _ -> True
 
 fn longest(xs: NonEmpty<String>) -> String
     Iter.max_by(xs, String.length)!
@@ -2422,8 +2428,8 @@ the program is compiled with `T` as `Int`, and `T.try_from(x)` is generic,
 its argument solving the type parameters: `Ascending.try_from(circles)`,
 with `Circle` no `Comparable`, is the error
 ``Circle does not implement Comparable (required by `where T: Comparable`)``.
-A literal of a generic subtype is checked through the `try_from` of the
-subtype's declaration at the literal's type arguments, whatever the
+A literal of a generic refinement is checked through the `try_from` of the
+refinement's declaration at the literal's type arguments, whatever the
 literal's file names: `first([1, 2])` checks its argument against a
 `NonEmpty<Int>` parameter of a module whose `NonEmpty` the file does not
 import, and an import of `NonEmpty` used by nothing else is unused. A type
@@ -2434,13 +2440,13 @@ argument that breaks a bound is the error at the literal:
 A generic rule is checked for effects at its declaration, whatever its
 type arguments will be: its own body, and through its bounds every impl
 of their interfaces the program and std have, since any implementor can
-be the argument. With `impl Display for Loud` printing, `subtype
+be the argument. With `impl Display for Loud` printing, `refinement
 Shown<T> List<T> where T: Display when fn xs -> Iter.all_match(xs, fn x
 -> Display.to_string(x) != "")` is the error
 ``the rule of Shown has effects (Display.to_string for Loud calls io.print): a rule is a pure function of the value it checks``
 at its `when`, with or without a `Shown<Loud>` anywhere.
 
-A generic subtype's type arguments convert as its parents' do (§5
+A generic refinement's type arguments convert as its parents' do (§5
 *Covariant conversion*): a parameter its parents only hold is covariant,
 so a `NonEmpty<Circle>` passes where a `NonEmpty<Shape>` or a
 `List<Shape>` is expected when `Circle` implements `Shape`, and a
@@ -2449,54 +2455,54 @@ as a function's parameter converts the other way, and one held both ways
 compares exactly. A join is at the nearest shared ancestor with its type
 arguments joined: `Run<Int>` beside `Ascending<Int>` is an
 `Ascending<Int>`. A validated struct takes no type parameters:
-``a validated struct takes no type parameters: `Span`'s rule is checked on values of one struct; a generic subtype narrows a type, `subtype Span<T> ... when ...` ``.
+``a validated struct takes no type parameters: `Span`'s rule is checked on values of one struct; a generic refinement narrows a type, `refine Span<T> ... when ...` ``.
 
 #### Literals, `try_from` and `unchecked`
 
-A value enters a subtype three ways:
+A value enters a refinement three ways:
 
 - A literal of the base (a number, a negated number, a string with no
   `${...}`, `True` or `False`, or a typed literal with no `${...}` such as
-  `Duration"15m"`) where a subtype is expected (an
+  `Duration"15m"`) where a refinement is expected (an
   annotation, a parameter, a field, a result, a collection element, an
-  argument of a generic call such as `Some(22)` as a `Maybe<Port>`), or as
-  the argument of its call form, `Port(8080)`, is that subtype. A
+  argument of a generic call such as `Some(22)` as an `Option<Port>`), or as
+  the argument of its call form, `Port(8080)`, is that refinement. A
   struct literal of a validated struct that writes every field as a
   literal is one too, and so is a list, vector, set or map literal where a
-  subtype of a collection is expected whose every element, key and
+  refinement of a collection is expected whose every element, key and
   value is a literal, through nested collection and tuple literals: with
-  `subtype Pair List<Int> when fn xs -> List.length(xs) == 2`,
+  `refine Pair List<Int> when fn xs -> List.length(xs) == 2`,
   `p: Pair = [1, 2]` and `Pair([1, 2])` are checked, and `[1, 2, 3]` there is
   ``this Pair literal breaks its rule: `fn xs -> List.length(xs) == 2` is false``.
   A list, vector, set or map literal where `NonEmptyList`,
   `NonEmptyVector`, `NonEmptySet` or `NonEmptyMap` is expected needs no
   literal elements when its shape proves it holds something: it writes
   an element or an entry, or spreads a value that holds something: one
-  of those types (or a subtype of one), or a binding that holds
+  of those types (or a refinement of one), or a binding that holds
   something (below). `[a, b]`, `Vector[f(x)]`, `Set[x]`, `{k => v}`,
   `[..xs, y]` and `[..xs, ..ys]` with `ys` a `NonEmptyList` are each one, with
   each element checked against the element type as usual. A literal
   made only of spreads of collections that may be empty, `[..xs]` with
   `xs` a `List`, is the error ``` `[..xs]` may be empty, and a NonEmptyList holds something: none of its spreads holds something, and it writes no element ```,
-  and an empty one, `[]`, breaks the rule. A subtype declared over one
+  and an empty one, `[]`, breaks the rule. A refinement declared over one
   of them keeps its own rule, so its literal's elements are literals. A
   string literal where a `NonEmptyString` is expected holds something by
   its shape when it writes any text, whatever its `${...}` parts are:
   `"n=${n}"` is one. One made only of `${...}` parts, `"${name}"`, may
   be empty. A literal headed by a collection's name, `Vector[...]` or `Set[...]`,
-  builds a subtype of that collection where one is expected, as the
+  builds a refinement of that collection where one is expected, as the
   unnamed literal does.
-  A range literal whose endpoints are both literals is one where a subtype
-  of `Range` is expected: with `subtype Wide Range<Int> when fn r ->
+  A range literal whose endpoints are both literals is one where a refinement
+  of `Range` is expected: with `refine Wide Range<Int> when fn r ->
   Range.contains(r, 0) and Range.contains(r, 5)`, `w: Wide = 0..10` is
   checked, and `0..n` there is an error naming `n` and `Wide.try_from`.
   The compiler evaluates the rule of each ancestor that has one
   on the literal before the program runs, each once, a parent's ancestors
   before the parent and the parents in the order they are written, then
-  the subtype's own; the first that answers `False` is an error at the
+  the refinement's own; the first that answers `False` is an error at the
   literal that names the path to it:
-  ``-1.0 is not a Positive: Positive is a subtype of NonNegative, and NonNegative's rule `fn x -> x >= 0.0` is false``,
-  ``0 is not a Size: Size is a subtype of NonZero, and NonZero's rule `fn n -> n != 0` is false``,
+  ``-1.0 is not a Positive: Positive is a refinement of NonNegative, and NonNegative's rule `fn x -> x >= 0.0` is false``,
+  ``0 is not a Size: Size is a refinement of NonZero, and NonZero's rule `fn n -> n != 0` is false``,
   or ``0 is not a Port: `fn port -> port >= 1 and port <= 65535` is false``.
   A rule that traps there is the error ``0 is not a Trapping: Trapping's rule `fn n -> 10 / n > 1` failed: ...``
   with the trap's message, and one that does not finish within the
@@ -2507,10 +2513,10 @@ A value enters a subtype three ways:
   parents are written, and `None` when it does not. A rule two parents
   reach through their own parents runs once for each; a rule is pure, so
   that changes nothing but time. A rule that traps on `x` counts as false:
-  with `subtype Ratio Int when fn n -> 10 / n > 1`, `Ratio.try_from(0)` is
+  with `refine Ratio Int when fn n -> 10 / n > 1`, `Ratio.try_from(0)` is
   `None`, and the program goes on. It takes a value of the base, or for a
   validated struct the record of its fields:
-  `Span.try_from({low: 1, high: 2})`. A subtype implements no interface,
+  `Span.try_from({low: 1, high: 2})`. A refinement implements no interface,
   so its `try_from` is its own function, not `TryFrom`'s.
 - `T.unchecked(x)` builds a `T` without evaluating any rule. Only the file
   that declares `T` may call it, for functions that keep the rule
@@ -2528,7 +2534,7 @@ and `[..names]` pass where a `NonEmptyList<String>` is expected, with
 nothing run when the program does; `names` is still a `List<String>`
 wherever else it is read, as `x = 3` is an Int. With `label = "n=${n}"`,
 `label` passes where a `NonEmptyString` is expected the same way. An
-unannotated `once` whose value holds something is the non-empty subtype:
+unannotated `once` whose value holds something is the non-empty refinement:
 `once words = ["a"]` is a `NonEmptyList<String>` and `once title =
 "Nomi"` a `NonEmptyString` in every file that reads it. A binding with a
 type written, a parameter and a field hold what their type states, and a
@@ -2563,34 +2569,34 @@ fn main()
 end
 ```
 
-Any other value of the base where a subtype is expected, unless a check
+Any other value of the base where a refinement is expected, unless a check
 narrowed it (*Narrowing*), its range proves the rule (*Value ranges*) or
 it holds something (above), is an error that names `try_from`: with `n: Int`, `p: Port = n` is
 `type mismatch: expected Port, got Int` with the help
-``Port is a subtype of Int; check the value with `Port.try_from(...)`, which is `Some` when it satisfies `fn port -> port >= 1 and port <= 65535` and `None` when not``,
+``Port is a refinement of Int; check the value with `Port.try_from(...)`, which is `Some` when it satisfies `fn port -> port >= 1 and port <= 65535` and `None` when not``,
 and `Port(n)` is
-`Port(...) takes a literal: Port is a subtype, and an Int computed when the program runs may not satisfy its rule`.
+`Port(...) takes a literal: Port is a refinement, and an Int computed when the program runs may not satisfy its rule`.
 A validated struct's literal with a field that is no literal, its call
 form over a record value, a patch of one (`{..span, low: 0}`,
-`Struct.update`), and a collection subtype's literal with an element
+`Struct.update`), and a collection refinement's literal with an element
 that is no literal or a spread (`[1, n]` as a `Pair`), except one of the
 std non-empty collections above, are errors naming
 `try_from` the same way. An operand of a comparison is the exception: a
-collection literal compared with a value whose type holds a subtype is
-checked against that type with its subtypes erased when it does not
+collection literal compared with a value whose type holds a refinement is
+checked against that type with its refinements erased when it does not
 check against it, as a later branch is, so with `p` a `Pair`, `p == [1,
-n]` compares Lists. A subtype named as a function value, `Iter.map(xs, Port)`, is the error ``` `Port` is a subtype and has no constructor function: its call form `Port(...)` takes only a literal ```.
-The names `try_from` and `unchecked` are the subtype's: an inherent
+n]` compares Lists. A refinement named as a function value, `Iter.map(xs, Port)`, is the error ``` `Port` is a refinement and has no constructor function: its call form `Port(...)` takes only a literal ```.
+The names `try_from` and `unchecked` are the refinement's: an inherent
 block that declares either is an error.
 
-The prelude holds subtypes of the numeric types and of String:
+The prelude holds refinements of the numeric types and of String:
 `NonZeroInt`, `NonNegativeInt` and `PositiveInt` (`NonNegativeInt and
 NonZeroInt`); `NonZeroFloat` (neither zero nor NaN), `NonNegativeFloat` and
 `PositiveFloat`; `NonZeroDecimal`, `NonNegativeDecimal` and
-`PositiveDecimal`; and `NonEmptyString`. It holds generic subtypes of
+`PositiveDecimal`; and `NonEmptyString`. It holds generic refinements of
 the collections too: `NonEmptyList<T>`, `NonEmptyVector<T>`,
 `NonEmptyMap<K, V>` and `NonEmptySet<T>`. Each has functions that need no
-`Maybe` because a value is there (`NonEmptyList.first`, `NonEmptyList.max`,
+`Option` because a value is there (`NonEmptyList.first`, `NonEmptyList.max`,
 `NonEmptyList.reduce` with no starting value, `NonEmptyMap.first_entry`),
 functions whose result keeps the guarantee (`NonEmptyList.map`,
 `NonEmptyList.prepend` onto any List, `NonEmptyMap.put` into any Map,
@@ -2613,12 +2619,12 @@ capacity, `Reader.read`'s `max`, `Iter.chunks` and `Iter.windows`); and
 the divisor of a named function that divides is a `NonZeroInt`
 (`Int.modulo`, `Int.floor_div`) or a `NonZeroDecimal` (`Decimal.divide`,
 `Decimal.divide_exact`). Two bounds that must agree are one range of the
-prelude's range subtypes (§3 *Range literals*): `Int.clamp(n, 0..=11)`,
+prelude's range refinements (§3 *Range literals*): `Int.clamp(n, 0..=11)`,
 `Generator.int(1..=6)`, and the digits after the point of `Float.format`,
 `Decimal.format` and `Decimal.format_percent`, a
 `ClosedRange<NonNegativeInt>` (`fraction: 0..=2`, or `Range.from(2)` for
 at least two and every digit past them). Std modules declare
-subtypes of their own where one argument has a rule: `Decimal.allocate`
+refinements of their own where one argument has a rule: `Decimal.allocate`
 and `Money.allocate` take std::decimal's `Ratios` (none negative, not all
 zero, at least one), `Generator.float` std::random's `FiniteRange` (a
 range with finite ends), std::csv's options a `Delimiter` (no quote, line
@@ -2635,19 +2641,19 @@ needs no `try_from`. A group or a run is a `NonEmptyList`:
 Float, since the absolute value of NaN is NaN, which is no
 `NonNegativeFloat`.
 
-Destructuring reads a subtype's parent, its first when it has
+Destructuring reads a refinement's parent, its first when it has
 several, as it reads a distinct type's inner value: `Positive(x) = p`
 binds a `NonNegative`.
 
 #### Value ranges
 
-The std numeric subtypes are the prelude's `NonZeroInt`,
+The std numeric refinements are the prelude's `NonZeroInt`,
 `NonNegativeInt` and `PositiveInt`, their Float and Decimal counterparts,
 and std::duration's `NonZeroDuration`, `NonNegativeDuration` and
 `PositiveDuration`. The compiler knows, of each value of Int, Decimal,
 Duration and Float where it can, an interval the value lies in, open or
 unbounded at either end, and whether it is off zero: the value's
-*range*. A value is the narrowest std numeric subtype its range proves:
+*range*. A value is the narrowest std numeric refinement its range proves:
 Positive when no value in it is zero or below, NonNegative when none is
 below zero, NonZero when it excludes zero. With `count` a
 `NonNegativeInt`, `count + 1` is a `PositiveInt`, `count + 0` a
@@ -2657,8 +2663,8 @@ below zero, NonZero when it excludes zero. With `count` a
 A range comes from:
 
 - a literal, possibly negated: its value;
-- a type: what the std numeric subtypes on its chain state (a
-  `PositiveInt` is 1 and up), with the bounds of each Int subtype on it
+- a type: what the std numeric refinements on its chain state (a
+  `PositiveInt` is 1 and up), with the bounds of each Int refinement on it
   whose rule compares its parameter with Int literals (a conjunct of
   another form bounds nothing); a parameter, a field, an annotated
   binding and any other value not listed here has its type's range;
@@ -2703,7 +2709,7 @@ A range comes from:
   `PositiveInt` is a `PositiveDuration`; `String.length`, `List.length`,
   `Vector.length`, `Map.size`, `Set.size` and `Iter.count` of a value
   that holds something (*Literals, `try_from` and `unchecked`*), as a
-  value of a non-empty subtype does and a binding with no type written
+  value of a non-empty refinement does and a binding with no type written
   of `["a"]` does: positive, so with `names = ["a"]`,
   `List.length(names)` is a `PositiveInt`; `Int.max(a, b)`, `Decimal.max` and
   `Duration.max`: at least the higher of the arguments' lowest values
@@ -2726,21 +2732,21 @@ so `1 + 2` and `x` after `x = 3` are Ints, and `List.concat([n], [-1])`
 is a `List<Int>`. A check of such a binding (*Narrowing*) types it by
 what the check proves of its type alone: after `x = 3` and `if x < 0
 then return`, `x` is still an Int, and its range still rests on literals. An unannotated `once` is a constant, and its type is the
-narrowest std numeric subtype its value's range proves: `once k = 60 *
+narrowest std numeric refinement its value's range proves: `once k = 60 *
 60` is a `PositiveInt` in every file that reads it.
 
-Where a subtype is expected, a value converts to it when its range proves
-the subtype's rules, with nothing run when the program does: a std
-numeric subtype, an intersection of them, or an Int subtype whose only
+Where a refinement is expected, a value converts to it when its range proves
+the refinement's rules, with nothing run when the program does: a std
+numeric refinement, an intersection of them, or an Int refinement whose only
 parent is `Int` and whose rule is comparisons of its parameter with Int
 literals joined by `and`, as std::int's `Int64` is. With `k = 60 * 60`,
-`Int.pow(2, k)` needs no `try_from`, and with `subtype Digit Int when fn
+`Int.pow(2, k)` needs no `try_from`, and with `refine Digit Int when fn
 n -> n >= 0 and n <= 9`, neither does `digit(n)` after `if n >= 0 and n
-<= 9`. A subtype whose rule is of any other form, or whose parent is
-another subtype, is checked through `try_from` as before.
+<= 9`. A refinement whose rule is of any other form, or whose parent is
+another refinement, is checked through `try_from` as before.
 
-A user-declared subtype gets no arithmetic of its own; its value is a
-value of its ancestors, so with `s` a `subtype Small NonNegativeInt when
+A user-declared refinement gets no arithmetic of its own; its value is a
+value of its ancestors, so with `s` a `refine Small NonNegativeInt when
 fn n -> n < 10`, `s + s` is a `NonNegativeInt` (0 to 18), not a `Small`.
 
 The elements of some iterables have a range, and a lambda or capture
@@ -2751,7 +2757,7 @@ that receives one: the element of `Iter.map`, `filter`, `reject`,
 `count_by`, `min_by`, `max_by`, `sum_by`, `mean_by`, `product_by`,
 `chunk_by`, `sort_by` and `sort_with`, and the item of `reduce`, `scan`,
 `try_reduce` and `map_reduce`. The parameter keeps its type, an `Int`
-here, and converts where its range proves a subtype, as a binding with
+here, and converts where its range proves a refinement, as a binding with
 no type written does. A function passed by name is the same callback:
 with `fn verse(day: PositiveInt) -> String`, `1..=n |> Iter.map(verse)`
 is accepted as `Iter.map(&verse(&1))` and `Iter.map(fn d -> verse(d))`
@@ -2799,7 +2805,7 @@ the check guards, so a value computed while the program runs needs no
 `try_from` there:
 
 ```nomi
-fn divide(n: Int, d: Int) -> Maybe<Int>
+fn divide(n: Int, d: Int) -> Option<Int>
     if d == 0 then return None
     Some(Int.divide(n, d)) // d is a NonZeroInt here
 end
@@ -2850,7 +2856,7 @@ or `NonEmptyString` at its type arguments; `xs |> Iter.is_empty()` is
 `not c` proves what `c` proves when it has the other value; `a and b` that
 is true proves what each proves true, and `a or b` that is false what each
 proves false. Two facts about one binding meet. A binding that is a std
-subtype already narrows further the same way, so a `NonNegativeInt`
+refinement already narrows further the same way, so a `NonNegativeInt`
 checked `!= 0` is a `PositiveInt`. A check narrows:
 
 - the `then` branch of an `if` where its condition is true, and the
@@ -2872,10 +2878,10 @@ in that code, a lambda's body included, and a name rebound there is a new
 binding with its own type. Nothing else narrows: a value that is no
 binding (`if n + 1 > 0` says nothing of `n + 1`), a field read, an `is`
 test, and a comparison of two bindings neither of which is a constant
-(`a > b`). A binding of a user's subtype keeps its type, though its range
+(`a > b`). A binding of a user's refinement keeps its type, though its range
 narrows: after `s > 0` with `s` a `Small`, `s` is a `Small` that passes
 where a `PositiveInt` is expected. A narrowed value is its base at run
-time, as every subtype's is.
+time, as every refinement's is.
 
 ### Validated types
 
@@ -2883,8 +2889,8 @@ Taught in [Structs, Enums & Distinct Types](/structs-enums-distinct/#validated-t
 
 A `type` with a `when` rule is a *validated type*: a new type, which
 converts to nothing and which nothing converts to, whose values all
-satisfy the rule. A `type` whose inner type is a subtype, or an
-intersection of subtypes, is built the same checked way, against the
+satisfy the rule. A `type` whose inner type is a refinement, or an
+intersection of refinements, is built the same checked way, against the
 inner type's rules.
 
 ```nomi
@@ -2910,39 +2916,39 @@ end
 ```
 
 A value enters one through a literal, `Email("a@b.c")` or `UserId(5)`,
-checked when the program is compiled as a subtype's literal is
+checked when the program is compiled as a refinement's literal is
 (``"nope" is not an Email: `is_email` is false``, ``0 is not a UserId:
-UserId wraps PositiveInt, which is a subtype of NonZeroInt, and
+UserId wraps PositiveInt, which is a refinement of NonZeroInt, and
 NonZeroInt's rule `fn n -> n != 0` is false``); through `T.try_from(x)`
 on a value of the base, which for an opaque type is private to its file
 as its call form is (*Opaque distinct types*); through `T.unchecked(x)`
 in the declaring file;
-and, for a `type` over a subtype with no rule of its own, from a value
-already of that subtype, `UserId(p)` with `p` a `PositiveInt`. Any other
+and, for a `type` over a refinement with no rule of its own, from a value
+already of that refinement, `UserId(p)` with `p` a `PositiveInt`. Any other
 argument of the call form is an error that names `try_from` on it:
 `UserId(n)` with `n` an `Int` is
-`UserId(...) takes a literal or a PositiveInt: UserId wraps the subtype PositiveInt, and an Int computed when the program runs may not be one`,
-with the help ``check the value with `UserId.try_from(n)`, a `Maybe<UserId>` ``.
+`UserId(...) takes a literal or a PositiveInt: UserId wraps the refinement PositiveInt, and an Int computed when the program runs may not be one`,
+with the help ``check the value with `UserId.try_from(n)`, an `Option<UserId>` ``.
 `e: Email = s` with `s` a String is `type mismatch: expected Email, got
 String`, whose help names `Email.try_from`. The call form named as a
-function value is an error as a subtype's is. Destructuring,
+function value is an error as a refinement's is. Destructuring,
 `Email(s) = e`, reads the inner value as any distinct type's does. A plain
 `type UserId Int`, with no rule anywhere, keeps its plain call form and
-has no `try_from`. So does a `type` whose inner type holds a subtype
+has no `try_from`. So does a `type` whose inner type holds a refinement
 without being one, `type Ids List<PositiveInt>`: its call form takes a
 `List<PositiveInt>`, whose elements are checked already, as `type Contact
-Email` takes an `Email`. Which `type`s wrap a subtype is decided by what
-their inner type's name resolves to, so a subtype another file declares,
+Email` takes an `Email`. Which `type`s wrap a refinement is decided by what
+their inner type's name resolves to, so a refinement another file declares,
 or names through a `typealias`, counts as one this file declares does.
 
-A validated type, and a `type` over a subtype, is declared at the top of
-a file, as a subtype is, since its `try_from` comes with an impl and an
+A validated type, and a `type` over a refinement, is declared at the top of
+a file, as a refinement is, since its `try_from` comes with an impl and an
 impl cannot stand in a body. Inside a body, `type Local PositiveInt` is
-``a type over a subtype is declared at the top of a file: move `Local` out of the body, so that it has `Local.try_from` ``,
+``a type over a refinement is declared at the top of a file: move `Local` out of the body, so that it has `Local.try_from` ``,
 and `type Code String when is_code` is
 ``a type with a rule is declared at the top of a file: move `Code` out of the body``.
 
-A validated type, and a `type` over a subtype, implements `TryFrom` of its
+A validated type, and a `type` over a refinement, implements `TryFrom` of its
 base (§12 *TryFrom*) because of its rule and its base: `try_from` is
 `TryFrom`'s function, with a body the compiler supplies, which checks the
 base's rules, then the type's own, and answers `Some` or `None`. A
@@ -2962,7 +2968,7 @@ nothing needs to. No `=` comes between them:
 `typealias Name = Target` is ``a typealias has no `=`: write `typealias X T` ``.
 The target may be an intersection: `typealias Item Priced and Costed`
 names the interface conjunction, and `typealias Both NonNegativeInt and
-NonZeroInt` the intersection of subtypes.
+NonZeroInt` the intersection of refinements.
 
 ```nomi
 typealias Point {x: Int, y: Int}
@@ -2992,7 +2998,7 @@ A use without its arguments, `Pair`, is
 
 An alias has no rule, since it is its target under another name:
 `typealias Small Int when fn n -> n < 10` is
-``a typealias has no rule, since it is its target under another name: for the values of Int that satisfy a rule, declare `subtype Small Int when ...` ``.
+``a typealias has no rule, since it is its target under another name: for the values of Int that satisfy a rule, declare `refine Small Int when ...` ``.
 
 Functions do not hang off an alias. `impl P`, `impl Display for P` and
 `derive Debug for P`, where `P` is an alias, are errors that name the target
@@ -3005,7 +3011,7 @@ Taught in [Generics](/generics/).
 
 A struct, enum, distinct type, interface or function may take type
 parameters, in angle brackets after its name: `struct Pair<A, B>`,
-`fn first<A>(list: List<A>) -> Maybe<A>`. A use writes type arguments the
+`fn first<A>(list: List<A>) -> Option<A>`. A use writes type arguments the
 same way (`List<String>`, `Result<User, String>`); a call usually infers
 them (§5). A use writes as many type arguments as the type takes, so a type
 declared without type parameters, a primitive or a type parameter takes
@@ -3120,7 +3126,7 @@ expected, as a function lets a caller pass a type rather than a value of it:
 ```nomi
 type TraceId String
 
-fn first_of<T>(xs: List<T>, _type: Type<T>) -> Maybe<T>
+fn first_of<T>(xs: List<T>, _type: Type<T>) -> Option<T>
     Iter.first(xs)
 end
 
@@ -3173,8 +3179,8 @@ A value of type `S` may stand where type `T` is expected when:
   member of (§12 *Interface conjunctions*);
 - `T` is an enum that embeds `S` (§4 *Embedded Types*), at the top or at
   any position that converts (*Covariant conversion*);
-- `S` is a subtype and `T` is one of its ancestors, its base
-  included (§4 *Subtypes*), or `T` is a subtype with no rule of its own
+- `S` is a refinement and `T` is one of its ancestors, its base
+  included (§4 *Refinements*), or `T` is a refinement with no rule of its own
   whose every parent `S` converts to, at the top or at any position that
   converts; and where `T` is an interface, `S` converts to it as its base
   does;
@@ -3251,7 +3257,7 @@ The rule applies again inside each type argument, at any depth.
 
 | Type | Its parameters |
 |---|---|
-| `List<T>`, `Vector<T>`, `Set<T>`, `Maybe<T>` | `T` covariant |
+| `List<T>`, `Vector<T>`, `Set<T>`, `Option<T>` | `T` covariant |
 | `Map<K, V>`, `Result<T, E>` | both covariant |
 | a tuple, an anonymous record | each item and field covariant |
 | a function type | its result covariant, each parameter contravariant |
@@ -3311,12 +3317,12 @@ end
 
 fn main()
     m = Some([1, 2])
-    wide: Maybe<Display> = m // each List<Int> boxed as a Display
+    wide: Option<Display> = m // each List<Int> boxed as a Display
     bx = Box{item: [1]}
     b: Box<Display> = bx // Box's T is covariant
     sink = Sink{take: shown}
     ints: Sink<Int> = sink             // Sink's T is contravariant
-    dbg Maybe.map(wide, shown)         // Some("<[1, 2]>")
+    dbg Option.map(wide, shown)        // Some("<[1, 2]>")
     dbg shown(b.item)                  // "<[1]>"
     dbg ints.take(5)                   // "<5>"
     dbg opened(fn -> Ok(Memory{n: 3})) // 3
@@ -3357,7 +3363,7 @@ an interface it implements is the interface value itself, so a `List<Int>`
 is a `List<Display>` as it is, whatever its length, and so is a function
 whose parameters and result convert that way. Any other conversion is work
 proportional to the value: a `List`, `Vector`, `Set` or `Map` is built
-again with each element converted, a `Maybe`, `Result`, user enum or struct,
+again with each element converted, an `Option`, `Result`, user enum or struct,
 tuple or record is built again with its parts converted, and a function is
 wrapped in one that converts its arguments and its result on each call. A
 value built where the wider type is expected converts each element as it
@@ -3408,7 +3414,7 @@ xs = [] // error: List<?>
 
 m = {} // error: Map<?, ?>
 
-x = None // error: Maybe<?>
+x = None // error: Option<?>
 
 ch = Channel.buffered(4) // error: Channel<?>
 ```
@@ -3433,7 +3439,7 @@ arguments are an ordinary call form, usable on any call.
 
 A binding whose type carries any concrete information is determined, even
 with a parameter still open: `x = Ok(42)` is a `Result<Int, ?>`, and
-`n = Some(Ok(42))` a `Maybe<Result<Int, ?>>`.
+`n = Some(Ok(42))` an `Option<Result<Int, ?>>`.
 
 The enclosing function's return type is an expected type only for its
 result: its tail, a `return`, and the arms of a `case` or `if` in tail
@@ -3443,7 +3449,7 @@ a `once o: Shape = begin ... end` whose body is `b = .Circle(2.0)` and then
 
 A name a pattern binds, in a `case` arm, an `if Pattern = value`, a
 destructure or a binding with `else`, must not have a wholly unknown type
-once the file is checked. `Ok(z) = Maybe.to_result(None, "none") else return`
+once the file is checked. `Ok(z) = Option.to_result(None, "none") else return`
 is
 ``the type of 'z' is not determined: nothing fixes the type the pattern binds it to — annotate the matched value (`v: T = …`) or give a call a type argument (`f<T>(…)`)``,
 unless the `else` fallback or a later use of `z` fixes it.
@@ -3457,8 +3463,8 @@ checked: a name whose type is wholly unresolved is an error. With
 ``binding 'box' type is not locally determined: it has unsolved type parameter(s) — give the call a type argument (`f<T>(…)`) or annotate the matched value (`v: T = …`)``;
 `(box, _) = read<Visit>()` is determined. `(a, b) = (None, 1)` is the same
 error unless a later use of `a` fixes its type. In a `case` arm or an
-`if Pattern = value`, a name whose type only contains an unknown part, as a
-`Maybe` that can only be `None`, is accepted.
+`if Pattern = value`, a name whose type only contains an unknown part, as an
+`Option` that can only be `None`, is accepted.
 
 #### Type arguments from the arguments
 
@@ -3494,12 +3500,12 @@ and the arguments before it left open:
 
 - a dot-leading variant, an empty literal, `None`, a brace literal with no
   name, and a constructor or generic function named as a value:
-  `c: Maybe<Color> = Some(.Red)`, `xs: List<Int> = Iter.to_list([])`;
+  `c: Option<Color> = Some(.Red)`, `xs: List<Int> = Iter.to_list([])`;
 - a lambda whose parameter nothing else types:
   `f: (Int) -> Int = ident(fn x -> x + 1)`;
 - a bracket literal, an `if` or a `case` passed where the parameter is a
   bare type parameter, since the expected type says which collection the
-  literal builds and how the branches join: `m: Maybe<Vector<Int>> =
+  literal builds and how the branches join: `m: Option<Vector<Int>> =
   Some([1, 2])`.
 
 A type parameter the result holds below its top comes from the arguments
@@ -3539,7 +3545,7 @@ wherever the call stands. A function makes values of a type parameter when:
 
 A call's own result is a value too: a function whose result is the type
 parameter itself makes a value of it, and so does a `!` or `?` that
-unwraps the parameter out of the call's `Maybe` or `Result`. Discarding
+unwraps the parameter out of the call's `Option` or `Result`. Discarding
 the value or only printing it does not change that.
 
 A type argument nothing in the enclosing declaration fixes is an error at
@@ -3548,7 +3554,7 @@ the argument that carries it:
 ```nomi
 dbg Result.collect([]) // error: the element type of `[]` is not determined
 
-dbg Maybe.collect([None]) // error: the type argument T of `Maybe.collect` is not determined
+dbg Option.collect([None]) // error: the type argument T of `Option.collect` is not determined
 
 dbg Iter.sum([]) // error: the element type of `[]` is not determined
 
@@ -3574,7 +3580,7 @@ A lambda parameter with no annotation and no default takes its type from the
 function type its position expects: a parameter's type at a call, a
 function-typed annotation, a declared return type, or a generic parameter the
 call's own expected type fixes where no other argument does (`f: (Int) -> Int
-= ident(fn x -> x + 1)`, `g: Maybe<(Int) -> Int> = Some(fn x -> x * 3)`; §5
+= ident(fn x -> x + 1)`, `g: Option<(Int) -> Int> = Some(fn x -> x * 3)`; §5
 *Type arguments from the arguments*).
 
 A parameter typed by a type parameter of the callee that nothing has solved
@@ -3624,7 +3630,7 @@ once admin = {
 
 fn main()
     dbg admin.tags + ["new"] // ["new"]
-    dbg None as Maybe<Int>   // None
+    dbg None as Option<Int>  // None
 end
 ```
 
@@ -3654,8 +3660,8 @@ No value converts to another type implicitly. `Int`, `Float` and `Decimal`
 are three types, and arithmetic needs one: `x + y` with an `Int` and a
 `Float` is the error `` `+` needs two values of one type, and these are Int
 and Float ``. Conversions are
-functions: `Int.to_float(x)` is total, and `Float.to_int(y)` is a
-`Maybe<Int>` that truncates toward zero and is `None` for NaN and the
+functions: `Int.to_float(x)` is total, and `Float.to_int(y)` is an
+`Option<Int>` that truncates toward zero and is `None` for NaN and the
 infinities ([std::int](/reference/int/), [std::float](/reference/float/)).
 
 ### Equality and Ordering Semantics
@@ -3683,7 +3689,7 @@ end
 ```
 
 `==` on `Float` is reflexive: `nan == nan` is `True`, so pattern matching,
-`Maybe` equality and container equality agree. This differs from IEEE 754 in
+`Option` equality and container equality agree. This differs from IEEE 754 in
 `==` only. `==` compares every bit otherwise, and
 `Float.equal_within(a, b, tolerance)` compares within a tolerance.
 
@@ -4053,7 +4059,7 @@ lambda does, and takes no `pub`. A nested type's name is a type in every
 annotation of that block. An `impl` or a `derive` may not stand in a body:
 ``an `impl` block must appear at module top-level, not inside a body``, and
 ``a `derive` declaration must appear at module top-level, not inside a body``.
-Nor may a subtype or a validated type (§4 *Validated types*). So a nested
+Nor may a refinement or a validated type (§4 *Validated types*). So a nested
 type has no impl, and a use that needs one (`a + b`, `a < b`, `"${a}"`) is
 an error whose help says to declare the type at module level, even when a
 std type of its name has the impl. In the same way an interface declared
@@ -4111,19 +4117,19 @@ has a default, the value is the function of its first parameters, and a call
 of it fills the rest from their defaults. That holds at an argument, a
 pipe's head (§8 *Pipes*), an annotated binding, a field, a list element, a
 return and a `case` or `if` arm: where `apply` takes a `(String) ->
-Maybe<Int>`, `parse |> apply("1")` passes `parse` as `apply(parse, "1")`
+Option<Int>`, `parse |> apply("1")` passes `parse` as `apply(parse, "1")`
 does. A local copy is not the function's name, so after `g = parse`,
 `apply(g, "1")` is
-`` argument 1: expected (String) -> Maybe<Int>, got (String, Bool) -> Maybe<Int> ``,
+`` argument 1: expected (String) -> Option<Int>, got (String, Bool) -> Option<Int> ``,
 whose help suggests the capture `&g(&1)`.
 
 ```nomi
-fn parse(s: String, strict: Bool = False) -> Maybe<Int>
+fn parse(s: String, strict: Bool = False) -> Option<Int>
     if strict then None else String.to_int(s)
 end
 
 fn main()
-    f: (String) -> Maybe<Int> = parse
+    f: (String) -> Option<Int> = parse
     dbg f("12") // Some(12)
     dbg Iter.map(["1", "x"], parse) |> Iter.to_list() // [Some(1), None]
 end
@@ -4169,7 +4175,7 @@ end
 
 A default whose type only an expected type tells is the field rule's
 error, `` can't tell this parameter's type from `None` ``, with
-``write `since: Maybe<_> = None`, with the type for each `_` ``. The
+``write `since: Option<_> = None`, with the type for each `_` ``. The
 inferred type is the function's signature for every caller, in every file,
 and hover, signature help and the reference show it. A public function's
 parameter may not take a private type from its default
@@ -4494,8 +4500,8 @@ annotation, ``the function expected here takes one argument; `&3` names a third`
 A parameter no `&N` names is ignored, one `&N` may stand several times
 (`&(&1 * &1)`), and in any order. With no function type expected,
 `f = &(&1 > 2)` is ``cannot infer type for `&1` in `&(&1 > 2)` ``.
-`Some(&(&1 + 1))` is a `Maybe` holding a function; `&Some(&1 + 1)` is a
-function returning a `Maybe`.
+`Some(&(&1 + 1))` is an `Option` holding a function; `&Some(&1 + 1)` is a
+function returning an `Option`.
 
 A **partial capture** needs no expected type. It is a capture whose body is
 a call taking each `&N` as one of its own arguments, positional or named,
@@ -4588,7 +4594,7 @@ position that leaves a type parameter unsolved, as `f = ident` does, is
 Taught in [Structs, Enums & Distinct Types](/structs-enums-distinct/#enums).
 
 A positional variant named without a call is its constructor:
-`Shape.Circle` is a `(Float) -> Shape`, and `Some` a `(T) -> Maybe<T>`. So is
+`Shape.Circle` is a `(Float) -> Shape`, and `Some` a `(T) -> Option<T>`. So is
 a distinct type that wraps a value: `Id` for `type Id Int` is an
 `(Int) -> Id`. A value built through the function equals the one the call
 builds.
@@ -4602,7 +4608,7 @@ end
 fn main()
     dbg Iter.map([1.0], Shape.Circle) |> Iter.to_list()     // [Circle(1.0)]
     dbg Iter.map([(1, 2)], Shape.Segment) |> Iter.to_list() // [Segment(1, 2)]
-    somes: List<Maybe<Int>> = Iter.map([1, 2], Some) |> Iter.to_list()
+    somes: List<Option<Int>> = Iter.map([1, 2], Some) |> Iter.to_list()
     dbg somes // [Some(1), Some(2)]
 end
 ```
@@ -4654,9 +4660,10 @@ end
 An accessor stands only where a function type `(S) -> R` of one parameter is
 expected, and `S` must be known at its position: an annotation, a declared
 parameter type, or a generic parameter an earlier argument or the piped value
-has pinned. `S` must be a struct, an anonymous struct or a tuple. The
-accessor is `(S) -> F`, `F` the last field's type, and `R` unifies with `F`.
-A generic struct is read at its instance, and a field holding a function is
+has pinned. `S` must be a struct, an anonymous struct, an enum or a tuple.
+An enum's field is read as `s.w` reads it, so every variant must have it
+(§4 *Enums (Algebraic Data Types)*). The accessor is `(S) -> F`, `F` the
+last field's type, and `R` unifies with `F`. A generic struct is read at its instance, and a field holding a function is
 returned, not called. As an argument, an accessor routes like a trailing
 lambda.
 
@@ -4670,9 +4677,10 @@ The errors, each at the accessor:
   later argument would give it:
   `` `.name` needs the record type it reads from; annotate the binding, e.g. `f: (User) -> String = .name` ``.
 - No such field: `struct 'User' has no field 'nmae'`, with the help
-  `did you mean 'name'?`.
+  `did you mean 'name'?`. A field only some of an enum's variants have is
+  the error a field read gives.
 - Not a record:
-  `` `.name` reads a field of a struct, a record or a tuple, and Int is none of those ``.
+  `` `.name` reads a field of a struct, an enum, a record or a tuple, and Int is none of those ``.
 
 ### Returning
 
@@ -4894,7 +4902,7 @@ Values cross as `ToJson` writes them and `FromJson` reads them:
 | `Map<String, V>` | object | object |
 | struct | object, as `derive ToJson` writes it | object |
 | enum | a bare variant's name as a string; `{"Variant": payload}`, an object with that one key, for one with a payload | string or object |
-| `Maybe<T>` | the value, or `null` for `None` | the value or `null` |
+| `Option<T>` | the value, or `null` for `None` | the value or `null` |
 | `Result<T, E>` | `{"Ok": value}` or `{"Err": error}`, as an enum's variant with a payload | object |
 | `Unit` (a result only) | nothing | `undefined` |
 
@@ -4990,11 +4998,11 @@ Taught in [Scalars and Strings](/scalars-and-strings/#numbers-booleans-operators
   type mismatch: Int vs Decimal`).
   Convert with `Int.to_float`, `Float.to_int`, `Int.to_decimal`,
   `Decimal.to_float` or `Float.to_decimal`.
-- An operand of a subtype is its base's value, and the result is the
-  base's, except that `+`, `*` and prefix `-` on the std numeric subtypes
+- An operand of a refinement is its base's value, and the result is the
+  base's, except that `+`, `*` and prefix `-` on the std numeric refinements
   keep one where it provably holds: with `count` a `NonNegativeInt`,
   `count + 1` is a `PositiveInt` and `count - 1` an `Int` (§4 *Arithmetic
-  on numeric subtypes*).
+  on numeric refinements*).
 - `+` on two `String` or two `Bytes` values concatenates.
 - On collections, `+` and `-` combine two collections of one type. `List<T> +
   List<T>` and `Vector<T> + Vector<T>` concatenate. `Set<T> + Set<T>` is the
@@ -5095,7 +5103,7 @@ end
 
 - So a checked program never divides an `Int` by zero. The VM still checks
   each division and stops with `line N: division by zero` (§11 *Traps,
-  `Maybe` and `Result`*), a backstop no checked program reaches.
+  `Option` and `Result`*), a backstop no checked program reaches.
 - A generic function that divides by its own type, `where T: Divide<T, T>`,
   does not take an `Int`, whose `/` takes a `NonZeroInt`; one bounded by the
   divisor's type does: `fn rem<T, D>(a: T, b: D) -> T where T:
@@ -5106,7 +5114,7 @@ end
   `Int.modulo(x, 0)` is ``0 is not a NonZeroInt: `fn n -> n != 0` is false``.
 - An impl of `Divide` or `Remainder` for a type of one's own takes a divisor
   that cannot be zero in the same way: a `NonZeroInt`
-  (`impl Divide<NonZeroInt, Score> for Score`, so `score / 4`), or a subtype
+  (`impl Divide<NonZeroInt, Score> for Score`, so `score / 4`), or a refinement
   of its own type whose rule rules zero out (`impl
   Divide<NonZeroRational, Rational> for Rational`). Its body divides an
   `Int` under the same rule as any other code.
@@ -5249,13 +5257,13 @@ Averageable<R>`: `mean(values)` is the mean of `values` as an `R`, `None`
 when there are none, and the impl's `R` is the result's type, so a call
 solves it from the element type. Int's mean is a Float, the exact sum over
 the count rounded once; Float's sums with compensation; Decimal's is a
-Decimal and Duration's a Duration. A subtype has its base's impl, so the
+Decimal and Duration's a Duration. A refinement has its base's impl, so the
 mean of `NonNegativeInt`s is a Float.
 [std::averageable](/reference/averageable/) gives each std impl's rounding.
 
 ```nomi
 interface Averageable<R>
-    fn mean(values: Iter<self>) -> Maybe<R>
+    fn mean(values: Iter<self>) -> Option<R>
 end
 ```
 
@@ -5284,7 +5292,8 @@ end
   Int`), held to it as a divisor is to `NonZeroInt` (§8 *Integer division
   and remainder*): with `n` an `Int`, `1 <<< n` is ``` `<<<` shifts by a NonNegativeInt; `n` is an Int ``` with the help
   ``check it first (`if n < 0 then ...`) or take a NonNegativeInt``. A left
-  shift whose result would not fit in memory traps.
+  shift by a count past 2^34 traps, since its result would not fit in
+  memory: `shift count 17179869185 is too large: the result would have more than 17179869184 bits`.
 - `Byte` has `&&&`, `|||`, `^^^` and `~~~`, whose results stay within 8 bits
   (`~~~b` is `255 - b`). It has no shift, since a left shift could carry bits
   past 8: shift the `Int` (`Byte.to_int(b) <<< 1`). `b <<< 1` is ``no impl of
@@ -5589,7 +5598,7 @@ stage's.
   Int.abs()` (§11 *Unwrapping with `!`*).
 - **A lambda body runs to the end of its expression,** or to the `)`, `]`, `}`
   or `,` that closes the construct it stands in. A `|>` inside it belongs to the
-  body: in `Iter.map(xs, fn s -> String.to_int(s) |> Maybe.with_default(0))`
+  body: in `Iter.map(xs, fn s -> String.to_int(s) |> Option.with_default(0))`
   the pipe is the lambda's. The exception is the lambda of a `then` or `tap`
   stage.
 - **A lambda or a capture is not a stage** without `then`: `xs |> fn n -> n *
@@ -5702,7 +5711,7 @@ This prints `got 3 words`, then `GO NORTH NOW`, then `12`.
   a lambda or a capture is the parse error `` `tap` takes a function: write
   `tap f`, `tap fn v -> ...` or `tap &f(&1)` ``.
 - A `?` or `return` in the lambda exits the lambda, so a body that uses `?`
-  returns a `Result` or `Maybe` and is rejected.
+  returns a `Result` or `Option` and is rejected.
 - `tap?` is `` `tap` passes its input on unchanged, so there is no result for
   a `?` to propagate ``, whose help says to handle the failure inside the
   lambda or use `then?`.
@@ -5803,7 +5812,7 @@ end
 ```
 
 - A condition that checks a binding against a constant, or tests it for
-  emptiness, narrows it to a std subtype in each branch (§4 *Narrowing*):
+  emptiness, narrows it to a std refinement in each branch (§4 *Narrowing*):
   in `if d != 0 then n / d else 0`, `d` is a `NonZeroInt` in the first
   branch, and after `if d == 0 then return 0`, in the rest of the block.
 - An `if` without `else`, and an `else if` chain with no final `else`, is
@@ -5812,12 +5821,12 @@ end
   `assert`, `refute` or `dbg`, whose value a block drops. So
   `if debug then log.debug("x")`, `if n < 0 then return Err(e)` and
   `if on then assert n > 0` are statements.
-- A branch of any other type is an error at the branch's value, a `Maybe`
+- A branch of any other type is an error at the branch's value, an `Option`
   included. A value that may be absent is written with its `else`:
-  `if c then Some(x) else None`. A `fn first_even(n: Int) -> Maybe<Int>`
+  `if c then Some(x) else None`. A `fn first_even(n: Int) -> Option<Int>`
   whose body is `if n % 2 == 0 then Some(n)` is ``an `if` without `else` is
-  a statement, so its branch must be `Unit`; this branch is a `Maybe<Int>`.
-  Add `else None` to make the `if` a `Maybe<Int>` ``, and an editor's quick
+  a statement, so its branch must be `Unit`; this branch is an `Option<Int>`.
+  Add `else None` to make the `if` an `Option<Int>` ``, and an editor's quick
   fix adds the `else None`. Any other branch says to add an `else`:
   `if n > 0 then "positive"` is ``... this branch is a `String`. Add an
   `else` to give the `if` a value``. Where a statement drops the branch's
@@ -5827,7 +5836,7 @@ end
   the `_ = `.
 
 ```nomi
-fn sign(n: Int) -> Maybe<String>
+fn sign(n: Int) -> Option<String>
     if n > 0 then
         Some("positive")
     else if n < 0 then
@@ -5882,8 +5891,8 @@ there only, and the `else` branch otherwise. Without `else` it is a
 statement, as an `if` without `else` is: `if Some(n) = m then io.inspect(n)`.
 
 ```nomi
-fn label(maybe_name: Maybe<String>) -> String
-    if Some(name) = maybe_name then
+fn label(option_name: Option<String>) -> String
+    if Some(name) = option_name then
         name
     else
         "unknown"
@@ -5940,7 +5949,7 @@ end
   a call's parentheses. Indentation decides nothing.
 
 ```nomi
-fn describe(n: Maybe<Int>) -> String
+fn describe(n: Option<Int>) -> String
     case n
         Some(x) when x > 9 ->
             digits = Int.to_string(x)
@@ -6079,7 +6088,7 @@ among them, most recent first.
 
 - **An error exit** is a trap (and a cancelled task's unwinding), or the
   function, lambda or test body returning `Err(...)` when its result is a
-  `Result`, or `None` when it is a `Maybe`, whichever way it returns it: a
+  `Result`, or `None` when it is an `Option`, whichever way it returns it: a
   `?` that propagates, `return Err(e)`, or a last expression that is an
   `Err`.
 - **Anything else is a normal exit**, and drops the call unrun: the block
@@ -6087,7 +6096,7 @@ among them, most recent first.
   callback's `break` or `continue`. A `defer on error` in a nested block
   whose end is reached is dropped there, even if the function fails later.
 - **The function must be able to fail.** In a function whose result is
-  neither a `Result` nor a `Maybe`, where only a trap could run it, it is the
+  neither a `Result` nor an `Option`, where only a trap could run it, it is the
   error `` `defer on error` runs only when `f` fails, and it returns Int,
   which carries no failure; write `defer` ``.
 - **`on error` is not reserved.** The two words open the form only right
@@ -6218,7 +6227,7 @@ return. A plain `defer` is no fix when another path hands the value on: it
 would release that value too (*A released value stays in its block*, below).
 
 ```nomi
-fn maybe_open(path: String, want: Bool) -> Result<Maybe<Reader>, io.Error>
+fn option_open(path: String, want: Bool) -> Result<Option<Reader>, io.Error>
     r = fs.open(path)?
     defer on error Reader.close_quietly(r)
 
@@ -6266,7 +6275,7 @@ its release runs only when the block fails, so the value it covers is meant
 to leave on the success path.
 
 **An error exit before the hand-on releases.** In a body whose result is a
-`Result` or a `Maybe`, or a test's, an error exit between a binding and the
+`Result` or an `Option`, or a test's, an error exit between a binding and the
 statement that defers its release, or, with no `defer`, the statement that
 hands it on, leaks the value: a `?` that propagates, or a `return` of
 `Err(...)` or `None`, outside a lambda. With no deferred release it is the
@@ -6316,7 +6325,7 @@ block is not the body's last, discards too. A path that leaves by `?`,
 commit inside a lambda on the path, which counts as made. A path without one
 is the error `` `w` is discarded here: this path returns without
 `Writer.close(w)?` `` at that return, written with `!` in a body whose result
-is neither a `Result` nor a `Maybe`. A deferred release that commits as it
+is neither a `Result` nor an `Option`. A deferred release that commits as it
 releases (`Writer.close_quietly`, `File.close_quietly`) needs nothing more; a
 failed close is then dropped, so the success path writes `Writer.close(w)?`
 when it must report one.
@@ -6429,7 +6438,7 @@ A pattern is *refutable* when some value of its type does not match it, and
   test take any pattern.
 - A plain binding, a parameter, a lambda parameter, a test's setup binding and
   a `subtests` row take an irrefutable pattern. A refutable one in a binding is
-  the error `` this pattern can fail to match a value of type Maybe<Int>; add
+  the error `` this pattern can fail to match a value of type Option<Int>; add
   `else` to handle a value it does not match, or match it with `case`
   or `if Pattern = expr` ``, and in a parameter `` refutable pattern in
   parameter; bind the parameter and use a `case` in the body ``.
@@ -6708,7 +6717,7 @@ end
 - The first entry's `=>` makes the braces a map pattern, as `name:` makes
   them a struct pattern (§3 *Literal forms*).
 - A missing key is a pattern that does not match, never a trap, since whether
-  a key is present is data the program does not control (§11 *Traps, `Maybe`
+  a key is present is data the program does not control (§11 *Traps, `Option`
   and `Result`*).
 - A map pattern never covers every map for the coverage check, `{}` included,
   though `{}` matches every map. A `case` over a map needs a `_` arm
@@ -6718,7 +6727,7 @@ end
   error `` this pattern can fail to match a value of type Map<String, Int>; add
   `else` ... ``, whose help is `` a map pattern does not match a map
   that lacks one of its keys. Handle a missing key with `else`, or read
-  one key with `Map.get`, which returns a `Maybe` ``. In a test, `assert
+  one key with `Map.get`, which returns an `Option` ``. In a test, `assert
   {"port" => port} = config` fails when a key is missing.
 - The same constant key twice (`{"k" => a, "k" => b}`) is a compile error at
   the second, `` key `"k"` is given twice in this map pattern; match its value
@@ -6920,8 +6929,8 @@ component by component:
 
 - `_` and a name match everything.
 - An enum is covered when every variant is, and a variant when the arms naming
-  it cover its payload. `Some(Ok(_))`, `Some(Err(_))` and `None` cover a
-  `Maybe<Result<T, E>>`.
+  it cover its payload. `Some(Ok(_))`, `Some(Err(_))` and `None` cover an
+  `Option<Result<T, E>>`.
 - A tuple, struct or distinct value is covered when its components are, taken
   together. A struct pattern that only binds fields covers the struct.
 - A list or vector is covered by length. `[]` and `[head, ..tail]` cover every
@@ -6938,7 +6947,7 @@ component by component:
 - A subject-less `case` needs a `_` arm (§8 *`case`*).
 
 When the compiler can name a missing value it does: `non-exhaustive case on
-Shape: missing Rect`, `non-exhaustive case on (Maybe<Int>, Maybe<Int>):
+Shape: missing Rect`, `non-exhaustive case on (Option<Int>, Option<Int>):
 missing (None, None)`, `non-exhaustive case on List<Int>: missing [_, _,
 ..]`, `non-exhaustive case on Vector<Int>: missing [_, _, ..]`. When only a
 value no list of literals can cover is missing, as in a `case (n, n)` whose
@@ -6992,7 +7001,7 @@ end
 - A narrowed value may still be passed where the enum is expected.
 - A `value is Pattern` test narrows nothing, in an `if` condition or
   anywhere; `if Pattern = name` is the form that narrows. A condition
-  narrows a binding's range, and so its std subtype, by its own rule (§4 *Narrowing*).
+  narrows a binding's range, and so its std refinement, by its own rule (§4 *Narrowing*).
 
 ### Bindings with `else`
 
@@ -7017,13 +7026,13 @@ fn first_word(words: List<String>) -> String
     first
 end
 
-fn email(user: Maybe<String>) -> String
+fn email(user: Option<String>) -> String
     Some(address) = user else "none"
     address
 end
 
 fn port(text: String) -> Result<Int, String>
-    Ok(n) = String.to_int(text) |> Maybe.to_result("empty") else
+    Ok(n) = String.to_int(text) |> Option.to_result("empty") else
         Err(e) -> return Err("bad port: ${e}")
     end
 
@@ -7064,23 +7073,23 @@ end
   `Only.One(p) = only` needs no `else`, and over a struct-shaped variant, `Rec.Fields(r) = rec` binds
   `r` to the anonymous struct of its fields.
 - A pattern that can fail requires one (*Where patterns appear*). On `Ok(x)`
-  over a `Result` or `Some(x)` over a `Maybe`, the help points at `?`: write `x
+  over a `Result` or `Some(x)` over an `Option`, the help points at `?`: write `x
   = ...?`.
 - A `?` inside the `else` exits the enclosing function or lambda, and `return`
   inside a lambda's `else` exits the lambda.
 
 ## 11. Failure
 
-Taught in [Pattern Matching](/pattern-matching/#maybet-and-resultt-e).
+Taught in [Pattern Matching](/pattern-matching/#optiont-and-resultt-e).
 
-### Maybe and Result
+### Option and Result
 
-`Maybe<T>` is a value that may be absent, and `Result<T, E>` the outcome of an
+`Option<T>` is a value that may be absent, and `Result<T, E>` the outcome of an
 operation that may fail. Both are prelude enums, and their variants are
 written bare (§10 *Variant patterns*):
 
 ```nomi
-enum Maybe<T>
+enum Option<T>
     Some T
     None
 end
@@ -7093,22 +7102,22 @@ end
 
 A program handles one with `case`, a pattern `if`, a binding with `else` (§10
 *Bindings with `else`*), `?` (*Propagating with `?`*) or `!` (*Unwrapping with
-`!`*). The functions over them are in [std::maybe](/reference/maybe/) and
+`!`*). The functions over them are in [std::option](/reference/option/) and
 [std::results](/reference/results/).
 
 std::presence's `Presence<T>`, `Present(value)` or `Absent`, says whether an
-input gave a value at all, so `Presence<Maybe<T>>` tells a JSON key left out
+input gave a value at all, so `Presence<Option<T>>` tells a JSON key left out
 (`Absent`) from one set to `null` (`Present(None)`). It is not in the
 prelude, and its functions are in [std::presence](/reference/presence/).
 `Absent` is no failure, so `?` and `!` do not take a `Presence`: `p?` is the
-error `` `?` requires a Result or Maybe, got Presence<Int> ``, and where
-absence is a failure the program writes `Presence.to_maybe(p)?`.
+error `` `?` requires a Result or Option, got Presence<Int> ``, and where
+absence is a failure the program writes `Presence.to_option(p)?`.
 
 ### Propagating with `?`
 
 Taught in [Pattern Matching](/pattern-matching/#passing-failures-up).
 
-`expr?` unwraps a `Result` or a `Maybe`. On `Ok(v)` or `Some(v)` its value is
+`expr?` unwraps a `Result` or an `Option`. On `Ok(v)` or `Some(v)` its value is
 `v`. On `Err(e)` or `None` the nearest function boundary returns `Err(e)` or
 `None` at once:
 
@@ -7118,7 +7127,7 @@ x?  ≡  case x { Some(v) -> v, None -> return None }
 ```
 
 ```nomi
-fn total(a: String, b: String) -> Maybe<Int>
+fn total(a: String, b: String) -> Option<Int>
     x = String.to_int(a)?
     y = String.to_int(b)?
     Some(x + y)
@@ -7132,15 +7141,15 @@ end
 
 - **It binds as tightly as a call.** `f(x)?`, `load()?.name` (the loaded
   value's `name`), `user.address?.city` and `a.b()?.c()?`. After a `!` it
-  applies to the payload, so `half(4)!?` is `` `?` requires a Result or Maybe,
-  got Int `` unless the payload is itself a `Result` or `Maybe`. `not
+  applies to the payload, so `half(4)!?` is `` `?` requires a Result or Option,
+  got Int `` unless the payload is itself a `Result` or `Option`. `not
   ready(x)?` is `not (ready(x)?)`.
 - **In a pipe it follows a stage** (§8 *Pipes*). `|> then? fn v -> ...`
   propagates the lambda's result, and `tap?` is an error (§8 *The `tap`
   stage*).
 - **A boundary** is the enclosing `fn`, lambda or test body, or a `concurrent`
   block (§16). A `?` in a lambda returns from the lambda, so the lambda's
-  result is a `Result` or `Maybe`. A failing `?` in a test body ends the test
+  result is a `Result` or `Option`. A failing `?` in a test body ends the test
   with a report of the `?` and its value (§17).
 - **Some places have no boundary.** A `?` written directly in a `once`
   initializer, a parameter or field default, or a `subtests` row or row name is
@@ -7151,14 +7160,14 @@ end
 The propagated value must fit the boundary's declared result. Three rules,
 each checked at the `?`:
 
-1. **The boundary returns a `Result` or a `Maybe`.** `` `?` cannot propagate a
+1. **The boundary returns a `Result` or an `Option`.** `` `?` cannot propagate a
    Result out of a function returning Int: the enclosing function must return
-   a Result or a Maybe ``. A function with no declared result returns `Unit`
+   a Result or an Option ``. A function with no declared result returns `Unit`
    and has the same error.
 2. **The kinds agree.** A `?` on a `Result` needs a `Result` boundary, and one
-   on a `Maybe` a `Maybe` boundary: `` `?` on a Maybe cannot propagate out of a
-   function returning Result<Int, String>: the enclosing function must return a
-   Maybe ``. In a lambda this is the lambda's result.
+   on an `Option` an `Option` boundary: `` `?` on an Option cannot propagate out of a
+   function returning Result<Int, String>: the enclosing function must return an
+   Option ``. In a lambda this is the lambda's result.
 3. **The error type fits the boundary's, or converts to it.** For a `?` on a
    `Result<T, E>` in a function declared `Result<_, F>`, in this order:
    - E is F, or F is an interface E implements, and the `Err(e)` propagates
@@ -7227,7 +7236,7 @@ function's own:
 
 ```nomi
 fn status(text: String) -> Result<Int, Int>
-    String.to_int(text) |> Maybe.to_result(400)
+    String.to_int(text) |> Option.to_result(400)
 end
 
 fn port(text: String) -> Result<Int, String>
@@ -7254,18 +7263,18 @@ outcome =
 ```
 
 - `?` sites with different error types in one boundary are the error ``
-  inconsistent error types in `?` expressions: String vs Int ``. A `?` on a
-  `Maybe` contributes no error type.
+  inconsistent error types in `?` expressions: String vs Int ``. A `?` on an
+  `Option` contributes no error type.
 - When no `?` fixes the error type, it stays open, as `Ok(1)`'s does (§5).
 - Rules 1 and 2 apply to the result the body produces: `` `?` cannot
   propagate a Result out of a lambda whose result is Int: the lambda must
-  produce a Result or a Maybe ``.
+  produce a Result or an Option ``.
 
 ### Unwrapping with `!`
 
 Taught in [Pattern Matching](/pattern-matching/#calls-that-cannot-fail).
 
-`expr!` unwraps a `Result<T, E>` or a `Maybe<T>`. Its value is the `T` in `Ok`
+`expr!` unwraps a `Result<T, E>` or an `Option<T>`. Its value is the `T` in `Ok`
 or `Some`. An `Err` or a `None` traps at the `!`'s line. It states that the
 value is there, so a failure is a bug in the program.
 
@@ -7295,8 +7304,8 @@ end
   that starts the next line is the C-family negation, an error (§8 *Logical
   operators*). `x!= y` is `x != y`; to compare an unwrapped value, write `x! ==
   y`. `not found!` negates `found!`.
-- **The operand must be a `Result` or a `Maybe`.** Anything else is an error at
-  the `!`: `` `!` unwraps a Result or a Maybe, and `count(1)` is Int ``, whose
+- **The operand must be a `Result` or an `Option`.** Anything else is an error at
+  the `!`: `` `!` unwraps a Result or an Option, and `count(1)` is Int ``, whose
   help says to remove the `!`. For a `Bool`, the help says to write an
   `assert`.
 - **The trap** quotes the expression as written, on one line, cut after 60
@@ -7315,14 +7324,14 @@ end
   variant.
 - `!` is for a value the program knows is there: constant arguments
   (`Date.new(2024, 1, 1)!`), a key taken from the map itself, an index computed
-  in range, input already validated. A failure that can happen is a `Maybe` or
+  in range, input already validated. A failure that can happen is an `Option` or
   `Result` to handle, or to pass on with `?`.
 
-### Traps, `Maybe` and `Result`
+### Traps, `Option` and `Result`
 
-An operation that cannot always give the result asked for returns a `Maybe`
-or `Result`, or takes a type that rules the failure out. std returns a
-`Maybe` or `Result` when the outcome depends on data the caller does not
+An operation that cannot always give the result asked for returns an `Option`
+or `Result`, or takes a type that rules the failure out. std returns an
+`Option` or `Result` when the outcome depends on data the caller does not
 control (`Map.get`, `String.to_int`, I/O). Where the caller can check an
 operand first, the parameter's type requires the check: `/` and `%` take a
 `NonZeroInt` divisor, so dividing by an `Int` that may be zero does not
@@ -7343,14 +7352,23 @@ Beyond those, a run stops when it:
 
 - runs out of memory, or makes more than 100,000 nested calls (`stack
   overflow: more than 100000 nested calls`);
-- asks std for a value too large to build: a `Decimal` whose scale is
-  outside -2147483648 to 2147483647 or that has more digits than a `Decimal`
-  holds (`Decimal.sqrt(2d, 4294967298, .HalfEven)`; `Decimal.round`,
-  `Decimal.pow` and `Float.to_decimal` too), or a `String.repeat` of more
-  copies than memory holds;
+- asks `Int.pow` or `<<<` for one number too big for memory. An `Int` has no
+  fixed size; the stop is at 2^34 bits, which is 2 GiB for a single number (`Int.pow: exponent 17179869185 is too large: the power would have more than 17179869184 bits`);
+- asks for a `Decimal` whose scale is outside -2147483648 to 2147483647, or
+  with more digits than a `Decimal` holds: a `*` whose operands' scales add
+  past that range, a `/` whose quotient has too many digits, and a
+  `Decimal.divide`, `Decimal.round`, `Decimal.round_exact`, `Decimal.sqrt`,
+  `Decimal.sqrt_exact`, `Decimal.pow` or `Float.to_decimal` whose scale is
+  past it or whose answer needs one (`Decimal.sqrt(2d, 4294967298, .HalfEven)`);
+- asks for a `String.repeat` of more copies than memory holds;
 - consumes the whole of an iterator that never ends (§13 *Infinite
   iterators*);
-- closes a `once` cycle through a function value (§6 *`once` Bindings*).
+- closes a `once` cycle through a function value (§6 *`once` Bindings*);
+- passes the deadline of the context in force while `main` waits on its
+  tasks (§16 *Errors and cancellation*);
+- reads, under `nomi run`, `nomi test` or the REPL, an embedded file whose
+  contents changed on disk after the program was compiled (§18 *Embedded
+  files*).
 
 Any other program that never finishes runs until something outside stops it.
 
@@ -7358,7 +7376,7 @@ Any other program that never finishes runs until something outside stops it.
   in: a program's main task ends the program with status 1, and a spawned
   task's trap is its `Failed` outcome (§16), which a supervisor may restart.
 
-A function named `get` returns a `Maybe` (`Map.get`, `Vector.get`, `Bytes.get`,
+A function named `get` returns an `Option` (`Map.get`, `Vector.get`, `Bytes.get`,
 `Iter.get`). A caller that knows the value is there writes `Map.get(m, k)!`. A
 map pattern is refutable for the same reason (§10 *Map Destructuring*).
 
@@ -7603,7 +7621,7 @@ result and the body. The bound is checked at each call.
 interface Ranked<T>
     fn entries(collection: self) -> List<T>
 
-    fn best(collection: self) -> Maybe<T> where T: Comparable
+    fn best(collection: self) -> Option<T> where T: Comparable
         Iter.sort(entries(collection), .Descending) |> Iter.first()
     end
 
@@ -8038,13 +8056,13 @@ an interface the program declares. What each implements of std's:
   `Hashable` and `Display` when every field does. It implements std::parse's
   `ParseFields`, which reads named texts into its fields and writes them
   back, when every field implements `Parse` and `Display`, a field of a
-  subtype read with its base's `Parse` and checked (§4 *Subtypes*). It implements
+  refinement read with its base's `Parse` and checked (§4 *Refinements*). It implements
   std::json's `ToJson` and `FromJson` when every field does, as a struct
   that derives them with no options: an object keyed by its field names as
   written, keys it has no field for ignored, and a missing key read as the
   field type's `from_missing` (*Derive*). So
   `Response.json({error: "no todo 99"})` sends `{"error":"no todo 99"}`
-  and `Json.decode_as<{title: String, order: Maybe<Int>}>(text)` reads a
+  and `Json.decode_as<{title: String, order: Option<Int>}>(text)` reads a
   request body. A tuple implements neither.
 - A part implements an interface as any value of its type does. A part of
   an interface type, an `Iter` among them, has only what that interface
@@ -8399,7 +8417,7 @@ end
 - **Identity.** Members are interfaces, in any order, and one written twice
   counts once: `A and B`, `B and A` and `A and B and A` are one type, shown
   with its members sorted by name. A member that is no interface is an error:
-  `` `and` joins interfaces or subtypes, and Int is neither ``.
+  `` `and` joins interfaces or refinements, and Int is neither ``.
 - **Equality.** `==`, hashing and `Debug` work on a conjunction as on any
   interface value, through the held value (*Interface values*), so
   `Equatable and Hashable` values go in a `Set`. A conjunction with an
@@ -8414,11 +8432,11 @@ when the `E` allows it:
 
 ```nomi
 interface TryFrom<E>
-    fn try_from(value: E) -> Maybe<self>
+    fn try_from(value: E) -> Option<self>
 end
 ```
 
-A `type` with a rule in its chain, its own `when` or a subtype it wraps
+A `type` with a rule in its chain, its own `when` or a refinement it wraps
 (§4 *Validated types*), implements `TryFrom` of its base because of its
 rule and its base, as every distinct type satisfies `Distinct<T>`:
 `try_from` is `TryFrom`'s function, with a body the compiler supplies,
@@ -8428,7 +8446,7 @@ or `None`. That impl cannot be written by hand:
 `` `TryFrom<Int>` for Percent is supplied by its rule and cannot be implemented; every `type` with a rule over Int satisfies `TryFrom<Int>` automatically — remove this `impl TryFrom<Int> for Percent` ``.
 An impl from any other source type is the program's to write, one per
 source type as `From`'s are, and `T.try_from(x)` picks by the argument's
-type. A subtype implements no interface of its own (§4 *Subtypes*), so
+type. A refinement implements no interface of its own (§4 *Refinements*), so
 its `try_from` is its own function and no `TryFrom` impl.
 
 ```nomi
@@ -8437,7 +8455,7 @@ type Celsius Float when fn c -> c >= -273.15
 type Kelvin Float when fn k -> k >= 0.0
 
 impl TryFrom<Celsius> for Kelvin
-    fn try_from(Celsius(c)) -> Maybe<Kelvin>
+    fn try_from(Celsius(c)) -> Option<Kelvin>
         Kelvin.try_from(c + 273.15)
     end
 end
@@ -8448,7 +8466,7 @@ enum Weekday
 end
 
 impl TryFrom<Int> for Weekday
-    fn try_from(value: Int) -> Maybe<Weekday>
+    fn try_from(value: Int) -> Option<Weekday>
         case value
             1 -> Some(Weekday.Monday)
             2 -> Some(Weekday.Tuesday)
@@ -8457,14 +8475,14 @@ impl TryFrom<Int> for Weekday
     end
 end
 
-fn load<T>(n: Int) -> Maybe<T> where T: TryFrom<Int>
+fn load<T>(n: Int) -> Option<T> where T: TryFrom<Int>
     T.try_from(n)
 end
 
 fn main()
     dbg Kelvin.try_from(Celsius(20.0)) // Some(Kelvin(293.15))
     dbg Kelvin.try_from(-1.0)          // None
-    day: Maybe<Weekday> = load(2)
+    day: Option<Weekday> = load(2)
     dbg day // Some(Tuesday)
 end
 ```
@@ -8705,7 +8723,7 @@ Variants ``.
 | `Debug` | `std::debug` | The literal shape: `Point{x: 3, y: 4}`, `Circle(5.0)` (the variant, with no enum prefix). |
 | `Display` | `std::display` | `Debug`'s shape with nested strings unquoted: `C{name: bob}` where `Debug` gives `C{name: "bob"}`. |
 | `ToJson` | `std::json` | Fields as object keys, each written as its type's `ToJson.to_json_field` answers: `Some(json)` writes the key, `None` leaves it out. The default is `Some(to_json(v))`, so a `None` field is `null`; `Presence<T>`'s leaves an `Absent` field out. A distinct type through its inner value; a bare variant as its name, a payload variant as an object keyed by its name. `ToJson.Options{rename_all: ...}` sets the key case. |
-| `FromJson` | `std::json` | The inverse of derived `ToJson`. A missing key reads as its field type's `FromJson.from_missing()`: `Some(v)` is the field's value, as `Maybe<T>`'s `None` and `Presence<T>`'s `Absent` are. The default answers `None`, and then a defaulted field takes its default and any other is the error `title: expected String, got missing`. A bare variant reads only its name as a string. A payload variant reads only an object with exactly one key, its name, as `Result`'s `{"Ok": value}`: an object with no key, several keys or a key no payload variant has is an error naming its keys, `expected Shape, got object with keys "Circle", "Rect"`. A mismatch names the variant and field. Every shape error names the Nomi type it expected and the JSON kind it got (`Json.kind`): `title: expected String, got null`, `expected Todo, got array`. `FromJson.Options{rename_all: ...}` sets the key case. |
+| `FromJson` | `std::json` | The inverse of derived `ToJson`. A missing key reads as its field type's `FromJson.from_missing()`: `Some(v)` is the field's value, as `Option<T>`'s `None` and `Presence<T>`'s `Absent` are. The default answers `None`, and then a defaulted field takes its default and any other is the error `title: expected String, got missing`. A bare variant reads only its name as a string. A payload variant reads only an object with exactly one key, its name, as `Result`'s `{"Ok": value}`: an object with no key, several keys or a key no payload variant has is an error naming its keys, `expected Shape, got object with keys "Circle", "Rect"`. A mismatch names the variant and field. Every shape error names the Nomi type it expected and the JSON kind it got (`Json.kind`): `title: expected String, got null`, `expected Todo, got array`. `FromJson.Options{rename_all: ...}` sets the key case. |
 | `Variants` | `std::variants` | Only for an enum without type parameters whose variants carry no data. `variants()` lists every variant in declaration order: `Coin.variants() == [Coin.Penny, Coin.Nickel]`. |
 
 - The `Hashable` mix collides easily: `Hashable.hash(Point{x: 0, y: 31}) ==
@@ -8731,13 +8749,13 @@ Variants ``.
   (`User.from_json(value)`), an explicit type argument
   (`FromJson.from_json<User>(value)`) or an expected type. `Json.encode_as` and
   `Json.decode_as` convert and encode or decode in one call
-  ([std::json](/reference/json/)). A field of a subtype is read at its
-  base and checked against the subtype's rules, a value that breaks one
-  the shape error `port: expected Port, got 0` (§4 *Subtypes*).
+  ([std::json](/reference/json/)). A field of a refinement is read at its
+  base and checked against the refinement's rules, a value that breaks one
+  the shape error `port: expected Port, got 0` (§4 *Refinements*).
 - std implements `ToJson` and `FromJson` for `Map<String, V>` alone, since a
   JSON object's keys are strings, and a tuple implements neither (*Tuples,
   anonymous structs and functions*). A derive over a field that holds either,
-  directly or inside a `List`, `Vector`, `Set`, `Maybe` or `Map` value, is an
+  directly or inside a `List`, `Vector`, `Set`, `Option` or `Map` value, is an
   error at the field: ``no impl of `ToJson` for `Map<Int, Int>` (required via
   `derive ToJson for W`, field `m`)``.
 
@@ -8785,7 +8803,7 @@ Taught in [Collections](/collections/#iter).
 interface Iter<T>
     fn each_while(collection: self, yield: (T) -> Bool) -> Bool
 
-    open fn known_count(_collection: self) -> Maybe<Int>
+    open fn known_count(_collection: self) -> Option<Int>
         None
     end
 
@@ -8802,7 +8820,7 @@ end
   refusing a fourth element. It is Go's `iter.Seq` shape.
 - `known_count` is `Some(n)` when the source knows its length without being
   walked, and `None` otherwise. `Iter.count` consults it. `List`, `Vector`,
-  `Map`, `Set`, `Maybe` and bounded ranges whose element type can count steps
+  `Map`, `Set`, `Option` and bounded ranges whose element type can count steps
   override it.
 - `is_infinite` is `True` when the source never ends on its own (*Infinite
   iterators*).
@@ -8814,11 +8832,11 @@ end
   field, a tuple or record part, a payload, a list element and a capture can
   hold one. Holding it runs nothing, and each consumer runs it from its start.
 - Any source stands where an `Iter<T>` is expected (a `List`, `Vector`, `Set`,
-  `Map`, `String`, `Bytes`, `Maybe`, range, or a type with an `impl Iter`) and
+  `Map`, `String`, `Bytes`, `Option`, range, or a type with an `impl Iter`) and
   keeps its own `known_count` there.
 
 `Map<K, V>` is an `Iter<(K, V)>`, `String` an `Iter<String>` of grapheme
-clusters, and `Maybe<T>` an `Iter<T>` of zero or one element. A range is an
+clusters, and `Option<T>` an `Iter<T>` of zero or one element. A range is an
 `Iter` when its element type is `Discrete` (§3 *Range literals*). What each std
 source yields is in [std::iter](/reference/iter/).
 
@@ -9084,8 +9102,8 @@ A fold or loop takes its starting value before the callback:
   `add_until_zero` uses `break`, so it cannot be called: pass it as an iteration callback itself, as in `Iter.reduce(xs, <start>, add_until_zero)`
   ```
 
-  Inside a callback the help is ``to decide in this callback instead, return a
-  `Maybe` or an enum from `keep` and write `continue` here``.
+  Inside a callback the help is ``to decide in this callback instead, return an
+  `Option` or an enum from `keep` and write `continue` here``.
 - A `break` or `continue` in a lambda or capture that is not itself an
   iteration callback, in a nested `fn`, or directly in a `concurrent` block is
   an error (§9 *`break` and `continue`*).
@@ -9127,7 +9145,7 @@ Import paths separate segments with `::`, written with no space around it. An im
 | `import http::request as req` | the file API object, renamed `req` |
 | `import views::admin` | the directory `admin`, when `views/admin/` holds no file of that name (*Directory imports*) |
 | `import task_parser.parse` | the exported item `parse`, bare |
-| `import std::maybe.Maybe.Some as Just` | an item, renamed |
+| `import std::option.Option.Some as Just` | an item, renamed |
 | `import users.{User, Role}` | each listed item |
 | `import std::io.{self, print}` | `self` binds the file API object `io`, beside `print` |
 | `import shape.Shape.{Circle, Square}` | variants selected through their enum |
@@ -9138,7 +9156,7 @@ Several imports may be written as one block, one entry per line, with no commas:
 ```nomi
 import
     std::io.{self, print}
-    std::maybe.Maybe.{None as Nothing, Some as Just}
+    std::option.Option.{None as Nothing, Some as Just}
     http::request
 end
 ```
@@ -9215,8 +9233,8 @@ end
 Every file outside the standard library starts with the imports in `std/prelude.nomi`, an ordinary file that holds one `pub import` block. It brings in:
 
 - the primitive and collection types `Int`, `Float`, `Decimal`, `String`, `Unit`, `Infallible`, `Byte`, `Bytes`, `Codepoint`, `List`, `Vector`, `Map`, `Set` and `Range`, and `Bool` with its variants `True` and `False`;
-- `Maybe` with `Some` and `None`, and `Result` with `Ok` and `Err`;
-- std's subtypes of the primitive and collection types (§4 *Subtypes*): `NonZeroInt`, `NonNegativeInt` and `PositiveInt`, the same three for `Float` and `Decimal` (`NonZeroFloat`, `PositiveDecimal`), `NonEmptyString`, `NonEmptyList`, `NonEmptyVector`, `NonEmptyMap`, `NonEmptySet`, and `NonEmptyRange`, `ClosedRange` and `BoundedRange`;
+- `Option` with `Some` and `None`, and `Result` with `Ok` and `Err`;
+- std's refinements of the primitive and collection types (§4 *Refinements*): `NonZeroInt`, `NonNegativeInt` and `PositiveInt`, the same three for `Float` and `Decimal` (`NonZeroFloat`, `PositiveDecimal`), `NonEmptyString`, `NonEmptyList`, `NonEmptyVector`, `NonEmptyMap`, `NonEmptySet`, and `NonEmptyRange`, `ClosedRange` and `BoundedRange`;
 - the interfaces `Add`, `Subtract`, `Multiply`, `Divide`, `Remainder`, `BitwiseAnd`, `BitwiseOr`, `BitwiseXor`, `BitwiseNot`, `ShiftLeft`, `ShiftRight`, `Averageable`, `Comparable`, `Contains`, `Debug`, `Discrete`, `Display`, `Distinct`, `Equatable`, `Hashable`, `Iter`, `Productable`, `Steppable`, `Struct`, `Summable` and `Variants`, `From` (§11 *Propagating with `?`*) and `TryFrom` (§12 *TryFrom*), and `Release` and `Commit` (§9 *Releasing resources*);
 - `Ordering`, `Type`, `Startup` and `Context`;
 - `Locale` (std::locale), and `Phrase` and `Noun` (§18 *Phrases*), so formatting a phrase needs no import.
@@ -9287,7 +9305,7 @@ An import of a whole project file also brings that file's impl blocks into the p
 
 #### Re-importing a prelude name is an error
 
-Importing a name the prelude already binds is an error at the item, even when the item is used: `import std::iter.Iter` is `imported name 'Iter' is already in scope from the prelude — remove it from the import`. A `self` under a prelude type (`import std::maybe.Maybe.{self, None}`) is the same error. The rule follows from `prelude.nomi` and applies only where the prelude is in scope, so standard library files are exempt.
+Importing a name the prelude already binds is an error at the item, even when the item is used: `import std::iter.Iter` is `imported name 'Iter' is already in scope from the prelude — remove it from the import`. A `self` under a prelude type (`import std::option.Option.{self, None}`) is the same error. The rule follows from `prelude.nomi` and applies only where the prelude is in scope, so standard library files are exempt.
 
 These are not re-imports:
 
@@ -9403,7 +9421,7 @@ end
 - **A tuple** and a named tuple read their items by ordinal name: `pair.first`, `pair.second`. Reads chain left to right, so `nested.second.first` is `(nested.second).first`. An ordinal past the last item is an error that names the last (§4 *Tuples*), and `pair.0` is the error that writes `pair.first`.
 - **A value of interface type** has no fields, since an interface declares functions only: `interface 'Struct' has no field 'x'`. A required value is read through a function requirement (§12 *Requiring a Value*), qualified by the interface: `n.name` is `interface 'HasName' has no field 'name'` even when `HasName` declares `fn name`.
 - **A value of type-parameter type** has no fields, bounded or not: ``type parameter `T` has no field 'name'``. Call the bound's function, `T.name(x)`.
-- **A type qualifier** must name a real member: an inherent or interface function, a `once`, or a variant. `List.empty()` is `type 'List' has no member 'empty'`, and `Maybe.Bogus` is `type 'Maybe' has no member 'Bogus'`. `empty` or `new` on `Map`, `Set` or `Vector` adds a hint naming the empty literal (`write the empty map as {}`). Members of imported types are checked the same way.
+- **A type qualifier** must name a real member: an inherent or interface function, a `once`, or a variant. `List.empty()` is `type 'List' has no member 'empty'`, and `Option.Bogus` is `type 'Option' has no member 'Bogus'`. `empty` or `new` on `Map`, `Set` or `Vector` adds a hint naming the empty literal (`write the empty map as {}`). Members of imported types are checked the same way.
 
 How `X.Y` resolves:
 
@@ -9437,7 +9455,7 @@ fn run() -> Result<Unit, String>
 end // as `main`: prints `error: config file not found` and exits 1
 ```
 
-To choose the status, `main` returns std::process's `Exit` in its `Err`. `Exit` is a struct with the fields `code: ExitCode = 1` and `message: String = ""`, where `ExitCode` is std::process's `subtype ExitCode Int when fn code -> code >= 0 and code <= 255`. A `main` declared `-> Result<Unit, Exit>` that returns `Err(e)` prints `e.message` and a newline to standard error, with no `error: ` before it, when the message is not empty, and exits with `e.code`. A code of 0 exits 0, and its message still prints. A literal code outside 0 to 255 does not compile (`300 is not an ExitCode: ...`), and a computed one goes through `ExitCode.try_from`.
+To choose the status, `main` returns std::process's `Exit` in its `Err`. `Exit` is a struct with the fields `code: ExitCode = 1` and `message: String = ""`, where `ExitCode` is std::process's `refine ExitCode Int when fn code -> code >= 0 and code <= 255`. A `main` declared `-> Result<Unit, Exit>` that returns `Err(e)` prints `e.message` and a newline to standard error, with no `error: ` before it, when the message is not empty, and exits with `e.code`. A code of 0 exits 0, and its message still prints. A literal code outside 0 to 255 does not compile (`300 is not an ExitCode: ...`), and a computed one goes through `ExitCode.try_from`.
 
 ```nomi
 import std::process.Exit
@@ -9480,7 +9498,7 @@ struct App
 end
 
 fn boot(startup: Startup) -> Result<App, String>
-    Ok(App{name: List.first(startup.args) |> Maybe.with_default("world")})
+    Ok(App{name: List.first(startup.args) |> Option.with_default("world")})
 end
 
 fn main()
@@ -9601,7 +9619,7 @@ end
 
 fn boot(startup: Startup) -> Result<App, String>
     defer io.print("boot cleanup")
-    name = List.first(startup.args) |> Maybe.to_result("pass a name")?
+    name = List.first(startup.args) |> Option.to_result("pass a name")?
     Ok(App{name:})
 end
 ```
@@ -9812,7 +9830,7 @@ end
 
 #### Waiting on several channels
 
-`Channel.select(arms)` waits until one of a non-empty list of arms can finish, runs that arm's handler and returns its result. An arm is an `Arm<R>`: `Arm.receive(receiver, handle)` passes `handle` the received `Maybe<T>`, `Arm.send(sender, value, handle)` passes it the send's `Result<Unit, ChannelClosed>`, and `Arm.after(wait, handle)` calls it with nothing once `wait` has passed. The arms may be on channels of different element types; every handler returns the one type `R`.
+`Channel.select(arms)` waits until one of a non-empty list of arms can finish, runs that arm's handler and returns its result. An arm is an `Arm<R>`: `Arm.receive(receiver, handle)` passes `handle` the received `Option<T>`, `Arm.send(sender, value, handle)` passes it the send's `Result<Unit, ChannelClosed>`, and `Arm.after(wait, handle)` calls it with nothing once `wait` has passed. The arms may be on channels of different element types; every handler returns the one type `R`.
 
 ```nomi
 import
@@ -9824,7 +9842,7 @@ fn main()
     inbox = Channel.buffered<String>(1)
 
     reply = Channel.select([
-        Arm.receive(inbox.receiver, fn message -> Maybe.with_default(message, "closed")),
+        Arm.receive(inbox.receiver, fn message -> Option.with_default(message, "closed")),
         Arm.after(Duration.seconds(0), fn -> "nothing yet"),
     ])
 
@@ -9835,7 +9853,7 @@ end
 - **The first listed ready arm wins.** When several arms can finish as the `select` starts, the first one in the list finishes and the others take and send nothing, so a run repeats exactly. An arm that is always ready therefore starves the arms listed after it; a loop that serves several channels fairly rotates its arms. While the `select` waits, the first arm to become ready wins.
 - **Closed channels are ready.** A receive arm on a closed and drained channel finishes at once with `None`, and a send arm on a closed channel with `Err(ChannelClosed)`. So a `select` whose channels are all closed runs its first listed channel arm.
 - **Timers count on the clock in force** from the start of the `select`: under `clock Clock.Virtual` a timer fires as soon as every task is waiting, with no real wait. A timer of zero or less is ready at once, so `Arm.after` of zero listed last makes a `select` that never waits.
-- **The arms are a `NonEmptyList<Arm<R>>`**, which a list literal of arms is, whatever its arms are (§4 *Subtypes*); a list built while the program runs goes through `NonEmptyList.try_from`.
+- **The arms are a `NonEmptyList<Arm<R>>`**, which a list literal of arms is, whatever its arms are (§4 *Refinements*); a list built while the program runs goes through `NonEmptyList.try_from`.
 - **A waiting `select` is cancellable**: when its context is cancelled it unwinds like any cancelled wait, and no handler runs.
 
 `Receiver.receive_within(receiver, wait)` is the one-channel case: `Ok(Some(value))`, `Ok(None)` when the channel is closed and drained, or `Err(TimedOut)` when `wait` runs out first. A value already waiting is received even when `wait` is zero.
@@ -9901,7 +9919,7 @@ enum Outcome<T>
 end
 ```
 
-A body that returns `Err(e)` produced a value, so its outcome is `Completed(Err(e))`. `Failed` is a trap (§11 *Traps, `Maybe` and `Result`*). A supervisor may restart failed work, and never restarts a cancelled task, since cancellation is not a failure. [std::supervisors](/reference/supervisors/) has the restart policies and `Supervisor.flush`.
+A body that returns `Err(e)` produced a value, so its outcome is `Completed(Err(e))`. `Failed` is a trap (§11 *Traps, `Option` and `Result`*). A supervisor may restart failed work, and never restarts a cancelled task, since cancellation is not a failure. [std::supervisors](/reference/supervisors/) has the restart policies and `Supervisor.flush`.
 
 ## 17. Tests
 
@@ -10039,7 +10057,7 @@ What each subject requires, and what the assertion's value is when it holds:
 |---|---|---|---|
 | `Bool` | `True` | `False` | the `Bool` |
 | `Result<T, E>` | `Ok(_)` | `Err(_)` | the subject |
-| `Maybe<T>` | `Some(_)` | `None` | the subject |
+| `Option<T>` | `Some(_)` | `None` | the subject |
 | an `Assertable` | `Assertable.failure` returns `None` | it returns `Some(details)` | the subject |
 
 `assert pattern = value` asserts that the value matches the pattern and binds the pattern's names. A mismatch is an assertion failure.
@@ -10288,7 +10306,7 @@ Joiner.from_fragments(
 
 A triple-quoted typed literal strips its leading newline, common indentation and trailing newline as a triple-quoted string does, and the `${...}` and `\${` rules of strings apply inside a non-raw body (§3 *String Literals*). A raw (backtick) body has no slots: it is one `Static` holding the text as written.
 
-The type of a typed literal with a `${...}` slot is `R`: `Date"2026-${month}-04"` is a `Result<Date, Error>`, built when the program runs. A literal without slots is checked at compile time, and when its handler returns `Result<T, E>` its type is `T` (below): `Date"2026-05-04"` is a `Date`. A checked literal's type is its `build`'s result with or without slots (§18 *Checked literals*), and an `Html` literal is always an `Html`. A `Regex` literal is the one whose type depends on its text: with no `${...}`, `Regex"(\\d+)"` is a `Regex<String>`, while `Regex"room ${n}"` is `Result<Regex<List<Maybe<String>>>, String>` ([std::regex](/reference/regex/#capture-types)).
+The type of a typed literal with a `${...}` slot is `R`: `Date"2026-${month}-04"` is a `Result<Date, Error>`, built when the program runs. A literal without slots is checked at compile time, and when its handler returns `Result<T, E>` its type is `T` (below): `Date"2026-05-04"` is a `Date`. A checked literal's type is its `build`'s result with or without slots (§18 *Checked literals*), and an `Html` literal is always an `Html`. A `Regex` literal is the one whose type depends on its text: with no `${...}`, `Regex"(\\d+)"` is a `Regex<String>`, while `Regex"room ${n}"` is `Result<Regex<List<Option<String>>>, String>` ([std::regex](/reference/regex/#capture-types)).
 
 #### A literal without slots is checked at compile time
 
@@ -10301,7 +10319,7 @@ A typed literal with no `${...}` slot, written with double quotes, triple quotes
 
 A handler that returns `T` itself gives the type `T`, and it runs at compile time too. Any handler that reaches an effect (§19 *Effects*), reads an app field, traps, or does not finish within the compiler's step limit cannot be run at compile time, and the literal is an error that says so: ``typed literal Loud"x" cannot be checked at compile time: its handler has effects (Literal.from_fragments for Loud calls io.print)``, with the help ``a typed literal without `${...}` slots is checked at compile time; to build the value when the program runs, call one of `Loud`'s functions instead, such as its `parse`, and handle its result``. A text known only when the program runs goes through such a function, `Date.parse(text)`, or into a slot.
 
-A `?` on a literal without slots is the ordinary error `` `?` requires a Result or Maybe, got Regex<Unit> ``, whose hint says to remove the `?`.
+A `?` on a literal without slots is the ordinary error `` `?` requires a Result or Option, got Regex<Unit> ``, whose hint says to remove the `?`.
 
 ```nomi
 import
@@ -10472,21 +10490,21 @@ Each `${...}` slot has the context of where it stands, which decides how its val
 
 | Context | Example | The value must be | Written as |
 |---|---|---|---|
-| Element content | `<p>${x}</p>` | `ToHtml`, or another `Display` | a `ToHtml` value by its `to_html`: `String` and numbers escaped as text, `Html` as it is, `List<Html>` joined, a `Maybe` of a `ToHtml` value as that value and `None` as nothing; another `Display` value's text escaped |
-| Text of `<title>` or `<textarea>` | `<title>${t}</title>` | `Display`, or a `Maybe` of one | escaped text; an `Html` is refused, since its markup could end the element |
-| Quoted attribute value | `class='a ${c}'`, `data-reaction="${kind}"` | `Display`, or a `Maybe` of one | escaped for an attribute: `&`, `<`, `>`, `"` and `'` |
-| URL attribute, the start of its value | `href="${link}"` | `UrlValue` (`Url`, `SafeUrl`, a `Maybe` of one) | a `Url` whose scheme is not `http`, `https`, `mailto` or `tel` as `about:invalid#unsafe-url`; then escaped |
-| URL attribute, after text | `href="/posts/${id}"`, `?q=${q}`, `#${f}` | `Display`, or a `Maybe` of one | percent-encoded as a path segment (`/` and `:` included), a query value or a fragment, then escaped |
-| `style` attribute | `style="width: ${pct}%"` | `CssValue` (`Int`, `Float`, `Decimal`, `Css`, a `Maybe` of one) | a number as written; a `Css` as it is; escaped |
-| A whole unquoted value | `checked=${on}`, `title=${tip}` | `OptionalAttribute` (`Bool`, `Maybe<String>`) | `True` writes `checked`; `False` and `None` leave the attribute out; `Some(s)` writes `title="..."` escaped |
+| Element content | `<p>${x}</p>` | `ToHtml`, or another `Display` | a `ToHtml` value by its `to_html`: `String` and numbers escaped as text, `Html` as it is, `List<Html>` joined, an `Option` of a `ToHtml` value as that value and `None` as nothing; another `Display` value's text escaped |
+| Text of `<title>` or `<textarea>` | `<title>${t}</title>` | `Display`, or an `Option` of one | escaped text; an `Html` is refused, since its markup could end the element |
+| Quoted attribute value | `class='a ${c}'`, `data-reaction="${kind}"` | `Display`, or an `Option` of one | escaped for an attribute: `&`, `<`, `>`, `"` and `'` |
+| URL attribute, the start of its value | `href="${link}"` | `UrlValue` (`Url`, `SafeUrl`, an `Option` of one) | a `Url` whose scheme is not `http`, `https`, `mailto` or `tel` as `about:invalid#unsafe-url`; then escaped |
+| URL attribute, after text | `href="/posts/${id}"`, `?q=${q}`, `#${f}` | `Display`, or an `Option` of one | percent-encoded as a path segment (`/` and `:` included), a query value or a fragment, then escaped |
+| `style` attribute | `style="width: ${pct}%"` | `CssValue` (`Int`, `Float`, `Decimal`, `Css`, an `Option` of one) | a number as written; a `Css` as it is; escaped |
+| A whole unquoted value | `checked=${on}`, `title=${tip}` | `OptionalAttribute` (`Bool`, `Option<String>`) | `True` writes `checked`; `False` and `None` leave the attribute out; `Some(s)` writes `title="..."` escaped |
 
 The URL attributes are `action`, `background`, `cite`, `formaction`, `href`, `icon`, `longdesc`, `manifest`, `poster`, `profile`, `src`, `usemap`, `xmlns`, and `data` on `<object>`.
 
 A value of the wrong type is an error at the slot that says what the slot takes: `<title>${page}</title>` with an `Html` is ``this slot takes a `Display`, and an `Html` is not one``, with help for the context.
 
-In element content, a type that implements `ToHtml` renders itself, even when it is also `Display`. Std's `Maybe`, `Result`, collections and tuples are `Display`, but their text is not the value's, `Some(x)` or `[a, b]`, so element content refuses one that is not `ToHtml`: `<p>${names}</p>` with a `List<String>` is ``element content does not show a `List<String>` ``, with help to render the elements with `Html.each`. A value of a type parameter is taken as a `ToHtml`.
+In element content, a type that implements `ToHtml` renders itself, even when it is also `Display`. Std's `Option`, `Result`, collections and tuples are `Display`, but their text is not the value's, `Some(x)` or `[a, b]`, so element content refuses one that is not `ToHtml`: `<p>${names}</p>` with a `List<String>` is ``element content does not show a `List<String>` ``, with help to render the elements with `Html.each`. A value of a type parameter is taken as a `ToHtml`.
 
-A slot shows a part of the page only when a condition holds by holding a `Maybe`: `${if active then Some("active") else None}` is `None` when `active` is false (§8 *`if`/`else`*). A fragment over several lines is wrapped by a `|> Some()` on the line after its closing `"""`, with `else None` below it. In a whole unquoted value a `Maybe` writes the attribute or leaves it out. In every other context it writes its value as that context writes one, or nothing for `None`, so a `Maybe`'s text, `Some(...)`, is never written:
+A slot shows a part of the page only when a condition holds by holding an `Option`: `${if active then Some("active") else None}` is `None` when `active` is false (§8 *`if`/`else`*). A fragment over several lines is wrapped by a `|> Some()` on the line after its closing `"""`, with `else None` below it. In a whole unquoted value an `Option` writes the attribute or leaves it out. In every other context it writes its value as that context writes one, or nothing for `None`, so an `Option`'s text, `Some(...)`, is never written:
 
 ```nomi
 import
@@ -10500,7 +10518,7 @@ fn inbox(unread: Int, active: Bool) -> Html
     Html"<a class=${if active then Some("active") else None}>Inbox${count}</a>"
 end
 
-fn badge(label: String, urgent: Bool, count: Maybe<Int>) -> Html
+fn badge(label: String, urgent: Bool, count: Option<Int>) -> Html
     Html"<span class='badge ${if urgent then Some("urgent") else None}' data-count='${count}'>${label}</span>"
 end
 
@@ -10518,7 +10536,7 @@ end
 <span class='badge ' data-count=''>old</span>
 ```
 
-The rule goes by the slot's type when the program is checked: a value whose type is a type parameter or `Display` writes its `Display` text, `Some(...)` included, when it holds a `Maybe`. In a context that takes a `Display`, a `Maybe` of a `Maybe` is an error at the slot, ``this slot does not show a `Maybe<Maybe<Int>>` ``, with help to flatten it with `Maybe.flatten`. `None` in a URL attribute's value writes an empty value, `href=''`, which is a link to the page itself.
+The rule goes by the slot's type when the program is checked: a value whose type is a type parameter or `Display` writes its `Display` text, `Some(...)` included, when it holds an `Option`. In a context that takes a `Display`, an `Option` of an `Option` is an error at the slot, ``this slot does not show an `Option<Option<Int>>` ``, with help to flatten it with `Option.flatten`. `None` in a URL attribute's value writes an empty value, `href=''`, which is a link to the page itself.
 
 A slot anywhere else is an error at the slot:
 
@@ -10539,7 +10557,7 @@ A raw body, ``Html`...` ``, is a template with no slots under the same rules.
 
 **The value.** Static text is written exactly as it stands, after a triple-quoted literal's indentation strip; no whitespace is collapsed. An `Html` built from templates, `Html.text`, `Html.each` and `Html.concat` is balanced markup, because each template was checked and each slot's value was escaped or was itself such an `Html`. `Html.trusted(markup)` is the one way to insert markup unchecked, for HTML a trusted renderer produced, such as Markdown.
 
-**How it is built.** The literal is read once, when the program is checked; nothing is parsed when it runs. It stands for a call of std::html's `assemble` over the static text and one call per slot. The slot's context picks that function, and in element content the value's type does too (`slot_text` for a `ToHtml`, `slot_text_display` for another `Display`), as it does for a `Maybe` in a context that takes a `Display` (`slot_attribute_maybe`); the function's parameter type is the slot's type rule:
+**How it is built.** The literal is read once, when the program is checked; nothing is parsed when it runs. It stands for a call of std::html's `assemble` over the static text and one call per slot. The slot's context picks that function, and in element content the value's type does too (`slot_text` for a `ToHtml`, `slot_text_display` for another `Display`), as it does for an `Option` in a context that takes a `Display` (`slot_attribute_option`); the function's parameter type is the slot's type rule:
 
 ```nomi
 html.assemble(["<p class=\"", html.slot_attribute(c), "\">", html.slot_text(x), "</p>"])
@@ -10759,7 +10777,7 @@ A Go program that embeds Nomi implements the `host fn`s its Nomi program declare
 
 A function is pure when its result depends only on its inputs and nothing else happens. Its inputs are its arguments and the app fields it reads (§15 *Scoped application fields*). An effect is a call into Go whose declaration does not mark it pure: output, files, the network, the clock, the system's entropy, tasks and channels. Reading an app field is not an effect, and neither is replacing one with `with`, which rebinds an input for the rest of a block as a local binding shadows another. An effect reached through a field's value still counts: a function that calls `App.logger` and so reaches std::io has std::io's effect.
 
-Some code must be pure: a subtype's or validated type's rule (§4 *Subtypes*, §4 *Validated types*), a typed literal's handler run at compile time and a checked literal's `check` (§18 *Typed literals*), and an expression a debugger evaluates. The compiler runs the first three with no app: it calls a rule with the value it checks and a handler with the literal's parts, and has no other value to pass. So they may read no app field, as they may use no other value that exists only while the program runs: ``the rule of Bounded reads `App.limit`: a rule is checked with the value alone, and an app field exists only while the program runs``. A debugger's expression runs in a running program and reads the app fields in force where it stopped.
+Some code must be pure: a refinement's or validated type's rule (§4 *Refinements*, §4 *Validated types*), a typed literal's handler run at compile time and a checked literal's `check` (§18 *Typed literals*), and an expression a debugger evaluates. The compiler runs the first three with no app: it calls a rule with the value it checks and a handler with the literal's parts, and has no other value to pass. So they may read no app field, as they may use no other value that exists only while the program runs: ``the rule of Bounded reads `App.limit`: a rule is checked with the value alone, and an app field exists only while the program runs``. A debugger's expression runs in a running program and reads the app fields in force where it stopped.
 
 A std `host fn` is marked pure where the standard library binds it to Go, when it computes its answer from its operands alone and acts on nothing outside the program. `String.uppercase`, `Map.get` and `Date.to_string` are pure. A function whose one call costs more as an operand's value grows, rather than its size, is pure and also marked unbounded, and is refused where evaluation must be bounded, as in all four places above, since a call into Go cannot be stopped partway: `String.repeat` and `Decimal.divide` are unbounded. A function an embedder's host table implements is always an effect. Code reaches an effect when its body, or any function it may call, has one; a call through an interface counts every implementation of the method.
 

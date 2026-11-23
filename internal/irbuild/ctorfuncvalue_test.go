@@ -4,7 +4,7 @@ import "testing"
 
 // Constructors named as function values (testdata/ctor_func_value): a
 // distinct type (`Id`, a tuple-distinct `Pair`, another file's `ids.UserId`),
-// the std variants bare and qualified (`Some`, `Maybe.Some`, `Ok`,
+// the std variants bare and qualified (`Some`, `Option.Some`, `Ok`,
 // `Result.Err`, `Err` under an annotated binding, `Some` inside a generic
 // body), and a user enum's positional variants (`Shape.Circle`, `Shape.Seg`
 // over a tuple, generic `Box.Full`). Each value is a function whose body is

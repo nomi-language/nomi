@@ -417,12 +417,12 @@
 08-pattern-matching/case_patterns_test.nomi:classify_int	ran
 08-pattern-matching/case_patterns_test.nomi:classify_list	ran
 08-pattern-matching/case_patterns_test.nomi:classify_map	ran
-08-pattern-matching/case_patterns_test.nomi:classify_maybe	ran
+08-pattern-matching/case_patterns_test.nomi:classify_option	ran
 08-pattern-matching/case_patterns_test.nomi:classify_pair	ran
 08-pattern-matching/case_patterns_test.nomi:first_of_pair	ran
 08-pattern-matching/case_patterns_test.nomi:label_bool	ran
-08-pattern-matching/case_patterns_test.nomi:maybe_or_default	ran
-08-pattern-matching/case_patterns_test.nomi:maybe_value	ran
+08-pattern-matching/case_patterns_test.nomi:option_or_default	ran
+08-pattern-matching/case_patterns_test.nomi:option_value	ran
 08-pattern-matching/case_patterns_test.nomi:shape_label	ran
 08-pattern-matching/case_patterns_test.nomi:sum	ran
 08-pattern-matching/case_patterns_test.nomi:unwrap	ran
@@ -451,7 +451,7 @@
 08-pattern-matching/map_patterns_test.nomi:lookup_negative_int	ran
 08-pattern-matching/map_patterns_test.nomi:lookup_nested	ran
 08-pattern-matching/marker_patterns_test.nomi:quiet	ran
-08-pattern-matching/maybe_result_test.nomi:double	ran
+08-pattern-matching/option_result_test.nomi:double	ran
 08-pattern-matching/or_patterns_test.nomi:answer	ran
 08-pattern-matching/or_patterns_test.nomi:closer	ran
 08-pattern-matching/or_patterns_test.nomi:has_two_equal	ran
@@ -633,8 +633,8 @@
 10-generics-and-type-wrappers/covariant_conversion_test.nomi:all_shown	ran
 10-generics-and-type-wrappers/covariant_conversion_test.nomi:all_shown	ran
 10-generics-and-type-wrappers/covariant_conversion_test.nomi:heads	ran
-10-generics-and-type-wrappers/covariant_conversion_test.nomi:maybe.Maybe<Int>.hash	ran
 10-generics-and-type-wrappers/covariant_conversion_test.nomi:opened	ran
+10-generics-and-type-wrappers/covariant_conversion_test.nomi:option.Option<Int>.hash	ran
 10-generics-and-type-wrappers/covariant_conversion_test.nomi:shown	ran
 10-generics-and-type-wrappers/covariant_conversion_test.nomi:sizes	ran
 10-generics-and-type-wrappers/default_type_arguments/default_type_arguments_test.nomi:check Route literal at 33:19 failure	ran
@@ -744,6 +744,18 @@
 10-generics-and-type-wrappers/opaque_types/status.nomi:Status.suspend	ran
 10-generics-and-type-wrappers/opaque_types/status.nomi:Status.suspended_reason	ran
 10-generics-and-type-wrappers/opaque_types/status.nomi:Status.suspended_until	ran
+10-generics-and-type-wrappers/refined_types_test.nomi:Email.unchecked	ran
+10-generics-and-type-wrappers/refined_types_test.nomi:Strict.try_from	ran
+10-generics-and-type-wrappers/refined_types_test.nomi:Strict.unchecked	ran
+10-generics-and-type-wrappers/refined_types_test.nomi:TryFrom.try_from for Email	ran
+10-generics-and-type-wrappers/refined_types_test.nomi:TryFrom.try_from for UserId	ran
+10-generics-and-type-wrappers/refined_types_test.nomi:UserId.unchecked	ran
+10-generics-and-type-wrappers/refined_types_test.nomi:first_error	ran
+10-generics-and-type-wrappers/refined_types_test.nomi:half	ran
+10-generics-and-type-wrappers/refined_types_test.nomi:is_email	ran
+10-generics-and-type-wrappers/refined_types_test.nomi:load	ran
+10-generics-and-type-wrappers/refined_types_test.nomi:smallest	ran
+10-generics-and-type-wrappers/refined_types_test.nomi:swap	ran
 10-generics-and-type-wrappers/refinement_modules/refinement_modules_test.nomi:Hill.try_from	ran
 10-generics-and-type-wrappers/refinement_modules/refinement_modules_test.nomi:Hill.unchecked	ran
 10-generics-and-type-wrappers/refinement_modules/refinement_modules_test.nomi:total	ran
@@ -777,18 +789,6 @@
 10-generics-and-type-wrappers/std_refinements_test.nomi:literal Duration"1m" at 113:31 failure	ran
 10-generics-and-type-wrappers/std_refinements_test.nomi:literal Duration"1m30s" at 81:31 failure	ran
 10-generics-and-type-wrappers/std_refinements_test.nomi:paced	ran
-10-generics-and-type-wrappers/subtypes_test.nomi:Email.unchecked	ran
-10-generics-and-type-wrappers/subtypes_test.nomi:Strict.try_from	ran
-10-generics-and-type-wrappers/subtypes_test.nomi:Strict.unchecked	ran
-10-generics-and-type-wrappers/subtypes_test.nomi:TryFrom.try_from for Email	ran
-10-generics-and-type-wrappers/subtypes_test.nomi:TryFrom.try_from for UserId	ran
-10-generics-and-type-wrappers/subtypes_test.nomi:UserId.unchecked	ran
-10-generics-and-type-wrappers/subtypes_test.nomi:first_error	ran
-10-generics-and-type-wrappers/subtypes_test.nomi:half	ran
-10-generics-and-type-wrappers/subtypes_test.nomi:is_email	ran
-10-generics-and-type-wrappers/subtypes_test.nomi:load	ran
-10-generics-and-type-wrappers/subtypes_test.nomi:smallest	ran
-10-generics-and-type-wrappers/subtypes_test.nomi:swap	ran
 10-generics-and-type-wrappers/type_argument_conversion/routes.nomi:serve	ran
 10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi:Equatable.equal for Pt	ran
 10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi:Hashable.hash for Pt	ran
@@ -826,7 +826,7 @@
 11-interfaces-and-impls/boxed_existentials/protocols.nomi:Show.loud for List<List<Int>>	ran
 11-interfaces-and-impls/boxed_existentials/protocols.nomi:Show.loud for List<String>	ran
 11-interfaces-and-impls/boxed_existentials/protocols.nomi:Show.loud for Map<String, Int>	ran
-11-interfaces-and-impls/boxed_existentials/protocols.nomi:Show.loud for Maybe<String>	ran
+11-interfaces-and-impls/boxed_existentials/protocols.nomi:Show.loud for Option<String>	ran
 11-interfaces-and-impls/boxed_existentials/protocols.nomi:Show.loud for Result<Int, String>	ran
 11-interfaces-and-impls/boxed_existentials/protocols.nomi:Show.loud for Set<String>	ran
 11-interfaces-and-impls/boxed_existentials/protocols.nomi:Show.loud for Shape	ran
@@ -839,7 +839,7 @@
 11-interfaces-and-impls/boxed_existentials/protocols.nomi:Show.show for List<List<Int>>	ran
 11-interfaces-and-impls/boxed_existentials/protocols.nomi:Show.show for List<String>	ran
 11-interfaces-and-impls/boxed_existentials/protocols.nomi:Show.show for Map<String, Int>	ran
-11-interfaces-and-impls/boxed_existentials/protocols.nomi:Show.show for Maybe<String>	ran
+11-interfaces-and-impls/boxed_existentials/protocols.nomi:Show.show for Option<String>	ran
 11-interfaces-and-impls/boxed_existentials/protocols.nomi:Show.show for Result<Int, String>	ran
 11-interfaces-and-impls/boxed_existentials/protocols.nomi:Show.show for Set<String>	ran
 11-interfaces-and-impls/boxed_existentials/protocols.nomi:Show.show for Shape	ran
@@ -854,7 +854,7 @@
 11-interfaces-and-impls/comparable_defaults_test.nomi:bounded	ran
 11-interfaces-and-impls/comparable_defaults_test.nomi:bounded	ran
 11-interfaces-and-impls/container_impls/container_impls_test.nomi:Sized.size for List<Int>	ran
-11-interfaces-and-impls/container_impls/container_impls_test.nomi:Sized.size for Maybe<String>	ran
+11-interfaces-and-impls/container_impls/container_impls_test.nomi:Sized.size for Option<String>	ran
 11-interfaces-and-impls/container_impls/container_impls_test.nomi:has	ran
 11-interfaces-and-impls/container_impls/container_impls_test.nomi:has	ran
 11-interfaces-and-impls/container_impls/container_impls_test.nomi:has	ran
@@ -864,50 +864,50 @@
 11-interfaces-and-impls/container_impls/container_impls_test.nomi:shown	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Holds.holds for List<Int>	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Holds.holds for List<String>	ran
-11-interfaces-and-impls/container_impls/impls.nomi:Holds.holds for Maybe<Int>	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Holds.holds for Option<Int>	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Holds.holds for Vector<Int>	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Holds.holds for Vector<Int>	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Show.loud for List<Int>	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Show.loud for List<List<Int>>	ran
-11-interfaces-and-impls/container_impls/impls.nomi:Show.loud for List<Maybe<Int>>	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Show.loud for List<Option<Int>>	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Show.loud for List<String>	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Show.loud for Map<String, Int>	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Show.loud for Map<String, List<Int>>	ran
-11-interfaces-and-impls/container_impls/impls.nomi:Show.loud for Maybe<Int>	ran
-11-interfaces-and-impls/container_impls/impls.nomi:Show.loud for Maybe<List<Maybe<Int>>>	ran
-11-interfaces-and-impls/container_impls/impls.nomi:Show.loud for Maybe<String>	ran
-11-interfaces-and-impls/container_impls/impls.nomi:Show.loud for Maybe<Vector<Int>>	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Show.loud for Option<Int>	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Show.loud for Option<List<Option<Int>>>	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Show.loud for Option<String>	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Show.loud for Option<Vector<Int>>	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Show.loud for Result<Int, String>	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Show.loud for Set<String>	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Show.loud for Vector<Int>	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Show.show for List<Int>	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Show.show for List<List<Int>>	ran
-11-interfaces-and-impls/container_impls/impls.nomi:Show.show for List<Maybe<Int>>	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Show.show for List<Option<Int>>	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Show.show for List<String>	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Show.show for Map<String, Int>	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Show.show for Map<String, List<Int>>	ran
-11-interfaces-and-impls/container_impls/impls.nomi:Show.show for Maybe<Int>	ran
-11-interfaces-and-impls/container_impls/impls.nomi:Show.show for Maybe<List<Maybe<Int>>>	ran
-11-interfaces-and-impls/container_impls/impls.nomi:Show.show for Maybe<String>	ran
-11-interfaces-and-impls/container_impls/impls.nomi:Show.show for Maybe<Vector<Int>>	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Show.show for Option<Int>	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Show.show for Option<List<Option<Int>>>	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Show.show for Option<String>	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Show.show for Option<Vector<Int>>	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Show.show for Result<Int, String>	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Show.show for Set<String>	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Show.show for Vector<Int>	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Zero.zero for List<Int>	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Zero.zero for List<List<Int>>	ran
-11-interfaces-and-impls/container_impls/impls.nomi:Zero.zero for Maybe<Int>	ran
-11-interfaces-and-impls/container_impls/impls.nomi:Zero.zero for Maybe<List<Int>>	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Zero.zero for Option<Int>	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Zero.zero for Option<List<Int>>	ran
 11-interfaces-and-impls/container_impls/protocols.nomi:Show.loud for Int	ran
 11-interfaces-and-impls/container_impls/protocols.nomi:Show.loud for List<Int>	ran
 11-interfaces-and-impls/container_impls/protocols.nomi:Show.loud for List<List<Int>>	ran
-11-interfaces-and-impls/container_impls/protocols.nomi:Show.loud for List<Maybe<Int>>	ran
+11-interfaces-and-impls/container_impls/protocols.nomi:Show.loud for List<Option<Int>>	ran
 11-interfaces-and-impls/container_impls/protocols.nomi:Show.loud for List<String>	ran
 11-interfaces-and-impls/container_impls/protocols.nomi:Show.loud for Map<String, Int>	ran
 11-interfaces-and-impls/container_impls/protocols.nomi:Show.loud for Map<String, List<Int>>	ran
-11-interfaces-and-impls/container_impls/protocols.nomi:Show.loud for Maybe<Int>	ran
-11-interfaces-and-impls/container_impls/protocols.nomi:Show.loud for Maybe<List<Maybe<Int>>>	ran
-11-interfaces-and-impls/container_impls/protocols.nomi:Show.loud for Maybe<String>	ran
-11-interfaces-and-impls/container_impls/protocols.nomi:Show.loud for Maybe<Vector<Int>>	ran
+11-interfaces-and-impls/container_impls/protocols.nomi:Show.loud for Option<Int>	ran
+11-interfaces-and-impls/container_impls/protocols.nomi:Show.loud for Option<List<Option<Int>>>	ran
+11-interfaces-and-impls/container_impls/protocols.nomi:Show.loud for Option<String>	ran
+11-interfaces-and-impls/container_impls/protocols.nomi:Show.loud for Option<Vector<Int>>	ran
 11-interfaces-and-impls/container_impls/protocols.nomi:Show.loud for Result<Int, String>	ran
 11-interfaces-and-impls/container_impls/protocols.nomi:Show.loud for Set<String>	ran
 11-interfaces-and-impls/container_impls/protocols.nomi:Show.loud for String	ran
@@ -1320,15 +1320,15 @@
 12-derives-and-standard-interfaces/ordering/ordering_test.nomi:Debug.inspect for OrderedPoint	ran
 12-derives-and-standard-interfaces/ordering/test_helpers.nomi:has_diagnostic	ran
 12-derives-and-standard-interfaces/ordering/test_helpers.nomi:hover_signature	ran
+12-derives-and-standard-interfaces/refinement_fields_test.nomi:Equatable.equal for Pace	ran
+12-derives-and-standard-interfaces/refinement_fields_test.nomi:Hashable.hash for Pace	ran
+12-derives-and-standard-interfaces/refinement_fields_test.nomi:literal Duration"1m" at 18:31 failure	ran
+12-derives-and-standard-interfaces/refinement_fields_test.nomi:literal Duration"1m" at 19:39 failure	ran
+12-derives-and-standard-interfaces/refinement_fields_test.nomi:literal Duration"1m" at 21:68 failure	ran
+12-derives-and-standard-interfaces/refinement_fields_test.nomi:literal Duration"5s" at 20:36 failure	ran
 12-derives-and-standard-interfaces/std_generics_over_program_types_test.nomi:Comparable.compare for Rev	ran
 12-derives-and-standard-interfaces/std_generics_over_program_types_test.nomi:Equatable.equal for Loose	ran
 12-derives-and-standard-interfaces/std_generics_over_program_types_test.nomi:Equatable.equal for Pt	ran
-12-derives-and-standard-interfaces/subtype_fields_test.nomi:Equatable.equal for Pace	ran
-12-derives-and-standard-interfaces/subtype_fields_test.nomi:Hashable.hash for Pace	ran
-12-derives-and-standard-interfaces/subtype_fields_test.nomi:literal Duration"1m" at 18:31 failure	ran
-12-derives-and-standard-interfaces/subtype_fields_test.nomi:literal Duration"1m" at 19:39 failure	ran
-12-derives-and-standard-interfaces/subtype_fields_test.nomi:literal Duration"1m" at 21:68 failure	ran
-12-derives-and-standard-interfaces/subtype_fields_test.nomi:literal Duration"5s" at 20:36 failure	ran
 12-derives-and-standard-interfaces/summable_test.nomi:Add.add for Cents	ran
 12-derives-and-standard-interfaces/summable_test.nomi:Summable.empty_sum for Cents	ran
 12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	ran
@@ -1391,12 +1391,12 @@
 13-iterators-and-pipes/keyword_pipe_stages_test.nomi:parsed_id	ran
 13-iterators-and-pipes/loop_control_test.nomi:first	ran
 13-iterators-and-pipes/loop_control_test.nomi:first	ran
-13-iterators-and-pipes/maybe_iter_test.nomi:counted	ran
-13-iterators-and-pipes/maybe_iter_test.nomi:half	ran
-13-iterators-and-pipes/maybe_iter_test.nomi:total	ran
 13-iterators-and-pipes/mean_test.nomi:Averageable.mean for Celsius	ran
 13-iterators-and-pipes/min_max_test.nomi:Comparable.compare for Card	ran
 13-iterators-and-pipes/min_max_test.nomi:Comparable.compare for Level	ran
+13-iterators-and-pipes/option_iter_test.nomi:counted	ran
+13-iterators-and-pipes/option_iter_test.nomi:half	ran
+13-iterators-and-pipes/option_iter_test.nomi:total	ran
 13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi:apply	ran
 13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi:divide	ran
 13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi:length_by	ran
@@ -1786,22 +1786,22 @@
 18-json-and-dynamic/json_anon_struct_test.nomi:encoded	ran
 18-json-and-dynamic/json_anon_struct_test.nomi:json_anon_struct_test.Pinned.to_json_field	ran
 18-json-and-dynamic/json_anon_struct_test.nomi:json_anon_struct_test.User.to_json_field	ran
-18-json-and-dynamic/json_anon_struct_test.nomi:maybe.Maybe<{x: Int}>.to_json	ran
-18-json-and-dynamic/json_anon_struct_test.nomi:maybe.Maybe<{x: Int}>.to_json_field	ran
+18-json-and-dynamic/json_anon_struct_test.nomi:option.Option<{x: Int}>.to_json	ran
+18-json-and-dynamic/json_anon_struct_test.nomi:option.Option<{x: Int}>.to_json_field	ran
 18-json-and-dynamic/json_anon_struct_test.nomi:shape_error	ran
 18-json-and-dynamic/json_anon_struct_test.nomi:shape_error	ran
 18-json-and-dynamic/json_anon_struct_test.nomi:shape_error	ran
 18-json-and-dynamic/json_anon_struct_test.nomi:shape_error	ran
-18-json-and-dynamic/json_anon_struct_test.nomi:{detail: maybe.Maybe<Int>, error: String}.to_json	ran
-18-json-and-dynamic/json_anon_struct_test.nomi:{detail: maybe.Maybe<Int>, error: String}.to_json_field	ran
+18-json-and-dynamic/json_anon_struct_test.nomi:{detail: option.Option<Int>, error: String}.to_json	ran
+18-json-and-dynamic/json_anon_struct_test.nomi:{detail: option.Option<Int>, error: String}.to_json_field	ran
 18-json-and-dynamic/json_anon_struct_test.nomi:{error: String}.to_json	ran
 18-json-and-dynamic/json_anon_struct_test.nomi:{error: String}.to_json_field	ran
-18-json-and-dynamic/json_anon_struct_test.nomi:{extra: maybe.Maybe<{k: String}>, items: List<{done: Bool, id: Int}>, name: String}.to_json	ran
-18-json-and-dynamic/json_anon_struct_test.nomi:{extra: maybe.Maybe<{k: String}>, items: List<{done: Bool, id: Int}>, name: String}.to_json_field	ran
-18-json-and-dynamic/json_anon_struct_test.nomi:{order: maybe.Maybe<Int>, title: String}.to_json	ran
-18-json-and-dynamic/json_anon_struct_test.nomi:{order: maybe.Maybe<Int>, title: String}.to_json_field	ran
-18-json-and-dynamic/json_anon_struct_test.nomi:{order: maybe.Maybe<Int>}.to_json	ran
-18-json-and-dynamic/json_anon_struct_test.nomi:{order: maybe.Maybe<Int>}.to_json_field	ran
+18-json-and-dynamic/json_anon_struct_test.nomi:{extra: option.Option<{k: String}>, items: List<{done: Bool, id: Int}>, name: String}.to_json	ran
+18-json-and-dynamic/json_anon_struct_test.nomi:{extra: option.Option<{k: String}>, items: List<{done: Bool, id: Int}>, name: String}.to_json_field	ran
+18-json-and-dynamic/json_anon_struct_test.nomi:{order: option.Option<Int>, title: String}.to_json	ran
+18-json-and-dynamic/json_anon_struct_test.nomi:{order: option.Option<Int>, title: String}.to_json_field	ran
+18-json-and-dynamic/json_anon_struct_test.nomi:{order: option.Option<Int>}.to_json	ran
+18-json-and-dynamic/json_anon_struct_test.nomi:{order: option.Option<Int>}.to_json_field	ran
 18-json-and-dynamic/json_anon_struct_test.nomi:{p: {x: Int, y: Int}}.to_json	ran
 18-json-and-dynamic/json_anon_struct_test.nomi:{p: {x: Int, y: Int}}.to_json_field	ran
 18-json-and-dynamic/json_anon_struct_test.nomi:{user: json_anon_struct_test.User}.to_json	ran
@@ -1855,7 +1855,7 @@
 19-locales/app_locale/main.nomi:boot	ran
 19-locales/app_locale/main.nomi:boot failure	ran
 19-locales/app_locale/main.nomi:greeting	ran
-19-locales/app_locale/main.nomi:literal Locale"en" at 13:31 failure	ran
+19-locales/app_locale/main.nomi:literal Locale"en" at 13:32 failure	ran
 19-locales/app_locale/main.nomi:literal Locale"pl-PL" at 28:23 failure	ran
 19-locales/app_locale/main.nomi:main	ran
 19-locales/collation_cjk/order_test.nomi:literal Locale"en" at 23:42 failure	ran
@@ -3688,6 +3688,7 @@ std/fs/testing.nomi:dir	ran
 std/fs/testing.nomi:first	ran
 std/fs/testing.nomi:in_subdir	ran
 std/fs/testing.nomi:names	ran
+std/fs/testing.nomi:on_a_windows_disk	ran
 std/fs/testing.nomi:on_site	ran
 std/fs/testing.nomi:on_two_handles	ran
 std/fs/testing.nomi:operation_code	ran
@@ -3774,8 +3775,8 @@ std/html.nomi:CssValue.to_css for Css	ran
 std/html.nomi:CssValue.to_css for Decimal	ran
 std/html.nomi:CssValue.to_css for Float	ran
 std/html.nomi:CssValue.to_css for Int	ran
-std/html.nomi:CssValue.to_css for Maybe<Css>	ran
-std/html.nomi:CssValue.to_css for Maybe<Int>	ran
+std/html.nomi:CssValue.to_css for Option<Css>	ran
+std/html.nomi:CssValue.to_css for Option<Int>	ran
 std/html.nomi:Debug.inspect for Html	ran
 std/html.nomi:Equatable.equal for Html	ran
 std/html.nomi:Html.concat	ran
@@ -3787,36 +3788,36 @@ std/html.nomi:Html.to_string	ran
 std/html.nomi:Html.trusted	ran
 std/html.nomi:Html.write_to	ran
 std/html.nomi:OptionalAttribute.attribute for Bool	ran
-std/html.nomi:OptionalAttribute.attribute for Maybe<String>	ran
+std/html.nomi:OptionalAttribute.attribute for Option<String>	ran
 std/html.nomi:ToHtml.to_html for Decimal	ran
 std/html.nomi:ToHtml.to_html for Float	ran
 std/html.nomi:ToHtml.to_html for Html	ran
 std/html.nomi:ToHtml.to_html for Int	ran
 std/html.nomi:ToHtml.to_html for List<Html>	ran
-std/html.nomi:ToHtml.to_html for Maybe<Html>	ran
-std/html.nomi:ToHtml.to_html for Maybe<Int>	ran
+std/html.nomi:ToHtml.to_html for Option<Html>	ran
+std/html.nomi:ToHtml.to_html for Option<Int>	ran
 std/html.nomi:ToHtml.to_html for String	ran
-std/html.nomi:UrlValue.to_url for Maybe<SafeUrl>	ran
-std/html.nomi:UrlValue.to_url for Maybe<Url>	ran
+std/html.nomi:UrlValue.to_url for Option<SafeUrl>	ran
+std/html.nomi:UrlValue.to_url for Option<Url>	ran
 std/html.nomi:UrlValue.to_url for SafeUrl	ran
 std/html.nomi:UrlValue.to_url for Url	ran
 std/html.nomi:assemble	ran
 std/html.nomi:entity	ran
 std/html.nomi:slot_attribute	ran
-std/html.nomi:slot_attribute_maybe	ran
-std/html.nomi:slot_attribute_maybe	ran
+std/html.nomi:slot_attribute_option	ran
+std/html.nomi:slot_attribute_option	ran
 std/html.nomi:slot_css	ran
 std/html.nomi:slot_optional_attribute	ran
 std/html.nomi:slot_rcdata	ran
-std/html.nomi:slot_rcdata_maybe	ran
+std/html.nomi:slot_rcdata_option	ran
 std/html.nomi:slot_text	ran
 std/html.nomi:slot_text_display	ran
 std/html.nomi:slot_url_fragment	ran
-std/html.nomi:slot_url_fragment_maybe	ran
+std/html.nomi:slot_url_fragment_option	ran
 std/html.nomi:slot_url_path	ran
-std/html.nomi:slot_url_path_maybe	ran
+std/html.nomi:slot_url_path_option	ran
 std/html.nomi:slot_url_query	ran
-std/html.nomi:slot_url_query_maybe	ran
+std/html.nomi:slot_url_query_option	ran
 std/html.nomi:slot_url_start	ran
 std/html.nomi:unescape	ran
 std/http.nomi:Body.bytes_of	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -4828,12 +4829,12 @@ std/sql.nomi:FromSql.from_sql for Float	ran
 std/sql.nomi:FromSql.from_sql for Instant	ran
 std/sql.nomi:FromSql.from_sql for Int	ran
 std/sql.nomi:FromSql.from_sql for Json	ran
-std/sql.nomi:FromSql.from_sql for Maybe<Date>	ran
-std/sql.nomi:FromSql.from_sql for Maybe<Decimal>	ran
-std/sql.nomi:FromSql.from_sql for Maybe<Int>	ran
-std/sql.nomi:FromSql.from_sql for Maybe<Maybe<Int>>	ran
-std/sql.nomi:FromSql.from_sql for Maybe<String>	ran
 std/sql.nomi:FromSql.from_sql for NaiveDateTime	ran
+std/sql.nomi:FromSql.from_sql for Option<Date>	ran
+std/sql.nomi:FromSql.from_sql for Option<Decimal>	ran
+std/sql.nomi:FromSql.from_sql for Option<Int>	ran
+std/sql.nomi:FromSql.from_sql for Option<Option<Int>>	ran
+std/sql.nomi:FromSql.from_sql for Option<String>	ran
 std/sql.nomi:FromSql.from_sql for String	ran
 std/sql.nomi:FromSql.from_sql for Time	ran
 std/sql.nomi:FromSql.from_sql for Uuid	ran
@@ -4872,12 +4873,12 @@ std/sql.nomi:ToSql.to_sql for Float	ran
 std/sql.nomi:ToSql.to_sql for Instant	ran
 std/sql.nomi:ToSql.to_sql for Int	ran
 std/sql.nomi:ToSql.to_sql for Json	ran
-std/sql.nomi:ToSql.to_sql for Maybe<Date>	ran
-std/sql.nomi:ToSql.to_sql for Maybe<Instant>	ran
-std/sql.nomi:ToSql.to_sql for Maybe<Int>	ran
-std/sql.nomi:ToSql.to_sql for Maybe<Maybe<Int>>	ran
-std/sql.nomi:ToSql.to_sql for Maybe<String>	ran
 std/sql.nomi:ToSql.to_sql for NaiveDateTime	ran
+std/sql.nomi:ToSql.to_sql for Option<Date>	ran
+std/sql.nomi:ToSql.to_sql for Option<Instant>	ran
+std/sql.nomi:ToSql.to_sql for Option<Int>	ran
+std/sql.nomi:ToSql.to_sql for Option<Option<Int>>	ran
+std/sql.nomi:ToSql.to_sql for Option<String>	ran
 std/sql.nomi:ToSql.to_sql for String	ran
 std/sql.nomi:ToSql.to_sql for Time	ran
 std/sql.nomi:ToSql.to_sql for Uuid	ran
@@ -5230,7 +5231,7 @@ std/url.nomi:escape_query	ran
 std/url.nomi:flag	ran
 std/url.nomi:from_parts	ran
 std/url.nomi:keep_path	ran
-std/url.nomi:maybe_text	ran
+std/url.nomi:option_text	ran
 std/url.nomi:pairs_of	ran
 std/url.nomi:path_slot	ran
 std/url.nomi:place_after	ran

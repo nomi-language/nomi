@@ -21,13 +21,13 @@ end
 
 /// The smallest palindrome that is a product of two factors from `min` to
 /// `max`, or `None` when no product in the range is a palindrome.
-pub fn smallest(min: Int, max: Int) -> Result<Maybe<Product>, Error>
+pub fn smallest(min: Int, max: Int) -> Result<Option<Product>, Error>
     search(min, max, .Ascending)
 end
 
 /// The largest palindrome that is a product of two factors from `min` to
 /// `max`, or `None` when no product in the range is a palindrome.
-pub fn largest(min: Int, max: Int) -> Result<Maybe<Product>, Error>
+pub fn largest(min: Int, max: Int) -> Result<Option<Product>, Error>
     search(min, max, .Descending)
 end
 
@@ -35,7 +35,7 @@ end
 /// from `min` to `max`. The palindromes come in order, so the ones outside
 /// the products' range are dropped from the near end and the walk stops at
 /// the far one.
-fn search(min: Int, max: Int, direction: Direction) -> Result<Maybe<Product>, Error>
+fn search(min: Int, max: Int, direction: Direction) -> Result<Option<Product>, Error>
     if min > max then return Err(.MinAboveMax)
 
     low = min * min
@@ -64,7 +64,7 @@ fn in_order(first: Int, last: Int, direction: Direction) -> Iter<Int>
 end
 
 /// The first of `candidates` with a pair of factors from `min` to `max`.
-fn first_product(candidates: Iter<Int>, min: Int, max: Int) -> Maybe<Product>
+fn first_product(candidates: Iter<Int>, min: Int, max: Int) -> Option<Product>
     candidates
     |> Iter.map(fn value -> Product{value:, factors: factors(value, min, max)})
     |> Iter.find(fn product -> product.factors != [])

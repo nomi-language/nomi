@@ -18,7 +18,7 @@ struct TodoJson
     id:    Uuid
     title: String
     tags:  List<Tag>
-    note:  Maybe<String>
+    note:  Option<String>
 end
 
 derive ToJson for TodoJson

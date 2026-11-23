@@ -140,10 +140,10 @@ fn scram_server(conn: Connection, rest: Bytes, password: String) -> Result<Strin
     mechanisms = String.to_bytes("SCRAM-SHA-256") + Bytes.from_list([0, 0])
     send(conn, "R", auth(10, mechanisms))?
     (initial, rest) = read_message(conn, rest)?
-    after_name = Bytes.index_of_byte(initial, 0) |> Maybe.to_result("no mechanism")?
+    after_name = Bytes.index_of_byte(initial, 0) |> Option.to_result("no mechanism")?
     first = Bytes.to_string_lossy(Bytes.slice(initial, after_name + 5, Bytes.length(initial)))
-    bare = String.strip_prefix(first, "n,,") |> Maybe.to_result("no GS2 header")?
-    client_nonce = String.split(bare, "r=") |> Iter.last() |> Maybe.with_default("")
+    bare = String.strip_prefix(first, "n,,") |> Option.to_result("no GS2 header")?
+    client_nonce = String.split(bare, "r=") |> Iter.last() |> Option.with_default("")
     nonce = client_nonce + "fakeserver"
     salt = String.to_bytes("pepper salt")
     server_first = "r=${nonce},s=${base64.encode(salt)},i=4096"
@@ -151,7 +151,10 @@ fn scram_server(conn: Connection, rest: Bytes, password: String) -> Result<Strin
     (final, _) = read_message(conn, rest)?
     client_final = Bytes.to_string_lossy(final)
     without_proof = "c=biws,r=${nonce}"
-    proof = String.strip_prefix(client_final, without_proof + ",p=") |> Maybe.to_result("no proof")?
+
+    proof =
+        String.strip_prefix(client_final, without_proof + ",p=") |> Option.to_result("no proof")?
+
     salted = hash.pbkdf2_sha256(String.to_bytes(password), salt, 4096, 32)
     stored = hash.sha256(hash.hmac_sha256(salted, String.to_bytes("Client Key")))
     signed = String.to_bytes("${bare},${server_first},${without_proof}")

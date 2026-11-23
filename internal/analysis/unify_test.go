@@ -314,7 +314,7 @@ func TestSubstituteEnumTypeArgs(t *testing.T) {
 	tpV := &TypeParam_{Name_: "V"}
 	subs := map[*TypeParam_]Type{tpV: TypeInt}
 	input := &EnumType{
-		Name:     "Maybe",
+		Name:     "Option",
 		TypeArgs: []Type{tpV},
 		Variants: []VariantDef{
 			{Name: "Some", DataType: tpV},
@@ -326,8 +326,8 @@ func TestSubstituteEnumTypeArgs(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected EnumType, got %T", result)
 	}
-	if et.String() != "Maybe<Int>" {
-		t.Fatalf("expected Maybe<Int>, got %s", et.String())
+	if et.String() != "Option<Int>" {
+		t.Fatalf("expected Option<Int>, got %s", et.String())
 	}
 	if et.Variants[0].DataType != TypeInt {
 		t.Fatalf("expected Some(Int), got Some(%s)", et.Variants[0].DataType)
@@ -392,7 +392,7 @@ func TestSubstitute_RecursiveEnumTerminates(t *testing.T) {
 }
 
 func TestSubstituteMapGetScenario(t *testing.T) {
-	// Simulates: host fn Get(m: Map<K, V>, key: K): Maybe<V>
+	// Simulates: host fn Get(m: Map<K, V>, key: K): Option<V>
 	// Called as: map.Get(ages, "alice") where ages: Map<String, Int>
 	subs := map[*TypeParam_]Type{}
 
@@ -406,7 +406,7 @@ func TestSubstituteMapGetScenario(t *testing.T) {
 	}
 
 	returnType := &EnumType{
-		Name:     "Maybe",
+		Name:     "Option",
 		TypeArgs: []Type{tpV},
 		Variants: []VariantDef{
 			{Name: "Some", DataType: tpV},
@@ -415,8 +415,8 @@ func TestSubstituteMapGetScenario(t *testing.T) {
 	}
 
 	result := Substitute(returnType, subs)
-	if result.String() != "Maybe<Int>" {
-		t.Fatalf("expected Maybe<Int>, got %s", result.String())
+	if result.String() != "Option<Int>" {
+		t.Fatalf("expected Option<Int>, got %s", result.String())
 	}
 
 	et := result.(*EnumType)
@@ -453,11 +453,11 @@ func TestUnifyEnumTypeArgs(t *testing.T) {
 	subs := map[*TypeParam_]Type{}
 	tpV := &TypeParam_{Name_: "V"}
 	a := &EnumType{
-		Name:     "Maybe",
+		Name:     "Option",
 		TypeArgs: []Type{tpV},
 	}
 	b := &EnumType{
-		Name:     "Maybe",
+		Name:     "Option",
 		TypeArgs: []Type{TypeInt},
 	}
 	if err := UnifyWith(a, b, subs); err != nil {
@@ -469,10 +469,10 @@ func TestUnifyEnumTypeArgs(t *testing.T) {
 }
 
 func TestUnifyEnumTypeMismatch(t *testing.T) {
-	a := &EnumType{Name: "Maybe", TypeArgs: []Type{TypeInt}}
+	a := &EnumType{Name: "Option", TypeArgs: []Type{TypeInt}}
 	b := &EnumType{Name: "Result", TypeArgs: []Type{TypeInt}}
 	if err := Unify(a, b); err == nil {
-		t.Fatal("expected error for Maybe vs Result")
+		t.Fatal("expected error for Option vs Result")
 	}
 }
 

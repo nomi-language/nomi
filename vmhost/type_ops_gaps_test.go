@@ -31,7 +31,77 @@ type typeOpGap struct {
 
 // knownTypeOpGaps are the grid's failures. A fix removes its entry in the
 // same change.
-var knownTypeOpGaps = []typeOpGap{}
+var knownTypeOpGaps = []typeOpGap{
+	{
+		name: "a function returning an Option of an Option widened to one returning Display",
+		kind: "declines",
+		fix: "internal/irbuild: a function value whose result is an Option<Option<Int>> enters a `() -> Display` " +
+			"position through an adapter, as one returning an Option<Int> does",
+		cells:  regexp.MustCompile(`^option option × into a function returning Display$`),
+		detail: regexp.MustCompile(`a value of kind \(\) -> Option<Option<Int>> where \(\) -> Display is expected`),
+		src: `fn main()
+    v = Some(Some(1))
+    f = fn -> v
+    g: () -> Display = f
+    dbg "${g()}"
+end
+`,
+	},
+	{
+		name: "in over a container of functions",
+		kind: "should reject",
+		fix: "the checker: List's `T: Equatable` at a List or Map that holds a function is met at the impl match " +
+			"(typeSatisfiesInterfaceForImplMatch), where `==` and Iter.contains refuse it (noEqualityPartWith)",
+		cells:  regexp.MustCompile(`^(list fn|map fn value) × in$`),
+		detail: regexp.MustCompile(`Contains\.contains`),
+		src: `fn inc(n: Int) -> Int
+    n + 1
+end
+
+fn main()
+    v: List<(Int) -> Int> = [inc]
+    dbg v in [[inc]]
+end
+`,
+	},
+	{
+		name: "in over a List of interface conjunction values",
+		kind: "should accept",
+		fix: "the checker: a conjunction value meets List's `T: Equatable` as `==` and Iter.contains compare it; " +
+			"typeSatisfiesInterfaceForImplMatch has an arm for an interface value and none for a conjunction",
+		cells:  regexp.MustCompile(`^interface conjunction value × in$`),
+		detail: regexp.MustCompile("List<Named and Tagged> does not implement Contains"),
+		src: `interface Named
+    fn name(value: self) -> String
+end
+
+interface Tagged
+    fn tag(value: self) -> String
+end
+
+struct Pt
+    x: Int
+end
+
+impl Named for Pt
+    fn name(p: Pt) -> String
+        "pt${p.x}"
+    end
+end
+
+impl Tagged for Pt
+    fn tag(p: Pt) -> String
+        "t${p.x}"
+    end
+end
+
+fn main()
+    v: Named and Tagged = (Pt{x: 1} as (Named and Tagged))
+    dbg v in [v]
+end
+`,
+	},
+}
 
 // knownTypeOpGapFor is the gap that excuses c's outcome o, or nil.
 func knownTypeOpGapFor(c toCell, o mxOutcome) *typeOpGap {

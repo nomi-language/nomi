@@ -20,13 +20,13 @@ const refinementSrc = `import
     std::io
 end
 
-subtype Probability NonNegativeFloat when fn p -> p <= 1.0
+refine Probability NonNegativeFloat when fn p -> p <= 1.0
 
-subtype Port Int when fn port -> port >= 1 and port <= 65535
+refine Port Int when fn port -> port >= 1 and port <= 65535
 
-subtype Capped Float when fn x -> x < 0.9
+refine Capped Float when fn x -> x < 0.9
 
-subtype Half Probability and Capped when fn p -> p <= 0.5
+refine Half Probability and Capped when fn p -> p <= 0.5
 
 struct Span
     low:  Int
@@ -34,15 +34,15 @@ struct Span
     when fn span -> span.low <= span.high
 end
 
-subtype Pair List<Int> when fn xs -> List.length(xs) == 2
+refine Pair List<Int> when fn xs -> List.length(xs) == 2
 
-subtype Weights Map<String, Float> when fn m -> Map.size(m) > 0
+refine Weights Map<String, Float> when fn m -> Map.size(m) > 0
 
-subtype Many<T> List<T> when fn xs -> not Iter.is_empty(xs)
+refine Many<T> List<T> when fn xs -> not Iter.is_empty(xs)
 
-subtype Ascending<T> List<T> where T: Comparable when fn xs -> Iter.zip(xs, Iter.drop(xs, 1)) |> Iter.all_match(fn (a, b) -> a <= b)
+refine Ascending<T> List<T> where T: Comparable when fn xs -> Iter.zip(xs, Iter.drop(xs, 1)) |> Iter.all_match(fn (a, b) -> a <= b)
 
-subtype Run<T> Many<T> and Ascending<T> where T: Comparable when fn xs -> List.length(xs) <= 3
+refine Run<T> Many<T> and Ascending<T> where T: Comparable when fn xs -> List.length(xs) <= 3
 
 fn interval(d: PositiveDuration) -> Duration
     d
@@ -60,7 +60,7 @@ fn per_slot(total: Int, slots: PositiveInt) -> Int
     total / slots
 end
 
-subtype Wide Range<Int> when fn r -> Range.contains(r, 0) and Range.contains(r, 5)
+refine Wide Range<Int> when fn r -> Range.contains(r, 0) and Range.contains(r, 5)
 
 fn span(r: Wide) -> Int
     Iter.count(r)
@@ -75,23 +75,23 @@ func TestRefinement_LiteralsAreCheckedWhenTheProgramIsCompiled(t *testing.T) {
 		{"    io.inspect(chance(1.5))\n",
 			"1.5 is not a Probability: `fn p -> p <= 1.0` is false"},
 		{"    io.inspect(chance(-0.5))\n",
-			"-0.5 is not a Probability: Probability is a subtype of NonNegativeFloat, and NonNegativeFloat's rule `fn x -> x >= 0.0` is false"},
+			"-0.5 is not a Probability: Probability is a refinement of NonNegativeFloat, and NonNegativeFloat's rule `fn x -> x >= 0.0` is false"},
 		{"    n: PositiveInt = -3\n    io.inspect(n)\n",
-			"-3 is not a PositiveInt: PositiveInt is a subtype of NonNegativeInt, and NonNegativeInt's rule `fn n -> n >= 0` is false"},
+			"-3 is not a PositiveInt: PositiveInt is a refinement of NonNegativeInt, and NonNegativeInt's rule `fn n -> n >= 0` is false"},
 		{"    h: Half = -0.1\n    io.inspect(h)\n",
-			"-0.1 is not a Half: Half is a subtype of Probability, which is a subtype of NonNegativeFloat, and NonNegativeFloat's rule `fn x -> x >= 0.0` is false"},
+			"-0.1 is not a Half: Half is a refinement of Probability, which is a refinement of NonNegativeFloat, and NonNegativeFloat's rule `fn x -> x >= 0.0` is false"},
 		{"    h: Half = 0.95\n    io.inspect(h)\n",
-			"0.95 is not a Half: Half is a subtype of Capped, and Capped's rule `fn x -> x < 0.9` is false"},
+			"0.95 is not a Half: Half is a refinement of Capped, and Capped's rule `fn x -> x < 0.9` is false"},
 		{"    h: Half = 0.7\n    io.inspect(h)\n",
 			"0.7 is not a Half: `fn p -> p <= 0.5` is false"},
 		{"    d: NonZeroDecimal = 0.00d\n    io.inspect(d)\n",
 			"0.00d is not a NonZeroDecimal: `fn d -> d != 0d` is false"},
 		{"    d: PositiveDecimal = -1.5d\n    io.inspect(d)\n",
-			"-1.5d is not a PositiveDecimal: PositiveDecimal is a subtype of NonNegativeDecimal, and NonNegativeDecimal's rule `fn d -> d >= 0d` is false"},
+			"-1.5d is not a PositiveDecimal: PositiveDecimal is a refinement of NonNegativeDecimal, and NonNegativeDecimal's rule `fn d -> d >= 0d` is false"},
 		{"    s: NonEmptyString = \"\"\n    io.inspect(s)\n",
 			"\"\" is not a NonEmptyString: `fn s -> s != \"\"` is false"},
 		{"    t: PositiveDuration = Duration\"0s\"\n    io.inspect(t)\n",
-			"Duration\"0s\" is not a PositiveDuration: PositiveDuration is a subtype of NonZeroDuration, and NonZeroDuration's rule `fn d -> Duration.as_nanos(d) != 0` is false"},
+			"Duration\"0s\" is not a PositiveDuration: PositiveDuration is a refinement of NonZeroDuration, and NonZeroDuration's rule `fn d -> Duration.as_nanos(d) != 0` is false"},
 		{"    io.inspect(wait(Duration\"-1s\"))\n",
 			"Duration\"-1s\" is not a NonNegativeDuration: `fn d -> Duration.as_nanos(d) >= 0` is false"},
 		{"    io.inspect(String.repeat(\"ab\", -2))\n",
@@ -99,7 +99,7 @@ func TestRefinement_LiteralsAreCheckedWhenTheProgramIsCompiled(t *testing.T) {
 		{"    io.inspect(span(1..3))\n",
 			"this Wide literal breaks its rule: `fn r -> Range.contains(r, 0) and Range.contains(r, 5)` is false"},
 		{"    io.inspect(Iter.chunks([1, 2], 0) |> Iter.to_list())\n",
-			"0 is not a PositiveInt: PositiveInt is a subtype of NonZeroInt, and NonZeroInt's rule `fn n -> n != 0` is false"},
+			"0 is not a PositiveInt: PositiveInt is a refinement of NonZeroInt, and NonZeroInt's rule `fn n -> n != 0` is false"},
 		{"    io.inspect(Int.pow(2, -1))\n",
 			"-1 is not a NonNegativeInt: `fn n -> n >= 0` is false"},
 		{"    io.inspect(Port(70000))\n",
@@ -112,7 +112,7 @@ func TestRefinement_LiteralsAreCheckedWhenTheProgramIsCompiled(t *testing.T) {
 			"this Pair literal breaks its rule: `fn xs -> List.length(xs) == 2` is false"},
 		{"    ps: List<Pair> = [[1, 2], [3]]\n    io.inspect(ps)\n",
 			"this Pair literal breaks its rule: `fn xs -> List.length(xs) == 2` is false"},
-		{"    w: Maybe<Weights> = Some({})\n    io.inspect(w)\n",
+		{"    w: Option<Weights> = Some({})\n    io.inspect(w)\n",
 			"this Weights literal breaks its rule: `fn m -> Map.size(m) > 0` is false"},
 		{"    m: Many<String> = []\n    io.inspect(m)\n",
 			"this Many<String> literal breaks its rule: `fn xs -> not Iter.is_empty(xs)` is false"},
@@ -123,7 +123,7 @@ func TestRefinement_LiteralsAreCheckedWhenTheProgramIsCompiled(t *testing.T) {
 		{"    r: Run<Int> = [1, 2, 3, 4]\n    io.inspect(r)\n",
 			"this Run<Int> literal breaks its rule: `fn xs -> List.length(xs) <= 3` is false"},
 		{"    ms: List<Many<PositiveInt>> = [[1], [0]]\n    io.inspect(ms)\n",
-			"0 is not a PositiveInt: PositiveInt is a subtype of NonZeroInt, and NonZeroInt's rule `fn n -> n != 0` is false"},
+			"0 is not a PositiveInt: PositiveInt is a refinement of NonZeroInt, and NonZeroInt's rule `fn n -> n != 0` is false"},
 		{"    c = Port.try_from(1) == None\n    n: NonNegativeInt = if c then 1 else -1\n    io.inspect(n)\n",
 			"-1 is not a NonNegativeInt: `fn n -> n >= 0` is false"},
 	} {
@@ -134,12 +134,12 @@ func TestRefinement_LiteralsAreCheckedWhenTheProgramIsCompiled(t *testing.T) {
 	}
 }
 
-// The prelude's range subtypes check a range literal's bounds against each
+// The prelude's range refinements check a range literal's bounds against each
 // other when the program is compiled: their rules read the range's parts
 // (Range.start, Range.stop, Range.is_inclusive), which lower for any
 // Comparable element, so clamp's ClosedRange and random's BoundedRange are
 // checked at every element type they take.
-func TestRefinement_RangeSubtypesCheckBoundsThatMustAgree(t *testing.T) {
+func TestRefinement_RangeRefinementsCheckBoundsThatMustAgree(t *testing.T) {
 	nonEmpty := func(elem string) string {
 		return "breaks the rule of NonEmptyRange<" + elem + ">, a supertype of it: `fn r -> Range.contains(r, Range.start(r))` is false"
 	}
@@ -170,9 +170,9 @@ func TestRefinement_RangeSubtypesCheckBoundsThatMustAgree(t *testing.T) {
 
 // A range's parts read the same for every element type, a range computed
 // when the program runs goes through try_from, and clamp and random take
-// the range subtypes: an unbounded range clamps only below, and a range
+// the range refinements: an unbounded range clamps only below, and a range
 // with a NaN end is no ClosedRange.
-func TestRefinement_RangeSubtypesRunOverTheirParts(t *testing.T) {
+func TestRefinement_RangeRefinementsRunOverTheirParts(t *testing.T) {
 	p, err := LoadSource("main", `import
     std::io
     std::random.{Generator, Seed}
@@ -216,18 +216,18 @@ end
 	}
 }
 
-// A subtype a listed std module declares (std::process's ExitCode) is lowered
+// A refinement a listed std module declares (std::process's ExitCode) is lowered
 // with the listed modules, which name its `try_from` by its impl block, as a
 // program's own are (irbuild's implFuncLink): its literals are checked as a
 // shared module's are, in a field and an argument alike.
-func TestRefinement_AListedStdModulesSubtypeChecksItsLiterals(t *testing.T) {
+func TestRefinement_AListedStdModulesRefinementChecksItsLiterals(t *testing.T) {
 	for _, tc := range []struct{ src, want string }{
 		{"import std::process.Exit\n\nfn main() -> Result<Unit, Exit>\n    Err(Exit{code: 300})\nend\n",
 			"300 is not an ExitCode: `fn code -> code >= 0 and code <= 255` is false"},
 		{"import std::process.ExitCode\n\nfn main()\n    c: ExitCode = -1\n    dbg c\nend\n",
 			"-1 is not an ExitCode: `fn code -> code >= 0 and code <= 255` is false"},
 		{"import std::tasks.Task\n\nfn main()\n    xs = concurrent\n        Task.spawn_all([1], &(&1 * 2), max_running: 0) |> Task.await_all()\n    end\n    dbg xs\nend\n",
-			"0 is not a PositiveInt: PositiveInt is a subtype of NonZeroInt, and NonZeroInt's rule `fn n -> n != 0` is false"},
+			"0 is not a PositiveInt: PositiveInt is a refinement of NonZeroInt, and NonZeroInt's rule `fn n -> n != 0` is false"},
 	} {
 		ds := literalDiagnostics(t, tc.src)
 		if len(ds) != 1 || ds[0].Message != tc.want || ds[0].Code != InvalidRefinementCode {
@@ -239,17 +239,17 @@ func TestRefinement_AListedStdModulesSubtypeChecksItsLiterals(t *testing.T) {
 	}
 }
 
-// A literal of a generic subtype another file declares is checked through
+// A literal of a generic refinement another file declares is checked through
 // that declaration's `try_from`, whatever the literal's file names: a file
-// that imports only a function taking the subtype checks its literal
-// arguments, an import of the subtype's name alone for them is unused, and
+// that imports only a function taking the refinement checks its literal
+// arguments, an import of the refinement's name alone for them is unused, and
 // a file declaring its own type of the same name still checks against the
 // other file's rule.
-func TestRefinement_AGenericSubtypesLiteralNeedsNoNameInScope(t *testing.T) {
-	const lib = "pub subtype Many<T> List<T> when fn xs -> List.length(xs) > 1\n\n" +
-		"pub subtype Asc<T> List<T> where T: Comparable when fn xs -> Iter.zip(xs, Iter.drop(xs, 1)) |> Iter.all_match(fn (a, b) -> a <= b)\n\n" +
+func TestRefinement_AGenericRefinementsLiteralNeedsNoNameInScope(t *testing.T) {
+	const lib = "pub refine Many<T> List<T> when fn xs -> List.length(xs) > 1\n\n" +
+		"pub refine Asc<T> List<T> where T: Comparable when fn xs -> Iter.zip(xs, Iter.drop(xs, 1)) |> Iter.all_match(fn (a, b) -> a <= b)\n\n" +
 		"pub fn first(xs: Many<Int>) -> Int\n    Iter.first(xs)!\nend\n\n" +
-		"pub fn top<T>(xs: Asc<T>) -> Maybe<T> where T: Comparable\n    Iter.last(xs)\nend\n"
+		"pub fn top<T>(xs: Asc<T>) -> Option<T> where T: Comparable\n    Iter.last(xs)\nend\n"
 	got := runProject(t, map[string]string{"lib.nomi": lib, "main.nomi": "import\n    std::io\n    lib.{first, top}\nend\n\n" +
 		"fn main()\n    io.inspect(first([1, 2]))\n    io.inspect(top([1, 3]))\nend\n"})
 	if want := "1\nSome(3)\n"; got != want {
@@ -260,7 +260,7 @@ func TestRefinement_AGenericSubtypesLiteralNeedsNoNameInScope(t *testing.T) {
 			"this Many<Int> literal breaks its rule: `fn xs -> List.length(xs) > 1` is false"},
 		{"a bounded rule", "import lib.top\n\nfn main()\n    dbg top([3, 1])\nend\n",
 			"this Asc<Int> literal breaks its rule: `fn xs -> Iter.zip(xs, Iter.drop(xs, 1)) |> Iter.all_match(fn (a, b) -> a <= b)` is false"},
-		{"a name of its own", "import lib.first\n\nsubtype Many<T> List<T> when fn xs -> List.length(xs) > 5\n\n" +
+		{"a name of its own", "import lib.first\n\nrefine Many<T> List<T> when fn xs -> List.length(xs) > 5\n\n" +
 			"fn main()\n    m: Many<Int> = [1, 2, 3, 4, 5, 6]\n    dbg m\n    dbg first([1])\nend\n",
 			"this Many<Int> literal breaks its rule: `fn xs -> List.length(xs) > 1` is false"},
 		{"an import used by nothing", "import lib.{Many, first}\n\nfn main()\n    dbg first([1, 2])\nend\n",
@@ -288,35 +288,35 @@ func TestRefinement_AGenericSubtypesLiteralNeedsNoNameInScope(t *testing.T) {
 
 // A literal of another file's type is checked by that type's own rule in a
 // file that declares a type of the same name with another rule: a generic
-// subtype passed to a function, named through an alias, or written in a
+// refinement passed to a function, named through an alias, or written in a
 // test block, and a validated type, generic or not, built through an
 // alias. Each main file's own type has a rule the literal breaks where the
 // other file's holds, or holds where the other file's breaks, so a check
 // run through the local type's `try_from` fails the case.
 func TestRefinement_ALiteralKeepsItsTypesRuleBesideALocalTypeOfItsName(t *testing.T) {
-	const many = "pub subtype Many<T> List<T> when fn xs -> List.length(xs) > 1\n\n" +
+	const many = "pub refine Many<T> List<T> when fn xs -> List.length(xs) > 1\n\n" +
 		"pub fn first(xs: Many<Int>) -> Int\n    Iter.first(xs)!\nend\n"
 	const code = "pub type Code Int when fn n -> n > 1\n\npub fn f(c: Code) -> Code\n    c\nend\n"
 	const pair = "pub type Pair<T> List<T> when fn xs -> List.length(xs) == 2\n\n" +
 		"pub fn f(p: Pair<Int>) -> Pair<Int>\n    p\nend\n"
 	for _, tc := range []struct{ name, lib, main, out, err string }{
-		{"a generic subtype", many,
-			"import lib.first\n\nsubtype Many<T> List<T> when fn xs -> List.length(xs) > 5\n\n" +
+		{"a generic refinement", many,
+			"import lib.first\n\nrefine Many<T> List<T> when fn xs -> List.length(xs) > 5\n\n" +
 				"fn main()\n    m: Many<Int> = [1, 2, 3, 4, 5, 6]\n    dbg m\n    dbg first([1, 2])\nend\n",
 			"dbg line 7: m = [1, 2, 3, 4, 5, 6]\ndbg line 8: first([1, 2]) = 1\n", ""},
-		{"a generic subtype it breaks", many,
-			"import lib.first\n\nsubtype Many<T> List<T> when fn xs -> List.length(xs) > 0\n\nfn main()\n    dbg first([1])\nend\n",
+		{"a generic refinement it breaks", many,
+			"import lib.first\n\nrefine Many<T> List<T> when fn xs -> List.length(xs) > 0\n\nfn main()\n    dbg first([1])\nend\n",
 			"", "this Many<Int> literal breaks its rule: `fn xs -> List.length(xs) > 1` is false"},
-		{"a generic subtype under an alias", many,
-			"import lib.Many as M\n\nsubtype Many<T> List<T> when fn xs -> List.length(xs) > 5\n\n" +
+		{"a generic refinement under an alias", many,
+			"import lib.Many as M\n\nrefine Many<T> List<T> when fn xs -> List.length(xs) > 5\n\n" +
 				"fn main()\n    k: M<Int> = [1, 2]\n    dbg k\nend\n",
 			"dbg line 7: k = [1, 2]\n", ""},
-		{"a generic subtype under an alias it breaks", many,
-			"import lib.Many as M\n\nsubtype Many<T> List<T> when fn xs -> List.length(xs) > 0\n\n" +
+		{"a generic refinement under an alias it breaks", many,
+			"import lib.Many as M\n\nrefine Many<T> List<T> when fn xs -> List.length(xs) > 0\n\n" +
 				"fn main()\n    k: M<Int> = [1]\n    dbg k\nend\n",
 			"", "this Many<Int> literal breaks its rule: `fn xs -> List.length(xs) > 1` is false"},
-		{"a generic subtype in a test", many,
-			"import lib.first\n\nsubtype Many<T> List<T> when fn xs -> List.length(xs) > 0\n\n" +
+		{"a generic refinement in a test", many,
+			"import lib.first\n\nrefine Many<T> List<T> when fn xs -> List.length(xs) > 0\n\n" +
 				"test \"first\"\n    assert first([1]) == 1\nend\n",
 			"", "this Many<Int> literal breaks its rule: `fn xs -> List.length(xs) > 1` is false"},
 		{"a validated type", code,
@@ -363,10 +363,10 @@ func TestRefinement_ARuleThatCannotBeEvaluated(t *testing.T) {
 	const decls = "import std::io\n\n" +
 		"fn loud(n: Int) -> Bool\n    io.print(\"checking\")\n    n > 0\nend\n\n" +
 		"fn spin(n: Int) -> Bool\n    if n > 100000000 then True else spin(n + 1)\nend\n\n" +
-		"subtype Noisy Int when loud\n" +
-		"subtype Slow Int when spin\n" +
-		"subtype Trapping Int when fn n -> 10 / NonZeroInt.try_from(n)! > 1\n" +
-		"subtype Padded String when fn s -> String.length(String.repeat(s, 2)) < 10\n\n"
+		"refine Noisy Int when loud\n" +
+		"refine Slow Int when spin\n" +
+		"refine Trapping Int when fn n -> 10 / NonZeroInt.try_from(n)! > 1\n" +
+		"refine Padded String when fn s -> String.length(String.repeat(s, 2)) < 10\n\n"
 	for _, tc := range []struct{ body, want string }{
 		{"    io.inspect(Noisy.try_from(1))\n",
 			"the rule of Noisy has effects (loud calls io.print): a rule is a pure function of the value it checks"},
@@ -396,11 +396,11 @@ func TestRefinement_ARuleThatCannotBeEvaluated(t *testing.T) {
 // literal of it is not reported again. A pure one is no error.
 func TestRefinement_AGenericRuleWithEffectsIsAnErrorAtItsDeclaration(t *testing.T) {
 	const src = "import std::io\n\n" +
-		"subtype Loud<T> List<T> when fn xs ->\n    io.print(\"checking\")\n    not Iter.is_empty(xs)\nend\n\n" +
-		"subtype Sorted<T> List<T> where T: Comparable when fn xs ->\n    io.print(\"sorting\")\n    Iter.zip(xs, Iter.drop(xs, 1)) |> Iter.all_match(fn (a, b) -> a <= b)\nend\n\n" +
-		"subtype Filled<K, V> Map<K, V> when fn m ->\n    io.print(\"filling\")\n    Map.size(m) > 0\nend\n\n" +
-		"subtype Quiet<T> List<T> when fn xs -> not Iter.is_empty(xs)\n\n" +
-		"subtype Over<T> Quiet<T> when fn xs ->\n    io.print(\"over\")\n    List.length(xs) > 1\nend\n\n"
+		"refine Loud<T> List<T> when fn xs ->\n    io.print(\"checking\")\n    not Iter.is_empty(xs)\nend\n\n" +
+		"refine Sorted<T> List<T> where T: Comparable when fn xs ->\n    io.print(\"sorting\")\n    Iter.zip(xs, Iter.drop(xs, 1)) |> Iter.all_match(fn (a, b) -> a <= b)\nend\n\n" +
+		"refine Filled<K, V> Map<K, V> when fn m ->\n    io.print(\"filling\")\n    Map.size(m) > 0\nend\n\n" +
+		"refine Quiet<T> List<T> when fn xs -> not Iter.is_empty(xs)\n\n" +
+		"refine Over<T> Quiet<T> when fn xs ->\n    io.print(\"over\")\n    List.length(xs) > 1\nend\n\n"
 	for _, tc := range []struct{ name, body string }{
 		{"no literal or call", "    io.print(\"hi\")\n"},
 		{"a literal of each", "    a: Loud<Int> = [1]\n    b: Over<Int> = [1, 2]\n    io.inspect((a, b))\n"},
@@ -411,10 +411,10 @@ func TestRefinement_AGenericRuleWithEffectsIsAnErrorAtItsDeclaration(t *testing.
 				line, col int
 				msg       string
 			}{
-				{3, 25, "the rule of Loud has effects (lambda calls io.print): a rule is a pure function of the value it checks"},
-				{8, 47, "the rule of Sorted has effects (lambda calls io.print): a rule is a pure function of the value it checks"},
-				{13, 32, "the rule of Filled has effects (lambda calls io.print): a rule is a pure function of the value it checks"},
-				{20, 26, "the rule of Over has effects (lambda calls io.print): a rule is a pure function of the value it checks"},
+				{3, 24, "the rule of Loud has effects (lambda calls io.print): a rule is a pure function of the value it checks"},
+				{8, 46, "the rule of Sorted has effects (lambda calls io.print): a rule is a pure function of the value it checks"},
+				{13, 31, "the rule of Filled has effects (lambda calls io.print): a rule is a pure function of the value it checks"},
+				{20, 25, "the rule of Over has effects (lambda calls io.print): a rule is a pure function of the value it checks"},
 			}
 			if len(ds) != len(want) {
 				t.Fatalf("diagnostics = %v, want %d", ds, len(want))
@@ -445,9 +445,9 @@ func TestRefinement_AGenericRuleIsCheckedThroughEveryImplOfItsBounds(t *testing.
 		"impl Named for Loud\n    fn name(l: Loud) -> String\n        io.print(\"named\")\n        \"${l.n}\"\n    end\nend\n\n"
 	const box = "struct Box<T>\n    v: T\nend\n\n" +
 		"impl<T> Display for Box<T> where T: Display\n    fn to_string(b: Box<T>) -> String\n        io.print(\"boxed\")\n        \"box ${b.v}\"\n    end\nend\n\n"
-	const rules = "subtype Shown<T> List<T> where T: Display when fn xs -> Iter.all_match(xs, fn x -> Display.to_string(x) != \"\")\n\n" +
-		"subtype Sorted<T> List<T> where T: Comparable when fn xs -> Iter.zip(xs, Iter.drop(xs, 1)) |> Iter.all_match(fn (a, b) -> a <= b)\n\n" +
-		"subtype Tagged<T> List<T> where T: Named when fn xs -> Iter.all_match(xs, fn x -> Named.name(x) != \"\")\n\n"
+	const rules = "refine Shown<T> List<T> where T: Display when fn xs -> Iter.all_match(xs, fn x -> Display.to_string(x) != \"\")\n\n" +
+		"refine Sorted<T> List<T> where T: Comparable when fn xs -> Iter.zip(xs, Iter.drop(xs, 1)) |> Iter.all_match(fn (a, b) -> a <= b)\n\n" +
+		"refine Tagged<T> List<T> where T: Named when fn xs -> Iter.all_match(xs, fn x -> Named.name(x) != \"\")\n\n"
 	const main = "fn main()\n    io.print(\"hi\")\nend\n"
 	msg := func(name, effect string) string {
 		return "the rule of " + name + " has effects (" + effect + "): a rule is a pure function of the value it checks"
@@ -461,16 +461,16 @@ func TestRefinement_AGenericRuleIsCheckedThroughEveryImplOfItsBounds(t *testing.
 		want      []want
 	}{
 		{"an impl of a type the program declares", decls + loud + rules + main, []want{
-			{42, 43, msg("Shown", "Display.to_string for Loud calls io.print")},
-			{44, 47, msg("Sorted", "Comparable.compare for Loud calls io.print")},
-			{46, 42, msg("Tagged", "Named.name for Loud calls io.print")},
+			{42, 42, msg("Shown", "Display.to_string for Loud calls io.print")},
+			{44, 46, msg("Sorted", "Comparable.compare for Loud calls io.print")},
+			{46, 41, msg("Tagged", "Named.name for Loud calls io.print")},
 		}},
 		{"an instance of a generic impl", decls + box + rules + "fn main()\n    io.print(Box{v: 1})\nend\n", []want{
-			{28, 43, msg("Shown", "Display.to_string for Box<Int> calls io.print")},
+			{28, 42, msg("Shown", "Display.to_string for Box<Int> calls io.print")},
 		}},
 		{"a rule only the program's own type meets the bounds of", decls +
-			"subtype Listed<T> List<T> where T: Named when fn xs ->\n    io.print(\"listing\")\n    Iter.all_match(xs, fn x -> Named.name(x) != \"\")\nend\n\n" + main, []want{
-			{17, 42, msg("Listed", "lambda calls io.print")},
+			"refine Listed<T> List<T> where T: Named when fn xs ->\n    io.print(\"listing\")\n    Iter.all_match(xs, fn x -> Named.name(x) != \"\")\nend\n\n" + main, []want{
+			{17, 41, msg("Listed", "lambda calls io.print")},
 		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -494,11 +494,11 @@ func TestRefinement_AGenericRuleOverPureImplsIsAccepted(t *testing.T) {
 		"struct Quiet\n    n: Int\nend\n\n"+
 		"impl Display for Quiet\n    fn to_string(q: Quiet) -> String\n        \"quiet ${q.n}\"\n    end\nend\n\n"+
 		"impl Comparable for Quiet\n    fn compare(a: Quiet, b: Quiet) -> Ordering\n        Int.compare(a.n, b.n)\n    end\nend\n\n"+
-		"subtype Shown<T> List<T> where T: Display when fn xs -> Iter.all_match(xs, fn x -> Display.to_string(x) != \"\")\n\n"+
-		"subtype Sorted<T> List<T> where T: Comparable when fn xs -> Iter.zip(xs, Iter.drop(xs, 1)) |> Iter.all_match(fn (a, b) -> a <= b)\n\n"+
+		"refine Shown<T> List<T> where T: Display when fn xs -> Iter.all_match(xs, fn x -> Display.to_string(x) != \"\")\n\n"+
+		"refine Sorted<T> List<T> where T: Comparable when fn xs -> Iter.zip(xs, Iter.drop(xs, 1)) |> Iter.all_match(fn (a, b) -> a <= b)\n\n"+
 		"fn main()\n"+
-		"    io.inspect(Shown.try_from([Quiet{n: 1}]) |> Maybe.is_some())\n"+
-		"    io.inspect(Sorted.try_from([Quiet{n: 2}, Quiet{n: 1}]) |> Maybe.is_some())\n"+
+		"    io.inspect(Shown.try_from([Quiet{n: 1}]) |> Option.is_some())\n"+
+		"    io.inspect(Sorted.try_from([Quiet{n: 2}, Quiet{n: 1}]) |> Option.is_some())\n"+
 		"    s: Sorted<Int> = [1, 2]\n"+
 		"    io.inspect(s)\n"+
 		"end\n")
@@ -520,9 +520,9 @@ func TestRefinement_AGenericRuleOverPureImplsIsAccepted(t *testing.T) {
 // rule, and literals that keep them load and run.
 func TestRefinement_ARuleMayCallStdsPureParsers(t *testing.T) {
 	const decls = "import\n    std::http.Cookie\n    std::io\n    std::signatures.PublicKey\nend\n\n" +
-		"subtype CookieHeader String when fn s -> Cookie.parse_header(s) |> Result.is_ok()\n\n" +
-		"subtype PublicPem String when fn s -> PublicKey.from_pem(s) |> Result.is_ok()\n\n" +
-		"subtype Shout String when fn s -> String.is_upper(s)\n\n"
+		"refine CookieHeader String when fn s -> Cookie.parse_header(s) |> Result.is_ok()\n\n" +
+		"refine PublicPem String when fn s -> PublicKey.from_pem(s) |> Result.is_ok()\n\n" +
+		"refine Shout String when fn s -> String.is_upper(s)\n\n"
 	for _, tc := range []struct{ body, want string }{
 		{"    c: CookieHeader = \"\"\n    io.inspect(c)\n",
 			"\"\" is not a CookieHeader: `fn s -> Cookie.parse_header(s) |> Result.is_ok()` is false"},
@@ -621,9 +621,9 @@ end
 func TestRefinement_ARuleThatTrapsIsFalseWhenTheProgramRuns(t *testing.T) {
 	p, err := LoadSource("main", `import std::io
 
-subtype Ratio Int when fn n -> 10 / NonZeroInt.try_from(n)! > 1
+refine Ratio Int when fn n -> 10 / NonZeroInt.try_from(n)! > 1
 
-subtype SmallRatio Ratio when fn n -> n < 5
+refine SmallRatio Ratio when fn n -> n < 5
 
 struct Fraction
     top:    Int
@@ -656,7 +656,7 @@ end
 }
 
 // A literal whose check the builder cannot find is an internal error at the
-// literal, naming the subtype and the `try_from` it looked for, never a
+// literal, naming the refinement and the `try_from` it looked for, never a
 // literal let through unchecked: the builder is made to miss the check
 // (irbuild.PlantMissingRefinementCheckForTest), as a linkage name built
 // wrong did for a listed std module's ExitCode. A rule the program
@@ -671,13 +671,13 @@ func TestRefinement_ALiteralWhoseCheckIsMissingIsAnInternalError(t *testing.T) {
 		name, plant, src string
 		want             []want
 	}{
-		{"a program's subtype", "Port",
-			"subtype Port Int when fn p -> p >= 1\n\nfn main()\n    p: Port = 80\n    dbg p\nend\n",
+		{"a program's refinement", "Port",
+			"refine Port Int when fn p -> p >= 1\n\nfn main()\n    p: Port = 80\n    dbg p\nend\n",
 			[]want{
-				{1, 18, "internal: the check of Port's rule could not be found (Port.try_from)"},
+				{1, 17, "internal: the check of Port's rule could not be found (Port.try_from)"},
 				{4, 15, "internal: the check for this Port literal could not be found (Port.try_from)"},
 			}},
-		{"a listed std module's subtype", "ExitCode",
+		{"a listed std module's refinement", "ExitCode",
 			"import std::process.Exit\n\nfn main() -> Result<Unit, Exit>\n    Err(Exit{code: 3})\nend\n",
 			[]want{{4, 20, "internal: the check for this ExitCode literal could not be found (std/process.ExitCode.try_from)"}}},
 		{"a parent's rule", "NonNegativeInt",
@@ -709,15 +709,15 @@ func TestRefinement_ALiteralWhoseCheckIsMissingIsAnInternalError(t *testing.T) {
 	}
 }
 
-// Every literal the checker types as a subtype is checked, whatever its
+// Every literal the checker types as a refinement is checked, whatever its
 // form: a codepoint, and a grouped Decimal, typed literal or negated
 // number, which the builder makes by lowering the literal.
 func TestRefinement_EveryFormOfLiteralIsChecked(t *testing.T) {
 	const decls = "import std::duration.Duration\n\n" +
-		"subtype Vowel Codepoint when fn c -> c == 'a' or c == 'e'\n\n" +
-		"subtype PosDec Decimal when fn d -> d > 0d\n\n" +
-		"subtype Pos Int when fn n -> n > 0\n\n" +
-		"subtype Long Duration when fn d -> Duration.as_nanos(d) > 1_000_000_000\n\n"
+		"refine Vowel Codepoint when fn c -> c == 'a' or c == 'e'\n\n" +
+		"refine PosDec Decimal when fn d -> d > 0d\n\n" +
+		"refine Pos Int when fn n -> n > 0\n\n" +
+		"refine Long Duration when fn d -> Duration.as_nanos(d) > 1_000_000_000\n\n"
 	for _, tc := range []struct{ body, want string }{
 		{"    v: Vowel = 'b'\n    dbg v\n", "'b' is not a Vowel: `fn c -> c == 'a' or c == 'e'` is false"},
 		{"    d: PosDec = (-1.5d)\n    dbg d\n", "(-1.5d) is not a PosDec: `fn d -> d > 0d` is false"},
@@ -736,7 +736,7 @@ func TestRefinement_EveryFormOfLiteralIsChecked(t *testing.T) {
 }
 
 // A validated type's rule is checked for effects at its `when` whether or
-// not anything builds one, as a subtype's is: its `try_from` is its TryFrom
+// not anything builds one, as a refinement's is: its `try_from` is its TryFrom
 // impl's, which the builder names with the interface's arguments.
 func TestRefinement_AValidatedTypesRuleWithEffectsIsAnError(t *testing.T) {
 	const src = "import std::io\n\nfn loud(s: String) -> Bool\n    io.print(\"checking\")\n    String.contains(s, \"@\")\nend\n\n" +
@@ -749,7 +749,7 @@ func TestRefinement_AValidatedTypesRuleWithEffectsIsAnError(t *testing.T) {
 }
 
 // A rule reaches a program's hand-written Equatable only through a value of
-// its type: Int64's rule, a std subtype's and a program's own subtype of
+// its type: Int64's rule, a std refinement's and a program's own refinement of
 // Int compare and pass Ints, so an `equal` that prints does not make their
 // literals uncheckable. A rule that compares values of the type, directly
 // or as a Set's members, reaches it, and the error names it.
@@ -757,7 +757,7 @@ func TestRefinement_ARuleOverIntsReachesNoEquatableOfTheProgram(t *testing.T) {
 	const decls = "import\n    std::int.Int64\n    std::io\nend\n\n" +
 		"struct Score\n    points: Int64\nend\n\n" +
 		"impl Equatable for Score\n    fn equal(a: Score, b: Score) -> Bool\n        io.print(\"compared\")\n        a.points == b.points\n    end\nend\n\n" +
-		"subtype Small Int when fn n -> n < 10\n\n"
+		"refine Small Int when fn n -> n < 10\n\n"
 	p, err := LoadSource("main", decls+"fn main()\n"+
 		"    a: Int64 = 7\n"+
 		"    b: PositiveInt = 3\n"+
@@ -777,10 +777,10 @@ func TestRefinement_ARuleOverIntsReachesNoEquatableOfTheProgram(t *testing.T) {
 	}
 
 	for _, tc := range []struct{ rule, use, want string }{
-		{"subtype Scored Score when fn s -> s != Score{points: 0}\n\n",
+		{"refine Scored Score when fn s -> s != Score{points: 0}\n\n",
 			"    io.inspect(Scored.try_from(Score{points: 1}))\n",
 			"the rule of Scored has effects (Equatable.equal for Score calls io.print): a rule is a pure function of the value it checks"},
-		{"subtype Unique List<Score> when fn xs -> Iter.count(Iter.to_set(xs)) == List.length(xs)\n\n",
+		{"refine Unique List<Score> when fn xs -> Iter.count(Iter.to_set(xs)) == List.length(xs)\n\n",
 			"    io.inspect(Unique.try_from([Score{points: 1}]))\n",
 			"the rule of Unique has effects (Equatable.equal for Score calls io.print): a rule is a pure function of the value it checks"},
 	} {
@@ -803,7 +803,7 @@ func TestRefinement_ARuleReachesOnlyTheDisplayOfTypesItRenders(t *testing.T) {
 		"struct Point\n    x: Int\nend\n\n" +
 		"derive Display for Point\n\n"
 	p, err := LoadSource("main", decls+
-		"subtype Shown Point when fn p -> \"${(p, 1)}\" != \"\"\n\n"+
+		"refine Shown Point when fn p -> \"${(p, 1)}\" != \"\"\n\n"+
 		"fn main()\n    io.inspect(Shown.try_from(Point{x: 1}))\nend\n")
 	if err != nil {
 		t.Fatalf("the program does not load: %v", err)
@@ -817,7 +817,7 @@ func TestRefinement_ARuleReachesOnlyTheDisplayOfTypesItRenders(t *testing.T) {
 	}
 
 	ds := literalDiagnostics(t, decls+
-		"subtype Shown Point when fn p -> \"${(p, Loud{n: p.x})}\" != \"\"\n\n"+
+		"refine Shown Point when fn p -> \"${(p, Loud{n: p.x})}\" != \"\"\n\n"+
 		"fn main()\n    io.inspect(Shown.try_from(Point{x: 1}))\nend\n")
 	const want = "the rule of Shown has effects (Display.to_string for Loud calls io.print): a rule is a pure function of the value it checks"
 	if len(ds) != 1 || ds[0].Message != want || ds[0].Code != InvalidRefinementCode {

@@ -6,7 +6,7 @@ import "testing"
 // `<channel>` (rt.ChannelInspectText) through Debug.inspect and dbg, and a
 // `Channel<T>` reads as the struct std declares, its two halves in
 // declaration order (rt.DebugText), at the top, in a struct through its
-// derived Debug, and inside a List, a Vector, a tuple, a Map value, a Maybe
+// derived Debug, and inside a List, a Vector, a tuple, a Map value, an Option
 // and a Result payload, an enum variant's payload and a list of structs.
 // Counter's derived Debug is what message_loop's `Config.inspect` calls;
 // before, the builder declined it and the retained `Config.inspect` called a
@@ -43,7 +43,7 @@ fn main()
     io.print(Debug.inspect(Vector[c]))
     io.print(Debug.inspect((c, 1)))
     io.print(Debug.inspect({"a" => c}))
-    m: Maybe<Channel<Int>> = Some(c)
+    m: Option<Channel<Int>> = Some(c)
     io.print(Debug.inspect(m))
     r: Result<Channel<Int>, String> = Ok(c)
     dbg r

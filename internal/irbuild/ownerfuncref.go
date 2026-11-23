@@ -22,7 +22,7 @@ import (
 // the output call.
 
 // ownerFuncRef lowers `Owner.member` as a function value, or declines.
-// `Shape.Circle` and `Maybe.Some`, a positional variant named through its
+// `Shape.Circle` and `Option.Some`, a positional variant named through its
 // enum, take this path too: the body is the constructor call
 // `Shape.Circle(p0)`. The owner may be named through a file's qualifier,
 // `leaf.Box.twice` or `leaf.Shape.Line`; the body is then that qualified

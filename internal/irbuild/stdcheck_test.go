@@ -9,7 +9,7 @@ import (
 //
 // `AssertionFailure` carries THREE `List<…>` fields at three different element
 // types — two directly and one through `AssertionValue.pipeline` — plus two
-// `Maybe<…>` at two different payloads. Every one of those goes through an
+// `Option<…>` at two different payloads. Every one of those goes through an
 // intern table, and a table keyed on the CONSTRUCTOR's name rather than on the
 // full instantiation would hand back one entry for all three, putting a
 // `*rt.List[rt.NomiAssertionDetail]` where the code reads
@@ -43,8 +43,8 @@ func TestStdStruct_AssertionFailureFieldsDoNotCollapse(t *testing.T) {
 		"AssertionFailure.values":  "List<AssertionValue>",
 		"AssertionFailure.details": "List<AssertionDetail>",
 		"AssertionValue.pipeline":  "List<AssertionPipelineStage>",
-		"AssertionFailure.actual":  "Maybe<String>",
-		"AssertionFailure.binding": "Maybe<AssertionBinding>",
+		"AssertionFailure.actual":  "Option<String>",
+		"AssertionFailure.binding": "Option<AssertionBinding>",
 	}
 	for at, k := range named {
 		if k == kindInvalid {

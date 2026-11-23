@@ -31,7 +31,7 @@ pub fn options(
 ) -> Result<Options, String>
     start = Options{
         dir: "db/migrations",
-        url: Map.get(env, "DATABASE_URL") |> Maybe.with_default(""),
+        url: Map.get(env, "DATABASE_URL") |> Option.with_default(""),
     }
 
     parsed = read(tool, args, start)?

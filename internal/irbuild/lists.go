@@ -66,11 +66,11 @@ type listFn struct {
 // Use across tests/: equal? 39 sites, first 4, tail 2,
 // concat 1.
 var listFuncs = map[string]listFn{
-	"first":  {args: 1, result: "maybe-elem"},
-	"tail":   {args: 1, result: "maybe-list"},
+	"first":  {args: 1, result: "option-elem"},
+	"tail":   {args: 1, result: "option-list"},
 	"concat": {args: 2, result: "list"},
 	// The second operand of remove_at is the index, an Int.
-	"remove_at": {args: 2, result: "maybe-list"},
+	"remove_at": {args: 2, result: "option-list"},
 }
 
 // listOrders reports whether a List of kind k has Nomi's list order, shared by
@@ -124,24 +124,24 @@ func (g *gen) listResultKind(tag string, elem, recv kind, at ast.Node) (kind, bo
 	switch tag {
 	case "list":
 		return recv, true
-	case "maybe-elem":
-		return g.maybeOf(elem, at)
-	case "maybe-list":
-		return g.maybeOf(recv, at)
+	case "option-elem":
+		return g.optionOf(elem, at)
+	case "option-list":
+		return g.optionOf(recv, at)
 	}
 	return kindInvalid, false
 }
 
-// maybeOf is `Maybe<inner>`, asked of prelude.go rather than assembled here so
-// there is one shape of Maybe in the builder and not two. mapResultKind's rule.
-func (g *gen) maybeOf(inner kind, at ast.Node) (kind, bool) {
-	a, anchored := preludeSpecAnchor(preludeSpecNamed("Maybe"))
+// optionOf is `Option<inner>`, asked of prelude.go rather than assembled here so
+// there is one shape of Option in the builder and not two. mapResultKind's rule.
+func (g *gen) optionOf(inner kind, at ast.Node) (kind, bool) {
+	a, anchored := preludeSpecAnchor(preludeSpecNamed("Option"))
 	if !anchored {
-		g.reject("List function without the prelude Maybe", inner.nomi(), at)
+		g.reject("List function without the prelude Option", inner.nomi(), at)
 		return kindInvalid, false
 	}
 	k := g.preludeInstance(a, []kind{inner})
-	// kindInvalid: reports — rejects an element type Maybe cannot be instantiated at.
+	// kindInvalid: reports — rejects an element type Option cannot be instantiated at.
 	if k == kindInvalid {
 		g.reject("List function over an unrepresentable element type", inner.nomi(), at)
 		return kindInvalid, false

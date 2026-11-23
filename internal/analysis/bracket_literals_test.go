@@ -62,12 +62,12 @@ fn main()
     lit_empty_vector: Vector<String> = []
     lit_spread_vector = [..v, 3]
     lit_spread_set = [..s, 3]
-    lit_spread_maybe = [..Some(1), 2]
+    lit_spread_option = [..Some(1), 2]
     lit_named_vector = Vector[1, 2]
     lit_named_set = Set["a"]
     lit_named_path = Path[1]
     _ = (v, s, lit_list, lit_vector, lit_set, lit_path, lit_tags, lit_ids, lit_empty_vector)
-    _ = (lit_spread_vector, lit_spread_set, lit_spread_maybe, lit_named_vector, lit_named_set, lit_named_path)
+    _ = (lit_spread_vector, lit_spread_set, lit_spread_option, lit_named_vector, lit_named_set, lit_named_path)
 end`
 	want := []string{
 		"lit_list list List<Int>",
@@ -79,7 +79,7 @@ end`
 		"lit_empty_vector vector Vector<String>",
 		"lit_spread_vector vector Vector<Int>",
 		"lit_spread_set set Set<Int>",
-		"lit_spread_maybe list List<Int>",
+		"lit_spread_option list List<Int>",
 		"lit_named_vector vector Vector<Int>",
 		"lit_named_set set Set<String>",
 		"lit_named_path vector Path",

@@ -94,7 +94,7 @@ fn in_map(n: Int) -> Map<String, Int>
   {"a" => twice(n)}
 end
 
-fn in_argument(n: Int) -> Maybe<Int>
+fn in_argument(n: Int) -> Option<Int>
   twice = fn x -> x * 2
   Some(twice(n))
 end

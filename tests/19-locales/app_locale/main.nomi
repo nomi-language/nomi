@@ -9,8 +9,8 @@ end
 pub fn boot(startup: Startup) -> Result<App, String>
     locale =
         Map.get(startup.env, "LANG")
-        |> Maybe.flat_map(fn value -> Locale.from_posix(value) |> Result.to_maybe())
-        |> Maybe.with_default(Locale"en")
+        |> Option.flat_map(fn value -> Locale.from_posix(value) |> Result.to_option())
+        |> Option.with_default(Locale"en")
 
     Ok(App{locale:})
 end

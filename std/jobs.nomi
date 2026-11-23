@@ -154,7 +154,7 @@ import
     literals.{CheckedLiteral, Fragment, LiteralError}
     log.{self, Logger}
     maps.Map
-    maybe.Maybe.{self, None, Some}
+    option.Option.{self, None, Some}
     results.Result.{self, Err, Ok}
     sets.Set
     sql.{self, Conn}
@@ -284,9 +284,9 @@ pub fn enqueue<A>(
     conn:     Conn,
     job:      Job<A>,
     args:     A,
-    run_at:   Maybe<Instant> = None,
-    priority: Maybe<Int> = None,
-    unique:   Maybe<Unique> = None,
+    run_at:   Option<Instant> = None,
+    priority: Option<Int> = None,
+    unique:   Option<Unique> = None,
 ) -> Result<Enqueued, sql.Error> where A: ToJson
     new_job = NewJob{
         queue: job.queue,
@@ -294,9 +294,9 @@ pub fn enqueue<A>(
         args:  ToJson.to_json(args),
         run_at:,
         max_attempts:  job.max_attempts,
-        priority:      Maybe.with_default(priority, job.priority),
-        unique_key:    Maybe.map(unique, fn u -> Unique.key_for(u, job.kind, Instant.now())),
-        unique_across: Maybe.map(unique, &(&1.across)) |> Maybe.with_default(UniqueStates.Live),
+        priority:      Option.with_default(priority, job.priority),
+        unique_key:    Option.map(unique, fn u -> Unique.key_for(u, job.kind, Instant.now())),
+        unique_across: Option.map(unique, &(&1.across)) |> Option.with_default(UniqueStates.Live),
     }
 
     Queue.insert(queue, conn, new_job)
@@ -322,7 +322,7 @@ derive Debug for Enqueued
 pub struct Unique
     key:    String
     across: UniqueStates = UniqueStates.Live
-    period: Maybe<PositiveDuration> = None
+    period: Option<PositiveDuration> = None
 end
 
 derive Equatable for Unique
@@ -795,7 +795,7 @@ fn item_values(item: Piece, f: Field) -> Result<Set<Int>, CronError>
                 [one] ->
                     n = value(one, item.offset, f)?
 
-                    if Maybe.is_some(step) then
+                    if Option.is_some(step) then
                         (n, f.star_high)
                     else
                         (n, n)
@@ -821,7 +821,7 @@ fn item_values(item: Piece, f: Field) -> Result<Set<Int>, CronError>
             end
         end
 
-    by = Maybe.with_default(step, 1)
+    by = Option.with_default(step, 1)
 
     Ok(
         low..=high
@@ -853,7 +853,7 @@ fn value(text: String, offset: Int, f: Field) -> Result<Int, CronError>
 end
 
 // The number `text` writes in decimal digits alone, or None.
-fn digits(text: String) -> Maybe<Int>
+fn digits(text: String) -> Option<Int>
     points = String.to_codepoints(text)
 
     if points != [] and Iter.all_match(points, &Codepoint.is_digit(&1)) then
@@ -1059,7 +1059,7 @@ pub opaque struct Worker
     queue:  Queue
     id:     String
     queues: List<String>
-    rate:   Maybe<Rate>
+    rate:   Option<Rate>
     poll:   Duration
     lease:  Duration
     grace:  Duration
@@ -1097,7 +1097,7 @@ impl Worker
         queue:            Queue,
         max_running:      PositiveInt,
         queues:           List<String> = ["default"],
-        rate:             Maybe<Rate> = None,
+        rate:             Option<Rate> = None,
         poll:             Duration = Duration.seconds(5),
         lease:            Duration = Duration.seconds(30),
         shutdown_timeout: Duration = Duration.seconds(10),
@@ -1225,7 +1225,7 @@ pub interface Queue
     fn watch(queue: self, supervisor: Supervisor, wake: Sender<Unit>) -> Unit
     /// The latest instant `record_tick` recorded for the schedule named
     /// `schedule`, or `None` when it recorded none.
-    fn last_tick(queue: self, schedule: String) -> Result<Maybe<Instant>, sql.Error>
+    fn last_tick(queue: self, schedule: String) -> Result<Option<Instant>, sql.Error>
     /// Records `tick` for the schedule named `schedule`, unless a later
     /// one is recorded, and stores `job` as `insert` does, on the queue's
     /// own connection and in the same transaction. Returns the insert, or
@@ -1234,8 +1234,8 @@ pub interface Queue
         queue:    self,
         schedule: String,
         tick:     Instant,
-        job:      Maybe<NewJob>,
-    ) -> Result<Maybe<Enqueued>, sql.Error>
+        job:      Option<NewJob>,
+    ) -> Result<Option<Enqueued>, sql.Error>
 end
 
 /// A job as `enqueue` hands it to a queue to store. `unique_key` is the
@@ -1244,10 +1244,10 @@ pub struct NewJob
     queue:         String
     kind:          String
     args:          Json
-    run_at:        Maybe<Instant>
+    run_at:        Option<Instant>
     max_attempts:  Int
     priority:      Int = 0
-    unique_key:    Maybe<String> = None
+    unique_key:    Option<String> = None
     unique_across: UniqueStates = UniqueStates.Live
 end
 
@@ -1463,7 +1463,7 @@ pub fn enqueue_due(
     queue:    Queue,
     schedule: Schedule,
     now:      Instant,
-) -> Result<Maybe<Enqueued>, sql.Error>
+) -> Result<Option<Enqueued>, sql.Error>
     case Queue.last_tick(queue, schedule.name)?
         None ->
             Queue.record_tick(queue, schedule.name, now, None)
@@ -1511,7 +1511,7 @@ fn key_of(parts: List<String>) -> String
 end
 
 // The latest tick of `schedule` in (after, now].
-fn latest_tick(schedule: Schedule, after: Instant, now: Instant) -> Maybe<Instant>
+fn latest_tick(schedule: Schedule, after: Instant, now: Instant) -> Option<Instant>
     case schedule.timing
         .Every(interval) ->
             // `Schedule.every` takes a PositiveDuration, so the `!` holds.
@@ -1531,7 +1531,7 @@ fn latest_within(
     after:    Instant,
     now:      Instant,
     window:   Duration,
-) -> Maybe<Instant>
+) -> Option<Instant>
     from = now - window
 
     start = if Instant.is_before(from, after) then after else from
@@ -1578,7 +1578,7 @@ fn schedule_loop(worker: Worker, schedules: List<Schedule>, stop: Receiver<Unit>
         schedules
         |> Iter.map(&Schedule.next_after(&1, now))
         |> Iter.min_by(&Instant.as_nanos(&1))
-        |> Maybe.with_default(now + Duration.minutes(1))
+        |> Option.with_default(now + Duration.minutes(1))
 
     go_on = Channel.select([
         Arm.receive(stop, fn _ -> False),
@@ -1615,10 +1615,10 @@ end
 fn claim_loop(worker: Worker, handlers: Map<String, Handler>, kinds: List<String>, tat: Instant)
     next = Channel.select([
         Arm.receive(worker.slots.receiver, fn got ->
-            if Maybe.is_some(got) then Next.Claim else Next.Stop
+            if Option.is_some(got) then Next.Claim else Next.Stop
         end),
         Arm.receive(worker.wake.receiver, fn got ->
-            if Maybe.is_some(got) then Next.Wait else Next.Stop
+            if Option.is_some(got) then Next.Wait else Next.Stop
         end),
     ])
 
@@ -1668,7 +1668,7 @@ end
 // wake channel.
 fn idle(worker: Worker) -> Bool
     Channel.select([
-        Arm.receive(worker.wake.receiver, fn got -> Maybe.is_some(got)),
+        Arm.receive(worker.wake.receiver, fn got -> Option.is_some(got)),
         Arm.after(worker.poll, fn -> True),
     ])
 end
@@ -1688,7 +1688,7 @@ fn hold_for_rate(worker: Worker, tat: Instant) -> Bool
 
             keep_waiting = Channel.select([
                 Arm.receive(worker.wake.receiver, fn got ->
-                    if Maybe.is_some(got) then Next.Wait else Next.Stop
+                    if Option.is_some(got) then Next.Wait else Next.Stop
                 end),
                 Arm.after(Instant.between(now, allowed), fn -> Next.Claim),
             ])
@@ -1702,7 +1702,7 @@ fn hold_for_rate(worker: Worker, tat: Instant) -> Bool
 end
 
 // The rate's next theoretical arrival time once a job has started.
-fn charge(rate: Maybe<Rate>, tat: Instant) -> Instant
+fn charge(rate: Option<Rate>, tat: Instant) -> Instant
     case rate
         None ->
             tat

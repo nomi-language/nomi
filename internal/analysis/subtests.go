@@ -101,7 +101,7 @@ func (c *checker) checkSubtests(n *ast.Subtests) Type {
 var subtestsNameExitless = &exitlessSite{
 	what: "the name of a `subtests` row",
 	why:  "the name is evaluated on its own, before the row runs",
-	hint: "handle the Result or Maybe inside the name with `case`, or compute the name in a function",
+	hint: "handle the Result or Option inside the name with `case`, or compute the name in a function",
 }
 
 // checkSubtestsName checks a row's name, `subtests rows, pattern, name`: a

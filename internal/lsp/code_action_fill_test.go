@@ -128,10 +128,10 @@ func TestFillFunctions_GenericImpl(t *testing.T) {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}
 
-	store := "interface Store<K, V>\n    fn get(store: self, key: K) -> Maybe<V>\n    fn put(store: self, key: K, value: V) -> self\nend\n\nstruct Cache<T>\n    items: List<T>\nend\n\n"
+	store := "interface Store<K, V>\n    fn get(store: self, key: K) -> Option<V>\n    fn put(store: self, key: K, value: V) -> self\nend\n\nstruct Cache<T>\n    items: List<T>\nend\n\n"
 	// The interface's type arguments are pinned by the function the block
 	// already defines.
-	get := "    fn get(cache: Cache<T>, key: Int) -> Maybe<T>\n        if key > 0 then List.first(cache.items) else None\n    end\n"
+	get := "    fn get(cache: Cache<T>, key: Int) -> Option<T>\n        if key > 0 then List.first(cache.items) else None\n    end\n"
 	got = checkFill(t, NewServer(), fillURI, store+"impl Store for Cache<T>\n"+get+"end\n", "Implement missing function 'put'")
 	if want := store + "impl Store for Cache<T>\n" + get + "\n    fn put(cache: Cache<T>, key: Int, value: T) -> Cache<T>\n        todo\n    end\nend\n"; got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
@@ -142,12 +142,12 @@ func TestFillFunctions_GenericImpl(t *testing.T) {
 // block's own type parameter, reports the missing functions and fills them
 // with those arguments.
 func TestFillFunctions_HeaderTypeArguments(t *testing.T) {
-	store := "interface Store<K, V>\n    fn get(store: self, key: K) -> Maybe<V>\n    fn put(store: self, key: K, value: V) -> self\nend\n\nstruct Cache<T>\n    items: List<T>\nend\n\n"
+	store := "interface Store<K, V>\n    fn get(store: self, key: K) -> Option<V>\n    fn put(store: self, key: K, value: V) -> self\nend\n\nstruct Cache<T>\n    items: List<T>\nend\n\n"
 	got := checkFill(t, NewServer(), fillURI, store+"impl Store<String, T> for Cache<T> end\n", "Implement missing functions",
 		"parameter 'cache' is never read",
 		"parameter 'key' is never read",
 		"parameter 'value' is never read")
-	want := store + "impl Store<String, T> for Cache<T>\n    fn get(cache: Cache<T>, key: String) -> Maybe<T>\n        todo\n    end\n\n    fn put(cache: Cache<T>, key: String, value: T) -> Cache<T>\n        todo\n    end\nend\n"
+	want := store + "impl Store<String, T> for Cache<T>\n    fn get(cache: Cache<T>, key: String) -> Option<T>\n        todo\n    end\n\n    fn put(cache: Cache<T>, key: String, value: T) -> Cache<T>\n        todo\n    end\nend\n"
 	if got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}
@@ -260,9 +260,9 @@ func TestFillArms_BoundCase(t *testing.T) {
 }
 
 func TestFillArms_Nested(t *testing.T) {
-	src := fillColorDecls + "fn f(a: Color, b: Maybe<Color>) -> Int\n    case a\n        .Red ->\n            case b\n                Some(.Red) -> 1\n                None       -> 0\n            end\n\n        _ ->\n            2\n    end\nend\n"
+	src := fillColorDecls + "fn f(a: Color, b: Option<Color>) -> Int\n    case a\n        .Red ->\n            case b\n                Some(.Red) -> 1\n                None       -> 0\n            end\n\n        _ ->\n            2\n    end\nend\n"
 	got := checkFill(t, NewServer(), fillURI, src, "Add missing arm .Some(value)")
-	want := fillColorDecls + "fn f(a: Color, b: Maybe<Color>) -> Int\n    case a\n        .Red ->\n            case b\n                Some(.Red)   -> 1\n                None         -> 0\n                .Some(value) -> todo\n            end\n\n        _ ->\n            2\n    end\nend\n"
+	want := fillColorDecls + "fn f(a: Color, b: Option<Color>) -> Int\n    case a\n        .Red ->\n            case b\n                Some(.Red)   -> 1\n                None         -> 0\n                .Some(value) -> todo\n            end\n\n        _ ->\n            2\n    end\nend\n"
 	if got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}

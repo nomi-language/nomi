@@ -116,7 +116,7 @@ struct BinaryConstraint
     strength:  Strength
     v1:        Int
     v2:        Int
-    direction: Maybe<Direction> = None
+    direction: Option<Direction> = None
 end
 
 impl BinaryConstraint
@@ -210,7 +210,7 @@ impl Constraint
         end
     end
 
-    fn with_direction(c: Constraint, direction: Maybe<Direction>) -> Constraint
+    fn with_direction(c: Constraint, direction: Option<Direction>) -> Constraint
         case c
             .Edit(u)     -> .Edit(u)
             .Stay(u)     -> .Stay(u)
@@ -238,7 +238,7 @@ end
 struct Variable
     value:         Int
     constraints:   Vector<Int> = []
-    determined_by: Maybe<Int> = None
+    determined_by: Option<Int> = None
     walk_strength: Strength
     stay:          Bool = True
     mark:          Int = 0
@@ -338,7 +338,7 @@ impl Planner
     end
 
     /// Tries to satisfy `c`, returning the constraint it overrode, if any.
-    fn satisfy(p: Planner, c: Int, mark: Int) -> (Planner, Maybe<Int>)
+    fn satisfy(p: Planner, c: Int, mark: Int) -> (Planner, Option<Int>)
         p = choose_method(p, c, mark)
         con = constraint(p, c)
 
@@ -411,7 +411,7 @@ impl Planner
         output.mark != mark and Strength.stronger(u.strength, output.walk_strength)
     end
 
-    fn binary_direction(p: Planner, b: BinaryConstraint, mark: Int) -> Maybe<Direction>
+    fn binary_direction(p: Planner, b: BinaryConstraint, mark: Int) -> Option<Direction>
         v1 = variable(p, b.v1)
         v2 = variable(p, b.v2)
 
@@ -508,7 +508,7 @@ impl Planner
         satisfy_overridden(p, overridden, mark)
     end
 
-    fn satisfy_overridden(p: Planner, overridden: Maybe<Int>, mark: Int) -> Planner
+    fn satisfy_overridden(p: Planner, overridden: Option<Int>, mark: Int) -> Planner
         case overridden
             Some(o) ->
                 (p, next) = satisfy(p, o, mark)

@@ -1,6 +1,6 @@
 // A program interface implemented for std types no program file declares: a
 // std struct (Date), a std host type (Decimal), a std opaque type (Instant),
-// and the prelude Maybe over any of them.
+// and the prelude Option over any of them.
 import
     std::calendar.Date
     std::instant.Instant
@@ -60,8 +60,8 @@ impl FromV for Int
     end
 end
 
-impl ToV for Maybe<T> where T: ToV
-    fn to_v(value: Maybe<T>) -> V
+impl ToV for Option<T> where T: ToV
+    fn to_v(value: Option<T>) -> V
         case value
             Some(v) -> T.to_v(v)
             None    -> V.N
@@ -69,8 +69,8 @@ impl ToV for Maybe<T> where T: ToV
     end
 end
 
-impl FromV for Maybe<T> where T: FromV
-    fn from_v(value: V) -> Result<Maybe<T>, String>
+impl FromV for Option<T> where T: FromV
+    fn from_v(value: V) -> Result<Option<T>, String>
         case value
             .N -> Ok(None)
             _  -> T.from_v(value) |> Result.map(Some)

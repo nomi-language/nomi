@@ -199,9 +199,9 @@ type hostFn func(m *Machine, pos ir.Pos, args []any) (any, error)
 // that declares it, as an import names it after `std::` (`tasks` for
 // `Task.spawn`), since its key does not always start with it.
 //
-// defaults marks one that answers the payload of its first operand, a
-// Maybe's Some or a Result's Ok, and otherwise its second operand: a Maybe
-// or a Result fused in registers (maybefuse.go) takes it as one of the
+// defaults marks one that answers the payload of its first operand, an
+// Option's Some or a Result's Ok, and otherwise its second operand: an Option
+// or a Result fused in registers (optionfuse.go) takes it as one of the
 // uses that take it apart, and the call compiles to opDefaultM.
 type intrinsic struct {
 	fn       hostFn
@@ -443,7 +443,7 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 	}
 	m.hosts = map[string]intrinsic{
 		"Result.map_err":        {fn: resultMapErrHost, pure: true},
-		"Maybe.to_result":       {fn: maybeToResultHost, pure: true},
+		"Option.to_result":      {fn: optionToResultHost, pure: true},
 		"concurrent":            {fn: concurrentHost, world: inside, held: true},
 		"Task.spawn":            {fn: taskSpawnHost, world: outside, std: "tasks"},
 		"Task.await":            {fn: taskHost("Task.await"), world: inside, held: true},
@@ -453,7 +453,7 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 		"Task.await_all":        {fn: taskAwaitAllHost, world: inside, held: true},
 		"Supervisor.spawn":      {fn: supervisorSpawnHost, world: outside, std: "supervisors"},
 		"Supervisor.spawn_all":  {fn: supervisorSpawnAllHost, world: outside, std: "supervisors"},
-		"Maybe.with_default":    {fn: withDefaultHost("Some"), pure: true, defaults: true},
+		"Option.with_default":   {fn: withDefaultHost("Some"), pure: true, defaults: true},
 		"Result.with_default":   {fn: withDefaultHost("Ok"), pure: true, defaults: true},
 		"Channel.buffered":      {fn: channelHost("Channel.buffered"), world: inside, std: "channels"},
 		"Channel.unbuffered":    {fn: channelHost("Channel.unbuffered"), world: inside, std: "channels"},

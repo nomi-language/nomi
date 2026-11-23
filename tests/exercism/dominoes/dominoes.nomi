@@ -3,7 +3,7 @@
 /// The `stones`, each the dots on its two halves, laid in a chain, each
 /// turned as it must be, where touching halves match and the two free ends
 /// match each other; `None` when no order makes one.
-pub fn chain(stones: List<(Int, Int)>) -> Maybe<List<(Int, Int)>>
+pub fn chain(stones: List<(Int, Int)>) -> Option<List<(Int, Int)>>
     case stones
         []                               -> Some([])
         [(start, stop) as first, ..rest] -> extend(start, stop, [first], rest)
@@ -18,7 +18,7 @@ fn extend(
     stop:  Int,
     laid:  List<(Int, Int)>,
     left:  List<(Int, Int)>,
-) -> Maybe<List<(Int, Int)>>
+) -> Option<List<(Int, Int)>>
     if left == [] and start == stop then return Some(Iter.reverse(laid))
 
     left

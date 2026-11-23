@@ -33,6 +33,15 @@ func reportFormatError(file string, err error) {
 	fmt.Fprintf(os.Stderr, "%s: %v\n", file, err)
 }
 
+const fmtUsage = `usage: nomi fmt [-w|-l|-d|-check] [paths...]
+
+fmt formats each file, and each .nomi file under each directory, to
+standard output, and with no path formats standard input.
+  -w      write each file in place
+  -l      list the files that would change
+  -d      print the changes
+  -check  list the files that would change, and exit 1 if any would`
+
 // runFmt implements the `nomi fmt` subcommand. It supports:
 //
 //	nomi fmt <paths>...        # format to stdout
@@ -48,10 +57,7 @@ func runFmt(args []string) error {
 	showDiff := fset.Bool("d", false, "show diff instead of writing")
 	check := fset.Bool("check", false, "list files that would change, and exit 1 if any would")
 	fset.SetOutput(os.Stderr)
-	fset.Usage = func() {
-		fmt.Fprintln(os.Stderr, "usage: nomi fmt [-w|-l|-d|-check] [paths...]")
-		fset.PrintDefaults()
-	}
+	fset.Usage = func() { fmt.Fprintln(os.Stderr, fmtUsage) }
 	if err := fset.Parse(args); err != nil {
 		return err
 	}

@@ -73,7 +73,7 @@ end
 // construction's other values solve builds the solved instance: a field of a
 // struct-shaped variant (`Tree.Node{left: .Leaf, value: 4}`), one nested in
 // a dot literal, a positional payload, a generic struct's field, a generic
-// function's argument, and each wrapped in `Maybe.Some`. The checker
+// function's argument, and each wrapped in `Option.Some`. The checker
 // recorded the dot at the declaration's own `Tree<T>`, since the slot is
 // checked before T is solved, and the builder declined it as "a DotVariant".
 func TestDotVariant_GenericSlotSolvedByItsSiblings(t *testing.T) {
@@ -121,7 +121,7 @@ fn main()
     io.inspect(pair(.Leaf, 2.5))
     io.inspect(pair(.Node{left: .Leaf, value: 1}, 2))
     io.inspect(both(.Empty, .Full("x")))
-    io.inspect(Maybe.Some(Tree.Node{left: .Leaf, value: True}))
+    io.inspect(Option.Some(Tree.Node{left: .Leaf, value: True}))
 end
 `, `Node{left: Leaf, value: 4}
 Node{left: Node{left: Leaf, value: 3}, value: 4}

@@ -618,11 +618,12 @@ func projValue(fr *frame, n *ir.Proj, subj any) (any, error) {
 		return s[n.Index():], nil
 
 	case ir.ProjEnumField:
-		v, err := enumFieldValue(n, subj)
-		if err != nil {
-			// Every error enumFieldValue answers is rt's text for a variant
-			// the read cannot answer, which the program caused.
-			return nil, &Fault{err: err}
+		v, found := enumFieldValue(n, subj)
+		if !found {
+			// The checker admits the read only when every variant has the
+			// field, so a value without it is the machine's error.
+			return nil, fmt.Errorf("vm: %s: %s reads %s off a value with no such field",
+				fr.fn.Name(), n, n.Name())
 		}
 		return v, nil
 
@@ -693,39 +694,28 @@ func projValue(fr *frame, n *ir.Proj, subj any) (any, error) {
 }
 
 // enumFieldValue reads a field name off an enum value whose variant is not
-// known: a struct-shaped variant's own
-// field, or a field of a struct payload. A value widened into an `embeds`
-// variant is the embedded value itself here, so its variant is its type. The
-// faults are rt's texts, keyed on the variant.
-func enumFieldValue(n *ir.Proj, subj any) (any, error) {
-	line, field := n.Pos().Line(), n.Name()
-	variant := ""
+// known: a struct-shaped variant's own field, or a field of a struct
+// payload. A value widened into an `embeds` variant is the embedded value
+// itself here, so its variant is its type. found is false for a value that
+// has no such field, which no checked program holds.
+func enumFieldValue(n *ir.Proj, subj any) (v any, found bool) {
+	field := n.Name()
 	payload := subj
 	if rec, ok := enumRecord(subj); ok {
-		vd := &rec.Desc.Variants[rec.Tag]
-		variant = vd.Name
-		switch vd.Shape {
+		switch rec.Desc.Variants[rec.Tag].Shape {
 		case rt.VariantFields:
-			if v, found := rec.FieldNamed(field); found {
-				return v, nil
-			}
-			return nil, rt.EnumFieldMissingError(line, variant, field)
+			return rec.FieldNamed(field)
 		case rt.VariantBare:
-			return nil, rt.EnumFieldAccessError(line, variant, field)
+			return nil, false
 		}
 		p, populated := payloadOf(rec)
 		if !populated {
-			return nil, rt.EnumFieldAccessError(line, variant, field)
+			return nil, false
 		}
 		payload = p
-	} else {
-		variant = rt.ShortTypeName(runtimeTypeName(subj))
 	}
 	if rec, ok := payload.(*rt.Record); ok && rec != nil && rec.Desc.Kind == rt.KindStruct {
-		if v, found := rec.FieldNamed(field); found {
-			return v, nil
-		}
-		return nil, rt.EnumFieldMissingError(line, variant, field)
+		return rec.FieldNamed(field)
 	}
-	return nil, rt.EnumFieldAccessError(line, variant, field)
+	return nil, false
 }

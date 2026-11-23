@@ -50,21 +50,21 @@
 // Element content takes a `ToHtml` or another `Display`, which one
 // parameter cannot say, so the checker checks each `slot_text` argument
 // first (chooseHtmlTextSlots). A type that is `Display` and not `ToHtml`,
-// and is not std's `Maybe`, `Result`, a collection or a tuple, moves the
+// and is not std's `Option`, `Result`, a collection or a tuple, moves the
 // call (and the reference at the callee) to `slot_text_display`. A slot
 // whose function takes a `Display` (`slot_attribute`, `slot_rcdata`,
 // `slot_url_path`, `slot_url_query`, `slot_url_fragment`) moves to its
-// `_maybe` twin when the argument is a `Maybe` of a `Display`, writing
-// nothing for `None`; a `Maybe` of a `Maybe` there is an error. `UrlValue`
-// and `CssValue` reach the same rule through impls for `Maybe<T>`. The
+// `_option` twin when the argument is an `Option` of a `Display`, writing
+// nothing for `None`; an `Option` of an `Option` there is an error. `UrlValue`
+// and `CssValue` reach the same rule through impls for `Option<T>`. The
 // argument's type is kept in checkedSlots so the call does not check it
 // again. An argument-type error at a slot is rewritten into what the slot
 // takes, with help for its context (htmlSlotHelp). A slot value whose type
 // is unsolved (a bare `None` in `disabled=${None}`) is solved by the one
 // impl of the slot's interface whose receiver it fits
 // (unifyInterfaceAgainstConcrete); an impl at an instance of a generic type
-// (`impl OptionalAttribute for Maybe<String>`) records its receiver
-// (recordImplTypeArgsFromBlock), which also refuses a `Maybe<Int>`.
+// (`impl OptionalAttribute for Option<String>`) records its receiver
+// (recordImplTypeArgsFromBlock), which also refuses an `Option<Int>`.
 //
 // # Imports
 //

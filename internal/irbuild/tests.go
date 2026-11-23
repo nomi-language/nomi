@@ -474,6 +474,9 @@ func (g *gen) testDecl(cases []testCaseDecl) {
 // testCase lowers one case, or reports the refusal it carries.
 func (g *gen) testCase(c testCaseDecl) {
 	g.at(c.line)
+	if g.errorDeclBody(c.owner) {
+		return
+	}
 	if c.refusedBy != "" {
 		g.rejectTestBody(c)
 		return

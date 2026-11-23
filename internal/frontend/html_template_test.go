@@ -93,12 +93,12 @@ func TestHtmlTemplate_SlotTypeErrorsSayWhatTheContextTakes(t *testing.T) {
 		{`    Html"<title>${h}</title>"`, "this slot takes a `Display`, and an `Html` is not one", "`<title>` and `<textarea>` hold text, not markup"},
 		{`    Html"<a href='${name}'>x</a>"`, "this slot takes a `UrlValue`, and a `String` is not one", "a URL attribute's value starts with a `Url`"},
 		{`    Html"<b style='${name}'></b>"`, "this slot takes a `CssValue`, and a `String` is not one", "a `style` value takes a number, or a `Css`"},
-		{`    Html"<input checked=${name}>"`, "this slot takes an `OptionalAttribute`, and a `String` is not one", "pass a `Bool` or a `Maybe<String>`"},
-		{`    Html"<p>${Some(n > 0)}</p>"`, "element content does not show a `Maybe<Bool>`", "unwrap it; a `Maybe` of a `ToHtml` value shows its value"},
+		{`    Html"<input checked=${name}>"`, "this slot takes an `OptionalAttribute`, and a `String` is not one", "pass a `Bool` or an `Option<String>`"},
+		{`    Html"<p>${Some(n > 0)}</p>"`, "element content does not show an `Option<Bool>`", "unwrap it; an `Option` of a `ToHtml` value shows its value"},
 		{`    Html"<p>${[name]}</p>"`, "element content does not show a `List<String>`", "render its elements with `Html.each`"},
 		{`    Html"<p>${(n, n)}</p>"`, "element content does not show a `(Int, Int)`", "put each part in a slot of its own"},
-		{`    Html"<p class='${Some(Some(n))}'></p>"`, "this slot does not show a `Maybe<Maybe<Int>>`", "flatten it with `Maybe.flatten`"},
-		{`    Html"<p class='${Some(h)}'></p>"`, "this slot takes a `Display`, and a `Maybe<Html>` is not one", "or a `Maybe` of one, which writes nothing for `None`"},
+		{`    Html"<p class='${Some(Some(n))}'></p>"`, "this slot does not show an `Option<Option<Int>>`", "flatten it with `Option.flatten`"},
+		{`    Html"<p class='${Some(h)}'></p>"`, "this slot takes a `Display`, and an `Option<Html>` is not one", "or an `Option` of one, which writes nothing for `None`"},
 		{`    Html"<p>${fn x: Int -> x}</p>"`, "this slot takes a `ToHtml` or a `Display`, and a `(Int) -> Int` is neither", "or any other `Display` value, escaped as text"},
 	}
 	for _, tc := range cases {

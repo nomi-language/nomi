@@ -9,7 +9,7 @@ import
     iter.Iter
     lists.List
     maps.Map
-    maybe.Maybe.{self, None, Some}
+    option.Option.{self, None, Some}
     results.Result.{self, Err, Ok}
     strings.String
 end
@@ -113,10 +113,10 @@ impl Dynamic
     /// field that may be `null`.
     //! import std::json.Json
     //!
-    //! assert Dynamic.as_maybe(Json.to_dynamic(Json.Null), Dynamic.as_string) == Ok(None)
-    //! assert Dynamic.as_maybe(Json.to_dynamic(Json.String("x")), Dynamic.as_string) == Ok(Some("x"))
+    //! assert Dynamic.as_option(Json.to_dynamic(Json.Null), Dynamic.as_string) == Ok(None)
+    //! assert Dynamic.as_option(Json.to_dynamic(Json.String("x")), Dynamic.as_string) == Ok(Some("x"))
     //
-    pub fn as_maybe<T>(d: Dynamic, sub: (Dynamic) -> Result<T, Error>) -> Result<Maybe<T>, Error>
+    pub fn as_option<T>(d: Dynamic, sub: (Dynamic) -> Result<T, Error>) -> Result<Option<T>, Error>
         if Dynamic.is_null(d) then
             Ok(None)
         else

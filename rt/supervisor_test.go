@@ -300,6 +300,31 @@ func TestSupervisorFlushBoundReportsRatherThanUnwinds(t *testing.T) {
 	}
 }
 
+// TestSupervisorFlushOfAnIdleSupervisorIsFlushed: with nothing enrolled a
+// bounded flush is Flushed, even with a bound of 0, every time. A flush that
+// learnt the supervisor was idle from a goroutine it started answered
+// TimedOut whenever its timer fired first, which a bound of 0 or 1 ms on a
+// busy machine (or on Windows) did.
+func TestSupervisorFlushOfAnIdleSupervisorIsFlushed(t *testing.T) {
+	fr, done := supervisorFixture(t)
+	defer done()
+
+	sup := newTestSupervisor(fr, 1, Duration(time.Second))
+	_ = SupervisorSpawn(fr, sup, func(*Frame) Unit { return Unit{} })
+	if out := SupervisorFlushBounded(fr, sup, Wait{Tag: TagForever}); out.Tag != TagFlushed {
+		t.Fatalf("an unbounded flush reported tag %d, want Flushed", out.Tag)
+	}
+	timedOut := 0
+	for range 200 {
+		if SupervisorFlushBounded(fr, sup, Wait{Tag: TagUpTo, UpTo: 0}).Tag != TagFlushed {
+			timedOut++
+		}
+	}
+	if timedOut != 0 {
+		t.Errorf("%d of 200 flushes of an idle supervisor with a bound of 0 timed out", timedOut)
+	}
+}
+
 // TestSupervisorDrainIsAGracePeriodNotAnUnwindWindow guards against a drain
 // that cancels first.
 //

@@ -45,7 +45,7 @@ end
 
 /// The ids hit after `hits`, newest first, by `beam`, which leaves the prism
 /// `from` or, at the start, none.
-fn trace(beam: Laser, from: Maybe<Int>, prisms: List<Prism>, hits: List<Int>) -> List<Int>
+fn trace(beam: Laser, from: Option<Int>, prisms: List<Prism>, hits: List<Int>) -> List<Int>
     case next_hit(beam, from, prisms)
         None ->
             Iter.reverse(hits)
@@ -58,7 +58,7 @@ end
 
 /// The nearest prism ahead of `beam` on its line, other than the one it
 /// leaves.
-fn next_hit(beam: Laser, from: Maybe<Int>, prisms: List<Prism>) -> Maybe<Prism>
+fn next_hit(beam: Laser, from: Option<Int>, prisms: List<Prism>) -> Option<Prism>
     radians = beam.angle * Float.pi / 180.0
     across = Float.cos(radians)
     up = Float.sin(radians)
@@ -72,7 +72,7 @@ fn next_hit(beam: Laser, from: Maybe<Int>, prisms: List<Prism>) -> Maybe<Prism>
     end)
     |> Iter.filter(fn hit -> hit.along > 0.0 and hit.off < hit.along * tolerance)
     |> Iter.min_by(.along)
-    |> Maybe.map(.prism)
+    |> Option.map(.prism)
 end
 
 // FILE: prism_test.nomi

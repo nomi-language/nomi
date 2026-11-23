@@ -280,7 +280,7 @@ func (bl *irScalarBuilder) concreteInterfacePlan(t *ast.Call, args irQualArgs, d
 // callerImplPlan is, inside a std generic instance built for a program, the
 // program's own impl of the interface whose key is key (ifaceKey) for a
 // receiver the program declares:
-// `Maybe.hash<Written>`'s derived body calls `Hashable.hash(w)`, and the impl
+// `Option.hash<Written>`'s derived body calls `Hashable.hash(w)`, and the impl
 // is the user's `impl Hashable for Written`. The instance interns the
 // program's kinds in the calling gen's tables, so the receiver is the kind
 // that gen's impl index is keyed by; the call names the impl's body by the

@@ -209,7 +209,7 @@ func TestHeaderLower_ImplBlockMultiInterface(t *testing.T) {
 	// A foreign type implementing two interfaces is two separate
 	// `impl Iface for Type` blocks, each carrying the receiver's generics.
 	src := `impl iter for Box<T>
-  fn next(_b: self) -> Maybe<(T, self)>
+  fn next(_b: self) -> Option<(T, self)>
       None
   end
 end

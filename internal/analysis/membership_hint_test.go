@@ -9,7 +9,7 @@ import (
 // test (`has_key`, `includes`) is the usual no-member error, with a help
 // line naming `in`.
 func TestCheck_MembershipMemberNamesIn(t *testing.T) {
-	const mapKey = "test a key with `k in m` (it calls `Map.contains(m, k)`); `Map.get(m, k)` gives its value as a `Maybe`"
+	const mapKey = "test a key with `k in m` (it calls `Map.contains(m, k)`); `Map.get(m, k)` gives its value as an `Option`"
 	cases := []struct {
 		body, want, hint string
 	}{

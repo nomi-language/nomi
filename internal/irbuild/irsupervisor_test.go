@@ -54,8 +54,8 @@ end
 // order the two tasks got there — so it sums them rather than reading
 // them one at a time and claiming an order.
 fn audited_total() -> Int
-  first = Maybe.with_default(Receiver.receive(Config.written.receiver), 0)
-  second = Maybe.with_default(Receiver.receive(Config.written.receiver), 0)
+  first = Option.with_default(Receiver.receive(Config.written.receiver), 0)
+  second = Option.with_default(Receiver.receive(Config.written.receiver), 0)
   first + second
 end
 
@@ -147,7 +147,7 @@ fn main()
   Unit
 end
 `, "dbg line 8: noon() = Ok(12:00:00)\ndbg line 9: Time.new(9, 30, 15) = Ok(09:30:15)\n"},
-		{"the prelude with_default pair", `fn half(n: Int) -> Maybe<Int>
+		{"the prelude with_default pair", `fn half(n: Int) -> Option<Int>
   if n % 2 == 0 then Some(n / 2) else None
 end
 
@@ -156,13 +156,13 @@ fn parse(n: Int) -> Result<Int, String>
 end
 
 fn main()
-  dbg Maybe.with_default(half(8), 0)
-  dbg Maybe.with_default(half(7), -1)
+  dbg Option.with_default(half(8), 0)
+  dbg Option.with_default(half(7), -1)
   dbg Result.with_default(parse(5), 0)
   dbg Result.with_default(parse(-5), 0)
   Unit
 end
-`, "dbg line 10: Maybe.with_default(half(8), 0) = 4\ndbg line 11: Maybe.with_default(half(7), -1) = -1\ndbg line 12: Result.with_default(parse(5), 0) = 5\ndbg line 13: Result.with_default(parse(-5), 0) = 0\n"},
+`, "dbg line 10: Option.with_default(half(8), 0) = 4\ndbg line 11: Option.with_default(half(7), -1) = -1\ndbg line 12: Result.with_default(parse(5), 0) = 5\ndbg line 13: Result.with_default(parse(-5), 0) = 0\n"},
 		{"a field read through an app field", `struct Settings
   label: String
   n: Int
@@ -309,7 +309,7 @@ end
 
 // The ids arrive in whichever order the tasks got there, so this sums them.
 fn total(n: Int) -> Int
-  if n == 0 then 0 else Maybe.with_default(Receiver.receive(App.seen.receiver), 0) + total(n - 1)
+  if n == 0 then 0 else Option.with_default(Receiver.receive(App.seen.receiver), 0) + total(n - 1)
 end
 `
 

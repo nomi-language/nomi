@@ -40,8 +40,8 @@ import (
 // A Some or an Ok of a tuple the function builds only to return crosses the
 // same way (wrappedReturns): the tuple splits, the Some is never built, and
 // the return carries the components with the variant's descriptor
-// (packedTemp.wrap), which a caller keeping the Maybe fused takes into its
-// payload's registers (maybefuse.go) and any other reader gets built as
+// (packedTemp.wrap), which a caller keeping the Option fused takes into its
+// payload's registers (optionfuse.go) and any other reader gets built as
 // the Some (regStack.ret). A body whose branches each end in a value of
 // their own copies them into a return slot, which then holds a tag beside
 // parts of its own: a copy of such a Some moves the components in and sets
@@ -57,9 +57,9 @@ func (cp *compiler) splitTuples() {
 	wraps := cp.wrappedReturns()
 	root, groups := cp.valueGroups(func(in ir.Instr) bool {
 		if p, isProj := in.(*ir.Proj); isProj {
-			// A fused Maybe's tuple payload, which the read moves out of
-			// the Maybe's payload registers into the components'.
-			if !fusedProj(p) || cp.c.packed == nil || cp.c.packed[p.Subject()].kind != packMaybe || cp.c.packed[p.Subject()].parts == nil {
+			// A fused Option's tuple payload, which the read moves out of
+			// the Option's payload registers into the components'.
+			if !fusedProj(p) || cp.c.packed == nil || cp.c.packed[p.Subject()].kind != packOption || cp.c.packed[p.Subject()].parts == nil {
 				return false
 			}
 			calls[p.Dst()] = cp.typeOf(p.Dst())
@@ -193,13 +193,13 @@ func (cp *compiler) splitTuples() {
 	}
 }
 
-// returnWraps is what the function's returns of a Maybe or a Result carry
+// returnWraps is what the function's returns of an Option or a Result carry
 // in parts (wrappedReturns).
 type returnWraps struct {
 	// makes are the Somes and Oks of a tuple the function builds only to
 	// return, each with the descriptor it would be built under.
 	makes map[*ir.Make]*rt.TypeDesc
-	// slots are the return slots of a Maybe or Result some of whose copies
+	// slots are the return slots of an Option or Result some of whose copies
 	// are of those, each with its descriptor.
 	slots map[ir.Temp]*rt.TypeDesc
 }
@@ -211,7 +211,7 @@ type returnWraps struct {
 // Some((a, b))`). Each one's tuple splits as a tuple the function returns
 // does, and the Some is never built: its return carries the components and
 // the variant (opRetP over packedTemp.wrap), which a caller that keeps the
-// Maybe fused takes with no record between. A return slot holds a tag
+// Option fused takes with no record between. A return slot holds a tag
 // beside its own parts, set where a copy moves a Some's components in, and
 // clear where any other value is copied into its reference register, which
 // the return then carries boxed.
@@ -309,7 +309,7 @@ func (cp *compiler) wrappedReturns() returnWraps {
 // wrapReturns leaves out each wrapped Some or Ok whose tuple splits
 // (retWrap), marks a tuple so returned as its Some or Ok (packedTemp.wrap),
 // and gives each return slot a copy into which moves one a tag and parts
-// of its own, as a fused Maybe's (the slot's packedTemp, with wrap). A Some
+// of its own, as a fused Option's (the slot's packedTemp, with wrap). A Some
 // whose components' registers are not the slot's banks is built.
 func (cp *compiler) wrapReturns(w returnWraps, root map[ir.Temp]ir.Temp, parts map[ir.Temp][]loc, packs map[ir.Temp]packedTemp) {
 	for mk, desc := range w.makes {
@@ -369,7 +369,7 @@ func (cp *compiler) wrapReturns(w returnWraps, root map[ir.Temp]ir.Temp, parts m
 		if kept == 0 {
 			continue
 		}
-		p := packedTemp{kind: packMaybe, tag: uint32(cp.c.nW), result: cp.typeOf(v).Sym().Name() == resultDesc.Name,
+		p := packedTemp{kind: packOption, tag: uint32(cp.c.nW), result: cp.typeOf(v).Sym().Name() == resultDesc.Name,
 			payload: cp.c.locs[v], desc: td, parts: ls, types: types, wrap: desc}
 		cp.c.nW++
 		cp.pack(v, p)
@@ -612,7 +612,7 @@ func (cp *compiler) slotCopy(mv ir.Instr, dst, src ir.Temp) bool {
 		return false
 	}
 	p := &cp.c.packed[dst]
-	if p.kind != packMaybe || p.wrap == nil {
+	if p.kind != packOption || p.wrap == nil {
 		return false
 	}
 	set := uint64(0)
@@ -645,13 +645,13 @@ func (cp *compiler) moveReg(dst, src loc) {
 }
 
 // deliverParts moves the last return into packed temporary t's registers:
-// a split tuple's components, or a fused Maybe's tuple payload and its tag,
+// a split tuple's components, or a fused Option's tuple payload and its tag,
 // from the return scratch when the callee returned them in parts (a Some
 // or an Ok of a tuple it kept split, rpack.wrap), else out of the record it
 // returned.
 func (fr *frame) deliverParts(t ir.Temp) {
 	s, p := fr.stk, &fr.c.packed[t]
-	if s.rcls == retParts && (s.rpack.wrap != nil) == (p.kind == packMaybe) && len(s.rpack.parts) == len(p.parts) {
+	if s.rcls == retParts && (s.rpack.wrap != nil) == (p.kind == packOption) && len(s.rpack.parts) == len(p.parts) {
 		same := true
 		for i, l := range p.parts {
 			same = same && l.bank() == s.rpack.parts[i].bank()
@@ -667,7 +667,7 @@ func (fr *frame) deliverParts(t ir.Temp) {
 					s.r[fr.rb+l.reg()] = s.rpr[i]
 				}
 			}
-			if p.kind == packMaybe {
+			if p.kind == packOption {
 				s.w[fr.wb+int(p.tag)] = 1
 			}
 			return

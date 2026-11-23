@@ -356,10 +356,10 @@ func irGenUnit(g, og *gen) int {
 }
 
 // bareVariantOwnKind is the kind of a payload-free prelude variant written
-// with no expected type, `None == None` or `Maybe.equal(None, None)`: the
+// with no expected type, `None == None` or `Option.equal(None, None)`: the
 // type the checker records for it (valueKind), whose type arguments
-// inference solved (`if c { None } else { Some(2.5) }` makes this None a
-// Maybe<Float>) or closed (analysis's closed_vars.go). ok is false where n
+// inference solved (`if c { None } else { Some(2.5) }` makes this None an
+// Option<Float>) or closed (analysis's closed_vars.go). ok is false where n
 // is no such variant; one whose record names no kind answers kindInvalid,
 // which its caller declines.
 func (bl *irScalarBuilder) bareVariantOwnKind(n ast.Node) (kind, bool) {
@@ -402,7 +402,7 @@ func irEqualityContainerKind(k kind) bool {
 }
 
 // irScalarRangeKind reports a Range over an Int, a Float or a String, or a
-// tuple or List of them: its fields are such values and a Maybe of one, so
+// tuple or List of them: its fields are such values and an Option of one, so
 // the VM compares and hashes it as a container by content
 // (compareOperands), which is what std's Range, declaring no Equatable or
 // Hashable impl, means by either.
@@ -540,7 +540,7 @@ func (bl *irScalarBuilder) unitExistentialDebugImpls(k kind, same bool) (impls [
 		}
 		if !ok && !irDebugValueKind(d.recv) {
 			// A std container instance with no declared leaf (an impl for
-			// `Maybe<Int>` or `Vector<Int>`) renders structurally.
+			// `Option<Int>` or `Vector<Int>`) renders structurally.
 			return nil, false, false
 		}
 		impls = append(impls, nested...)

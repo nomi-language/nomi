@@ -106,9 +106,9 @@ func TestTerminalAnswersArePinnedAbsolutely(t *testing.T) {
 		t.Errorf("SeqEmpty over 1..4 = %v, want false", got)
 	}
 
-	// A Maybe's Tag is what distinguishes None from the Go zero value, which is
+	// An Option's Tag is what distinguishes None from the Go zero value, which is
 	// neither Some nor None by construction (prelude.go reserves tag 0). So the
-	// tag is asserted and not only the payload: `Maybe[int64]{}` has payload 0
+	// tag is asserted and not only the payload: `Option[int64]{}` has payload 0
 	// too, and a caller that forgot to seed the local would produce it.
 	if got := SeqFirst(fr, four); got.Tag != TagSome || got.Some != 1 {
 		t.Errorf("SeqFirst over 1..4 = %+v, want Some(1)", got)

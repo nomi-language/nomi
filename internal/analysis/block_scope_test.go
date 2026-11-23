@@ -138,7 +138,7 @@ end
 	})
 	t.Run("refutable binding else", func(t *testing.T) {
 		expectNeverReadAt(t, buildProjectForDefaultConfig(`
-fn pick(m: Maybe<Int>) -> Int
+fn pick(m: Option<Int>) -> Int
   total = 1
   Some(n) = m else
     total = total + 1

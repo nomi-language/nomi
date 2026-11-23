@@ -62,6 +62,6 @@ fn main()
 
     io.inspect(
         Some("hi")
-        |> Maybe.map(shapes.shout)
+        |> Option.map(shapes.shout)
     )
 end

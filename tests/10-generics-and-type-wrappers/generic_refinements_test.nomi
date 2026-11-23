@@ -1,17 +1,17 @@
 // A generic refinement's rule holds at every instance, its literals are
 // checked at their type arguments, and its values convert as its parents'
 // do.
-subtype Many<T> List<T> when fn xs -> not Iter.is_empty(xs)
+refine Many<T> List<T> when fn xs -> not Iter.is_empty(xs)
 
-subtype Ascending<T> List<T> where T: Comparable when fn xs ->
+refine Ascending<T> List<T> where T: Comparable when fn xs ->
     Iter.zip(xs, Iter.drop(xs, 1)) |> Iter.all_match(fn (a, b) -> a <= b)
 end
 
-subtype Run<T> Many<T> and Ascending<T> where T: Comparable when fn xs -> List.length(xs) <= 4
+refine Run<T> Many<T> and Ascending<T> where T: Comparable when fn xs -> List.length(xs) <= 4
 
-subtype Filled<K, V> Map<K, V> when fn m -> Map.size(m) > 0
+refine Filled<K, V> Map<K, V> when fn m -> Map.size(m) > 0
 
-subtype IntPair List<Int> when fn xs -> List.length(xs) == 2
+refine IntPair List<Int> when fn xs -> List.length(xs) == 2
 
 interface Shape
     fn area(shape: self) -> Float
@@ -37,7 +37,7 @@ fn total_area(shapes: Many<Shape>) -> Float
     shapes |> Iter.map(fn s -> Shape.area(s)) |> Iter.sum()
 end
 
-fn largest<T>(xs: Ascending<T>) -> Maybe<T> where T: Comparable
+fn largest<T>(xs: Ascending<T>) -> Option<T> where T: Comparable
     Iter.last(xs)
 end
 

@@ -67,7 +67,7 @@ var spec_d16 = &hostadapt.DescSpec{Name: "results.Result", Kind: rt.KindEnum, Va
 
 var spec_d17 = &hostadapt.DescSpec{Name: "locale.LocaleAttempt", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "value", Type: rt.SlotString}, {Name: "kind", Type: rt.SlotInt}, {Name: "detail", Type: rt.SlotString}}}
 
-var spec_d18 = &hostadapt.DescSpec{Name: "maybe.Maybe", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Some", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}, {Name: "None", Shape: rt.VariantBare}}}
+var spec_d18 = &hostadapt.DescSpec{Name: "option.Option", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Some", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}, {Name: "None", Shape: rt.VariantBare}}}
 
 var spec_d19 = &hostadapt.DescSpec{Name: "results.Result", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Ok", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotInt}}}, {Name: "Err", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}}}
 
@@ -77,13 +77,13 @@ var spec_d21 = &hostadapt.DescSpec{Name: "results.Result", Kind: rt.KindEnum, Va
 
 var spec_d22 = &hostadapt.DescSpec{Name: "results.Result", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Ok", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotBool}}}, {Name: "Err", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}}}
 
-var spec_d23 = &hostadapt.DescSpec{Name: "maybe.Maybe", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Some", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotInt}}}, {Name: "None", Shape: rt.VariantBare}}}
+var spec_d23 = &hostadapt.DescSpec{Name: "option.Option", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Some", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotInt}}}, {Name: "None", Shape: rt.VariantBare}}}
 
-var spec_d24 = &hostadapt.DescSpec{Name: "maybe.Maybe", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Some", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotRef}}}, {Name: "None", Shape: rt.VariantBare}}}
+var spec_d24 = &hostadapt.DescSpec{Name: "option.Option", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Some", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotRef}}}, {Name: "None", Shape: rt.VariantBare}}}
 
-var spec_d25 = &hostadapt.DescSpec{Name: "maybe.Maybe", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Some", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotByte}}}, {Name: "None", Shape: rt.VariantBare}}}
+var spec_d25 = &hostadapt.DescSpec{Name: "option.Option", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Some", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotByte}}}, {Name: "None", Shape: rt.VariantBare}}}
 
-var spec_d26 = &hostadapt.DescSpec{Name: "maybe.Maybe", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Some", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotBytes}}}, {Name: "None", Shape: rt.VariantBare}}}
+var spec_d26 = &hostadapt.DescSpec{Name: "option.Option", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Some", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotBytes}}}, {Name: "None", Shape: rt.VariantBare}}}
 
 var spec_d27 = &hostadapt.DescSpec{Name: "comparable.Ordering", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Less", Shape: rt.VariantBare}, {Name: "Equal", Shape: rt.VariantBare}, {Name: "Greater", Shape: rt.VariantBare}}}
 
@@ -113,7 +113,7 @@ var spec_d39 = &hostadapt.DescSpec{Name: "assertions.AssertionDetail", Kind: rt.
 
 var spec_d40 = &hostadapt.DescSpec{Name: "assertions.SubtestFailure", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "row", Type: rt.SlotString}, {Name: "failure", Type: rt.SlotRef}}}
 
-var spec_d41 = &hostadapt.DescSpec{Name: "maybe.Maybe", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Some", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotFloat}}}, {Name: "None", Shape: rt.VariantBare}}}
+var spec_d41 = &hostadapt.DescSpec{Name: "option.Option", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Some", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotFloat}}}, {Name: "None", Shape: rt.VariantBare}}}
 
 var spec_d42 = &hostadapt.DescSpec{Name: "dynamic.Error", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "path", Type: rt.SlotRef}, {Name: "expected", Type: rt.SlotString}, {Name: "got", Type: rt.SlotString}}}
 
@@ -4251,7 +4251,7 @@ func (b *bound) fn226Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) 
 	return true, nil
 }
 
-// out229 builds a Maybe<String> from Go *string.
+// out229 builds a Option<String> from Go *string.
 func (b *bound) out229(v *string) (rt.Value, error) {
 	if v == nil {
 		return b.d18.NewVariant(1), nil
@@ -4261,7 +4261,7 @@ func (b *bound) out229(v *string) (rt.Value, error) {
 	return r, nil
 }
 
-// out228 builds a List<Maybe<String>> from Go []*string.
+// out228 builds a List<Option<String>> from Go []*string.
 func (b *bound) out228(v []*string) (rt.Value, error) {
 	var xs *rt.List[any]
 	for i := len(v) - 1; i >= 0; i-- {
@@ -4295,7 +4295,7 @@ func (b *bound) fn227Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) 
 	return true, nil
 }
 
-// out232 builds a List<List<Maybe<String>>> from Go [][]*string.
+// out232 builds a List<List<Option<String>>> from Go [][]*string.
 func (b *bound) out232(v [][]*string) (rt.Value, error) {
 	var xs *rt.List[any]
 	for i := len(v) - 1; i >= 0; i-- {
@@ -4572,8 +4572,8 @@ func (b *bound) fn257Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) 
 	return true, nil
 }
 
-// out259 builds a Maybe<Int> from Go rt.Maybe[rt.Int].
-func (b *bound) out259(v rt.Maybe[rt.Int]) (rt.Value, error) {
+// out259 builds a Option<Int> from Go rt.Option[rt.Int].
+func (b *bound) out259(v rt.Option[rt.Int]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagSome:
 		r := b.d23.NewVariant(0)
@@ -4582,7 +4582,7 @@ func (b *bound) out259(v rt.Maybe[rt.Int]) (rt.Value, error) {
 	case rt.TagNone:
 		return b.d23.NewVariant(1), nil
 	}
-	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
+	return nil, fmt.Errorf("Go rt.Option carries tag %d, which names no variant", v.Tag)
 }
 
 // fn258Regs is strings.String.to_int over slots.
@@ -4664,8 +4664,8 @@ func (b *bound) fn268Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) 
 	return true, nil
 }
 
-// out270 builds a Maybe<Byte> from Go rt.Maybe[rt.Byte].
-func (b *bound) out270(v rt.Maybe[rt.Byte]) (rt.Value, error) {
+// out270 builds a Option<Byte> from Go rt.Option[rt.Byte].
+func (b *bound) out270(v rt.Option[rt.Byte]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagSome:
 		r := b.d25.NewVariant(0)
@@ -4674,7 +4674,7 @@ func (b *bound) out270(v rt.Maybe[rt.Byte]) (rt.Value, error) {
 	case rt.TagNone:
 		return b.d25.NewVariant(1), nil
 	}
-	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
+	return nil, fmt.Errorf("Go rt.Option carries tag %d, which names no variant", v.Tag)
 }
 
 // fn269Regs is int.Int.to_byte over slots.
@@ -4812,8 +4812,8 @@ func (b *bound) fn300Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) 
 	return true, nil
 }
 
-// out302 builds a Maybe<Bytes> from Go rt.Maybe[rt.Bytes].
-func (b *bound) out302(v rt.Maybe[rt.Bytes]) (rt.Value, error) {
+// out302 builds a Option<Bytes> from Go rt.Option[rt.Bytes].
+func (b *bound) out302(v rt.Option[rt.Bytes]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagSome:
 		r := b.d26.NewVariant(0)
@@ -4822,7 +4822,7 @@ func (b *bound) out302(v rt.Maybe[rt.Bytes]) (rt.Value, error) {
 	case rt.TagNone:
 		return b.d26.NewVariant(1), nil
 	}
-	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
+	return nil, fmt.Errorf("Go rt.Option carries tag %d, which names no variant", v.Tag)
 }
 
 // fn301Regs is http/host.open_sealed over slots.
@@ -4949,8 +4949,8 @@ func (b *bound) fn312Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) 
 	return true, nil
 }
 
-// out314 builds a Maybe<String> from Go rt.Maybe[string].
-func (b *bound) out314(v rt.Maybe[string]) (rt.Value, error) {
+// out314 builds a Option<String> from Go rt.Option[string].
+func (b *bound) out314(v rt.Option[string]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagSome:
 		r := b.d18.NewVariant(0)
@@ -4959,7 +4959,7 @@ func (b *bound) out314(v rt.Maybe[string]) (rt.Value, error) {
 	case rt.TagNone:
 		return b.d18.NewVariant(1), nil
 	}
-	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
+	return nil, fmt.Errorf("Go rt.Option carries tag %d, which names no variant", v.Tag)
 }
 
 // fn313Regs is html/host.named_reference over slots.
@@ -5900,8 +5900,8 @@ func (b *bound) out408(v rt.Codepoint) (rt.Value, error) {
 	return r, nil
 }
 
-// out407 builds a Maybe<Codepoint> from Go rt.Maybe[rt.Codepoint].
-func (b *bound) out407(v rt.Maybe[rt.Codepoint]) (rt.Value, error) {
+// out407 builds a Option<Codepoint> from Go rt.Option[rt.Codepoint].
+func (b *bound) out407(v rt.Option[rt.Codepoint]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagSome:
 		r := b.d24.NewVariant(0)
@@ -5914,7 +5914,7 @@ func (b *bound) out407(v rt.Maybe[rt.Codepoint]) (rt.Value, error) {
 	case rt.TagNone:
 		return b.d24.NewVariant(1), nil
 	}
-	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
+	return nil, fmt.Errorf("Go rt.Option carries tag %d, which names no variant", v.Tag)
 }
 
 // fn406Regs is int.Int.to_codepoint over slots.
@@ -6652,9 +6652,9 @@ func (b *bound) fn460Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) 
 	return true, nil
 }
 
-// in467 reads a Maybe<String> as Go rt.Maybe[string].
-func (b *bound) in467(fr *rt.Frame, v rt.Value) (out rt.Maybe[string], err error) {
-	r, tag, err := hostadapt.Variant(v, "maybe.Maybe")
+// in467 reads a Option<String> as Go rt.Option[string].
+func (b *bound) in467(fr *rt.Frame, v rt.Value) (out rt.Option[string], err error) {
+	r, tag, err := hostadapt.Variant(v, "option.Option")
 	if err != nil {
 		return out, err
 	}
@@ -6664,11 +6664,11 @@ func (b *bound) in467(fr *rt.Frame, v rt.Value) (out rt.Maybe[string], err error
 		if err != nil {
 			return out, fmt.Errorf("Some: %w", err)
 		}
-		return rt.Maybe[string]{Tag: rt.TagSome, Some: x}, nil
+		return rt.Option[string]{Tag: rt.TagSome, Some: x}, nil
 	case "None":
-		return rt.Maybe[string]{Tag: rt.TagNone}, nil
+		return rt.Option[string]{Tag: rt.TagNone}, nil
 	}
-	return out, fmt.Errorf("unmarshal Maybe: unknown variant %q", tag)
+	return out, fmt.Errorf("unmarshal Option: unknown variant %q", tag)
 }
 
 // in471 reads a AssertionPipelineStage as Go rt.NomiAssertionPipelineStage.
@@ -6757,9 +6757,9 @@ func (b *bound) in469(fr *rt.Frame, v rt.Value) (out rt.NomiAssertionBinding, er
 	return out, nil
 }
 
-// in468 reads a Maybe<AssertionBinding> as Go rt.Maybe[rt.NomiAssertionBinding].
-func (b *bound) in468(fr *rt.Frame, v rt.Value) (out rt.Maybe[rt.NomiAssertionBinding], err error) {
-	r, tag, err := hostadapt.Variant(v, "maybe.Maybe")
+// in468 reads a Option<AssertionBinding> as Go rt.Option[rt.NomiAssertionBinding].
+func (b *bound) in468(fr *rt.Frame, v rt.Value) (out rt.Option[rt.NomiAssertionBinding], err error) {
+	r, tag, err := hostadapt.Variant(v, "option.Option")
 	if err != nil {
 		return out, err
 	}
@@ -6769,11 +6769,11 @@ func (b *bound) in468(fr *rt.Frame, v rt.Value) (out rt.Maybe[rt.NomiAssertionBi
 		if err != nil {
 			return out, fmt.Errorf("Some: %w", err)
 		}
-		return rt.Maybe[rt.NomiAssertionBinding]{Tag: rt.TagSome, Some: x}, nil
+		return rt.Option[rt.NomiAssertionBinding]{Tag: rt.TagSome, Some: x}, nil
 	case "None":
-		return rt.Maybe[rt.NomiAssertionBinding]{Tag: rt.TagNone}, nil
+		return rt.Option[rt.NomiAssertionBinding]{Tag: rt.TagNone}, nil
 	}
-	return out, fmt.Errorf("unmarshal Maybe: unknown variant %q", tag)
+	return out, fmt.Errorf("unmarshal Option: unknown variant %q", tag)
 }
 
 // in473 reads a AssertionValue as Go rt.NomiAssertionValue.
@@ -7050,8 +7050,8 @@ func (b *bound) fn478Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) 
 	return true, nil
 }
 
-// out482 builds a Maybe<Decimal> from Go rt.Maybe[rt.Decimal].
-func (b *bound) out482(v rt.Maybe[rt.Decimal]) (rt.Value, error) {
+// out482 builds a Option<Decimal> from Go rt.Option[rt.Decimal].
+func (b *bound) out482(v rt.Option[rt.Decimal]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagSome:
 		r := b.d24.NewVariant(0)
@@ -7064,7 +7064,7 @@ func (b *bound) out482(v rt.Maybe[rt.Decimal]) (rt.Value, error) {
 	case rt.TagNone:
 		return b.d24.NewVariant(1), nil
 	}
-	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
+	return nil, fmt.Errorf("Go rt.Option carries tag %d, which names no variant", v.Tag)
 }
 
 // fn481Regs is strings.String.to_decimal over slots.
@@ -7087,8 +7087,8 @@ func (b *bound) fn481Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) 
 	return true, nil
 }
 
-// out486 builds a Maybe<Float> from Go rt.Maybe[float64].
-func (b *bound) out486(v rt.Maybe[float64]) (rt.Value, error) {
+// out486 builds a Option<Float> from Go rt.Option[float64].
+func (b *bound) out486(v rt.Option[float64]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagSome:
 		r := b.d41.NewVariant(0)
@@ -7097,7 +7097,7 @@ func (b *bound) out486(v rt.Maybe[float64]) (rt.Value, error) {
 	case rt.TagNone:
 		return b.d41.NewVariant(1), nil
 	}
-	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
+	return nil, fmt.Errorf("Go rt.Option carries tag %d, which names no variant", v.Tag)
 }
 
 // fn485Regs is strings.String.to_float over slots.
@@ -7353,8 +7353,8 @@ func (b *bound) fn508Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) 
 	return true, nil
 }
 
-// out510 builds a Maybe<Instant> from Go rt.Maybe[rt.Instant].
-func (b *bound) out510(v rt.Maybe[rt.Instant]) (rt.Value, error) {
+// out510 builds a Option<Instant> from Go rt.Option[rt.Instant].
+func (b *bound) out510(v rt.Option[rt.Instant]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagSome:
 		r := b.d24.NewVariant(0)
@@ -7367,7 +7367,7 @@ func (b *bound) out510(v rt.Maybe[rt.Instant]) (rt.Value, error) {
 	case rt.TagNone:
 		return b.d24.NewVariant(1), nil
 	}
-	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
+	return nil, fmt.Errorf("Go rt.Option carries tag %d, which names no variant", v.Tag)
 }
 
 // fn509Regs is context.Context.deadline over slots.
@@ -7400,8 +7400,8 @@ func (b *bound) out515(v rt.Duration) (rt.Value, error) {
 	return r, nil
 }
 
-// out514 builds a Maybe<Duration> from Go rt.Maybe[rt.Duration].
-func (b *bound) out514(v rt.Maybe[rt.Duration]) (rt.Value, error) {
+// out514 builds a Option<Duration> from Go rt.Option[rt.Duration].
+func (b *bound) out514(v rt.Option[rt.Duration]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagSome:
 		r := b.d24.NewVariant(0)
@@ -7414,7 +7414,7 @@ func (b *bound) out514(v rt.Maybe[rt.Duration]) (rt.Value, error) {
 	case rt.TagNone:
 		return b.d24.NewVariant(1), nil
 	}
-	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
+	return nil, fmt.Errorf("Go rt.Option carries tag %d, which names no variant", v.Tag)
 }
 
 // fn513Regs is context.Context.deadline_remaining over slots.
@@ -8180,8 +8180,8 @@ func (b *bound) out580(v rt.IOError) (rt.Value, error) {
 	return nil, fmt.Errorf("Go rt.IOError carries tag %d, which names no variant of io.Error", v.Tag)
 }
 
-// out578 builds a Result<Maybe<String>, Error> from Go rt.Result[rt.Maybe[string], rt.IOError].
-func (b *bound) out578(v rt.Result[rt.Maybe[string], rt.IOError]) (rt.Value, error) {
+// out578 builds a Result<Option<String>, Error> from Go rt.Result[rt.Option[string], rt.IOError].
+func (b *bound) out578(v rt.Result[rt.Option[string], rt.IOError]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
 		r := b.d31.NewVariant(0)
@@ -8297,8 +8297,8 @@ func (b *bound) fn591Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) 
 	return true, nil
 }
 
-// out595 builds a Result<Maybe<Bytes>, Error> from Go rt.Result[rt.Maybe[rt.Bytes], rt.IOError].
-func (b *bound) out595(v rt.Result[rt.Maybe[rt.Bytes], rt.IOError]) (rt.Value, error) {
+// out595 builds a Result<Option<Bytes>, Error> from Go rt.Result[rt.Option[rt.Bytes], rt.IOError].
+func (b *bound) out595(v rt.Result[rt.Option[rt.Bytes], rt.IOError]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
 		r := b.d31.NewVariant(0)
@@ -8550,9 +8550,9 @@ func (b *bound) in622(fr *rt.Frame, v rt.Value) (out rt.Bytes, err error) {
 	return rt.Bytes(x), nil
 }
 
-// in621 reads a Maybe<Bytes> as Go rt.Maybe[rt.Bytes].
-func (b *bound) in621(fr *rt.Frame, v rt.Value) (out rt.Maybe[rt.Bytes], err error) {
-	r, tag, err := hostadapt.Variant(v, "maybe.Maybe")
+// in621 reads a Option<Bytes> as Go rt.Option[rt.Bytes].
+func (b *bound) in621(fr *rt.Frame, v rt.Value) (out rt.Option[rt.Bytes], err error) {
+	r, tag, err := hostadapt.Variant(v, "option.Option")
 	if err != nil {
 		return out, err
 	}
@@ -8562,11 +8562,11 @@ func (b *bound) in621(fr *rt.Frame, v rt.Value) (out rt.Maybe[rt.Bytes], err err
 		if err != nil {
 			return out, fmt.Errorf("Some: %w", err)
 		}
-		return rt.Maybe[rt.Bytes]{Tag: rt.TagSome, Some: x}, nil
+		return rt.Option[rt.Bytes]{Tag: rt.TagSome, Some: x}, nil
 	case "None":
-		return rt.Maybe[rt.Bytes]{Tag: rt.TagNone}, nil
+		return rt.Option[rt.Bytes]{Tag: rt.TagNone}, nil
 	}
-	return out, fmt.Errorf("unmarshal Maybe: unknown variant %q", tag)
+	return out, fmt.Errorf("unmarshal Option: unknown variant %q", tag)
 }
 
 // in623 reads a Error as Go rt.IOError.
@@ -8802,8 +8802,8 @@ func (b *bound) in623(fr *rt.Frame, v rt.Value) (out rt.IOError, err error) {
 	return out, nil
 }
 
-// in620 reads a Result<Maybe<Bytes>, Error> as Go rt.Result[rt.Maybe[rt.Bytes], rt.IOError].
-func (b *bound) in620(fr *rt.Frame, v rt.Value) (out rt.Result[rt.Maybe[rt.Bytes], rt.IOError], err error) {
+// in620 reads a Result<Option<Bytes>, Error> as Go rt.Result[rt.Option[rt.Bytes], rt.IOError].
+func (b *bound) in620(fr *rt.Frame, v rt.Value) (out rt.Result[rt.Option[rt.Bytes], rt.IOError], err error) {
 	r, tag, err := hostadapt.Variant(v, "results.Result")
 	if err != nil {
 		return out, err
@@ -8814,23 +8814,23 @@ func (b *bound) in620(fr *rt.Frame, v rt.Value) (out rt.Result[rt.Maybe[rt.Bytes
 		if err != nil {
 			return out, fmt.Errorf("Ok: %w", err)
 		}
-		return rt.Result[rt.Maybe[rt.Bytes], rt.IOError]{Tag: rt.TagOk, Ok: x}, nil
+		return rt.Result[rt.Option[rt.Bytes], rt.IOError]{Tag: rt.TagOk, Ok: x}, nil
 	case "Err":
 		x, err := b.in623(fr, hostadapt.Payload(r))
 		if err != nil {
 			return out, fmt.Errorf("Err: %w", err)
 		}
-		return rt.Result[rt.Maybe[rt.Bytes], rt.IOError]{Tag: rt.TagErr, Err: x}, nil
+		return rt.Result[rt.Option[rt.Bytes], rt.IOError]{Tag: rt.TagErr, Err: x}, nil
 	}
 	return out, fmt.Errorf("unmarshal Result: unknown variant %q", tag)
 }
 
-// in619 reads a () -> Result<Maybe<Bytes>, Error> as Go func(*rt.Frame) rt.Result[rt.Maybe[rt.Bytes], rt.IOError].
-func (b *bound) in619(fr *rt.Frame, v rt.Value) (out func(*rt.Frame) rt.Result[rt.Maybe[rt.Bytes], rt.IOError], err error) {
+// in619 reads a () -> Result<Option<Bytes>, Error> as Go func(*rt.Frame) rt.Result[rt.Option[rt.Bytes], rt.IOError].
+func (b *bound) in619(fr *rt.Frame, v rt.Value) (out func(*rt.Frame) rt.Result[rt.Option[rt.Bytes], rt.IOError], err error) {
 	if v == nil {
 		return out, fmt.Errorf("expected a function, got nil")
 	}
-	return func(fr *rt.Frame) rt.Result[rt.Maybe[rt.Bytes], rt.IOError] {
+	return func(fr *rt.Frame) rt.Result[rt.Option[rt.Bytes], rt.IOError] {
 		res, err := b.env.Call(fr, v, []rt.Value{})
 		if err != nil {
 			panic(hostadapt.Unwind{Err: err})
@@ -10352,9 +10352,9 @@ func (b *bound) in756(fr *rt.Frame, v rt.Value) (out rt.HTTPClient, err error) {
 	return x, nil
 }
 
-// in759 reads a Maybe<Reader> as Go rt.Maybe[rt.Reader].
-func (b *bound) in759(fr *rt.Frame, v rt.Value) (out rt.Maybe[rt.Reader], err error) {
-	r, tag, err := hostadapt.Variant(v, "maybe.Maybe")
+// in759 reads a Option<Reader> as Go rt.Option[rt.Reader].
+func (b *bound) in759(fr *rt.Frame, v rt.Value) (out rt.Option[rt.Reader], err error) {
+	r, tag, err := hostadapt.Variant(v, "option.Option")
 	if err != nil {
 		return out, err
 	}
@@ -10364,11 +10364,11 @@ func (b *bound) in759(fr *rt.Frame, v rt.Value) (out rt.Maybe[rt.Reader], err er
 		if err != nil {
 			return out, fmt.Errorf("Some: %w", err)
 		}
-		return rt.Maybe[rt.Reader]{Tag: rt.TagSome, Some: x}, nil
+		return rt.Option[rt.Reader]{Tag: rt.TagSome, Some: x}, nil
 	case "None":
-		return rt.Maybe[rt.Reader]{Tag: rt.TagNone}, nil
+		return rt.Option[rt.Reader]{Tag: rt.TagNone}, nil
 	}
-	return out, fmt.Errorf("unmarshal Maybe: unknown variant %q", tag)
+	return out, fmt.Errorf("unmarshal Option: unknown variant %q", tag)
 }
 
 // in761 reads a Handle as Go rt.HTTPHandle.
@@ -10380,9 +10380,9 @@ func (b *bound) in761(fr *rt.Frame, v rt.Value) (out rt.HTTPHandle, err error) {
 	return x, nil
 }
 
-// in760 reads a Maybe<Handle> as Go rt.Maybe[rt.HTTPHandle].
-func (b *bound) in760(fr *rt.Frame, v rt.Value) (out rt.Maybe[rt.HTTPHandle], err error) {
-	r, tag, err := hostadapt.Variant(v, "maybe.Maybe")
+// in760 reads a Option<Handle> as Go rt.Option[rt.HTTPHandle].
+func (b *bound) in760(fr *rt.Frame, v rt.Value) (out rt.Option[rt.HTTPHandle], err error) {
+	r, tag, err := hostadapt.Variant(v, "option.Option")
 	if err != nil {
 		return out, err
 	}
@@ -10392,11 +10392,11 @@ func (b *bound) in760(fr *rt.Frame, v rt.Value) (out rt.Maybe[rt.HTTPHandle], er
 		if err != nil {
 			return out, fmt.Errorf("Some: %w", err)
 		}
-		return rt.Maybe[rt.HTTPHandle]{Tag: rt.TagSome, Some: x}, nil
+		return rt.Option[rt.HTTPHandle]{Tag: rt.TagSome, Some: x}, nil
 	case "None":
-		return rt.Maybe[rt.HTTPHandle]{Tag: rt.TagNone}, nil
+		return rt.Option[rt.HTTPHandle]{Tag: rt.TagNone}, nil
 	}
-	return out, fmt.Errorf("unmarshal Maybe: unknown variant %q", tag)
+	return out, fmt.Errorf("unmarshal Option: unknown variant %q", tag)
 }
 
 // out763 builds a Exchange from Go rt.HTTPExchange.
@@ -10574,9 +10574,9 @@ func (b *bound) out821(v rt.HTTPHandle) (rt.Value, error) {
 	return v, nil
 }
 
-// in822 reads a Maybe<Certificate> as Go rt.Maybe[rt.TLSCertificate].
-func (b *bound) in822(fr *rt.Frame, v rt.Value) (out rt.Maybe[rt.TLSCertificate], err error) {
-	r, tag, err := hostadapt.Variant(v, "maybe.Maybe")
+// in822 reads a Option<Certificate> as Go rt.Option[rt.TLSCertificate].
+func (b *bound) in822(fr *rt.Frame, v rt.Value) (out rt.Option[rt.TLSCertificate], err error) {
+	r, tag, err := hostadapt.Variant(v, "option.Option")
 	if err != nil {
 		return out, err
 	}
@@ -10586,19 +10586,19 @@ func (b *bound) in822(fr *rt.Frame, v rt.Value) (out rt.Maybe[rt.TLSCertificate]
 		if err != nil {
 			return out, fmt.Errorf("Some: %w", err)
 		}
-		return rt.Maybe[rt.TLSCertificate]{Tag: rt.TagSome, Some: x}, nil
+		return rt.Option[rt.TLSCertificate]{Tag: rt.TagSome, Some: x}, nil
 	case "None":
-		return rt.Maybe[rt.TLSCertificate]{Tag: rt.TagNone}, nil
+		return rt.Option[rt.TLSCertificate]{Tag: rt.TagNone}, nil
 	}
-	return out, fmt.Errorf("unmarshal Maybe: unknown variant %q", tag)
+	return out, fmt.Errorf("unmarshal Option: unknown variant %q", tag)
 }
 
-// in820 reads a (Handle) -> Maybe<Certificate> as Go func(*rt.Frame, rt.HTTPHandle) rt.Maybe[rt.TLSCertificate].
-func (b *bound) in820(fr *rt.Frame, v rt.Value) (out func(*rt.Frame, rt.HTTPHandle) rt.Maybe[rt.TLSCertificate], err error) {
+// in820 reads a (Handle) -> Option<Certificate> as Go func(*rt.Frame, rt.HTTPHandle) rt.Option[rt.TLSCertificate].
+func (b *bound) in820(fr *rt.Frame, v rt.Value) (out func(*rt.Frame, rt.HTTPHandle) rt.Option[rt.TLSCertificate], err error) {
 	if v == nil {
 		return out, fmt.Errorf("expected a function, got nil")
 	}
-	return func(fr *rt.Frame, p0 rt.HTTPHandle) rt.Maybe[rt.TLSCertificate] {
+	return func(fr *rt.Frame, p0 rt.HTTPHandle) rt.Option[rt.TLSCertificate] {
 		x0, err := b.out821(p0)
 		if err != nil {
 			panic(fmt.Sprintf("Nomi callback arg 0: %v", err))
@@ -10771,8 +10771,8 @@ func (b *bound) in851(fr *rt.Frame, v rt.Value) (out rt.NetConn, err error) {
 	return x, nil
 }
 
-// out879 builds a Maybe<List<List<String>>> from Go rt.Maybe[*rt.List[*rt.List[string]]].
-func (b *bound) out879(v rt.Maybe[*rt.List[*rt.List[string]]]) (rt.Value, error) {
+// out879 builds a Option<List<List<String>>> from Go rt.Option[*rt.List[*rt.List[string]]].
+func (b *bound) out879(v rt.Option[*rt.List[*rt.List[string]]]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagSome:
 		r := b.d24.NewVariant(0)
@@ -10785,7 +10785,7 @@ func (b *bound) out879(v rt.Maybe[*rt.List[*rt.List[string]]]) (rt.Value, error)
 	case rt.TagNone:
 		return b.d24.NewVariant(1), nil
 	}
-	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
+	return nil, fmt.Errorf("Go rt.Option carries tag %d, which names no variant", v.Tag)
 }
 
 // in886 reads a TcpListener as Go rt.NetListener.
@@ -10872,8 +10872,8 @@ func (b *bound) out907(v rt.Result[rt.HTTPHandle, string]) (rt.Value, error) {
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// out931 builds a Maybe<Handle> from Go rt.Maybe[rt.HTTPHandle].
-func (b *bound) out931(v rt.Maybe[rt.HTTPHandle]) (rt.Value, error) {
+// out931 builds a Option<Handle> from Go rt.Option[rt.HTTPHandle].
+func (b *bound) out931(v rt.Option[rt.HTTPHandle]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagSome:
 		r := b.d24.NewVariant(0)
@@ -10886,11 +10886,11 @@ func (b *bound) out931(v rt.Maybe[rt.HTTPHandle]) (rt.Value, error) {
 	case rt.TagNone:
 		return b.d24.NewVariant(1), nil
 	}
-	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
+	return nil, fmt.Errorf("Go rt.Option carries tag %d, which names no variant", v.Tag)
 }
 
-// out930 builds a Result<Maybe<Handle>, String> from Go rt.Result[rt.Maybe[rt.HTTPHandle], string].
-func (b *bound) out930(v rt.Result[rt.Maybe[rt.HTTPHandle], string]) (rt.Value, error) {
+// out930 builds a Result<Option<Handle>, String> from Go rt.Result[rt.Option[rt.HTTPHandle], string].
+func (b *bound) out930(v rt.Result[rt.Option[rt.HTTPHandle], string]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
 		r := b.d20.NewVariant(0)
@@ -10962,8 +10962,8 @@ func (b *bound) out952(v rt.Result[rt.HTTPHandle, *rt.List[string]]) (rt.Value, 
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// out959 builds a Result<Maybe<Bytes>, List<String>> from Go rt.Result[rt.Maybe[rt.Bytes], *rt.List[string]].
-func (b *bound) out959(v rt.Result[rt.Maybe[rt.Bytes], *rt.List[string]]) (rt.Value, error) {
+// out959 builds a Result<Option<Bytes>, List<String>> from Go rt.Result[rt.Option[rt.Bytes], *rt.List[string]].
+func (b *bound) out959(v rt.Result[rt.Option[rt.Bytes], *rt.List[string]]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagOk:
 		r := b.d31.NewVariant(0)
@@ -11036,8 +11036,8 @@ func (b *bound) out992(v rt.HTTPIncoming) (rt.Value, error) {
 	return v, nil
 }
 
-// out991 builds a Maybe<Incoming> from Go rt.Maybe[rt.HTTPIncoming].
-func (b *bound) out991(v rt.Maybe[rt.HTTPIncoming]) (rt.Value, error) {
+// out991 builds a Option<Incoming> from Go rt.Option[rt.HTTPIncoming].
+func (b *bound) out991(v rt.Option[rt.HTTPIncoming]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagSome:
 		r := b.d24.NewVariant(0)
@@ -11050,7 +11050,7 @@ func (b *bound) out991(v rt.Maybe[rt.HTTPIncoming]) (rt.Value, error) {
 	case rt.TagNone:
 		return b.d24.NewVariant(1), nil
 	}
-	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
+	return nil, fmt.Errorf("Go rt.Option carries tag %d, which names no variant", v.Tag)
 }
 
 // out1015 builds a List<Bytes> from Go *rt.List[rt.Bytes].
@@ -11147,8 +11147,8 @@ func (b *bound) out1044(v rt.Result[rt.Int, string]) (rt.Value, error) {
 	return nil, fmt.Errorf("Go rt.Result carries tag %d, which names no variant", v.Tag)
 }
 
-// out1048 builds a Maybe<Error> from Go rt.Maybe[rt.IOError].
-func (b *bound) out1048(v rt.Maybe[rt.IOError]) (rt.Value, error) {
+// out1048 builds a Option<Error> from Go rt.Option[rt.IOError].
+func (b *bound) out1048(v rt.Option[rt.IOError]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagSome:
 		r := b.d24.NewVariant(0)
@@ -11161,7 +11161,7 @@ func (b *bound) out1048(v rt.Maybe[rt.IOError]) (rt.Value, error) {
 	case rt.TagNone:
 		return b.d24.NewVariant(1), nil
 	}
-	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
+	return nil, fmt.Errorf("Go rt.Option carries tag %d, which names no variant", v.Tag)
 }
 
 // out1054 builds a Result<List<List<String>>, String> from Go rt.Result[*rt.List[*rt.List[string]], string].
@@ -11588,9 +11588,9 @@ func (b *bound) fn1105Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error)
 	return true, nil
 }
 
-// in1107 reads a Maybe<Codepoint> as Go rt.Maybe[rt.Codepoint].
-func (b *bound) in1107(fr *rt.Frame, v rt.Value) (out rt.Maybe[rt.Codepoint], err error) {
-	r, tag, err := hostadapt.Variant(v, "maybe.Maybe")
+// in1107 reads a Option<Codepoint> as Go rt.Option[rt.Codepoint].
+func (b *bound) in1107(fr *rt.Frame, v rt.Value) (out rt.Option[rt.Codepoint], err error) {
+	r, tag, err := hostadapt.Variant(v, "option.Option")
 	if err != nil {
 		return out, err
 	}
@@ -11600,11 +11600,11 @@ func (b *bound) in1107(fr *rt.Frame, v rt.Value) (out rt.Maybe[rt.Codepoint], er
 		if err != nil {
 			return out, fmt.Errorf("Some: %w", err)
 		}
-		return rt.Maybe[rt.Codepoint]{Tag: rt.TagSome, Some: x}, nil
+		return rt.Option[rt.Codepoint]{Tag: rt.TagSome, Some: x}, nil
 	case "None":
-		return rt.Maybe[rt.Codepoint]{Tag: rt.TagNone}, nil
+		return rt.Option[rt.Codepoint]{Tag: rt.TagNone}, nil
 	}
-	return out, fmt.Errorf("unmarshal Maybe: unknown variant %q", tag)
+	return out, fmt.Errorf("unmarshal Option: unknown variant %q", tag)
 }
 
 // out1108 builds a Records from Go rt.CsvRecords.
@@ -12204,8 +12204,8 @@ func (b *bound) fn1187Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error)
 	return true, nil
 }
 
-// out1189 builds a Maybe<Int> from Go rt.Maybe[int64].
-func (b *bound) out1189(v rt.Maybe[int64]) (rt.Value, error) {
+// out1189 builds a Option<Int> from Go rt.Option[int64].
+func (b *bound) out1189(v rt.Option[int64]) (rt.Value, error) {
 	switch v.Tag {
 	case rt.TagSome:
 		r := b.d23.NewVariant(0)
@@ -12214,7 +12214,7 @@ func (b *bound) out1189(v rt.Maybe[int64]) (rt.Value, error) {
 	case rt.TagNone:
 		return b.d23.NewVariant(1), nil
 	}
-	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
+	return nil, fmt.Errorf("Go rt.Option carries tag %d, which names no variant", v.Tag)
 }
 
 // fn1188Regs is bytes.index_of_from over slots.
@@ -12688,8 +12688,8 @@ func (b *bound) out1221(v struct {
 	return tup, nil
 }
 
-// out1220 builds a Maybe<(Int, Int)> from Go rt.Maybe[struct{ F0 rt.Int; F1 int64 }].
-func (b *bound) out1220(v rt.Maybe[struct {
+// out1220 builds a Option<(Int, Int)> from Go rt.Option[struct{ F0 rt.Int; F1 int64 }].
+func (b *bound) out1220(v rt.Option[struct {
 	F0 rt.Int
 	F1 int64
 }]) (rt.Value, error) {
@@ -12705,7 +12705,7 @@ func (b *bound) out1220(v rt.Maybe[struct {
 	case rt.TagNone:
 		return b.d24.NewVariant(1), nil
 	}
-	return nil, fmt.Errorf("Go rt.Maybe carries tag %d, which names no variant", v.Tag)
+	return nil, fmt.Errorf("Go rt.Option carries tag %d, which names no variant", v.Tag)
 }
 
 // fn1219Regs is bytes.Bytes.uvarint_at over slots.

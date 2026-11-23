@@ -44,7 +44,7 @@ end
 
 func TestPatternBindingElse_EachFormChecks(t *testing.T) {
 	for name, body := range map[string]string{
-		"block that leaves": `fn f(m: Maybe<String>) -> Result<String, String>
+		"block that leaves": `fn f(m: Option<String>) -> Result<String, String>
     Some(e) = m else
         return Err("none")
     end
@@ -57,7 +57,7 @@ end`,
     end
     Ok(user)
 end`,
-		"fallback block": `fn f(m: Maybe<String>) -> String
+		"fallback block": `fn f(m: Option<String>) -> String
     Some(e) = m else
         "none"
     end
@@ -76,19 +76,19 @@ end`,
     end
     first
 end`,
-		"nested refutable pattern that leaves": `fn f(r: Result<Maybe<Int>, String>) -> Int
+		"nested refutable pattern that leaves": `fn f(r: Result<Option<Int>, String>) -> Int
     Ok(Some(n)) = r else
         return 0
     end
     n
 end`,
-		"leaving branches inside the else": `fn f(m: Maybe<Int>, loud: Bool) -> Int
+		"leaving branches inside the else": `fn f(m: Option<Int>, loud: Bool) -> Int
     Some(n) = m else
         if loud then return -1 else return 0
     end
     n
 end`,
-		"continue in a callback": `fn f(xs: List<Maybe<Int>>) -> Int
+		"continue in a callback": `fn f(xs: List<Option<Int>>) -> Int
     Iter.each(xs, fn m ->
         Some(n) = m else
             continue
@@ -97,7 +97,7 @@ end`,
     end)
     0
 end`,
-		"return in a lambda": `fn f(xs: List<Maybe<Int>>) -> List<Int>
+		"return in a lambda": `fn f(xs: List<Option<Int>>) -> List<Int>
     xs |> Iter.map(fn m ->
         Some(n) = m else
             return 0
@@ -168,19 +168,19 @@ func TestPatternBindingElse_Errors(t *testing.T) {
     end
     first
 end`, "20:9: " + elseNoPayloadMsg},
-		"nested refutable pattern falling back": {`fn f(r: Result<Maybe<Int>, String>) -> Int
+		"nested refutable pattern falling back": {`fn f(r: Result<Option<Int>, String>) -> Int
     Ok(Some(n)) = r else
         0
     end
     n
 end`, "20:9: " + elseNoPayloadMsg},
-		"wrong fallback type": {`fn f(m: Maybe<String>) -> String
+		"wrong fallback type": {`fn f(m: Option<String>) -> String
     Some(e) = m else
         5
     end
     e
 end`, "20:9: the fallback stands in for Some's payload of type String, got Int"},
-		"a path neither leaving nor falling back": {`fn f(m: Maybe<Int>) -> Int
+		"a path neither leaving nor falling back": {`fn f(m: Option<Int>) -> Int
     Some(n) = m else
         0
     end
@@ -212,10 +212,10 @@ end`, "19:16: this pattern always matches; remove the else"},
     Ok((w, h)) = r
     w * h
 end`, "19:5: this pattern can fail to match a value of type Result<(Int, Int), String>; add `else` to handle a value it does not match, or match it with `case` or `if Pattern = expr`"},
-		"variant destructure without else": {`fn f(m: Maybe<Int>) -> Int
+		"variant destructure without else": {`fn f(m: Option<Int>) -> Int
     Some(n) = m
     n
-end`, "19:5: this pattern can fail to match a value of type Maybe<Int>; add `else` to handle a value it does not match, or match it with `case` or `if Pattern = expr`"},
+end`, "19:5: this pattern can fail to match a value of type Option<Int>; add `else` to handle a value it does not match, or match it with `case` or `if Pattern = expr`"},
 	} {
 		errs := elseErrors(t, elseDecls+"\n"+tc.body+"\n")
 		found := false
@@ -234,7 +234,7 @@ end`, "19:5: this pattern can fail to match a value of type Maybe<Int>; add `els
 // else, which runs because the pattern did not match.
 func TestPatternBindingElse_Scope(t *testing.T) {
 	errs := elseErrors(t, elseDecls+`
-fn f(p: (Maybe<Int>, Int)) -> Int
+fn f(p: (Option<Int>, Int)) -> Int
     (Some(a), b) = p else
         return b
     end
@@ -246,7 +246,7 @@ end
 		t.Errorf("want only %q, got:\n%s", want, strings.Join(errs, "\n"))
 	}
 	if errs := elseErrors(t, elseDecls+`
-fn g(m: Maybe<Int>) -> Int
+fn g(m: Option<Int>) -> Int
     n = 10
     Some(n) = m else
         return n
@@ -277,7 +277,7 @@ end
 // A variant binding with no else, `Ok(x) = r`, is a pattern that can fail.
 // The parser reads `Name(x) = value` as a distinct-type destructure, and the
 // checker reports it as the refutable binding it is. On `Ok` over a Result
-// and `Some` over a Maybe the hint points at `?`, which is usually meant.
+// and `Some` over an Option the hint points at `?`, which is usually meant.
 // Each case fails if the source starts being accepted.
 func TestPatternBinding_RefutableVariantWithoutElse(t *testing.T) {
 	refutable := func(ty string) string {
@@ -292,16 +292,16 @@ func TestPatternBinding_RefutableVariantWithoutElse(t *testing.T) {
     Ok(x)
 end`, "19:5", refutable("Result<Int, String>"),
 			"`Ok(x)` does not match an `Err`. To unwrap the `Result` and return early on `Err`, write `x = ...?`"},
-		"Some over a Maybe": {`fn f(m: Maybe<Int>) -> Maybe<Int>
+		"Some over an Option": {`fn f(m: Option<Int>) -> Option<Int>
     Some(x) = m
     Some(x)
-end`, "19:5", refutable("Maybe<Int>"),
-			"`Some(x)` does not match `None`. To unwrap the `Maybe` and return early on `None`, write `x = ...?`"},
-		"dotted Some over a Maybe": {`fn f(m: Maybe<Int>) -> Maybe<Int>
+end`, "19:5", refutable("Option<Int>"),
+			"`Some(x)` does not match `None`. To unwrap the `Option` and return early on `None`, write `x = ...?`"},
+		"dotted Some over an Option": {`fn f(m: Option<Int>) -> Option<Int>
     .Some(x) = m
     Some(x)
-end`, "19:5", refutable("Maybe<Int>"),
-			"`Some(x)` does not match `None`. To unwrap the `Maybe` and return early on `None`, write `x = ...?`"},
+end`, "19:5", refutable("Option<Int>"),
+			"`Some(x)` does not match `None`. To unwrap the `Option` and return early on `None`, write `x = ...?`"},
 		"Err over a Result": {`fn f(r: Result<Int, String>) -> String
     Err(e) = r
     e
@@ -311,15 +311,15 @@ end`, "19:5", refutable("Result<Int, String>"), ""},
     s
 end`, "19:5", refutable("LoadError"), ""},
 		// The program from a user's report: a pipe, whose hint is the
-		// a `?` stage stage, ending in `Maybe.to_result`, whose Result was
+		// a `?` stage stage, ending in `Option.to_result`, whose Result was
 		// copied before std/results.nomi filled in its variants.
-		"a pipe ending in Maybe.to_result": {`import std::io
+		"a pipe ending in Option.to_result": {`import std::io
 
 fn main() -> Result<Unit, String>
     Ok(balance) =
         io.read_line()?
         |> String.to_int()
-        |> Maybe.to_result("is not a number!")
+        |> Option.to_result("is not a number!")
     io.print(Int.to_string(balance))
     Ok(Unit)
 end`, "4:5", refutable("Result<Int, String>"),

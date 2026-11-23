@@ -81,6 +81,20 @@
 //
 // Every edit keeps the first-party lib/ entries on one version
 // (alignLib): they are versioned by nomi's commits and tested together.
+// That version is the compiler's. cmd/nomi passes a release `nomi`'s own
+// version in Options.Release (internal/runners.ReleaseVersion, when it is a
+// release's semantic version). Add of a lib/ module with no version then
+// takes it at that version, and Update moves a lib/ entry it updates to
+// it, from a later commit too, and the other lib/ entries with it
+// (atRelease). scripts/release-tags.sh lists
+// the tags a release makes for that, `lib/<dir>/<version>` per module. A
+// proxy that lacks the version is a missingTagError naming the tag, never a
+// fall back to the latest commit: proxyGet's error says when every proxy
+// answered not found (missingVersion). A version on the command line is
+// taken as written. From a `nomi` built from source (Release empty), Add
+// and Update take the latest commit. LibOffRelease answers the lib/ modules
+// nomi.lock locks at another version, which cmd/nomi notes before `run`,
+// `test`, `check` and `build` fetch.
 //
 // # Tests
 //

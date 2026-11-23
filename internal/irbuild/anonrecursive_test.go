@@ -6,11 +6,11 @@ import (
 	"testing"
 )
 
-// A struct that holds itself through an anonymous struct field's Maybe
+// A struct that holds itself through an anonymous struct field's Option
 // (testdata/anon_recursive.nomi declares one) is built two levels deep and
 // read back. Its literal declined: irComposedFieldKind held a record field
 // only when it reached no type the walk was deciding, so `wrap: {inner:
-// Maybe<Node>, depth: Int}` left Node outside the retained structs, where a
+// Option<Node>, depth: Int}` left Node outside the retained structs, where a
 // tuple field of the same parts was decided part by part.
 func TestAnonRecursiveStruct_BuildsAndReads(t *testing.T) {
 	if testing.Short() {
@@ -18,7 +18,7 @@ func TestAnonRecursiveStruct_BuildsAndReads(t *testing.T) {
 	}
 	src := `struct Node
     value: Int
-    wrap: {inner: Maybe<Node>, depth: Int}
+    wrap: {inner: Option<Node>, depth: Int}
 end
 
 fn inner_value(n: Node) -> Int

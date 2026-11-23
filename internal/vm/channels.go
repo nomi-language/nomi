@@ -24,7 +24,7 @@ func (*receiverValue) OpaqueText() string { return rt.ChannelInspectText() }
 type armValue struct {
 	c    rt.SelectCase
 	then *functionValue
-	// kind says how the handler is called: with the received Maybe, with the
+	// kind says how the handler is called: with the received Option, with the
 	// send's Result, or with nothing.
 	kind armKind
 }

@@ -1,6 +1,6 @@
 import units.{Height, Meters, plus}
 
-subtype Hill Height when fn h -> h < 1000.0
+refine Hill Height when fn h -> h < 1000.0
 
 fn total(xs: List<Meters>) -> Float
     Iter.sum(xs)

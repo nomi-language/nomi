@@ -18,7 +18,7 @@ test "if without else returns Unit either way"
     assert when_false == Unit
 end
 
-test "else None makes an if a Maybe"
+test "else None makes an if an Option"
     when_true = if True then Some(1) else None
     when_false = if False then Some(1) else None
 
@@ -26,7 +26,7 @@ test "else None makes an if a Maybe"
     assert when_false == None
 end
 
-test "an else if chain ending in else None is its branches' Maybe"
+test "an else if chain ending in else None is its branches' Option"
     pick =
         fn n: Int ->
             if n > 0 then
@@ -43,10 +43,10 @@ test "an else if chain ending in else None is its branches' Maybe"
     assert pick(0) == None
 end
 
-test "if without else whose branch is a Maybe is an error"
+test "if without else whose branch is an Option is an error"
     diagnostics = compiler.check(
         """
-          fn one() -> Maybe<Int>
+          fn one() -> Option<Int>
             if True then Some(1)
           end
         """
@@ -54,7 +54,7 @@ test "if without else whose branch is a Maybe is an error"
 
     assert test_helpers.has_diagnostic(
         diagnostics,
-        "an `if` without `else` is a statement, so its branch must be `Unit`; this branch is a `Maybe<Int>`. Add `else None` to make the `if` a `Maybe<Int>`",
+        "an `if` without `else` is a statement, so its branch must be `Unit`; this branch is an `Option<Int>`. Add `else None` to make the `if` an `Option<Int>`",
     )
 end
 
@@ -99,10 +99,10 @@ test "nested if expressions return branch values"
 end
 
 test "if can match and bind a pattern"
-    maybe_name = Some("Ada")
+    option_name = Some("Ada")
 
     label =
-        if Some(name) = maybe_name then
+        if Some(name) = option_name then
             name
         else
             "unknown"
@@ -112,10 +112,10 @@ test "if can match and bind a pattern"
 end
 
 test "if pattern mismatch evaluates else"
-    maybe_name: Maybe<String> = None
+    option_name: Option<String> = None
 
     label =
-        if Some(name) = maybe_name then
+        if Some(name) = option_name then
             name
         else
             "unknown"
@@ -128,8 +128,8 @@ test "if pattern bindings are scoped to the then branch"
     diagnostics = compiler.check(
         """
           fn main()
-            maybe_name = Some("Ada")
-            if Some(name) = maybe_name then Unit
+            option_name = Some("Ada")
+            if Some(name) = option_name then Unit
             name
           end
         """

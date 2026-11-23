@@ -7,7 +7,7 @@ import (
 )
 
 // zip has a direct cursor for the view of a List, a Vector and a Range over
-// Ints, and none for any other sequence: a Range of another element, a Maybe
+// Ints, and none for any other sequence: a Range of another element, an Option
 // view, an adapter (no Src), which it pulls through a coroutine.
 func TestZip_ADirectCursorOnlyForListsVectorsAndIntRanges(t *testing.T) {
 	xs := rt.Cons[any](int64(1), rt.Cons[any](int64(2), nil))
@@ -45,7 +45,7 @@ func TestZip_ADirectCursorOnlyForListsVectorsAndIntRanges(t *testing.T) {
 			}
 		}
 	}
-	for name, src := range map[string]any{"bytes range": chars, "maybe": some(int64(1)), "adapter": nil} {
+	for name, src := range map[string]any{"bytes range": chars, "option": some(int64(1)), "adapter": nil} {
 		if directCursor(rt.Seq[any]{Src: src}) != nil {
 			t.Errorf("%s: zip steps it directly, but only a List, a Vector or an Int range steps so", name)
 		}

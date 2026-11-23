@@ -136,7 +136,7 @@ func (g *gen) filePath() string {
 }
 
 // refusedDefs are the declarations te names, in g's scope, that the builder
-// refused, a container's arguments before the container: `Maybe<Big>` names
+// refused, a container's arguments before the container: `Option<Big>` names
 // Big.
 func (g *gen) refusedDefs(te ast.TypeExpr) []*typeDef {
 	var out []*typeDef

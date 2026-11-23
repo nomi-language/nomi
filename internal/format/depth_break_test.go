@@ -51,8 +51,8 @@ func TestFormat_DepthBreakLeavesElementsToThemselves(t *testing.T) {
 		},
 		{
 			"pattern three deep",
-			"fn f(x: Maybe<List<List<List<Int>>>>) -> Int\n    case x\n        Some([[[a]]]) -> a\n        _ -> 0\n    end\nend\n",
-			"fn f(x: Maybe<List<List<List<Int>>>>) -> Int\n    case x\n        Some([\n            [[a]],\n        ]) -> a\n        _ -> 0\n    end\nend\n",
+			"fn f(x: Option<List<List<List<Int>>>>) -> Int\n    case x\n        Some([[[a]]]) -> a\n        _ -> 0\n    end\nend\n",
+			"fn f(x: Option<List<List<List<Int>>>>) -> Int\n    case x\n        Some([\n            [[a]],\n        ]) -> a\n        _ -> 0\n    end\nend\n",
 		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
@@ -72,7 +72,7 @@ func TestFormat_DepthBreakKeepsComments(t *testing.T) {
 // A call that holds no literal lays out by width inside a literal broken
 // for its depth, as anywhere else.
 func TestFormat_DepthBreakLeafCallBreaksByWidth(t *testing.T) {
-	src := "fn f(e_rather_long_rather_long_rather_long_rather_long: Equals) -> Maybe<AssertionDetails>\n" +
+	src := "fn f(e_rather_long_rather_long_rather_long_rather_long: Equals) -> Option<AssertionDetails>\n" +
 		"    Some(AssertionDetails{\n" +
 		"        reason: \"values were not equal\",\n" +
 		"        actual_rather_long_rather_long_rather_long: Some(Debug.inspect(e_rather_long_rather_long_rather_long_rather_long.actual)),\n" +

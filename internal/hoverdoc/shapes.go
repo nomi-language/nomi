@@ -689,7 +689,7 @@ func variantName(sym *analysis.Symbol) string {
 
 // renderVariant is the hover of an enum variant: the variant with its enum
 // and its payload (`Room.Cave`, `Shape.Circle { radius: Float }`,
-// `Maybe.Some(Int) -> Maybe<Int>` at an instantiation of a generic enum),
+// `Option.Some(Int) -> Option<Int>` at an instantiation of a generic enum),
 // whether the enum came from the expected type (the `.` form), and the
 // variant's doc comment or else the enum's.
 func renderVariant(sym *analysis.Symbol, fromExpected bool) string {

@@ -12,7 +12,7 @@ package irbuild
 //
 //   - `List<Alpha>` and `List<Beta>`: composite.go's internLocal panics with a
 //     Go type interned for two Nomi types, a compiler crash.
-//   - `Maybe<Alpha>` and `Maybe<Beta>`: the second instantiation silently
+//   - `Option<Alpha>` and `Option<Beta>`: the second instantiation silently
 //     adopts the first one's def, and the payload then refuses with
 //     `existential of another interface (Beta.b wants Beta, got Alpha)`, a
 //     reason that is false about the program.

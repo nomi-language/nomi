@@ -7,7 +7,7 @@ func TestCompareVariant_ShapeAndOrdering(t *testing.T) {
 		f := NewFunc(shapePos(), "equal")
 		b := f.NewBlock(shapePos(), "entry")
 		a, c := f.NewTemp(), f.NewTemp()
-		sym := NewSymbol("maybe.Maybe")
+		sym := NewSymbol("option.Option")
 		b.Append(NewMakeVariant(shapePos(), a, sym, "None", nil))
 		if valid {
 			b.Append(NewMakeVariant(shapePos(), c, sym, "None", nil))

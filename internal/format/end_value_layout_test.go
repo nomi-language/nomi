@@ -33,7 +33,7 @@ end
 		},
 		{
 			"case",
-			`fn f(y: Maybe<Int>) -> Int
+			`fn f(y: Option<Int>) -> Int
     base = case y
         Some(n) -> n
         None -> 0
@@ -41,7 +41,7 @@ end
     base
 end
 `,
-			`fn f(y: Maybe<Int>) -> Int
+			`fn f(y: Option<Int>) -> Int
     base =
         case y
             Some(n) -> n
@@ -113,7 +113,7 @@ end
 		},
 		{
 			"destructuring",
-			`fn f(y: Maybe<Int>) -> Int
+			`fn f(y: Option<Int>) -> Int
     (p, q) = case y
         Some(n) -> (n, n)
         None -> (0, 0)
@@ -121,7 +121,7 @@ end
     p + q
 end
 `,
-			`fn f(y: Maybe<Int>) -> Int
+			`fn f(y: Option<Int>) -> Int
     (p, q) =
         case y
             Some(n) -> (n, n)
@@ -217,7 +217,7 @@ end
 		{
 			// A postfix mark after the `end` ends the same line.
 			"postfix mark",
-			`fn f(xs: List<Int>) -> Maybe<Int>
+			`fn f(xs: List<Int>) -> Option<Int>
     first = case xs
         [] -> None
         [x, ..] -> Some(x)
@@ -225,7 +225,7 @@ end
     Some(first)
 end
 `,
-			`fn f(xs: List<Int>) -> Maybe<Int>
+			`fn f(xs: List<Int>) -> Option<Int>
     first =
         case xs
             []      -> None
@@ -264,12 +264,12 @@ end
 			// it and stays on one line there, as an overflowing pipeline
 			// does.
 			"one line below",
-			`fn f(is_dir: Bool) -> Maybe<Int>
+			`fn f(is_dir: Bool) -> Option<Int>
     a_very_long_binding_name_that_takes_most_of_the_line_and_then_some = if is_dir then Some(1) else None
     a_very_long_binding_name_that_takes_most_of_the_line_and_then_some
 end
 `,
-			`fn f(is_dir: Bool) -> Maybe<Int>
+			`fn f(is_dir: Bool) -> Option<Int>
     a_very_long_binding_name_that_takes_most_of_the_line_and_then_some =
         if is_dir then Some(1) else None
 
@@ -309,7 +309,7 @@ func TestFormat_ValueOnItsNamesLineStays(t *testing.T) {
 // A comment between a name and its value, or around a value that moves,
 // stays where it was: inside the pattern, above the field, after the `end`.
 func TestFormat_CommentsAroundAValueThatMoves(t *testing.T) {
-	src := `fn f(a: Bool, y: Maybe<Int>) -> Int
+	src := `fn f(a: Bool, y: Option<Int>) -> Int
     (p, // first
     q) = case y
         Some(n) -> (n, n)
@@ -331,7 +331,7 @@ func TestFormat_CommentsAroundAValueThatMoves(t *testing.T) {
     p + q + b.v + w
 end
 `
-	want := `fn f(a: Bool, y: Maybe<Int>) -> Int
+	want := `fn f(a: Bool, y: Option<Int>) -> Int
     (
         p, // first
         q
@@ -368,7 +368,7 @@ end
 // places a value follows code (a named argument, a map entry, `return`, a
 // parameter's default, `assert`) keep theirs.
 func TestFormat_OtherValuePositionsKeepTheirLayout(t *testing.T) {
-	src := `fn f(y: Maybe<Int>) -> Int
+	src := `fn f(y: Option<Int>) -> Int
     Some(n) = case y
         Some(n) -> Some(n)
         None    -> None

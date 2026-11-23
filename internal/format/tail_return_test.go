@@ -24,13 +24,13 @@ func TestFormat_StripsTailReturn(t *testing.T) {
 		},
 		{
 			"case arms and a nested tail if",
-			"fn c(x: Maybe<Int>) -> Int\n    case x\n        Some(n) ->\n            if n > 0 then\n                return n\n            else\n                y = n * 2\n                return y\n            end\n        None -> return 0\n    end\nend\n",
-			"fn c(x: Maybe<Int>) -> Int\n    case x\n        Some(n) ->\n            if n > 0 then\n                n\n            else\n                y = n * 2\n                y\n            end\n\n        None ->\n            0\n    end\nend\n",
+			"fn c(x: Option<Int>) -> Int\n    case x\n        Some(n) ->\n            if n > 0 then\n                return n\n            else\n                y = n * 2\n                return y\n            end\n        None -> return 0\n    end\nend\n",
+			"fn c(x: Option<Int>) -> Int\n    case x\n        Some(n) ->\n            if n > 0 then\n                n\n            else\n                y = n * 2\n                y\n            end\n\n        None ->\n            0\n    end\nend\n",
 		},
 		{
 			"a case arm's comment stays on the arm",
-			"fn d(x: Maybe<Int>) -> Int\n    case x\n        Some(n) -> return n // note\n        None -> 0\n    end\nend\n",
-			"fn d(x: Maybe<Int>) -> Int\n    case x\n        Some(n) -> n // note\n        None    -> 0\n    end\nend\n",
+			"fn d(x: Option<Int>) -> Int\n    case x\n        Some(n) -> return n // note\n        None -> 0\n    end\nend\n",
+			"fn d(x: Option<Int>) -> Int\n    case x\n        Some(n) -> n // note\n        None    -> 0\n    end\nend\n",
 		},
 		{
 			"early return before the tail stays",
@@ -128,11 +128,11 @@ func TestFormat_KeepsTailReturnItCannotStrip(t *testing.T) {
 		{"value return in a test body's tail if", "test \"t\"\n    assert 1 == 1\n    if 1 > 0 then return 1 else return \"a\"\nend\n"},
 		{"value return in a test body's tail case arm", "test \"t\"\n    assert 1 == 1\n\n    case 1\n        0 -> return 1\n        _ -> return \"a\"\n    end\nend\n"},
 		{"group setup", "group \"g\"\n    setup begin\n        x = 1\n        return x\n    end\n\n    test \"t\", x\n        assert x == 1\n    end\nend\n"},
-		{"binding else", "fn l(x: Maybe<Int>) -> Int\n    n = x else return 0\n    n\nend\n"},
+		{"binding else", "fn l(x: Option<Int>) -> Int\n    n = x else return 0\n    n\nend\n"},
 		{"not the last statement of a tail if's block", "fn m(x: Int) -> Int\n    if x > 0 then return 1\n    x\nend\n"},
-		// An `if` with no final `else` is a Maybe of its branches' value, so
+		// An `if` with no final `else` is an Option of its branches' value, so
 		// `return None` there is not `None`.
-		{"a branch of a tail else-if chain with no final else", "fn n(x: Int) -> Maybe<String>\n    if x < 0 then\n        return None\n    else if x == 0 then\n        \"zero\"\n    end\nend\n"},
+		{"a branch of a tail else-if chain with no final else", "fn n(x: Int) -> Option<String>\n    if x < 0 then\n        return None\n    else if x == 0 then\n        \"zero\"\n    end\nend\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			checkTailReturnCase(t, tc.src, tc.src)

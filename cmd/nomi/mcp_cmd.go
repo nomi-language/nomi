@@ -10,12 +10,14 @@ import (
 	"github.com/tliron/commonlog"
 )
 
+const mcpUsage = "usage: nomi mcp"
+
 // runMCP serves `nomi mcp`: the Model Context Protocol on stdin and stdout,
 // for a coding agent (internal/mcp). Stdout carries only the protocol, so
 // the language server inside logs to stderr.
 func runMCP(args []string) int {
 	if len(args) != 0 {
-		fmt.Fprintln(os.Stderr, "usage: nomi mcp")
+		fmt.Fprintln(os.Stderr, mcpUsage)
 		return 1
 	}
 	commonlog.Configure(0, nil)

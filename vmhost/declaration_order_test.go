@@ -9,24 +9,24 @@ import "testing"
 // built, so the copy had none: "variant Ok not found in enum Result" and the
 // like, at a `case` arm the program spells correctly.
 
-// std/maybe.nomi and std/results.nomi import each other, and
-// `Maybe.to_result`'s signature was resolved before Result had Ok and Err.
-func TestDeclarationOrder_MaybeToResultHasResultsVariants(t *testing.T) {
+// std/option.nomi and std/results.nomi import each other, and
+// `Option.to_result`'s signature was resolved before Result had Ok and Err.
+func TestDeclarationOrder_OptionToResultHasResultsVariants(t *testing.T) {
 	got := runSourceOutput(t, `import std::io
 
 fn main()
     m = Some(3)
-    case Maybe.to_result(m, "e")
+    case Option.to_result(m, "e")
         Ok(z) -> io.print("ok ${z}")
         Err(e) -> io.print("err ${e}")
     end
-    none: Maybe<Int> = None
-    if Ok(z) = Maybe.to_result(none, "none") then
+    none: Option<Int> = None
+    if Ok(z) = Option.to_result(none, "none") then
         io.print("ok ${z}")
     else
         io.print("not ok")
     end
-    if Err(e) = Maybe.to_result(none, "none") then
+    if Err(e) = Option.to_result(none, "none") then
         io.print("err ${e}")
     end
 end

@@ -9,15 +9,15 @@ import (
 )
 
 // IntRange is the values an Int position's declared type admits, as far as
-// the generator can read them off the declaration: the bounds a subtype
+// the generator can read them off the declaration: the bounds a refinement
 // chain's rules state, nil on a side with none. A plain Int has no range.
 //
 // The generator reads a rule's bounds, not its meaning. A rule that is a
 // lambda whose body is comparisons of its parameter with Int literals,
-// joined by `and` (`fn n -> n >= 0 and n <= 255`), bounds the subtype; a
+// joined by `and` (`fn n -> n >= 0 and n <= 255`), bounds the refinement; a
 // conjunct of any other form narrows the values further and is ignored,
 // which keeps the range a superset of the values. A rule of another form
-// (a function's name, an `or`) bounds nothing. A subtype's range is the
+// (a function's name, an `or`) bounds nothing. A refinement's range is the
 // intersection of its parents' and its own rule's, and so is an
 // intersection type's (`NonNegativeInt and Int64`).
 type IntRange struct {
@@ -65,7 +65,7 @@ func (r *IntRange) key() string {
 	return "[" + side(r.Min) + ".." + side(r.Max) + "]"
 }
 
-// ruleRange reads the bounds a subtype's `when` rule states
+// ruleRange reads the bounds a refinement's `when` rule states
 // (ast.IntRuleBounds). A conjunct it cannot read narrows the values further,
 // so the range it leaves out is still a superset of them.
 func ruleRange(rule ast.Node) *IntRange {
@@ -79,9 +79,9 @@ func ruleRange(rule ast.Node) *IntRange {
 // goIntRange is the values a fixed-width Go integer type holds, and a std
 // type whose every value it holds, to suggest in a refusal: `Int64` for a
 // 64-bit signed integer, `NonNegativeInt and Int64` for a 64-bit unsigned
-// one, and "" for a narrower width, which needs a subtype of the
+// one, and "" for a narrower width, which needs a refinement of the
 // program's own.
-func goIntRange(t reflect.Type) (min, max *big.Int, subtype string) {
+func goIntRange(t reflect.Type) (min, max *big.Int, refinement string) {
 	signed := func(bits uint) (*big.Int, *big.Int) {
 		m := new(big.Int).Lsh(big.NewInt(1), bits-1)
 		return new(big.Int).Neg(m), new(big.Int).Sub(m, big.NewInt(1))
@@ -95,7 +95,7 @@ func goIntRange(t reflect.Type) (min, max *big.Int, subtype string) {
 		// Go's int is 64 bits on every target Nomi builds for (wasm
 		// included).
 		min, max = signed(64)
-		subtype = "Int64"
+		refinement = "Int64"
 	case reflect.Int32:
 		min, max = signed(32)
 	case reflect.Int16:
@@ -104,13 +104,13 @@ func goIntRange(t reflect.Type) (min, max *big.Int, subtype string) {
 		min, max = signed(8)
 	case reflect.Uint, reflect.Uint64, reflect.Uintptr:
 		min, max = unsigned(64)
-		subtype = "NonNegativeInt and Int64"
+		refinement = "NonNegativeInt and Int64"
 	case reflect.Uint32:
 		min, max = unsigned(32)
 	case reflect.Uint16:
 		min, max = unsigned(16)
 	}
-	return min, max, subtype
+	return min, max, refinement
 }
 
 // fits refuses an Int position whose declared type admits a value the
@@ -134,9 +134,9 @@ func (g *Generator) fits(s *Shape, t reflect.Type) error {
 	default:
 		want = declared + " and " + want
 	}
-	fit := fmt.Sprintf("a subtype whose `when` bounds it within %s..%s", min, max)
+	fit := fmt.Sprintf("a refinement whose `when` bounds it within %s..%s", min, max)
 	if want != "" {
-		fit = fmt.Sprintf("`%s` (std::int), or a subtype whose `when` bounds it within that range", want)
+		fit = fmt.Sprintf("`%s` (std::int), or a refinement whose `when` bounds it within that range", want)
 	}
 	return fmt.Errorf("Go %s holds an Int in %s..%s, and %s admits Ints past that: declare it %s; a Go function that takes an Int of any size takes rt.Int", t, min, max, declared, fit)
 }

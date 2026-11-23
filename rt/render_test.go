@@ -162,7 +162,7 @@ func TestRender_AViewIsItsSource(t *testing.T) {
 	src := ConsCell[any, List[any]](int64(1), ConsCell[any, List[any]](int64(2), nil))
 	view := ListCellSeq[any](src)
 	view.Src = src
-	view.Count = func(*Frame) Maybe[int64] { return ListCellKnownCount[any](src) }
+	view.Count = func(*Frame) Option[int64] { return ListCellKnownCount[any](src) }
 	if got := RowText(view); got != "[1, 2]" {
 		t.Errorf("row %s", got)
 	}
@@ -182,11 +182,11 @@ func TestRender_AViewIsItsSource(t *testing.T) {
 }
 
 func TestRender_PreludeEnumsCollectionsAndSets(t *testing.T) {
-	maybe := NewEnumDesc("maybe.Maybe", []VariantSpec{
+	option := NewEnumDesc("option.Option", []VariantSpec{
 		{Name: "Some", Shape: VariantPositional, Fields: []FieldSpec{{Type: SlotRef}}},
 		{Name: "None"},
 	})
-	list := ConsCell[any, List[any]](maybe.MakeVariant(0, "x"), ConsCell[any, List[any]](maybe.NewVariant(1), nil))
+	list := ConsCell[any, List[any]](option.MakeVariant(0, "x"), ConsCell[any, List[any]](option.NewVariant(1), nil))
 	if got := RowText(list); got != `[Some("x"), None]` {
 		t.Errorf("row %s", got)
 	}

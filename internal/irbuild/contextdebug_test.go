@@ -5,8 +5,8 @@ import "testing"
 // A Context renders as `<context>` (spec §12 *Display and Debug*) by every
 // spelling of its Debug: `Debug.inspect`, `Context.inspect`, which names
 // std's `impl Debug for Context` by its type, `io.inspect`, `dbg`, a
-// generic function's `Debug.inspect`, and as a part of a struct, a list, a
-// Maybe, a Map, a tuple and a record.
+// generic function's `Debug.inspect`, and as a part of a struct, a list, an
+// Option, a Map, a tuple and a record.
 func TestContextInspect_EverySpellingPrintsTheSpecsText(t *testing.T) {
 	irRunSource(t, `import std::io
 

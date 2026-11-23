@@ -12,12 +12,12 @@ fn demo() -> Bool
   is_empty?([1])
 end`
 	_, errs := checkSourceWithStdlib(src)
-	expectErrorT(t, errs, "`?` requires a Result or Maybe, got (List<Int>) -> Bool")
+	expectErrorT(t, errs, "`?` requires a Result or Option, got (List<Int>) -> Bool")
 }
 
-// `handler?(x)` propagates a Maybe of a function and calls its payload.
+// `handler?(x)` propagates an Option of a function and calls its payload.
 func TestCheckTryOpThenCall(t *testing.T) {
-	src := `fn apply(handler: Maybe<(Int) -> Int>, x: Int) -> Maybe<Int>
+	src := `fn apply(handler: Option<(Int) -> Int>, x: Int) -> Option<Int>
   Some(handler?(x))
 end`
 	_, errs := checkSourceWithStdlib(src)

@@ -54,7 +54,7 @@ func (c *checker) checkFieldAccessor(n *ast.FieldAccessor, expected Type) Type {
 		obj := resolveTypeVar(cur)
 		if !accessorReadable(obj) {
 			c.addError(seg.Line, seg.Col, c.typef(
-				"`%s` reads a field of a struct, a record or a tuple, and %s is none of those",
+				"`%s` reads a field of a struct, an enum, a record or a tuple, and %s is none of those",
 				spelling, obj))
 			return nil
 		}
@@ -98,13 +98,13 @@ func (c *checker) accessorParamKnown(param Type) bool {
 }
 
 // accessorReadable reports whether a field accessor can read from a value of
-// type t: a struct, an anonymous struct, or a tuple or named tuple
-// (`.first`). An enum's fields belong to its variants and are not read
-// through an accessor, and an interface value or a type parameter has no
-// fields.
+// type t: a struct, an anonymous struct, an enum, or a tuple or named tuple
+// (`.first`). An enum's field is read as `s.w` reads it, so only a field
+// every variant has (enumFieldAgreed). An interface value or a type
+// parameter has no fields.
 func accessorReadable(t Type) bool {
 	switch v := t.(type) {
-	case *StructType, *AnonStructType, *TupleType:
+	case *StructType, *AnonStructType, *EnumType, *TupleType:
 		return true
 	case *DistinctType:
 		_, isTuple := distinctInnerOf(v).(*TupleType)
@@ -120,6 +120,9 @@ func (c *checker) reportAccessorMissingField(obj Type, seg *ast.Ident) {
 	case *StructType:
 		c.report(TypeError{Line: seg.Line, Col: seg.Col, Message: fmt.Sprintf(
 			"struct '%s' has no field '%s'", t.Name, seg.Name)}.WithHint(didYouMean(seg.Name, fieldNames(canonicalStructForFieldAccess(c, t).Fields))))
+	case *EnumType:
+		c.addError(seg.Line, seg.Col, fmt.Sprintf(
+			"enum '%s' has no field '%s' (match on its variants instead)", t.Name, seg.Name))
 	default:
 		c.addError(seg.Line, seg.Col, c.typef("%s has no field '%s'", obj, seg.Name))
 	}

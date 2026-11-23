@@ -19,13 +19,13 @@ import (
 //   - `P.field_texts(p)` is each field's Display text, in that order;
 //   - `P.parse_fields(texts)` reads text i with field i's type's
 //     `Parse.parse`, and is `Some` of the record when every one is `Ok`,
-//     and `None` at the first that is not. A field of a subtype is read
-//     with its base's `Parse.parse` and checked by the subtype's
-//     `try_from` calls the checker names (analysis.FileAnalysis.SubtypeChecks;
-//     subtyperead.go), and the record is `None` when one is `None`.
+//     and `None` at the first that is not. A field of a refinement is read
+//     with its base's `Parse.parse` and checked by the refinement's
+//     `try_from` calls the checker names (analysis.FileAnalysis.RefinementCheckCalls;
+//     refinementread.go), and the record is `None` when one is `None`.
 //
 // The checker admits the record only when each field implements `Parse`
-// and `Display`, a subtype's base its Parse (analysis/structural_parse_fields.go).
+// and `Display`, a refinement's base its Parse (analysis/structural_parse_fields.go).
 
 // parseFieldsCall lowers t, a call of one of ParseFields' functions at the
 // record kind k, of checker type kt (nil when the instance has none).
@@ -133,18 +133,18 @@ func (bl *irScalarBuilder) parseFieldsOf(t *ast.Call, k kind, kt analysis.Type) 
 	if !ok || tk.tag != tagList || tk.comp == nil || tk.comp.parts[0] != kindString {
 		return no("texts that are not a List<String>")
 	}
-	mk, ok := bl.g.maybeOf(k, t)
+	mk, ok := bl.g.optionOf(k, t)
 	if !ok {
-		return no("no Maybe of the record")
+		return no("no Option of the record")
 	}
 	md := mk.def
 	someV, noneV := md.variant("Some"), md.variant("None")
 	if someV == nil || noneV == nil {
-		return no("a Maybe without Some and None")
+		return no("an Option without Some and None")
 	}
 	ty := bl.g.irTypeOf(mk)
 	if ty == nil {
-		return no("a Maybe with no IR type")
+		return no("an Option with no IR type")
 	}
 	pos := bl.g.irNodePos(t)
 	slot := bl.f.NewTemp()
@@ -176,15 +176,15 @@ func (bl *irScalarBuilder) parseFieldsOf(t *ast.Call, k kind, kt analysis.Type) 
 		bl.b.SetTerm(ir.NewBranch(pos, match.Dst(), parsed.ID(), failed.ID()))
 		bl.b = parsed
 		vals[i] = bl.variantPayload(t, r, rk.def, okV)
-		// A field of a subtype is read with its base's Parse, and the
-		// record is None when the value breaks a rule (subtyperead.go).
-		if pt := partCheckerType(kt, k, i); analysis.HoldsSubtype(pt) {
-			checks := bl.g.instanceFA().SubtypeChecks(pt)
+		// A field of a refinement is read with its base's Parse, and the
+		// record is None when the value breaks a rule (refinementread.go).
+		if pt := partCheckerType(kt, k, i); analysis.HoldsRefinement(pt) {
+			checks := bl.g.instanceFA().RefinementCheckCalls(pt)
 			if checks == nil {
-				return no("no check of the subtype " + analysis.Elaborate(pt).String())
+				return no("no check of the refinement " + analysis.Elaborate(pt).String())
 			}
 			for j, c := range checks {
-				holds, ok := bl.subtypeHolds(t, i*len(checks)+j, vals[i], part, c)
+				holds, ok := bl.refinementHolds(t, i*len(checks)+j, vals[i], part, c)
 				if !ok {
 					return no("a check of " + analysis.Elaborate(c.Type).String() + " that does not lower")
 				}
@@ -252,13 +252,13 @@ func (bl *irScalarBuilder) unitParseFields(t *ast.Call) (ir.Temp, kind, bool) {
 	if _, _, _, ok := bl.lower(t.Args[0]); !ok {
 		return ir.NoTemp, kindInvalid, false
 	}
-	mk, ok := bl.g.maybeOf(kindUnit, t)
+	mk, ok := bl.g.optionOf(kindUnit, t)
 	if !ok {
 		return ir.NoTemp, kindInvalid, false
 	}
 	someV := mk.def.variant("Some")
 	if someV == nil {
-		panic("irbuild: unitParseFields: the prelude Maybe has Some")
+		panic("irbuild: unitParseFields: the prelude Option has Some")
 	}
 	u := ir.NewUnit(bl.g.irNodePos(t), bl.f.NewTemp())
 	bl.b.Append(u)

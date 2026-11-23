@@ -1,6 +1,6 @@
 package irbuild
 
-// `impl Maybe<T>` and `impl Result<T, E>` reached through the QUALIFIED CALL
+// `impl Option<T>` and `impl Result<T, E>` reached through the QUALIFIED CALL
 // spelling, at a statically-known concrete instantiation.
 //
 // # These are not dictionary-bound
@@ -8,7 +8,7 @@ package irbuild
 // The stdlib index files these declarations as `stdlib generic function`, a
 // name that says they need the type-parameter dispatch DICTIONARY. They do not.
 // `typeParamsNeedDictionary` (generic.go) is this project's own line for that
-// question, and `pub fn is_some<T>(maybe: Maybe<T>) -> Bool` has no bound, no
+// question, and `pub fn is_some<T>(option: Option<T>) -> Bool` has no bound, no
 // `where` clause and calls no interface method on `T`. Its body is a `case`.
 //
 // stdCandidateFor (stdlib.go) decides `generic` from a purely syntactic
@@ -22,7 +22,7 @@ package irbuild
 // # Why this is an arm and not a stdlib registry row
 //
 // lists.go's header states the shape and it applies unchanged: the index can
-// NAME `Maybe.is_some` while what LOWERS
+// NAME `Option.is_some` while what LOWERS
 // it is reading the receiver's KIND, which is the only place the concrete type
 // argument exists. Placed beside listCallPlan in typeQualCall for the same
 // reason, and like it, AHEAD of the index's route: moving that route above
@@ -32,21 +32,21 @@ package irbuild
 //
 // `List.equal` shares the `==` operator's lowering, because std/lists.nomi
 // defines the method AS `a == b`. The prelude enums are the same situation
-// with the same hazard: std says `derive Equatable for Maybe<T>`, and `==` on
+// with the same hazard: std says `derive Equatable for Option<T>`, and `==` on
 // a prelude instance already lowers. So `equal`, a call of a derived impl the
 // machine computes by shape (machineImpls), is lowered by interfaceCall
 // (ifacecall.go) as the comparison `a == b` is, and nothing else. A second
 // comparator would have to agree with the operator by luck.
 //
 // The comparator carries three properties this file does not restate: Float
-// routes through rt.EqFloat, so `Maybe.equal(Some(nan), Some(nan))` is True as
+// routes through rt.EqFloat, so `Option.equal(Some(nan), Some(nan))` is True as
 // Nomi requires; a List payload is compared by rt.ListEqual; and a
 // NAMED payload compares STRUCTURALLY, which is what rt.Equal does and what
 // `==` falls back to with no impl.
 //
 // # What is REFUSED here, by name
 //
-//   - A method `impl Maybe<T>` / `impl Result<T, E>` does not declare. Named
+//   - A method `impl Option<T>` / `impl Result<T, E>` does not declare. Named
 //     rather than declined so a typo cannot be read as a missing feature.
 //
 // Of the HIGHER-ORDER half, `Result.map_err` lowers in irresultmaperr.go, over
@@ -55,11 +55,11 @@ package irbuild
 // `hash` is not maps.go's key hashing. A Map key is bucketed by the
 // STRUCTURAL, un-overridable hash (rt.Hash), and rt/hash.go's own file
 // comment says nothing observes its number, while `Hashable.hash(m)` is
-// observable. `Maybe.hash(Some(4))` is 4 and `Result.hash(Err("bad"))` is
+// observable. `Option.hash(Some(4))` is 4 and `Result.hash(Err("bad"))` is
 // 31 + StringHash("bad"); routing either to the structural hash would produce
 // a different Int for the same program.
 
-// preludeFn is one lowered method of `impl Maybe<T>` or `impl Result<T, E>`.
+// preludeFn is one lowered method of `impl Option<T>` or `impl Result<T, E>`.
 type preludeFn struct {
 	args int
 }
@@ -74,14 +74,14 @@ type preludeFn struct {
 // Keyed `Owner.method`, because the owner is part of the identity: `with_default`
 // exists on both enums with different receivers and different tags.
 var preludeFns = map[string]preludeFn{
-	"Maybe.is_some":       {args: 1},
-	"Maybe.is_none":       {args: 1},
+	"Option.is_some":      {args: 1},
+	"Option.is_none":      {args: 1},
 	"Result.is_ok":        {args: 1},
 	"Result.is_err":       {args: 1},
-	"Maybe.with_default":  {args: 2},
+	"Option.with_default": {args: 2},
 	"Result.with_default": {args: 2},
-	"Maybe.to_result":     {args: 2},
-	"Result.to_maybe":     {args: 1},
+	"Option.to_result":    {args: 2},
+	"Result.to_option":    {args: 1},
 }
 
 // preludeSpecNamed is the spec for one of the two enums this file constructs,

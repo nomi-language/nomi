@@ -531,7 +531,7 @@ end
 
 // The file name of a path without its directory and `.sql`.
 fn stem(path: String) -> String
-    name = String.split(path, "/") |> Iter.last() |> Maybe.with_default(path)
+    name = String.split(path, "/") |> Iter.last() |> Option.with_default(path)
     sqltext.cut_suffix(name, ".sql")
 end
 
@@ -574,8 +574,8 @@ end
 /// exactly, or keep at its scale. SQLite has no decimal type: it stores
 /// such a column's values as 64-bit floats, exact to 15 digits, and the
 /// driver refuses a value it cannot write or read exactly.
-fn decimal_warning(table: String, c: TableColumn) -> Maybe<String>
-    is_decimal = types.of(c.type_name) |> Maybe.map(fn f -> f.reader == "numeric") == Some(True)
+fn decimal_warning(table: String, c: TableColumn) -> Option<String>
+    is_decimal = types.of(c.type_name) |> Option.map(fn f -> f.reader == "numeric") == Some(True)
     if not is_decimal then return None
 
     case types.precision_and_scale(c.type_name)
@@ -630,7 +630,7 @@ fn table(t: describe.Table, migrations: List<Input>) -> Table
                     and not (c.primary_key and String.uppercase(c.declared) == "INTEGER"),
                 primary_key: c.primary_key,
                 has_default: c.has_default,
-                values:      Map.get(values, c.name) |> Maybe.with_default([]),
+                values:      Map.get(values, c.name) |> Option.with_default([]),
                 migration:   c.migration,
                 line:        line_of_word(column_text, c.name, t.name),
             }
@@ -643,8 +643,8 @@ end
 fn text_of(migrations: List<Input>, path: String) -> String
     migrations
     |> Iter.find(fn m -> m.path == path)
-    |> Maybe.map(fn m -> m.text)
-    |> Maybe.with_default("")
+    |> Option.map(fn m -> m.text)
+    |> Option.with_default("")
 end
 
 /// The line, from 1, of the first word `word` in text after the first word
@@ -658,8 +658,8 @@ fn line_of_word(text: String, word: String, after: String) -> Int
         else
             tokens
             |> Iter.find(fn t -> t.kind == Kind.Word and is_same(t.text, after))
-            |> Maybe.map(fn t -> t.stop)
-            |> Maybe.with_default(0)
+            |> Option.map(fn t -> t.stop)
+            |> Option.with_default(0)
         end
 
     tokens
@@ -668,8 +668,8 @@ fn line_of_word(text: String, word: String, after: String) -> Int
             and (t.kind == Kind.Word or t.kind == Kind.Quoted)
             and is_same(unquote(t.text), word)
     end)
-    |> Maybe.map(fn t -> line_at(text, t.start))
-    |> Maybe.with_default(1)
+    |> Option.map(fn t -> line_at(text, t.start))
+    |> Option.with_default(1)
 end
 
 fn is_same(a: String, b: String) -> Bool
@@ -691,7 +691,7 @@ fn enum_values(create: String) -> Map<String, List<String>>
     |> Iter.flat_map(fn i ->
         at =
             fn k: Int ->
-                Vector.get(words, i + k) |> Maybe.map(fn t -> t.text) |> Maybe.with_default("")
+                Vector.get(words, i + k) |> Option.map(fn t -> t.text) |> Option.with_default("")
             end
 
         if is_same(at(0), "CHECK") and at(1) == "(" and is_same(at(3), "IN") and at(4) == "(" then
@@ -710,7 +710,7 @@ end
 
 // The string literals from i to the closing parenthesis, or None when
 // something else is there.
-fn read_values(words: Vector<Token>, i: Int, acc: List<String>) -> Maybe<List<String>>
+fn read_values(words: Vector<Token>, i: Int, acc: List<String>) -> Option<List<String>>
     case Vector.get(words, i)
         Some(t) when t.kind == Kind.Text ->
             value =
@@ -762,14 +762,14 @@ fn columns(
             // declares it, which is how a sum keeps its DECIMAL scale.
             cast =
                 if aligned and c.declared == "" and not from_table then
-                    Vector.get(items, i) |> Maybe.flat_map(sqltext.cast_type)
+                    Vector.get(items, i) |> Option.flat_map(sqltext.cast_type)
                 else
                     None
                 end
 
             Column{
                 name:      c.name,
-                type_name: Maybe.with_default(cast, c.declared),
+                type_name: Option.with_default(cast, c.declared),
                 table:     c.table,
                 column:    c.origin,
                 nullable:  not from_table or not c.not_null or outer_joined,

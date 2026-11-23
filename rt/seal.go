@@ -29,7 +29,7 @@ func Seal(key, data, label Bytes) Result[Bytes, string] {
 // Open is the data Seal sealed under key with label, or None when sealed
 // was made under another key or label, was changed, or is not a sealed
 // value at all.
-func Open(key, sealed, label Bytes) Maybe[Bytes] {
+func Open(key, sealed, label Bytes) Option[Bytes] {
 	aead, err := sealCipher(key)
 	if err != nil || len(sealed) < aead.NonceSize()+aead.Overhead() {
 		return None[Bytes]()

@@ -28,7 +28,7 @@ import
     iter.Iter
     lists.List
     maps.Map
-    maybe.Maybe.{self, None, Some}
+    option.Option.{self, None, Some}
     results.Result.{self, Err, Ok}
     storage.{self, Entry, Error, Info, ListOptions, Listing, Object, Store}
     strings.String
@@ -84,15 +84,15 @@ impl Store for Memory
 
     fn get(memory: Memory, key: String) -> Result<Object, Error>
         storage.check_key(key)?
-        Map.get(peek(memory).objects, key) |> Maybe.to_result(Error.NotFound{key:})
+        Map.get(peek(memory).objects, key) |> Option.to_result(Error.NotFound{key:})
     end
 
-    fn info(memory: Memory, key: String) -> Result<Maybe<Info>, Error>
+    fn info(memory: Memory, key: String) -> Result<Option<Info>, Error>
         storage.check_key(key)?
 
         Ok(
             Map.get(peek(memory).objects, key)
-            |> Maybe.map(fn object -> object.info)
+            |> Option.map(fn object -> object.info)
         )
     end
 
@@ -164,7 +164,7 @@ impl Store for Failing
         Err(failing.error)
     end
 
-    fn info(failing: Failing, key: String) -> Result<Maybe<Info>, Error>
+    fn info(failing: Failing, key: String) -> Result<Option<Info>, Error>
         _ = key
         Err(failing.error)
     end

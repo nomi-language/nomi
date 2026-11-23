@@ -33,7 +33,7 @@ func TestPlainCounterpartHint_HintAndQuickFix(t *testing.T) {
 	if d.Code == nil || d.Code.Value != analysis.HintPlainCounterpart {
 		t.Errorf("code %+v, want %s", d.Code, analysis.HintPlainCounterpart)
 	}
-	if wantMsg := "`names` is a NonEmptyList: `NonEmptyList.first(names)` is a String, not a Maybe"; d.Message != wantMsg {
+	if wantMsg := "`names` is a NonEmptyList: `NonEmptyList.first(names)` is a String, not an Option"; d.Message != wantMsg {
 		t.Errorf("message:\n got %q\nwant %q", d.Message, wantMsg)
 	}
 	if d.Range.Start.Line != 1 || d.Range.Start.Character != 4 || d.Range.End.Character != 14 {

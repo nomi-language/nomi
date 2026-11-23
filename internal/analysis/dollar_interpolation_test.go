@@ -76,7 +76,7 @@ func TestDollarWarning_FiresForEachValueAndForm(t *testing.T) {
 		},
 		{
 			"a pattern binding",
-			"pub fn f(m: Maybe<Int>) -> String\n    case m\n        Some(n) -> \"got $n\" + \"${n}\"\n        None -> \"none\"\n    end\nend\n",
+			"pub fn f(m: Option<Int>) -> String\n    case m\n        Some(n) -> \"got $n\" + \"${n}\"\n        None -> \"none\"\n    end\nend\n",
 			"`$n` is text here, not the value of `n`: Nomi interpolates with `${...}`, not `$`",
 			"to interpolate, write `\"got ${n}\"`", 3, 25,
 		},

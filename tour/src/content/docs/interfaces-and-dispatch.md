@@ -167,11 +167,11 @@ then `Speech.speak(pet)`. Without the `: Speech`, the branches must have one
 type.
 
 Collections convert the same way: a `List<Dog>` passes where a
-`List<Speech>` is expected, and a `Maybe<Dog>` where a `Maybe<Speech>` is,
+`List<Speech>` is expected, and an `Option<Dog>` where an `Option<Speech>` is,
 with nothing copied, since each `Dog` already is a `Speech`. So does a
 `Result`, a `Map`, a function's result and a struct or enum of your own
 whose fields only hold the type. A value whose elements must be wrapped
-first, such as a `List<Maybe<Dog>>` as a `List<Display>`, is built again
+first, such as a `List<Option<Dog>>` as a `List<Display>`, is built again
 with each one wrapped. A function's parameter converts the other way: a
 function that takes any `Speech` passes where one that takes a `Dog` is
 expected, since every `Dog` it is given is a `Speech`

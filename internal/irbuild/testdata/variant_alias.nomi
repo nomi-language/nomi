@@ -2,7 +2,7 @@ import
     std::comparable.Ordering.{Equal, Less as Lt}
     std::io
     std::json.Json.{self, Int as Arr, Null as JNull, Obj as JObj, String as JStr}
-    std::maybe.Maybe.{None as Nothing, Some as Just}
+    std::option.Option.{None as Nothing, Some as Just}
     std::results.Result.{Err as Bad, Ok as Good}
 end
 
@@ -49,7 +49,7 @@ fn describe(j: Json) -> String
     end
 end
 
-fn maybe_label(m: Maybe<Int>) -> String
+fn option_label(m: Option<Int>) -> String
     case m
         .Some(v) -> "some:${v}"
         .None    -> "none"
@@ -71,7 +71,7 @@ fn order_label(o: Ordering) -> String
     end
 end
 
-fn nested_label(m: Maybe<Json>) -> String
+fn nested_label(m: Option<Json>) -> String
     case m
         .Some(j) -> describe(j)
         .None    -> "none"
@@ -91,14 +91,14 @@ fn main()
     io.print(describe(JObj{"k" => JStr("nested")}))
 
     // The prelude enums are a second resolver reached from the same rung.
-    io.print(maybe_label(Just(7)))
-    io.print(maybe_label(Nothing))
+    io.print(option_label(Just(7)))
+    io.print(option_label(Nothing))
     io.print(result_label(Good(1)))
     io.print(result_label(Bad("boom")))
 
     // A nested construction: an aliased prelude variant wrapping an aliased
     // stdlib one.
-    deep: Maybe<Json> = Just(JStr("deep"))
+    deep: Option<Json> = Just(JStr("deep"))
     io.print(nested_label(deep))
 
     // A monomorphic stdlib enum whose variants are imported both ways in one

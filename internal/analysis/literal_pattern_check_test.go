@@ -56,7 +56,7 @@ end
   end
 end
 `, `pattern 1 is an Int, but the value is a Bool`},
-		{"variant payload", `fn f(m: Maybe<Int>) -> Int
+		{"variant payload", `fn f(m: Option<Int>) -> Int
   case m
     Some("z") -> 1
     _ -> 2
@@ -95,7 +95,7 @@ end
   end
 end
 `, `pattern "v" is a String, but the value is an Int`},
-		{"binding else", `fn f(m: Maybe<Int>) -> Int
+		{"binding else", `fn f(m: Option<Int>) -> Int
   Some("q") = m else
     return 0
   end
@@ -128,7 +128,7 @@ end
 }
 
 func TestLiteralPatternsOfTheValuesTypeCheck(t *testing.T) {
-	_, errs := checkSourceWithStdlib("fn f(n: Int, s: String, x: Float, d: Decimal, p: (Int, String), m: Maybe<String>) -> Int\n" +
+	_, errs := checkSourceWithStdlib("fn f(n: Int, s: String, x: Float, d: Decimal, p: (Int, String), m: Option<String>) -> Int\n" +
 		"  a = case n\n    -1 -> 1\n    0x10 -> 2\n    _ -> 3\n  end\n" +
 		"  b = case s\n    \"x\" -> 1\n    `y` -> 2\n    \"\"\"z\"\"\" -> 3\n    _ -> 4\n  end\n" +
 		"  c = case x\n    1.5 -> 1\n    -2.0 -> 2\n    _ -> 3\n  end\n" +

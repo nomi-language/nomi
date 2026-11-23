@@ -3,7 +3,7 @@ import std::io
 // A TUPLE-PAYLOAD variant, in every position the corpus reaches it: constructed
 // FLAT and with an explicit tuple, pattern-matched both ways, rendered through
 // the synthesized universal Debug, and nested inside another tuple variant and
-// inside a prelude `Maybe`.
+// inside a prelude `Option`.
 //
 // FOUR HAZARDS THIS FIXTURE IS SHAPED AROUND, each of which would let a real
 // defect survive:
@@ -128,8 +128,8 @@ fn main()
     io.print(Debug.inspect(Point.One(7)))
     io.print(Debug.inspect(Point.Bag([1, 2, 3])))
 
-    // NESTED: a tuple variant inside a prelude Maybe, which is the shape that
-    // makes `Maybe<Point>` a solvable type argument at all.
+    // NESTED: a tuple variant inside a prelude Option, which is the shape that
+    // makes `Option<Point>` a solvable type argument at all.
     wrapped = Some(Point.Pos(3, 4))
     io.print(Debug.inspect(wrapped))
 

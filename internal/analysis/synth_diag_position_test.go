@@ -17,6 +17,14 @@ import (
 // this defect at all.
 func buildAndCollectTypeErrors(t *testing.T, src string) []analysis.TypeError {
 	t.Helper()
+	_, errs := buildAndCheckProject(t, src)
+	return errs
+}
+
+// buildAndCheckProject is buildAndCollectTypeErrors with the entry's
+// analysis, for a caller that also runs the program's coherence check.
+func buildAndCheckProject(t *testing.T, src string) (*analysis.FileAnalysis, []analysis.TypeError) {
+	t.Helper()
 	tmp := t.TempDir()
 	mainPath := filepath.Join(tmp, "main.nomi")
 	if err := os.WriteFile(mainPath, []byte(src), 0644); err != nil {
@@ -53,7 +61,9 @@ func buildAndCollectTypeErrors(t *testing.T, src string) []analysis.TypeError {
 	// diagnostics for every row below. Mirrors internal/frontend's
 	// Checker.Analyze.
 	errs := append([]analysis.TypeError(nil), fa.TypeErrors...)
-	return append(errs, analysis.CheckTypes(fa, entryNodes)...)
+	errs = append(errs, analysis.CheckTypes(fa, entryNodes)...)
+	checkNoGeneratedName(t, errs)
+	return fa, errs
 }
 
 // TestSynthDiagnostics_NeverCarryASynthBandPosition pins the rule that a

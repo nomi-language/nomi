@@ -16,7 +16,7 @@ pub fn largest_product(digits: String, span: Int) -> Result<Int, Error>
         digits
         |> String.to_codepoints()
         |> Iter.map(Codepoint.to_digit)
-        |> Maybe.collect()
+        |> Option.collect()
     else
         return Err(.NotADigit)
     end

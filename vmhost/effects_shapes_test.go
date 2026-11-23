@@ -62,7 +62,7 @@ where T: Holds<Int>
 end
 `, "15:9", "reached from `check`"},
 		{"a type parameter only inside other types", `
-pub fn first<T>(xs: List<T>, f: (T) -> Bool, path: String) -> Maybe<T>
+pub fn first<T>(xs: List<T>, f: (T) -> Bool, path: String) -> Option<T>
     _ = fs.read_text(path)
     Iter.find(xs, f)
 end
@@ -146,7 +146,7 @@ where A: Marked, B: Holds<String>
     (a, b)
 end
 
-pub fn last<T>(xs: List<T>) -> Maybe<T>
+pub fn last<T>(xs: List<T>) -> Option<T>
     Iter.last(xs)
 end
 

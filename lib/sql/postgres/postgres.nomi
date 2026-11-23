@@ -39,7 +39,7 @@ end
 /// `Conn.begin_transaction` returns on one.
 pub opaque struct PgConn
     db:    Db
-    level: Maybe<Level>
+    level: Option<Level>
 end
 
 /// A pool of connections to the database at `url`

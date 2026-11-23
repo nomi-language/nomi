@@ -35,13 +35,13 @@ func TestDocumentManager_TypeLevelCycleAcrossFiles(t *testing.T) {
 	aPath := mustWrite("a.nomi", `import b: B
 
 pub struct A
-  partner: Maybe<B>
+  partner: Option<B>
 end
 `)
 	mustWrite("b.nomi", `import a: A
 
 pub struct B
-  partner: Maybe<A>
+  partner: Option<A>
 end
 `)
 

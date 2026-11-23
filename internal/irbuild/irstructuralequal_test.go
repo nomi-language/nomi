@@ -38,10 +38,10 @@ end
 	irRunSource(t, src, "True\nFalse\nTrue\nTrue\nTrue\nFalse\nTrue\nTrue\nFalse\n")
 }
 
-// `Maybe.equal` is `==` over a payload whose own impl decides (a struct
+// `Option.equal` is `==` over a payload whose own impl decides (a struct
 // with a derived Equatable) and over two instances an embedded value tells
 // apart.
-func TestIRMaybeEqualAsTheOperator_Runs(t *testing.T) {
+func TestIROptionEqualAsTheOperator_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
@@ -68,10 +68,10 @@ derive Equatable for Shape
 fn main()
     c = Circle{r: 1}
     s: Shape = Shape.Dot
-    io.print(Maybe.equal(Some(Inner{a: 1}), None))
-    io.print(Maybe.equal(Some(Inner{a: 1}), Some(Inner{a: 1})))
-    io.print(Maybe.equal(Some(c), Some(s)))
-    io.print(Maybe.equal(Some(c), Some(Shape.Circle{r: 1})))
+    io.print(Option.equal(Some(Inner{a: 1}), None))
+    io.print(Option.equal(Some(Inner{a: 1}), Some(Inner{a: 1})))
+    io.print(Option.equal(Some(c), Some(s)))
+    io.print(Option.equal(Some(c), Some(Shape.Circle{r: 1})))
     r: Result<Inner, String> = Ok(Inner{a: 2})
     io.print(Result.equal(r, Ok(Inner{a: 2})))
 end
@@ -80,7 +80,7 @@ end
 }
 
 // A call of Equatable's equal, Hashable's hash or Comparable's compare
-// qualified by the type (`Maybe.equal(a, b)`, `Decimal.compare(a, b)`)
+// qualified by the type (`Option.equal(a, b)`, `Decimal.compare(a, b)`)
 // answers what the operator or the interface-qualified call answers, over
 // every prelude container and std type with an impl, a derived struct,
 // enum and distinct type, operands of two instances an embedded value
@@ -111,12 +111,12 @@ derive Comparable for %[1]s
 		name, decls, setup string
 		lines              []string
 	}{
-		{"Maybe", "", "", []string{
-			"Maybe.equal(Some(1), Some(2)) == (Some(1) == Some(2))",
-			"Maybe.equal(Some(1), Some(1)) == (Some(1) == Some(1))",
-			"Maybe.equal(Some(1), None) == (Some(1) == None)",
-			"Maybe.equal(None, Some(1)) == (None == Some(1))",
-			"Maybe.hash(Some(1)) == Hashable.hash(Some(1))",
+		{"Option", "", "", []string{
+			"Option.equal(Some(1), Some(2)) == (Some(1) == Some(2))",
+			"Option.equal(Some(1), Some(1)) == (Some(1) == Some(1))",
+			"Option.equal(Some(1), None) == (Some(1) == None)",
+			"Option.equal(None, Some(1)) == (None == Some(1))",
+			"Option.hash(Some(1)) == Hashable.hash(Some(1))",
 		}},
 		{"Result", "", "ok: Result<Int, String> = Ok(1)\nerr: Result<Int, String> = Err(\"x\")", []string{
 			`Result.equal(ok, err) == (ok == err)`,
@@ -177,7 +177,7 @@ derive Comparable for %[1]s
 			"Id.compare(Id(1), Id(2)) == Comparable.compare(Id(1), Id(2))",
 		}},
 		{"embedded value", shapes, "c = Circle{r: 1}\ns: Shape = Shape.Dot", []string{
-			"Maybe.equal(Some(c), Some(s)) == (Some(c) == Some(s))",
+			"Option.equal(Some(c), Some(s)) == (Some(c) == Some(s))",
 			"List.equal([c], [s]) == ([c] == [s])",
 			"Vector.equal(Vector[c], Vector[s]) == (Vector[c] == Vector[s])",
 			"Shape.equal(c, s) == (c == s)",

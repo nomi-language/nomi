@@ -71,7 +71,10 @@ import (
 // ReleaseVersion is the release tag this `nomi` was cut as. scripts/release.sh
 // sets it with `-ldflags -X github.com/nomi-language/nomi/internal/runners.ReleaseVersion=<tag>`; it is
 // empty for every other build. It names the release a cross-target runner is
-// downloaded from, which the VCS stamp cannot: a commit is not a tag.
+// downloaded from, which the VCS stamp cannot: a commit is not a tag. When it
+// is a release's semantic version, it is also the version `nomi add` and
+// `nomi update` take the first-party lib/ modules at (cmd/nomi's
+// libRelease).
 var ReleaseVersion string
 
 // releaseBaseURLEnv overrides where releases are downloaded from. Tests point

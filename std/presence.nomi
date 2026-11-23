@@ -4,25 +4,25 @@ import
     equatable.Equatable
     hashable.Hashable
     json.{FromJson, Json, ToJson}
-    maybe.Maybe
+    option.Option
     results.Result
 end
 
 //# `Presence<T>`: whether an input said anything about a value,
-//# `Present(value)` or `Absent`. Where `Maybe` says a value may be missing,
-//# `Presence` says an input may leave it out, so `Presence<Maybe<T>>` tells
+//# `Present(value)` or `Absent`. Where `Option` says a value may be missing,
+//# `Presence` says an input may leave it out, so `Presence<Option<T>>` tells
 //# "not given" (`Absent`) from "given as nothing" (`Present(None)`). A
 //# JSON PATCH body is the common case: a field of that type reads a missing
 //# key as `Absent` and a `null` as `Present(None)`, and an `Absent` field is
 //# left out when the struct is written.
 //#
-//# Its owner functions are named after `Maybe`'s: test it with `is_present`
+//# Its owner functions are named after `Option`'s: test it with `is_present`
 //# and `is_absent`, transform the value with `map`, merge it over what is
 //# already there with `with_default`, fall back to another layer of input
-//# with `otherwise`, and turn it into a `Maybe` with `to_maybe`, or a
-//# `Presence<Maybe<T>>` into one with `flatten`. `?` and `!`
+//# with `otherwise`, and turn it into an `Option` with `to_option`, or a
+//# `Presence<Option<T>>` into one with `flatten`. `?` and `!`
 //# do not take a `Presence`, since `Absent` is no failure; where it is one,
-//# write `Presence.to_maybe(p)?`.
+//# write `Presence.to_option(p)?`.
 
 /// Whether an input gave a value: `Present(value)`, or `Absent` when it
 /// said nothing about it.
@@ -31,9 +31,9 @@ end
 //! assert "${absent}" == "Absent"
 //!
 //! // A PATCH body that clears `due` and leaves `title` alone.
-//! patch = Json.decode_as<{title: Presence<String>, due: Presence<Maybe<Int>>}>(`{"due": null}`)
+//! patch = Json.decode_as<{title: Presence<String>, due: Presence<Option<Int>>}>(`{"due": null}`)
 //! title: Presence<String> = Presence.Absent
-//! due: Presence<Maybe<Int>> = Presence.Present(Maybe.None)
+//! due: Presence<Option<Int>> = Presence.Present(Option.None)
 //! assert patch == Result.Ok({title:, due:})
 //!
 //! // Written back, the Absent field leaves its key out.
@@ -87,9 +87,9 @@ impl Presence<T>
     //! assert Presence.with_default(Presence.Absent, "old") == "old"
     //!
     //! // A PATCH body's `due` clears the stored date with null, keeps it when left out.
-    //! stored = Maybe.Some(5)
-    //! assert Presence.with_default(Presence.Present(Maybe.None), stored) == Maybe.None
-    //! assert Presence.with_default(Presence.Absent, stored) == Maybe.Some(5)
+    //! stored = Option.Some(5)
+    //! assert Presence.with_default(Presence.Present(Option.None), stored) == Option.None
+    //! assert Presence.with_default(Presence.Absent, stored) == Option.Some(5)
     //
     pub fn with_default<T>(presence: Presence<T>, current: T) -> T
         case presence
@@ -115,37 +115,37 @@ impl Presence<T>
         end
     end
 
-    /// Converts Presence to Maybe: Present(v) becomes Some(v), and Absent
-    /// becomes None. Where absence is a failure, `Presence.to_maybe(p)?`
+    /// Converts Presence to Option: Present(v) becomes Some(v), and Absent
+    /// becomes None. Where absence is a failure, `Presence.to_option(p)?`
     /// propagates it.
-    //! assert Presence.to_maybe(Presence.Present(3)) == Maybe.Some(3)
+    //! assert Presence.to_option(Presence.Present(3)) == Option.Some(3)
     //! absent: Presence<Int> = Presence.Absent
-    //! assert Presence.to_maybe(absent) == Maybe.None
+    //! assert Presence.to_option(absent) == Option.None
     //
-    pub fn to_maybe<T>(presence: Presence<T>) -> Maybe<T>
+    pub fn to_option<T>(presence: Presence<T>) -> Option<T>
         case presence
-            .Present(v) -> Maybe.Some(v)
-            .Absent     -> Maybe.None
+            .Present(v) -> Option.Some(v)
+            .Absent     -> Option.None
         end
     end
 
-    /// The value a `Presence<Maybe<T>>` gives: Some(v) for Present(Some(v)),
+    /// The value a `Presence<Option<T>>` gives: Some(v) for Present(Some(v)),
     /// and None both when it is Absent and when it is Present(None). It is
     /// the merge of a field that may arrive as null but never clears the
     /// stored value: once validation has refused the null, the field's new
-    /// value is `Presence.flatten(p) |> Maybe.with_default(stored)`.
-    //! assert Presence.flatten(Presence.Present(Maybe.Some("a@b.c"))) == Maybe.Some("a@b.c")
-    //! assert Presence.flatten(Presence.Present(Maybe.None)) == Maybe.None
-    //! absent: Presence<Maybe<String>> = Presence.Absent
-    //! assert Presence.flatten(absent) == Maybe.None
+    /// value is `Presence.flatten(p) |> Option.with_default(stored)`.
+    //! assert Presence.flatten(Presence.Present(Option.Some("a@b.c"))) == Option.Some("a@b.c")
+    //! assert Presence.flatten(Presence.Present(Option.None)) == Option.None
+    //! absent: Presence<Option<String>> = Presence.Absent
+    //! assert Presence.flatten(absent) == Option.None
     //!
-    //! email = Presence.Present(Maybe.Some("new@x.org"))
-    //! assert Presence.flatten(email) |> Maybe.with_default("old@x.org") == "new@x.org"
+    //! email = Presence.Present(Option.Some("new@x.org"))
+    //! assert Presence.flatten(email) |> Option.with_default("old@x.org") == "new@x.org"
     //
-    pub fn flatten<T>(presence: Presence<Maybe<T>>) -> Maybe<T>
+    pub fn flatten<T>(presence: Presence<Option<T>>) -> Option<T>
         case presence
             .Present(inner) -> inner
-            .Absent         -> Maybe.None
+            .Absent         -> Option.None
         end
     end
 end
@@ -158,10 +158,10 @@ impl ToJson for Presence<T> where T: ToJson
     /// `Present(v)` writes `v`, and `Absent` writes `null`. As a struct
     /// field, `Absent` writes nothing: `to_json_field` leaves its key out.
     //! assert ToJson.to_json(Presence.Present(3)) == Json.Int(3)
-    //! assert ToJson.to_json_field(Presence.Present(3)) == Maybe.Some(Json.Int(3))
+    //! assert ToJson.to_json_field(Presence.Present(3)) == Option.Some(Json.Int(3))
     //!
     //! absent: Presence<Int> = Presence.Absent
-    //! assert ToJson.to_json_field(absent) == Maybe.None
+    //! assert ToJson.to_json_field(absent) == Option.None
     //
     fn to_json(value: Presence<T>) -> Json
         case value
@@ -170,23 +170,23 @@ impl ToJson for Presence<T> where T: ToJson
         end
     end
 
-    fn to_json_field(value: Presence<T>) -> Maybe<Json>
+    fn to_json_field(value: Presence<T>) -> Option<Json>
         case value
-            .Present(v) -> Maybe.Some(ToJson.to_json(v))
-            .Absent     -> Maybe.None
+            .Present(v) -> Option.Some(ToJson.to_json(v))
+            .Absent     -> Option.None
         end
     end
 end
 
 impl FromJson for Presence<T> where T: FromJson
-    /// Reads `T` as Present, so a JSON `null` read as a `Presence<Maybe<T>>`
+    /// Reads `T` as Present, so a JSON `null` read as a `Presence<Option<T>>`
     /// is `Present(None)`. A missing key of a struct field reads as Absent.
     //! assert FromJson.from_json<Presence<Int>>(Json.Int(3)) == Result.Ok(Presence.Present(3))
     //!
-    //! assert FromJson.from_json<Presence<Maybe<Int>>>(Json.Null)
-    //!     == Result.Ok(Presence.Present(Maybe.None))
+    //! assert FromJson.from_json<Presence<Option<Int>>>(Json.Null)
+    //!     == Result.Ok(Presence.Present(Option.None))
     //!
-    //! assert FromJson.from_missing<Presence<Int>>() == Maybe.Some(Presence.Absent)
+    //! assert FromJson.from_missing<Presence<Int>>() == Option.Some(Presence.Absent)
     //
     fn from_json(json: Json) -> Result<Presence<T>, Json.ShapeError>
         case T.from_json(json)
@@ -195,7 +195,7 @@ impl FromJson for Presence<T> where T: FromJson
         end
     end
 
-    fn from_missing() -> Maybe<Presence<T>>
-        Maybe.Some(Presence.Absent)
+    fn from_missing() -> Option<Presence<T>>
+        Option.Some(Presence.Absent)
     end
 end

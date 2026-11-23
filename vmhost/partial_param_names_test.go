@@ -3,14 +3,14 @@ package vmhost_test
 import "testing"
 
 // A partial application's open parameters cannot shadow a name its callee
-// expression starts from. `maybe.Maybe.map`'s first parameter is named
-// `maybe`, and the partial's lambda took the callee's parameter names, so
-// inside it `maybe` was the parameter and `maybe.Maybe` a field read on it.
+// expression starts from. `option.Option.map`'s first parameter is named
+// `option`, and the partial's lambda took the callee's parameter names, so
+// inside it `option` was the parameter and `option.Option` a field read on it.
 // The partial is still called by the callee's names.
 func TestPartialApplication_ParameterNamedLikeTheQualifier(t *testing.T) {
 	got := runSiblingProgram(t, map[string]string{"main.nomi": `import
     std::io
-    std::maybe
+    std::option
     std::lists
 end
 
@@ -24,10 +24,10 @@ fn tag(_label: String, n: Int) -> Int
 end
 
 fn main()
-    m = &maybe.Maybe.map(&1, fn n: Int -> n + noted(1))
+    m = &option.Option.map(&1, fn n: Int -> n + noted(1))
     io.inspect(m(Some(4)))
-    io.inspect(m(maybe: Some(1)))
-    w = &maybe.Maybe.with_default(&1, noted(0))
+    io.inspect(m(option: Some(1)))
+    w = &option.Option.with_default(&1, noted(0))
     io.inspect(w(None))
     io.inspect(w(Some(5)))
     h = &lists.List.first(&1)

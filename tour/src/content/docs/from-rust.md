@@ -37,10 +37,10 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `match x { A => .. }` | `case x`, arms such as `A -> ..` one per line, then `end`; guards are written `when` |
 | `Point { x: 1 }` | `Point{x: 1}` |
 | `vec![1, 2]`, `HashMap` | `[1, 2]`, a list, or a vector where one is expected (`Vector[1, 2]` where nothing says which), `{"a" => 1}` |
-| `Option<T>`, `.unwrap()` | `Maybe<T>`, a postfix `!` |
+| `Option<T>`, `.unwrap()` | `Option<T>`, a postfix `!` |
 | `impl From<sqlx::Error> for ApiError` and `?` | The same: `impl From<sql.Error> for ApiError`, and `?` applies it. There is no `Into`, and `?` converts once, never through a chain of impls. |
-| `.unwrap_or(x)`, `.or(other)`, `.or_else(f)` | `Maybe.with_default(m, x)`, `Maybe.otherwise(m, other)`, `Maybe.or_else(m, f)` |
-| serde's `Option<Option<T>>` for a key missing or `null` | `Presence<Maybe<T>>`: `Absent`, `Present(None)` or `Present(Some(v))` |
+| `.unwrap_or(x)`, `.or(other)`, `.or_else(f)` | `Option.with_default(m, x)`, `Option.otherwise(m, other)`, `Option.or_else(m, f)` |
+| serde's `Option<Option<T>>` for a key missing or `null` | `Presence<Option<T>>`: `Absent`, `Present(None)` or `Present(Some(v))` |
 | `trait`, `fn f(&self)` | `interface`, `fn f(value: self)` |
 | `Vec<Dog>` into `Vec<Box<dyn Speak>>` takes a `map`; an `fn(&dyn Speak)` never stands in for an `fn(&Dog)` | A `List<Dog>` passes where a `List<Speak>` is expected, with nothing copied, and a `(Speak) -> String` passes where a `(Dog) -> String` is expected |
 | `Shape::new()`, `Shape::Circle { radius: 1 }` | `Shape.new()`, `Shape.Circle{radius: 1}` or `.Circle{radius: 1}` |
@@ -107,7 +107,7 @@ fn parse_square(text: String) -> Result<Shape, String>
     side =
         String.trim(text)
         |> String.to_int()
-        |> Maybe.to_result("not a number: ${text}")?
+        |> Option.to_result("not a number: ${text}")?
 
     Ok(.Square{side:})
 end

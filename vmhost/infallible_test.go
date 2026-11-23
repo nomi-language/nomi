@@ -60,7 +60,7 @@ fn none() -> List<Infallible>
     []
 end
 
-fn nothing() -> Maybe<Infallible>
+fn nothing() -> Option<Infallible>
     None
 end
 

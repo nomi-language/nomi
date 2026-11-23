@@ -6,8 +6,8 @@ enum Operation
     Right
     Up
     SetValue Int
-    SetLeft Maybe<Tree<Int>>
-    SetRight Maybe<Tree<Int>>
+    SetLeft Option<Tree<Int>>
+    SetRight Option<Tree<Int>>
 end
 
 /// A node with no subtrees.
@@ -22,13 +22,13 @@ end
 
 /// The zipper on the initial tree after each operation in turn, or `None`
 /// once a move finds no node.
-fn follow(operations: List<Operation>) -> Maybe<Zipper<Int>>
+fn follow(operations: List<Operation>) -> Option<Zipper<Int>>
     start = initial_tree() |> Zipper.from_tree() |> Some()
 
     Iter.reduce(operations, start, fn zipper, operation -> apply(zipper?, operation))
 end
 
-fn apply(zipper: Zipper<Int>, operation: Operation) -> Maybe<Zipper<Int>>
+fn apply(zipper: Zipper<Int>, operation: Operation) -> Option<Zipper<Int>>
     case operation
         .Left            -> Zipper.left(zipper)
         .Right           -> Zipper.right(zipper)
@@ -96,7 +96,7 @@ test "the tree after the operations"
     ]
 
     subtests cases, (description, operations, expected), description
-        assert follow(operations) |> Maybe.map(Zipper.to_tree) == Some(expected)
+        assert follow(operations) |> Option.map(Zipper.to_tree) == Some(expected)
     end
 end
 
@@ -107,7 +107,7 @@ test "the value at the focus"
         ("test ability to descend multiple levels and return", [.Left, .Right, .Up, .Up], 1),
     ]
     |> subtests (description, operations, expected), description
-        assert follow(operations) |> Maybe.map(Zipper.value) == Some(expected)
+        assert follow(operations) |> Option.map(Zipper.value) == Some(expected)
     end
 end
 

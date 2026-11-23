@@ -11,7 +11,7 @@ import (
 
 // A function type is a type argument like any other: an actor whose
 // message is a function (`Actor<(Int) -> Int>`), a channel, sender, task,
-// Maybe, Result, List or Map of functions lowers and runs, in boot, in main
+// Option, Result, List or Map of functions lowers and runs, in boot, in main
 // and in a test group's boot.
 
 const funcTypeArgActorImports = `import
@@ -31,7 +31,7 @@ end
 // funcTypeArgRead casts a message that sends the actor's state back, and
 // waits for it.
 const funcTypeArgRead = `
-fn read(actor: Actor<(Int) -> Int>) -> Maybe<Int>
+fn read(actor: Actor<(Int) -> Int>) -> Option<Int>
     back = Channel.buffered<Int>(1)
     _ = Actor.cast(actor, fn n ->
         _ = Sender.send(back.sender, n)
@@ -75,7 +75,7 @@ end
 fn main()
     ch = Channel.buffered<(Int) -> Int>(2)
     _ = Sender.send(ch.sender, fn n -> n + 5)
-    io.print("${Receiver.receive(ch.receiver) |> Maybe.map(fn f -> f(1))}")
+    io.print("${Receiver.receive(ch.receiver) |> Option.map(fn f -> f(1))}")
 end
 `, "Some(6)\n"},
 		{"channel in a struct field", funcTypeArgChannelImports + `
@@ -86,7 +86,7 @@ end
 fn main()
     b = Box{inbox: Channel.buffered<(Int) -> Int>(1)}
     _ = Sender.send(b.inbox.sender, fn n -> n - 1)
-    io.print("${Receiver.receive(b.inbox.receiver) |> Maybe.map(fn f -> f(10))}")
+    io.print("${Receiver.receive(b.inbox.receiver) |> Option.map(fn f -> f(10))}")
 end
 `, "Some(9)\n"},
 		{"sender in a variant", funcTypeArgChannelImports + `
@@ -107,7 +107,7 @@ end
 fn main()
     replies = Channel.buffered<(Int) -> Int>(1)
     answer(Msg.Back{reply: replies.sender})
-    io.print("${Receiver.receive(replies.receiver) |> Maybe.map(fn f -> f(2))}")
+    io.print("${Receiver.receive(replies.receiver) |> Option.map(fn f -> f(2))}")
 end
 `, "Some(200)\n"},
 		{"task", `import
@@ -122,16 +122,16 @@ fn main()
     io.print("${g(1)}")
 end
 `, "10\n"},
-		{"maybe, result, list and map", `import std::io
+		{"option, result, list and map", `import std::io
 fn main()
-    mf: Maybe<(Int) -> Int> = Some(fn n -> n + 7)
+    mf: Option<(Int) -> Int> = Some(fn n -> n + 7)
     rf: Result<(Int) -> Int, String> = Ok(fn n -> n + 8)
     lf: List<(Int) -> Int> = [fn n -> n + 1, fn n -> n * 2]
     mp: Map<String, (Int) -> Int> = {"inc" => fn n: Int -> n + 1}
-    io.print("${mf |> Maybe.map(fn f -> f(1))}")
+    io.print("${mf |> Option.map(fn f -> f(1))}")
     io.print("${rf |> Result.map(fn f -> f(1))}")
     io.print("${lf |> Iter.map(fn f -> f(5)) |> Iter.to_list()}")
-    io.print("${Map.get(mp, "inc") |> Maybe.map(fn f -> f(1))}")
+    io.print("${Map.get(mp, "inc") |> Option.map(fn f -> f(1))}")
 end
 `, "Some(8)\nOk(9)\n[6, 10]\nSome(2)\n"},
 	} {

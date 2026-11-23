@@ -42,7 +42,7 @@ end
 
 func TestIRHostRef_ReturnedAndCaptured(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn parser() -> (String) -> Maybe<Int>
+fn parser() -> (String) -> Option<Int>
     String.to_int
 end
 fn main()

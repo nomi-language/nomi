@@ -7,39 +7,39 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// The prelude enums, `Maybe<T>` and `Result<T, E>`, and the other generic std
+// The prelude enums, `Option<T>` and `Result<T, E>`, and the other generic std
 // enums rt declares.
 //
 // # The representation needs no new mechanism
 //
 // A prelude enum is represented like any other enum: a typeDef with tags (tag
 // 0 reserved invalid), variants, payload kinds and one slot per carrying
-// variant. rt declares a Go type for each (rt/prelude.go, `rt.Maybe[T]`),
+// variant. rt declares a Go type for each (rt/prelude.go, `rt.Option[T]`),
 // which a host function's Go signature names; a spec's rtType, tagField and
 // field pair the two (stdprelude.go).
 //
 // An instance is a *typeDef built from the spec and its type arguments
 // (preludeInstance). It is interned process-wide when every argument is
-// package-neutral, so every gen holds one pointer for `Maybe<Int>`, and per
+// package-neutral, so every gen holds one pointer for `Option<Int>`, and per
 // gen otherwise.
 //
 // # Identity is a declaration POINTER, anchored by (Origin, Name)
 //
-// A prelude table keyed on the bare name `Maybe` would be a type identity
+// A prelude table keyed on the bare name `Option` would be a type identity
 // spelled as a string and matched by name: a user file may declare its own
-// `Maybe`, and lowering that to `rt.Maybe` would mix two Nomi types that the
+// `Option`, and lowering that to `rt.Option` would mix two Nomi types that the
 // checker keeps apart.
 //
 // So identity is established once per module, in two steps, and neither step
 // is a name match at a use site:
 //
-//  1. ANCHOR. `fa.ModuleScope.Lookup("Maybe")` is resolved and its
-//     `analysis.EnumType` must carry `Origin == "std/maybe"` — the analyzer's
+//  1. ANCHOR. `fa.ModuleScope.Lookup("Option")` is resolved and its
+//     `analysis.EnumType` must carry `Origin == "std/option"` — the analyzer's
 //     own nominal-identity rule, the same rule inferred.go's localNamed uses.
 //     The symbol's
 //     `Node` is then the `*ast.EnumDef` the analyzer itself resolved against,
 //     valid for THIS compilation.
-//  2. USE. Every `Some`, `None`, `Ok`, `Err` and `Maybe<…>` mention resolves
+//  2. USE. Every `Some`, `None`, `Ok`, `Err` and `Option<…>` mention resolves
 //     through `fa.References` to a symbol whose `Resolved.Node` is compared to
 //     the anchor by POINTER. The prelude variant symbols and the enum symbol
 //     share one `*ast.EnumDef` pointer, and `std.Load()` hands out
@@ -50,7 +50,7 @@ import (
 // # The declaration's SHAPE is validated, not assumed
 //
 // The tags this file assigns (Some=1, None=2, Ok=1, Err=2) and the rt field
-// names it lists (`Some`, `Ok`, `Err`) are a belief about what std/maybe.nomi
+// names it lists (`Some`, `Ok`, `Err`) are a belief about what std/option.nomi
 // and std/results.nomi declare. So the anchor is only built when the
 // `*ast.EnumDef` actually has that shape — same type parameters in the same
 // order, same variants in the same order, each payload naming the type
@@ -194,10 +194,10 @@ func (v preludeVariantSpec) carries() bool {
 // against a validated declaration shape, instantiated into an rt generic type
 // — and the only observable difference is the one the anchor rule already
 // gives: a module without `Fragment` in scope gets no anchor and refuses every
-// mention, exactly as a module declaring its own `Maybe` does.
+// mention, exactly as a module declaring its own `Option` does.
 var preludeSpecs = []preludeSpec{
 	{
-		origin: "std/maybe", nomi: "Maybe", rtType: "rt.Maybe", tagField: "Tag",
+		origin: "std/option", nomi: "Option", rtType: "rt.Option", tagField: "Tag",
 		params:           []string{"T"},
 		tryOperand:       true,
 		assertionSubject: true,
@@ -233,7 +233,7 @@ var preludeSpecs = []preludeSpec{
 		// payload shapes at once: parametric, absent, and CONCRETE-but-named.
 		//
 		// `Cancelled` is also the first payload-less variant any spec declares
-		// besides `Maybe.None`, which is what generalized the bare-variant
+		// besides `Option.None`, which is what generalized the bare-variant
 		// sentinel. See taskoutcome.go.
 		origin: "std/tasks", nomi: "Outcome", rtType: "rt.Outcome", tagField: "Tag",
 		params: []string{"T"},
@@ -279,16 +279,16 @@ func preludeAnchorsOf(fa *analysis.FileAnalysis) map[*ast.EnumDef]*preludeAnchor
 		if sym == nil {
 			// NOT IN SCOPE AT ALL, which for a STDLIB module is the ordinary
 			// case rather than an error: std files get no prelude, so a module
-			// sees `Maybe` only if it imports it — and a module that merely
+			// sees `Option` only if it imports it — and a module that merely
 			// pattern-matches one with the `.Some(x)` shorthand never writes the
 			// name, so importing it would be an unused-import error.
 			//
 			// A std module may do `case Iter.get(all, i) { .Some(x) -> … }` with
-			// no `Maybe` anywhere in the file. `Iter.get`'s own declaration in
-			// std/iter says the result IS std/maybe's `Maybe`, so the identity
+			// no `Option` anywhere in the file. `Iter.get`'s own declaration in
+			// std/iter says the result IS std/option's `Option`, so the identity
 			// is not in doubt — it simply is not written down in THIS module —
-			// and without an anchor an `Iter` terminal that answers a
-			// `Maybe` has no instance to build.
+			// and without an anchor an `Iter` terminal that answers an
+			// `Option` has no instance to build.
 			//
 			// The fallback is SHAPE-VALIDATED, which is what makes it safe to
 			// authorize a layout. preludeSpecFor exists for the same
@@ -298,7 +298,7 @@ func preludeAnchorsOf(fa *analysis.FileAnalysis) map[*ast.EnumDef]*preludeAnchor
 			// stdGenStructValidated's discipline and gives a real *ast.EnumDef
 			// to run `spec.matches` against.
 			//
-			// Only when the name is ABSENT. A module that binds `Maybe` to
+			// Only when the name is ABSENT. A module that binds `Option` to
 			// something else keeps refusing through the arm below, so the
 			// shadowing rule this function enforces is untouched — the fallback
 			// answers a question the module's scope declines to answer at all,
@@ -395,7 +395,7 @@ var preludeDeclaringAnchors = perStd(func() []*preludeAnchor {
 // to NAME, while a kind decides a LAYOUT, and only a shape-validated anchor may
 // authorize one.
 //
-// The scope-independence is the point. `Maybe` and `Result` are in every
+// The scope-independence is the point. `Option` and `Result` are in every
 // module's scope, so for them the two identities coincide. `Fragment` is an
 // ordinary import, and the mentions that matter most are the ones no module
 // imports: a typed literal's `<Type>"…"` desugars to a call whose parameter is
@@ -490,8 +490,8 @@ func (s *preludeSpec) payloadDecl(v preludeVariantSpec) string {
 // belongs to, plus the resolved symbol.
 //
 // The position is the one the analyzer recorded the REFERENCE at: a
-// `*ast.TypeIdent`'s own line and column for `Some(3)` and for the `Maybe` in
-// `Maybe<Int>`, and the FIELD's for the qualified `Maybe.Some(3)`.
+// `*ast.TypeIdent`'s own line and column for `Some(3)` and for the `Option` in
+// `Option<Int>`, and the FIELD's for the qualified `Option.Some(3)`.
 func (g *gen) preludeAt(line, col int) (*preludeAnchor, *analysis.Symbol, bool) {
 	g.loadPreludes()
 	if g.fa == nil || len(g.preludeByDecl) == 0 {
@@ -522,7 +522,7 @@ func (g *gen) preludeAt(line, col int) (*preludeAnchor, *analysis.Symbol, bool) 
 // --- instantiation ----------------------------------------------------------
 
 // preludeInstance is the *typeDef for one instantiation, interned so that two
-// mentions of `Maybe<Int>` are one pointer and therefore one kind.
+// mentions of `Option<Int>` are one pointer and therefore one kind.
 //
 // Interning follows composite.go's rule applied to a named type: grouped by
 // Nomi spelling and separated by the argument kinds, so one entry cannot be
@@ -539,9 +539,9 @@ func (g *gen) preludeAt(line, col int) (*preludeAnchor, *analysis.Symbol, bool) 
 //
 // # Where the def lives depends on the type arguments, and only on those
 //
-// An instance over package-neutral arguments, `Maybe<Int>`, is interned
+// An instance over package-neutral arguments, `Option<Int>`, is interned
 // process-wide, so every gen holds one pointer for it. An instance over a
-// type one module declares, `Maybe<Point>`, is interned per gen. See
+// type one module declares, `Option<Point>`, is interned per gen. See
 // sharedPreludeInstance for why the split exists and what makes the shared
 // half safe.
 func (g *gen) preludeInstance(a *preludeAnchor, args []kind) kind {
@@ -577,8 +577,8 @@ func (g *gen) preludeInstanceOf(spec *preludeSpec, args []kind) kind {
 	}
 	// Grouped by Nomi spelling and separated by the type arguments, for
 	// composite.go's reason: two same-named argument types from two files
-	// are spelled alike. Keying on the text alone would give `Maybe<Alpha>` and
-	// `Maybe<Beta>` one def, and the second one's payload would then refuse with
+	// are spelled alike. Keying on the text alone would give `Option<Alpha>` and
+	// `Option<Beta>` one def, and the second one's payload would then refuse with
 	// a false reason on a correct program.
 	for _, d := range g.preludeInsts[nomi] {
 		if samePartsSlice(d.preludeArgs, args) {
@@ -610,9 +610,9 @@ func preludeReturn(ty analysis.Type) *analysis.EnumType {
 // constructor aliases for every caller.
 //
 // line and col are where the analyzer recorded the VARIANT's reference: the
-// TypeIdent's own position for `Some(3)`, the field's for `Maybe.Some(3)`.
+// TypeIdent's own position for `Some(3)`, the field's for `Option.Some(3)`.
 //
-// `variant` is the LOCAL spelling. `import std::maybe.Maybe.{Some as Just}`
+// `variant` is the LOCAL spelling. `import std::option.Option.{Some as Just}`
 // makes that `Just`, and the spec's variant list holds the declaration's own
 // `Some`, so the lookup below takes the canonical name from variantRefAt and
 // the position match keeps using the local one. See variantalias.go.
@@ -659,7 +659,7 @@ func (s *preludeSpec) variant(name string) (preludeVariantSpec, bool) {
 // enum: the type the checker solved for an unannotated position, by the
 // type's own (Origin, Name). Every type the checker instantiates from a
 // declaration carries the declaration's Origin (`Some(1)`'s solved
-// return and every nested argument in one), so a user's own `Maybe`,
+// return and every nested argument in one), so a user's own `Option`,
 // whose Origin is the user's file, is never the prelude's.
 func (g *gen) projectPreludeEnum(ty *analysis.EnumType) (kind, bool) {
 	a, isPrelude := preludeOriginAnchor(ty.Origin, ty.Name)
@@ -672,7 +672,7 @@ func (g *gen) projectPreludeEnum(ty *analysis.EnumType) (kind, bool) {
 	args := make([]kind, len(ty.TypeArgs))
 	for i, arg := range ty.TypeArgs {
 		// A nested instantiation's open argument (`Some(Ok(42))` is
-		// `Maybe<Result<Int, ?9>>`) is the type the checker closed it as.
+		// `Option<Result<Int, ?9>>`) is the type the checker closed it as.
 		args[i] = g.project(arg)
 		// kindInvalid: propagates — type projection; the caller rejects `non-scalar` by position.
 		if args[i] == kindInvalid {

@@ -5,7 +5,7 @@ import "testing"
 // An instance of another file's generic type at a position the checker types
 // and the program never annotates runs on the VM
 // (testdata/sibling_generic_infer): a lambda parameter over a list of them,
-// a generic function's argument, a Maybe's payload, and instances at the
+// a generic function's argument, an Option's payload, and instances at the
 // calling file's own struct.
 //
 // Two gaps closed together. The checker left the Origin off the type a

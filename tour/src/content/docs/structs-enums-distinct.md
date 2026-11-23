@@ -91,8 +91,8 @@ literal stands in the head of an `if` or `case` as anywhere else:
 <div class="tour-details">
 <p class="tour-details-label">Fine print</p>
 
-- A field that may be absent has type `Maybe<T>`. A default only spares
-  the caller from writing a value: `nickname: Maybe<String> = None` is both.
+- A field that may be absent has type `Option<T>`. A default only spares
+  the caller from writing a value: `nickname: Option<String> = None` is both.
 - A default runs once for each construction that leaves its field out.
 - Each field is named once: `User{name: "Al", name: "Bo"}` is an error.
 - A struct also has a call form taking an anonymous struct:
@@ -400,7 +400,7 @@ exists.
 There are two ways to make one. A literal, as in `Email("ada@example.com")`,
 is checked when the program compiles, so a bad one never runs. A value known
 only when the program runs goes through `Email.try_from`, which runs the rule
-and returns a `Maybe<Email>`: `Some` when the value passes, `None` when it
+and returns an `Option<Email>`: `Some` when the value passes, `None` when it
 doesn't.
 
 ```nomi-run
@@ -422,16 +422,17 @@ implements for the type.
 
 Spec: [Validated types](/spec/types/#validated-types).
 
-## Subtypes
+## Refinements
 
 An `Email` with a rule is still its own type, so it doesn't pass where a
 `String` is expected. Sometimes you want the check without a new type. A port
 number is an `Int` from 1 to 65535, and code that takes one should still be
-able to print it or compare it as an `Int`. A `subtype` is the values of
-another type that a `when` rule allows, and its values remain that type.
+able to print it or compare it as an `Int`. A refinement, declared with
+`refine`, is the values of another type that a `when` rule allows, and its
+values remain that type.
 
 ```nomi-run
-subtype Port Int when fn p -> p >= 1 and p <= 65535
+refine Port Int when fn p -> p >= 1 and p <= 65535
 
 fn serve(port: Port) -> String
     "listening on ${port}"
@@ -464,8 +465,8 @@ dbg line 22: Float.floor(half) = 0.0
 -->
 
 A `Port` is stored and used as an `Int`, so `serve` can interpolate it, and
-a `Port` passes wherever an `Int` is expected. A subtype may narrow other
-subtypes, several joined by `and`: the prelude's `PositiveFloat` is
+a `Port` passes wherever an `Int` is expected. A refinement may narrow other
+refinements, several joined by `and`: the prelude's `PositiveFloat` is
 `NonNegativeFloat and NonZeroFloat` over `Float`, so `half` goes to `scale`
 and to `Float.floor` as it is. Nothing converts down or sideways.
 
@@ -473,7 +474,7 @@ A literal where a `Port` is expected, as in `serve(8080)`, is checked while
 the program compiles, so a bad one never runs:
 
 ```nomi-run error
-subtype Port Int when fn p -> p >= 1 and p <= 65535
+refine Port Int when fn p -> p >= 1 and p <= 65535
 
 fn serve(port: Port) -> String
     "listening on ${port}"
@@ -485,7 +486,7 @@ end
 ```
 <!-- expect
 main.nomi:8:15: 0 is not a Port: `fn p -> p >= 1 and p <= 65535` is false
-main.nomi:8:15: help: a literal is checked when the program is compiled; a value known only when it runs goes through `Port.try_from(...)`, a `Maybe<Port>`
+main.nomi:8:15: help: a literal is checked when the program is compiled; a value known only when it runs goes through `Port.try_from(...)`, an `Option<Port>`
 -->
 
 Any other `Int` becomes a `Port` through `Port.try_from`, as a validated
@@ -498,9 +499,9 @@ exponent and the counts of `String.repeat` and `Iter.take` are
 `Iter.chunks` takes a `PositiveInt`, so `Iter.chunks(xs, 0)` does not
 compile.
 
-A subtype can take type parameters. The prelude's `NonEmptyList<T>` is a
-List with at least one element, so its first element is a `T`, not a
-`Maybe<T>`:
+A refinement can take type parameters. The prelude's `NonEmptyList<T>` is a
+List with at least one element, so its first element is a `T`, not an
+`Option<T>`:
 
 ```nomi-run
 fn greet(names: NonEmptyList<String>) -> String
@@ -511,7 +512,7 @@ fn main()
     dbg greet(["Ada", "Bo"])
 
     typed = String.split("Cy,Di", ",")
-    dbg NonEmptyList.try_from(typed) |> Maybe.map(greet)
+    dbg NonEmptyList.try_from(typed) |> Option.map(greet)
 
     // Below this check, typed is a NonEmptyList.
     if typed == [] then return
@@ -520,15 +521,15 @@ end
 ```
 <!-- expect
 dbg line 6: greet(["Ada", "Bo"]) = "Hello, Ada"
-dbg line 9: NonEmptyList.try_from(typed) |> Maybe.map(greet) = Some("Hello, Cy")
+dbg line 9: NonEmptyList.try_from(typed) |> Option.map(greet) = Some("Hello, Cy")
 dbg line 13: greet(typed) = "Hello, Cy"
 -->
 
 A list literal with an element is a `NonEmptyList` whatever its elements
-are, so `greet([name])` needs no check, and the same holds for vector, set and map literals and their non-empty subtypes.
+are, so `greet([name])` needs no check, and the same holds for vector, set and map literals and their non-empty refinements.
 A binding with no type written keeps that: after `names = [name]`, and for `once names = ["Ada"]`, `greet(names)` needs no check either.
 
-A check narrows a binding to the std subtype it proves, where it holds:
+A check narrows a binding to the std refinement it proves, where it holds:
 past `if typed == [] then return`, `typed` is a `NonEmptyList`, and in
 `if n > 0 then ...`, `n` is a `PositiveInt`. So a value the code checks
 already needs no `try_from`. The compiler follows each number's range
@@ -546,28 +547,28 @@ checked (`if count == 0 then return 0`) or typed, and never divides by zero.
   it, where the rule is known to hold.
 - A `struct` takes a rule as the last line of its body, after every field:
   `when fn s -> s.low <= s.high`.
-- A subtype can't be `opaque`. It may take type parameters, which its
+- A refinement can't be `opaque`. It may take type parameters, which its
   parents name, bounded with `where` before `when`:
-  `subtype Sorted<T> List<T> where T: Comparable when ...`.
-- A subtype must narrow: one with no rule of its own needs two parents,
-  as `subtype Strict NonNegativeInt and NonZeroInt`, and a value of every
+  `refine Sorted<T> List<T> where T: Comparable when ...`.
+- A refinement must narrow: one with no rule of its own needs two parents,
+  as `refine Strict NonNegativeInt and NonZeroInt`, and a value of every
   parent converts into it.
-- A `type` over a subtype is a validated type: `type UserId PositiveInt`
+- A `type` over a refinement is a validated type: `type UserId PositiveInt`
   has `UserId.try_from`, and converts to nothing.
 - `NonNegativeInt and NonZeroInt` is a type wherever one is written, the
   values that are both.
 - Where a `Port` meets an `Int` with no type written, as the two branches
   of an `if` or two elements of a list, the value is an `Int`. A literal
-  beside a std numeric subtype that satisfies its rule is that subtype:
+  beside a std numeric refinement that satisfies its rule is that refinement:
   with `n` a `NonNegativeInt`, `if c then n else 0` is one.
-- Arithmetic gives the std numeric subtype its result's range proves:
+- Arithmetic gives the std numeric refinement its result's range proves:
   with `n` a `NonNegativeInt`, `n + 1` is a `PositiveInt`, `n * n` a
   `NonNegativeInt`, and `n - 1` an `Int`. A value whose range proves a
-  subtype passes where one is expected, std::int's `Int64` and a rule of
+  refinement passes where one is expected, std::int's `Int64` and a rule of
   literal bounds over `Int` included. No range relates two bindings:
   `i < n` says nothing of `i`.
 
-Spec: [Subtypes](/spec/types/#subtypes).
+Spec: [Refinements](/spec/types/#refinements).
 
 </div>
 
@@ -798,7 +799,7 @@ passes `e` to a function that takes a `Click`.
 <p class="tour-details-label">Fine print</p>
 
 - The widening reaches inside other types: a `List<Click>` goes where a
-  `List<Event>` is expected, and a `Maybe<Click>` where a `Maybe<Event>` is.
+  `List<Event>` is expected, and an `Option<Click>` where an `Option<Event>` is.
 - Where the two meet with no direction, such as the branches of an `if`,
   the result is the enum.
 - Narrowing needs a plain name: `case e` narrows `e`, `case load()` and
@@ -818,20 +819,20 @@ this one, with one `embeds` per kind of event.
 ## Type aliases
 
 ```nomi-run
-typealias Rule (String) -> Maybe<String>
+typealias Rule (String) -> Option<String>
 
 fn problems(name: String, rules: List<Rule>) -> List<String>
     rules
     |> Iter.map(fn rule -> rule(name))
-    |> Maybe.values()
+    |> Option.values()
     |> Iter.to_list()
 end
 
-fn too_short(name: String) -> Maybe<String>
+fn too_short(name: String) -> Option<String>
     if String.length(name) < 3 then Some("too short") else None
 end
 
-fn has_space(name: String) -> Maybe<String>
+fn has_space(name: String) -> Option<String>
     if " " in name then Some("has a space") else None
 end
 
@@ -850,18 +851,18 @@ dbg line 23: problems("ada", rules) = []
 -->
 
 A `typealias` is another name for an existing type. `Rule` and
-`(String) -> Maybe<String>` are the same type, and you can use either one
+`(String) -> Option<String>` are the same type, and you can use either one
 anywhere. There is no wrapping and no conversion: `too_short` is an ordinary
-function, and the list holds it as a `Rule`. `Maybe.values` keeps the `Some`
+function, and the list holds it as a `Rule`. `Option.values` keeps the `Some`
 returns and drops the `None`s.
 
 An alias shortens signatures: `problems` takes a `List<Rule>` instead of a
-`List<(String) -> Maybe<String>>`. Reach for an alias to shorten a long
+`List<(String) -> Option<String>>`. Reach for an alias to shorten a long
 anonymous shape like this one: a function type, an anonymous struct or a long
 tuple.
 
 An alias may take type parameters, as in `typealias Pair<T> (T, T)`, and may
-name several interfaces joined by `and`. It has no rule; that is a `subtype`.
+name several interfaces joined by `and`. It has no rule; that is a refinement.
 You cannot write an `impl` for it, and you call its target's functions by the
 target's name: for `typealias Names List<String>`, write `List.first`, not
 `Names.first`.
@@ -881,5 +882,5 @@ a `type` rather than an alias.
 
 <a class="tour-examples-all" href="/examples/?chapter=structs-enums-distinct">Every example that uses Structs, Enums, Distinct Types</a>
 
-Next: [Pattern Matching, Maybe & Result](/pattern-matching/), which shows how
+Next: [Pattern Matching, Option & Result](/pattern-matching/), which shows how
 `case` takes apart every value you can now build.

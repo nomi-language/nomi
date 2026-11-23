@@ -54,7 +54,7 @@ The repository root is the compiler's Go module,
 | `editors/nvim/` | Neovim 0.11+ plugin: filetype, LSP config, generated queries, test runner, neotest adapter, nvim-dap adapter. |
 | `editors/vscode/` | VS Code extension (TypeScript): language configuration, a TextMate grammar derived from the bat syntax, the `nomi-lsp` client, run and test commands, the `nomi` debugger. |
 | `editors/bat/` | `bat`/syntect syntax definition. |
-| `scripts/` | Tour wasm build, release, grammar publish, full check, publish to `main`, the js/wasm test runner, the tree-sitter wrapper, git hooks, and editor sync scripts. |
+| `scripts/` | Tour wasm build, release and its tags, grammar publish, full check, publish to `main`, the js/wasm test runner, the tree-sitter wrapper, git hooks, and editor sync scripts. |
 
 ## Architecture in brief
 

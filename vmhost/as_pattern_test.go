@@ -44,9 +44,9 @@ fn describe(result: Result<Tx, String>) -> String
     end
 end
 
-fn head(xs: List<Maybe<Int>>) -> String
+fn head(xs: List<Option<Int>>) -> String
     case xs
-        [Some(n) as first, ..rest] as all -> "${n} ${Maybe.with_default(first, 0)} ${Iter.count(rest)} of ${Iter.count(all)}"
+        [Some(n) as first, ..rest] as all -> "${n} ${Option.with_default(first, 0)} ${Iter.count(rest)} of ${Iter.count(all)}"
         [None, ..] -> "none first"
         [] -> "empty"
     end
@@ -66,9 +66,9 @@ fn start_of(l: Line) -> Int
     end
 end
 
-fn tuple_arm(p: (Maybe<Int>, String)) -> String
+fn tuple_arm(p: (Option<Int>, String)) -> String
     case p
-        (Some(_) as m, label) -> "${label} ${Maybe.with_default(m, 0)}"
+        (Some(_) as m, label) -> "${label} ${Option.with_default(m, 0)}"
         (None, label) as whole -> "${label} none ${whole.second}"
     end
 end
@@ -77,12 +77,12 @@ fn param({start:, stop:} as tx: Tx) -> Int
     start + stop + tx.start
 end
 
-fn binding(m: Maybe<Int>, pair: (Int, Int)) -> String
+fn binding(m: Option<Int>, pair: (Int, Int)) -> String
     (x, y) as both = pair
     Some(n) as found = m else
         return "none"
     end
-    "${x} ${y} ${both.first} ${n} ${Maybe.with_default(found, 0)}"
+    "${x} ${y} ${both.first} ${n} ${Option.with_default(found, 0)}"
 end
 
 fn fallback(r: Result<(Int, Int), String>) -> Int
@@ -153,7 +153,7 @@ not ok
 func TestAsPattern_RunsInTests(t *testing.T) {
 	t.Setenv("NOMI_COLOR", "never")
 	const name = "as_test.nomi"
-	p, err := vmhost.LoadSource(name, `fn find(n: Int) -> Maybe<Int>
+	p, err := vmhost.LoadSource(name, `fn find(n: Int) -> Option<Int>
     if n > 0 then Some(n) else None
 end
 
@@ -214,7 +214,7 @@ test "assertion"
 end
 
 test "case arm"
-    rec: Maybe<{a: Int, b: Int}> = Some({a: 1, b: 2})
+    rec: Option<{a: Int, b: Int}> = Some({a: 1, b: 2})
     n = case rec
         Some({a: 2, b:} as whole) -> b + whole.a
         Some({a: x, b: _} as whole) -> x + whole.b

@@ -118,7 +118,7 @@ fn table(path: String) -> Result<String, String>
     name =
         String.split(path, "/")
         |> Iter.last()
-        |> Maybe.with_default(path)
+        |> Option.with_default(path)
         |> String.replace(".csv", "")
 
     arms =
@@ -137,7 +137,7 @@ fn table(path: String) -> Result<String, String>
     Ok(
         """
         /// The `${value_name}` of each `${key_name}` in ${path}.
-        pub fn ${name}(${key_name}: ${key_type}) -> Maybe<${value_type}>
+        pub fn ${name}(${key_name}: ${key_type}) -> Option<${value_type}>
             case ${key_name}
         ${cases}
                 _ -> None
@@ -148,7 +148,7 @@ fn table(path: String) -> Result<String, String>
 end
 
 // A header cell `name: Type`, as the name and the type.
-fn field(cell: String) -> Maybe<(String, String)>
+fn field(cell: String) -> Option<(String, String)>
     case String.split(cell, ":") |> Iter.map(String.trim) |> Iter.to_list()
         [name, type_name] when name != "" and type_name != "" -> Some((name, type_name))
         _ -> None

@@ -365,7 +365,7 @@ func (b *bound) fn755Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) 
 	return true, nil
 }
 
-// fn758 adapts http/host.send: send(client: Client, method: String, url: String, headers: List<String>, body_kind: Int, data: Bytes, input: Maybe<Reader>, content_length: Int, host: String, close: Bool, trailers: List<String>, stream: Bool, max_body: Int, tracer: Maybe<Handle>) -> Result<Exchange, List<String>>
+// fn758 adapts http/host.send: send(client: Client, method: String, url: String, headers: List<String>, body_kind: Int, data: Bytes, input: Option<Reader>, content_length: Int, host: String, close: Bool, trailers: List<String>, stream: Bool, max_body: Int, tracer: Option<Handle>) -> Result<Exchange, List<String>>
 func (b *bound) fn758(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 14 {
 		return nil, hostadapt.Arity("http/host.send", 14, len(args))
@@ -919,7 +919,7 @@ func (b *bound) fn816Regs(fr *rt.Frame, s *hostadapt.Slots) (_ bool, err error) 
 	return true, nil
 }
 
-// fn819 adapts http/host.tls_config: tls_config(server: Bool, roots_kind: Int, roots_pem: String, roots_files: List<String>, server_name: String, insecure: Bool, next_protocols: List<String>, min_version: Int, max_version: Int, cipher_suites: List<Int>, has_cipher_suites: Bool, curves: List<String>, has_curves: Bool, session_tickets: Bool, session_cache: Int, renegotiation: Int, client_auth: Int, certificate_for: (Handle) -> Maybe<Certificate>, has_certificate_for: Bool, verify: (List<List<String>>) -> String, has_verify: Bool, key_log: Writer, has_key_log: Bool) -> Result<TlsConfig, List<String>>
+// fn819 adapts http/host.tls_config: tls_config(server: Bool, roots_kind: Int, roots_pem: String, roots_files: List<String>, server_name: String, insecure: Bool, next_protocols: List<String>, min_version: Int, max_version: Int, cipher_suites: List<Int>, has_cipher_suites: Bool, curves: List<String>, has_curves: Bool, session_tickets: Bool, session_cache: Int, renegotiation: Int, client_auth: Int, certificate_for: (Handle) -> Option<Certificate>, has_certificate_for: Bool, verify: (List<List<String>>) -> String, has_verify: Bool, key_log: Writer, has_key_log: Bool) -> Result<TlsConfig, List<String>>
 func (b *bound) fn819(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 23 {
 		return nil, hostadapt.Arity("http/host.tls_config", 23, len(args))

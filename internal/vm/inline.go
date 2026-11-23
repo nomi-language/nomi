@@ -91,7 +91,7 @@ func (cp *compiler) compilesIn(g *ir.Func) bool {
 }
 
 // planInlines picks the calls cp's function compiles into views, before
-// the analyses that read them (fuseMaybes) run.
+// the analyses that read them (fuseOptions) run.
 func (cp *compiler) planInlines() {
 	f := cp.c.fn
 	if !cp.m.inlines() || cp.depth() >= maxInlineDepth || cp.c.guard {
@@ -282,7 +282,7 @@ func (cp *compiler) compileIn(n *ir.Call, g *ir.Func, args []uint32, replaces bo
 			continue
 		}
 		if site.packs[i] = cp.c.packed[n.Arg(i)]; site.packs[i].kind != packNone {
-			if _, apart := taken[i]; !apart || site.packs[i].kind != packMaybe {
+			if _, apart := taken[i]; !apart || site.packs[i].kind != packOption {
 				// Held in parts the callee does not take apart: the call
 				// passes the value, rebuilt (readPacked).
 				return nil
@@ -369,7 +369,7 @@ func (cp *compiler) answers() []ir.Temp {
 	return out
 }
 
-// paramGroup is how a callee holds a Maybe or a Result parameter that it
+// paramGroup is how a callee holds an Option or a Result parameter that it
 // only takes apart: the temporaries that are the parameter (its reads, and
 // the copies valueGroups joins to them), and the types its payload reads
 // land in.
@@ -379,7 +379,7 @@ type paramGroup struct {
 }
 
 // takenApart is, by index, each parameter of g whose every use is a
-// variant test, a payload read or `?` (fuseMaybes' takes, over the reads
+// variant test, a payload read or `?` (fuseOptions' takes, over the reads
 // of the parameter as valueGroups groups them), memoized per machine. A
 // caller compiling g in fuses the operand it passes there.
 func (m *Machine) takenApart(g *ir.Func) map[int]paramGroup {
@@ -469,7 +469,7 @@ func (cp *compiler) inheritFused() {
 	}
 	var taken map[int]paramGroup
 	for i, pk := range site.packs {
-		if pk.kind != packMaybe {
+		if pk.kind != packOption {
 			continue
 		}
 		if taken == nil {

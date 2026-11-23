@@ -1,12 +1,12 @@
 ---
-title: "Pattern Matching, Maybe & Result"
-description: "`case` takes values apart by shape. Maybe and Result hold a result or its absence, and `?` passes a failure up."
+title: "Pattern Matching, Option & Result"
+description: "`case` takes values apart by shape. Option and Result hold a result or its absence, and `?` passes a failure up."
 ---
 
 A `case` expression takes a value and runs the first arm whose pattern matches
 it. You saw simple `case` expressions in
 [Bindings & Expressions](/bindings-and-expressions/). This chapter covers more
-kinds of pattern, then [`Maybe<T>`](/reference/maybe/),
+kinds of pattern, then [`Option<T>`](/reference/option/),
 [`Result<T, E>`](/reference/results/), and the `?` that passes a failure up.
 
 A `case` must cover every possible value. If you leave out a variant of an
@@ -50,9 +50,9 @@ the condition is true. `_` matches anything and names nothing.
   condition may be false.
 - Literal patterns never cover their type: no list of numbers or strings
   covers `Int` or `String`, so `label` needs its last arm.
-- Coverage works part by part. For a pair of `Maybe<Int>` values, arms for
+- Coverage works part by part. For a pair of `Option<Int>` values, arms for
   `(Some(x), _)` and `(_, Some(y))` miss
-  `non-exhaustive case on (Maybe<Int>, Maybe<Int>): missing (None, None)`.
+  `non-exhaustive case on (Option<Int>, Option<Int>): missing (None, None)`.
 - A literal never converts: `3` doesn't match a `Float`. Write `3.0`.
 
 Spec: [Exhaustiveness checking](/spec/patterns/#exhaustiveness-checking),
@@ -111,7 +111,7 @@ fn first_two(words: List<String>) -> String
     end
 end
 
-fn last(v: Vector<Int>) -> Maybe<Int>
+fn last(v: Vector<Int>) -> Option<Int>
     case v
         []      -> None
         [.., z] -> Some(z)
@@ -323,13 +323,13 @@ dbg line 14: not Some(3) is None = True
 An `or` pattern after `is` goes in parentheses, since a bare `or` there joins
 two `Bool`s. A name in the pattern is an error: to use the payload, bind it
 with a `case` or with `if Some(n) = x`, as
-[`Maybe<T>` and `Result<T, E>`](#maybet-and-resultt-e) shows.
+[`Option<T>` and `Result<T, E>`](#optiont-and-resultt-e) shows.
 
-## `Maybe<T>` and `Result<T, E>`
+## `Option<T>` and `Result<T, E>`
 
 Nomi uses two enums for operations that might not have a result:
 
-- [`Maybe<T>`](/reference/maybe/) is either `Some(value)` or `None`. Use it
+- [`Option<T>`](/reference/option/) is either `Some(value)` or `None`. Use it
   when there may be no result and there is nothing more to say about why.
 - [`Result<T, E>`](/reference/results/) is either `Ok(value)` or `Err(error)`.
   Use it when a failure comes with an error that explains it.
@@ -337,7 +337,7 @@ Nomi uses two enums for operations that might not have a result:
 Both types and their variants are always available. You do not import them.
 
 ```nomi-run
-fn lookup(id: Int) -> Maybe<String>
+fn lookup(id: Int) -> Option<String>
     case id
         1 -> Some("Alice")
         2 -> Some("Bob")
@@ -366,7 +366,7 @@ For a quick check of a single pattern, `if` can match it directly. The names
 the pattern binds exist only in the first branch:
 
 ```nomi-run
-fn lookup(id: Int) -> Maybe<String>
+fn lookup(id: Int) -> Option<String>
     case id
         1 -> Some("Alice")
         _ -> None
@@ -414,10 +414,10 @@ dbg line 12: calculate(100, 5) = Ok(11)
 dbg line 13: calculate(100, 0) = Err("div by zero")
 -->
 
-A `?` after a `Maybe` or `Result` value gives you the value inside, or returns
+A `?` after an `Option` or `Result` value gives you the value inside, or returns
 the `None` or `Err` from the whole function at once. The function must return
-the same kind: a `Maybe`'s `?` needs a function that returns a `Maybe`. To turn
-one into the other, use `Maybe.to_result`, as below. When the `Err`'s type is
+the same kind: an `Option`'s `?` needs a function that returns an `Option`. To turn
+one into the other, use `Option.to_result`, as below. When the `Err`'s type is
 not the function's error type, `?` applies that type's `From` impl
 ([spec](/spec/failure/#propagating-with-)).
 
@@ -468,7 +468,7 @@ To parse a list of inputs, map each one to a `Result` and end the pipe with
 
 ```nomi-run
 fn parse(text: String) -> Result<Int, String>
-    Maybe.to_result(String.to_int(text), "not a number: ${text}")
+    Option.to_result(String.to_int(text), "not a number: ${text}")
 end
 
 fn total(inputs: List<String>) -> Result<Int, String>
@@ -501,13 +501,13 @@ dbg line 21: errors = ["not a number: x", "not a number: y"]
 gives the first `Err`, and stops reading at that input.
 
 When you want every error, not just the first, `Result.partition` splits the
-results into two lists: the values and the errors. For `Maybe`,
-`Maybe.collect` gives `Some` of every value or `None`, and `Maybe.values` keeps
+results into two lists: the values and the errors. For `Option`,
+`Option.collect` gives `Some` of every value or `None`, and `Option.values` keeps
 the `Some` values and drops the rest.
 
-A `Maybe` is also an `Iter` of zero or one elements, so it goes where an
+An `Option` is also an `Iter` of zero or one elements, so it goes where an
 `Iter` does: `Iter.to_list(Some(3))` is `[3]`, `Iter.to_list(None)` is `[]`,
-and `Iter.flat_map` with a function that returns a `Maybe` keeps only the
+and `Iter.flat_map` with a function that returns an `Option` keeps only the
 `Some` values.
 
 <div class="tour-details">
@@ -538,7 +538,7 @@ enum PortError
     Invalid String
 end
 
-fn parse_port(text: Maybe<String>) -> Result<Int, PortError>
+fn parse_port(text: Option<String>) -> Result<Int, PortError>
     Some(raw) = text else return Err(.Missing)
 
     Some(n) = String.to_int(raw) else return Err(.Invalid(raw))
@@ -546,7 +546,7 @@ fn parse_port(text: Maybe<String>) -> Result<Int, PortError>
     Ok(n)
 end
 
-fn port(text: Maybe<String>) -> Result<Int, String>
+fn port(text: Option<String>) -> Result<Int, String>
     Ok(n) = parse_port(text) else
         Err(.Missing)      -> 8080
         Err(.Invalid(raw)) -> return Err("bad port: ${raw}")
@@ -600,7 +600,7 @@ Spec: [Bindings with `else`](/spec/patterns/#bindings-with-else).
 
 ## Calls that cannot fail
 
-A `!` written right after an expression unwraps its `Maybe` or `Result`:
+A `!` written right after an expression unwraps its `Option` or `Result`:
 
 ```nomi-run error
 fn half(n: Int) -> Result<Int, String>
@@ -636,118 +636,8 @@ constants, the key came from the map itself, or the input was checked
 already. When the failure can really happen, pass it up with `?` or handle it
 with `case` or `else`.
 
-`!` works on any expression that is a `Maybe` or a `Result`: a call, a pipe
+`!` works on any expression that is an `Option` or a `Result`: a call, a pipe
 stage (`"8" |> String.to_int()!`), a field (`user.nickname!`) or a name.
-
-## What can fail at run time
-
-A Nomi program stops while it runs in two ways: it asks to, or it hits a
-limit.
-
-It asks with a `!`, an
-[`unreachable`](/functions-and-lambdas/#code-that-cannot-be-reached) or a
-[`todo`](/functions-and-lambdas/#unwritten-code), or by awaiting a task that
-[failed](/concurrency/#when-a-task-fails).
-
-The limits are few. A program can run out of memory, make more than 100,000
-nested calls, ask for a `Decimal` with more than about two billion digits
-after the point, or ask `String.repeat` for more than 2 GiB of text. A
-pipeline that consumes the whole of an endless iterator stops with a message
-instead of hanging ([Iter](/collections/#iter)). A program can also never
-finish.
-
-The checks happen where values enter, so the operations after them cannot
-fail:
-
-- A value that must meet a rule has a
-  [subtype](/structs-enums-distinct/#subtypes): a count is a
-  `NonNegativeInt`, a list with a first element a `NonEmptyList`.
-- A literal passed where a subtype is expected is checked when the program
-  compiles.
-- A check narrows a binding: after `if d == 0 then return ...`, `d` is a
-  `NonZeroInt`. The compiler also follows ranges, so each `d` in `1..=n` is
-  one too, and `Int.modulo(n, 26)` and `Int.clamp(n, 0..=9)` are
-  `NonNegativeInt`s.
-- `/` and `%` take a `NonZeroInt` divisor
-  ([Numbers](/scalars-and-strings/#numbers-booleans-operators)), so a
-  division by zero does not compile.
-- A lookup that may miss returns a [`Maybe`](#maybet-and-resultt-e), and an
-  operation that fails for a reason returns a `Result`.
-
-```nomi-run
-fn average(total: Int, count: Int) -> Maybe<Int>
-    if count == 0 then return None
-    Some(total / count)
-end
-
-fn divisors(n: Int) -> List<Int>
-    1..=n
-    |> Iter.filter(fn d -> n % d == 0)
-    |> Iter.to_list()
-end
-
-fn main()
-    dbg average(17, 4)
-    dbg average(17, 0)
-    dbg divisors(12)
-end
-```
-<!-- expect
-dbg line 13: average(17, 4) = Some(4)
-dbg line 14: average(17, 0) = None
-dbg line 15: divisors(12) = [1, 2, 3, 4, 6, 12]
--->
-
-Without the check, `average` does not compile:
-
-```nomi-run error
-fn average(total: Int, count: Int) -> Int
-    total / count
-end
-
-fn main()
-    dbg average(17, 4)
-end
-```
-<!-- expect
-main.nomi:2:13: `/` divides by a NonZeroInt; `count` is an Int
-main.nomi:2:13: help: check it first (`if count == 0 then ...`) or take a NonZeroInt
--->
-
-The compiler proves a divisor is not zero from the checks and ranges already
-in the code, with no solver and nothing to annotate.
-
-Other languages draw these lines in other places:
-
-| | Nomi | Elm | Gleam | Rust | Go |
-| --- | --- | --- | --- | --- | --- |
-| Integer division by zero | Compile error | Returns `0` | Returns `0` | Panic | Panic |
-| Index past the end | `Maybe` | `Maybe` | No indexing | Panic | Panic |
-| Integer overflow | None | Target decides | None on Erlang | Debug panic, release wraps | Wraps |
-| A failed task | Trap when awaited | Typed error | Linked processes crash | `Err` from `join` | Panic ends the program |
-
-- **Nomi** has no `xs[i]`: `Vector.get` and `Iter.get` return a `Maybe`,
-  and an `Int` has no size limit. A task that returns an `Err` has not failed; that is its
-  result. A task fails when its body traps. Every task is waited on, and
-  how you wait decides: `Task.await` traps with the same fault, and
-  `Task.outcome` returns the failure as a value.
-- **Elm**'s `//` returns `0`, but `modBy 0 n` crashes. Its integers are
-  exact within 32 bits; past that the compilation target decides.
-- **Gleam**'s `/` returns `0`, and the separate function `int.divide`
-  returns an `Error` instead. On JavaScript its `Int` is a
-  64-bit float. A process affects no other unless they are linked:
-  `process.spawn` links the new process to its parent, and
-  `process.spawn_unlinked` does not.
-- **Rust**'s `v[i]` panics and `get` returns an `Option`.
-- **Go** refuses a constant zero divisor when compiling.
-- **Calling the host language:** a Nomi program reaches code outside it only
-  through the standard library, WebAssembly that std::wasm runs, and the
-  host functions of a program that embeds it. Elm has no direct calls, only flags and ports. A Gleam external's type is trusted, and a wrong one
-  can crash at run time.
-
-Write `!` where you know a fact the types cannot see, such as a key that came
-from the map itself. Each place a program can stop is then written in its
-source.
 
 ## See it in action
 
@@ -757,7 +647,7 @@ source.
 <a href="/examples/queen-attack/"><span class="tour-example-name">Queen Attack</span><span class="tour-example-what">Can two queens on a board attack?</span></a>
 </div>
 
-<a class="tour-examples-all" href="/examples/?chapter=pattern-matching">Every example that uses Pattern Matching, Maybe &amp; Result</a>
+<a class="tour-examples-all" href="/examples/?chapter=pattern-matching">Every example that uses Pattern Matching, Option &amp; Result</a>
 
 The next chapter, [Testing](/testing/), shows how to write and run tests.
 [Interfaces & Dispatch](/interfaces-and-dispatch/) later covers how types

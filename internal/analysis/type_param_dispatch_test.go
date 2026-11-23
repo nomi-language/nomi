@@ -91,10 +91,10 @@ end
 
 func TestTypeParamQualifiedDispatch_SelfReturnStaysConcreteTypeParam(t *testing.T) {
 	src := `interface Stepper<S>
-  fn step(value: self, by: S) -> Maybe<self>
+  fn step(value: self, by: S) -> Option<self>
 end
 
-fn advance<T>(value: T) -> Maybe<T> where T: Stepper<Int>
+fn advance<T>(value: T) -> Option<T> where T: Stepper<Int>
   T.step(value, 1)
 end
 
@@ -103,7 +103,7 @@ fn main()
 end`
 	_, errs := checkSourceWithStdlib(src)
 	if len(errs) != 0 {
-		t.Fatalf("expected self-returning T.method call to keep Maybe<T>, got: %v", errs)
+		t.Fatalf("expected self-returning T.method call to keep Option<T>, got: %v", errs)
 	}
 }
 

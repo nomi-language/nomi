@@ -10,7 +10,7 @@ import (
 // Undetermined type arguments. A generic function is instantiated per
 // type-argument tuple (spec §12), so a call whose type argument nothing in
 // the program fixes has no instance to run: `Result.collect([])` leaves T and
-// E unknown, and `Maybe.collect([None])` leaves T unknown.
+// E unknown, and `Option.collect([None])` leaves T unknown.
 //
 // The rule is narrower than "every inference variable must be solved".
 // An unsolved variable is harmless where no value of its type is made: the
@@ -25,11 +25,11 @@ import (
 //   - two levels inside a parameter type and inside a collection in its
 //     result: the callee takes the argument apart and gathers what it finds
 //     into a new collection (`Result.collect`'s T, from `Iter<Result<T, E>>`
-//     into `Result<List<T>, E>`; `Maybe.collect`, `Iter.to_map`).
+//     into `Result<List<T>, E>`; `Option.collect`, `Iter.to_map`).
 //     `Result.collect`'s E is not made: an error is passed through, so
 //     `Result.collect([Ok(1)])` is determined enough. A lazy adapter that
 //     passes its source's inner elements on (`Iter.flatten`,
-//     `Maybe.values`) returns an `Iter`, no collection, and makes none.
+//     `Option.values`) returns an `Iter`, no collection, and makes none.
 //
 // A callee also makes values of a type argument whose bound declares a
 // function that takes no value of the type: `Iter.sum`'s T is `Summable`,
@@ -42,7 +42,7 @@ import (
 // argument itself makes a value of it (`fn pick<T>(xs: List<T>) -> T`, so
 // `pick([])` does), and so does a `!` or `?` over a call whose result
 // holds it as the payload: `Vector.get([], 0)!` is a value of the vector's
-// element type, where `Vector.get([], 0)` alone is a `Maybe` that can only
+// element type, where `Vector.get([], 0)` alone is an `Option` that can only
 // be None. A discarded or `dbg`'d value counts as much as a bound one: the
 // builder has no representation for a value of no type, so `_ =
 // Vector.get([], 0)!` is refused as `dbg Iter.sum([])` is. A `!` or `?`
@@ -82,7 +82,7 @@ func (c *checker) noteUndeterminedCall(callee, at ast.Node, ft *FuncType, subs m
 }
 
 // unwrappedValue is one `!` or `?`, at, whose value has type ty: the
-// payload of the Result or Maybe it unwraps.
+// payload of the Result or Option it unwraps.
 type unwrappedValue struct {
 	at ast.Node
 	op string

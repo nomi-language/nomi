@@ -24,7 +24,7 @@ func TestVMTry_IdentityAndPropagation(t *testing.T) {
 		enum, variant string
 		unwind        bool
 	}{
-		{"maybe.Maybe", "Some", false}, {"maybe.Maybe", "None", true},
+		{"option.Option", "Some", false}, {"option.Option", "None", true},
 		{"results.Result", "Ok", false}, {"results.Result", "Err", true},
 	} {
 		v := rtVariant(tc.enum, tc.variant)
@@ -47,7 +47,7 @@ func TestVMTry_IdentityAndPropagation(t *testing.T) {
 		int64(1),
 		rtVariant("other.Result", "Err"),
 		rtVariant("literals.Fragment", "Dynamic"),
-		rtVariant("maybe.Maybe", "Err"),
+		rtVariant("option.Option", "Err"),
 	} {
 		if _, err := m.Run("unwrap", v); err == nil {
 			t.Fatalf("accepted invalid operand? %#v", v)

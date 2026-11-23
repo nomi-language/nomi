@@ -23,7 +23,7 @@ end
 func TestFormat_CurrentValueOperand(t *testing.T) {
 	roundTrip(t, `fn main()
     a = {..user, visits: .. + 1, name: String.trim(..), tags: .. |> List.reverse()}
-    b = {..user, address: {.., street: Maybe.map(m, fn s -> s + ..)}}
+    b = {..user, address: {.., street: Option.map(m, fn s -> s + ..)}}
     c = {..counts, "a" => .. - 1}
 end
 `)

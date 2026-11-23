@@ -71,9 +71,9 @@ func TestPreludeOrigin_IdentityIsTheTypesOwnOriginAndNeverItsName(t *testing.T) 
 	}
 	for _, tc := range []struct{ origin, name string }{
 		{"myapp/literals", "Fragment"},
-		{"myapp", "Maybe"},
+		{"myapp", "Option"},
 		{"", "Fragment"},
-		{"std/literals", "Maybe"},
+		{"std/literals", "Option"},
 		{"std/literals", "NotAThing"},
 	} {
 		if _, ok := preludeOriginAnchor(tc.origin, tc.name); ok {

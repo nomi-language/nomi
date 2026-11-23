@@ -59,7 +59,7 @@ fn loud_int(tag: String, n: Int) -> Int
     n
 end
 
-fn loud_maybe(tag: String, n: Int) -> Maybe<Int>
+fn loud_option(tag: String, n: Int) -> Option<Int>
     io.print("eval ${tag}")
     Some(n)
 end
@@ -106,7 +106,7 @@ fn matched(s: String) -> Int
 end
 
 // The BARE `case`, with an arm that IGNORES the scrutinee.
-fn ignored(m: Maybe<Int>) -> String
+fn ignored(m: Option<Int>) -> String
     m
     |> case
         Some(_) -> "something"
@@ -200,7 +200,7 @@ fn main()
 
     // ONCE-ness, for all three stage shapes. Each `loud_*` prints one line, and
     // exactly one, however many arms the stage tests.
-    io.print("once case = ${loud_maybe("case", 3) |> case
+    io.print("once case = ${loud_option("case", 3) |> case
             Some(n) -> n
             None    -> 0
         end}")

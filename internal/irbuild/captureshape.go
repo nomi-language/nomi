@@ -8,7 +8,7 @@ import (
 )
 
 // captureShapeHost is the VM intrinsic behind std/strings' private
-// `capture_shape<C>(re: Regex<C>, groups: List<Maybe<String>>) -> C`, which
+// `capture_shape<C>(re: Regex<C>, groups: List<Option<String>>) -> C`, which
 // `String.captures` calls on a match's groups: the value of C they are, the
 // tuple, anonymous struct, text, Unit or list the checker gave the regex's
 // type (analysis/regex_literal.go). `Regex<C>` is one handle whatever C is
@@ -58,8 +58,8 @@ func (bl *irScalarBuilder) captureShapeCall(t *ast.Call) (v ir.Temp, k kind, mob
 }
 
 // captureShape spells a capture type for the VM (internal/vm's
-// captureshape.go): `L` for the run-time List<Maybe<String>>, `U` for Unit,
-// `S` or `M` for one group's String or Maybe<String>, `T` and a letter per
+// captureshape.go): `L` for the run-time List<Option<String>>, `U` for Unit,
+// `S` or `M` for one group's String or Option<String>, `T` and a letter per
 // tuple component, `R` and `name:letter` per struct field.
 func captureShape(t *ir.ValType) (string, bool) {
 	if t == nil {

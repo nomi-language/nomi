@@ -33,7 +33,7 @@ type Slots struct {
 // RegFunc is a bound adapter's register form: the same call as the
 // adapter, over operands and an answer in slots instead of boxed values. It
 // answers whether the answer is a Some or an Ok, for a binding that answers
-// a Maybe or a Result, and true for any other. It fails as the adapter
+// an Option or a Result, and true for any other. It fails as the adapter
 // does, with the same errors.
 type RegFunc func(fr *rt.Frame, s *Slots) (carried bool, err error)
 
@@ -45,17 +45,17 @@ type Regs struct {
 	Fn  RegFunc
 	In  []rt.SlotType
 	Out []rt.SlotType
-	// Carries says the binding answers a Maybe or a Result: Out is the
+	// Carries says the binding answers an Option or a Result: Out is the
 	// payload's parts, written when the form answers carried.
 	Carries bool
-	// Whole is the descriptor of the Maybe or Result a carrying form
+	// Whole is the descriptor of the Option or Result a carrying form
 	// answers, and Tuple that of the tuple its parts make when it has more
 	// than one: what Answer builds the whole answer with.
 	Whole, Tuple *rt.TypeDesc
 }
 
 // Row is one binding's register form as a generated table lists it: a
-// method of the table's bound descriptors (B) over slots, and the Maybe or
+// method of the table's bound descriptors (B) over slots, and the Option or
 // Result spec a carrying answer is (nil for one that carries none).
 type Row[B any] struct {
 	Key     string

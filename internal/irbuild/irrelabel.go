@@ -21,7 +21,7 @@ import (
 // Any other conversion is a rebuild (irembedsrebuild.go). Where the checker
 // recorded the conversion, its record's cost decides (relabelsAt).
 //
-// A record (a tuple, an anonymous record, a Maybe's or Result's variant)
+// A record (a tuple, an anonymous record, an Option's or Result's variant)
 // may then hold a scalar in a scalar slot where its new type says a
 // reference: the VM reads a field through the record's own descriptor
 // (vm.frame.writeField), and equality and hashing read each slot by its own
@@ -138,9 +138,9 @@ func (bl *irScalarBuilder) passesRelabelled(at ast.Node, have, want kind) bool {
 }
 
 // irRelabelPrelude reports whether d is an instance of the prelude enums
-// whose type arguments convert: Maybe and Result.
+// whose type arguments convert: Option and Result.
 func irRelabelPrelude(d *typeDef) bool {
-	return d.preludeOf != nil && (d.preludeOf.spec.nomi == "Maybe" || d.preludeOf.spec.nomi == "Result")
+	return d.preludeOf != nil && (d.preludeOf.spec.nomi == "Option" || d.preludeOf.spec.nomi == "Result")
 }
 
 // relabel answers v, of kind have, as a value of kind want that relabels

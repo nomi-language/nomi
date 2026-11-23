@@ -38,21 +38,21 @@ func TestUndeterminedTypeArgs_Rejected(t *testing.T) {
 	}{
 		{"collect over an empty list", "dbg Result.collect([])",
 			"the element type of `[]` is not determined: annotate it, as in `xs: List<Result<T, E>> = []` with T and E filled in, or pass a typed value", 22},
-		{"collect over an empty list of maybes", "dbg Maybe.collect([])",
-			"the element type of `[]` is not determined: annotate it, as in `xs: List<Maybe<T>> = []` with T filled in", 21},
+		{"collect over an empty list of options", "dbg Option.collect([])",
+			"the element type of `[]` is not determined: annotate it, as in `xs: List<Option<T>> = []` with T filled in", 22},
 		{"to_map over an empty list", "dbg Iter.to_map([])",
 			"the element type of `[]` is not determined: annotate it, as in `xs: List<(K, V)> = []` with K and V filled in", 19},
-		{"an empty vector literal", "dbg Maybe.collect(Vector[])",
-			"the element type of `Vector[]` is not determined: annotate it, as in `xs: Vector<Maybe<T>> = Vector[]`", 21},
+		{"an empty vector literal", "dbg Option.collect(Vector[])",
+			"the element type of `Vector[]` is not determined: annotate it, as in `xs: Vector<Option<T>> = Vector[]`", 22},
 		{"a lambda over an empty list's element", "dbg Iter.map([], fn x -> x)",
 			"the element type of `[]` is not determined: annotate it, as in `xs: List<T> = []` with T filled in", 16},
-		{"None where T is free", "dbg Maybe.collect([None])",
-			"the type argument T of `Maybe.collect` is not determined: annotate the value passed in, or give the call its type arguments, as in `Maybe.collect<T>(…)`", 21},
+		{"None where T is free", "dbg Option.collect([None])",
+			"the type argument T of `Option.collect` is not determined: annotate the value passed in, or give the call its type arguments, as in `Option.collect<T>(…)`", 22},
 		{"Err whose Ok type is free", "dbg Result.collect([Err(1)])",
 			"the type argument T of `Result.collect` is not determined", 22},
 		{"Ok whose error type is collected", "dbg Result.partition([Ok(1)])",
 			"the type argument E of `Result.partition` is not determined", 24},
-		{"a pipe", "dbg [] |> Maybe.collect()",
+		{"a pipe", "dbg [] |> Option.collect()",
 			"the element type of `[]` is not determined", 7},
 		{"inside an assert", "assert Iter.count(Iter.to_map([])) == 0",
 			"the element type of `[]` is not determined", 33},
@@ -112,13 +112,13 @@ func TestUndeterminedTypeArgs_Accepted(t *testing.T) {
 		"dbg Result.map(Ok(3), fn x -> x + 1)",
 		"dbg Result.collect([Ok(1)])",
 		"dbg Result.collect([Ok(1), Err(\"e\")])",
-		"dbg Maybe.values([Some(1)])",
+		"dbg Option.values([Some(1)])",
 		"dbg Iter.map([], fn x -> x + 1)",
 		"dbg Iter.flatten([[1], []])",
-		"dbg Maybe.values<Int>([])",
+		"dbg Option.values<Int>([])",
 		// A lazy adapter passes inner elements on and makes none.
-		"dbg Maybe.values([])",
-		"dbg Maybe.values([None])",
+		"dbg Option.values([])",
+		"dbg Option.values([None])",
 		"dbg Iter.flatten([])",
 		"dbg Iter.flatten([[]])",
 		// Comparable's functions take the elements, so an empty input calls none.
@@ -133,7 +133,7 @@ func TestUndeterminedTypeArgs_Accepted(t *testing.T) {
 		"dbg Iter.sum([]) == 0",
 		"dbg Iter.sum<Int>([])",
 		"xs: List<Int> = []\n  dbg Iter.sum(xs)",
-		"xs: List<Maybe<Int>> = []\n  dbg Maybe.values(xs)",
+		"xs: List<Option<Int>> = []\n  dbg Option.values(xs)",
 	}
 	for _, body := range bodies {
 		t.Run(body, func(t *testing.T) {
@@ -147,8 +147,8 @@ func TestUndeterminedTypeArgs_Accepted(t *testing.T) {
 // once every body is checked.
 func TestUndeterminedTypeArgs_FixedByALaterUse(t *testing.T) {
 	src := `fn main()
-  r = (Maybe.collect([None]), 1)
-  s: (Maybe<List<Int>>, Int) = r
+  r = (Option.collect([None]), 1)
+  s: (Option<List<Int>>, Int) = r
   dbg s
   Unit
 end
@@ -159,7 +159,7 @@ end
 // A binding that already says its type is not determined is the one error.
 func TestUndeterminedTypeArgs_BindingErrorIsNotRepeated(t *testing.T) {
 	src := `fn main()
-  xs = Maybe.values([])
+  xs = Option.values([])
   dbg xs
   Unit
 end
@@ -175,7 +175,7 @@ end
 // is the type argument itself makes one too, so an empty literal there needs
 // its element type even when the value is discarded or only printed.
 func TestUndeterminedTypeArgs_ResultMakesAValue(t *testing.T) {
-	const pick = "fn pick<T>(xs: List<T>) -> T\n  todo\nend\n\nfn f() -> Maybe<Int>\n  "
+	const pick = "fn pick<T>(xs: List<T>) -> T\n  todo\nend\n\nfn f() -> Option<Int>\n  "
 	cases := []struct {
 		name, body, want string
 	}{

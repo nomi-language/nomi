@@ -25,10 +25,10 @@ test "element text escapes a String and keeps an Html"
     assert render(Html"<p>${3} ${1.5}</p>") == "<p>3 1.5</p>"
 end
 
-test "a List, a Maybe and a program's own type render in element text"
+test "a List, an Option and a program's own type render in element text"
     items = [Html"<li>a</li>", Html"<li>b</li>"]
     assert render(Html"<ul>${items}</ul>") == "<ul><li>a</li><li>b</li></ul>"
-    nothing: Maybe<Html> = None
+    nothing: Option<Html> = None
     assert render(Html"<p>${nothing}</p>") == "<p></p>"
     assert render(Html"<p>${Some(Html"<i>x</i>")}</p>") == "<p><i>x</i></p>"
 
@@ -73,8 +73,8 @@ end
 test "an optional attribute is written or left out by its value"
     yes = True
     no = False
-    title: Maybe<String> = Some("it's")
-    none: Maybe<String> = None
+    title: Option<String> = Some("it's")
+    none: Option<String> = None
     assert render(Html"<input checked=${yes}/>") == "<input checked/>"
     assert render(Html"<input checked=${no}/>") == "<input/>"
 
@@ -156,7 +156,7 @@ fn badge(on: Bool) -> Html
     Html"<span class='badge ${if on then Some("on") else None}'>x</span>"
 end
 
-test "a Maybe in a quoted attribute writes its value, or nothing for None"
+test "an Option in a quoted attribute writes its value, or nothing for None"
     assert render(badge(True)) == "<span class='badge on'>x</span>"
     assert render(badge(False)) == "<span class='badge '>x</span>"
 
@@ -174,8 +174,8 @@ test "a Maybe in a quoted attribute writes its value, or nothing for None"
         Html"<i class='${if on then Some("a") else None} b ${if off then Some("c") else None}${if on then Some(" d") else None}'></i>"
     ) == "<i class='a b  d'></i>"
 
-    count: Maybe<Int> = Some(3)
-    none: Maybe<Int> = None
+    count: Option<Int> = Some(3)
+    none: Option<Int> = None
 
     assert render(Html"<i data-n='${count}' data-m='${none}'>${count}</i>")
         == "<i data-n='3' data-m=''>3</i>"
@@ -186,17 +186,17 @@ test "a Maybe in a quoted attribute writes its value, or nothing for None"
     ) == "<i class=\"a\"></i><i></i>"
 end
 
-test "a Maybe in a URL, a style value or a title writes its value, or nothing"
+test "an Option in a URL, a style value or a title writes its value, or nothing"
     on = True
     off = False
-    id: Maybe<String> = Some("a/b")
+    id: Option<String> = Some("a/b")
 
     assert render(
         Html"<a href='/p/${id}?q=${if off then Some(1) else None}#${if on then Some("x y") else None}'>x</a>"
     ) == "<a href='/p/a%2Fb?q=#x%20y'>x</a>"
 
-    home = Url.parse("https://example.com") |> Result.to_maybe()
-    bad = Url.parse("javascript:alert(1)") |> Result.to_maybe()
+    home = Url.parse("https://example.com") |> Result.to_option()
+    bad = Url.parse("javascript:alert(1)") |> Result.to_option()
     assert render(Html"<a href='${home}'>x</a>") == "<a href='https://example.com'>x</a>"
     assert render(Html"<a href='${bad}'>x</a>") == "<a href='about:invalid#unsafe-url'>x</a>"
 

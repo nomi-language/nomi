@@ -7,7 +7,7 @@ import (
 )
 
 // An impl the compiler provides for building a value. A validated type,
-// and a `type` over a subtype, implements `TryFrom` of its base through
+// and a `type` over a refinement, implements `TryFrom` of its base through
 // the `try_from` its rule supplies (refinement_synthesis.go, tryFromImpl).
 // That function builds a value of the type, so for an opaque type it is
 // construction, private to the defining file and its partner test

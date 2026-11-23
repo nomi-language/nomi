@@ -51,8 +51,8 @@ import
     int.Int
     iter.Iter
     lists.List
-    maybe.Maybe.{self, None, Some}
     net.{self, Connection, DialOptions}
+    option.Option.{self, None, Some}
     results.Result.{self, Err, Ok}
     strings.String
     tls.{self, ClientConfig}
@@ -126,9 +126,9 @@ pub struct AcceptOptions
     /// The largest message, in bytes, once its fragments are joined.
     max_message_size: Int = 1_048_576
     /// Sends a ping this often, so a peer that has gone is noticed.
-    ping_interval: Maybe<Duration> = None
+    ping_interval: Option<Duration> = None
     /// Ends a receive that sees no frame, a pong included, for this long.
-    idle_timeout: Maybe<Duration> = None
+    idle_timeout: Option<Duration> = None
 end
 
 /// How `connect` opens a connection.
@@ -138,8 +138,8 @@ pub struct ConnectOptions
     /// The subprotocols offered, most preferred first.
     protocols:        List<String> = []
     max_message_size: Int = 1_048_576
-    ping_interval:    Maybe<Duration> = None
-    idle_timeout:     Maybe<Duration> = None
+    ping_interval:    Option<Duration> = None
+    idle_timeout:     Option<Duration> = None
     /// TLS for `wss://`; its server name is the URL's host unless set.
     tls:  ClientConfig = ClientConfig{}
     dial: DialOptions = DialOptions{}
@@ -148,14 +148,14 @@ end
 /// An open WebSocket connection, either end.
 pub opaque struct WebSocket
     handle:   http_host.Handle
-    protocol: Maybe<String>
+    protocol: Option<String>
 end
 
 impl WebSocket
     /// The next message, or `Ok(None)` once the peer has closed with 1000
     /// or 1001 or no code, and on every call after that. It waits until
     /// a message comes, and stops when the task is cancelled.
-    pub fn receive(ws: WebSocket) -> Result<Maybe<Message>, Error>
+    pub fn receive(ws: WebSocket) -> Result<Option<Message>, Error>
         got = http_host.ws_receive(ws.handle) |> Result.map_err(error_of)?
 
         case got
@@ -165,7 +165,7 @@ impl WebSocket
             Some(data) ->
                 payload = Bytes.slice(data, 1, Bytes.length(data))
 
-                if Bytes.get(data, 0) |> Maybe.map(Byte.to_int) == Some(1) then
+                if Bytes.get(data, 0) |> Option.map(Byte.to_int) == Some(1) then
                     text =
                         Bytes.to_string(payload)
                         |> Result.map_err(fn reason -> Error.Invalid{reason:})?
@@ -262,7 +262,7 @@ impl WebSocket
     end
 
     /// The subprotocol the two ends agreed on, if any.
-    pub fn protocol(ws: WebSocket) -> Maybe<String>
+    pub fn protocol(ws: WebSocket) -> Option<String>
         ws.protocol
     end
 
@@ -277,7 +277,7 @@ impl WebSocket
     pub fn over(
         conn:             Connection,
         client:           Bool,
-        protocol:         Maybe<String> = None,
+        protocol:         Option<String> = None,
         max_message_size: Int = 1_048_576,
     ) -> WebSocket
         handle = http_host.ws_open(Connection.handle_of(conn), client, max_message_size, 0, 0)
@@ -421,7 +421,7 @@ pub fn connect(url: Url, options: ConnectOptions = ConnectOptions{}) -> Result<W
 
     port =
         Url.port(url)
-        |> Maybe.with_default(if secure then "443" else "80")
+        |> Option.with_default(if secure then "443" else "80")
 
     address = net.join_host_port(host, port)
 
@@ -429,7 +429,7 @@ pub fn connect(url: Url, options: ConnectOptions = ConnectOptions{}) -> Result<W
         if secure then
             named = {
                 ..options.tls,
-                server_name: Some(Maybe.with_default(.., host)),
+                server_name: Some(Option.with_default(.., host)),
             }
 
             tls.dial(address, named, options.dial)
@@ -465,7 +465,7 @@ end
 
 /// The key and chosen subprotocol of a handshake `accept` takes, or the
 /// response that refuses it.
-fn handshake(request: Request, options: AcceptOptions) -> Result<(String, Maybe<String>), Response>
+fn handshake(request: Request, options: AcceptOptions) -> Result<(String, Option<String>), Response>
     if request.method != Method.Get then
         refused =
             Response.error(Status.method_not_allowed, "a WebSocket handshake is a GET")
@@ -494,7 +494,7 @@ fn handshake(request: Request, options: AcceptOptions) -> Result<(String, Maybe<
         return Err(refused)
     end
 
-    key = Headers.get(request.headers, "Sec-WebSocket-Key") |> Maybe.with_default("")
+    key = Headers.get(request.headers, "Sec-WebSocket-Key") |> Option.with_default("")
 
     if not http_host.ws_valid_key(key) then
         return Err(Response.error(Status.bad_request, "a bad Sec-WebSocket-Key"))
@@ -528,7 +528,7 @@ fn origin_allowed(request: Request, allowed: List<Origin>) -> Bool
 end
 
 fn same_host(origin: Origin, request: Request) -> Bool
-    host = request.host |> Maybe.with_default("") |> String.lowercase()
+    host = request.host |> Option.with_default("") |> String.lowercase()
 
     case Url.parse("${origin}")
         Ok(u)  -> host != "" and u.host == host
@@ -558,5 +558,5 @@ fn error_of(parts: List<String>) -> Error
 end
 
 fn number(text: String) -> Int
-    String.to_int(text) |> Maybe.with_default(0)
+    String.to_int(text) |> Option.with_default(0)
 end

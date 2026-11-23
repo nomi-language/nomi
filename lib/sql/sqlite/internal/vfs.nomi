@@ -36,8 +36,8 @@ end
 /// opens (an engine that only describes statements). `owned` says the
 /// connection opened the two itself, so stopping it closes them.
 pub struct Place
-    dir:   Maybe<Dir> = None
-    temp:  Maybe<Dir> = None
+    dir:   Option<Dir> = None
+    temp:  Option<Dir> = None
     owned: Bool = False
 end
 
@@ -81,7 +81,7 @@ fn put(files: Files, table: Table)
 end
 
 /// The open file `fd` names.
-fn opened(files: Files, fd: Int) -> Maybe<Opened>
+fn opened(files: Files, fd: Int) -> Option<Opened>
     table = take(files)
     defer put(files, table)
     Map.get(table.opened, fd)
@@ -100,7 +100,7 @@ fn add(files: Files, entry: Opened) -> Int
 end
 
 /// The file `fd` names, taken out.
-fn remove(files: Files, fd: Int) -> Maybe<Opened>
+fn remove(files: Files, fd: Int) -> Option<Opened>
     table = take(files)
     defer put(files, {..table, opened: Map.remove(table.opened, fd)})
     Map.get(table.opened, fd)
@@ -115,7 +115,7 @@ pub fn close_all(files: Files)
     Iter.each(table.opened, fn (_, entry) -> closed(entry))
 
     if files.place.owned then
-        Iter.each(Maybe.values([files.place.dir, files.place.temp]), Dir.close)
+        Iter.each(Option.values([files.place.dir, files.place.temp]), Dir.close)
     end
 end
 
@@ -144,7 +144,7 @@ pub fn imports(files: Files) -> List<Import>
         answering("close", [.I32], [.I32], fn _, args ->
             case args
                 [.I32(fd)] ->
-                    done = remove(files, fd) |> Maybe.map(closed) |> Maybe.with_default(False)
+                    done = remove(files, fd) |> Option.map(closed) |> Option.with_default(False)
                     [.I32(if done then 0 else -1)]
 
                 _ ->
@@ -176,7 +176,7 @@ pub fn imports(files: Files) -> List<Import>
                         .I32(
                             on_file(files, fd, fn f ->
                                 File.truncate(f.file, NonNegativeInt.try_from(size)?)
-                                |> Result.to_maybe()
+                                |> Result.to_option()
                             end)
                         ),
                     ]
@@ -196,13 +196,13 @@ pub fn imports(files: Files) -> List<Import>
                 case args
                     [.I32(fd)] ->
                         opened(files, fd)
-                        |> Maybe.flat_map(fn f -> File.size(f.file) |> Result.to_maybe())
+                        |> Option.flat_map(fn f -> File.size(f.file) |> Result.to_option())
 
                     _ ->
                         None
                 end
 
-            [.I64(Maybe.with_default(size, -1))]
+            [.I64(Option.with_default(size, -1))]
         end),
         answering("lock", [.I32, .I32, .I32], [.I64], fn _, args ->
             case args
@@ -225,8 +225,8 @@ pub fn imports(files: Files) -> List<Import>
                     [
                         .I32(
                             opened(files, fd)
-                            |> Maybe.map(fn f -> reserved(f.file, level))
-                            |> Maybe.with_default(-1)
+                            |> Option.map(fn f -> reserved(f.file, level))
+                            |> Option.with_default(-1)
                         ),
                     ]
 
@@ -257,7 +257,7 @@ pub fn imports(files: Files) -> List<Import>
                 [.I32(at), .I32(length)] ->
                     data = random.secure_bytes(
                         NonNegativeInt.try_from(length)
-                        |> Maybe.with_default(0)
+                        |> Option.with_default(0)
                     )
 
                     [.I32(if Memory.write(memory, at, data) is Ok(_) then 0 else -1)]
@@ -326,15 +326,15 @@ fn answering(
 end
 
 /// The `length` bytes of the module's memory at `at` as text: a name.
-fn name(memory: Memory, at: Int, length: Int) -> Maybe<String>
+fn name(memory: Memory, at: Int, length: Int) -> Option<String>
     Memory.read(memory, at, length)
-    |> Result.to_maybe()
-    |> Maybe.flat_map(fn data -> Bytes.to_string(data) |> Result.to_maybe())
+    |> Result.to_option()
+    |> Option.flat_map(fn data -> Bytes.to_string(data) |> Result.to_option())
 end
 
 /// The file `fd` names, `run` on it: 0 for done, -1 for a failure.
-fn on_file(files: Files, fd: Int, run: (Opened) -> Maybe<Unit>) -> Int
-    case opened(files, fd) |> Maybe.flat_map(run)
+fn on_file(files: Files, fd: Int, run: (Opened) -> Option<Unit>) -> Int
+    case opened(files, fd) |> Option.flat_map(run)
         Some(_) -> 0
         None    -> -1
     end
@@ -349,13 +349,13 @@ fn open(files: Files, memory: Memory, at: Int, length: Int, flags: Int) -> Int
 
     named =
         if temporary then
-            Maybe.or_else(files.place.temp, fn -> files.place.dir)
-            |> Maybe.flat_map(fn d ->
-                Dir.make_temp_file(d) |> Result.to_maybe() |> Maybe.map(fn n -> (d, n))
+            Option.or_else(files.place.temp, fn -> files.place.dir)
+            |> Option.flat_map(fn d ->
+                Dir.make_temp_file(d) |> Result.to_option() |> Option.map(fn n -> (d, n))
             end)
         else
             files.place.dir
-            |> Maybe.flat_map(fn d -> name(memory, at, length) |> Maybe.map(fn n -> (d, n)))
+            |> Option.flat_map(fn d -> name(memory, at, length) |> Option.map(fn n -> (d, n)))
         end
 
     case named
@@ -419,9 +419,9 @@ end
 /// `fd` names at `offset`: 0, or -1 for a failure.
 fn write(files: Files, memory: Memory, fd: Int, at: Int, amount: Int, offset: Int) -> Int
     on_file(files, fd, fn f ->
-        data = Memory.read(memory, at, amount) |> Result.to_maybe()?
+        data = Memory.read(memory, at, amount) |> Result.to_option()?
         position = NonNegativeInt.try_from(offset)?
-        File.write_at(f.file, position, data) |> Result.to_maybe()
+        File.write_at(f.file, position, data) |> Result.to_option()
     end)
 end
 
@@ -430,7 +430,7 @@ end
 /// cache, for `how` 1, a sync `PRAGMA fullfsync` or
 /// `checkpoint_fullfsync` asks for. With `how` 2 it syncs the file's
 /// directory too, which a new journal needs to outlast a crash.
-fn sync(f: Opened, how: Int) -> Maybe<Unit>
+fn sync(f: Opened, how: Int) -> Option<Unit>
     synced =
         if (how &&& 1) != 0 then
             File.sync(f.file)
@@ -438,15 +438,15 @@ fn sync(f: Opened, how: Int) -> Maybe<Unit>
             File.sync_data(f.file)
         end
 
-    _ = synced |> Result.to_maybe()?
+    _ = synced |> Result.to_option()?
 
     if (how &&& 2) != 0 then
         Dir.sync_dir(
             f.dir,
             path.parent(f.path)
-            |> Maybe.with_default("."),
+            |> Option.with_default("."),
         )
-        |> Result.to_maybe()
+        |> Result.to_option()
     else
         Some(Unit)
     end
@@ -485,9 +485,9 @@ fn locked(files: Files, fd: Int, level: Int, wanted: Int) -> Int
 
     size =
         opened(files, fd)
-        |> Maybe.flat_map(fn f -> File.size(f.file) |> Result.to_maybe())
-        |> Maybe.map(fn n -> (n + 1) * 256)
-        |> Maybe.with_default(0)
+        |> Option.flat_map(fn f -> File.size(f.file) |> Result.to_option())
+        |> Option.map(fn n -> (n + 1) * 256)
+        |> Option.with_default(0)
 
     answer + size
 end
@@ -596,7 +596,7 @@ fn lower(f: File, level: Int, wanted: Int) -> (Int, Int)
             end,
         ]
         |> Iter.find(fn s -> s != 0)
-        |> Maybe.with_default(0)
+        |> Option.with_default(0)
 
     (if status == 0 then wanted else level, if status == 0 then 0 else 2)
 end
@@ -632,7 +632,7 @@ fn delete(files: Files, memory: Memory, at: Int, length: Int, sync_dir: Bool) ->
                     case Dir.sync_dir(
                         d,
                         path.parent(p)
-                        |> Maybe.with_default("."),
+                        |> Option.with_default("."),
                     )
                         Ok(_)  -> 0
                         Err(_) -> -1
@@ -650,9 +650,9 @@ end
 fn access(files: Files, memory: Memory, at: Int, length: Int, flags: Int) -> Int
     found =
         files.place.dir
-        |> Maybe.flat_map(fn d ->
+        |> Option.flat_map(fn d ->
             name(memory, at, length)
-            |> Maybe.flat_map(fn p -> Dir.metadata(d, p) |> Result.to_maybe())
+            |> Option.flat_map(fn p -> Dir.metadata(d, p) |> Result.to_option())
         end)
 
     case found

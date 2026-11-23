@@ -96,7 +96,7 @@ func irDebugValueKind(k kind) bool {
 	}
 	if k.tag == tagNamed && irRetainedEnumKind(k.def) && k.def.preludeOf != nil {
 		spec := k.def.preludeOf.spec
-		if spec != preludeSpecFor("std/maybe", "Maybe") && spec != preludeSpecFor("std/results", "Result") && spec != preludeSpecFor("std/literals", "Fragment") && spec != preludeSpecFor("std/tasks", "Outcome") {
+		if spec != preludeSpecFor("std/option", "Option") && spec != preludeSpecFor("std/results", "Result") && spec != preludeSpecFor("std/literals", "Fragment") && spec != preludeSpecFor("std/tasks", "Outcome") {
 			return false
 		}
 		for _, v := range k.def.variants {

@@ -18,12 +18,12 @@ import (
 // same declaration, so an import of anything the file did not import was
 // BLOCKED, in a stdlib `//!` case, a user test and a function body alike.
 
-// std/maybe imports neither ranges.Range nor anything binding `Range`, so a
+// std/option imports neither ranges.Range nor anything binding `Range`, so a
 // case naming Range must import it. A stdlib file spells the path bare or
 // with `std::`; both run.
 func TestBlockImport_StdlibAttachedTest(t *testing.T) {
 	if testing.Short() {
-		t.Skip("integration; lowers and runs std/maybe's cases on the VM; -short")
+		t.Skip("integration; lowers and runs std/option's cases on the VM; -short")
 	}
 	pinStdlibEnv(t)
 	restoreEnv, err := vmhost.DefaultTestEnv()
@@ -31,9 +31,9 @@ func TestBlockImport_StdlibAttachedTest(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer restoreEnv()
-	src, ok := std.ReadFile("maybe")
+	src, ok := std.ReadFile("option")
 	if !ok {
-		t.Fatal("std/maybe is not embedded")
+		t.Fatal("std/option is not embedded")
 	}
 	probe := func(imp string) string {
 		return strings.TrimRight(string(src), "\n") + `
@@ -47,14 +47,14 @@ end
 `
 	}
 
-	// Without the import Range is undefined there, though std/maybe's own
-	// `Maybe.collect` case imports it: that import binds only in its body.
-	_, err = vmhost.LoadStdlibSource("maybe", probe(""))
+	// Without the import Range is undefined there, though std/option's own
+	// `Option.collect` case imports it: that import binds only in its body.
+	_, err = vmhost.LoadStdlibSource("option", probe(""))
 	if err == nil || !strings.Contains(err.Error(), "undefined type or variant 'Range'") {
 		t.Fatalf("want \"undefined type or variant 'Range'\" without the import, got %v", err)
 	}
 	for _, path := range []string{"ranges.Range", "std::ranges.Range"} {
-		p, err := vmhost.LoadStdlibSource("maybe", probe("//! import "+path+"\n"))
+		p, err := vmhost.LoadStdlibSource("option", probe("//! import "+path+"\n"))
 		if err != nil {
 			t.Fatalf("import %s: the front end rejects the case: %v", path, err)
 		}

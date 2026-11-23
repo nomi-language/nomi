@@ -9,7 +9,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/triangle.
 ## Choices
 
 - Sides are a `(Float, Float, Float)` tuple, since the canonical data includes fractional sides and Nomi does not mix `Int` and `Float`. Whole sides are written `2.0`.
-- `kind` answers `Maybe<Kind>` over a `Kind` enum, `None` for a non-triangle; the three canonical predicates are thin wrappers over it.
+- `kind` answers `Option<Kind>` over a `Kind` enum, `None` for a non-triangle; the three canonical predicates are thin wrappers over it.
 - The kind comes from the size of the set of sides (1, 2 or 3 distinct lengths) rather than pairwise comparisons.
 - Each canonical group is a test named by the group's description, holding one `subtests` table; a `group` block is for shared `clock`, `boot` or `setup`, which none needs.
 - `is_isosceles` is `kind(sides) is Some(.Equilateral or .Isosceles)`: the `or` sits inside the payload, so one test says both kinds count.

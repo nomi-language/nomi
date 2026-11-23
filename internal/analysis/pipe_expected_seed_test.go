@@ -12,16 +12,16 @@ end
 
 `
 	for name, body := range map[string]string{
-		"direct": `fn f() -> Maybe<P>
-    Maybe.map(Some(1), fn x -> {x:})
+		"direct": `fn f() -> Option<P>
+    Option.map(Some(1), fn x -> {x:})
 end
 `,
-		"pipe": `fn f() -> Maybe<P>
-    Some(1) |> Maybe.map(fn x -> {x:})
+		"pipe": `fn f() -> Option<P>
+    Some(1) |> Option.map(fn x -> {x:})
 end
 `,
-		"pipe into an annotated binding": `fn f() -> Maybe<P>
-    p: Maybe<P> = Some(1) |> Maybe.map(fn x -> {x:})
+		"pipe into an annotated binding": `fn f() -> Option<P>
+    p: Option<P> = Some(1) |> Option.map(fn x -> {x:})
     p
 end
 `,
@@ -42,12 +42,12 @@ end
 
 `
 	for name, body := range map[string]string{
-		"direct": `fn f() -> Maybe<P>
-    Maybe.map(Some(1), fn x -> {y: x})
+		"direct": `fn f() -> Option<P>
+    Option.map(Some(1), fn x -> {y: x})
 end
 `,
-		"pipe": `fn f() -> Maybe<P>
-    Some(1) |> Maybe.map(fn x -> {y: x})
+		"pipe": `fn f() -> Option<P>
+    Some(1) |> Option.map(fn x -> {y: x})
 end
 `,
 	} {

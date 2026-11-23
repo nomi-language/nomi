@@ -31,7 +31,7 @@ once directions = [(0, 1), (0, -1), (1, 0), (-1, 0), (1, 1), (-1, -1), (1, -1), 
 
 /// Where each of `words` lies in the rows of `grid`, or `None` for a word
 /// that is not there.
-pub fn search(grid: List<String>, words: List<String>) -> Map<String, Maybe<Span>>
+pub fn search(grid: List<String>, words: List<String>) -> Map<String, Option<Span>>
     letters =
         grid
         |> Iter.map(Iter.to_vector)
@@ -44,7 +44,7 @@ end
 
 /// Where `word` lies in `letters`: the first cell and direction from which
 /// its letters read in order.
-fn find(letters: Vector<Vector<String>>, word: String) -> Maybe<Span>
+fn find(letters: Vector<Vector<String>>, word: String) -> Option<Span>
     spelling = Iter.to_list(word)
     last = Iter.count(spelling) - 1
 
@@ -77,7 +77,7 @@ fn reads(
     end)
 end
 
-fn letter_at(letters: Vector<Vector<String>>, row: Int, column: Int) -> Maybe<String>
+fn letter_at(letters: Vector<Vector<String>>, row: Int, column: Int) -> Option<String>
     letters |> Vector.get(row)? |> Vector.get(column)
 end
 
@@ -98,7 +98,7 @@ once puzzle = [
 ]
 
 test "search"
-    cases: List<(String, List<String>, List<String>, Map<String, Maybe<Span>>)> = [
+    cases: List<(String, List<String>, List<String>, Map<String, Option<Span>>)> = [
         (
             "Should accept an initial game grid and a target search word",
             ["jefblpepre"],
@@ -345,7 +345,7 @@ test result: ok. 24 passed, 0 failed
 
 ## How it's written
 
-- The answer is a `Map` from each word to `Maybe<Span>`, as the canonical data maps each word to a location or `null`. A `Span` holds two `Position`s, each a struct with the canonical `column` and `row`, counted from 1.
+- The answer is a `Map` from each word to `Option<Span>`, as the canonical data maps each word to a location or `null`. A `Span` holds two `Position`s, each a struct with the canonical `column` and `row`, counted from 1.
 - The grid is a `Vector` of rows, each a `Vector` of the row's letters as one-grapheme strings (`Iter.to_vector` over a `String`), so a letter is read by its row and column.
 - `find` is one lazy pipeline: every cell, then every one of the eight directions from it, then `Iter.find` for the first pair from which the word reads, with a `?` after it that answers `None` when no pair does. The directions are a `once` list of row and column steps, so the diagonals and the reversed words need no code of their own.
 - `reads` walks the word's letters with their index and compares each with the letter that many steps away. `letter_at` answers `None` off the grid, so a word that would run past an edge, or wrap to the next line, simply does not read; that is what the four "should not" cases check.

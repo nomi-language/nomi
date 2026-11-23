@@ -28,7 +28,7 @@ fn try_boolean_expression() -> Result<Bool, String>
     Ok(value)
 end
 
-fn find(list: List<Int>, target: Int) -> Maybe<Int>
+fn find(list: List<Int>, target: Int) -> Option<Int>
     if list == [] then
         None
     else
@@ -41,15 +41,15 @@ fn find(list: List<Int>, target: Int) -> Maybe<Int>
     end
 end
 
-fn process(list: List<Int>) -> Maybe<Int>
+fn process(list: List<Int>) -> Option<Int>
     val = find(list, 3)?
     Some(val * 10)
 end
 
-fn pipe_unwrap(m: Maybe<Int>) -> Result<Int, String>
+fn pipe_unwrap(m: Option<Int>) -> Result<Int, String>
     n =
         m
-        |> Maybe.to_result("missing")?
+        |> Option.to_result("missing")?
 
     Ok(n * 10)
 end
@@ -58,10 +58,10 @@ fn double(x: Int) -> Int
     x * 2
 end
 
-fn pipe_chain(m: Maybe<Int>) -> Result<Int, String>
+fn pipe_chain(m: Option<Int>) -> Result<Int, String>
     doubled =
         m
-        |> Maybe.to_result("missing")?
+        |> Option.to_result("missing")?
         |> double()
 
     Ok(doubled)
@@ -78,7 +78,7 @@ test "`?` unwraps only its immediate operand in surrounding expressions"
     assert try_boolean_expression() == Ok(True)
 end
 
-test "unwraps? Maybe values and propagates None"
+test "unwraps? Option values and propagates None"
     assert process([1, 2, 3, 4]) == Some(30)
     assert process([1, 2, 4, 5]) == None
 end

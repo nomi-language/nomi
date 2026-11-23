@@ -45,9 +45,9 @@ func TestAnonStructJsonAdmitsWhatItsFieldsImplement(t *testing.T) {
 		`_ = enc({"k" => {x: 1}})`,
 		`_ = put({error: "no"})`,
 		`_ = Json.encode_as({error: "no", n: Some(1)})`,
-		`r: Result<{title: String, order: Maybe<Int>}, Json.ShapeError> = dec(Json.Null)
+		`r: Result<{title: String, order: Option<Int>}, Json.ShapeError> = dec(Json.Null)
   _ = r`,
-		`_ = Json.decode_as<{title: String, order: Maybe<Int>}>("{}")`,
+		`_ = Json.decode_as<{title: String, order: Option<Int>}>("{}")`,
 		`_ = Json.decode_as<List<{p: {x: Int}, u: U}>>("[]")`,
 		`_ = FromJson.from_json<{a: Int}>(Json.Null)`,
 	} {

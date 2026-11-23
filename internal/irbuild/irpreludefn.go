@@ -2,7 +2,7 @@ package irbuild
 
 import "github.com/nomi-language/nomi/internal/ast"
 
-// preludeWithDefaultPlan plans `Maybe.with_default(m, d)` and
+// preludeWithDefaultPlan plans `Option.with_default(m, d)` and
 // `Result.with_default(r, d)`: a host crossing to the row's rt function over a
 // receiver that instantiates the prelude enum, whose default already has the
 // payload kind. A default that would need a coercion declines.
@@ -17,9 +17,9 @@ func (bl *irScalarBuilder) preludeWithDefaultPlan(t *ast.Call, args irQualArgs, 
 	}
 	// kindInvalid: sentinel — solvedParamKind's nothing-recorded answer; the operand keeps its own kind.
 	if want := bl.g.solvedParamKind(t, "with_default", 0); want != kindInvalid && want != args.kinds[0] && args.kinds[0].tag == tagNamed {
-		// `Maybe.with_default(Some(circle), shape)`: the checker solved T
-		// at the default's Shape, past the Maybe<Circle>, which converts
-		// to the Maybe<Shape> as a user function's argument would.
+		// `Option.with_default(Some(circle), shape)`: the checker solved T
+		// at the default's Shape, past the Option<Circle>, which converts
+		// to the Option<Shape> as a user function's argument would.
 		v, got, ok := bl.convertTo(t.Args[0], args.temps[0], args.kinds[0], want)
 		if !ok || got != want {
 			return nil
@@ -50,12 +50,12 @@ func (bl *irScalarBuilder) preludeWithDefaultPlan(t *ast.Call, args irQualArgs, 
 	return &irQualPlan{token: key, name: key, result: payload, host: true}
 }
 
-// preludeToResultPlan plans `Maybe.to_result(m, e)`: a host crossing to
-// `rt.MaybeToResult` whose result is `Result<T, E>`, with T the receiving
-// Maybe's argument and E the error operand's own kind. An error operand
+// preludeToResultPlan plans `Option.to_result(m, e)`: a host crossing to
+// `rt.OptionToResult` whose result is `Result<T, E>`, with T the receiving
+// Option's argument and E the error operand's own kind. An error operand
 // whose kind is not a retained prelude payload declines.
 func (bl *irScalarBuilder) preludeToResultPlan(t *ast.Call, args irQualArgs) *irQualPlan {
-	const key = "Maybe.to_result"
+	const key = "Option.to_result"
 	fn := preludeFns[key]
 	if !args.ok || len(args.kinds) != fn.args || bl.rowsUnrecorded(t) {
 		return nil
@@ -64,7 +64,7 @@ func (bl *irScalarBuilder) preludeToResultPlan(t *ast.Call, args irQualArgs) *ir
 		return nil
 	}
 	d := args.kinds[0].def
-	if args.kinds[0].tag != tagNamed || d == nil || d.preludeOf == nil || d.preludeOf.spec.nomi != "Maybe" ||
+	if args.kinds[0].tag != tagNamed || d == nil || d.preludeOf == nil || d.preludeOf.spec.nomi != "Option" ||
 		len(d.preludeArgs) != len(d.preludeOf.spec.params) || !irRetainedEnumKind(d) {
 		return nil
 	}

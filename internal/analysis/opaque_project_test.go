@@ -107,7 +107,7 @@ func TestOpaque_BlocksConstructorOutsideOwningModule(t *testing.T) {
 
 pub opaque type PosCount Int
 
-pub fn from_int(n: Int) -> Maybe<PosCount>
+pub fn from_int(n: Int) -> Option<PosCount>
   if n > 0 then Some(PosCount(n)) else None
 end
 `,
@@ -130,7 +130,7 @@ func TestOpaque_AllowsConstructorInsideOwningModule(t *testing.T) {
 
 pub opaque type PosCount Int
 
-pub fn from_int(n: Int) -> Maybe<PosCount>
+pub fn from_int(n: Int) -> Option<PosCount>
   if n > 0 then Some(PosCount(n)) else None
 end
 `,
@@ -171,7 +171,7 @@ func TestOpaque_IntCallOutsideOwningModuleNamesTheAccessors(t *testing.T) {
 
 pub opaque type PosCount Int
 
-pub fn from_int(n: Int) -> Maybe<PosCount>
+pub fn from_int(n: Int) -> Option<PosCount>
   if n > 0 then Some(PosCount(n)) else None
 end
 `,
@@ -197,7 +197,7 @@ func TestOpaque_AllowsParameterDestructuringInsideOwningModule(t *testing.T) {
 
 pub opaque type PosCount Int
 
-pub fn from_int(n: Int) -> Maybe<PosCount>
+pub fn from_int(n: Int) -> Option<PosCount>
   if n > 0 then Some(PosCount(n)) else None
 end
 
@@ -245,7 +245,7 @@ func TestOpaque_BlocksDestructuringOutsideOwningModule(t *testing.T) {
 
 pub opaque type PosCount Int
 
-pub fn from_int(n: Int) -> Maybe<PosCount>
+pub fn from_int(n: Int) -> Option<PosCount>
   if n > 0 then Some(PosCount(n)) else None
 end
 `,
@@ -269,7 +269,7 @@ func TestOpaque_AllowsDestructuringInsideOwningModule(t *testing.T) {
 
 pub opaque type PosCount Int
 
-pub fn from_int(n: Int) -> Maybe<PosCount>
+pub fn from_int(n: Int) -> Option<PosCount>
   if n > 0 then Some(PosCount(n)) else None
 end
 

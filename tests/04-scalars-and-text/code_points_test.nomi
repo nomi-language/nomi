@@ -77,7 +77,7 @@ test "is_digit and to_digit read ASCII digits only"
 
     assert String.to_codepoints("０１٣a ")
         |> Iter.map(Codepoint.to_digit)
-        |> Iter.all_match(Maybe.is_none)
+        |> Iter.all_match(Option.is_none)
 end
 
 test "is_whitespace is Unicode White_Space"

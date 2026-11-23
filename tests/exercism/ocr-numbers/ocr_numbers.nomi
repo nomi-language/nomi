@@ -41,7 +41,7 @@ end
 fn read_line(line: List<String>) -> String
     line
     |> glyphs()
-    |> Iter.map(&(Map.get(digits, &1) |> Maybe.with_default("?")))
+    |> Iter.map(&(Map.get(digits, &1) |> Option.with_default("?")))
     |> String.join()
 end
 

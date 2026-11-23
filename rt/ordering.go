@@ -4,7 +4,7 @@ package rt
 //
 // # Why it is here
 //
-// The same reason Maybe and Result are (see prelude.go): a named type's
+// The same reason Option and Result are (see prelude.go): a named type's
 // identity in internal/irbuild is the *typeDef its declaration produced, and a
 // std type needs one Go type every module's code can name.
 //

@@ -41,7 +41,7 @@ import (
 //
 // # What genericSignature declines
 //
-//   - A type parameter mentioned anywhere but bare: `List<T>`, `Maybe<T>`,
+//   - A type parameter mentioned anywhere but bare: `List<T>`, `Option<T>`,
 //     `Pair<A, B>`, `(T, Int)`, `(A) -> C`.
 //   - A type parameter no parameter mentions.
 //   - A parameter with a default, a destructuring pattern or no annotation.

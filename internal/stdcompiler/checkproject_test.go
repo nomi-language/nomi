@@ -13,7 +13,7 @@ import (
 // TestCheckProjectDiagnosticsArePinned pins `compiler.check_project`'s answers
 // absolutely, as (line, col, message) triples from ProjectSpecDiagnostics. The
 // rows cover every field a ProjectSpec carries: entry point, file map, and the
-// three states of `Maybe<String>`.
+// three states of `Option<String>`.
 func TestCheckProjectDiagnosticsArePinned(t *testing.T) {
 	for _, tc := range []struct {
 		name     string

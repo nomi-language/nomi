@@ -4,7 +4,7 @@
 //
 // These comparisons look like `mixed-type operator` cases, and nothing here
 // mixes two types. Both sides of every row below name the SAME type
-// constructor. `Maybe<_>.None`, `List<_>` and `Map<_, _>` are how kind.nomi()
+// constructor. `Option<_>.None`, `List<_>` and `Map<_, _>` are how kind.nomi()
 // renders tagBareNone, tagEmptyList and tagEmptyMap — the language's three
 // untyped literals, whose type the CHECKER solves from context and which
 // coerce discharges at the one place a wanted type is known. Every other such
@@ -22,7 +22,7 @@
 //   - `!=` beside `==`. The negation is applied after the comparison is built,
 //     so a discharge that produced the WRONG value would still negate
 //     consistently and a `==`-only fixture would read as agreement.
-//   - `Maybe<String>` beside `Maybe<Int>`. The discharge materializes the
+//   - `Option<String>` beside `Option<Int>`. The discharge materializes the
 //     wanted type's own `None` variant, so a payload type that is not Int is
 //     the check that the wanted kind is what is consulted rather than a
 //     hardcoded instantiation.
@@ -44,17 +44,17 @@
 // builder's business.
 import std::io
 
-fn to_maybe(n: Int) -> Maybe<Int>
+fn to_option(n: Int) -> Option<Int>
     if n > 0 then Some(n) else None
 end
 
-fn name_of(id: Int) -> Maybe<String>
+fn name_of(id: Int) -> Option<String>
     if id == 1 then Some("Ada") else None
 end
 
 fn main()
-    present = to_maybe(3)
-    absent = to_maybe(0)
+    present = to_option(3)
+    absent = to_option(0)
     named = name_of(1)
     nameless = name_of(2)
 

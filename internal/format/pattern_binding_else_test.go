@@ -24,7 +24,7 @@ func formatTwice(t *testing.T, src string) string {
 
 func TestFormat_BindingElse_ShortBlockStaysOnOneLine(t *testing.T) {
 	for _, src := range []string{
-		"fn f(m: Maybe<String>) -> String\n    Some(e) = m else \"none\"\n    e\nend\n",
+		"fn f(m: Option<String>) -> String\n    Some(e) = m else \"none\"\n    e\nend\n",
 		"fn f(xs: List<Int>) -> Int\n    [first, .._rest] = xs else return -1\n    first\nend\n",
 		"fn f()\n    Iter.each(lines, fn line ->\n        Ok(entry) = parse(line) else continue\n        record(entry)\n    end)\nend\n",
 	} {
@@ -35,8 +35,8 @@ func TestFormat_BindingElse_ShortBlockStaysOnOneLine(t *testing.T) {
 }
 
 func TestFormat_BindingElse_ShortBlockWrittenBrokenCollapses(t *testing.T) {
-	src := "fn f(m: Maybe<String>) -> String\n    Some(e) = m\n    else\n        \"none\"\n    end\n    e\nend\n"
-	want := "fn f(m: Maybe<String>) -> String\n    Some(e) = m else \"none\"\n    e\nend\n"
+	src := "fn f(m: Option<String>) -> String\n    Some(e) = m\n    else\n        \"none\"\n    end\n    e\nend\n"
+	want := "fn f(m: Option<String>) -> String\n    Some(e) = m else \"none\"\n    e\nend\n"
 	if got := formatTwice(t, src); got != want {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)
 	}
@@ -67,16 +67,16 @@ func TestFormat_BindingElse_WidthBoundary(t *testing.T) {
 }
 
 func TestFormat_BindingElse_LongBlockBreaks(t *testing.T) {
-	src := "fn f(id: Int, m: Maybe<String>) -> Result<String, String>\n    Some(email) = m else return Err(\"user ${id} has no email address on file, so no receipt can go out\")\n    Ok(email)\nend\n"
-	want := "fn f(id: Int, m: Maybe<String>) -> Result<String, String>\n    Some(email) = m else\n        return Err(\"user ${id} has no email address on file, so no receipt can go out\")\n    end\n    Ok(email)\nend\n"
+	src := "fn f(id: Int, m: Option<String>) -> Result<String, String>\n    Some(email) = m else return Err(\"user ${id} has no email address on file, so no receipt can go out\")\n    Ok(email)\nend\n"
+	want := "fn f(id: Int, m: Option<String>) -> Result<String, String>\n    Some(email) = m else\n        return Err(\"user ${id} has no email address on file, so no receipt can go out\")\n    end\n    Ok(email)\nend\n"
 	if got := formatTwice(t, src); got != want {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)
 	}
 }
 
 func TestFormat_BindingElse_MultiStatementBlockBreaks(t *testing.T) {
-	src := "fn f(m: Maybe<Int>) -> Int\n    Some(n) = m else\n        io.print(\"none\")\n return 0\n    end\n    n\nend\n"
-	want := "fn f(m: Maybe<Int>) -> Int\n    Some(n) = m else\n        io.print(\"none\")\n        return 0\n    end\n    n\nend\n"
+	src := "fn f(m: Option<Int>) -> Int\n    Some(n) = m else\n        io.print(\"none\")\n return 0\n    end\n    n\nend\n"
+	want := "fn f(m: Option<Int>) -> Int\n    Some(n) = m else\n        io.print(\"none\")\n        return 0\n    end\n    n\nend\n"
 	if got := formatTwice(t, src); got != want {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)
 	}

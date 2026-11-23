@@ -96,8 +96,8 @@ func TestFmt_BareHead_KeepsAnnotation(t *testing.T) {
 		{"f = fn Label: Label -> 1\n", "f = fn Label: Label -> 1\n"},
 		{"fn f(Label: Label = Label{}) -> Int\n    1\nend\n", "fn f(Label: Label = Label{}) -> Int\n    1\nend\n"},
 		{"fn f(T: Int) -> Int\n    1\nend\n", "fn f(T: Int) -> Int\n    1\nend\n"},
-		{"fn f(None: Maybe<Int>) -> Int\n    1\nend\n", "fn f(None: Maybe<Int>) -> Int\n    1\nend\n"},
-		{"fn f(Some(x): Maybe<Int>) -> Int\n    x\nend\n", "fn f(Some(x): Maybe<Int>) -> Int\n    x\nend\n"},
+		{"fn f(None: Option<Int>) -> Int\n    1\nend\n", "fn f(None: Option<Int>) -> Int\n    1\nend\n"},
+		{"fn f(Some(x): Option<Int>) -> Int\n    x\nend\n", "fn f(Some(x): Option<Int>) -> Int\n    x\nend\n"},
 		{"fn f(.V: E) -> Int\n    1\nend\n", "fn f(.V: E) -> Int\n    1\nend\n"},
 		{"fn f(Dur as d: Dur) -> Int\n    1\nend\n", "fn f(Dur as d: Dur) -> Int\n    1\nend\n"},
 	}

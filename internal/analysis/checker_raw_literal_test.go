@@ -16,7 +16,7 @@ func TestTypedLiteral_LiteralWithoutSlotsHasTheHandlersOkType(t *testing.T) {
 		"  a: Regex<Unit> = Regex`\\d+`\n" +
 		"  b: Regex<Unit> = Regex\"\\\\d+\"\n" +
 		"  c: Regex<Unit> = Regex\"\"\"\n    \\\\d+\n    \"\"\"\n" +
-		"  d: Result<Regex<List<Maybe<String>>>, String> = Regex\"${w}\\\\d\"\n" +
+		"  d: Result<Regex<List<Option<String>>>, String> = Regex\"${w}\\\\d\"\n" +
 		"  case d\n" +
 		"    Ok(_) -> [a, b, c]\n" +
 		"    _ -> [a]\n" +
@@ -28,7 +28,7 @@ func TestTypedLiteral_LiteralWithoutSlotsHasTheHandlersOkType(t *testing.T) {
 	for _, mistyped := range []string{
 		"  a: Result<Regex<Unit>, String> = Regex`\\d+`\n",
 		"  a: Result<Regex<Unit>, String> = Regex\"\\\\d+\"\n",
-		"  w = \"x\"\n  a: Regex<List<Maybe<String>>> = Regex\"${w}\"\n",
+		"  w = \"x\"\n  a: Regex<List<Option<String>>> = Regex\"${w}\"\n",
 	} {
 		src := "import std::regex.Regex\n\nfn f() -> Unit\n" + mistyped + "  _ = a\nend\n"
 		if errs := checkTypedLiteralSource(src); len(errs) == 0 {
@@ -38,7 +38,7 @@ func TestTypedLiteral_LiteralWithoutSlotsHasTheHandlersOkType(t *testing.T) {
 }
 
 // A `?` on a literal without slots, in any quote style, is the ordinary
-// "`?` requires a Result or Maybe" error, at the `?`, with a hint that the
+// "`?` requires a Result or Option" error, at the `?`, with a hint that the
 // literal is already the handler's Ok type. A `?` on a literal with a slot
 // stands.
 func TestTypedLiteral_TryOnLiteralWithoutSlotsIsRejectedWithHint(t *testing.T) {
@@ -50,7 +50,7 @@ func TestTypedLiteral_TryOnLiteralWithoutSlotsIsRejectedWithHint(t *testing.T) {
 		errs := checkTypedLiteralSource(src)
 		var found *analysis.TypeError
 		for i := range errs {
-			if errs[i].Message == "`?` requires a Result or Maybe, got Regex<Unit>" {
+			if errs[i].Message == "`?` requires a Result or Option, got Regex<Unit>" {
 				found = &errs[i]
 			}
 		}
@@ -65,7 +65,7 @@ func TestTypedLiteral_TryOnLiteralWithoutSlotsIsRejectedWithHint(t *testing.T) {
 			t.Errorf("%q: the error is at %d:%d, want line 4 at the `try`", strings.TrimSpace(line), found.Line, found.Col)
 		}
 	}
-	src := "import std::regex.Regex\n\nfn f(w: String) -> Result<Regex<List<Maybe<String>>>, String>\n  digits = Regex\"${w}\\\\d+\"?\n  Ok(digits)\nend\n"
+	src := "import std::regex.Regex\n\nfn f(w: String) -> Result<Regex<List<Option<String>>>, String>\n  digits = Regex\"${w}\\\\d+\"?\n  Ok(digits)\nend\n"
 	if errs := checkTypedLiteralSource(src); len(errs) != 0 {
 		t.Fatalf("try on a literal with a slot is rejected: %v", errs)
 	}

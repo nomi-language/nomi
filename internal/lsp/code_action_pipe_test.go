@@ -89,7 +89,7 @@ func TestToPipe_Refused(t *testing.T) {
 }
 
 func TestFromPipe_Stages(t *testing.T) {
-	decls := "fn parse(s: String) -> Result<Int, String>\n    Maybe.with_default(String.to_int(s), 0) |> Ok()\nend\n\nfn divide(a: Int, b: NonZeroInt) -> Int\n    a / b\nend\n\n"
+	decls := "fn parse(s: String) -> Result<Int, String>\n    Option.with_default(String.to_int(s), 0) |> Ok()\nend\n\nfn divide(a: Int, b: NonZeroInt) -> Int\n    a / b\nend\n\n"
 	cases := []struct{ name, body, want string }{
 		{
 			"a then stage's partial capture",

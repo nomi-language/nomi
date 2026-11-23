@@ -46,7 +46,7 @@ const (
 
 func TestNamedArgToConstructor_IsAnError(t *testing.T) {
 	for _, tc := range []struct{ name, src, at, hint string }{
-		{"Some with an expected type", `fn f() -> Maybe<Int>
+		{"Some with an expected type", `fn f() -> Option<Int>
   Some(l: 1)
 end`, "l: 1", variantNameHint},
 		{"Some without an expected type", `fn f()
@@ -74,10 +74,10 @@ end`, "a: (1, 2)", variantNameHint},
 		{"a generic variant", `fn f() -> Box<Int>
   Box.Full(v: 1)
 end`, "v: 1", variantNameHint},
-		{"a named placeholder", `fn f() -> (Int) -> Maybe<Int>
+		{"a named placeholder", `fn f() -> (Int) -> Option<Int>
   &Some(l: &1)
 end`, "l: &1", variantNameHint},
-		{"a pipe", `fn f() -> Maybe<Int>
+		{"a pipe", `fn f() -> Option<Int>
   1 |> then &Some(l: &1)
 end`, "l: &1", variantNameHint},
 		{"the fuzzer's Assertable impl", `import std::assertions.{Assertable, AssertionDetails}
@@ -86,7 +86,7 @@ struct Same
   b: Int
 end
 impl Assertable for Same
-  fn failure(s: Same) -> Maybe<AssertionDetails>
+  fn failure(s: Same) -> Option<AssertionDetails>
     if s.a == s.b then
       None
     else
@@ -167,13 +167,13 @@ func TestNamedArgToConstructor_ImportedVariant(t *testing.T) {
 // The positional forms still check, with no error and a typed result.
 func TestNamedArgToConstructor_PositionalStillChecks(t *testing.T) {
 	_, errs := checkSourceWithStdlib(namedCtorDecls + `fn main()
-  a: Maybe<Int> = Some(1)
+  a: Option<Int> = Some(1)
   b: Result<Int, String> = Ok(1)
   c: Shape = .Sq(1)
   d: Shape = Shape.Pair(1, 2)
   e: Box<Int> = Box.Full(1)
   f = &Some(&1)
-  g: Maybe<Int> = 1 |> Some()
+  g: Option<Int> = 1 |> Some()
   h: Id = Id(5)
   i: Two = Two(1, "x")
   j: Shape = Shape.Id(3)

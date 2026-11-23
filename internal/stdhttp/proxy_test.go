@@ -30,7 +30,7 @@ fn main()
         request = Request{url: Url.resolve_text(server.url, "/items?x=1")!, headers: Headers.set(Headers[], "Keep-Alive", "5")}
         response = Client.fetch(server.client, request)!
         io.print("${server.url.scheme} ${Response.text(response)!} ${Headers.get(response.headers, "Connection")}")
-        io.print("cert ${server.certificate |> Maybe.map(fn c -> c.dns_names)}")
+        io.print("cert ${server.certificate |> Option.map(fn c -> c.dns_names)}")
     end)
 end
 `, "BACKEND", backend.URL))

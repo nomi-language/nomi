@@ -390,10 +390,10 @@ T
 C concurrency.md:L176
 E 0
 N 0
-H ca99f3b0bdfcb57b398df95ab75750981837ddd3e80b1cefde3d79975a27df4c
-T dbg line 23: answer = "failed: 503"
+H f606de83b4aab4f769c0742ea8f51d551726a677e08eddf129765ae46747c4af
+T dbg line 25: answer = "failed: 503"
 T
-C concurrency.md:L237
+C concurrency.md:L239
 E 0
 N 0
 H 7fd6c4fb050ee2790305f72ed0b528e428fe4d9729d6badecb51205a9a5b76dd
@@ -405,19 +405,19 @@ N 0
 H 95f626521c3d16ba7a1fe1ea09710784778085fdedb2f2e995d05f0a5a9f5a3c
 T dbg line 16: total = 120
 T
-C concurrency.md:L335
+C concurrency.md:L337
 E 0
 N 0
 H 53695832f6a7b7ce793d40403f20e3f08d7db0027aa34f34a49ff9afeffefde2
 T dbg line 24: counts = [Ok(2), Ok(6), Err(NotFound{path: "missing.txt"})]
 T
-C concurrency.md:L435
+C concurrency.md:L437
 E 0
 N 0
 H 400fbb45b606708f4c377d90b8fe23d6df0656c0d476838432651063459a77ba
 T dbg line 23: outcome = Cancelled
 T
-C concurrency.md:L551
+C concurrency.md:L553
 E 0
 N 0
 H ec2d49035faba55900e7d32b6e5cae62d08cec9aee89e7498a11e58c50178c76
@@ -2085,7 +2085,7 @@ H b15893906451bcb5240d4d6eef8c96b3a7a0215aa35368c9214a36d2814ef0b4
 T ok the server shouts back
 T test result: ok. 1 passed, 0 failed
 T
-C index.md:L115
+C index.md:L116
 E 0
 N 0
 H 2be5f73a0964bc4775793735c49d15df33cc39375fb44828a5776b92fab5386f
@@ -2093,7 +2093,7 @@ T dbg line 18: spent = 80
 T dbg line 19: label(0) = "free"
 T dbg line 20: label(250) = "expensive"
 T
-C index.md:L165
+C index.md:L166
 E 0
 N 1
 H 46433e6a3ec31a706d2232ed47bec7f0076b3237549f8c026be455f1fdcc5b2f
@@ -2101,7 +2101,7 @@ T ok initials //! test line 1
 T ok one word gives one letter
 T test result: ok. 2 passed, 0 failed
 T
-C index.md:L256
+C index.md:L257
 E 0
 N 0
 H 762c8c84c98e73b1587598b76f98eaffbd00bbd462a69744636bc88d3825cfa9
@@ -2109,14 +2109,14 @@ T dbg line 16: serve(8080) = "listening on 8080"
 T dbg line 17: port_from("70000") = None
 T dbg line 18: share(120, 4) = 30
 T
-C index.md:L308
+C index.md:L309
 E 0
 N 0
 H 0b83e6dd47e8a942f7b1bb5ddac365f26f66727bc3ab943e189b80a67deae160
 T dbg line 17: price_tag(200) = "216 USD"
 T dbg line 20: price_tag(200) = "240 USD"
 T
-C index.md:L63
+C index.md:L64
 E 0
 N 0
 H d52e862f6629c564a8684fb261dffd4155eeeb7fdae6481404329218fd260cb8
@@ -2513,28 +2513,6 @@ T dbg line 4: Iter.count(scores) = 3
 T dbg line 5: Iter.sum(scores) = 20
 T dbg line 6: 9 in scores = True
 T
-C learn/maybe.md:L44
-E 1
-N 1
-H ee3839fcb478075ac5ecc089198e19d72162ed44133cedda628571b3e87c9ce3
-T ok Ada likes green
-T FAIL Bo likes blue
-T   line 11: assertion failed
-T     assert favorite_color("Bo") == "blue"
-T     values:
-T       favorite_color("Bo")
-T         = "unknown"
-T ok someone not in the map
-T test result: FAILED. 2 passed, 1 failed
-T
-C learn/maybe.md:L9
-E 0
-N 0
-H 49ba5712bcc59a092fe2b8ce8def1014e34353c3e0c262e818df00585a786b62
-T dbg line 3: Map.get(ages, "Ada") = Some(36)
-T dbg line 4: Map.get(ages, "Cy") = None
-T dbg line 5: ages |> Map.get("Cy") |> Maybe.with_default(0) = 0
-T
 C learn/names.md:L17
 E 0
 N 0
@@ -2558,6 +2536,28 @@ T     values:
 T       rectangle_area(10, 2)
 T         = 12
 T test result: FAILED. 0 passed, 2 failed
+T
+C learn/option.md:L44
+E 1
+N 1
+H ee3839fcb478075ac5ecc089198e19d72162ed44133cedda628571b3e87c9ce3
+T ok Ada likes green
+T FAIL Bo likes blue
+T   line 11: assertion failed
+T     assert favorite_color("Bo") == "blue"
+T     values:
+T       favorite_color("Bo")
+T         = "unknown"
+T ok someone not in the map
+T test result: FAILED. 2 passed, 1 failed
+T
+C learn/option.md:L9
+E 0
+N 0
+H 653da967a84c9e5b423329ff82db99f5a0ffd4db3deda3406e54df8324bb914f
+T dbg line 3: Map.get(ages, "Ada") = Some(36)
+T dbg line 4: Map.get(ages, "Cy") = None
+T dbg line 5: ages |> Map.get("Cy") |> Option.with_default(0) = 0
 T
 C learn/pipes.md:L14
 E 0
@@ -3144,14 +3144,6 @@ T dbg line 24: port(Some("3000")) = Ok(3000)
 T dbg line 25: port(Some("eighty")) = Err("bad port: eighty")
 T dbg line 26: port(None) = Ok(8080)
 T
-C pattern-matching.md:L677
-E 0
-N 0
-H e3596a59b53f5fb18454d031e21258aae34c324a6f493a27d3c55ca5488d3e90
-T dbg line 13: average(17, 4) = Some(4)
-T dbg line 14: average(17, 0) = None
-T dbg line 15: divisors(12) = [1, 2, 3, 4, 6, 12]
-T
 C pattern-matching.md:L69
 E 0
 N 0
@@ -3245,6 +3237,14 @@ T   |> Iter.filter(&(&1 > 2))
 T   |> Iter.count()
 T   = 3
 T
+C runtime-failures.md:L135
+E 0
+N 0
+H e3596a59b53f5fb18454d031e21258aae34c324a6f493a27d3c55ca5488d3e90
+T dbg line 13: average(17, 4) = Some(4)
+T dbg line 14: average(17, 0) = None
+T dbg line 15: divisors(12) = [1, 2, 3, 4, 6, 12]
+T
 C scalars-and-strings.md:L114
 E 0
 N 0
@@ -3310,7 +3310,7 @@ T
 C scalars-and-strings.md:L318
 E 0
 N 0
-H 44da9d4bebf6cf768c0c507a7cc4c6b6aeceeda26aa98d75c1ca848c57b39e18
+H 27d5ecd10a65e4452cd5f2e0198c17221105d5bf76f3c7e134fad3752a92a6ae
 T dbg line 9:
 T   text
 T   |> String.to_codepoints()
@@ -3322,7 +3322,7 @@ T dbg line 16:
 T   text
 T   |> String.to_codepoints()
 T   |> Iter.map(Codepoint.to_digit)
-T   |> Maybe.values()
+T   |> Option.values()
 T   |> Iter.to_list()
 T   = [5, 5, 5, 0, 1]
 T
@@ -3456,7 +3456,7 @@ H ef518b2f29e4b672f49bd0054d3731dbebbc1b6d2ed545683bb8c6f37a0e1bb7
 T dbg line 4: Email("ada@example.com") = Email("ada@example.com")
 T dbg line 5: Email.try_from("ada") = None
 T
-C structs-enums-distinct.md:L433
+C structs-enums-distinct.md:L434
 E 0
 N 0
 H 233ac3bb7e6832542674dc41ae0f2439415427ba5e02a52dfd9244f6924b8c2e
@@ -3466,22 +3466,22 @@ T dbg line 17: Port.try_from(base * 10) = None
 T dbg line 21: scale(10.0, half) = 5.0
 T dbg line 22: Float.floor(half) = 0.0
 T
-C structs-enums-distinct.md:L505
+C structs-enums-distinct.md:L506
 E 0
 N 0
-H 87304f0738654c5f17f64c903146862442c465c6a7ec03e361843fc3bf7a4b5a
+H df853620de43107ca1ea8188a67c18cde47419585ef52b565876ccdb64aebcaa
 T dbg line 6: greet(["Ada", "Bo"]) = "Hello, Ada"
-T dbg line 9: NonEmptyList.try_from(typed) |> Maybe.map(greet) = Some("Hello, Cy")
+T dbg line 9: NonEmptyList.try_from(typed) |> Option.map(greet) = Some("Hello, Cy")
 T dbg line 13: greet(typed) = "Hello, Cy"
 T
-C structs-enums-distinct.md:L576
+C structs-enums-distinct.md:L577
 E 0
 N 0
 H caa2c7537f180822fbe1354f21b84575c40aa9aa16d97536f082e01cd1abf304
 T dbg line 7: state = Expired
 T dbg line 8: Online = Online
 T
-C structs-enums-distinct.md:L612
+C structs-enums-distinct.md:L613
 E 0
 N 0
 H dc5d10561384c90bcfd162c700b3d04eea6cc2ac5744299c64bb221a7d67fb62
@@ -3489,7 +3489,7 @@ T dbg line 14: Direction.North = North
 T dbg line 17: c = Circle(3.0)
 T dbg line 20: r = Rectangle{width: 4.0, height: 5.0}
 T
-C structs-enums-distinct.md:L647
+C structs-enums-distinct.md:L648
 E 0
 N 0
 H 38c6069ff4a4e3f28c2d1c5d6802955c4e74334b35bc0dd40c90dec518aca38e
@@ -3502,20 +3502,20 @@ N 0
 H 55261e44626589291e1917a4a2e1c0c448a2c51f8ef97e338c87a02c6c1c7276
 T dbg line 14: ada = Person{name: "Ada", address: Address{street: "1 Main", city: "Bath"}}
 T
-C structs-enums-distinct.md:L713
+C structs-enums-distinct.md:L714
 E 0
 N 0
 H 2173ea1bbc0759a94c9aa3b8ed9eec733df5655d591eb881c020f7cd4a8cc0e5
 T dbg line 18: User.full_name(alice) = "Ada Lovelace"
 T dbg line 21: User.full_name(renamed) = "Augusta Lovelace"
 T
-C structs-enums-distinct.md:L753
+C structs-enums-distinct.md:L754
 E 0
 N 0
 H c2c34c1d0c53993b4411a413b1e27710756f1df5b9d9a071651a1687086dcf10
 T dbg line 22: events = [Click{x: 10, y: 20}, KeyDown{key: "Enter"}, FocusLost]
 T
-C structs-enums-distinct.md:L820
+C structs-enums-distinct.md:L821
 E 0
 N 0
 H 6f4c2b3bfc7d3916e23f6afc85f015c1a9fda0dc7e071e9d95425d64dd0b85f8

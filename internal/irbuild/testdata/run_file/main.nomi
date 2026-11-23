@@ -41,7 +41,7 @@
 // that default is caught; a missing builder default is not, and could not be by
 // any program.
 //
-// Contrast `Project.manifest`, whose default is `None`: a zero `Maybe` has Tag 0,
+// Contrast `Project.manifest`, whose default is `None`: a zero `Option` has Tag 0,
 // which is neither Some nor None and matches no `case` arm, so THAT default is
 // load-bearing against a wrong answer and its fixture can see it.
 import

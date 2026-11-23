@@ -22,7 +22,7 @@ once next_key = SessionKey.derive("the second test secret, 32 bytes or more")!
 once store    = CookieStore{key:}
 
 fn sign_in(request: Request, session: Session<Visit>) -> Response
-    user = Request.form_value(request, "user") |> Maybe.with_default("")
+    user = Request.form_value(request, "user") |> Option.with_default("")
     next = session |> Session.set(Visit{user:}) |> Session.add_flash("Welcome, ${user}.")
     Response.redirect(request, "/", Status.see_other) |> sessions.write(next)
 end
@@ -33,7 +33,7 @@ fn sign_out(request: Request, session: Session<Visit>) -> Response
 end
 
 fn home(Request, session: Session<Visit>) -> Response
-    who = session.value |> Maybe.map(fn v -> v.user) |> Maybe.with_default("nobody")
+    who = session.value |> Option.map(fn v -> v.user) |> Option.with_default("nobody")
     notes = String.join(session.flash, " ")
     Response{body: Body.Text("${who} [${notes}]")}
 end

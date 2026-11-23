@@ -10,7 +10,7 @@ import (
 
 // What a `type` gets, `try_from`, `unchecked` and its TryFrom impl, is
 // decided by what its inner type's name resolves to (spec §4 *Validated
-// types*), so a subtype another file declares, or names through a
+// types*), so a refinement another file declares, or names through a
 // typealias, is one; and a generic validated type implements TryFrom at
 // its parameters.
 
@@ -37,7 +37,7 @@ func runProject(t *testing.T, files map[string]string) string {
 
 const kindsSrc = `import std::duration.{PositiveDuration}
 
-pub subtype Small Int when fn n -> n < 10
+pub refine Small Int when fn n -> n < 10
 
 pub typealias Tiny Small
 
@@ -46,7 +46,7 @@ pub typealias Wait PositiveDuration
 pub type Plain Int
 `
 
-func TestTryFrom_ATypeOverAnotherFilesSubtypeImplementsIt(t *testing.T) {
+func TestTryFrom_ATypeOverAnotherFilesRefinementImplementsIt(t *testing.T) {
 	got := runProject(t, map[string]string{"kinds.nomi": kindsSrc, "main.nomi": `import std::io
 import kinds.{Small, Tiny, Plain}
 
@@ -57,19 +57,19 @@ type Bit Tiny
 type Wrapper Plain
 
 impl TryFrom<Plain> for Wrapper
-    fn try_from(value: Plain) -> Maybe<Wrapper>
+    fn try_from(value: Plain) -> Option<Wrapper>
         Some(Wrapper(value))
     end
 end
 
-fn load<T>(n: Int) -> Maybe<T> where T: TryFrom<Int>
+fn load<T>(n: Int) -> Option<T> where T: TryFrom<Int>
     T.try_from(n)
 end
 
 fn main()
-    c: Maybe<Code> = load(4)
+    c: Option<Code> = load(4)
     io.inspect(c)
-    b: Maybe<Bit> = load(40)
+    b: Option<Bit> = load(40)
     io.inspect(b)
     io.inspect(Bit.try_from(3))
     io.inspect(Wrapper.try_from(Plain(1)))
@@ -80,17 +80,17 @@ end
 	}
 }
 
-// Only the alias is imported: the parent check reaches the subtype the
+// Only the alias is imported: the parent check reaches the refinement the
 // alias names by its declaration, or by its std module, which this file
 // has no name for.
-func TestTryFrom_ATypeOverAnImportedAliasOfASubtype(t *testing.T) {
+func TestTryFrom_ATypeOverAnImportedAliasOfARefinement(t *testing.T) {
 	got := runProject(t, map[string]string{"kinds.nomi": kindsSrc, "main.nomi": `import std::io
 import std::duration.{Duration}
 import kinds.{Tiny, Wait}
 
 type Bit Tiny
 
-subtype Mid Tiny when fn n -> n > 2
+refine Mid Tiny when fn n -> n > 2
 
 type Delay Wait
 
@@ -115,14 +115,14 @@ type Short<T> List<T> when fn xs -> List.length(xs) < 3
 
 type Some2<T> NonEmptyList<T>
 
-fn load<T>(xs: List<Int>) -> Maybe<T> where T: TryFrom<List<Int>>
+fn load<T>(xs: List<Int>) -> Option<T> where T: TryFrom<List<Int>>
     T.try_from(xs)
 end
 
 fn main()
     io.inspect(Short.try_from([1, 2]))
     io.inspect(Short.try_from([1, 2, 3]))
-    s: Maybe<Short<Int>> = load([4])
+    s: Option<Short<Int>> = load([4])
     io.inspect(s)
     io.inspect(Some2.try_from([1]))
     io.inspect(Some2.try_from([]))
@@ -142,7 +142,7 @@ end
 }
 
 // A generic validated type's rule is checked for effects as a generic
-// subtype's is: its `try_from` is in `impl TryFrom<base(Loud)> for
+// refinement's is: its `try_from` is in `impl TryFrom<base(Loud)> for
 // Loud<T>`, whose every instance the check finds.
 func TestTryFrom_AGenericValidatedRuleWithEffectsIsAnError(t *testing.T) {
 	ds := literalDiagnostics(t, "import std::io\n\n"+

@@ -220,7 +220,7 @@ pub fn status(conn: Conn, migrations: List<Migration>) -> Result<Status, Error>
     Ok(
         Status{
             applied: paths(fn m -> Map.get(recorded, version_of(m)) == Some(checksum.of(m.sql))),
-            pending: paths(fn m -> Maybe.is_none(Map.get(recorded, version_of(m)))),
+            pending: paths(fn m -> Option.is_none(Map.get(recorded, version_of(m)))),
             changed: paths(fn m ->
                 case Map.get(recorded, version_of(m))
                     Some(sum) -> sum != checksum.of(m.sql)
@@ -313,7 +313,7 @@ fn adopted(tx: Conn, migrations: List<Migration>) -> Result<List<String>, Error>
     adopt =
         numbered
         |> Iter.filter(fn (n, m) ->
-            n <= version and Maybe.is_none(Map.get(recorded, version_of(m)))
+            n <= version and Option.is_none(Map.get(recorded, version_of(m)))
         end)
         |> Iter.map(fn (_, m) -> m)
         |> Iter.to_list()
@@ -334,7 +334,7 @@ end
 fn number_of(m: Migration) -> Result<Int, Error>
     digits = Matcher.find_in(Regex"^[0-9]+", version_of(m))
 
-    case digits |> Maybe.flat_map(fn d -> String.to_int(d))
+    case digits |> Option.flat_map(fn d -> String.to_int(d))
         Some(n) ->
             Ok(n)
 
@@ -366,7 +366,7 @@ fn prepare(tx: Conn, migrations: List<Migration>) -> Result<List<Migration>, Err
 
     Ok(
         migrations
-        |> Iter.filter(fn m -> Maybe.is_none(Map.get(recorded, version_of(m))))
+        |> Iter.filter(fn m -> Option.is_none(Map.get(recorded, version_of(m))))
         |> Iter.to_list()
     )
 end
@@ -459,7 +459,7 @@ end
 
 // Run each migration in a savepoint with its record, stopping at the first
 // that fails. Returns the versions run and the failure, if one stopped it.
-fn run(tx: Conn, pending: List<Migration>, ran: List<String>) -> (List<String>, Maybe<Error>)
+fn run(tx: Conn, pending: List<Migration>, ran: List<String>) -> (List<String>, Option<Error>)
     case pending
         [] ->
             (ran, None)
@@ -488,7 +488,7 @@ end
 
 // A migration's version: its file name.
 fn version_of(migration: Migration) -> String
-    String.split(migration.path, "/") |> Iter.last() |> Maybe.with_default(migration.path)
+    String.split(migration.path, "/") |> Iter.last() |> Option.with_default(migration.path)
 end
 
 fn database(error: sql.Error) -> Error

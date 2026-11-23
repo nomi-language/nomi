@@ -29,7 +29,7 @@ fn bind_else(t: (Pair, Int)) -> Int
     x
 end
 
-fn fallback(m: Maybe<(Pair, Int)>) -> Int
+fn fallback(m: Option<(Pair, Int)>) -> Int
     Some((Pair(x, _), y)) = m else (Pair(-1, ""), 0)
 
     x + y

@@ -45,14 +45,14 @@ fn tuple(x: (Float, Int)) -> String
   end
 end
 
-fn payload(m: Maybe<Float>) -> String
+fn payload(m: Option<Float>) -> String
   case m
     Some(-2.5) -> "payload -2.5"
     _ -> "payload miss"
   end
 end
 
-fn decimal_payload(m: Maybe<Decimal>) -> String
+fn decimal_payload(m: Option<Decimal>) -> String
   case m
     Some(1.5d) -> "decimal payload"
     _ -> "decimal payload miss"

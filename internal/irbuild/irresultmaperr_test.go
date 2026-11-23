@@ -116,28 +116,28 @@ end
 `, "Err(\"bad!\")\nOk([1, 2])\n")
 }
 
-// Maybe.to_result is a host call to rt.MaybeToResult, prefix and piped
+// Option.to_result is a host call to rt.OptionToResult, prefix and piped
 // under `?`, with an enum error payload beside the String one.
-func TestIRMaybeToResult_PrefixAndPipedTry(t *testing.T) {
+func TestIROptionToResult_PrefixAndPipedTry(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 enum Why
     Missing
     Empty
 end
-fn tenfold(m: Maybe<Int>) -> Result<Int, String>
+fn tenfold(m: Option<Int>) -> Result<Int, String>
  n =
   m
-  |> Maybe.to_result("missing")?
+  |> Option.to_result("missing")?
 
  Ok(n * 10)
 end
-fn why(m: Maybe<String>) -> Result<String, Why>
- Maybe.to_result(m, Why.Missing)
+fn why(m: Option<String>) -> Result<String, Why>
+ Option.to_result(m, Why.Missing)
 end
 fn main()
  io.inspect(tenfold(Some(4)))
  io.inspect(tenfold(None))
- io.inspect(Maybe.to_result(Some("a"), 0))
+ io.inspect(Option.to_result(Some("a"), 0))
  io.inspect(why(None))
  io.inspect(why(Some("b")))
 end

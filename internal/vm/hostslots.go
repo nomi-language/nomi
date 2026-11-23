@@ -17,12 +17,12 @@ import (
 // answer's parts into its destination's registers (frame.writeSlot, which a
 // field read writes by): an Int that fits int64, a Float, a Bool, a Byte, a
 // String and a Bytes never box, a tuple answered into a split destination
-// (tuplesplit.go) builds no record, and a fused Maybe or Result
-// (maybefuse.go) takes its payload into the payload's register, so it builds
+// (tuplesplit.go) builds no record, and a fused Option or Result
+// (optionfuse.go) takes its payload into the payload's register, so it builds
 // no Some and no Ok. An operand held in another bank is boxed out and taken
 // apart, so every operand reaches the form, by the rule fill follows.
 //
-// A destination that keeps the answer whole (a Maybe or a Result kept as
+// A destination that keeps the answer whole (an Option or a Result kept as
 // its record, a tuple kept whole) gets the record built from the parts
 // (hostadapt.Regs.Answer), as the adapter over boxed values builds it, so
 // its operands still cross unboxed. A debug or profiling machine's
@@ -43,8 +43,8 @@ func (cp *compiler) bindRegs(h *hostCall, fused bool) bool {
 // regsAt is the register form a crossing to name with operands args and
 // destination dst runs through, or nil for one that runs its adapter boxed,
 // and whether dst keeps the answer whole. fused says the destination is a
-// fused Maybe or Result, which takes a carrying form's payload: its one
-// part, or a tuple's parts into its payload's (hostMaybe). A tuple's components go straight into a split destination whose
+// fused Option or Result, which takes a carrying form's payload: its one
+// part, or a tuple's parts into its payload's (hostOption). A tuple's components go straight into a split destination whose
 // registers hold them; any other destination keeps the whole answer,
 // built from the parts.
 func (cp *compiler) regsAt(name string, args []ir.Temp, dst ir.Temp, fused bool) (*hostadapt.Regs, bool) {
@@ -107,7 +107,7 @@ func (e slotMismatch) Error() string { return string(e) }
 
 // callSlots runs crossing h through its register form: its operands from
 // their registers into the stack's slots, and the form's call. The answer
-// is in the slots for the caller to take (writeAnswer, hostMaybe), which
+// is in the slots for the caller to take (writeAnswer, hostOption), which
 // clears them. ran is false, and nothing called, when an operand is not of
 // its slot's kind: the boxed adapter refuses it in its own words.
 func (fr *frame) callSlots(h *hostCall) (carried, ran bool, err error) {

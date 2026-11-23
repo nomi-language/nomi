@@ -291,7 +291,7 @@ func specNamed(t *testing.T, nomi string) *stdGenStructSpec {
 func rangeDecl(params string) string {
 	return "pub opaque struct Range" + params + "\n" +
 		"  start: T\n" +
-		"  stop: Maybe<T>\n" +
+		"  stop: Option<T>\n" +
 		"  inclusive: Bool\n" +
 		"end\n"
 }

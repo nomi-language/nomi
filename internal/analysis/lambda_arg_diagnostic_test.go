@@ -73,7 +73,7 @@ func TestLambdaBodyDiagnostic_ReportedOnce(t *testing.T) {
 	const decls = "fn apply<T>(x: T, f: (T) -> T) -> T\n    f(x)\nend\n\nfn plain(x: Int, f: (Int) -> Int) -> Int\n    f(x)\nend\n\n"
 	for _, tc := range []struct{ name, src string }{
 		{"generic function", "fn f() -> Int\n    apply(1, fn n -> n + nope)\nend\n"},
-		{"owner function", "fn f() -> Maybe<Int>\n    Maybe.map(Some(1), fn n -> n + nope)\nend\n"},
+		{"owner function", "fn f() -> Option<Int>\n    Option.map(Some(1), fn n -> n + nope)\nend\n"},
 		{"interface owner function", "fn f() -> List<Int>\n    Iter.map([1, 2], fn n -> n + nope) |> Iter.to_list()\nend\n"},
 		{"file function", "fn f() -> Int\n    plain(1, fn n -> n + nope)\nend\n"},
 		{"nested lambdas", "fn f() -> Int\n    apply(1, fn n -> apply(n, fn m -> m + nope))\nend\n"},

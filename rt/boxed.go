@@ -8,7 +8,7 @@ import "sync"
 // An existential is the concrete value itself, and the engine selects an
 // impl by the type the value carries (a record's descriptor, a scalar's own
 // type). Two kinds of value carry no such name. A std container (`List`,
-// `Vector`, `Map`, `Set`, `Range`, `Maybe`, `Result`) names none of its type
+// `Vector`, `Map`, `Set`, `Range`, `Option`, `Result`) names none of its type
 // arguments, so `List<Int>`'s impl and `List<String>`'s cannot be told apart.
 // A value widened into an enum's `embeds` variant is the embedded value
 // itself, which names the embedded type and not the enum. Where such a value

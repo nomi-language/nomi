@@ -5,7 +5,7 @@ import
     hashable.Hashable
     iter.Iter
     lists.List
-    maybe.Maybe.{self, None, Some}
+    option.Option.{self, None, Some}
 end
 
 //# A `Result<T, E>` is the outcome of something that can fail: `Ok(value)`
@@ -14,7 +14,7 @@ end
 //#
 //# Test a `Result` with `is_ok` and `is_err`. Change the value with `map`
 //# and `flat_map`, and the error with `map_err`. Take the value out with
-//# `with_default`. Drop the error with `to_maybe`. `collect` and `partition`
+//# `with_default`. Drop the error with `to_option`. `collect` and `partition`
 //# work over many results at once. `Infallible` is the error type of a
 //# `Result` that cannot fail.
 //#
@@ -131,14 +131,14 @@ impl Result<T, E>
         end
     end
 
-    /// Converts Result to Maybe. Err becomes None; the error value is discarded.
-    //! assert Result.to_maybe(Result.Ok(3)) == Some(3)
-    //! assert Result.to_maybe(Result.Err("bad")) == None
+    /// Converts Result to Option. Err becomes None; the error value is discarded.
+    //! assert Result.to_option(Result.Ok(3)) == Some(3)
+    //! assert Result.to_option(Result.Err("bad")) == None
     //
-    pub fn to_maybe<T, E>(result: Result<T, E>) -> Maybe<T>
+    pub fn to_option<T, E>(result: Result<T, E>) -> Option<T>
         case result
-            Ok(v)  -> Maybe.Some(v)
-            Err(_) -> Maybe.None
+            Ok(v)  -> Option.Some(v)
+            Err(_) -> Option.None
         end
     end
 

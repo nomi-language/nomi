@@ -114,9 +114,9 @@ func TestRtFuncs_ReadLineReadsTheFramesInput(t *testing.T) {
 	}
 	fr := rt.NewFrame(rt.WithInput(context.Background(), rt.NewInput(strings.NewReader("one\ntwo"))))
 	for _, want := range []string{
-		"results.Result/4.Ok{0=maybe.Maybe/4.Some{0=String(\"one\")}}",
-		"results.Result/4.Ok{0=maybe.Maybe/4.Some{0=String(\"two\")}}",
-		"results.Result/4.Ok{0=maybe.Maybe/4.None{}}",
+		"results.Result/4.Ok{0=option.Option/4.Some{0=String(\"one\")}}",
+		"results.Result/4.Ok{0=option.Option/4.Some{0=String(\"two\")}}",
+		"results.Result/4.Ok{0=option.Option/4.None{}}",
 	} {
 		got, err := table["io.read_line"](fr, nil)
 		if err != nil || canonText(got, false) != want {
@@ -124,7 +124,7 @@ func TestRtFuncs_ReadLineReadsTheFramesInput(t *testing.T) {
 		}
 	}
 	got, err := table["io.read_line"](rt.NewFrame(context.Background()), nil)
-	if err != nil || canonText(got, false) != "results.Result/4.Ok{0=maybe.Maybe/4.None{}}" {
+	if err != nil || canonText(got, false) != "results.Result/4.Ok{0=option.Option/4.None{}}" {
 		t.Errorf("read_line with no input answered %s, %v", canonText(got, false), err)
 	}
 }
@@ -150,7 +150,7 @@ func TestRtFuncs_StreamsReachTheFramesStreams(t *testing.T) {
 	}
 	stdin, stdout, stderr := handle("io.standard_input"), handle("io.standard_output"), handle("io.standard_error")
 	got, err := table["io.Reader.read_line"](fr, []any{stdin})
-	if want := "results.Result/4.Ok{0=maybe.Maybe/4.Some{0=String(\"line\")}}"; err != nil || canonText(got, false) != want {
+	if want := "results.Result/4.Ok{0=option.Option/4.Some{0=String(\"line\")}}"; err != nil || canonText(got, false) != want {
 		t.Errorf("Reader.read_line answered %s, %v; want %s", canonText(got, false), err, want)
 	}
 	for _, call := range []struct {
@@ -529,7 +529,7 @@ func TestRtFuncs_ContextRowsConvertRtsContext(t *testing.T) {
 	}
 	fr := rt.NewFrame(context.Background())
 	root := rt.ContextRoot()
-	if got, err := table["context.Context.deadline"](fr, []rt.Value{root}); err != nil || canonText(got, false) != "maybe.Maybe/4.None{}" {
+	if got, err := table["context.Context.deadline"](fr, []rt.Value{root}); err != nil || canonText(got, false) != "option.Option/4.None{}" {
 		t.Errorf("deadline(root) answered %s, %v", canonText(got, false), err)
 	}
 	if got, err := table["context.Context.inspect"](fr, []rt.Value{root}); err != nil || got != "<context>" {
@@ -548,12 +548,12 @@ func TestRtFuncs_ContextRowsConvertRtsContext(t *testing.T) {
 		t.Fatalf("with_deadline answered %T with deadline %v, want %d", bounded, rt.ContextDeadline(c), at)
 	}
 	if got, err := table["context.Context.deadline"](fr, []rt.Value{c}); err != nil ||
-		canonText(got, false) != fmt.Sprintf("maybe.Maybe/4.Some{0=instant.Instant/5{0=Int(%d)}}", int64(at)) {
+		canonText(got, false) != fmt.Sprintf("option.Option/4.Some{0=instant.Instant/5{0=Int(%d)}}", int64(at)) {
 		t.Errorf("deadline(bounded) answered %s, %v", canonText(got, false), err)
 	}
 	left, err := table["context.Context.deadline_remaining"](fr, []rt.Value{c})
 	text := canonText(left, true)
-	if err != nil || !strings.HasPrefix(text, "maybe.Maybe/4.Some{0=duration.Duration/5{") {
+	if err != nil || !strings.HasPrefix(text, "option.Option/4.Some{0=duration.Duration/5{") {
 		t.Errorf("deadline_remaining(bounded) answered %s, %v", text, err)
 	}
 }

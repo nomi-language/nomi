@@ -12,8 +12,8 @@ import (
 func TestPreludeInstanceSlotsAreNeverBoxed(t *testing.T) {
 	// A struct reached through a prelude enum, and reached from that struct
 	// again, which is the shape that boxes anything at all.
-	const src = "struct Node\n  next: Maybe<Node>\nend\n\n" +
-		"fn head() -> Maybe<Node>\n  None\nend\n\nfn main()\n  _ = head()\nend\n"
+	const src = "struct Node\n  next: Option<Node>\nend\n\n" +
+		"fn head() -> Option<Node>\n  None\nend\n\nfn main()\n  _ = head()\nend\n"
 	p, err := AnalyzeSource("main", src)
 	if err != nil {
 		t.Fatalf("analyze: %v", err)
@@ -63,12 +63,12 @@ func TestTry_TheBoundaryMismatchesAreFrontEndERRORSNow(t *testing.T) {
 		want string
 		src  string
 	}{
-		// `Maybe` propagated into a `Result` boundary. Admitted, it returned
+		// `Option` propagated into a `Result` boundary. Admitted, it returned
 		// a `None` from a function declared `Result`, and the caller's `case`
 		// then faulted with "no matching case branch".
-		{"maybe into a result fn",
-			"`?` on a Maybe cannot propagate out of a function returning Result<Int, String>",
-			"fn find() -> Maybe<Int>\n  None\nend\n\n" +
+		{"option into a result fn",
+			"`?` on an Option cannot propagate out of a function returning Result<Int, String>",
+			"fn find() -> Option<Int>\n  None\nend\n\n" +
 				"fn f() -> Result<Int, String>\n  v = find()?\n\n  Ok(v)\nend\n"},
 		// Same prelude enum, different error type: `Result<Int, Int>`
 		// propagated into `Result<Int, String>`.
@@ -77,15 +77,15 @@ func TestTry_TheBoundaryMismatchesAreFrontEndERRORSNow(t *testing.T) {
 			"fn r() -> Result<Int, Int>\n  Err(7)\nend\n\n" +
 				"fn f() -> Result<Int, String>\n  v = r()?\n\n  Ok(v)\nend\n"},
 		// A boundary that is not a prelude enum at all.
-		{"boundary is not a result or maybe",
+		{"boundary is not a result or option",
 			"`?` cannot propagate a Result out of a function returning Int",
 			"fn r() -> Result<Int, Int>\n  Err(7)\nend\n\n" +
 				"fn f() -> Int\n  v = r()?\n\n  v\nend\n"},
 		// A `?` stage: the parser builds `x |> f()?` as the stage and then a
 		// `?` stage whose operand is the pipe.
 		{"pipe spelling",
-			"`?` on a Maybe cannot propagate out of a function returning Result<Int, String>",
-			"fn f() -> Result<Int, String>\n  n = Some(1) |> Maybe.map(fn v -> v)?\n\n  Ok(n)\nend\n"},
+			"`?` on an Option cannot propagate out of a function returning Result<Int, String>",
+			"fn f() -> Result<Int, String>\n  n = Some(1) |> Option.map(fn v -> v)?\n\n  Ok(n)\nend\n"},
 		// A LAMBDA whose inferred result cannot hold the propagated value. This
 		// one is the INFERRING boundary and it has its own checker path: a
 		// lambda declares no result, so the rule is applied to the result the
@@ -97,9 +97,9 @@ func TestTry_TheBoundaryMismatchesAreFrontEndERRORSNow(t *testing.T) {
 				"fn main()\n  _ = fn x: Int ->\n    v = parse(x)?\n\n    v\n  end\nend\n"},
 		// Two shapes inside a test FILE. Neither is a test-body `?`: a test
 		// body declares no result, so it has no boundary to mismatch.
-		{"maybe into a result fn, in a test file",
-			"`?` on a Maybe cannot propagate out of a function returning Result<Int, String>",
-			"fn find() -> Maybe<Int>\n  None\nend\n\n" +
+		{"option into a result fn, in a test file",
+			"`?` on an Option cannot propagate out of a function returning Result<Int, String>",
+			"fn find() -> Option<Int>\n  None\nend\n\n" +
 				"fn f() -> Result<Int, String>\n  v = find()?\n\n  Ok(v)\nend\n\n" +
 				"test \"calls it\"\n  assert f() == Ok(1)\nend\n"},
 		{"lambda result cannot hold it, in a test body",

@@ -83,7 +83,7 @@ impl Reactor
     end
 
     /// The value of the cell `name`, or `None` when there is none.
-    pub fn value(reactor: Reactor, name: String) -> Maybe<Int>
+    pub fn value(reactor: Reactor, name: String) -> Option<Int>
         Map.get(reactor.values, name)
     end
 

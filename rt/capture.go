@@ -344,14 +344,14 @@ func (fr *Frame) ReadsCaptured() bool {
 // readLine is `io.read_line` inside the capture: the next line of its input,
 // written into the transcript after the prompt it ends, or Ok(None) at the
 // end of the input, which writes nothing and leaves the prompt in place.
-func (c *Capture) readLine() Result[Maybe[string], IOError] {
+func (c *Capture) readLine() Result[Option[string], IOError] {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	var text string
 	indent := InputIndent
 	if c.replay {
 		if c.next >= len(c.script) {
-			return Ok[Maybe[string], IOError](None[string]())
+			return Ok[Option[string], IOError](None[string]())
 		}
 		text, indent = c.script[c.next], c.indents[c.next]
 		c.next++
@@ -369,7 +369,7 @@ func (c *Capture) readLine() Result[Maybe[string], IOError] {
 	c.tr.WriteString(InputMarker)
 	c.tr.WriteString(text)
 	c.tr.WriteByte('\n')
-	return Ok[Maybe[string], IOError](Some(text))
+	return Ok[Option[string], IOError](Some(text))
 }
 
 // CaptureView is what an open `io.capture` or `io.replay` call holds so

@@ -120,13 +120,13 @@ func literalInnerOf(dt *DistinctType) Type {
 	return distinctInnerOf(dt)
 }
 
-// shapeHeadSubtype is the subtype a literal headed by a std collection's
+// shapeHeadRefinement is the refinement a literal headed by a std collection's
 // name (`Vector[x]`) builds where expected is one, or nil.
-// The head names the base the literal builds; a subtype of it is that
+// The head names the base the literal builds; a refinement of it is that
 // base with a rule, so the literal is one as the unnamed literal is. A
-// distinct type that is no subtype is not: its values are not its inner
+// distinct type that is no refinement is not: its values are not its inner
 // type's.
-func (c *checker) shapeHeadSubtype(expected Type) *DistinctType {
+func (c *checker) shapeHeadRefinement(expected Type) *DistinctType {
 	dt, ok := resolveTypeVar(expected).(*DistinctType)
 	if !ok || refinementOf(dt) == nil || !c.buildsDistinct(dt) {
 		return nil
@@ -212,10 +212,10 @@ func (c *checker) checkBracketLit(n *ast.ListLit, expected Type) Type {
 // checkLoneSpread reports a list, vector or set literal n of one spread
 // and nothing else whose spread already has the literal's type ty:
 // values are immutable, so the literal is the spread's own value, and is
-// written as it (reportEmptySpread). A spread of a subtype of ty is one
+// written as it (reportEmptySpread). A spread of a refinement of ty is one
 // too, since widening a value changes nothing. A literal that converts
 // its spread is not: a List spread where a Vector is expected, elements
-// of a subtype widened to their base (`[..ps]` with `ps` a
+// of a refinement widened to their base (`[..ps]` with `ps` a
 // `List<PositiveInt>` as a `List<Int>`), or a value of a distinct type's
 // inner type, which the literal builds the distinct type from.
 func (c *checker) checkLoneSpread(n *ast.ListLit, ty Type) {
@@ -247,9 +247,9 @@ func (c *checker) checkBracketLitAs(n *ast.ListLit, expected Type) Type {
 				c.reportNamedLit(n.TypeName, "list", &bare)
 			}
 			n.Kind = map[string]ast.SeqKind{"List": ast.SeqList, "Vector": ast.SeqVector, "Set": ast.SeqSet}[name]
-			if dt := c.shapeHeadSubtype(expected); dt != nil {
+			if dt := c.shapeHeadRefinement(expected); dt != nil {
 				// `Vector[x]` where a NonEmptyVector is expected builds it,
-				// as `[x]` does: a subtype's value is one of its base.
+				// as `[x]` does: a refinement's value is one of its base.
 				if in := resolveTypeVar(literalInnerOf(dt)); seqKindOf(in) == n.Kind && (isListType(in) || isVectorType(in) || isSetType(in)) {
 					ty := c.checkSeqLit(n, n.Kind, in)
 					if ty == nil {

@@ -26,7 +26,7 @@ impl Matrix
     end
 
     /// The numbers of row `index`, counted from 1, or `None` past the last.
-    pub fn row(matrix: Matrix, index: Int) -> Maybe<List<Int>>
+    pub fn row(matrix: Matrix, index: Int) -> Option<List<Int>>
         matrix.rows
         |> Vector.get(index - 1)?
         |> Iter.to_list()
@@ -35,17 +35,17 @@ impl Matrix
 
     /// The numbers of column `index`, counted from 1, top to bottom, or
     /// `None` past the last.
-    pub fn column(matrix: Matrix, index: Int) -> Maybe<List<Int>>
+    pub fn column(matrix: Matrix, index: Int) -> Option<List<Int>>
         matrix.rows
         |> Iter.map(&Vector.get(&1, index - 1))
-        |> Maybe.collect()
+        |> Option.collect()
     end
 end
 
 fn parse_row(line: String) -> Result<Vector<Int>, Error>
     line
     |> String.words()
-    |> Iter.map(fn word -> String.to_int(word) |> Maybe.to_result(Error.NotANumber(word)))
+    |> Iter.map(fn word -> String.to_int(word) |> Option.to_result(Error.NotANumber(word)))
     |> Result.collect()?
     |> Iter.to_vector()
     |> Ok()

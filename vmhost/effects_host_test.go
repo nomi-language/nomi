@@ -71,7 +71,7 @@ end
 end
 
 fn boot(startup: Startup) -> Result<App, String>
-    Ok(App{greeting: Map.get(startup.env, "GREETING") |> Maybe.with_default("hello")})
+    Ok(App{greeting: Map.get(startup.env, "GREETING") |> Option.with_default("hello")})
 end
 
 fn main()

@@ -874,7 +874,7 @@ func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, doc
 	// materialization, std/<mod>.nomi for direct repo opens) must not
 	// receive the prelude — they import their dependencies by hand, and
 	// getting the prelude here would trip the reserved-name check on every
-	// stdlib type the prelude itself re-exports (Maybe / Result / Display /
+	// stdlib type the prelude itself re-exports (Option / Result / Display /
 	// Debug / ...). Detected by stdlibModuleForPath's directory rule.
 	if dm.isStdlibFile(uri) {
 		fa = BuildFileWithStdlibAtPath(nodes, nil, dm.modules, root, dm.makeLoaderWithOverride(uri, nodes), docPath)

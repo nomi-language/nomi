@@ -7,10 +7,10 @@ import (
 	"strings"
 )
 
-// The stdlib conversions whose result is a `Maybe`, and why they live here.
+// The stdlib conversions whose result is an `Option`, and why they live here.
 //
 // `Float.to_int` and `String.to_int` are `host fn`s in std/float.nomi and
-// std/strings.nomi, and both answer `Maybe<Int>` — a value is either
+// std/strings.nomi, and both answer `Option<Int>` — a value is either
 // representable or it is not, and the type says so rather than a sentinel.
 //
 // They are in rt so the rule has one encoding. An agreement fixture between
@@ -32,7 +32,7 @@ import (
 //     which is one past Int's range, so a truncated value equal to it overflows
 //     and the test is `>=`. `float64(math.MinInt64)` is exactly -2^63 and is
 //     representable, so the low test is a strict `<`.
-func FloatToInt(x float64) Maybe[Int] {
+func FloatToInt(x float64) Option[Int] {
 	if math.IsNaN(x) || math.IsInf(x, 0) {
 		return None[Int]()
 	}
@@ -60,7 +60,7 @@ func floatInt(whole float64) Int {
 //   - anything strconv rejects, including the empty string and a value outside
 //     int64, is `None`. Nothing about why it failed reaches Nomi, which is what
 //     keeps a Go error string out of Nomi-observable output.
-func StringToInt(s string) Maybe[Int] {
+func StringToInt(s string) Option[Int] {
 	n, ok := ParseIntValue(strings.TrimSpace(s))
 	if !ok {
 		return None[Int]()
@@ -81,7 +81,7 @@ func StringToInt(s string) Maybe[Int] {
 // Float is `None` (strconv's ErrRange to ±Inf), as `Float.parse_in` answers
 // `OutOfRange`; one too small to hold reads as zero or a subnormal, which is
 // the nearest Float.
-func StringToFloat(s string) Maybe[float64] {
+func StringToFloat(s string) Option[float64] {
 	s = strings.TrimSpace(s)
 	if !plainFloatSyntax(s) {
 		return None[float64]()

@@ -86,8 +86,8 @@ fn main()
     io.inspect(rule.keep(11))
     io.inspect(above([1, 5, 9], 4))
     io.inspect(apply([1, 2], &(&1 * 10)))
-    wrapped: Maybe<(Int) -> Int> = Some(&(&1 + 1))
-    io.inspect(Maybe.map(wrapped, fn f -> f(1)))
+    wrapped: Option<(Int) -> Int> = Some(&(&1 + 1))
+    io.inspect(Option.map(wrapped, fn f -> f(1)))
 end
 `)
 	want := `[3]
@@ -236,9 +236,9 @@ fn main()
     io.inspect(xs |> Iter.map(&(-&1 + 1)) |> Iter.to_list())
     sq = xs |> Iter.map(&(f(&1, 1) - 1)) |> Iter.to_list()
     io.inspect(sq)
-    held: Maybe<(Int) -> Int> = Some(&(&1 + 1))
-    io.inspect(Maybe.map(held, fn h -> h(1)))
-    wrap: (Int) -> Maybe<Int> = &Some(&1 + 1)
+    held: Option<(Int) -> Int> = Some(&(&1 + 1))
+    io.inspect(Option.map(held, fn h -> h(1)))
+    wrap: (Int) -> Option<Int> = &Some(&1 + 1)
     io.inspect(wrap(1))
 end
 `)
@@ -360,20 +360,20 @@ Point{x: 7, y: 0}
 // A partial capture of an operator interface's function (`&Int.add(7, &1)`)
 // is a function of its open operands, typed by the impl its written operand
 // and the expected parameter choose, so a generic std callee such as
-// `Maybe.map` solves its result type from it. Before, the checker gave the
-// capture no type, and `Maybe.map`'s `U` stayed open: "this call to
-// `Maybe.map` is not supported yet". Each case is its own program, since a
+// `Option.map` solves its result type from it. Before, the checker gave the
+// capture no type, and `Option.map`'s `U` stayed open: "this call to
+// `Option.map` is not supported yet". Each case is its own program, since a
 // program's first decline hides the rest.
 func TestCaptureFunc_AnOperatorFunctionsPartialIsAFunctionOfItsOpenOperands(t *testing.T) {
 	cases := []struct{ expr, want string }{
-		{"Maybe.map(Some(2), &Int.add(7, &1))", "Some(9)"},
-		{"Maybe.map(Some(2), &Int.add(&1, 7))", "Some(9)"},
-		{"Maybe.map(Some(2), &Int.subtract(7, &1))", "Some(5)"},
-		{"Maybe.map(Some(2), &Int.subtract(&1, 7))", "Some(-5)"},
-		{"Maybe.map(Some(2), &Int.multiply(7, &1))", "Some(14)"},
-		{"Maybe.map(Some(2), &Int.divide(10, &1))", "Some(5)"},
-		{"Maybe.map(Some(2.5), &Float.add(1.0, &1))", "Some(3.5)"},
-		{"Maybe.map(Some(2.5), &Float.divide(&1, 2.0))", "Some(1.25)"},
+		{"Option.map(Some(2), &Int.add(7, &1))", "Some(9)"},
+		{"Option.map(Some(2), &Int.add(&1, 7))", "Some(9)"},
+		{"Option.map(Some(2), &Int.subtract(7, &1))", "Some(5)"},
+		{"Option.map(Some(2), &Int.subtract(&1, 7))", "Some(-5)"},
+		{"Option.map(Some(2), &Int.multiply(7, &1))", "Some(14)"},
+		{"Option.map(Some(2), &Int.divide(10, &1))", "Some(5)"},
+		{"Option.map(Some(2.5), &Float.add(1.0, &1))", "Some(3.5)"},
+		{"Option.map(Some(2.5), &Float.divide(&1, 2.0))", "Some(1.25)"},
 		{"Result.map(ok(), &Int.add(7, &1))", "Ok(9)"},
 		{"Result.map(ok(), &Int.multiply(&1, 3))", "Ok(6)"},
 		{"Result.map_err(err(), &Int.add(7, &1))", "Err(11)"},
@@ -382,11 +382,11 @@ func TestCaptureFunc_AnOperatorFunctionsPartialIsAFunctionOfItsOpenOperands(t *t
 		{"(&Int.add(7, &1))(1)", "8"},
 		// Int's `/` takes a NonZeroInt divisor: a NonZeroInt reaches
 		// `Divide<NonZeroInt, Int>`.
-		{"nz(4) |> Maybe.map(&Int.divide(12, &1))", "Some(3)"},
-		{"Maybe.map(nz(4), &Int.divide(12, &1))", "Some(3)"},
-		{"nz(4) |> Maybe.to_result(\"zero\") |> Result.map(&Int.divide(12, &1))", "Ok(3)"},
-		{"nz(0) |> Maybe.to_result(\"zero\") |> Result.map(&Int.divide(12, &1))", "Err(\"zero\")"},
-		{"nz(4) |> Maybe.flat_map(fn d -> Maybe.map(Some(20), &Int.divide(&1, d)))", "Some(5)"},
+		{"nz(4) |> Option.map(&Int.divide(12, &1))", "Some(3)"},
+		{"Option.map(nz(4), &Int.divide(12, &1))", "Some(3)"},
+		{"nz(4) |> Option.to_result(\"zero\") |> Result.map(&Int.divide(12, &1))", "Ok(3)"},
+		{"nz(0) |> Option.to_result(\"zero\") |> Result.map(&Int.divide(12, &1))", "Err(\"zero\")"},
+		{"nz(4) |> Option.flat_map(fn d -> Option.map(Some(20), &Int.divide(&1, d)))", "Some(5)"},
 		// With nothing expected, the left operand of `Int.subtract` is Int.
 		{"(&Int.subtract(&1, 1))(9)", "8"},
 	}
@@ -404,7 +404,7 @@ fn err() -> Result<Int, Int>
     Err(4)
 end
 
-fn nz(n: Int) -> Maybe<NonZeroInt>
+fn nz(n: Int) -> Option<NonZeroInt>
     NonZeroInt.try_from(n)
 end
 

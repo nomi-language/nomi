@@ -80,7 +80,7 @@ struct BasicBlockEdge
 end
 
 struct ControlFlowGraph
-    start_node:      Maybe<Int> = None
+    start_node:      Option<Int> = None
     basic_block_map: Vector<BasicBlock> = []
     edge_list:       Vector<BasicBlockEdge> = []
 end
@@ -121,17 +121,17 @@ end
 struct SimpleLoop
     counter:       Int
     is_reducible:  Bool
-    parent:        Maybe<Int> = None
+    parent:        Option<Int> = None
     is_root:       Bool = False
     nesting_level: Int = 0
     depth_level:   Int = 0
     basic_blocks:  Set<Int> = []
     children:      Set<Int> = []
-    header:        Maybe<Int>
+    header:        Option<Int>
 end
 
 impl SimpleLoop
-    fn new(bb: Maybe<Int>, is_reducible: Bool, counter: Int) -> SimpleLoop
+    fn new(bb: Option<Int>, is_reducible: Bool, counter: Int) -> SimpleLoop
         basic_blocks: Set<Int> =
             case bb
                 Some(b) -> [b]
@@ -241,9 +241,9 @@ end
 /// no block.
 struct UnionFindNode
     parent:     Int
-    bb:         Maybe<Int> = None
+    bb:         Option<Int> = None
     dfs_number: Int = 0
-    loop:       Maybe<Int> = None
+    loop:       Option<Int> = None
 end
 
 impl UnionFindNode

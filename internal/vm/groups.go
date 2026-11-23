@@ -9,8 +9,8 @@ import (
 )
 
 // valueGroups finds the values a function builds and only takes apart, which
-// the compiler then keeps in registers instead of a record: a fused Maybe
-// (maybefuse.go) and a split tuple (tuplesplit.go).
+// the compiler then keeps in registers instead of a record: a fused Option
+// (optionfuse.go) and a split tuple (tuplesplit.go).
 //
 // A group is the destination of one defining instruction (defines answers
 // true for it) plus the temporaries it is copied into by a copy
@@ -147,19 +147,19 @@ func (cp *compiler) valueGroups(defines func(ir.Instr) bool, takes func(ir.Instr
 type packKind uint8
 
 const (
-	packNone  packKind = iota
-	packMaybe          // a fused Maybe: payload or None in its register, tag beside
-	packTuple          // a split tuple: its components in registers of their own
+	packNone   packKind = iota
+	packOption          // a fused Option: payload or None in its register, tag beside
+	packTuple           // a split tuple: its components in registers of their own
 )
 
 // packedTemp is one temporary's entry in code.packed.
 type packedTemp struct {
 	kind packKind
-	// tag is a fused Maybe's tag register, and result says the fused value
-	// is a Result rather than a Maybe. payload is the register its Some's or
+	// tag is a fused Option's tag register, and result says the fused value
+	// is a Result rather than an Option. payload is the register its Some's or
 	// Ok's payload is in: a word or string register of its own, of type
 	// ptype, or the temporary's own reference register, which holds a None
-	// or an Err (maybefuse.go). A payload that is a tuple is in parts
+	// or an Err (optionfuse.go). A payload that is a tuple is in parts
 	// instead, as a split tuple's components are.
 	tag     uint32
 	result  bool
@@ -167,11 +167,11 @@ type packedTemp struct {
 	ptype   *ir.ValType
 	// desc, parts and types are a split tuple's descriptor, its components'
 	// registers and their stored types, in component order: a split tuple's
-	// own, or a fused Maybe's tuple payload's.
+	// own, or a fused Option's tuple payload's.
 	desc  *rt.TypeDesc
 	parts []loc
 	types []*ir.ValType
-	// wrap is the Maybe's or Result's descriptor for a split tuple the
+	// wrap is the Option's or Result's descriptor for a split tuple the
 	// function returns as the payload of its Some or Ok (wrappedReturns),
 	// which its return carries in parts with the tag, building neither.
 	wrap *rt.TypeDesc
@@ -187,13 +187,13 @@ func (cp *compiler) pack(t ir.Temp, p packedTemp) {
 
 // readPacked is temporary t's value, rebuilt from the registers that hold it:
 // what a handler, a stopped frame's variables or an assertion's trace read
-// when they read a fused Maybe or a split tuple. Nothing on a fused or split
+// when they read a fused Option or a split tuple. Nothing on a fused or split
 // path calls it; it allocates the record those paths do without.
 func (fr *frame) readPacked(t ir.Temp) (any, error) {
 	c := fr.c
 	p := &c.packed[t]
 	switch p.kind {
-	case packMaybe:
+	case packOption:
 		if fr.stk.w[fr.wb+int(p.tag)] != 0 {
 			var v any
 			if p.parts != nil {
@@ -224,7 +224,7 @@ func (fr *frame) readPacked(t ir.Temp) (any, error) {
 }
 
 // boxParts is the tuple p's parts hold in fr's window, built: a split
-// tuple, or a fused Maybe's tuple payload. It is nil when a part was never
+// tuple, or a fused Option's tuple payload. It is nil when a part was never
 // written.
 func (fr *frame) boxParts(p *packedTemp) any {
 	vals := make([]any, len(p.parts))

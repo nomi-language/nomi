@@ -32,8 +32,8 @@ func TestFormat_ThenStageStacksThePipeline(t *testing.T) {
 			"fn main()\n    assert 2\n        |> then fn n -> n > 1\nend\n",
 		},
 		"a `then?` stage is written against its keyword": {
-			"fn main() -> Maybe<Int>\n    x = 2 |> then? fn n -> Some(n)\n    Some(x)\nend\n",
-			"fn main() -> Maybe<Int>\n    x =\n        2\n        |> then? fn n -> Some(n)\n\n    Some(x)\nend\n",
+			"fn main() -> Option<Int>\n    x = 2 |> then? fn n -> Some(n)\n    Some(x)\nend\n",
+			"fn main() -> Option<Int>\n    x =\n        2\n        |> then? fn n -> Some(n)\n\n    Some(x)\nend\n",
 		},
 	}
 	for name, tc := range cases {
@@ -64,8 +64,8 @@ func TestFormat_ThenStageRuleLeavesOtherPipelinesInline(t *testing.T) {
 	for name, src := range map[string]string{
 		"no then stage":         "fn main() -> Int\n    Iter.map([1, 2], fn v -> v + 1) |> Iter.count()\nend\n",
 		"interpolation":         "fn main()\n    io.print(\"lambda = ${21 |> then fn n: Int -> n * 2}\")\nend\n",
-		"pipe in a lambda body": "fn main() -> List<Int>\n    Iter.map([\"1\"], fn s -> String.to_int(s) |> Maybe.with_default(0)) |> Iter.to_list()\nend\n",
-		"braced pipe body kept": "fn main() -> List<Int>\n    Iter.map([\"1\"], fn s -> String.to_int(s) |> Maybe.with_default(0)) |> Iter.to_list()\nend\n",
+		"pipe in a lambda body": "fn main() -> List<Int>\n    Iter.map([\"1\"], fn s -> String.to_int(s) |> Option.with_default(0)) |> Iter.to_list()\nend\n",
+		"braced pipe body kept": "fn main() -> List<Int>\n    Iter.map([\"1\"], fn s -> String.to_int(s) |> Option.with_default(0)) |> Iter.to_list()\nend\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			got, err := Format(src)

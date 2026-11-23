@@ -131,7 +131,7 @@ end
 
 impl UserStore for Memory
     fn find(store: Memory, id: Int) -> String
-        Map.get(store.rows, id) |> Maybe.with_default("")
+        Map.get(store.rows, id) |> Option.with_default("")
     end
 end
 
@@ -276,10 +276,11 @@ end
 	}.run(t)
 }
 
-// A `dbg` is the call that prints: its keyword is marked and its hover
-// says so, in a function main reaches, in its pipe form, in a function
-// nothing calls, in a generic function nothing instantiates and in a
-// test, and the function that holds it is marked as a call's holder is.
+// A `dbg` is the call that prints: its hover says so, in a function main
+// reaches, in its pipe form, in a function nothing calls, in a generic
+// function nothing instantiates and in a test. Its keyword is not marked,
+// since it shows the effect on its line, and the function that holds it,
+// and each call of that function, are marked as a call's holder is.
 // An `assert`, a `refute`, a `todo` and an `unreachable` stop the program
 // and act on nothing, so they stay plain, and a `defer` is not the call it
 // defers: the deferred call's callee is marked, as any call's is.
@@ -295,7 +296,7 @@ fn draft(n: Int) -> Int
     dbg n
 end
 
-fn first<T>(xs: List<T>) -> Maybe<T>
+fn first<T>(xs: List<T>) -> Option<T>
     dbg xs
     List.first(xs)
 end
@@ -331,8 +332,8 @@ test "double doubles"
     refute sign(1) == 0
 end
 `,
-		marked: []string{"3:double", "4:dbg", "7:draft", "8:dbg", "11:first", "12:dbg", "24:main", "25:dbg", "25:double",
-			"37:noisy", "38:io.print", "39:io.print", "43:dbg", "43:double"},
+		marked: []string{"3:double", "7:draft", "11:first", "24:main", "25:double",
+			"37:noisy", "38:io.print", "39:io.print", "43:double"},
 		hovers: map[string]string{
 			"dbg\n":         "Has effects: `dbg`.",
 			"dbg n":         "Has effects: `dbg`.",

@@ -34,7 +34,7 @@ import (
 // checker converts through the boundary error type's `From` impl, which
 // propagates `Err(F.from(e))` (tryfrom.go). Otherwise:
 //
-//	fn a() -> Result<Int, String> { v = m()?; Ok(v) }   // m(): Maybe<Int>
+//	fn a() -> Result<Int, String> { v = m()?; Ok(v) }   // m(): Option<Int>
 //	fn b() -> Int                 { v = r()?; v }       // r(): Result<Int, Int>
 //	_ = fn x: Int -> { v = parse(x)?; v }                 // lambda result Int
 //

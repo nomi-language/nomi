@@ -10,7 +10,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/binary-search.
 
 - The input is a `Vector<T>`, not a `List<T>`, since binary search needs indexed access and `List` has none.
 - The function is generic over `T: Comparable` and branches on `Comparable.compare` returning `Ordering`, so all three outcomes are one exhaustive `case`.
-- A missing value is `Err("value not in array")`, the canonical message. `Maybe<Int>` would have been as natural for "not found".
+- A missing value is `Err("value not in array")`, the canonical message. `Option<Int>` would have been as natural for "not found".
 - Recursion over a half-open range `low..high`; each recursive call is in tail position.
 - The middle element is read with `Vector.get(items, middle)!`, which returns the element and traps on an index outside the vector. `middle` is in `low..high` by construction, so there is no miss to handle.
 - Two `subtests` tables: found values, and missing values, which assert a different shape.

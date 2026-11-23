@@ -7,7 +7,7 @@ Much of Elixir carries over: every value is immutable, `|>` pipes, `case`
 with pattern matching, `%{"a" => 1}` maps, `Map` and `Enum`-style functions
 called through their module, string interpolation, supervised tasks, and tests
 beside the code. What differs most: Nomi is statically typed, so every
-`case` must cover every shape, failures are `Result` and `Maybe` values rather
+`case` must cover every shape, failures are `Result` and `Option` values rather
 than `{:error, _}` tuples, there are no atoms, and tasks talk over channels
 rather than through a mailbox each.
 
@@ -21,7 +21,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `Enum.map(xs, &(&1 * 2))` | `Iter.map(xs, &(&1 * 2))`, lazy until `Iter.to_list` |
 | `Enum.reduce(xs, 0, fn x, acc -> .. end)` | `Iter.reduce(xs, 0, fn acc, x -> ..)`: the accumulator comes first |
 | `{:ok, v}`, `{:error, e}` | `Ok(v)`, `Err(e)`, and a postfix `?` instead of `with` |
-| `nil` | `None`, from `Maybe<T>` |
+| `nil` | `None`, from `Option<T>` |
 | `:atom` | An enum variant: `.Ready` |
 | `{a, b}`, `elem(t, 0)` | `(a, b)`, `t.first` |
 | `%{name: "Ada"}` (atom keys) | `{name: "Ada"}`, an anonymous struct |

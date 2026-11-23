@@ -242,13 +242,13 @@ type TimedOut struct{}
 // ReceiverReceiveWithin is `Receiver.receive_within(receiver, wait)`: a
 // select over the receive and one timer, the receive listed first so a value
 // already waiting wins over a timer of zero.
-func ReceiverReceiveWithin[T any](fr *Frame, r Receiver[T], wait Duration) Result[Maybe[T], TimedOut] {
+func ReceiverReceiveWithin[T any](fr *Frame, r Receiver[T], wait Duration) Result[Option[T], TimedOut] {
 	got := Select(fr, []SelectCase{SelectReceive(r), SelectAfter(wait)})
 	if got.Index == 1 {
-		return Err[Maybe[T], TimedOut](TimedOut{})
+		return Err[Option[T], TimedOut](TimedOut{})
 	}
 	if !got.OK {
-		return Ok[Maybe[T], TimedOut](None[T]())
+		return Ok[Option[T], TimedOut](None[T]())
 	}
-	return Ok[Maybe[T], TimedOut](Some(got.Value.(T)))
+	return Ok[Option[T], TimedOut](Some(got.Value.(T)))
 }

@@ -37,7 +37,7 @@ struct Equals
 end
 
 impl Assertable for Equals
-    fn failure(e: Equals) -> Maybe<AssertionDetails>
+    fn failure(e: Equals) -> Option<AssertionDetails>
         if e.actual == e.expected then
             None
         else

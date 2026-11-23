@@ -15,7 +15,7 @@ package irbuild
 // selective import bound to the function (`import std::testing.{check as
 // verify}`). Either way it takes one positional argument.
 //
-// The subject may be a Bool, a `Maybe`/`Result` (judged by shape in the VM)
+// The subject may be a Bool, an `Option`/`Result` (judged by shape in the VM)
 // or a retained `Assertable`, whose `failure` impl the builder calls and hands
 // to the `ir.Assert` as its answer (irassertsubject.go). A PIPE subject lowers
 // one cumulative prefix at a time (pipeStageValues) and each prefix becomes an
@@ -108,7 +108,7 @@ func (bl *irScalarBuilder) testingCheck(t *ast.Call) (ir.Temp, kind, bool, bool)
 	var assertable *assertableImpl
 	if k != kindBool && !irAssertShapeKind(k) {
 		if assertable = bl.assertableFailure(k); assertable == nil {
-			bl.g.dc.note("a testing.check subject that is not a Bool, Maybe, Result or retained Assertable")
+			bl.g.dc.note("a testing.check subject that is not a Bool, Option, Result or retained Assertable")
 			return no()
 		}
 	}

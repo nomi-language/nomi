@@ -37,11 +37,11 @@ func RuleText(rule ast.Node) string {
 	return joined
 }
 
-// refinementOf answers t as a subtype, a `subtype` declaration or an
-// intersection of subtypes, or nil when it is none.
+// refinementOf answers t as a refinement, a `refine` declaration or an
+// intersection of refinements, or nil when it is none.
 func refinementOf(t Type) *DistinctType {
 	dt, ok := resolveTypeVar(t).(*DistinctType)
-	if !ok || !dt.Subtype {
+	if !ok || !dt.Refinement {
 		return nil
 	}
 	return dt
@@ -49,12 +49,12 @@ func refinementOf(t Type) *DistinctType {
 
 // checkedDistinctOf answers t as a distinct type built only through a
 // check: a validated type, `type Email String when ...`, or a `type` whose
-// inner type is a subtype, `type UserId PositiveInt`. Nil for any other.
+// inner type is a refinement, `type UserId PositiveInt`. Nil for any other.
 // Neither converts to anything; each has `try_from`, and its call form
 // takes only a literal (spec §4 *Validated types*).
 func checkedDistinctOf(t Type) *DistinctType {
 	dt, ok := resolveTypeVar(t).(*DistinctType)
-	if !ok || dt.Subtype || dt.Inner == nil {
+	if !ok || dt.Refinement || dt.Inner == nil {
 		return nil
 	}
 	if dt.Rule != "" || refinementOf(DistinctInner(dt)) != nil {
@@ -70,12 +70,12 @@ func IsCheckedDistinct(t Type) bool {
 }
 
 // IsRefinement reports whether t's values are built through a check of a
-// rule: a subtype, a struct that declares a `when` rule, or a checked
+// rule: a refinement, a struct that declares a `when` rule, or a checked
 // distinct type (checkedDistinctOf).
 func IsRefinement(t Type) bool {
 	switch tt := resolveTypeVar(t).(type) {
 	case *DistinctType:
-		return tt.Subtype || checkedDistinctOf(tt) != nil
+		return tt.Refinement || checkedDistinctOf(tt) != nil
 	case *StructType:
 		return tt.Rule != ""
 	}
@@ -101,7 +101,7 @@ func RefinementRule(t Type) string {
 
 // RefinementBase answers the type at the end of t's chain of parents: Float
 // for `PositiveFloat` over `NonNegativeFloat` over `Float`. A type that is
-// no subtype is its own base. Every parent of a subtype reaches the same
+// no refinement is its own base. Every parent of a refinement reaches the same
 // base (checkRefinementParents), so the walk follows the first.
 func RefinementBase(t Type) Type {
 	for i := 0; i < maxRefinementChain; i++ {
@@ -114,9 +114,9 @@ func RefinementBase(t Type) Type {
 	return t
 }
 
-// RefinementParents answers a subtype's parents in the order they are
+// RefinementParents answers a refinement's parents in the order they are
 // written, Inner first, and nil for a type that is none. A generic
-// subtype's parents are at its type arguments: NonEmptyList<Int>'s is
+// refinement's parents are at its type arguments: NonEmptyList<Int>'s is
 // List<Int>. An intersection's parents are its members.
 func RefinementParents(t Type) []Type {
 	dt := refinementOf(t)
@@ -150,9 +150,9 @@ func refinementSubs(dt *DistinctType) map[*TypeParam_]Type {
 	return subs
 }
 
-// refinementChain answers every subtype from t up, each parent's chain
+// refinementChain answers every refinement from t up, each parent's chain
 // before its child, the parents in the order they are written, t last.
-// A subtype two parents share is listed once, at its first place.
+// A refinement two parents share is listed once, at its first place.
 func refinementChain(t Type) []Type {
 	var out []Type
 	var visit func(t Type, depth int)
@@ -183,9 +183,9 @@ func refinementChain(t Type) []Type {
 // RefinementChecks answers the types whose rules a value of t satisfies,
 // in the order `try_from` and the compile-time check of a literal
 // evaluate them: each parent's, in the order the parents are written,
-// then t's own. A subtype two parents share is listed once, at its first
+// then t's own. A refinement two parents share is listed once, at its first
 // place: for `PositiveInt` over `NonNegativeInt and NonZeroInt`,
-// [NonNegativeInt, NonZeroInt, PositiveInt]. A subtype with no rule of its
+// [NonNegativeInt, NonZeroInt, PositiveInt]. A refinement with no rule of its
 // own, an intersection among them, adds no check. A struct with a rule is
 // its own one check; a checked distinct type has its inner type's checks
 // and then its own rule's. A type with no rule anywhere has none.
@@ -210,8 +210,8 @@ func RefinementChecks(t Type) []Type {
 }
 
 // RefinementAncestors answers every type a value of t converts up to: the
-// subtypes above t, nearest first, then the base. A type that is no
-// subtype has none.
+// refinements above t, nearest first, then the base. A type that is no
+// refinement has none.
 func RefinementAncestors(t Type) []Type {
 	if refinementOf(t) == nil {
 		return nil
@@ -234,7 +234,7 @@ const maxRefinementChain = 64
 
 // refinesInto reports whether a value of have converts to want: want is
 // one of have's ancestors or its base, by type identity, or want is a
-// subtype with no rule of its own (an intersection among them) whose every
+// refinement with no rule of its own (an intersection among them) whose every
 // parent have is or converts to, since its values are exactly the values
 // of all its parents.
 func refinesInto(have, want Type) bool {
@@ -250,15 +250,15 @@ func refinesIntoDepth(have, want Type, depth int) bool {
 			return true
 		}
 	}
-	return intoRulelessSubtype(have, want, func(have, parent Type) bool {
+	return intoRulelessRefinement(have, want, func(have, parent Type) bool {
 		return TypesIdentical(have, parent) || refinesIntoDepth(have, parent, depth+1)
 	})
 }
 
-// intoRulelessSubtype reports whether want is a subtype with no rule of
+// intoRulelessRefinement reports whether want is a refinement with no rule of
 // its own, have is not want, and have reaches every parent of want by
 // reaches.
-func intoRulelessSubtype(have, want Type, reaches func(have, parent Type) bool) bool {
+func intoRulelessRefinement(have, want Type, reaches func(have, parent Type) bool) bool {
 	wt := refinementOf(want)
 	if wt == nil || wt.Rule != "" || wt.Inner == nil || have == nil {
 		return false
@@ -293,14 +293,14 @@ func refinementParentsText(dt *DistinctType) string {
 }
 
 // refinementBaseOf answers what a `try_from` builds a value of t from:
-// the base at the end of a subtype's chain, the base of a distinct type's
+// the base at the end of a refinement's chain, the base of a distinct type's
 // inner type (`String` for `type Email String when ...`, `Int` for `type
 // UserId PositiveInt`), or the record of a struct's fields when the struct
 // has a rule. Nil for any other type.
 func refinementBaseOf(t Type) Type {
 	switch tt := t.(type) {
 	case *DistinctType:
-		if tt.Subtype && tt.Inner != nil {
+		if tt.Refinement && tt.Inner != nil {
 			return RefinementBase(tt)
 		}
 		if tt.Inner != nil {
@@ -335,7 +335,7 @@ func eraseRefinements(t Type, depth int) Type {
 		return t
 	}
 	t = resolveTypeVar(t)
-	if d, ok := t.(*DistinctType); ok && d.Subtype && d.Inner != nil {
+	if d, ok := t.(*DistinctType); ok && d.Refinement && d.Inner != nil {
 		return eraseRefinements(RefinementBase(d), depth+1)
 	}
 	return mapType(t, func(p Type) Type { return eraseRefinements(p, depth+1) })
@@ -496,19 +496,19 @@ func nearestSharedAncestor(a, b Type) Type {
 	return nil
 }
 
-// intersectionOrigin is the Origin of every intersection of subtypes,
+// intersectionOrigin is the Origin of every intersection of refinements,
 // which no declaration carries: two intersections are one type when their
-// members are (NewSubtypeIntersection).
+// members are (NewRefinementIntersection).
 const intersectionOrigin = "\x00intersection"
 
-// NewSubtypeIntersection is `A and B` of subtypes of one base: the
-// subtype whose parents are the members, with no rule of its own (spec §4
-// *Intersections of subtypes*). A member that another member converts to
+// NewRefinementIntersection is `A and B` of refinements of one base: the
+// refinement whose parents are the members, with no rule of its own (spec §4
+// *Intersections of refinements*). A member that another member converts to
 // says nothing more and is dropped, so `PositiveInt and NonZeroInt` is
 // `PositiveInt`; a member that is itself an intersection is spliced in.
 // One member left is that member. The members are sorted by name, so an
 // intersection is one type whatever order it is written in.
-func NewSubtypeIntersection(members []Type) Type {
+func NewRefinementIntersection(members []Type) Type {
 	var flat []Type
 	for _, m := range members {
 		if dt := refinementOf(m); dt != nil && dt.Intersection {
@@ -553,13 +553,13 @@ func NewSubtypeIntersection(members []Type) Type {
 		Inner:        out[0],
 		MoreParents:  out[1:],
 		TypeArgs:     out,
-		Subtype:      true,
+		Refinement:   true,
 		Intersection: true,
 	}
 }
 
 // convertsUpTo reports whether a value of have converts to want through
-// its subtypes alone: the two join as want (refinementJoin), so a spread
+// its refinements alone: the two join as want (refinementJoin), so a spread
 // of NonEmptyStrings fits a List<String> literal.
 func (c *checker) convertsUpTo(want, have Type) bool {
 	j := c.refinementJoin(want, have)

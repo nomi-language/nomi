@@ -23,14 +23,14 @@ func TestNamedCollectionLit_IsRefusedAtTheName(t *testing.T) {
 		{"a list spread", "List", "list", "xs = [1]\n  _a = List[..xs, 3]", "write `[..xs, 3]`"},
 		{"a list nested in a named literal", "List", "list", "_a = Vector[List[1], [2]]", "write `[1]`"},
 		{"a list argument", "List", "list", "_a = List.length(List[1, 2])", "write `[1, 2]`"},
-		{"a list where a subtype is expected", "List", "list", "_a: NonEmptyList<Int> = List[1, 2]", "write `[1, 2]`"},
+		{"a list where a refinement is expected", "List", "list", "_a: NonEmptyList<Int> = List[1, 2]", "write `[1, 2]`"},
 		{"a list too long for a line", "List", "list", "_a = List[" + long + `"z"]`, "write the literal without `List`"},
 		{"map entries", "Map", "map", `_a = Map{"a" => 1, "b" => 2}`, "write `{\"a\" => 1, \"b\" => 2}`"},
 		{"an empty map", "Map", "map", "_a: Map<String, Int> = Map{}", "write `{}`"},
 		{"a map nested in a named literal", "Map", "map", `_a = Vector[Map{"a" => 1}, {"b" => 2}]`, "write `{\"a\" => 1}`"},
 		{"a map argument", "Map", "map", `_a = Map.size(Map{"a" => 1})`, "write `{\"a\" => 1}`"},
 		{"an empty map argument", "Map", "map", "_a: Map<String, Int> = Map.put(Map{}, \"a\", 1)", "write `{}`"},
-		{"a map where a subtype is expected", "Map", "map", `_a: NonEmptyMap<String, Int> = Map{"a" => 1}`, "write `{\"a\" => 1}`"},
+		{"a map where a refinement is expected", "Map", "map", `_a: NonEmptyMap<String, Int> = Map{"a" => 1}`, "write `{\"a\" => 1}`"},
 		{"a map too long for a line", "Map", "map", "_a = Map{" + longEntries + `"z" => "z"}`, "write the literal without `Map`"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

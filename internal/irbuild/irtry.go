@@ -31,6 +31,6 @@ package irbuild
 // classification is the front end's.
 //
 // The class has no predicate. A `?` cannot fault: a `?` on a value that
-// is neither `Result` nor `Maybe` is a front-end error, and the builder's arm
+// is neither `Result` nor `Option` is a front-end error, and the builder's arm
 // for it is a named refusal rather than a trap. `ir.Proj.Faults` exists
 // because a projection can trap at run time; nothing here can.

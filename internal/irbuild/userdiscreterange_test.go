@@ -19,11 +19,11 @@ derive Equatable for Id
 derive Comparable for Id
 
 impl Discrete for Id
-    fn next(Id(n)) -> Maybe<Id>
+    fn next(Id(n)) -> Option<Id>
         Some(Id(n + 1))
     end
 
-    fn steps_between(Id(a), Id(b)) -> Maybe<Int>
+    fn steps_between(Id(a), Id(b)) -> Option<Int>
         Some(b - a)
     end
 end
@@ -34,7 +34,7 @@ derive Equatable for Lap
 derive Comparable for Lap
 
 impl Discrete for Lap
-    fn next(Lap(n)) -> Maybe<Lap>
+    fn next(Lap(n)) -> Option<Lap>
         if n >= 5 then None else Some(Lap(n + 1))
     end
 end
@@ -47,7 +47,7 @@ fn total(xs: Iter<Id>) -> Int
     Iter.count(xs)
 end
 
-fn laps(xs: Iter<Lap>) -> (Int, Maybe<Int>)
+fn laps(xs: Iter<Lap>) -> (Int, Option<Int>)
     (Iter.count(xs), Iter.known_count(xs))
 end
 
@@ -88,11 +88,11 @@ derive Comparable for Id
 derive Debug for Id
 
 impl Discrete for Id
-    fn next(Id(n)) -> Maybe<Id>
+    fn next(Id(n)) -> Option<Id>
         Some(Id(n + 1))
     end
 
-    fn steps_between(Id(a), Id(b)) -> Maybe<Int>
+    fn steps_between(Id(a), Id(b)) -> Option<Int>
         Some(b - a)
     end
 end

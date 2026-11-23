@@ -166,7 +166,7 @@
 "interface" @keyword.type
 "enum" @keyword.type
 "struct" @keyword.type
-"subtype" @keyword
+"refine" @keyword
 "type" @keyword.type
 "fn" @keyword.function
 "once" @keyword.modifier

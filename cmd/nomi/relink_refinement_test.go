@@ -23,7 +23,7 @@ func TestRelinkChecksEveryRefinementLiteralAgain(t *testing.T) {
     p >= ` + low + ` and p <= 65535
 end
 
-pub subtype Port Int when port_ok
+pub refine Port Int when port_ok
 
 pub struct Span
     low:  Int
@@ -77,14 +77,14 @@ end
 	}
 }
 
-// TestRelinkChecksAGenericSubtypesKeptLiteral: main.nomi's literal of the
-// generic subtype `Many<Int>` is checked through a function built at its
+// TestRelinkChecksAGenericRefinementsKeptLiteral: main.nomi's literal of the
+// generic refinement `Many<Int>` is checked through a function built at its
 // type arguments (irbuild.RefinementSiteStep.Check), which the kept
 // lowering holds beside its unit's literal builds. An edit of the helper
 // the rule calls, in rules.nomi alone, relinks the program, and main.nomi's
 // kept literal, which the new helper refuses, is reported as a fresh check
 // reports it, not let through.
-func TestRelinkChecksAGenericSubtypesKeptLiteral(t *testing.T) {
+func TestRelinkChecksAGenericRefinementsKeptLiteral(t *testing.T) {
 	if testing.Short() {
 		t.Skip("runs nomi several times per edit; -short")
 	}
@@ -93,7 +93,7 @@ func TestRelinkChecksAGenericSubtypesKeptLiteral(t *testing.T) {
     n >= ` + least + `
 end
 
-pub subtype Many<T> List<T> when fn xs -> enough(List.length(xs))
+pub refine Many<T> List<T> when fn xs -> enough(List.length(xs))
 
 pub fn count<T>(xs: Many<T>) -> Int
     List.length(xs)

@@ -31,7 +31,7 @@ package rt
 //
 // `T` is phantom: a `Type[T]` is one pointer at run time, whatever T is, and
 // the VM holds every witness as a `Type[any]` (internal/vm/context.go). A
-// Go caller that names T gets `ContextValue`'s `Maybe[T]` with T read off
+// Go caller that names T gets `ContextValue`'s `Option[T]` with T read off
 // the witness, instead of a second type argument nothing checks against
 // the first.
 //

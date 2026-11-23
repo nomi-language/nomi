@@ -7,13 +7,13 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// The functions every subtype, validated struct, validated type and
-// `type` over a subtype has (spec §4 *Subtypes*, *Validated types*), written
+// The functions every refinement, validated struct, validated type and
+// `type` over a refinement has (spec §4 *Refinements*, *Validated types*), written
 // by the front end as an inherent `impl` block in the declaring file, so
 // they check, lower, link and show in an editor as functions written there:
 //
 //	impl Port
-//	    pub fn try_from(value: Int) -> Maybe<Port>
+//	    pub fn try_from(value: Int) -> Option<Port>
 //	        rule: (Int) -> Bool = <the declared rule>
 //	        case <Int's check of value>
 //	            Some(parent) -> if <rule(parent), False when it traps> then Some(<Port from parent>) else None
@@ -36,7 +36,7 @@ import (
 // The parent's check (ast.RefinementParentCheck) is the parent's own
 // `try_from` when the parent is a refinement, so a chain checks every rule
 // from the base up, and `Some(value)` when it is the base; a refinement of
-// several parents, `subtype PositiveInt NonNegativeInt and NonZeroInt when
+// several parents, `refine PositiveInt NonNegativeInt and NonZeroInt when
 // ...`, checks each in the order written, nesting a `case` per parent
 // after the first, and its rule takes the first parent's value. A rule two
 // parents share through their own parents runs once for each, since a
@@ -80,22 +80,22 @@ func synthesizeRefinements(nodes []ast.Node, index []int) []ast.Node {
 				continue
 			}
 			// A `type` with no rule of its own has a rule in its chain
-			// only when its inner type is a subtype, which only the
+			// only when its inner type is a refinement, which only the
 			// names it resolves to can say: its blocks are withheld,
 			// and the analyzer releases them once names resolve
 			// (releaseWithheldRefinement).
-			withhold := !d.Subtype && d.Rule == nil
-			if withhold && !couldNameSubtype(d.InnerTypeExpr, d.TypeParams) {
+			withhold := !d.Refinement && d.Rule == nil
+			if withhold && !couldNameRefinement(d.InnerTypeExpr, d.TypeParams) {
 				continue
 			}
 			parents := append([]ast.TypeExpr{d.InnerTypeExpr}, d.MoreParents...)
-			if conj, ok := d.InnerTypeExpr.(*ast.ConjunctionType); ok && !d.Subtype {
+			if conj, ok := d.InnerTypeExpr.(*ast.ConjunctionType); ok && !d.Refinement {
 				// `type Strict NonNegativeInt and NonZeroInt`: each member
-				// is checked as a subtype's parent is.
+				// is checked as a refinement's parent is.
 				parents = conj.Members
 			}
 			block = refinementImpl(refinementHead{name: d.Name, typeParams: d.TypeParams, where: d.WhereClauses}, d.Public, d.Rule, parents, synthSiteOf(index[i], n))
-			if block != nil && !d.Subtype {
+			if block != nil && !d.Refinement {
 				// The type implements `TryFrom` of its base because of the
 				// rule in its chain: `try_from` is that impl's, and
 				// `unchecked` stays the type's own.
@@ -121,22 +121,22 @@ func synthesizeRefinements(nodes []ast.Node, index []int) []ast.Node {
 	return out
 }
 
-// builtinTypeNames are the prelude types no `subtype` declares, so a
-// `type` over one wraps no subtype.
+// builtinTypeNames are the prelude types no `refine` declares, so a
+// `type` over one wraps no refinement.
 var builtinTypeNames = map[string]bool{
 	"Int": true, "Float": true, "Decimal": true, "String": true, "Bool": true,
 	"Byte": true, "Bytes": true, "Unit": true, "Codepoint": true, "Duration": true,
-	"List": true, "Map": true, "Set": true, "Vector": true, "Maybe": true,
+	"List": true, "Map": true, "Set": true, "Vector": true, "Option": true,
 	"Result": true, "Range": true, "Iter": true,
 }
 
-// couldNameSubtype reports whether te, the inner type of a `type` with no
-// rule of its own, is written as a name that could resolve to a subtype:
+// couldNameRefinement reports whether te, the inner type of a `type` with no
+// rule of its own, is written as a name that could resolve to a refinement:
 // a name, generic or not, other than a builtin type or one of the type's
 // own parameters, a qualified name, or an intersection. A tuple or
-// function type is none. Which of these names a subtype is the
+// function type is none. Which of these names a refinement is the
 // analyzer's to say once names resolve (releaseWithheldRefinement).
-func couldNameSubtype(te ast.TypeExpr, params []ast.TypeParam) bool {
+func couldNameRefinement(te ast.TypeExpr, params []ast.TypeParam) bool {
 	var name string
 	switch t := te.(type) {
 	case *ast.SimpleType:
@@ -153,7 +153,7 @@ func couldNameSubtype(te ast.TypeExpr, params []ast.TypeParam) bool {
 	}
 	for _, tp := range params {
 		if tp.Name == name {
-			// `type Wrap<T> T`: a type argument a subtype could stand for
+			// `type Wrap<T> T`: a type argument a refinement could stand for
 			// is checked where it is built, as the inner type's own.
 			return false
 		}
@@ -225,7 +225,7 @@ func providedConversion(fn ast.Node) *ast.FuncDef {
 // this file may not build (refuseOpaqueConstruction). recv is the type the
 // checker called the function for, nil where it records none; then the
 // built type is read from fnType, the function's type, whose result is the
-// type for `unchecked` and a `Maybe` of it for `try_from`.
+// type for `unchecked` and an `Option` of it for `try_from`.
 func (c *checker) refuseProvidedConversion(pos Pos, fn ast.Node, recv, fnType Type) {
 	fd := providedConversion(fn)
 	if fd == nil {
@@ -238,7 +238,7 @@ func (c *checker) refuseProvidedConversion(pos Pos, fn ast.Node, recv, fnType Ty
 			return
 		}
 		built = resolveTypeVar(ft.Return)
-		if m, isMaybe := built.(*EnumType); isMaybe && fd.Name == "try_from" && len(m.TypeArgs) == 1 {
+		if m, isOption := built.(*EnumType); isOption && fd.Name == "try_from" && len(m.TypeArgs) == 1 {
 			built = m.TypeArgs[0]
 		}
 	}
@@ -250,7 +250,7 @@ func (c *checker) refuseProvidedConversion(pos Pos, fn ast.Node, recv, fnType Ty
 // impl is chosen (settleCallees): `Kelvin.try_from(1.0)` reaches the
 // provided `TryFrom<Float>` impl where Kelvin's file writes `impl
 // TryFrom<Celsius>` too. A call through the interface,
-// `TryFrom.try_from(7)` where a `Maybe<Pct>` is expected, demands Pct's
+// `TryFrom.try_from(7)` where an `Option<Pct>` is expected, demands Pct's
 // impl, which outside Pct's file it does not have (opaque_bounds.go).
 func (c *checker) refuseProvidedConversionCalls() {
 	for _, n := range c.recordedCalls {
@@ -289,10 +289,10 @@ func (c *checker) refuseProvidedConversionCalls() {
 // (std/convert.nomi), which an impl's parameter must have.
 const tryFromParam = "value"
 
-// isDistinctRefinementDecl reports whether n declares a subtype.
+// isDistinctRefinementDecl reports whether n declares a refinement.
 func isDistinctRefinementDecl(n ast.Node) bool {
 	td, ok := n.(*ast.TypeDef)
-	return ok && td.Subtype && td.InnerTypeExpr != nil
+	return ok && td.Refinement && td.InnerTypeExpr != nil
 }
 
 // refinementHead is what a refinement's generated functions are generic
@@ -422,7 +422,7 @@ func freshRefinementNames(rule ast.Node) refinementNames {
 func refinementTryFrom(head refinementHead, public, hasRule bool, parents []ast.TypeExpr, names refinementNames, line, col int) *ast.FuncDef {
 	name := head.name
 	self := func() ast.TypeExpr { return head.self(line, col) }
-	maybeSelf := &ast.GenericType{Name: "Maybe", Params: []ast.TypeExpr{self()}, Line: line, Col: col}
+	optionSelf := &ast.GenericType{Name: "Option", Params: []ast.TypeExpr{self()}, Line: line, Col: col}
 	ruleParam := self()
 	if len(parents) > 0 {
 		cloned, ok := cloneRefinementParent(parents[0], line, col)
@@ -452,7 +452,7 @@ func refinementTryFrom(head refinementHead, public, hasRule bool, parents []ast.
 	}
 	checked := func(v ast.Node) ast.Node {
 		if !hasRule {
-			// A subtype with no rule of its own: its parents' checks
+			// A refinement with no rule of its own: its parents' checks
 			// are all there is.
 			return some(&ast.UncheckedRefinement{Refinement: name, Value: identExpr(names.parent, line, col), Line: line, Col: col})
 		}
@@ -524,7 +524,7 @@ func refinementTryFrom(head refinementHead, public, hasRule bool, parents []ast.
 		Doc:            fmt.Sprintf("`Some` of the value when it satisfies %s's rules, `None` when it does not.", name),
 		Public:         public,
 		Params:         []ast.Param{{Name: names.value, TypeAnnotation: head.base(line, col), Line: line, Col: col}},
-		ReturnTypeExpr: maybeSelf,
+		ReturnTypeExpr: optionSelf,
 		Body:           &ast.Block{Stmts: stmts, Line: line, Col: col},
 		Line:           line,
 		Col:            col,
@@ -573,11 +573,11 @@ func mustCloneRefinementParent(te ast.TypeExpr, line, col int) ast.TypeExpr {
 
 // releaseWithheldRefinement decides the blocks synthesizeRefinements
 // withheld for n, a `type` with no rule of its own: they exist when its
-// inner type resolves to a subtype, or to an intersection with one among
+// inner type resolves to a refinement, or to an intersection with one among
 // its members, since then the type has a rule in its chain (spec §4
 // *Validated types*). It runs in the annotation pass, when the file's
 // declarations have resolved their names and every file's have their
-// symbols, so a subtype another file declares, imports, or an alias of
+// symbols, so a refinement another file declares, imports, or an alias of
 // one, is known. A kept block is stubbed here, which the stub pass left
 // to it; a block a build of the same nodes kept earlier and this one
 // drops loses the symbols that pass gave it.
@@ -589,7 +589,7 @@ func (b *builder) releaseWithheldRefinement(n *ast.ImplBlock, scope *Scope) {
 	if sym := scope.LookupLocal(TypeExprBaseName(n.Receiver)); sym != nil && b.declaresHere(sym) {
 		td, _ = sym.Node.(*ast.TypeDef)
 	}
-	keep := td != nil && b.resolvesToSubtype(td.InnerTypeExpr, b.file, 0)
+	keep := td != nil && b.resolvesToRefinement(td.InnerTypeExpr, b.file, 0)
 	was := n.Released()
 	if was && !keep {
 		b.undefineImplBlockStub(n)
@@ -600,16 +600,16 @@ func (b *builder) releaseWithheldRefinement(n *ast.ImplBlock, scope *Scope) {
 	}
 }
 
-// resolvesToSubtype reports whether te, a type expression of the file fa
-// whose names the builder has resolved (References), names a subtype or
+// resolvesToRefinement reports whether te, a type expression of the file fa
+// whose names the builder has resolved (References), names a refinement or
 // an intersection with one among its members.
-func (b *builder) resolvesToSubtype(te ast.TypeExpr, fa *FileAnalysis, depth int) bool {
+func (b *builder) resolvesToRefinement(te ast.TypeExpr, fa *FileAnalysis, depth int) bool {
 	if depth > 32 {
 		return false // an alias cycle, which its declaration reports
 	}
 	if conj, ok := te.(*ast.ConjunctionType); ok {
 		for _, m := range conj.Members {
-			if b.resolvesToSubtype(m, fa, depth+1) {
+			if b.resolvesToRefinement(m, fa, depth+1) {
 				return true
 			}
 		}
@@ -634,13 +634,13 @@ func (b *builder) resolvesToSubtype(te ast.TypeExpr, fa *FileAnalysis, depth int
 	}
 	switch d := sym.Node.(type) {
 	case *ast.TypeDef:
-		return d.Subtype && d.InnerTypeExpr != nil
+		return d.Refinement && d.InnerTypeExpr != nil
 	case *ast.TypeAlias:
 		if d.TargetTypeExpr == nil {
 			return false
 		}
 		if home := b.declaringFile(sym); home != nil {
-			return b.resolvesToSubtype(d.TargetTypeExpr, home, depth+1)
+			return b.resolvesToRefinement(d.TargetTypeExpr, home, depth+1)
 		}
 	}
 	return sym.Type != nil && refinementOf(sym.Type) != nil

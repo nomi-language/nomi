@@ -30,24 +30,24 @@ fn shop(statements: List<String>) -> Result<Description, sql.Error>
     Ok(d)
 end
 
-fn table(d: Description, name: String) -> Maybe<Table>
+fn table(d: Description, name: String) -> Option<Table>
     Iter.find(d.tables, fn t -> t.name == name)
 end
 
-fn column(t: Maybe<Table>, name: String) -> Maybe<TableColumn>
-    t |> Maybe.flat_map(fn found -> Iter.find(found.columns, fn c -> c.name == name))
+fn column(t: Option<Table>, name: String) -> Option<TableColumn>
+    t |> Option.flat_map(fn found -> Iter.find(found.columns, fn c -> c.name == name))
 end
 
 fn nullable(d: Description, i: Int) -> List<Bool>
     Iter.get(d.statements, i)
-    |> Maybe.map(fn s -> s.columns |> Iter.map(.nullable) |> Iter.to_list())
-    |> Maybe.with_default([])
+    |> Option.map(fn s -> s.columns |> Iter.map(.nullable) |> Iter.to_list())
+    |> Option.with_default([])
 end
 
 test "the tables, their types, and the migration each column came from"
     d = shop([])?
     users = table(d, "users")
-    assert Maybe.map(users, .migration) == Some("db/1.up.sql")
+    assert Option.map(users, .migration) == Some("db/1.up.sql")
     assert Some(id) = column(users, "id")
     assert id.type_name == "uuid" and id.not_null and id.primary_key and id.has_default
     assert Some(name) = column(users, "name")
@@ -86,12 +86,12 @@ test "the parameters, the columns and the table column each reads"
         Column{name: "id", type_name: "bigint", table: "posts", column: "id", nullable: False}
     )
 
-    assert Iter.get(insert.columns, 1) |> Maybe.map(.nullable) == Some(False)
+    assert Iter.get(insert.columns, 1) |> Option.map(.nullable) == Some(False)
 
     assert Iter.get(aggregate.columns, 0)
         == Some(Column{name: "n", type_name: "bigint", table: "", column: "", nullable: True})
 
-    assert Iter.get(aggregate.columns, 1) |> Maybe.map(.nullable) == Some(True)
+    assert Iter.get(aggregate.columns, 1) |> Option.map(.nullable) == Some(True)
 end
 
 test "a column an outer join may leave out is nullable"
@@ -136,7 +136,7 @@ test "a view's column is nullable as its definition's column is"
         [False, True],
     ]
 
-    assert Iter.get(d.statements, 0) |> Maybe.map(.columns) == Some([
+    assert Iter.get(d.statements, 0) |> Option.map(.columns) == Some([
         Column{name: "title", type_name: "text", table: "posts", column: "title", nullable: False},
         Column{name: "email", type_name: "text", table: "users", column: "email", nullable: False},
         Column{name: "name", type_name: "text", table: "users", column: "name", nullable: True},
@@ -151,8 +151,8 @@ test "a view's column is nullable as its definition's column is"
     ])
 
     assert Iter.get(d.statements, 2)
-    |> Maybe.flat_map(fn s -> List.first(s.columns))
-    |> Maybe.map(fn c -> (c.table, c.column)) == Some(("posts", "title"))
+    |> Option.flat_map(fn s -> List.first(s.columns))
+    |> Option.map(fn c -> (c.table, c.column)) == Some(("posts", "title"))
 end
 
 test "the plan is read on a connection whose encoding is not UTF8"

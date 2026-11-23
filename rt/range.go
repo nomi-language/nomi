@@ -10,7 +10,7 @@ import "math"
 //
 //	pub opaque struct Range<T> where T: Comparable {
 //	  start: T
-//	  end: Maybe<T>
+//	  end: Option<T>
 //	  inclusive: Bool
 //	}
 //
@@ -72,9 +72,9 @@ import "math"
 // adding either would be this file inventing a rule std does not have.
 
 // Range is `opaque struct Range<T> where T: Comparable { start: T; end:
-// Maybe<T>; inclusive: Bool }`, field for field.
+// Option<T>; inclusive: Bool }`, field for field.
 //
-// `End` being `Maybe[T]` rather than a `T` plus a bool is the declaration's own
+// `End` being `Option[T]` rather than a `T` plus a bool is the declaration's own
 // shape and it carries a fact the pair would not: std documents that when `end`
 // is None, "`inclusive` carries no meaning and is canonically `False`". The
 // builder produces that canonical form (a literal with no end is never inclusive —
@@ -82,7 +82,7 @@ import "math"
 // `Inclusive` is simply never read on the unbounded path.
 type Range[T any] struct {
 	Start     T
-	End       Maybe[T]
+	End       Option[T]
 	Inclusive bool
 }
 
@@ -152,7 +152,7 @@ func RangeContainsFloat(r Range[float64], n float64) bool {
 // The count is an Int value of any size: `1..=Int.pow(10, 30)` has 10^30
 // elements, and known_count says so. A sequence's own count protocol counts in
 // int64 (Seq.Count), and RangeCount64 is this answer there.
-func RangeKnownCount[T any](fr *Frame, r Range[T], cmp func(fr *Frame, a, b T) Ordering, steps func(fr *Frame, a, b T) Maybe[Value]) Maybe[Value] {
+func RangeKnownCount[T any](fr *Frame, r Range[T], cmp func(fr *Frame, a, b T) Ordering, steps func(fr *Frame, a, b T) Option[Value]) Option[Value] {
 	if r.End.Tag != TagSome {
 		return None[Value]()
 	}
@@ -172,7 +172,7 @@ func RangeKnownCount[T any](fr *Frame, r Range[T], cmp func(fr *Frame, a, b T) O
 // RangeCount64 is a range's known count as Seq.Count answers it, in int64. A
 // count past int64's range declines, as an element type that cannot say
 // does: no run reaches the end of such a range.
-func RangeCount64(n Maybe[Value]) Maybe[int64] {
+func RangeCount64(n Option[Value]) Option[int64] {
 	if n.Tag == TagSome {
 		if c, ok := n.Some.(int64); ok {
 			return Some(c)
@@ -192,7 +192,7 @@ func RangeCount64(n Maybe[Value]) Maybe[int64] {
 //
 // Note the bound is checked before `next` is called, so a range whose start is
 // already past its end never asks the element type for a successor.
-func RangeEachWhile[T any](fr *Frame, r Range[T], cmp func(fr *Frame, a, b T) Ordering, next func(fr *Frame, v T) Maybe[T], yield func(fr *Frame, item T) bool) bool {
+func RangeEachWhile[T any](fr *Frame, r Range[T], cmp func(fr *Frame, a, b T) Ordering, next func(fr *Frame, v T) Option[T], yield func(fr *Frame, item T) bool) bool {
 	cur := r.Start
 	for {
 		if r.End.Tag == TagSome {
@@ -223,7 +223,7 @@ func RangeEachWhile[T any](fr *Frame, r Range[T], cmp func(fr *Frame, a, b T) Or
 // is replayable, because std/iter.nomi promises that
 // binding a pipeline and consuming it twice yields the same sequence, and a
 // cursor hoisted into this closure would make the second run empty.
-func RangeSeq[T any](r Range[T], cmp func(fr *Frame, a, b T) Ordering, next func(fr *Frame, v T) Maybe[T]) Seq[T] {
+func RangeSeq[T any](r Range[T], cmp func(fr *Frame, a, b T) Ordering, next func(fr *Frame, v T) Option[T]) Seq[T] {
 	return Seq[T]{Run: func(fr *Frame, yield func(fr *Frame, item T) bool) bool {
 		return RangeEachWhile(fr, r, cmp, next, yield)
 	}, Endless: rangeEndless(r)}
@@ -259,7 +259,7 @@ func RangeSeq[T any](r Range[T], cmp func(fr *Frame, a, b T) Ordering, next func
 // The bound test reads `cur` against the end in the walk's direction, so it
 // uses `>` / `>=` as RangeEachWhile's `done` does when walking up, and the
 // mirror when walking down: std's `in_bounds` with the opposite polarity.
-func StepByRangeSeq[T, S any](r Range[T], by S, cmp func(fr *Frame, a, b T) Ordering, step func(fr *Frame, v T, by S) Maybe[T]) Seq[T] {
+func StepByRangeSeq[T, S any](r Range[T], by S, cmp func(fr *Frame, a, b T) Ordering, step func(fr *Frame, v T, by S) Option[T]) Seq[T] {
 	return Seq[T]{Run: func(fr *Frame, yield func(fr *Frame, item T) bool) bool {
 		cur := r.Start
 		nxt := step(fr, cur, by)
@@ -300,7 +300,7 @@ func StepByRangeSeq[T, S any](r Range[T], by S, cmp func(fr *Frame, a, b T) Orde
 // IntRangeSeq is RangeSeq over a `Range<Int>` with std's Int impls run in
 // Go: `Comparable.compare` is IntCompare and `Discrete.next` is `Some(n +
 // 1)`, which never saturates, so a walk calls no Nomi function and builds
-// no Maybe per element. Its Count is std's `known_count` for Int
+// no Option per element. Its Count is std's `known_count` for Int
 // (`steps_between`, plus one for an inclusive end).
 //
 // The walk counts in int64 while the next element fits and moves to IntAdd
@@ -309,7 +309,7 @@ func StepByRangeSeq[T, S any](r Range[T], by S, cmp func(fr *Frame, a, b T) Orde
 func IntRangeSeq(r Range[Value]) Seq[Value] {
 	return Seq[Value]{Run: func(fr *Frame, yield func(fr *Frame, item Value) bool) bool {
 		return intRangeEachWhile(fr, r, yield)
-	}, Count: func(*Frame) Maybe[int64] { return RangeCount64(intRangeKnownCount(r)) }, Endless: rangeEndless(r)}
+	}, Count: func(*Frame) Option[int64] { return RangeCount64(intRangeKnownCount(r)) }, Endless: rangeEndless(r)}
 }
 
 // IntRangeCursor steps a `Range<Int>` one element per call, as
@@ -338,7 +338,7 @@ func IntRangeCursor(r Range[Value]) func() (Value, bool) {
 	}
 }
 
-func intRangeKnownCount(r Range[Value]) Maybe[Value] {
+func intRangeKnownCount(r Range[Value]) Option[Value] {
 	if r.End.Tag != TagSome {
 		return None[Value]()
 	}

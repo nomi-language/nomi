@@ -32,7 +32,7 @@ func TestContextValue_StdDeclaresTheShapeThisArmAssumes(t *testing.T) {
 	}
 	wants := map[string]want{
 		"with_value": {params: []string{"Context", "T"}, result: "Context", tps: []string{"T"}},
-		"value":      {params: []string{"Context", "Type<T>"}, result: "Maybe<T>", tps: []string{"T"}},
+		"value":      {params: []string{"Context", "Type<T>"}, result: "Option<T>", tps: []string{"T"}},
 	}
 	seen := map[string]bool{}
 	for _, node := range nodes {

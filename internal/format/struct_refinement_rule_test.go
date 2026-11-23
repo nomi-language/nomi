@@ -3,7 +3,7 @@ package format
 import "testing"
 
 // A struct refinement's rule is its body's last item, on its own line below
-// the fields (spec §4 *Subtypes*). It stays out of the fields'
+// the fields (spec §4 *Refinements*). It stays out of the fields'
 // alignment block, a rule over several lines keeps its own `end` as any
 // lambda body does, and the comments around it stay where they were.
 func TestFormat_StructRefinementRule(t *testing.T) {

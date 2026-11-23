@@ -10,8 +10,8 @@ import (
 // records the range of an arithmetic operation, a negation, a call of a std
 // function whose result's range follows from its arguments', and a read of
 // a binding with a range of its own, and types the expression as the
-// narrowest std numeric subtype the range proves when the range is typed
-// (it rests on something other than literals) and that subtype is below
+// narrowest std numeric refinement the range proves when the range is typed
+// (it rests on something other than literals) and that refinement is below
 // the type the expression has without it: `count + 1` with count a
 // NonNegativeInt is a PositiveInt, and `size - 1` after `size > 1` is one
 // too. The operands of an operator are their base's values (refinement.go),
@@ -62,14 +62,14 @@ func (c *checker) rangeTyped(n ast.Node, ty Type) Type {
 }
 
 // typeForRange is the type of a value checked as ty whose range is r: the
-// narrowest std numeric subtype r proves, when r is typed and that subtype
-// is below ty; ty otherwise, and always when ty is a subtype with a rule
+// narrowest std numeric refinement r proves, when r is typed and that refinement
+// is below ty; ty otherwise, and always when ty is a refinement with a rule
 // the checker does not read (a user's `Small`).
 func (c *checker) typeForRange(fam *numericFamily, r numRange, ty Type) Type {
 	if !r.typed {
 		return ty
 	}
-	cand := c.rangeSubtype(fam, r, ty)
+	cand := c.rangeRefinement(fam, r, ty)
 	if cand == nil {
 		return ty
 	}
@@ -172,7 +172,7 @@ func (c *checker) opRange(op string, left, right ast.Node, fam *numericFamily) (
 //     nanoseconds;
 //   - `String.length`, `List.length`, `Vector.length`, `Map.size`,
 //     `Set.size` and `Iter.count` of a value that holds something
-//     (holdsSomething): of a non-empty subtype, a literal that writes an
+//     (holdsSomething): of a non-empty refinement, a literal that writes an
 //     element, or a read of a binding bound to one: positive.
 //
 // The type a function is called on is the std type its qualifier names

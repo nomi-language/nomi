@@ -105,7 +105,7 @@ func noEqualityPartWith(t Type, hasImpl func(Type) bool, seen map[Type]bool) (Ty
 		return amongFields(ty.Fields)
 	case *StructType:
 		// A type argument first: a generic type's equality, std's
-		// `Maybe<T>` and `List<T>` among them, compares its elements.
+		// `Option<T>` and `List<T>` among them, compares its elements.
 		if part, ok := among(ty.TypeArgs); ok {
 			return part, true
 		}
@@ -115,7 +115,7 @@ func noEqualityPartWith(t Type, hasImpl func(Type) bool, seen map[Type]bool) (Ty
 		return amongFields(ty.Fields)
 	case *EnumType:
 		// A type argument first: a generic type's equality, std's
-		// `Maybe<T>` and `List<T>` among them, compares its elements.
+		// `Option<T>` and `List<T>` among them, compares its elements.
 		if part, ok := among(ty.TypeArgs); ok {
 			return part, true
 		}

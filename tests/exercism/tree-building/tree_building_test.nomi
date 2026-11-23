@@ -6,7 +6,7 @@ fn leaf(id: Int) -> Node
 end
 
 test "build tree"
-    cases: List<(String, List<Record>, Maybe<Node>)> = [
+    cases: List<(String, List<Record>, Option<Node>)> = [
         ("empty list",    [],                   None),
         ("single record", [{id: 0, parent: 0}], Some(leaf(0))),
         (

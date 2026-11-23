@@ -23,7 +23,7 @@ func TestCheck_MapSpread_Accepts(t *testing.T) {
 	cases := map[string]string{
 		"a new key":               "  m = {\"a\" => 1}\n  _a: Map<String, Int> = {..m, \"b\" => 2}\n",
 		"a key the base holds":    "  m = {\"a\" => 1}\n  _a: Map<String, Int> = {..m, \"a\" => 2}\n",
-		"maybe values":            "  m: Map<String, Maybe<Int>> = {\"a\" => Some(1)}\n  _a: Map<String, Maybe<Int>> = {..m, \"b\" => None}\n",
+		"option values":           "  m: Map<String, Option<Int>> = {\"a\" => Some(1)}\n  _a: Map<String, Option<Int>> = {..m, \"b\" => None}\n",
 		"list values":             "  m = {\"a\" => [1]}\n  _a: Map<String, List<Int>> = {..m, \"b\" => []}\n",
 		"a list into iter values": "  m: Map<String, Iter<Int>> = {\"a\" => [1]}\n  _a: Map<String, Iter<Int>> = {..m, \"b\" => [2, 3]}\n",
 		"an empty base":           "  _a: Map<String, Int> = {..{}, \"a\" => 1}\n",

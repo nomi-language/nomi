@@ -1,11 +1,8 @@
 package hoverdoc
 
 import (
-	"strings"
-
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/analyzedlowering"
-	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/semtokens"
 )
 
@@ -65,41 +62,23 @@ func AppendReach(content string, reached []analyzedlowering.Reached, inFile func
 	return content
 }
 
-// MarkReaching is toks, the semantic tokens of the file inFile names, whose
-// text is content, with byte columns (semtokens.Collect), with Effect set
+// MarkReaching is toks, the semantic tokens of the file inFile names, with
+// byte columns (semtokens.Collect), with Effect set
 // on each token that names the code at a place in reached that the
 // lowering marked (Reached.Marked): the last token of a call's callee, the
 // one that ends where its span ends (the `read_text` of `fs.read_text`, a
 // function's name in its declaration), or, for a place that is a point,
-// the token that starts there. A marked place that is a reserved word, the
-// `dbg` of a `dbg`, which is the call that prints, has no token, since a
-// reserved word names nothing and the grammars color it; it gets a keyword
-// token of its own, marked. So a token is marked exactly when a hover on
-// it ends with a line saying the call can act, and a qualifier before the
-// name is left plain.
-func MarkReaching(toks []semtokens.Token, reached []analyzedlowering.Reached, inFile func(path string) bool, content string) []semtokens.Token {
+// the token that starts there. So a token is marked exactly when the
+// lowering marked its place, and a qualifier before the name is left
+// plain. The lowering never marks a `dbg` (vmhost's actingCalls): its
+// keyword shows the effect on its line, and its hover names it.
+func MarkReaching(toks []semtokens.Token, reached []analyzedlowering.Reached, inFile func(path string) bool) []semtokens.Token {
 	if len(reached) == 0 {
 		return toks
 	}
 	type at struct{ line, col int }
 	ends := map[at]at{}
 	points := map[at]bool{}
-	// reserved reports whether the place r is one reserved word.
-	var lines []string
-	reserved := func(r analyzedlowering.Reached) bool {
-		if r.EndLine != r.Line {
-			return false
-		}
-		if lines == nil {
-			lines = strings.Split(content, "\n")
-		}
-		if r.Line < 1 || r.Line > len(lines) || r.Col < 1 || r.EndCol-1 > len(lines[r.Line-1]) {
-			return false
-		}
-		return lexer.IsReservedWord(lines[r.Line-1][r.Col-1 : r.EndCol-1])
-	}
-	var keywords []semtokens.Token
-	keyword := map[at]bool{}
 	for _, r := range reached {
 		if !r.Marked || !inFile(r.Path) {
 			continue
@@ -109,10 +88,6 @@ func MarkReaching(toks []semtokens.Token, reached []analyzedlowering.Reached, in
 			continue
 		}
 		ends[at{r.EndLine, r.EndCol}] = at{r.Line, r.Col}
-		if !keyword[at{r.Line, r.Col}] && reserved(r) {
-			keyword[at{r.Line, r.Col}] = true
-			keywords = append(keywords, semtokens.Token{Line: r.Line, Col: r.Col, Length: r.EndCol - r.Col, Type: "keyword", Effect: true})
-		}
 	}
 	for i, t := range toks {
 		start, inSpan := ends[at{t.Line, t.Col + t.Length}]
@@ -121,5 +96,5 @@ func MarkReaching(toks []semtokens.Token, reached []analyzedlowering.Reached, in
 			toks[i].Effect = true
 		}
 	}
-	return append(toks, keywords...)
+	return toks
 }

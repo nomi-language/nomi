@@ -13,7 +13,7 @@ import (
 // at two type arguments.
 const genericSelfDecls = `interface Scale<N>
     fn scale(value: self, by: N) -> self
-    fn grown(value: self, by: N) -> Maybe<self>
+    fn grown(value: self, by: N) -> Option<self>
     fn paired(value: self, by: N) -> (self, N)
     fn same(value: self, other: self) -> Bool
     fn many(value: self) -> List<self>
@@ -34,7 +34,7 @@ impl Scale<Int> for Money
         Money{cents: value.cents * by}
     end
 
-    fn grown(value: Money, by: Int) -> Maybe<Money>
+    fn grown(value: Money, by: Int) -> Option<Money>
         Some(Money{cents: value.cents + by})
     end
 
@@ -68,7 +68,7 @@ impl Scale<Int> for Tag
         Tag{text: "${value.text}${by}"}
     end
 
-    fn grown(value: Tag, _by: Int) -> Maybe<Tag>
+    fn grown(value: Tag, _by: Int) -> Option<Tag>
         Some(value)
     end
 
@@ -98,7 +98,7 @@ impl Scale<String> for Tag
         Tag{text: value.text + by}
     end
 
-    fn grown(value: Tag, _by: String) -> Maybe<Tag>
+    fn grown(value: Tag, _by: String) -> Option<Tag>
         Some(value)
     end
 
@@ -139,7 +139,7 @@ fn piped(m: Money) -> Money
     m |> Scale.scale(2)
 end
 
-fn in_maybe(m: Money) -> Maybe<Money>
+fn in_option(m: Money) -> Option<Money>
     Scale.grown(m, 1)
 end
 
@@ -210,7 +210,7 @@ func TestGenericInterfaceSelf_IsTheImplementor(t *testing.T) {
 		"qualified":                {"Money", "Money"},
 		"type_qualified":           {"Money", ""},
 		"piped":                    {"Money", "Money"},
-		"in_maybe":                 {"Maybe<Money>", "Money"},
+		"in_option":                {"Option<Money>", "Money"},
 		"in_tuple":                 {"(Money, Int)", "Money"},
 		"second_self":              {"Bool", "Money"},
 		"in_list":                  {"List<Money>", "Money"},
@@ -282,16 +282,16 @@ struct Meters
 end
 
 impl Steppable<Int> for Meters
-    fn step_by(value: Meters, by: Int) -> Maybe<Meters>
+    fn step_by(value: Meters, by: Int) -> Option<Meters>
         Some(Meters{n: value.n + by})
     end
 end
 
-fn stepped(m: Meters) -> Maybe<Meters>
+fn stepped(m: Meters) -> Option<Meters>
     Steppable.step_by(m, 4)
 end
 
-fn stepped_piped(m: Meters) -> Maybe<Meters>
+fn stepped_piped(m: Meters) -> Option<Meters>
     m |> Steppable.step_by(4)
 end
 
@@ -307,7 +307,7 @@ fn contained(xs: List<Int>) -> Bool
     Contains.contains(xs, 2)
 end
 
-fn counted(xs: List<Int>) -> Maybe<Int>
+fn counted(xs: List<Int>) -> Option<Int>
     Iter.known_count(xs)
 end
 
@@ -321,12 +321,12 @@ end
 `
 	fa, nodes := checkWithStd(t, src)
 	for name, want := range map[string]string{
-		"stepped":            "Maybe<Meters>",
-		"stepped_piped":      "Maybe<Meters>",
+		"stepped":            "Option<Meters>",
+		"stepped_piped":      "Option<Meters>",
 		"parsed_by_argument": "Result<Int, String>",
 		"parsed_by_result":   "Result<Int, String>",
 		"contained":          "Bool",
-		"counted":            "Maybe<Int>",
+		"counted":            "Option<Int>",
 		"pipeline":           "List<Int>",
 		"walked":             "Bool",
 	} {

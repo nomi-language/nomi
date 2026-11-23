@@ -53,9 +53,9 @@ fn read<T>(query: String, row: Row, position: Int) -> Result<T, sql.Error> where
             // a wider number type when the type read is one.
             widened =
                 Row.value_position(row, position)
-                |> Result.to_maybe()
-                |> Maybe.map(widenings)
-                |> Maybe.with_default([])
+                |> Result.to_option()
+                |> Option.map(widenings)
+                |> Option.with_default([])
                 |> Iter.map(fn v -> T.from_sql(v))
                 |> Iter.find(Result.is_ok)
 
@@ -74,8 +74,8 @@ fn widenings(value: Value) -> List<Value>
 
         .Float(x) ->
             shortest(x)
-            |> Maybe.map(fn d -> [Value.Decimal(d)])
-            |> Maybe.with_default([])
+            |> Option.map(fn d -> [Value.Decimal(d)])
+            |> Option.with_default([])
 
         _ ->
             []
@@ -90,7 +90,7 @@ end
 //! assert runtime.digits(123_456_789_012_345_678_901.5d) == 22
 //
 pub fn digits(d: Decimal) -> Int
-    whole = String.split("${Decimal.abs(d)}", ".") |> Iter.first() |> Maybe.with_default("")
+    whole = String.split("${Decimal.abs(d)}", ".") |> Iter.first() |> Option.with_default("")
     Iter.count(Iter.drop_while(whole, fn c -> c == "0")) + Decimal.scale(d)
 end
 
@@ -100,7 +100,7 @@ end
 //! assert runtime.exact(0.1 + 0.2, 2) == None
 //! assert runtime.exact(12.555, 2) == None
 //
-pub fn exact(x: Float, scale: Int) -> Maybe<Decimal>
+pub fn exact(x: Float, scale: Int) -> Option<Decimal>
     case Float.to_decimal(x, scale, RoundingMode.HalfEven)
         Some(d) when Decimal.to_float(d) == x and digits(d) <= exact_digits() -> Some(d)
         _ -> None
@@ -112,12 +112,12 @@ end
 //! assert runtime.shortest(12.5) == Some(12.5d)
 //! assert runtime.shortest(0.1 + 0.2) == None
 //
-pub fn shortest(x: Float) -> Maybe<Decimal>
+pub fn shortest(x: Float) -> Option<Decimal>
     Iter.from(0)
     |> Iter.take(exact_digits() + 1)
     |> Iter.map(fn s -> exact(x, s))
     |> Iter.find(fn d -> d != None)
-    |> Maybe.flat_map(fn d -> d)
+    |> Option.flat_map(fn d -> d)
 end
 
 // How many decimal digits a 64-bit float holds exactly: a decimal of at
@@ -138,7 +138,7 @@ end
 fn at_scale(query: String, row: Row, position: Int, scale: Int) -> Result<Row, sql.Error>
     value = Row.value_position(row, position) |> Result.map_err(fn e -> named(query, e))?
     columns = Row.columns(row)
-    column = Iter.get(columns, position) |> Maybe.with_default("")
+    column = Iter.get(columns, position) |> Option.with_default("")
     place = "the column `${column}` of `${query}`, read at scale ${scale},"
 
     scaled =
@@ -228,7 +228,7 @@ pub fn value_null<T>(
     query:    String,
     row:      Row,
     position: Int,
-) -> Result<Maybe<T>, sql.Error> where T: FromSql
+) -> Result<Option<T>, sql.Error> where T: FromSql
     read(query, row, position)
 end
 
@@ -244,7 +244,7 @@ pub fn int_null<T>(
     query:    String,
     row:      Row,
     position: Int,
-) -> Result<Maybe<T>, sql.Error> where T: SqlInt and FromSql
+) -> Result<Option<T>, sql.Error> where T: SqlInt and FromSql
     read(query, row, position)
 end
 
@@ -260,7 +260,7 @@ pub fn float_null<T>(
     query:    String,
     row:      Row,
     position: Int,
-) -> Result<Maybe<T>, sql.Error> where T: SqlFloat and FromSql
+) -> Result<Option<T>, sql.Error> where T: SqlFloat and FromSql
     read(query, row, position)
 end
 
@@ -288,7 +288,7 @@ pub fn numeric_scaled_null<T>(
     row:      Row,
     position: Int,
     scale:    Int,
-) -> Result<Maybe<T>, sql.Error> where T: SqlNumeric and FromSql
+) -> Result<Option<T>, sql.Error> where T: SqlNumeric and FromSql
     read(query, at_scale(query, row, position, scale)?, position)
 end
 
@@ -296,7 +296,7 @@ pub fn numeric_null<T>(
     query:    String,
     row:      Row,
     position: Int,
-) -> Result<Maybe<T>, sql.Error> where T: SqlNumeric and FromSql
+) -> Result<Option<T>, sql.Error> where T: SqlNumeric and FromSql
     read(query, row, position)
 end
 
@@ -312,7 +312,7 @@ pub fn text_null<T>(
     query:    String,
     row:      Row,
     position: Int,
-) -> Result<Maybe<T>, sql.Error> where T: SqlText and FromSql
+) -> Result<Option<T>, sql.Error> where T: SqlText and FromSql
     read(query, row, position)
 end
 
@@ -328,7 +328,7 @@ pub fn bool_null<T>(
     query:    String,
     row:      Row,
     position: Int,
-) -> Result<Maybe<T>, sql.Error> where T: SqlBool and FromSql
+) -> Result<Option<T>, sql.Error> where T: SqlBool and FromSql
     read(query, row, position)
 end
 
@@ -344,7 +344,7 @@ pub fn bytes_null<T>(
     query:    String,
     row:      Row,
     position: Int,
-) -> Result<Maybe<T>, sql.Error> where T: SqlBytes and FromSql
+) -> Result<Option<T>, sql.Error> where T: SqlBytes and FromSql
     read(query, row, position)
 end
 
@@ -360,7 +360,7 @@ pub fn date_null<T>(
     query:    String,
     row:      Row,
     position: Int,
-) -> Result<Maybe<T>, sql.Error> where T: SqlDate and FromSql
+) -> Result<Option<T>, sql.Error> where T: SqlDate and FromSql
     read(query, row, position)
 end
 
@@ -376,7 +376,7 @@ pub fn time_null<T>(
     query:    String,
     row:      Row,
     position: Int,
-) -> Result<Maybe<T>, sql.Error> where T: SqlTime and FromSql
+) -> Result<Option<T>, sql.Error> where T: SqlTime and FromSql
     read(query, row, position)
 end
 
@@ -392,7 +392,7 @@ pub fn timestamp_null<T>(
     query:    String,
     row:      Row,
     position: Int,
-) -> Result<Maybe<T>, sql.Error> where T: SqlTimestamp and FromSql
+) -> Result<Option<T>, sql.Error> where T: SqlTimestamp and FromSql
     read(query, row, position)
 end
 
@@ -408,7 +408,7 @@ pub fn timestamptz_null<T>(
     query:    String,
     row:      Row,
     position: Int,
-) -> Result<Maybe<T>, sql.Error> where T: SqlTimestamptz and FromSql
+) -> Result<Option<T>, sql.Error> where T: SqlTimestamptz and FromSql
     read(query, row, position)
 end
 
@@ -424,7 +424,7 @@ pub fn uuid_null<T>(
     query:    String,
     row:      Row,
     position: Int,
-) -> Result<Maybe<T>, sql.Error> where T: SqlUuid and FromSql
+) -> Result<Option<T>, sql.Error> where T: SqlUuid and FromSql
     read(query, row, position)
 end
 
@@ -440,7 +440,7 @@ pub fn json_null<T>(
     query:    String,
     row:      Row,
     position: Int,
-) -> Result<Maybe<T>, sql.Error> where T: SqlJson and FromSql
+) -> Result<Option<T>, sql.Error> where T: SqlJson and FromSql
     read(query, row, position)
 end
 
@@ -469,13 +469,13 @@ pub fn one<T>(
     end
 end
 
-/// `-> Maybe<T>`: at most one row.
+/// `-> Option<T>`: at most one row.
 pub fn optional<T>(
     conn:      Conn,
     query:     String,
     statement: Statement,
     decode:    (Row) -> Result<T, sql.Error>,
-) -> Result<Maybe<T>, sql.Error>
+) -> Result<Option<T>, sql.Error>
     rows = rows_of(conn, statement, decode)?
 
     case rows
@@ -520,7 +520,7 @@ pub fn run(conn: Conn, statement: Statement) -> Result<Unit, sql.Error>
 end
 
 /// The text of a text value: what a generated enum reads.
-pub fn text_of(value: Value) -> Maybe<String>
+pub fn text_of(value: Value) -> Option<String>
     case value
         .Text(s) -> Some(s)
         _        -> None

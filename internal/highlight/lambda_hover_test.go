@@ -21,7 +21,7 @@ fn double(n: Int) -> Int
 end
 
 fn main()
-  m = Maybe.map(Some(1), fn n -> [n])
+  m = Option.map(Some(1), fn n -> [n])
   total = Iter.reduce([1, 2], 0, fn total, x -> total + x)
   k = 3
   |> then fn v -> v + 1
@@ -35,15 +35,15 @@ end
 		t.Fatal("highlight.AnalyzeNodes returned nil")
 	}
 	editor, editorNodes := editorDoc(t, lib, src)
-	mapped := "```nomi\nfn n: Int -> List<Int>\n```\n\nFills `Maybe.map`'s `f: (T) -> U`, which gives its parameter types."
+	mapped := "```nomi\nfn n: Int -> List<Int>\n```\n\nFills `Option.map`'s `f: (T) -> U`, which gives its parameter types."
 	cases := []struct {
 		name string
 		pos  analysis.Pos
 		want string
 	}{
 		{"a declaration's fn", analysis.Pos{Line: 4, Col: 1}, "```nomi\nfn double(n: Int) -> Int\n```\n\nDoubles n.\n\n---\n\nDeclares a function. Every parameter has a type, the result type is written unless it is `Unit`, and the body's last expression is the result.\n\nMore in the [tour](https://nomi-lang.org/functions-and-lambdas/#defining-a-function)"},
-		{"a lambda argument's fn", analysis.Pos{Line: 9, Col: 26}, mapped + lambdaLink},
-		{"its ->", analysis.Pos{Line: 9, Col: 31}, mapped},
+		{"a lambda argument's fn", analysis.Pos{Line: 9, Col: 27}, mapped + lambdaLink},
+		{"its ->", analysis.Pos{Line: 9, Col: 32}, mapped},
 		{"a fold's callback", analysis.Pos{Line: 10, Col: 34}, "```nomi\nfn total: Int, x: Int -> Int\n```\n\nFills `Iter.reduce`'s `f: (U, T) -> U`, which gives its parameter types." + lambdaLink},
 		{"a then stage's lambda", analysis.Pos{Line: 12, Col: 11}, "```nomi\nfn v: Int -> Int\n```\n\nThe `then` stage's lambda; its parameter is the piped value." + lambdaLink},
 		{"zero parameters", analysis.Pos{Line: 13, Col: 7}, "```nomi\nfn -> Int\n```" + lambdaLink},

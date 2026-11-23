@@ -30,7 +30,7 @@ test "is tests a variant and its payload"
     assert Some(3) is Some(_)
     assert Some(3) is Some(3)
     refute Some(3) is Some(4)
-    m: Maybe<Int> = None
+    m: Option<Int> = None
     assert m is None
     assert Shape.Point is Shape.Point
 end

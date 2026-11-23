@@ -9,7 +9,7 @@ import (
 // later one widened to the enum (spec §4 *Chains and conversion*) runs as a
 // user function of the same signature does: the earlier operand converts
 // to the checker's instantiation. `List.concat(circles, shapes)` is a
-// List<Shape>, as are the lists, vectors, sets, maps, Maybes and Iters of
+// List<Shape>, as are the lists, vectors, sets, maps, Options and Iters of
 // the other operations here, whether they cross to the host (List, Vector,
 // Set, Map, `with_default`), are the builder's own (`Iter.concat`) or are
 // std bodies instantiated at the call (`Map.merge_with`). A refinement's
@@ -70,7 +70,7 @@ fn main()
     ms: Map<String, Shape> = {"b" => shape}
     io.print(Map.merge(m, ms) |> Map.values() |> kinds())
     io.print(Map.merge_with(m, ms, fn a, _b -> a) |> Map.values() |> kinds())
-    io.print(kind(Maybe.with_default(Some(circle), shape)))
+    io.print(kind(Option.with_default(Some(circle), shape)))
     r: Result<Circle, String> = Err("no")
     io.print(kind(Result.with_default(r, shape)))
     n: NonNegativeInt = 3

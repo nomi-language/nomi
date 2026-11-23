@@ -111,13 +111,13 @@ func TestCompletion_AutoImportFunctionInsertsQualifiedCall(t *testing.T) {
 }
 
 func TestCompletion_AutoImportNeverReimportsThePrelude(t *testing.T) {
-	items := complete(t, "fn f() -> Int\n    x: Mayb"+cursorMark+"\n    1\nend\n")
-	maybe := itemsWithLabel(items, "Maybe")
-	if len(maybe) != 1 {
-		t.Fatalf("Maybe offered %d times, want once", len(maybe))
+	items := complete(t, "fn f() -> Int\n    x: Opti"+cursorMark+"\n    1\nend\n")
+	option := itemsWithLabel(items, "Option")
+	if len(option) != 1 {
+		t.Fatalf("Option offered %d times, want once", len(option))
 	}
-	if len(maybe[0].AdditionalTextEdits) != 0 {
-		t.Fatalf("the prelude's Maybe is offered with an import: %+v", maybe[0].AdditionalTextEdits)
+	if len(option[0].AdditionalTextEdits) != 0 {
+		t.Fatalf("the prelude's Option is offered with an import: %+v", option[0].AdditionalTextEdits)
 	}
 	for _, it := range items {
 		if len(it.AdditionalTextEdits) > 0 && (it.Label == "Display" || it.Label == "List" || it.Label == "Set") {

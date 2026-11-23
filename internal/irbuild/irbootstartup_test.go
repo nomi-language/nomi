@@ -84,7 +84,7 @@ end
 
 pub fn boot(startup: Startup = default_startup()) -> Result<App, String>
   io.print("boot ${startup.args}")
-  Ok(App{first: Iter.first(startup.args) |> Maybe.with_default("none")})
+  Ok(App{first: Iter.first(startup.args) |> Option.with_default("none")})
 end
 
 fn main() end

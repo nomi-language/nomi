@@ -98,7 +98,7 @@ func debugSpelling(k kind) string {
 	}
 	if k.tag == tagNamed && k.def != nil {
 		// A user generic's instance is spelled as its declaration, a prelude
-		// instance (`Maybe<Box>`) with its arguments' plain spellings.
+		// instance (`Option<Box>`) with its arguments' plain spellings.
 		args := k.def.genericArgs
 		if len(args) == 0 {
 			args = k.def.preludeArgs

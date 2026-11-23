@@ -89,7 +89,7 @@ func lineAt(t *testing.T, uri protocol.DocumentUri, line uint32) string {
 	return lines[line]
 }
 
-const someImport = "import std::maybe.Maybe.{Some, None}\n\nfn main()\n    _ = Some(1)\nend\n"
+const someImport = "import std::option.Option.{Some, None}\n\nfn main()\n    _ = Some(1)\nend\n"
 
 // Two servers built from different std sources, sharing one cache root,
 // materialize to two directories: the second writes nothing the first's
@@ -99,8 +99,8 @@ func TestStdMaterialize_TwoServersWriteTwoVersions(t *testing.T) {
 	cacheRoot := filepath.Join(t.TempDir(), "std")
 	current := stdSourceFS(t)
 	newer := stdSourceFS(t)
-	maybe := newer["maybe.nomi"]
-	newer["maybe.nomi"] = &fstest.MapFile{Data: append([]byte("// a newer std\n"), maybe.Data...)}
+	option := newer["option.nomi"]
+	newer["option.nomi"] = &fstest.MapFile{Data: append([]byte("// a newer std\n"), option.Data...)}
 
 	dir := t.TempDir()
 	path := filepath.Join(dir, "main.nomi")
@@ -108,7 +108,7 @@ func TestStdMaterialize_TwoServersWriteTwoVersions(t *testing.T) {
 		t.Fatal(err)
 	}
 	uri := fileuri.FromPath(path)
-	somePos := protocol.Position{Line: 0, Character: 25}
+	somePos := protocol.Position{Line: 0, Character: 27}
 
 	a := startRPC(t, materializedServer(cacheRoot, current), dir)
 	a.open(uri, someImport)
@@ -122,8 +122,8 @@ func TestStdMaterialize_TwoServersWriteTwoVersions(t *testing.T) {
 
 	pathA := fileuri.ToPath(string(locA.URI))
 	pathB := fileuri.ToPath(string(locB.URI))
-	if filepath.Base(pathA) != "maybe.nomi" || filepath.Base(pathB) != "maybe.nomi" {
-		t.Fatalf("definitions land in %s and %s, want maybe.nomi", pathA, pathB)
+	if filepath.Base(pathA) != "option.nomi" || filepath.Base(pathB) != "option.nomi" {
+		t.Fatalf("definitions land in %s and %s, want option.nomi", pathA, pathB)
 	}
 	if filepath.Dir(pathA) == filepath.Dir(pathB) {
 		t.Fatalf("both servers materialize to %s", filepath.Dir(pathA))
@@ -137,8 +137,8 @@ func TestStdMaterialize_TwoServersWriteTwoVersions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if embedded, _ := std.ReadFile("maybe"); string(got) != string(embedded) {
-		t.Error("the first server's maybe.nomi no longer holds its own std's text after the second server materialized")
+	if embedded, _ := std.ReadFile("option"); string(got) != string(embedded) {
+		t.Error("the first server's option.nomi no longer holds its own std's text after the second server materialized")
 	}
 	line := lineAt(t, locA.URI, locA.Range.Start.Line)
 	if !strings.HasPrefix(line[locA.Range.Start.Character:], "Some") {
@@ -221,7 +221,7 @@ func TestStdBuffer_ChangedTextStaysInItsOwnBuffer(t *testing.T) {
 	}
 }
 
-const someAndRegex = "import std::maybe.Maybe.{Some}\nimport std::regex.Regex\n\nfn main()\n    _ = Some(1)\n    _ = Regex.compile(\"a\")\nend\n"
+const someAndRegex = "import std::option.Option.{Some}\nimport std::regex.Regex\n\nfn main()\n    _ = Some(1)\n    _ = Regex.compile(\"a\")\nend\n"
 
 // Go-to-definition into std lands in the checkout's std source tree only for
 // a file whose content is the std the server runs. A checkout file changed
@@ -253,7 +253,7 @@ func TestStdCheckout_ChangedFileJumpsToTheMaterializedCopy(t *testing.T) {
 	c := startRPC(t, s, dir)
 	c.open(uri, someAndRegex)
 	c.waitDiagnostics(uri)
-	somePos := protocol.Position{Line: 0, Character: 25}
+	somePos := protocol.Position{Line: 0, Character: 27}
 	regexPos := protocol.Position{Line: 1, Character: 19}
 
 	// jump asks for the definition at pos and checks that it lands in
@@ -272,34 +272,34 @@ func TestStdCheckout_ChangedFileJumpsToTheMaterializedCopy(t *testing.T) {
 	}
 	versionDir := filepath.Join(cacheRoot, stdcache.Version(files))
 
-	jump(somePos, checkout, "maybe.nomi", "Some")
+	jump(somePos, checkout, "option.nomi", "Some")
 	jump(regexPos, checkout, "regex.nomi", "Regex")
 
 	// Two lines merged above every declaration: the checkout's lines no
 	// longer match the server's analysis.
-	maybePath := filepath.Join(checkout, "maybe.nomi")
-	changed := append([]byte("// merged after the server started\n\n"), files["maybe.nomi"].Data...)
-	if err := os.WriteFile(maybePath, changed, 0o644); err != nil {
+	optionPath := filepath.Join(checkout, "option.nomi")
+	changed := append([]byte("// merged after the server started\n\n"), files["option.nomi"].Data...)
+	if err := os.WriteFile(optionPath, changed, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	jump(somePos, versionDir, "maybe.nomi", "Some")
+	jump(somePos, versionDir, "option.nomi", "Some")
 	jump(regexPos, checkout, "regex.nomi", "Regex")
 
-	if err := os.WriteFile(maybePath, files["maybe.nomi"].Data, 0o644); err != nil {
+	if err := os.WriteFile(optionPath, files["option.nomi"].Data, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	jump(somePos, checkout, "maybe.nomi", "Some")
+	jump(somePos, checkout, "option.nomi", "Some")
 
 	// Same size, different bytes: the new modification time alone makes
 	// the server compare again.
-	same := append([]byte(nil), files["maybe.nomi"].Data...)
+	same := append([]byte(nil), files["option.nomi"].Data...)
 	same[0] ^= 0x20
-	if err := os.WriteFile(maybePath, same, 0o644); err != nil {
+	if err := os.WriteFile(optionPath, same, 0o644); err != nil {
 		t.Fatal(err)
 	}
 	later := time.Now().Add(time.Minute)
-	if err := os.Chtimes(maybePath, later, later); err != nil {
+	if err := os.Chtimes(optionPath, later, later); err != nil {
 		t.Fatal(err)
 	}
-	jump(somePos, versionDir, "maybe.nomi", "Some")
+	jump(somePos, versionDir, "option.nomi", "Some")
 }

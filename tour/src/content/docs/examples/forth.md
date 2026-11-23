@@ -76,7 +76,7 @@ fn run(
             Ok(stack)
 
         [":", name, ..rest] ->
-            if String.to_int(name) |> Maybe.is_some() then return Err(.IllegalOperation)
+            if String.to_int(name) |> Option.is_some() then return Err(.IllegalOperation)
 
             body = rest |> Iter.take_while(&(&1 != ";")) |> Iter.to_list()
             after = rest |> Iter.drop(Iter.count(body) + 1) |> Iter.to_list()
@@ -110,7 +110,7 @@ end
 fn resolve(words: Map<String, List<Op>>, word: String) -> Result<List<Op>, Error>
     if Some(n) = String.to_int(word) then return Ok([.Push(n)])
 
-    Map.get(words, word) |> Maybe.to_result(.UndefinedOperation)
+    Map.get(words, word) |> Option.to_result(.UndefinedOperation)
 end
 
 fn execute(stack: List<Int>, ops: List<Op>) -> Result<List<Int>, Error>

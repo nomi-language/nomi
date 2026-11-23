@@ -11,15 +11,15 @@ package rt
 // one.
 //
 // std/assertions declares a different type under the same name — an ordinary
-// Nomi `pub struct` whose `actual` is `Maybe<String>`, whose `binding` is
-// `Maybe<AssertionBinding>` and whose `values` is `List<AssertionValue>`. That
+// Nomi `pub struct` whose `actual` is `Option<String>`, whose `binding` is
+// `Option<AssertionBinding>` and whose `values` is `List<AssertionValue>`. That
 // is what `testing.check` hands back, what a program annotates a binding with,
 // and what a field selector reads. Its layout is Nomi's, not the reporter's.
 //
 // This file is the conversion between the two, against Go types.
 //
 // Collapsing the two would mean giving the reporter's struct Nomi's field
-// shapes — `Maybe[string]` where a `string` is read, `*List[…]` where a slice is
+// shapes — `Option[string]` where a `string` is read, `*List[…]` where a slice is
 // ranged over — which would rewrite rt/testreport.go and every site that
 // builds a failure, to make one type serve two readers with opposite
 // convenience. Two types and one conversion is cheaper.
@@ -76,8 +76,8 @@ type NomiAssertionDetail struct {
 //
 //	pub struct AssertionDetails {
 //	  reason: String = "assertion failed"
-//	  actual: Maybe<String> = None
-//	  expected: Maybe<String> = None
+//	  actual: Option<String> = None
+//	  expected: Option<String> = None
 //	  details: List<AssertionDetail> = []
 //	}
 //
@@ -91,12 +91,12 @@ type NomiAssertionDetail struct {
 //
 // Only one of the four defaults is the Go zero value: an empty `*List` is nil.
 // `Reason` defaults to a non-empty string and `Actual` and `Expected` to
-// `None`, whose Tag is TagNone and not 0 — a zero `Maybe` is neither Some nor None and matches no arm
+// `None`, whose Tag is TagNone and not 0 — a zero `Option` is neither Some nor None and matches no arm
 // of a `case`.
 type NomiAssertionDetails struct {
 	Reason   string
-	Actual   Maybe[string]
-	Expected Maybe[string]
+	Actual   Option[string]
+	Expected Option[string]
 	Details  *List[NomiAssertionDetail]
 }
 
@@ -106,8 +106,8 @@ type NomiAssertionFailure struct {
 	Keyword    string
 	Expression string
 	Reason     string
-	Actual     Maybe[string]
-	Binding    Maybe[NomiAssertionBinding]
+	Actual     Option[string]
+	Binding    Option[NomiAssertionBinding]
 	Values     *List[NomiAssertionValue]
 	Details    *List[NomiAssertionDetail]
 	Subtests   *List[NomiSubtestFailure]
@@ -131,8 +131,8 @@ func (e *AssertionFailure) NomiFailure() NomiAssertionFailure {
 		Keyword:    e.Keyword,
 		Expression: e.Expr,
 		Reason:     e.Reason,
-		Actual:     nomiMaybeString(e.Actual),
-		Binding:    nomiMaybeBinding(e.Binding),
+		Actual:     nomiOptionString(e.Actual),
+		Binding:    nomiOptionBinding(e.Binding),
 		Values:     nomiAssertionValues(e.Values),
 		Details:    nomiAssertionDetails(e.Details),
 		Subtests:   nomiSubtestFailures(e.Subtests),
@@ -147,15 +147,15 @@ func nomiSubtestFailures(subs []SubtestFailure) *List[NomiSubtestFailure] {
 	return out
 }
 
-// nomiMaybeString reads "" as absence, not an empty string.
-func nomiMaybeString(s string) Maybe[string] {
+// nomiOptionString reads "" as absence, not an empty string.
+func nomiOptionString(s string) Option[string] {
 	if s == "" {
 		return None[string]()
 	}
 	return Some(s)
 }
 
-func nomiMaybeBinding(b *AssertionBindingContext) Maybe[NomiAssertionBinding] {
+func nomiOptionBinding(b *AssertionBindingContext) Option[NomiAssertionBinding] {
 	if b == nil {
 		return None[NomiAssertionBinding]()
 	}
@@ -218,7 +218,7 @@ func FormatNomiAssertionFailure(failure NomiAssertionFailure) string {
 
 // Report is NomiFailure's inverse: the report a Nomi-held failure describes.
 //
-// An absent `Maybe` becomes the empty string, which is
+// An absent `Option` becomes the empty string, which is
 // how the report spells absence for `Actual`, and each List becomes a slice in
 // its own order. It is the same duality NomiFailure documents: collapsing the
 // two types would mean giving the reporter Nomi's field shapes to save this, and
@@ -232,7 +232,7 @@ func (f NomiAssertionFailure) Report() *AssertionFailure {
 		Keyword:  f.Keyword,
 		Expr:     f.Expression,
 		Reason:   f.Reason,
-		Actual:   reportMaybeString(f.Actual),
+		Actual:   reportOptionString(f.Actual),
 		Binding:  reportBinding(f.Binding),
 		Values:   reportValues(f.Values),
 		Details:  reportDetails(f.Details),
@@ -251,16 +251,16 @@ func reportSubtests(xs *List[NomiSubtestFailure]) []SubtestFailure {
 	return out
 }
 
-// reportMaybeString is nomiMaybeString read backwards: `None` is "", which is
+// reportOptionString is nomiOptionString read backwards: `None` is "", which is
 // what the renderer already treats as absence.
-func reportMaybeString(m Maybe[string]) string {
+func reportOptionString(m Option[string]) string {
 	if m.Tag != TagSome {
 		return ""
 	}
 	return m.Some
 }
 
-func reportBinding(m Maybe[NomiAssertionBinding]) *AssertionBindingContext {
+func reportBinding(m Option[NomiAssertionBinding]) *AssertionBindingContext {
 	if m.Tag != TagSome {
 		return nil
 	}

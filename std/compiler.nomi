@@ -4,7 +4,7 @@ import
     int.Int
     lists.List
     maps.Map
-    maybe.Maybe.{self, None}
+    option.Option.{self, None}
     results.Result
     strings.String
 end
@@ -36,7 +36,7 @@ end
 pub struct Project
     entry_point: String
     files:       Map<String, String>
-    manifest:    Maybe<String> = None
+    manifest:    Option<String> = None
 end
 
 /// Options for running a `.nomi` file under the current test project root.
@@ -155,7 +155,7 @@ pub host fn hover(source: String) -> Result<Hover, String>
 //!
 //! diagnostics = compiler.check_project(Project{
 //!     entry_point: "main",
-//!     manifest: Maybe.Some(
+//!     manifest: Option.Some(
 //!         """
 //!         [module]
 //!         name = "demo"
@@ -192,7 +192,7 @@ pub host fn hover(source: String) -> Result<Hover, String>
 //!
 //! assert [unread] = compiler.check_project(Project{
 //!     entry_point: "main",
-//!     manifest:    Maybe.Some("[module"),
+//!     manifest:    Option.Some("[module"),
 //!     files:       {"main" => "fn main()\n  Unit\nend\n"},
 //! })
 //!

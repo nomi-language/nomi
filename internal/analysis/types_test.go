@@ -391,15 +391,15 @@ func TestAnonStructString_PreservesDeclaredOrder(t *testing.T) {
 
 func TestEnumTypeStringWithTypeArgs(t *testing.T) {
 	et := &EnumType{
-		Name:     "Maybe",
+		Name:     "Option",
 		TypeArgs: []Type{TypeInt},
 		Variants: []VariantDef{
 			{Name: "Some", DataType: TypeInt},
 			{Name: "None"},
 		},
 	}
-	if et.String() != "Maybe<Int>" {
-		t.Fatalf("expected Maybe<Int>, got %s", et.String())
+	if et.String() != "Option<Int>" {
+		t.Fatalf("expected Option<Int>, got %s", et.String())
 	}
 }
 
@@ -420,19 +420,19 @@ func TestStructTypeStringWithTypeArgs(t *testing.T) {
 	}
 }
 
-func TestTypesEqual_MaybeIntVsMaybeString(t *testing.T) {
-	a := &EnumType{Name: "Maybe", TypeArgs: []Type{TypeInt}}
-	b := &EnumType{Name: "Maybe", TypeArgs: []Type{TypeString}}
+func TestTypesEqual_OptionIntVsOptionString(t *testing.T) {
+	a := &EnumType{Name: "Option", TypeArgs: []Type{TypeInt}}
+	b := &EnumType{Name: "Option", TypeArgs: []Type{TypeString}}
 	if TypesEqual(a, b) {
-		t.Fatal("Maybe<Int> should not equal Maybe<String>")
+		t.Fatal("Option<Int> should not equal Option<String>")
 	}
 }
 
-func TestTypesEqual_MaybeIntVsMaybeInt(t *testing.T) {
-	a := &EnumType{Name: "Maybe", TypeArgs: []Type{TypeInt}}
-	b := &EnumType{Name: "Maybe", TypeArgs: []Type{TypeInt}}
+func TestTypesEqual_OptionIntVsOptionInt(t *testing.T) {
+	a := &EnumType{Name: "Option", TypeArgs: []Type{TypeInt}}
+	b := &EnumType{Name: "Option", TypeArgs: []Type{TypeInt}}
 	if !TypesEqual(a, b) {
-		t.Fatal("Maybe<Int> should equal Maybe<Int>")
+		t.Fatal("Option<Int> should equal Option<Int>")
 	}
 }
 

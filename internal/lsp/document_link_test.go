@@ -25,7 +25,7 @@ func TestDocumentLinks(t *testing.T) {
 	write("game.nomi", "pub struct Game\n    turn: Int\nend\n")
 	src := `import
     std::iter
-    std::maybe.Maybe.{None}
+    std::option.Option.{None}
     models::users
     app::models::users.User
     models::users.User.{self}
@@ -61,7 +61,7 @@ import std::io as console
 	}
 	want := []string{
 		"1:4-1:13 std:iter.nomi",
-		"2:4-2:14 std:maybe.nomi",
+		"2:4-2:15 std:option.nomi",
 		"3:4-3:17 models/users.nomi",
 		"4:4-4:22 models/users.nomi",
 		"5:4-5:17 models/users.nomi",

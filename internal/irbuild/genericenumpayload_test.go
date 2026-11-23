@@ -3,8 +3,8 @@ package irbuild
 import "testing"
 
 // A user enum's variant over a payload nested two deep runs: a generic
-// enum's positional and struct-shaped variants at `Maybe<Maybe<Int>>`, at a
-// tuple holding a user enum and at `Maybe<Result<Int, String>>`, matched,
+// enum's positional and struct-shaped variants at `Option<Option<Int>>`, at a
+// tuple holding a user enum and at `Option<Result<Int, String>>`, matched,
 // compared and shown; and a non-generic enum declaring such payloads and a
 // struct-shaped variant holding a function in a tuple.
 func TestIRVariantDeepPayload_Runs(t *testing.T) {
@@ -31,7 +31,7 @@ enum Shape
 end
 
 enum Plain
-    Deep Maybe<Maybe<Int>>
+    Deep Option<Option<Int>>
     Pair (Shape, String)
     Polygon {sides: (Int, (Int) -> Int)}
 end

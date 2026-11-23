@@ -6,17 +6,17 @@ import "testing"
 // two computations over them compares two paths that both end here. Every
 // assertion below therefore spells out the expected answer.
 
-func TestMaybeZeroValueIsDetectablyInvalid(t *testing.T) {
-	var m Maybe[int64]
+func TestOptionZeroValueIsDetectablyInvalid(t *testing.T) {
+	var m Option[int64]
 	if m.Tag != 0 {
-		t.Fatalf("zero Maybe has tag %d, want 0", m.Tag)
+		t.Fatalf("zero Option has tag %d, want 0", m.Tag)
 	}
 	if m.Tag == TagSome || m.Tag == TagNone {
-		t.Fatal("an unconstructed Maybe is indistinguishable from a variant")
+		t.Fatal("an unconstructed Option is indistinguishable from a variant")
 	}
 	// The reason for the reservation: a slice of them is n never-constructed
 	// values, not n copies of the first variant.
-	for i, v := range make([]Maybe[int64], 3) {
+	for i, v := range make([]Option[int64], 3) {
 		if v.Tag != 0 {
 			t.Fatalf("make() element %d looks constructed: tag %d", i, v.Tag)
 		}
@@ -31,7 +31,7 @@ func TestMaybeZeroValueIsDetectablyInvalid(t *testing.T) {
 }
 
 func TestPreludeTagsAreDeclarationOrder(t *testing.T) {
-	// std/maybe.nomi declares `Some T` then `None`; std/results.nomi declares
+	// std/option.nomi declares `Some T` then `None`; std/results.nomi declares
 	// `Ok T` then `Err E`. Tags are 1-based in that order.
 	// internal/irbuild's TestPreludeShapeMatchesStdSource is what holds this
 	// against the .nomi files; these are the absolute values it holds them to.
@@ -76,7 +76,7 @@ func TestPreludePayloadsRoundTrip(t *testing.T) {
 }
 
 func TestPreludeValuesAreComparableAndCopied(t *testing.T) {
-	// A Maybe is a value, not a pointer: assigning one copies it, which is
+	// An Option is a value, not a pointer: assigning one copies it, which is
 	// what makes `case` binding a payload a copy rather than an alias.
 	a := Some[int64](1)
 	b := a
@@ -92,24 +92,24 @@ func TestPreludeValuesAreComparableAndCopied(t *testing.T) {
 	}
 }
 
-// MaybeToResult, pinned absolutely.
+// OptionToResult, pinned absolutely.
 //
 // A never-constructed receiver is caught only here, because no Nomi program
 // can produce one and no golden-file fixture can therefore reach it.
 func TestPreludeMethodHelpers(t *testing.T) {
-	if got := MaybeToResult(Some[int64](3), "missing"); got != Ok[int64, string](3) {
-		t.Fatalf("MaybeToResult(Some(3)) = %+v, want Ok(3)", got)
+	if got := OptionToResult(Some[int64](3), "missing"); got != Ok[int64, string](3) {
+		t.Fatalf("OptionToResult(Some(3)) = %+v, want Ok(3)", got)
 	}
-	if got := MaybeToResult(None[int64](), "missing"); got != Err[int64, string]("missing") {
-		t.Fatalf("MaybeToResult(None) = %+v, want Err(\"missing\")", got)
+	if got := OptionToResult(None[int64](), "missing"); got != Err[int64, string]("missing") {
+		t.Fatalf("OptionToResult(None) = %+v, want Err(\"missing\")", got)
 	}
 
 	// A never-constructed receiver — Tag 0, which is neither variant. No Nomi
 	// program can produce one, so a program fixture cannot reach this
 	// and only an absolute assertion can. Each helper must take the branch that
 	// does not invent a payload out of a Go zero value.
-	var zeroMaybe Maybe[int64]
-	if got := MaybeToResult(zeroMaybe, "e"); got != Err[int64, string]("e") {
-		t.Fatalf("MaybeToResult(never-constructed) = %+v, want Err", got)
+	var zeroOption Option[int64]
+	if got := OptionToResult(zeroOption, "e"); got != Err[int64, string]("e") {
+		t.Fatalf("OptionToResult(never-constructed) = %+v, want Err", got)
 	}
 }

@@ -17,7 +17,7 @@ end
 impl Planet
     /// The planet named `name`, such as `"Mars"`, or `None` for a name that
     /// is not one of the eight.
-    pub fn parse(name: String) -> Maybe<Planet>
+    pub fn parse(name: String) -> Option<Planet>
         Planet.variants() |> Iter.find(&("${&1}" == name))
     end
 

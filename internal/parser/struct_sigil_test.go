@@ -15,7 +15,7 @@ func TestStructSigil_EachPositionParses(t *testing.T) {
 		"import std::io.{self, print}\n",
 		"fn f({w:, h:}: {w: Int, h: Int}) -> Int\n    w * h\nend\n",
 		"fn main()\n    p = {x: 1}\n    q = {..p, x: 2}\n    {x:} = q\nend\n",
-		"fn main()\n    r: Maybe<{id: Int}> = Some({id: 1})\n    _ = case r\n        Some({id: 1}) -> 1\n        _ -> 0\n    end\nend\n",
+		"fn main()\n    r: Option<{id: Int}> = Some({id: 1})\n    _ = case r\n        Some({id: 1}) -> 1\n        _ -> 0\n    end\nend\n",
 		"fn main()\n    r = 1..begin\n        3\n    end\nend\n",
 		"test \"rows\"\n    [{n: 1}] |> subtests {n:}\n        assert n == 1\n    end\nend\n",
 	} {

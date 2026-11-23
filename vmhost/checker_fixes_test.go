@@ -65,7 +65,7 @@ fn main()
     io.inspect(c.v(2))
     h: Pair<Int, (Int) -> String> = Pair{a: 1, b: fn n -> "n=${n}"}
     io.print(h.b(h.a))
-    g: Maybe<(Int) -> Int> = Some(fn x -> x * 3)
+    g: Option<(Int) -> Int> = Some(fn x -> x * 3)
     case g
         Some(k) -> io.inspect(k(2))
         None -> io.print("none")

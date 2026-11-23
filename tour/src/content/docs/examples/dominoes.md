@@ -16,7 +16,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 /// The `stones`, each the dots on its two halves, laid in a chain, each
 /// turned as it must be, where touching halves match and the two free ends
 /// match each other; `None` when no order makes one.
-pub fn chain(stones: List<(Int, Int)>) -> Maybe<List<(Int, Int)>>
+pub fn chain(stones: List<(Int, Int)>) -> Option<List<(Int, Int)>>
     case stones
         []                               -> Some([])
         [(start, stop) as first, ..rest] -> extend(start, stop, [first], rest)
@@ -31,7 +31,7 @@ fn extend(
     stop:  Int,
     laid:  List<(Int, Int)>,
     left:  List<(Int, Int)>,
-) -> Maybe<List<(Int, Int)>>
+) -> Option<List<(Int, Int)>>
     if left == [] and start == stop then return Some(Iter.reverse(laid))
 
     left
@@ -109,7 +109,7 @@ test result: ok. 13 passed, 0 failed
 
 ## How it's written
 
-- This is the exercise's second level: `chain` returns the chain itself, `Maybe<List<Stone>>`, not only whether one exists. A stone is a `(Int, Int)`, as the canonical comments suggest for a language with pairs. It is written out rather than named with a `typealias`: an alias is for shortening a long anonymous shape, and a pair is short.
+- This is the exercise's second level: `chain` returns the chain itself, `Option<List<Stone>>`, not only whether one exists. A stone is a `(Int, Int)`, as the canonical comments suggest for a language with pairs. It is written out rather than named with a `typealias`: an alias is for shortening a long anonymous shape, and a pair is short.
 - The search is a depth-first backtrack. The first stone starts the chain, and `extend` tries every stone left, either way round, whose first half matches the free end, and recurses. The candidates are a lazy pipeline ended by `Iter.find_map`, so the search stops at the first chain that closes and backs out of a dead end by moving on to the next candidate. A chain that uses every stone closes when its two ends match.
 - The chain is built last stone first, with `[stone, ..laid]`, and reversed once at the end, so each step is a cons.
 - `picks` pairs each stone with the stones other than it, the list with that stone taken out by `List.remove_at(...)!`, whose index comes from `Iter.with_index` over the same list.

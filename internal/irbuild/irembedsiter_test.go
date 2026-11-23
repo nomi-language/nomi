@@ -5,8 +5,8 @@ import "testing"
 // A source whose elements are of an embedded type enters an `Iter` of the
 // embedding enum: an annotated binding, a parameter, a distinct tuple's
 // payload, a field default, a spread, `Struct.update`, a Vector and a list
-// variable. Each element is widened as it is read, and a `Maybe<Circle>`
-// element is rebuilt as a `Maybe<Shape>`.
+// variable. Each element is widened as it is read, and an `Option<Circle>`
+// element is rebuilt as an `Option<Shape>`.
 func TestIREmbeddedSourceAsIterOfItsEnum_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
@@ -53,7 +53,7 @@ fn main()
     io.print(total(h2.it))
     h3 = Struct.update(updates: {it: [c]}, original: h)
     io.print(total(h3.it))
-    m: Iter<Maybe<Shape>> = [Some(c), None]
+    m: Iter<Option<Shape>> = [Some(c), None]
     io.print(Iter.count(m))
 end
 `

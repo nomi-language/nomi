@@ -23,7 +23,7 @@ derive ToJson for Wallet
 derive FromJson for Wallet
 
 struct Spare
-    money: Maybe<Money>
+    money: Option<Money>
 end
 
 derive Equatable for Spare

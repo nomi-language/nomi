@@ -23,7 +23,7 @@ import (
 // parameter with no bound, an existential over Debug, which every type
 // implements (abstractHeldKind). So a value of the type parameter is
 // lowered as a value of that interface is, whatever the signature does with
-// it (`x: T`, `decode: (Row) -> Result<T, sql.Error>`, `Maybe<T>`), and a
+// it (`x: T`, `decode: (Row) -> Result<T, sql.Error>`, `Option<T>`), and a
 // function with several type parameters holds each.
 //
 // A type parameter the frames bind to a checker type parameter is open
@@ -37,8 +37,8 @@ import (
 // a call the checker answers nothing for there is a call through the bound
 // (boundcall.go). An instance an abstract body asks for keeps the open type
 // parameters in its checker types (checkerTypeArg): a call to another
-// generic function at `T`, at `Maybe<T>`, or an impl the record resolves at
-// `Maybe<T>`, builds that callee's body with `T` still open, where its own
+// generic function at `T`, at `Option<T>`, or an impl the record resolves at
+// `Option<T>`, builds that callee's body with `T` still open, where its own
 // calls through the bound are calls through the bound too. Such an instance
 // is interned apart from the program's instances (openInstKey), so a
 // recursive or mutually recursive call between abstract bodies re-finds the
@@ -536,7 +536,7 @@ func (g *gen) abstractInstance(fd *ast.FuncDef, sig *fnSig) (string, bool) {
 // it, carrying the bounds that type's `where` clauses resolved for it
 // (FuncType.WhereBounds). The checker keeps a function's bounds beside its
 // type parameters rather than on them, and a record read at a type holding
-// an open type parameter (`Maybe<T>` meeting `impl FromSql for Maybe<T>
+// an open type parameter (`Option<T>` meeting `impl FromSql for Option<T>
 // where T: FromSql`) is answered by the bounds the type parameter carries.
 // Each is a type parameter of its own, which no record names, so an open
 // one is told by its identity (declineCensus.open) and never by a name
@@ -738,7 +738,7 @@ func (g *gen) openParam(ty analysis.Type) (*analysis.TypeParam_, bool) {
 // per-instance record names, stands for in an abstract lowering: the
 // instance's type argument (genericSubstType), or for an open type
 // parameter (openParam), the interface it is held as (abstractBoundType). A
-// record over a type that holds an open parameter (`Maybe<T>`) reads at
+// record over a type that holds an open parameter (`Option<T>`) reads at
 // that type, so the impl it resolves keeps `T` open.
 func (g *gen) abstractRecordType(p *analysis.TypeParam_) (analysis.Type, bool) {
 	if open, isOpen := g.openParam(p); isOpen {

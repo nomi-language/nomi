@@ -280,7 +280,7 @@ pub enum Weekday
 end
 
 impl TryFrom<Int> for Weekday
-    fn try_from(value: Int) -> Maybe<Weekday>
+    fn try_from(value: Int) -> Option<Weekday>
         _ = value
         Some(Weekday.Monday)
     end
@@ -351,7 +351,7 @@ end
 `
 	for _, c := range []struct{ name, body, want string }{
 		{"a TryFrom call", `_ = Weekday.try_from(2)`, "type 'Weekday' has no member 'try_from'"},
-		{"a TryFrom bound", `day: Maybe<Weekday> = load(2)
+		{"a TryFrom bound", `day: Option<Weekday> = load(2)
     _ = day`, "Weekday does not implement TryFrom<Int> (required by `where T: TryFrom<Int>`)"},
 		{"an operator", `_ = Money{cents: 1} + Money{cents: 2}`, "no impl of `Add` for `"},
 		{"an operator whose arguments are not the receiver", `_ = Money{cents: 1} * 2`, "`*` needs two values of one type, and these are Money and Int"},
@@ -366,7 +366,7 @@ end
 end
 
 ` + decls + `
-fn load<T>(n: Int) -> Maybe<T> where T: TryFrom<Int>
+fn load<T>(n: Int) -> Option<T> where T: TryFrom<Int>
     T.try_from(n)
 end
 

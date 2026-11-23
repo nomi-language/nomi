@@ -22,7 +22,7 @@ end
 
 type D Int
 
-subtype Small Int when fn n -> n < 10
+refine Small Int when fn n -> n < 10
 
 typealias Al Int
 
@@ -83,7 +83,7 @@ func TestTypeArgCount_RejectedAtTheUse(t *testing.T) {
 		{"struct, parameter", "fn f(_s: S<Int>) -> Int\n    0\nend\n", "S<Int>", "`S` expects 0 type arguments, got 1"},
 		{"enum, parameter", "fn f(_e: E<Int>) -> Int\n    0\nend\n", "E<Int>", "`E` expects 0 type arguments, got 1"},
 		{"distinct type, return type", "fn f() -> D<Int>\n    D(1)\nend\n", "D<Int>", "`D` expects 0 type arguments, got 1"},
-		{"subtype, as", "fn f() -> Int\n    1 as Small<Int>\nend\n", "Small<Int>", "`Small` expects 0 type arguments, got 1"},
+		{"refinement, as", "fn f() -> Int\n    1 as Small<Int>\nend\n", "Small<Int>", "`Small` expects 0 type arguments, got 1"},
 		{"typealias, field", "struct H\n    a: Al<Int>\nend\n", "Al<Int>", "`Al` expects 0 type arguments, got 1"},
 		{"typealias of an instance, parameter", "fn f(_b: IntBox<Int>) -> Int\n    0\nend\n", "IntBox<Int>", "`IntBox` expects 0 type arguments, got 1"},
 		{"interface, value type", "fn f(_i: I<Int>) -> Int\n    0\nend\n", "I<Int>", "`I` expects 0 type arguments, got 1"},

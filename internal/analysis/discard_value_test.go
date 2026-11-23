@@ -72,7 +72,7 @@ func TestDiscard_TheOldPlaceholderSpellingsSayToNumber(t *testing.T) {
 			"`_` is a discard name, not a value\nhelp: a capture's parameter is written `&1`: `&add(1, &1)`"},
 		{"two placeholders", "fn f() -> (String, Int) -> String\n    connect(_, port: _)\nend\n",
 			"`_` is a discard name, not a value\nhelp: number the capture's parameters `&1`, `&2`, ... in the order they are written: `&connect(&1, port: &2)`"},
-		{"a variant constructor", "fn f() -> (Int) -> Maybe<Int>\n    Some(_)\nend\n",
+		{"a variant constructor", "fn f() -> (Int) -> Option<Int>\n    Some(_)\nend\n",
 			"`_` is a discard name, not a value\nhelp: a capture's parameter is written `&1`: `&Some(&1)`"},
 		{"a pipe stage", "fn f() -> Int\n    10 |> add(100, _)\nend\n",
 			"`_` is a discard name, not a value\nhelp: a pipe fills the first argument; write `|> then &add(100, &1)`"},
@@ -104,7 +104,7 @@ func TestPlaceholder_LegalPositionsAreAccepted(t *testing.T) {
 	for name, body := range map[string]string{
 		"partial application":     "fn f() -> Int\n    inc = &add(1, &1)\n    inc(2)\nend\n",
 		"named partial":           "fn f() -> Int\n    inc = &add(a: 1, b: &1)\n    inc(2)\nend\n",
-		"variant ctor partial":    "fn f() -> Maybe<Int>\n    wrap: (Int) -> Maybe<Int> = &Some(&1)\n    wrap(1)\nend\n",
+		"variant ctor partial":    "fn f() -> Option<Int>\n    wrap: (Int) -> Option<Int> = &Some(&1)\n    wrap(1)\nend\n",
 		"pipe slot":               "fn f() -> Int\n    10 |> then &add(100, &1)\nend\n",
 		"pipe slot twice":         "fn f() -> Int\n    10 |> then &add(&1, &1)\nend\n",
 		"discard binding":         "fn f() -> Int\n    _ = add(1, 2)\n    3\nend\n",
@@ -116,8 +116,8 @@ func TestPlaceholder_LegalPositionsAreAccepted(t *testing.T) {
 		"struct pattern":          "fn f(p: Point) -> Int\n    Point{x:, y: _} = p\n    x\nend\n",
 		"list pattern":            "fn f(xs: List<Int>) -> Int\n    case xs\n        [_, b, ..] -> b\n        _ -> 0\n    end\nend\n",
 		"case wildcard":           "fn f(e: E) -> Int\n    case e\n        .A -> 1\n        _ -> 2\n    end\nend\n",
-		"variant pattern":         "fn f(m: Maybe<Int>) -> Int\n    case m\n        Some(_) -> 1\n        None -> 0\n    end\nend\n",
-		"binding else":            "fn f(m: Maybe<Int>) -> Int\n    Some(_) = m else\n        return 0\n    end\n    1\nend\n",
+		"variant pattern":         "fn f(m: Option<Int>) -> Int\n    case m\n        Some(_) -> 1\n        None -> 0\n    end\nend\n",
+		"binding else":            "fn f(m: Option<Int>) -> Int\n    Some(_) = m else\n        return 0\n    end\n    1\nend\n",
 		"subject-less catch-all":  "fn f(n: Int) -> Int\n    case\n        n > 3 -> 1\n        _ -> 2\n    end\nend\n",
 		"numeric separator":       "fn f() -> Int\n    1_000\nend\n",
 	} {

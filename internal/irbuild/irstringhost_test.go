@@ -48,7 +48,7 @@ end
 
 func TestIRStringHost_CompletePrograms(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn parse(s: String) -> Maybe<Int>
+fn parse(s: String) -> Option<Int>
   s |> String.trim() |> String.to_int()? |> Some()
 end
 fn main()
@@ -80,7 +80,7 @@ fn main()
   io.inspect(lib.parse("7"))
 end
 `, "Ada\nA\nda\nTrue\nSome(7)\n", map[string]string{
-		"lib.nomi": "pub fn parse(s: String) -> Maybe<Int>\n    String.to_int(s)\nend",
+		"lib.nomi": "pub fn parse(s: String) -> Option<Int>\n    String.to_int(s)\nend",
 	})
 }
 

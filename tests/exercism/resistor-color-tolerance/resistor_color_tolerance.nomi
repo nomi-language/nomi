@@ -41,7 +41,7 @@ end
 pub struct Label
     value:     Decimal
     unit:      Magnitude
-    tolerance: Maybe<Decimal>
+    tolerance: Option<Decimal>
 end
 
 impl Display for Label
@@ -56,7 +56,7 @@ end
 /// The label `bands` give: a single black band, two digits, a multiplier
 /// and a tolerance, or three digits, a multiplier and a tolerance. `None`
 /// for any other count of bands, or a band whose color cannot stand there.
-pub fn label(bands: List<Color>) -> Maybe<Label>
+pub fn label(bands: List<Color>) -> Option<Label>
     case bands
         [.Black] ->
             Some({value: 0d, unit: .Ohms, tolerance: None})
@@ -74,11 +74,11 @@ end
 
 /// The label of the digit bands `digits`, then `multiplier`, the number of
 /// zeros after them, and `tolerance`.
-fn make(digits: List<Color>, multiplier: Color, tolerance: Color) -> Maybe<Label>
+fn make(digits: List<Color>, multiplier: Color, tolerance: Color) -> Option<Label>
     number =
         digits
         |> Iter.map(digit)
-        |> Maybe.collect()?
+        |> Option.collect()?
         |> Int.from_digits()!
 
     zeros = digit(multiplier)?
@@ -103,7 +103,7 @@ fn in_largest_unit(ohms: Int) -> (Decimal, Magnitude)
     end
 end
 
-fn digit(color: Color) -> Maybe<NonNegativeInt>
+fn digit(color: Color) -> Option<NonNegativeInt>
     case color
         .Black           -> Some(0)
         .Brown           -> Some(1)
@@ -120,7 +120,7 @@ fn digit(color: Color) -> Maybe<NonNegativeInt>
 end
 
 /// The tolerance in percent a band of `color` marks, if it marks one.
-fn tolerance_of(color: Color) -> Maybe<Decimal>
+fn tolerance_of(color: Color) -> Option<Decimal>
     case color
         .Grey                                  -> Some(0.05d)
         .Violet                                -> Some(0.1d)

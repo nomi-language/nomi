@@ -155,7 +155,7 @@ fn box(b: Box) -> Int
     Box{items: _} -> 0
   end
 end
-fn pair(p: (List<Int>, Maybe<List<String>>)) -> String
+fn pair(p: (List<Int>, Option<List<String>>)) -> String
   case p
     ([_, ..[n]], Some(["a", ..[s]])) -> "${n} ${s}"
     _ -> "no"

@@ -97,7 +97,7 @@ a `Route<{id: String}>`.
 `Request.path_value` reads a wildcard's text from the request too. A
 query parameter is not part of the route:
 `Url.query_values(request.url) |> Query.get("page")` returns the first
-`page` of `/posts?page=2` as a `Maybe<String>`.
+`page` of `/posts?page=2` as an `Option<String>`.
 
 `std::http::testing.form_request(.Post, "/signup", [("email", "ada@example.com")])`
 builds a request that posts a form, as
@@ -149,7 +149,7 @@ fn badge(count: Int) -> Html
 end
 
 fn profile(request: Request) -> Response
-    name = Request.path_value(request, "name") |> Maybe.with_default("<nobody>")
+    name = Request.path_value(request, "name") |> Option.with_default("<nobody>")
 
     page = Html"""
         <main>
@@ -168,7 +168,7 @@ end
 dbg line 24: Response.text(profile(testing.request(.Get, "/"))) = Ok("<main>\n  <h1>&lt;nobody&gt; <span class='badge'>3</span></h1>\n</main>")
 -->
 
-A slot shows a `Maybe`'s value or nothing, so
+A slot shows an `Option`'s value or nothing, so
 `${if unread > 0 then Some(Html"<b>${unread} new</b>") else None}` shows
 its part only when the condition holds. Inside a quoted attribute value it
 adds its text or nothing, as in
@@ -240,7 +240,7 @@ fn rename(request: Request, user: {id: Int}) -> Result<Html, AppError>
 
     renamed =
         Request.form_value(request, "name")
-        |> Maybe.to_result(AppError.BadInput{reason: "the form has no name"})?
+        |> Option.to_result(AppError.BadInput{reason: "the form has no name"})?
 
     Ok(Html"<h1>${name} is now ${renamed}</h1>")
 end
@@ -407,7 +407,7 @@ struct User
     admin: Bool
 end
 
-fn signed_in(request: Request) -> Maybe<User>
+fn signed_in(request: Request) -> Option<User>
     case Headers.get(request.headers, "Authorization")
         Some("Bearer ada") -> Some(User{name: "Ada", admin: True})
         Some("Bearer bob") -> Some(User{name: "Bob", admin: False})
@@ -511,7 +511,7 @@ derive FromJson for Visit
 once store = CookieStore{key: SessionKey.derive("a secret of 32 bytes or more, kept out of git")!}
 
 fn sign_in(request: Request, session: Session<Visit>) -> Response
-    user = Request.form_value(request, "user") |> Maybe.with_default("")
+    user = Request.form_value(request, "user") |> Option.with_default("")
 
     Response.redirect(request, "/dashboard", Status.see_other)
     |> sessions.write(Session.set(session, Visit{user:}))

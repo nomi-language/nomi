@@ -53,7 +53,7 @@ test "a redundant literal operand is not recorded"
     assert Iter.count(failure.values) == 0
 end
 
-// `actual` is `Maybe<String>` on the Nomi side and a plain string on the
+// `actual` is `Option<String>` on the Nomi side and a plain string on the
 // reporter's, and EMPTY MEANS ABSENT rather than the empty string. A Bool
 // subject never sets it, so a lowering that wrote Some("") would answer
 // differently here.
@@ -73,7 +73,7 @@ test "an absent actual is None rather than an empty string"
 end
 
 // A bare NAME as the subject carries the expression it was bound to, which is
-// the report's `defined as:` row. `binding` is `Maybe<AssertionBinding>` — a
+// the report's `defined as:` row. `binding` is `Option<AssertionBinding>` — a
 // prelude instance over another std record struct, the deepest shape in the
 // family — and its `pipeline` is the THIRD `List<…>` instantiation.
 test "a bound-name subject carries its defining expression"

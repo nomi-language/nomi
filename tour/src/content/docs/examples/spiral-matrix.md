@@ -59,7 +59,7 @@ fn is_empty(grid: Vector<Vector<Int>>, position: (Int, Int)) -> Bool
     cell_at(grid, position) == Some(0)
 end
 
-fn cell_at(grid: Vector<Vector<Int>>, (row, column): (Int, Int)) -> Maybe<Int>
+fn cell_at(grid: Vector<Vector<Int>>, (row, column): (Int, Int)) -> Option<Int>
     cells = Vector.get(grid, row)?
     Vector.get(cells, column)
 end

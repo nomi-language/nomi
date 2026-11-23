@@ -8,7 +8,7 @@ import (
 // MAP PATTERNS.
 //
 // An entry `key => pat` is a lookup and a test on what it found: the key
-// expression is evaluated, `Map.get(subject, key)` answers a Maybe, a
+// expression is evaluated, `Map.get(subject, key)` answers an Option, a
 // MatchVariant asks for `Some`, and the payload is matched against `pat`.
 // That is a lookup, then the entry's pattern on the value, through nodes
 // the VM already runs: one probe per key, and the
@@ -28,9 +28,9 @@ import (
 // A missing key or a failed value test selects the next arm, or the `else`
 // of a binding (`{"k" => v} = m else ... end`): a map pattern is refutable.
 
-// mapEntryGet lowers one entry's key and looks it up in subj: the Maybe the
+// mapEntryGet lowers one entry's key and looks it up in subj: the Option the
 // lookup answers, its kind and its Some variant.
-func (bl *irScalarBuilder) mapEntryGet(at ast.Node, subj ir.Temp, mk kind, keyNode ast.Node) (got ir.Temp, maybe kind, some *variantDef, ok bool) {
+func (bl *irScalarBuilder) mapEntryGet(at ast.Node, subj ir.Temp, mk kind, keyNode ast.Node) (got ir.Temp, option kind, some *variantDef, ok bool) {
 	if mk.tag != tagMap || !irRetainedMapKind(mk) {
 		return ir.NoTemp, kindInvalid, nil, false
 	}
@@ -46,12 +46,12 @@ func (bl *irScalarBuilder) mapEntryGet(at ast.Node, subj ir.Temp, mk kind, keyNo
 		}
 		return ir.NoTemp, kindInvalid, nil, false
 	}
-	maybe, ok = bl.g.mapResultKind("maybe", keyK, valK, at)
-	if !ok || maybe.tag != tagNamed || !irRetainedEnumKind(maybe.def) {
-		bl.g.dc.note("a map pattern over values outside the retained Maybe payloads: " + mk.nomi())
+	option, ok = bl.g.mapResultKind("option", keyK, valK, at)
+	if !ok || option.tag != tagNamed || !irRetainedEnumKind(option.def) {
+		bl.g.dc.note("a map pattern over values outside the retained Option payloads: " + mk.nomi())
 		return ir.NoTemp, kindInvalid, nil, false
 	}
-	some = maybe.def.variant("Some")
+	some = option.def.variant("Some")
 	if some == nil || len(some.payloads) != 1 {
 		return ir.NoTemp, kindInvalid, nil, false
 	}
@@ -61,18 +61,18 @@ func (bl *irScalarBuilder) mapEntryGet(at ast.Node, subj ir.Temp, mk kind, keyNo
 	c := ir.NewHostCall(bl.g.irNodePos(keyNode), bl.f.NewTemp(), ir.OrdinaryCall,
 		bl.g.irCalleeSym("Map.get", "Map.get"), subj, key)
 	bl.b.Append(c)
-	bl.side(c.Dst(), irScalarSide{k: maybe, deferrable: true})
-	return c.Dst(), maybe, some, true
+	bl.side(c.Dst(), irScalarSide{k: option, deferrable: true})
+	return c.Dst(), option, some, true
 }
 
 // mapSomeTest branches on whether got is Some, to found or miss, and leaves
 // the builder in found with the payload read.
-func (bl *irScalarBuilder) mapSomeTest(at ast.Node, got ir.Temp, maybe kind, some *variantDef, miss *ir.Block) (ir.Temp, kind) {
-	match := bl.variantTest(at, got, maybe.def, some)
+func (bl *irScalarBuilder) mapSomeTest(at ast.Node, got ir.Temp, option kind, some *variantDef, miss *ir.Block) (ir.Temp, kind) {
+	match := bl.variantTest(at, got, option.def, some)
 	bl.b.Append(match)
 	bl.side(match.Dst(), irScalarSide{k: kindBool})
 	bl.passOrFail(at, match.Dst(), miss)
-	return bl.variantPayload(at, got, maybe.def, some), some.payloads[0].k
+	return bl.variantPayload(at, got, option.def, some), some.payloads[0].k
 }
 
 // mapCaseTest tests a map pattern with no prefix: every entry's key present
@@ -80,11 +80,11 @@ func (bl *irScalarBuilder) mapSomeTest(at ast.Node, got ir.Temp, maybe kind, som
 // Any failure branches to next.
 func (bl *irScalarBuilder) mapCaseTest(pat *ast.MapPattern, subj ir.Temp, mk kind, next *ir.Block) bool {
 	for _, e := range pat.Entries {
-		got, maybe, some, ok := bl.mapEntryGet(pat, subj, mk, e.Key)
+		got, option, some, ok := bl.mapEntryGet(pat, subj, mk, e.Key)
 		if !ok {
 			return false
 		}
-		value, vk := bl.mapSomeTest(pat, got, maybe, some, next)
+		value, vk := bl.mapSomeTest(pat, got, option, some, next)
 		if !bl.patternTest(e.Pattern, value, vk, next) {
 			return false
 		}

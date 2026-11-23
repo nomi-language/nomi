@@ -37,7 +37,7 @@ fn map_constant(m: Map<String, String>) -> String
   end
 end
 
-fn map_computed(m: Map<String, Maybe<Int>>) -> String
+fn map_computed(m: Map<String, Option<Int>>) -> String
   if {note("n") => Some(n)} = m then
     "n ${n}"
   else
@@ -117,7 +117,7 @@ fn as_map(m: Map<String, String>) -> String
   end
 end
 
-fn nested(v: Maybe<List<(Int, String)>>) -> String
+fn nested(v: Option<List<(Int, String)>>) -> String
   if Some([(0, s), ..]) = v then
     "nested ${s}"
   else

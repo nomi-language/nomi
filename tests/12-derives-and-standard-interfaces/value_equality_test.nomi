@@ -36,9 +36,9 @@ end
 test "an interface value interpolates and defaults as the value it holds"
     assert "<${(7 as Display)}>" == "<7>"
     assert "<${("s" as Display)}>" == "<s>"
-    gone: Maybe<Display> = None
-    fallback = gone |> Maybe.with_default((8 as Display))
+    gone: Option<Display> = None
+    fallback = gone |> Option.with_default((8 as Display))
     assert Display.to_string(fallback) == "8"
-    held = Some((7 as Display)) |> Maybe.with_default((8 as Display))
+    held = Some((7 as Display)) |> Option.with_default((8 as Display))
     assert Display.to_string(held) == "7"
 end

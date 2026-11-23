@@ -42,7 +42,7 @@ import
     io.{Error, Reader, Writer}
     lists.List
     maps.Map
-    maybe.Maybe.{self, None, Some}
+    option.Option.{self, None, Some}
     process::host
     resources.Release
     results.Result.{self, Ok}
@@ -79,7 +79,7 @@ end
 //! assert ExitCode.try_from(256) == None
 //! assert ExitCode.try_from(-1) == None
 //
-pub subtype ExitCode Int when fn code -> code >= 0 and code <= 255
+pub refine ExitCode Int when fn code -> code >= 0 and code <= 255
 
 /// A program to start and how: an immutable value, so one command can be
 /// run any number of times.
@@ -99,7 +99,7 @@ pub struct Command
     clear_env: Bool = False
     /// The directory the program runs in, relative to the working
     /// directory; `None` runs it in the working directory.
-    dir: Maybe<String> = None
+    dir: Option<String> = None
     /// What the program reads on its standard input, for `output` and
     /// `run`.
     stdin: Stdin = Stdin.Null
@@ -143,7 +143,7 @@ impl Status
     //! assert Status.code(Status.Exited{code: 3}) == Some(3)
     //! assert Status.code(Status.Signaled{signal: 9}) == None
     //
-    pub fn code(status: Status) -> Maybe<Int>
+    pub fn code(status: Status) -> Option<Int>
         case status
             Status.Exited{code:} -> Some(code)
             Status.Signaled{}    -> None
@@ -320,7 +320,7 @@ fn start(command: Command, stdout: Int64, stderr: Int64, piped: Bool) -> Result<
         command.args,
         command.env,
         command.clear_env,
-        Maybe.with_default(command.dir, ""),
+        Option.with_default(command.dir, ""),
         mode,
         input,
         stdout,

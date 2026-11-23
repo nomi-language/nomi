@@ -329,7 +329,7 @@ end`
 }
 
 // When an interface bound is satisfied by a generic-container type
-// (List<E>, Map<K, V>, Result<T, E>, Maybe<T>, etc.), the analyzer
+// (List<E>, Map<K, V>, Result<T, E>, Option<T>, etc.), the analyzer
 // must record (typearg, iface) for each TypeArg the container's
 // stdlib impl will dispatch through at runtime — not just the
 // container itself.
@@ -425,15 +425,15 @@ func TestManifestRecordsStringDisplayForDeriveDebugStringInterp(t *testing.T) {
     std::io
 end
 
-pub enum Maybe2<T>
+pub enum Option2<T>
   Some2 T
   None2
 
 end
-derive Debug for Maybe2
+derive Debug for Option2
 
-fn demo() -> Maybe2<Int>
-  m = Maybe2.Some2(42)
+fn demo() -> Option2<Int>
+  m = Option2.Some2(42)
   io.inspect(m)
   m
 end`

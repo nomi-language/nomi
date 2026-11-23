@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/nomi-language/nomi/internal/cpuprofile"
 	"github.com/nomi-language/nomi/internal/frontend"
@@ -25,7 +23,7 @@ func runFileVM(path string, args ...string) {
 	if isImageFilePath(path) {
 		os.Exit(runImageFile(path, args))
 	}
-	absPath, err := runEntry(path)
+	absPath, err := programEntry("run", path)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -37,29 +35,6 @@ func runFileVM(path string, args ...string) {
 	if code != 0 {
 		os.Exit(code)
 	}
-}
-
-// runEntry is the absolute path of the program `nomi run path` runs from
-// source, or why path cannot be one.
-func runEntry(path string) (string, error) {
-	if err := entryFileError("run", path); err != nil {
-		return "", err
-	}
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		return "", err
-	}
-	if strings.HasSuffix(filepath.Base(absPath), "_test.nomi") {
-		return "", fmt.Errorf("nomi run: %s is a test file; use `nomi test %s`",
-			vmhost.DisplayPath(absPath), vmhost.DisplayPath(absPath))
-	}
-	if isStdlibTestPath(absPath) {
-		// A stdlib file is a module, not a program: it has no `main` to run,
-		// and its `//!` prompts are tests.
-		return "", fmt.Errorf("nomi run: %s is a stdlib module, not a program; to run its tests, use `nomi test %s`",
-			vmhost.DisplayPath(absPath), vmhost.DisplayPath(absPath))
-	}
-	return absPath, nil
 }
 
 // runTestVM is `nomi test` on the VM. Every file's cases that can run, run;

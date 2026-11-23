@@ -36,7 +36,7 @@ import (
 // Two have a record the builder does not reach yet:
 //
 //   - a constructor's payload converted to an interface where the checker
-//     records the conversion at the constructor (`m: Maybe<Show> =
+//     records the conversion at the constructor (`m: Option<Show> =
 //     Some(Vector["v"])`, analysis.Conversion.Boxes), whose box the
 //     payload's lowering builds without it, and what that box's entries
 //     reach. The payload's conversion (convertTo, recordedCoercion) reads

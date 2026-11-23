@@ -28,9 +28,9 @@ func listHost(key string) hostFn {
 		}
 		switch key {
 		case "List.first":
-			return maybeOf(rt.ListCellHead[any, list](lists[0])), nil
+			return optionOf(rt.ListCellHead[any, list](lists[0])), nil
 		case "List.tail":
-			return maybeOf(rt.ListCellTail[any, list](lists[0])), nil
+			return optionOf(rt.ListCellTail[any, list](lists[0])), nil
 		case "List.concat":
 			return rt.ListCellConcat[any, list](lists[0], lists[1]), nil
 		}

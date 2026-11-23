@@ -9,7 +9,7 @@ import (
 )
 
 // Reads of a value's storage that a fused crossing answers in the dispatch
-// loop (maybefuse.go's fastPaths, frame.readFused): each test runs a
+// loop (optionfuse.go's fastPaths, frame.readFused): each test runs a
 // program with the reads in the loop and with each read made as its
 // crossing (NoFastReadsEnv), and requires the same transcript.
 
@@ -46,7 +46,7 @@ func readsBothWays(t *testing.T, src, fn string, reads int) string {
 func TestFastReads_AnswerAsTheirCrossings(t *testing.T) {
 	got := readsBothWays(t, `import std::io
 
-fn show(m: Maybe<Int>) -> String
+fn show(m: Option<Int>) -> String
     case m
         Some(x) -> "${x}"
         None    -> "-"

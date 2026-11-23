@@ -66,7 +66,7 @@ import std::io
 //     is a two-stage chain and `Iter.map |> Iter.filter |> Iter.to_list` a
 //     three-stage one; a source that composes with a terminal directly can still
 //     fail to compose with an adapter.
-// The three `Maybe`-returning rows are read through these rather than
+// The three `Option`-returning rows are read through these rather than
 // interpolated, for the reason stated at their call sites.
 fn at_or(v: Vector<Int>, i: Int) -> Int
     case Vector.get(v, i)
@@ -101,8 +101,8 @@ fn main()
     v = Vector[1, 2, 3]
     io.print("len ${Vector.length(v)}")
     io.print("count ${Iter.count(v)}")
-    // A `Maybe` is read through a `case` rather than interpolated: `${Some(1)}`
-    // refuses `rendering a non-scalar value (Maybe<Int>)`, which is a prelude
+    // An `Option` is read through a `case` rather than interpolated: `${Some(1)}`
+    // refuses `rendering a non-scalar value (Option<Int>)`, which is a prelude
     // rendering gap and not a Vector one. The bounds behaviour is what these rows
     // are for and a case match shows all of it.
     io.print("at0 ${at_or(v, 0)}")
@@ -197,9 +197,9 @@ fn main()
     // --- a Vector inside a PRELUDE PAYLOAD, and a Vector as a MAP KEY --------
     //
     // These are the rows the CORPUS needs and the recovered fixture did not have.
-    // The corpus compares a `Maybe<Vector<Int>>` with `==`, and with the
+    // The corpus compares an `Option<Vector<Int>>` with `==`, and with the
     // recovery alone that was left refusing exactly one position:
-    // `equality on a named type | Maybe<Vector<Int>>`. So `==` reached
+    // `equality on a named type | Option<Vector<Int>>`. So `==` reached
     // `valueEqual` over the PAYLOAD kind, which declined for a Vector by design.
     //
     // The MAP KEY rows are here because widening `valueEqual` without widening
@@ -219,10 +219,10 @@ fn main()
     // `Start == 0` and must land in the same bucket as the literal.
     keys = {Vector[1, 2] => "a", Vector[3] => "b"}
     grid = Vector[Vector.set(pushed, 1, 20)!]
-    io.print("maybe eq none ${Vector.get(grid, 9) == None}")
-    io.print("maybe eq some ${Vector.get(grid, 0) == Some(Vector[1, 20, 3])}")
-    io.print("maybe eq no ${Vector.get(grid, 0) == Some(Vector[9, 9, 9])}")
-    io.print("maybe scalar ${Vector.get(v, 0) == Some(1)}")
+    io.print("option eq none ${Vector.get(grid, 9) == None}")
+    io.print("option eq some ${Vector.get(grid, 0) == Some(Vector[1, 20, 3])}")
+    io.print("option eq no ${Vector.get(grid, 0) == Some(Vector[9, 9, 9])}")
+    io.print("option scalar ${Vector.get(v, 0) == Some(1)}")
     io.print("key hit ${Map.get(keys, Vector[1, 2]) == Some("a")}")
     io.print("key miss ${Map.get(keys, Vector[9]) == None}")
     io.print("key window ${Map.get(keys, Vector.concat(Vector[1], Vector[2])) == Some("a")}")
@@ -243,7 +243,7 @@ fn main()
         |> Iter.to_list()}"
     )
 
-    // `Iter.find` returns a `Maybe<String>`, and interpolating one refuses
+    // `Iter.find` returns an `Option<String>`, and interpolating one refuses
     // `rendering a non-scalar value` — a PRELUDE rendering gap, not a Vector one,
     // and out of this slice's scope. Counted instead, which reads the same
     // predicate over the same Vector source through the same adapter chain.

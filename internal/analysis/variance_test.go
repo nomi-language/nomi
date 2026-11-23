@@ -25,7 +25,7 @@ func checkWithStd(t *testing.T, src string) (*analysis.FileAnalysis, []ast.Node)
 const varianceSrc = `struct Holds<A>
     item: A
     items: List<A>
-    pair: (Int, Maybe<A>)
+    pair: (Int, Option<A>)
 end
 
 struct Takes<A>
@@ -71,7 +71,7 @@ struct Keyed<A>
     within: Set<A>
 end
 
-fn run(h: Holds<Int>, t: Takes<Int>, b: Both<Int>, p: Phantom<Int>, w: Twice<Int>, m: Mixed<Int, Int>, c: Chain<Int>, l: Loop<Int>, k: Keyed<Int>, mb: Maybe<Int>, r: Result<Int, String>, ids: Ids<Int>, hd: Handler<Int>, tk: Taker<Int>) -> Int
+fn run(h: Holds<Int>, t: Takes<Int>, b: Both<Int>, p: Phantom<Int>, w: Twice<Int>, m: Mixed<Int, Int>, c: Chain<Int>, l: Loop<Int>, k: Keyed<Int>, mb: Option<Int>, r: Result<Int, String>, ids: Ids<Int>, hd: Handler<Int>, tk: Taker<Int>) -> Int
     0
 end
 `
@@ -80,7 +80,7 @@ end
 // one taken only (a function's parameter) contravariant, one both held and
 // taken invariant, one never named covariant; a contravariant position inside
 // another flips back, a recursive type reads its own variance, a Map key and
-// a Set element are covariant, std's Maybe and Result are covariant, and a
+// a Set element are covariant, std's Option and Result are covariant, and a
 // distinct type's parameters are its inner type's.
 func TestTypeParamVariances_FromTheFields(t *testing.T) {
 	fa, _ := checkWithStd(t, varianceSrc)
@@ -129,7 +129,7 @@ impl Show for List<String>
     end
 end
 
-fn take(m: Maybe<Show>) -> Int
+fn take(m: Option<Show>) -> Int
     case m
         Some(s) -> Show.show(s)
         None -> 0
@@ -142,8 +142,8 @@ fn run() -> Int
 end
 `
 
-// TestConversions_RecordEachPartThatEntersAnInterface: a `Maybe<List<Int>>`
-// passed where a `Maybe<Show>` is expected has a record of the conversion,
+// TestConversions_RecordEachPartThatEntersAnInterface: an `Option<List<Int>>`
+// passed where an `Option<Show>` is expected has a record of the conversion,
 // whose one box names the List<Int> impl, since a List's name does not
 // select it; the verifier reports the expression once the record is gone.
 func TestConversions_RecordEachPartThatEntersAnInterface(t *testing.T) {
@@ -172,8 +172,8 @@ func TestConversions_RecordEachPartThatEntersAnInterface(t *testing.T) {
 	switch {
 	case rec == nil:
 		t.Fatal("no conversion recorded for take's argument")
-	case rec.From.String() != "Maybe<List<Int>>" || rec.To.String() != "Maybe<Show>":
-		t.Fatalf("recorded %s to %s, want Maybe<List<Int>> to Maybe<Show>", rec.From, rec.To)
+	case rec.From.String() != "Option<List<Int>>" || rec.To.String() != "Option<Show>":
+		t.Fatalf("recorded %s to %s, want Option<List<Int>> to Option<Show>", rec.From, rec.To)
 	case len(rec.Boxes) != 1:
 		t.Fatalf("recorded %d boxes, want 1", len(rec.Boxes))
 	case rec.Boxes[0].Iface.Name != "Show" || rec.Boxes[0].Value.String() != "List<Int>" || rec.Boxes[0].Impl != impl:

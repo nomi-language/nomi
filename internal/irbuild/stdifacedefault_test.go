@@ -14,7 +14,7 @@ const discreteDay = `pub struct Day
 end
 
 impl Discrete for Day
-    fn next(d: Day) -> Maybe<Day>
+    fn next(d: Day) -> Option<Day>
         if d.n < 7 then Some(Day{n: d.n + 1}) else None
     end
 end
@@ -32,7 +32,7 @@ func TestStdIfaceDefault_ProgramImplementorInherits(t *testing.T) {
 	const main = `import std::io
 
 ` + discreteDay + `
-fn steps<T>(a: T, b: T) -> Maybe<Int> where T: Discrete
+fn steps<T>(a: T, b: T) -> Option<Int> where T: Discrete
     Discrete.steps_between(a, b)
 end
 
@@ -69,16 +69,16 @@ struct Step
 end
 
 impl Discrete for Step
-    fn next(s: Step) -> Maybe<Step>
+    fn next(s: Step) -> Option<Step>
         Some(Step{n: s.n + 1})
     end
 
-    fn steps_between(start: Step, stop: Step) -> Maybe<Int>
+    fn steps_between(start: Step, stop: Step) -> Option<Int>
         Some(stop.n - start.n)
     end
 end
 
-fn steps<T>(a: T, b: T) -> Maybe<Int> where T: Discrete
+fn steps<T>(a: T, b: T) -> Option<Int> where T: Discrete
     Discrete.steps_between(a, b)
 end
 

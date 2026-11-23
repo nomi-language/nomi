@@ -13,7 +13,7 @@
 pub opaque type Email String
 
 /// Validates `s` and returns Some(Email) if it contains "@", or None.
-pub fn from_string(s: String) -> Maybe<Email>
+pub fn from_string(s: String) -> Option<Email>
     if "@" in s then Some(Email(s)) else None
 end
 

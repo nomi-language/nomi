@@ -27,14 +27,14 @@ fn main() -> Result<Unit, Error>
             return Ok(Unit)
     end
 
-    name = user.name |> Maybe.with_default("no name")
+    name = user.name |> Option.with_default("no name")
     io.print("user ${user.id}: ${user.email} (${name})")
 
     _ = queries.insert_user(db, "grace@example.com", None)?
     counts = queries.order_counts(db)?
 
     Iter.each(counts, fn c ->
-        last = c.last_order |> Maybe.map(fn id -> "${id}") |> Maybe.with_default("none")
+        last = c.last_order |> Option.map(fn id -> "${id}") |> Option.with_default("none")
         io.print("${c.email}: orders ${c.orders}, last order ${last}")
     end)
 

@@ -11,7 +11,7 @@ import (
 	"github.com/nomi-language/nomi/internal/vm"
 )
 
-// Assertion subjects that are not a Bool (`Maybe`/`Result` shapes and
+// Assertion subjects that are not a Bool (`Option`/`Result` shapes and
 // `Assertable` values), assertions inside an ordinary `fn`, and a piped
 // `testing.check`, run on the VM and compared against the golden record of
 // `nomi test`, failing reports included.
@@ -58,7 +58,7 @@ func irAssertFixtureVM(t *testing.T, path string) *ir.Module {
 // transcript is the golden record byte for byte.
 func TestIRAssertSubject_RepositoryFixturesRunWhole(t *testing.T) {
 	for _, name := range []string{
-		"assert_shape.nomi",              // Maybe/Result subjects, both keywords
+		"assert_shape.nomi",              // Option/Result subjects, both keywords
 		"assertable_subject.nomi",        // Assertable answers, defaults and empty reasons
 		"assertable_subject_report.nomi", // Assertable rows, details and defined-as
 		"check_shape_report.nomi",        // testing.check over a shape subject
@@ -107,7 +107,7 @@ import
   std::testing
 end
 
-fn find(n: Int) -> Maybe<String>
+fn find(n: Int) -> Option<String>
   if n == 1 then Some("Ada") else None
 end
 

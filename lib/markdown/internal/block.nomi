@@ -29,7 +29,7 @@ pub enum Kind
     Heading {level: Int, setext: Bool}
     ThematicBreak
     CodeBlock
-    FencedCode {info: Maybe<Seg>}
+    FencedCode {info: Option<Seg>}
     /// `closed` when a line that ends the block was read: such a block
     /// renders as two omitted-HTML comments.
     HtmlBlock {kind: Int, closed: Bool}
@@ -58,7 +58,7 @@ end
 /// A link reference definition's destination and title, as written.
 pub struct Ref
     destination: Bytes
-    title:       Maybe<Bytes>
+    title:       Option<Bytes>
 end
 
 /// An open fenced code block: its fence's character, indent and length.
@@ -91,7 +91,7 @@ pub struct Doc
     nodes:      Vector<Node>
     open:       Vector<Int> = []
     refs:       Map<String, Ref> = {}
-    fence:      Maybe<Fence> = None
+    fence:      Option<Fence> = None
     skip_list:  Bool = False
     empty_item: Bool = False
     tb_pos:     Int = 0
@@ -168,7 +168,7 @@ pub fn children(st: Doc, id: Int) -> List<Int>
 end
 
 /// The child after `id`, or None for the last.
-pub fn next_sibling(st: Doc, id: Int) -> Maybe<Int>
+pub fn next_sibling(st: Doc, id: Int) -> Option<Int>
     parent = node(st, id).parent
     if parent < 0 then return None
     before(node(st, parent).children, id)
@@ -176,7 +176,7 @@ end
 
 /// The element held just before `x` in `xs`: since children are held
 /// newest first, the child after it.
-fn before(xs: List<Int>, x: Int) -> Maybe<Int>
+fn before(xs: List<Int>, x: Int) -> Option<Int>
     case xs
         [a, b, ..] when b == x -> Some(a)
         [_, ..rest]            -> before(rest, x)
@@ -189,7 +189,7 @@ fn src_at(st: Doc, i: Int) -> Int
     text.at(st.src, i)
 end
 
-fn peek(st: Doc) -> Maybe<Line>
+fn peek(st: Doc) -> Option<Line>
     if st.start >= 0 and st.start < st.size then
         Some(Line{start: st.start, stop: st.stop, pad: st.padding})
     else
@@ -500,7 +500,7 @@ fn placed_before(xs: List<Int>, x: Int, y: Int) -> List<Int>
     end
 end
 
-fn last_child(st: Doc, id: Int) -> Maybe<Int>
+fn last_child(st: Doc, id: Int) -> Option<Int>
     List.first(node(st, id).children)
 end
 
@@ -509,7 +509,7 @@ fn add_line(st: Doc, id: Int, s: Seg) -> Doc
     put(st, id, {..n, lines: [s, ..n.lines]})
 end
 
-fn last_opened(st: Doc) -> Maybe<Int>
+fn last_opened(st: Doc) -> Option<Int>
     Vector.get(st.open, Vector.length(st.open) - 1)
 end
 
@@ -957,7 +957,7 @@ fn quote_open(st: Doc) -> (Doc, Opened)
     end
 end
 
-fn quote_process(st: Doc) -> Maybe<Doc>
+fn quote_process(st: Doc) -> Option<Doc>
     l = peek(st)?
     (w, pos) = indent_width(st, l, 0, line_offset(st))
     if w > 3 or pos >= len(l) or ch(st, l, pos) != 62 then return None
@@ -1093,7 +1093,7 @@ end
 
 /// The character of a setext underline at `from` in the line, `=` or `-`,
 /// or None when the line is not one.
-fn setext_bar(st: Doc, l: Line, from: Int) -> Maybe<Int>
+fn setext_bar(st: Doc, l: Line, from: Int) -> Option<Int>
     end_ = len(l)
     start = skip_line_byte(st, l, from, 32)
     if start - from > 3 then return None
@@ -1657,7 +1657,7 @@ struct Marker
     ordered:     Bool
 end
 
-fn list_marker(st: Doc, l: Line) -> Maybe<Marker>
+fn list_marker(st: Doc, l: Line) -> Option<Marker>
     n = len(l)
     i = skip_line_byte(st, l, 0, 32)
     if i > 3 or i >= n then return None
@@ -1925,7 +1925,7 @@ end
 /// range as goldmark does.
 fn without_definitions(segs: List<Seg>, removes: List<(Int, Int)>) -> List<Seg>
     if not consecutive(removes, 0) then return remove_ranges(segs, removes, 0)
-    last = removes |> Iter.map(.second) |> Iter.max() |> Maybe.with_default(0)
+    last = removes |> Iter.map(.second) |> Iter.max() |> Option.with_default(0)
     List.slice(segs, last, List.length(segs))
 end
 
@@ -1991,13 +1991,13 @@ end
 struct Definition
     label:       Bytes
     destination: Bytes
-    title:       Maybe<Bytes>
+    title:       Option<Bytes>
     first_line:  Int
     end_line:    Int
     cursor:      Cursor
 end
 
-fn reference_definition(lines: Lines, c: Cursor) -> Maybe<Definition>
+fn reference_definition(lines: Lines, c: Cursor) -> Option<Definition>
     (c, _, _) = Cursor.skip_spaces(c, lines)
     (ls, _) = Cursor.peek_line(c, lines)?
     start_line = c.line
@@ -2111,7 +2111,7 @@ fn add_cell(st: Doc, row: Int, cell: Node) -> Doc
     append_child(st, row, id)
 end
 
-fn delimiter_row(st: Doc, seg: Seg) -> Maybe<List<Align>>
+fn delimiter_row(st: Doc, seg: Seg) -> Option<List<Align>>
     first = src_at(st, seg.start + text.leading_spaces(st.src, seg.start, seg.stop))
 
     // - | :
@@ -2134,7 +2134,7 @@ fn delimiter_row(st: Doc, seg: Seg) -> Maybe<List<Align>>
 
     cols
     |> Iter.map(alignment)
-    |> Maybe.collect()
+    |> Option.collect()
 end
 
 fn is_table_delimiter(value: Bytes) -> Bool
@@ -2158,7 +2158,7 @@ end
 
 /// A delimiter row's column: `:---`, `---:`, `:---:` or `---`, with RE2's
 /// spaces around it, or None.
-fn alignment(col: Bytes) -> Maybe<Align>
+fn alignment(col: Bytes) -> Option<Align>
     n = Bytes.length(col)
     from = re_spaces_end(col, 0)
     to = n - re_spaces_before(col, n, from)
@@ -2225,7 +2225,7 @@ fn row_cells(
 ) -> List<Node>
     if pos >= limit then return cells
     if i >= Vector.length(aligns) and not is_header then return cells
-    align = Vector.get(aligns, i) |> Maybe.with_default(Align.Unaligned)
+    align = Vector.get(aligns, i) |> Option.with_default(Align.Unaligned)
     (closure, escapes) = cell_end(st, seg, pos, limit, False, [])
 
     cell_seg =

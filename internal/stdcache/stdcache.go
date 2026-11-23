@@ -112,7 +112,7 @@ func Version(files fs.FS) string {
 // Version is the directory's version name.
 func (d *Dir) Version() string { return d.version }
 
-// Location is where rel (a slash-separated path such as "maybe.nomi") is
+// Location is where rel (a slash-separated path such as "option.nomi") is
 // written, without writing anything.
 func (d *Dir) Location(rel string) string {
 	return filepath.Join(d.root, d.version, filepath.FromSlash(rel))

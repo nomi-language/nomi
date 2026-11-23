@@ -82,7 +82,7 @@ func TestInline_ATailCallAfterACompiledInBodyGetsItsExitHooks(t *testing.T) {
 end
 
 struct Held
-    dir: Maybe<Dir>
+    dir: Option<Dir>
 end
 
 fn guarded(held: Held, name: String) -> Result<Held, String>
@@ -93,14 +93,14 @@ end
 
 fn outer(name: String) -> Result<Held, String>
     if name == "x" then return outer("y")
-    temp = fs.open_dir(fs.temp_dir()) |> Result.to_maybe()
+    temp = fs.open_dir(fs.temp_dir()) |> Result.to_option()
     guarded(Held{dir: temp}, name)
 end
 
 fn main() -> Result<Unit, String>
     held = outer("a")?
     defer io.print("done")
-    io.print("${Maybe.is_some(held.dir)} ${Result.is_ok(outer(""))}")
+    io.print("${Option.is_some(held.dir)} ${Result.is_ok(outer(""))}")
     Ok(Unit)
 end
 `, []string{"outer"})
@@ -137,7 +137,7 @@ end
 func TestInline_AQuestionMarkLeavesTheCompiledInBody(t *testing.T) {
 	src := `import std::io
 
-fn second(v: Vector<Int>) -> Maybe<Int>
+fn second(v: Vector<Int>) -> Option<Int>
     x = Vector.get(v, 1)?
     Some(x * 10)
 end
@@ -420,12 +420,12 @@ func writeTempProgram(t *testing.T, src string) string {
 	return path
 }
 
-// orNeg takes apart a Maybe it receives; down hands it the one a crossing
-// answers, so with orNeg compiled in the Maybe fuses in down and no Some
+// orNeg takes apart an Option it receives; down hands it the one a crossing
+// answers, so with orNeg compiled in the Option fuses in down and no Some
 // is built, one activation of down after another.
 const orNegLoop = `import std::io
 
-fn or_neg(m: Maybe<Int>) -> Int
+fn or_neg(m: Option<Int>) -> Int
     case m
         Some(c) -> c
         None    -> -1
@@ -441,9 +441,9 @@ fn main()
 end
 `
 
-// A Maybe handed to a body compiled in that only takes it apart is kept in
+// An Option handed to a body compiled in that only takes it apart is kept in
 // the caller's registers: the Some is never built.
-func TestInline_AMaybeACompiledInBodyTakesApartIsNotBuilt(t *testing.T) {
+func TestInline_AOptionACompiledInBodyTakesApartIsNotBuilt(t *testing.T) {
 	p, err := vmhost.LoadSource("main", fmt.Sprintf(orNegLoop, 3))
 	if err != nil {
 		t.Fatalf("the front end rejects this, so it tests nothing: %v", err)
@@ -453,11 +453,11 @@ func TestInline_AMaybeACompiledInBodyTakesApartIsNotBuilt(t *testing.T) {
 		t.Fatalf("down does not compile or_neg in over a fused crossing (%v):\n%s", err, listing)
 	}
 	if per := allocsPerActivation(t, orNegLoop); per > 0.1 {
-		t.Errorf("a Maybe taken apart in a compiled-in body allocates %.2f times an activation, want 0", per)
+		t.Errorf("an Option taken apart in a compiled-in body allocates %.2f times an activation, want 0", per)
 	}
 	t.Setenv(vm.NoInlineEnv, "1")
 	if per := allocsPerActivation(t, orNegLoop); per < 0.9 {
-		t.Errorf("handed to a call, the Maybe allocates %.2f times an activation, want 1 or more", per)
+		t.Errorf("handed to a call, the Option allocates %.2f times an activation, want 1 or more", per)
 	}
 }
 
@@ -529,14 +529,14 @@ func bytesPerActivation(t *testing.T, src string) float64 {
 	return (measure(high) - measure(low)) / (high - low)
 }
 
-// pick takes apart the Maybe second answers, so the body compiled into
+// pick takes apart the Option second answers, so the body compiled into
 // pick returns it in parts and leaves the machine's loop, and pick goes on
 // to a tail call of report, a function whose `defer` needs exit hooks.
 // main calls pick through a value, so pick runs as an activation of its
 // own rather than compiled into main.
 const tailIntoExitHooksAfterAView = `import std::io
 
-fn second(v: Vector<Int>) -> Maybe<Int>
+fn second(v: Vector<Int>) -> Option<Int>
     x = Vector.get(v, 1)?
     Some(x * 10)
 end

@@ -795,7 +795,7 @@ func (d *decoder) instr(r *rbuf) Instr {
 		return &Not{pos: d.pos(r), dst: r.temp(), val: r.temp()}
 	case tagProj:
 		return &Proj{pos: d.pos(r), dst: r.temp(), subj: r.temp(), kind: ProjKind(r.byte1()),
-			sym: d.sym(r.uv()), text: d.str(r.uv()), idx: int(r.sv()), faults: r.bool1(),
+			sym: d.sym(r.uv()), text: d.str(r.uv()), idx: int(r.sv()),
 			shape: ValShape(r.byte1()), field: d.str(r.uv()), embeds: d.sym(r.uv()), drop: int(r.sv())}
 	case tagMake:
 		return &Make{pos: d.pos(r), dst: r.temp(), kind: MakeKind(r.byte1()),

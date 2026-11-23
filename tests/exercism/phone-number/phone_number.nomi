@@ -27,7 +27,7 @@ pub fn clean(phrase: String) -> Result<String, Error>
     digits =
         codepoints
         |> Iter.map(Codepoint.to_digit)
-        |> Maybe.values()
+        |> Option.values()
         |> Iter.to_list()
         |> national()?
 

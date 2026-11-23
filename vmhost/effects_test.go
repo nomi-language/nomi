@@ -135,7 +135,7 @@ end
 end
 
 fn boot(startup: Startup) -> Result<App, String>
-    Ok(App{greeting: Map.get(startup.env, "GREETING") |> Maybe.with_default("hello")})
+    Ok(App{greeting: Map.get(startup.env, "GREETING") |> Option.with_default("hello")})
 end
 
 fn main()
@@ -405,7 +405,7 @@ end
 
 fn boot(startup: Startup) -> Result<App, String>
     io.print("boot")
-    Ok(App{name: List.first(startup.args) |> Maybe.with_default("app")})
+    Ok(App{name: List.first(startup.args) |> Option.with_default("app")})
 end
 
 interface Greeter
@@ -526,7 +526,7 @@ end
 
 fn boot(startup: Startup) -> Result<App, String>
     io.print("booting")
-    Ok(App{greeting: Map.get(startup.env, "GREETING") |> Maybe.with_default("hello")})
+    Ok(App{greeting: Map.get(startup.env, "GREETING") |> Option.with_default("hello")})
 end
 
 fn main()

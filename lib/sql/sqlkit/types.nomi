@@ -31,12 +31,12 @@ pub struct Family
     reader: String
     bound:  String
     nomi:   String
-    module: Maybe<String>
+    module: Option<String>
 end
 
 derive Equatable for Family
 
-fn family(reader: String, bound: String, nomi: String, module: Maybe<String>) -> Family
+fn family(reader: String, bound: String, nomi: String, module: Option<String>) -> Family
     Family{reader:, bound:, nomi:, module:}
 end
 
@@ -44,22 +44,22 @@ end
 /// expression's column has no declared type). An array, `T[]`, reads as a
 /// `List` of `T`'s type through the generic reader, since a family is a
 /// column of one value.
-//! assert types.of("BIGINT") |> Maybe.map(fn f -> f.nomi) == Some("Int")
-//! assert types.of("varchar(80)") |> Maybe.map(fn f -> f.nomi) == Some("String")
-//! assert types.of("DECIMAL(12, 2)") |> Maybe.map(fn f -> f.nomi) == Some("Decimal")
-//! assert types.of("DATE") |> Maybe.map(fn f -> f.nomi) == Some("Date")
+//! assert types.of("BIGINT") |> Option.map(fn f -> f.nomi) == Some("Int")
+//! assert types.of("varchar(80)") |> Option.map(fn f -> f.nomi) == Some("String")
+//! assert types.of("DECIMAL(12, 2)") |> Option.map(fn f -> f.nomi) == Some("Decimal")
+//! assert types.of("DATE") |> Option.map(fn f -> f.nomi) == Some("Date")
 //!
-//! assert types.of("UUID[]") |> Maybe.map(fn f -> (f.reader, f.nomi)) == Some(("value", "List<Uuid>"))
+//! assert types.of("UUID[]") |> Option.map(fn f -> (f.reader, f.nomi)) == Some(("value", "List<Uuid>"))
 //!
 //! assert types.of("") == None
 //
-pub fn of(declared: String) -> Maybe<Family>
+pub fn of(declared: String) -> Option<Family>
     upper = declared |> String.uppercase() |> String.trim()
 
     case String.strip_suffix(upper, "[]")
         Some(element) ->
             return of(element)
-            |> Maybe.map(fn f -> Family{
+            |> Option.map(fn f -> Family{
                 reader: "value",
                 bound:  "",
                 nomi:   "List<${f.nomi}>",
@@ -134,8 +134,8 @@ end
 //! assert types.scale("DECIMAL") == None
 //! assert types.scale("INTEGER") == None
 //
-pub fn scale(declared: String) -> Maybe<Int>
-    precision_and_scale(declared) |> Maybe.map(fn (_, s) -> s)
+pub fn scale(declared: String) -> Option<Int>
+    precision_and_scale(declared) |> Option.map(fn (_, s) -> s)
 end
 
 /// The precision and scale of a declared `DECIMAL(p, s)` or `NUMERIC(p, s)`
@@ -143,7 +143,7 @@ end
 //! assert types.precision_and_scale("DECIMAL(12, 2)") == Some((12, 2))
 //! assert types.precision_and_scale("NUMERIC") == None
 //
-pub fn precision_and_scale(declared: String) -> Maybe<(Int, Int)>
+pub fn precision_and_scale(declared: String) -> Option<(Int, Int)>
     upper = declared |> String.uppercase() |> String.trim()
 
     case String.split(upper, "(")
@@ -167,7 +167,7 @@ pub fn precision_and_scale(declared: String) -> Maybe<(Int, Int)>
 end
 
 // SQLite's affinity rules, in its order.
-fn by_affinity(name: String) -> Maybe<Family>
+fn by_affinity(name: String) -> Option<Family>
     if "INT" in name then
         Some(family("int", "SqlInt", "Int", None))
     else if "CHAR" in name or "CLOB" in name or "TEXT" in name then
@@ -192,11 +192,11 @@ end
 //! assert types.postgres("interval") == None
 //! assert types.postgres("citext") == None
 //
-pub fn postgres(type_name: String) -> Maybe<String>
+pub fn postgres(type_name: String) -> Option<String>
     name = String.trim(type_name)
 
     case String.strip_suffix(name, "[]")
-        Some(element) -> return postgres(element) |> Maybe.map(fn e -> "${e}[]")
+        Some(element) -> return postgres(element) |> Option.map(fn e -> "${e}[]")
         None          -> Unit
     end
 

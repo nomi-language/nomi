@@ -30,28 +30,28 @@ func TestDocumentManager_OpenAndGet(t *testing.T) {
 }
 
 // A stdlib file opened directly in the editor (e.g. via go-to-def into
-// ~/.cache/nomi/stdlib/maybe.nomi or by browsing stdlib/
+// ~/.cache/nomi/stdlib/option.nomi or by browsing stdlib/
 // in-tree) must not be analyzed with the prelude as its parent scope —
 // stdlib files import their dependencies by hand, and giving them the
 // prelude would trip the reserved-name check on every prelude-exported
-// type the stdlib file itself declares (Maybe, Result, Display, ...).
+// type the stdlib file itself declares (Option, Result, Display, ...).
 // Detected by an immediate-parent directory named "stdlib".
 func TestDocumentManager_StdlibFileBypassesPrelude(t *testing.T) {
 	dm := NewDocumentManager()
 	// Wire a non-nil prelude scope so the reserved-name check would fire
-	// against `Maybe` if the bypass weren't honoured.
+	// against `Option` if the bypass weren't honoured.
 	primitives := NewScope(nil)
-	primitives.Define(&Symbol{Name: "Maybe", Kind: SymbolEnum, Pos: Pos{Line: 0, Col: 0}})
+	primitives.Define(&Symbol{Name: "Option", Kind: SymbolEnum, Pos: Pos{Line: 0, Col: 0}})
 	dm.SetStdlib(primitives, nil, nil)
 
-	dm.Open("file:///path/to/std/maybe.nomi", "pub enum Maybe<T>\n    Some T\n    None\nend")
+	dm.Open("file:///path/to/std/option.nomi", "pub enum Option<T>\n    Some T\n    None\nend")
 
-	doc := dm.Get("file:///path/to/std/maybe.nomi")
+	doc := dm.Get("file:///path/to/std/option.nomi")
 	if doc == nil {
 		t.Fatal("expected document tracked")
 	}
 	for _, err := range doc.Analysis.TypeErrors {
-		if strings.HasPrefix(err.Message, "type name 'Maybe' is reserved") {
+		if strings.HasPrefix(err.Message, "type name 'Option' is reserved") {
 			t.Errorf("stdlib file should bypass prelude; got reserved-name error: %s", err.Message)
 		}
 	}
@@ -721,7 +721,7 @@ func TestFindProjectRoot_StopsAtWorkspaceRoot(t *testing.T) {
 
 // TestDocumentManager_TypeLevelCycleAcrossFiles lives in
 // document_project_test.go (package analysis_test) — it needs the
-// stdlib loaded so primitives like Maybe resolve, and stdlib imports
+// stdlib loaded so primitives like Option resolve, and stdlib imports
 // analysis (cycle), so it can't sit in this in-package test file.
 
 // TestIndexFile_LeavesOpenDocAlone pins that a watcher event for an open

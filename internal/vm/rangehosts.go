@@ -13,9 +13,9 @@ func rangeBacking(v any) (rt.Range[any], error) {
 		return rt.Range[any]{}, fmt.Errorf("vm: range receiver is %T, want Range", v)
 	}
 	rawEnd, _ := s.FieldNamed("stop")
-	endValue, endSome, ok := maybeParts(rawEnd)
+	endValue, endSome, ok := optionParts(rawEnd)
 	if !ok {
-		return rt.Range[any]{}, fmt.Errorf("vm: Range.end must be Maybe")
+		return rt.Range[any]{}, fmt.Errorf("vm: Range.end must be Option")
 	}
 	rawInclusive, _ := s.FieldNamed("inclusive")
 	inclusive, ok := asBool(rawInclusive)
@@ -23,18 +23,18 @@ func rangeBacking(v any) (rt.Range[any], error) {
 	if !ok || !hasStart || start == nil {
 		return rt.Range[any]{}, fmt.Errorf("vm: invalid Range fields")
 	}
-	r := rt.Range[any]{Start: start, Inclusive: inclusive, End: rt.Maybe[any]{Tag: rt.TagNone}}
+	r := rt.Range[any]{Start: start, Inclusive: inclusive, End: rt.Option[any]{Tag: rt.TagNone}}
 	if endSome {
-		r.End = rt.Maybe[any]{Tag: rt.TagSome, Some: endValue}
+		r.End = rt.Option[any]{Tag: rt.TagSome, Some: endValue}
 	}
 	return r, nil
 }
 
 // rangePartHost reads one part of a Range: `Range.start` its start,
-// `Range.stop` its end as a Maybe (None when unbounded), and
+// `Range.stop` its end as an Option (None when unbounded), and
 // `Range.is_inclusive` whether a bounded range includes its end (False for an
 // unbounded one, the canonical form rangeBacking reads). Each takes no element
-// method, so a subtype rule over a Range of any Comparable reads them.
+// method, so a refinement rule over a Range of any Comparable reads them.
 func rangePartHost(name string) hostFn {
 	return func(_ *Machine, _ ir.Pos, args []any) (any, error) {
 		if len(args) != 1 {
@@ -48,7 +48,7 @@ func rangePartHost(name string) hostFn {
 		case "Range.start":
 			return r.Start, nil
 		case "Range.stop":
-			return maybeOf(r.End), nil
+			return optionOf(r.End), nil
 		default:
 			return boolValue(r.End.Tag == rt.TagSome && r.Inclusive), nil
 		}
@@ -113,13 +113,13 @@ func floatRangeHost(_ *Machine, _ ir.Pos, args []any) (any, error) {
 	if !startOK || !nOK {
 		return nil, fmt.Errorf("vm: Float range requires Float operands")
 	}
-	fr := rt.Range[float64]{Start: start, Inclusive: r.Inclusive, End: rt.Maybe[float64]{Tag: rt.TagNone}}
+	fr := rt.Range[float64]{Start: start, Inclusive: r.Inclusive, End: rt.Option[float64]{Tag: rt.TagNone}}
 	if r.End.Tag == rt.TagSome {
 		end, ok := r.End.Some.(float64)
 		if !ok {
 			return nil, fmt.Errorf("vm: Float range requires a Float end")
 		}
-		fr.End = rt.Maybe[float64]{Tag: rt.TagSome, Some: end}
+		fr.End = rt.Option[float64]{Tag: rt.TagSome, Some: end}
 	}
 	return boolValue(rt.RangeContainsFloat(fr, n)), nil
 }
@@ -144,16 +144,16 @@ func rangeStepBy(m *Machine, _ ir.Pos, args []any) (any, error) {
 	}
 	return rt.StepByRangeSeq(r, args[1], func(runtime *rt.Frame, a, b any) rt.Ordering {
 		return iterOrdering(m.iterInvoke(cmp, runtime, a, b), "range comparator")
-	}, func(runtime *rt.Frame, v, by any) rt.Maybe[any] {
+	}, func(runtime *rt.Frame, v, by any) rt.Option[any] {
 		res := m.iterInvoke(step, runtime, v, by)
-		payload, isSome, ok := maybeParts(res)
+		payload, isSome, ok := optionParts(res)
 		if !ok {
-			panic(iterationFailure{fmt.Errorf("vm: range step returned %T, want Maybe", res)})
+			panic(iterationFailure{fmt.Errorf("vm: range step returned %T, want Option", res)})
 		}
 		if isSome {
-			return rt.Maybe[any]{Tag: rt.TagSome, Some: payload}
+			return rt.Option[any]{Tag: rt.TagSome, Some: payload}
 		}
-		return rt.Maybe[any]{Tag: rt.TagNone}
+		return rt.Option[any]{Tag: rt.TagNone}
 	}), nil
 }
 
@@ -185,19 +185,19 @@ func rangeKnownCount(m *Machine, _ ir.Pos, args []any) (out any, err error) {
 			out, err = nil, failure.err
 		}
 	}()
-	return maybeOf(rt.RangeKnownCount(m.hostFrame, r, func(runtime *rt.Frame, a, b any) rt.Ordering {
+	return optionOf(rt.RangeKnownCount(m.hostFrame, r, func(runtime *rt.Frame, a, b any) rt.Ordering {
 		return iterOrdering(m.iterInvoke(cmp, runtime, a, b), "range comparator")
-	}, func(runtime *rt.Frame, a, b any) rt.Maybe[any] {
+	}, func(runtime *rt.Frame, a, b any) rt.Option[any] {
 		return rangeSteps(m.iterInvoke(steps, runtime, a, b))
 	})), nil
 }
 
-// rangeSteps reads `Discrete.steps_between`'s Maybe<Int> answer, an Int of
+// rangeSteps reads `Discrete.steps_between`'s Option<Int> answer, an Int of
 // any size.
-func rangeSteps(res any) rt.Maybe[any] {
-	payload, isSome, ok := maybeParts(res)
+func rangeSteps(res any) rt.Option[any] {
+	payload, isSome, ok := optionParts(res)
 	if !ok {
-		panic(iterationFailure{fmt.Errorf("vm: range distance returned %T, want Maybe", res)})
+		panic(iterationFailure{fmt.Errorf("vm: range distance returned %T, want Option", res)})
 	}
 	if !isSome {
 		return rt.None[any]()

@@ -78,7 +78,7 @@ func braceBody(tokens []token.Token) (*ParseError, int) {
 // parser says so at the brace in words of its own.
 func typeHeader(tokens []token.Token, i int) bool {
 	for j := i - 1; j >= 0 && tokens[j].Line == tokens[i].Line; j-- {
-		if tokens[j].Type == token.TYPE || tokens[j].Type == token.SUBTYPE {
+		if tokens[j].Type == token.TYPE || tokens[j].Type == token.REFINE {
 			return true
 		}
 	}

@@ -52,7 +52,7 @@ fn else_binding(path: String) -> String
   "else [${rest}]"
 end
 
-fn payload(m: Maybe<String>) -> String
+fn payload(m: Option<String>) -> String
   case m
     Some("héllo " + who) -> "greet ${who}"
     Some(s) -> "some ${s}"

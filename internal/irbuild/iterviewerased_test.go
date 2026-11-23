@@ -70,7 +70,7 @@ end
 }
 
 // A Set whose elements are an interface's values enters an `Iter` of that
-// interface as a Vector, a List, a Maybe, a Map, a Range and a String do
+// interface as a Vector, a List, an Option, a Map, a Range and a String do
 // (viewAs asks one question for every domain): as an argument, a named
 // argument, a struct field, a function value's result, a lambda's result and
 // an element of a list of sources.
@@ -166,7 +166,7 @@ end
 		"p5\n")
 }
 
-// A List, a Vector, a Set and a Maybe of a struct enter an `Iter` of a
+// A List, a Vector, a Set and an Option of a struct enter an `Iter` of a
 // conjunction both of whose interfaces the struct implements.
 func TestIRCollectionsEnterAConjunctionIter_Runs(t *testing.T) {
 	if testing.Short() {
@@ -218,8 +218,8 @@ end
 
 // A source below the top of a type enters an `Iter` there as one at the top
 // does, its walk read from its kind: a generic struct's field, a tuple's
-// part, a Maybe's payload, a Map's value and the error of a `?`, for a
-// Vector, a Set, a List, a String, a Range, a Maybe and a type's own `impl
+// part, an Option's payload, a Map's value and the error of a `?`, for a
+// Vector, a Set, a List, a String, a Range, an Option and a type's own `impl
 // Iter`.
 func TestIRViewBelowTheTopOfAType_Runs(t *testing.T) {
 	if testing.Short() {
@@ -254,7 +254,7 @@ fn first(p: (Iter<Display>, Int)) -> String
     "${n}:${show(xs)}"
 end
 
-fn maybe(m: Maybe<Iter<Display>>) -> String
+fn option(m: Option<Iter<Display>>) -> String
     case m
         Some(xs) -> show(xs)
         None     -> "none"
@@ -320,9 +320,9 @@ fn main()
     ts = (Set[1], 2)
     io.print(first(ts))
     mv = Some(Vector[8])
-    io.print(maybe(mv))
+    io.print(option(mv))
     ms = Some(Set[8, 9])
-    io.print(maybe(ms))
+    io.print(option(ms))
     mm = {"a" => Vector[1], "b" => Vector[2, 3]}
     io.print(each(mm))
     io.print(report(r(True)))

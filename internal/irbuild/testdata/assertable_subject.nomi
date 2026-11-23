@@ -3,8 +3,8 @@
 // rows when it does not.
 //
 // The rule is the runtime's assertSubject and not a generalisation of it. `failure`
-// answers `Maybe<AssertionDetails>`, and the polarity is the OPPOSITE of a
-// `Maybe` SUBJECT's: `assert` holds on `None` and fails on `Some`, `refute` is
+// answers `Option<AssertionDetails>`, and the polarity is the OPPOSITE of an
+// `Option` SUBJECT's: `assert` holds on `None` and fails on `Some`, `refute` is
 // the mirror, and either way the assertion's VALUE is the original subject.
 // That inversion is the whole reason the discrimination is
 // `shapeSubjectFailed(answer, !refute)` rather than a second tag comparison
@@ -50,7 +50,7 @@ struct Equals
 end
 
 impl Assertable for Equals
-    fn failure(e: Equals) -> Maybe<AssertionDetails>
+    fn failure(e: Equals) -> Option<AssertionDetails>
         if e.actual == e.expected then
             None
         else
@@ -74,7 +74,7 @@ struct Defaulted
 end
 
 impl Assertable for Defaulted
-    fn failure(d: Defaulted) -> Maybe<AssertionDetails>
+    fn failure(d: Defaulted) -> Option<AssertionDetails>
         if d.ok then None else Some(AssertionDetails{})
     end
 end
@@ -84,7 +84,7 @@ struct Silent
 end
 
 impl Assertable for Silent
-    fn failure(s: Silent) -> Maybe<AssertionDetails>
+    fn failure(s: Silent) -> Option<AssertionDetails>
         if s.ok then
             None
         else

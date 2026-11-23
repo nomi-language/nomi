@@ -441,11 +441,11 @@ fn configure(deployment: String) -> Config
 end
 
 fn boot(startup: Startup) -> Result<Config, String>
-    deployment = Map.get(startup.env, "NOMI_ENV") |> Maybe.with_default("dev")
+    deployment = Map.get(startup.env, "NOMI_ENV") |> Option.with_default("dev")
     configured = configure(deployment)
 
     database_url =
-        Map.get(startup.env, "DATABASE_URL") |> Maybe.with_default(configured.database_url)
+        Map.get(startup.env, "DATABASE_URL") |> Option.with_default(configured.database_url)
 
     Ok({..configured, database_url:})
 end
@@ -509,7 +509,7 @@ struct Config
 end
 
 fn boot(startup: Startup) -> Result<Config, String>
-    Ok(Config{env: Map.get(startup.env, "APP_ENV") |> Maybe.with_default("dev")})
+    Ok(Config{env: Map.get(startup.env, "APP_ENV") |> Option.with_default("dev")})
 end
 
 fn main()
@@ -661,7 +661,7 @@ struct App
 end
 
 fn boot(startup: Startup) -> Result<App, String>
-    store = Map.get(startup.env, "STORE") |> Maybe.with_default("memory")
+    store = Map.get(startup.env, "STORE") |> Option.with_default("memory")
 
     if store == "postgres" and not ("DATABASE_URL" in startup.env) then
         return Err("STORE=postgres needs DATABASE_URL")

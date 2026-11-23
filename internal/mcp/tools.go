@@ -75,7 +75,7 @@ var tools = []tool{
 	{
 		name: "search_std",
 		description: "Search the standard library's public functions. A query with `->` is a type signature, " +
-			"such as `String, String -> List<String>` or `List<T>, (T) -> Bool -> Maybe<T>`: parameters match in any order, " +
+			"such as `String, String -> List<String>` or `List<T>, (T) -> Bool -> Option<T>`: parameters match in any order, " +
 			"and a single capital letter stands for any type. Any other query matches names (`trim`, `Map.get`) and doc text. " +
 			"Each result is the function as a program calls it (`String.split`, `io.print`), its signature and its first doc paragraph.",
 		schema: object([]string{"query"}, map[string]any{

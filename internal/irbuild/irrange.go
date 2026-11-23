@@ -67,7 +67,7 @@ func (bl *irScalarBuilder) rangeCall(t *ast.Call, args irQualArgs, method string
 		}
 	case "start", "stop", "is_inclusive":
 		// A Range's parts, read off its record with no element method, so
-		// a subtype rule generic over a Comparable element reads them as
+		// a refinement rule generic over a Comparable element reads them as
 		// any body does (ClosedRange, BoundedRange).
 		if len(args.kinds) != 1 {
 			return no()
@@ -78,17 +78,17 @@ func (bl *irScalarBuilder) rangeCall(t *ast.Call, args irQualArgs, method string
 		case "start":
 			result = elem
 		case "stop":
-			// A Maybe of a program's type is the program's instance, as
+			// An Option of a program's type is the program's instance, as
 			// stepperSignature types a program's step_by.
-			maybeElem, shared := bl.g.sharedMaybe(elem)
+			optionElem, shared := bl.g.sharedOption(elem)
 			if !shared {
-				a, anchored := preludeSpecAnchor(preludeSpecNamed("Maybe"))
+				a, anchored := preludeSpecAnchor(preludeSpecNamed("Option"))
 				if !anchored {
 					return no()
 				}
-				maybeElem = bl.g.preludeInstance(a, []kind{elem})
+				optionElem = bl.g.preludeInstance(a, []kind{elem})
 			}
-			result = maybeElem
+			result = optionElem
 		}
 		return bl.qualEmit(t, args, &irQualPlan{token: name, name: name, result: result, host: true})
 	case "step_by":
@@ -265,11 +265,11 @@ func (bl *irScalarBuilder) elemStepper(elem, by kind) (*ir.Symbol, []kind, kind,
 			return owning.irImplSym(site.item), params, result, true
 		}
 	}
-	maybeElem, shared := g.sharedMaybe(elem)
+	optionElem, shared := g.sharedOption(elem)
 	if !shared {
 		return nil, nil, kindInvalid, false
 	}
-	step := g.stdIfaceFnAt(stdSteppable.Func("step_by"), elem, []kind{elem, by}, maybeElem)
+	step := g.stdIfaceFnAt(stdSteppable.Func("step_by"), elem, []kind{elem, by}, optionElem)
 	if step == nil || step.irBody == nil {
 		return nil, nil, kindInvalid, false
 	}
@@ -277,12 +277,12 @@ func (bl *irScalarBuilder) elemStepper(elem, by kind) (*ir.Symbol, []kind, kind,
 }
 
 // stepperSignature reports whether a program impl's `step_by` is
-// `(elem, by): Maybe<elem>`.
+// `(elem, by): Option<elem>`.
 func (g *gen) stepperSignature(params []kind, result, elem, by kind) bool {
 	if len(params) != 2 || params[0] != elem || params[1] != by {
 		return false
 	}
-	a, anchored := preludeSpecAnchor(preludeSpecNamed("Maybe"))
+	a, anchored := preludeSpecAnchor(preludeSpecNamed("Option"))
 	return anchored && result == g.preludeInstance(a, []kind{elem})
 }
 

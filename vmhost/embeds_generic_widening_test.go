@@ -10,7 +10,7 @@ import (
 // checker records the construction at the instance the program holds, and
 // the payload widens where it sits. Each position runs: a positional and a
 // struct-shaped variant, a generic struct, a function argument, a return, a
-// list element, a nested Maybe, an embedded distinct and a generic
+// list element, a nested Option, an embedded distinct and a generic
 // function's result.
 func TestRun_EmbeddedValueInUserGenericVariant(t *testing.T) {
 	out, err := runVM(t, `import std::io
@@ -73,10 +73,10 @@ fn main()
   io.print(take(give(Circle{r: 4})))
   l: List<Box<Shape>> = [Box.Full(c), Box.Full(Shape.Dot), Box.Empty]
   io.print(l |> Iter.map(take) |> String.join(", "))
-  m: Box<Maybe<Shape>> = Box.Full(Some(c))
+  m: Box<Option<Shape>> = Box.Full(Some(c))
   case m
-    Box.Full(Some(s)) -> io.print("maybe ${describe(s)}")
-    _ -> io.print("maybe miss")
+    Box.Full(Some(s)) -> io.print("option ${describe(s)}")
+    _ -> io.print("option miss")
   end
   w: Box<Shape> = Box.Full(Wrapped(Circle{r: 5}))
   io.print(take(w))
@@ -93,7 +93,7 @@ circle 1
 full circle 3
 full circle 4
 full circle 1, full dot, empty
-maybe circle 1
+option circle 1
 full wrapped 5
 circle 1
 `
@@ -105,8 +105,8 @@ circle 1
 // Two equality operands whose types differ only by an embedded value inside
 // a generic type compare as the wider type: the narrower operand is built at
 // the other's type, so `Some(circle) == Some(Shape.Dot)` compares two
-// Maybe<Shape> values. Each wrapper runs on either side, equal and not, with
-// `==` and `!=`: Maybe, Result's Ok and Err, a list, a tuple, a user generic
+// Option<Shape> values. Each wrapper runs on either side, equal and not, with
+// `==` and `!=`: Option, Result's Ok and Err, a list, a tuple, a user generic
 // enum's positional and struct-shaped variant, a generic struct, a nested
 // wrapper, a list of wrappers and an embedded distinct.
 func TestRun_EqualityWidensAnEmbeddedValueInsideAGenericType(t *testing.T) {

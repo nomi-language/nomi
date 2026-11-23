@@ -13,7 +13,7 @@ end
 /// text is the analyzer's own.
 ///
 /// The Some/None pair is the point of the second and third blocks rather than
-/// repetition. `manifest` is a `Maybe<String>` with a `None` DEFAULT, so the
+/// repetition. `manifest` is an `Option<String>` with a `None` DEFAULT, so the
 /// omitted spelling and the `Some` spelling must both work and must disagree
 /// about the answer — one project, two manifests, two diagnostic counts.
 fn main()

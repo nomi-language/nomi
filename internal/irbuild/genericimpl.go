@@ -33,7 +33,7 @@ import (
 //
 // What the three genuinely share is `g.genericSubst`, and they already share it.
 // That is the single insertion point typeOf's *ast.SimpleType arm consults, which
-// is why `Wrapped<T>` in a parameter, `List<Maybe<T>>` in a return type and
+// is why `Wrapped<T>` in a parameter, `List<Option<T>>` in a return type and
 // `(T) -> Bool` in a field are all covered at every depth without an arm each.
 //
 // # Inherent blocks

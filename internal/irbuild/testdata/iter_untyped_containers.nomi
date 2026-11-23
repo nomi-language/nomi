@@ -35,11 +35,11 @@ import std::io
 // -0.0 (which must find the 0.0 entry). Each is a key whose hashing a wrong
 // instantiation would get wrong in a different way.
 fn lookup(m: Map<List<Int>, String>, key: List<Int>) -> String
-    Map.get(m, key) |> Maybe.with_default("?")
+    Map.get(m, key) |> Option.with_default("?")
 end
 
 fn lookup_f(m: Map<Float, String>, key: Float) -> String
-    Map.get(m, key) |> Maybe.with_default("?")
+    Map.get(m, key) |> Option.with_default("?")
 end
 
 fn main()

@@ -2,7 +2,7 @@ package irbuild
 
 import "testing"
 
-// A Range is a Maybe's or a Result's payload, built, matched, compared and
+// A Range is an Option's or a Result's payload, built, matched, compared and
 // inspected.
 func TestIRRangeInAPreludeWrapper_Runs(t *testing.T) {
 	if testing.Short() {
@@ -25,7 +25,7 @@ end
 	irRunSource(t, src, "Some(1..=4)\n[1, 2, 3]\nTrue\n[Some(1..=2), None]\nOk(0..2)\n")
 }
 
-// A Maybe or Result holds a List or Vector of any value: a grid's
+// An Option or Result holds a List or Vector of any value: a grid's
 // `Vector.get` answer, a vector of lists, sets or maps, and a list of
 // vectors of vectors, at every position a wrapper stands.
 func TestIRContainerOfCollectionsInAPreludeWrapper_Runs(t *testing.T) {
@@ -35,10 +35,10 @@ func TestIRContainerOfCollectionsInAPreludeWrapper_Runs(t *testing.T) {
 	const src = `import std::io
 
 struct Board
-    rows: Maybe<Vector<Vector<Int>>>
+    rows: Option<Vector<Vector<Int>>>
 end
 
-fn put(grid: Vector<Vector<Int>>, row: Int, column: Int, value: Int) -> Maybe<Vector<Vector<Int>>>
+fn put(grid: Vector<Vector<Int>>, row: Int, column: Int, value: Int) -> Option<Vector<Vector<Int>>>
     cells = Vector.get(grid, row)?
     Vector.set(grid, row, Vector.set(cells, column, value)?)
 end
@@ -51,7 +51,7 @@ fn lists() -> Result<Int, Vector<List<Int>>>
     Err(Vector[[1], [2, 3]])
 end
 
-fn width(maps: Maybe<Vector<Map<String, Int>>>) -> Int
+fn width(maps: Option<Vector<Map<String, Int>>>) -> Int
     case maps
         Some(found) -> Vector.length(found)
         None -> 0
@@ -64,7 +64,7 @@ fn main()
     io.inspect(put(grid, 2, 0, 7))
     written = Vector.set(grid, 0, Vector[5])!
     io.inspect(written)
-    io.inspect(Maybe.map(Vector.get(grid, 0), fn cells -> Vector.set(grid, 1, cells)!))
+    io.inspect(Option.map(Vector.get(grid, 0), fn cells -> Vector.set(grid, 1, cells)!))
     io.inspect(Board{rows: put(grid, 0, 1, 3)})
     io.inspect(sets())
     io.inspect(lists())

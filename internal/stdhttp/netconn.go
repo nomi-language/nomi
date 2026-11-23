@@ -463,7 +463,7 @@ func ConnDeadline(c rt.NetConn, whichArg, atArg rt.Int) rt.Unit {
 
 // TLSStateParts is `std::http::host.tls_state_parts`: a TLS connection's state
 // as stateParts lists it, or None for a connection that is not TLS.
-func TLSStateParts(c rt.NetConn) rt.Maybe[*rt.List[*rt.List[string]]] {
+func TLSStateParts(c rt.NetConn) rt.Option[*rt.List[*rt.List[string]]] {
 	t, ok := connOf(c).c.(*tls.Conn)
 	if !ok {
 		return rt.None[*rt.List[*rt.List[string]]]()

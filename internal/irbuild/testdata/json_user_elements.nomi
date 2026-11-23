@@ -33,9 +33,9 @@ fn main() -> Result<Unit, Json.ShapeError>
     dbg turbo
     by_key: Map<String, Note> = FromJson.from_json(shape("{\"k\": {\"title\": \"d\"}}"))?
     dbg by_key
-    maybe: Maybe<Note> = FromJson.from_json(shape("{\"title\": \"e\"}"))?
-    dbg maybe
-    none: Maybe<Note> = FromJson.from_json(Json.Null)?
+    option: Option<Note> = FromJson.from_json(shape("{\"title\": \"e\"}"))?
+    dbg option
+    none: Option<Note> = FromJson.from_json(Json.Null)?
     dbg none
     nested: List<List<Note>> = FromJson.from_json(shape("[[{\"title\": \"f\"}], []]"))?
     dbg nested
@@ -44,7 +44,7 @@ fn main() -> Result<Unit, Json.ShapeError>
     dbg Json.encode(ToJson.to_json(notes))
     dbg Json.encode(ToJson.to_json(nested))
     dbg Json.encode(ToJson.to_json([by_key]))
-    dbg Json.encode(ToJson.to_json([maybe, none]))
+    dbg Json.encode(ToJson.to_json([option, none]))
     dbg Iter.sort(notes)
     dbg Iter.to_set(notes) |> Set.contains(Note{title: "a"})
     Ok(Unit)

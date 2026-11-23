@@ -4,7 +4,7 @@ package stdlibadapters
 // internal/stdlibbindings.RtFuncs row against the outcomes the VM's
 // hand-written hosts recorded before they were deleted
 // (testdata/rtfuncs.golden, 966 argument sets). The marshaller cannot be the
-// reference for these rows: it carries neither rt.Maybe[int64], rt.Json nor
+// reference for these rows: it carries neither rt.Option[int64], rt.Json nor
 // rt.Decimal.
 //
 // Each argument set runs twice, once over records laid out in name order by
@@ -935,7 +935,16 @@ func canonText(v rt.Value, shapeOnly bool) string {
 		if left.Tag != rt.TagSome {
 			return "Context(no deadline)"
 		}
-		return fmt.Sprintf("Context(deadline in %ds)", int64(time.Duration(left.Some).Round(time.Second)/time.Second))
+		// A deadline 30 seconds or more away is written to the nearest
+		// minute, in seconds: a fixture's context (the suite's hour-long
+		// `bounded`) was made before the case runs, and a slow run spends
+		// seconds of it first.
+		d := time.Duration(left.Some)
+		unit := time.Second
+		if d >= 30*time.Second {
+			unit = time.Minute
+		}
+		return fmt.Sprintf("Context(deadline in %ds)", int64(d.Round(unit)/time.Second))
 	case rt.Dynamic:
 		// %#v spells each Go shape, so an int64 and a float64 differ, and it
 		// prints a map's keys sorted.

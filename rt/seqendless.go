@@ -78,12 +78,12 @@ func WithEndless[T any](src Seq[T], endless func(fr *Frame) string) Seq[T] {
 // takeCount is `Iter.take(src, n)`'s known_count: n of an endless source,
 // the lesser of n and the source's count when it has one, and nil (declining)
 // otherwise. A non-positive n yields nothing.
-func takeCount[T any](src Seq[T], n int64) func(fr *Frame) Maybe[int64] {
+func takeCount[T any](src Seq[T], n int64) func(fr *Frame) Option[int64] {
 	if src.Count == nil && src.Endless == nil {
 		return nil
 	}
 	n = max(n, 0)
-	return func(fr *Frame) Maybe[int64] {
+	return func(fr *Frame) Option[int64] {
 		if SeqEndless(fr, src) != "" {
 			return Some(n)
 		}
@@ -158,7 +158,7 @@ func rangeEndless[T any](r Range[T]) func(fr *Frame) string {
 // stepByEndless is `Range.step_by`'s answer over an unbounded range: endless
 // when the first step moves. A step that does not move yields nothing.
 // Asking takes one step, which is the element type's `Steppable.step_by`.
-func stepByEndless[T, S any](r Range[T], by S, cmp func(fr *Frame, a, b T) Ordering, step func(fr *Frame, v T, by S) Maybe[T]) func(fr *Frame) string {
+func stepByEndless[T, S any](r Range[T], by S, cmp func(fr *Frame, a, b T) Ordering, step func(fr *Frame, v T, by S) Option[T]) func(fr *Frame) string {
 	if r.End.Tag == TagSome {
 		return nil
 	}

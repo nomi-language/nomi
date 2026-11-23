@@ -10,8 +10,8 @@ import (
 const irHoleDisplaySource = `import std::io
 
 fn main()
-  io.print(Maybe.to_string(None))
-  io.print(Maybe.to_string(Some(4)))
+  io.print(Option.to_string(None))
+  io.print(Option.to_string(Some(4)))
   io.print(Display.to_string(Err("x")))
   c = Ok(3)
   io.print("${c}")
@@ -20,7 +20,7 @@ end
 
 // A type argument inference leaves open under a bound Unit lacks is closed
 // at Int, which meets it (internal/analysis/closed_vars.go):
-// `Maybe.to_string(None)` demands Display of its T through the derived impl,
+// `Option.to_string(None)` demands Display of its T through the derived impl,
 // as `Display.to_string(Err("x"))` and an interpolated `Ok(3)` do of the
 // other side. So the instance is built at Int, the Some arm's
 // `Display.to_string(payload)` dispatches to Int's impl, and the program
@@ -45,8 +45,8 @@ func TestIRHoleCall_ABoundedOpenTypeIsClosedAtAnImplementingType(t *testing.T) {
 		}
 	}
 	all := strings.Join(names, " ")
-	if !strings.Contains(all, "Display.to_string for Maybe<Int>") || strings.Contains(all, "Maybe<Unit>") {
-		t.Fatalf("Maybe.to_string(None) is not instantiated at Int alone: %q", names)
+	if !strings.Contains(all, "Display.to_string for Option<Int>") || strings.Contains(all, "Option<Unit>") {
+		t.Fatalf("Option.to_string(None) is not instantiated at Int alone: %q", names)
 	}
 	verifyLambdaProgram(t, irHoleDisplaySource, "None\nSome(4)\nErr(x)\nOk(3)\n")
 }
@@ -60,8 +60,8 @@ func TestIRHoleCall_ASolvedTypeWithNoImplIsRejected(t *testing.T) {
 	src := `import std::io
 
 fn main()
-  x: Maybe<(Int) -> Int> = None
-  io.print(Maybe.hash(x))
+  x: Option<(Int) -> Int> = None
+  io.print(Option.hash(x))
 end
 `
 	if err := os.WriteFile(path, []byte(src), 0600); err != nil {
@@ -72,7 +72,7 @@ end
 		t.Fatal("the front end now ADMITS a Hashable call on a function type, so a checker-solved " +
 			"type with no impl can reach the builder")
 	}
-	// The derived `impl Hashable for Maybe<T>` carries `where T: Hashable`,
+	// The derived `impl Hashable for Option<T>` carries `where T: Hashable`,
 	// and the bound check at the call names it.
 	if !strings.Contains(err.Error(), "(Int) -> Int does not implement Hashable (required by `where T: Hashable`)") {
 		t.Fatalf("rejected for another reason, so the wall is not the one this test names: %v", err)

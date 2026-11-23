@@ -53,12 +53,12 @@ end
 `, "success\nvalue 42\nbad\n")
 }
 
-func TestIRRetainedTry_MaybeAndPipes(t *testing.T) {
+func TestIRRetainedTry_OptionAndPipes(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn get(ok: Bool) -> Maybe<Int>
+fn get(ok: Bool) -> Option<Int>
     if ok then Some(42) else None
 end
-fn transform(ok: Bool) -> Maybe<String>
+fn transform(ok: Bool) -> Option<String>
   n = ok
     |> get()?
   io.print("success")
@@ -116,7 +116,7 @@ func TestIRRetainedTry_PureAndConditionalOperands(t *testing.T) {
 fn transform(r: Result<Int, String>, flag: Bool) -> Result<Int, String>
   if flag then Ok(r?) else Ok(Ok(7)?)
 end
-fn maybe(m: Maybe<Int>) -> Maybe<Int>
+fn option(m: Option<Int>) -> Option<Int>
     Some(m?)
 end
 fn show(r: Result<Int, String>) -> String
@@ -125,7 +125,7 @@ fn show(r: Result<Int, String>) -> String
         Err(e) -> e
     end
 end
-fn read(m: Maybe<Int>) -> Int
+fn read(m: Option<Int>) -> Int
     case m
         Some(n) -> n
         None -> 0
@@ -135,8 +135,8 @@ fn main()
   io.print(show(transform(Ok(42), True)))
   io.print(show(transform(Err("bad"), True)))
   io.print(show(transform(Err("ignored"), False)))
-  io.print(read(maybe(Some(9))))
-  io.print(read(maybe(None)))
+  io.print(read(option(Some(9))))
+  io.print(read(option(None)))
 end
 `, "42\nbad\n7\n9\n0\n")
 }

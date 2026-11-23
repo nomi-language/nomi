@@ -306,7 +306,7 @@ end
 // A generic receiver `impl Iface for Box<T> { ... }` block round-trips.
 func TestFormat_GenericImplBlock(t *testing.T) {
 	src := `impl iter for Box<T>
-    fn next(_b: self) -> Maybe<(T, Box<T>)>
+    fn next(_b: self) -> Option<(T, Box<T>)>
         .None
     end
 end
@@ -316,7 +316,7 @@ end
 
 func TestFormat_ImplBlockWhereClause(t *testing.T) {
 	src := `impl iter for Box<T> where T: Display and Debug
-    fn next(_b: self) -> Maybe<(T, Box<T>)>
+    fn next(_b: self) -> Option<(T, Box<T>)>
         .None
     end
 end
@@ -367,7 +367,7 @@ func TestFormat_TypeDeclarationWhereClauses(t *testing.T) {
     value: T
 end
 
-enum MaybeBox<T> where T: Display
+enum OptionBox<T> where T: Display
     Empty
     Full Box<T>
 end
@@ -389,7 +389,7 @@ end
 impl Display for Range<T> end
 
 impl Iter for Range<T> where T: Discrete
-    fn next(_r: Range<T>) -> Maybe<(T, Range<T>)>
+    fn next(_r: Range<T>) -> Option<(T, Range<T>)>
         none
     end
 end

@@ -585,7 +585,7 @@ func writeAssertionBlock(w io.Writer, failure *AssertionFailure, st assertionRep
 	}
 	if failure.Actual != "" && failure.Diff == nil {
 		// An empty Actual is absence and not an empty row, the same rule
-		// nomiMaybeString applies when it turns "" into `None`. A diff
+		// nomiOptionString applies when it turns "" into `None`. A diff
 		// already shows an Assertable's actual string.
 		fmt.Fprintf(w, "%s  %s %s\n", p, st.label("actual:"), st.source(failure.Actual))
 	}

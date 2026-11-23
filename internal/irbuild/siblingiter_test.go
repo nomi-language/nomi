@@ -45,7 +45,7 @@ impl Iter<Int> for Chain
         end
     end
 
-    fn known_count(_chain: Chain) -> Maybe<Int>
+    fn known_count(_chain: Chain) -> Option<Int>
         Some(7)
     end
 end

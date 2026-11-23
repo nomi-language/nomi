@@ -132,9 +132,9 @@ func TestCodeAction_RemoveBraceItem_FollowingComma(t *testing.T) {
 }
 
 func TestCodeAction_RemoveSelfMarker(t *testing.T) {
-	src := "import std::results.Result.{self, Ok}\n\nfn f() -> Maybe<Int>\n    o = Ok(1)\n  None\nend\n"
+	src := "import std::results.Result.{self, Ok}\n\nfn f() -> Option<Int>\n    o = Ok(1)\n  None\nend\n"
 	got := runFix(t, src)
-	want := "import std::results.Result.{Ok}\n\nfn f() -> Maybe<Int>\n    o = Ok(1)\n  None\nend\n"
+	want := "import std::results.Result.{Ok}\n\nfn f() -> Option<Int>\n    o = Ok(1)\n  None\nend\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}

@@ -66,7 +66,7 @@ func TestImplHeader_UnknownInterfaceTypeArgument(t *testing.T) {
 	// parameter, are accepted.
 	for _, src := range []string{
 		dayDecls + "impl Add<Days, Day> for Day\n    fn add(lhs: Day, rhs: Days) -> Day\n        Day(day_number(lhs) + days_number(rhs))\n    end\nend\n\nfn main()\n    day = Day(10) + Days(4)\n    dbg day_number(day)\nend\n",
-		storeDecls + "impl Store<String, T> for Cache<T>\n    fn get(cache: Cache<T>, key: String) -> Maybe<T>\n        Map.get(cache.items, key)\n    end\n\n    fn put(cache: Cache<T>, key: String, value: T) -> Cache<T>\n        Cache{items: Map.put(cache.items, key, value)}\n    end\nend\n",
+		storeDecls + "impl Store<String, T> for Cache<T>\n    fn get(cache: Cache<T>, key: String) -> Option<T>\n        Map.get(cache.items, key)\n    end\n\n    fn put(cache: Cache<T>, key: String, value: T) -> Cache<T>\n        Cache{items: Map.put(cache.items, key, value)}\n    end\nend\n",
 	} {
 		if _, errs := checkSourceWithStdlib(src); len(errs) != 0 {
 			t.Errorf("the front end rejects a valid impl header: %v\n%s", errs, src)
@@ -83,7 +83,7 @@ func TestImplHeader_UnknownInterfaceTypeArgument(t *testing.T) {
 // function the impl must write.
 func TestImplFunction_MatchesTheInstantiatedRequirement(t *testing.T) {
 	const make = "interface Make\n    fn make(n: Int) -> self\nend\n\n"
-	const maybeMake = "interface MaybeMake\n    fn make(n: Int) -> Maybe<self>\nend\n\n"
+	const optionMake = "interface OptionMake\n    fn make(n: Int) -> Option<self>\nend\n\n"
 	const conv = "interface Conv<T>\n    fn conv(x: self) -> T\nend\n\n"
 	const show = "interface Show\n    fn show(x: self) -> String\nend\n\n"
 	const boxDecl = "struct Box<T>\n    item: T\nend\n\n"
@@ -135,9 +135,9 @@ func TestImplFunction_MatchesTheInstantiatedRequirement(t *testing.T) {
 		},
 		{
 			"self nested in the return",
-			maybeMake + "type Day Int\n\nimpl MaybeMake for Day\n    fn make(n: Int) -> Maybe<Int>\n        Some(n)\n    end\nend\n",
-			"impl function 'make': return type Maybe<Int> does not match interface 'MaybeMake' return type Maybe<Day>",
-			"interface 'MaybeMake' requires `fn make(n: Int) -> Maybe<Day>`",
+			optionMake + "type Day Int\n\nimpl OptionMake for Day\n    fn make(n: Int) -> Option<Int>\n        Some(n)\n    end\nend\n",
+			"impl function 'make': return type Option<Int> does not match interface 'OptionMake' return type Option<Day>",
+			"interface 'OptionMake' requires `fn make(n: Int) -> Option<Day>`",
 			8, 8,
 		},
 		{
@@ -178,9 +178,9 @@ func TestImplFunction_MatchesTheInstantiatedRequirement(t *testing.T) {
 	// derive, are accepted.
 	for _, src := range []string{
 		make + "type Day Int\n\nimpl Make for Day\n    fn make(n: Int) -> Day\n        Day(n)\n    end\nend\n",
-		maybeMake + "type Day Int\n\nimpl MaybeMake for Day\n    fn make(n: Int) -> Maybe<Day>\n        Some(Day(n))\n    end\nend\n",
+		optionMake + "type Day Int\n\nimpl OptionMake for Day\n    fn make(n: Int) -> Option<Day>\n        Some(Day(n))\n    end\nend\n",
 		make + boxDecl + "impl Make for Box<Int>\n    fn make(n: Int) -> Box<Int>\n        Box{item: n}\n    end\nend\n",
-		maybeMake + boxDecl + "impl MaybeMake for Box<T>\n    fn make(n: Int) -> Maybe<Box<T>>\n        _ = n\n        None\n    end\nend\n",
+		optionMake + boxDecl + "impl OptionMake for Box<T>\n    fn make(n: Int) -> Option<Box<T>>\n        _ = n\n        None\n    end\nend\n",
 		conv + "type Day Int\n\nimpl Conv<Int> for Day\n    fn conv(x: Day) -> Int\n        Day(n) = x\n        n\n    end\nend\n",
 		show + "type Day Int\n\nimpl Show for Day\n    fn show(x: Day) -> String\n        _ = x\n        \"day\"\n    end\nend\n",
 		"struct Point\n    x: Int\nend\n\nderive Equatable, Hashable, Comparable for Point\n",

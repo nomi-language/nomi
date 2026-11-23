@@ -35,8 +35,8 @@ import
     literals.{Fragment, Literal}
     locale.Locale
     localize.{Localize, NumberParseError}
-    maybe.Maybe.{self, None, Some}
     multiply.Multiply
+    option.Option.{self, None, Some}
     remainder.Remainder
     results.Result.{self, Err, Ok}
     strings.String
@@ -343,7 +343,7 @@ derive Comparable for Duration
 //! assert step == Duration.seconds(-1)
 //! assert NonZeroDuration.try_from(Duration.seconds(0)) == None
 //
-pub subtype NonZeroDuration Duration when fn d -> Duration.as_nanos(d) != 0
+pub refine NonZeroDuration Duration when fn d -> Duration.as_nanos(d) != 0
 
 /// A Duration of zero or more: how long something took, or how long to
 /// wait. `Duration.abs` returns one. A typed literal is checked when the
@@ -353,7 +353,7 @@ pub subtype NonZeroDuration Duration when fn d -> Duration.as_nanos(d) != 0
 //! assert wait == Duration.seconds(0)
 //! assert NonNegativeDuration.try_from(Duration.seconds(-1)) == None
 //
-pub subtype NonNegativeDuration Duration when fn d -> Duration.as_nanos(d) >= 0
+pub refine NonNegativeDuration Duration when fn d -> Duration.as_nanos(d) >= 0
 
 /// A Duration longer than zero: a schedule's interval, which
 /// `jobs.Schedule.every` takes. It refines both `NonNegativeDuration` and
@@ -368,7 +368,7 @@ pub subtype NonNegativeDuration Duration when fn d -> Duration.as_nanos(d) >= 0
 //! assert PositiveDuration.try_from(Duration.seconds(0)) == None
 //! assert PositiveDuration.try_from(Duration.seconds(-1)) == None
 //
-pub subtype PositiveDuration NonNegativeDuration and NonZeroDuration when fn d ->
+pub refine PositiveDuration NonNegativeDuration and NonZeroDuration when fn d ->
     Duration.as_nanos(d) > 0
 end
 
@@ -521,7 +521,7 @@ end
 // A unit `Display` writes: its rank, largest first, its length in
 // nanoseconds, and the count it stays below (0 for the hours, which have
 // no bound).
-fn unit(name: String) -> Maybe<(Int, Int, Int)>
+fn unit(name: String) -> Option<(Int, Int, Int)>
     case name
         "h"  -> Some((0, 3_600_000_000_000, 0))
         "m"  -> Some((1, 60_000_000_000, 60))
@@ -551,7 +551,7 @@ end
 
 // The number the `count` digits at `at` write, or None when it does not fit
 // an Int.
-fn number(text: String, at: Int, count: Int) -> Maybe<Int>
+fn number(text: String, at: Int, count: Int) -> Option<Int>
     String.slice(text, at, at + count) |> String.to_int()
 end
 
@@ -580,7 +580,7 @@ fn sixty(text: String, at: Int) -> Result<Int, NumberParseError>
             Err(unexpected(text, at + 2))
 
         _ ->
-            value = number(text, at, 2) |> Maybe.with_default(0)
+            value = number(text, at, 2) |> Option.with_default(0)
 
             if value < 60 then
                 Ok(value)
@@ -617,7 +617,7 @@ fn fraction(text: String, at: Int) -> Result<Int, NumberParseError>
 
                     Ok(
                         String.to_int(digits)
-                        |> Maybe.with_default(0)
+                        |> Option.with_default(0)
                     )
             end
 

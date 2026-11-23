@@ -114,7 +114,7 @@ fn if_chain(n: Int) -> List<Int>
 end
 
 // A bare `None` first.
-fn first_none(t: Tag, n: Int) -> Maybe<Int>
+fn first_none(t: Tag, n: Int) -> Option<Int>
     case t
         Tag.Drop -> None
         Tag.Keep -> Some(n)
@@ -181,10 +181,10 @@ fn bag(t: Tag, n: Int) -> Bag
     }
 end
 
-// A `Maybe` is not a renderable value in this builder (`rendering a non-scalar
+// An `Option` is not a renderable value in this builder (`rendering a non-scalar
 // value`), so it is shown through a `case` rather than interpolated — the same
 // reason `Result` is in testdata/pipe_keyword_stages.nomi.
-fn show_maybe(m: Maybe<Int>) -> String
+fn show_option(m: Option<Int>) -> String
     case m
         Some(n) -> "Some(${n})"
         None    -> "None"
@@ -200,7 +200,7 @@ fn main()
     io.print("bound = ${bound(True, 5)} ${bound(False, 5)}")
 
     io.print(
-        "first_none = ${show_maybe(first_none(Tag.Drop, 2))} ${show_maybe(first_none(Tag.Keep, 2))}"
+        "first_none = ${show_option(first_none(Tag.Drop, 2))} ${show_option(first_none(Tag.Keep, 2))}"
     )
 
     io.print("first_empty_map = ${first_empty_map(Tag.Drop, 3)} ${first_empty_map(Tag.Keep, 3)}")

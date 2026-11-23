@@ -123,7 +123,7 @@ func TestLowerDerives_ConstrainedImplBlockKeepsBounds(t *testing.T) {
 
 impl Iter for Range<T> where T: Discrete
 
-  fn next(_r: Range<T>) -> Maybe<(T, Range<T>)>
+  fn next(_r: Range<T>) -> Option<(T, Range<T>)>
     none
   end
 end
@@ -459,7 +459,7 @@ func TestLowerDerives_NestedImplPreservesGenericBounds(t *testing.T) {
 end
 
 impl Iter for StepByRange<T, S>
-  fn next(_s: StepByRange<T, S>) -> Maybe<(T, StepByRange<T, S>)>
+  fn next(_s: StepByRange<T, S>) -> Option<(T, StepByRange<T, S>)>
     None
   end
 end

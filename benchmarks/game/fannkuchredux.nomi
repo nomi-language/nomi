@@ -18,7 +18,7 @@ fn boot(startup: Startup) -> Result<App, String>
     case startup.args
         [arg, ..] ->
             String.to_int(arg)
-            |> Maybe.to_result("not a number: ${arg}")
+            |> Option.to_result("not a number: ${arg}")
             |> Result.map(fn n -> App{n:})
 
         [] ->
@@ -86,7 +86,12 @@ fn reset(count: Vector<Int>, r: Int) -> Vector<Int>
 end
 
 /// Advances to the next permutation, or `None` when every one has been seen.
-fn next(perm: List<Int>, count: Vector<Int>, r: Int, n: Int) -> Maybe<(List<Int>, Vector<Int>, Int)>
+fn next(
+    perm:  List<Int>,
+    count: Vector<Int>,
+    r:     Int,
+    n:     Int,
+) -> Option<(List<Int>, Vector<Int>, Int)>
     if r == n then
         None
     else

@@ -448,7 +448,7 @@ fn label() -> String
     App.label
 end
 
-fn pick(n: Int) -> Maybe<String>
+fn pick(n: Int) -> Option<String>
   if n == 1 then None else Some("v${n}")
 end
 

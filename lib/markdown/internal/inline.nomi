@@ -25,8 +25,8 @@ pub enum Inline
     Code {parts: List<(Int, Int)>}
     Emphasis {level: Int}
     Strike
-    Link {destination: Bytes, title: Maybe<Bytes>}
-    Image {destination: Bytes, title: Maybe<Bytes>}
+    Link {destination: Bytes, title: Option<Bytes>}
+    Image {destination: Bytes, title: Option<Bytes>}
     /// A URL or an email address shown as itself, from `start` to `stop`;
     /// `www` when it needs `http://` before it.
     AutoLink {email: Bool, www: Bool, start: Int, stop: Int}
@@ -83,7 +83,7 @@ pub struct Ist
     /// The block's runs of backticks, by length, each list in order from
     /// the first run a code span may still close on; built when the first
     /// code span opens.
-    ticks: Maybe<Map<Int, List<Int>>> = None
+    ticks: Option<Map<Int, List<Int>>> = None
     /// For each closing character of a link title or label, where a search
     /// for it reached the end of the block: one from there or later cannot
     /// find it either.
@@ -516,7 +516,7 @@ fn match_loop(st: Ist, closer: Int, bottom: Int, floors: Map<Int, Int>) -> Ist
     (char, length, original, can_open, can_close, _) = delimiter_of(st, closer)
     if not can_close then return match_loop(st, get(st, closer).dnext, bottom, floors)
     key = char * 8 + (if can_open then 4 else 0) + original % 3
-    floor = Map.get(floors, key) |> Maybe.with_default(bottom)
+    floor = Map.get(floors, key) |> Option.with_default(bottom)
 
     case find_opener(st, get(st, closer).dprev, bottom, floor, char, length, original, can_open)
         None ->
@@ -554,7 +554,7 @@ fn find_opener(
     length:       Int,
     original:     Int,
     closer_opens: Bool,
-) -> Maybe<(Int, Int)>
+) -> Option<(Int, Int)>
     if opener < 0 or opener == bottom or opener == floor then return None
     (c, olength, ooriginal, ocan_open, ocan_close, _) = delimiter_of(st, opener)
 
@@ -727,7 +727,7 @@ end
 
 /// The label `id` made the link or image it opens: the delimiters after
 /// its bottom matched, and every node after it its children.
-fn make_link(st: Ist, id: Int, destination: Bytes, title: Maybe<Bytes>) -> Ist
+fn make_link(st: Ist, id: Int, destination: Bytes, title: Option<Bytes>) -> Ist
     (st, bottom) = pop_bottom(st)
     st = process_delimiters(st, bottom)
     (_, _, image, _) = label_of(st, id)
@@ -794,20 +794,20 @@ fn inline_link(st: Ist, label: Int) -> (Ist, Bool)
     end
 end
 
-fn link_title(st: Ist, c: Cursor) -> (Ist, Maybe<(Bytes, Cursor)>)
+fn link_title(st: Ist, c: Cursor) -> (Ist, Option<(Bytes, Cursor)>)
     (c, _, _) = Cursor.skip_spaces(c, st.lines)
     opener = Cursor.peek(c, st.lines)
     if opener != 34 and opener != 39 and opener != 40 then return (st, None)
     closer = if opener == 40 then 41 else opener
     (st, found) = closure(st, Cursor.advance(c, st.lines, 1), opener, closer)
-    (st, found |> Maybe.map(fn ((a, b), c) -> (Bytes.slice(st.buf, a, b), c)))
+    (st, found |> Option.map(fn ((a, b), c) -> (Bytes.slice(st.buf, a, b), c)))
 end
 
 /// `Cursor.find_closure`, except where a search for `closer` already
 /// reached the end of the block from an earlier place: goldmark searches
 /// again each time, which makes a run of unclosed titles quadratic.
-fn closure(st: Ist, c: Cursor, opener: Int, closer: Int) -> (Ist, Maybe<((Int, Int), Cursor)>)
-    failed = Map.get(st.closures_failed, closer) |> Maybe.with_default(Lines.limit(st.lines) + 1)
+fn closure(st: Ist, c: Cursor, opener: Int, closer: Int) -> (Ist, Option<((Int, Int), Cursor)>)
+    failed = Map.get(st.closures_failed, closer) |> Option.with_default(Lines.limit(st.lines) + 1)
     if c.pos >= failed then return (st, None)
     (found, stop) = Cursor.closure_end(c, st.lines, opener, closer)
     if found then return (st, Some(((c.pos, stop), Cursor.advance(c, st.lines, stop + 1 - c.pos))))
@@ -873,8 +873,8 @@ fn code_span(st: Ist) -> (Ist, Bool)
     e = Lines.stop(st.lines, st.c.line)
     opener = text.skip_byte(st.buf, s, e, 96) - s
     after = s + opener
-    ticks = st.ticks |> Maybe.or_else(fn -> Some(tick_runs(st.buf, 0, {})))!
-    runs = Map.get(ticks, opener) |> Maybe.with_default([]) |> runs_from(after)
+    ticks = st.ticks |> Option.or_else(fn -> Some(tick_runs(st.buf, 0, {})))!
+    runs = Map.get(ticks, opener) |> Option.with_default([]) |> runs_from(after)
     st = {..st, ticks: Some(Map.put(ticks, opener, runs))}
 
     case runs
@@ -1296,7 +1296,7 @@ fn may_be_url(st: Ist, i: Int) -> Bool
 end
 
 fn next_sign(st: Ist, from: Int) -> Int
-    Bytes.index_of_byte(st.buf, 64, from:) |> Maybe.with_default(Lines.limit(st.lines))
+    Bytes.index_of_byte(st.buf, 64, from:) |> Option.with_default(Lines.limit(st.lines))
 end
 
 /// The bare URL or address from `start` to `stop` made an autolink, after
@@ -1318,7 +1318,7 @@ end
 
 /// The end of a bare email address at `start`, as goldmark's linkify
 /// takes one, or None.
-fn bare_email(st: Ist, start: Int, e: Int) -> Maybe<Int>
+fn bare_email(st: Ist, start: Int, e: Int) -> Option<Int>
     if start < e and text.is_punct(at(st, start)) then return None
     stop = email_end(st, start, e)
     if stop < 0 then return None

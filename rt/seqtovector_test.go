@@ -14,7 +14,7 @@ func vectorItems[T any](v Vector[T]) []T {
 // regrew it.
 func TestSeqToVector_PreallocatesFromKnownCount(t *testing.T) {
 	src := ListSeq(Cons[int64](1, Cons[int64](2, Cons[int64](3, Cons[int64](4, Cons[int64](5, nil))))))
-	src.Count = func(*Frame) Maybe[int64] { return Some[int64](5) }
+	src.Count = func(*Frame) Option[int64] { return Some[int64](5) }
 	v := SeqToVector(nil, src)
 	if got := vectorItems(v); !slices.Equal(got, []int64{1, 2, 3, 4, 5}) {
 		t.Fatalf("SeqToVector = %v, want [1 2 3 4 5]", got)
@@ -57,7 +57,7 @@ func TestSeqToVector_DrivesThroughEachWhile(t *testing.T) {
 
 func TestSeqToVector_EmptyIsTheZeroVector(t *testing.T) {
 	src := ListSeq[int64](nil)
-	src.Count = func(*Frame) Maybe[int64] { return Some[int64](0) }
+	src.Count = func(*Frame) Option[int64] { return Some[int64](0) }
 	v := SeqToVector(nil, src)
 	if v.Len() != 0 || v.t != nil {
 		t.Fatalf("SeqToVector over an empty source = %+v, want the zero Vector", v)
@@ -68,7 +68,7 @@ func TestSeqToVector_EmptyIsTheZeroVector(t *testing.T) {
 // a bounded reservation or a regrow, never an allocation of the size it names.
 func TestSeqToVector_DistrustsAWrongCount(t *testing.T) {
 	huge := finiteSeq(3)
-	huge.Count = func(*Frame) Maybe[int64] { return Some[int64](1 << 50) }
+	huge.Count = func(*Frame) Option[int64] { return Some[int64](1 << 50) }
 	v := SeqToVector(nil, huge)
 	if got := vectorItems(v); !slices.Equal(got, []int64{1, 2, 3}) {
 		t.Fatalf("SeqToVector = %v, want [1 2 3]", got)
@@ -77,7 +77,7 @@ func TestSeqToVector_DistrustsAWrongCount(t *testing.T) {
 		t.Fatalf("capacity %d exceeds the preallocation bound %d", cap(v.t.tail), vectorPreallocCap)
 	}
 	negative := finiteSeq(2)
-	negative.Count = func(*Frame) Maybe[int64] { return Some[int64](-4) }
+	negative.Count = func(*Frame) Option[int64] { return Some[int64](-4) }
 	if got := vectorItems(SeqToVector(nil, negative)); !slices.Equal(got, []int64{1, 2}) {
 		t.Fatalf("SeqToVector = %v, want [1 2]", got)
 	}

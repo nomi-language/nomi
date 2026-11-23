@@ -14,25 +14,25 @@ import (
 // std/regex declares `Regex<C>`, where C is what `String.captures` answers
 // for a match: a value with one part per capture group. A regex compiled
 // while the program runs (`Regex.compile`, or a literal that interpolates)
-// is `Regex<List<Maybe<String>>>`, since nothing knows its groups before it
+// is `Regex<List<Option<String>>>`, since nothing knows its groups before it
 // runs. A `Regex` literal whose pattern is fixed text has C computed here
 // from the pattern, as Swift types `/(\d+)-(\w+)?/`:
 //
 //   - no group: `Unit`;
 //   - every group named, by a name a field can have: the anonymous struct
-//     of the groups, `{year: String, month: Maybe<String>}`, one field or
+//     of the groups, `{year: String, month: Option<String>}`, one field or
 //     several;
-//   - one unnamed group: that group's type, `String` or `Maybe<String>`,
+//   - one unnamed group: that group's type, `String` or `Option<String>`,
 //     since Nomi has no one-element tuple;
-//   - otherwise: the tuple of the groups in order, `(String, Maybe<String>)`.
+//   - otherwise: the tuple of the groups in order, `(String, Option<String>)`.
 //
-// A group is `String` when every match fills it and `Maybe<String>` when a
+// A group is `String` when every match fills it and `Option<String>` when a
 // match can leave it out (regexgroups.Group.Optional).
 //
 // This is the one std type whose literal's type the compiler computes: a
 // typed literal's type is otherwise its handler's result, which cannot
 // depend on the literal's text. std's handler returns the run-time shape
-// `Result<Regex<List<Maybe<String>>>, String>`, and the checker replaces the
+// `Result<Regex<List<Option<String>>>, String>`, and the checker replaces the
 // type argument. The value is the same compiled pattern either way: C is
 // phantom (no part of the handle stores it), and `String.captures` builds
 // the C value from the match's groups by C alone.
@@ -106,11 +106,11 @@ func regexPatternType(pattern string, ret Type) Type {
 }
 
 // RegexCaptureType is the capture type C of a `Regex<C>` literal with these
-// groups (see the comment above). maybeString is the type `Maybe<String>`.
-func RegexCaptureType(groups []regexgroups.Group, maybeString Type) Type {
+// groups (see the comment above). optionString is the type `Option<String>`.
+func RegexCaptureType(groups []regexgroups.Group, optionString Type) Type {
 	part := func(g regexgroups.Group) Type {
 		if g.Optional {
-			return maybeString
+			return optionString
 		}
 		return TypeString
 	}

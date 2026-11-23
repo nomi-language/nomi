@@ -6,14 +6,14 @@ import (
 )
 
 // preludePredicates names the variant each prelude predicate tests
-// (`Maybe.is_some` tests Some). std's bodies are each a two-arm `case`
+// (`Option.is_some` tests Some). std's bodies are each a two-arm `case`
 // answering whether the value is that variant, which is exactly one
 // variant test. stdQualRoutes routes each to preludePredicateCall.
 var preludePredicates = map[stdQualKey]string{
-	{stdMaybeType, "is_some"}: "Some",
-	{stdMaybeType, "is_none"}: "None",
-	{stdResultType, "is_ok"}:  "Ok",
-	{stdResultType, "is_err"}: "Err",
+	{stdOptionType, "is_some"}: "Some",
+	{stdOptionType, "is_none"}: "None",
+	{stdResultType, "is_ok"}:   "Ok",
+	{stdResultType, "is_err"}:  "Err",
 }
 
 // preludePredicateCall lowers `Result.is_err(r)` and its three siblings,

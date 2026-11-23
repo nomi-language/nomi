@@ -4,7 +4,7 @@ import "testing"
 
 func TestIRPatternIf_NestedPayloadScopes(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn combine(a: Maybe<Int>, b: Maybe<Int>) -> Int
+fn combine(a: Option<Int>, b: Option<Int>) -> Int
   if Some(n) = a then
     if Some(m) = b then n + m else n
   else

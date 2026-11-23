@@ -206,9 +206,10 @@
 // token at each place the lowering marked (analyzedlowering.Reached's
 // Marked): the last token of the callee of a call the compiler cannot show
 // is pure, and the name of a function whose body holds one. The `dbg` of a
-// `dbg` is the callee of the call that prints, and a keyword has no token
-// of its own, so MarkReaching gives it a keyword token, marked; a hover on
-// it ends with its line after the keyword's text. A read of a
+// `dbg` is the callee of the call that prints: a hover on it ends with its
+// line after the keyword's text, and it is not marked, since the keyword
+// shows the effect on its line (vmhost's actingCalls). A call of a function
+// that holds a `dbg` is marked, as any call that can act is. A read of a
 // once, a once's name and a function named as a value keep their hover
 // line and no mark. The tour's highlighter marks its tokens the same way. Hover and the tokens do not wait for a run, as the published
 // diagnostics do not: before the run of the text shown has finished a
@@ -219,6 +220,22 @@
 // program opened from its record, whose run the record answers without
 // lowering (DocumentManager.StoredLoweredClean), keeps no calls of its
 // own, and its calls have the lines and marks of the entry's run.
+//
+// A program with a compile error keeps the lines and marks of what checks.
+// Its document's analysis offers no program to lower from, so its run
+// lowers the text (vmhost.CheckLowering), and when every error is in a
+// function, an impl function, a test or a group, the front end names those
+// declarations (frontend.Project.ErrorDecls), the builder leaves them
+// unlowered and lowers the rest (irbuild.Program.ErrorDecls), and the same
+// walks find the calls in what was lowered, beside the front end's error,
+// which the run reports nothing of. A body that checked reads as it would
+// in a program with no error. A declaration that did not check has no line
+// and no mark, and a call of it says nothing of what it may do, since
+// nothing of its body was lowered; a function that calls it says what the
+// rest of its body can do. An error anywhere else (a type, an import, a
+// `once`) leaves the document with no lines and no marks, as a syntax error
+// does. A function that stops compiling loses its marks with the run of
+// that text; none are kept from an earlier one.
 //
 // # Annotations a default decides
 //

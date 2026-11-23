@@ -61,7 +61,7 @@ func TestCurrentValueOperand_Admitted(t *testing.T) {
 		"arithmetic and a call":            `  _a = {..ada(), name: String.trim(..) + "!"}`,
 		"nested updates":                   `  _a = {..ada(), address: {.., street: String.trim(..), city: .. + "!"}}`,
 		"a pipe":                           `  _a = {..ada(), tags: .. |> Iter.filter(fn t -> t != "x") |> Iter.to_list()}`,
-		"a lambda":                         `  _a = {..ada(), name: Some("x") |> Maybe.map(fn s -> s + ..) |> Maybe.with_default("")}`,
+		"a lambda":                         `  _a = {..ada(), name: Some("x") |> Option.map(fn s -> s + ..) |> Option.with_default("")}`,
 		"Struct.update":                    `  _a = Struct.update(ada(), {name: .. + "!", address: {.., city: .. + "!"}})`,
 		"a list at a key the map may lack": "  m = {\"a\" => [1]}\n  _a = {..m, \"a\" => .. + [2], \"b\" => [0, ..]}",
 		"a vector":                         `  _a = {..ada(), recent: Vector.push(.., 1)}`,
@@ -81,7 +81,7 @@ func TestCurrentValueOperand_Admitted(t *testing.T) {
 // innermost one whose value holds it.
 func TestCurrentValueOperand_Types(t *testing.T) {
 	src := currentValueDecls + "fn main()\n" +
-		"  _a = {..ada(), address: {.., street: String.trim(..)}, tags: .. + [\"x\"], name: Some(\"x\") |> Maybe.map(fn s -> s + ..) |> Maybe.with_default(\"\")}\n" +
+		"  _a = {..ada(), address: {.., street: String.trim(..)}, tags: .. + [\"x\"], name: Some(\"x\") |> Option.map(fn s -> s + ..) |> Option.with_default(\"\")}\n" +
 		"end\n"
 	fa, nodes, errs := checkSourceNodesWithStdlib(src)
 	if len(errs) != 0 {
@@ -114,7 +114,7 @@ func TestCurrentValueOperand_Types(t *testing.T) {
 func TestCurrentValueOperand_InAnUpdateThatFails(t *testing.T) {
 	cases := []struct{ name, head, body, want string }{
 		{"a base of an unknown type", "",
-			"fn helper(r: Missing) -> Person\n  {..r, name: Some(..) |> Maybe.with_default(\"\")}\nend\n",
+			"fn helper(r: Missing) -> Person\n  {..r, name: Some(..) |> Option.with_default(\"\")}\nend\n",
 			`unknown type "Missing"`},
 		{"a base from a module that is not there", "import std::no_such_module\n\n",
 			"fn helper(r: no_such_module.Req) -> Person\n  {..r, name: String.trim(..)}\nend\n",

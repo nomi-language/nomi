@@ -39,7 +39,7 @@ end
 test "the expected type fills what the arguments leave open"
     xs: List<Int> = Iter.to_list([])
     f: (Int) -> Int = ident(fn x -> x + 1)
-    c: Maybe<Color> = Some(.Red)
+    c: Option<Color> = Some(.Red)
     assert xs == []
     assert f(1) == 2
     assert c == Some(Color.Red)

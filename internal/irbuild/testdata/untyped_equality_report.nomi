@@ -28,23 +28,23 @@
 // is required rather than stylistic: the report suppresses a redundant literal,
 // so `assert Some(7) == None` renders no `values:` row at all and would compare
 // nothing. A name forces the row.
-fn to_maybe(n: Int) -> Maybe<Int>
+fn to_option(n: Int) -> Option<Int>
     if n > 0 then Some(n) else None
 end
 
 test "an equality against an untyped literal that holds"
-    absent: Maybe<Int> = None
+    absent: Option<Int> = None
     assert absent == None
     assert None == absent
 end
 
 test "a failing equality renders the untyped operand on the right"
-    present = to_maybe(7)
+    present = to_option(7)
     assert present == None
 end
 
 test "a failing equality renders the untyped operand on the left"
-    present = to_maybe(7)
+    present = to_option(7)
     assert None == present
 end
 

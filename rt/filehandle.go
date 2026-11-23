@@ -136,10 +136,10 @@ func fileDo[T any](f File, body func(st *fileState) Result[T, IOError]) Result[T
 // Both are Ints of any size. An offset past int64 is past the end of every
 // file, and a read past what the file holds reads what it holds, so the
 // buffer is never larger than the file.
-func (st *fileState) readAt(offsetArg, maxArg Int) Result[Maybe[Bytes], IOError] {
+func (st *fileState) readAt(offsetArg, maxArg Int) Result[Option[Bytes], IOError] {
 	offset, ok := offsetArg.Int64()
 	if !ok {
-		return Ok[Maybe[Bytes], IOError](None[Bytes]())
+		return Ok[Option[Bytes], IOError](None[Bytes]())
 	}
 	max := maxArg.Saturated()
 	if max > readChunk {
@@ -147,18 +147,18 @@ func (st *fileState) readAt(offsetArg, maxArg Int) Result[Maybe[Bytes], IOError]
 			max = min(max, size-offset)
 		}
 		if max <= 0 {
-			return Ok[Maybe[Bytes], IOError](None[Bytes]())
+			return Ok[Option[Bytes], IOError](None[Bytes]())
 		}
 	}
 	buf := make([]byte, max)
 	n, err := st.src.F.ReadAt(buf, offset)
 	if n > 0 {
-		return Ok[Maybe[Bytes], IOError](Some(Bytes(buf[:n])))
+		return Ok[Option[Bytes], IOError](Some(Bytes(buf[:n])))
 	}
 	if err == nil || errors.Is(err, io.EOF) {
-		return Ok[Maybe[Bytes], IOError](None[Bytes]())
+		return Ok[Option[Bytes], IOError](None[Bytes]())
 	}
-	return Err[Maybe[Bytes]](st.fail("read", err))
+	return Err[Option[Bytes]](st.fail("read", err))
 }
 
 // readChunk is the read size past which readAt holds a read to the
@@ -189,8 +189,8 @@ func (st *fileState) writeAt(offsetArg Int, data Bytes) Result[Unit, IOError] {
 // FileRead is std/io's private `file_read`, which `File.read` calls: up to
 // max bytes at the position, which moves past them. std declares max a
 // PositiveInt, and every position here a NonNegativeInt, so none is checked.
-func FileRead(f File, max Int) Result[Maybe[Bytes], IOError] {
-	return fileDo(f, func(st *fileState) Result[Maybe[Bytes], IOError] {
+func FileRead(f File, max Int) Result[Option[Bytes], IOError] {
+	return fileDo(f, func(st *fileState) Result[Option[Bytes], IOError] {
 		got := st.readAt(SmallInt(st.pos), max)
 		if got.Tag == TagOk && got.Ok.Tag == TagSome {
 			st.pos += int64(len(got.Ok.Some))
@@ -201,8 +201,8 @@ func FileRead(f File, max Int) Result[Maybe[Bytes], IOError] {
 
 // FileReadAt is `File.read_at`: up to max bytes at offset. The position
 // stays where it was.
-func FileReadAt(f File, offset, max Int) Result[Maybe[Bytes], IOError] {
-	return fileDo(f, func(st *fileState) Result[Maybe[Bytes], IOError] { return st.readAt(offset, max) })
+func FileReadAt(f File, offset, max Int) Result[Option[Bytes], IOError] {
+	return fileDo(f, func(st *fileState) Result[Option[Bytes], IOError] { return st.readAt(offset, max) })
 }
 
 // FileWrite is `File.write`: data at the position, which moves past it.

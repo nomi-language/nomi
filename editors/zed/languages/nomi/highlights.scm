@@ -167,7 +167,7 @@
 "interface" @keyword
 "enum" @keyword
 "struct" @keyword
-"subtype" @keyword
+"refine" @keyword
 "type" @keyword
 "fn" @keyword
 "once" @keyword

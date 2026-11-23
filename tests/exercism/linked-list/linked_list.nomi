@@ -30,7 +30,7 @@ impl LinkedList<T>
 
     /// The last value of `list` and the list without it, or `None` when it is
     /// empty.
-    pub fn pop(list: LinkedList<T>) -> Maybe<(T, LinkedList<T>)>
+    pub fn pop(list: LinkedList<T>) -> Option<(T, LinkedList<T>)>
         case list.back
             [last, ..back] ->
                 Some((last, {..list, back:}))
@@ -45,7 +45,7 @@ impl LinkedList<T>
 
     /// The first value of `list` and the list without it, or `None` when it
     /// is empty.
-    pub fn shift(list: LinkedList<T>) -> Maybe<(T, LinkedList<T>)>
+    pub fn shift(list: LinkedList<T>) -> Option<(T, LinkedList<T>)>
         case list.front
             [first, ..front] ->
                 Some((first, {..list, front:}))

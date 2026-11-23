@@ -105,18 +105,18 @@ pub fn read(config: Json, kit: String) -> List<Database>
     |> Map.keys()
     |> Iter.sort()
     |> Iter.map(fn name ->
-        table = Map.get(tables, name) |> Maybe.with_default(Json.Null)
+        table = Map.get(tables, name) |> Option.with_default(Json.Null)
         d = defaults(name)
 
         Database{
             kit:,
             name:,
             dialect:     dialect_of(text(table, "dialect")),
-            migrations:  text(table, "migrations") |> Maybe.with_default(d.migrations),
-            queries:     text(table, "queries") |> Maybe.with_default(d.queries),
-            out:         text(table, "out") |> Maybe.with_default(d.out),
-            schema:      text(table, "schema") |> Maybe.with_default(d.schema),
-            dev_url_env: text(table, "dev_url_env") |> Maybe.with_default(d.dev_url_env),
+            migrations:  text(table, "migrations") |> Option.with_default(d.migrations),
+            queries:     text(table, "queries") |> Option.with_default(d.queries),
+            out:         text(table, "out") |> Option.with_default(d.out),
+            schema:      text(table, "schema") |> Option.with_default(d.schema),
+            dev_url_env: text(table, "dev_url_env") |> Option.with_default(d.dev_url_env),
             tables:      text_map(table, "tables"),
         }
     end)
@@ -130,11 +130,11 @@ end
 
 // The dialect a `dialect` key names; one it does not name is reported by
 // `problems`, and read as SQLite meanwhile.
-fn dialect_of(given: Maybe<String>) -> Dialect
+fn dialect_of(given: Option<String>) -> Dialect
     given
-    |> Maybe.flat_map(fn g -> dialects() |> Iter.find(fn (name, _) -> name == g))
-    |> Maybe.map(fn (_, d) -> d)
-    |> Maybe.with_default(Dialect.Sqlite)
+    |> Option.flat_map(fn g -> dialects() |> Iter.find(fn (name, _) -> name == g))
+    |> Option.map(fn (_, d) -> d)
+    |> Option.with_default(Dialect.Sqlite)
 end
 
 /// What is wrong with a `[sqlkit]` table, the one named `kit`: a
@@ -158,7 +158,7 @@ pub fn problems(config: Json, kit: String) -> List<String>
     |> Map.keys()
     |> Iter.sort()
     |> Iter.flat_map(fn name ->
-        table = Map.get(tables, name) |> Maybe.with_default(Json.Null)
+        table = Map.get(tables, name) |> Option.with_default(Json.Null)
 
         case text(table, "dialect")
             Some(g) when not Iter.any_match(dialects(), fn (n, _) -> n == g) ->
@@ -212,14 +212,14 @@ pub fn module_of(db: Database, name: String) -> String
     end
 end
 
-fn field(json: Json, key: String) -> Maybe<Json>
+fn field(json: Json, key: String) -> Option<Json>
     case json
         Json.Obj(fields) -> Map.get(fields, key)
         _                -> None
     end
 end
 
-fn text(json: Json, key: String) -> Maybe<String>
+fn text(json: Json, key: String) -> Option<String>
     case field(json, key)
         Some(Json.String(s)) -> Some(s)
         _                    -> None

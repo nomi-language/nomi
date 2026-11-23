@@ -41,7 +41,7 @@ impl Holds<String> for Box
     end
 end
 
-fn run() -> (String, String, List<Int>, Int, Bool, String, Bool, Maybe<Int>)
+fn run() -> (String, String, List<Int>, Int, Bool, String, Bool, Option<Int>)
     (
         Debug.inspect(None),
         Debug.inspect(Ok("s")),
@@ -59,7 +59,7 @@ end
 	}
 	// The receiver each line's call is for, by the start of its type.
 	want := map[int]string{
-		28: "Maybe<",
+		28: "Option<",
 		29: "Result<String, ",
 		30: "List<Int>",
 		31: "Int",
@@ -68,7 +68,7 @@ end
 		34: "Box",
 		35: "Int",
 	}
-	// Maybe and Result have no Debug block, so their `Debug.inspect` is
+	// Option and Result have no Debug block, so their `Debug.inspect` is
 	// Debug's own function answered by the type's shape, with no impl.
 	byShape := map[int]bool{28: true, 29: true}
 	for n, rc := range fa.Calls {

@@ -117,7 +117,7 @@ func (bl *irScalarBuilder) compare(t *ast.Binary, op ir.CompareOp) (ir.Temp, kin
 		// argument or a return takes its parameter's.
 		rhs, rk, rmobile, ok = bl.preludeBareValue(t.Right, lk)
 	} else if c, isCall := t.Right.(*ast.Call); isCall && !op.Ordering() && lk.tag == tagNamed && lk.def != nil && lk.def.preludeOf != nil {
-		// `x == Maybe.Some(v)`: the checker solved both operands as one
+		// `x == Option.Some(v)`: the checker solved both operands as one
 		// type, so the constructor takes the other operand's instance where
 		// the call site recorded none (a stdlib prompt's).
 		at, n := bl.b, len(bl.b.Instrs())
@@ -155,11 +155,11 @@ func (bl *irScalarBuilder) lowerComparisonOperand(n ast.Node) (ir.Temp, kind, bo
 
 // embedsWidenedOperand says which operand of an equality is lowered at the
 // other's type, when the checker typed the two apart only by an embedded
-// value inside a generic type: `Some(circle) == Some(Shape.Dot)` compares a
-// Maybe<Circle> with a Maybe<Shape>. The operand whose type is assignable to
+// value inside a generic type: `Some(circle) == Some(Shape.Dot)` compares an
+// Option<Circle> with an Option<Shape>. The operand whose type is assignable to
 // the other's (TypeAssignable) is the narrower, and it is lowered at the
 // wider type, so its embedded values widen where they sit, as they do where
-// a Maybe<Shape> is expected. The two values then have one runtime shape. A
+// an Option<Shape> is expected. The two values then have one runtime shape. A
 // value of the embedded type itself beside its enum (`circle == shape`) is
 // left to compareOperands, which widens it after lowering.
 func (bl *irScalarBuilder) embedsWidenedOperand(t *ast.Binary, op ir.CompareOp) (wantL kind, widenL bool, wantR kind, widenR bool) {
@@ -193,7 +193,7 @@ func (bl *irScalarBuilder) bareEqualityOperand(n ast.Node, op ir.CompareOp) bool
 	if !ok {
 		return false
 	}
-	// `Direction.North` has the same spelling as `Maybe.None`; only a
+	// `Direction.North` has the same spelling as `Option.None`; only a
 	// payload-free PRELUDE variant lacks a type of its own.
 	_, _, vs, prelude := bl.g.resolvedPreludeVariant(name, line, col)
 	return prelude && !vs.carries()
@@ -266,7 +266,7 @@ func (bl *irScalarBuilder) compareOperands(t *ast.Binary, op ir.CompareOp, lhs i
 	// worth showing, and the redundancy rule that drops `1 = 1` is rt's to
 	// apply. Recorded before any route is chosen, so a comparison answered
 	// by an impl call shows its operands too. The `==` that an assertion
-	// subject's `Maybe.equal(a, b)` is lowered as (asOperator), whose
+	// subject's `Option.equal(a, b)` is lowered as (asOperator), whose
 	// operands are the call's own nodes, hands them to the call instead,
 	// which records them as its rows (recordedQualCall).
 	if c := bl.qualRecord; c != nil && len(c.Args) == 2 && t.Left == argExpr(c.Args[0]) && t.Right == argExpr(c.Args[1]) {

@@ -61,7 +61,7 @@ fn in_nested()
     inner()
 end
 
-fn in_case(m: Maybe<Printer>)
+fn in_case(m: Option<Printer>)
     case m
         Some(io) -> io.print("case arm binding")
         None -> io.print("std in the other arm")
@@ -158,7 +158,7 @@ fn in_nested() -> Int
     inner()
 end
 
-fn in_case(m: Maybe<Ops>) -> Int
+fn in_case(m: Option<Ops>) -> Int
     case m
         Some(util) -> util.twice(5)
         None -> util.twice(5)
@@ -250,7 +250,7 @@ fn in_nested() -> Int
     inner()
 end
 
-fn in_case(m: Maybe<Runner>) -> Int
+fn in_case(m: Option<Runner>) -> Int
     case m
         Some(helper) -> helper.run(2)
         None -> helper()
@@ -387,7 +387,7 @@ end
 
 once tool = Runner{run: one}
 
-fn in_case(m: Maybe<Runner>) -> Int
+fn in_case(m: Option<Runner>) -> Int
     case m
         Some(tool) -> tool.run(2)
         None -> tool.run(2)

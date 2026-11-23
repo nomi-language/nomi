@@ -98,7 +98,7 @@ func TestPartialGeneric_TakesTheExpectedParameterTypesButNotAnyResult(t *testing
 func TestPartialGeneric_AFunctionValueConvertsInsideAContainer(t *testing.T) {
 	const total = "fn total<T>(rows: List<Iter<T>>) -> Int\n  rows |> Iter.map(Iter.count) |> Iter.sum()\nend\n\n"
 	for _, body := range []string{
-		"  _ = Maybe.map(Some([[1], [2]]), total)",
+		"  _ = Option.map(Some([[1], [2]]), total)",
 		"  f: (List<List<Int>>) -> Int = total\n  _ = f",
 	} {
 		_, errs := checkSourceWithStdlib(total + "fn main()\n" + body + "\nend\n")
@@ -126,7 +126,7 @@ end
 // passes is solved by it, as the lambda's parameter is: `&Int.max(&1,
 // Int.abs(-3))` where Iter.map passes an Int takes that Int, and the
 // NonNegativeInt beside it widens to it (spec §4 *Chains and conversion*),
-// so the capture is an `(Int) -> Int`, with the subtype argument written
+// so the capture is an `(Int) -> Int`, with the refinement argument written
 // second or first.
 func TestPartialGeneric_AnExactSlotTakesThePositionsParameter(t *testing.T) {
 	for _, call := range []string{

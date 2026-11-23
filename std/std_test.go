@@ -20,10 +20,10 @@ func TestLoadPrimitives(t *testing.T) {
 	if sym == nil {
 		t.Fatal("expected Int in primitives scope")
 	}
-	// Maybe and Some come into the prelude scope via std.maybe imports
-	sym = lib.Primitives.Lookup("Maybe")
+	// Option and Some come into the prelude scope via std.option imports
+	sym = lib.Primitives.Lookup("Option")
 	if sym == nil {
-		t.Fatal("expected Maybe in primitives scope")
+		t.Fatal("expected Option in primitives scope")
 	}
 	sym = lib.Primitives.Lookup("Some")
 	if sym == nil {
@@ -34,7 +34,7 @@ func TestLoadPrimitives(t *testing.T) {
 func TestLoadModules(t *testing.T) {
 	lib := Load()
 
-	modules := []string{"io", "maybe", "results", "iter", "maps", "lists", "strings", "ranges", "structs", "calendar", "regex"}
+	modules := []string{"io", "option", "results", "iter", "maps", "lists", "strings", "ranges", "structs", "calendar", "regex"}
 	for _, name := range modules {
 		mod, ok := lib.Modules[name]
 		if !ok {
@@ -192,7 +192,7 @@ func TestStdlibFuncTypesResolved(t *testing.T) {
 
 // TestLoad_CrossModuleReturnTypesResolved pins a key behavior of std.Load:
 // cross-module function return types must resolve to their
-// declared types (e.g. Maybe<T>, Result<T, E>) rather than degrading to
+// declared types (e.g. Option<T>, Result<T, E>) rather than degrading to
 // Unit when the producer module hasn't loaded a referenced type yet.
 //
 // std.Load delegates to BuildProjectWithCache, whose two-pass Sweep
@@ -210,13 +210,13 @@ func TestLoad_CrossModuleReturnTypesResolved(t *testing.T) {
 		module, fn  string
 		wantNonUnit bool
 	}{
-		// Result.to_maybe(r: Result<T, E>): Maybe<T> — result uses
-		// Maybe in its return type. If Maybe weren't resolved when
+		// Result.to_option(r: Result<T, E>): Option<T> — result uses
+		// Option in its return type. If Option weren't resolved when
 		// result was processed, return type would be Unit.
-		{"results", "to_maybe", true},
-		// Maybe.to_result(m: Maybe<T>, e: E): Result<T, E> — the
-		// mirror: maybe uses Result in its return type.
-		{"maybe", "to_result", true},
+		{"results", "to_option", true},
+		// Option.to_result(m: Option<T>, e: E): Result<T, E> — the
+		// mirror: option uses Result in its return type.
+		{"option", "to_result", true},
 		// Iter.to_map(src: Iter<(K, V)>) -> Map<K, V> — a free function
 		// (constructor/materializer) with a cross-module Map return.
 		{"iter", "to_map", true},
@@ -378,8 +378,8 @@ func TestPreludeExposesUniversalNames(t *testing.T) {
 		// Static/Dynamic variants) is not prelude-exported; typed-literal
 		// handler modules import it explicitly via
 		// std/literals.{Fragment, Literal} (+ Fragment.{Static, Dynamic}).
-		// maybe / result
-		"Maybe", "Some", "None",
+		// option / result
+		"Option", "Some", "None",
 		"Result", "Ok", "Err",
 		// core protocols
 		"Add", "Subtract", "Multiply", "Divide",
@@ -400,7 +400,7 @@ func TestPreludeExposesUniversalNames(t *testing.T) {
 		}
 	}
 
-	for _, name := range []string{"assertions", "code_points", "context", "startup", "decimal", "float", "int", "iter", "maps", "maybe", "ranges", "results", "sets", "strings", "vectors"} {
+	for _, name := range []string{"assertions", "code_points", "context", "startup", "decimal", "float", "int", "iter", "maps", "option", "ranges", "results", "sets", "strings", "vectors"} {
 		if sym := lib.Primitives.Lookup(name); sym != nil {
 			t.Errorf("expected file API object %q to require an explicit import", name)
 		}

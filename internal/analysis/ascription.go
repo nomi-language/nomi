@@ -24,7 +24,10 @@ func (c *checker) checkAscription(n *ast.Ascription) Type {
 		} else {
 			c.addError(n.Line, n.Col, err.Error())
 		}
-		return c.checkNode(n.Value)
+		// A type that names nothing gives the value none, as an
+		// annotation naming it gives a binding none.
+		c.checkNode(n.Value)
+		return nil
 	}
 	if c.fa != nil && c.fa.References != nil && !c.annotationTrial && n.Line > 0 {
 		// A hover on `as` shows the type it gives the value.

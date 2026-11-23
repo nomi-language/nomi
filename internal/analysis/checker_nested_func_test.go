@@ -20,7 +20,7 @@ import (
 // The diagnostics below are the visible half. The half that motivated the fix
 // is invisible from here and lives in internal/irbuild: `checkGenericCall`
 // attaches the instantiated signature to a call-site symbol, so `Some(1)`
-// inside a function returning `Maybe<Int>` records `(Int) -> Maybe<Int>` — and
+// inside a function returning `Option<Int>` records `(Int) -> Option<Int>` — and
 // with the body unvisited nothing was recorded, which the IR builder reported
 // as `generic enum over a type parameter`. See
 // TestNestedFunc_PreludeConstructorSolvesInsideATestBody in internal/irbuild.
@@ -307,7 +307,7 @@ end`},
 end`},
 		{"case on the nested fn's call", `fn main()
   xs = [begin
-    fn bad() -> Maybe<Int>
+    fn bad() -> Option<Int>
       "nope"
     end
     case bad()

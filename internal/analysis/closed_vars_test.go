@@ -15,14 +15,14 @@ import (
 // through analysis.Elaborate, and the recorded type itself still displays
 // the variable.
 func TestClosedVariables_IntUnlessABoundRefusesIt(t *testing.T) {
-	fa, errs := checkSourceWithStdlib(`fn present<T>(m: Maybe<T>) -> Bool
+	fa, errs := checkSourceWithStdlib(`fn present<T>(m: Option<T>) -> Bool
     case m
         Some(_) -> True
         None -> False
     end
 end
 
-fn shown<T>(m: Maybe<T>) -> String where T: Display
+fn shown<T>(m: Option<T>) -> String where T: Display
     case m
         Some(v) -> Display.to_string(v)
         None -> "none"
@@ -39,7 +39,7 @@ impl Marker for Unit
     end
 end
 
-fn marked<T>(m: Maybe<T>) -> String where T: Marker
+fn marked<T>(m: Option<T>) -> String where T: Marker
     case m
         Some(v) -> Marker.mark(v)
         None -> "none"
@@ -57,9 +57,9 @@ end
 		t.Fatalf("the checker rejects the source: %v", errs)
 	}
 	want := map[string]string{
-		"present":   "(Maybe<Int>) -> Bool",
-		"shown":     "(Maybe<Int>) -> String",
-		"marked":    "(Maybe<Unit>) -> String",
+		"present":   "(Option<Int>) -> Bool",
+		"shown":     "(Option<Int>) -> String",
+		"marked":    "(Option<Unit>) -> String",
 		"to_string": "(Result<Int, String>) -> String",
 	}
 	// The calls in main are the ones whose instance holds a variable; one

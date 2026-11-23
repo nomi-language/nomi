@@ -16,7 +16,7 @@ struct Tally
     count: NonNegativeInt
 end
 
-fn first_even(xs: List<Int>) -> Maybe<Int>
+fn first_even(xs: List<Int>) -> Option<Int>
     Iter.find(xs, fn x -> x % 2 == 0)
 end
 

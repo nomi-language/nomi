@@ -10,16 +10,16 @@ import (
 // chunk, skips empty chunks, and answers the function's io.Error as the
 // read's.
 func TestPullReaders_FromFnCallsBackOnTheReadsFrame(t *testing.T) {
-	chunks := []Result[Maybe[Bytes], IOError]{
-		Ok[Maybe[Bytes], IOError](Some(Bytes("on"))),
-		Ok[Maybe[Bytes], IOError](Some(Bytes(""))),
-		Ok[Maybe[Bytes], IOError](Some(Bytes("e\n"))),
-		Err[Maybe[Bytes]](IOError{Tag: TagIOTimedOut}),
-		Ok[Maybe[Bytes], IOError](Some(Bytes("two"))),
-		Ok[Maybe[Bytes], IOError](None[Bytes]()),
+	chunks := []Result[Option[Bytes], IOError]{
+		Ok[Option[Bytes], IOError](Some(Bytes("on"))),
+		Ok[Option[Bytes], IOError](Some(Bytes(""))),
+		Ok[Option[Bytes], IOError](Some(Bytes("e\n"))),
+		Err[Option[Bytes]](IOError{Tag: TagIOTimedOut}),
+		Ok[Option[Bytes], IOError](Some(Bytes("two"))),
+		Ok[Option[Bytes], IOError](None[Bytes]()),
 	}
 	var frames []*Frame
-	r := ReaderFromFn(func(fr *Frame) Result[Maybe[Bytes], IOError] {
+	r := ReaderFromFn(func(fr *Frame) Result[Option[Bytes], IOError] {
 		frames = append(frames, fr)
 		next := chunks[0]
 		chunks = chunks[1:]

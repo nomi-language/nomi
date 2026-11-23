@@ -17,7 +17,7 @@ package irbuild
 //
 // # A struct may hold itself
 //
-// `struct Node { children: List<Node> }`, `next: Maybe<Link>`, `kids:
+// `struct Node { children: List<Node> }`, `next: Option<Link>`, `kids:
 // Map<String, Dir>`, `rest: Iter<Stream>`, and two structs that hold each
 // other through lists: the VM holds records, lists, maps and closures by
 // reference, so the recursion is in the values and not in the layout. A
@@ -120,7 +120,7 @@ func irRetainedStructKindIn(d *typeDef, outer []*typeDef) bool {
 			continue
 		}
 		if deciding := append(outer, d); irKindReaches(f.k, deciding) {
-			// `children: List<Node>`, `next: Maybe<Node>`, `kids: Map<String,
+			// `children: List<Node>`, `next: Option<Node>`, `kids: Map<String,
 			// Node>`: a field that reaches a type this walk is deciding. It is
 			// decided with the walk's stack, co-inductively, and never through
 			// the stack-less predicates below, which would restart the walk
@@ -138,7 +138,7 @@ func irRetainedStructKindIn(d *typeDef, outer []*typeDef) bool {
 		}
 		if f.k.tag == tagNamed && irCompositeDistinct(f.k.def) {
 			// `pair: Pair` for `type Pair (Int, Int)`, `w: Wrapped` for
-			// `type Wrapped Maybe<Int>`: the distinct's record, carried as
+			// `type Wrapped Option<Int>`: the distinct's record, carried as
 			// an enum payload carries it. One reaching this struct back
 			// was decided above.
 			continue
@@ -367,7 +367,7 @@ func irComposedFieldKind(k kind, outer []*typeDef) bool {
 		case p.tag == tagFunc:
 			return irFuncFieldKind(p, outer)
 		case irDeclaredDistinct(p) && irKindReaches(p, outer):
-			// `b: Maybe<B>` for `type B W` inside W: the distinct is decided
+			// `b: Option<B>` for `type B W` inside W: the distinct is decided
 			// with the walk's stack, as a struct part is.
 			return irDistinctCoinductive(p, outer)
 		case p.tag == tagSeq && p.comp != nil && len(p.comp.parts) == 1:
@@ -387,7 +387,7 @@ func irComposedFieldKind(k kind, outer []*typeDef) bool {
 			return part(p.comp.parts[0]) && part(p.comp.parts[1])
 		}
 		if p.tag == tagNamed && p.def != nil && p.def.preludeOf != nil && p.def.isEnum && irKindReaches(p, outer) {
-			// `pair: (Int, Maybe<Tree>)` inside Tree: a prelude wrapper's
+			// `pair: (Int, Option<Tree>)` inside Tree: a prelude wrapper's
 			// payloads decided with the walk's stack, as the field-level
 			// wrapper below is. irRetainedValueKind would restart the walk.
 			if !irPreludeWrapperOver(p, outer) {
@@ -402,7 +402,7 @@ func irComposedFieldKind(k kind, outer []*typeDef) bool {
 			}
 			return true
 		}
-		// `pair: (Int, Maybe<Tree>)`, and `wrap: {inner: Maybe<Tree>, depth:
+		// `pair: (Int, Option<Tree>)`, and `wrap: {inner: Option<Tree>, depth:
 		// Int}` inside Tree: a tuple's, a list's or a record's parts decided
 		// with the walk's stack. A record that reaches no type the walk is
 		// deciding is held as irRetainedRecordKind holds it, below.
@@ -417,7 +417,7 @@ func irComposedFieldKind(k kind, outer []*typeDef) bool {
 		return irRetainedFieldKind(p) || irUserStructFieldKind(p) || irRetainedValueKind(p)
 	}
 	if k.tag == tagNamed && k.def != nil && k.def.preludeOf != nil && irPreludeWrapperOver(k, outer) {
-		// `fault: Maybe<Fault>`: a prelude wrapper over field kinds, a user
+		// `fault: Option<Fault>`: a prelude wrapper over field kinds, a user
 		// enum among them.
 		for _, v := range k.def.variants {
 			for _, p := range v.payloads {
@@ -450,9 +450,9 @@ func irComposedFieldKind(k kind, outer []*typeDef) bool {
 	return part(k)
 }
 
-// irPreludeWrapperOver is a retained prelude enum instance (`Maybe<T>`,
+// irPreludeWrapperOver is a retained prelude enum instance (`Option<T>`,
 // `Result<T, E>`) as a struct field's wrapper. One whose payloads reach a
-// type the walk is deciding (`next: Maybe<Link>` inside Link) is checked only
+// type the walk is deciding (`next: Option<Link>` inside Link) is checked only
 // as a wrapper, since irRetainedEnumKind decides its payloads without the
 // walk's stack; irComposedFieldKind decides those payloads itself.
 func irPreludeWrapperOver(k kind, outer []*typeDef) bool {
@@ -562,7 +562,7 @@ func irUserStructFieldKind(k kind) bool {
 }
 
 // irPlainUserEnumKind is a retained user enum with no embedded variants, the
-// payload a prelude wrapper field may carry (`fault: Maybe<Fault>`). Its own
+// payload a prelude wrapper field may carry (`fault: Option<Fault>`). Its own
 // payloads are decided by irRetainedEnumKind, which never re-enters a struct
 // through an unboxed slot.
 func irPlainUserEnumKind(k kind) bool {
@@ -943,7 +943,7 @@ func (bl *irScalarBuilder) defaultElsewhere(d *typeDef) bool {
 func (bl *irScalarBuilder) declDefault(deflt ast.Node, want kind) (ir.Temp, bool) {
 	parent, locals, declared := bl.parent, bl.locals, bl.sh.declared
 	bl.parent, bl.locals, bl.sh.declared = nil, nil, nil
-	// Typed by the field, so `Maybe.None` or `None` is the field's Maybe.
+	// Typed by the field, so `Option.None` or `None` is the field's Option.
 	v, k, mobile, ok := bl.lowerTypedOperand(deflt, want)
 	bl.parent, bl.locals, bl.sh.declared = parent, locals, declared
 	if !ok {

@@ -29,7 +29,7 @@ end
 		{"a conjunction's first member", "s: Hidden and Display", "Hidden"},
 		{"a conjunction's second member", "s: Display and Named", "Named"},
 		{"an anonymous struct's field", "s: {inner: Secret}", "Secret"},
-		{"a nested anonymous struct's field", "s: {outer: {inner: Maybe<Secret>}}", "Secret"},
+		{"a nested anonymous struct's field", "s: {outer: {inner: Option<Secret>}}", "Secret"},
 		{"a function type's parameter", "s: (Secret) -> Int", "Secret"},
 		{"a function type's result", "s: (Int) -> Secret", "Secret"},
 	} {

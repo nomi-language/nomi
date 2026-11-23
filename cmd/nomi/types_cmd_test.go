@@ -13,7 +13,7 @@ import (
 var typesFixture = filepath.Join("cmd", "nomi", "testdata", "types", "shop")
 
 // typesGolden is what `nomi types models.nomi api` writes in typesFixture:
-// structs, enums with and without payloads, a generic type, Maybe, lists,
+// structs, enums with and without payloads, a generic type, Option, lists,
 // sets, vectors, maps, a distinct type, a type alias, std types, a
 // reference across files, two Users of different files, and a hand-written
 // ToJson. NOMI_REGENERATE_EXPECTATIONS=1 writes it.

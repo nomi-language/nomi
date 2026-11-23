@@ -81,7 +81,7 @@ end
 // An equality with a bare `None` on either side takes the other operand's
 // type, and the failure rows match the recorded ones.
 func TestIRTestBody_BareNoneTakesTheOtherOperandsType(t *testing.T) {
-	const src = `fn find(n: Int) -> Maybe<Int>
+	const src = `fn find(n: Int) -> Option<Int>
   if n > 0 then
     Some(n)
   else

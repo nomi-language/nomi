@@ -19,7 +19,7 @@ import (
 // qualification: `step_by`, `next` and `inspect` all call `Codepoint.to_int`,
 // and the first two call std/int's host function `Int.to_codepoint`.
 func TestIRStdSibling_TypeQualifiedSameModuleCalls(t *testing.T) {
-	verifyLambdaProgram(t, `fn run() -> Maybe<Int>
+	verifyLambdaProgram(t, `fn run() -> Option<Int>
   a = Int.to_codepoint(65)?
   b = Codepoint.step_by(a, 2)?
   c = Codepoint.next(b)?

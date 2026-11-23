@@ -7,7 +7,7 @@ import (
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
-// A read of a binding a check narrowed shows the std subtype it holds
+// A read of a binding a check narrowed shows the std refinement it holds
 // there (spec §4 *Narrowing*), and a read outside the check its own type.
 func TestHover_NarrowedBinding(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
@@ -35,7 +35,7 @@ func TestHover_NarrowedBinding(t *testing.T) {
 
 // A binding with no type written shows its literal's type, as a number's
 // shows Int, though it passes where a NonEmptyList is expected; a `once`
-// shows the subtype its value proves, as `once k = 60 * 60` shows
+// shows the refinement its value proves, as `once k = 60 * 60` shows
 // PositiveInt (spec §4 *Value ranges*).
 func TestHover_NonEmptyBinding(t *testing.T) {
 	const decls = "once words = [\"a\"]\nonce k = 60 * 60\nonce title = \"nomi\"\nfn first(xs: NonEmptyList<String>) -> String\n  NonEmptyList.first(xs)\nend\n"
@@ -65,19 +65,19 @@ func TestHover_NonEmptyBinding(t *testing.T) {
 	}
 }
 
-// A pipeline over a narrowed binding shows the subtype its stages keep.
+// A pipeline over a narrowed binding shows the refinement its stages keep.
 func TestPipeHints_NarrowedHead(t *testing.T) {
 	src := `fn f(n: Int) -> Int
     if n <= 0 then return 0
 
     k = Some(n)
-    |> Maybe.map(fn v -> v)
-    |> Maybe.with_default(1)
+    |> Option.map(fn v -> v)
+    |> Option.with_default(1)
     k
 end
 `
 	wantPipeHints(t, src,
-		"4:16 Maybe<PositiveInt>",
-		"6:29 PositiveInt",
+		"4:16 Option<PositiveInt>",
+		"6:30 PositiveInt",
 	)
 }

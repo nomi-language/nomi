@@ -37,7 +37,7 @@ change, and a failure is a value the function returns.
 
 **[Kotlin](/from-kotlin/).** `val` bindings, data classes, sealed
 hierarchies with an exhaustive `when`, named arguments with defaults and
-structured concurrency carry over. A nullable type is a `Maybe`, errors are
+structured concurrency carry over. A nullable type is an `Option`, errors are
 values, and there are no methods or extension functions.
 
 **[Swift](/from-swift/).** Value types, enums with associated values,
@@ -51,9 +51,9 @@ chains, `=>` in a hash and `case`/`in` patterns carry over. Types are
 checked before the program runs, values never change, there are no methods
 to call on a value, and a class is never reopened.
 
-**Gleam** has no page of its own. Custom types with variants, `Result`, no
-null, pipes and code built from expressions carry over, and `Option` is
-`Maybe`. Nomi adds bindings without `let`, interfaces with
+**Gleam** has no page of its own. Custom types with variants, `Result`,
+`Option`, no null, pipes and code built from expressions carry over. Nomi
+adds bindings without `let`, interfaces with
 `impl Interface for Type`, `derive`, app fields, `defer`, typed literals,
 and early `return`, `break` and `continue`.
 

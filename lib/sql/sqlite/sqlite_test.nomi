@@ -91,7 +91,7 @@ end
 test "NULL reads back as Null in a column of every type"
     db = values_db()?
     defer sql.close_quietly(db)
-    nothing: Maybe<Int> = None
+    nothing: Option<Int> = None
     _ = Conn.exec(db, Sql"INSERT INTO v (i, day) VALUES (${nothing}, ${nothing})")?
     rows = Conn.query(db, Sql"SELECT i, day, j FROM v")?
     assert rows |> Iter.map(Row.values) |> Iter.to_list() == [[Value.Null, Value.Null, Value.Null]]
@@ -243,7 +243,7 @@ fn users_db() -> Result<Conn, sql.Error>
     Ok(db)
 end
 
-fn constraint(result: Result<Int, sql.Error>) -> Maybe<sql.Error>
+fn constraint(result: Result<Int, sql.Error>) -> Option<sql.Error>
     case result
         Err(e) -> Some(e)
         Ok(_)  -> None
@@ -286,7 +286,7 @@ end
 test "NOT NULL, CHECK and foreign key violations are constraint errors"
     db = users_db()?
     defer sql.close_quietly(db)
-    nothing: Maybe<String> = None
+    nothing: Option<String> = None
 
     assert constraint(Conn.exec(db, Sql"INSERT INTO users (email) VALUES (${nothing})")) == Some(
         sql.Error.Constraint{

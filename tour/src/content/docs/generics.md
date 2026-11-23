@@ -33,7 +33,7 @@ different types.
 ## Generic types
 
 Structs, enums, interfaces, distinct types (`type Tagged<T> (String, T)`),
-subtypes and type aliases can have type parameters.
+refinements and type aliases can have type parameters.
 
 ```nomi-run
 struct Box<T>

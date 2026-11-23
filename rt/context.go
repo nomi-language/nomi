@@ -180,7 +180,7 @@ func ContextWithValue(c Context, tid *TypeID, v any) Context {
 	return Context{node: &contextNode{parent: c.node, tid: tid, val: v}}
 }
 
-// ContextValue is `Context.value(c, value_type) -> Maybe<T>`: the nearest binding
+// ContextValue is `Context.value(c, value_type) -> Option<T>`: the nearest binding
 // for the witnessed type, walking to the root.
 //
 // The contract: "child values override parent values without mutating either
@@ -191,9 +191,9 @@ func ContextWithValue(c Context, tid *TypeID, v any) Context {
 // loud: one Nomi type has one `*TypeID` and
 // one Go type, so a matching identity carrying a different dynamic type would
 // mean a value was filed under an identity that is not its own — a wrong
-// answer, and a silent `Maybe` of the zero value is the one outcome worse than a
+// answer, and a silent `Option` of the zero value is the one outcome worse than a
 // trap. It cannot fire on a checked program.
-func ContextValue[T any](c Context, ty Type[T]) Maybe[T] {
+func ContextValue[T any](c Context, ty Type[T]) Option[T] {
 	if ty.TID == nil {
 		// No checked program produces a zero witness (rt/typewitness.go), and a
 		// nil key must not match a node — every value node carries a non-nil
@@ -305,8 +305,8 @@ func contextEffectiveDeadline(c Context) (int64, bool) {
 	return earliest, found
 }
 
-// ContextDeadline is `Context.deadline(c) -> Maybe<Instant>`.
-func ContextDeadline(c Context) Maybe[Instant] {
+// ContextDeadline is `Context.deadline(c) -> Option<Instant>`.
+func ContextDeadline(c Context) Option[Instant] {
 	ns, ok := contextEffectiveDeadline(c)
 	if !ok {
 		return None[Instant]()
@@ -314,12 +314,12 @@ func ContextDeadline(c Context) Maybe[Instant] {
 	return Some(Instant(ns))
 }
 
-// ContextDeadlineRemaining is `Context.deadline_remaining(c) -> Maybe<Duration>`.
+// ContextDeadlineRemaining is `Context.deadline_remaining(c) -> Option<Duration>`.
 //
 // Clamped at zero, because std/context documents `Some(0)` as "the deadline has
 // passed" and a negative Duration would render as `-5s` through
 // DurationToString — a different string, not a different number.
-func ContextDeadlineRemaining(c Context) Maybe[Duration] {
+func ContextDeadlineRemaining(c Context) Option[Duration] {
 	ns, ok := contextEffectiveDeadline(c)
 	if !ok {
 		return None[Duration]()

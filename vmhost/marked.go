@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/analyzedlowering"
@@ -120,23 +121,35 @@ type ReachedCall = analyzedlowering.Reached
 // (editorWalks, reachedCalls, hoverdoc.AppendReach), each with
 // its file named as the block's tabs name it. The block is loaded as
 // LoadMarked loads it, but not held to its lists, so a call they refuse is
-// shown refused; its other test files are not loaded.
+// shown refused; its other test files are not loaded. A block that does
+// not compile answers its error, beside the calls of the declarations that
+// checked when its errors are all in functions, impl functions and tests,
+// as CheckLowering answers them.
 func ReachedMarked(src, dir string, opts ...Option) ([]ReachedCall, error) {
 	project, err := virtualproject.FromMarkedSource(src)
 	if err != nil {
 		return nil, err
 	}
+	var errored *Program
+	opts = append(slices.Clip(opts), func(c *config) { c.errored = &errored })
 	p, _, err := loadMarkedProject(project, dir, "", opts, false)
-	if err != nil {
+	if err != nil && errored == nil {
 		return nil, err
 	}
-	calls := p.reachedCalls(p.editorWalks(p.walks(p.checkedRoots())))
+	if err != nil {
+		p = errored
+		p.sources = map[string]string{p.prog.Entry().Path: project.EntrySource}
+		if u := (*underRoot)(nil); errors.As(err, &u) {
+			p.fileNames = func(path string) string { return pathFromRoot(path, u.root) }
+		}
+	}
+	calls := p.editorReached()
 	for i := range calls {
 		if p.fileNames != nil {
 			calls[i].Path = p.fileNames(calls[i].Path)
 		}
 	}
-	return calls, nil
+	return calls, err
 }
 
 // held is a block's program once its nomi.toml's [effects] lists

@@ -8,7 +8,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/word-search.
 
 ## Choices
 
-- The answer is a `Map` from each word to `Maybe<Span>`, as the canonical data maps each word to a location or `null`. A `Span` holds two `Position`s, each a struct with the canonical `column` and `row`, counted from 1.
+- The answer is a `Map` from each word to `Option<Span>`, as the canonical data maps each word to a location or `null`. A `Span` holds two `Position`s, each a struct with the canonical `column` and `row`, counted from 1.
 - The grid is a `Vector` of rows, each a `Vector` of the row's letters as one-grapheme strings (`Iter.to_vector` over a `String`), so a letter is read by its row and column.
 - `find` is one lazy pipeline: every cell, then every one of the eight directions from it, then `Iter.find` for the first pair from which the word reads, with a `?` after it that answers `None` when no pair does. The directions are a `once` list of row and column steps, so the diagonals and the reversed words need no code of their own.
 - `reads` walks the word's letters with their index and compares each with the letter that many steps away. `letter_at` answers `None` off the grid, so a word that would run past an edge, or wrap to the next line, simply does not read; that is what the four "should not" cases check.

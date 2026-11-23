@@ -2,7 +2,7 @@ package ast
 
 import "math/big"
 
-// IntRuleBounds reads the bounds a subtype's `when` rule states of an Int:
+// IntRuleBounds reads the bounds a refinement's `when` rule states of an Int:
 // a lambda of one parameter whose body is comparisons of the parameter
 // with Int literals, possibly negated, on either side, joined by `and`
 // (`fn n -> n >= 0 and n <= 255`). min and max are nil on a side the rule

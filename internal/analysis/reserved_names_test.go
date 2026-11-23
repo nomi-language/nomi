@@ -52,7 +52,7 @@ func TestCheckReservedTypeName_BroadenedSetFromPrelude(t *testing.T) {
 		},
 		{
 			category: "sum types",
-			names:    []string{"Maybe", "Result"},
+			names:    []string{"Option", "Result"},
 		},
 		{
 			category: "iterator machinery",
@@ -67,7 +67,7 @@ func TestCheckReservedTypeName_BroadenedSetFromPrelude(t *testing.T) {
 		// passed; post-cutover the parent-scope lookup catches them
 		// because prelude re-exports them via drill-through.
 		{
-			category: "Maybe variants",
+			category: "Option variants",
 			names:    []string{"Some", "None"},
 		},
 		{

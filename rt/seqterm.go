@@ -93,17 +93,17 @@ func SeqEmpty[T any](fr *Frame, src Seq[T]) bool {
 	return src.Run(fr, func(fr *Frame, item T) bool { return false })
 }
 
-// SeqFirst is `pub fn first<T>(source: Iter<T>) -> Maybe<T>`.
+// SeqFirst is `pub fn first<T>(source: Iter<T>) -> Option<T>`.
 //
 // The captured local is what std's `break Some(item)` becomes: the value leaves
 // through a variable rather than through a control signal, and the source is
 // stopped by the same `false` that carried the signal.
 //
-// Seeded with None rather than left as the Go zero value: `Maybe[T]{}` has tag
+// Seeded with None rather than left as the Go zero value: `Option[T]{}` has tag
 // 0, which is neither Some nor None (rt/prelude.go reserves it so a zero value
 // is detectably invalid), so a source that yields nothing must be given the
 // real None.
-func SeqFirst[T any](fr *Frame, src Seq[T]) Maybe[T] {
+func SeqFirst[T any](fr *Frame, src Seq[T]) Option[T] {
 	out := None[T]()
 	src.Run(fr, func(fr *Frame, item T) bool {
 		out = Some(item)
@@ -112,12 +112,12 @@ func SeqFirst[T any](fr *Frame, src Seq[T]) Maybe[T] {
 	return out
 }
 
-// SeqFind is `pub fn find<T>(source: Iter<T>, f: (T) -> Bool) -> Maybe<T>`.
+// SeqFind is `pub fn find<T>(source: Iter<T>, f: (T) -> Bool) -> Option<T>`.
 //
 // SeqFirst with a predicate in front of it. Note which value is captured — the
 // element, not the predicate's answer — the same distinction FilterEach keeps
 // and the one that produces a program that type-checks when it is got wrong.
-func SeqFind[T any](fr *Frame, src Seq[T], pred func(fr *Frame, item T) bool) Maybe[T] {
+func SeqFind[T any](fr *Frame, src Seq[T], pred func(fr *Frame, item T) bool) Option[T] {
 	out := None[T]()
 	src.Run(fr, func(fr *Frame, item T) bool {
 		if !pred(fr, item) {
@@ -280,7 +280,7 @@ func SeqGroupByCells[T, K any, N ListCellShape[T, N], V any](
 	src.Run(fr, func(fr *Frame, item T) bool {
 		k := key(fr, item)
 		// A missing key yields the nil List, which is the empty list, so no
-		// Maybe.with_default is needed to reproduce std's `[]`.
+		// Option.with_default is needed to reproduce std's `[]`.
 		cur, _ := MapLookup(acc, hash, eq, k)
 		acc = MapPut(acc, hash, eq, k, ConsCell[T, N](item, cur))
 		return true

@@ -17,14 +17,14 @@
 //# - The parser reads a character with `String.slice(input, index, index +
 //#   1)`, as the suite reads one with `substring`, and keeps the input's
 //#   length in a field rather than asking for it at each read.
-//# - The current character is a `Maybe<String>`, `None` at the end of the
+//# - The current character is an `Option<String>`, `None` at the end of the
 //#   input, where the suite uses `null`.
 //# - `JsonArray.add` and `JsonObject.add` return a new array or object, built
 //#   with `Vector.push`, where the suite appends to a growable `som.Vector`.
 //#   The hash index table is a `Vector<Int>` replaced by `Vector.set`.
 //# - The `JsonValue` class hierarchy is an enum with one variant per class;
 //#   each class is a struct, and the `is_*`/`as_*` predicates are functions
-//#   on the enum. `as_object` and `as_array` return `Maybe` instead of
+//#   on the enum. `as_object` and `as_array` return `Option` instead of
 //#   throwing.
 //# - `read_string_internal` stops with an error at the end of the input,
 //#   where the suite's `while` loop would spin forever on an unterminated
@@ -128,14 +128,14 @@ impl JsonValue
         end
     end
 
-    fn as_object(value: JsonValue) -> Maybe<JsonObject>
+    fn as_object(value: JsonValue) -> Option<JsonObject>
         case value
             .Object(object) -> Some(object)
             _               -> None
         end
     end
 
-    fn as_array(value: JsonValue) -> Maybe<JsonArray>
+    fn as_array(value: JsonValue) -> Option<JsonArray>
         case value
             .Array(array) -> Some(array)
             _             -> None
@@ -156,7 +156,7 @@ impl JsonArray
         Vector.length(array.values)
     end
 
-    fn get(array: JsonArray, index: Int) -> Maybe<JsonValue>
+    fn get(array: JsonArray, index: Int) -> Option<JsonValue>
         Vector.get(array.values, index)
     end
 end
@@ -206,7 +206,7 @@ impl JsonObject
         }
     end
 
-    fn get(object: JsonObject, name: String) -> Maybe<JsonValue>
+    fn get(object: JsonObject, name: String) -> Option<JsonValue>
         index = index_of(object, name)
 
         if index == -1 then
@@ -249,7 +249,7 @@ struct Parser
     line:           Int = 1
     capture_start:  Int = -1
     column:         Int = 0
-    current:        Maybe<String> = None
+    current:        Option<String> = None
     capture_buffer: String = ""
 end
 

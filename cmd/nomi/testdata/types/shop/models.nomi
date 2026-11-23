@@ -8,7 +8,7 @@ end
 pub struct User
     id:           UserId
     display_name: String
-    email:        Maybe<String>
+    email:        Option<String>
     tags:         Set<String>
     joined:       Instant
     balance:      Decimal
@@ -37,7 +37,7 @@ derive ToJson for Role
 pub struct Page<T>
     items: List<T>
     total: Int
-    next:  Maybe<Int>
+    next:  Option<Int>
 end
 
 derive ToJson for Page<T> where T: ToJson

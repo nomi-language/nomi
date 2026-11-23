@@ -37,9 +37,9 @@ test "a value never becomes SQL text, whatever it holds"
     assert "${s}" == "SELECT id FROM users WHERE name = ?1"
 end
 
-test "a NULL parameter is Maybe's None"
-    nickname: Maybe<String> = None
-    age: Maybe<Int> = Some(36)
+test "a NULL parameter is Option's None"
+    nickname: Option<String> = None
+    age: Option<Int> = Some(36)
     s = Sql"UPDATE users SET nickname = ${nickname}, age = ${age}"
     assert s.params == [Value.Null, Value.Int(36)]
 end
@@ -48,8 +48,8 @@ test "a slot takes any ToSql value, each its own Value"
     day = Date"2026-10-19"
     at = Instant.from_seconds(1760866200)
     id = Uuid"0190a0b2-7f3c-7c3e-8a1b-1f2e3d4c5b6a"
-    due: Maybe<Date> = Some(day)
-    paid: Maybe<Instant> = None
+    due: Option<Date> = Some(day)
+    paid: Option<Instant> = None
 
     s = Sql"""
         INSERT INTO orders VALUES (${id}, ${day}, ${Time"09:30:00"}, ${NaiveDateTime"2026-10-19T09:30:00"},
@@ -72,7 +72,7 @@ test "a slot takes any ToSql value, each its own Value"
     ]
 end
 
-test "a row reads every std type, and Maybe of each"
+test "a row reads every std type, and Option of each"
     day = Date"2026-10-19"
     at = Instant.from_seconds(1760866200)
 
@@ -85,11 +85,11 @@ test "a row reads every std type, and Maybe of each"
     ])
 
     assert Row.get<Date>(row, "day") == Ok(day)
-    assert Row.get<Maybe<Date>>(row, "day") == Ok(Some(day))
+    assert Row.get<Option<Date>>(row, "day") == Ok(Some(day))
     assert Row.get<Instant>(row, "at") == Ok(at)
     assert Row.get<Decimal>(row, "price") == Ok(12.50d)
     assert Row.get<Json>(row, "doc") == Ok(Json.Null)
-    assert Row.get<Maybe<Decimal>>(row, "gone") == Ok(None)
+    assert Row.get<Option<Decimal>>(row, "gone") == Ok(None)
 
     assert Row.get<Decimal>(row, "gone")
         == Err(sql.Error.UnexpectedNull{query: "SELECT *", column: "gone"})
@@ -144,8 +144,8 @@ test "each std type becomes its own Value variant"
     assert ToSql.to_sql(Json.Bool(True)) == Value.Json(Json.Bool(True))
 end
 
-test "NULL round-trips as None, and a Maybe holding a value as that value"
-    nothing: Maybe<Date> = None
+test "NULL round-trips as None, and an Option holding a value as that value"
+    nothing: Option<Date> = None
     assert ToSql.to_sql(nothing) == Value.Null
     assert round_trips(nothing)
     assert round_trips(Some(Date"2026-10-19"))
@@ -174,7 +174,7 @@ test "a row reads by column name"
     id: Int = Row.get(row, "id")?
     assert id == 7
     assert Row.get<String>(row, "name") == Ok("Ada")
-    assert Row.get<Maybe<String>>(row, "nickname") == Ok(None)
+    assert Row.get<Option<String>>(row, "nickname") == Ok(None)
     assert Row.value(row, "name") == Ok(Value.Text("Ada"))
     assert Row.columns(row) == ["id", "name", "nickname"]
     assert Row.values(row) == [Value.Int(7), Value.Text("Ada"), Value.Null]
@@ -186,7 +186,7 @@ test "a row reads by position, from 0"
     name: String = Row.get_position(row, 1)?
     assert name == "Ada"
     assert Row.get_position<Int>(row, 0) == Ok(7)
-    assert Row.get_position<Maybe<String>>(row, 2) == Ok(None)
+    assert Row.get_position<Option<String>>(row, 2) == Ok(None)
     assert Row.value_position(row, 0) == Ok(Value.Int(7))
 end
 

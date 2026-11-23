@@ -61,8 +61,8 @@ import
     literals.{CheckedLiteral, Fragment, Literal, LiteralError}
     log.{self, Logger}
     maps.Map
-    maybe.Maybe.{self, None, Some}
     net
+    option.Option.{self, None, Some}
     parse.{self, ParseFields}
     path
     resources.Release
@@ -321,7 +321,7 @@ impl Headers
     //! assert Headers.get(h, "ACCEPT") == Some("text/html")
     //! assert Headers.values(h, "accept") == ["text/html", "*/*"]
     //
-    pub fn get(headers: Headers, name: String) -> Maybe<String>
+    pub fn get(headers: Headers, name: String) -> Option<String>
         Headers.values(headers, name) |> List.first()
     end
 
@@ -561,8 +561,8 @@ fn multipart_of(flat: List<Bytes>, form: MultipartForm) -> MultipartForm
         [_, field, filename, count, ..rest] ->
             n =
                 String.to_int(text_of(count))
-                |> Maybe.flat_map(NonNegativeInt.try_from)
-                |> Maybe.with_default(0)
+                |> Option.flat_map(NonNegativeInt.try_from)
+                |> Option.with_default(0)
 
             texts = rest |> Iter.take(2 * n) |> Iter.map(text_of) |> Iter.to_list()
 
@@ -594,7 +594,7 @@ fn multipart_of(flat: List<Bytes>, form: MultipartForm) -> MultipartForm
                     files = Map.put(
                         form.files,
                         key,
-                        [..Map.get(form.files, key) |> Maybe.with_default([]), file],
+                        [..Map.get(form.files, key) |> Option.with_default([]), file],
                     )
 
                     multipart_of(remaining, {..form, files:})
@@ -620,7 +620,7 @@ once max_multipart_body = 33_554_432
 /// past `max` to tell, and never the rest. A stream that `limit` (the
 /// request's `body_limit`) cut off when the read reached it was too large
 /// too.
-fn read_capped(body: Body, max: Int, limit: Maybe<Int>) -> Result<Bytes, Error>
+fn read_capped(body: Body, max: Int, limit: Option<Int>) -> Result<Bytes, Error>
     case body
         .Stream(r) ->
             (data, failed) = http_host.read_at_most(r, max + 1)
@@ -645,7 +645,7 @@ fn read_capped(body: Body, max: Int, limit: Maybe<Int>) -> Result<Bytes, Error>
 end
 
 fn text_of(data: Bytes) -> String
-    Bytes.to_string(data) |> Result.to_maybe() |> Maybe.with_default("")
+    Bytes.to_string(data) |> Result.to_option() |> Option.with_default("")
 end
 
 /// An HTTP version.
@@ -675,7 +675,7 @@ impl Protocol
     //! assert Protocol.parse("HTTP/x") == None
     //! assert Protocol.parse("HTTP/1.-1") == None
     //
-    pub fn parse(text: String) -> Maybe<Protocol>
+    pub fn parse(text: String) -> Option<Protocol>
         case http_host.parse_http_version(text)
             [major, minor] -> Some(Protocol{major:, minor:})
             _              -> None
@@ -701,9 +701,9 @@ pub struct Request
     body:    Body = Body.Empty
     /// The `Host` to send in place of the URL's host. On a request a server
     /// received, the `Host` the client sent.
-    host: Maybe<String> = None
+    host: Option<String> = None
     /// The body's length when it is known ahead.
-    content_length:    Maybe<Int> = None
+    content_length:    Option<Int> = None
     transfer_encoding: List<String> = []
     /// Close the connection after this request.
     close: Bool = False
@@ -711,25 +711,25 @@ pub struct Request
     trailers: Headers = Headers[]
     /// The most body bytes the request's readers take, which replaces
     /// the form defaults: set by `limit_body` and the server's `max_body`.
-    body_limit: Maybe<Int> = None
+    body_limit: Option<Int> = None
     // Set by a server on a request it received.
     protocol:       Protocol = Protocol{}
     remote_address: String = ""
     request_uri:    String = ""
-    pattern:        Maybe<String> = None
+    pattern:        Option<String> = None
     path_values:    Map<String, String> = {}
     context:        Context = Context.root()
     /// The server address the request came in on.
     local_address: String = ""
     /// What the TLS handshake of the connection agreed on; `None` over
     /// plain HTTP.
-    tls: Maybe<tls.ConnectionState> = None
+    tls: Option<tls.ConnectionState> = None
     /// Records what happens while the client sends this request
     /// (`Tracer.events`).
-    trace: Maybe<Tracer> = None
+    trace: Option<Tracer> = None
     /// The server's hold on a request it received, for
     /// `Request.extend_read_deadline`.
-    incoming: Maybe<http_host.Incoming> = None
+    incoming: Option<http_host.Incoming> = None
 end
 
 impl Request
@@ -787,7 +787,7 @@ impl Request
             or request.method == Method.Patch
 
         if not posts or media != "application/x-www-form-urlencoded" then return Ok(Query[])
-        max = Maybe.with_default(request.body_limit, max_form_body)
+        max = Option.with_default(request.body_limit, max_form_body)
         data = read_capped(request.body, max, request.body_limit)?
 
         text =
@@ -799,14 +799,16 @@ impl Request
 
     /// The first value of `key` in the form (`form`), or `None` when the
     /// form has none or does not parse.
-    pub fn form_value(request: Request, key: String) -> Maybe<String>
-        Request.form(request) |> Result.to_maybe() |> Maybe.flat_map(fn q -> Query.get(q, key))
+    pub fn form_value(request: Request, key: String) -> Option<String>
+        Request.form(request) |> Result.to_option() |> Option.flat_map(fn q -> Query.get(q, key))
     end
 
     /// The first value of `key` in the body's fields, as Go's
     /// `Request.PostFormValue`.
-    pub fn post_form_value(request: Request, key: String) -> Maybe<String>
-        Request.post_form(request) |> Result.to_maybe() |> Maybe.flat_map(fn q -> Query.get(q, key))
+    pub fn post_form_value(request: Request, key: String) -> Option<String>
+        Request.post_form(request)
+        |> Result.to_option()
+        |> Option.flat_map(fn q -> Query.get(q, key))
     end
 
     /// The multipart form the body holds, as Go's
@@ -844,8 +846,8 @@ impl Request
     //!     == Err(Error.BodyTooLarge{limit: 999})
     //
     pub fn multipart_form(request: Request) -> Result<MultipartForm, Error>
-        content_type = Headers.get(request.headers, "Content-Type") |> Maybe.with_default("")
-        max = Maybe.with_default(request.body_limit, max_multipart_body)
+        content_type = Headers.get(request.headers, "Content-Type") |> Option.with_default("")
+        max = Option.with_default(request.body_limit, max_multipart_body)
         data = read_capped(request.body, max, request.body_limit)?
 
         flat =
@@ -881,8 +883,8 @@ impl Request
         form = Request.multipart_form(request)?
 
         Map.get(form.files, field)
-        |> Maybe.flat_map(List.first)
-        |> Maybe.to_result(Error.MissingFile{field:})
+        |> Option.flat_map(List.first)
+        |> Option.to_result(Error.MissingFile{field:})
     end
 
     /// The whole body as text. It reads at most 10 MB, or the request's
@@ -904,7 +906,7 @@ impl Request
     //!     == Err(Error.MalformedBody{reason: "the body is not UTF-8 text"})
     //
     pub fn text(request: Request) -> Result<String, Error>
-        max = Maybe.with_default(request.body_limit, max_form_body)
+        max = Option.with_default(request.body_limit, max_form_body)
         data = read_capped(request.body, max, request.body_limit)?
 
         Bytes.to_string(data)
@@ -927,7 +929,7 @@ impl Request
     //!
     //! assert Request.json_as<List<Int>>(posted("[1,")) |> Result.is_err()
     //!
-    //! todo = Request.json_as<{title: String, order: Maybe<Int>}>(posted(`{"title": "milk"}`))
+    //! todo = Request.json_as<{title: String, order: Option<Int>}>(posted(`{"title": "milk"}`))
     //! assert todo == Ok({title: "milk", order: None})
     //!
     //! create =
@@ -954,10 +956,10 @@ impl Request
     /// lowercase.
     fn media_type(request: Request) -> String
         Headers.get(request.headers, "Content-Type")
-        |> Maybe.with_default("")
+        |> Option.with_default("")
         |> String.split(";")
         |> List.first()
-        |> Maybe.with_default("")
+        |> Option.with_default("")
         |> String.trim()
         |> String.lowercase()
     end
@@ -968,7 +970,7 @@ impl Request
     //! import std::http::testing
     //!
     //! r = Request.add_cookie(testing.request(Method.Get, "/"), Cookie{name: "a", value: "1"})
-    //! assert Request.cookie(r, "a") |> Maybe.map(fn c -> c.value) == Some("1")
+    //! assert Request.cookie(r, "a") |> Option.map(fn c -> c.value) == Some("1")
     //!
     //! spaced = Request.add_cookie(r, Cookie{name: "b", value: "x y"})
     //! assert Headers.get(spaced.headers, "Cookie") == Some("a=1; b=\"x y\"")
@@ -985,7 +987,7 @@ impl Request
     end
 
     /// The first cookie named `name`, as Go's `Request.Cookie`.
-    pub fn cookie(request: Request, name: String) -> Maybe<Cookie>
+    pub fn cookie(request: Request, name: String) -> Option<Cookie>
         Request.cookies_named(request, name) |> List.first()
     end
 
@@ -993,7 +995,7 @@ impl Request
     /// and value are sent; a character a value cannot carry is dropped,
     /// and a value with a space or a comma is quoted.
     pub fn add_cookie(request: Request, cookie: Cookie) -> Request
-        existing = Headers.get(request.headers, "Cookie") |> Maybe.with_default("")
+        existing = Headers.get(request.headers, "Cookie") |> Option.with_default("")
         line = http_host.add_cookie(existing, Cookie.parts(cookie))
         {..request, headers: Headers.set(.., "Cookie", line)}
     end
@@ -1018,12 +1020,12 @@ impl Request
     end
 
     /// The `User-Agent` header.
-    pub fn user_agent(request: Request) -> Maybe<String>
+    pub fn user_agent(request: Request) -> Option<String>
         Headers.get(request.headers, "User-Agent")
     end
 
     /// The `Referer` header.
-    pub fn referer(request: Request) -> Maybe<String>
+    pub fn referer(request: Request) -> Option<String>
         Headers.get(request.headers, "Referer")
     end
 
@@ -1038,8 +1040,8 @@ impl Request
     //! lower = {..r, headers: Headers[("Authorization", "basic YW5uOnB3")]}
     //! assert Request.basic_auth(lower) == Some(("ann", "pw"))
     //
-    pub fn basic_auth(request: Request) -> Maybe<(String, String)>
-        authorization = Headers.get(request.headers, "Authorization") |> Maybe.with_default("")
+    pub fn basic_auth(request: Request) -> Option<(String, String)>
+        authorization = Headers.get(request.headers, "Authorization") |> Option.with_default("")
 
         case http_host.basic_auth(authorization)
             [user, password] -> Some((user, password))
@@ -1108,8 +1110,8 @@ impl Request
             close:             close == "true",
             trailers:          Headers(pairs(trailers)),
             protocol: Protocol{
-                major: String.to_int(major) |> Maybe.with_default(1),
-                minor: String.to_int(minor) |> Maybe.with_default(1),
+                major: String.to_int(major) |> Option.with_default(1),
+                minor: String.to_int(minor) |> Option.with_default(1),
             },
             request_uri: target,
         })
@@ -1146,13 +1148,13 @@ impl Request
     /// large to read whole (`multipart_form`). An `Err` when the request
     /// is not multipart.
     pub fn parts(request: Request) -> Result<Iter<Result<Part, Error>>, Error>
-        content_type = Headers.get(request.headers, "Content-Type") |> Maybe.with_default("")
+        content_type = Headers.get(request.headers, "Content-Type") |> Option.with_default("")
 
         boundary =
             String.split(content_type, ";")
             |> Iter.map(String.trim)
             |> Iter.find(fn p -> String.starts_with(p, "boundary="))
-            |> Maybe.map(fn p -> String.drop(p, 9) |> String.replace("\"", ""))
+            |> Option.map(fn p -> String.drop(p, 9) |> String.replace("\"", ""))
 
         case boundary
             Some(b) when String.starts_with(content_type, "multipart/") ->
@@ -1165,7 +1167,7 @@ impl Request
 
     /// The value a router matched for the wildcard `name`, or `None` when
     /// the matched pattern has no wildcard of that name.
-    pub fn path_value(request: Request, name: String) -> Maybe<String>
+    pub fn path_value(request: Request, name: String) -> Option<String>
         Map.get(request.path_values, name)
     end
 
@@ -1184,25 +1186,25 @@ pub struct Response
     // Set by a client on a response it received.
     protocol: Protocol = Protocol{}
     /// The URL the last request went to, after any redirects.
-    url:               Maybe<Url> = None
-    content_length:    Maybe<Int> = None
+    url:               Option<Url> = None
+    content_length:    Option<Int> = None
     transfer_encoding: List<String> = []
     close:             Bool = False
     /// The client asked for gzip and decompressed the body itself.
     uncompressed: Bool = False
     /// What the TLS handshake of the connection agreed on; `None` over
     /// plain HTTP.
-    tls: Maybe<tls.ConnectionState> = None
+    tls: Option<tls.ConnectionState> = None
     /// The longest writing this response may take, in place of the
     /// server's `write_timeout`. Go's `ResponseController.SetWriteDeadline`.
-    write_timeout: Maybe<Duration> = None
+    write_timeout: Option<Duration> = None
     /// Lets the handler read the request body while it writes the
     /// response, as HTTP/1 servers otherwise refuse. Go's
     /// `ResponseController.EnableFullDuplex`.
     full_duplex: Bool = False
     /// Set by `Response.upgrade`: the server responds, then hands the
     /// connection to this function.
-    upgrade: Maybe<(net.Connection) -> Unit> = None
+    upgrade: Option<(net.Connection) -> Unit> = None
 end
 
 impl Response
@@ -1224,14 +1226,14 @@ impl Response
         Ok(Response{
             status: Status(
                 String.to_int(status)
-                |> Maybe.with_default(200)
+                |> Option.with_default(200)
             ),
             headers:  Headers(pairs(headers)),
             body:     Body.Bytes(http_host.wire_body(message)),
             trailers: Headers(pairs(trailers)),
             protocol: Protocol{
-                major: String.to_int(major) |> Maybe.with_default(1),
-                minor: String.to_int(minor) |> Maybe.with_default(1),
+                major: String.to_int(major) |> Option.with_default(1),
+                minor: String.to_int(minor) |> Option.with_default(1),
             },
             content_length:    wire_length(length),
             transfer_encoding: encoding,
@@ -1274,7 +1276,7 @@ impl Response
     /// `Response.Cookies`; one that does not parse is left out.
     pub fn cookies(response: Response) -> List<Cookie>
         Headers.values(response.headers, "Set-Cookie")
-        |> Iter.flat_map(fn line -> Cookie.parse_set_cookie(line) |> Result.to_maybe())
+        |> Iter.flat_map(fn line -> Cookie.parse_set_cookie(line) |> Result.to_option())
         |> Iter.to_list()
     end
 
@@ -1382,12 +1384,12 @@ impl Response
     end
 
     /// `data` as the response to `request`. Its `Content-Type` comes from
-    /// the extension of `name`, or from the data itself, unless `headers`
-    /// sets one. A `Range` gets 206 and the parts asked for, and
-    /// the `If-*` conditional headers are checked against `modified` and
-    /// the `ETag` in `headers`, so an `If-None-Match` that names it is a
-    /// 304. The response carries `headers`. It responds as Go's
-    /// `ServeContent` does.
+    /// the extension of `name` by Go's built-in table, the same on every
+    /// machine, or from the data itself, unless `headers` sets one. A
+    /// `Range` gets 206 and the parts asked for, and the `If-*` conditional
+    /// headers are checked against `modified` and the `ETag` in `headers`,
+    /// so an `If-None-Match` that names it is a 304. The response carries
+    /// `headers`. It responds as Go's `ServeContent` does.
     //! import std::http.{Method, Response, Status}
     //! import std::http::testing
     //!
@@ -1409,7 +1411,7 @@ impl Response
     pub fn content(
         request:  Request,
         name:     String,
-        modified: Maybe<Instant>,
+        modified: Option<Instant>,
         data:     Bytes,
         headers:  Headers = Headers[],
     ) -> Response
@@ -1420,8 +1422,8 @@ impl Response
                 flat(request.headers),
                 name,
                 modified
-                |> Maybe.map(Instant.as_nanos)
-                |> Maybe.with_default(-1),
+                |> Option.map(Instant.as_nanos)
+                |> Option.with_default(-1),
                 flat(headers),
                 data,
             )
@@ -1508,7 +1510,7 @@ impl Response
     end
 
     /// The `Location` header resolved against the response's URL.
-    pub fn location(response: Response) -> Result<Maybe<Url>, Error>
+    pub fn location(response: Response) -> Result<Option<Url>, Error>
         case Headers.get(response.headers, "Location")
             None ->
                 Ok(None)
@@ -1722,10 +1724,10 @@ impl Error
                 Error.Canceled
 
             ["TooManyRedirects", count] ->
-                Error.TooManyRedirects{count: String.to_int(count) |> Maybe.with_default(0)}
+                Error.TooManyRedirects{count: String.to_int(count) |> Option.with_default(0)}
 
             ["BodyTooLarge", limit] ->
-                Error.BodyTooLarge{limit: String.to_int(limit) |> Maybe.with_default(0)}
+                Error.BodyTooLarge{limit: String.to_int(limit) |> Option.with_default(0)}
 
             ["Protocol", reason] ->
                 Error.Protocol{reason:}
@@ -1814,23 +1816,23 @@ pub struct Transport
     compression:               Bool = True
     max_idle:                  Int = 100
     max_idle_per_host:         Int = 2
-    max_per_host:              Maybe<Int> = None
-    idle_timeout:              Maybe<Duration> = Some(Duration.seconds(90))
-    response_header_timeout:   Maybe<Duration> = None
+    max_per_host:              Option<Int> = None
+    idle_timeout:              Option<Duration> = Some(Duration.seconds(90))
+    response_header_timeout:   Option<Duration> = None
     expect_continue_timeout:   Duration = Duration.seconds(1)
-    max_response_header_bytes: Maybe<Int> = None
-    write_buffer_size:         Maybe<Int> = None
-    read_buffer_size:          Maybe<Int> = None
+    max_response_header_bytes: Option<Int> = None
+    write_buffer_size:         Option<Int> = None
+    read_buffer_size:          Option<Int> = None
     force_http2:               Bool = True
     /// The protocols the transport speaks; `None` is Go's choice, HTTP/1,
     /// and HTTP/2 when `force_http2` is set.
-    protocols: Maybe<Protocols> = None
+    protocols: Option<Protocols> = None
     http2:     Http2Options = Http2Options{}
     /// Headers sent with each `CONNECT` to a proxy.
     proxy_connect_headers: Headers = Headers[]
     /// Sees each proxy's response to `CONNECT`; an `Err` fails the request.
     /// Go's `OnProxyConnectResponse`. It runs on the task sending.
-    on_proxy_connect: Maybe<(Url, Response) -> Result<Unit, Error>> = None
+    on_proxy_connect: Option<(Url, Response) -> Result<Unit, Error>> = None
 end
 
 /// The HTTP protocols a server accepts or a transport speaks: Go's
@@ -1861,8 +1863,8 @@ impl Display for Protocols
     end
 end
 
-fn protocol_flags(protocols: Maybe<Protocols>) -> List<Bool>
-    p = Maybe.with_default(protocols, Protocols{})
+fn protocol_flags(protocols: Option<Protocols>) -> List<Bool>
+    p = Option.with_default(protocols, Protocols{})
     [p.http1, p.http2, p.unencrypted_http2]
 end
 
@@ -1870,35 +1872,35 @@ end
 /// are Go's defaults.
 pub struct Http2Options
     /// The streams a client may have open at once; servers only.
-    max_concurrent_streams: Maybe<Int> = None
+    max_concurrent_streams: Option<Int> = None
     /// Keep to the server's stream limit across connections rather than
     /// opening another; transports only.
     strict_max_concurrent_requests:    Bool = False
-    max_decoder_header_table_size:     Maybe<Int> = None
-    max_encoder_header_table_size:     Maybe<Int> = None
-    max_read_frame_size:               Maybe<Int> = None
-    max_receive_buffer_per_connection: Maybe<Int> = None
-    max_receive_buffer_per_stream:     Maybe<Int> = None
+    max_decoder_header_table_size:     Option<Int> = None
+    max_encoder_header_table_size:     Option<Int> = None
+    max_read_frame_size:               Option<Int> = None
+    max_receive_buffer_per_connection: Option<Int> = None
+    max_receive_buffer_per_stream:     Option<Int> = None
     /// Pings a connection that has been quiet this long.
-    send_ping_timeout: Maybe<Duration> = None
+    send_ping_timeout: Option<Duration> = None
     /// Closes a connection whose ping gets no reply in this long.
-    ping_timeout: Maybe<Duration> = None
+    ping_timeout: Option<Duration> = None
     /// Closes a connection that accepts no bytes for this long.
-    write_byte_timeout:              Maybe<Duration> = None
+    write_byte_timeout:              Option<Duration> = None
     permit_prohibited_cipher_suites: Bool = False
     /// Told the kind of each HTTP/2 error, as a metrics counter would be.
     /// Go's `CountError`.
-    on_error_count: Maybe<(String) -> Unit> = None
+    on_error_count: Option<(String) -> Unit> = None
 end
 
 fn http2_numbers(options: Http2Options) -> List<Int>
     [
-        Maybe.with_default(options.max_concurrent_streams, 0),
-        Maybe.with_default(options.max_decoder_header_table_size, 0),
-        Maybe.with_default(options.max_encoder_header_table_size, 0),
-        Maybe.with_default(options.max_read_frame_size, 0),
-        Maybe.with_default(options.max_receive_buffer_per_connection, 0),
-        Maybe.with_default(options.max_receive_buffer_per_stream, 0),
+        Option.with_default(options.max_concurrent_streams, 0),
+        Option.with_default(options.max_decoder_header_table_size, 0),
+        Option.with_default(options.max_encoder_header_table_size, 0),
+        Option.with_default(options.max_read_frame_size, 0),
+        Option.with_default(options.max_receive_buffer_per_connection, 0),
+        Option.with_default(options.max_receive_buffer_per_stream, 0),
         nanos(options.send_ping_timeout),
         nanos(options.ping_timeout),
         nanos(options.write_byte_timeout),
@@ -1929,11 +1931,11 @@ pub struct StreamedResponse
     body:     Reader
     protocol: Protocol
     /// The URL the last request went to, after any redirects.
-    url:            Maybe<Url>
-    content_length: Maybe<Int>
+    url:            Option<Url>
+    content_length: Option<Int>
     /// What the TLS handshake of the connection agreed on; `None` over
     /// plain HTTP.
-    tls: Maybe<tls.ConnectionState>
+    tls: Option<tls.ConnectionState>
 end
 
 impl StreamedResponse
@@ -1966,17 +1968,17 @@ end
 /// clock counts, never fires.
 pub struct ClientOptions
     /// The longest a request may take, its body included.
-    timeout:   Maybe<Duration> = None
+    timeout:   Option<Duration> = None
     redirects: Redirects = Redirects.Follow{}
     transport: Transport = Transport.default
     /// Replaces the transport: every request goes to this function.
-    round_trip: Maybe<(Request) -> Result<Response, Error>> = None
+    round_trip: Option<(Request) -> Result<Response, Error>> = None
     /// `fetch` refuses a body past this many bytes (`Error.BodyTooLarge`);
     /// `stream` streams any size.
-    max_body: Maybe<Int> = Some(67_108_864)
+    max_body: Option<Int> = Some(67_108_864)
     /// Where the client keeps cookies: it sends a jar's cookies with each
     /// request and stores those each response sets. `None` keeps none.
-    cookies: Maybe<CookieJar> = None
+    cookies: Option<CookieJar> = None
 end
 
 /// A client: its options and its connection pool. Make one with
@@ -2012,16 +2014,16 @@ impl Client
             t.compression,
             t.max_idle,
             t.max_idle_per_host,
-            Maybe.with_default(t.max_per_host, 0),
+            Option.with_default(t.max_per_host, 0),
             nanos(t.idle_timeout),
             nanos(t.response_header_timeout),
             wait_nanos(t.expect_continue_timeout),
-            Maybe.with_default(t.max_response_header_bytes, 0),
-            Maybe.with_default(t.write_buffer_size, 0),
-            Maybe.with_default(t.read_buffer_size, 0),
+            Option.with_default(t.max_response_header_bytes, 0),
+            Option.with_default(t.write_buffer_size, 0),
+            Option.with_default(t.read_buffer_size, 0),
             t.force_http2,
             protocol_flags(t.protocols),
-            Maybe.is_some(t.protocols),
+            Option.is_some(t.protocols),
             http2_numbers(t.http2),
             http2_flags(t.http2),
             flat(t.proxy_connect_headers),
@@ -2041,9 +2043,9 @@ impl Client
                 None ->
                     fn _, _, _ -> ""
             end,
-            Maybe.is_some(t.on_proxy_connect),
-            Maybe.with_default(t.http2.on_error_count, ignore_text),
-            Maybe.is_some(t.http2.on_error_count),
+            Option.is_some(t.on_proxy_connect),
+            Option.with_default(t.http2.on_error_count, ignore_text),
+            Option.is_some(t.http2.on_error_count),
         )
 
         handle =
@@ -2072,7 +2074,7 @@ impl Client
 
     /// Sends `request` and reads the whole body into `Body.Bytes`.
     pub fn fetch(client: Client, request: Request) -> Result<Response, Error>
-        faked: Maybe<Result<Response, Error>> = http_host.answered(request)
+        faked: Option<Result<Response, Error>> = http_host.answered(request)
         if Some(answer) = faked then return answer
         Client{handle:, options:} = client
         if Some(round_trip) = options.round_trip then return round_trip(request)
@@ -2086,7 +2088,7 @@ impl Client
     /// however the function ends. A faked or round-tripped response's body
     /// is read from memory.
     pub fn stream(client: Client, request: Request) -> Result<StreamedResponse, Error>
-        faked: Maybe<Result<Response, Error>> = http_host.answered(request)
+        faked: Option<Result<Response, Error>> = http_host.answered(request)
         if Some(answer) = faked then return Result.map(answer, StreamedResponse.of)
         Client{handle:, options:} = client
 
@@ -2159,7 +2161,7 @@ end
 //! import std::http::testing
 //! import std::url.Url
 //!
-//! fn first_line(url: Url) -> Result<Maybe<String>, Error>
+//! fn first_line(url: Url) -> Result<Option<String>, Error>
 //!     response = stream(Request{url:})?
 //!     defer StreamedResponse.close(response)
 //!     Reader.read_line(response.body) |> Result.map_err(fn e -> Error.Body{error: e})
@@ -2196,8 +2198,8 @@ pub fn post_form(url: Url, form: Query) -> Result<Response, Error>
 end
 
 // A timeout's nanoseconds, 0 for `None`.
-fn nanos(d: Maybe<Duration>) -> Int
-    d |> Maybe.map(wait_nanos) |> Maybe.with_default(0)
+fn nanos(d: Option<Duration>) -> Int
+    d |> Option.map(wait_nanos) |> Option.with_default(0)
 end
 
 // A timeout's nanoseconds held to the longest wait the clock counts, about
@@ -2215,7 +2217,7 @@ fn send(
     handle:   http_host.Client,
     request:  Request,
     stream:   Bool,
-    max_body: Maybe<Int>,
+    max_body: Option<Int>,
 ) -> Result<http_host.Exchange, Error>
     headers = typed(request.headers, request.body)
 
@@ -2242,13 +2244,13 @@ fn send(
         kind,
         data,
         input,
-        Maybe.with_default(request.content_length, -1),
-        Maybe.with_default(request.host, ""),
+        Option.with_default(request.content_length, -1),
+        Option.with_default(request.host, ""),
         request.close,
         flat(request.trailers),
         stream,
-        Maybe.with_default(max_body, -1),
-        Maybe.map(request.trace, fn t -> t.handle),
+        Option.with_default(max_body, -1),
+        Option.map(request.trace, fn t -> t.handle),
     )
     |> Result.map_err(Error.from_parts)
 end
@@ -2291,7 +2293,7 @@ fn send_following(
     handle:    http_host.Client,
     request:   Request,
     stream:    Bool,
-    max_body:  Maybe<Int>,
+    max_body:  Option<Int>,
     redirects: Redirects,
     via:       List<Request>,
 ) -> Result<http_host.Exchange, Error>
@@ -2331,7 +2333,7 @@ end
 /// same method and body again, unless the body is a stream, which cannot
 /// be sent twice. Headers that carry credentials are dropped when the host
 /// changes. `None` for any other response, as for one with no `Location`.
-fn redirected(request: Request, response: Response) -> Result<Maybe<Request>, Error>
+fn redirected(request: Request, response: Response) -> Result<Option<Request>, Error>
     target =
         case Response.location(response)?
             Some(url) -> url
@@ -2403,12 +2405,12 @@ fn response_of(exchange: http_host.Exchange, body: Body) -> Response
         body:,
         trailers: Headers(pairs(http_host.trailers(exchange))),
         protocol: Protocol{major:, minor:},
-        url: Url.parse(http_host.final_url(exchange)) |> Result.to_maybe(),
+        url: Url.parse(http_host.final_url(exchange)) |> Result.to_option(),
         content_length: if length < 0 then None else Some(length),
         transfer_encoding: http_host.transfer_encoding(exchange),
         close: http_host.closes(exchange),
         uncompressed: http_host.uncompressed(exchange),
-        tls: http_host.exchange_tls(exchange) |> Maybe.map(tls.ConnectionState.of_parts),
+        tls: http_host.exchange_tls(exchange) |> Option.map(tls.ConnectionState.of_parts),
     }
 end
 
@@ -2420,31 +2422,31 @@ pub struct Server
     /// which `Listener.address` reports.
     address: String = ":http"
     /// The longest a client may take to send a whole request.
-    read_timeout: Maybe<Duration> = None
+    read_timeout: Option<Duration> = None
     /// The longest a client may take to send a request's headers.
-    read_header_timeout: Maybe<Duration> = None
+    read_header_timeout: Option<Duration> = None
     /// The longest writing a response may take.
-    write_timeout: Maybe<Duration> = None
+    write_timeout: Option<Duration> = None
     /// The longest a kept-alive connection waits for its next request.
-    idle_timeout: Maybe<Duration> = None
+    idle_timeout: Option<Duration> = None
     /// The largest request header, in bytes: Go's `DefaultMaxHeaderBytes`.
     max_header_bytes: Int = 1_048_576
     /// The largest request body, in bytes: each request is limited as
     /// `Request.limit_body` limits it, which replaces the form readers'
     /// defaults. `None` leaves bodies unlimited but for those defaults.
-    max_body: Maybe<NonNegativeInt> = None
+    max_body: Option<NonNegativeInt> = None
     /// Whether connections are kept open between requests.
     keep_alives: Bool = True
     /// A deadline for each request's handler, on its context.
-    request_timeout: Maybe<Duration> = None
+    request_timeout: Option<Duration> = None
     /// How long `serve` waits for requests in flight when it stops.
     shutdown_timeout: Duration = Duration.seconds(5)
     /// Serves HTTPS with this configuration, as Go's `ListenAndServeTLS`
     /// does, HTTP/2 included; `None` serves plain HTTP.
-    tls: Maybe<tls.ServerConfig> = None
+    tls: Option<tls.ServerConfig> = None
     /// The most values one request header may hold: Go's
     /// `DefaultMaxHeaderValueCount`, 500, when `None`.
-    max_header_value_count: Maybe<Int> = None
+    max_header_value_count: Option<Int> = None
     /// Responds to `OPTIONS *` itself, as Go does; `False` hands it to the
     /// handler.
     answer_options_star: Bool = True
@@ -2452,18 +2454,18 @@ pub struct Server
     client_priority: Bool = True
     /// The protocols the server accepts; `None` is Go's choice, HTTP/1
     /// and, over TLS, HTTP/2.
-    protocols: Maybe<Protocols> = None
+    protocols: Option<Protocols> = None
     http2:     Http2Options = Http2Options{}
     /// Told each connection's address as its state changes. Go's
     /// `ConnState`. It runs on the task serving, in order.
-    on_connection_state: Maybe<(String, ConnState) -> Unit> = None
+    on_connection_state: Option<(String, ConnState) -> Unit> = None
     /// Told each error Go logs about the server's connections, a line at a
     /// time; `None` writes them to standard error. Go's `ErrorLog`.
-    on_error: Maybe<(String) -> Unit> = None
+    on_error: Option<(String) -> Unit> = None
     /// Runs when the server starts shutting down, as for connections that
     /// were upgraded, which the shutdown does not track. Go's
     /// `RegisterOnShutdown`.
-    on_shutdown: Maybe<() -> Unit> = None
+    on_shutdown: Option<() -> Unit> = None
 end
 
 fn conn_state(code: Int) -> ConnState
@@ -2515,7 +2517,7 @@ pub fn listen(server: Server = Server{}) -> Result<Listener, Error>
         wait_nanos(server.shutdown_timeout),
     ]
 
-    limits = [server.max_header_bytes, Maybe.with_default(server.max_header_value_count, 0)]
+    limits = [server.max_header_bytes, Option.with_default(server.max_header_value_count, 0)]
     flags = [server.keep_alives, server.answer_options_star, server.client_priority]
 
     on_state =
@@ -2524,9 +2526,9 @@ pub fn listen(server: Server = Server{}) -> Result<Listener, Error>
             None       -> fn _: String, _: Int -> Unit
         end
 
-    on_error = Maybe.with_default(server.on_error, ignore_text)
-    on_shutdown = Maybe.with_default(server.on_shutdown, fn -> Unit)
-    on_count = Maybe.with_default(server.http2.on_error_count, ignore_text)
+    on_error = Option.with_default(server.on_error, ignore_text)
+    on_shutdown = Option.with_default(server.on_shutdown, fn -> Unit)
+    on_count = Option.with_default(server.http2.on_error_count, ignore_text)
 
     handle =
         case server.tls
@@ -2537,17 +2539,17 @@ pub fn listen(server: Server = Server{}) -> Result<Listener, Error>
                     limits,
                     flags,
                     protocol_flags(server.protocols),
-                    Maybe.is_some(server.protocols),
+                    Option.is_some(server.protocols),
                     http2_numbers(server.http2),
                     http2_flags(server.http2),
                     on_state,
-                    Maybe.is_some(server.on_connection_state),
+                    Option.is_some(server.on_connection_state),
                     on_error,
-                    Maybe.is_some(server.on_error),
+                    Option.is_some(server.on_error),
                     on_shutdown,
-                    Maybe.is_some(server.on_shutdown),
+                    Option.is_some(server.on_shutdown),
                     on_count,
-                    Maybe.is_some(server.http2.on_error_count),
+                    Option.is_some(server.http2.on_error_count),
                 )
 
             Some(config) ->
@@ -2561,17 +2563,17 @@ pub fn listen(server: Server = Server{}) -> Result<Listener, Error>
                     limits,
                     flags,
                     protocol_flags(server.protocols),
-                    Maybe.is_some(server.protocols),
+                    Option.is_some(server.protocols),
                     http2_numbers(server.http2),
                     http2_flags(server.http2),
                     on_state,
-                    Maybe.is_some(server.on_connection_state),
+                    Option.is_some(server.on_connection_state),
                     on_error,
-                    Maybe.is_some(server.on_error),
+                    Option.is_some(server.on_error),
                     on_shutdown,
-                    Maybe.is_some(server.on_shutdown),
+                    Option.is_some(server.on_shutdown),
                     on_count,
-                    Maybe.is_some(server.http2.on_error_count),
+                    Option.is_some(server.http2.on_error_count),
                     host,
                 )
         end
@@ -2616,7 +2618,7 @@ fn answer(listener: Listener, incoming: http_host.Incoming, handler: Handler) ->
     if http_host.answered_already(incoming) then return Unit
     defer http_host.finish(incoming, [])
 
-    timeout = listener.server.request_timeout |> Maybe.map(wait_nanos) |> Maybe.with_default(-1)
+    timeout = listener.server.request_timeout |> Option.map(wait_nanos) |> Option.with_default(-1)
 
     http_host.run_request(incoming, timeout, fn context ->
         Ok(request) = request_of(incoming, context) else
@@ -2647,7 +2649,7 @@ fn request_of(incoming: http_host.Incoming, context: Context) -> Result<Request,
     length = http_host.in_content_length(incoming)
     host = http_host.in_host(incoming)
     local_address = http_host.in_local(incoming)
-    connection = http_host.in_tls(incoming) |> Maybe.map(tls.ConnectionState.of_parts)
+    connection = http_host.in_tls(incoming) |> Option.map(tls.ConnectionState.of_parts)
 
     Ok(Request{
         method: Method.parse(method),
@@ -2774,7 +2776,7 @@ fn respond(incoming: http_host.Incoming, response: Response) -> Unit
 end
 
 fn length_of(response: Response) -> Int
-    Maybe.with_default(response.content_length, -1)
+    Option.with_default(response.content_length, -1)
 end
 
 /// A pattern a `Router` routes by, as Go's `ServeMux` reads it:
@@ -2925,13 +2927,15 @@ impl Route<P>
                 case wildcard_of(segment)
                     Some((name, True)) ->
                         Map.get(values, name)
-                        |> Maybe.with_default("")
+                        |> Option.with_default("")
                         |> String.split("/")
                         |> Iter.map(url.escape_path_segment)
                         |> String.join("/")
 
                     Some((name, False)) ->
-                        Map.get(values, name) |> Maybe.with_default("") |> url.escape_path_segment()
+                        Map.get(values, name)
+                        |> Option.with_default("")
+                        |> url.escape_path_segment()
 
                     None ->
                         if segment == "{$}" then "" else segment
@@ -2978,7 +2982,7 @@ impl Route<P>
             serve:
                 fn request ->
                     params = parse.read_fields<P>(request.path_values)
-                    Maybe.map(params, fn p -> ToResponse.to_response(handler(request, p)))
+                    Option.map(params, fn p -> ToResponse.to_response(handler(request, p)))
                 end,
         }
     end
@@ -2989,7 +2993,7 @@ end
 /// parameters type, so routes with different parameters fit one list.
 pub opaque struct Entry
     pattern: String
-    serve:   (Request) -> Maybe<Response>
+    serve:   (Request) -> Option<Response>
 end
 
 impl Display for Entry
@@ -3006,9 +3010,9 @@ end
 /// Why `text`'s method is not one a `Route` takes, when it has one. Go
 /// splits the method off at the first space or tab; a first word with a
 /// `/` in it is no method, and Go's own check names it.
-fn method_rule(text: String) -> Maybe<String>
+fn method_rule(text: String) -> Option<String>
     spaced = String.replace(text, "\t", " ")
-    word = String.split(spaced, " ") |> List.first() |> Maybe.with_default("")
+    word = String.split(spaced, " ") |> List.first() |> Option.with_default("")
 
     if not String.contains(spaced, " ") or word == "" or String.contains(word, "/") then
         None
@@ -3057,7 +3061,7 @@ end
 
 /// Why `text` has a brace outside a wildcard, when it does: a `{` or
 /// `}` before the path, or in a segment that is not `{...}` as a whole.
-fn brace_rule(text: String) -> Maybe<String>
+fn brace_rule(text: String) -> Option<String>
     case String.split(text, "/")
         [prefix, ..segments] ->
             case brace_in_segment(prefix, False)
@@ -3072,7 +3076,7 @@ end
 
 /// The reason `segment` has a stray brace, when it does. Only a path
 /// segment (`in_path`) may be a wildcard.
-fn brace_in_segment(segment: String, in_path: Bool) -> Maybe<String>
+fn brace_in_segment(segment: String, in_path: Bool) -> Option<String>
     opening = String.find_all(segment, "{") |> Iter.count()
     closing = String.find_all(segment, "}") |> Iter.count()
     wildcard = in_path and String.starts_with(segment, "{") and String.ends_with(segment, "}")
@@ -3094,7 +3098,7 @@ end
 
 /// Why `text` is not a route pattern, by `Route`'s rules and then Go's,
 /// when it is not one.
-fn pattern_reason(text: String) -> Maybe<String>
+fn pattern_reason(text: String) -> Option<String>
     case method_rule(text)
         Some(reason) -> Some(reason)
         None         -> brace_or_mux_reason(text)
@@ -3102,7 +3106,7 @@ fn pattern_reason(text: String) -> Maybe<String>
 end
 
 /// Why `text`'s braces break `Route`'s rule, or else why Go refuses it.
-fn brace_or_mux_reason(text: String) -> Maybe<String>
+fn brace_or_mux_reason(text: String) -> Option<String>
     case brace_rule(text)
         Some(reason) -> Some(reason)
         None         -> mux_reason(text)
@@ -3110,7 +3114,7 @@ fn brace_or_mux_reason(text: String) -> Maybe<String>
 end
 
 /// Go's reason its `ServeMux` refuses `text`, when it does.
-fn mux_reason(text: String) -> Maybe<String>
+fn mux_reason(text: String) -> Option<String>
     case http_host.check_pattern(text)
         ""     -> None
         reason -> Some(reason)
@@ -3164,7 +3168,7 @@ end
 
 /// A path segment's wildcard name, and whether it is a `{name...}` one,
 /// when the segment is a wildcard; `{$}` is none.
-fn wildcard_of(segment: String) -> Maybe<(String, Bool)>
+fn wildcard_of(segment: String) -> Option<(String, Bool)>
     if not String.starts_with(segment, "{")
         or not String.ends_with(segment, "}")
         or segment == "{$}" then
@@ -3204,7 +3208,7 @@ end
 /// its type's spelling, as a checked literal's `check_type` gets them:
 /// `{id: Uuid, tags: Map<String, Int>}`. `Some([])` for `Unit`, and
 /// `None` for any other type.
-fn param_fields(spelling: String) -> Maybe<List<(String, String)>>
+fn param_fields(spelling: String) -> Option<List<(String, String)>>
     if spelling == "Unit" then return Some([])
 
     if not String.starts_with(spelling, "{") or not String.ends_with(spelling, "}") then return None
@@ -3233,14 +3237,14 @@ fn param_fields(spelling: String) -> Maybe<List<(String, String)>>
                 None
         end
     end)
-    |> Maybe.collect()
+    |> Option.collect()
 end
 
 /// Why the pattern `text` does not fit the parameters spelled `params`:
 /// a wildcard with no field, a field with no wildcard, a `{rest...}`
 /// field that is not a `String`, or parameters that are not `Unit` or an
 /// anonymous struct. The error names the wildcard's `{`, or the literal.
-fn params_error(text: String, params: String) -> Maybe<LiteralError>
+fn params_error(text: String, params: String) -> Option<LiteralError>
     case param_fields(params)
         None ->
             Some(LiteralError{
@@ -3401,7 +3405,7 @@ end
 //
 pub struct Router
     mux:      http_host.Mux
-    handlers: List<(Request) -> Maybe<Response>>
+    handlers: List<(Request) -> Option<Response>>
 end
 
 impl Router
@@ -3426,7 +3430,7 @@ impl Router
 
     /// The pattern that matches `request`, or `None` when none does, as
     /// Go's `ServeMux.Handler` finds it.
-    pub fn find(router: Router, request: Request) -> Maybe<String>
+    pub fn find(router: Router, request: Request) -> Option<String>
         case Router.route(router, request)
             ["match", _, pattern, ..] -> Some(pattern)
             _                         -> None
@@ -3441,7 +3445,7 @@ impl Router
         case Router.route(router, request)
             ["match", index, pattern, ..values] ->
                 handler =
-                    String.to_int(index) |> Maybe.flat_map(fn i -> Iter.get(router.handlers, i))
+                    String.to_int(index) |> Option.flat_map(fn i -> Iter.get(router.handlers, i))
 
                 found = {
                     ..request,
@@ -3449,7 +3453,7 @@ impl Router
                     path_values: pairs(values) |> Iter.to_map(),
                 }
 
-                case handler |> Maybe.flat_map(fn h -> h(found))
+                case handler |> Option.flat_map(fn h -> h(found))
                     Some(response) -> response
                     None           -> Response.not_found()
                 end
@@ -3458,7 +3462,7 @@ impl Router
                 Response{
                     status: Status(
                         String.to_int(code)
-                        |> Maybe.with_default(500)
+                        |> Option.with_default(500)
                     ),
                     headers: Headers(pairs(headers)),
                     body:    Body.Text(body),
@@ -3478,7 +3482,7 @@ impl Router
         http_host.route(
             router.mux,
             Method.text(request.method),
-            Maybe.with_default(request.host, ""),
+            Option.with_default(request.host, ""),
             "${request.url}",
         )
     end
@@ -3491,12 +3495,12 @@ fn from_go(parts: List<String>) -> Response
 
             status = Status(
                 String.to_int(code)
-                |> Maybe.with_default(500)
+                |> Option.with_default(500)
             )
 
             // A HEAD answer has no body and keeps the length the GET's would
             // have, as Go's ServeContent sends it.
-            length = Headers.get(answer, "Content-Length") |> Maybe.flat_map(String.to_int)
+            length = Headers.get(answer, "Content-Length") |> Option.flat_map(String.to_int)
 
             case length
                 Some(n) when body == "" and n > 0 ->
@@ -3540,7 +3544,7 @@ pub fn strip_prefix(handler: Handler, prefix: String) -> (Request) -> Response
         // An escaped path must lose the prefix too, as Go's does.
         raw =
             case request.url.raw_path
-                Some(r) -> String.strip_prefix(r, prefix) |> Maybe.map(Some)
+                Some(r) -> String.strip_prefix(r, prefix) |> Option.map(Some)
                 None    -> Some(None)
             end
 
@@ -3708,7 +3712,7 @@ pub struct CrossOrigin
     bypass_patterns: List<Route> = []
     /// The handler a refused request goes to; `None` returns `403
     /// Forbidden`.
-    deny: Maybe<Handler> = None
+    deny: Option<Handler> = None
 end
 
 impl CrossOrigin
@@ -3740,7 +3744,7 @@ impl CrossOrigin
     //
     pub fn check(options: CrossOrigin, request: Request) -> Result<Unit, Error>
         trusted = options.trusted_origins |> Iter.map(fn o -> "${o}") |> Iter.to_list()
-        host = Maybe.with_default(request.host, "")
+        host = Option.with_default(request.host, "")
         method = Method.text(request.method)
 
         case http_host.cross_origin_check(method, host, flat(request.headers), trusted)
@@ -3779,7 +3783,7 @@ pub fn cross_origin_protection(handler: Handler, options: CrossOrigin) -> (Reque
     fn request ->
         bypassed = Iter.any_match(bypass, fn built ->
             case built
-                Ok(router) -> Router.find(router, request) |> Maybe.is_some()
+                Ok(router) -> Router.find(router, request) |> Option.is_some()
                 Err(_)     -> False
             end
         end)
@@ -3852,10 +3856,10 @@ end
 
 /// An entry's `serve` with `wrap` around it. A request whose parameters
 /// do not parse reaches the wrapped handler as a `404`.
-fn wrap_serve(serve: (Request) -> Maybe<Response>, wrap: (Handler) -> Handler) -> (
+fn wrap_serve(serve: (Request) -> Option<Response>, wrap: (Handler) -> Handler) -> (
     Request
-) -> Maybe<Response>
-    inner: Handler = fn request -> Maybe.with_default(serve(request), Response.not_found())
+) -> Option<Response>
+    inner: Handler = fn request -> Option.with_default(serve(request), Response.not_found())
     wrapped = wrap(inner)
     fn request -> Some(ToResponse.to_response(wrapped(request)))
 end
@@ -3884,7 +3888,7 @@ pub struct Cors
     credentials: Bool = False
     /// How long a browser may keep a preflight's response; `None` leaves it
     /// to the browser, a few seconds.
-    max_age: Maybe<Duration> = None
+    max_age: Option<Duration> = None
 end
 
 /// Middleware that handles CORS for the origins `options` allows, so a
@@ -3970,7 +3974,7 @@ pub fn cors(handler: Handler, options: Cors) -> (Request) -> Response
                 |> String.join(", ")
 
             headers =
-                cors_origin(vary, options, Maybe.with_default(origin, ""))
+                cors_origin(vary, options, Option.with_default(origin, ""))
                 |> Headers.set("Access-Control-Allow-Methods", methods)
                 |> set_listed("Access-Control-Allow-Headers", options.allowed_headers)
 
@@ -4090,7 +4094,7 @@ pub fn log_requests(handler: Handler, logger: Logger) -> (Request) -> Response
     end
 end
 
-fn known_length(body: Body) -> Maybe<Int>
+fn known_length(body: Body) -> Option<Int>
     case body
         .Empty       -> Some(0)
         .Text(text)  -> Some(Bytes.length(String.to_bytes(text)))
@@ -4107,17 +4111,17 @@ pub struct SecurityHeaders
     nosniff: Bool = True
     /// `Referrer-Policy`: how much of the page's URL a link or a fetch
     /// sends on.
-    referrer_policy: Maybe<String> = Some("strict-origin-when-cross-origin")
+    referrer_policy: Option<String> = Some("strict-origin-when-cross-origin")
     /// `X-Frame-Options`: `DENY` keeps every other page from framing this
     /// one, against clickjacking. A `Content-Security-Policy` with
     /// `frame-ancestors` says the same to newer browsers.
-    frame_options: Maybe<String> = Some("DENY")
+    frame_options: Option<String> = Some("DENY")
     /// `Strict-Transport-Security`, such as `max-age=63072000;
     /// includeSubDomains`: the browser uses only HTTPS for the host from
     /// then on. Send it only from a host served over HTTPS for good.
-    strict_transport_security: Maybe<String> = None
+    strict_transport_security: Option<String> = None
     /// `Content-Security-Policy`, such as `default-src 'self'`.
-    content_security_policy: Maybe<String> = None
+    content_security_policy: Option<String> = None
 end
 
 /// Middleware that adds the headers `options` names to each response, as
@@ -4162,10 +4166,10 @@ pub fn security_headers(handler: Handler, options: SecurityHeaders = SecurityHea
 ) -> Response
     named = [
         if options.nosniff then Some(("X-Content-Type-Options", "nosniff")) else None,
-        options.referrer_policy |> Maybe.map(fn v -> ("Referrer-Policy", v)),
-        options.frame_options |> Maybe.map(fn v -> ("X-Frame-Options", v)),
-        options.strict_transport_security |> Maybe.map(fn v -> ("Strict-Transport-Security", v)),
-        options.content_security_policy |> Maybe.map(fn v -> ("Content-Security-Policy", v)),
+        options.referrer_policy |> Option.map(fn v -> ("Referrer-Policy", v)),
+        options.frame_options |> Option.map(fn v -> ("X-Frame-Options", v)),
+        options.strict_transport_security |> Option.map(fn v -> ("Strict-Transport-Security", v)),
+        options.content_security_policy |> Option.map(fn v -> ("Content-Security-Policy", v)),
     ]
 
     defaults = Headers(
@@ -4217,7 +4221,7 @@ pub fn request_id(
         incoming =
             if trust_incoming then
                 Headers.get(request.headers, header)
-                |> Maybe.filter(is_request_id)
+                |> Option.filter(is_request_id)
             else
                 None
             end
@@ -4225,7 +4229,7 @@ pub fn request_id(
         id =
             case incoming
                 Some(given) -> Some(given)
-                None        -> Uuid.v4() |> Result.to_maybe() |> Maybe.map(fn u -> "${u}")
+                None        -> Uuid.v4() |> Result.to_option() |> Option.map(fn u -> "${u}")
             end
 
         case id
@@ -4422,10 +4426,10 @@ end
 fn compressible(headers: Headers) -> Bool
     media =
         Headers.get(headers, "Content-Type")
-        |> Maybe.with_default("")
+        |> Option.with_default("")
         |> String.split(";")
         |> List.first()
-        |> Maybe.with_default("")
+        |> Option.with_default("")
         |> String.trim()
         |> String.lowercase()
 
@@ -4575,16 +4579,16 @@ pub fn method_override(handler: Handler) -> (Request) -> Response
             and Request.media_type(request) == "application/x-www-form-urlencoded"
 
         if not posted_form then return ToResponse.to_response(handler(request))
-        max = Maybe.with_default(request.body_limit, max_form_body)
+        max = Option.with_default(request.body_limit, max_form_body)
 
         case read_capped(request.body, max, request.body_limit)
             Ok(data) ->
                 asked =
                     Bytes.to_string(data)
-                    |> Result.to_maybe()
-                    |> Maybe.flat_map(fn text -> Query.parse(text) |> Result.to_maybe())
-                    |> Maybe.flat_map(fn q -> Query.get(q, "_method"))
-                    |> Maybe.map(String.uppercase)
+                    |> Result.to_option()
+                    |> Option.flat_map(fn text -> Query.parse(text) |> Result.to_option())
+                    |> Option.flat_map(fn q -> Query.get(q, "_method"))
+                    |> Option.map(String.uppercase)
 
                 method =
                     case asked
@@ -4683,7 +4687,7 @@ end
 
 /// The page a request for `asked` tries when nothing is at `file`:
 /// `file.html`, when `asked` ends in no `/` and `file` not in `.html`.
-fn html_page(asked: String, file: String) -> Maybe<String>
+fn html_page(asked: String, file: String) -> Option<String>
     if String.ends_with(asked, "/") or String.ends_with(file, ".html") then
         None
     else
@@ -4692,9 +4696,9 @@ fn html_page(asked: String, file: String) -> Maybe<String>
 end
 
 /// `html_page` on disk, with its metadata, when it is a file there.
-fn disk_page(asked: String, file: String) -> Maybe<(String, fs.Metadata)>
+fn disk_page(asked: String, file: String) -> Option<(String, fs.Metadata)>
     html_page(asked, file)
-    |> Maybe.flat_map(fn page ->
+    |> Option.flat_map(fn page ->
         case fs.metadata(page)
             Ok(meta) ->
                 case meta.kind
@@ -4709,9 +4713,9 @@ fn disk_page(asked: String, file: String) -> Maybe<(String, fs.Metadata)>
 end
 
 /// `html_page` in `files`, when it is a file there.
-fn embedded_page(asked: String, files: Files, file: String) -> Maybe<String>
+fn embedded_page(asked: String, files: Files, file: String) -> Option<String>
     html_page(asked, file)
-    |> Maybe.flat_map(fn page ->
+    |> Option.flat_map(fn page ->
         case Files.metadata(files, page)
             Ok(meta) ->
                 case meta.kind
@@ -5043,8 +5047,8 @@ fn embedded_file(request: Request, files: Files, file: String, immutable: List<S
     (sent, coding) =
         siblings
         |> Iter.find(fn (c, _) -> Iter.contains(codings, c))
-        |> Maybe.map(fn (coding, sibling) -> (sibling, Some(coding)))
-        |> Maybe.with_default((file, None))
+        |> Option.map(fn (coding, sibling) -> (sibling, Some(coding)))
+        |> Option.with_default((file, None))
 
     cache =
         if Iter.any_match(immutable, fn pattern -> immutable_match(pattern, file)) then
@@ -5100,7 +5104,7 @@ fn accepted_codings(request: Request) -> List<String>
     |> Iter.map(fn item ->
         String.split(item, ";")
         |> Iter.first()
-        |> Maybe.with_default("")
+        |> Option.with_default("")
         |> String.trim()
         |> String.lowercase()
     end)
@@ -5215,16 +5219,16 @@ pub struct Cookie
     value: String
     /// Whether the value was or is to be written in double quotes.
     quoted:      Bool = False
-    path:        Maybe<String> = None
-    domain:      Maybe<String> = None
-    expires:     Maybe<Instant> = None
-    raw_expires: Maybe<String> = None
+    path:        Option<String> = None
+    domain:      Option<String> = None
+    expires:     Option<Instant> = None
+    raw_expires: Option<String> = None
     max_age:     MaxAge = MaxAge.Unset
     secure:      Bool = False
     http_only:   Bool = False
     same_site:   SameSite = SameSite.Unset
     partitioned: Bool = False
-    raw:         Maybe<String> = None
+    raw:         Option<String> = None
     unparsed:    List<String> = []
 end
 
@@ -5273,7 +5277,7 @@ impl Cookie
     end
 
     fn parts(cookie: Cookie) -> List<String>
-        text = fn m: Maybe<String> -> Maybe.with_default(m, "")
+        text = fn m: Option<String> -> Option.with_default(m, "")
 
         max_age =
             case cookie.max_age
@@ -5298,8 +5302,8 @@ impl Cookie
             text(cookie.path),
             text(cookie.domain),
             cookie.expires
-            |> Maybe.map(fn at -> "${Instant.as_nanos(at)}")
-            |> Maybe.with_default(""),
+            |> Option.map(fn at -> "${Instant.as_nanos(at)}")
+            |> Option.with_default(""),
             text(cookie.raw_expires),
             max_age,
             "${cookie.secure}",
@@ -5322,7 +5326,7 @@ impl Cookie
                     quoted:      quoted == "true",
                     path:        some(path),
                     domain:      some(domain),
-                    expires:     String.to_int(expires) |> Maybe.map(Instant.from_nanos),
+                    expires:     String.to_int(expires) |> Option.map(Instant.from_nanos),
                     raw_expires: some(raw_expires),
                     max_age:
                         case max_age
@@ -5335,7 +5339,7 @@ impl Cookie
                             n ->
                                 MaxAge.Seconds(
                                     String.to_int(n)
-                                    |> Maybe.with_default(0)
+                                    |> Option.with_default(0)
                                 )
                         end,
                     secure:    secure == "true",
@@ -5507,7 +5511,10 @@ impl ProxyRequest
         headers =
             proxy.outgoing.headers
             |> Headers.set("X-Forwarded-For", forwarded)
-            |> Headers.set("X-Forwarded-Host", Maybe.with_default(incoming.host, incoming.url.host))
+            |> Headers.set(
+                "X-Forwarded-Host",
+                Option.with_default(incoming.host, incoming.url.host),
+            )
             |> Headers.set(
                 "X-Forwarded-Proto",
                 if incoming.url.scheme == "https" then
@@ -5537,17 +5544,17 @@ pub struct ReverseProxy
     client: Client = default_client()
     /// Changes each response before it goes back; an `Err` is handled as
     /// `on_error` does.
-    modify_response: Maybe<(Response) -> Result<Response, Error>> = None
+    modify_response: Option<(Response) -> Result<Response, Error>> = None
     /// Responds when the request fails; `None` returns 502 Bad Gateway.
-    on_error: Maybe<(Request, Error) -> Response> = None
+    on_error: Option<(Request, Error) -> Response> = None
     /// How often the response is flushed to the client while it streams:
     /// `None` flushes it as it arrives only for a response of unknown
     /// length or an event stream, and otherwise at its end; zero flushes
     /// after each write. Go's `FlushInterval`.
-    flush_interval: Maybe<Duration> = None
+    flush_interval: Option<Duration> = None
     /// Told each error the proxy meets: a request that failed, a copy that
     /// broke. `None` writes them to standard error. Go's `ErrorLog`.
-    on_error_log: Maybe<(String) -> Unit> = None
+    on_error_log: Option<(String) -> Unit> = None
 end
 
 impl ReverseProxy
@@ -5638,7 +5645,7 @@ end
 // following no redirect, as Go's Transport does for a ReverseProxy. A faked
 // or round-tripped client response comes back whole.
 fn forward(options: ReverseProxy, outgoing: Request) -> Result<Response, Error>
-    faked: Maybe<Result<Response, Error>> = http_host.answered(outgoing)
+    faked: Option<Result<Response, Error>> = http_host.answered(outgoing)
     if Some(answer) = faked then return answer
     Client{handle:, options: client_options} = options.client
     if Some(round_trip) = client_options.round_trip then return round_trip(outgoing)
@@ -5646,9 +5653,9 @@ fn forward(options: ReverseProxy, outgoing: Request) -> Result<Response, Error>
     reader = http_host.body_reader(exchange)
     head = response_of(exchange, Body.Empty)
 
-    content_type = Headers.get(head.headers, "Content-Type") |> Maybe.with_default("")
+    content_type = Headers.get(head.headers, "Content-Type") |> Option.with_default("")
 
-    streaming = Maybe.is_none(head.content_length)
+    streaming = Option.is_none(head.content_length)
         or String.starts_with(content_type, "text/event-stream")
 
     every =
@@ -5672,7 +5679,7 @@ fn forward(options: ReverseProxy, outgoing: Request) -> Result<Response, Error>
     })
 end
 
-fn pump(r: Reader, w: Writer, every: Maybe<Duration>, flushed: Instant) -> Result<Unit, io.Error>
+fn pump(r: Reader, w: Writer, every: Option<Duration>, flushed: Instant) -> Result<Unit, io.Error>
     case Reader.read(r)?
         None ->
             Writer.flush(w)
@@ -5729,28 +5736,28 @@ pub enum TraceEvent
     /// It got one: reused from an earlier request, idle for `idle_time`.
     GotConnection {reused: Bool, was_idle: Bool, idle_time: Duration}
     /// It returned the connection to the idle pool, or failed to.
-    PutIdleConnection {error: Maybe<String>}
+    PutIdleConnection {error: Option<String>}
     FirstResponseByte
     /// The server sent `100 Continue`.
     Continue
     /// The server sent a 1xx status before the final one.
     Informational {status: Status, headers: Headers}
     DnsStart {host: String}
-    DnsDone {addresses: List<String>, error: Maybe<String>, coalesced: Bool}
+    DnsDone {addresses: List<String>, error: Option<String>, coalesced: Bool}
     ConnectStart {network: String, address: String}
-    ConnectDone {network: String, address: String, error: Maybe<String>}
+    ConnectDone {network: String, address: String, error: Option<String>}
     TlsStart
-    TlsDone {state: tls.ConnectionState, error: Maybe<String>}
+    TlsDone {state: tls.ConnectionState, error: Option<String>}
     /// It wrote one header field.
     WroteHeader {name: String, values: List<String>}
     WroteHeaders
     /// It waits for `100 Continue` before sending the body.
     WaitContinue
-    WroteRequest {error: Maybe<String>}
+    WroteRequest {error: Option<String>}
 end
 
 impl TraceEvent
-    fn of_parts(parts: List<List<String>>) -> Maybe<TraceEvent>
+    fn of_parts(parts: List<List<String>>) -> Option<TraceEvent>
         error = fn text: String -> if text == "" then None else Some(text)
 
         case parts
@@ -5763,7 +5770,7 @@ impl TraceEvent
                     was_idle: was_idle == "true",
                     idle_time: Duration.nanoseconds(
                         String.to_int(idle)
-                        |> Maybe.with_default(0)
+                        |> Option.with_default(0)
                     ),
                 })
 
@@ -5780,7 +5787,7 @@ impl TraceEvent
                 Some(TraceEvent.Informational{
                     status: Status(
                         String.to_int(code)
-                        |> Maybe.with_default(0)
+                        |> Option.with_default(0)
                     ),
                     headers: Headers(pairs(headers)),
                 })
@@ -5834,7 +5841,7 @@ fn wire_parts_of(
     end
 end
 
-fn wire_length(text: String) -> Maybe<Int>
+fn wire_length(text: String) -> Option<Int>
     case String.to_int(text)
         Some(n) when n >= 0 -> Some(n)
         _                   -> None
@@ -5850,8 +5857,8 @@ fn wire_request(op: Int, request: Request, w: Writer) -> Result<String, Error>
         Method.text(request.method),
         "${request.url}",
         flat(typed(request.headers, request.body)),
-        Maybe.with_default(request.host, ""),
-        Maybe.with_default(request.content_length, -1),
+        Option.with_default(request.host, ""),
+        Option.with_default(request.content_length, -1),
         request.transfer_encoding,
         request.close,
         flat(request.trailers),
@@ -5870,7 +5877,7 @@ fn wire_response(op: Int, response: Response, w: Writer) -> Result<String, Error
         response.protocol.major,
         response.protocol.minor,
         flat(typed(response.headers, response.body)),
-        Maybe.with_default(response.content_length, -1),
+        Option.with_default(response.content_length, -1),
         response.transfer_encoding,
         response.close,
         flat(response.trailers),
@@ -5909,7 +5916,7 @@ end
 
 impl Part
     /// The `name` of its `form-data` `Content-Disposition`, if any.
-    pub fn form_name(part: Part) -> Maybe<String>
+    pub fn form_name(part: Part) -> Option<String>
         case http_host.part_form_name(part.handle)
             ""   -> None
             name -> Some(name)
@@ -5917,7 +5924,7 @@ impl Part
     end
 
     /// The `filename` of its `Content-Disposition`, if any.
-    pub fn file_name(part: Part) -> Maybe<String>
+    pub fn file_name(part: Part) -> Option<String>
         case http_host.part_file_name(part.handle)
             ""   -> None
             name -> Some(name)

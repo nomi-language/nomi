@@ -1,8 +1,8 @@
 // `?` may not launder the error type. Spec §11's boundary rule has three
 // parts and all three are checked at the `?`, naming both sides:
 //
-//   1. the boundary must be a `Result` or a `Maybe` at all;
-//   2. the flavours must agree — `Result` for a `Result`, `Maybe` for a `Maybe`;
+//   1. the boundary must be a `Result` or an `Option` at all;
+//   2. the flavours must agree — `Result` for a `Result`, `Option` for an `Option`;
 //   3. when both are `Result`s, the error type must inhabit the boundary's,
 //      or the boundary's must have a `From` impl at it, which converts.
 //
@@ -89,10 +89,10 @@ test "converting the error at the `?` site is clean"
     assert Iter.count(diagnostics) == 0
 end
 
-test "`?` on a Maybe may not propagate out of a Result boundary"
+test "`?` on an Option may not propagate out of a Result boundary"
     diagnostics = compiler.check(
         """
-          fn find(_s: String) -> Maybe<Int>
+          fn find(_s: String) -> Option<Int>
             None
           end
 
@@ -110,11 +110,11 @@ test "`?` on a Maybe may not propagate out of a Result boundary"
 
     assert test_helpers.has_diagnostic(
         diagnostics,
-        "`?` on a Maybe cannot propagate out of a function returning Result<Int, String>",
+        "`?` on an Option cannot propagate out of a function returning Result<Int, String>",
     )
 end
 
-test "`?` needs a Result or Maybe boundary to propagate into"
+test "`?` needs a Result or Option boundary to propagate into"
     diagnostics = compiler.check(
         """
           fn parse(s: String) -> Result<Int, String>

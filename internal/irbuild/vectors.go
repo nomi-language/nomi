@@ -98,8 +98,8 @@ type vectorFn struct {
 	vecs int
 	// result is how the result kind is derived. "vector" is `Vector<T>`, "int"
 	// `Int`, "bool" `Bool`, "string" `String`, "ordering" the
-	// shared `Ordering`, "elem" `T`, "maybeElem" `Maybe<T>`,
-	// "maybeVector" `Maybe<Vector<T>>`, "nextItem" `Maybe<(T, Vector<T>)>`.
+	// shared `Ordering`, "elem" `T`, "optionElem" `Option<T>`,
+	// "optionVector" `Option<Vector<T>>`, "nextItem" `Option<(T, Vector<T>)>`.
 	result string
 }
 
@@ -116,9 +116,9 @@ type vectorFn struct {
 // the same split lists.go describes for `List.equal`.
 var vectorFuncs = map[string]vectorFn{
 	"length":    {vecs: 1, result: "int"},
-	"get":       {vecs: 1, rest: []string{"int"}, result: "maybeElem"},
+	"get":       {vecs: 1, rest: []string{"int"}, result: "optionElem"},
 	"push":      {vecs: 1, rest: []string{"elem"}, result: "vector"},
-	"set":       {vecs: 1, rest: []string{"int", "elem"}, result: "maybeVector"},
+	"set":       {vecs: 1, rest: []string{"int", "elem"}, result: "optionVector"},
 	"concat":    {vecs: 2, result: "vector"},
 	"next_item": {vecs: 1, result: "nextItem"},
 	"slice":     {vecs: 1, rest: []string{"int", "int"}, result: "vector"},
@@ -182,10 +182,10 @@ func (g *gen) vectorResultKind(tag string, vk, elem kind, at ast.Node) (kind, bo
 		return kindString, true
 	case "ordering":
 		return stdEnumKind(stdEnumOrdering), true
-	case "maybeElem":
-		return g.maybeOf(elem, at)
-	case "maybeVector":
-		return g.maybeOf(vk, at)
+	case "optionElem":
+		return g.optionOf(elem, at)
+	case "optionVector":
+		return g.optionOf(vk, at)
 	case "elem":
 		return elem, true
 	case "nextItem":
@@ -194,7 +194,7 @@ func (g *gen) vectorResultKind(tag string, vk, elem kind, at ast.Node) (kind, bo
 		if pair == kindInvalid {
 			return kindInvalid, false
 		}
-		return g.maybeOf(pair, at)
+		return g.optionOf(pair, at)
 	}
 	return kindInvalid, false
 }

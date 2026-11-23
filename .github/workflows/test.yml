@@ -16,6 +16,16 @@
 # The windows and windows-irbuild jobs run the go and irbuild jobs' tests on
 # Windows.
 #
+# Memory: a hosted runner has 4 cores and 16 GB, and each Linux job prints
+# what it has (nproc, free -g) before it tests. go test runs -p 4 test
+# binaries at once. Measured on macOS at GOMAXPROCS=4 with no limit, the
+# go job's largest binaries peak at about 2.1 GB (internal/vm), 1.7 GB
+# (internal/analysis), 1.6 GB (internal/lsp) and 1.5 GB (vmhost), and
+# internal/irbuild at 6.5 GB, 3.3 GB of it live. GOMEMLIMIT is a soft limit
+# per process below the runner's memory, so a binary's collector works
+# harder before the kernel ends the runner: 3GiB for each of the go job's
+# binaries, and 4GiB for irbuild, which runs alone and then peaks at 4.4 GB.
+#
 # Not covered here: the tree-sitter grammar tests (scripts/tree-sitter.sh
 # test) and the VS Code smoke test, which downloads VS Code.
 
@@ -38,7 +48,13 @@ jobs:
     name: go vet and go test (all but irbuild)
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      GOMEMLIMIT: 3GiB
     steps:
+      - name: runner resources
+        run: |
+          nproc
+          free -g
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
@@ -48,13 +64,19 @@ jobs:
           node-version: 22
       - run: go vet ./...
       - name: go test
-        run: go test -count=1 -timeout 40m $(go list ./... | grep -v '/internal/irbuild$')
+        run: go test -p 4 -count=1 -timeout 40m $(go list ./... | grep -v '/internal/irbuild$')
 
   irbuild:
     name: go test ./internal/irbuild
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      GOMEMLIMIT: 4GiB
     steps:
+      - name: runner resources
+        run: |
+          nproc
+          free -g
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
@@ -65,11 +87,15 @@ jobs:
   # way. Git would check the tree out with CRLF line ends, which every
   # golden file and doctest compares byte for byte, so autocrlf is off
   # before the checkout. No Node: the js/wasm tests skip, as do the tour,
-  # VS Code and tree-sitter checks, which run on Linux only.
+  # VS Code and tree-sitter checks, which run on Linux only. A Windows
+  # runner has the same 4 cores and 16 GB and takes the same GOMEMLIMIT
+  # and -p.
   windows:
     name: go vet and go test on Windows (all but irbuild)
     runs-on: windows-latest
     timeout-minutes: 60
+    env:
+      GOMEMLIMIT: 3GiB
     steps:
       - run: git config --global core.autocrlf false
       - uses: actions/checkout@v4
@@ -79,12 +105,14 @@ jobs:
       - run: go vet ./...
       - name: go test
         shell: bash
-        run: go test -count=1 -timeout 55m $(go list ./... | grep -v '/internal/irbuild$')
+        run: go test -p 4 -count=1 -timeout 55m $(go list ./... | grep -v '/internal/irbuild$')
 
   windows-irbuild:
     name: go test ./internal/irbuild on Windows
     runs-on: windows-latest
     timeout-minutes: 60
+    env:
+      GOMEMLIMIT: 4GiB
     steps:
       - run: git config --global core.autocrlf false
       - uses: actions/checkout@v4

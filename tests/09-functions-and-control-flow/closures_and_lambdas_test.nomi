@@ -134,6 +134,6 @@ test "one element's annotation types the lambdas beside it in a literal"
         ("next",   6),
     ]
 
-    assert Maybe.map(square, fn (_, f) -> f(7)) == Some(49)
-    assert Maybe.map(Map.get(by_name, "inc"), fn f -> f(1)) == Some(2)
+    assert Option.map(square, fn (_, f) -> f(7)) == Some(49)
+    assert Option.map(Map.get(by_name, "inc"), fn f -> f(1)) == Some(2)
 end

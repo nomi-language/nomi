@@ -7,8 +7,8 @@ import (
 	"github.com/nomi-language/nomi/internal/format"
 )
 
-// A postfix `!`, `expr!`: expr's type must be a `Result<T, E>` or a
-// `Maybe<T>`, and the `!`'s type is T. An Err or a None traps at run time
+// A postfix `!`, `expr!`: expr's type must be a `Result<T, E>` or an
+// `Option<T>`, and the `!`'s type is T. An Err or a None traps at run time
 // (internal/irbuild's unwrap.go).
 //
 // As a pipe stage, `x |> f()!`, the `!` unwraps the stage's result: the pipe
@@ -27,7 +27,7 @@ func (c *checker) checkUnwrapStage(n *ast.Binary, stage *ast.Unwrap) Type {
 }
 
 // unwrapBang is the type of `!` n over expr, whose type is ty: the payload
-// of a Result's Ok or a Maybe's Some. Anything else is an error at the `!`.
+// of a Result's Ok or an Option's Some. Anything else is an error at the `!`.
 func (c *checker) unwrapBang(n *ast.Unwrap, expr ast.Node, ty Type) Type {
 	if ty == nil {
 		return nil
@@ -50,7 +50,7 @@ func (c *checker) unwrapBang(n *ast.Unwrap, expr ast.Node, ty Type) Type {
 		return et.TypeArgs[0]
 	}
 	source := UnwrapSource(expr)
-	e := TypeError{Line: n.Line, Col: n.Col, Message: c.typef("`!` unwraps a Result or a Maybe, and `%s` is %s", source, ty)}
+	e := TypeError{Line: n.Line, Col: n.Col, Message: c.typef("`!` unwraps a Result or an Option, and `%s` is %s", source, ty)}
 	if TypesEqual(resolveTypeVar(ty), TypeBool) {
 		e = e.WithHint("to stop the program when `" + source + "` is False, write `assert " + source + "`")
 	} else {

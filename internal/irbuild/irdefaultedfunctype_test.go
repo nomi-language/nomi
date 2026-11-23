@@ -5,7 +5,7 @@ import "testing"
 // A function value whose type came from a function with defaults (a partial
 // application that leaves a defaulted slot open) runs wherever a function
 // value does: through a generic call, as a call's result called at once, in
-// a Maybe and a list. A call through a declaration still omits the default.
+// an Option and a list. A call through a declaration still omits the default.
 func TestIRDefaultedFunctionType_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")

@@ -51,7 +51,7 @@
 
 ; Type definitions
 (type_definition
-  ["type" "subtype"] @context
+  ["type" "refine"] @context
   name: (qualified_type_identifier) @name) @item
 
 ; Type aliases

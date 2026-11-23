@@ -41,8 +41,8 @@ test "not takes a pipeline and the postfix marks"
     assert not [1, 2] |> Iter.is_empty()
     assert not -3 |> positive()
     assert not small(12)!
-    maybe: Maybe<Bool> = Some(False)
-    assert not maybe!
+    option: Option<Bool> = Some(False)
+    assert not option!
 end
 
 fn large_check(n: Int) -> Result<Bool, String>

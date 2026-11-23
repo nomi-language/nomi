@@ -78,7 +78,7 @@
 08-pattern-matching/map_binding_else_test.nomi
 08-pattern-matching/map_patterns_test.nomi
 08-pattern-matching/marker_patterns_test.nomi
-08-pattern-matching/maybe_result_test.nomi
+08-pattern-matching/option_result_test.nomi
 08-pattern-matching/or_patterns_test.nomi
 08-pattern-matching/qualified_distinct_patterns/qualified_distinct_patterns_test.nomi
 08-pattern-matching/try_error_conversion_test.nomi
@@ -134,10 +134,10 @@
 12-derives-and-standard-interfaces/display_debug_test.nomi
 12-derives-and-standard-interfaces/equality_bounds_test.nomi
 12-derives-and-standard-interfaces/host_values_as_display_test.nomi
-12-derives-and-standard-interfaces/maybe_result_equatable_test.nomi
+12-derives-and-standard-interfaces/option_result_equatable_test.nomi
+12-derives-and-standard-interfaces/refinement_fields_test.nomi
 12-derives-and-standard-interfaces/set_debug_test.nomi
 12-derives-and-standard-interfaces/std_generics_over_program_types_test.nomi
-12-derives-and-standard-interfaces/subtype_fields_test.nomi
 12-derives-and-standard-interfaces/unit_hashable_test.nomi
 12-derives-and-standard-interfaces/universal_debug/universal_debug_test.nomi
 12-derives-and-standard-interfaces/value_equality_test.nomi
@@ -152,9 +152,9 @@
 13-iterators-and-pipes/iterator_inference_test.nomi
 13-iterators-and-pipes/iters_in_lists_test.nomi
 13-iterators-and-pipes/loop_control_test.nomi
-13-iterators-and-pipes/maybe_iter_test.nomi
 13-iterators-and-pipes/mean_test.nomi
 13-iterators-and-pipes/min_max_test.nomi
+13-iterators-and-pipes/option_iter_test.nomi
 13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi
 13-iterators-and-pipes/pipe_lambda_test.nomi
 13-iterators-and-pipes/reader_iter_test.nomi

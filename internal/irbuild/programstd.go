@@ -44,7 +44,7 @@ import (
 //     which declares nothing and only re-exports, may import one);
 //   - checks and lowers with no error or decline, its `//!` cases included.
 //
-// The prelude types, the collections, Iter, Maybe and Result, and every
+// The prelude types, the collections, Iter, Option and Result, and every
 // module with a host function stay shared: the VM has intrinsics and rows
 // for them, and their host functions cross into Go over rt types. A new
 // module written in Nomi needs no rt type and no row: list it here.

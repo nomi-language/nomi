@@ -38,7 +38,7 @@ fn main()
   circles = [Circle{r: 2}, Circle{r: 3}]
   io.inspect(Iter.map(circles, area) |> Iter.to_list())
   io.inspect(circles |> Iter.map(area) |> Iter.to_list())
-  io.inspect(Maybe.map(Some(Circle{r: 4}), area))
+  io.inspect(Option.map(Some(Circle{r: 4}), area))
   shapes: List<Shape> = [.Dot, Circle{r: 5}]
   matched = Iter.map(shapes, fn value -> case value
     .Circle{} -> take(value)

@@ -42,7 +42,7 @@ fn user_route() -> Route<{id: Uuid}>
 end
 
 fn main()
-    later = None as Maybe<Post>
+    later = None as Option<Post>
     named = Post{title: "a"} as Named
     _ = (user_route(), later, Named.name(named), admin.tags + ["x"])
 end

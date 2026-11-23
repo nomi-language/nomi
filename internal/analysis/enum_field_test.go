@@ -11,7 +11,7 @@ func TestEnumStructVariantFieldAccess(t *testing.T) {
 	src := `
 enum Error
     HttpError{status: Int, message: String}
-    Timeout
+    Timeout{status: Int}
 end
 
 fn demo() -> Int
@@ -47,7 +47,7 @@ end
 
 enum Drawable
     embeds Circle2
-    Line
+    Line{radius: Float}
 end
 
 fn demo() -> Float

@@ -11,7 +11,7 @@ import "github.com/nomi-language/nomi/internal/ast"
 //   - The impl's own type parameters (the `T` of `impl Store<String, T> for
 //     Cache<T>`) are rigid. Inside the impl, `T` is one fixed unknown type,
 //     so where the interface requires `T` the function must take or return
-//     `T` and nothing else. `Maybe<Int>` does not match `Maybe<T>`, and with
+//     `T` and nothing else. `Option<Int>` does not match `Option<T>`, and with
 //     `impl Pair<A, B> for Two<A, B>`, `B` does not match `A`.
 //   - The function-level type parameters (`fn map<U>` on the interface,
 //     `fn map(…, f: (T) -> U)` in the impl) are bound per call. The interface

@@ -49,6 +49,8 @@ import (
 const revisionAbbrev = buildversion.RevisionAbbrev
 
 // runVersion is `nomi --version`.
+const versionUsage = "usage: nomi version"
+
 func runVersion() { fmt.Println(currentVersionLine()) }
 
 // currentVersionLine is this binary's version line: what `nomi --version`
@@ -94,18 +96,4 @@ func imageWriterVersion() string {
 		return runners.ReleaseVersion + " (" + buildversion.Current() + ")"
 	}
 	return buildversion.Current()
-}
-
-// versionRequested reports whether args name the version query.
-//
-// Both spellings are accepted because this CLI already uses both shapes: every
-// command is a bare word (`run`, `check`, `build`, `gen`, `dap`, `test`,
-// `fmt`), while flags are `-o`, `-w`, `-debug` and also `--line`. `nomi` has no
-// `--help` to be consistent with — an unrecognized first argument starts the
-// REPL — so there is no existing convention that picks one.
-func versionRequested(args []string) bool {
-	if len(args) < 2 {
-		return false
-	}
-	return args[1] == "--version" || args[1] == "version"
 }

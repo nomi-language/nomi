@@ -17,7 +17,7 @@ import (
 //
 // They run through checkSourceWithStdlib rather than checkSource, and that was
 // not a preference. checkSource is deliberately prelude-free, so `Int` and
-// `Maybe` are unknown types in it and EVERY case failed identically — including
+// `Option` are unknown types in it and EVERY case failed identically — including
 // the known-present control, whose whole job is to fire. A control that reports
 // no power indicts the harness before the hypothesis, and it did.
 
@@ -177,7 +177,7 @@ end
 // records references from it. A witness that reads the same before and after
 // measures nothing.
 func TestMapPatternKeyPreludeConstructorIsAccepted(t *testing.T) {
-	got := j6KeyErrors(`fn f(m: Map<Maybe<Int>, String>) -> String
+	got := j6KeyErrors(`fn f(m: Map<Option<Int>, String>) -> String
   case m
     {Some(2) => v} -> v
     _ -> "?"

@@ -54,7 +54,7 @@ end
 pub struct Label
     value:     Decimal
     unit:      Magnitude
-    tolerance: Maybe<Decimal>
+    tolerance: Option<Decimal>
 end
 
 impl Display for Label
@@ -69,7 +69,7 @@ end
 /// The label `bands` give: a single black band, two digits, a multiplier
 /// and a tolerance, or three digits, a multiplier and a tolerance. `None`
 /// for any other count of bands, or a band whose color cannot stand there.
-pub fn label(bands: List<Color>) -> Maybe<Label>
+pub fn label(bands: List<Color>) -> Option<Label>
     case bands
         [.Black] ->
             Some({value: 0d, unit: .Ohms, tolerance: None})
@@ -87,11 +87,11 @@ end
 
 /// The label of the digit bands `digits`, then `multiplier`, the number of
 /// zeros after them, and `tolerance`.
-fn make(digits: List<Color>, multiplier: Color, tolerance: Color) -> Maybe<Label>
+fn make(digits: List<Color>, multiplier: Color, tolerance: Color) -> Option<Label>
     number =
         digits
         |> Iter.map(digit)
-        |> Maybe.collect()?
+        |> Option.collect()?
         |> Int.from_digits()!
 
     zeros = digit(multiplier)?
@@ -116,7 +116,7 @@ fn in_largest_unit(ohms: Int) -> (Decimal, Magnitude)
     end
 end
 
-fn digit(color: Color) -> Maybe<NonNegativeInt>
+fn digit(color: Color) -> Option<NonNegativeInt>
     case color
         .Black           -> Some(0)
         .Brown           -> Some(1)
@@ -133,7 +133,7 @@ fn digit(color: Color) -> Maybe<NonNegativeInt>
 end
 
 /// The tolerance in percent a band of `color` marks, if it marks one.
-fn tolerance_of(color: Color) -> Maybe<Decimal>
+fn tolerance_of(color: Color) -> Option<Decimal>
     case color
         .Grey                                  -> Some(0.05d)
         .Violet                                -> Some(0.1d)
@@ -252,7 +252,7 @@ test result: ok. 22 passed, 0 failed
 ## How it's written
 
 - The colors are an enum, `Color`, with the ten digit colors in value order and the two tolerance-only colors, gold and silver. The canonical strings are the test table's data, written as variants.
-- `label` returns `Maybe<Label>`, a struct of the value as a `Decimal`, the unit and the tolerance as a `Maybe<Decimal>` percent, `None` for the one-band resistor. The canonical answer is those three fields, so the table compares structs; `Label`'s `Display` writes the description's text, `33 ohms ±2%`, which a second table checks.
+- `label` returns `Option<Label>`, a struct of the value as a `Decimal`, the unit and the tolerance as an `Option<Decimal>` percent, `None` for the one-band resistor. The canonical answer is those three fields, so the table compares structs; `Label`'s `Display` writes the description's text, `33 ohms ±2%`, which a second table checks.
 - The bands are taken apart by one `case` over their count: a lone black band, two digits, or three digits, each then a multiplier and a tolerance. Any other count, or a color that cannot stand where it is (gold as a digit, orange as a tolerance), is `None`, which `make` passes up with `?` at each band; `Int.from_digits(...)!` cannot fail there, since every digit is below ten. The canonical data has no such case, and the test file adds five, in a table of their own.
 - The value is a `Decimal`, since the canonical "2.54 megaohms" and "6.89 kiloohms" are exact decimals. The ohms are a whole number, divided with `/` by the largest unit they reach. The `once` table of units is annotated `List<(PositiveInt, Magnitude)>`, so each size is a `PositiveInt` and `Int.to_decimal(size)` a `PositiveDecimal`, which `/` takes as a divisor. Dividing by a power of ten is exact, and an exact quotient has no trailing zeros, so `680` stays `680` and `2540000` reads `2.54`.
 - The units are an enum named `Magnitude`, as in resistor-color-trio: `Unit` is the prelude's unit type and cannot be redeclared.

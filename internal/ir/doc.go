@@ -172,7 +172,7 @@
 // It is owned deep when the values its fields hold are its own too; a
 // field read of a class owned deep (a Some's or an Ok's payload among
 // them) owns the value it reads when nothing reads that field through the
-// class again (fields.go). A collection operation that answers a Maybe
+// class again (fields.go). A collection operation that answers an Option
 // (`Vector.set`) answers it owned deep, so `Vector.set(v, i, x)!` hands
 // the vector on owned. From that it answers the updates
 // and collection operations that may write in place, the arguments each

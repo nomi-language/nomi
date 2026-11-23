@@ -34,13 +34,13 @@ end
 
 /// What is known about a puzzle: any of its parts, each `None` when unknown.
 pub struct Clues
-    pieces:       Maybe<Int> = None
-    border:       Maybe<Int> = None
-    inside:       Maybe<Int> = None
-    rows:         Maybe<Int> = None
-    columns:      Maybe<Int> = None
-    aspect_ratio: Maybe<Float> = None
-    format:       Maybe<Format> = None
+    pieces:       Option<Int> = None
+    border:       Option<Int> = None
+    inside:       Option<Int> = None
+    rows:         Option<Int> = None
+    columns:      Option<Int> = None
+    aspect_ratio: Option<Float> = None
+    format:       Option<Format> = None
 end
 
 /// Why the clues do not describe exactly one puzzle.
@@ -113,14 +113,14 @@ fn fits(clues: Clues, jigsaw: Jigsaw) -> Bool
 end
 
 /// Whether `actual` is the `known` value, when there is one.
-fn agrees<T>(known: Maybe<T>, actual: T) -> Bool where T: Equatable
+fn agrees<T>(known: Option<T>, actual: T) -> Bool where T: Equatable
     Iter.all_match(known, &(&1 == actual))
 end
 
 /// The row counts worth trying: the known one, or every count up to a bound
 /// that a known part sets. `None` when nothing bounds the rows, so that
 /// endlessly many puzzles fit.
-fn row_candidates(clues: Clues) -> Maybe<List<Int>>
+fn row_candidates(clues: Clues) -> Option<List<Int>>
     case clues
         {rows: Some(rows)} ->
             Some([rows])
@@ -135,7 +135,7 @@ fn row_candidates(clues: Clues) -> Maybe<List<Int>>
             Some(up_to(inside + 2))
 
         {columns: Some(columns), aspect_ratio: Some(ratio)} ->
-            nearest(Int.to_float(columns) / ratio) |> Maybe.map(up_to)
+            nearest(Int.to_float(columns) / ratio) |> Option.map(up_to)
 
         {columns: Some(columns), format: Some(.Square or .Landscape)} ->
             Some(up_to(columns))
@@ -151,7 +151,7 @@ end
 
 /// How the first known part that settles the columns gives them for a
 /// puzzle of so many rows, or `None` when no known part settles them.
-fn column_rule(clues: Clues) -> Maybe<(Int) -> List<Int>>
+fn column_rule(clues: Clues) -> Option<(Int) -> List<Int>>
     case clues
         {columns: Some(columns)} ->
             Some(fn _rows -> [columns])
@@ -187,7 +187,7 @@ fn column_rule(clues: Clues) -> Maybe<(Int) -> List<Int>>
 end
 
 /// The whole number nearest `x`.
-fn nearest(x: Float) -> Maybe<Int>
+fn nearest(x: Float) -> Option<Int>
     x |> Float.round() |> Float.to_int()
 end
 
@@ -289,8 +289,8 @@ test result: ok. 7 passed, 0 failed
 
 ## How it's written
 
-- What is known is a `Clues` struct whose seven fields are `Maybe`s that default to `None`, so a case writes only what it knows: `{rows: Some(32), format: Some(.Square)}`. The answer is a `Jigsaw` with every field filled, or `Error.InsufficientData` or `Error.ContradictoryData`.
-- A puzzle is settled by its rows and columns, so `jigsaw_data` searches them rather than solving each combination of clues by its own formula. `row_candidates` gives the known row count, or every count up to a bound some known part sets (the pieces, the border, the inside pieces plus two, or the columns with a ratio or a format that keeps the rows at most the columns). `column_rule` answers a function from a row count to the column counts worth trying, from the first known part that settles the columns. `puzzle` builds the whole puzzle from rows and columns, and `fits` keeps those that agree with every clue. A clue agrees when it is `None` or matches, which is `Iter.all_match` over the `Maybe`, an `Iter` of none or one value.
+- What is known is a `Clues` struct whose seven fields are `Option`s that default to `None`, so a case writes only what it knows: `{rows: Some(32), format: Some(.Square)}`. The answer is a `Jigsaw` with every field filled, or `Error.InsufficientData` or `Error.ContradictoryData`.
+- A puzzle is settled by its rows and columns, so `jigsaw_data` searches them rather than solving each combination of clues by its own formula. `row_candidates` gives the known row count, or every count up to a bound some known part sets (the pieces, the border, the inside pieces plus two, or the columns with a ratio or a format that keeps the rows at most the columns). `column_rule` answers a function from a row count to the column counts worth trying, from the first known part that settles the columns. `puzzle` builds the whole puzzle from rows and columns, and `fits` keeps those that agree with every clue. A clue agrees when it is `None` or matches, which is `Iter.all_match` over the `Option`, an `Iter` of none or one value.
 - The search stops at the second fitting puzzle with `Iter.take(2)`: none is a contradiction, one is the answer, two are too many. When nothing bounds the rows or settles the columns, endlessly many puzzles fit and the answer is `InsufficientData` before any search.
 - The aspect ratio is compared within 1e-9, since it is a `Float` computed as columns over rows and the canonical data writes 5/3 as `1.6666666666666667`.
 - The five complete puzzles are one `subtests` table named by the description column; the two errors are plain tests.

@@ -60,7 +60,7 @@ end
 fn inverse(a: Int) -> Result<Int, Error>
     0..letter_count
     |> Iter.find(fn x -> Int.modulo(a * x, letter_count) == 1)
-    |> Maybe.to_result(.NotCoprime)
+    |> Option.to_result(.NotCoprime)
 end
 
 /// Each letter and digit of `text`, a letter moved to the letter `step`
@@ -74,11 +74,11 @@ fn translate(text: String, step: (Int) -> Int) -> List<String>
     |> Iter.to_list()
 end
 
-fn shift(cp: Codepoint, step: (Int) -> Int) -> Maybe<Codepoint>
+fn shift(cp: Codepoint, step: (Int) -> Int) -> Option<Codepoint>
     if Codepoint.is_digit(cp) then return Some(cp)
 
     Map.get(letter_numbers, cp)
-    |> Maybe.map(fn i -> Vector.get(alphabet, Int.modulo(step(i), letter_count))!)
+    |> Option.map(fn i -> Vector.get(alphabet, Int.modulo(step(i), letter_count))!)
 end
 
 // FILE: affine_cipher_test.nomi

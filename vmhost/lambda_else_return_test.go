@@ -11,7 +11,7 @@ import (
 // `case` arm. The fallback else is a region of the payload's kind, not of the
 // lambda's Unit result, and the builder declined the bare `return` there.
 // Each shape runs in an Iter.each, Iter.map, Iter.filter, Iter.loop or
-// Maybe.map callback, a nested lambda, or a lambda bound to a name and
+// Option.map callback, a nested lambda, or a lambda bound to a name and
 // called.
 func TestLambdaElseReturn_RunsInEveryCallback(t *testing.T) {
 	got := runSourceOutput(t, `import std::io
@@ -59,7 +59,7 @@ fn d()
 end
 
 fn e()
-    show = fn m: Maybe<Int> ->
+    show = fn m: Option<Int> ->
         Some(v) = m else
             return
         end
@@ -82,7 +82,7 @@ fn f()
 end
 
 fn g()
-    z = Maybe.map(Some(Some(5)), fn m ->
+    z = Option.map(Some(Some(5)), fn m ->
         Some(v) = m else
             return 0
         end

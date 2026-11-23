@@ -220,7 +220,7 @@ func (g *gen) checkedLiteralArgs(t *ast.TaggedString) []string {
 }
 
 // kindSpelling is k as Nomi writes the type: a named type with its
-// arguments, `Maybe<Int>`, and a structural one as it is spelled.
+// arguments, `Option<Int>`, and a structural one as it is spelled.
 func kindSpelling(k kind) string {
 	if k.tag != tagNamed || k.def == nil {
 		return k.nomi()

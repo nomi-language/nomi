@@ -51,7 +51,7 @@ func irWrappingDistinct(d *typeDef) bool {
 // irCompositeDistinct reports whether d is a distinct over a tuple, a list
 // or map of retained values, a function, or a declared type the VM carries:
 // `type Coord (Int, Int)`, `type Headers Map<String, String>`, `type
-// Callback (String) -> String`, `type Wrapped Maybe<Int>`. The VM holds one
+// Callback (String) -> String`, `type Wrapped Option<Int>`. The VM holds one
 // as a distinct record over its inner value, which `ir.Make`'s MakeDistinct
 // builds and `ProjInner` reads, as for a scalar inner in a boxed position.
 func irCompositeDistinct(d *typeDef) bool {
@@ -74,7 +74,7 @@ func irCompositeDistinctIn(d *typeDef, outer []*typeDef) bool {
 		return false
 	}
 	if deciding := append(outer[:len(outer):len(outer)], d); irKindReaches(in, deciding) {
-		// `type Link Node` where Node holds a `Maybe<Link>`: the inner is
+		// `type Link Node` where Node holds an `Option<Link>`: the inner is
 		// decided with the walk's stack, co-inductively, as a struct field
 		// that reaches its struct back is (irRecursiveFieldKind). The
 		// stack-less predicates below would re-enter this one without end.
@@ -113,7 +113,7 @@ func irEmbedsValueDistinct(v *variantDef) bool {
 }
 
 // irNominalInner reports whether a distinct's inner is itself a declared
-// type the VM carries: a struct, an enum (`type Wrapped Maybe<Int>`), or
+// type the VM carries: a struct, an enum (`type Wrapped Option<Int>`), or
 // another distinct (`type Twice Meters`), a std Set or Vector (`type Ids
 // Set<Int>`), an rt leaf (`Decimal`, `Byte`, `Bytes`, a host handle such
 // as `Regex`), or a task or channel handle (`type Inbox Sender<Request>`).

@@ -51,8 +51,8 @@ fn demo() -> Int
     xs: List<Int> = Iter.to_list([])
     k: Cell<Display> = cell(1)
     f: (Int) -> Int = ident(fn x -> x + 1)
-    c: Maybe<Color> = Some(.Red)
-    m: Maybe<Display> = Some([1])
+    c: Option<Color> = Some(.Red)
+    m: Option<Display> = Some([1])
     f(Iter.count(xs))
 end`
 	expectNoErrorsT(t, checkWithStdlib(src))
@@ -82,7 +82,7 @@ end
 fn boxed<T>(v: T) -> Box<T>
     Box{v:}
 end
-fn checked<T>(v: T, f: (T) -> Int) -> Maybe<T>
+fn checked<T>(v: T, f: (T) -> Int) -> Option<T>
     if f(v) > 0 then Some(v) else None
 end
 fn open_with(open: () -> Result<Store, String>) -> Int
@@ -92,10 +92,10 @@ fn open_with(open: () -> Result<Store, String>) -> Int
     end
 end
 fn demo() -> Int
-    m: Maybe<Display> = Maybe.map(Some(1), fn x -> x + 1)
+    m: Option<Display> = Option.map(Some(1), fn x -> x + 1)
     xs: List<Display> = Iter.map([1], fn x -> x * 2) |> Iter.to_list()
     b: Box<Display> = boxed(1)
-    c: Maybe<Display> = checked(1, fn n -> n + 1)
+    c: Option<Display> = checked(1, fn n -> n + 1)
     open_with(fn -> Ok(Mem{n: 1}))
 end`
 	expectNoErrorsT(t, checkWithStdlib(src))

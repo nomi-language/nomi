@@ -39,7 +39,7 @@ end
 
 /// The pins standing for the next roll after `rolls`, which start at
 /// `frame`, or `None` when the game is over.
-fn pins_standing(rolls: List<Int>, frame: Int) -> Maybe<Int>
+fn pins_standing(rolls: List<Int>, frame: Int) -> Option<Int>
     case rolls
         _ when frame == 10 -> last_frame_standing(rolls)
         []                 -> Some(10)
@@ -52,7 +52,7 @@ end
 /// The pins standing in the tenth frame after `rolls`. A strike or a spare
 /// earns fill balls, and the pins are set up again after each strike and
 /// after the spare.
-fn last_frame_standing(rolls: List<Int>) -> Maybe<Int>
+fn last_frame_standing(rolls: List<Int>) -> Option<Int>
     case rolls
         [] or [10] or [10, 10] -> Some(10)
         [10, second]           -> Some(10 - second)

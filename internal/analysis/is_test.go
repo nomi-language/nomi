@@ -28,13 +28,13 @@ func isErrors(t *testing.T, body string) []string {
 
 func TestIs_Errors(t *testing.T) {
 	for name, tc := range map[string]struct{ body, want string }{
-		"a name": {`fn f(m: Maybe<Int>) -> Bool
+		"a name": {`fn f(m: Option<Int>) -> Bool
     m is Some(n)
 end`, "an `is` test binds nothing, so its pattern cannot name `n` | to use `n`, match with `if Some(n) = m then` | to test only, write `_` where `n` is"},
 		"a bare name": {`fn f(a: Int, b: Int) -> Bool
     a is b
 end`, "an `is` test binds nothing, so its pattern cannot name `b` | to compare the value with `b`, write `a == b`"},
-		"an as name": {`fn f(m: Maybe<Int>) -> Bool
+		"an as name": {`fn f(m: Option<Int>) -> Bool
     m is Some(1) as whole
 end`, "an `is` test binds nothing, so its pattern cannot name `whole` | to use `whole`, match with `if Some(1) as whole = m then` | to test only, remove `as whole`"},
 		"a punned field": {`struct P
@@ -56,9 +56,9 @@ end`, "variant C not found in enum Kind"},
 		"a literal of another type": {`fn f(n: Int) -> Bool
     n is "x"
 end`, "pattern \"x\" is a String, but the value is an Int"},
-		"a bare or whose right side is not a Bool": {`fn f(m: Maybe<Int>) -> Bool
+		"a bare or whose right side is not a Bool": {`fn f(m: Option<Int>) -> Bool
     m is Some(_) or None
-end`, "'or' operands must be Bool, got Maybe<?1> | `or` here joins two Bool values; to test several patterns, put them in parentheses: `m is (Some(_) or None)`"},
+end`, "'or' operands must be Bool, got Option<?1> | `or` here joins two Bool values; to test several patterns, put them in parentheses: `m is (Some(_) or None)`"},
 	} {
 		got := isErrors(t, tc.body)
 		found := false
@@ -95,7 +95,7 @@ end`,
 		"under not, in a lambda": `fn f(ks: List<Kind>) -> Int
     ks |> Iter.filter(fn k -> not k is .A) |> Iter.count()
 end`,
-		"in a capture": `fn f(ms: List<Maybe<Int>>) -> Int
+		"in a capture": `fn f(ms: List<Option<Int>>) -> Int
     ms |> Iter.reject(&(&1 is None)) |> Iter.count()
 end`,
 	} {

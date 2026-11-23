@@ -51,7 +51,7 @@ import
     io.{Error, File, Reader, Writer}
     iter.Iter
     lists.List
-    maybe.Maybe.{self, None, Some}
+    option.Option.{self, None, Some}
     path
     resources.Release
     results.Result.{self, Err, Ok}
@@ -314,7 +314,7 @@ end
 /// ```
 //! import std::fs::testing.{self, Sandbox}
 //!
-//! fn first_line(path: String) -> Result<Maybe<String>, Error>
+//! fn first_line(path: String) -> Result<Option<String>, Error>
 //!     r = open(path)?
 //!     defer Reader.close_quietly(r)
 //!     Reader.read_line(r)
@@ -590,7 +590,7 @@ pub fn lock(
     f:       File,
     mode:    LockMode,
     start:   NonNegativeInt = 0,
-    length:  Maybe<PositiveInt> = None,
+    length:  Option<PositiveInt> = None,
     timeout: Duration = Duration.seconds(5),
 ) -> Result<Unit, Error>
     if host.lock(f, lock_code(mode), start, length_code(length), timeout)? then
@@ -633,7 +633,7 @@ pub fn try_lock(
     f:      File,
     mode:   LockMode,
     start:  NonNegativeInt = 0,
-    length: Maybe<PositiveInt> = None,
+    length: Option<PositiveInt> = None,
 ) -> Result<LockAttempt, Error>
     if host.lock(f, lock_code(mode), start, length_code(length), Duration.nanoseconds(0))? then
         Ok(LockAttempt.Acquired)
@@ -671,7 +671,7 @@ end
 pub fn unlock(
     f:      File,
     start:  NonNegativeInt = 0,
-    length: Maybe<PositiveInt> = None,
+    length: Option<PositiveInt> = None,
 ) -> Result<Unit, Error>
     _ = host.lock(f, 0, start, length_code(length), Duration.nanoseconds(0))?
     Ok(Unit)
@@ -687,7 +687,7 @@ end
 
 /// The length as its crossing carries it: 0 is every byte from the start
 /// on.
-fn length_code(length: Maybe<PositiveInt>) -> NonNegativeInt
+fn length_code(length: Option<PositiveInt>) -> NonNegativeInt
     case length
         Some(n) -> n
         None    -> 0
@@ -802,7 +802,7 @@ fn decoded(dir: String, coded: String) -> Result<Entry, Error>
                     (Some(name), _, _) -> (Kind.File, name)
                     (_, Some(name), _) -> (Kind.Directory, name)
                     (_, _, Some(name)) -> (Kind.Symlink, name)
-                    _ -> (Kind.Other, String.strip_prefix(coded, "o") |> Maybe.with_default(coded))
+                    _ -> (Kind.Other, String.strip_prefix(coded, "o") |> Option.with_default(coded))
                 end
 
             Ok(Entry{path: joined(name), name:, kind:})
@@ -1002,7 +1002,7 @@ fn walk_matches(w: Walk, base: String, pattern: String) -> Result<List<String>, 
     |> Iter.map(fn item ->
         Result.map(item, fn e ->
             if base == "" then
-                String.strip_prefix(e.path, "./") |> Maybe.with_default(e.path)
+                String.strip_prefix(e.path, "./") |> Option.with_default(e.path)
             else
                 e.path
             end
@@ -1391,7 +1391,7 @@ end
 ///
 /// ```nomi
 /// fn boot(startup: Startup) -> Result<App, io.Error>
-///     dir = Map.get(startup.env, "DATA_DIR") |> Maybe.with_default("data")
+///     dir = Map.get(startup.env, "DATA_DIR") |> Option.with_default("data")
 ///     Ok(App{data: fs.open_dir(dir)?})
 /// end
 /// ```
@@ -1425,14 +1425,19 @@ end
 /// is outside or absolute, or as an absolute path elsewhere, is
 /// `InvalidPath` with the reason `the path leads outside the directory it
 /// is confined to`, and reaches nothing. The rules are the same on the
-/// disk and in memory. On the disk the directory is Go's `os.Root`: each
-/// name is opened under the one before it, relative to the open directory,
-/// so a symlink swapped in while a call runs cannot lead out, and a `Dir`
-/// whose directory is renamed still reaches it. What is under the
-/// directory is reached whatever it is: a mount point, a device file, a
-/// Linux bind mount or `/proc` entry. On Windows a reserved device name
-/// (`NUL`, `COM1`) is refused, and on Unix `Dir.set_mode` of a path that
-/// is changed to a symlink while it runs may set the link's target's mode.
+/// disk and in memory, except for a `..` after a symlink on a Windows
+/// disk: with `up` a link, Windows reads `sub/up/../a.txt` as `sub/a.txt`,
+/// which is `NotFound` when missing, where macOS, Linux and memory follow
+/// `up` first and refuse the path as `InvalidPath` when its `..` then leads
+/// outside. Neither answer leaves the directory. On the disk the directory
+/// is Go's `os.Root`: each name is opened under the one before it,
+/// relative to the open directory, so a symlink swapped in while a call
+/// runs cannot lead out, and a `Dir` whose directory is renamed still
+/// reaches it. What is under the directory is reached whatever it is: a
+/// mount point, a device file, a Linux bind mount or `/proc` entry. On
+/// Windows a reserved device name (`NUL`, `COM1`) is refused, and on Unix
+/// `Dir.set_mode` of a path that is changed to a symlink while it runs may
+/// set the link's target's mode.
 ///
 /// A `Dir` holds its directory open until `Dir.close`, and a call through
 /// it after that is `Closed`. A `File`, `Reader` or `Writer` opened through
@@ -1561,7 +1566,7 @@ impl Dir
     //! d = testing.dir(Sandbox{files: {"a.txt" => "one\ntwo\n"}})
     //! defer Dir.close(d)
     //!
-    //! fn first_line(d: Dir) -> Result<Maybe<String>, Error>
+    //! fn first_line(d: Dir) -> Result<Option<String>, Error>
     //!     r = Dir.open(d, "a.txt")?
     //!     defer Reader.close_quietly(r)
     //!     Reader.read_line(r)

@@ -3,7 +3,7 @@
 //# (rt/html.go). It is internal; a program imports std::html.
 
 import
-    maybe.Maybe
+    option.Option
     strings.String
 end
 
@@ -24,4 +24,4 @@ pub host fn unescape_references(text: String) -> String
 
 /// What the named character reference `&name;` stands for, or None:
 /// `html.entity`.
-pub host fn named_reference(name: String) -> Maybe<String>
+pub host fn named_reference(name: String) -> Option<String>

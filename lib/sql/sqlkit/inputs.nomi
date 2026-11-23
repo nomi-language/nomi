@@ -28,7 +28,7 @@ pub fn read(dir: String) -> Result<List<Input>, String>
 
     paths
     |> Iter.filter(fn path ->
-        name = String.split(path, "/") |> Iter.last() |> Maybe.with_default(path)
+        name = String.split(path, "/") |> Iter.last() |> Option.with_default(path)
         migrate.is_migration_file(name)
     end)
     |> Iter.sort()
@@ -42,7 +42,7 @@ end
 
 // `dir` with one `/` after it, or nothing for the current directory.
 fn sqltext_dir(dir: String) -> String
-    trimmed = String.strip_suffix(dir, "/") |> Maybe.with_default(dir)
+    trimmed = String.strip_suffix(dir, "/") |> Option.with_default(dir)
 
     if trimmed == "" or trimmed == "." then
         ""

@@ -11,7 +11,7 @@ type IterView struct {
 	// Source is the source's own type.
 	Source Type
 	// Elem is the element the source pushes: a List's, Vector's, Set's or
-	// Range's element, a Map's `(K, V)` pair, a Maybe's payload, a
+	// Range's element, a Map's `(K, V)` pair, an Option's payload, a
 	// String's grapheme as a String, a Bytes' Byte, or the element of the
 	// type's own `impl Iter`. Nil for a type parameter, whose instances
 	// each push their own.
@@ -29,7 +29,7 @@ type IterViewDomain uint8
 
 const (
 	// IterViewList, IterViewString, IterViewBytes, IterViewRange,
-	// IterViewVector, IterViewSet, IterViewMap and IterViewMaybe are std's
+	// IterViewVector, IterViewSet, IterViewMap and IterViewOption are std's
 	// built-in sources, each walked by the machine.
 	IterViewList IterViewDomain = iota + 1
 	IterViewString
@@ -38,7 +38,7 @@ const (
 	IterViewVector
 	IterViewSet
 	IterViewMap
-	IterViewMaybe
+	IterViewOption
 	// IterViewImpl is a type's own `impl Iter`, a program's or std's
 	// (`impl Iter for Tree`, `impl Iter for StepByRange<T, S>`): its
 	// `each_while` drives the view.
@@ -67,7 +67,7 @@ func (c *checker) recordIterView(n ast.Node, it *InterfaceType, t Type) {
 // iterViewOf is the view a value of type t is at the `Iter<T>` position
 // it, nil when t is no source with a view of its own. A distinct
 // refinement is viewed as its base, the value it is at run time: a
-// `subtype Pair List<Int> when ...` is walked as its List.
+// `refine Pair List<Int> when ...` is walked as its List.
 func (c *checker) iterViewOf(it *InterfaceType, t Type) *IterView {
 	rt := resolveTypeVar(RefinementBase(resolveTypeVar(t)))
 	view := &IterView{Source: t}
@@ -108,8 +108,8 @@ func (c *checker) iterViewOf(it *InterfaceType, t Type) *IterView {
 			}
 		}
 	case *EnumType:
-		if isStdType(ty, stdMaybeType) && len(ty.TypeArgs) == 1 {
-			view.Domain, view.Elem = IterViewMaybe, ty.TypeArgs[0]
+		if isStdType(ty, stdOptionType) && len(ty.TypeArgs) == 1 {
+			view.Domain, view.Elem = IterViewOption, ty.TypeArgs[0]
 			return view
 		}
 	}
@@ -185,7 +185,7 @@ func (c *checker) recordSubtestsViews(nodes []ast.Node) {
 // SpreadCollected is the collection of kind a spread written as head is
 // made before it joins a list, vector or set literal of that kind: the
 // List, Vector or Set of the elements the checker recorded the spread
-// walks (IterViews), `List<Int>` for `..maybe_int` in a list. Nil where
+// walks (IterViews), `List<Int>` for `..option_int` in a list. Nil where
 // the spread has no view with an element, one of a type parameter whose
 // instances each push their own.
 func (fa *FileAnalysis) SpreadCollected(kind ast.SeqKind, head ast.Node) Type {

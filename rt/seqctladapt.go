@@ -286,7 +286,7 @@ func SeqFlatMapListCtl[T, U any](src Seq[T], f func(fr *Frame, item T) (*List[U]
 // The value is the predicate's answer for the current element. `continue`
 // passes over the element, a bare `break` stops with nothing found (None),
 // `break True` answers this element and `break False` stops with None.
-func SeqFindCtl[T any](fr *Frame, src Seq[T], f func(fr *Frame, item T) (bool, Ctl)) Maybe[T] {
+func SeqFindCtl[T any](fr *Frame, src Seq[T], f func(fr *Frame, item T) (bool, Ctl)) Option[T] {
 	out := None[T]()
 	src.Run(fr, func(fr *Frame, item T) bool {
 		match, c := f(fr, item)

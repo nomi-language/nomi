@@ -599,7 +599,7 @@
 "once" @keyword
 "fn" @keyword
 "type" @keyword
-"subtype" @keyword
+"refine" @keyword
 "struct" @keyword
 "enum" @keyword
 "interface" @keyword

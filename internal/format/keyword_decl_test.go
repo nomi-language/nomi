@@ -9,7 +9,7 @@ func TestFormat_KeywordDeclRoundTrips(t *testing.T) {
 		"/// Items in the cart.\npub phrase cart_items(count: Int) `{$count :integer} items`\n",
 		"database main\n",
 		"phrase hello() `Hello`\n",
-		"query user_by_email(email: String) -> Maybe<User> `select 1`\n",
+		"query user_by_email(email: String) -> Option<User> `select 1`\n",
 		"noun item `{{item}}`\n",
 		"phrase status(state: Status) `\n    .input {$state :string}\n    .match $state\n    * {{Done}}\n    `\n",
 	} {

@@ -98,7 +98,7 @@ func TestRecord_PayloadFreeValuesAreSharedAndAllocateNothing(t *testing.T) {
 // two. A record past those sizes takes each of its string and reference banks
 // separately.
 func TestRecord_SmallMixedRecordsAreOneAllocation(t *testing.T) {
-	maybe := NewEnumDesc("maybe.Maybe", []VariantSpec{
+	option := NewEnumDesc("option.Option", []VariantSpec{
 		{Name: "Some", Shape: VariantPositional, Fields: []FieldSpec{{Type: SlotRef}}},
 		{Name: "None"},
 	})
@@ -133,7 +133,7 @@ func TestRecord_SmallMixedRecordsAreOneAllocation(t *testing.T) {
 				tc.name, len(r.W), len(r.S), len(r.R), cap(r.W), cap(r.S), cap(r.R), d.NW, d.NS, d.NR)
 		}
 	}
-	if n := testing.AllocsPerRun(100, func() { _ = maybe.MakeVariant(0, payload) }); n != 1 {
+	if n := testing.AllocsPerRun(100, func() { _ = option.MakeVariant(0, payload) }); n != 1 {
 		t.Errorf("Some over a reference allocates %v times, want 1", n)
 	}
 	// A big Int written into a mixed record grows its reference bank apart

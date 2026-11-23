@@ -11,6 +11,6 @@ end
 /// The round-trip written INSIDE the declaring module, where the spelling and
 /// the identity coincide. A third route to the witness resolver, and the one
 /// that has to keep agreeing with the two the sibling test exercises.
-pub fn stored(c: Context) -> Maybe<Token>
+pub fn stored(c: Context) -> Option<Token>
     Context.value(c, Token)
 end

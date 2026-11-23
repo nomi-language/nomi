@@ -9,7 +9,7 @@ pub fn is_valid(isbn: String) -> Bool
         |> String.replace("-", "")
         |> Iter.with_index()
         |> Iter.map(fn (i, character) -> value(character, is_check: i == 9))
-        |> Maybe.collect()
+        |> Option.collect()
 
     case values
         Some(values) when Iter.count(values) == 10 -> checksum(values) % 11 == 0
@@ -19,7 +19,7 @@ end
 
 /// The value of one ISBN character: a digit, or `X` for 10 in the check
 /// position.
-fn value(character: String, is_check: Bool) -> Maybe<Int>
+fn value(character: String, is_check: Bool) -> Option<Int>
     case character
         "X" when is_check -> Some(10)
         _                 -> String.to_int(character)

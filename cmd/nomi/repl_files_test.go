@@ -122,11 +122,11 @@ func TestReplVM_ALaterDeriveReplacesTheTypesImpl(t *testing.T) {
 // A rendering an earlier input compiled while a type's Debug was its shape
 // renders through the Debug impl a later input writes for the type, and
 // through the derive that replaces it, wherever the value sits: alone, in
-// a List, as another struct's field, in a Maybe, and under a `dbg`.
+// a List, as another struct's field, in an Option, and under a `dbg`.
 func TestReplVM_ALaterDebugImplReachesEarlierRenderings(t *testing.T) {
 	replExpect(t, "struct R\n  x: Int\nend\nstruct S\n  r: R\nend\n"+
 		"fn show(r: R) -> String\n  Debug.inspect(r)\nend\n"+
-		"fn parts(rs: List<R>, s: S, m: Maybe<R>) -> String\n  \"${Debug.inspect(rs)} ${Debug.inspect(s)} ${Debug.inspect(m)}\"\nend\n"+
+		"fn parts(rs: List<R>, s: S, m: Option<R>) -> String\n  \"${Debug.inspect(rs)} ${Debug.inspect(s)} ${Debug.inspect(m)}\"\nend\n"+
 		"fn traced(r: R) -> R\n  dbg r\nend\n"+
 		"show(R{x: 1})\n"+
 		"impl Debug for R\n  fn inspect(r: R) -> String\n    \"custom ${r.x}\"\n  end\nend\n"+

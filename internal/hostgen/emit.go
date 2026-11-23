@@ -399,7 +399,7 @@ type regCall struct {
 
 // regRow is a binding's register form as its table's row lists it
 // (hostadapt.Row): the method, its operands' and its answer's slot types,
-// and for an answer it takes apart, the Maybe's or Result's descriptor.
+// and for an answer it takes apart, the Option's or Result's descriptor.
 type regRow struct {
 	method  string
 	in, out []rt.SlotType
@@ -414,7 +414,7 @@ type regRow struct {
 // type as the adapter's conversion would, and any other value through the
 // adapter's own conversion. The answer is written unboxed by the same rule:
 // a scalar into its slot, anything else converted as the adapter converts
-// it, into R. A Maybe or a Result answers its payload's parts and true, or
+// it, into R. An Option or a Result answers its payload's parts and true, or
 // its None or Err record in R[0] and false, so a form fails and answers as
 // the adapter does.
 func (g *Generator) regAdapter(c regCall) (*regRow, error) {
@@ -443,7 +443,7 @@ func (g *Generator) regAdapter(c regCall) (*regRow, error) {
 	w.WriteString(c.callLine)
 
 	// payload and vals are the answer's carried value and the Go results
-	// that make it; carries says a Maybe or a Result is taken apart.
+	// that make it; carries says an Option or a Result is taken apart.
 	payload, vals, carries := c.want, c.vals, false
 	exprs := make([]string, len(vals))
 	for i := range vals {
@@ -454,12 +454,12 @@ func (g *Generator) regAdapter(c regCall) (*regRow, error) {
 		res := g.enumDesc(c.want)
 		fmt.Fprintf(&w, "\tif e != nil {\n\t\trec := b.%s.NewVariant(1)\n\t\trec.S[0] = e.Error()\n\t\ts.R[0] = rec\n\t\treturn false, nil\n\t}\n", res)
 		payload, carries = c.want.Elems[0], true
-	case len(vals) == 1 && c.want.Kind == SMaybe && vals[0].Kind() == reflect.Pointer && !isRtGeneric(vals[0], "Maybe", "Result"):
+	case len(vals) == 1 && c.want.Kind == SOption && vals[0].Kind() == reflect.Pointer && !isRtGeneric(vals[0], "Option", "Result"):
 		fmt.Fprintf(&w, "\tif r0 == nil {\n\t\ts.R[0] = b.%s.NewVariant(1)\n\t\treturn false, nil\n\t}\n", g.enumDesc(c.want))
 		payload, vals, exprs, carries = c.want.Elems[0], []reflect.Type{vals[0].Elem()}, []string{"*r0"}, true
-	case len(vals) == 1 && isRtGeneric(vals[0], "Maybe", "Result"):
+	case len(vals) == 1 && isRtGeneric(vals[0], "Option", "Result"):
 		base, args, _ := rtGenericArgs(vals[0])
-		if (base == "Maybe") != (c.want.Kind == SMaybe) {
+		if (base == "Option") != (c.want.Kind == SOption) {
 			break
 		}
 		whole, err := g.out(c.want, vals[0])
@@ -764,7 +764,7 @@ func (g *Generator) in(s *Shape, t reflect.Type) (string, error) {
 		// A callback's `Result<Unit, E>` (Writer.from_fn's write): Unit
 		// carries nothing to read.
 		w.WriteString("\treturn rt.Unit{}, nil\n")
-	case isRtGeneric(t, "Maybe", "Result", "List", "Map"):
+	case isRtGeneric(t, "Option", "Result", "List", "Map"):
 		if err := g.inRtGeneric(&w, s, t, goT); err != nil {
 			return "", err
 		}
@@ -984,7 +984,7 @@ func (g *Generator) out(s *Shape, t reflect.Type) (string, error) {
 			}
 		}
 		w.WriteString("\treturn tup, nil\n")
-	case isRtGeneric(t, "Maybe", "Result", "List", "Map"):
+	case isRtGeneric(t, "Option", "Result", "List", "Map"):
 		if err := g.outRtGeneric(&w, s, t); err != nil {
 			return "", err
 		}
@@ -1005,11 +1005,11 @@ func (g *Generator) out(s *Shape, t reflect.Type) (string, error) {
 			return "", fmt.Errorf("element: %w", err)
 		}
 		fmt.Fprintf(&w, "\tvar xs *rt.List[any]\n\tfor i := len(v) - 1; i >= 0; i-- {\n\t\tx, err := b.%s(v[i])\n\t\tif err != nil {\n\t\t\treturn nil, fmt.Errorf(\"index %%d: %%w\", i, err)\n\t\t}\n\t\txs = rt.Cons[any](x, xs)\n\t}\n\treturn xs, nil\n", elem)
-	case s.Kind == SMaybe && t.Kind() == reflect.Pointer && g.handles[typeIdentity(t)] == "":
+	case s.Kind == SOption && t.Kind() == reflect.Pointer && g.handles[typeIdentity(t)] == "":
 		d := g.enumDesc(s)
 		fmt.Fprintf(&w, "\tif v == nil {\n\t\treturn b.%s.NewVariant(1), nil\n\t}\n\tr := b.%s.NewVariant(0)\n", d, d)
 		if err := g.store(&w, "r", 0, s.Elems[0], t.Elem(), "*v", false, ""); err != nil {
-			return "", fmt.Errorf("Maybe payload: %w", err)
+			return "", fmt.Errorf("Option payload: %w", err)
 		}
 		w.WriteString("\treturn r, nil\n")
 	case s.Kind == SStruct && t.Kind() == reflect.Struct && g.handles[typeIdentity(t)] == "":
@@ -1221,15 +1221,15 @@ func (g *Generator) distinctDesc(s *Shape) string {
 	return g.addDesc("distinct|"+spec, spec, "")
 }
 
-// enumDesc is the descriptor of a Maybe or Result instantiation. Tags follow
+// enumDesc is the descriptor of an Option or Result instantiation. Tags follow
 // the declarations: `Some` 0 and `None` 1, `Ok` 0 and `Err` 1.
 func (g *Generator) enumDesc(s *Shape) string {
 	var spec string
 	switch s.Kind {
-	case SMaybe:
+	case SOption:
 		spec = fmt.Sprintf("&hostadapt.DescSpec{Name: %q, Kind: rt.KindEnum, Variants: []rt.VariantSpec{"+
 			"{Name: \"Some\", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: %s}}}, "+
-			"{Name: \"None\", Shape: rt.VariantBare}}}", maybeName, slotExpr(s.Elems[0].Slot()))
+			"{Name: \"None\", Shape: rt.VariantBare}}}", optionName, slotExpr(s.Elems[0].Slot()))
 	case SResult:
 		spec = fmt.Sprintf("&hostadapt.DescSpec{Name: %q, Kind: rt.KindEnum, Variants: []rt.VariantSpec{"+
 			"{Name: \"Ok\", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: %s}}}, "+

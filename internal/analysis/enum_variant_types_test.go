@@ -12,7 +12,7 @@ enum Result<T, E>
     Ok T
     Err E
 end
-enum Maybe<T>
+enum Option<T>
     Some T
     None
 end
@@ -51,7 +51,7 @@ end
 		t.Fatalf("True type should be Bool, got %s", et.Name)
 	}
 
-	// None is bare — should be Maybe<T>
+	// None is bare — should be Option<T>
 	noneSym := fa.ModuleScope.Lookup("None")
 	if noneSym == nil || noneSym.Type == nil {
 		t.Fatal("None should have a type")
@@ -60,7 +60,7 @@ end
 	if !ok {
 		t.Fatalf("None should be EnumType, got %T", noneSym.Type)
 	}
-	if noneEt.Name != "Maybe" {
-		t.Fatalf("None type should be Maybe, got %s", noneEt.Name)
+	if noneEt.Name != "Option" {
+		t.Fatalf("None type should be Option, got %s", noneEt.Name)
 	}
 }

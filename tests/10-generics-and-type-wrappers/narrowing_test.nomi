@@ -3,7 +3,7 @@ import
     std::compiler
 end
 
-fn divide(n: Int, d: Int) -> Maybe<Int>
+fn divide(n: Int, d: Int) -> Option<Int>
     if d == 0 then return None
     Some(Int.divide(n, d))
 end
@@ -28,7 +28,7 @@ fn classify(n: Int) -> String
     end
 end
 
-fn largest(xs: List<Int>) -> Maybe<Int>
+fn largest(xs: List<Int>) -> Option<Int>
     case xs
         ys when not Iter.is_empty(ys) -> Some(NonEmptyList.max(ys))
         _                             -> None

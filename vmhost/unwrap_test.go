@@ -33,7 +33,7 @@ end
 
 struct User
     name: String
-    nickname: Maybe<String>
+    nickname: Option<String>
 end
 
 enum Color
@@ -42,11 +42,11 @@ enum Color
 end
 
 interface Scan
-    fn scan(text: String) -> Maybe<self>
+    fn scan(text: String) -> Option<self>
 end
 
 impl Scan for Int
-    fn scan(text: String) -> Maybe<Int>
+    fn scan(text: String) -> Option<Int>
         String.to_int(text)
     end
 end
@@ -67,16 +67,16 @@ fn nice(n: Int) -> Result<Int, Nice>
     if n > 0 then Ok(n) else Err(Nice{why: "too small"})
 end
 
-fn first<T>(xs: List<T>) -> Maybe<T>
+fn first<T>(xs: List<T>) -> Option<T>
     List.first(xs)
 end
 
-fn pick(_u: User, _c: Color, _t: (Int, String), _cp: Codepoint, _d: Decimal, _f: Float, _b: Bool, _s: String) -> Maybe<Int>
+fn pick(_u: User, _c: Color, _t: (Int, String), _cp: Codepoint, _d: Decimal, _f: Float, _b: Bool, _s: String) -> Option<Int>
     None
 end
 
 fn main()
-    fn local(n: Int) -> Maybe<Int>
+    fn local(n: Int) -> Option<Int>
         if n > 0 then Some(n) else None
     end
     f = local
@@ -86,7 +86,7 @@ fn main()
 end
 `
 
-const bangHelper = `pub fn twice(n: Int) -> Maybe<Int>
+const bangHelper = `pub fn twice(n: Int) -> Option<Int>
     if n < 100 then Some(n * 2) else None
 end
 `

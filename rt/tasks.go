@@ -9,7 +9,7 @@ package rt
 // needs one Go type that every module's code can name. rt is that one place.
 //
 // fragment.go's caveat applies too and for the same reason: "prelude" is
-// internal/irbuild's table name, not a claim about scope. `Maybe` and `Result` are in
+// internal/irbuild's table name, not a claim about scope. `Option` and `Result` are in
 // every file's scope whether imported or not; `Outcome` is an ordinary
 // `pub enum` in std/tasks that a file has to import, exactly as `Fragment` is.
 //

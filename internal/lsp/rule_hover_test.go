@@ -26,7 +26,7 @@ func runRuleHoverCases(t *testing.T, cases []ruleHoverCase) {
 // keeps.
 func TestHover_IfWithoutElseStatesItsRule(t *testing.T) {
 	runRuleHoverCases(t, []ruleHoverCase{
-		{"a pattern statement", "fn half(m: Maybe<Int>)\n  ▮if Some(n) = m then dbg n / 2\nend\n",
+		{"a pattern statement", "fn half(m: Option<Int>)\n  ▮if Some(n) = m then dbg n / 2\nend\n",
 			"```nomi\nif … then dbg n / 2\n```\n\n" +
 				"An `if` without `else` whose branch ends in `dbg` is a statement: it runs the branch when `m` matches `Some(n)` and has no value.\n\n" +
 				"More in the [spec](https://nomi-lang.org/spec/expressions/#ifelse)"},
@@ -56,7 +56,7 @@ func TestHover_BindingElseStatesItsRule(t *testing.T) {
 			"```nomi\n[letter, ..rest] = letters else …\n```\n\n" +
 				"Runs when `letters` doesn't match `[letter, ..rest]`. It must leave the function (`return`, `break`, `continue`, or a call that never returns), so the pattern's names are bound after it.\n\n" +
 				"More in the [spec](https://nomi-lang.org/spec/patterns/#bindings-with-else)"},
-		{"one that leaves where a fallback could stand", "fn f(m: Maybe<Int>) -> Int\n  Some(n) = m ▮else return 0\n  n\nend\n",
+		{"one that leaves where a fallback could stand", "fn f(m: Option<Int>) -> Int\n  Some(n) = m ▮else return 0\n  n\nend\n",
 			"```nomi\nSome(n) = m else …\n```\n\n" +
 				"Runs when `m` doesn't match `Some(n)`. Here it leaves the function (`return`), so the pattern's names are bound after it.\n\n" +
 				"More in the [spec](https://nomi-lang.org/spec/patterns/#bindings-with-else)"},

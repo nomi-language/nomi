@@ -5,18 +5,18 @@ import "testing"
 // A type parameter named only in the result is solved by the type the call
 // is expected to have, so its `where` bound is checked there. Before, the
 // parameter stayed an inference variable the binding solved later, and
-// `c: Maybe<P> = first()` was accepted for a P with no Variants impl.
+// `c: Option<P> = first()` was accepted for a P with no Variants impl.
 func TestReturnOnlyParam_TheExpectedTypeMustMeetTheBound(t *testing.T) {
 	src := `struct P
     n: Int
 end
 
-fn first<T>() -> Maybe<T> where T: Variants
+fn first<T>() -> Option<T> where T: Variants
     T.variants() |> List.first()
 end
 
 fn main()
-    c: Maybe<P> = first()
+    c: Option<P> = first()
     _ = c
 end
 `

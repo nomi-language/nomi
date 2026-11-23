@@ -55,10 +55,10 @@ func TestCheckedLiteral_UrlRefusesUnescapableSlots(t *testing.T) {
 func TestCheckedLiteral_ResultHabitsGetAHint(t *testing.T) {
 	for _, c := range []struct{ body, message, hint string }{
 		{"fn f(v: String) -> Url\n    Url\"https://example.com/${v}\"!\nend\n",
-			"`!` unwraps a Result or a Maybe, and `Url\"https://example.com/${v}\"` is Url",
+			"`!` unwraps a Result or an Option, and `Url\"https://example.com/${v}\"` is Url",
 			"remove the `!`: the value is not wrapped"},
 		{"fn f(v: String) -> Result<Url, String>\n    Ok(Url\"https://example.com/${v}\"?)\nend\n",
-			"`?` requires a Result or Maybe, got Url",
+			"`?` requires a Result or Option, got Url",
 			"a `Url` literal is checked when the program is checked, so this one is already a Url: remove the `?`"},
 		{"fn f(v: String) -> Bool\n    case Url\"https://example.com/${v}\"\n        Ok(_) -> True\n        Err(_) -> False\n    end\nend\n",
 			"enum pattern requires an enum type, got Url",

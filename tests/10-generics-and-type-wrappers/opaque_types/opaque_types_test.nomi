@@ -4,8 +4,8 @@ import
     status.Status
 end
 
-fn describe(maybe_email: Maybe<Email>) -> String
-    case maybe_email
+fn describe(option_email: Option<Email>) -> String
+    case option_email
         Some(e) -> "valid: " + email.to_string(e)
         None    -> "invalid"
     end
@@ -30,7 +30,7 @@ test "opaque structs expose exported constructors updaters and accessors"
     assert counter.increments(c1) == 1
 end
 
-test "opaque enums expose predicates and maybe-returning accessors"
+test "opaque enums expose predicates and option-returning accessors"
     s_active = Status.active()
     s_off = Status.inactive("on holiday")
     s_susp = Status.suspend(100, "maintenance")

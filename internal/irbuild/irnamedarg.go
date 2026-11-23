@@ -148,7 +148,7 @@ func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.T
 		// planners then see every slot. An omitted slot's kind is the
 		// function's the call reaches, when another file declares it, else
 		// the checker's: the call's instantiated signature when it
-		// recorded one (`other: Maybe<T> = None`), or the parameter's
+		// recorded one (`other: Option<T> = None`), or the parameter's
 		// declared type.
 		rec := bl.g.callDefaultsOf(t)
 		if rec == nil || len(rec.Params) != len(temps) {

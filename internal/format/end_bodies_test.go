@@ -39,8 +39,8 @@ func TestFormat_EndBodies(t *testing.T) {
 		},
 		{
 			"a binding's else holds arms or a body, or its value inline",
-			"fn f(m: Maybe<Int>, r: Result<Int, String>) -> Int\n    Some(n) = m else\n        return 0\n    end\n    Ok(k) = r else\n        Err(_) -> 1\n    end\n    n + k\nend\n",
-			"fn f(m: Maybe<Int>, r: Result<Int, String>) -> Int\n    Some(n) = m else return 0\n\n    Ok(k) = r else\n        Err(_) -> 1\n    end\n\n    n + k\nend\n",
+			"fn f(m: Option<Int>, r: Result<Int, String>) -> Int\n    Some(n) = m else\n        return 0\n    end\n    Ok(k) = r else\n        Err(_) -> 1\n    end\n    n + k\nend\n",
+			"fn f(m: Option<Int>, r: Result<Int, String>) -> Int\n    Some(n) = m else return 0\n\n    Ok(k) = r else\n        Err(_) -> 1\n    end\n\n    n + k\nend\n",
 		},
 		{
 			"begin blocks",

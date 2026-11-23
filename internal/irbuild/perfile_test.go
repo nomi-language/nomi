@@ -335,7 +335,7 @@ end
 }
 
 // TestRelowerEachFileLinksTheRefinementChecks lowers a file whose literals
-// are checked as a generic std subtype (a range literal as a ClosedRange,
+// are checked as a generic std refinement (a range literal as a ClosedRange,
 // whose step calls NonEmptyRange's try_from<Int>) on its own and links it
 // (RelowerEachFile), and requires every function vmhost runs to check
 // them to name the linked program's symbols. A check the whole lowering
@@ -388,13 +388,13 @@ end
 
 // TestLowerFileKeepsAnotherFilesGenericRuleCheck lowers main.nomi on its
 // own against the kept object of many.nomi, which declares a generic
-// subtype. The rule's Check (analysis.RefinementRuleCheck), which vmhost
+// refinement. The rule's Check (analysis.RefinementRuleCheck), which vmhost
 // walks for effects, must come through the kept unit (KeptUnit.RuleChecks)
 // as the whole lowering made it, decoded against the linked program.
 func TestLowerFileKeepsAnotherFilesGenericRuleCheck(t *testing.T) {
 	dir := t.TempDir()
 	files := map[string]string{
-		"many.nomi": "pub subtype Many<T> List<T> when fn xs -> not Iter.is_empty(xs)\n",
+		"many.nomi": "pub refine Many<T> List<T> when fn xs -> not Iter.is_empty(xs)\n",
 		"main.nomi": `import
     std::io
     many.{Many}

@@ -31,7 +31,7 @@ fn parse(n: Int) -> Result<Int, String>
     if n < 0 then Err("negative ${n}") else Ok(n * 2)
 end
 
-fn find(n: Int) -> Maybe<Int>
+fn find(n: Int) -> Option<Int>
     if n == 3 then Some(30) else None
 end
 

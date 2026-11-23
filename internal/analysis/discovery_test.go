@@ -195,8 +195,8 @@ func TestDiscoverProject_HandlesCycle(t *testing.T) {
 	}
 
 	mainPath := mustWrite("main.nomi", "import a.a\n\nfn main()\n    Unit\nend\n")
-	mustWrite("a.nomi", "import b.b\n\npub struct A\n    partner: Maybe<Int>\nend\n")
-	mustWrite("b.nomi", "import a.a\n\npub struct B\n    partner: Maybe<Int>\nend\n")
+	mustWrite("a.nomi", "import b.b\n\npub struct A\n    partner: Option<Int>\nend\n")
+	mustWrite("b.nomi", "import a.a\n\npub struct B\n    partner: Option<Int>\nend\n")
 
 	entryNodes := parseFileForDiscoveryTest(t, mainPath)
 	loader := func(projectRoot string, modulePath []string) ([]ast.Node, error) {

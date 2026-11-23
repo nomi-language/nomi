@@ -74,7 +74,7 @@ var stdlibInventory = []stdModuleRow{
 	{module: "mail/testing"},
 	{module: "maps"},
 	{module: "matcher"},
-	{module: "maybe"},
+	{module: "option"},
 	{module: "phrase"},
 	{module: "phrase/format"},
 	{module: "presence"},

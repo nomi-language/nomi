@@ -70,7 +70,7 @@ func TestTestingCheck_AnAliasOfStdTestingTakesAssertsSubjects(t *testing.T) {
 		for _, e := range errs {
 			msgs = append(msgs, e.Message)
 		}
-		const want = "testing.check expects Bool, Result, Maybe, or Assertable, got Int"
+		const want = "testing.check expects Bool, Result, Option, or Assertable, got Int"
 		if !strings.Contains(strings.Join(msgs, "\n"), want) {
 			t.Errorf("%q: want %q, got %q", main, want, msgs)
 		}

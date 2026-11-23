@@ -1,6 +1,7 @@
 package main
 
 import (
+	encjson "encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -165,11 +166,20 @@ func TestEffects_ADependencysRefusalNamesTheProjectsCall(t *testing.T) {
 		t.Errorf("nomi check: want exit 1 and one error ending with\n%s\ngot:\n%s", note, check)
 	}
 	json := runNomiIn(t, app, "off", "check", "--format", "json", "main.nomi")
-	real, err := filepath.EvalSymlinks(app)
-	if err != nil {
-		t.Fatal(err)
+	// main.nomi as check names it in its file record: through the
+	// symlinks a macOS temporary directory has, and on Windows with the
+	// short name (RUNNER~1) the directory was given by, which
+	// EvalSymlinks would write out long.
+	var main string
+	for _, line := range strings.Split(json.stdout, "\n") {
+		var rec struct{ Type, File string }
+		if err := encjson.Unmarshal([]byte(line), &rec); err == nil && rec.Type == "file" {
+			main = rec.File
+		}
 	}
-	main := filepath.Join(real, "main.nomi")
+	if filepath.Base(main) != "main.nomi" {
+		t.Fatalf("nomi check --format json names no file record for main.nomi:\n%s", json)
+	}
 	for _, line := range []int{7, 8} {
 		related := fmt.Sprintf(`{"file":%q,"line":%d,"col":14,"end_line":%d,"end_col":24,`, main, line, line)
 		if json.exit != 1 || !strings.Contains(json.stdout, `"related":[`) || !strings.Contains(json.stdout, related) ||

@@ -19,7 +19,7 @@ struct Config
 end
 
 fn boot(startup: Startup) -> Result<Config, String>
-  store = Map.get(startup.env, "STORE") |> Maybe.with_default("none")
+  store = Map.get(startup.env, "STORE") |> Option.with_default("none")
   io.print("booting ${store}")
   Ok(Config{store:})
 end

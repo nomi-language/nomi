@@ -92,7 +92,7 @@ func (bl *irScalarBuilder) currentValue(t *ast.CurrentValue) (ir.Temp, kind, boo
 }
 
 // captureCurrent lowers a `..` written in a lambda inside a field's value
-// (`street: Maybe.map(m, fn s -> s + ..)`): the value the enclosing builder
+// (`street: Option.map(m, fn s -> s + ..)`): the value the enclosing builder
 // holds for it, made a parameter of this closure as a captured name is
 // (capture), once per `..`.
 func (bl *irScalarBuilder) captureCurrent(t *ast.CurrentValue) (ir.Temp, kind, bool, bool) {
@@ -204,7 +204,7 @@ func (bl *irScalarBuilder) updateEntry(value ast.Node, key, base ir.Temp, bk kin
 		return ir.NoTemp, kindInvalid, false
 	}
 	vk := bk.comp.parts[1]
-	mk, ok := bl.g.maybeOf(vk, value)
+	mk, ok := bl.g.optionOf(vk, value)
 	if !ok || mk.def == nil {
 		return ir.NoTemp, kindInvalid, false
 	}
@@ -272,14 +272,14 @@ func (bl *irScalarBuilder) setUpdate(t *ast.ListLit) (ir.Temp, kind, bool, bool)
 	if !ok {
 		return no()
 	}
-	// A base that is another Iter (`[..maybe, x]`) is made a Set.
+	// A base that is another Iter (`[..option, x]`) is made a Set.
 	p, ok := bl.collectSpread(t, spreadPart{at: spread, v: base, k: bk}, setSpreadJoin)
 	if !ok {
 		return no()
 	}
 	base, bk = p.v, p.k
 	if len(t.Items) == 0 {
-		// `[..maybe]`: the Iter made a Set is the literal.
+		// `[..option]`: the Iter made a Set is the literal.
 		return base, bk, false, true
 	}
 	// The elements, a copy of the literal without its spread, are a set of
@@ -379,14 +379,14 @@ func (bl *irScalarBuilder) vectorUpdate(t *ast.ListLit) (ir.Temp, kind, bool, bo
 	if !ok {
 		return no()
 	}
-	// A spread that is another Iter (`[x, ..maybe]`) is made a Vector.
+	// A spread that is another Iter (`[x, ..option]`) is made a Vector.
 	p, ok := bl.collectSpread(t, spreadPart{at: spread, v: base, k: bk}, vectorSpreadJoin)
 	if !ok {
 		return no()
 	}
 	base, bk = p.v, p.k
 	if len(t.Items) == 0 {
-		// `[..maybe]`: the Iter made a Vector is the literal.
+		// `[..option]`: the Iter made a Vector is the literal.
 		return base, bk, false, true
 	}
 	if _, isVector := vectorElem(bk); !isVector {

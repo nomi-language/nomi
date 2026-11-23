@@ -17,7 +17,7 @@ end
 derive Variants for Coin
 derive Display for Coin
 
-fn first<T>() -> Maybe<T> where T: Variants
+fn first<T>() -> Option<T> where T: Variants
     T.variants() |> List.first()
 end
 
@@ -25,19 +25,19 @@ fn all<T>() -> List<T> where T: Variants
     T.variants()
 end
 
-fn show(m: Maybe<Coin>) -> String
+fn show(m: Option<Coin>) -> String
     case m
         Some(c) -> "${c}"
         None -> "none"
     end
 end
 
-fn pick() -> Maybe<Coin>
+fn pick() -> Option<Coin>
     first()
 end
 
 fn main()
-    c: Maybe<Coin> = first()
+    c: Option<Coin> = first()
     io.inspect(c)
     io.print(show(first()))
     io.inspect(pick())

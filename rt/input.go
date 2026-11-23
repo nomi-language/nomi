@@ -110,7 +110,7 @@ const StdinPath = "<stdin>"
 // with no newline is still a line. Inside `io.capture` the input is the
 // capture's. A read whose frame is cancelled while it waits unwinds as the
 // cancellation.
-func ReadLine(fr *Frame) Result[Maybe[string], IOError] {
+func ReadLine(fr *Frame) Result[Option[string], IOError] {
 	var in *Input
 	if fr != nil {
 		if c := captureFor(fr); c != nil {
@@ -121,7 +121,7 @@ func ReadLine(fr *Frame) Result[Maybe[string], IOError] {
 		}
 	}
 	if in == nil {
-		return Ok[Maybe[string], IOError](None[string]())
+		return Ok[Option[string], IOError](None[string]())
 	}
 	return in.readLineOn(fr)
 }
@@ -169,10 +169,10 @@ func (in *Input) failure(op string) *IOError {
 
 // readLine reads the next line of in, waiting under no frame: a capture's
 // input, which is in memory.
-func (in *Input) readLine() Result[Maybe[string], IOError] { return in.readLineOn(nil) }
+func (in *Input) readLine() Result[Option[string], IOError] { return in.readLineOn(nil) }
 
 // readLineOn reads the next line of in on fr.
-func (in *Input) readLineOn(fr *Frame) Result[Maybe[string], IOError] {
+func (in *Input) readLineOn(fr *Frame) Result[Option[string], IOError] {
 	in.acquire(fr)
 	defer in.release()
 	for {
@@ -183,10 +183,10 @@ func (in *Input) readLineOn(fr *Frame) Result[Maybe[string], IOError] {
 		}
 		if in.end != nil {
 			if f := in.failure("read"); f != nil {
-				return Err[Maybe[string]](*f)
+				return Err[Option[string]](*f)
 			}
 			if len(in.buf) == 0 {
-				return Ok[Maybe[string], IOError](None[string]())
+				return Ok[Option[string], IOError](None[string]())
 			}
 			line := string(in.buf)
 			in.buf = nil
@@ -198,15 +198,15 @@ func (in *Input) readLineOn(fr *Frame) Result[Maybe[string], IOError] {
 
 // readSome answers up to max bytes of in on fr: what is buffered, or one
 // chunk's worth when nothing is, or Ok(None) at the end.
-func (in *Input) readSome(fr *Frame, max int64) Result[Maybe[Bytes], IOError] {
+func (in *Input) readSome(fr *Frame, max int64) Result[Option[Bytes], IOError] {
 	in.acquire(fr)
 	defer in.release()
 	for len(in.buf) == 0 {
 		if in.end != nil {
 			if f := in.failure("read"); f != nil {
-				return Err[Maybe[Bytes]](*f)
+				return Err[Option[Bytes]](*f)
 			}
-			return Ok[Maybe[Bytes], IOError](None[Bytes]())
+			return Ok[Option[Bytes], IOError](None[Bytes]())
 		}
 		in.fill(fr)
 	}
@@ -216,16 +216,16 @@ func (in *Input) readSome(fr *Frame, max int64) Result[Maybe[Bytes], IOError] {
 	}
 	out := Bytes(in.buf[:n])
 	in.buf = in.buf[n:]
-	return Ok[Maybe[Bytes], IOError](Some(out))
+	return Ok[Option[Bytes], IOError](Some(out))
 }
 
 // lineRead is a line read from standard input as `io.read_line` answers it:
 // the line, or InvalidText when it is not UTF-8.
-func lineRead(line string) Result[Maybe[string], IOError] {
+func lineRead(line string) Result[Option[string], IOError] {
 	if !utf8.ValidString(line) {
-		return Err[Maybe[string]](IOError{Tag: TagIOInvalidText, Path: StdinPath, Offset: SmallInt(int64(InvalidUTF8Offset(line)))})
+		return Err[Option[string]](IOError{Tag: TagIOInvalidText, Path: StdinPath, Offset: SmallInt(int64(InvalidUTF8Offset(line)))})
 	}
-	return Ok[Maybe[string], IOError](Some(line))
+	return Ok[Option[string], IOError](Some(line))
 }
 
 // InvalidUTF8Offset is the byte offset of the first sequence in s that is

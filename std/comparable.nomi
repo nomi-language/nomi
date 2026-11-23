@@ -1,6 +1,6 @@
 import
     display.Display
-    maybe.Maybe.{None, Some}
+    option.Option.{None, Some}
     ranges.{ClosedRange, Range}
     variants.Variants
 end
@@ -100,7 +100,7 @@ derive Display for Direction
 //! import std::duration.Duration
 //! import std::int.Int
 //! import std::iter.Iter
-//! import std::maybe.Maybe.Some
+//! import std::option.Option.Some
 //! import std::strings.String
 //!
 //! assert (1, "b") < (2, "a")

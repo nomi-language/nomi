@@ -61,7 +61,7 @@ func contextWithValueHost(_ *Machine, _ ir.Pos, args []any) (any, error) {
 }
 
 // contextValueHost is `Context.value(c, value_type)`: the nearest binding for
-// the witnessed type, as `Maybe<T>`.
+// the witnessed type, as `Option<T>`.
 func contextValueHost(_ *Machine, _ ir.Pos, args []any) (any, error) {
 	if len(args) != 2 {
 		return nil, fmt.Errorf("vm: Context.value: expected a context and a witness, got %d operand(s)", len(args))
@@ -74,7 +74,7 @@ func contextValueHost(_ *Machine, _ ir.Pos, args []any) (any, error) {
 	if !ok {
 		return nil, fmt.Errorf("vm: Context.value: the witness is %T, not a Type witness", args[1])
 	}
-	return maybeOf(rt.ContextValue(c, w)), nil
+	return optionOf(rt.ContextValue(c, w)), nil
 }
 
 // activeContext reads the Context field: the active execution context, as

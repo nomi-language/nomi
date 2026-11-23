@@ -24,7 +24,7 @@ func iterSensitiveUseError(name, words, shape string) string {
 
 // iterSensitiveDecideHint is the help at a call of name inside a callback.
 func iterSensitiveDecideHint(name, words string) string {
-	return fmt.Sprintf("to decide in this callback instead, return a `Maybe` or an enum from `%s` and write %s here", name, words)
+	return fmt.Sprintf("to decide in this callback instead, return an `Option` or an enum from `%s` and write %s here", name, words)
 }
 
 const strayContinueError = "'continue' can only be used inside an iter-callback (e.g. a lambda passed to Iter.map/Iter.filter/Iter.loop/etc.)"

@@ -1,8 +1,8 @@
-// The HIGHER-ORDER half of `impl Maybe<T>` and `impl Result<T, E>`: `map` and
+// The HIGHER-ORDER half of `impl Option<T>` and `impl Result<T, E>`: `map` and
 // `flat_map` on both enums, and `map_err`.
 //
 // A TEST file rather than a program. The VM answers `map`, `flat_map` and
-// `map_err` through rt/preludehof.go, while std/maybe.nomi and
+// `map_err` through rt/preludehof.go, while std/option.nomi and
 // std/results.nomi state the same rules as Nomi `case` bodies; the asserted
 // answers below are what both must agree with.
 //
@@ -13,7 +13,7 @@
 // perfectly. Three distinct wrong answers are foreclosed here and none is
 // visible in the lowered code to a reader:
 //
-//   - CALLING THE CALLBACK ANYWAY. `MaybeMap` on a None would pass a zero
+//   - CALLING THE CALLBACK ANYWAY. `OptionMap` on a None would pass a zero
 //     value and answer `Some(0)`, so every absent row asserts the result equals
 //     the absent value rather than merely that it is absent.
 //   - DROPPING THE UNTOUCHED PAYLOAD. `Result.map` leaves `E` alone and
@@ -35,7 +35,7 @@
 // this fixture is where that should show.
 //
 // Two rows use a bare FUNCTION REFERENCE instead, because that is the spelling
-// `08-pattern-matching/maybe_result_test.nomi` actually writes and a fixture
+// `08-pattern-matching/option_result_test.nomi` actually writes and a fixture
 // covering only lambdas would not exercise it. A funcref lowers to the same
 // function kind as a lambda of its signature, so the two spellings
 // are one shape here — but that is a claim about the builder, and the two rows
@@ -49,11 +49,11 @@
 // refused by name as `prelude function over an unsolved instance` and is
 // asserted in preludehof_test.go rather than here, because a refused construct
 // cannot appear in a run fixture at all.
-fn none_int() -> Maybe<Int>
+fn none_int() -> Option<Int>
     None
 end
 
-fn none_string() -> Maybe<String>
+fn none_string() -> Option<String>
     None
 end
 
@@ -65,7 +65,7 @@ fn err_int() -> Result<Int, String>
     Err("oops")
 end
 
-fn positive_half(x: Int) -> Maybe<Int>
+fn positive_half(x: Int) -> Option<Int>
     if x > 0 then Some(x / 2) else none_int()
 end
 
@@ -73,20 +73,20 @@ fn checked_double(x: Int) -> Result<Int, String>
     if x > 0 then Ok(x * 2) else err_int()
 end
 
-test "Maybe.map transforms a Some and leaves a None alone"
-    some: Maybe<Int> = Some(5)
+test "Option.map transforms a Some and leaves a None alone"
+    some: Option<Int> = Some(5)
 
-    assert Maybe.map(some, &(&1 * 2)) == Some(10)
-    assert Maybe.map(none_int(), &(&1 * 2)) == none_int()
-    assert Maybe.is_none(Maybe.map(none_int(), &(&1 * 2)))
-    assert Maybe.is_some(Maybe.map(some, &(&1 * 2)))
+    assert Option.map(some, &(&1 * 2)) == Some(10)
+    assert Option.map(none_int(), &(&1 * 2)) == none_int()
+    assert Option.is_none(Option.map(none_int(), &(&1 * 2)))
+    assert Option.is_some(Option.map(some, &(&1 * 2)))
 end
 
-test "Maybe.map may change the payload TYPE"
-    some: Maybe<Int> = Some(7)
+test "Option.map may change the payload TYPE"
+    some: Option<Int> = Some(7)
 
-    assert Maybe.map(some, &Int.to_string(&1)) == Some("7")
-    assert Maybe.map(none_int(), &Int.to_string(&1)) == none_string()
+    assert Option.map(some, &Int.to_string(&1)) == Some("7")
+    assert Option.map(none_int(), &Int.to_string(&1)) == none_string()
 end
 
 // The FUNCTION-REFERENCE spelling, in a BINDING rather than as an assertion
@@ -96,22 +96,22 @@ end
 // `recording a non-scalar operand ((Int) -> Int)`, which is somebody else's key
 // and a position this lowering newly reaches: the builder has no
 // rendering for a function value in a `values:` row, so it declines the
-// rendering for a function value. `08-pattern-matching/maybe_result_test.nomi`
+// rendering for a function value. `08-pattern-matching/option_result_test.nomi`
 // writes both of its `map` calls in a binding for its own reasons, so the corpus
 // does not reach that position and this fixture does not manufacture it.
-test "Maybe.map takes a function reference, which is the corpus spelling"
-    some: Maybe<Int> = Some(5)
-    mapped = Maybe.map(some, double)
+test "Option.map takes a function reference, which is the corpus spelling"
+    some: Option<Int> = Some(5)
+    mapped = Option.map(some, double)
 
     piped =
         some
-        |> Maybe.map(double)
-        |> Maybe.with_default(0)
+        |> Option.map(double)
+        |> Option.with_default(0)
 
     absent =
         none_int()
-        |> Maybe.map(double)
-        |> Maybe.with_default(0)
+        |> Option.map(double)
+        |> Option.with_default(0)
 
     assert mapped == Some(10)
     assert piped == 10
@@ -121,25 +121,25 @@ end
 test "a bare None receiver takes its type from the callback's parameter"
     n =
         None
-        |> Maybe.map(&(&1 * 2))
-        |> Maybe.with_default(0)
+        |> Option.map(&(&1 * 2))
+        |> Option.with_default(0)
 
     assert n == 0
-    assert Maybe.is_none(Maybe.map(None, fn x: Int -> x * 2))
+    assert Option.is_none(Option.map(None, fn x: Int -> x * 2))
 end
 
-test "Maybe.flat_map flattens rather than nesting"
-    some: Maybe<Int> = Some(10)
+test "Option.flat_map flattens rather than nesting"
+    some: Option<Int> = Some(10)
 
-    assert Maybe.flat_map(some, &positive_half(&1)) == Some(5)
-    assert Maybe.flat_map(none_int(), &positive_half(&1)) == none_int()
+    assert Option.flat_map(some, &positive_half(&1)) == Some(5)
+    assert Option.flat_map(none_int(), &positive_half(&1)) == none_int()
 end
 
-test "Maybe.flat_map can turn a present value into an absent one"
-    negative: Maybe<Int> = Some(-4)
+test "Option.flat_map can turn a present value into an absent one"
+    negative: Option<Int> = Some(-4)
 
-    assert Maybe.flat_map(negative, &positive_half(&1)) == none_int()
-    assert Maybe.is_none(Maybe.flat_map(negative, &positive_half(&1)))
+    assert Option.flat_map(negative, &positive_half(&1)) == none_int()
+    assert Option.is_none(Option.flat_map(negative, &positive_half(&1)))
 end
 
 test "Result.map transforms an Ok and carries the Err VALUE across"
@@ -204,17 +204,17 @@ test "Result.map_err may change the error TYPE"
 end
 
 test "the higher-order half composes with the rest of the surface"
-    some: Maybe<Int> = Some(4)
+    some: Option<Int> = Some(4)
 
     chained =
         some
-        |> Maybe.map(double)
-        |> Maybe.flat_map(&positive_half(&1))
-        |> Maybe.with_default(0)
+        |> Option.map(double)
+        |> Option.flat_map(&positive_half(&1))
+        |> Option.with_default(0)
 
-    lifted = Maybe.to_result(Maybe.map(some, double), "missing")
-    dropped = Result.to_maybe(Result.map(err_int(), double))
-    through = Maybe.map(Result.to_maybe(Ok(5)), double)
+    lifted = Option.to_result(Option.map(some, double), "missing")
+    dropped = Result.to_option(Result.map(err_int(), double))
+    through = Option.map(Result.to_option(Ok(5)), double)
 
     assert chained == 4
     assert lifted == Ok(8)

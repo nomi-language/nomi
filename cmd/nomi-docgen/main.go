@@ -477,7 +477,7 @@ func shouldQualifyHeading(entry apiEntry) bool {
 // renderVariantDocs emits the per-variant doc comments of an enum.
 //
 // The signature block above already lists the variant *names*; without
-// this, that was all a reader got. For `Maybe` that is fine — `Some` and
+// this, that was all a reader got. For `Option` that is fine — `Some` and
 // `None` explain themselves — but for the enums where the whole meaning
 // lives in the distinction between variants, the reference page named
 // `Temporary` / `Transient` / `Permanent` and said what none of them

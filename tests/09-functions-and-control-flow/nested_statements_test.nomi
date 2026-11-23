@@ -52,11 +52,11 @@ fn returning_arms(x: Int) -> Int
     end
 end
 
-fn find(n: Int) -> Maybe<Int>
+fn find(n: Int) -> Option<Int>
     if n > 3 then None else Some(n)
 end
 
-fn find_nested(n: Int) -> Maybe<Maybe<Int>>
+fn find_nested(n: Int) -> Option<Option<Int>>
     if n > 3 then None else Some(Some(n))
 end
 

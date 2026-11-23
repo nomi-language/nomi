@@ -47,27 +47,27 @@ test "an anonymous struct encodes as an object of its fields"
 end
 
 test "a None field encodes as null"
-    order: Maybe<Int> = None
+    order: Option<Int> = None
     assert Json.encode_as({order:, title: "t"}) == `{"order":null,"title":"t"}`
     assert Json.encode_as({order: Some(2)}) == `{"order":2}`
     assert Json.encode_as({detail: None, error: "no"}) == `{"detail":null,"error":"no"}`
 end
 
-test "an anonymous struct decodes from an object, a missing Maybe field as None"
-    assert Json.decode_as<{title: String, order: Maybe<Int>}>(`{"title": "t", "order": 3}`)
+test "an anonymous struct decodes from an object, a missing Option field as None"
+    assert Json.decode_as<{title: String, order: Option<Int>}>(`{"title": "t", "order": 3}`)
         == Ok({title: "t", order: Some(3)})
 
-    assert Json.decode_as<{title: String, order: Maybe<Int>}>(`{"title": "t"}`)
+    assert Json.decode_as<{title: String, order: Option<Int>}>(`{"title": "t"}`)
         == Ok({title: "t", order: None})
 
-    assert Json.decode_as<{title: String, order: Maybe<Int>}>(`{"title": "t", "order": null}`)
+    assert Json.decode_as<{title: String, order: Option<Int>}>(`{"title": "t", "order": null}`)
         == Ok({title: "t", order: None})
 
     assert decoded<{a: Int}>(`{"a": 1, "extra": [true]}`) == Ok({a: 1})
 end
 
 test "a decode error names the field that does not read"
-    assert shape_error(Json.decode_as<{title: String, order: Maybe<Int>}>(`{"order": 1}`))
+    assert shape_error(Json.decode_as<{title: String, order: Option<Int>}>(`{"order": 1}`))
         == "title: expected String, got missing"
 
     assert shape_error(Json.decode_as<{title: String}>(`{"title": 1}`))
@@ -93,7 +93,7 @@ test "anonymous structs nest in each other, in containers and in a named struct"
     assert Json.decode_as<{p: {x: Int, y: Int}}>(`{"p": {"x": 1, "y": 2}}`) == Ok({p: {x: 1, y: 2}})
 
     assert Json.decode_as<List<{x: Int}>>(`[{"x": 1}, {"x": 2}]`) == Ok([{x: 1}, {x: 2}])
-    assert Json.decode_as<Maybe<{x: Int}>>(`{"x": 1}`) == Ok(Some({x: 1}))
+    assert Json.decode_as<Option<{x: Int}>>(`{"x": 1}`) == Ok(Some({x: 1}))
     assert Json.decode_as<Map<String, {x: Int}>>(`{"k": {"x": 1}}`) == Ok({"k" => {x: 1}})
 
     assert Json.decode_as<Pinned>(`{"at": {"x": 1, "y": 2}, "note": "n"}`)
@@ -111,7 +111,7 @@ test "an anonymous struct reads back what it writes"
         extra: Some({k: "v"}),
     }
 
-    assert Json.decode_as<{name: String, items: List<{id: Int, done: Bool}>, extra: Maybe<{k: String}>}>(
+    assert Json.decode_as<{name: String, items: List<{id: Int, done: Bool}>, extra: Option<{k: String}>}>(
         Json.encode_as(value)
     ) == Ok(value)
 end

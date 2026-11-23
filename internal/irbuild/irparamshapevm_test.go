@@ -155,8 +155,8 @@ func v12RunWithRecordedShapes(t *testing.T, label string, entries []vmProbeEntry
 		rt.Decimal{},
 		rt.Byte(65),
 		rt.Bytes("A"),
-		// vmArgShapes' Maybe leaf, for a Maybe only a host call consumes.
-		&probeVariant{enum: "maybe.Maybe", variant: "Some", payload: int64(1)},
+		// vmArgShapes' Option leaf, for an Option only a host call consumes.
+		&probeVariant{enum: "option.Option", variant: "Some", payload: int64(1)},
 	}
 	if re := vmRegexHandle(); re != nil {
 		leaves = append(leaves, re)

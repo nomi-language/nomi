@@ -20,7 +20,7 @@ pub fn is_valid(number: String) -> Bool
         number
         |> String.replace(" ", "")
         |> Iter.map(String.to_int)
-        |> Maybe.collect()
+        |> Option.collect()
 
     case digits
         Some(digits) when Iter.count(digits) > 1 -> checksum(digits) % 10 == 0
@@ -89,7 +89,7 @@ test result: ok. 22 passed, 0 failed
 
 ## How it's written
 
-- Each grapheme goes through `String.to_int`, and `Maybe.collect` turns "every one is a digit" into one `Maybe<List<Int>>`, so a stray character and the digit conversion are one step.
+- Each grapheme goes through `String.to_int`, and `Option.collect` turns "every one is a digit" into one `Option<List<Int>>`, so a stray character and the digit conversion are one step.
 - The length rule is a `when` guard on the `Some` arm rather than a separate `if`.
 - `checksum` reverses the digits and doubles odd indexes from `Iter.with_index`, rather than tracking a parity flag in a fold, then totals them with `Iter.sum`.
 - All 22 cases are one `subtests` table whose first column is the canonical description, which names each row.

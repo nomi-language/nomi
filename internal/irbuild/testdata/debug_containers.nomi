@@ -55,7 +55,7 @@ end
 // variant reaches a container through a function's declared return type
 // instead. The point is to render a bare variant NESTED, and this is the
 // spelling that gets there.
-fn no_int() -> Maybe<Int>
+fn no_int() -> Option<Int>
     None
 end
 
@@ -99,7 +99,7 @@ fn main()
 
     // A prelude instance INSIDE a container and a container inside one, so the
     // two recursions compose in both directions.
-    maybes = [Some(1), no_int()]
-    io.print(Debug.inspect(maybes))
+    options = [Some(1), no_int()]
+    io.print(Debug.inspect(options))
     io.print(Debug.inspect(Some([1, 2])))
 end

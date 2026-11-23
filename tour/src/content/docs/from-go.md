@@ -21,9 +21,9 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `x := 1`, `var x int`, `x++` | `x = 1`, `x: Int = 1`. Nothing is mutable; a later `x = ...` binds the name again. |
 | `func (s Shape) Area() int`, `s.Area()` | `fn area(shape: Shape) -> Int` in an `impl Shape` block, `Shape.area(s)`: there are no method calls on a value |
 | An interface is satisfied implicitly | `impl Interface for Type` |
-| `nil` | `None`, from `Maybe<T>` |
+| `nil` | `None`, from `Option<T>` |
 | `func f() (int, string)`, `n, s := f()` | `fn f() -> (Int, String)`, a tuple, and `(n, s) = f()`. Its items are also read as `t.first`, `t.second`, ... |
-| `if err != nil { return err }` | A postfix `?` on a `Result` or `Maybe` |
+| `if err != nil { return err }` | A postfix `?` on a `Result` or `Option` |
 | `switch x { case 1: .. }` | `case x`, then an arm per line such as `1 -> ..`, then `end`; it must cover every value |
 | `defer f.Close()` | `defer Reader.close_quietly(r)` on the line after opening. It runs when its block ends, where Go's waits for the function to return, and the checker requires it for a resource. `defer on error` runs only when the function fails. |
 | `for i, x := range xs { .. }`, `for cond { .. }` | `Iter` functions: `Iter.each`, `Iter.map`, `Iter.reduce`, `Iter.with_index`. A loop over no collection is recursion or `Iter.loop`. |
@@ -84,7 +84,7 @@ fn parse_port(text: String) -> Result<Int, String>
     n =
         text
         |> String.to_int()
-        |> Maybe.to_result("not a number: ${text}")?
+        |> Option.to_result("not a number: ${text}")?
 
     if n < 1 or n > 65535 then
         Err("out of range: ${n}")

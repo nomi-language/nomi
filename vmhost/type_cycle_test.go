@@ -17,7 +17,7 @@ func TestTypeCycleIsACheckError(t *testing.T) {
 		"main.nomi:1:6: type 'e' is defined in terms of itself")
 	rejects(t, "type A B\n\ntype B List<A>\n\nfn main() end\n",
 		"main.nomi:3:6: type 'B' is defined in terms of itself (B → A → B)")
-	rejects(t, "typealias X Y\n\ntypealias Y Maybe<X>\n\nfn main() end\n",
+	rejects(t, "typealias X Y\n\ntypealias Y Option<X>\n\nfn main() end\n",
 		"main.nomi:1:11: typealias 'X' refers to itself (X → Y → X)",
 		"main.nomi:3:11: typealias 'Y' refers to itself (Y → X → Y)")
 }

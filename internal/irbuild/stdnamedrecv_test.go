@@ -9,8 +9,8 @@ import (
 // declares run (testdata/std_type_impls): `Date.to_v(d)` and
 // `Date.from_v(v)`, qualified by the std type with an operand of it and with
 // none; `Int.from_v(v)` from another file; `T.from_v(v)` in an instance at
-// Date and at Maybe<Date>; and dispatch on a Date, a Decimal, an Instant and
-// a Maybe held as the interface, the Decimal and the Instant boxed
+// Date and at Option<Date>; and dispatch on a Date, a Decimal, an Instant and
+// an Option held as the interface, the Decimal and the Instant boxed
 // (irStdLeafBoxes) because their values name no type.
 func TestStdNamedReceivers_ProgramImplsForStdTypesRun(t *testing.T) {
 	if testing.Short() {

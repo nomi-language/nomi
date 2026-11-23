@@ -66,7 +66,7 @@ fn show_ints(xs: List<Int>) -> String
     end
 end
 
-fn show_count(m: Maybe<Int>) -> String
+fn show_count(m: Option<Int>) -> String
     case m
         Some(n) -> "Some(${n})"
         None    -> "None"
@@ -79,7 +79,7 @@ end
 
 /// Two Codepoints and a stepped walk over the range between them, rendered as
 /// their scalar values so ORDER and LENGTH are both in the output.
-fn cp_steps(from: Int, to: Int, by: Int) -> Maybe<String>
+fn cp_steps(from: Int, to: Int, by: Int) -> Option<String>
     a = Int.to_codepoint(from)?
     b = Int.to_codepoint(to)?
 
@@ -93,7 +93,7 @@ fn cp_steps(from: Int, to: Int, by: Int) -> Maybe<String>
 end
 
 /// The plain inclusive walk over a Codepoint range, same rendering.
-fn cp_walk(from: Int, to: Int) -> Maybe<String>
+fn cp_walk(from: Int, to: Int) -> Option<String>
     a = Int.to_codepoint(from)?
     b = Int.to_codepoint(to)?
 
@@ -106,7 +106,7 @@ fn cp_walk(from: Int, to: Int) -> Maybe<String>
     )
 end
 
-fn show_maybe_str(m: Maybe<String>) -> String
+fn show_option_str(m: Option<String>) -> String
     case m
         Some(s) -> s
         None    -> "None"
@@ -317,11 +317,11 @@ fn main()
     // neighbours across the block, so a naive `n + 1` answers a different list —
     // and `Int.to_codepoint` would refuse the value it produced, which is why a
     // wrong successor shows up as a SHORT list rather than a wrong one.
-    io.print(show_maybe_str(cp_walk(97, 100)))
-    io.print(show_maybe_str(cp_walk(55_295, 57_344)))
-    io.print(show_maybe_str(cp_steps(97, 100, 2)))
-    io.print(show_maybe_str(cp_steps(55_295, 57_344, 1)))
-    io.print(show_maybe_str(cp_steps(97, 100, 0)))
+    io.print(show_option_str(cp_walk(97, 100)))
+    io.print(show_option_str(cp_walk(55_295, 57_344)))
+    io.print(show_option_str(cp_steps(97, 100, 2)))
+    io.print(show_option_str(cp_steps(55_295, 57_344, 1)))
+    io.print(show_option_str(cp_steps(97, 100, 0)))
 
     // --- 13. RENDERING: THE ENDPOINTS GO THROUGH Debug, NOT Display -------
     // std comments the choice at `impl Display for Range<T>` and `impl Debug` is

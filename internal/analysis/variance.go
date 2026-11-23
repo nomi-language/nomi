@@ -1,7 +1,5 @@
 package analysis
 
-import "sync"
-
 // Variance of a declared generic type's parameters (spec §5 *Covariant
 // conversion*).
 //
@@ -14,7 +12,7 @@ import "sync"
 // type's):
 //
 //   - at the top of a field, inside a List, Vector, Set, Map (key or
-//     value), Maybe or Result, a tuple or a record, or as an Iter's element:
+//     value), Option or Result, a tuple or a record, or as an Iter's element:
 //     the polarity it stands at;
 //   - in a function type's parameter: the opposite polarity; in its result,
 //     the same;
@@ -77,11 +75,11 @@ func compose(outer, inner Variance) Variance {
 // type parameter, which every instance of the declaration shares and no
 // other declaration has. Std's declarations are shared by every check a
 // process runs, so the cache is too.
-var varianceCache sync.Map // *TypeParam_ -> []Variance
+var varianceCache ownedCache[TypeParam_, []Variance]
 
 // TypeParamVariances is the variance of each of t's type parameters, where
 // t is a user-declared generic struct, enum or distinct type, or std's
-// Maybe or Result. It
+// Option or Result. It
 // is nil for any other type, and for a declaration whose body is not built
 // yet, whose arguments then compare exactly.
 func TypeParamVariances(t Type) []Variance {
@@ -89,8 +87,8 @@ func TypeParamVariances(t Type) []Variance {
 	if !ok {
 		return nil
 	}
-	if v, ok := varianceCache.Load(defs[0]); ok {
-		return v.([]Variance)
+	if v, ok := varianceCache.load(defs[0]); ok {
+		return v
 	}
 	s := &varianceSolver{table: map[*TypeParam_][]Variance{}, decls: map[*TypeParam_]Type{}}
 	if !s.collect(t) {
@@ -110,7 +108,7 @@ func TypeParamVariances(t Type) []Variance {
 		}
 	}
 	for key, v := range s.table {
-		varianceCache.LoadOrStore(key, v)
+		varianceCache.store(key, v)
 	}
 	return s.table[defs[0]]
 }
@@ -139,7 +137,7 @@ func variantDecl(t Type) ([]*TypeParam_, bool) {
 		// the program can see.
 		// A generic refinement's, std's among them, is its parents', whose
 		// values its values are (refinement.go).
-		if t.unbuilt != nil || len(t.TypeParamDefs) == 0 || (isStdOrigin(t.Origin) && !t.Subtype) || t.Inner == nil {
+		if t.unbuilt != nil || len(t.TypeParamDefs) == 0 || (isStdOrigin(t.Origin) && !t.Refinement) || t.Inner == nil {
 			return nil, false
 		}
 		return t.TypeParamDefs, true
@@ -164,8 +162,8 @@ func (s *varianceSolver) collect(t Type) bool {
 	if _, seen := s.decls[defs[0]]; seen {
 		return true
 	}
-	if v, ok := varianceCache.Load(defs[0]); ok {
-		s.table[defs[0]] = v.([]Variance)
+	if v, ok := varianceCache.load(defs[0]); ok {
+		s.table[defs[0]] = v
 		return true
 	}
 	if !variantDeclBuilt(t) {

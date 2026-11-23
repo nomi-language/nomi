@@ -56,6 +56,6 @@ end
 
 /// The symbol at `row` and `column`, or `None` off the diagram: a line may
 /// be shorter than the others.
-fn symbol_at(grid: Vector<Vector<String>>, row: Int, column: Int) -> Maybe<String>
+fn symbol_at(grid: Vector<Vector<String>>, row: Int, column: Int) -> Option<String>
     grid |> Vector.get(row)? |> Vector.get(column)
 end

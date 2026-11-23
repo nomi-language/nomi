@@ -29,8 +29,8 @@ derive FromJson for NotificationType
 pub struct EmailArgs
     notification_id:   Uuid
     notification_type: NotificationType
-    post_id:           Maybe<Uuid> = None
-    user_id:           Maybe<Uuid> = None
+    post_id:           Option<Uuid> = None
+    user_id:           Option<Uuid> = None
 end
 
 derive ToJson for EmailArgs

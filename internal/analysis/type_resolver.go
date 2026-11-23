@@ -350,12 +350,12 @@ func resolveTypeExprNode(te ast.TypeExpr, reg *TypeRegistry, typeParams map[stri
 	case *ast.ConjunctionType:
 		// `Priced and Costed` in a value type's position: each member is
 		// an interface, or a conjunction whose members are spliced in.
-		// `NonNegativeInt and NonZeroInt`: members that are subtypes of
-		// one base make their intersection, a subtype of each
-		// (NewSubtypeIntersection); an interface beside them is one their
+		// `NonNegativeInt and NonZeroInt`: members that are refinements of
+		// one base make their intersection, a refinement of each
+		// (NewRefinementIntersection); an interface beside them is one their
 		// base implements, which the checker holds (checkIntersections).
 		var ifaces []*InterfaceType
-		var subtypes []Type
+		var refinements []Type
 		var base Type
 		for _, m := range n.Members {
 			resolved, err := resolveTypeExpr(m, reg, typeParams, fa, declared)
@@ -366,14 +366,14 @@ func resolveTypeExprNode(te ast.TypeExpr, reg *TypeRegistry, typeParams map[stri
 				b := RefinementBase(resolved)
 				if base != nil && !TypesIdentical(base, b) && !ContainsTypeParam(b) && !ContainsTypeParam(base) {
 					return nil, errAt(m, fmt.Sprintf(
-						"`and` intersects subtypes of one type, and %s is %s %s where %s is %s %s",
+						"`and` intersects refinements of one type, and %s is %s %s where %s is %s %s",
 						resolved, ArticleFor(formatTypeForError(b)), formatTypeForError(b),
-						subtypes[0], ArticleFor(formatTypeForError(base)), formatTypeForError(base)))
+						refinements[0], ArticleFor(formatTypeForError(base)), formatTypeForError(base)))
 				}
 				if base == nil {
 					base = b
 				}
-				subtypes = append(subtypes, resolved)
+				refinements = append(refinements, resolved)
 				continue
 			}
 			members := InterfaceMembers(resolved)
@@ -382,8 +382,8 @@ func resolveTypeExprNode(te ast.TypeExpr, reg *TypeRegistry, typeParams map[stri
 			}
 			ifaces = append(ifaces, members...)
 		}
-		if len(subtypes) > 0 {
-			return NewSubtypeIntersection(subtypes), nil
+		if len(refinements) > 0 {
+			return NewRefinementIntersection(refinements), nil
 		}
 		return NewConjunction(ifaces), nil
 
@@ -395,7 +395,7 @@ func resolveTypeExprNode(te ast.TypeExpr, reg *TypeRegistry, typeParams map[stri
 // conjunctionMemberError is the error for a member of `A and B` that is no
 // interface.
 func conjunctionMemberError(t Type) string {
-	return fmt.Sprintf("`and` joins interfaces or subtypes, and %s is neither", t)
+	return fmt.Sprintf("`and` joins interfaces or refinements, and %s is neither", t)
 }
 
 // typeFieldFile is the file a field an anonymous struct type names at line
@@ -458,10 +458,10 @@ func variantTypeHint(et *EnumType, variant string) string {
 			return fmt.Sprintf("write `%s`, the embedded variant's own type", v.Embedded)
 		}
 		if strings.HasPrefix(et.Origin, "std/") {
-			return fmt.Sprintf("`%s` is a variant of `%s`, not a type: take a `%s`", variant, et.Name, et.Name)
+			return fmt.Sprintf("`%s` is a variant of `%s`, not a type: take %s `%s`", variant, et.Name, ArticleFor(et.Name), et.Name)
 		}
-		return fmt.Sprintf("`%s` is a variant of `%s`, not a type: take a `%s`, or declare `%s` on its own and write `embeds %s` in `%s`",
-			variant, et.Name, et.Name, variant, variant, et.Name)
+		return fmt.Sprintf("`%s` is a variant of `%s`, not a type: take %s `%s`, or declare `%s` on its own and write `embeds %s` in `%s`",
+			variant, et.Name, ArticleFor(et.Name), et.Name, variant, variant, et.Name)
 	}
 	return ""
 }

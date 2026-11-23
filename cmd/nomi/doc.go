@@ -6,6 +6,21 @@
 // build_vm.go and repl_vm.go open with what each command does, and
 // effects_cmd.go with what `nomi effects` prints and writes.
 //
+// # Commands
+//
+// main.go's commandTable lists every subcommand once: its name and
+// aliases, its usage, whether it takes --offline and --all-calls, whether
+// it may download modules, and what runs it. main finds the command there,
+// answers `--help` or `-h` among the command's own words with its usage on
+// stdout, takes the shared flags, and prints the error the command returns.
+// `nomi help <command>` prints the same usage. For `run` and `tool` only
+// the words before the program are the command's (command.programArgs).
+// TestHelp_EveryCommandAnswersHelp asks every row for its usage.
+//
+// A program `nomi run` or `nomi build` takes is a file, or a module's
+// directory whose nomi.toml lists one entry point (programEntry, over
+// frontend.EntryFile, which `nomi check` resolves entries with).
+//
 // # nomi build
 //
 // `nomi build` writes one executable: the nomi-vm binary with the program's

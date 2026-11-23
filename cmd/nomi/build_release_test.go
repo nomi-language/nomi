@@ -33,6 +33,44 @@ import (
 // releaseTestVersion is the tag the fake release is cut as.
 const releaseTestVersion = "v0.0.0-reltest"
 
+// releaseNomiLdflags are the -ldflags scripts/release.sh builds `nomi`
+// with, cut as releaseTestVersion.
+const releaseNomiLdflags = "-s -w -X github.com/nomi-language/nomi/internal/runners.ReleaseVersion=" + releaseTestVersion
+
+var (
+	releaseNomiOnce sync.Once
+	releaseNomiPath string
+	releaseNomiErr  error
+)
+
+// releaseNomi is a `nomi` built as the fake release's is, alone in its
+// directory with no runner beside it, built once per test process: for a
+// test of what a release `nomi` does that needs no runner.
+func releaseNomi(t *testing.T) string {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("builds a release-shaped nomi; -short")
+	}
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("no go toolchain to build with")
+	}
+	releaseNomiOnce.Do(func() {
+		out := exe(filepath.Join(filepath.Dir(nomiBin), "release-nomi", "nomi"))
+		cmd := exec.Command("go", "build", "-trimpath", "-ldflags", releaseNomiLdflags, "-o", out, "./cmd/nomi")
+		cmd.Dir = repoRoot(t)
+		cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
+		if b, err := cmd.CombinedOutput(); err != nil {
+			releaseNomiErr = fmt.Errorf("go build ./cmd/nomi: %v\n%s", err, b)
+			return
+		}
+		releaseNomiPath = out
+	})
+	if releaseNomiErr != nil {
+		t.Fatal(releaseNomiErr)
+	}
+	return releaseNomiPath
+}
+
 // fakeRelease is a `nomi` built the way scripts/release.sh builds it, the
 // runners it could be installed or served with, and the platform the cross
 // runner is for.
@@ -97,7 +135,7 @@ func releaseBuild(t *testing.T) fakeReleaseBuild {
 			"wasip1/wasm": filepath.Join(base, "wasip1_wasm", "nomi-vm"),
 		}
 		b.wasiReactor = filepath.Join(base, "wasip1_wasm", "nomi-vm-reactor")
-		ldflags := "-s -w -X github.com/nomi-language/nomi/internal/runners.ReleaseVersion=" + releaseTestVersion
+		ldflags := releaseNomiLdflags
 		// The -nonet runners are the lean ones, built with every optional
 		// family's tag, as scripts/release.sh builds them.
 		leanTags := strings.Join(families.LeanTags(), ",")

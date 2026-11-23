@@ -1,4 +1,4 @@
-import maybe.Maybe
+import option.Option
 
 /// The interface of values that can move by a step the caller gives.
 ///
@@ -14,5 +14,5 @@ pub interface Steppable<S>
     ///
     /// Steppable.step_by(1.0d, 0.1d) // → Some(1.1d)
     /// ```
-    fn step_by(value: self, by: S) -> Maybe<self>
+    fn step_by(value: self, by: S) -> Option<self>
 end

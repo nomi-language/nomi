@@ -37,7 +37,7 @@ fn entries(xs: Iter<(String, Point)>) -> String
     Debug.inspect(xs)
 end
 
-fn held(m: Maybe<Iter<Int>>) -> String
+fn held(m: Option<Iter<Int>>) -> String
     Debug.inspect(m)
 end
 

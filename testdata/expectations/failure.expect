@@ -11,9 +11,9 @@
 # T <transcript line>, verbatim
 population failure
 what one record per deliberately-red fixture under internal/irbuild/testdata, run as the command that owns it would. Every record FAILS on purpose, so every record carries its transcript verbatim: this is the only population in the repo with power over a wrong failure message. Membership is measured by TestExpectation_FailureCensus.
-records 54
-declared-cases 294
-failing 54
+records 53
+declared-cases 289
+failing 53
 C anon_struct.nomi
 E 1
 N 1
@@ -80,12 +80,12 @@ T
 C assert_shape.nomi
 E 1
 N 8
-H 0ed52d252c0c03b2d9543c7ca650f86a4905fc619c8f26c79dce04f5e92e9f13
-T FAIL <root>/internal/irbuild/testdata/assert_shape.nomi :: a Maybe subject that is None fails
+H 71a36b4130672eaae8bd5ae74e7cba18437fe4b1aa33e21572de709db239d2e9
+T FAIL <root>/internal/irbuild/testdata/assert_shape.nomi :: an Option subject that is None fails
 T   line 37: assertion failed
 T     assert find(2)
 T     actual: None
-T ok <root>/internal/irbuild/testdata/assert_shape.nomi :: a Maybe subject that is Some passes and carries the variant through
+T ok <root>/internal/irbuild/testdata/assert_shape.nomi :: an Option subject that is Some passes and carries the variant through
 T FAIL <root>/internal/irbuild/testdata/assert_shape.nomi :: refuting a Some fails in its own words
 T   line 47: refute failed
 T     refute find(1)
@@ -391,22 +391,6 @@ T         = 1.50
 T       right
 T         = 2.25
 T test result: FAILED. 13 passed, 1 failed
-T
-C enum_field_read_trap.nomi
-E 1
-N 5
-H 4aacf19b51960637f9d9b154b4a2f6fa8db7d4684598731395b3f98b63f1f577
-T FAIL <root>/internal/irbuild/testdata/enum_field_read_trap.nomi :: struct-shaped payload without the name
-T   line 42: variant 'Rect' has no field 'radius'
-T FAIL <root>/internal/irbuild/testdata/enum_field_read_trap.nomi :: positional struct payload without the name
-T   line 48: variant 'Wrap' has no field 'height'
-T FAIL <root>/internal/irbuild/testdata/enum_field_read_trap.nomi :: a scalar payload has no fields at all
-T   line 54: cannot access field 'height' on variant 'Num'
-T FAIL <root>/internal/irbuild/testdata/enum_field_read_trap.nomi :: an embeds of a distinct carries no struct
-T   line 60: cannot access field 'height' on variant 'Marker'
-T FAIL <root>/internal/irbuild/testdata/enum_field_read_trap.nomi :: a bare variant carries nothing
-T   line 66: cannot access field 'height' on variant 'Point'
-T test result: FAILED. 0 passed, 5 failed
 T
 C erased_operand.nomi
 E 1
@@ -1377,7 +1361,7 @@ T
 C tests_operands.nomi
 E 1
 N 21
-H c78652923dd87851ba8949f6a5a54fba64297ed887a2ace69a0d79d6e91d44e7
+H 25c57920ffabf5509ab3637515cdc59fa115452ca8ed3909aab3a6d9b6d2bd8f
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: a list of Int
 T   line 103: assertion failed
 T     assert no_list(xs)
@@ -1476,13 +1460,13 @@ T       s
 T         = Expired
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: Some
 T   line 193: assertion failed
-T     assert no_maybe(m)
+T     assert no_option(m)
 T     values:
 T       m
 T         = Some(5)
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: None
 T   line 198: assertion failed
-T     assert no_maybe(m)
+T     assert no_option(m)
 T     values:
 T       m
 T         = None
@@ -1500,7 +1484,7 @@ T       r
 T         = Err("bad")
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: a prelude enum over a struct
 T   line 213: assertion failed
-T     assert no_maybe_point(m)
+T     assert no_option_point(m)
 T     values:
 T       m
 T         = Some(Point{x: 1, y: "two"})

@@ -18,7 +18,7 @@ once neighbours = [(0, -1), (0, 1), (-1, 0), (-1, 1), (1, -1), (1, 0)]
 /// The player whose stones join their two sides of `board`, or `None`.
 /// Each row of the board is its cells separated by spaces, `X`, `O` or `.`,
 /// indented to show the shift.
-pub fn winner(board: List<String>) -> Maybe<Player>
+pub fn winner(board: List<String>) -> Option<Player>
     rows =
         board
         |> Iter.map(fn line -> line |> String.trim() |> String.split(" ") |> Iter.to_list())
@@ -41,7 +41,7 @@ fn connects(rows: List<List<String>>, player: Player) -> Bool
         |> Iter.to_set()
 
     last_row = Iter.count(rows) - 1
-    width = rows |> Iter.first() |> Maybe.map(Iter.count) |> Maybe.with_default(0)
+    width = rows |> Iter.first() |> Option.map(Iter.count) |> Option.with_default(0)
     last_column = width - 1
 
     (is_start, is_goal) =

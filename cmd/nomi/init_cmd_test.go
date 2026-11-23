@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -84,17 +85,35 @@ func TestModules_InitMakesTheDirectoryAProject(t *testing.T) {
 		t.Error("a refused nomi init wrote nomi.toml")
 	}
 
-	// With no path anywhere, the path is needed, and a bad one is refused.
+	// With no name or path anywhere, one is needed, and a bad one is
+	// refused before anything is written.
 	bare := t.TempDir()
 	_, stderr, err = c.run(bare, "init")
-	if err == nil || !strings.HasPrefix(stderr, "nomi init: give the module path this directory needs, such as `nomi init github.com/you/project`") {
+	if err == nil || stderr != "nomi init: give the module's name, such as `nomi init hello`, or the module path it is published at, such as `nomi init github.com/you/hello`" {
 		t.Errorf("nomi init with no path: %v\n%s", err, stderr)
 	}
-	_, stderr, err = c.run(bare, "init", "not a path")
-	if err == nil || !strings.Contains(stderr, `nomi init: "not a path" is not a module path`) {
-		t.Errorf("nomi init with a bad path: %v\n%s", err, stderr)
+	for _, tc := range []struct{ arg, want string }{
+		{"not a path", `nomi init: "not a path" is not a module name: a name is lowercase letters, digits and _, not starting with a digit, such as hello_world`},
+		{"hello/world", `nomi init: "hello/world" is not a module path: malformed module path "hello/world": missing dot in first path element`},
+		{"std", "nomi init: std is the standard library's name; choose another"},
+	} {
+		_, stderr, err = c.run(bare, "init", tc.arg)
+		if err == nil || !strings.HasPrefix(stderr, tc.want) {
+			t.Errorf("nomi init %q: %v\n%s\nwant it to start\n%s", tc.arg, err, stderr, tc.want)
+		}
 	}
-	if isRegular(filepath.Join(bare, "go.mod")) || isRegular(filepath.Join(bare, "nomi.toml")) {
-		t.Error("a refused nomi init wrote a file")
+	if entries, err := os.ReadDir(bare); err != nil || len(entries) != 0 {
+		t.Errorf("a refused nomi init wrote %v (%v)", entries, err)
+	}
+
+	// A name alone makes a module nobody downloads: no path, and no go.mod.
+	if out := c.must(bare, "init", "hello"); out != "wrote nomi.toml" {
+		t.Errorf("nomi init hello printed\n%s", out)
+	}
+	if got := mustRead(t, filepath.Join(bare, "nomi.toml")); got != "[module]\nname = \"hello\"\nentry_points = [\"main\"]\n" {
+		t.Errorf("nomi.toml is\n%s", got)
+	}
+	if isRegular(filepath.Join(bare, "go.mod")) {
+		t.Error("nomi init with a name alone wrote a go.mod")
 	}
 }

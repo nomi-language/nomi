@@ -22,8 +22,8 @@ end
 
 pub struct Loot
     name:   String
-    drops:  Maybe<Int> = None
-    held:   Maybe<Item> = Some(Item.Key)
+    drops:  Option<Int> = None
+    held:   Option<Item> = Some(Item.Key)
     tags:   List<String> = []
     item:   Item = Item.Coin
     hello:  String = greeting
@@ -38,10 +38,10 @@ end
 pub struct Box<T>
     value: T
     extra: List<T> = []
-    label: Maybe<String> = None
+    label: Option<String> = None
 end
 
 pub enum Shape
-    Tagged {name: String, tags: List<String> = [], at: Maybe<Int> = None}
+    Tagged {name: String, tags: List<String> = [], at: Option<Int> = None}
     Plain
 end

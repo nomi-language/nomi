@@ -53,11 +53,11 @@ fn layout(title: String, content: Html) -> Html
     """
 end
 
-fn signup_form(email: String, error: Maybe<String>) -> Html
+fn signup_form(email: String, error: Option<String>) -> Html
     Html"""
     <form method='post' action='/signup'>
       <input name='email' value='${email}'>
-      ${Maybe.map(error, fn e -> Html"<p class='error'>${e}</p>")}
+      ${Option.map(error, fn e -> Html"<p class='error'>${e}</p>")}
       <button>Sign up</button>
     </form>
     """
@@ -68,7 +68,7 @@ fn show_signup(Request) -> Html
 end
 
 fn signup(request: Request) -> Response
-    email = Request.form_value(request, "email") |> Maybe.with_default("")
+    email = Request.form_value(request, "email") |> Option.with_default("")
 
     if not String.contains(email, "@") then
         page = layout("Sign up", signup_form(email, Some("That is not an email address.")))
@@ -97,7 +97,7 @@ dbg line 52: Response.text(bad) = Ok("<html>\n  <head>\n    <title>Sign up</titl
 
 Each `${...}` is escaped for where it stands, so the `<ada>` typed into the
 form comes back as text in the `value` attribute, not as a tag. A `${...}`
-holding a `Maybe` shows its value, or nothing when it is `None`.
+holding an `Option` shows its value, or nothing when it is `None`.
 
 Static files such as the htmx script and a stylesheet go in a folder the
 program embeds and serves with `http.file_server_embedded`, as the next

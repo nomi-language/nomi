@@ -136,27 +136,27 @@ end
 // type. Pass 2 of BuildTypes once looked the type up by NAME, which for a
 // declaration that lost its slot is std's own type.
 func TestReservedName_RedeclarationDoesNotReshapeStdType(t *testing.T) {
-	src := `enum Maybe<T>
+	src := `enum Option<T>
   Some T
   None
   Extra
 end
 `
 	fa, _ := reservedNamesFA(t, src)
-	slot := fa.ModuleScope.Lookup("Maybe")
+	slot := fa.ModuleScope.Lookup("Option")
 	for slot != nil && slot.Resolved != nil {
 		slot = slot.Resolved
 	}
 	et, ok := slot.Type.(*analysis.EnumType)
 	if !ok {
-		t.Fatalf("`Maybe` in scope is not an enum: %#v", slot.Type)
+		t.Fatalf("`Option` in scope is not an enum: %#v", slot.Type)
 	}
 	var names []string
 	for _, v := range et.Variants {
 		names = append(names, v.Name)
 	}
 	if strings.Join(names, ",") != "Some,None" {
-		t.Errorf("std's Maybe now has variants %v; a local redeclaration rewrote it", names)
+		t.Errorf("std's Option now has variants %v; a local redeclaration rewrote it", names)
 	}
 }
 
@@ -168,17 +168,17 @@ func TestReservedName_PreludeTypesResolveOneWay(t *testing.T) {
 		name string
 		src  string
 	}{
-		{"Maybe", `enum Maybe<T>
+		{"Option", `enum Option<T>
   Some T
   None
 end
 
-fn some() -> Maybe<Int>
-  Maybe.Some(1)
+fn some() -> Option<Int>
+  Option.Some(1)
 end
 
-fn none() -> Maybe<Int>
-  Maybe.None
+fn none() -> Option<Int>
+  Option.None
 end
 `},
 		{"Result", `enum Result<T, E>

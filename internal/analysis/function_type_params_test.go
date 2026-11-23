@@ -157,7 +157,7 @@ fn has_any_items<I, T>(items: I) -> Bool where I: Iter<T>
     Iter.count(items) > 0
 end
 
-fn none<T>() -> Maybe<T>
+fn none<T>() -> Option<T>
     None
 end
 `

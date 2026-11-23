@@ -72,10 +72,10 @@ end
 	}
 }
 
-// A field read on an enum value whose variant lacks the field is the
-// program's fault, with rt's text and the read's line.
-func TestRun_AnEnumFieldReadTrapIsTheProgramsFault(t *testing.T) {
-	_, err := runVM(t, `enum Shape
+// A field read on an enum value that some variant lacks is a compile error
+// at the field, and the program never starts.
+func TestLoad_AnEnumFieldSomeVariantLacksIsACompileError(t *testing.T) {
+	_, err := vmhost.Load(writeProgram(t, `enum Shape
   Rect {height: Int}
   Round {radius: Float}
 end
@@ -84,12 +84,10 @@ fn main()
   s = Shape.Rect{height: 2}
   _ = s.radius
 end
-`)
-	if b, blocked := vmhost.IsBlocked(err); blocked {
-		t.Fatalf("an enum field trap reported as the VM's limit: %q", b.Reasons)
-	}
-	if err == nil || err.Error() != "line 8: variant 'Rect' has no field 'radius'" {
-		t.Fatalf("error %v", err)
+`))
+	want := "main.nomi:8:9: field 'radius' is not in every variant of Shape: Rect has none"
+	if err == nil || !strings.Contains(err.Error(), want) {
+		t.Fatalf("load error %v, want one holding %q", err, want)
 	}
 }
 
@@ -99,7 +97,7 @@ end
 func TestRun_ElselessPatternIfRuns(t *testing.T) {
 	out, err := runVM(t, `import std::io
 
-fn side_effect(m: Maybe<Int>) -> Bool
+fn side_effect(m: Option<Int>) -> Bool
   result = if Some(n) = m then
     io.print("hit ${n}")
   end

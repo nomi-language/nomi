@@ -33,6 +33,6 @@ Two indexed reads in `cell_at`, and one read and two updates in `set_cell`.
 
 The reads in `cell_at` keep `Vector.get`, since their `None` is the edge test. `set_cell` is 2 lines and returns the new grid, so `fill` writes a cell with `grid = set_cell(grid, position, value)` and `spiral_matrix` returns `fill`'s grid with no default.
 
-`Vector.set` returns a `Maybe<Vector<T>>`, as `Vector.get` does, so the two writes that cannot miss end in `!` and `set_cell` carries no `Maybe` up to `fill`.
+`Vector.set` returns an `Option<Vector<T>>`, as `Vector.get` does, so the two writes that cannot miss end in `!` and `set_cell` carries no `Option` up to `fill`.
 
 An indexed nested update (hypothetical syntax, `grid = Vector[..grid, row => Vector[.., column => value]]`) would remove `set_cell` altogether.

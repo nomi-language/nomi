@@ -69,7 +69,7 @@ var infiniteIterCases = []infiniteIterCase{
 	{"chunk_equal", []string{"Iter.chunk_equal"}, pipe("Iter.repeat(1)", " |> Iter.chunk_equal() |> Iter.to_list()"), true},
 	{"flat_map", []string{"Iter.flat_map"}, pipe("Iter.from(0)", " |> Iter.flat_map(fn x -> [x, x]) |> Iter.to_list()"), true},
 	{"flatten", []string{"Iter.flatten"}, pipe("Iter.repeat([1])", " |> Iter.flatten() |> Iter.to_list()"), true},
-	{"Maybe.values", []string{"Maybe.values"}, pipe("Iter.repeat(Maybe.Some(1))", " |> Maybe.values() |> Iter.to_list()"), true},
+	{"Option.values", []string{"Option.values"}, pipe("Iter.repeat(Option.Some(1))", " |> Option.values() |> Iter.to_list()"), true},
 	{"chunks", []string{"Iter.chunks"}, pipe("Iter.from(0)", " |> Iter.chunks(3) |> Iter.to_list()"), true},
 
 	{"windows", []string{"Iter.windows"}, pipe("Iter.from(0)", " |> Iter.windows(2) |> Iter.to_list()"), true},
@@ -149,7 +149,7 @@ var infiniteIterCases = []infiniteIterCase{
 	{"each_while", []string{"Iter.each_while"}, pipe("Iter.from(0)", " |> Iter.each_while(&(&1 < 3))"), false},
 	{"known_count", []string{"Iter.known_count"}, pipe("Iter.from(0)", " |> Iter.known_count()"), false},
 	{"is_infinite", []string{"Iter.is_infinite"}, pipe("Iter.from(0)", " |> Iter.is_infinite()"), false},
-	{"Maybe.collect", []string{"Maybe.collect"}, pipe("Range.naturals() |> Iter.map(fn n -> if n < 3 then Maybe.Some(n) else Maybe.None)", " |> Maybe.collect()"), false},
+	{"Option.collect", []string{"Option.collect"}, pipe("Range.naturals() |> Iter.map(fn n -> if n < 3 then Option.Some(n) else Option.None)", " |> Option.collect()"), false},
 	{"Result.collect", []string{"Result.collect"}, pipe("Iter.from(0) |> Iter.map(fn n -> if n < 3 then Result.Ok(n) else Result.Err(\"x\"))", " |> Result.collect()"), false},
 }
 

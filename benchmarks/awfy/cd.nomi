@@ -22,7 +22,7 @@
 //#   `recurse` are threaded through and returned rather than updated.
 //# - The suite's `forEach` closures that update a variable in their scope are
 //#   `Iter.reduce` folds over the same elements in the same order.
-//# - A missing value is `Maybe` rather than null.
+//# - A missing value is `Option` rather than null.
 
 import harness
 
@@ -131,7 +131,7 @@ enum RedBlackTree<K, V>
 end
 
 impl RedBlackTree<K, V>
-    fn get<K, V>(tree: RedBlackTree<K, V>, key: K) -> Maybe<V> where K: Comparable
+    fn get<K, V>(tree: RedBlackTree<K, V>, key: K) -> Option<V> where K: Comparable
         case tree
             .Leaf ->
                 None
@@ -150,7 +150,7 @@ impl RedBlackTree<K, V>
         tree:  RedBlackTree<K, V>,
         key:   K,
         value: V,
-    ) -> (Maybe<V>, RedBlackTree<K, V>) where K: Comparable
+    ) -> (Option<V>, RedBlackTree<K, V>) where K: Comparable
         (get(tree, key), blacken(insert(tree, key, value)))
     end
 
@@ -383,7 +383,7 @@ impl Motion
 
     /// Where `motion` and `other` come within the proximity radius during
     /// the frame, assuming each moves at a constant speed along its segment.
-    fn find_intersection(motion: Motion, other: Motion) -> Maybe<Vector3D>
+    fn find_intersection(motion: Motion, other: Motion) -> Option<Vector3D>
         init1 = motion.pos_one
         init2 = other.pos_one
         vec1 = delta(motion)
@@ -490,7 +490,7 @@ end
 typealias VoxelMap RedBlackTree<Vector2D, Vector<Motion>>
 
 fn put_into_map(voxel_map: VoxelMap, voxel: Vector2D, motion: Motion) -> VoxelMap
-    vec = RedBlackTree.get(voxel_map, voxel) |> Maybe.with_default(Vector[])
+    vec = RedBlackTree.get(voxel_map, voxel) |> Option.with_default(Vector[])
     (_, voxel_map) = RedBlackTree.put(voxel_map, voxel, Vector.push(vec, motion))
     voxel_map
 end
@@ -576,7 +576,7 @@ impl CollisionDetector
             (_, seen) = RedBlackTree.put(seen, aircraft.callsign, True)
 
             // Treat newly introduced aircraft as if they were stationary.
-            old_position = Maybe.with_default(old_position, new_position)
+            old_position = Option.with_default(old_position, new_position)
 
             motion = Motion{
                 callsign: aircraft.callsign,

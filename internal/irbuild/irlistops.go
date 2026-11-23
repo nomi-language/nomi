@@ -53,7 +53,7 @@ func (bl *irScalarBuilder) listCallPlan(t *ast.Call, args irQualArgs, method str
 		args.temps[i], args.kinds[i] = v, got
 	}
 	if method != "concat" {
-		if _, anchored := preludeSpecAnchor(preludeSpecNamed("Maybe")); !anchored {
+		if _, anchored := preludeSpecAnchor(preludeSpecNamed("Option")); !anchored {
 			return nil
 		}
 	}

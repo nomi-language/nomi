@@ -373,7 +373,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// Auto-prepend the prelude import chain to every non-stdlib file.
 	// The legacy std.Load()-driven path made prelude's ModuleScope the
 	// parent scope of every user file, so bare lookups for Some/None/Equal/...
-	// walked through prelude's Maybe/Ordering enums and found them as
+	// walked through prelude's Option/Ordering enums and found them as
 	// Members. Stdlib flows through the regular
 	// discovery pipeline so prelude is just another module, and the
 	// right way to surface its re-exported names is the same `import`
@@ -383,7 +383,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	//
 	// preludeImports() parses prelude.nomi once and returns its
 	// `pub import` chain as plain imports — mirroring
-	// prelude.nomi's drill-through structure (e.g. `std/maybe.Maybe.{self,
+	// prelude.nomi's drill-through structure (e.g. `std/option.Option.{self,
 	// None, Some}`) is what lets the variant names land in user scope
 	// without tripping the "cannot import variant 'X' directly" check.
 	preludeStmts, preludeErr := preludeImports(proj.ModuleIndex.Roots["std"], loader)
@@ -1715,7 +1715,12 @@ func repointSynthBandErrors(errs []TypeError, files func(each func(path string, 
 	return out
 }
 
-// synthSlotBase is the first line of the slot holding synthesized line.
+// synthSlotBase is the first line of the slot holding synthesized line:
+// one synthLineStride wide, or synthBlockLines in the slot the Debug of
+// the types declared in bodies shares (synthOriginBlock).
 func synthSlotBase(line int) int {
+	if block := synthSlot(synthOriginBlock, 0, 0); line >= block {
+		return block + (line-block)/synthBlockLines*synthBlockLines
+	}
 	return synthLineBase + (line-synthLineBase)/synthLineStride*synthLineStride
 }

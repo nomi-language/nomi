@@ -39,10 +39,10 @@ type RefinementSite struct {
 	// Compound is set for a struct or collection literal, which a
 	// diagnostic names as "this ... literal" rather than by its text.
 	Compound bool
-	// Wraps is set when Type is a `type` over a subtype or with a rule of
+	// Wraps is set when Type is a `type` over a refinement or with a rule of
 	// its own (analysis.IsCheckedDistinct): the first of a step's Via is
 	// the type it wraps, which a diagnostic says it wraps rather than is a
-	// subtype of.
+	// refinement of.
 	Wraps bool
 	// Steps are the refinements whose rules the literal must satisfy, each
 	// parent's before its own (analysis.RefinementChecks), each with its
@@ -170,7 +170,7 @@ func (g *gen) refinementRules() []RefinementRuleSite {
 				continue
 			}
 			site := RefinementRuleSite{Path: path, Line: line, Col: col, Type: name, Rule: analysis.RuleText(rule), Key: genericRefinementKey(rc.Type)}
-			if prefix := g.genericTryFromInstances(name, td.Subtype); prefix != "" && !plantedMissingCheck(name) {
+			if prefix := g.genericTryFromInstances(name, td.Refinement); prefix != "" && !plantedMissingCheck(name) {
 				site.Instances = prefix
 			} else {
 				site.Unchecked = fmt.Sprintf("could not be found (%s)", tryFromName(rc.Type))
@@ -195,7 +195,7 @@ func (g *gen) refinementRules() []RefinementRuleSite {
 			continue
 		}
 		recv := kindInvalid
-		if td, isType := n.(*ast.TypeDef); isStruct(n) || (isType && !td.Subtype) {
+		if td, isType := n.(*ast.TypeDef); isStruct(n) || (isType && !td.Refinement) {
 			// A struct with a rule, or a validated type, is a receiver
 			// kind of its own: the kind of the checker's type for the
 			// declaration.
@@ -215,7 +215,7 @@ func (g *gen) refinementRules() []RefinementRuleSite {
 
 // genericTryFromInstances is the prefix every instance's linkage name of
 // the `try_from` of name, a generic refinement this unit's file declares,
-// starts with, or "" when the builder names no such function. A subtype's
+// starts with, or "" when the builder names no such function. A refinement's
 // `try_from` is in an inherent block, whose receiver key is the same at
 // every instance (`main.Small<T>[0].try_from<`). A validated type's is in
 // `impl TryFrom<base(Short)> for Short<T>`, whose receiver and interface
@@ -223,7 +223,7 @@ func (g *gen) refinementRules() []RefinementRuleSite {
 // (`main.impl TryFrom<base(Short)> for Short<T>[6@main.Short<2>|9(:2)].try_from<{T=2}>`),
 // so its prefix ends at the block's declaration: the block declares
 // `try_from` alone.
-func (g *gen) genericTryFromInstances(name string, subtype bool) string {
+func (g *gen) genericTryFromInstances(name string, refinement bool) string {
 	links := g.programLinks()
 	for _, m := range g.nodes {
 		ib, isBlock := m.(*ast.ImplBlock)
@@ -235,7 +235,7 @@ func (g *gen) genericTryFromInstances(name string, subtype bool) string {
 			if !isFn || fd.Name != "try_from" {
 				continue
 			}
-			if subtype {
+			if refinement {
 				if link := g.implFuncLink(fd, kindInvalid); link != "" {
 					return link + "<"
 				}
@@ -555,8 +555,8 @@ func (g *gen) implFuncLink(fd ast.Node, recv kind) string {
 
 // programBuiltStdTryFrom is the linkage name of the instance a program
 // builds of fd, a std `try_from` the shared std lowering could not retain
-// because its body reaches a generic std function (a std subtype whose
-// parent is a generic subtype: FiniteRange over BoundedRange<Float> calls
+// because its body reaches a generic std function (a std refinement whose
+// parent is a generic refinement: FiniteRange over BoundedRange<Float> calls
 // `BoundedRange.try_from`), built here as a call site would build it
 // (stdInstCallAt): an instance with no arguments. built is false for a
 // `try_from` the shared lowering retains, and link is "" when the instance
@@ -651,7 +651,7 @@ func (bl *irScalarBuilder) refinementCall(t *ast.Call) (v ir.Temp, k kind, mobil
 }
 
 // uncheckedRefinement lowers the body of a refinement's `unchecked`, by the
-// type the checker gave it: a subtype's value is the base value itself, a
+// type the checker gave it: a refinement's value is the base value itself, a
 // validated type is built from it as its constructor builds it, at the
 // instance the checker solved for a generic one, and a struct refinement is
 // built from the record of its fields as its call form builds it. The
@@ -659,7 +659,7 @@ func (bl *irScalarBuilder) refinementCall(t *ast.Call) (v ir.Temp, k kind, mobil
 // declines here when neither builds the value.
 func (bl *irScalarBuilder) uncheckedRefinement(t *ast.UncheckedRefinement) (ir.Temp, kind, bool, bool) {
 	ty := analysis.ResolveClosed(bl.g.checkedExprType(t))
-	if dt, ok := ty.(*analysis.DistinctType); ok && dt.Subtype {
+	if dt, ok := ty.(*analysis.DistinctType); ok && dt.Refinement {
 		return bl.lower(t.Value)
 	}
 	if d := bl.g.nominalDef(ty); d != nil && d.isDistinct {
@@ -705,12 +705,12 @@ func (g *gen) refinementAt(line, col int) bool {
 		return false
 	}
 	dt, isDistinct := sym.Type.(*analysis.DistinctType)
-	return isDistinct && dt.Subtype
+	return isDistinct && dt.Refinement
 }
 
 // isDistinctRefinementDecl reports whether n declares a distinct
 // refinement, which the builder gives no def.
 func isDistinctRefinementDecl(n ast.Node) bool {
 	td, ok := n.(*ast.TypeDef)
-	return ok && td.Subtype && td.InnerTypeExpr != nil
+	return ok && td.Refinement && td.InnerTypeExpr != nil
 }

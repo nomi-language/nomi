@@ -16,7 +16,7 @@ func TestCheck_CollectionSpreads_Accepts(t *testing.T) {
 		"vector, two spreads":          "  v = Vector[1]\n  _a: Vector<Int> = Vector[..v, 2, ..v]\n",
 		"set, spread last":             "  s = Set[1]\n  _a: Set<Int> = Set[0, ..s]\n",
 		"set, two spreads":             "  s = Set[1]\n  _a: Set<Int> = Set[..s, ..Set[2]]\n",
-		"list, spread of a Maybe":      "  m = Some(1)\n  _a: List<Int> = [0, ..m, ..None]\n",
+		"list, spread of an Option":    "  m = Some(1)\n  _a: List<Int> = [0, ..m, ..None]\n",
 		"list, spread of an Iter":      "  _a: List<Int> = [0, ..[1, 2] |> Iter.map(fn x -> x * 2)]\n",
 		"list, spread of a set":        "  _a = [0, ..Set[1]]\n",
 		"vector, spread of a list":     "  _a: Vector<Int> = Vector[1, ..[2], 3]\n",
@@ -102,8 +102,8 @@ func TestCheck_CollectionSpreads_AtAnExpectedElementType(t *testing.T) {
 		{"an interface, the spread alone", "Display", "[1, 2]", "[..base]"},
 		{"an enum, beside another embedded type", "Shape", "[Circle{r: 1}]", "[..base, Dot{at: 1}]"},
 		{"an enum, the spread alone", "Shape", "[Circle{r: 1}]", "[..base]"},
-		{"a subtype's base", "Int", "[List.length([1])]", "[..base, -1]"},
-		{"a subtype's base, the spread alone", "Int", "[List.length([1])]", "[..base]"},
+		{"a refinement's base", "Int", "[List.length([1])]", "[..base, -1]"},
+		{"a refinement's base, the spread alone", "Int", "[List.length([1])]", "[..base]"},
 	}
 	for _, k := range kinds {
 		for _, r := range rows {
@@ -140,9 +140,9 @@ func TestCheck_CollectionSpreads_AtAnExpectedElementTypeRefuses(t *testing.T) {
 
 // A list, vector or set literal of one spread of the literal's own type
 // and nothing else is that spread, with an expected type as without one,
-// and so is one whose spread is a subtype of it. One that converts its
+// and so is one whose spread is a refinement of it. One that converts its
 // spread is not: a list spread where a vector is expected, elements of a
-// subtype widened to their base, and a distinct type built from its inner
+// refinement widened to their base, and a distinct type built from its inner
 // type.
 func TestCheck_CollectionSpreads_ALoneSpreadOfTheExpectedType(t *testing.T) {
 	const decls = "type Ids List<Int>\n\ntype Vs Vector<Int>\n\n"
@@ -152,12 +152,12 @@ func TestCheck_CollectionSpreads_ALoneSpreadOfTheExpectedType(t *testing.T) {
 		{"a list", "  base = [1]\n  _a: List<Int> = [..base]\n", "a list spread with no elements is its base value; write `base`"},
 		{"a list, no expected type", "  base = [1]\n  _a = [..base]\n", "a list spread with no elements is its base value; write `base`"},
 		{"a vector, no expected type", "  base = Vector[1]\n  _a = Vector[..base]\n", "a vector spread with no elements is its base value; write `base`"},
-		{"a subtype of the list", "  base: NonEmptyList<Int> = [1]\n  _a: List<Int> = [..base]\n", "a list spread with no elements is its base value; write `base`"},
-		{"the subtype itself", "  base: NonEmptyList<Int> = [1]\n  _a: NonEmptyList<Int> = [..base]\n", "a list spread with no elements is its base value; write `base`"},
+		{"a refinement of the list", "  base: NonEmptyList<Int> = [1]\n  _a: List<Int> = [..base]\n", "a list spread with no elements is its base value; write `base`"},
+		{"the refinement itself", "  base: NonEmptyList<Int> = [1]\n  _a: NonEmptyList<Int> = [..base]\n", "a list spread with no elements is its base value; write `base`"},
 		{"a list as a vector", "  base = [1]\n  _a: Vector<Int> = [..base]\n", ""},
 		{"a vector as a list", "  base = Vector[1]\n  _a: List<Int> = [..base]\n", ""},
 		{"a set as a list", "  base = Set[1]\n  _a: List<Int> = [..base]\n", ""},
-		{"subtype elements widened", "  base: List<PositiveInt> = [1]\n  _a: List<Int> = [..base]\n", ""},
+		{"refinement elements widened", "  base: List<PositiveInt> = [1]\n  _a: List<Int> = [..base]\n", ""},
 		{"a distinct list built", "  base = [1]\n  _a: Ids = [..base]\n", ""},
 		{"a distinct vector built", "  base = Vector[1]\n  _a: Vs = [..base]\n", ""},
 	} {
@@ -249,7 +249,7 @@ func TestCheck_CollectionSpreads_TheSpreadDecidesTheElementType(t *testing.T) {
 }
 
 // What a spread's element type admits beside it with no expected type,
-// the same in a list, a vector and a set: a subtype beside its base, in
+// the same in a list, a vector and a set: a refinement beside its base, in
 // either order, among elements or among spreads, joins as the base; a
 // numeric literal adapts to the spread's element type; a bare variant
 // resolves against it.

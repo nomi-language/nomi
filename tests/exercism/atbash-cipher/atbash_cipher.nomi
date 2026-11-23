@@ -30,7 +30,7 @@ fn translate(text: String) -> List<String>
     |> Iter.to_list()
 end
 
-fn swap(cp: Codepoint) -> Maybe<Codepoint>
+fn swap(cp: Codepoint) -> Option<Codepoint>
     if Codepoint.is_digit(cp) then
         Some(cp)
     else

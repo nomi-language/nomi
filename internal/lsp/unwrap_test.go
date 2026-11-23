@@ -80,6 +80,6 @@ func TestUnwrap_PipeStageHover(t *testing.T) {
   n = "4" ▮|> String.to_int()!
   io.inspect(n)
 end
-`, "`String` → `String.to_int(s)!` → `Int`\n\n```nomi\nfn to_int(s: String) -> Maybe<Int>\n```\n\nThe piped value fills `s`."},
+`, "`String` → `String.to_int(s)!` → `Int`\n\n```nomi\nfn to_int(s: String) -> Option<Int>\n```\n\nThe piped value fills `s`."},
 	})
 }

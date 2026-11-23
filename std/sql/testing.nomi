@@ -16,7 +16,7 @@ import
     int.{Int, NonZeroInt}
     iter.Iter
     lists.List
-    maybe.Maybe.{self, None, Some}
+    option.Option.{self, None, Some}
     results.Result.{self, Err, Ok}
     sql.{self, Conn, ConstraintKind, Dialect, Row, Sql, Statement, Value}
     strings.String
@@ -223,7 +223,7 @@ impl Conn for Fake
 
                 outer = Iter.take(state.levels, index - 1) |> Iter.to_list()
                 inner = Iter.drop(state.levels, index - 1) |> Iter.to_list()
-                parent = Iter.first(inner) |> Maybe.map(.id) |> Maybe.with_default(0)
+                parent = Iter.first(inner) |> Option.map(.id) |> Option.with_default(0)
 
                 merged = Level{
                     id:      parent,
@@ -324,11 +324,11 @@ end
 
 // Where the level `id` stands among the open ones: 0 for the connection, 1
 // for its transaction, 2 and on for savepoints. None once it has ended.
-fn depth(state: State, id: Int) -> Maybe<Int>
+fn depth(state: State, id: Int) -> Option<Int>
     state.levels
     |> Iter.with_index()
     |> Iter.find(fn (_, level) -> level.id == id)
-    |> Maybe.map(fn (index, _) -> index)
+    |> Option.map(fn (index, _) -> index)
 end
 
 // The savepoint at depth `index`: sp1 is the first inside a transaction.
@@ -347,7 +347,7 @@ fn run(fake: Fake, statement: Statement) -> Result<List<Row>, sql.Error>
         return Err(sql.Error.Closed)
     end
 
-    if Maybe.is_none(depth(state, fake.id)) then
+    if Option.is_none(depth(state, fake.id)) then
         put(fake, state)
         return Err(sql.Error.Finished)
     end
@@ -516,8 +516,8 @@ pub fn conformance_answer(
         |> Iter.filter(fn s -> Iter.first(s.parts) == Iter.first(insert(0, None).parts))
         |> Iter.map(fn s ->
             Row.new(query, [
-                ("n", Iter.get(s.params, 0) |> Maybe.with_default(Value.Null)),
-                ("t", Iter.get(s.params, 1) |> Maybe.with_default(Value.Null)),
+                ("n", Iter.get(s.params, 0) |> Option.with_default(Value.Null)),
+                ("t", Iter.get(s.params, 1) |> Option.with_default(Value.Null)),
             ])
         end)
         |> Iter.sort_by(fn row -> Row.get<Int>(row, "n") |> Result.with_default(0))
@@ -530,7 +530,7 @@ fn is_shaped(statement: Statement, template: Statement) -> Bool
     statement.parts == template.parts
 end
 
-fn int_param(statement: Statement, index: Int) -> Maybe<Int>
+fn int_param(statement: Statement, index: Int) -> Option<Int>
     case Iter.get(statement.params, index)
         Some(.Int(n)) -> Some(n)
         _             -> None
@@ -551,7 +551,7 @@ fn times(visible: List<Statement>) -> List<(Int, Instant)>
 
     visible
     |> Iter.flat_map(fn s ->
-        n = int_param(s, 0) |> Maybe.with_default(0)
+        n = int_param(s, 0) |> Option.with_default(0)
 
         if is_shaped(s, insert_at(0, now)) then
             [(n, instant_param(s, 1))]
@@ -564,7 +564,7 @@ fn times(visible: List<Statement>) -> List<(Int, Instant)>
     |> Iter.to_list()
 end
 
-fn violation(kind: ConstraintKind, name: String, table: String, column: Maybe<String>) -> sql.Error
+fn violation(kind: ConstraintKind, name: String, table: String, column: Option<String>) -> sql.Error
     sql.Error.Constraint{kind:, name:, table: Some(table), column:}
 end
 
@@ -574,7 +574,7 @@ fn parent_violation(statement: Statement, visible: List<Statement>) -> Result<Un
     table = "nomi_conformance_parents"
     id = int_param(statement, 0)
     k = int_param(statement, 1)
-    c = int_param(statement, 2) |> Maybe.with_default(0)
+    c = int_param(statement, 2) |> Option.with_default(0)
     parents = visible |> Iter.filter(fn s -> is_shaped(s, insert_parent(0, 0, 0))) |> Iter.to_list()
 
     if c >= 10 then
@@ -618,7 +618,7 @@ fn create_table() -> Statement
     Sql"CREATE TEMPORARY TABLE nomi_conformance (n INTEGER NOT NULL, t TEXT)"
 end
 
-fn insert(n: Int, t: Maybe<String>) -> Statement
+fn insert(n: Int, t: Option<String>) -> Statement
     Sql"INSERT INTO nomi_conformance (n, t) VALUES (${n}, ${t})"
 end
 
@@ -775,7 +775,7 @@ fn insert_parent(id: Int, k: Int, c: Int) -> Statement
     Sql"INSERT INTO nomi_conformance_parents (id, k, c) VALUES (${id}, ${k}, ${c})"
 end
 
-fn insert_child(n: Maybe<Int>, parent_id: Int) -> Statement
+fn insert_child(n: Option<Int>, parent_id: Int) -> Statement
     Sql"INSERT INTO nomi_conformance_children (n, parent_id) VALUES (${n}, ${parent_id})"
 end
 
@@ -837,7 +837,7 @@ fn checks() -> List<(String, (Conn) -> Result<Unit, String>)>
                 rows = step(Conn.query(conn, read_all()), "read the table")?
 
                 found =
-                    rows |> Iter.map(fn row -> Row.get<Maybe<String>>(row, "t")) |> Iter.to_list()
+                    rows |> Iter.map(fn row -> Row.get<Option<String>>(row, "t")) |> Iter.to_list()
 
                 if found == [Ok(Some(text))] then
                     Ok(Unit)
@@ -853,7 +853,7 @@ fn checks() -> List<(String, (Conn) -> Result<Unit, String>)>
                 rows = step(Conn.query(conn, read_all()), "read the table")?
 
                 found =
-                    rows |> Iter.map(fn row -> Row.get<Maybe<String>>(row, "t")) |> Iter.to_list()
+                    rows |> Iter.map(fn row -> Row.get<Option<String>>(row, "t")) |> Iter.to_list()
 
                 if found == [Ok(None)] then
                     Ok(Unit)
@@ -872,11 +872,11 @@ fn checks() -> List<(String, (Conn) -> Result<Unit, String>)>
                     None -> return Err("the table read back no rows")
                 end
 
-                by_name = (Row.get<Int>(row, "n"), Row.get<Maybe<String>>(row, "t"))
+                by_name = (Row.get<Int>(row, "n"), Row.get<Option<String>>(row, "t"))
 
                 by_position = (
                     Row.get_position<Int>(row, 0),
-                    Row.get_position<Maybe<String>>(row, 1),
+                    Row.get_position<Option<String>>(row, 1),
                 )
 
                 if by_name == (Ok(7), Ok(Some("seven"))) and by_position == by_name then

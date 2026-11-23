@@ -165,7 +165,7 @@ func heldAsStd(t analysis.Type, iface analysis.StdType) bool {
 // function is, carrying use, the call's record as the operator's
 // (operatorUseOfCall), onto the operator it writes: `==` as the written
 // operator is lowered (compare), its operands with it, so the two
-// operands are made one kind as `==`'s are (`Maybe.equal(Some(circle),
+// operands are made one kind as `==`'s are (`Option.equal(Some(circle),
 // Some(shape))` widens the Circle into Shape); `~~~` to bitwiseNot and
 // any other to arithmetic, over the call's lowered operands. An operand
 // that does not lower declines.

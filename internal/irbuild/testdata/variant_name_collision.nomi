@@ -4,7 +4,8 @@
 //# Two enums share a variant name, so a struct-shaped variant's declaration
 //# must be keyed by enum and variant, not by the variant name alone. A
 //# variant-name key gives `Signal.Go` and `Gear.Go` one registration, and the
-//# later declaration wins: `Signal.Go{}.n` answers 7 where 3 is correct.
+//# later declaration wins: `n` matched out of `Signal.Go{}` is 7 where 3 is
+//# correct.
 //# dot_variant.nomi keeps disjoint names because it tests resolution, not
 //# defaults.
 //#
@@ -39,13 +40,34 @@ enum Gear
     Park
 end
 
+fn signal_n(signal: Signal) -> Int
+    case signal
+        .Go{n:} -> n
+        .Halt   -> 0
+    end
+end
+
+fn gear_n(gear: Gear) -> Int
+    case gear
+        .Go{n:} -> n
+        .Park   -> 0
+    end
+end
+
+fn gear_label(gear: Gear) -> String
+    case gear
+        .Go{label:} -> label
+        .Park       -> ""
+    end
+end
+
 fn main()
     first = Signal.Go{}
     second = Gear.Go{label: "top"}
     explicit = Signal.Go{n: 5}
 
-    io.print("signal-default ${first.n}")
-    io.print("gear-default ${second.n}")
-    io.print("gear-label ${second.label}")
-    io.print("signal-explicit ${explicit.n}")
+    io.print("signal-default ${signal_n(first)}")
+    io.print("gear-default ${gear_n(second)}")
+    io.print("gear-label ${gear_label(second)}")
+    io.print("signal-explicit ${signal_n(explicit)}")
 end

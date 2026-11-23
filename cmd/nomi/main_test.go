@@ -863,7 +863,7 @@ func TestTestCommand_FailedReplayNumbersTheScript(t *testing.T) {
 fn main()
     io.print("")
     io.print("What is the starting balance?")
-    balance = io.read_line() |> Result.with_default(None) |> Maybe.with_default("0") |> String.to_int() |> Maybe.with_default(0)
+    balance = io.read_line() |> Result.with_default(None) |> Option.with_default("0") |> String.to_int() |> Option.with_default(0)
     io.print("Your starting balance is ${balance}")
     prompt(balance)
 end
@@ -1320,7 +1320,7 @@ func TestTestCommand_AssertionFailureShowsOrPredicateDecider(t *testing.T) {
 
 test "fails"
   left = False
-  assert left or Maybe.is_some(None)
+  assert left or Option.is_some(None)
 end
 `)
 	out, err := runNomi(t, cacheRoot, "test", dir)
@@ -1329,7 +1329,7 @@ end
 	}
 	if !strings.Contains(out, "left") ||
 		!strings.Contains(out, "= False") ||
-		!strings.Contains(out, "Maybe.is_some(None)\n        = False") {
+		!strings.Contains(out, "Option.is_some(None)\n        = False") {
 		t.Fatalf("expected or decider values, got:\n%s", out)
 	}
 	if strings.Contains(out, "None\n        = None") {
@@ -1347,8 +1347,8 @@ func TestTestCommand_AssertionFailureShowsNegatedPredicateInput(t *testing.T) {
 	mustWrite(t, testPath, `
 
 test "fails"
-  value: Maybe<Int> = None
-  assert not Maybe.is_none(value)
+  value: Option<Int> = None
+  assert not Option.is_none(value)
 end
 `)
 	out, err := runNomi(t, cacheRoot, "test", dir)

@@ -150,7 +150,7 @@ type stdIfaceParamSpec struct {
 // NOT listed, each for a reason this mechanism cannot paper over:
 // `Add`/`Subtract`/`Multiply`/`Divide`/`Iter`/`Literal`/`Steppable` are
 // GENERIC; `App` declares a FIELD and no functions; `Struct`'s only method is a
-// `host fn`; `Discrete`'s `next` answers `Maybe<self>`, a self nested in
+// `host fn`; `Discrete`'s `next` answers `Option<self>`, a self nested in
 // the result, as `FromJson` nests `self` INSIDE its return type. Each keeps
 // refusing under `stdlib interface`. A Nomi-bodied default is no reason to
 // leave a row out: it takes no slot (matches) and is lowered in its
@@ -162,7 +162,7 @@ type stdIfaceParamSpec struct {
 // DICTIONARY carries the TypeID as its own `*rt.TypeID` parameter, so it needs
 // no self-typed argument to dispatch on, and it re-boxes the `any` result under
 // exactly the TypeID that selected the implementation. With a USER interface,
-// `fn make(n: Int) -> self` lowers, while `Result<self, String>`, `Maybe<self>`
+// `fn make(n: Int) -> self` lowers, while `Result<self, String>`, `Option<self>`
 // and `List<self>` refuse; `from_json(json: Json) -> Result<self, ShapeError>` is
 // the second group. impl.go's `gapNestedSelfResult` states the mechanism and is
 // the row that fires.

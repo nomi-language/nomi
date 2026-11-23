@@ -188,13 +188,13 @@ func withoutAsColumn(rows [][]ast.Node) [][]ast.Node {
 // coversColumn reports whether p, in a column whose type has the constructors
 // ctors, matches every value: a catch-all, or a pattern that fits none of the
 // constructors (a type error checkPattern reports). A literal or a string
-// prefix over a subtype fits: its value is its base's (spec §4
-// *Subtypes*), so `80` over a Port tests the value as it would an Int.
+// prefix over a refinement fits: its value is its base's (spec §4
+// *Refinements*), so `80` over a Port tests the value as it would an Int.
 func (c *checker) coversColumn(t Type, ctors []patCtor, p ast.Node) bool {
 	if isCatchAllPattern(p) {
 		return true
 	}
-	if dt, isDistinct := t.(*DistinctType); isDistinct && dt.Subtype && isUnenumerableConstraint(dt.Inner, p) {
+	if dt, isDistinct := t.(*DistinctType); isDistinct && dt.Refinement && isUnenumerableConstraint(dt.Inner, p) {
 		return false
 	}
 	if constrainedRest(p) {

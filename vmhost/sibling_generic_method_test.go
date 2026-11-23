@@ -229,17 +229,17 @@ func TestStdModuleQualifiedOwnFamily_Runs(t *testing.T) {
     std::iter
     std::lists
     std::maps
-    std::maybe
+    std::option
 end
 
 fn main()
     io.inspect(lists.List.first([4, 5]))
     io.inspect(iter.Iter.find([1, 2, 3], fn x -> x > 1))
     io.inspect(maps.Map.get({1 => "z"}, 1))
-    io.inspect(maybe.Maybe.with_default(None, 3))
-    f: (List<String>) -> Maybe<String> = lists.List.first
+    io.inspect(option.Option.with_default(None, 3))
+    f: (List<String>) -> Option<String> = lists.List.first
     io.inspect(f(["a"]))
-    g: (Maybe<Int>, (Int) -> Int) -> Maybe<Int> = maybe.Maybe.map
+    g: (Option<Int>, (Int) -> Int) -> Option<Int> = option.Option.map
     io.inspect(g(Some(2), fn x -> x * 3))
 end
 `})

@@ -179,8 +179,8 @@ const (
 	// view (iterCall).
 	routeEachWhile
 	routeStringJoin
-	// routeMapErr is `Result.map_err`, routeToResult `Maybe.to_result`,
-	// and routeWithDefault `Maybe.with_default` and
+	// routeMapErr is `Result.map_err`, routeToResult `Option.to_result`,
+	// and routeWithDefault `Option.with_default` and
 	// `Result.with_default`.
 	routeMapErr
 	routeToResult
@@ -236,7 +236,7 @@ var (
 	stdBoolType    = analysis.StdType{Module: "std/bool", Name: "Bool"}
 	stdStringType  = analysis.StdType{Module: "std/strings", Name: "String"}
 	stdBytesType   = analysis.StdType{Module: "std/bytes", Name: "Bytes"}
-	stdMaybeType   = analysis.StdType{Module: "std/maybe", Name: "Maybe"}
+	stdOptionType  = analysis.StdType{Module: "std/option", Name: "Option"}
 	stdResultType  = analysis.StdType{Module: "std/results", Name: "Result"}
 	stdListType    = analysis.StdType{Module: "std/lists", Name: "List"}
 	stdVectorType  = analysis.StdType{Module: "std/vectors", Name: "Vector"}
@@ -271,8 +271,8 @@ func stdQualRouteTable() map[stdQualKey]stdRoute {
 		{stdStringType, "each_while"}:   routeEachWhile,
 		{stdStringType, "join"}:         routeStringJoin,
 		{stdResultType, "map_err"}:      routeMapErr,
-		{stdMaybeType, "to_result"}:     routeToResult,
-		{stdMaybeType, "with_default"}:  routeWithDefault,
+		{stdOptionType, "to_result"}:    routeToResult,
+		{stdOptionType, "with_default"}: routeWithDefault,
 		{stdResultType, "with_default"}: routeWithDefault,
 		{stdIterType, ""}:               routeIter,
 		{stdRangeType, ""}:              routeRange,

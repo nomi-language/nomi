@@ -92,7 +92,7 @@ func TestRenderImports_NonImportNode(t *testing.T) {
 // it mid-edit (`.Obj(_) -> True _ -> False` on the `case` line), renders
 // with a marker where the parser could not read, not a panic.
 func TestRenderNode_ErrorNodeRendersAMarker(t *testing.T) {
-	src := "subtype JsonObject Json when fn json -> case json .Obj(_) -> True _ -> False end\n"
+	src := "refine JsonObject Json when fn json -> case json .Obj(_) -> True _ -> False end\n"
 	nodes, errs, _ := parser.ParseResilient(lexer.Lex(src))
 	if len(errs) == 0 {
 		t.Fatal("the parser accepts a case's arms on its header's line; the fixture needs a source it recovers from")

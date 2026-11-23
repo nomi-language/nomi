@@ -102,7 +102,7 @@ func (bl *irScalarBuilder) listMakeOf(at ast.Node, items []ast.Node, tail ast.No
 		if !ok {
 			return no()
 		}
-		// A tail that is another Iter (`[x, ..maybe]`) is made a List.
+		// A tail that is another Iter (`[x, ..option]`) is made a List.
 		p, ok := bl.collectSpread(at, spreadPart{at: tail, v: v, k: tk}, listSpreadJoin)
 		if !ok {
 			return no()
@@ -276,7 +276,7 @@ func (bl *irScalarBuilder) convertTo(at ast.Node, v ir.Temp, have, want kind) (i
 		}
 		return v, have, false
 	}
-	// `w: Maybe<Shape> = m` for `m: Maybe<Circle>`: a value built at the
+	// `w: Option<Shape> = m` for `m: Option<Circle>`: a value built at the
 	// narrower type is rebuilt at the wider one (irembedsrebuild.go).
 	if out, rebuilt := bl.rebuildWidened(at, v, have, want); rebuilt {
 		return out, want, true
@@ -377,7 +377,7 @@ func (bl *irScalarBuilder) lowerTypedOperand(at ast.Node, want kind) (ir.Temp, k
 		return bl.unreachable(ur, want)
 	}
 	if d, isDbg := at.(*ast.Dbg); isDbg && !isNilNode(d.Expr) {
-		// `_none: Maybe<Int> = dbg None`: `dbg` is transparent, so the
+		// `_none: Option<Int> = dbg None`: `dbg` is transparent, so the
 		// wanted type is its operand's.
 		return bl.dbgWant(d, d.Expr, want)
 	}
@@ -390,7 +390,7 @@ func (bl *irScalarBuilder) lowerTypedOperand(at ast.Node, want kind) (ir.Temp, k
 	}
 	if lam, isLambda := at.(*ast.Lambda); isLambda && want.tag == tagFunc && want.comp != nil &&
 		(funcResult(want).tag == tagSeq || irHeldKind(funcResult(want))) {
-		// `Maybe.map(m, fn _ -> [20])` where the checker solved the callback's
+		// `Option.map(m, fn _ -> [20])` where the checker solved the callback's
 		// result as `Iter<Int>`: the lambda answers that sequence
 		// (lambdaFunction), so its function value is the wanted one. A
 		// lambda whose result is an interface's existential answers it.

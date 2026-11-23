@@ -103,17 +103,17 @@ func TestModuleScope_DeclarationOrderDoesNotDecideTheWinner(t *testing.T) {
 }
 
 // TestModuleScope_ExplicitPreludeReimportStaysLegal is the boundary, and it is
-// the half that a wider fix gets wrong. `import std::maybe.{Maybe}` beside the
-// prelude's own injected `Maybe` is the explicit-is-better idiom; stdlib files
+// the half that a wider fix gets wrong. `import std::option.{Option}` beside the
+// prelude's own injected `Option` is the explicit-is-better idiom; stdlib files
 // and several analysis fixtures write it. An import landing on ANOTHER IMPORT's
 // slot is not a collision and must stay silent.
 //
 // Written as a table over prelude names of both kinds because the first attempt
 // at this fix routed every selective import through the redeclare check and
-// broke exactly these: four analysis tests, on `Maybe` and on `Display`.
+// broke exactly these: four analysis tests, on `Option` and on `Display`.
 func TestModuleScope_ExplicitPreludeReimportStaysLegal(t *testing.T) {
 	for _, c := range []struct{ name, src string }{
-		{"Maybe", "import std::maybe.{Maybe}\n\npub fn f(_m: Maybe<Int>) -> Int\n    0\nend\n"},
+		{"Option", "import std::option.{Option}\n\npub fn f(_m: Option<Int>) -> Int\n    0\nend\n"},
 		{"Display", "import std::display.{Display}\n\npub fn g(_d: Display) -> Int\n    0\nend\n"},
 	} {
 		c := c
@@ -160,18 +160,18 @@ func TestModuleScope_TwoSelectiveImportsStillLastWins(t *testing.T) {
 // declaring kind that IS prelude-reserved, so the only message about it is the
 // reserved-name one.
 func TestModuleScope_SynthesizedPreludeImportIsNotReported(t *testing.T) {
-	errs := buildAndCollectErrs(t, "pub struct Maybe\n  n: Int\nend\n")
+	errs := buildAndCollectErrs(t, "pub struct Option\n  n: Int\nend\n")
 	reserved := 0
 	for _, e := range errs {
 		if strings.Contains(e, "already defined in this scope") {
 			t.Errorf("the synthesized prelude import reported a collision at a position the user cannot see: %s", e)
 		}
-		if strings.Contains(e, "reserved") && strings.Contains(e, "'Maybe'") {
+		if strings.Contains(e, "reserved") && strings.Contains(e, "'Option'") {
 			reserved++
 		}
 	}
 	if reserved != 1 {
-		t.Errorf("expected exactly one reserved-name diagnostic for `struct Maybe`, got %d in %v", reserved, errs)
+		t.Errorf("expected exactly one reserved-name diagnostic for `struct Option`, got %d in %v", reserved, errs)
 	}
 }
 

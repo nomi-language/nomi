@@ -202,7 +202,7 @@ func MapSize[K, V any](m Map[K, V]) int64 { return int64(m.n) }
 //
 // Exported because it is the shape more than one caller wants — MapEqual and
 // MapMerge use it, `Map.contains` wants only the bool, and `Map.get` wants
-// a `Maybe<V>`.
+// an `Option<V>`.
 //
 // mapCountNode and mapCountProbe mark each node visited and each entry whose
 // hash is compared. They are empty functions in every normal build and exist

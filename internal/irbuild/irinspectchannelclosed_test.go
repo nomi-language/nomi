@@ -2,7 +2,7 @@ package irbuild
 
 import "testing"
 
-// std's ChannelClosed marker is inspected alone and inside a Maybe or a
+// std's ChannelClosed marker is inspected alone and inside an Option or a
 // Result, as `Sender.send`'s answer is.
 func TestIRInspectChannelClosed_Runs(t *testing.T) {
 	if testing.Short() {
@@ -13,7 +13,7 @@ import std::channels.{ChannelClosed}
 
 fn main()
     io.inspect(ChannelClosed)
-    m: Maybe<ChannelClosed> = Some(ChannelClosed)
+    m: Option<ChannelClosed> = Some(ChannelClosed)
     io.inspect(m)
     r: Result<Unit, ChannelClosed> = Ok(Unit)
     io.inspect(r)

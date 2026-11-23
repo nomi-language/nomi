@@ -23,7 +23,7 @@ func TestParseKeywordDeclarations(t *testing.T) {
 		{"bare", "database main\n", "database", "main", false, false, false, 0, "", ""},
 		{"body only", "noun item `{{item}}`\n", "noun", "item", false, false, true, 0, "", "{{item}}"},
 		{"empty params", "phrase hello() `Hello`\n", "phrase", "hello", false, true, true, 0, "", "Hello"},
-		{"result", "query user_by_email(email: String) -> Maybe<User> `select 1`\n", "query", "user_by_email", false, true, true, 1, "Maybe<User>", "select 1"},
+		{"result", "query user_by_email(email: String) -> Option<User> `select 1`\n", "query", "user_by_email", false, true, true, 1, "Option<User>", "select 1"},
 		{"multi-line body", "phrase status(state: Status) `\n    .input {$state :string}\n    .match $state\n    * {{x}}\n    `\n", "phrase", "status", false, true, true, 1, "", ".input {$state :string}\n.match $state\n* {{x}}"},
 	}
 	for _, c := range cases {

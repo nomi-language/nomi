@@ -53,7 +53,7 @@ fn boot(startup: Startup) -> Result<App, String>
     case startup.args
         [arg, ..] ->
             String.to_int(arg)
-            |> Maybe.to_result("not a number: ${arg}")
+            |> Option.to_result("not a number: ${arg}")
             |> Result.map(fn n -> App{n:})
 
         [] ->

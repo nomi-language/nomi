@@ -8,7 +8,7 @@ package irbuild
 // `ir.Proj` for each step of navigation, `ir.Bind` for each name.
 //
 // A map pattern is not a match kind. Its key is probed with a `Map.get` call
-// and the answering Maybe is tested like any variant (irmappattern.go).
+// and the answering Option is tested like any variant (irmappattern.go).
 //
 // A match on an enum reads which variant off the node; the tag number is the
 // consumer's business, as it is for `make`.

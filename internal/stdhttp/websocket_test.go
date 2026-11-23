@@ -46,7 +46,7 @@ fn main()
 
     app =
         chat
-        |> http.timeout(Duration.milliseconds(20), "slow")
+        |> http.timeout(Duration.milliseconds(500), "slow")
         |> http.limit_body(10)
         |> http.compress()
         |> http.security_headers()
@@ -63,8 +63,10 @@ fn main()
 
     ws = websocket.connect(Url.parse("wss://${Listener.address(listener)}/chat")!, options)!
     io.print("protocol ${WebSocket.protocol(ws)}")
-    // Past the timeout middleware's 20 ms: the connection lives on.
-    timer.sleep(Duration.milliseconds(60))
+    // Past the timeout middleware's 500 ms the connection lives on. The
+    // handler must answer the upgrade within them, and on a busy machine
+    // that can take far longer than 20 ms.
+    timer.sleep(Duration.milliseconds(600))
     _ = WebSocket.send_text(ws, "after the timeout")
     first = WebSocket.receive(ws) == Ok(Some(Message.Text("after the timeout")))
     second = WebSocket.receive(ws) == Ok(Some(Message.Text("after the timeout")))
@@ -83,8 +85,7 @@ end
 // upgrade, with a ping interval and concurrent sends, end to end on
 // 127.0.0.1.
 func TestWebSocket_EndToEnd(t *testing.T) {
-	certPath, keyPath := selfSigned(t, t.TempDir())
-	src := strings.ReplaceAll(strings.ReplaceAll(webSocketProgram, `"CERT"`, `"`+certPath+`"`), `"KEY"`, `"`+keyPath+`"`)
+	src := withCertificate(t, webSocketProgram)
 	got := run(t, src)
 	for _, w := range []string{
 		"protocol Some(chat)",

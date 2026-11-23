@@ -33,6 +33,11 @@ type Options struct {
 	Update bool
 	// Log receives one line per download. Nil is silent.
 	Log io.Writer
+	// Release is the release a `nomi` was cut as (a semantic version such
+	// as v0.5.0), or "" for one built from source. A release takes the
+	// first-party lib/ modules at its own version: Add with no version and
+	// Update move them there (atRelease).
+	Release string
 }
 
 // offlineError is a download --offline refused.
@@ -49,6 +54,7 @@ type fetcher struct {
 	offline bool
 	update  bool
 	log     io.Writer
+	release string
 
 	// root is the project's directory, which holds nomi.lock.
 	root string
@@ -86,6 +92,7 @@ func newFetcher(root string, opts Options) (*fetcher, error) {
 		offline: opts.Offline,
 		update:  opts.Update || cfg.modMode == "mod",
 		log:     opts.Log,
+		release: opts.Release,
 		root:    root,
 		lock:    lock,
 		hashes:  hashes,

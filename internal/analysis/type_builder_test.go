@@ -244,7 +244,7 @@ func TestBuildTypesExternFunc(t *testing.T) {
 }
 
 func TestBuildTypesExternFuncGeneric(t *testing.T) {
-	// Use a locally-declared generic enum (Box<T>) instead of stdlib Maybe
+	// Use a locally-declared generic enum (Box<T>) instead of stdlib Option
 	// so the test doesn't depend on stdlib being loaded. The shape exercises
 	// the same generic-extern path: a List<T> param and a generic-enum return.
 	src := `enum Box<T>

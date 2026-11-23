@@ -146,7 +146,7 @@ end`, "3\n15\n"},
 func TestIRLambdaDefault_ALocalCopyOfAFunctionKeepsItsDefaults(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-fn parse(s: String, strict: Bool = False) -> Maybe<Int>
+fn parse(s: String, strict: Bool = False) -> Option<Int>
   if strict then None else String.to_int(s)
 end
 

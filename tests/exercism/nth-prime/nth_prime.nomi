@@ -2,7 +2,7 @@
 
 /// The `n`th prime, counting 2 as the first, or `None` when `n` is less than
 /// one, since there is no zeroth prime.
-pub fn prime(n: Int) -> Maybe<Int>
+pub fn prime(n: Int) -> Option<Int>
     if n < 1 then return None
 
     Iter.from(2)

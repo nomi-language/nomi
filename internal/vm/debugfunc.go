@@ -7,12 +7,12 @@ package vm
 //
 //   - its name as source code calls it, without type arguments:
 //     `transact`, `Account.deposit`, `Card.to_string` (an impl block's
-//     function is named by the type it is for), `Maybe.map`;
+//     function is named by the type it is for), `Option.map`;
 //   - the same with type arguments, which picks one instance of a generic
 //     function: `ident<Int>`, and for an impl block's function its
-//     receiver's, `Maybe.map<Int>`;
+//     receiver's, `Option.map<Int>`;
 //   - either of those qualified by its file's name: `tiny_bank.transact`,
-//     `maybe.Maybe.map`;
+//     `option.Option.map`;
 //   - for an impl block's function, its name as the stack shows it,
 //     `Display.to_string for Card`, and the interface method it implements:
 //     `Display.to_string` stops in every impl the program has.
@@ -115,9 +115,9 @@ func (d *Debugger) addDebugFuncLocked(f *ir.Func, alias string) {
 }
 
 // spellings are the parts of f's name: as source code calls it, without
-// its file's name or type arguments (`Maybe.map`, and `Card.to_string` for
+// its file's name or type arguments (`Option.map`, and `Card.to_string` for
 // an impl block's function, from its ir.ImplFunc); its file's name
-// (`maybe`); and its type arguments (`<Int, Int>`, an impl block's
+// (`option`); and its type arguments (`<Int, Int>`, an impl block's
 // function's its receiver's), or "".
 func spellings(f *ir.Func) (name, stem, args string) {
 	stem = strings.TrimSuffix(filepath.Base(f.Pos().File()), ".nomi")
@@ -147,7 +147,7 @@ func entryStmt(f *ir.Func) (ir.Pos, bool) {
 }
 
 // normalFuncName is a requested name with its spaces removed, as a name
-// with type arguments is spelled in the stack (`Maybe.map<Int, Int>`).
+// with type arguments is spelled in the stack (`Option.map<Int, Int>`).
 func normalFuncName(name string) string {
 	return strings.Join(strings.Fields(name), "")
 }

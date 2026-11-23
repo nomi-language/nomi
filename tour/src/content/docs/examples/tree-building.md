@@ -44,7 +44,7 @@ end
 /// The tree of `records`, in any order, or `None` for no records. The ids
 /// must be 0 to one less than the number of records, each once; the root,
 /// 0, is its own parent, and every other record's parent has a lower id.
-pub fn build_tree(records: List<Record>) -> Result<Maybe<Node>, Error>
+pub fn build_tree(records: List<Record>) -> Result<Option<Node>, Error>
     sorted = Iter.sort_by(records, .id)
 
     ids_in_order =
@@ -72,7 +72,7 @@ end
 /// The node `id` with its replies, from each parent's child records in id
 /// order.
 fn node(id: Int, children: Map<Int, List<Record>>) -> Node
-    replies = Map.get(children, id) |> Maybe.with_default([])
+    replies = Map.get(children, id) |> Option.with_default([])
 
     {id:, children: replies |> Iter.map(&node(&1.id, children)) |> Iter.to_list()}
 end
@@ -86,7 +86,7 @@ fn leaf(id: Int) -> Node
 end
 
 test "build tree"
-    cases: List<(String, List<Record>, Maybe<Node>)> = [
+    cases: List<(String, List<Record>, Option<Node>)> = [
         ("empty list",    [],                   None),
         ("single record", [{id: 0, parent: 0}], Some(leaf(0))),
         (
@@ -230,7 +230,7 @@ test result: ok. 16 passed, 0 failed
 
 - The exercise is a refactoring of slow code that each track supplies; there is no slow version here, only the tree built directly.
 - `Record` and `Node` are structs. `Node`'s `children` defaults to `[]`, so a leaf is `{id:}`, and the tests compare whole trees with `==`, which compares a struct field by field with no `derive Equatable`.
-- `build_tree` returns `Result<Maybe<Node>, Error>`: no records is `Ok(None)`, the canonical empty answer, not an error. `Error` has two variants for the canonical two messages, given by its `Display`.
+- `build_tree` returns `Result<Option<Node>, Error>`: no records is `Ok(None)`, the canonical empty answer, not an error. `Error` has two variants for the canonical two messages, given by its `Display`.
 - The records are sorted by id once. They are valid ids exactly when the sorted record at each index has that index as its id, which `Iter.with_index` and `Iter.all_match` check in one pass; that catches a missing root, a duplicate and a gap alike.
 - The canonical data splits the remaining rules oddly, and the solution follows it: a root whose parent is not 0 is the "parent_id should be smaller" error, but any other record whose parent is not lower than its id, a cycle included, is "record id is invalid or out of order". These are three arms of one `case` on the sorted list, two with `when` guards.
 - Once every parent is lower than its child, the records cannot form a cycle, so the tree is built by `Iter.group_by` on the parent, which keeps each parent's children in id order, and a recursive `node` from the root.

@@ -37,6 +37,14 @@ type LoweringFound = analyzedlowering.Found
 // *InternalError when the compiler panicked. A stdlib file is not a program
 // and answers nothing.
 //
+// A program the front end refuses whose errors are all in functions, impl
+// functions and tests is lowered all the same, with those declarations left
+// unlowered (irbuild.Program.ErrorDecls), and found.Reached is what the walks
+// find in the rest, beside the front end's error: a body that checked has
+// its marks and hover lines, and a call of one that did not says nothing
+// of what it may do. found.Problems stays nil, and nothing is held to the
+// lists: only a program that checks is.
+//
 // When ctx is done the check stops at its next step (after the front end,
 // before each file's declarations and bodies are lowered, before the
 // literals are checked and before the unsupported bodies are looked for)
@@ -47,15 +55,37 @@ func CheckLowering(ctx context.Context, path, src string, opts ...Option) (found
 	}
 	cfg := newConfig(opts)
 	cfg.lowering = ctx
+	var errored *Program
+	cfg.errored = &errored
 	fc, err := cfg.frontendConfig()
 	if err != nil {
 		return found, err
 	}
 	p, err := lower(cfg, func() (*irbuild.Program, error) { return irbuild.AnalyzeFileSource(path, src, fc) })
 	if err != nil {
+		if errored != nil {
+			errored.sources = map[string]string{errored.prog.Entry().Path: src}
+			found.Reached = errored.editorReached()
+		}
 		return found, err
 	}
 	return loweringProblems(p, src)
+}
+
+// editorReached is what an editor's hover and marks say of the effects
+// code has (reachedCalls), from the walks `nomi check` holds to the lists
+// and the walk from every function they do not reach (editorWalks). For a
+// program lowered from the declarations that checked (config.errored),
+// nil when a walk panics: an editor shows its marks or goes without.
+func (p *Program) editorReached() (calls []analyzedlowering.Reached) {
+	if p.prog.ErrorDecls != nil {
+		defer func() {
+			if recover() != nil {
+				calls = nil
+			}
+		}()
+	}
+	return p.reachedCalls(p.editorWalks(p.walks(p.checkedRoots())))
 }
 
 func init() {

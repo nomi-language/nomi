@@ -97,8 +97,8 @@ func TestBytesBuilder_FixedWidthWritesAreTheReadsInverse(t *testing.T) {
 		width  int
 		big    bool
 		push   func(BytesBuilder, Int) BytesBuilder
-		u      func(Bytes, Int) Maybe[Int]
-		s      func(Bytes, Int) Maybe[int64]
+		u      func(Bytes, Int) Option[Int]
+		s      func(Bytes, Int) Option[int64]
 		golang func(uint64) []byte
 	}
 	forms := []form{
@@ -198,7 +198,7 @@ func TestBytesBuilder_VarintsMatchGoAndRoundTrip(t *testing.T) {
 
 func TestBytes_Searches(t *testing.T) {
 	data := Bytes("ab\r\nc\r\n")
-	check := func(what string, got Maybe[int64], want int64) {
+	check := func(what string, got Option[int64], want int64) {
 		t.Helper()
 		if want < 0 && got.Tag == TagSome || want >= 0 && (got.Tag != TagSome || got.Some != want) {
 			t.Errorf("%s = %v, want %d", what, got, want)

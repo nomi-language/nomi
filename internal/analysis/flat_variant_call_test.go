@@ -53,7 +53,7 @@ func TestFlatVariantCall_InfersAsTheTupledForm(t *testing.T) {
 		{"a type parameter beside a concrete type", "",
 			"    t = shapes.Tagged.Tag(7, \"seven\")\n    _ = case t\n        .Tag(n, s) -> n + String.length(s)\n    end\n"},
 		{"nested generics", "",
-			"    t = shapes.Two.Both(shapes.Two.Both(1, \"x\"), Maybe.Some(\"z\"))\n    _ = case t\n        .Both(inner, _) -> shapes.first(inner)\n    end\n"},
+			"    t = shapes.Two.Both(shapes.Two.Both(1, \"x\"), Option.Some(\"z\"))\n    _ = case t\n        .Both(inner, _) -> shapes.first(inner)\n    end\n"},
 		{"a pipe", "",
 			"    t = 9 |> shapes.Two.Both(\"nine\")\n    _ = shapes.first(t)\n"},
 		{"a pipe into a placeholder", "",

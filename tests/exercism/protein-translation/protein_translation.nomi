@@ -28,13 +28,13 @@ pub fn proteins(strand: String) -> Result<List<AminoAcid>, Error>
     |> Iter.map(translate)
     |> Iter.take_while(&(&1 != Ok(None)))
     |> Result.collect()?
-    |> Maybe.values()
+    |> Option.values()
     |> Iter.to_list()
     |> Ok()
 end
 
 /// The amino acid `codon` stands for, `None` for a STOP codon.
-fn translate(codon: String) -> Result<Maybe<AminoAcid>, Error>
+fn translate(codon: String) -> Result<Option<AminoAcid>, Error>
     case codon
         "AUG"                            -> Ok(Some(.Methionine))
         "UUU" or "UUC"                   -> Ok(Some(.Phenylalanine))

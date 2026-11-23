@@ -436,7 +436,7 @@ func (g *gen) genHostInstance(spec *stdGenHostSpec, args ...kind) (kind, bool) {
 // nothing but the spec, and because the nil-gen case is the load-bearing half:
 // at the stdlib signature boundary only a process-wide instance exists, so a
 // non-neutral argument yields no kind and the field has none. Honoured rather
-// than asserted, exactly as the `Maybe<T>` field beside it honours its own.
+// than asserted, exactly as the `Option<T>` field beside it honours its own.
 func genHostFieldKind(g *gen, spec *stdGenHostSpec, arg kind) kind {
 	k, ok := g.genHostInstance(spec, arg)
 	if !ok {

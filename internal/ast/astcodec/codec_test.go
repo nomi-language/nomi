@@ -194,7 +194,7 @@ func TestCodecRoundTripsSourceTrees(t *testing.T) {
 // TestDecodeRefusesCorruptData cuts and flips encoded bytes and requires
 // an error or a tree, never a panic.
 func TestDecodeRefusesCorruptData(t *testing.T) {
-	src, err := os.ReadFile(filepath.Join("..", "..", "..", "std", "maybe.nomi"))
+	src, err := os.ReadFile(filepath.Join("..", "..", "..", "std", "option.nomi"))
 	if err != nil {
 		t.Fatal(err)
 	}

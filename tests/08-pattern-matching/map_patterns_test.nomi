@@ -12,7 +12,7 @@ struct Point
 end
 
 fn lookup<K>(m: Map<K, String>, key: K) -> String
-    Map.get(m, key) |> Maybe.with_default("?")
+    Map.get(m, key) |> Option.with_default("?")
 end
 
 test "maps can use structurally keyable values"
@@ -163,7 +163,7 @@ fn lookup_mixed(m: Map<Int, String>) -> String
     end
 end
 
-fn lookup_nested(x: Maybe<Map<Int, String>>) -> String
+fn lookup_nested(x: Option<Map<Int, String>>) -> String
     case x
         Some({-2 => v}) -> v
         _               -> "no match"

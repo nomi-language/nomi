@@ -11,7 +11,7 @@ import (
 
 // Record is the VM's runtime value for every nominal or structural composite:
 // a struct, an enum variant (embedded variants included), a tuple, an
-// anonymous record, a distinct value, and the prelude's Maybe, Result and
+// anonymous record, a distinct value, and the prelude's Option, Result and
 // Fragment. Its layout, a descriptor plus split slot banks, is the fastest one
 // available to a runtime that cannot create Go types.
 //
@@ -194,7 +194,7 @@ type VariantDesc struct {
 // TypeDesc is a record's identity and layout.
 //
 // Name is the runtime identity, qualified by the declaring module
-// (`shapes.Point`, `maybe.Maybe`); a tuple and an anonymous record have none.
+// (`shapes.Point`, `option.Option`); a tuple and an anonymous record have none.
 // Short is the user-facing half, computed once (ShortTypeName). Two values of
 // one Nomi type may carry two descriptors (a generic enum instantiated at two
 // payload types), so the kernels compare identity by Short name and fields by

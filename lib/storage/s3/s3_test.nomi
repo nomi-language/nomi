@@ -491,7 +491,7 @@ fn fake_s3(memory: Memory) -> (Request) -> Result<Response, http.Error>
     fn request ->
         key = String.drop(request.url.path, 1)
         data = Body.read_all(request.body) |> Result.with_default(String.to_bytes(""))
-        sent_hash = Headers.get(request.headers, "x-amz-content-sha256") |> Maybe.with_default("")
+        sent_hash = Headers.get(request.headers, "x-amz-content-sha256") |> Option.with_default("")
 
         // S3 signs the path as it arrives, so the path sent must be the one
         // the canonical request encoded.
@@ -529,7 +529,7 @@ fn fake_s3(memory: Memory) -> (Request) -> Result<Response, http.Error>
             case request.method
                 .Put ->
                     content_type =
-                        Headers.get(request.headers, "Content-Type") |> Maybe.with_default("")
+                        Headers.get(request.headers, "Content-Type") |> Option.with_default("")
 
                     Store.put(memory, key, data, content_type)
                     |> Result.map(fn _ -> Response{status: Status.ok})
@@ -588,16 +588,16 @@ end
 // the Memory's with the bucket left off.
 fn list_response(memory: Memory, bucket: String, query: Query) -> Response
     within = "${bucket}/"
-    prefix = Query.get(query, "prefix") |> Maybe.with_default("")
+    prefix = Query.get(query, "prefix") |> Option.with_default("")
 
     options = ListOptions{
         prefix:    "${within}${prefix}",
-        delimiter: Query.get(query, "delimiter") |> Maybe.with_default(""),
+        delimiter: Query.get(query, "delimiter") |> Option.with_default(""),
         continuation: Query.get(query, "continuation-token")
-        |> Maybe.map(fn token -> "${within}${token}"),
+        |> Option.map(fn token -> "${within}${token}"),
         limit: Query.get(query, "max-keys")
-        |> Maybe.flat_map(String.to_int)
-        |> Maybe.with_default(1000),
+        |> Option.flat_map(String.to_int)
+        |> Option.with_default(1000),
     }
 
     listing = Store.list(memory, options)!

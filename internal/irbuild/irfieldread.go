@@ -143,10 +143,9 @@ func (bl *irScalarBuilder) fieldProject(at ast.Node, name string, subj ir.Temp, 
 // enumFieldRead reads `s.f` off an enum value whose variant is not known:
 // the field of a struct-shaped variant, of an embedded struct, or of a
 // positional struct payload, of any kind a retained enum holds, a function
-// value included. The checker requires every variant that supplies f to
-// type it alike (enumFieldAgreed); a value of a variant that does not supply
-// it faults at run time with rt's texts (ir.ProjEnumField's Faults says
-// whether one exists).
+// value included. The checker admits the read only when every variant
+// supplies f, at one type (enumFieldAgreed), so the read cannot fail; the
+// field's kind is the kind of the variants that supply it here.
 //
 // The three payload shapes one read answers for:
 //
@@ -154,18 +153,14 @@ func (bl *irScalarBuilder) fieldProject(at ast.Node, name string, subj ir.Temp, 
 //	Shape.Square{radius: 9.0}            embeds a struct ONE slot, the struct
 //	Shape.Wrap(Circle{radius: 4.0})      positional      ONE slot, the struct
 //
-// Which fault is a fact of the value's variant: `variant 'Rect' has no field
-// 'radius'` when its payload is a struct without the name, `cannot access
-// field 'height' on variant 'Num'` when its payload is not a struct.
-// testdata/enum_field_read_trap.nomi runs each.
+// testdata/enum_field_read.nomi runs each.
 func (bl *irScalarBuilder) enumFieldRead(at ast.Node, name string, subj ir.Temp, d *typeDef, mobile bool) (ir.Temp, kind, bool, bool) {
 	var fk kind
-	found, faults := false, false
+	found := false
 	for i := range d.variants {
 		v := &d.variants[i]
 		vk, supplies := irVariantFieldKind(v, name)
 		if !supplies {
-			faults = true
 			continue
 		}
 		if !found {
@@ -178,7 +173,7 @@ func (bl *irScalarBuilder) enumFieldRead(at ast.Node, name string, subj ir.Temp,
 	if !found {
 		return ir.NoTemp, kindInvalid, false, false
 	}
-	p := ir.NewProjEnumField(bl.g.irNodePos(at), bl.f.NewTemp(), subj, bl.g.irTypeSym(d), name, faults, irParamShape(fk))
+	p := ir.NewProjEnumField(bl.g.irNodePos(at), bl.f.NewTemp(), subj, bl.g.irTypeSym(d), name, irParamShape(fk))
 	bl.b.Append(p)
 	bl.side(p.Dst(), irScalarSide{k: fk})
 	return p.Dst(), fk, mobile, true

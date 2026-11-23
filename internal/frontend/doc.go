@@ -88,7 +88,7 @@
 //
 //   - Shift. The lexer leaves `>>>` as three `>` tokens; the parser joins
 //     them into the shift operator only after an operand, so
-//     `List<Maybe<Box<Int>>>` closes one `>` at a time.
+//     `List<Option<Box<Int>>>` closes one `>` at a time.
 //   - Parentheses. One parse reads what parentheses hold: a top-level comma
 //     makes a tuple (ast.TupleLit, ast.TuplePattern, or a tuple type, an
 //     ast.FuncType with no Return), and one item alone is grouped

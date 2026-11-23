@@ -84,7 +84,7 @@ func NewTry(pos Pos, src Temp, text string) *Try {
 	return &Try{pos: pos, src: src, text: text}
 }
 
-// Src is the `Result` or `Maybe` this try unwraps.
+// Src is the `Result` or `Option` this try unwraps.
 func (t *Try) Src() Temp { return t.src }
 
 // Text is how the try was written, as the report prints it.

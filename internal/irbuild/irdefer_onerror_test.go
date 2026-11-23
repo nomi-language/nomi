@@ -49,7 +49,7 @@ fn in_a_block(ok: Bool) -> Result<Int, String>
   Ok(v)
 end
 
-fn maybe(some: Bool) -> Maybe<Int>
+fn option(some: Bool) -> Option<Int>
   defer on error note("none")
   m = if some then Some(1) else None
   v = m?
@@ -62,14 +62,14 @@ fn main()
   io.inspect(by_return(True))
   io.inspect(by_return(False))
   io.inspect(in_a_block(False))
-  io.inspect(maybe(True))
-  io.inspect(maybe(False))
+  io.inspect(option(True))
+  io.inspect(option(False))
 end
 `, "cleanup plain last\ncleanup plain first\nOk(2)\n"+
 		"cleanup plain last\ncleanup on error\ncleanup plain first\nErr(\"no\")\n"+
 		"Ok(2)\ncleanup returned\nErr(\"returned\")\n"+
 		"in the block\nErr(\"no\")\n"+
-		"Some(1)\ncleanup none\nNone\n", "by_try", "by_return", "in_a_block", "maybe")
+		"Some(1)\ncleanup none\nNone\n", "by_try", "by_return", "in_a_block", "option")
 }
 
 // A fault is an error exit: the error-only call runs with the plain ones,

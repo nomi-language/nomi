@@ -98,8 +98,8 @@ test "nested functions do not leak outside their enclosing function"
 end
 
 test "imports can be declared inside function bodies"
-    fn first() -> Maybe<Int>
-        import std::maybe.Maybe as Local
+    fn first() -> Option<Int>
+        import std::option.Option as Local
 
         Local.Some(1)
     end

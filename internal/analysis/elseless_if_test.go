@@ -8,7 +8,7 @@ import (
 )
 
 // An `if` with no `else` is a statement, so a branch whose value is not
-// Unit is an error at the branch's value, which names its type. For a Maybe
+// Unit is an error at the branch's value, which names its type. For an Option
 // branch it says to add `else None` and its fix does, after a one-line
 // `if` and as an `else` branch of a block one; for any other branch it says
 // to add an `else`, with no fix. Where a statement drops the value, it says
@@ -25,49 +25,49 @@ func TestElselessIfValueIsRejected(t *testing.T) {
 		line, col                       int
 	}{
 		{
-			"a Maybe branch",
-			"fn label(n: Int) -> Maybe<Int>\n    if n > 0 then Some(5)\nend\n",
-			stmt + "this branch is a `Maybe<Int>`. Add `else None` to make the `if` a `Maybe<Int>`",
+			"an Option branch",
+			"fn label(n: Int) -> Option<Int>\n    if n > 0 then Some(5)\nend\n",
+			stmt + "this branch is an `Option<Int>`. Add `else None` to make the `if` an `Option<Int>`",
 			noneHelp,
-			"fn label(n: Int) -> Maybe<Int>\n    if n > 0 then Some(5) else None\nend\n",
+			"fn label(n: Int) -> Option<Int>\n    if n > 0 then Some(5) else None\nend\n",
 			2, 19,
 		},
 		{
-			"a Maybe branch in block form",
-			"fn label(n: Int) -> Maybe<Int>\n    x = if n > 0 then\n        Some(5)\n    end\n    x\nend\n",
-			stmt + "this branch is a `Maybe<Int>`. Add `else None` to make the `if` a `Maybe<Int>`",
+			"an Option branch in block form",
+			"fn label(n: Int) -> Option<Int>\n    x = if n > 0 then\n        Some(5)\n    end\n    x\nend\n",
+			stmt + "this branch is an `Option<Int>`. Add `else None` to make the `if` an `Option<Int>`",
 			noneHelp,
-			"fn label(n: Int) -> Maybe<Int>\n    x = if n > 0 then\n        Some(5)\n    else\n        None\n    end\n    x\nend\n",
+			"fn label(n: Int) -> Option<Int>\n    x = if n > 0 then\n        Some(5)\n    else\n        None\n    end\n    x\nend\n",
 			3, 9,
 		},
 		{
-			"a one-line chain of Maybes",
-			"fn label(n: Int) -> Maybe<String>\n    if n > 0 then Some(\"a\") else if n < 0 then Some(\"b\")\nend\n",
-			stmt + "this branch is a `Maybe<String>`. Add `else None` to make the `if` a `Maybe<String>`",
+			"a one-line chain of Options",
+			"fn label(n: Int) -> Option<String>\n    if n > 0 then Some(\"a\") else if n < 0 then Some(\"b\")\nend\n",
+			stmt + "this branch is an `Option<String>`. Add `else None` to make the `if` an `Option<String>`",
 			noneHelp,
-			"fn label(n: Int) -> Maybe<String>\n    if n > 0 then Some(\"a\") else if n < 0 then Some(\"b\") else None\nend\n",
+			"fn label(n: Int) -> Option<String>\n    if n > 0 then Some(\"a\") else if n < 0 then Some(\"b\") else None\nend\n",
 			2, 19,
 		},
 		{
-			"a block chain of Maybes",
-			"fn label(n: Int) -> Maybe<String>\n    if n > 0 then\n        Some(\"a\")\n    else if n < 0 then\n        Some(\"b\")\n    end\nend\n",
-			stmt + "this branch is a `Maybe<String>`. Add `else None` to make the `if` a `Maybe<String>`",
+			"a block chain of Options",
+			"fn label(n: Int) -> Option<String>\n    if n > 0 then\n        Some(\"a\")\n    else if n < 0 then\n        Some(\"b\")\n    end\nend\n",
+			stmt + "this branch is an `Option<String>`. Add `else None` to make the `if` an `Option<String>`",
 			noneHelp,
-			"fn label(n: Int) -> Maybe<String>\n    if n > 0 then\n        Some(\"a\")\n    else if n < 0 then\n        Some(\"b\")\n    else\n        None\n    end\nend\n",
+			"fn label(n: Int) -> Option<String>\n    if n > 0 then\n        Some(\"a\")\n    else if n < 0 then\n        Some(\"b\")\n    else\n        None\n    end\nend\n",
 			3, 9,
 		},
 		{
-			"the expected Maybe reaches the branch",
-			"fn first(c: Bool) -> Maybe<Ordering>\n    if c then Some(.Less)\nend\n",
-			stmt + "this branch is a `Maybe<Ordering>`. Add `else None` to make the `if` a `Maybe<Ordering>`",
+			"the expected Option reaches the branch",
+			"fn first(c: Bool) -> Option<Ordering>\n    if c then Some(.Less)\nend\n",
+			stmt + "this branch is an `Option<Ordering>`. Add `else None` to make the `if` an `Option<Ordering>`",
 			noneHelp,
-			"fn first(c: Bool) -> Maybe<Ordering>\n    if c then Some(.Less) else None\nend\n",
+			"fn first(c: Bool) -> Option<Ordering>\n    if c then Some(.Less) else None\nend\n",
 			2, 15,
 		},
 		{
-			"a chain that mixes a Maybe with a bare value",
-			"fn label(n: Int) -> Maybe<String>\n    if n > 0 then Some(\"a\") else if n < 0 then \"b\"\nend\n",
-			stmt + "this branch is a `Maybe<String>`. Add `else None` to make the `if` a `Maybe<String>`",
+			"a chain that mixes an Option with a bare value",
+			"fn label(n: Int) -> Option<String>\n    if n > 0 then Some(\"a\") else if n < 0 then \"b\"\nend\n",
+			stmt + "this branch is an `Option<String>`. Add `else None` to make the `if` an `Option<String>`",
 			noneHelp,
 			"",
 			2, 19,
@@ -113,9 +113,9 @@ func TestElselessIfValueIsRejected(t *testing.T) {
 			2, 19,
 		},
 		{
-			"a Maybe a statement drops",
+			"an Option a statement drops",
 			"fn label(n: Int) -> Int\n    if n < 9 then Some(n)\n    n\nend\n",
-			stmt + "this branch is a `Maybe<Int>`, which this statement drops. Write `_ = Some(n)` in the branch, or add an `else`",
+			stmt + "this branch is an `Option<Int>`, which this statement drops. Write `_ = Some(n)` in the branch, or add an `else`",
 			dropHelp,
 			"fn label(n: Int) -> Int\n    if n < 9 then\n        _ = Some(n)\n    end\n    n\nend\n",
 			2, 19,
@@ -168,7 +168,7 @@ func TestElselessIfTypes(t *testing.T) {
 	}{
 		{"returning branch", "fn f(n: Int) -> Result<Int, String>\n    if n < 0 then return Err(\"neg\")\n    Ok(n)\nend\n", "Unit"},
 		{"chain whose first branch returns", "fn f(n: Int) -> Result<Int, String>\n    if n > 0 then\n        return Ok(n)\n    else if n < 0 then\n        dbg n\n    end\n    Err(\"zero\")\nend\n", "Unit"},
-		{"pattern if", "fn f(m: Maybe<Int>)\n    if Some(n) = m then dbg n\nend\n", "Unit"},
+		{"pattern if", "fn f(m: Option<Int>)\n    if Some(n) = m then dbg n\nend\n", "Unit"},
 		{"a branch that ends in assert", "import std::assertions.AssertionFailure\n\nfn f(n: Int) -> Result<Int, AssertionFailure>\n    if n > 0 then assert n < 10\n    Ok(n)\nend\n", "Unit"},
 		{"a branch that ends in dbg", "fn f(n: Int)\n    if n > 0 then dbg n\nend\n", "Unit"},
 		{"Unit branch", "fn g() end\n\nfn f(c: Bool)\n    if c then g()\nend\n", "Unit"},

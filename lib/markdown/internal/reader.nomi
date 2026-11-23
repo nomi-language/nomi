@@ -111,7 +111,7 @@ impl Lines
 
     /// Where line `n` starts.
     pub fn start(lines: Lines, n: Int) -> Int
-        Vector.get(lines.starts, n) |> Maybe.with_default(Bytes.length(lines.buf))
+        Vector.get(lines.starts, n) |> Option.with_default(Bytes.length(lines.buf))
     end
 
     /// Where line `n` stops, after its line feed.
@@ -140,7 +140,7 @@ end
 impl Cursor
     /// The rest of the current line, from the cursor to just after its
     /// line feed, as a start and a stop; None past the last line.
-    pub fn peek_line(c: Cursor, lines: Lines) -> Maybe<(Int, Int)>
+    pub fn peek_line(c: Cursor, lines: Lines) -> Option<(Int, Int)>
         if c.line < lines.count and c.pos < Lines.limit(lines) then
             Some((c.pos, Lines.stop(lines, c.line)))
         else
@@ -193,7 +193,7 @@ impl Cursor
     /// delimiter there can open or close.
     pub fn before(c: Cursor, lines: Lines) -> Int
         if c.pos == Lines.start(lines, c.line) then
-            Vector.get(lines.before, c.line) |> Maybe.with_default(10)
+            Vector.get(lines.before, c.line) |> Option.with_default(10)
         else
             text.rune_before(lines.buf, c.pos)
         end
@@ -224,7 +224,7 @@ impl Cursor
         lines:  Lines,
         opener: Int,
         closer: Int,
-    ) -> Maybe<((Int, Int), Cursor)>
+    ) -> Option<((Int, Int), Cursor)>
         (found, stop) = closure_scan(lines, c.pos, opener, closer)
         if found then Some(((c.pos, stop), advance(c, lines, stop + 1 - c.pos))) else None
     end
@@ -283,9 +283,9 @@ impl Cursor
     /// after it: the text between `<` and `>` on the line, or the bytes up
     /// to a space or an unbalanced `)`. None for an unclosed `<` or an
     /// empty destination. The text is as written, escapes and all.
-    pub fn destination(c: Cursor, lines: Lines) -> Maybe<(Bytes, Cursor)>
+    pub fn destination(c: Cursor, lines: Lines) -> Option<(Bytes, Cursor)>
         (c, _, _) = skip_spaces(c, lines)
-        (s, e) = peek_line(c, lines) |> Maybe.with_default((c.pos, c.pos))
+        (s, e) = peek_line(c, lines) |> Option.with_default((c.pos, c.pos))
 
         if peek(c, lines) == 60 then
             stop = angle_end(lines, s + 1, e)

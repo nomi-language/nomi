@@ -67,9 +67,9 @@ func TestHover_VariantEverywhere(t *testing.T) {
 		{"the ( of a qualified constructor", in(value, "Room.Pit▮(2)"), []string{"```nomi\nRoom.Pit(Int)\n```"}, []string{"from the expected type"}},
 		{"the ( of a payload pattern", in(pattern, ".Pit▮(n)"), []string{"```nomi\nRoom.Pit(Int)\n```", "*`Room` from the expected type*"}, nil},
 		{"the . of a struct variant pattern", in(pattern, "▮.Vault{depth:}"), []string{"```nomi\nRoom.Vault { depth: Int }\n```", "*`Room` from the expected type*"}, nil},
-		{"Some's name", "fn main()\n  s = ▮Some(1)\n  io.inspect(s)\nend\n", []string{"```nomi\nMaybe.Some(Int) -> Maybe<Int>\n```"}, nil},
-		{"Some's (", "fn main()\n  s = Some▮(1)\n  io.inspect(s)\nend\n", []string{"```nomi\nMaybe.Some(Int) -> Maybe<Int>\n```"}, nil},
-		{"a payload keeps its own hover", "fn main()\n  s = Some(▮1)\n  io.inspect(s)\nend\n", []string{"```nomi"}, []string{"Maybe.Some"}},
+		{"Some's name", "fn main()\n  s = ▮Some(1)\n  io.inspect(s)\nend\n", []string{"```nomi\nOption.Some(Int) -> Option<Int>\n```"}, nil},
+		{"Some's (", "fn main()\n  s = Some▮(1)\n  io.inspect(s)\nend\n", []string{"```nomi\nOption.Some(Int) -> Option<Int>\n```"}, nil},
+		{"a payload keeps its own hover", "fn main()\n  s = Some(▮1)\n  io.inspect(s)\nend\n", []string{"```nomi"}, []string{"Option.Some"}},
 	}
 	runShapeHoverCases(t, variantHoverDecls, cases)
 }

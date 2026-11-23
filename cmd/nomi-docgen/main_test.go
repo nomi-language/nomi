@@ -633,23 +633,23 @@ func TestEveryImplOfOneMethodReachesItsPage(t *testing.T) {
 
 // A `//!` test's own leading imports stay in its editor, spelled as a user
 // program spells them, so the example can be copied out as it stands.
-// Maybe.collect's case imports std/ranges.Range, which std/maybe does not.
+// Option.collect's case imports std/ranges.Range, which std/option does not.
 func TestReferenceEditorShowsTheTestsOwnImports(t *testing.T) {
 	lib := std.Load()
-	page := renderModuleWithLinks(lib, "maybe", nil)
+	page := renderModuleWithLinks(lib, "option", nil)
 	var collect *referenceTest
-	tests := referenceTestBodies(page, "maybe")
+	tests := referenceTestBodies(page, "option")
 	for i := range tests {
-		if strings.Contains(tests[i].Body, "Maybe.collect(") {
+		if strings.Contains(tests[i].Body, "Option.collect(") {
 			collect = &tests[i]
 			break
 		}
 	}
 	if collect == nil {
-		t.Fatalf("std/maybe reference has no Maybe.collect editor\n%s", page)
+		t.Fatalf("std/option reference has no Option.collect editor\n%s", page)
 	}
 	if !strings.HasPrefix(collect.Body, "import std::ranges.Range\n") {
-		t.Errorf("Maybe.collect editor does not open with `import std::ranges.Range`:\n%s", collect.Body)
+		t.Errorf("Option.collect editor does not open with `import std::ranges.Range`:\n%s", collect.Body)
 	}
 	if strings.Contains(collect.Context, "ranges.Range") {
 		t.Errorf("the editor's hidden context repeats the import it shows: %q", collect.Context)

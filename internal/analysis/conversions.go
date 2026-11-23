@@ -3,8 +3,8 @@ package analysis
 import "github.com/nomi-language/nomi/internal/ast"
 
 // Conversion is a value whose type converts to the expected one below its
-// top (FileAnalysis.Conversions): a `Maybe<List<Int>>` where a
-// `Maybe<Display>` is expected, a `Box<Circle>` where a `Box<Shape>` is,
+// top (FileAnalysis.Conversions): an `Option<List<Int>>` where an
+// `Option<Display>` is expected, a `Box<Circle>` where a `Box<Shape>` is,
 // a `() -> Int` where a `() -> Display` is (spec §5 *Covariant
 // conversion*). The IR builder relabels the value where Cost says it
 // costs nothing, and otherwise rebuilds it with each part converted,
@@ -16,7 +16,7 @@ type Conversion struct {
 	// Boxes is each part of From that enters an interface in To, with the
 	// impl the checker selects for it, as a Coercion records a value
 	// entering an interface at the top: a `List<Int>` element entering
-	// Display in `Maybe<List<Int>>` to `Maybe<Display>`. A part of a
+	// Display in `Option<List<Int>>` to `Option<Display>`. A part of a
 	// function's parameter enters the other way: the wrapper boxes the
 	// argument it passes on.
 	Boxes []*Coercion
@@ -40,14 +40,14 @@ const (
 	// relabels it.
 	ConversionFree ConversionCost = iota
 	// ConversionRebuilds is a value built again with each part converted:
-	// a collection, a Maybe, Result or user enum, a tuple, record or
+	// a collection, an Option, Result or user enum, a tuple, record or
 	// struct, or a function wrapped in one that converts its arguments
 	// and result.
 	ConversionRebuilds
 	// ConversionPerInstance is a value whose cost its generic body's
 	// instances decide: a part of a type parameter's type enters an
-	// interface, free for an instance at Int and a rebuild for one at a
-	// Maybe. The IR builder decides each instance from its kinds.
+	// interface, free for an instance at Int and a rebuild for one at an
+	// Option. The IR builder decides each instance from its kinds.
 	ConversionPerInstance
 )
 
@@ -191,7 +191,7 @@ func refinementRunTime(t Type) Type {
 }
 
 // argsCost is conversionCost over the type arguments of two instances of
-// the generic type t: what its parts cost for a std collection (Maybe,
+// the generic type t: what its parts cost for a std collection (Option,
 // Result, Set, Vector), and a rebuild for any other whose arguments
 // convert at all.
 func argsCost(t Type, ws, hs []Type, flipped bool) ConversionCost {
@@ -414,7 +414,7 @@ func entersAsItself(it *InterfaceType, have Type) bool {
 // displayReadsOff reports whether a Display value holding a value of type
 // t renders it from the value alone: a value that enters Display as
 // itself, a Display value, a List, Vector, Map, tuple or record of such
-// parts, rendered as its shape around them, a Maybe, Result or Set,
+// parts, rendered as its shape around them, an Option, Result or Set,
 // rendered by std's impl at its own type, or a declared non-generic enum,
 // by its own impl (irbuild's irErases).
 func displayReadsOff(display *InterfaceType, t Type) bool {

@@ -152,8 +152,8 @@ func fieldSource(sym *analysis.Symbol, tokPos analysis.Pos, path string) string 
 }
 
 // narrowedRead is sym as the read at pos sees it: a parameter or binding a
-// check narrowed to a std subtype there (spec §4 *Narrowing*) shows that
-// subtype, which the checker recorded as the read's type. Any other sym is
+// check narrowed to a std refinement there (spec §4 *Narrowing*) shows that
+// refinement, which the checker recorded as the read's type. Any other sym is
 // itself.
 func narrowedRead(fa *analysis.FileAnalysis, sym *analysis.Symbol, pos analysis.Pos) *analysis.Symbol {
 	if fa == nil || sym == nil || sym.Type == nil || (sym.Kind != analysis.SymbolParam && sym.Kind != analysis.SymbolBinding) {

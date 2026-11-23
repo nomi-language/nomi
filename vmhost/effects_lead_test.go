@@ -100,7 +100,7 @@ func TestEffectLead_SeveralCalls(t *testing.T) {
 	if got := leadsOf(refused.Diagnostics[0], dir); strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("related locations:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
-	text := strings.ReplaceAll(refused.Error(), dir+string(filepath.Separator), "")
+	text := inProject(refused.Error(), dir)
 	note := "app/main.nomi:7:14: note: your code has the effect std::fs in pricing here: `main` calls `load`; and 2 more places in your code; --all-calls lists them"
 	if !strings.HasSuffix(text, "\n"+note) || strings.Count(text, "note:") != 1 {
 		t.Errorf("the text:\n%s\nwant one note, last:\n%s", text, note)

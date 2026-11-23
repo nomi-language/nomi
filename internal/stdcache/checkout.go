@@ -41,7 +41,7 @@ func NewNavigator(checkout string, dir *Dir) *Navigator {
 }
 
 // Path is the file navigation into rel (a slash-separated path under std/,
-// such as "maybe.nomi") opens. A checkout file is compared with the embedded
+// such as "option.nomi") opens. A checkout file is compared with the embedded
 // one the first time it is asked for, and again only after its size or
 // modification time changes, so a repeated ask costs one stat.
 func (n *Navigator) Path(rel string) string {

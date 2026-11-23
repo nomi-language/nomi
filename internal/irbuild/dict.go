@@ -179,7 +179,7 @@ func (g *gen) withInferredBounds(fd *ast.FuncDef, bounds []typeParamBound) []typ
 // annotation at any position other than the whole annotation being that bare
 // name.
 //
-// `x: T` is bare and answers false; `m: Maybe<T>`, `xs: List<T>` and
+// `x: T` is bare and answers false; `m: Option<T>`, `xs: List<T>` and
 // `f: (T) -> Bool` all answer true. See dictSeamFor's depth decline for why.
 //
 // The traversal is markMentionedParams, genericmono.go's, rather than another
@@ -233,20 +233,20 @@ func (g *gen) dictSeamFor(fd *ast.FuncDef) (*dictSeam, bool) {
 	if len(bounds) != 1 || len(bounds[0].bounds) == 0 {
 		return nil, false
 	}
-	// A bounded type parameter at depth in a parameter annotation: `m: Maybe<T>`
+	// A bounded type parameter at depth in a parameter annotation: `m: Option<T>`
 	// and not `x: T`. The seam's signature cannot serve the shape at all.
 	//
 	// A bounded type parameter is an existential over its bound
-	// (dictTypeParamKind), so `m: Maybe<T>` resolves to `Maybe<Display>` and the
+	// (dictTypeParamKind), so `m: Option<T>` resolves to `Option<Display>` and the
 	// signature demands a container whose PAYLOAD is already erased. For
-	// `fn label<T>(prefix: String, m: Maybe<T>) -> String where T: Display`:
+	// `fn label<T>(prefix: String, m: Option<T>) -> String where T: Display`:
 	//
-	//	label("a: ", Some(1))        argument type mismatch | Maybe<Display> got Maybe<Int>
+	//	label("a: ", Some(1))        argument type mismatch | Option<Display> got Option<Int>
 	//	label<Int>("a: ", Some(1))   IDENTICAL — the turbofish changes what SOLVES
 	//	                             the parameter, not what the signature declares
-	//	m: Maybe<Display> = Some(1)  binding type mismatch — source cannot even
+	//	m: Option<Display> = Some(1)  binding type mismatch — source cannot even
 	//	                             CONSTRUCT the value the signature wants
-	//	both<T>(x: T, m: Maybe<T>)   still refuses, so a bare occurrence elsewhere
+	//	both<T>(x: T, m: Option<T>)   still refuses, so a bare occurrence elsewhere
 	//	                             does not rescue the depth one
 	//
 	// So the served population is EMPTY, and the fourth row is why the test is
@@ -254,7 +254,7 @@ func (g *gen) dictSeamFor(fd *ast.FuncDef) (*dictSeam, bool) {
 	// is enough to make the call unwritable.
 	//
 	// Declining hands the declaration to monomorphization, which lowers the
-	// shape (`fn wrap<T>(m: Maybe<T>) -> Int`): in an instance the bound
+	// shape (`fn wrap<T>(m: Option<T>) -> Int`): in an instance the bound
 	// dissolves — `T` is `Int` and `Display.to_string(v)` is an ordinary
 	// concrete dispatch. The `where T: Struct` arm below declines for the same
 	// reason.

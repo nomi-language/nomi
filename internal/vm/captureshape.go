@@ -9,15 +9,15 @@ import (
 )
 
 // captureShapeKey is std/strings' `capture_shape<C>(re: Regex<C>, groups:
-// List<Maybe<String>>) -> C`, behind `String.captures`: the value of C a
+// List<Option<String>>) -> C`, behind `String.captures`: the value of C a
 // match's groups are. C is phantom in the regex handle, so the IR builder
 // lowers the call with C's shape as a second operand (irbuild's
 // captureShapeCall), and the groups and the shape decide the value:
 //
-//	L               the groups as they are: List<Maybe<String>>
+//	L               the groups as they are: List<Option<String>>
 //	U               Unit: a pattern with no group
-//	S, M            the one group: its text, or its Maybe
-//	T<parts>        a tuple, one S or M per group: `TSM` is (String, Maybe<String>)
+//	S, M            the one group: its text, or its Option
+//	T<parts>        a tuple, one S or M per group: `TSM` is (String, Option<String>)
 //	R<name:part,…>  an anonymous struct: `Rmonth:M,year:S`, a field per
 //	                group, named by the group
 //

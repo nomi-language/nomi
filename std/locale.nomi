@@ -51,8 +51,8 @@
 //# pub fn boot(startup: Startup) -> Result<App, String>
 //#     locale =
 //#         Map.get(startup.env, "LANG")
-//#         |> Maybe.flat_map(fn value -> Locale.from_posix(value) |> Result.to_maybe())
-//#         |> Maybe.with_default(Locale"en")
+//#         |> Option.flat_map(fn value -> Locale.from_posix(value) |> Result.to_option())
+//#         |> Option.with_default(Locale"en")
 //#
 //#     Ok(App{locale:})
 //# end
@@ -70,7 +70,7 @@ import
     iter.Iter
     lists.List
     literals.{Fragment, Literal}
-    maybe.Maybe
+    option.Option
     results.Result.{self, Err, Ok}
     strings.String
     unit.Unit
@@ -215,20 +215,20 @@ impl Locale
 
     /// The script subtag the tag spells, if any. It never guesses a likely
     /// one.
-    //! assert Locale.script(Locale"zh-Hant-HK") == Maybe.Some("Hant")
-    //! assert Locale.script(Locale"pt-BR") == Maybe.None
+    //! assert Locale.script(Locale"zh-Hant-HK") == Option.Some("Hant")
+    //! assert Locale.script(Locale"pt-BR") == Option.None
     //
-    pub fn script(locale: Locale) -> Maybe<String>
+    pub fn script(locale: Locale) -> Option<String>
         Locale(tag) = locale
         locale_script(tag)
     end
 
     /// The region subtag the tag spells, if any. It never guesses a likely
     /// one.
-    //! assert Locale.region(Locale"es-419") == Maybe.Some("419")
-    //! assert Locale.region(Locale"pl") == Maybe.None
+    //! assert Locale.region(Locale"es-419") == Option.Some("419")
+    //! assert Locale.region(Locale"pl") == Option.None
     //
-    pub fn region(locale: Locale) -> Maybe<String>
+    pub fn region(locale: Locale) -> Option<String>
         Locale(tag) = locale
         locale_region(tag)
     end
@@ -425,9 +425,9 @@ host fn locale_from_posix_raw(value: String) -> LocaleAttempt
 
 host fn locale_language(tag: String) -> String
 
-host fn locale_script(tag: String) -> Maybe<String>
+host fn locale_script(tag: String) -> Option<String>
 
-host fn locale_region(tag: String) -> Maybe<String>
+host fn locale_region(tag: String) -> Option<String>
 
 host fn locale_fallbacks(tag: String) -> List<String>
 

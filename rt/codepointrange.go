@@ -5,13 +5,13 @@ package rt
 // orders the scalar values, `Discrete.next` steps over the UTF-16 surrogate
 // block (0xD800–0xDFFF) and saturates at 0x10FFFF, and Count is std's
 // `known_count` (`steps_between`, which leaves the surrogates out, plus one
-// for an inclusive end). A walk calls no Nomi function and builds no Maybe
+// for an inclusive end). A walk calls no Nomi function and builds no Option
 // per element. Its ends and its elements are Codepoint records: one word
 // slot over the descriptor the range's start carries.
 func CodepointRangeSeq(r Range[Value]) Seq[Value] {
 	return Seq[Value]{Run: func(fr *Frame, yield func(fr *Frame, item Value) bool) bool {
 		return codepointRangeEachWhile(fr, r, yield)
-	}, Count: func(*Frame) Maybe[int64] { return codepointRangeKnownCount(r) }, Endless: rangeEndless(r)}
+	}, Count: func(*Frame) Option[int64] { return codepointRangeKnownCount(r) }, Endless: rangeEndless(r)}
 }
 
 const (
@@ -73,7 +73,7 @@ func codepointRangeEachWhile(fr *Frame, r Range[Value], yield func(fr *Frame, it
 // codepointRangeKnownCount is RangeKnownCount with std's Codepoint
 // `steps_between`: the distance between the two scalar values, less the
 // surrogate block when the range spans it.
-func codepointRangeKnownCount(r Range[Value]) Maybe[int64] {
+func codepointRangeKnownCount(r Range[Value]) Option[int64] {
 	if r.End.Tag != TagSome {
 		return None[int64]()
 	}

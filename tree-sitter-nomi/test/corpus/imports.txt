@@ -140,7 +140,7 @@ import std::json: FromJson, ToJson, Json.{self, Case.Camel}
 Drill-through type import
 ================================================================================
 
-import std::maybe.Maybe.{Some, None}
+import std::option.Option.{Some, None}
 
 --------------------------------------------------------------------------------
 

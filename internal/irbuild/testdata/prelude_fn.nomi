@@ -1,4 +1,4 @@
-// `impl Maybe<T>` and `impl Result<T, E>` reached through the QUALIFIED CALL
+// `impl Option<T>` and `impl Result<T, E>` reached through the QUALIFIED CALL
 // spelling, at concrete instantiations, beside the operator spelling of the
 // same operation.
 //
@@ -10,7 +10,7 @@
 //
 // std/lists.nomi defines `List.equal` AS `a == b`, and the builder shares one
 // lowering for both spellings for that reason. The
-// prelude enums are the same situation: `derive Equatable for Maybe<T>` is the
+// prelude enums are the same situation: `derive Equatable for Option<T>` is the
 // method, and the `==` operator on a prelude instance already lowers through
 // g.valueEqual. So every `equal` case below is written twice, once each way,
 // and a lowering that gave the method its own comparator would have to agree
@@ -19,10 +19,10 @@
 // # The cases that are a WRONG ANSWER rather than a missing one
 //
 //   - NaN. Nomi's Float equality is REFLEXIVE on NaN and IEEE's is not, so
-//     `Maybe.equal(Some(nan), Some(nan))` is True in Nomi and false under an
+//     `Option.equal(Some(nan), Some(nan))` is True in Nomi and false under an
 //     IEEE `==` on the payload. A lowering that compared with IEEE equality
 //     would type-check and answer wrongly, silently.
-//   - A NON-SCALAR payload. `Maybe<List<Int>>` compares its payload
+//   - A NON-SCALAR payload. `Option<List<Int>>` compares its payload
 //     structurally; comparing cons-cell POINTERS would answer False for two
 //     equal lists built separately.
 //   - Variant order. `Some` is tag 1 and `None` is tag 2, `Ok` 1 and `Err` 2.
@@ -32,91 +32,91 @@
 // # Deliberately absent, each covered elsewhere
 //
 // Every None comparison here is written against a typed `None`-valued binding;
-// untyped_equality.nomi covers `x == None`. `Maybe.map` / `flat_map` /
-// `Result.map` / `map_err` are prelude_hof.nomi's subject, and `Maybe.hash` is
+// untyped_equality.nomi covers `x == None`. `Option.map` / `flat_map` /
+// `Result.map` / `map_err` are prelude_hof.nomi's subject, and `Option.hash` is
 // prelude_hash.nomi's.
-fn none_string() -> Maybe<String>
+fn none_string() -> Option<String>
     None
 end
 
-fn none_int() -> Maybe<Int>
+fn none_int() -> Option<Int>
     None
 end
 
-fn none_float() -> Maybe<Float>
+fn none_float() -> Option<Float>
     None
 end
 
-fn none_list() -> Maybe<List<Int>>
+fn none_list() -> Option<List<Int>>
     None
 end
 
-test "Maybe.equal and == agree on two Some values"
-    a: Maybe<String> = Some("Ada")
-    b: Maybe<String> = Some("Ada")
-    c: Maybe<String> = Some("Grace")
+test "Option.equal and == agree on two Some values"
+    a: Option<String> = Some("Ada")
+    b: Option<String> = Some("Ada")
+    c: Option<String> = Some("Grace")
 
-    assert Maybe.equal(a, b)
+    assert Option.equal(a, b)
     assert a == b
-    refute Maybe.equal(a, c)
+    refute Option.equal(a, c)
     refute a == c
 end
 
-test "Maybe.equal and == agree when a variant differs"
-    some: Maybe<String> = Some("Ada")
+test "Option.equal and == agree when a variant differs"
+    some: Option<String> = Some("Ada")
     nothing = none_string()
 
-    refute Maybe.equal(some, nothing)
+    refute Option.equal(some, nothing)
     refute some == nothing
-    assert Maybe.equal(nothing, none_string())
+    assert Option.equal(nothing, none_string())
     assert nothing == none_string()
 end
 
-test "Maybe.equal is symmetric across the variant boundary"
-    some: Maybe<Int> = Some(1)
+test "Option.equal is symmetric across the variant boundary"
+    some: Option<Int> = Some(1)
     nothing = none_int()
 
-    refute Maybe.equal(some, nothing)
-    refute Maybe.equal(nothing, some)
+    refute Option.equal(some, nothing)
+    refute Option.equal(nothing, some)
 end
 
-test "Maybe.equal at a Bool payload"
-    yes: Maybe<Bool> = Some(True)
-    no: Maybe<Bool> = Some(False)
+test "Option.equal at a Bool payload"
+    yes: Option<Bool> = Some(True)
+    no: Option<Bool> = Some(False)
 
-    assert Maybe.equal(yes, Some(True))
-    refute Maybe.equal(yes, no)
+    assert Option.equal(yes, Some(True))
+    refute Option.equal(yes, no)
     assert yes == Some(True)
 end
 
-test "Maybe.equal is reflexive on NaN, where Go equality is not"
+test "Option.equal is reflexive on NaN, where Go equality is not"
     nan = Float.nan()
-    left: Maybe<Float> = Some(nan)
-    right: Maybe<Float> = Some(nan)
+    left: Option<Float> = Some(nan)
+    right: Option<Float> = Some(nan)
 
-    assert Maybe.equal(left, right)
+    assert Option.equal(left, right)
     assert left == right
-    refute Maybe.equal(left, Some(1.0))
-    refute Maybe.equal(left, none_float())
+    refute Option.equal(left, Some(1.0))
+    refute Option.equal(left, none_float())
 end
 
-test "Maybe.equal compares a List payload structurally"
-    left: Maybe<List<Int>> = Some([1, 2, 3])
-    right: Maybe<List<Int>> = Some([1, 2, 3])
-    other: Maybe<List<Int>> = Some([1, 2])
+test "Option.equal compares a List payload structurally"
+    left: Option<List<Int>> = Some([1, 2, 3])
+    right: Option<List<Int>> = Some([1, 2, 3])
+    other: Option<List<Int>> = Some([1, 2])
 
-    assert Maybe.equal(left, right)
+    assert Option.equal(left, right)
     assert left == right
-    refute Maybe.equal(left, other)
-    refute Maybe.equal(left, none_list())
+    refute Option.equal(left, other)
+    refute Option.equal(left, none_list())
 end
 
-test "Maybe.equal reached as a pipe stage"
-    a: Maybe<String> = Some("Ada")
+test "Option.equal reached as a pipe stage"
+    a: Option<String> = Some("Ada")
 
-    assert a |> Maybe.equal(Some("Ada"))
+    assert a |> Option.equal(Some("Ada"))
 
-    refute a |> Maybe.equal(Some("Grace"))
+    refute a |> Option.equal(Some("Grace"))
 end
 
 // A bare `None` has no type argument of its own, and these two shapes are the
@@ -129,54 +129,54 @@ end
 // measurement: it refuses as `non-scalar type argument (Result<?, String>)`,
 // because a bare `Err` leaves `T` unsolved and nothing in the call can bind it.
 // That is the prelude CONSTRUCTOR's gap at a different key, not this one — the
-// same refusal `maybe_result_equatable_test.nomi` carries four times — and
+// same refusal `option_result_equatable_test.nomi` carries four times — and
 // writing it here would have made this fixture fail for somebody else's reason.
 test "a bare None is answerable on both sides of equal"
-    assert Maybe.equal(None, None)
-    refute Maybe.equal(Some(4), None)
-    refute Maybe.equal(None, Some(4))
+    assert Option.equal(None, None)
+    refute Option.equal(Some(4), None)
+    refute Option.equal(None, Some(4))
 end
 
 test "a bare None receiver takes its type from the default"
     n =
         None
-        |> Maybe.with_default(99)
+        |> Option.with_default(99)
 
     assert n == 99
-    assert Maybe.with_default(None, "fallback") == "fallback"
+    assert Option.with_default(None, "fallback") == "fallback"
 end
 
-test "Maybe.is_some and Maybe.is_none read the variant"
-    some: Maybe<String> = Some("Ada")
+test "Option.is_some and Option.is_none read the variant"
+    some: Option<String> = Some("Ada")
     nothing = none_string()
 
-    assert Maybe.is_some(some)
-    refute Maybe.is_none(some)
-    refute Maybe.is_some(nothing)
-    assert Maybe.is_none(nothing)
+    assert Option.is_some(some)
+    refute Option.is_none(some)
+    refute Option.is_some(nothing)
+    assert Option.is_none(nothing)
 end
 
-test "Maybe.is_some at a non-scalar payload"
-    held: Maybe<List<Int>> = Some([1])
+test "Option.is_some at a non-scalar payload"
+    held: Option<List<Int>> = Some([1])
 
-    assert Maybe.is_some(held)
-    refute Maybe.is_none(held)
-    refute Maybe.is_some(none_list())
+    assert Option.is_some(held)
+    refute Option.is_none(held)
+    refute Option.is_some(none_list())
 end
 
-test "Maybe.with_default takes the payload or the default"
-    some: Maybe<String> = Some("Ada")
+test "Option.with_default takes the payload or the default"
+    some: Option<String> = Some("Ada")
 
-    assert Maybe.with_default(some, "fallback") == "Ada"
-    assert Maybe.with_default(none_string(), "fallback") == "fallback"
-    assert Maybe.with_default(none_int(), 7) == 7
+    assert Option.with_default(some, "fallback") == "Ada"
+    assert Option.with_default(none_string(), "fallback") == "fallback"
+    assert Option.with_default(none_int(), 7) == 7
 end
 
-test "Maybe.with_default at a List payload returns the list itself"
-    held: Maybe<List<Int>> = Some([1, 2])
+test "Option.with_default at a List payload returns the list itself"
+    held: Option<List<Int>> = Some([1, 2])
 
-    assert Maybe.with_default(held, []) == [1, 2]
-    assert Maybe.with_default(none_list(), [9]) == [9]
+    assert Option.with_default(held, []) == [1, 2]
+    assert Option.with_default(none_list(), [9]) == [9]
 end
 
 test "Result.equal and == agree"
@@ -216,28 +216,28 @@ test "Result.with_default takes the Ok payload or the default"
     assert Result.with_default(bad, 0) == 0
 end
 
-test "Maybe.to_result converts both variants"
-    some: Maybe<Int> = Some(3)
+test "Option.to_result converts both variants"
+    some: Option<Int> = Some(3)
 
-    assert Maybe.to_result(some, "missing") == Ok(3)
-    assert Maybe.to_result(none_int(), "missing") == Err("missing")
-    assert Result.is_ok(Maybe.to_result(some, "missing"))
-    assert Result.is_err(Maybe.to_result(none_int(), "missing"))
+    assert Option.to_result(some, "missing") == Ok(3)
+    assert Option.to_result(none_int(), "missing") == Err("missing")
+    assert Result.is_ok(Option.to_result(some, "missing"))
+    assert Result.is_err(Option.to_result(none_int(), "missing"))
 end
 
-test "Result.to_maybe discards the error value"
+test "Result.to_option discards the error value"
     good: Result<Int, String> = Ok(3)
     bad: Result<Int, String> = Err("no")
 
-    assert Result.to_maybe(good) == Some(3)
-    assert Maybe.is_some(Result.to_maybe(good))
-    assert Maybe.is_none(Result.to_maybe(bad))
-    assert Maybe.equal(Result.to_maybe(bad), none_int())
+    assert Result.to_option(good) == Some(3)
+    assert Option.is_some(Result.to_option(good))
+    assert Option.is_none(Result.to_option(bad))
+    assert Option.equal(Result.to_option(bad), none_int())
 end
 
 test "the two conversions round-trip"
-    some: Maybe<Int> = Some(5)
+    some: Option<Int> = Some(5)
 
-    assert Maybe.equal(Result.to_maybe(Maybe.to_result(some, "e")), some)
-    assert Maybe.equal(Result.to_maybe(Maybe.to_result(none_int(), "e")), none_int())
+    assert Option.equal(Result.to_option(Option.to_result(some, "e")), some)
+    assert Option.equal(Result.to_option(Option.to_result(none_int(), "e")), none_int())
 end

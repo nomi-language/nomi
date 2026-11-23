@@ -16,7 +16,7 @@ import (
 // An instance is the same `*typeDef` shape as a shared one (`genStructOf` +
 // `genStructArgs`, `rtDeclared` because rt declares `rt.Channel[T]`); the only
 // thing that differs is which table it is interned in. The prelude family has
-// the same split: `rt.Maybe[int64]` is process-wide and `rt.Maybe[NomiT_Point]`
+// the same split: `rt.Option[int64]` is process-wide and `rt.Option[NomiT_Point]`
 // is per gen (prelude.go's preludeInstanceOf). `project()` stays subtractive:
 // an argument it cannot represent comes back kindInvalid and the
 // instantiation refuses by name.
@@ -195,7 +195,7 @@ func TestGenHostPerGenInstanceKeepsTheOpaqueLeafShape(t *testing.T) {
 //
 //	Set.items       Map<T, Bool>   mapKindIn interns for any T
 //	Range.start     T              the argument itself
-//	Range.end       Maybe<T>       preludeInstanceOf is shared-then-per-gen
+//	Range.end       Option<T>       preludeInstanceOf is shared-then-per-gen
 //	Range.inclusive Bool           a scalar
 //	Channel.sender  Sender<T>      genHostInstance is shared-then-per-gen
 //	Channel.receiver Receiver<T>   likewise

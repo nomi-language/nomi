@@ -34,9 +34,9 @@ pub import
     lists.{List, NonEmptyList}
     locale.Locale
     maps.{Map, NonEmptyMap}
-    maybe.Maybe
-    maybe.Maybe.{None, Some}
     multiply.Multiply
+    option.Option
+    option.Option.{None, Some}
     phrase.{Noun, Phrase}
     productable.Productable
     ranges.{BoundedRange, ClosedRange, NonEmptyRange, Range}

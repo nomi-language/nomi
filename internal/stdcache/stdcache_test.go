@@ -11,9 +11,9 @@ import (
 	"github.com/nomi-language/nomi/internal/artifactcache"
 )
 
-func stdFS(maybe string) fstest.MapFS {
+func stdFS(option string) fstest.MapFS {
 	return fstest.MapFS{
-		"maybe.nomi":                          {Data: []byte(maybe)},
+		"option.nomi":                         {Data: []byte(option)},
 		"strings.nomi":                        {Data: []byte("pub type Text = String\n")},
 		"_fixtures/nested/deeper/module.nomi": {Data: []byte("fn f() end\n")},
 		"std.go":                              {Data: []byte("package std\n")},
@@ -25,13 +25,13 @@ func stdFS(maybe string) fstest.MapFS {
 // the old server's text.
 func TestDir_TwoVersionsWriteTwoDirectories(t *testing.T) {
 	root := t.TempDir()
-	older := New(root, stdFS("pub enum Maybe<T>\n  Some(T)\n  None\nend\n"))
-	newer := New(root, stdFS("pub enum Maybe<T>\n  None\n  Some(T)\nend\n"))
+	older := New(root, stdFS("pub enum Option<T>\n  Some(T)\n  None\nend\n"))
+	newer := New(root, stdFS("pub enum Option<T>\n  None\n  Some(T)\nend\n"))
 	if older.Version() == newer.Version() {
 		t.Fatalf("different std content has one version %s", older.Version())
 	}
-	oldPath := older.Path("maybe.nomi")
-	newPath := newer.Path("maybe.nomi")
+	oldPath := older.Path("option.nomi")
+	newPath := newer.Path("option.nomi")
 	if filepath.Dir(oldPath) == filepath.Dir(newPath) {
 		t.Fatalf("both versions write to %s", filepath.Dir(oldPath))
 	}
@@ -83,11 +83,11 @@ func TestVersion_IsTheNomiFilesContent(t *testing.T) {
 func TestDir_RewritesARemovedDirectory(t *testing.T) {
 	root := t.TempDir()
 	d := New(root, stdFS("a\n"))
-	path := d.Path("maybe.nomi")
+	path := d.Path("option.nomi")
 	if err := os.RemoveAll(root); err != nil {
 		t.Fatal(err)
 	}
-	if got := d.Path("maybe.nomi"); got != path {
+	if got := d.Path("option.nomi"); got != path {
 		t.Fatalf("path moved from %s to %s", path, got)
 	}
 	if _, err := os.Stat(path); err != nil {
@@ -108,7 +108,7 @@ func TestDir_PrunesOnlyStaleEntries(t *testing.T) {
 			if err := os.MkdirAll(p, 0o755); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.WriteFile(filepath.Join(p, "maybe.nomi"), nil, 0o444); err != nil {
+			if err := os.WriteFile(filepath.Join(p, "option.nomi"), nil, 0o444); err != nil {
 				t.Fatal(err)
 			}
 		} else if err := os.WriteFile(p, nil, 0o644); err != nil {
@@ -121,12 +121,12 @@ func TestDir_PrunesOnlyStaleEntries(t *testing.T) {
 	}
 	staleVersion := mk("0123456789abcdef", true, old)
 	liveVersion := mk("fedcba9876543210", true, time.Now().Add(-time.Hour))
-	legacyFile := mk("maybe.nomi", false, old)
+	legacyFile := mk("option.nomi", false, old)
 	staleTemp := mk(artifactcache.TempPrefix+"x", true, time.Now().Add(-2*time.Hour))
 	freshTemp := mk(artifactcache.TempPrefix+"y", true, time.Now())
 
 	d := New(root, stdFS("a\n"))
-	d.Path("maybe.nomi")
+	d.Path("option.nomi")
 
 	for _, p := range []string{staleVersion, legacyFile, staleTemp} {
 		if _, err := os.Stat(p); err == nil {
@@ -144,14 +144,14 @@ func TestDir_PrunesOnlyStaleEntries(t *testing.T) {
 // is what keeps other servers' prunes away, and a first use refreshes it.
 func TestDir_TouchesAnExistingDirectory(t *testing.T) {
 	root := t.TempDir()
-	New(root, stdFS("a\n")).Path("maybe.nomi")
+	New(root, stdFS("a\n")).Path("option.nomi")
 	d := New(root, stdFS("a\n"))
 	dir := filepath.Join(root, d.Version())
 	old := time.Now().Add(-staleAfter - time.Hour)
 	if err := os.Chtimes(dir, old, old); err != nil {
 		t.Fatal(err)
 	}
-	d.Path("maybe.nomi")
+	d.Path("option.nomi")
 	info, err := os.Stat(dir)
 	if err != nil {
 		t.Fatal(err)

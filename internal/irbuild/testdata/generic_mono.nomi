@@ -28,8 +28,8 @@ end
 /// mentions it inside a PRELUDE enum. Both are depth positions, and the prelude
 /// one is where the type argument has to survive a construction rather than
 /// merely a pass-through.
-fn recv<T>(r: Half<T>) -> Maybe<T>
-    Maybe.Some(r.slot)
+fn recv<T>(r: Half<T>) -> Option<T>
+    Option.Some(r.slot)
 end
 
 /// Pass-through: the container arrives and leaves unchanged. This is the row an
@@ -56,7 +56,7 @@ end
 /// parameter. Inside the instance, `T` is concrete, so the inner call is
 /// instantiated at the outer instance's argument — the chain the worklist
 /// exists for.
-fn recv_twice<T>(r: Half<T>) -> Maybe<T>
+fn recv_twice<T>(r: Half<T>) -> Option<T>
     recv(r)
 end
 

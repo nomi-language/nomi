@@ -39,7 +39,7 @@ type failure struct {
 // is None; fields is the field count every record must have, 0 for the
 // first record's and -1 for any. A count past int64 saturates: no record
 // has that many fields, as none has the count itself.
-func Open(r rt.Reader, delimiter rt.Codepoint, comment rt.Maybe[rt.Codepoint], trim, lazy bool, fieldsArg rt.Int) rt.CsvRecords {
+func Open(r rt.Reader, delimiter rt.Codepoint, comment rt.Option[rt.Codepoint], trim, lazy bool, fieldsArg rt.Int) rt.CsvRecords {
 	return rt.NewCsvRecords(open(lineinput.New(r), delimiter, comment, trim, lazy, fieldsArg))
 }
 
@@ -48,7 +48,7 @@ func Open(r rt.Reader, delimiter rt.Codepoint, comment rt.Maybe[rt.Codepoint], t
 // message, as Stopped and Message describe them. It reads data whole with
 // the reader Open makes, so it reads no Reader and stops at the end or on
 // a failure of kind 1 or 3, never 2.
-func Decode(data rt.Bytes, delimiter rt.Codepoint, comment rt.Maybe[rt.Codepoint], trim, lazy bool, fieldsArg rt.Int) (*rt.List[*rt.List[string]], *rt.List[int64], *rt.List[int64], string) {
+func Decode(data rt.Bytes, delimiter rt.Codepoint, comment rt.Option[rt.Codepoint], trim, lazy bool, fieldsArg rt.Int) (*rt.List[*rt.List[string]], *rt.List[int64], *rt.List[int64], string) {
 	rec := open(lineinput.Text(data), delimiter, comment, trim, lazy, fieldsArg)
 	var all []*rt.List[string]
 	var lines []int64
@@ -66,7 +66,7 @@ func Decode(data rt.Bytes, delimiter rt.Codepoint, comment rt.Maybe[rt.Codepoint
 
 func same[T any](v T) T { return v }
 
-func open(in *lineinput.Input, delimiter rt.Codepoint, comment rt.Maybe[rt.Codepoint], trim, lazy bool, fieldsArg rt.Int) *records {
+func open(in *lineinput.Input, delimiter rt.Codepoint, comment rt.Option[rt.Codepoint], trim, lazy bool, fieldsArg rt.Int) *records {
 	fields := fieldsArg.Saturated()
 	c := csv.NewReader(in)
 	c.Comma = rune(delimiter)

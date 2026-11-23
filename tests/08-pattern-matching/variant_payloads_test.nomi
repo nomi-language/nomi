@@ -52,7 +52,7 @@ enum Token
     Tagged Circle
     Card {rank: Int, suit: String}
     Computation (Int) -> Int
-    Inner Maybe<Int>
+    Inner Option<Int>
     Render Renderable
     embeds Rect
     embeds Expired

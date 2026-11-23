@@ -10,7 +10,7 @@ fn sum(a: Decimal, b: Decimal) -> Decimal
     a + b
 end
 fn divide(a: Decimal, b: NonZeroDecimal) -> Decimal
-    Decimal.divide_exact(a, b) |> Maybe.with_default(0d)
+    Decimal.divide_exact(a, b) |> Option.with_default(0d)
 end
 fn main()
   io.print(sum(0.1d, 0.2d) == 0.3d)

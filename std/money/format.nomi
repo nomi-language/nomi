@@ -11,7 +11,7 @@ import
     int.{Int, Int64}
     locale.Locale
     localize.NumberParseError
-    maybe.Maybe.{None, Some}
+    option.Option.{None, Some}
     results.Result.{self, Err, Ok}
     strings.String
 end

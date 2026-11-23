@@ -22,7 +22,7 @@
 //# ## Capture types
 //#
 //# `Regex<C>` carries the type of its capture groups: `C` is what
-//# `String.captures` returns for a match, inside a `Maybe`, and what
+//# `String.captures` returns for a match, inside an `Option`, and what
 //# `String.captures_all` lists. The groups are the pattern's from group 1,
 //# in the order the pattern opens them; the whole match is `String.find`'s
 //# result, not a group. A `Regex` literal whose pattern is fixed text (one
@@ -30,7 +30,7 @@
 //# computed from the pattern by the compiler, as Swift types
 //# `/(\d+)-(\w+)?/`:
 //#
-//# - A group is `String` when every match fills it and `Maybe<String>` when
+//# - A group is `String` when every match fills it and `Option<String>` when
 //#   a match can leave it out: it stands under `?`, `*` or a repetition whose
 //#   minimum is 0, in one alternative of a `|`, or inside a group that can be
 //#   left out. A group under `+` or `{n,m}` with `n > 0` holds its last
@@ -39,17 +39,17 @@
 //# - When every group is named (`(?P<year>...)` or `(?<year>...)`) with a
 //#   name a field can have, `C` is the anonymous struct of the groups:
 //#   ``Regex`(?P<year>\d{4})-(?P<month>\d\d)?` `` is a
-//#   `Regex<{year: String, month: Maybe<String>}>`.
+//#   `Regex<{year: String, month: Option<String>}>`.
 //# - Otherwise several groups are a tuple in order (``Regex`(\d+)-(\w+)?` ``
-//#   is a `Regex<(String, Maybe<String>)>`, and `Regex"(a)|(b)"` a
-//#   `Regex<(Maybe<String>, Maybe<String>)>`), one group is its type alone,
+//#   is a `Regex<(String, Option<String>)>`, and `Regex"(a)|(b)"` a
+//#   `Regex<(Option<String>, Option<String>)>`), one group is its type alone,
 //#   since Nomi has no one-element tuple (``Regex`v(\d+)` `` is a
 //#   `Regex<String>`), and a pattern with no group is a `Regex<Unit>`, whose
 //#   `String.captures` is `Some(Unit)` for a match.
 //#
 //# A regex compiled while the program runs, by `Regex.compile` or by a
 //# literal that interpolates, has groups no one knows before it runs, and is
-//# a `Regex<List<Maybe<String>>>`: one entry per group, `Some` of the text
+//# a `Regex<List<Option<String>>>`: one entry per group, `Some` of the text
 //# for a group that took part, even an empty one, and `None` for one that
 //# did not, so `String.captures("b", Regex.compile("(a)|(b)")?)` is
 //# `Some([None, Some("b")])`.
@@ -59,7 +59,7 @@
 //# `String.contains`, the `Matcher` search functions, `Display` and `Debug`)
 //# take a `Regex<C>` for any `C`, and ordinary code never writes it. A
 //# function of your own that takes any regex is generic in it:
-//# `fn first<C>(re: Regex<C>, text: String) -> Maybe<C>`.
+//# `fn first<C>(re: Regex<C>, text: String) -> Option<C>`.
 //# Annotating a binding of a literal names its type, as
 //# ``digits: Regex<Unit> = Regex`\d+` ``.
 
@@ -71,7 +71,7 @@ import
     lists.List
     literals.{Fragment, Literal}
     matcher.Matcher
-    maybe.Maybe
+    option.Option
     results.Result
     strings.String
 end
@@ -87,27 +87,27 @@ end
 /// A `Regex` is a `Matcher`: test, find, collect and split with the String
 /// functions. `C` is what `String.captures` gives for a match; a literal's
 /// comes from its pattern, so ``Regex`(\w+)@(\w+)?` `` is a
-/// `Regex<(String, Maybe<String>)>`, and the functions that do not read
+/// `Regex<(String, Option<String>)>`, and the functions that do not read
 /// groups take a `Regex` of any `C`.
 //! import std::unit.Unit
 //!
 //! assert String.contains("order 66", Regex`\d+`)
 //! assert String.contains("room", Regex`\d+`) == False
 //! assert String.find_all("order 66, aisle 7", Regex`\d+`) == ["66", "7"]
-//! assert String.find("order 66, aisle 7", Regex`\d+`) == Maybe.Some("66")
+//! assert String.find("order 66, aisle 7", Regex`\d+`) == Option.Some("66")
 //! assert String.split("a, b,c", Regex`,\s*`) == ["a", "b", "c"]
-//! assert String.captures("ann@home", Regex`(\w+)@(\w+)?`) == Maybe.Some(("ann", Maybe.Some("home")))
+//! assert String.captures("ann@home", Regex`(\w+)@(\w+)?`) == Option.Some(("ann", Option.Some("home")))
 //!
 //! pair = Regex`(\w+)@(\w+)?`
-//! assert String.captures("ann@", pair) == Maybe.Some(("ann", Maybe.None))
-//! assert String.captures("none", pair) == Maybe.None
+//! assert String.captures("ann@", pair) == Option.Some(("ann", Option.None))
+//! assert String.captures("none", pair) == Option.None
 //!
 //! {year:, month:} = String.captures("2024-05", Regex`(?P<year>\d{4})-(?P<month>\d\d)`)!
 //! assert year + month == "202405"
 //!
 //! assert String.captures_all("a=1 b=2", Regex`(\w)=(\d)`) == [("a", "1"), ("b", "2")]
-//! assert String.captures("aa", Regex"(a*)") == Maybe.Some("aa")
-//! assert String.captures("x", Regex"x") == Maybe.Some(Unit)
+//! assert String.captures("aa", Regex"(a*)") == Option.Some("aa")
+//! assert String.captures("x", Regex"x") == Option.Some(Unit)
 //! digits: Regex<Unit> = Regex`\d+`
 //! assert String.contains("a1", digits)
 //
@@ -116,12 +116,14 @@ pub host type Regex<C>
 impl Regex<C>
     /// Compiles a pattern into a `Regex`, or returns `Err` with the reason
     /// the pattern is invalid. Its groups are known only once it runs, so
-    /// `String.captures` gives them as a list, one `Maybe` per group.
+    /// `String.captures` gives them as a list, one `Option` per group.
     //! assert Regex.pattern(Regex.compile("a+")?) == "a+"
     //! assert Err(_msg) = Regex.compile("(")
-    //! assert String.captures("b", Regex.compile("(a)|(b)")?) == Maybe.Some([Maybe.None, Maybe.Some("b")])
+    //!
+    //! assert String.captures("b", Regex.compile("(a)|(b)")?)
+    //!     == Option.Some([Option.None, Option.Some("b")])
     //
-    pub host fn compile(pattern: String) -> Result<Regex<List<Maybe<String>>>, String>
+    pub host fn compile(pattern: String) -> Result<Regex<List<Option<String>>>, String>
 
     /// Returns the pattern the regex was compiled from.
     //! assert Regex.pattern(Regex`\d+`) == "\\d+"
@@ -150,13 +152,13 @@ impl Matcher for Regex<C>
     host fn find_all_in(re: Regex<C>, text: String) -> List<String>
 
     /// The leftmost match, which may be empty.
-    host fn find_in(re: Regex<C>, text: String) -> Maybe<String>
+    host fn find_in(re: Regex<C>, text: String) -> Option<String>
 end
 
 impl Literal for Regex<C>
     fn from_fragments(
         fragments: List<Fragment<String>>,
-    ) -> Result<Regex<List<Maybe<String>>>, String>
+    ) -> Result<Regex<List<Option<String>>>, String>
         body = Iter.reduce(fragments, "", fn acc, frag ->
             case frag
                 .Static(s)  -> acc + s

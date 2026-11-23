@@ -195,7 +195,7 @@ struct Planted
 end
 
 struct Interp
-    held: Maybe<Planted>
+    held: Option<Planted>
     n: Int
 end
 

@@ -112,21 +112,6 @@ func todoText(file string, line int, reason string) string {
 	return s
 }
 
-// EnumFieldMissingError is the failure a field read on an enum value reports
-// when the value's variant carries a struct payload without that field. The
-// checker types `s.f` from the first variant that declares f, so a value of
-// another variant type-checks and has nowhere to read from. The VM's enum
-// field read returns it.
-func EnumFieldMissingError(line int, variant, field string) error {
-	return positioned(line, fmt.Sprintf("line %d: variant '%s' has no field '%s'", line, variant, field))
-}
-
-// EnumFieldAccessError is EnumFieldMissingError's sibling for a variant whose
-// payload is not a struct, or that has none.
-func EnumFieldAccessError(line int, variant, field string) error {
-	return positioned(line, fmt.Sprintf("line %d: cannot access field '%s' on variant '%s'", line, field, variant))
-}
-
 // MaxCallDepth is how many Nomi activations one goroutine may have in progress
 // before the call that would start one more faults with CallDepthError.
 //

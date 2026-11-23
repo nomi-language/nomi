@@ -21,7 +21,7 @@ func TestSealOpensOnlyUnderItsKeyAndLabel(t *testing.T) {
 
 	flipped := []byte(sealed.Ok)
 	flipped[len(flipped)/2] ^= 1
-	refused := map[string]Maybe[Bytes]{
+	refused := map[string]Option[Bytes]{
 		"another key":   Open(Bytes(strings.Repeat("j", SealKeySize)), sealed.Ok, Bytes("label")),
 		"another label": Open(key, sealed.Ok, Bytes("other")),
 		"a changed bit": Open(key, Bytes(flipped), Bytes("label")),

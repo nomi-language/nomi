@@ -37,7 +37,7 @@ fn main()
         io.print("guard")
         break
     end)
-    m: Maybe<Int> = Some(n)
+    m: Option<Int> = Some(n)
     Iter.loop(Unit, fn _ ->
         Some(v) = m else
             return

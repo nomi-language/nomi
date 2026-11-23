@@ -25,7 +25,7 @@ fn main()
         Meters(n) = x
         n + 1
     end)
-    io.inspect(Maybe.is_some(f))
+    io.inspect(Option.is_some(f))
     case f
         Some(g) -> io.inspect(g(Meters(4)))
         None -> io.inspect(0)

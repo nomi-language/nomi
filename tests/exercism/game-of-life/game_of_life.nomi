@@ -25,7 +25,7 @@ fn live_neighbours(board: Vector<Vector<Int>>, row: Int, column: Int) -> Int
 end
 
 /// The cell at `row` and `column`, or None off the board.
-fn cell_at(board: Vector<Vector<Int>>, row: Int, column: Int) -> Maybe<Int>
+fn cell_at(board: Vector<Vector<Int>>, row: Int, column: Int) -> Option<Int>
     cells = Vector.get(board, row)?
     Vector.get(cells, column)
 end

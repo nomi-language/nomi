@@ -54,7 +54,7 @@ test "arithmetic is exact, which is what a Float cannot be"
     assert Decimal.to_string(1.50d + 1.5d) == "3.00"
     assert Decimal.to_string(2.50d - 1d) == "1.50"
     assert Decimal.to_string(1.50d * 1.5d) == "2.250"
-    assert Decimal.divide_exact(10.00d, 4d) |> Maybe.map(Decimal.to_string) == Some("2.50")
+    assert Decimal.divide_exact(10.00d, 4d) |> Option.map(Decimal.to_string) == Some("2.50")
 
     // Negative direction, and a subtraction that crosses zero.
     assert Decimal.to_string(1d - 2.5d) == "-1.5"

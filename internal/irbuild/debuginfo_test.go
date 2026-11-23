@@ -245,7 +245,7 @@ fn main()
   bs = [Box{item: Box{item: "s"}}]
   tr: Tree<Int> = Tree.Node{value: 1}
   g = fn b: Box<Int> -> b.item
-  o: Maybe<Box<Int>> = None
+  o: Option<Box<Int>> = None
   m: Map<String, Box<Int>> = {"a" => Box{item: 2}}
   pair = (Box{item: 1}, [Box{item: 2.5}])
   _ = (bs, tr, g, o, m, pair)
@@ -270,7 +270,7 @@ end
 			}
 		}
 	}
-	want := "bs: List<Box<Box<String>>>, tr: Tree<Int>, g: (Box<Int>) -> Int, o: Maybe<Box<Int>>, " +
+	want := "bs: List<Box<Box<String>>>, tr: Tree<Int>, g: (Box<Int>) -> Int, o: Option<Box<Int>>, " +
 		"m: Map<String, Box<Int>>, pair: (Box<Int>, List<Box<Float>>)"
 	if strings.Join(got, ", ") != want {
 		t.Fatalf("main's variables:\n%s\nwant:\n%s", strings.Join(got, ", "), want)

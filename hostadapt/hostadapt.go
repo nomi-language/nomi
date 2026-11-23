@@ -7,12 +7,12 @@
 // to, calls the Go function directly, and converts the Go results back. The
 // projection rules are these (internal/hostgen package doc, "Projection
 // rows"): a Go multiple return is a tuple, a trailing `error` wraps the rest
-// in `Result<_, String>`, a `*T` result is `Maybe<T>`, a Go struct is the
+// in `Result<_, String>`, a `*T` result is `Option<T>`, a Go struct is the
 // Nomi struct the declaration names, and a registered host type is an opaque
 // handle. A std row's Go function, linked into the generator, may also
 // answer a tuple as an anonymous struct of fields F0, F1, ..., as an
-// rt.Maybe's payload (`rt.Maybe[struct{ F0 rt.Int; F1 int64 }]` is
-// `Maybe<(Int, Int)>`), which is how internal/irbuild reads an rt
+// rt.Option's payload (`rt.Option[struct{ F0 rt.Int; F1 int64 }]` is
+// `Option<(Int, Int)>`), which is how internal/irbuild reads an rt
 // signature's tuple.
 //
 // Every binding of at most MaxSlots operands is generated as its register
@@ -20,7 +20,7 @@
 // same call over operands and an answer kept unboxed in Slots, as an
 // engine's registers hold them. An Int that fits int64, a Float, a Bool, a
 // Byte, a String and a Bytes cross it without a box, a tuple answers its
-// components and a Maybe or a Result its payload and whether it carries
+// components and an Option or a Result its payload and whether it carries
 // one, so an engine that reads and writes registers builds no box, no
 // tuple and no Some or Ok for the call. A generated table lists these
 // forms as rows (Row), and Bind hands each to Env.AddRegs with the slot
@@ -74,7 +74,7 @@ type Func func(fr *rt.Frame, args []rt.Value) (rt.Value, error)
 type Invoker func(fr *rt.Frame, fn rt.Value, args []rt.Value) (rt.Value, error)
 
 // DescSpec is the static description of one record shape an adapter builds or
-// reads: a named struct, an enum instantiation (Maybe<String> and Maybe<Int>
+// reads: a named struct, an enum instantiation (Option<String> and Option<Int>
 // are two specs), or a distinct type. Fields and variants are in declaration
 // order, which is the layout the descriptor gets.
 type DescSpec struct {

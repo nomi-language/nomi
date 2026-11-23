@@ -260,14 +260,14 @@ end
 ```
 <!-- expect
 main.nomi:9:42: `add_until_zero` uses `break`, so it cannot be called: pass it as an iteration callback itself, as in `Iter.reduce(xs, <start>, add_until_zero)`
-main.nomi:9:42: help: to decide in this callback instead, return a `Maybe` or an enum from `add_until_zero` and write `break` here
+main.nomi:9:42: help: to decide in this callback instead, return an `Option` or an enum from `add_until_zero` and write `break` here
 -->
 
 When you want a helper to decide and the callback to act, have the helper
-return a `Maybe` (or an enum), and write the `continue` in the callback:
+return an `Option` (or an enum), and write the `continue` in the callback:
 
 ```nomi-run
-fn small(x: Int) -> Maybe<Int>
+fn small(x: Int) -> Option<Int>
     if x > 100 then None else Some(x)
 end
 

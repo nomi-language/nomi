@@ -21,7 +21,7 @@ end
 struct Person
   name: String
   address: Address
-  nick: Maybe<Address>
+  nick: Option<Address>
   tags: List<String>
   recent: Vector<Int>
 end
@@ -58,9 +58,9 @@ func TestCurrentValue_Diagnostics(t *testing.T) {
 		{"a plain vector", `  _a = Vector[‸.., 1]`, noValue},
 		{"a plain set", `  _a = Set[‸.., 1]`, noValue},
 		{"a patch passed to another function's Partial<T>", `  _a = take({address: {‸.., city: "x"}})`, noValue},
-		{"inside a Maybe", `  _a = {..ada(), nick: {‸.., city: "x"}}`,
-			"struct spread `..` requires a struct, got Maybe<Address>\n" +
-				"help: a bare `..` cannot reach inside a Maybe, which may hold no value; write a whole value"},
+		{"inside an Option", `  _a = {..ada(), nick: {‸.., city: "x"}}`,
+			"struct spread `..` requires a struct, got Option<Address>\n" +
+				"help: a bare `..` cannot reach inside an Option, which may hold no value; write a whole value"},
 		{"a missing key with a field that has no default", "  m = {\"a\" => ada().address}\n  _a = {..m, \"b\" => {‸.., city: \"x\"}}",
 			"a missing key leaves `..` no Address to update, and field 'street' has no default\n" +
 				"help: when the key is missing the update builds a whole value from the fields written and the field defaults; write the other fields, or give them defaults"},
@@ -120,8 +120,8 @@ func TestCurrentValue_Admitted(t *testing.T) {
 		"a named vector spread first":         "  v = Vector[1]\n  _a = Vector[..v, 2]",
 		"a named vector spread last":          "  v = Vector[1]\n  _a = Vector[2, ..v]",
 		"a computed vector spread":            `  _a = Vector[..ada().recent, 2]`,
-		"an empty vector spread":              "  _a = Vector[..Vector[], 1]\n  _b: Vector<Maybe<Int>> = Vector[..Vector[], None]",
-		"a vector spread of embedded values":  "  v: Vector<Maybe<Int>> = Vector[None]\n  _a = Vector[..v, Some(1), None]",
+		"an empty vector spread":              "  _a = Vector[..Vector[], 1]\n  _b: Vector<Option<Int>> = Vector[..Vector[], None]",
+		"a vector spread of embedded values":  "  v: Vector<Option<Int>> = Vector[None]\n  _a = Vector[..v, Some(1), None]",
 	} {
 		t.Run(name, func(t *testing.T) {
 			src := currentValueDecls + "fn main()\n" + body + "\nend\n"

@@ -76,7 +76,7 @@ var randomSeedKind = sync.OnceValue(func() kind {
 //
 // The first field in either struct family whose kind is a FUNCTION, and it
 // composes two structural constructors over an anchored opaque newtype. Both
-// doors are honoured the way the `Range` row's `Maybe<T>` field honours its
+// doors are honoured the way the `Range` row's `Option<T>` field honours its
 // `!shared`: with no gen, only the process-wide instance is reachable, so a
 // non-neutral type argument has NO kind and says so rather than panicking
 // inside internComp.

@@ -911,7 +911,7 @@ func (bl *irScalarBuilder) assertionValue(t *ast.Assertion) (ir.Temp, kind, bool
 	if !ok {
 		return ir.NoTemp, kindInvalid, false
 	}
-	// A `Maybe`/`Result` or `Assertable` subject is a different judgement —
+	// An `Option`/`Result` or `Assertable` subject is a different judgement —
 	// a tag comparison or the value's own `failure` impl — and
 	// `rt.AssertionSite` has a separate entry point for each. The VM reads
 	// the shape off the value; an Assertable's verdict is its impl's answer,
@@ -920,7 +920,7 @@ func (bl *irScalarBuilder) assertionValue(t *ast.Assertion) (ir.Temp, kind, bool
 	var assertable *assertableImpl
 	if k != kindBool && !shape {
 		if assertable = bl.assertableFailure(k); assertable == nil {
-			bl.g.dc.note("an assertion subject that is not a Bool, Maybe, Result or retained Assertable")
+			bl.g.dc.note("an assertion subject that is not a Bool, Option, Result or retained Assertable")
 			return ir.NoTemp, kindInvalid, false
 		}
 	}

@@ -78,7 +78,7 @@
 // at a module the project needs is the project's (MainModule, asked by
 // Walk, Resolve and Load's fetch). The tool then reads
 // sibling modules at the project's versions and through its dir entries,
-// which `nomi add` and `nomi update` keep on one commit for lib/ modules. It
+// which `nomi add` and `nomi update` keep on one version for lib/ modules. It
 // is an environment variable so the process the tool runs in reads the
 // same graph. TestLibRelease_AProjectOfLibModulesNeedsNoGo (cmd/nomi) runs
 // sqlkit's generator from the module cache on a release `nomi` with no Go.

@@ -94,8 +94,10 @@ test "embedded structs coerce to their containing enum"
 
     assert circle_area(raw_circle) == 78.5
     assert area(c2) == 3.14
-    assert c.radius == 5.0
-    assert r.width == 3.0
+    assert Shape.Circle{radius:} = c
+    assert radius == 5.0
+    assert Shape.Rectangle{width:} = r
+    assert width == 3.0
     assert areas == [78.5, 12.0, 0.0]
 end
 

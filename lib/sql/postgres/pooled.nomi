@@ -120,7 +120,7 @@ end
 /// level of, after the checks every statement makes.
 pub fn statement<T>(
     db:    Db,
-    level: Maybe<Level>,
+    level: Option<Level>,
     work:  (Link) -> Result<T, sql.Error>,
 ) -> Result<T, sql.Error>
     wire.flush_cancels()
@@ -397,7 +397,7 @@ fn leave(
                             Iter.take(
                                 state.tokens,
                                 NonNegativeInt.try_from(at.depth - 1)
-                                |> Maybe.with_default(0),
+                                |> Option.with_default(0),
                             )
                             |> Iter.to_list()
 
@@ -464,7 +464,7 @@ end
 /// Asks the server whether it answers, through the transaction `level`
 /// names when there is one. On a single connection whose transaction is
 /// open, it asks through the transaction.
-pub fn ping(db: Db, level: Maybe<Level>) -> Result<Unit, sql.Error>
+pub fn ping(db: Db, level: Option<Level>) -> Result<Unit, sql.Error>
     wire.flush_cancels()
     open_db(db)?
 
@@ -493,7 +493,7 @@ pub fn ping(db: Db, level: Maybe<Level>) -> Result<Unit, sql.Error>
 end
 
 // A transaction open on the pool, and its link.
-fn open_one(db: Db) -> Maybe<(Cell<TxState>, Link)>
+fn open_one(db: Db) -> Option<(Cell<TxState>, Link)>
     entry = List.first(Cell.read(db.open))?
     Some((entry.cell, entry.link))
 end

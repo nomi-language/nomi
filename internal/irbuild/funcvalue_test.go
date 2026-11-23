@@ -26,7 +26,7 @@ func TestLambdaParamNames_BlanksWhatCannotBeNamed(t *testing.T) {
 
 // A function passed by name to a std Iter function takes the elements as
 // the position passes them where their range proves its parameter's
-// subtype, as its capture and the lambda calling it do.
+// refinement, as its capture and the lambda calling it do.
 func TestFuncValue_AFunctionByNameTakesElementsItsRangeProves(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 

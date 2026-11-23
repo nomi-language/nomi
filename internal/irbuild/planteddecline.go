@@ -81,12 +81,12 @@ func plantedRefusal(name string) string {
 	return ""
 }
 
-// plantedMissingRefinementCheck is the subtype whose literals' checks a
+// plantedMissingRefinementCheck is the refinement whose literals' checks a
 // test made the builder fail to find, or nil: callee is its name.
 var plantedMissingRefinementCheck atomic.Pointer[declinePlant]
 
 // PlantMissingRefinementCheckForTest makes the builder find no `try_from`
-// for the subtype named typeName when it lists a literal's checks
+// for the refinement named typeName when it lists a literal's checks
 // (refinementSites), as a linkage name built wrong would, until restore is
 // called: a test that such a literal is an internal error at the literal,
 // not let through unchecked, needs no real naming bug. It panics outside a
@@ -103,7 +103,7 @@ func PlantMissingRefinementCheckForTest(typeName string) (restore func()) {
 }
 
 // plantedMissingCheck reports whether a test planted a missing check for
-// the subtype named typeName.
+// the refinement named typeName.
 func plantedMissingCheck(typeName string) bool {
 	p := plantedMissingRefinementCheck.Load()
 	return p != nil && p.callee == typeName

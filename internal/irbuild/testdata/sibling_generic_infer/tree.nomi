@@ -1,5 +1,5 @@
 // Generic types whose instances main.nomi reaches through positions it never
-// annotates: lambda parameters, a generic function's argument, a Maybe's
+// annotates: lambda parameters, a generic function's argument, an Option's
 // payload.
 pub enum Tree<T>
     Leaf

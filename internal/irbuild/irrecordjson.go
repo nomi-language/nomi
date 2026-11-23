@@ -16,7 +16,7 @@ import (
 // same fields and no options:
 //
 //   - `ToJson.to_json(r)` is `Json.Obj` of each field's JSON, keyed by the
-//     field's name as written: a field of a named type other than Maybe
+//     field's name as written: a field of a named type other than Option
 //     writes its key only when its `ToJson.to_json_field` answers Some (an
 //     `Absent` field is left out), and any other field, whose type cannot
 //     override the default, writes its `ToJson.to_json`; a `None` field is
@@ -77,7 +77,7 @@ func (bl *irScalarBuilder) recordToJsonCall(t *ast.Call, method string) (v ir.Te
 	irLoweredRecordRetained(sk, "ToJson."+method)
 	bl.noteQualRecordRow(t, subj, sk)
 	if method == "to_json_field" {
-		// The call's `Maybe<Json>` kind, which only the checker's
+		// The call's `Option<Json>` kind, which only the checker's
 		// signature gives.
 		// kindInvalid: propagates — the call returns unlowered and its caller's decline reports it.
 		if jsonK == kindInvalid {
@@ -111,7 +111,7 @@ func (bl *irScalarBuilder) recordJsonKindCall(t *ast.Call, k kind, kt analysis.T
 			return ir.NoTemp, kindInvalid, false, false, true
 		}
 		mk := bl.g.project(ft.Return)
-		if !irMaybeKind(mk) || mk.def.variant("None") == nil {
+		if !irOptionKind(mk) || mk.def.variant("None") == nil {
 			return ir.NoTemp, kindInvalid, false, false, true
 		}
 		v, rk, _, ok := bl.variantValue(t, mk.def, mk.def.variant("None"), nil, true)
@@ -162,7 +162,7 @@ func (bl *irScalarBuilder) noteQualRecordRow(t *ast.Call, v ir.Temp, k kind) {
 // it, else kindInvalid, and the first field's answer names it. path tells
 // a nested record's synthesized names from its parent's.
 //
-// A field of a named type other than Maybe writes its key only when its
+// A field of a named type other than Option writes its key only when its
 // `ToJson.to_json_field` answers Some, so an `Absent` field is left out;
 // every other field's type writes `Some(to_json(v))` by the default, so
 // its key is written with its `to_json` and no test.
@@ -180,8 +180,8 @@ func (bl *irScalarBuilder) recordToJsonOf(t *ast.Call, subj ir.Temp, sk kind, st
 
 	pos := bl.g.irNodePos(t)
 	// Each field's JSON in the record's order: a Json, or for an optional
-	// field (one whose key may be left out) its `to_json_field`, a
-	// Maybe<Json> of kind mk.
+	// field (one whose key may be left out) its `to_json_field`, an
+	// Option<Json> of kind mk.
 	type entry struct {
 		name     string
 		v        ir.Temp
@@ -202,20 +202,20 @@ func (bl *irScalarBuilder) recordToJsonOf(t *ast.Call, subj ir.Temp, sk kind, st
 		case irRetainedRecordKind(part):
 			jv, jk, ok = bl.recordToJsonOf(t, field, part, pt, jsonK, path+"."+strconv.Itoa(i))
 		// kindInvalid: sentinel — no Json kind is known yet; the field's own ToJson call below names it.
-		case irUnitMaybe(part) && jsonK != kindInvalid:
-			// `{detail: None}`: a None nothing typed, read as a Maybe of
+		case irUnitOption(part) && jsonK != kindInvalid:
+			// `{detail: None}`: a None nothing typed, read as an Option of
 			// Unit, which no ToJson impl answers. It is always None.
 			jv, jk, ok = bl.jsonNull(t, jsonK)
-		case part.tag == tagNamed && !irMaybeKind(part):
+		case part.tag == tagNamed && !irOptionKind(part):
 			mv, mk, mok := bl.lowerJsonFieldCall(t, field, part, path+"."+strconv.Itoa(i), func(arg ast.Node) *ast.Call {
 				return bl.g.synthIfaceCall(t.Line, "ToJson", "to_json_field", arg, bl.g.stdIfaceCallRecord(stdToJson, "to_json_field", 1, pt))
 			})
-			if !mok || mk.tag != tagNamed || mk.def == nil || !irMaybeKind(mk) {
+			if !mok || mk.tag != tagNamed || mk.def == nil || !irOptionKind(mk) {
 				return no("field " + name + "'s ToJson.to_json_field")
 			}
 			some := mk.def.variant("Some")
 			if some == nil || len(some.payloads) != 1 {
-				return no("a Maybe without Some")
+				return no("an Option without Some")
 			}
 			// kindInvalid: sentinel — the caller passed no Json kind, so this field's answer names it.
 			if jsonK == kindInvalid {
@@ -314,28 +314,28 @@ func (bl *irScalarBuilder) recordToJsonOf(t *ast.Call, subj ir.Temp, sk kind, st
 }
 
 // recordToJsonFieldOf is `ToJson.to_json_field(r)` for subj a lowered record
-// of kind sk: the interface's default, `Some(to_json(r))`, with maybeK the
-// call's `Maybe<Json>` kind.
-func (bl *irScalarBuilder) recordToJsonFieldOf(t *ast.Call, subj ir.Temp, sk kind, st analysis.Type, maybeK kind) (ir.Temp, kind, bool) {
-	if maybeK.tag != tagNamed || maybeK.def == nil || !irMaybeKind(maybeK) {
+// of kind sk: the interface's default, `Some(to_json(r))`, with optionK the
+// call's `Option<Json>` kind.
+func (bl *irScalarBuilder) recordToJsonFieldOf(t *ast.Call, subj ir.Temp, sk kind, st analysis.Type, optionK kind) (ir.Temp, kind, bool) {
+	if optionK.tag != tagNamed || optionK.def == nil || !irOptionKind(optionK) {
 		return ir.NoTemp, kindInvalid, false
 	}
-	some := maybeK.def.variant("Some")
+	some := optionK.def.variant("Some")
 	if some == nil || len(some.payloads) != 1 {
-		panic("irbuild: recordToJsonFieldOf: the prelude Maybe's Some has one payload")
+		panic("irbuild: recordToJsonFieldOf: the prelude Option's Some has one payload")
 	}
 	jv, _, ok := bl.recordToJsonOf(t, subj, sk, st, some.payloads[0].k, "")
 	if !ok {
 		return ir.NoTemp, kindInvalid, false
 	}
-	v, k, _, ok := bl.variantValue(t, maybeK.def, some, []ir.Temp{jv}, false)
+	v, k, _, ok := bl.variantValue(t, optionK.def, some, []ir.Temp{jv}, false)
 	return v, k, ok
 }
 
-// irUnitMaybe reports whether k is `Maybe<Unit>`, the kind of a bare
+// irUnitOption reports whether k is `Option<Unit>`, the kind of a bare
 // `None` whose element nothing determines.
-func irUnitMaybe(k kind) bool {
-	return irMaybeKind(k) && len(k.def.preludeArgs) == 1 && k.def.preludeArgs[0] == kindUnit
+func irUnitOption(k kind) bool {
+	return irOptionKind(k) && len(k.def.preludeArgs) == 1 && k.def.preludeArgs[0] == kindUnit
 }
 
 // jsonNull is `Json.Null` of the Json kind jsonK.
@@ -496,7 +496,7 @@ func (bl *irScalarBuilder) recordFromJsonOf(t *ast.Call, json ir.Temp, jk kind, 
 		md := gk.def
 		mSome, mNone := md.variant("Some"), md.variant("None")
 		if mSome == nil || mNone == nil {
-			return no("a Maybe without Some and None")
+			return no("an Option without Some and None")
 		}
 		vt := bl.g.irTypeOf(part)
 		if vt == nil {
@@ -525,12 +525,12 @@ func (bl *irScalarBuilder) recordFromJsonOf(t *ast.Call, json ir.Temp, jk kind, 
 			if !missingErr() {
 				return no("the missing field's error does not build")
 			}
-		case irMaybeKind(part):
-			// Maybe's from_missing is Some(None).
+		case irOptionKind(part):
+			// Option's from_missing is Some(None).
 			pd := part.def
 			none := pd.variant("None")
 			if none == nil {
-				return no("a Maybe field without None")
+				return no("an Option field without None")
 			}
 			nv, _, _, ok := bl.variantValue(t, pd, none, nil, true)
 			if !ok {
@@ -540,12 +540,12 @@ func (bl *irScalarBuilder) recordFromJsonOf(t *ast.Call, json ir.Temp, jk kind, 
 			bl.b.SetTerm(ir.NewJump(pos, next.ID()))
 		default:
 			mv, mk, ok := bl.fromMissingAt(t, part, pt)
-			if !ok || !irMaybeKind(mk) {
+			if !ok || !irOptionKind(mk) {
 				return no("no " + part.nomi() + ".from_missing")
 			}
 			mSome := mk.def.variant("Some")
 			if mSome == nil || len(mSome.payloads) != 1 || mSome.payloads[0].k != part {
-				return no("a from_missing that answers no Maybe<" + part.nomi() + ">")
+				return no("a from_missing that answers no Option<" + part.nomi() + ">")
 			}
 			given := bl.f.NewBlock(pos, "field missing, given")
 			absent := bl.f.NewBlock(pos, "field missing, refused")
@@ -623,9 +623,9 @@ func (bl *irScalarBuilder) fromJsonAt(t *ast.Call, json ir.Temp, jk kind, part k
 		owner = part.def.nomi
 	}
 	call := bl.g.synthIfaceCall(line, owner, "from_json", bl.g.madeRead(name, key, line, 0), bl.g.stdIfaceCallRecord(stdFromJson, "from_json", 1, pt))
-	// A field of a subtype reads its base and checks the subtype's rules
-	// (subtyperead.go).
-	read := bl.subtypeReadOf(call)
+	// A field of a refinement reads its base and checks the refinement's rules
+	// (refinementread.go).
+	read := bl.refinementReadOf(call)
 	v, rk, ok := bl.fromJsonCallAt(call, part, pt)
 	if read == nil || !ok {
 		return v, rk, ok
@@ -661,7 +661,7 @@ func (bl *irScalarBuilder) fromJsonCallAt(call *ast.Call, part kind, pt analysis
 }
 
 // fromMissingAt is `F.from_missing()` for the field kind part, of checker
-// type pt or nil, a `Maybe<F>`: std/json's missing_value instantiated at
+// type pt or nil, an `Option<F>`: std/json's missing_value instantiated at
 // part, whose body is that call as the checker resolved it.
 func (bl *irScalarBuilder) fromMissingAt(t *ast.Call, part kind, pt analysis.Type) (ir.Temp, kind, bool) {
 	g := bl.g

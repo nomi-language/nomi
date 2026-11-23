@@ -1,6 +1,6 @@
 // The prelude's non-empty collections: literals checked when compiled,
 // try_from and the constructors that cannot fail, functions that need no
-// Maybe, and functions that keep the guarantee.
+// Option, and functions that keep the guarantee.
 interface Named
     fn name(value: self) -> String
 end
@@ -116,7 +116,7 @@ test "groups and runs are NonEmptyLists"
     runs = Iter.chunk_equal([1, 1, 2]) |> Iter.map(&NonEmptyList.length(&1))
     n = 4
 
-    assert Map.get(by_length, 3) |> Maybe.map(&NonEmptyList.last(&1)) == Some("cat")
+    assert Map.get(by_length, 3) |> Option.map(&NonEmptyList.last(&1)) == Some("cat")
     assert Iter.to_list(firsts) == [1, 3]
     assert Iter.to_list(lasts) == [2, 3]
     assert Iter.to_list(runs) == [2, 1]

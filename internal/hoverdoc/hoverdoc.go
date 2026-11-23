@@ -171,7 +171,7 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 				resolved = sym.Resolved
 			}
 			// A variant constructor renders as the variant with its enum
-			// (`Maybe.Some(Int) -> Maybe<Int>`): there is no `fn Some`
+			// (`Option.Some(Int) -> Option<Int>`): there is no `fn Some`
 			// declaration to navigate to.
 			if resolved.Kind == analysis.SymbolEnumVariant || sym.Kind == analysis.SymbolEnumVariant {
 				return renderVariant(sym, false)
@@ -417,8 +417,8 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 			doc = n.Doc
 		case *ast.TypeDef:
 			keyword := "type "
-			if n.Subtype {
-				keyword = "subtype "
+			if n.Refinement {
+				keyword = "refine "
 			}
 			s := keyword + n.Name + renderTypeParams(n.TypeParams)
 			if n.InnerTypeExpr != nil {
@@ -432,7 +432,7 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 				s += " when " + analysis.RuleText(n.Rule)
 			}
 			sig = s
-			doc = withNote(n.Doc, refinementNote(n.Name, n.Subtype || analysis.IsCheckedDistinct(sym.Type), sym.Type))
+			doc = withNote(n.Doc, refinementNote(n.Name, n.Refinement || analysis.IsCheckedDistinct(sym.Type), sym.Type))
 		// No `doc = n.Doc` here, deliberately, unlike every sibling in
 		// this switch. The `switch sym.Kind` above already claims
 		// SymbolInterfaceMethod and sets the doc there, and every
@@ -1278,9 +1278,9 @@ func renderStructDef(n *ast.StructDef) string {
 	return b.String()
 }
 
-// refinementNote is the paragraph a hover on a subtype, a validated type
+// refinementNote is the paragraph a hover on a refinement, a validated type
 // or a validated struct adds below its doc: what the type is, the chain of
-// types a subtype narrows, and how a value enters it. Empty when checked
+// types a refinement narrows, and how a value enters it. Empty when checked
 // is false: a declaration whose values need no check.
 func refinementNote(name string, checked bool, t analysis.Type) string {
 	if !checked {
@@ -1294,22 +1294,22 @@ func refinementNote(name string, checked bool, t analysis.Type) string {
 	case analysis.IsCheckedDistinct(t):
 		b.WriteString("*validated type*: `" + t.String() + "` converts to nothing")
 	default:
-		b.WriteString("*subtype*")
+		b.WriteString("*refinement*")
 	}
 	single := true
 	for _, c := range analysis.RefinementChecks(t) {
 		single = single && len(analysis.RefinementParents(c)) <= 1
 	}
 	if len(parents) == 1 && single {
-		// One parent each way up: `PositiveFloat` is a subtype of
-		// `NonNegativeFloat`, a subtype of `Float`.
+		// One parent each way up: `PositiveFloat` is a refinement of
+		// `NonNegativeFloat`, a refinement of `Float`.
 		chain := []string{t.String()}
 		for _, a := range analysis.RefinementAncestors(t) {
 			chain = append(chain, a.String())
 		}
-		b.WriteString(": `" + strings.Join(chain, "` is a subtype of `") + "`")
+		b.WriteString(": `" + strings.Join(chain, "` is a refinement of `") + "`")
 	} else if len(parents) > 0 {
-		// `PositiveInt` is a subtype of `NonNegativeInt` and
+		// `PositiveInt` is a refinement of `NonNegativeInt` and
 		// `NonZeroInt`, and through them `Int`.
 		direct := map[string]bool{}
 		var names, further []string
@@ -1322,7 +1322,7 @@ func refinementNote(name string, checked bool, t analysis.Type) string {
 				further = append(further, "`"+a.String()+"`")
 			}
 		}
-		b.WriteString(": `" + t.String() + "` is a subtype of " + joinAnd(names))
+		b.WriteString(": `" + t.String() + "` is a refinement of " + joinAnd(names))
 		if len(further) > 0 {
 			b.WriteString(", and through them " + joinAnd(further))
 		}
@@ -1875,7 +1875,7 @@ func assertionBranchPhrases(info *analysis.AssertionInfo) (success, failure stri
 				}
 				return "Requires `Ok(_)`", "Err: " + displayValueType(et.TypeArgs[1])
 			}
-		case "Maybe":
+		case "Option":
 			if len(et.TypeArgs) >= 1 {
 				if info.Keyword == "refute" {
 					return "Requires `None`", "Some: " + displayValueType(et.TypeArgs[0])
@@ -2097,7 +2097,7 @@ func renderTryOpHover(sym *analysis.Symbol) string {
 		case et.Name == "Result" && len(et.TypeArgs) == 2:
 			successStr = displayValueType(et.TypeArgs[0])
 			branch = "Err: " + displayValueType(et.TypeArgs[1])
-		case et.Name == "Maybe" && len(et.TypeArgs) == 1:
+		case et.Name == "Option" && len(et.TypeArgs) == 1:
 			successStr = displayValueType(et.TypeArgs[0])
 			branch = "None"
 		}

@@ -7,13 +7,18 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
+
+	"golang.org/x/mod/module"
+	"golang.org/x/mod/semver"
 
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/modcache"
 	"github.com/nomi-language/nomi/internal/modfetch"
 	"github.com/nomi-language/nomi/internal/parser"
+	"github.com/nomi-language/nomi/internal/runners"
 	"github.com/nomi-language/nomi/vmhost"
 )
 
@@ -27,15 +32,15 @@ const offlineFlag = "--offline"
 // not the first of each name (vmhost.AllCallsEnv).
 const allCallsFlag = "--all-calls"
 
-// takeFlag removes flag, a flag that takes no value, from a command's
-// arguments, and reports whether it was there. For `run` only the flags
-// before the program's file are the command's; the rest are the program's
-// own.
-func takeFlag(cmd, flag string, args []string) ([]string, bool) {
+// takeFlag removes flag, a flag that takes no value, from c's arguments,
+// and reports whether it was there. For a command with a program's
+// arguments (`run`), only the flags before the program's file are the
+// command's; the rest are the program's own.
+func takeFlag(c command, flag string, args []string) ([]string, bool) {
 	found := false
 	out := make([]string, 0, len(args))
 	for i, arg := range args {
-		if cmd == "run" && !isFlag(arg) {
+		if c.programArgs && !isFlag(arg) {
 			return append(out, args[i:]...), found
 		}
 		if arg == flag {
@@ -51,8 +56,9 @@ func takeFlag(cmd, flag string, args []string) ([]string, bool) {
 // nomi.toml names and theirs (internal/modfetch, run before the front end
 // reads the module cache). Offline, it refuses and names what is missing,
 // and the go command a `nomi` built from source runs to build a runner is
-// held to its module cache with GOPROXY=off.
-func enableDownloads(offline bool, log io.Writer) {
+// held to its module cache with GOPROXY=off. With libNote, each project's
+// fetch first notes the lib/ modules off this release (noteLibRelease).
+func enableDownloads(offline, libNote bool, log io.Writer) {
 	if offline {
 		_ = os.Setenv("GOPROXY", "off")
 	}
@@ -64,9 +70,53 @@ func enableDownloads(offline bool, log io.Writer) {
 		moduleLog = log
 	}
 	modcache.SetFetcher(func(root string) error {
+		if libNote {
+			noteLibRelease(log, root)
+		}
 		_, err := modfetch.Fetch(root, modfetch.Options{Offline: offline, Log: moduleLog})
 		return err
 	})
+}
+
+// libRelease is the version a release `nomi` takes the first-party lib/
+// modules at: the release it was cut as (runners.ReleaseVersion) when that
+// is a release's semantic version, else "". A `nomi` built from source has
+// none, and neither does one stamped with a pseudo-version or with `git
+// describe`'s name for a commit past a tag (v0.5.0-3-gabc1234, -dirty);
+// those take the lib/ modules at their latest commit.
+func libRelease() string {
+	v := runners.ReleaseVersion
+	if !semver.IsValid(v) || semver.Canonical(v) != v || module.IsPseudoVersion(v) || describedCommit.MatchString(v) {
+		return ""
+	}
+	return v
+}
+
+// describedCommit matches the suffix `git describe --tags --dirty` gives a
+// commit that is not a tag, or a tree with changes.
+var describedCommit = regexp.MustCompile(`-[0-9]+-g[0-9a-f]+(-dirty)?$|-dirty$`)
+
+// noteLibRelease writes one line to w naming the lib/ modules nomi.lock in
+// the project at root locks at another version than this release takes
+// them at (modfetch.LibOffRelease), and the command that moves them, or
+// nothing for a `nomi` built from source or a project with none. `run`,
+// `test`, `check` and `build` call it before the project's first fetch,
+// so it comes before any diagnostic.
+func noteLibRelease(w io.Writer, root string) {
+	release := libRelease()
+	if release == "" {
+		return
+	}
+	off, err := modfetch.LibOffRelease(root, release)
+	if err != nil || len(off) == 0 {
+		return
+	}
+	mods := make([]string, len(off))
+	for i, m := range off {
+		mods[i] = m.Path + " " + m.Version
+	}
+	fmt.Fprintf(w, "note: nomi.lock takes %s, and this nomi is release %s, which takes the first-party libraries at %s; run `nomi update` to move them to it\n",
+		joinAnd(mods), release, release)
 }
 
 func isTerminal(f *os.File) bool {
@@ -148,7 +198,7 @@ func runAdd(args []string, offline bool) error {
 	if n, rest, ok := strings.Cut(arg, "="); ok && !strings.ContainsAny(n, `/\.@`) {
 		name, arg = n, rest
 	}
-	opts := modfetch.Options{Offline: offline, Log: os.Stderr}
+	opts := modfetch.Options{Offline: offline, Log: os.Stderr, Release: libRelease()}
 	var added modfetch.Added
 	if isLocalPath(arg) {
 		added, err = modfetch.AddLocal(root, name, arg, opts)
@@ -327,7 +377,7 @@ func runUpdate(args []string) error {
 	// whether or not the project checks.
 	d := &dependencyReach{root: root}
 	d.before, _ = reachOf(root, nil)
-	changes, err := modfetch.Update(root, only, modfetch.Options{Log: os.Stderr})
+	changes, err := modfetch.Update(root, only, modfetch.Options{Log: os.Stderr, Release: libRelease()})
 	if err != nil {
 		return fmt.Errorf("nomi update: %w", err)
 	}
@@ -360,15 +410,16 @@ func runUpdate(args []string) error {
 	return nil
 }
 
-const newUsage = "usage: nomi new <module path> [dir]"
+const newUsage = "usage: nomi new <name | module path> [dir]"
 
-// runNew is `nomi new <module path> [dir]`: start a Nomi module in dir
-// (default: a new directory named for the path's last element) with a
-// nomi.toml naming the module and its path, the go.mod nomi keeps for that
-// path (modfetch.WriteGoMod), a main.nomi that prints hello and an
-// AGENTS.md for coding agents, keeping either of the last two, and a go.mod
-// of Go code, already there. It refuses a directory that holds a
-// nomi.toml, which is a project already.
+// runNew is `nomi new <name | module path> [dir]`: start a Nomi module in
+// dir (default: a new directory named for the module) with a nomi.toml
+// naming the module and its path, if it has one (moduleArg), the go.mod nomi
+// keeps for that path (modfetch.WriteGoMod), a main.nomi that prints hello
+// and an AGENTS.md for coding agents, keeping either of the last two, and a
+// go.mod of Go code, already there. It refuses a directory that holds a
+// nomi.toml, which is a project already. It writes nothing until its
+// arguments are checked.
 func runNew(args []string) error {
 	var pos []string
 	for _, arg := range args {
@@ -380,8 +431,7 @@ func runNew(args []string) error {
 	if len(pos) < 1 || len(pos) > 2 {
 		return errors.New(newUsage)
 	}
-	path := pos[0]
-	name, err := checkModulePath("new", path)
+	name, path, err := moduleArg("new", pos[0])
 	if err != nil {
 		return err
 	}
@@ -398,7 +448,7 @@ func runNew(args []string) error {
 	files := []struct{ name, text string }{
 		{"nomi.toml", manifestText(name, path, []string{"main"})},
 		{"main.nomi", "import std::io\n\nfn main()\n    io.print(\"hello\")\nend\n"},
-		{"AGENTS.md", agentsText(name)},
+		{"AGENTS.md", agentsText(name, path)},
 	}
 	var wrote, kept []string
 	for _, f := range files {
@@ -416,7 +466,7 @@ func runNew(args []string) error {
 		return fmt.Errorf("nomi new: %w", err)
 	} else if wroteGoMod {
 		wrote = append(wrote, filepath.ToSlash(filepath.Join(dir, modfetch.GoModName)))
-	} else {
+	} else if path != "" && isRegular(filepath.Join(dir, modfetch.GoModName)) {
 		kept = append(kept, modfetch.GoModName)
 	}
 	fmt.Printf("wrote %s\n", joinAnd(wrote))
@@ -434,10 +484,15 @@ func runNew(args []string) error {
 	return nil
 }
 
-// agentsText is the AGENTS.md nomi new writes for a coding agent. It names
-// the commands and links the cheat sheet, docs/cheatsheet.md as the site
-// publishes it, rather than holding a copy of its rules.
-func agentsText(name string) string {
+// agentsText is the AGENTS.md nomi new writes for a coding agent, for the
+// module name and its path, "" for none. It names the commands and links
+// the cheat sheet, docs/cheatsheet.md as the site publishes it, rather than
+// holding a copy of its rules.
+func agentsText(name, path string) string {
+	goMod := ""
+	if path != "" {
+		goMod = "- `go.mod` holds only the module line, which `nomi` writes from `nomi.toml` so Go's module proxy can serve the module. Do not edit it.\n"
+	}
 	return "# " + name + "\n\n" +
 		"This is a Nomi project. Nomi is a statically typed language where every value is immutable. " +
 		"It looks like Rust, Go and Elixir in places, and code written from their habits does not compile: " +
@@ -445,15 +500,15 @@ func agentsText(name string) string {
 		"Read the cheat sheet before writing Nomi: https://nomi-lang.org/cheatsheet.md. " +
 		"The whole language and standard library are in one file at https://nomi-lang.org/llms-full.txt.\n\n" +
 		"## Commands\n\n" +
-		"- `nomi run main.nomi` runs the program.\n" +
+		"- `nomi run .` runs the program, the one entry point `nomi.toml` lists. With several, name the file: `nomi run main.nomi`.\n" +
 		"- `nomi test` runs every `test` block under this directory.\n" +
-		"- `nomi check main.nomi` reports errors without running. `--format json` writes them as JSON Lines, with fixes to apply.\n" +
+		"- `nomi check .` reports errors without running. `--format json` writes them as JSON Lines, with fixes to apply.\n" +
 		"- `nomi fmt -w .` formats every file. The formatter owns layout.\n" +
 		"- `nomi add <module>` adds a dependency to `nomi.toml` and `nomi.lock`.\n" +
 		"- `nomi mcp` serves the compiler to a coding agent over the Model Context Protocol: check, types, definitions, std search, tests and formatting.\n\n" +
 		"## Layout\n\n" +
 		"- `nomi.toml` names the module, lists its entry points, the files with a `fn main`, and names its dependencies.\n" +
-		"- `go.mod` holds only the module line, which `nomi` writes from `nomi.toml` so Go's module proxy can serve the module. Do not edit it.\n" +
+		goMod +
 		"- `main.nomi` is the program's entry point.\n" +
 		"- Tests sit beside the code they test, in `test \"name\"` blocks closed by `end`.\n"
 }
@@ -519,7 +574,7 @@ func manifestRoot(cmd, dir string) (string, error) {
 		d = parent
 	}
 	return "", fmt.Errorf("nomi %s: no nomi.toml in %s or above it, so there is no project to change; "+
-		"start one with `nomi new <module path>`, or make this directory one with `nomi init <module path>`", cmd, vmDisplay(abs))
+		"start one with `nomi new <name>`, or make this directory one with `nomi init <name>`", cmd, vmDisplay(abs))
 }
 
 // goModFailure is the go.mod beside the nomi.toml of the module that holds

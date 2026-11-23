@@ -93,7 +93,7 @@ end
 func TestOwnerDecl_BareImportedPreludeMethods(t *testing.T) {
 	verifyLambdaProgram(t, `import
     std::io
-    std::maybe.Maybe.{with_default, to_result, is_some, map}
+    std::option.Option.{with_default, to_result, is_some, map}
     std::results.Result.{map_err}
 end
 
@@ -107,7 +107,7 @@ fn main()
     io.inspect(map_err(r, fn e -> "error ${e}"))
 end
 `, "1\n2\nOk(3)\nTrue\nSome(10)\nErr(\"error 6\")\n")
-	out := irTestBodyVM(t, `import std::maybe.Maybe.{with_default}
+	out := irTestBodyVM(t, `import std::option.Option.{with_default}
 
 test "bare prelude methods in an assertion"
     assert with_default(Some(1), 2) == 1

@@ -79,7 +79,7 @@ func runWatch(ctx context.Context, path string, args []string, stdout, stderr io
 	if isImageFilePath(path) {
 		return fmt.Errorf("nomi run --watch: %s is a compiled program, with no source to watch; watch the .nomi file it was built from", path)
 	}
-	absPath, err := runEntry(path)
+	absPath, err := programEntry("run", path)
 	if err != nil {
 		return err
 	}

@@ -26,7 +26,7 @@ type Scope struct {
 	End   Pos
 	// ReceiverDisplay is set on lexical scopes inside an impl block. Hover uses
 	// it to render concrete impl receivers with the spelling from the impl
-	// header, e.g. `Maybe<T>`.
+	// header, e.g. `Option<T>`.
 	ReceiverDisplay string
 }
 

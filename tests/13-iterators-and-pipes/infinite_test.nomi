@@ -140,11 +140,11 @@ test "terminals that can stop early finish on an infinite source"
     |> Iter.to_list() == [0, 1, 2, 3]
 end
 
-test "Maybe.collect stops an infinite source at the first miss"
+test "Option.collect stops an infinite source at the first miss"
     stopped =
         Range.naturals()
-        |> Iter.map(fn n -> if n < 3 then Maybe.Some(n) else Maybe.None)
-        |> Maybe.collect()
+        |> Iter.map(fn n -> if n < 3 then Option.Some(n) else Option.None)
+        |> Option.collect()
 
     assert stopped == None
 end

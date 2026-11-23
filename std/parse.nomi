@@ -27,7 +27,7 @@ import
     iter.Iter
     lists.List
     maps.Map
-    maybe.Maybe.{self, None, Some}
+    option.Option.{self, None, Some}
     results.Infallible
     results.Result.{self, Err, Ok}
     strings.String
@@ -72,7 +72,7 @@ pub interface ParseFields
     fn field_names() -> List<String>
     /// The value whose fields are read from `texts`, one per field, each
     /// with its type's `parse`, or `None` when one does not parse.
-    fn parse_fields(texts: List<String>) -> Maybe<self>
+    fn parse_fields(texts: List<String>) -> Option<self>
     /// Each field's `Display` text.
     fn field_texts(fields: self) -> List<String>
 end
@@ -82,7 +82,7 @@ impl ParseFields for Unit
         []
     end
 
-    fn parse_fields(_texts: List<String>) -> Maybe<Unit>
+    fn parse_fields(_texts: List<String>) -> Option<Unit>
         Some(Unit)
     end
 
@@ -98,11 +98,11 @@ end
 //! assert read_fields<{id: Int}>({"id" => "x"}) == None
 //! assert read_fields<{id: Int}>({"name" => "x"}) == None
 //
-pub fn read_fields<P>(texts: Map<String, String>) -> Maybe<P> where P: ParseFields
+pub fn read_fields<P>(texts: Map<String, String>) -> Option<P> where P: ParseFields
     P.field_names()
     |> Iter.map(fn name -> Map.get(texts, name))
-    |> Maybe.collect()
-    |> Maybe.flat_map(fn values -> P.parse_fields(values))
+    |> Option.collect()
+    |> Option.flat_map(fn values -> P.parse_fields(values))
 end
 
 /// Each field of `fields` with its name and its `Display` text, in name

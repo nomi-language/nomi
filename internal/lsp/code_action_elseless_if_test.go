@@ -7,24 +7,24 @@ import (
 )
 
 // "Add `else None`" adds an `else None` to an `if` without `else` whose
-// branch is a Maybe, after a one-line `if` and as an `else` branch before a
+// branch is an Option, after a one-line `if` and as an `else` branch before a
 // block's `end`, and the fixed program checks.
 func TestElselessIfFix_AddsElseNone(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{
 			"inline",
-			"fn label(n: Int) -> Maybe<String>\n    if n > 0 then Some(\"positive\")\nend\n",
-			"fn label(n: Int) -> Maybe<String>\n    if n > 0 then Some(\"positive\") else None\nend\n",
+			"fn label(n: Int) -> Option<String>\n    if n > 0 then Some(\"positive\")\nend\n",
+			"fn label(n: Int) -> Option<String>\n    if n > 0 then Some(\"positive\") else None\nend\n",
 		},
 		{
 			"block form",
-			"fn label(n: Int) -> Maybe<Int>\n    if n > 0 then\n        m = n * 2\n        Some(m + 1)\n    end\nend\n",
-			"fn label(n: Int) -> Maybe<Int>\n    if n > 0 then\n        m = n * 2\n        Some(m + 1)\n    else\n        None\n    end\nend\n",
+			"fn label(n: Int) -> Option<Int>\n    if n > 0 then\n        m = n * 2\n        Some(m + 1)\n    end\nend\n",
+			"fn label(n: Int) -> Option<Int>\n    if n > 0 then\n        m = n * 2\n        Some(m + 1)\n    else\n        None\n    end\nend\n",
 		},
 		{
 			"block form bound to a name",
-			"fn label(n: Int) -> Maybe<Int>\n    m =\n        if n > 0 then\n            k = n * 2\n            Some(k + 1)\n        end\n\n    m\nend\n",
-			"fn label(n: Int) -> Maybe<Int>\n    m =\n        if n > 0 then\n            k = n * 2\n            Some(k + 1)\n        else\n            None\n        end\n\n    m\nend\n",
+			"fn label(n: Int) -> Option<Int>\n    m =\n        if n > 0 then\n            k = n * 2\n            Some(k + 1)\n        end\n\n    m\nend\n",
+			"fn label(n: Int) -> Option<Int>\n    m =\n        if n > 0 then\n            k = n * 2\n            Some(k + 1)\n        else\n            None\n        end\n\n    m\nend\n",
 		},
 		{
 			"a template slot",

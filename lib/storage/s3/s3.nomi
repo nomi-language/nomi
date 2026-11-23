@@ -98,12 +98,12 @@ pub struct Config
     payload:    Payload = Payload.Signed
     /// Sent as `x-amz-acl` on every put: `Some("public-read")` makes each
     /// object public on servers that use ACLs, as Spaces does.
-    acl: Maybe<String> = None
+    acl: Option<String> = None
     /// Sent as `Cache-Control` on every put, and stored with the object.
-    cache_control: Maybe<String> = None
+    cache_control: Option<String> = None
     /// Where `url` points: a CDN or a public host. `None` means the
     /// object's own URL on `endpoint`.
-    public_base: Maybe<Url> = None
+    public_base: Option<Url> = None
     /// The longest one attempt may take.
     timeout: Duration = Duration.seconds(30)
     /// How many times a call that failed with `Unavailable` is tried again.
@@ -263,10 +263,10 @@ impl Store for Bucket
         headers =
             [
                 Some(("Content-Type", content_type)),
-                config.acl |> Maybe.map(fn acl -> ("x-amz-acl", acl)),
-                config.cache_control |> Maybe.map(fn value -> ("Cache-Control", value)),
+                config.acl |> Option.map(fn acl -> ("x-amz-acl", acl)),
+                config.cache_control |> Option.map(fn value -> ("Cache-Control", value)),
             ]
-            |> Maybe.values()
+            |> Option.values()
             |> Iter.to_list()
 
         _ = send(bucket, Method.Put, key, Headers(headers), Body.Bytes(data))?
@@ -284,7 +284,7 @@ impl Store for Bucket
         Ok(Object{data:, info: info_of(response, Bytes.length(data))})
     end
 
-    fn info(bucket: Bucket, key: String) -> Result<Maybe<Info>, storage.Error>
+    fn info(bucket: Bucket, key: String) -> Result<Option<Info>, storage.Error>
         storage.check_key(key)?
 
         case send(bucket, Method.Head, key)
@@ -296,8 +296,8 @@ impl Store for Bucket
 
                         None ->
                             Headers.get(response.headers, "Content-Length")
-                            |> Maybe.flat_map(String.to_int)
-                            |> Maybe.with_default(0)
+                            |> Option.flat_map(String.to_int)
+                            |> Option.with_default(0)
                     end
 
                 Ok(Some(info_of(response, size)))
@@ -348,9 +348,9 @@ impl Store for Bucket
                 else
                     Some(("delimiter", options.delimiter))
                 end,
-                options.continuation |> Maybe.map(fn token -> ("continuation-token", token)),
+                options.continuation |> Option.map(fn token -> ("continuation-token", token)),
             ]
-            |> Maybe.values()
+            |> Option.values()
             |> Iter.to_list()
 
         url = {..bucket_url(config), query: Some(canonical_query(Query(pairs)))}
@@ -370,18 +370,18 @@ fn listing_of(body: String) -> Result<Listing, storage.Error>
         |> Iter.map(fn contents ->
             key =
                 Element.child_text(contents, "Key")
-                |> Maybe.to_result(bad("a listed object has no Key"))?
+                |> Option.to_result(bad("a listed object has no Key"))?
 
             size =
                 Element.child_text(contents, "Size")
-                |> Maybe.flat_map(String.to_int)
-                |> Maybe.to_result(bad("the listed object ${key} has no Size"))?
+                |> Option.flat_map(String.to_int)
+                |> Option.to_result(bad("the listed object ${key} has no Size"))?
 
             modified =
                 Element.child_text(contents, "LastModified")
-                |> Maybe.flat_map(fn text -> OffsetDateTime.parse(text) |> Result.to_maybe())
-                |> Maybe.map(&Anchored.to_instant(&1))
-                |> Maybe.to_result(bad("the listed object ${key} has no LastModified time"))?
+                |> Option.flat_map(fn text -> OffsetDateTime.parse(text) |> Result.to_option())
+                |> Option.map(&Anchored.to_instant(&1))
+                |> Option.to_result(bad("the listed object ${key} has no LastModified time"))?
 
             Ok(Entry{key:, size:, modified:})
         end)
@@ -390,14 +390,14 @@ fn listing_of(body: String) -> Result<Listing, storage.Error>
     prefixes =
         Element.children_named(doc, "CommonPrefixes")
         |> Iter.map(fn common -> Element.child_text(common, "Prefix"))
-        |> Maybe.values()
+        |> Option.values()
         |> Iter.to_list()
 
     next =
         if Element.child_text(doc, "IsTruncated") == Some("true") then
             Some(
                 Element.child_text(doc, "NextContinuationToken")
-                |> Maybe.to_result(bad("a truncated listing has no NextContinuationToken"))?
+                |> Option.to_result(bad("a truncated listing has no NextContinuationToken"))?
             )
         else
             None
@@ -465,12 +465,12 @@ end
 fn info_of(response: Response, size: Int) -> Info
     content_type =
         Headers.get(response.headers, "Content-Type")
-        |> Maybe.with_default("application/octet-stream")
+        |> Option.with_default("application/octet-stream")
 
     modified =
         Headers.get(response.headers, "Last-Modified")
-        |> Maybe.flat_map(fn text -> http.parse_time(text) |> Result.to_maybe())
-        |> Maybe.with_default(Instant.now())
+        |> Option.flat_map(fn text -> http.parse_time(text) |> Result.to_option())
+        |> Option.with_default(Instant.now())
 
     Info{size:, content_type:, modified:}
 end
@@ -481,7 +481,7 @@ fn failure(key: String, response: Response) -> storage.Error
     status = Status.code(response.status)
     body = Response.text(response) |> Result.with_default("")
     parsed = parse_error(body)
-    code = parsed |> Maybe.map(fn e -> e.code) |> Maybe.with_default("HTTP ${status}")
+    code = parsed |> Option.map(fn e -> e.code) |> Option.with_default("HTTP ${status}")
 
     message =
         case parsed
@@ -498,7 +498,7 @@ fn failure(key: String, response: Response) -> storage.Error
 
         400 when code == "AuthorizationHeaderMalformed" ->
             wanted =
-                case parsed |> Maybe.flat_map(fn e -> e.region)
+                case parsed |> Option.flat_map(fn e -> e.region)
                     Some(region) -> " (the server wants the region ${region})"
                     None         -> ""
                 end
@@ -525,15 +525,15 @@ end
 struct ErrorDocument
     code:    String
     message: String
-    region:  Maybe<String>
+    region:  Option<String>
 end
 
 // S3's error document: `<Error><Code>..</Code><Message>..</Message>
 // ...</Error>`, of which this reads `Code`, `Message` and `Region`.
-fn parse_error(body: String) -> Maybe<ErrorDocument>
-    doc = xml.decode(body) |> Result.to_maybe()?
+fn parse_error(body: String) -> Option<ErrorDocument>
+    doc = xml.decode(body) |> Result.to_option()?
     code = Element.child_text(doc, "Code")?
-    message = Element.child_text(doc, "Message") |> Maybe.with_default("")
+    message = Element.child_text(doc, "Message") |> Option.with_default("")
     Some(ErrorDocument{code:, message:, region: Element.child_text(doc, "Region")})
 end
 
@@ -681,7 +681,7 @@ end
 // Each signed header as its lowercase name and its values, trimmed, with
 // runs of spaces made one, and joined with `,`, sorted by name.
 fn canonical_headers(request: Request) -> List<(String, String)>
-    host = Maybe.with_default(request.host, request.url.host)
+    host = Option.with_default(request.host, request.url.host)
     Headers(given) = request.headers
 
     pairs =

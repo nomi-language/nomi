@@ -56,17 +56,7 @@ func CheckedFiles(root string) (files []string, through map[string][]string, sin
 		entries := mfst.Entries(root)
 		files := make([]string, 0, len(entries))
 		for _, entry := range entries {
-			entryPath := filepath.FromSlash(entry)
-			// An entry names its .nomi file without the extension, or an
-			// extensionless `#!` script beside nomi.toml when no such
-			// .nomi file exists.
-			if filepath.Ext(entryPath) != ".nomi" {
-				bare := filepath.Join(root, entryPath)
-				if _, err := os.Stat(bare + ".nomi"); err == nil || !StartsWithShebang(bare) {
-					entryPath += ".nomi"
-				}
-			}
-			abs, err := filepath.Abs(filepath.Join(root, entryPath))
+			abs, err := EntryFile(root, entry)
 			if err != nil {
 				return nil, nil, false, err
 			}
@@ -120,6 +110,22 @@ func CheckedFiles(root string) (files []string, through map[string][]string, sin
 	sort.Strings(files)
 	files, through = ProgramRoots(files)
 	return files, through, false, nil
+}
+
+// EntryFile is the absolute path of the file an entry of the nomi.toml in
+// root names: its .nomi file, named without the extension, or an
+// extensionless `#!` script beside nomi.toml when no such .nomi file
+// exists. `nomi check` and `nomi effects` check each entry's file, and
+// `nomi run` and `nomi build` run or build a project's one entry point.
+func EntryFile(root, entry string) (string, error) {
+	entryPath := filepath.FromSlash(entry)
+	if filepath.Ext(entryPath) != ".nomi" {
+		bare := filepath.Join(root, entryPath)
+		if _, err := os.Stat(bare + ".nomi"); err == nil || !StartsWithShebang(bare) {
+			entryPath += ".nomi"
+		}
+	}
+	return filepath.Abs(filepath.Join(root, entryPath))
 }
 
 // ProgramRoots is the files of a directory check that are checked as

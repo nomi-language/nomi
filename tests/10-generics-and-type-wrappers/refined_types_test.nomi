@@ -1,0 +1,87 @@
+import std::compiler
+
+fn is_email(s: String) -> Bool
+    String.contains(s, "@")
+end
+
+type Email String when is_email
+
+type UserId PositiveInt
+
+refine Strict NonNegativeInt and NonZeroInt
+
+typealias Pair<T> (T, T)
+
+typealias Sortable<T> List<T> where T: Comparable
+
+fn half(n: NonNegativeInt and NonZeroInt) -> Int
+    n / 2
+end
+
+fn swap(p: Pair<Int>) -> Pair<Int>
+    (a, b) = p
+    (b, a)
+end
+
+fn smallest(xs: Sortable<Int>) -> Option<Int>
+    Iter.min(xs)
+end
+
+fn load<T>(n: Int) -> Option<T> where T: TryFrom<Int>
+    T.try_from(n)
+end
+
+fn first_error(source: String) -> String
+    case compiler.check(source)
+        [d, ..] -> d.message
+        []      -> "no error"
+    end
+end
+
+test "a validated type is built from a checked literal or try_from"
+    Email(s) = Email("a@b.c")
+    assert s == "a@b.c"
+    assert Email.try_from("nope") == None
+    assert Email.try_from("x@y") == Some(Email("x@y"))
+end
+
+test "a type over a refinement checks the refinement's rules"
+    assert UserId.try_from(0) == None
+    assert UserId.try_from(7) == Some(UserId(7))
+    p: PositiveInt = 9
+    assert UserId(p) == UserId(9)
+end
+
+test "a rule's type implements TryFrom of its base"
+    e: Option<UserId> = load(3)
+    assert e == Some(UserId(3))
+    z: Option<UserId> = load(0)
+    assert z == None
+end
+
+test "an intersection of refinements takes a value of each"
+    p: PositiveInt = 8
+    assert half(p) == 4
+    assert half(6) == 3
+    s: Strict = p
+    assert half(s) == 4
+end
+
+test "a generic alias is its target"
+    assert swap((1, 2)) == (2, 1)
+    assert smallest([3, 1, 2]) == Some(1)
+end
+
+test "the checker refuses what converts nowhere"
+    assert first_error(
+        "type Email String when fn s -> s != \"\"\n\nfn f(e: Email) -> String\n    e\nend\n"
+    ) == "return type mismatch: expected String, got Email"
+
+    assert first_error(
+        "refine Celsius Float\n"
+    ) == "a refinement with no rule has the same values as Float: `Celsius` adds no `when`, and nothing it narrows has one\nhelp: name it with `typealias Celsius Float`, declare a new type with `type Celsius Float`, or give the refinement a rule with `when`"
+
+    assert first_error(
+        "typealias Small Int when fn n -> n < 10\n"
+    ) == "a typealias has no rule, since it is its target under another name: for the values of Int that satisfy a rule, declare `refine Small Int when ...`"
+end

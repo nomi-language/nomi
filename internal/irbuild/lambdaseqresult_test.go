@@ -4,7 +4,7 @@ import "testing"
 
 // A lambda whose body is a list, where an `(A) -> Iter<T>` is expected,
 // runs: the list enters the declared sequence. The checker solves
-// `Maybe.map`'s result as `Iter<Int>` when the call sits under an
+// `Option.map`'s result as `Iter<Int>` when the call sits under an
 // `Iter<Int>` parameter whose element an outer `List<Int>` fixed, so the
 // callback `fn _ -> [20]` is wanted at `(Int) -> Iter<Int>`; the same holds for
 // an annotated binding, an `if` body and an early `return`.
@@ -18,9 +18,9 @@ fn main()
     fn cb1(xs: List<Int>) -> List<Int>
         xs
     end
-    io.inspect(cb1(Iter.filter(Maybe.map(Some(Some(0.5)), fn _ -> [20]) |> Maybe.with_default([4]), fn y -> y == y) |> Iter.to_list()))
-    io.inspect(cb1(Iter.to_list(Maybe.with_default(Maybe.map(Some(1), fn n -> [n, n]), [4]))))
-    io.inspect(cb1(Iter.to_list(Maybe.with_default(Maybe.map(None, fn n: Int -> [n]), [4]))))
+    io.inspect(cb1(Iter.filter(Option.map(Some(Some(0.5)), fn _ -> [20]) |> Option.with_default([4]), fn y -> y == y) |> Iter.to_list()))
+    io.inspect(cb1(Iter.to_list(Option.with_default(Option.map(Some(1), fn n -> [n, n]), [4]))))
+    io.inspect(cb1(Iter.to_list(Option.with_default(Option.map(None, fn n: Int -> [n]), [4]))))
     f: (Int) -> Iter<Int> = fn _ -> [20]
     io.inspect(Iter.to_list(f(1)))
     g: (Int) -> Iter<Int> = fn n -> if n > 0 then [n] else []

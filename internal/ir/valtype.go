@@ -49,7 +49,7 @@ const (
 	// KindStruct is a declared struct. Sym is its identity; Elems are the
 	// type arguments of a generic instance.
 	KindStruct
-	// KindEnum is a declared enum, including the prelude's Maybe, Result and
+	// KindEnum is a declared enum, including the prelude's Option, Result and
 	// Fragment. Sym is its identity; Elems are the type arguments.
 	KindEnum
 	// KindDistinct is `type Name Inner` (Elems[0] is Inner) or a zero-sized
@@ -587,7 +587,7 @@ func (want *ValType) Accepts(have *ValType) bool {
 }
 
 // sameCovariantEnum reports whether want and have are instances of the
-// prelude's Maybe or Result, the generic enums whose values the builder
+// prelude's Option or Result, the generic enums whose values the builder
 // relabels to wider type arguments: each instance has a symbol of its own,
 // and the values are records whose fields the VM reads through their own
 // descriptor.
@@ -596,7 +596,7 @@ func sameCovariantEnum(want, have *ValType) bool {
 		return false
 	}
 	n := want.sym.Name()
-	return n == "maybe.Maybe" || n == "results.Result"
+	return n == "option.Option" || n == "results.Result"
 }
 
 // InstanceKey tells apart the instances of one generic struct or enum: t's

@@ -241,7 +241,7 @@ func TestParseCurrentValue_Operand(t *testing.T) {
 		{`{..p, tags: .. |> List.reverse()}`, 1},
 		{`{..p, ok: .. == 1 or .. > 9}`, 2},
 		{`{..p, address: {.., street: rename(..)}}`, 1},
-		{`{..p, street: Maybe.map(m, fn s -> s + ..)}`, 1},
+		{`{..p, street: Option.map(m, fn s -> s + ..)}`, 1},
 		{`{..p, n: ..}`, 1},
 		{"{..p, n: f(\n  ..\n)}", 1},
 		{`{..m, "k" => .. + 1}`, 1},

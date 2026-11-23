@@ -61,7 +61,7 @@
 // function handles an Int of any size, and `int64` (or a narrower width)
 // when it needs a machine integer. A parameter takes a fixed width only
 // when its declared type admits no Int past that width: `Int64`
-// (std::int), a subtype whose `when` bounds it within the range, or an
+// (std::int), a refinement whose `when` bounds it within the range, or an
 // intersection with one (`NonNegativeInt and Int64`); generation refuses
 // a plain `Int` there, since the adapter could only refuse the value as
 // the program runs. Such a function takes `rt.Int` and defines what a

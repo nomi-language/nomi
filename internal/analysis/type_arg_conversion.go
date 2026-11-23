@@ -11,7 +11,7 @@ import "strings"
 // converts by its parameter's variance, recursively:
 //
 //   - a std collection's arguments are covariant: List's, Vector's, Set's,
-//     Maybe's and Result's, and a Map's key and value;
+//     Option's and Result's, and a Map's key and value;
 //   - a user-declared generic struct's or enum's parameters have the
 //     variance their fields give them (variance.go): covariant, converting
 //     as a value does; contravariant (named only in a function type's
@@ -68,12 +68,12 @@ func argVariance(t Type, i int) Variance {
 }
 
 // stdCollectionArgs reports whether t is a std collection whose type
-// arguments are covariant: Maybe, Result, Set or Vector (List and Map have
+// arguments are covariant: Option, Result, Set or Vector (List and Map have
 // types of their own).
 func stdCollectionArgs(t Type) bool {
 	switch t := t.(type) {
 	case *EnumType:
-		return isStdType(t, stdMaybeType) || isStdType(t, stdResultType)
+		return isStdType(t, stdOptionType) || isStdType(t, stdResultType)
 	case *StructType:
 		return isStdSetType(t)
 	case *DistinctType:
@@ -109,7 +109,7 @@ func convertibleArgs(t Type) bool {
 // refinement, which is its base at run time and carries what its base
 // carries. A std enum, a std
 // generic struct and a std distinct or host type are not: some enter an
-// interface boxed (a Maybe, a Set, a Decimal), and the rule names none of
+// interface boxed (an Option, a Set, a Decimal), and the rule names none of
 // them one by one.
 func carriesOwnType(t Type) bool {
 	switch t := resolveTypeVar(t).(type) {
@@ -133,7 +133,7 @@ func carriesOwnType(t Type) bool {
 		}
 		return true
 	case *DistinctType:
-		if t.Subtype && t.Inner != nil {
+		if t.Refinement && t.Inner != nil {
 			return carriesOwnType(RefinementBase(t))
 		}
 		return !isStdOrigin(t.Origin) && len(t.TypeParams) == 0

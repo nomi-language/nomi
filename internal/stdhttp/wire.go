@@ -256,7 +256,7 @@ func MultipartReader(fr *rt.Frame, r rt.Reader, boundary string, raw bool) rt.HT
 
 // NextPart is `std::http::host.next_part`: the next part as a Handle, None after
 // the last. Reading it closes the part before.
-func NextPart(h rt.HTTPHandle) rt.Result[rt.Maybe[rt.HTTPHandle], string] {
+func NextPart(h rt.HTTPHandle) rt.Result[rt.Option[rt.HTTPHandle], string] {
 	pr, ok := h.Value().(*partsReader)
 	if !ok {
 		rt.Trap("http: a Handle holds no multipart reader")
@@ -269,12 +269,12 @@ func NextPart(h rt.HTTPHandle) rt.Result[rt.Maybe[rt.HTTPHandle], string] {
 		p, err = pr.r.NextPart()
 	}
 	if errors.Is(err, io.EOF) {
-		return rt.Ok[rt.Maybe[rt.HTTPHandle], string](rt.None[rt.HTTPHandle]())
+		return rt.Ok[rt.Option[rt.HTTPHandle], string](rt.None[rt.HTTPHandle]())
 	}
 	if err != nil {
-		return rt.Err[rt.Maybe[rt.HTTPHandle]](err.Error())
+		return rt.Err[rt.Option[rt.HTTPHandle]](err.Error())
 	}
-	return rt.Ok[rt.Maybe[rt.HTTPHandle], string](rt.Some(rt.NewHTTPHandle(p)))
+	return rt.Ok[rt.Option[rt.HTTPHandle], string](rt.Some(rt.NewHTTPHandle(p)))
 }
 
 func partOf(h rt.HTTPHandle) *multipart.Part {

@@ -31,7 +31,7 @@ import
     display.Display
     equatable.Equatable
     int.{Int, Int64}
-    maybe.Maybe.{self, None, Some}
+    option.Option.{self, None, Some}
     results.Result.{self, Err, Ok}
     signatures::host
     strings.String
@@ -193,7 +193,7 @@ impl PrivateKey
     end
 
     /// An Ed25519 key's 32-byte seed, or `None` for another kind.
-    pub fn ed25519_seed(key: PrivateKey) -> Maybe<Bytes>
+    pub fn ed25519_seed(key: PrivateKey) -> Option<Bytes>
         case key.kind
             .Ed25519 -> Some(host.ed25519_seed(key.der))
             _        -> None
@@ -263,7 +263,7 @@ impl PublicKey
     end
 
     /// An Ed25519 key's 32-byte encoding, or `None` for another kind.
-    pub fn ed25519_bytes(key: PublicKey) -> Maybe<Bytes>
+    pub fn ed25519_bytes(key: PublicKey) -> Option<Bytes>
         case key.kind
             .Ed25519 -> Some(host.ed25519_public_bytes(key.der))
             _        -> None

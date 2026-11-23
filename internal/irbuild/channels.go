@@ -37,7 +37,7 @@ import (
 //
 //	Channel.buffered<Int>(4)      (Int) -> Channel<Int>
 //	Sender.send(ch.sender, 7)     (Sender<Int>, Int) -> Result<Unit, ChannelClosed>
-//	Receiver.receive(ch.receiver) (Receiver<Int>) -> Maybe<Int>
+//	Receiver.receive(ch.receiver) (Receiver<Int>) -> Option<Int>
 //
 // — every parameter and every result, already solved. So this file writes NO
 // result table and NO element-type inference: it projects the checker's own

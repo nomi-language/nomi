@@ -3,23 +3,20 @@
 // question is which VARIANT the value turns out to be, and only the runtime
 // tag answers it.
 //
-// Three shapes reach here, and they are three shapes rather than one because
-// each stores its payload differently, while the language's rule is uniform in
-// a way the storage is not: the read unwraps the variant, and finds the name in
-// the payload only when the payload is a struct or the variant is
-// struct-shaped.
+// The checker admits the read only when every variant has the field, at one
+// type. Three shapes provide it, and they are three shapes rather than one
+// because each stores its payload differently:
 //
-//   - a STRUCT-SHAPED variant (`Rect {width: Int, ...}`) — one slot per field.
+//   - a STRUCT-SHAPED variant (`Rect {radius: Float, ...}`) — one slot per
+//     field.
 //   - an `embeds` of a struct — ONE slot holding the whole struct.
-//   - a POSITIONAL payload whose type happens to be a struct (`Wrap Circle`) —
-//     also one slot holding the whole struct, and indistinguishable from the
-//     previous case at runtime, which is why the same rule answers for it.
+//   - a POSITIONAL payload whose type is a struct (`Wrap Circle`) — also one
+//     slot holding the whole struct, and indistinguishable from the previous
+//     case at runtime, which is why the same rule answers for it.
 //
-// A field name may be provided by SEVERAL variants. The checker types the
-// access from the FIRST provider in declaration order; the program answers
-// from whichever variant the value actually is. Both are pinned below, and
-// their disagreement is the reason a tag switch cannot be collapsed into a
-// single slot read.
+// Each variant keeps the name in its own place, so the program answers from
+// whichever variant the value actually is, and a tag switch cannot be
+// collapsed into a single slot read.
 //
 // NOT PINNED HERE, deliberately: a bare struct annotated into the enum
 // (`s: Shape = Circle{radius: 1.0}`). That crosses the embeds coercion site,
@@ -41,14 +38,12 @@ enum Shape
     Wrap Circle
     Rect {radius: Float, height: Int}
     embeds Square
-    Point
 end
 
 test "a struct-shaped variant's field reads through the tag"
     s = Shape.Rect{radius: 1.5, height: 3}
 
     assert s.radius == 1.5
-    assert s.height == 3
 end
 
 test "an embeds variant's field reads through the embedded struct"
@@ -68,6 +63,12 @@ test "the tag decides which provider answers, not the declaration order"
     squared = Shape.Square{radius: 9.0}
 
     assert wrapped.radius + squared.radius == 13.0
+end
+
+test "an accessor reads the field as a field read does"
+    shapes: List<Shape> = [Shape.Wrap(Circle{radius: 4.0}), Shape.Square{radius: 9.0}]
+
+    assert shapes |> Iter.map(.radius) |> Iter.to_list() == [4.0, 9.0]
 end
 
 // A call as the subject. The read needs the tag AND a slot, so a lowering that

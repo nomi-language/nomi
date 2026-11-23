@@ -9,7 +9,7 @@ package irbuild
 // (`[..s, x]`, setUpdate; `{..m, k => v}`, mapUpdate).
 //
 // A spread in a list, vector or set literal may be any Iter of the
-// literal's elements (a Maybe, a Set in a list, an Iter chain): it is
+// literal's elements (an Option, a Set in a list, an Iter chain): it is
 // materialized as the literal's collection where it is lowered, with
 // `Iter.to_list`, `Iter.to_vector` or `Iter.to_set` (collectSpread), and
 // then joined as a spread of the collection is.
@@ -113,7 +113,7 @@ func (bl *irScalarBuilder) spreadHeads(at ast.Node, spreads []ast.Spread, join s
 
 // collectSpread answers the spread p of the literal at, of join's shape, as
 // a collection of the literal's: a spread of the shape as it is, and any
-// other Iter (a Maybe, a Range, a Set in a list, an Iter chain)
+// other Iter (an Option, a Range, a Set in a list, an Iter chain)
 // materialized with join's `Iter` function, `Iter.to_list(p)`, as the
 // checker allows (spreadElemType). A typed
 // spread enters the kind the checker gave the literal (literalKind) as a

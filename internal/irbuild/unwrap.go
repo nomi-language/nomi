@@ -6,8 +6,8 @@ import (
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
-// A postfix `!`, `expr!`: the expression, whose value is a Result or a
-// Maybe, then a test of its tag. The success edge projects the Ok's or the
+// A postfix `!`, `expr!`: the expression, whose value is a Result or an
+// Option, then a test of its tag. The success edge projects the Ok's or the
 // Some's payload, which is the `!`'s value; the success path costs the test
 // and nothing more. The failure edge traps (rt's unwrap.go has the texts),
 // naming the expression as the program wrote it:
@@ -57,7 +57,7 @@ func (bl *irScalarBuilder) unwrapValue(t *ast.Unwrap, source string, src ir.Temp
 	}
 	d := k.def
 	if d == nil || !irRetainedEnumKind(d) || d.preludeOf == nil || !d.preludeOf.spec.tryOperand || len(d.variants) != 2 || len(d.variants[0].payloads) != 1 {
-		return no("a `!` over a value that is not a retained Result or Maybe: " + k.nomi())
+		return no("a `!` over a value that is not a retained Result or Option: " + k.nomi())
 	}
 	pos := bl.g.irPos(t.Line, t.Col)
 	if !pure {

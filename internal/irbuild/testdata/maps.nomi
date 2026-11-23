@@ -9,7 +9,7 @@ import std::io
 // lookup below is written with a FRESH literal rather than the bound name, so an
 // address-keyed map fails on the ANSWER and not on a type error.
 //
-// `Map.get` returns `Maybe<V>`, and rendering a Maybe is a different slice's
+// `Map.get` returns `Option<V>`, and rendering an Option is a different slice's
 // gap, so each get goes through a `case` that turns it into text. That keeps the
 // fixture's blocker set to Map and makes the Some/None distinction explicit
 // rather than hidden in a Display impl.

@@ -8,7 +8,7 @@ struct Point
 end
 
 struct Slot
-    x: Maybe<Int>
+    x: Option<Int>
     y: Int
 end
 
@@ -112,7 +112,7 @@ fn map_binding(m: Map<String, Int>, key: String) -> Int
     b
 end
 
-fn if_pattern(opt: Maybe<(Int, Int)>) -> Int
+fn if_pattern(opt: Option<(Int, Int)>) -> Int
     if Some((_ia, ib)) = opt then ib else 0
     //       ^ comment
 end
@@ -132,7 +132,7 @@ fn tuple_binding(pair: (Int, Int)) -> Int
     i
 end
 
-fn else_binding(opt: Maybe<(Int, Int)>) -> Int
+fn else_binding(opt: Option<(Int, Int)>) -> Int
     Some((o, _n)) = opt else
         //   ^ comment
         return 0
@@ -164,7 +164,7 @@ fn struct_as_binding(q: Point) -> Int
     y + p.x
 end
 
-fn nested_as(opt: Maybe<(Int, Int)>) -> Int
+fn nested_as(opt: Option<(Int, Int)>) -> Int
     Some((_a, b) as _p) as _m = opt else
         //^ comment
         //          ^ comment
@@ -189,7 +189,7 @@ fn struct_else(q: Slot) -> Int
     y
 end
 
-fn nested(r: Result<Maybe<(Int, Int)>, List<Int>>) -> Int
+fn nested(r: Result<Option<(Int, Int)>, List<Int>>) -> Int
     Ok(Some((_a, b))) = r else
         //   ^ comment
         Err([_x, .._xs]) -> return 0
@@ -222,7 +222,7 @@ fn maps(m: Map<String, (Int, Int)>, key: String) -> Int
     end
 end
 
-fn piped(v: Maybe<Result<(Int, Int), String>>) -> Int
+fn piped(v: Option<Result<(Int, Int), String>>) -> Int
     v |> case
         Some(Ok((_ga, gb))) when gb > 0 -> gb
         //       ^ comment
@@ -268,7 +268,7 @@ fn placeholder_use() -> (Int) -> Int
     //      ^ variable.parameter
 end
 
-fn once_use() -> Maybe<Int>
+fn once_use() -> Option<Int>
     Some(_cache)
     //   ^ variable
 end

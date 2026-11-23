@@ -446,8 +446,8 @@ download's version and hash, and for a module with a path a one-line
 `go.mod`, so Go's module proxy can serve it. Commit all three. Published
 modules come through that proxy, but you don't need Go installed.
 
-- `nomi new github.com/you/myproject` starts a project in a new directory,
-  and `nomi init` makes the current directory one.
+- `nomi new myproject` starts a project in a new directory, `nomi new github.com/you/myproject`
+  one others download by that path, and `nomi init` makes the current directory one.
 - `nomi add github.com/user/somelib` adds a dependency, downloading it and
   locking it in `nomi.lock`. `nomi add ../shared` adds a module beside
   yours by its directory.

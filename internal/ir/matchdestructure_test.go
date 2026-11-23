@@ -222,9 +222,6 @@ func TestProjElemSuffix_AreStructuralReadsAtAConstantPosition(t *testing.T) {
 		if p.Index() != 2 {
 			t.Errorf("%s is at %d, want 2", p.Kind(), p.Index())
 		}
-		if p.Faults() {
-			t.Errorf("%s claims it can fault", p.Kind())
-		}
 	}
 
 	// A SUFFIX AT ZERO IS REAL — `[..rest]` binds the whole list — where

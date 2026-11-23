@@ -21,7 +21,7 @@ fn parse(n: Int) -> Result<Int, String>
     if n < 0 then Err("negative ${n}") else Ok(n * 2)
 end
 
-fn find(n: Int) -> Maybe<Int>
+fn find(n: Int) -> Option<Int>
     if n == 3 then Some(30) else None
 end
 
@@ -46,8 +46,8 @@ fn sum_two(a: Int, b: Int) -> Result<Int, String>
     Ok(parse(a)? + parse(b)?)
 end
 
-// `Maybe` propagates `None`, which carries nothing.
-fn scaled(n: Int) -> Maybe<Int>
+// `Option` propagates `None`, which carries nothing.
+fn scaled(n: Int) -> Option<Int>
     v = find(n)?
 
     Some(v + 1)
@@ -122,7 +122,7 @@ fn show_bool(r: Result<Bool, String>) -> String
     end
 end
 
-fn show_maybe(m: Maybe<Int>) -> String
+fn show_option(m: Option<Int>) -> String
     case m
         Some(v) -> "some ${v}"
         None    -> "none"
@@ -139,8 +139,8 @@ fn main()
     io.print(show(sum_two(1, 2)))
     io.print(show(sum_two(-1, -2)))
 
-    io.print(show_maybe(scaled(3)))
-    io.print(show_maybe(scaled(4)))
+    io.print(show_option(scaled(3)))
+    io.print(show_option(scaled(4)))
 
     io.print(show(piped(1)))
     io.print(show(piped(-1)))

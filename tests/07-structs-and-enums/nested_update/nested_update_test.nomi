@@ -327,7 +327,7 @@ test "a missing key needs a default for every field not written"
     )
 end
 
-test "a bare `..` cannot reach inside a Maybe"
+test "a bare `..` cannot reach inside an Option"
     diagnostics = compiler.check(
         """
         struct Address
@@ -335,7 +335,7 @@ test "a bare `..` cannot reach inside a Maybe"
         end
 
         struct Person
-          address: Maybe<Address>
+          address: Option<Address>
         end
 
         fn main()
@@ -345,7 +345,7 @@ test "a bare `..` cannot reach inside a Maybe"
         """
     )
 
-    assert at(diagnostics, 11, 24, "struct spread `..` requires a struct, got Maybe<Address>")
+    assert at(diagnostics, 11, 24, "struct spread `..` requires a struct, got Option<Address>")
 end
 
 test "a `..` at a position of another kind is refused"

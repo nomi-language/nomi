@@ -3,8 +3,8 @@ import std::io
 fn main()
     xs = [1, 2, 3]
 
-    m: Maybe<Int> = List.first([])
-    mt: Maybe<List<Int>> = List.tail([])
+    m: Option<Int> = List.first([])
+    mt: Option<List<Int>> = List.tail([])
     ys: List<String> = List.concat([], [])
 
     io.print("head-eq      ${List.first([]) == None} ${None == List.first([])}")

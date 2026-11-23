@@ -41,20 +41,20 @@ func runFnHoverCases(t *testing.T, cases []fnHoverCase) {
 // below the lambda's type; its `->` answers with the type alone.
 const lambdaLink = "\n\nMore in the [tour](https://nomi-lang.org/functions-and-lambdas/#lambdas)"
 
-const mapLambda = "```nomi\nfn n: Int -> List<Int>\n```\n\nFills `Maybe.map`'s `f: (T) -> U`, which gives its parameter types."
+const mapLambda = "```nomi\nfn n: Int -> List<Int>\n```\n\nFills `Option.map`'s `f: (T) -> U`, which gives its parameter types."
 
 func TestHover_LambdaFnAndArrow(t *testing.T) {
 	runFnHoverCases(t, []fnHoverCase{
 		{"the fn of a lambda with inferred parameters", `import std::io
 
 fn main()
-  io.inspect(Maybe.map(Some(1), ▮fn n -> [n]))
+  io.inspect(Option.map(Some(1), ▮fn n -> [n]))
 end
 `, mapLambda + lambdaLink},
 		{"its ->", `import std::io
 
 fn main()
-  io.inspect(Maybe.map(Some(1), fn n ▮-> [n]))
+  io.inspect(Option.map(Some(1), fn n ▮-> [n]))
 end
 `, mapLambda},
 		{"annotated parameters", `import std::io
@@ -67,9 +67,9 @@ end
 		{"annotated parameters of an argument", `import std::io
 
 fn main()
-  io.inspect(Maybe.map(Some(1), fn n: Int ▮-> n + 1))
+  io.inspect(Option.map(Some(1), fn n: Int ▮-> n + 1))
 end
-`, "```nomi\nfn n: Int -> Int\n```\n\nFills `Maybe.map`'s `f: (T) -> U`; parameter types from the annotation."},
+`, "```nomi\nfn n: Int -> Int\n```\n\nFills `Option.map`'s `f: (T) -> U`; parameter types from the annotation."},
 		{"a fold's callback", `import std::io
 
 fn main()

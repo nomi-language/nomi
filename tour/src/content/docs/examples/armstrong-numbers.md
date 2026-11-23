@@ -58,7 +58,7 @@ test result: ok. 11 passed, 0 failed
 
 ## How it's written
 
-- The digits come from `Int.to_digits`, rather than from `"${number}"` and `String.to_int` per grapheme. The arithmetic stays in `Int` and needs no `Maybe` to unwrap, and `Int.to_digits(0)` is `[0]`, so zero needs no early return.
+- The digits come from `Int.to_digits`, rather than from `"${number}"` and `String.to_int` per grapheme. The arithmetic stays in `Int` and needs no `Option` to unwrap, and `Int.to_digits(0)` is `[0]`, so zero needs no early return.
 - Each digit is raised with `Int.pow` in a capture, `&Int.pow(&1, width)`.
 - The sum is bound as `total` and compared on its own line, rather than piped into a `then &(&1 == number)` stage.
 - The eleven canonical cases are one `subtests` table, the 33-digit and 39-digit Armstrong numbers included: an `Int` is exact at any size, so `is_armstrong` takes them as it takes 153.

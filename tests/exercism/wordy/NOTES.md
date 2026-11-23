@@ -13,9 +13,9 @@ Adapted from Exercism problem-specifications (MIT), exercises/wordy.
 - Errors are an `Error` enum. A number where an operator belongs is a syntax error and any other word is an unknown operation, which is the distinction the canonical cases draw.
 - Division by zero is `Error.DivisionByZero`, through a check of the divisor and `Int.divide`, instead of the trap `/` raises. The canonical data has no such case; the test file adds one, marked as not canonical.
 - Division is its own `divide` function. `if b == 0 then return Err(.DivisionByZero)` answers the error, and the check makes `b` a `NonZeroInt` below it, so `Int.divide(a, b)` divides by an Int that cannot be zero and the division cannot trap. Keeping it out of `apply` keeps each arm there on one line.
-- Guards use binding `else` (`[first, ..rest] = String.words(problem) else { ... }`) so the success path stays unindented. The style guide uses a binding `else`, not `Maybe.to_result` with `?`, when the value is bound for the lines that follow, as every guard here is.
+- Guards use binding `else` (`[first, ..rest] = String.words(problem) else { ... }`) so the success path stays unindented. The style guide uses a binding `else`, not `Option.to_result` with `?`, when the value is bound for the lines that follow, as every guard here is.
 - The 27 canonical cases are one `subtests` table.
-- The trailing `?` comes off through `Maybe.flat_map(&String.strip_suffix(&1, "?"))`, a capture rather than `fn rest -> ...`.
+- The trailing `?` comes off through `Option.flat_map(&String.strip_suffix(&1, "?"))`, a capture rather than `fn rest -> ...`.
 
 ## Friction
 

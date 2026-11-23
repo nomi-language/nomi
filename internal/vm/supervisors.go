@@ -106,7 +106,7 @@ func (m *Machine) unitAwaitAll(items []any) (any, error) {
 	return m.settled(listOf(out), nil)
 }
 
-// withDefaultHost is `Maybe.with_default` and `Result.with_default`: the
+// withDefaultHost is `Option.with_default` and `Result.with_default`: the
 // payload of a Some or an Ok, else the default.
 func withDefaultHost(present string) hostFn {
 	return func(_ *Machine, _ ir.Pos, args []any) (any, error) {

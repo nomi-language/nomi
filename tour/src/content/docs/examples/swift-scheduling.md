@@ -81,14 +81,14 @@ fn parse(text: String) -> Result<Description, Error>
         "NOW"  -> Ok(.Now)
         "ASAP" -> Ok(.Asap)
         "EOW"  -> Ok(.EndOfWeek)
-        _      -> numbered(text) |> Maybe.to_result(.UnknownDescription(text))
+        _      -> numbered(text) |> Option.to_result(.UnknownDescription(text))
     end
 end
 
 /// `<N>M` for a month from 1 to 12, or `Q<N>` for a quarter from 1 to 4.
-fn numbered(text: String) -> Maybe<Description>
-    month = String.strip_suffix(text, "M") |> Maybe.flat_map(String.to_int)
-    quarter = String.strip_prefix(text, "Q") |> Maybe.flat_map(String.to_int)
+fn numbered(text: String) -> Option<Description>
+    month = String.strip_suffix(text, "M") |> Option.flat_map(String.to_int)
+    quarter = String.strip_prefix(text, "Q") |> Option.flat_map(String.to_int)
 
     case (month, quarter)
         (Some(n), _) when n in 1..=12 -> Some(.Month(n))

@@ -65,9 +65,9 @@ derive Hashable for GBox<T>
 `
 
 // derivedOverLooseMain prints, for one value of each type, its hash called
-// directly, through a bound, as Maybe's Some, as Result's Err and as a
+// directly, through a bound, as Option's Some, as Result's Err and as a
 // one-element list's, then whether it equals the value one Loose digit away
-// by `==`, `Equatable.equal`, a bound, `Maybe.equal` and `List.contains`.
+// by `==`, `Equatable.equal`, a bound, `Option.equal` and `List.contains`.
 const derivedOverLooseMain = `fn h<T>(x: T) -> Int where T: Hashable
     Hashable.hash(x)
 end
@@ -82,21 +82,21 @@ fn main()
     d = DLoose(Loose{n: 1})
     t = TPair(Loose{n: 1}, 2)
     g = GBox{v: Loose{n: 1}}
-    io.print("${Hashable.hash(s)} ${h(s)} ${Maybe.hash(Some(s))} ${Result.hash(Err(s))} ${Hashable.hash([s])}")
-    io.print("${Hashable.hash(e)} ${h(e)} ${Maybe.hash(Some(e))} ${Result.hash(Err(e))} ${Hashable.hash([e])}")
-    io.print("${Hashable.hash(d)} ${h(d)} ${Maybe.hash(Some(d))} ${Result.hash(Err(d))} ${Hashable.hash([d])}")
-    io.print("${Hashable.hash(t)} ${h(t)} ${Maybe.hash(Some(t))} ${Result.hash(Err(t))} ${Hashable.hash([t])}")
-    io.print("${Hashable.hash(g)} ${h(g)} ${Maybe.hash(Some(g))} ${Result.hash(Err(g))} ${Hashable.hash([g])}")
+    io.print("${Hashable.hash(s)} ${h(s)} ${Option.hash(Some(s))} ${Result.hash(Err(s))} ${Hashable.hash([s])}")
+    io.print("${Hashable.hash(e)} ${h(e)} ${Option.hash(Some(e))} ${Result.hash(Err(e))} ${Hashable.hash([e])}")
+    io.print("${Hashable.hash(d)} ${h(d)} ${Option.hash(Some(d))} ${Result.hash(Err(d))} ${Hashable.hash([d])}")
+    io.print("${Hashable.hash(t)} ${h(t)} ${Option.hash(Some(t))} ${Result.hash(Err(t))} ${Hashable.hash([t])}")
+    io.print("${Hashable.hash(g)} ${h(g)} ${Option.hash(Some(g))} ${Result.hash(Err(g))} ${Hashable.hash([g])}")
     s2 = SPair{a: Loose{n: 11}, b: 2}
     e2 = EBox.One(Loose{n: 11})
     d2 = DLoose(Loose{n: 11})
     t2 = TPair(Loose{n: 11}, 2)
     g2 = GBox{v: Loose{n: 11}}
-    io.print("${s == s2} ${Equatable.equal(s, s2)} ${same(s, s2)} ${Maybe.equal(Some(s), Some(s2))} ${List.contains([s], s2)}")
-    io.print("${e == e2} ${Equatable.equal(e, e2)} ${same(e, e2)} ${Maybe.equal(Some(e), Some(e2))} ${List.contains([e], e2)}")
-    io.print("${d == d2} ${Equatable.equal(d, d2)} ${same(d, d2)} ${Maybe.equal(Some(d), Some(d2))} ${List.contains([d], d2)}")
-    io.print("${t == t2} ${Equatable.equal(t, t2)} ${same(t, t2)} ${Maybe.equal(Some(t), Some(t2))} ${List.contains([t], t2)}")
-    io.print("${g == g2} ${Equatable.equal(g, g2)} ${same(g, g2)} ${Maybe.equal(Some(g), Some(g2))} ${List.contains([g], g2)}")
+    io.print("${s == s2} ${Equatable.equal(s, s2)} ${same(s, s2)} ${Option.equal(Some(s), Some(s2))} ${List.contains([s], s2)}")
+    io.print("${e == e2} ${Equatable.equal(e, e2)} ${same(e, e2)} ${Option.equal(Some(e), Some(e2))} ${List.contains([e], e2)}")
+    io.print("${d == d2} ${Equatable.equal(d, d2)} ${same(d, d2)} ${Option.equal(Some(d), Some(d2))} ${List.contains([d], d2)}")
+    io.print("${t == t2} ${Equatable.equal(t, t2)} ${same(t, t2)} ${Option.equal(Some(t), Some(t2))} ${List.contains([t], t2)}")
+    io.print("${g == g2} ${Equatable.equal(g, g2)} ${same(g, g2)} ${Option.equal(Some(g), Some(g2))} ${List.contains([g], g2)}")
 end
 `
 
@@ -112,8 +112,8 @@ const derivedOverLooseWant = "219 219 219 250 746\n" +
 // A derived Hashable or Equatable wins over the structural fallback a type
 // with no impl takes, on a struct, an enum, a distinct type, a named tuple
 // and a generic struct: called directly, through a generic bound, and inside
-// std's generic bodies (Maybe's and Result's derived hash, List's hash fold,
-// `Maybe.equal`, `List.contains`), which are lowered by std instance gens
+// std's generic bodies (Option's and Result's derived hash, List's hash fold,
+// `Option.equal`, `List.contains`), which are lowered by std instance gens
 // that hold none of the program's impls.
 func TestIRDerivedImplWinsOverStructural_Runs(t *testing.T) {
 	if testing.Short() {
@@ -135,8 +135,8 @@ func TestIRDerivedImplWinsOverStructural_AnotherFile(t *testing.T) {
 	main := strings.Replace(derivedOverLooseMain, "fn main()\n", `fn main()
     f = Far{a: Loose{n: 1}}
     f2 = Far{a: Loose{n: 11}}
-    io.print("${Hashable.hash(f)} ${h(f)} ${Maybe.hash(Some(f))} ${Result.hash(Err(f))} ${Hashable.hash([f])}")
-    io.print("${f == f2} ${Equatable.equal(f, f2)} ${same(f, f2)} ${Maybe.equal(Some(f), Some(f2))} ${List.contains([f], f2)}")
+    io.print("${Hashable.hash(f)} ${h(f)} ${Option.hash(Some(f))} ${Result.hash(Err(f))} ${Hashable.hash([f])}")
+    io.print("${f == f2} ${Equatable.equal(f, f2)} ${same(f, f2)} ${Option.equal(Some(f), Some(f2))} ${List.contains([f], f2)}")
 `, 1)
 	files := map[string]string{
 		"main.nomi":   "import std::io\nimport shapes.{Loose, SPair, EBox, DLoose, TPair, GBox}\nimport far.{Far}\n\n" + main,

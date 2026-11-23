@@ -96,7 +96,7 @@ func TestHover_Operators(t *testing.T) {
 		{"a not stage", "fn main()\n  io.inspect(\"\" |> n▮ot String.is_empty())\nend\n",
 			[]string{"not Bool -> Bool"}, nil},
 		{"is", "fn main()\n  io.inspect(Some(1) ▮is Some(_))\nend\n",
-			[]string{"Maybe<Int> is Some(_) -> Bool", "as a `case` arm would. It binds nothing."}, nil},
+			[]string{"Option<Int> is Some(_) -> Bool", "as a `case` arm would. It binds nothing."}, nil},
 		{"is over a parenthesized or", "fn main()\n  io.inspect(1 i▮s (1 or 2))\nend\n",
 			[]string{"Int is 1 or 2 -> Bool"}, nil},
 		{"in", "fn main()\n  io.inspect(1 ▮in Set[1, 2])\nend\n",

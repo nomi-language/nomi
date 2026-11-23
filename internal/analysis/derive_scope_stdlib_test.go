@@ -47,6 +47,7 @@ func checkPreludeless(t *testing.T, src string) (*analysis.FileAnalysis, []analy
 	var errs []analysis.TypeError
 	errs = append(errs, fa.TypeErrors...)
 	errs = append(errs, analysis.CheckTypes(fa, extendedNodes["std/"+modName])...)
+	checkNoGeneratedName(t, errs)
 	return fa, errs
 }
 

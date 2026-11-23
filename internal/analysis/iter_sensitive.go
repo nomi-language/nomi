@@ -242,7 +242,7 @@ func (s *iterSensitivity) iterSensitiveUseError(at ast.Node, name string, fd *as
 	e := errAt(at, msg)
 	if in != "" {
 		e.Hints = []string{fmt.Sprintf(
-			"to decide in this callback instead, return a `Maybe` or an enum from `%s` and write %s here", name, words)}
+			"to decide in this callback instead, return an `Option` or an enum from `%s` and write %s here", name, words)}
 	}
 	return e
 }

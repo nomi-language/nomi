@@ -19,7 +19,7 @@ import (
 // should print.
 //
 // largeFunctionProgram writes one function, walk, of many parameters in
-// every register bank (Ints, a big one among them, Strings, Lists), a Maybe,
+// every register bank (Ints, a big one among them, Strings, Lists), an Option,
 // many locals bound to string literals, a lambda capturing a parameter, a
 // lambda that calls walk in tail position, and a `case` nested in a `case`.
 // walk loops by tail calls that rotate each bank's parameters, half of them
@@ -66,7 +66,7 @@ func largeFunctionProgram(i int) largeProgram {
 	bank("w", "Int", nW)
 	bank("s", "String", nS)
 	bank("r", "List<Int>", nR)
-	params = append(params, "m: Maybe<String>", "steps: Int")
+	params = append(params, "m: Option<String>", "steps: Int")
 
 	// segments are the answer's parts: a literal before each local and
 	// parameter, which the answer interpolates, and what each prints.
@@ -148,12 +148,12 @@ func largeFunctionProgram(i int) largeProgram {
 			k += n
 		}
 		tag := ""
-		maybe := "None"
+		option := "None"
 		if r.Intn(2) == 0 {
 			tag = word()
-			maybe = "Some(\"" + tag + "\")"
+			option = "Some(\"" + tag + "\")"
 		}
-		fmt.Fprintf(&b, "    io.print(walk(%s))\n", strings.Join(append(args, maybe, fmt.Sprint(steps)), ", "))
+		fmt.Fprintf(&b, "    io.print(walk(%s))\n", strings.Join(append(args, option, fmt.Sprint(steps)), ", "))
 		if tag != "" {
 			out.WriteString(some)
 		} else {

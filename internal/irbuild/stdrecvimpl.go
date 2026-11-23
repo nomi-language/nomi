@@ -9,7 +9,7 @@ import (
 )
 
 // An impl of a program's own interface for a std generic container:
-// `impl Show for List<T> where T: Display`, `impl Zero for Maybe<T>`,
+// `impl Show for List<T> where T: Display`, `impl Zero for Option<T>`,
 // `impl Keyed for Map<String, V>`. The orphan rule admits it because the
 // interface is the module's own (§12), and the checker answers a call
 // through it at each instance.
@@ -431,7 +431,7 @@ func (bl *irScalarBuilder) stdRecvCallee(t *ast.Call) (string, *ast.FuncDef) {
 
 // stdRecvCallPlan is the call of a program's impl function for the std
 // container kind k: `List.show(xs)`, `T.zero(n)` with T a `List<Int>`,
-// `Zero.zero<Maybe<Int>>(1)`. Nil when no impl of the program supplies
+// `Zero.zero<Option<Int>>(1)`. Nil when no impl of the program supplies
 // method at k, so std's own function for the container is the call's.
 // kt is the checker's type k was read from, or nil.
 func (bl *irScalarBuilder) stdRecvCallPlan(t *ast.Call, args irQualArgs, k kind, kt analysis.Type, method string) *irQualPlan {

@@ -44,12 +44,12 @@ under it is an **arm**: a kind, `->`, and the value to give back for it.
 Nomi checks that the arms cover every kind, so if you add `Windy` to the
 enum, it tells you which `case` doesn't handle it yet.
 
-A Maybe has two kinds, `Some` and `None`, so `case` works on it too. In an
+An Option has two kinds, `Some` and `None`, so `case` works on it too. In an
 arm, `Some(n)` matches a Some and names the value inside it `n`. The type
-`Maybe<String>` is a Maybe whose value, when there is one, is a String:
+`Option<String>` is an Option whose value, when there is one, is a String:
 
 ```nomi-run
-fn hello(name: Maybe<String>) -> String
+fn hello(name: Option<String>) -> String
     case name
         Some(n) -> "Hello, ${n}"
         None    -> "Hello, stranger"

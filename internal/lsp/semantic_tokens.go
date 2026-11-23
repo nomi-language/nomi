@@ -51,8 +51,9 @@ const (
 	modAttachedTest = 1 << 1
 	// modEffect marks a token where the compiler cannot show code is pure:
 	// the callee of a call that can act, and the name of a function whose
-	// body holds one, in its declaration (hoverdoc.MarkReaching). Each
-	// editor extension draws it bold.
+	// body holds one, in its declaration (hoverdoc.MarkReaching). A `dbg`
+	// keyword shows its effect itself and is not marked. Each editor
+	// extension draws it bold.
 	modEffect = 1 << 2
 )
 
@@ -63,7 +64,7 @@ const (
 // the semtokens package; the MF2 in phrase and noun bodies is this server's
 // own (phraseBodyTokens).
 func encodeSemanticTokens(fa *analysis.FileAnalysis, nodes []ast.Node, content string, reached []analyzedlowering.Reached, inFile func(path string) bool) []protocol.UInteger {
-	toks := hoverdoc.MarkReaching(semtokens.Collect(fa), reached, inFile, content)
+	toks := hoverdoc.MarkReaching(semtokens.Collect(fa), reached, inFile)
 	toks = append(toks, phraseBodyTokens(nodes)...)
 	return encodeTokens(content, toks, semtokens.AttachedTestLines(nodes))
 }

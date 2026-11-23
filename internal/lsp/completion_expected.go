@@ -340,8 +340,8 @@ func (r *completionRequest) candidateType(c candidate) analysis.Type {
 
 // typeFits reports whether a value of type have can stand where want is
 // expected: the same type, a type that implements an expected interface,
-// or the same owner where either side is still generic (`Maybe<T>` for an
-// expected `Maybe<Int>`).
+// or the same owner where either side is still generic (`Option<T>` for an
+// expected `Option<Int>`).
 func (r *completionRequest) typeFits(have, want analysis.Type) bool {
 	have, want = analysis.ResolveTypeVar(have), analysis.ResolveTypeVar(want)
 	if have == nil || want == nil {

@@ -24,10 +24,10 @@ func tryValue(fr *frame, n *ir.Try) error {
 	}
 	e, ok := enumRecord(v)
 	if !ok {
-		return fmt.Errorf("vm: try requires a Maybe or Result, got %T", v)
+		return fmt.Errorf("vm: try requires an Option or Result, got %T", v)
 	}
 	switch e.Desc.Name {
-	case "maybe.Maybe":
+	case "option.Option":
 		switch variantName(e) {
 		case "Some":
 			return nil

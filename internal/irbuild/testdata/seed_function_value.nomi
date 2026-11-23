@@ -8,9 +8,9 @@ fn ident<T>(x: T) -> T
 end
 
 fn main()
-    a: Maybe<(Int) -> String> = Some(Display.to_string)
-    b: Maybe<List<Display>> = Some([1, "a"])
-    c: Maybe<(Int) -> Int> = Some(ident)
+    a: Option<(Int) -> String> = Some(Display.to_string)
+    b: Option<List<Display>> = Some([1, "a"])
+    c: Option<(Int) -> Int> = Some(ident)
 
     case a
         Some(f) -> io.print(f(7))

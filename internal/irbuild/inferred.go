@@ -145,13 +145,13 @@ func (g *gen) project(t analysis.Type) kind {
 		//
 		// ONE arm here rather than one at each projected position, so the
 		// annotation and the inferred position cannot disagree. Without the
-		// frame half, `Maybe.Some(r.slot)` inside `fn recv<T>(r: Half<T>):
-		// Maybe<T>` would refuse `generic enum over a type parameter` in a
+		// frame half, `Option.Some(r.slot)` inside `fn recv<T>(r: Half<T>):
+		// Option<T>` would refuse `generic enum over a type parameter` in a
 		// monomorphized instance, because prelude.go's prelude projection asks
 		// project(): the type argument would be concrete at the annotation and
 		// abstract at the constructor. Without the dictionary half, `fn
-		// wrap<T>(x: T): Maybe<T> where T: Display { Some(x) }` would refuse at
-		// the constructor while its return ANNOTATION `Maybe<T>` lowered.
+		// wrap<T>(x: T): Option<T> where T: Display { Some(x) }` would refuse at
+		// the constructor while its return ANNOTATION `Option<T>` lowered.
 		// types.go's `*ast.SimpleType` arm consults both, and so does this one.
 		//
 		// Same ORDER as types.go's, so the two doors cannot disagree about
@@ -167,10 +167,10 @@ func (g *gen) project(t analysis.Type) kind {
 		// That argument is about the window and says nothing about the
 		// OPERAND. So the rule for a caller: pass a type the ENCLOSING
 		// declaration owns. A CONSTRUCTOR's own declared type parameters —
-		// `Some: (T) -> Maybe<T>` — are a different declaration's and share
+		// `Some: (T) -> Option<T>` — are a different declaration's and share
 		// nothing with the frame but a letter; handing one in would make `fn
-		// wrap<T>(x: T): Maybe<T> { Some(x) }` lower and `fn wrap<A>(x: A):
-		// Maybe<A> { Some(x) }` refuse, on the spelling alone. Every caller
+		// wrap<T>(x: T): Option<T> { Some(x) }` lower and `fn wrap<A>(x: A):
+		// Option<A> { Some(x) }` refuse, on the spelling alone. Every caller
 		// takes its operand from the checker's own solved type at this
 		// position, which satisfies the rule by construction.
 		//
@@ -315,8 +315,8 @@ func (g *gen) project(t analysis.Type) kind {
 		return g.localNamed(ty, func(d *typeDef) bool { return d.isEnum })
 
 	case *analysis.DistinctType:
-		if ty.Subtype {
-			// A subtype is its base (refinement.go), a generic
+		if ty.Refinement {
+			// A refinement is its base (refinement.go), a generic
 			// one's at its type arguments.
 			return g.project(analysis.RefinementBase(ty))
 		}
@@ -355,7 +355,7 @@ func (g *gen) project(t analysis.Type) kind {
 		// so it must be reachable by INFERENCE too.
 		//
 		// A miss here does not name this file or the type: `Some(Days(3))`
-		// would refuse as `non-scalar type argument (Maybe<Days>)` through
+		// would refuse as `non-scalar type argument (Option<Days>)` through
 		// prelude.go's preludeArgs, which calls project() on each type argument
 		// and reports whatever comes back invalid.
 		if k, isStd := g.projectStdOpaque(ty); isStd {

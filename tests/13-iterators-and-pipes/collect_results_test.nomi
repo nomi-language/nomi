@@ -23,7 +23,7 @@ fn parse_message(text: String) -> Result<Int, String>
     Result.map_err(parse(text), fn _e -> "bad: " + text)
 end
 
-fn point_at(n: Int) -> Maybe<Point>
+fn point_at(n: Int) -> Option<Point>
     if n >= 0 then Some(Point{x: n, y: n * 2}) else None
 end
 
@@ -82,30 +82,30 @@ test "Result.partition keeps input order on both sides"
     assert messages == ["bad: z"]
 end
 
-test "Maybe.collect of a user struct"
-    points = [0, 1, 2] |> Iter.map(&point_at(&1)) |> Maybe.collect()
+test "Option.collect of a user struct"
+    points = [0, 1, 2] |> Iter.map(&point_at(&1)) |> Option.collect()
 
     assert points == Some([Point{x: 0, y: 0}, Point{x: 1, y: 2}, Point{x: 2, y: 4}])
 
-    missing = [0, -1, 2] |> Iter.map(&point_at(&1)) |> Maybe.collect()
+    missing = [0, -1, 2] |> Iter.map(&point_at(&1)) |> Option.collect()
 
     assert missing == None
 end
 
-test "Maybe.collect stops pulling at the first None"
+test "Option.collect stops pulling at the first None"
     stopped =
         Range.naturals()
         |> Iter.map(fn n -> point_at(2 - n))
-        |> Maybe.collect()
+        |> Option.collect()
 
     assert stopped == None
 end
 
-test "Maybe.values drops every None"
+test "Option.values drops every None"
     xs =
         Vector[0, -1, 2, -3]
         |> Iter.map(&point_at(&1))
-        |> Maybe.values()
+        |> Option.values()
         |> Iter.to_list()
 
     assert xs == [Point{x: 0, y: 0}, Point{x: 2, y: 4}]

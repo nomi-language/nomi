@@ -400,7 +400,7 @@ func (fr *frame) write(t ir.Temp, v any) {
 		case packTuple:
 			fr.unpack(t, v)
 			return
-		case packMaybe:
+		case packOption:
 			fr.takeApart(t, int(c.packed[t].tag), v)
 			return
 		}
@@ -427,7 +427,7 @@ func (fr *frame) write(t ir.Temp, v any) {
 }
 
 // writeBoxed writes v, a value held boxed (an operand arriving from Go, a
-// list's element, a payload a fused Maybe keeps boxed), into temporary t: a
+// list's element, a payload a fused Option keeps boxed), into temporary t: a
 // reference, or an Int that fits a word, straight into its register,
 // anything else through write.
 func (fr *frame) writeBoxed(t ir.Temp, v any) {
@@ -655,7 +655,7 @@ const retParts bank = 4
 // the tuple split itself takes them with no record between (deliver), and
 // any other reader gets the record built (ret). A tuple the function
 // returns as the payload of its Some or Ok (p.wrap) is that Some or Ok,
-// which a caller that keeps the Maybe fused takes the same way.
+// which a caller that keeps the Option fused takes the same way.
 func (s *regStack) setRetParts(fr *frame, p *packedTemp) {
 	n := len(p.parts)
 	if cap(s.rpw) < n {
@@ -1956,7 +1956,7 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 			// A tuple the function kept split, returned in parts, or a
 			// return slot holding a Some or an Ok of one in parts
 			// (wrapReturns), or any other value boxed when its tag is clear.
-			if p := &c.packed[d]; p.kind == packMaybe && w[p.tag] == 0 {
+			if p := &c.packed[d]; p.kind == packOption && w[p.tag] == 0 {
 				stk.setRet(r[c.locs[d].reg()])
 			} else {
 				stk.setRetParts(fr, p)
@@ -2064,15 +2064,15 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 			pc++
 
 		case opHostM:
-			// A crossing answering a Maybe its uses only take apart: the
-			// payload (or None) and the tag in registers (maybefuse.go).
+			// A crossing answering an Option its uses only take apart: the
+			// payload (or None) and the tag in registers (optionfuse.go).
 			h := &c.hostCalls[d]
 			if h.inLoop && !m.hooked && fr.readFused(h, int(code[pc+1])) {
 				// A read of the value's storage, done here.
 				pc += 2
 				break
 			}
-			err = m.hostMaybe(fr, h, int(code[pc+1]))
+			err = m.hostOption(fr, h, int(code[pc+1]))
 			w, s, r = stk.w[fr.wb:fr.wb+c.nW], stk.s[fr.sb:fr.sb+c.nS], stk.r[fr.rb:fr.rb+c.nR]
 			if err == nil && fr.bad != nil {
 				err = fr.bad

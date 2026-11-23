@@ -33,8 +33,8 @@ import
     iter.Iter
     lists.List
     mail.{self, Address, Attachment, Credentials, Error, Mailer, Message, Security, SmtpConfig}
-    maybe.Maybe.{self, None, Some}
     net.{self, Connection, Listener}
+    option.Option.{self, None, Some}
     results.Result.{self, Err, Ok}
     strings.String
     tasks.Task
@@ -53,7 +53,7 @@ pub struct Received
     /// Whether it came over TLS.
     tls: Bool
     /// The user it authenticated as.
-    username: Maybe<String>
+    username: Option<String>
 end
 
 derive Equatable for Received
@@ -222,7 +222,7 @@ end
 //
 pub fn with_smtp_server<T>(
     starttls:    Bool = False,
-    credentials: Maybe<Credentials> = None,
+    credentials: Option<Credentials> = None,
     body:        (SmtpServer) -> T,
 ) -> T
     listener = net.listen("127.0.0.1:0")!
@@ -247,7 +247,7 @@ pub fn with_smtp_server<T>(
 
     config = SmtpConfig{
         host:,
-        port:     String.to_int(port) |> Maybe.with_default(0),
+        port:     String.to_int(port) |> Option.with_default(0),
         security: if starttls then Security.StartTls else Security.Off,
         credentials:,
         timeout: Duration.seconds(10),
@@ -267,8 +267,8 @@ pub fn with_smtp_server<T>(
 end
 
 struct Rules
-    tls:         Maybe<ServerConfig>
-    credentials: Maybe<Credentials>
+    tls:         Option<ServerConfig>
+    credentials: Option<Credentials>
     state:       Channel<State>
 end
 
@@ -276,8 +276,8 @@ end
 struct Peer
     conn:       Connection
     tls:        Bool
-    username:   Maybe<String>
-    from:       Maybe<String>
+    username:   Option<String>
+    from:       Option<String>
     recipients: List<String>
 end
 
@@ -304,7 +304,7 @@ fn reply(peer: Peer, line: String) -> Bool
     Result.is_ok(Writer.write_text(Connection.writer(peer.conn), "${line}\r\n"))
 end
 
-fn read(peer: Peer) -> Maybe<String>
+fn read(peer: Peer) -> Option<String>
     case Reader.read_line(Connection.reader(peer.conn))
         Ok(Some(line)) -> Some(line)
         _              -> None
@@ -321,7 +321,7 @@ fn converse(peer: Peer, rules: Rules)
     verb = String.uppercase(
         String.split(line, " ")
         |> List.first()
-        |> Maybe.with_default("")
+        |> Option.with_default("")
     )
 
     argument = String.drop(line, String.length(verb) + 1)
@@ -453,18 +453,18 @@ fn converse(peer: Peer, rules: Rules)
     end
 end
 
-fn answer(peer: Peer, line: String) -> Maybe<Peer>
+fn answer(peer: Peer, line: String) -> Option<Peer>
     if reply(peer, line) then Some(peer) else None
 end
 
 // The address in `FROM:<a@b>` or `TO:<a@b>`, without parameters after it.
 fn path(argument: String, prefix: String) -> String
     rest = String.drop(argument, String.length(prefix))
-    first = String.split(rest, " ") |> List.first() |> Maybe.with_default("")
+    first = String.split(rest, " ") |> List.first() |> Option.with_default("")
     String.replace(String.replace(first, "<", ""), ">", "")
 end
 
-fn read_data(peer: Peer, lines: List<String>) -> Maybe<String>
+fn read_data(peer: Peer, lines: List<String>) -> Option<String>
     case read(peer)
         None ->
             None
@@ -479,12 +479,12 @@ fn read_data(peer: Peer, lines: List<String>) -> Maybe<String>
     end
 end
 
-fn authenticate(peer: Peer, rules: Rules, argument: String) -> Maybe<Peer>
+fn authenticate(peer: Peer, rules: Rules, argument: String) -> Option<Peer>
     words = String.split(argument, " ")
 
     mechanism = String.uppercase(
         List.first(words)
-        |> Maybe.with_default("")
+        |> Option.with_default("")
     )
 
     pair =
@@ -501,8 +501,8 @@ fn authenticate(peer: Peer, rules: Rules, argument: String) -> Maybe<Peer>
                     end
 
                 token
-                |> Maybe.flat_map(decode)
-                |> Maybe.flat_map(fn text ->
+                |> Option.flat_map(decode)
+                |> Option.flat_map(fn text ->
                     case String.split(text, "\u{0}")
                         [_, user, password] -> Some((user, password))
                         _                   -> None
@@ -511,9 +511,9 @@ fn authenticate(peer: Peer, rules: Rules, argument: String) -> Maybe<Peer>
 
             "LOGIN" ->
                 _ = reply(peer, "334 VXNlcm5hbWU6")
-                user = read(peer) |> Maybe.flat_map(decode)
+                user = read(peer) |> Option.flat_map(decode)
                 _ = reply(peer, "334 UGFzc3dvcmQ6")
-                password = read(peer) |> Maybe.flat_map(decode)
+                password = read(peer) |> Option.flat_map(decode)
 
                 case (user, password)
                     (Some(u), Some(p)) -> Some((u, p))
@@ -537,10 +537,10 @@ fn authenticate(peer: Peer, rules: Rules, argument: String) -> Maybe<Peer>
     end
 end
 
-fn decode(token: String) -> Maybe<String>
+fn decode(token: String) -> Option<String>
     base64.decode(token)
-    |> Result.to_maybe()
-    |> Maybe.flat_map(fn b -> Bytes.to_string(b) |> Result.to_maybe())
+    |> Result.to_option()
+    |> Option.flat_map(fn b -> Bytes.to_string(b) |> Result.to_option())
 end
 
 /// What a backend under `conformance` is: a mailer, and what has reached
@@ -666,7 +666,10 @@ fn refused(o: Opened, message: Message, why: String) -> Result<Unit, String>
 end
 
 fn head_of(data: String) -> List<String>
-    String.split(data, "\r\n\r\n") |> List.first() |> Maybe.with_default("") |> String.split("\r\n")
+    String.split(data, "\r\n\r\n")
+    |> List.first()
+    |> Option.with_default("")
+    |> String.split("\r\n")
 end
 
 fn checks() -> List<(String, (Opened) -> Result<Unit, String>)>

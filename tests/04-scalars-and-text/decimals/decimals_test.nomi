@@ -194,8 +194,8 @@ end
 
 test "divide_exact keeps the quotient's scale when it terminates"
     assert Decimal.divide_exact(10.00d, 4d) == Some(2.50d)
-    assert Decimal.divide_exact(10.00d, 4d) |> Maybe.map(Decimal.to_string) == Some("2.50")
-    assert Decimal.divide_exact(1d, 8d) |> Maybe.map(Decimal.to_string) == Some("0.125")
+    assert Decimal.divide_exact(10.00d, 4d) |> Option.map(Decimal.to_string) == Some("2.50")
+    assert Decimal.divide_exact(1d, 8d) |> Option.map(Decimal.to_string) == Some("0.125")
     assert Decimal.divide_exact(-7.5d, 2.5d) == Some(-3d)
 end
 

@@ -19,8 +19,8 @@ import (
 //     owner-qualified calls (`Duration.seconds(${1:n})`). A
 //     function that takes a T (`Map.put`, `Set.union`) transforms a T the
 //     caller already has, which the locals of type T cover.
-//   - Where T is `Maybe<X>` or `Result<X, E>`, also X's inherent functions
-//     that return that same Maybe or Result (`Date.parse(s)` where
+//   - Where T is `Option<X>` or `Result<X, E>`, also X's inherent functions
+//     that return that same Option or Result (`Date.parse(s)` where
 //     `Result<Date, Error>` is expected). A function returning `Result<T, _>`
 //     is not offered where a plain T is expected: it does not fit there
 //     without a `?` or a match.
@@ -102,10 +102,10 @@ func buildableType(t analysis.Type) bool {
 	return false
 }
 
-// wrappedType is X of an expected `Maybe<X>` or `Result<X, E>`.
+// wrappedType is X of an expected `Option<X>` or `Result<X, E>`.
 func wrappedType(t analysis.Type) (analysis.Type, bool) {
 	et, ok := t.(*analysis.EnumType)
-	if !ok || len(et.TypeArgs) == 0 || (et.Name != "Maybe" && et.Name != "Result") {
+	if !ok || len(et.TypeArgs) == 0 || (et.Name != "Option" && et.Name != "Result") {
 		return nil, false
 	}
 	inner := analysis.ResolveTypeVar(et.TypeArgs[0])

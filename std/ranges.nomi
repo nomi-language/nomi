@@ -8,7 +8,7 @@ import
     int.Int
     iter.Iter
     lists.List
-    maybe.Maybe.{self, None, Some}
+    option.Option.{self, None, Some}
     steppable.Steppable
     strings.String
 end
@@ -42,7 +42,7 @@ end
 //
 pub opaque struct Range<T> where T: Comparable
     start:     T
-    stop:      Maybe<T>
+    stop:      Option<T>
     inclusive: Bool
 end
 
@@ -59,7 +59,7 @@ end
 //! assert NonEmptyRange.try_from(4..=4) == Some(4..=4)
 //! assert NonEmptyRange.try_from(0.0..=Float.nan()) == None
 //
-pub subtype NonEmptyRange<T> Range<T> where T: Comparable when fn r ->
+pub refine NonEmptyRange<T> Range<T> where T: Comparable when fn r ->
     Range.contains(r, Range.start(r))
 end
 
@@ -71,7 +71,7 @@ end
 //! assert ClosedRange.try_from(0..10) == None
 //! assert ClosedRange.try_from(Range.from(0)) == Some(Range.from(0))
 //
-pub subtype ClosedRange<T> NonEmptyRange<T> where T: Comparable when fn r ->
+pub refine ClosedRange<T> NonEmptyRange<T> where T: Comparable when fn r ->
     Range.is_inclusive(r) or not Range.is_bounded(r)
 end
 
@@ -80,7 +80,7 @@ end
 //! assert BoundedRange.try_from(1..=6) == Some(1..=6)
 //! assert BoundedRange.try_from(Range.from(1)) == None
 //
-pub subtype BoundedRange<T> NonEmptyRange<T> where T: Comparable when fn r -> Range.is_bounded(r)
+pub refine BoundedRange<T> NonEmptyRange<T> where T: Comparable when fn r -> Range.is_bounded(r)
 
 impl Range<T>
     /// Returns the range that starts at `n` and has no end, a ClosedRange of
@@ -169,7 +169,7 @@ impl Range<T>
     //! assert Range.stop(2..=5) == Some(5)
     //! assert Range.stop(Range.from(7)) == None
     //
-    pub fn stop<T>(r: Range<T>) -> Maybe<T>
+    pub fn stop<T>(r: Range<T>) -> Option<T>
         r.stop
     end
 
@@ -315,7 +315,7 @@ end
 // unbounded Range is endless, a rule over Int that a body generic in `T`
 // cannot state.
 impl Iter for Range<T> where T: Discrete
-    fn known_count(r: Range<T>) -> Maybe<Int>
+    fn known_count(r: Range<T>) -> Option<Int>
         case r.stop
             Some(e) ->
                 if r.start > e then

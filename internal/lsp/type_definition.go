@@ -14,7 +14,7 @@ import (
 // textDocumentTypeDefinition jumps from a value to its type's
 // declaration: a binding, parameter, field or `once` to its type; a
 // function or a call of one to its result type; a type name to itself.
-// A generic instantiation (`Maybe<User>`) lands on the generic type. A
+// A generic instantiation (`Option<User>`) lands on the generic type. A
 // type with no declaration (a function type, a tuple, a type parameter)
 // answers nothing.
 func (s *Server) textDocumentTypeDefinition(_ *glsp.Context, params *protocol.TypeDefinitionParams) (any, error) {

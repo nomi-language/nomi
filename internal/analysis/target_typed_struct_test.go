@@ -79,7 +79,7 @@ end
 end
 `},
 		{"prelude constructor under an annotation", `fn main()
-  _m: Maybe<Address> = Some({street: "1 Main", city: "Bath"})
+  _m: Option<Address> = Some({street: "1 Main", city: "Bath"})
 end
 `},
 		{"return value", `fn home() -> Address
@@ -244,11 +244,11 @@ end
 	})
 	t.Run("an enum", func(t *testing.T) {
 		_, errs := checkSourceWithStdlib(targetTypedDecls + `fn main()
-  _m: Maybe<Address> = {street: "s", city: "c"}
+  _m: Option<Address> = {street: "s", city: "c"}
 end
 `)
 		if len(errs) == 0 {
-			t.Fatal("a brace literal was accepted as a Maybe<Address>")
+			t.Fatal("a brace literal was accepted as an Option<Address>")
 		}
 		if !strings.Contains(errs[0].Message, "{street: String, city: String}") {
 			t.Fatalf("want the anonymous struct type in the mismatch, got %v", errs)
@@ -359,7 +359,7 @@ end
 
 // A generic struct the expected type names with the enclosing function's own
 // type parameter reaches a literal through a constructor's payload and a
-// tuple's element: in `fn two<T>(...) -> Maybe<(T, P<T>)>`, `Some((x, {...}))`
+// tuple's element: in `fn two<T>(...) -> Option<(T, P<T>)>`, `Some((x, {...}))`
 // builds a `P<T>` and its `[]` is a `List<T>`. The constructor's parameter is
 // seeded from that expected type before its argument is checked
 // (seedFromPartlyGenericExpected).
@@ -371,7 +371,7 @@ end
 
 func TestTargetTypedStruct_GenericStructThroughAPayload(t *testing.T) {
 	cases := []struct{ name, src string }{
-		{"a tuple in Some", `fn two<T>(xs: List<T>) -> Maybe<(T, P<T>)>
+		{"a tuple in Some", `fn two<T>(xs: List<T>) -> Option<(T, P<T>)>
   case xs
     [] -> None
     [x, ..rest] -> Some((x, {a: rest, b: []}))
@@ -389,15 +389,15 @@ end
   (x, {a: [x], b: []})
 end
 `},
-		{"a nested generic", `fn two<T>(x: T) -> Maybe<(T, P<Maybe<T>>)>
+		{"a nested generic", `fn two<T>(x: T) -> Option<(T, P<Option<T>>)>
   Some((x, {a: [Some(x)], b: [None]}))
 end
 `},
-		{"empty collection fields", `fn two<T>(_x: T) -> Maybe<P<T>>
+		{"empty collection fields", `fn two<T>(_x: T) -> Option<P<T>>
   Some({a: [], b: []})
 end
 `},
-		{"a recursive call keeps its own parameter", `fn two<T>(xs: List<T>) -> Maybe<(T, P<T>)>
+		{"a recursive call keeps its own parameter", `fn two<T>(xs: List<T>) -> Option<(T, P<T>)>
   case xs
     [] -> None
     [x] -> Some((x, {a: [], b: []}))
@@ -427,7 +427,7 @@ end
 
 // The literal is still checked against the struct: a field it lacks is named.
 func TestTargetTypedStruct_GenericStructThroughAPayloadNamesAWrongField(t *testing.T) {
-	_, errs := checkSourceWithStdlib(genericPayloadDecls + `fn two<T>(xs: List<T>) -> Maybe<(T, P<T>)>
+	_, errs := checkSourceWithStdlib(genericPayloadDecls + `fn two<T>(xs: List<T>) -> Option<(T, P<T>)>
   case xs
     [] -> None
     [x, ..rest] -> Some((x, {a: rest, c: []}))

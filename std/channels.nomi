@@ -42,8 +42,8 @@
 //#
 //# ```nomi
 //# answer = Channel.select([
-//#     Arm.receive(replies, fn reply -> Maybe.with_default(reply, "closed")),
-//#     Arm.receive(errors, fn error -> "failed: ${Maybe.with_default(error, 0)}"),
+//#     Arm.receive(replies, fn reply -> Option.with_default(reply, "closed")),
+//#     Arm.receive(errors, fn error -> "failed: ${Option.with_default(error, 0)}"),
 //#     Arm.after(Duration.seconds(5), fn -> "timed out"),
 //# ])
 //# ```
@@ -53,7 +53,7 @@ import
     duration.Duration
     int.{Int, PositiveInt}
     lists.NonEmptyList
-    maybe.Maybe
+    option.Option
     results.Result
     tasks.Task
     unit.Unit
@@ -106,7 +106,7 @@ impl Channel<T>
     /// the program is compiled.
     //! ch = Channel.buffered<Int>(1)
     //! assert Ok(_) = Sender.send(ch.sender, 7)
-    //! assert Receiver.receive(ch.receiver) == Maybe.Some(7)
+    //! assert Receiver.receive(ch.receiver) == Option.Some(7)
     //
     pub host fn buffered<T>(capacity: PositiveInt) -> Channel<T>
 
@@ -128,7 +128,7 @@ impl Channel<T>
     //!         got
     //!     end
     //!
-    //! assert sent == Maybe.Some(7)
+    //! assert sent == Option.Some(7)
     //
     pub host fn unbuffered<T>() -> Channel<T>
 
@@ -160,7 +160,7 @@ impl Channel<T>
     //! assert Ok(_) = Sender.send(ch.sender, 7)
     //!
     //! got = Channel.select([
-    //!     Arm.receive(ch.receiver, fn n -> Maybe.with_default(n, 0)),
+    //!     Arm.receive(ch.receiver, fn n -> Option.with_default(n, 0)),
     //!     Arm.after(Duration.seconds(1), fn -> -1),
     //! ])
     //!
@@ -188,7 +188,7 @@ impl Sender<T>
     //! ch = Channel.buffered<Int>(1)
     //! Sender.close(ch.sender)
     //! Sender.close(ch.sender)
-    //! assert Receiver.receive(ch.receiver) == Maybe.None
+    //! assert Receiver.receive(ch.receiver) == Option.None
     //! assert Sender.send(ch.sender, 7) == Result.Err(ChannelClosed)
     //
     pub host fn close<T>(sender: Sender<T>) -> Unit
@@ -203,7 +203,7 @@ impl Sender<T>
     //! Sender.close_on_drain(ch.sender)
     //! assert Ok(_) = Sender.send(ch.sender, 1)
     //! Sender.close(ch.sender)
-    //! assert Receiver.receive(ch.receiver) == Maybe.Some(1)
+    //! assert Receiver.receive(ch.receiver) == Option.Some(1)
     //
     pub host fn close_on_drain<T>(sender: Sender<T>) -> Unit
 end
@@ -227,9 +227,9 @@ impl Receiver<T>
     /// calls, and every call after them returns `None`.
     //! ch = Channel.buffered<Int>(1)
     //! assert Ok(_) = Sender.send(ch.sender, 7)
-    //! assert Receiver.receive(ch.receiver) == Maybe.Some(7)
+    //! assert Receiver.receive(ch.receiver) == Option.Some(7)
     //
-    pub host fn receive<T>(receiver: Receiver<T>) -> Maybe<T>
+    pub host fn receive<T>(receiver: Receiver<T>) -> Option<T>
 
     /// Receive the next value, waiting at most `wait`. `Ok(Some(value))` is a
     /// value, `Ok(None)` a channel closed and drained, and `Err(TimedOut)` a
@@ -243,12 +243,12 @@ impl Receiver<T>
     //! ch = Channel.buffered<Int>(1)
     //! assert Receiver.receive_within(ch.receiver, Duration.seconds(0)) == Result.Err(TimedOut)
     //! assert Ok(_) = Sender.send(ch.sender, 7)
-    //! assert Receiver.receive_within(ch.receiver, Duration.seconds(1)) == Result.Ok(Maybe.Some(7))
+    //! assert Receiver.receive_within(ch.receiver, Duration.seconds(1)) == Result.Ok(Option.Some(7))
     //
     pub host fn receive_within<T>(
         receiver: Receiver<T>,
         wait:     Duration,
-    ) -> Result<Maybe<T>, TimedOut>
+    ) -> Result<Option<T>, TimedOut>
 end
 
 impl Debug for Receiver<T>
@@ -272,9 +272,9 @@ impl Arm<R>
     /// drained, and passes `handle` the value or `None`.
     //! ch = Channel.buffered<Int>(1)
     //! Sender.close(ch.sender)
-    //! assert Channel.select([Arm.receive(ch.receiver, fn n -> n)]) == Maybe.None
+    //! assert Channel.select([Arm.receive(ch.receiver, fn n -> n)]) == Option.None
     //
-    pub host fn receive<T, R>(receiver: Receiver<T>, handle: (Maybe<T>) -> R) -> Arm<R>
+    pub host fn receive<T, R>(receiver: Receiver<T>, handle: (Option<T>) -> R) -> Arm<R>
 
     /// An arm that finishes when `value` can be sent on `sender`, and passes
     /// `handle` the send's result: `Ok(Unit)`, or `Err(ChannelClosed)` when
@@ -282,7 +282,7 @@ impl Arm<R>
     //! ch = Channel.buffered<Int>(1)
     //! sent = Channel.select([Arm.send(ch.sender, 7, fn r -> r == Result.Ok(Unit))])
     //! assert sent
-    //! assert Receiver.receive(ch.receiver) == Maybe.Some(7)
+    //! assert Receiver.receive(ch.receiver) == Option.Some(7)
     //
     pub host fn send<T, R>(
         sender: Sender<T>,

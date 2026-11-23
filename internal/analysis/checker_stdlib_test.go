@@ -360,7 +360,7 @@ func withStdlibTestImports(src string) string {
 	addModule("int")
 	addModule("iter")
 	addModule("maps")
-	addModule("maybe")
+	addModule("option")
 	addModule("ranges")
 	addModule("results")
 	addModule("sets")
@@ -565,10 +565,10 @@ end
 }
 
 // Nested enum patterns with tuple destructure should type-check cleanly:
-// `Some((n, s))` must bind `n: Int` and `s: String` against `Maybe<(Int, String)>`.
+// `Some((n, s))` must bind `n: Int` and `s: String` against `Option<(Int, String)>`.
 func TestCheckerAcceptsNestedEnumPatternTupleDestructure(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn f(x: Maybe<(Int, String)>) -> String
+fn f(x: Option<(Int, String)>) -> String
     case x
         Some((n, s)) -> s
         None -> ""
@@ -578,10 +578,10 @@ end
 	expectNoStdlibErrors(t, errs)
 }
 
-// Variant-inside-variant patterns: `Some(Ok(n))` against `Maybe<Result<Int, String>>`.
+// Variant-inside-variant patterns: `Some(Ok(n))` against `Option<Result<Int, String>>`.
 func TestCheckerAcceptsNestedEnumPatternVariantInsideVariant(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn f(x: Maybe<Result<Int, String>>) -> Int
+fn f(x: Option<Result<Int, String>>) -> Int
     case x
         Some(Ok(n)) -> n
         Some(Err(_)) -> -1
@@ -596,7 +596,7 @@ end
 // inner Int payload — must type-check without error.
 func TestCheckerAcceptsNestedEnumPatternLiteral(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn f(x: Maybe<Int>) -> String
+fn f(x: Option<Int>) -> String
     case x
         Some(42) -> "match"
         Some(_) -> "other"
@@ -831,8 +831,8 @@ end
 
 func TestCheckerResolvesSelectiveImportAlias(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-import std::maybe.{Maybe as Opt}
-import std::maybe.Maybe.{Some as Just, None as Nothing}
+import std::option.{Option as Opt}
+import std::option.Option.{Some as Just, None as Nothing}
 
 fn f() -> Opt<Int>
     Just(42)
@@ -850,9 +850,9 @@ func TestCheckerMixedPartialAliases(t *testing.T) {
 	// Aliased variant imports stay reachable at construction sites and
 	// pattern sites (`Just(1)` constructs Some; `Just(n)` matches Some).
 	_, errs := checkSourceWithStdlib(`
-import std::maybe.Maybe.{Some as Just}
+import std::option.Option.{Some as Just}
 
-fn f() -> Maybe<Int>
+fn f() -> Option<Int>
     case Just(1)
         Just(n) -> Some(n)
         None -> None
@@ -905,7 +905,7 @@ end
 // squiggles in the editor.
 func TestStdlibFilesTypeCheck(t *testing.T) {
 	lib := loadStd()
-	modules := []string{"maybe", "result", "iterator", "iter", "list", "vector", "string", "map", "range", "io", "struct"}
+	modules := []string{"option", "result", "iterator", "iter", "list", "vector", "string", "map", "range", "io", "struct"}
 	for _, name := range modules {
 		content, ok := std.ReadFile(name)
 		if !ok {
@@ -1040,8 +1040,8 @@ end
 
 // TestListGroupByTypeInfers — lists.group_by previously failed to type-check
 // because the `None -> []` branch in a case expression had an unbound element
-// type. Rewriting with `Maybe.with_default(..., [])` gives the checker the
-// expected type context (T from Maybe<T>) to resolve the empty literal.
+// type. Rewriting with `Option.with_default(..., [])` gives the checker the
+// expected type context (T from Option<T>) to resolve the empty literal.
 func TestListGroupByTypeInfers(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
 fn f() -> Map<Int, List<Int>>
@@ -1231,13 +1231,13 @@ end
 }
 
 func TestCheckerNestedEnumDistinctTypeParams(t *testing.T) {
-	// Maybe<T> and Result<T, E> both name their first type param "T".
+	// Option<T> and Result<T, E> both name their first type param "T".
 	// Nesting one in the other must not conflate them.
 	_, errs := checkSourceWithStdlib(`
 
 
 
-fn f() -> Maybe<Result<Int, String>>
+fn f() -> Option<Result<Int, String>>
     Some(Err("boom"))
 end
 `)

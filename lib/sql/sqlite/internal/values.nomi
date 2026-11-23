@@ -170,7 +170,7 @@ fn stored(declared: String, c: Cell) -> Value
             if declared == "DATE" or declared == "DATETIME" or declared == "TIMESTAMP" then
                 Value.Text(
                     sqlite_time(s, declared == "DATE")
-                    |> Maybe.with_default(s)
+                    |> Option.with_default(s)
                 )
             else
                 Value.Text(s)
@@ -189,36 +189,36 @@ end
 /// time.
 once time_form = Regex`^(?P<date>\d{4}-\d\d-\d\d)(?:[ T](?P<hour>\d\d):(?P<minute>\d\d)(?::(?P<second>\d\d)(?P<fraction>\.\d{1,9})?(?:[+-]\d\d:\d\d)?)?)?$`
 
-fn sqlite_time(text: String, date_only: Bool) -> Maybe<String>
+fn sqlite_time(text: String, date_only: Bool) -> Option<String>
     form = String.captures(
         String.strip_suffix(text, "Z")
-        |> Maybe.with_default(text),
+        |> Option.with_default(text),
         time_form,
     )?
 
-    _ = Date.parse(form.date) |> Result.to_maybe()?
+    _ = Date.parse(form.date) |> Result.to_option()?
 
     hour = String.to_int(
         form.hour
-        |> Maybe.with_default("00")
+        |> Option.with_default("00")
     )?
 
     minute = String.to_int(
         form.minute
-        |> Maybe.with_default("00")
+        |> Option.with_default("00")
     )?
 
     second = String.to_int(
         form.second
-        |> Maybe.with_default("00")
+        |> Option.with_default("00")
     )?
 
     if hour > 23 or minute > 59 or second > 59 then return None
 
     if date_only then return Some(form.date)
 
-    fraction = form.fraction |> Maybe.map(trim_zeros) |> Maybe.with_default("")
-    clock = "${form.hour |> Maybe.with_default("00")}:${form.minute |> Maybe.with_default("00")}:${form.second |> Maybe.with_default("00")}"
+    fraction = form.fraction |> Option.map(trim_zeros) |> Option.with_default("")
+    clock = "${form.hour |> Option.with_default("00")}:${form.minute |> Option.with_default("00")}:${form.second |> Option.with_default("00")}"
     Some("${form.date} ${clock}${if fraction == "." then "" else fraction}")
 end
 
@@ -240,31 +240,31 @@ fn typed(declared: String, plain: Value) -> Value
                 Some(Value.Bool(n != 0))
 
             ("DECIMAL", .Text(s)) ->
-                String.to_decimal(s) |> Maybe.map(Value.Decimal)
+                String.to_decimal(s) |> Option.map(Value.Decimal)
 
             ("DATE", .Text(s)) ->
-                Date.parse(s) |> Result.to_maybe() |> Maybe.map(Value.Date)
+                Date.parse(s) |> Result.to_option() |> Option.map(Value.Date)
 
             ("TIME", .Text(s)) ->
-                Time.parse(s) |> Result.to_maybe() |> Maybe.map(Value.Time)
+                Time.parse(s) |> Result.to_option() |> Option.map(Value.Time)
 
             ("TIMESTAMP", .Text(s)) ->
-                NaiveDateTime.parse(s) |> Result.to_maybe() |> Maybe.map(Value.Timestamp)
+                NaiveDateTime.parse(s) |> Result.to_option() |> Option.map(Value.Timestamp)
 
             ("TIMESTAMPTZ", .Text(s)) ->
-                instant(s) |> Maybe.map(Value.Timestamptz)
+                instant(s) |> Option.map(Value.Timestamptz)
 
             ("UUID", .Text(s)) ->
-                Uuid.parse(s) |> Result.to_maybe() |> Maybe.map(Value.Uuid)
+                Uuid.parse(s) |> Result.to_option() |> Option.map(Value.Uuid)
 
             ("JSON", .Text(s)) ->
-                Json.decode(s) |> Result.to_maybe() |> Maybe.map(Value.Json)
+                Json.decode(s) |> Result.to_option() |> Option.map(Value.Json)
 
             _ ->
                 None
         end
 
-    Maybe.with_default(read, plain)
+    Option.with_default(read, plain)
 end
 
 /// The declared type a value is read by: `BOOLEAN` and `BOOL` as `BOOL`,
@@ -290,25 +290,25 @@ end
 /// The instant a timestamp's text names: SQLite's own form, with no offset,
 /// which `CURRENT_TIMESTAMP` and `utc_text` write, is UTC, and RFC 3339
 /// text with an offset is read too.
-fn instant(text: String) -> Maybe<Instant>
+fn instant(text: String) -> Option<Instant>
     case OffsetDateTime.parse(String.replace(text, " ", "T"))
         Ok(odt) ->
             Some(OffsetDateTime.to_instant(odt))
 
         Err(_) ->
             NaiveDateTime.parse(text)
-            |> Result.to_maybe()
-            |> Maybe.flat_map(fn naive ->
-                OffsetDateTime.with_offset(naive, Duration.hours(0)) |> Result.to_maybe()
+            |> Result.to_option()
+            |> Option.flat_map(fn naive ->
+                OffsetDateTime.with_offset(naive, Duration.hours(0)) |> Result.to_option()
             end)
-            |> Maybe.map(OffsetDateTime.to_instant)
+            |> Option.map(OffsetDateTime.to_instant)
     end
 end
 
 /// Whether a declared type is `DECIMAL` or `NUMERIC`, and its scale: `s` of
 /// `DECIMAL(p, s)`, 0 of `DECIMAL(p)`, and -1 when it declares none, which
 /// reads a value at its shortest scale.
-fn decimal_scale(declared: String) -> Maybe<Int>
+fn decimal_scale(declared: String) -> Option<Int>
     (name, args) =
         case String.split(String.trim(declared), "(")
             [first, ..rest] -> (String.trim(first), String.join(rest, "("))
@@ -338,7 +338,7 @@ end
 /// A decimal text's digits, from its first nonzero digit before the point
 /// through every digit after it: 4 for 12.50, 2 for 0.05.
 fn decimal_digits(text: String) -> Int
-    unsigned = String.strip_prefix(text, "-") |> Maybe.with_default(text)
+    unsigned = String.strip_prefix(text, "-") |> Option.with_default(text)
 
     case String.split(unsigned, ".")
         [whole, frac] -> String.length(trim_leading_zeros(whole)) + String.length(frac)
@@ -414,12 +414,12 @@ fn decimal_of(c: Cell, scale: Int, column: String, declared: String) -> Result<D
             "${sign}${whole}.${frac}${String.repeat(
                 "0",
                 NonNegativeInt.try_from(places - String.length(frac))
-                |> Maybe.with_default(0),
+                |> Option.with_default(0),
             )}"
         end
 
     String.to_decimal(written)
-    |> Maybe.to_result(
+    |> Option.to_result(
         mismatch("the column `${column}` is ${declared} and holds ${text}, which is not a decimal")
     )
 end
@@ -434,11 +434,11 @@ fn plain_float(x: Float) -> String
             expand(
                 mantissa,
                 String.to_int(exponent)
-                |> Maybe.with_default(0),
+                |> Option.with_default(0),
             )
 
         _ ->
-            String.strip_suffix(shown, ".0") |> Maybe.with_default(shown)
+            String.strip_suffix(shown, ".0") |> Option.with_default(shown)
     end
 end
 
@@ -465,19 +465,19 @@ fn expand(mantissa: String, exponent: Int) -> String
             "0.${String.repeat(
                 "0",
                 NonNegativeInt.try_from(-point)
-                |> Maybe.with_default(0),
+                |> Option.with_default(0),
             )}${digits}"
         else if point >= count then
             "${digits}${String.repeat(
                 "0",
                 NonNegativeInt.try_from(point - count)
-                |> Maybe.with_default(0),
+                |> Option.with_default(0),
             )}"
         else
             "${String.slice(digits, 0, point)}.${String.drop(
                 digits,
                 NonNegativeInt.try_from(point)
-                |> Maybe.with_default(0),
+                |> Option.with_default(0),
             )}"
         end
 
@@ -485,7 +485,7 @@ fn expand(mantissa: String, exponent: Int) -> String
         if String.contains(shifted, ".") then
             trim_zeros(shifted)
             |> String.strip_suffix(".")
-            |> Maybe.with_default(trim_zeros(shifted))
+            |> Option.with_default(trim_zeros(shifted))
         else
             shifted
         end

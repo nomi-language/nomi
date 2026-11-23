@@ -30,7 +30,7 @@
 //# The key comes from a secret the app holds, read in `boot`:
 //#
 //# ```nomi
-//# secret = Map.get(startup.env, "SESSION_SECRET") |> Maybe.to_result("SESSION_SECRET is not set")?
+//# secret = Map.get(startup.env, "SESSION_SECRET") |> Option.to_result("SESSION_SECRET is not set")?
 //#
 //# store = CookieStore{key: SessionKey.derive(secret)?}
 //# ```
@@ -67,7 +67,7 @@ import
     json.{FromJson, Json, ToJson}
     lists.List
     maps.Map
-    maybe.Maybe.{self, None, Some}
+    option.Option.{self, None, Some}
     results.Result.{self, Err, Ok}
     strings.String
 end
@@ -119,14 +119,14 @@ pub struct CookieStore
     /// set is written again at most once a minute, to move its last-seen
     /// time, so the timeout counts from within a minute of the last
     /// request.
-    idle_timeout: Maybe<Duration> = None
+    idle_timeout: Option<Duration> = None
     /// Whether the cookie is `Secure`, sent only over HTTPS. Turn it off
     /// to serve a session over plain HTTP in development.
     secure: Bool = True
     /// The cookie's `Path`.
     path: String = "/"
     /// The cookie's `Domain`; `None` keeps it to the host that set it.
-    domain: Maybe<String> = None
+    domain: Option<String> = None
 end
 
 /// A request's session: `value`, the app's `T`, or `None` when the
@@ -134,7 +134,7 @@ end
 /// response left for this one. The functions on `Session` build a changed
 /// session, and `sessions.write` puts it on a response.
 pub struct Session<T>
-    value: Maybe<T>
+    value: Option<T>
     /// Messages added with `Session.add_flash` by the response before this
     /// request. They are shown once: after this request the cookie no
     /// longer holds them.
@@ -209,7 +209,7 @@ end
 //!
 //! count =
 //!     fn _: Request, session: Session<Int> ->
-//!         n = Maybe.with_default(session.value, 0) + 1
+//!         n = Option.with_default(session.value, 0) + 1
 //!         Response{body: Body.Text("${n}")} |> sessions.write(Session.set(session, n))
 //!     end
 //!
@@ -343,10 +343,10 @@ fn empty<T>(store: CookieStore, at: Int) -> Session<T>
     }
 end
 
-fn open<T>(store: CookieStore, text: String, at: Int) -> Maybe<Session<T>> where T: FromJson
-    sealed = base64.decode_url(text) |> Result.to_maybe()?
+fn open<T>(store: CookieStore, text: String, at: Int) -> Option<Session<T>> where T: FromJson
+    sealed = base64.decode_url(text) |> Result.to_option()?
     plain = unseal(store, sealed)?
-    decoded = Bytes.to_string(plain) |> Result.to_maybe()?
+    decoded = Bytes.to_string(plain) |> Result.to_option()?
 
     fields =
         case Json.decode(decoded)
@@ -360,7 +360,7 @@ fn open<T>(store: CookieStore, text: String, at: Int) -> Maybe<Session<T>> where
 
     if at >= created + Duration.as_seconds(store.max_age) then return None
 
-    idle = store.idle_timeout |> Maybe.map(fn d -> at >= seen + Duration.as_seconds(d))
+    idle = store.idle_timeout |> Option.map(fn d -> at >= seen + Duration.as_seconds(d))
     if idle == Some(True) then return None
 
     value =
@@ -368,7 +368,7 @@ fn open<T>(store: CookieStore, text: String, at: Int) -> Maybe<Session<T>> where
             Some(json) ->
                 Some(
                     T.from_json(json)
-                    |> Result.to_maybe()?
+                    |> Result.to_option()?
                 )
 
             None ->
@@ -382,19 +382,19 @@ fn open<T>(store: CookieStore, text: String, at: Int) -> Maybe<Session<T>> where
     })
 end
 
-fn unseal(store: CookieStore, sealed: Bytes) -> Maybe<Bytes>
+fn unseal(store: CookieStore, sealed: Bytes) -> Option<Bytes>
     keys = [store.key] + store.previous_keys
     Iter.find_map(keys, fn key -> host.open_sealed(key_bytes(key), sealed, label(store)))
 end
 
-fn int_field(fields: Map<String, Json>, name: String) -> Maybe<Int>
+fn int_field(fields: Map<String, Json>, name: String) -> Option<Int>
     case Map.get(fields, name)
         Some(Json.Int(n)) -> Some(n)
         _                 -> None
     end
 end
 
-fn strings_field(fields: Map<String, Json>, name: String) -> Maybe<List<String>>
+fn strings_field(fields: Map<String, Json>, name: String) -> Option<List<String>>
     case Map.get(fields, name)
         Some(Json.Arr(items)) ->
             Iter.reduce(items, Some([]), fn acc, item ->

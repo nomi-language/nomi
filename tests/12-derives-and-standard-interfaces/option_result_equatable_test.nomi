@@ -1,0 +1,28 @@
+test "option values support type-qualified equality"
+    assert Option.equal(Some(4), Some(4))
+    refute Option.equal(Some(4), Some(5))
+    refute Option.equal(Some(4), None)
+    assert Option.equal(None, None)
+end
+
+test "result values support type-qualified equality"
+    assert Result.equal(Ok(4), Ok(4))
+    refute Result.equal(Ok(4), Ok(5))
+    refute Result.equal(Ok(4), Err("bad"))
+    assert Result.equal(Err("bad"), Err("bad"))
+end
+
+test "option and result values support structural hashing"
+    assert Option.hash(Some(4)) == Option.hash(Some(4))
+    assert Option.hash(None) == Option.hash(None)
+
+    assert Result.hash(Ok(4)) == Result.hash(Ok(4))
+    assert Result.hash(Err("bad")) == Result.hash(Err("bad"))
+end
+
+test "option equality works as a pipeline predicate"
+    assert 3.7
+        |> Float.round()
+        |> Float.to_int()
+        |> Option.equal(Some(4))
+end

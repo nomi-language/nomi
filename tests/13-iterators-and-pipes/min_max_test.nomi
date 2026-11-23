@@ -55,8 +55,8 @@ test "of equal elements, the first wins"
         Card{rank: 1, label: "d"},
     ]
 
-    assert Iter.min(cards) |> Maybe.map(fn c -> c.label) == Some("b")
-    assert Iter.max(cards) |> Maybe.map(fn c -> c.label) == Some("a")
+    assert Iter.min(cards) |> Option.map(fn c -> c.label) == Some("b")
+    assert Iter.max(cards) |> Option.map(fn c -> c.label) == Some("a")
 end
 
 test "Iter.min and Iter.max take any Iter"

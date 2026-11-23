@@ -148,10 +148,10 @@ end`, "struct 'User' has no field 'nmae'\nhelp: did you mean 'name'?"},
 end`, "struct 'Address' has no field 'town'"},
 		{"not a struct", `fn f() -> Int
   apply(3, .name)
-end`, "`.name` reads a field of a struct, a record or a tuple, and Int is none of those"},
+end`, "`.name` reads a field of a struct, an enum, a record or a tuple, and Int is none of those"},
 		{"an enum", `fn f() -> Int
   apply(Color.Red, .name)
-end`, "`.name` reads a field of a struct, a record or a tuple, and Color is none of those"},
+end`, "enum 'Color' has no field 'name' (match on its variants instead)"},
 		{"a function of two arguments", `fn f()
   g: (User, User) -> String = .name
   g

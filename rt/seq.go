@@ -23,7 +23,7 @@ import "math"
 // is the language's pure-push iteration protocol, which is also Go 1.23's own
 // `iter.Seq` shape, and the type argument is the element type.
 //
-// Why the Go type lives here is the reason prelude.go gives for `Maybe` and
+// Why the Go type lives here is the reason prelude.go gives for `Option` and
 // `Result`: a named Nomi type's identity in internal/irbuild is the declaration
 // pointer its `*typeDef` came from, and a std type needs one Go type every
 // module's code can name.
@@ -73,7 +73,7 @@ type Seq[T any] struct {
 	Src any
 	// Count is the viewed source's `known_count` override, nil when the
 	// source inherits the declining default.
-	Count func(fr *Frame) Maybe[int64]
+	Count func(fr *Frame) Option[int64]
 	// Endless answers whether the sequence never ends: the name of the
 	// source that makes it endless (`Iter.repeat`), or "" when it may end.
 	// nil is "". It is the `is_infinite` protocol answer (seqendless.go):

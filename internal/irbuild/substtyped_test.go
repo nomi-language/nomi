@@ -110,8 +110,8 @@ impl Show for Int
     end
 end
 
-impl Show for Maybe<T> where T: Show
-    fn show(m: Maybe<T>) -> String
+impl Show for Option<T> where T: Show
+    fn show(m: Option<T>) -> String
         case m
             Some(x) -> "some " + T.show(x)
             None -> "none"
@@ -120,8 +120,8 @@ impl Show for Maybe<T> where T: Show
 end
 
 fn main()
-    m: Maybe<Int> = Some(3)
-    io.print(Maybe.show(m))
+    m: Option<Int> = Some(3)
+    io.print(Option.show(m))
     io.print(Show.show(m))
 end
 `, "some #3\nsome #3\n")
@@ -168,12 +168,12 @@ end
 	verifyTypedInstances(t, src, "1\na\n")
 }
 
-// A generic subtype spelled in an annotation (`Many<Int>`) is its base at
+// A generic refinement spelled in an annotation (`Many<Int>`) is its base at
 // the checker's types for the annotation's arguments.
 func TestSubstTyped_AnnotatedGenericRefinement(t *testing.T) {
 	verifyTypedInstances(t, `import std::io
 
-subtype Many<T> List<T> when fn xs -> List.length(xs) > 1
+refine Many<T> List<T> when fn xs -> List.length(xs) > 1
 
 fn count(m: Many<Int>) -> Int
     List.length(m)

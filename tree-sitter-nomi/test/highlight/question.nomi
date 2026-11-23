@@ -11,7 +11,7 @@ pub fn quarter(n: Int) -> Result<Int, String>
     // <- function.call
 end
 
-pub fn parsed(text: String) -> Maybe<Int>
+pub fn parsed(text: String) -> Option<Int>
     n = String.to_int(text)?
     //                     ^ keyword
     Some(n + 1)

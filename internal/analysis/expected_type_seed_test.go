@@ -117,7 +117,7 @@ end`
 }
 
 func TestExpectedTypeSeed_NestedConstructor(t *testing.T) {
-	src := seedEnums + `fn demo() -> List<Maybe<Direction>>
+	src := seedEnums + `fn demo() -> List<Option<Direction>>
   [Some(.North), None]
 end`
 	expectNoErrorsT(t, checkWithStdlib(src))
@@ -151,7 +151,7 @@ end`
 }
 
 func TestExpectedTypeSeed_NoneArgument(t *testing.T) {
-	src := seedEnums + `fn demo() -> Map<String, Maybe<Direction>>
+	src := seedEnums + `fn demo() -> Map<String, Option<Direction>>
   Iter.to_map([("a", None), ("b", Some(.East))])
 end`
 	expectNoErrorsT(t, checkWithStdlib(src))
@@ -202,10 +202,10 @@ end`
 }
 
 func TestExpectedTypeSeed_IterParam_NestedPayload(t *testing.T) {
-	src := seedPayloads + `fn exits() -> Map<Direction, Maybe<Exit>>
+	src := seedPayloads + `fn exits() -> Map<Direction, Option<Exit>>
   Iter.to_map([(.North, Some(.Door(.Cave))), (.East, None), (.East, Some(.Gap))])
 end
-fn piped() -> Map<Direction, Maybe<Exit>>
+fn piped() -> Map<Direction, Option<Exit>>
   [(.North, Some(.Door(.Hall)))] |> Iter.to_map()
 end`
 	expectNoErrorsT(t, checkWithStdlib(src))
@@ -249,22 +249,22 @@ end`)
 // A bare `None` beside typed items takes their type in a vector or set
 // literal, as it does in a list literal, in either order.
 func TestCollectionLiteral_BareNoneTakesTheItemsType(t *testing.T) {
-	src := `fn v() -> Vector<Maybe<Int>>
+	src := `fn v() -> Vector<Option<Int>>
   x = Vector[Some(1), None]
   x
 end
-fn w() -> Vector<Maybe<String>>
+fn w() -> Vector<Option<String>>
   y = Vector[None, Some("a")]
   y
 end
-fn s() -> Set<Maybe<Int>>
+fn s() -> Set<Option<Int>>
   z = Set[None, Some(2)]
   z
 end`
 	expectNoErrorsT(t, checkWithStdlib(src))
 	expectErrorContaining(t, checkWithStdlib(`fn main()
   _ = Vector[Some(1), Some("a")]
-end`), "vector element type mismatch: expected Maybe<Int>, got Maybe<String>")
+end`), "vector element type mismatch: expected Option<Int>, got Option<String>")
 }
 
 // A function named as a value and a list literal of several items take
@@ -278,19 +278,19 @@ func TestExpectedTypeSeed_FunctionValueAndWideningList(t *testing.T) {
   x
 end
 fn demo() -> Int
-  a: Maybe<(Int) -> String> = Some(Display.to_string)
-  b: Maybe<List<Display>> = Some([1, "a"])
-  c: Maybe<(Int) -> Int> = Some(ident)
-  d: Maybe<(Int) -> Int> = Some(fn x -> x * 3)
+  a: Option<(Int) -> String> = Some(Display.to_string)
+  b: Option<List<Display>> = Some([1, "a"])
+  c: Option<(Int) -> Int> = Some(ident)
+  d: Option<(Int) -> Int> = Some(fn x -> x * 3)
   _ = (a, b, c, d)
   1
 end`
 	expectNoErrorsT(t, checkWithStdlib(src))
-	expectErrorContaining(t, checkWithStdlib(`fn demo() -> Maybe<List<Int>>
+	expectErrorContaining(t, checkWithStdlib(`fn demo() -> Option<List<Int>>
   Some([1, "a"])
 end`), "list element type mismatch: expected Int, got String")
 	expectErrorContaining(t, checkWithStdlib(`fn demo() -> Int
-  f: Maybe<(Int) -> Int> = Some(Display.to_string)
+  f: Option<(Int) -> Int> = Some(Display.to_string)
   _ = f
   1
 end`), "argument 1: expected (Int) -> Int, got (Int) -> String")
@@ -313,7 +313,7 @@ end
 fn err() -> Result<Int, Shape>
   Err(.Circle{radius: 1})
 end
-fn some() -> Maybe<Shape>
+fn some() -> Option<Shape>
   Some(.Square{side: 1})
 end
 fn held() -> Holder

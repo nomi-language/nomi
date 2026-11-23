@@ -1,6 +1,7 @@
 package analysis_test
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -69,6 +70,10 @@ func buildWithStdlibForDerive(src string) *analysis.FileAnalysis {
 	// CheckDeriveBounds intentionally defers when it has an index.
 	fa.TypeErrors = append(fa.TypeErrors, analysis.CheckTypes(fa, nodes)...)
 	fa.TypeErrors = append(fa.TypeErrors, analysis.FinalizeCoherence(fa)...)
+	if e, text, found := generatedNameIn(fa.TypeErrors); found {
+		// The helper has no t: the panic fails the test that called it.
+		panic(fmt.Sprintf("a diagnostic shows a name the compiler wrote: %q (%v)", text, e))
+	}
 	return fa
 }
 
@@ -144,7 +149,7 @@ struct Box<T>
 end
 `
 	for _, iface := range []string{"Equatable", "Hashable"} {
-		for _, field := range []string{"User", "Kind", "Id", "List<User>", "Box<User>", "Maybe<Kind>", "(Int, User)"} {
+		for _, field := range []string{"User", "Kind", "Id", "List<User>", "Box<User>", "Option<Kind>", "(Int, User)"} {
 			src := decls + "\nstruct W\n  f: " + field + "\nend\nderive " + iface + " for W\n"
 			fa := buildWithStdlibForDerive(src)
 			if len(fa.TypeErrors) != 0 {

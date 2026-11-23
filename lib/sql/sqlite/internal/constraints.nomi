@@ -40,7 +40,7 @@ pub fn error(
     message: String,
     query:   String,
     params:  List<Cell>,
-) -> Maybe<sql.Error>
+) -> Option<sql.Error>
     if code == constraint_unique or code == constraint_primary_key then
         (table, columns) = constrained(message)
 
@@ -95,7 +95,7 @@ fn failure(kind: ConstraintKind, name: String, table: String, column: String) ->
     sql.Error.Constraint{kind:, name:, table: present(table), column: present(column)}
 end
 
-fn present(text: String) -> Maybe<String>
+fn present(text: String) -> Option<String>
     if text == "" then None else Some(text)
 end
 
@@ -150,7 +150,7 @@ fn tokenize(text: String) -> Vector<Token>
 end
 
 fn byte(data: Bytes, i: Int) -> Int
-    Bytes.uint8_at(data, i) |> Maybe.with_default(0)
+    Bytes.uint8_at(data, i) |> Option.with_default(0)
 end
 
 fn is_word_byte(c: Int) -> Bool
@@ -274,18 +274,18 @@ fn word_end(data: Bytes, i: Int) -> Int
     if i < Bytes.length(data) and is_word_byte(byte(data, i)) then word_end(data, i + 1) else i
 end
 
-fn token(tokens: Vector<Token>, i: Int) -> Maybe<Token>
+fn token(tokens: Vector<Token>, i: Int) -> Option<Token>
     Vector.get(tokens, i)
 end
 
-fn keyword(t: Maybe<Token>, word: String) -> Bool
+fn keyword(t: Option<Token>, word: String) -> Bool
     case t
         Some(tok) -> tok.word and String.uppercase(tok.text) == word
         None      -> False
     end
 end
 
-fn punct(t: Maybe<Token>, text: String) -> Bool
+fn punct(t: Option<Token>, text: String) -> Bool
     case t
         Some(tok) -> not tok.word and not tok.quoted and tok.text == text
         None      -> False
@@ -381,11 +381,11 @@ fn definitions(
             tokens
             |> Iter.drop(
                 NonNegativeInt.try_from(start)
-                |> Maybe.with_default(0)
+                |> Option.with_default(0)
             )
             |> Iter.take(
                 NonNegativeInt.try_from(i - start)
-                |> Maybe.with_default(0)
+                |> Option.with_default(0)
             )
             |> Iter.to_vector(),
         )
@@ -411,7 +411,7 @@ fn definition(text: String, tokens: Vector<Token>) -> List<Declared>
         if leads then
             ""
         else
-            first |> Maybe.map(.text) |> Maybe.with_default("")
+            first |> Option.map(.text) |> Option.with_default("")
         end
 
     clauses(text, tokens, if leads then 0 else 1, column, "", [])
@@ -440,8 +440,8 @@ fn clauses(
             i + 2,
             column,
             token(tokens, i + 1)
-            |> Maybe.map(.text)
-            |> Maybe.with_default(""),
+            |> Option.map(.text)
+            |> Option.with_default(""),
             out,
         )
     else if keyword(t, "PRIMARY") then
@@ -506,7 +506,7 @@ fn table_sql(db: Db, table: String) -> String
             _                          -> None
         end
     end)
-    |> Maybe.with_default("")
+    |> Option.with_default("")
 end
 
 fn same_columns(a: List<String>, b: List<String>) -> Bool
@@ -520,8 +520,8 @@ end
 fn declared_name(db: Db, table: String, kind: String, columns: List<String>) -> String
     constraints_of(table_sql(db, table))
     |> Iter.find(fn d -> d.kind == kind and d.name != "" and same_columns(d.columns, columns))
-    |> Maybe.map(.name)
-    |> Maybe.with_default("")
+    |> Option.map(.name)
+    |> Option.with_default("")
 end
 
 /// Postgres's name for a constraint of `kind` on `columns` of `table` that
@@ -573,7 +573,7 @@ fn unique_index(db: Db, table: String, columns: List<String>) -> String
 
         same_columns(got, columns)
     end)
-    |> Maybe.with_default("")
+    |> Option.with_default("")
 end
 
 /// The name of a NOT NULL violation of `table`'s `column`.
@@ -618,7 +618,7 @@ fn check_name(db: Db, reported: String, target: String) -> (String, String, Stri
                         squash(d.check) == want
                     end)
             end)
-            |> Maybe.map(fn d ->
+            |> Option.map(fn d ->
                 one =
                     case read_columns(d.check, columns)
                         [only] -> only
@@ -635,7 +635,7 @@ fn check_name(db: Db, reported: String, target: String) -> (String, String, Stri
             end)
         end)
 
-    Maybe.with_default(found, (reported, "", ""))
+    Option.with_default(found, (reported, "", ""))
 end
 
 /// SQL text with its runs of space made one space.
@@ -680,7 +680,7 @@ fn target(query: String) -> String
             None
         end
 
-    case Maybe.map(at, fn i -> i + 1)
+    case Option.map(at, fn i -> i + 1)
         Some(i) ->
             case (token(tokens, i), token(tokens, i + 1), token(tokens, i + 2))
                 (Some(schema), Some(dot), Some(name)) when schema.word
@@ -712,7 +712,7 @@ end
 /// foreign_key_check, and an immediate one is found by running the
 /// statement again in a savepoint with the foreign keys deferred, listing
 /// what it would break, and rolling it back.
-fn foreign_key_violation(db: Db, query: String, params: List<Cell>) -> Maybe<Violation>
+fn foreign_key_violation(db: Db, query: String, params: List<Cell>) -> Option<Violation>
     case foreign_key_check(db)
         Some(v) ->
             Some(v)
@@ -759,7 +759,7 @@ end
 
 /// The first row foreign_key_check lists, in the main database or the
 /// temporary one.
-fn foreign_key_check(db: Db) -> Maybe<Violation>
+fn foreign_key_check(db: Db) -> Option<Violation>
     ["main", "temp"]
     |> Iter.find_map(fn schema ->
         case rows(db, "PRAGMA ${schema}.foreign_key_check", [])
@@ -772,7 +772,7 @@ fn foreign_key_check(db: Db) -> Maybe<Violation>
                             .Text(table),
                             .Integer(
                                 String.to_int(fkid)
-                                |> Maybe.with_default(-1)
+                                |> Option.with_default(-1)
                             ),
                         ],
                     )
@@ -814,7 +814,7 @@ fn constrained(message: String) -> (String, List<String>)
                 end)
                 |> Iter.to_list()
 
-            table = pairs |> Iter.last() |> Maybe.map(.first) |> Maybe.with_default("")
+            table = pairs |> Iter.last() |> Option.map(.first) |> Option.with_default("")
             (table, pairs |> Iter.map(.second) |> Iter.to_list())
 
         _ ->

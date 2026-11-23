@@ -12,7 +12,7 @@ import (
 // One file's type table is built on demand (typeRegistry.ensureTypes): when
 // file a's `struct A { bs: List<B> }` resolves `B`, b's table is built first
 // and a takes a mirror of B with B's finished layout. That order cannot serve
-// `struct B { parent: Maybe<A> }` in b, because b's table would then need a's,
+// `struct B { parent: Option<A> }` in b, because b's table would then need a's,
 // which is half built.
 //
 // One file already handles the same shape: buildTypes registers every shell,

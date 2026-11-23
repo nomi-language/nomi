@@ -92,7 +92,7 @@ const iterElemParam = "T"
 
 // loadIter resolves std/iter's `Iter` against this module's analysis, once.
 //
-// Identity, on exactly the footing prelude.go establishes for `Maybe` and
+// Identity, on exactly the footing prelude.go establishes for `Option` and
 // `Result`: a table keyed on the bare name `Iter` would be a type identity
 // spelled as a string. A user file may declare its own, and lowering that to
 // `rt.Seq` would mix two Nomi types the checker keeps apart.
@@ -269,14 +269,14 @@ func iterProtocolMatches(decl *ast.InterfaceDef) bool {
 		simpleTypeName(fn.Params[0]) != iterElemParam || simpleTypeName(fn.Return) != "Bool" {
 		return false
 	}
-	// `known_count(collection: self) -> Maybe<Int>`, still `open` — a source that
+	// `known_count(collection: self) -> Option<Int>`, still `open` — a source that
 	// stores its own count overrides it, which is the whole basis of the O(1)
 	// answer `Iter.count` gives.
 	if !known.Open || len(known.Params) != 1 || !isSelfType(known.Params[0].TypeAnnotation) {
 		return false
 	}
 	gt, isGeneric := known.ReturnTypeExpr.(*ast.GenericType)
-	return isGeneric && gt.Name == "Maybe" && len(gt.Params) == 1 && simpleTypeName(gt.Params[0]) == "Int"
+	return isGeneric && gt.Name == "Option" && len(gt.Params) == 1 && simpleTypeName(gt.Params[0]) == "Int"
 }
 
 // isSelfType reports whether a type annotation is the interface's own `self`.

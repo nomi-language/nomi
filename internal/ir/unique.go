@@ -26,7 +26,7 @@ package ir
 //     `to_set` (each builds a new collection), a Copy or Bind from a
 //     member, a parameter (which adds its bit to the need), a direct call
 //     whose callee's result is fresh, a crossing Callees.Writes names (a
-//     collection operation, below, whose answer may be a Maybe of the
+//     collection operation, below, whose answer may be an Option of the
 //     collection, as `Vector.set`'s is), a field read fields.go grants (a
 //     Some's payload included), or a fold that hands its accumulator on
 //     (below). No enum literal is fresh, so an enum value is owned only as
@@ -73,7 +73,7 @@ package ir
 //     is a move of an owned class, the need. The crossing may write the
 //     receiver's storage (internal/vm package doc, "Updates written in
 //     place"); its result is owned under the same need, and owned deep:
-//     a Maybe it answers holds only the collection it wrote, so
+//     an Option it answers holds only the collection it wrote, so
 //     `Vector.set(v, i, x)!` hands the next set an owned vector.
 //   - Folds: per `Iter.reduce` or `Iter.map_reduce` whose callback is a
 //     lambda the function builds and whose seed is a move of an owned

@@ -26,7 +26,7 @@ import
     json.{FromJson, Json, ToJson, shape_error_root}
     lists.List
     literals.{Fragment, Literal}
-    maybe.Maybe.{self, None, Some}
+    option.Option.{self, None, Some}
     parse.Parse
     random.{self, Generator, Seed}
     results.Result.{self, Err, Ok}
@@ -287,7 +287,7 @@ end
 // One character of the 36: a hyphen at 8, 13, 18 and 23, otherwise a digit
 // shifted into the half it belongs to (the first 16 digits are the high
 // half).
-fn read_char(high: Int, low: Int, index: Int, cp: Codepoint) -> (Int, Int, Int, Maybe<Error>)
+fn read_char(high: Int, low: Int, index: Int, cp: Codepoint) -> (Int, Int, Int, Option<Error>)
     found = Display.to_string(cp)
     next = index + 1
 
@@ -310,7 +310,7 @@ fn read_char(high: Int, low: Int, index: Int, cp: Codepoint) -> (Int, Int, Int, 
     end
 end
 
-fn hex_value(code: Int) -> Maybe<Int>
+fn hex_value(code: Int) -> Option<Int>
     if code >= 48 and code <= 57 then
         Some(code - 48)
     else if code >= 97 and code <= 102 then

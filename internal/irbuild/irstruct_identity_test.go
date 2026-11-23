@@ -472,7 +472,7 @@ func TestIRStruct_WhichShapesAreRetained(t *testing.T) {
 			"fn f(p: Point) -> Outer\n  Outer{p:}\nend\n", true},
 		{"a List field", point + "\n\nstruct Outer\n  ps: List<Point>\nend",
 			"fn f(p: Point) -> Outer\n  Outer{ps: [p]}\nend\n", true},
-		{"a field that reaches the struct itself", point + "\n\nstruct Outer\n  p: Point\n  back: Maybe<Outer> = None\nend",
+		{"a field that reaches the struct itself", point + "\n\nstruct Outer\n  p: Point\n  back: Option<Outer> = None\nend",
 			"fn f(p: Point) -> Outer\n  Outer{p:}\nend\n", true},
 		{"a Map of function values", point + "\n\nstruct Outer\n  p: Point\n  hooks: Map<String, (Int) -> Int> = {}\nend",
 			"fn f(p: Point) -> Outer\n  Outer{p:}\nend\n", true},

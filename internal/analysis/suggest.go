@@ -220,7 +220,7 @@ func membershipHint(collection, member string) string {
 		if member == "has_value" || member == "contains_value" {
 			return "test a value with `v in Map.values(m)`; `k in m` tests a key"
 		}
-		return "test a key with `k in m` (it calls `Map.contains(m, k)`); `Map.get(m, k)` gives its value as a `Maybe`"
+		return "test a key with `k in m` (it calls `Map.contains(m, k)`); `Map.get(m, k)` gives its value as an `Option`"
 	case "Set":
 		return "test membership with `x in s` (it calls `Set.contains(s, x)`)"
 	case "List":

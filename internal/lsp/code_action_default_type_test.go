@@ -168,7 +168,7 @@ func titles(actions []protocol.CodeAction) []string {
 // would give a different type, or away from a field or parameter.
 func TestCodeActionRemoveTypeAnnotation_NotOffered(t *testing.T) {
 	cases := []struct{ name, src string }{
-		{"None", "fn f(▮since: Maybe<Int> = None) -> Maybe<Int>\n    since\nend\n"},
+		{"None", "fn f(▮since: Option<Int> = None) -> Option<Int>\n    since\nend\n"},
 		{"empty list", "fn f(▮xs: List<Int> = []) -> List<Int>\n    xs\nend\n"},
 		{"empty set", "struct S\n    ▮m: Set<Int> = Set[]\nend\n\nfn main()\n    _ = S{}\nend\n"},
 		{"dot variant", "enum Mode\n    A\n    B\nend\n\nfn f(▮mode: Mode = .A) -> Mode\n    mode\nend\n"},

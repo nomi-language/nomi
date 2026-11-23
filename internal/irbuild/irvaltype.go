@@ -224,7 +224,7 @@ func (g *gen) irNamedValType(k kind) *ir.ValType {
 
 // irStateFields states a struct type's fields. The type is memoized before
 // its fields are mapped, so a field that reaches the struct again (through a
-// List, a Maybe, a boxed edge) maps to this same ValType. A field this builder
+// List, an Option, a boxed edge) maps to this same ValType. A field this builder
 // has no value type for leaves the layout unstated rather than partial.
 func (g *gen) irStateFields(v *ir.ValType, d *typeDef) {
 	fields := make([]ir.Field, len(d.fields))
@@ -290,7 +290,7 @@ func (g *gen) irAddParam(f *ir.Func, sym *ir.Symbol, k kind) ir.Temp {
 
 // mirrorImporter is the gen d, a mirror of another file's generic instance,
 // imports its arguments through: g itself, or, for a std instance gen
-// (`Maybe.hash<Box<Point>>` over another file's Box), which holds no
+// (`Option.hash<Box<Point>>` over another file's Box), which holds no
 // registry to import through, the program's unit that interned the mirror.
 // Nil when no unit did.
 func (g *gen) mirrorImporter(d *typeDef) *gen {

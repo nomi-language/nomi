@@ -334,8 +334,8 @@ type releaseBody struct {
 	// and the branches of an `if`, `case` or block that ends one.
 	tails map[*ast.Block]bool
 	// propagates says a `?` can leave the body, so a commit is written
-	// `Writer.close(w)?`; in a body whose result is neither a Result nor a
-	// Maybe it is written with `!`.
+	// `Writer.close(w)?`; in a body whose result is neither a Result nor an
+	// Option it is written with `!`.
 	propagates bool
 	// dropped holds the blocks whose value nothing takes: a statement's,
 	// and the body's when its result is Unit or it is a test's.
@@ -390,7 +390,7 @@ func (c *checker) checkReleases(body *ast.Block, result Type, test, dropped, boo
 // propagatesInto reports whether a `?` can leave a body whose result is t.
 func propagatesInto(t Type) bool {
 	t = resolveTypeVar(t)
-	return isStdType(t, stdResultType) || isStdType(t, stdMaybeType)
+	return isStdType(t, stdResultType) || isStdType(t, stdOptionType)
 }
 
 // markTailBlocks marks b and every block whose value is b's.
@@ -1348,7 +1348,7 @@ func (f *pathFlow) miss(m pathMiss) {
 
 // isFailureValue reports whether e is std's `Err(...)` or `None`, a
 // return that leaves by failing: the variant the checker resolved its name
-// to (variantAt), of std's Result or Maybe, however it is written
+// to (variantAt), of std's Result or Option, however it is written
 // (`Result.Err(e)`, `.None`, `Fail(e)` under `import
 // std::results.Result.{Err as Fail}`), and never a program enum's variant
 // of the same name.
@@ -1365,7 +1365,7 @@ func (c *checker) isFailureValue(e ast.Node) bool {
 		return name == "Err" && isStdType(et, stdResultType)
 	}
 	et, name := c.fa.variantAt(e)
-	return name == "None" && isStdType(et, stdMaybeType)
+	return name == "None" && isStdType(et, stdOptionType)
 }
 
 // variantAt is the enum and the declared name of the variant the checker

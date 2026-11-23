@@ -25,7 +25,7 @@ fn why(e: LoadError) -> String
     end
 end
 
-fn email_of(id: Int, email: Maybe<String>) -> Result<String, String>
+fn email_of(id: Int, email: Option<String>) -> Result<String, String>
     Some(e) = email else return Err("user ${id} has no email")
 
     Ok(e)
@@ -40,7 +40,7 @@ fn name_of(id: Int) -> Result<String, String>
     Ok(user)
 end
 
-fn shown(email: Maybe<String>) -> String
+fn shown(email: Option<String>) -> String
     Some(e) = email else "none"
     e
 end
@@ -101,12 +101,12 @@ fn first_or(xs: List<Int>) -> Int
     first
 end
 
-fn shadow(name: Maybe<String>) -> String
+fn shadow(name: Option<String>) -> String
     Some(name) = name else return "anon"
     "hi ${name}"
 end
 
-fn nested(r: Result<Maybe<Int>, String>) -> Int
+fn nested(r: Result<Option<Int>, String>) -> Int
     Ok(Some(n)) = r else return -1
     n
 end
@@ -120,7 +120,7 @@ fn guarded(r: Result<Int, String>) -> Int
     n + 1
 end
 
-fn unit_leave(m: Maybe<Int>)
+fn unit_leave(m: Option<Int>)
     Some(n) = m else return
     io.print("got ${n}")
 end
@@ -138,7 +138,7 @@ fn lookup(m: Map<String, Int>) -> Int
     a
 end
 
-fn pair(p: (Maybe<Int>, Int)) -> Int
+fn pair(p: (Option<Int>, Int)) -> Int
     (Some(a), b) = p else return 0
     a + b
 end
@@ -148,7 +148,7 @@ fn via_try(r: Result<Int, String>, fallback: Result<Int, String>) -> Result<Int,
     Ok(n * 2)
 end
 
-fn tens(xs: List<Maybe<Int>>) -> List<Int>
+fn tens(xs: List<Option<Int>>) -> List<Int>
     xs
     |> Iter.map(fn m ->
         Some(n) = m else return 0
@@ -164,7 +164,7 @@ fn print_sizes(lines: List<String>)
     end)
 end
 
-fn loop_sum(xs: List<Maybe<Int>>) -> Int
+fn loop_sum(xs: List<Option<Int>>) -> Int
     Iter.loop((0, xs), fn state ->
         (acc, rest) = state
         [head, ..tail] = rest else break (acc, rest)

@@ -14,7 +14,7 @@ once puzzle = [
 ]
 
 test "search"
-    cases: List<(String, List<String>, List<String>, Map<String, Maybe<Span>>)> = [
+    cases: List<(String, List<String>, List<String>, Map<String, Option<Span>>)> = [
         (
             "Should accept an initial game grid and a target search word",
             ["jefblpepre"],

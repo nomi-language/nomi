@@ -69,7 +69,7 @@ func TestUnwrap_BindsToTheOperandBeforeIt(t *testing.T) {
 
 // A `!` parses after every literal, so the formatter can drop the
 // parentheses of `(0d)!` without changing what the source means. The
-// checker refuses the result, since no literal is a Result or a Maybe.
+// checker refuses the result, since no literal is a Result or an Option.
 func TestUnwrap_FollowsEveryLiteral(t *testing.T) {
 	for _, src := range []string{
 		"1!", "1.5!", "0d!", "'a'!", `"x"!`, `"x${y}"!`, `"""x"""!`,

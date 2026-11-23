@@ -25,13 +25,13 @@ func TestDefaultTypeArgs_EndlessDefaultsAreRefused(t *testing.T) {
 		line int
 		want string
 	}{
-		{"direct", "struct Box<T = Box>\n    item: Maybe<T>\nend\n", 1, self},
-		{"nested in a generic", "struct Box<T = List<Box>>\n    item: Maybe<T>\nend\n", 1, self},
-		{"inside another type's written argument", "struct Wrap<W>\n    w: W\nend\n\nstruct Box<T = Wrap<Box>>\n    item: Maybe<T>\nend\n", 5, self},
-		{"through another of its parameters", "struct Box<A = Int, T = Box<Int>>\n    a: A\n    item: Maybe<T>\nend\n", 1, self},
-		{"through another type, declared first", "struct Box<T = Other>\n    item: Maybe<T>\nend\n\nstruct Other<U = Box>\n    item: Maybe<U>\nend\n", 5,
+		{"direct", "struct Box<T = Box>\n    item: Option<T>\nend\n", 1, self},
+		{"nested in a generic", "struct Box<T = List<Box>>\n    item: Option<T>\nend\n", 1, self},
+		{"inside another type's written argument", "struct Wrap<W>\n    w: W\nend\n\nstruct Box<T = Wrap<Box>>\n    item: Option<T>\nend\n", 5, self},
+		{"through another of its parameters", "struct Box<A = Int, T = Box<Int>>\n    a: A\n    item: Option<T>\nend\n", 1, self},
+		{"through another type, declared first", "struct Box<T = Other>\n    item: Option<T>\nend\n\nstruct Other<U = Box>\n    item: Option<U>\nend\n", 5,
 			"`Other`'s default for `U` names `Box`, whose default names `Other` again, which would never end; write the argument where `Box` is used"},
-		{"through another type, declared after", "struct Other<U = Box>\n    item: Maybe<U>\nend\n\nstruct Box<T = Other>\n    item: Maybe<T>\nend\n", 5,
+		{"through another type, declared after", "struct Other<U = Box>\n    item: Option<U>\nend\n\nstruct Box<T = Other>\n    item: Option<T>\nend\n", 5,
 			"`Box`'s default for `T` names `Other`, whose default names `Box` again, which would never end; write the argument where `Other` is used"},
 		{"through an enum and a distinct type", "enum Box<T = Ids>\n    One(T)\n    Empty\nend\n\ntype Ids<U = Box> List<U>\n", 6,
 			"`Ids`'s default for `U` names `Box`, whose default names `Ids` again, which would never end; write the argument where `Box` is used"},
@@ -53,8 +53,8 @@ func TestDefaultTypeArgs_EndlessDefaultsAreRefused(t *testing.T) {
 // A cycle through two files is refused whichever file is built first.
 func TestDefaultTypeArgs_EndlessDefaultsAcrossFiles(t *testing.T) {
 	files := map[string]string{
-		"boxes.nomi": "import other.Other\n\npub struct Box<T = Other>\n    item: Maybe<T>\nend\n",
-		"other.nomi": "import boxes.Box\n\npub struct Other<U = Box>\n    item: Maybe<U>\nend\n",
+		"boxes.nomi": "import other.Other\n\npub struct Box<T = Other>\n    item: Option<T>\nend\n",
+		"other.nomi": "import boxes.Box\n\npub struct Other<U = Box>\n    item: Option<U>\nend\n",
 	}
 	for _, first := range []string{"Box", "Other"} {
 		tmp := t.TempDir()
@@ -102,9 +102,9 @@ func TestDefaultTypeArgs_EndlessDefaultsAcrossFiles(t *testing.T) {
 // whose use of itself leaves out only a parameter whose default ends.
 func TestDefaultTypeArgs_SelfReferenceWithEveryArgumentIsAccepted(t *testing.T) {
 	cases := []string{
-		"struct Box<T = List<Box<Int>>>\n    item: Maybe<T>\nend\n",
-		"struct Box<A = Box<Int>, B = Int>\n    a: Maybe<A>\n    b: B\nend\n",
-		"struct Box<T = Other<Int>>\n    item: Maybe<T>\nend\n\nstruct Other<U = Box>\n    item: Maybe<U>\nend\n",
+		"struct Box<T = List<Box<Int>>>\n    item: Option<T>\nend\n",
+		"struct Box<A = Box<Int>, B = Int>\n    a: Option<A>\n    b: B\nend\n",
+		"struct Box<T = Other<Int>>\n    item: Option<T>\nend\n\nstruct Other<U = Box>\n    item: Option<U>\nend\n",
 	}
 	for _, src := range cases {
 		src += "\nfn f(b: Box) -> Box\n    b\nend\n\nfn main()\n    _ = f\nend\n"

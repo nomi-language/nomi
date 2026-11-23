@@ -40,7 +40,7 @@ fn queens() -> Bool
     place_queen(board, 0) is Some(_)
 end
 
-fn place_queen(board: Board, c: Int) -> Maybe<Board>
+fn place_queen(board: Board, c: Int) -> Option<Board>
     0..8
     |> Iter.find_map(fn r ->
         if get_row_column(board, r, c) then

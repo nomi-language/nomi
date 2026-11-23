@@ -51,8 +51,8 @@ fn names(xs: List<Named>) -> String
     String.join(Iter.map(xs, Named.name), ",")
 end
 
-fn first_shown(m: Maybe<Display>) -> String
-    Maybe.map(m, Display.to_string) |> Maybe.with_default("none")
+fn first_shown(m: Option<Display>) -> String
+    Option.map(m, Display.to_string) |> Option.with_default("none")
 end
 
 fn ok_shown(r: Result<Display, String>) -> String
@@ -123,9 +123,9 @@ test "nested collections"
     assert Iter.map(wide, shown) |> Iter.to_list() == ["1,2", "3"]
 end
 
-test "Maybe and Result"
-    m: Maybe<Int> = Some(4)
-    none: Maybe<Int> = None
+test "Option and Result"
+    m: Option<Int> = Some(4)
+    none: Option<Int> = None
     r: Result<Int, String> = Ok(5)
     e: Result<Int, String> = Err("bad")
 

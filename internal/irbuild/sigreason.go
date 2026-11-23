@@ -13,7 +13,7 @@ import (
 // # Why the reason is the type's
 //
 // Every parameter and return whose type the builder can represent is admitted:
-// a `List<P>` over a local struct, a tuple, a `Maybe<Int>`, an interface
+// a `List<P>` over a local struct, a tuple, an `Option<Int>`, an interface
 // existential and a directly-spelled `(String) -> String` all lower. A
 // signature refuses only when `typeOf` answers kindInvalid, for a reason that
 // lives at the TYPE's declaration and not at the signature. A position-shaped

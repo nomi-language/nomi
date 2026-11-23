@@ -48,7 +48,7 @@ func debugImplRatchet() censusRatchet {
 }
 
 // A type declared in a body renders through the universal Debug written
-// in its block, which its record names, inside a tuple and as a Maybe's
+// in its block, which its record names, inside a tuple and as an Option's
 // payload.
 func TestNoteDebugImpl_ATypeDeclaredInABody(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "main.nomi")

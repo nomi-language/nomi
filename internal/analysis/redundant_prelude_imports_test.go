@@ -89,11 +89,11 @@ func TestRedundantPreludeImport_BraceItemsReportedIndividually(t *testing.T) {
 // A `self` item under a prelude type binds that type, so it is as redundant as
 // the plain item, and it carries the self-marker kind the surgical fix removes.
 func TestRedundantPreludeImport_SelfItemUnderPreludeType(t *testing.T) {
-	src := "import std::maybe.Maybe.{self, None}\n\nfn f() -> Maybe<Int>\n  None\nend\n"
+	src := "import std::option.Option.{self, None}\n\nfn f() -> Option<Int>\n  None\nend\n"
 	got, _, _ := findRedundantWithStdlib(t, src)
 	var self *analysis.UnusedImport
 	for i := range got {
-		if got[i].Name == "Maybe" {
+		if got[i].Name == "Option" {
 			self = &got[i]
 		}
 	}

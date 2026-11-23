@@ -376,7 +376,7 @@ type synthSite struct {
 func wrappingDistincts(decls map[string]ast.Node) map[string]bool {
 	out := map[string]bool{}
 	for name, n := range decls {
-		if td, ok := n.(*ast.TypeDef); ok && td.InnerTypeExpr != nil && !td.Subtype {
+		if td, ok := n.(*ast.TypeDef); ok && td.InnerTypeExpr != nil && !td.Refinement {
 			out[name] = true
 		}
 	}
@@ -1911,8 +1911,8 @@ func CheckDeriveBounds(fa *FileAnalysis, nodes []ast.Node, impls *ProjectImplInd
 func checkDeriveComponentTypes(fa, into *FileAnalysis, impls *ProjectImplIndex, fileOf declFiles, typeNode ast.Node, typeName, ifaceName string, derivePos Pos, typeParamSet map[string]bool) []TypeError {
 	var errs []TypeError
 	declFA := fa
-	var report func(fa *FileAnalysis, componentDesc, fieldName string, fieldPos Pos, te ast.TypeExpr)
-	report = func(fa *FileAnalysis, componentDesc, fieldName string, fieldPos Pos, te ast.TypeExpr) {
+	var report func(fa *FileAnalysis, fieldName string, fieldPos Pos, te ast.TypeExpr)
+	report = func(fa *FileAnalysis, fieldName string, fieldPos Pos, te ast.TypeExpr) {
 		if te == nil {
 			return
 		}
@@ -1921,7 +1921,7 @@ func checkDeriveComponentTypes(fa, into *FileAnalysis, impls *ProjectImplIndex, 
 			// `m: counts.Counts` under another file's alias: the field's
 			// type is the alias's target, read in the file that declares
 			// it, whose impls the body reaches.
-			report(targetFA, componentDesc, fieldName, fieldPos, target)
+			report(targetFA, fieldName, fieldPos, target)
 			return
 		}
 		if fn := functionTypeIn(te); fn != nil && noEqualityIface[ifaceName] {
@@ -1949,7 +1949,7 @@ func checkDeriveComponentTypes(fa, into *FileAnalysis, impls *ProjectImplIndex, 
 			// each part does (spec §12 *Tuples, anonymous structs and
 			// functions*), so the derived body's demand is each part's.
 			for _, p := range parts {
-				report(fa, componentDesc, fieldName, fieldPos, p)
+				report(fa, fieldName, fieldPos, p)
 			}
 			return
 		}
@@ -1966,14 +1966,14 @@ func checkDeriveComponentTypes(fa, into *FileAnalysis, impls *ProjectImplIndex, 
 			// requirement to the call site.
 			return
 		}
-		if base, baseFA, ok := deriveSubtypeBase(fa, fileOf, baseName); ok {
-			// A subtype's value is its base's and has the base's impls
-			// (spec §4 *Subtypes*), so the derived body's demand is the
+		if base, baseFA, ok := deriveRefinementBase(fa, fileOf, baseName); ok {
+			// A refinement's value is its base's and has the base's impls
+			// (spec §4 *Refinements*), so the derived body's demand is the
 			// base's: `year: Int64` is Int's Comparable. The one derivable
-			// interface that makes a value, FromJson, reads a subtype at
-			// its base and checks its rules (subtype_reads.go), so its
+			// interface that makes a value, FromJson, reads a refinement at
+			// its base and checks its rules (refinement_reads.go), so its
 			// demand is the base's too.
-			report(baseFA, componentDesc, fieldName, fieldPos, base)
+			report(baseFA, fieldName, fieldPos, base)
 			return
 		}
 		if isInterfaceTypeName(fa, baseName) {
@@ -2048,61 +2048,73 @@ func checkDeriveComponentTypes(fa, into *FileAnalysis, impls *ProjectImplIndex, 
 			}
 		}
 	}
-	switch t := typeNode.(type) {
-	case *ast.StructDef:
-		for _, f := range t.Fields {
-			if f.TypeAnnotation == nil {
-				errs = append(errs, untypedFieldDerive(fa, f, typeName, ifaceName)...)
-				continue
+	eachDeclPart(typeNode, func(p declPart) {
+		if p.te == nil {
+			errs = append(errs, untypedFieldDerive(fa, *p.field, typeName, ifaceName)...)
+			return
+		}
+		report(declFA, p.name, Pos{File: fa.FilePath, Line: p.line, Col: p.col}, p.te)
+	})
+	return errs
+}
+
+// declPart is one part of a type declaration whose type a derived body
+// reads: a struct's or a record variant's field, a payload or one of its
+// written parts, an embedded type, a distinct type's inner type or one of its
+// written parts.
+type declPart struct {
+	// name names the part as a derive's error does: `email`,
+	// `Email.address`, `Email[0]`, `inner`.
+	name string
+	// line and col are where the part is written.
+	line, col int
+	// te is the part's written type, nil for a field whose type comes from
+	// its default, which field names.
+	te    ast.TypeExpr
+	field *ast.StructField
+}
+
+// eachDeclPart calls each with every part of the type declaration n, in the
+// order the declaration writes them. A zero-sized type and a bare variant
+// have none.
+func eachDeclPart(n ast.Node, each func(declPart)) {
+	field := func(name string, f *ast.StructField) {
+		each(declPart{name: name, line: f.Line, col: f.Col, te: f.TypeAnnotation, field: f})
+	}
+	// A payload or an inner type written as a tuple of its parts
+	// (writtenParts) is a part per element, named by its index.
+	written := func(name string, line, col int, te ast.TypeExpr) {
+		if ws := writtenParts(te); ws != nil {
+			for i, p := range ws {
+				each(declPart{name: fmt.Sprintf("%s[%d]", name, i), line: line, col: col, te: p})
 			}
-			report(declFA, fmt.Sprintf("field '%s'", f.Name), f.Name, Pos{File: fa.FilePath, Line: f.Line, Col: f.Col}, f.TypeAnnotation)
+		} else if te != nil {
+			each(declPart{name: name, line: line, col: col, te: te})
+		}
+	}
+	switch t := n.(type) {
+	case *ast.StructDef:
+		for i := range t.Fields {
+			field(t.Fields[i].Name, &t.Fields[i])
 		}
 	case *ast.EnumDef:
 		for _, v := range t.Variants {
-			variantPos := Pos{File: fa.FilePath, Line: v.Line, Col: v.Col}
 			switch v.Kind {
-			case "bare":
-				// No payload to verify.
 			case "positional":
-				// A payload written as parts (writtenParts) is verified
-				// part by part, so the error message names the slot index.
-				if ws := writtenParts(v.DataTypeExpr); ws != nil {
-					for i, p := range ws {
-						report(declFA, fmt.Sprintf("variant '%s' payload[%d]", v.Name, i), fmt.Sprintf("%s[%d]", v.Name, i), variantPos, p)
-					}
-				} else if v.DataTypeExpr != nil {
-					report(declFA, fmt.Sprintf("variant '%s' payload", v.Name), v.Name, variantPos, v.DataTypeExpr)
-				}
+				written(v.Name, v.Line, v.Col, v.DataTypeExpr)
 			case "struct":
-				for _, f := range v.Fields {
-					if f.TypeAnnotation == nil {
-						errs = append(errs, untypedFieldDerive(fa, f, typeName, ifaceName)...)
-						continue
-					}
-					report(declFA, fmt.Sprintf("variant '%s' field '%s'", v.Name, f.Name), v.Name+"."+f.Name, Pos{File: fa.FilePath, Line: f.Line, Col: f.Col}, f.TypeAnnotation)
+				for i := range v.Fields {
+					field(v.Name+"."+v.Fields[i].Name, &v.Fields[i])
 				}
 			case "embedded":
-				report(declFA, fmt.Sprintf("variant '%s' embedded type", v.Name), v.Name, variantPos, v.EmbeddedTypeExpr)
+				if v.EmbeddedTypeExpr != nil {
+					each(declPart{name: v.Name, line: v.Line, col: v.Col, te: v.EmbeddedTypeExpr})
+				}
 			}
 		}
 	case *ast.TypeDef:
-		if t.InnerTypeExpr == nil {
-			// Zero-sized — body is the static-true / index-0 / "TypeName"
-			// shape, no nested call to verify.
-			return errs
-		}
-		innerPos := Pos{File: fa.FilePath, Line: t.Line, Col: t.Col}
-		// Tuple inner: verify each element. Non-tuple inner: verify the
-		// single inner type.
-		if ws := writtenParts(t.InnerTypeExpr); ws != nil {
-			for i, p := range ws {
-				report(declFA, fmt.Sprintf("inner tuple component[%d]", i), fmt.Sprintf("inner[%d]", i), innerPos, p)
-			}
-		} else {
-			report(declFA, "inner type", "inner", innerPos, t.InnerTypeExpr)
-		}
+		written("inner", t.Line, t.Col, t.InnerTypeExpr)
 	}
-	return errs
 }
 
 // untypedFieldDerive is the error at a field whose type comes from its
@@ -2195,7 +2207,7 @@ func jsonFieldGap(fa *FileAnalysis, fileOf declFiles, te ast.TypeExpr, seen map[
 				}
 				return jsonFieldGap(fa, fileOf, t.Params[1], seen)
 			}
-		case "List", "Vector", "Set", "Maybe":
+		case "List", "Vector", "Set", "Option":
 			for _, p := range t.Params {
 				if bad, help := jsonFieldGap(fa, fileOf, p, seen); bad != nil {
 					return bad, help
@@ -2343,8 +2355,8 @@ func recordDeriveTypeArg(fa, into *FileAnalysis, impls *ProjectImplIndex, fileOf
 		// Existential at the inner position — runtime resolves.
 		return nil
 	}
-	if base, baseFA, ok := deriveSubtypeBase(fa, fileOf, baseName); ok {
-		// A subtype at the inner position demands its base's impl, as one
+	if base, baseFA, ok := deriveRefinementBase(fa, fileOf, baseName); ok {
+		// A refinement at the inner position demands its base's impl, as one
 		// of the field itself does (checkDeriveComponentTypes).
 		return recordDeriveTypeArg(baseFA, into, impls, fileOf, ifaceName, base, ctx, typeParamSet)
 	}
@@ -2444,9 +2456,9 @@ func deriveDeclEquality(fa *FileAnalysis, impls *ProjectImplIndex, fileOf declFi
 		sym = sym.Resolved
 	}
 	if sym.Type != nil && IsRefinement(sym.Type) {
-		// A subtype's values are its base's (spec §4 *Subtypes*), so it
+		// A refinement's values are its base's (spec §4 *Refinements*), so it
 		// has the base's equality. Its parents are named in its declaring
-		// file, which a std subtype's deriving file may not import
+		// file, which a std refinement's deriving file may not import
 		// (`PositiveDuration` over `NonNegativeDuration`), so the base is
 		// read from the resolved type rather than from the declaration.
 		base := RefinementBase(sym.Type)
@@ -2459,9 +2471,9 @@ func deriveDeclEquality(fa *FileAnalysis, impls *ProjectImplIndex, fileOf declFi
 			}
 		}
 	}
-	if td, isSubtype := sym.Node.(*ast.TypeDef); isSubtype && td.Subtype && sym.Type == nil && sym.SourceFile == "" {
-		// A std subtype read before std's types are resolved, whose
-		// declaring file this pass cannot reach. Every std subtype is over
+	if td, isRefinement := sym.Node.(*ast.TypeDef); isRefinement && td.Refinement && sym.Type == nil && sym.SourceFile == "" {
+		// A std refinement read before std's types are resolved, whose
+		// declaring file this pass cannot reach. Every std refinement is over
 		// a type with equality (a number, a Duration, a collection, a
 		// range, a string, Json), and the caller checks its type
 		// arguments.
@@ -2525,16 +2537,16 @@ func deriveDeclEquality(fa *FileAnalysis, impls *ProjectImplIndex, fileOf declFi
 	return "", true
 }
 
-// deriveSubtypeBase is a parent of the non-generic subtype baseName names
+// deriveRefinementBase is a parent of the non-generic refinement baseName names
 // in fa, written as a type the returned file resolves, or false when
-// baseName is no such subtype. A subtype's values are its base's, so any
-// parent stands for it (spec §4 *Subtypes*). Types may not be resolved when
+// baseName is no such refinement. A refinement's values are its base's, so any
+// parent stands for it (spec §4 *Refinements*). Types may not be resolved when
 // derives are checked, so it reads the declaration when the file that
 // declares it is in reach, and otherwise the resolved type. A generic
-// subtype (`NonEmptyList<String>`) is one too, with no parent written: its
+// refinement (`NonEmptyList<String>`) is one too, with no parent written: its
 // parent is at the field's type arguments, which the derived body's call
 // of the interface at the field's type reaches and checks.
-func deriveSubtypeBase(fa *FileAnalysis, fileOf declFiles, baseName string) (ast.TypeExpr, *FileAnalysis, bool) {
+func deriveRefinementBase(fa *FileAnalysis, fileOf declFiles, baseName string) (ast.TypeExpr, *FileAnalysis, bool) {
 	if fa == nil || fa.ModuleScope == nil {
 		return nil, nil, false
 	}
@@ -2545,16 +2557,16 @@ func deriveSubtypeBase(fa *FileAnalysis, fileOf declFiles, baseName string) (ast
 	if sym.Resolved != nil {
 		sym = sym.Resolved
 	}
-	if dt, ok := sym.Type.(*DistinctType); ok && dt.Subtype && dt.Inner != nil && len(dt.TypeParams) != 0 {
+	if dt, ok := sym.Type.(*DistinctType); ok && dt.Refinement && dt.Inner != nil && len(dt.TypeParams) != 0 {
 		return nil, nil, true
 	}
 	td, ok := sym.Node.(*ast.TypeDef)
 	if !ok {
 		// A symbol read from a module's interface carries its type and no
 		// declaration.
-		return subtypeBaseFromType(fa, sym)
+		return refinementBaseFromType(fa, sym)
 	}
-	if !td.Subtype || td.InnerTypeExpr == nil {
+	if !td.Refinement || td.InnerTypeExpr == nil {
 		return nil, nil, false
 	}
 	if len(td.TypeParams) != 0 {
@@ -2565,17 +2577,17 @@ func deriveSubtypeBase(fa *FileAnalysis, fileOf declFiles, baseName string) (ast
 		return td.InnerTypeExpr, declFA, true
 	}
 	if sym.Type != nil || known {
-		// The parent is written in a file out of reach: a std subtype
+		// The parent is written in a file out of reach: a std refinement
 		// (`PositiveInt` over `NonNegativeInt`, in std/int) seen from
 		// another file. The declaration's positions mean nothing in fa, and
 		// its parent's name may not resolve there, so the parent is read
 		// from the resolved type.
-		return subtypeBaseFromType(fa, sym)
+		return refinementBaseFromType(fa, sym)
 	}
 	// Std's own types are not resolved yet, and the file declaring sym is
 	// out of reach: the parent is looked up in fa by its name alone, as
 	// `Int64`'s `Int` is everywhere. One fa cannot name leaves the
-	// component checked as the subtype itself (deriveDeclHasEquality).
+	// component checked as the refinement itself (deriveDeclHasEquality).
 	if st, ok := td.InnerTypeExpr.(*ast.SimpleType); ok && fa.ModuleScope.Lookup(st.Name) != nil {
 		return &ast.SimpleType{Name: st.Name}, fa, true
 	}
@@ -2583,19 +2595,19 @@ func deriveSubtypeBase(fa *FileAnalysis, fileOf declFiles, baseName string) (ast
 }
 
 // isGenericTypeIn reports whether te is a generic type fa's scope names
-// (`List<Int>`, the parent of `subtype Two List<Int> when ...`).
+// (`List<Int>`, the parent of `refine Two List<Int> when ...`).
 func isGenericTypeIn(fa *FileAnalysis, te ast.TypeExpr) bool {
 	gt, ok := te.(*ast.GenericType)
 	return ok && fa != nil && fa.ModuleScope != nil && fa.ModuleScope.Lookup(gt.Name) != nil
 }
 
-// subtypeBaseFromType is deriveSubtypeBase from sym's resolved type: the
-// nearest ancestor of the non-generic subtype that fa names as the same
+// refinementBaseFromType is deriveRefinementBase from sym's resolved type: the
+// nearest ancestor of the non-generic refinement that fa names as the same
 // type. `PositiveInt` seen from a file that names neither `NonNegativeInt`
 // nor `NonZeroInt` is `Int`, the base every parent reaches.
-func subtypeBaseFromType(fa *FileAnalysis, sym *Symbol) (ast.TypeExpr, *FileAnalysis, bool) {
+func refinementBaseFromType(fa *FileAnalysis, sym *Symbol) (ast.TypeExpr, *FileAnalysis, bool) {
 	dt, ok := sym.Type.(*DistinctType)
-	if !ok || !dt.Subtype || dt.Inner == nil || len(dt.TypeParams) != 0 {
+	if !ok || !dt.Refinement || dt.Inner == nil || len(dt.TypeParams) != 0 {
 		return nil, nil, false
 	}
 	seen := map[Type]bool{dt: true}

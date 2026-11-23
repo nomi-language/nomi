@@ -13,8 +13,8 @@ import
     int.{Int, NonNegativeInt}
     iter.Iter
     lists.List
-    maybe.Maybe
-    maybe.Maybe.{None, Some}
+    option.Option
+    option.Option.{None, Some}
     results.Result
     results.Result.Ok
     strings.String
@@ -53,7 +53,7 @@ end
 //#     |> Builder.to_bytes()
 //# end
 //#
-//# fn unframe(c: Cursor) -> Maybe<(Bytes, Cursor)>
+//# fn unframe(c: Cursor) -> Option<(Bytes, Cursor)>
 //#     (length, c) = Cursor.read_uint32_be(c)?
 //#     Cursor.read_bytes(c, length)
 //# end
@@ -173,11 +173,11 @@ impl Bytes
     //! a: Byte = 97
     //! b: Byte = 98
     //! data = Bytes.from_list([a, b])
-    //! assert data |> Bytes.get(0) |> Maybe.map(Byte.to_int) == Some(97)
+    //! assert data |> Bytes.get(0) |> Option.map(Byte.to_int) == Some(97)
     //! assert Bytes.get(data, 2) == None
     //! assert data |> Bytes.get(1)! |> Byte.to_int() == 98
     //
-    pub host fn get(data: Bytes, index: Int) -> Maybe<Byte>
+    pub host fn get(data: Bytes, index: Int) -> Option<Byte>
 
     /// Returns the bytes from index `start` up to, not including, `stop`. An
     /// index outside the buffer is clamped to it, and a `stop` at or before
@@ -267,7 +267,7 @@ impl Bytes
     //! assert Bytes.index_of(data, crlf, from: 3) == Some(6)
     //! assert Bytes.index_of(data, crlf, from: 7) == None
     //
-    pub fn index_of(data: Bytes, needle: Bytes, from: Int = 0) -> Maybe<NonNegativeInt>
+    pub fn index_of(data: Bytes, needle: Bytes, from: Int = 0) -> Option<NonNegativeInt>
         index_of_from(data, needle, from)
     end
 
@@ -278,7 +278,7 @@ impl Bytes
     //! assert Bytes.index_of_byte(data, 0, from: 2) == Some(3)
     //! assert Bytes.index_of_byte(data, 9) == None
     //
-    pub fn index_of_byte(data: Bytes, b: Byte, from: Int = 0) -> Maybe<NonNegativeInt>
+    pub fn index_of_byte(data: Bytes, b: Byte, from: Int = 0) -> Option<NonNegativeInt>
         index_of_byte_from(data, b, from)
     end
 
@@ -295,7 +295,7 @@ impl Bytes
     //! assert Bytes.index_of_any(data, special, from: 2) == Some(3)
     //! assert Bytes.index_of_any(data, String.to_bytes("xyz")) == None
     //
-    pub fn index_of_any(data: Bytes, set: Bytes, from: Int = 0) -> Maybe<NonNegativeInt>
+    pub fn index_of_any(data: Bytes, set: Bytes, from: Int = 0) -> Option<NonNegativeInt>
         index_of_any_from(data, set, from)
     end
 
@@ -307,13 +307,13 @@ impl Bytes
     //! assert Bytes.last_index_of(data, eq) == Some(3)
     //! assert Bytes.last_index_of(Bytes.slice(data, 0, 3), eq) == Some(1)
     //
-    pub host fn last_index_of(data: Bytes, needle: Bytes) -> Maybe<NonNegativeInt>
+    pub host fn last_index_of(data: Bytes, needle: Bytes) -> Option<NonNegativeInt>
 
     /// The last index that holds `b`, or None.
     //! assert Bytes.last_index_of_byte(Bytes.from_list([7, 1, 7]), 7) == Some(2)
     //! assert Bytes.last_index_of_byte(Bytes.from_list([]), 7) == None
     //
-    pub host fn last_index_of_byte(data: Bytes, b: Byte) -> Maybe<NonNegativeInt>
+    pub host fn last_index_of_byte(data: Bytes, b: Byte) -> Option<NonNegativeInt>
 
     /// The last index that holds any byte of `set`, or None. To search only
     /// before an index, search a slice, as for `Bytes.last_index_of`.
@@ -321,7 +321,7 @@ impl Bytes
     //! assert Bytes.last_index_of_any(data, String.to_bytes("=;")) == Some(3)
     //! assert Bytes.last_index_of_any(data, Bytes.from_list([])) == None
     //
-    pub host fn last_index_of_any(data: Bytes, set: Bytes) -> Maybe<NonNegativeInt>
+    pub host fn last_index_of_any(data: Bytes, set: Bytes) -> Option<NonNegativeInt>
 
     /// Whether `needle` occurs in `data`. `Bytes.contains`, the `Contains`
     /// impl that `in` uses, looks for one byte.
@@ -379,100 +379,100 @@ impl Bytes
     //! assert Bytes.uint8_at(data, 0) == Some(255)
     //! assert Bytes.uint8_at(data, 2) == None
     //
-    pub host fn uint8_at(data: Bytes, index: Int) -> Maybe<NonNegativeInt>
+    pub host fn uint8_at(data: Bytes, index: Int) -> Option<NonNegativeInt>
 
     /// The byte at `index` as a signed Int, -128 to 127. See
     /// `Bytes.uint8_at`.
     //! assert Bytes.int8_at(Bytes.from_list([0xFF, 0x01]), 0) == Some(-1)
     //
-    pub host fn int8_at(data: Bytes, index: Int) -> Maybe<Int>
+    pub host fn int8_at(data: Bytes, index: Int) -> Option<Int>
 
     /// The unsigned 16-bit big-endian integer at `index`. See
     /// `Bytes.uint8_at`.
     //! assert Bytes.uint16_be_at(Bytes.from_list([0x01, 0x02]), 0) == Some(0x0102)
     //! assert Bytes.uint16_be_at(Bytes.from_list([0x01, 0x02]), 1) == None
     //
-    pub host fn uint16_be_at(data: Bytes, index: Int) -> Maybe<NonNegativeInt>
+    pub host fn uint16_be_at(data: Bytes, index: Int) -> Option<NonNegativeInt>
 
     /// The unsigned 16-bit little-endian integer at `index`.
     //! assert Bytes.uint16_le_at(Bytes.from_list([0x01, 0x02]), 0) == Some(0x0201)
     //
-    pub host fn uint16_le_at(data: Bytes, index: Int) -> Maybe<NonNegativeInt>
+    pub host fn uint16_le_at(data: Bytes, index: Int) -> Option<NonNegativeInt>
 
     /// The signed 16-bit big-endian integer at `index`.
     //! assert Bytes.int16_be_at(Bytes.from_list([0xFF, 0xFE]), 0) == Some(-2)
     //
-    pub host fn int16_be_at(data: Bytes, index: Int) -> Maybe<Int>
+    pub host fn int16_be_at(data: Bytes, index: Int) -> Option<Int>
 
     /// The signed 16-bit little-endian integer at `index`.
     //! assert Bytes.int16_le_at(Bytes.from_list([0xFE, 0xFF]), 0) == Some(-2)
     //
-    pub host fn int16_le_at(data: Bytes, index: Int) -> Maybe<Int>
+    pub host fn int16_le_at(data: Bytes, index: Int) -> Option<Int>
 
     /// The unsigned 32-bit big-endian integer at `index`.
     //! assert Bytes.uint32_be_at(Bytes.from_list([0, 0xDE, 0xAD, 0xBE, 0xEF]), 1) == Some(0xDEADBEEF)
     //
-    pub host fn uint32_be_at(data: Bytes, index: Int) -> Maybe<NonNegativeInt>
+    pub host fn uint32_be_at(data: Bytes, index: Int) -> Option<NonNegativeInt>
 
     /// The unsigned 32-bit little-endian integer at `index`.
     //! assert Bytes.uint32_le_at(Bytes.from_list([0xEF, 0xBE, 0xAD, 0xDE]), 0) == Some(0xDEADBEEF)
     //
-    pub host fn uint32_le_at(data: Bytes, index: Int) -> Maybe<NonNegativeInt>
+    pub host fn uint32_le_at(data: Bytes, index: Int) -> Option<NonNegativeInt>
 
     /// The signed 32-bit big-endian integer at `index`.
     //! assert Bytes.int32_be_at(Bytes.from_list([0xFF, 0xFF, 0xFF, 0xFF]), 0) == Some(-1)
     //
-    pub host fn int32_be_at(data: Bytes, index: Int) -> Maybe<Int>
+    pub host fn int32_be_at(data: Bytes, index: Int) -> Option<Int>
 
     /// The signed 32-bit little-endian integer at `index`.
     //! assert Bytes.int32_le_at(Bytes.from_list([0, 0, 0, 0x80]), 0) == Some(-2_147_483_648)
     //
-    pub host fn int32_le_at(data: Bytes, index: Int) -> Maybe<Int>
+    pub host fn int32_le_at(data: Bytes, index: Int) -> Option<Int>
 
     /// The unsigned 64-bit big-endian integer at `index`, up to
     /// 18_446_744_073_709_551_615.
     //! ones = Bytes.from_list([0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF])
     //! assert Bytes.uint64_be_at(ones, 0) == Some(18_446_744_073_709_551_615)
     //
-    pub host fn uint64_be_at(data: Bytes, index: Int) -> Maybe<NonNegativeInt>
+    pub host fn uint64_be_at(data: Bytes, index: Int) -> Option<NonNegativeInt>
 
     /// The unsigned 64-bit little-endian integer at `index`.
     //! assert Bytes.uint64_le_at(Bytes.from_list([1, 0, 0, 0, 0, 0, 0, 0]), 0) == Some(1)
     //
-    pub host fn uint64_le_at(data: Bytes, index: Int) -> Maybe<NonNegativeInt>
+    pub host fn uint64_le_at(data: Bytes, index: Int) -> Option<NonNegativeInt>
 
     /// The signed 64-bit big-endian integer at `index`.
     //! ones = Bytes.from_list([0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF])
     //! assert Bytes.int64_be_at(ones, 0) == Some(-1)
     //
-    pub host fn int64_be_at(data: Bytes, index: Int) -> Maybe<Int>
+    pub host fn int64_be_at(data: Bytes, index: Int) -> Option<Int>
 
     /// The signed 64-bit little-endian integer at `index`.
     //! data = Bytes.from_list([0xFE, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF])
     //! assert Bytes.int64_le_at(data, 0) == Some(-2)
     //
-    pub host fn int64_le_at(data: Bytes, index: Int) -> Maybe<Int>
+    pub host fn int64_le_at(data: Bytes, index: Int) -> Option<Int>
 
     /// The IEEE 754 32-bit float at `index`, big-endian, widened to a
     /// Float exactly.
     //! assert Bytes.float32_be_at(Bytes.from_list([0x3F, 0xC0, 0, 0]), 0) == Some(1.5)
     //
-    pub host fn float32_be_at(data: Bytes, index: Int) -> Maybe<Float>
+    pub host fn float32_be_at(data: Bytes, index: Int) -> Option<Float>
 
     /// The IEEE 754 32-bit float at `index`, little-endian.
     //! assert Bytes.float32_le_at(Bytes.from_list([0, 0, 0xC0, 0x3F]), 0) == Some(1.5)
     //
-    pub host fn float32_le_at(data: Bytes, index: Int) -> Maybe<Float>
+    pub host fn float32_le_at(data: Bytes, index: Int) -> Option<Float>
 
     /// The IEEE 754 64-bit float at `index`, big-endian.
     //! assert Bytes.float64_be_at(Bytes.from_list([0x3F, 0xF8, 0, 0, 0, 0, 0, 0]), 0) == Some(1.5)
     //
-    pub host fn float64_be_at(data: Bytes, index: Int) -> Maybe<Float>
+    pub host fn float64_be_at(data: Bytes, index: Int) -> Option<Float>
 
     /// The IEEE 754 64-bit float at `index`, little-endian.
     //! assert Bytes.float64_le_at(Bytes.from_list([0, 0, 0, 0, 0, 0, 0xF8, 0x3F]), 0) == Some(1.5)
     //
-    pub host fn float64_le_at(data: Bytes, index: Int) -> Maybe<Float>
+    pub host fn float64_le_at(data: Bytes, index: Int) -> Option<Float>
 
     /// The unsigned LEB128 varint starting at `index`, and the index after
     /// its last byte, or None when the buffer ends before the varint does.
@@ -487,7 +487,7 @@ impl Bytes
     //! assert Bytes.uvarint_at(data, 2) == Some((7, 3))
     //! assert Bytes.uvarint_at(Bytes.from_list([0x80]), 0) == None
     //
-    pub host fn uvarint_at(data: Bytes, index: Int) -> Maybe<(NonNegativeInt, NonNegativeInt)>
+    pub host fn uvarint_at(data: Bytes, index: Int) -> Option<(NonNegativeInt, NonNegativeInt)>
 
     /// The zigzag varint starting at `index`, and the index after it: an
     /// unsigned varint (`Bytes.uvarint_at`) whose 0, 1, 2, 3 stand for 0,
@@ -495,17 +495,17 @@ impl Bytes
     //! assert Bytes.varint_at(Bytes.from_list([0x03]), 0) == Some((-2, 1))
     //! assert Bytes.varint_at(Bytes.from_list([0x04]), 0) == Some((2, 1))
     //
-    pub host fn varint_at(data: Bytes, index: Int) -> Maybe<(Int, NonNegativeInt)>
+    pub host fn varint_at(data: Bytes, index: Int) -> Option<(Int, NonNegativeInt)>
 end
 
 /// `Bytes.index_of` from a clamped index.
-host fn index_of_from(data: Bytes, needle: Bytes, from: Int) -> Maybe<NonNegativeInt>
+host fn index_of_from(data: Bytes, needle: Bytes, from: Int) -> Option<NonNegativeInt>
 
 /// `Bytes.index_of_byte` from a clamped index.
-host fn index_of_byte_from(data: Bytes, b: Byte, from: Int) -> Maybe<NonNegativeInt>
+host fn index_of_byte_from(data: Bytes, b: Byte, from: Int) -> Option<NonNegativeInt>
 
 /// `Bytes.index_of_any` from a clamped index.
-host fn index_of_any_from(data: Bytes, set: Bytes, from: Int) -> Maybe<NonNegativeInt>
+host fn index_of_any_from(data: Bytes, set: Bytes, from: Int) -> Option<NonNegativeInt>
 
 impl Iter for Bytes
     /// Pushes each byte to `yield`, stopping when it returns False.

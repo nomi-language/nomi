@@ -20,7 +20,7 @@ struct Score
     n: Int
 end
 
-fn pick(n: Int) -> Maybe<Color>
+fn pick(n: Int) -> Option<Color>
     Some(if n == 1 then .Red else .Blue)
 end
 

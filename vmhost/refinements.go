@@ -197,7 +197,7 @@ func (p *Program) checkRefinement(m *vm.Machine, funcs map[string]*ir.Func, site
 	unrunnable := func(found []vm.Unretained) (frontend.Diagnostic, bool, error) {
 		return report(UncheckedRefinementCode, fmt.Sprintf("this %s literal cannot be checked when the program is compiled: its check reaches what the compiler does not support yet (%s)",
 			site.Type, strings.Join(p.reasons(found), "; ")),
-			"a literal of a subtype is checked by running its rule when the program is compiled; until its rule can run, build the value with `"+tryFromOwner(site.Type)+".try_from(...)`")
+			"a literal of a refinement is checked by running its rule when the program is compiled; until its rule can run, build the value with `"+tryFromOwner(site.Type)+".try_from(...)`")
 	}
 	if site.Unchecked != "" {
 		return lost(site.Unchecked)
@@ -278,8 +278,8 @@ func (p *Program) checkRefinement(m *vm.Machine, funcs map[string]*ir.Func, site
 				// `0` where `NonNegativeInt and NonZeroInt` is expected:
 				// the member whose rule failed is what the value is not.
 				if member != step.Type {
-					chain := strings.Join(append(via[1:], step.Type), ", which is a subtype of ")
-					msg = fmt.Sprintf("%s is not %s: %s is a subtype of %s, and %s's rule `%s` is false",
+					chain := strings.Join(append(via[1:], step.Type), ", which is a refinement of ")
+					msg = fmt.Sprintf("%s is not %s: %s is a refinement of %s, and %s's rule `%s` is false",
 						site.Text, notA(site, step), member, chain, step.Type, step.Rule)
 				}
 			} else if site.Compound && step.Type != site.Type {
@@ -288,7 +288,7 @@ func (p *Program) checkRefinement(m *vm.Machine, funcs map[string]*ir.Func, site
 				msg = fmt.Sprintf("this %s literal breaks its rule: `%s` is false", site.Type, step.Rule)
 			} else if step.Type != site.Type {
 				path := site.Type
-				link := " is a subtype of "
+				link := " is a refinement of "
 				for i, v := range step.Via {
 					if i == 0 && site.Wraps {
 						path += " wraps " + v + ", which"
@@ -314,7 +314,7 @@ func (p *Program) checkRefinement(m *vm.Machine, funcs map[string]*ir.Func, site
 					site.Type, strings.Join(calls, " and ")))
 			}
 			owner, _, _ := strings.Cut(site.Type, "<")
-			return fail(msg, fmt.Sprintf("a literal is checked when the program is compiled; a value known only when it runs goes through `%s.try_from(...)`, a `Maybe<%s>`",
+			return fail(msg, fmt.Sprintf("a literal is checked when the program is compiled; a value known only when it runs goes through `%s.try_from(...)`, an `Option<%s>`",
 				owner, site.Type))
 		}
 	}
@@ -334,7 +334,7 @@ func (p *Program) holdsTypedLiteral(site irbuild.RefinementSite) bool {
 	return false
 }
 
-// tryFromOwner is the name a call of the subtype t's `try_from` is written
+// tryFromOwner is the name a call of the refinement t's `try_from` is written
 // on: t without its type arguments.
 func tryFromOwner(t string) string {
 	owner, _, _ := strings.Cut(t, "<")
@@ -353,7 +353,7 @@ func notA(site irbuild.RefinementSite, step irbuild.RefinementSiteStep) string {
 }
 
 // intersectionMember answers, when the literal's type is an intersection
-// and step a rule of one of its members, that member and the subtypes from
+// and step a rule of one of its members, that member and the refinements from
 // it down to step's type (step.Via), the member first.
 func intersectionMember(site irbuild.RefinementSite, step irbuild.RefinementSiteStep) (string, []string, bool) {
 	if site.Wraps || site.Compound || len(intersectionMembers(site.Type)) < 2 || step.Type == site.Type {

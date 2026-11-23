@@ -8,25 +8,25 @@ import (
 	"github.com/nomi-language/nomi/internal/parser"
 )
 
-// A call whose Maybe the value's refinement answers plainly is a hint
+// A call whose Option the value's refinement answers plainly is a hint
 // naming the refinement's function. Unwrapped with `!`, its fix calls that
 // function and drops the `!`, and the fixed program checks with no hint;
-// read as a Maybe, it has no fix.
+// read as an Option, it has no fix.
 func TestPlainCounterpart_HintsTheRefinementsFunction(t *testing.T) {
 	const names = "names: NonEmptyList<String>"
 	for _, tc := range []struct {
 		name, params, body, hint, fixed string
 	}{
 		{"List.first", names, `List.first(names)!`,
-			"`names` is a NonEmptyList: `NonEmptyList.first(names)` is a String, not a Maybe", `NonEmptyList.first(names)`},
+			"`names` is a NonEmptyList: `NonEmptyList.first(names)` is a String, not an Option", `NonEmptyList.first(names)`},
 		{"a pipe stage", names, `names |> List.first()!`,
-			"`names` is a NonEmptyList: `NonEmptyList.first(names)` is a String, not a Maybe", `names |> NonEmptyList.first()`},
-		{"Iter.max read as a Maybe", names, `Iter.max(names) |> Maybe.with_default("")`,
-			"`names` is a NonEmptyList: `NonEmptyList.max(names)` is a String, not a Maybe", ""},
+			"`names` is a NonEmptyList: `NonEmptyList.first(names)` is a String, not an Option", `names |> NonEmptyList.first()`},
+		{"Iter.max read as an Option", names, `Iter.max(names) |> Option.with_default("")`,
+			"`names` is a NonEmptyList: `NonEmptyList.max(names)` is a String, not an Option", ""},
 		{"Iter.last of a vector", "v: NonEmptyVector<Int>", `Int.to_string(Iter.last(v)!)`,
-			"`v` is a NonEmptyVector: `NonEmptyVector.last(v)` is an Int, not a Maybe", `Int.to_string(NonEmptyVector.last(v))`},
+			"`v` is a NonEmptyVector: `NonEmptyVector.last(v)` is an Int, not an Option", `Int.to_string(NonEmptyVector.last(v))`},
 		{"Iter.min of a set", "", `Int.to_string(Iter.min(NonEmptySet.of(3, Set[1]))!)`,
-			"the value is a NonEmptySet: `NonEmptySet.min(...)` is an Int, not a Maybe",
+			"the value is a NonEmptySet: `NonEmptySet.min(...)` is an Int, not an Option",
 			`Int.to_string(NonEmptySet.min(NonEmptySet.of(3, Set[1])))`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -42,7 +42,7 @@ func TestPlainCounterpart_HintsTheRefinementsFunction(t *testing.T) {
 			fix := hints[0].Fix
 			if tc.fixed == "" {
 				if fix != nil {
-					t.Fatalf("a call read as a Maybe has a fix: %+v", fix)
+					t.Fatalf("a call read as an Option has a fix: %+v", fix)
 				}
 				return
 			}
@@ -67,9 +67,9 @@ func TestPlainCounterpart_HintsTheRefinementsFunction(t *testing.T) {
 // arity, or the value is no refinement.
 func TestPlainCounterpart_NoHintWithoutACounterpart(t *testing.T) {
 	for _, tc := range []struct{ name, params, body string }{
-		{"a plain List", "xs: List<String>", `List.first(xs) |> Maybe.with_default("")`},
+		{"a plain List", "xs: List<String>", `List.first(xs) |> Option.with_default("")`},
 		{"Iter.reduce takes a seed", "names: NonEmptyList<String>", `Iter.reduce(names, "", fn acc, n -> acc + n)`},
-		{"no function of the name", "names: NonEmptyList<String>", `Iter.find(names, &(&1 == "a")) |> Maybe.with_default("")`},
+		{"no function of the name", "names: NonEmptyList<String>", `Iter.find(names, &(&1 == "a")) |> Option.with_default("")`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			fa, nodes, errs := checkSourceNodesWithStdlib("fn f(" + tc.params + ") -> String\n    " + tc.body + "\nend\n")

@@ -21,12 +21,12 @@ import (
 // first and says which file needs the twin.
 func TestPreludeHof_ControlSignalsAreAFrontEndWall(t *testing.T) {
 	for _, c := range []struct{ name, src string }{
-		{"break in a Maybe.map callback",
-			"fn f(a: Maybe<Int>) -> Maybe<Int>\n  Maybe.map(a, fn x -> break x)\nend\n"},
+		{"break in an Option.map callback",
+			"fn f(a: Option<Int>) -> Option<Int>\n  Option.map(a, fn x -> break x)\nend\n"},
 		{"continue in a Result.map callback",
 			"fn f(a: Result<Int, String>) -> Result<Int, String>\n  Result.map(a, fn x -> continue)\nend\n"},
-		{"break in a Maybe.flat_map callback",
-			"fn f(a: Maybe<Int>) -> Maybe<Int>\n  Maybe.flat_map(a, fn x -> break Some(x))\nend\n"},
+		{"break in an Option.flat_map callback",
+			"fn f(a: Option<Int>) -> Option<Int>\n  Option.flat_map(a, fn x -> break Some(x))\nend\n"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			if _, err := AnalyzeSource("main", c.src); err == nil {

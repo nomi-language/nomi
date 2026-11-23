@@ -32,14 +32,14 @@ ok arithmetic has the expected shape
 test result: ok. 1 passed, 0 failed
 -->
 
-You can also assert a [`Maybe`](/reference/maybe/) or a
+You can also assert an [`Option`](/reference/option/) or a
 [`Result`](/reference/results/) directly. `assert` passes on `Some` or `Ok`.
 `refute` passes on `None` or `Err`. To get the value inside, match it with a
 pattern, as the second line of each test below does.
 
 ```nomi-run
 fn parse_id(text: String) -> Result<Int, String>
-    String.to_int(text) |> Maybe.to_result("expected a numeric id")
+    String.to_int(text) |> Option.to_result("expected a numeric id")
 end
 
 test "assert checks successful results"
@@ -93,7 +93,7 @@ ok assert can match an error variant
 test result: ok. 1 passed, 0 failed
 -->
 
-When a `Result` or `Maybe` is only setup for the rest of the test, put `?`
+When a `Result` or `Option` is only setup for the rest of the test, put `?`
 after the call. If it is `Err` or `None`, the test fails there. Use a pattern
 assertion instead when the result is the thing you are testing.
 
@@ -165,7 +165,7 @@ assertions:
 //! assert value == Some(42)
 //! assert parse_int("forty") == None
 //
-fn parse_int(text: String) -> Maybe<Int>
+fn parse_int(text: String) -> Option<Int>
     String.to_int(text)
 end
 ```
@@ -519,7 +519,7 @@ struct Config
 end
 
 fn boot(startup: Startup) -> Result<Config, String>
-    Ok(Config{store: Map.get(startup.env, "STORE") |> Maybe.with_default("memory")})
+    Ok(Config{store: Map.get(startup.env, "STORE") |> Option.with_default("memory")})
 end
 
 fn main() end

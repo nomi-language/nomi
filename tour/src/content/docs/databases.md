@@ -85,7 +85,7 @@ end
   [parameter](#parameters).
 - `Row.get` reads one column of a row by name, as the type you ask for, and
   fails when the value is not that type. SQL marks a missing value with
-  `NULL`, which reads as `None` when you ask for a `Maybe`.
+  `NULL`, which reads as `None` when you ask for an `Option`.
 - `Result.collect` turns each row's `Result` into one: the list of lines,
   or the first error, as in [Lines](/files/#lines).
 
@@ -131,8 +131,8 @@ and [`Statement`](/reference/sql/#struct-statement) has functions that
 join a list of pieces: `values` for SQL's `IN`, `all` and `any` for
 conditions, `where_all` for a `WHERE` that may be empty, and more. Each
 piece is still a `Sql"..."` literal, so a value only ever goes in a
-`${...}` slot. Here each optional filter is a `Maybe` of a condition, and
-`Maybe.values` keeps the ones the caller asked for:
+`${...}` slot. Here each optional filter is an `Option` of a condition, and
+`Option.values` keeps the ones the caller asked for:
 
 ```nomi-run
 import std::sql.{Sql, Statement}
@@ -144,7 +144,7 @@ enum Sort
 end
 
 /// Orders, filtered by only what the caller asked for.
-fn orders_query(statuses: List<String>, min_total: Maybe<Decimal>, sort: Sort) -> Statement
+fn orders_query(statuses: List<String>, min_total: Option<Decimal>, sort: Sort) -> Statement
     by_status =
         if Iter.is_empty(statuses) then
             None
@@ -152,7 +152,7 @@ fn orders_query(statuses: List<String>, min_total: Maybe<Decimal>, sort: Sort) -
             Some(Sql"status IN " + Statement.values(statuses))
         end
 
-    by_total = min_total |> Maybe.map(fn t -> Sql"total >= ${t}")
+    by_total = min_total |> Option.map(fn t -> Sql"total >= ${t}")
 
     order =
         case sort
@@ -160,7 +160,7 @@ fn orders_query(statuses: List<String>, min_total: Maybe<Decimal>, sort: Sort) -
             .Largest -> Sql" ORDER BY total DESC"
         end
 
-    filters = Maybe.values([by_status, by_total])
+    filters = Option.values([by_status, by_total])
     Sql"SELECT id FROM orders" + Statement.where_all(filters) + order
 end
 
@@ -363,7 +363,7 @@ that gives it a Nomi name and signature, then its doc comment, then its
 SQL, ending in `;`. The first:
 
 ```sql
--- query: user_by_email(email: String) -> Maybe<User>
+-- query: user_by_email(email: String) -> Option<User>
 -- The user with this email, if any.
 SELECT id, email, name, created_at
 FROM users
@@ -371,7 +371,7 @@ WHERE email = @email;
 ```
 
 It has a name and parameters, as a function has, and a result type:
-`-> Maybe<User>` is at most one row, read as a `User`. `@email` marks where
+`-> Option<User>` is at most one row, read as a `User`. `@email` marks where
 the parameter goes. It is SQL's own syntax for a named parameter, so the
 query stays SQL you could paste into a database console. `-> T` expects
 exactly one row, `-> List<T>` every row, `-> Changed` the number of rows an
@@ -400,19 +400,19 @@ migrations as data:
 pub struct User
     id:         Int
     email:      String
-    name:       Maybe<String>
+    name:       Option<String>
     created_at: Instant
 end
 ```
 
 Each column's SQL type picks its field's Nomi type, and a nullable column
-is a `Maybe`. A query file names a row as `User` or `schema.User`; when it
+is an `Option`. A query file names a row as `User` or `schema.User`; when it
 imports a type of its own called `User`, the bare name means that type and
 `schema.User` is the row. `queries.nomi` holds a function for each query,
 which takes the connection first and wraps its result in a `Result`:
 
 ```nomi
-pub fn user_by_email(conn: sql.Conn, email: String) -> Result<Maybe<User>, sql.Error>
+pub fn user_by_email(conn: sql.Conn, email: String) -> Result<Option<User>, sql.Error>
 ```
 
 The generated files are ordinary Nomi that you commit, so `nomi check`, the
@@ -458,14 +458,14 @@ fn main() -> Result<Unit, Error>
             return Ok(Unit)
     end
 
-    name = user.name |> Maybe.with_default("no name")
+    name = user.name |> Option.with_default("no name")
     io.print("user ${user.id}: ${user.email} (${name})")
 
     _ = queries.insert_user(db, "grace@example.com", None)?
     counts = queries.order_counts(db)?
 
     Iter.each(counts, fn c ->
-        last = c.last_order |> Maybe.map(&"${&1}") |> Maybe.with_default("none")
+        last = c.last_order |> Option.map(&"${&1}") |> Option.with_default("none")
         io.print("${c.email}: orders ${c.orders}, last order ${last}")
     end)
 
@@ -522,13 +522,13 @@ end
 -- The shop's queries. `nomi tool sqlkit generate` writes queries.nomi from
 -- them, a function for each.
 
--- query: user_by_email(email: String) -> Maybe<User>
+-- query: user_by_email(email: String) -> Option<User>
 -- The user with this email, if any.
 SELECT id, email, name, created_at
 FROM users
 WHERE email = @email;
 
--- query: insert_user(email: String, name: Maybe<String>) -> Int
+-- query: insert_user(email: String, name: Option<String>) -> Int
 -- Add a user, returning its id.
 INSERT INTO users (email, name) VALUES (@email, @name)
 RETURNING id;
@@ -572,7 +572,7 @@ CREATE TABLE orders (
 // FILE: queries.nomi
 // Generated by `nomi tool sqlkit generate` from db/queries/queries.sql and
 // db/migrations. Do not edit: change the SQL and generate again.
-// inputs sha256: b8317294a6e99b343b9c4dfc1ed42b6234c91ba556750a15dde55d2484c7b6e2
+// inputs sha256: f406c9dcb238be35141df859729520ba8866db18769571aad145788a6aefa70d
 import
     std::sql
     schema.{OrderStatus, User}
@@ -581,7 +581,7 @@ import
 end
 
 /// The user with this email, if any.
-pub fn user_by_email(conn: sql.Conn, email: String) -> Result<Maybe<User>, sql.Error>
+pub fn user_by_email(conn: sql.Conn, email: String) -> Result<Option<User>, sql.Error>
     statement = runtime.statement(
         [`SELECT id, email, name, created_at FROM users WHERE email = `, ``],
         [runtime.bind(email)],
@@ -596,7 +596,7 @@ pub fn user_by_email(conn: sql.Conn, email: String) -> Result<Maybe<User>, sql.E
 end
 
 /// Add a user, returning its id.
-pub fn insert_user(conn: sql.Conn, email: String, name: Maybe<String>) -> Result<Int, sql.Error>
+pub fn insert_user(conn: sql.Conn, email: String, name: Option<String>) -> Result<Int, sql.Error>
     statement = runtime.statement(
         [`INSERT INTO users (email, name) VALUES (`, `, `, `) RETURNING id`],
         [runtime.bind(email), runtime.bind(name)],
@@ -629,7 +629,7 @@ end
 /// placed none.
 pub fn order_counts(conn: sql.Conn) -> Result<List<{
     email: String,
-    last_order: Maybe<Int>,
+    last_order: Option<Int>,
     orders: Int,
 }>, sql.Error>
     statement = runtime.statement(
@@ -649,7 +649,7 @@ end
 // FILE: schema.nomi
 // Generated by `nomi tool sqlkit generate` from db/migrations. Do not edit:
 // change the SQL and generate again.
-// inputs sha256: b8317294a6e99b343b9c4dfc1ed42b6234c91ba556750a15dde55d2484c7b6e2
+// inputs sha256: f406c9dcb238be35141df859729520ba8866db18769571aad145788a6aefa70d
 import
     std::instant.Instant
     std::sql
@@ -670,7 +670,7 @@ end
 pub struct User
     id:         Int
     email:      String
-    name:       Maybe<String>
+    name:       Option<String>
     created_at: Instant
 end
 
@@ -744,7 +744,7 @@ pub once migrations: List<sqlkit.Migration> = [
 // FILE: schema_test.nomi
 // Generated by `nomi tool sqlkit generate` from db/migrations and db/queries.
 // Do not edit: change the SQL and generate again.
-// inputs sha256: b8317294a6e99b343b9c4dfc1ed42b6234c91ba556750a15dde55d2484c7b6e2
+// inputs sha256: f406c9dcb238be35141df859729520ba8866db18769571aad145788a6aefa70d
 import sqlkit::inputs
 
 // Fails when a migration or a query changed after the last
@@ -752,7 +752,7 @@ import sqlkit::inputs
 // module root, where `nomi test` resolves a test's relative paths.
 test "generated sql is current"
     assert inputs.current("db/migrations", "db/queries")
-        == Ok("b8317294a6e99b343b9c4dfc1ed42b6234c91ba556750a15dde55d2484c7b6e2")
+        == Ok("f406c9dcb238be35141df859729520ba8866db18769571aad145788a6aefa70d")
 end
 
 // FILE: nomi.toml
@@ -782,7 +782,7 @@ test result: ok. 3 passed, 0 failed
 - `order_counts` uses a `LEFT JOIN`, which keeps a user with no orders and
   fills the order's columns with `NULL`. A computed column has no SQL type,
   so its name says what it is: `AS "last_order?: Int"` may be `NULL` and is
-  a `Maybe<Int>`, and `AS "orders!: Int"` never is. Grace placed no orders,
+  an `Option<Int>`, and `AS "orders!: Int"` never is. Grace placed no orders,
   so her `last_order` is `None`.
 - The test group's [`setup`](/testing/#groups-and-setup) gives each test a
   fresh in-memory database with the shop's schema. The second test breaks

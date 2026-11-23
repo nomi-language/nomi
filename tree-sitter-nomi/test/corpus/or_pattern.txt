@@ -2,7 +2,7 @@
 An or pattern matches either alternative in every pattern position
 ================================================================================
 
-fn describe(m: Maybe<Tri>, cs: List<Codepoint>) -> Int
+fn describe(m: Option<Tri>, cs: List<Codepoint>) -> Int
     a = case m
         Some(.Equilateral or .Isosceles) -> 1
         None or Some(_) -> 0

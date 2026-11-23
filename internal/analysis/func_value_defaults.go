@@ -10,7 +10,7 @@ import (
 // A function's default parameter values apply to a call of the function by
 // name, and where a function type with fewer parameters is expected: `fn
 // parse(s: String, strict: Bool = False)` named as a value is a `(String,
-// Bool) -> Maybe<Int>`, and where a `(String) -> Maybe<Int>` is expected it is
+// Bool) -> Option<Int>`, and where a `(String) -> Option<Int>` is expected it is
 // that function, whose call fills `strict` (spec §7, *Default Arguments*:
 // "Defaults fill a function value only where a shorter type is expected";
 // defaultFilledFuncValue). Its defaults, a lambda's own and a partial's open
@@ -28,7 +28,7 @@ import (
 // the call fills the rest (callFuncValue). The shorter type is the
 // reference's CallType, which is how the IR builder tells it from the
 // function's own. `Iter.map(words, parse)` passes
-// `(String) -> Maybe<Int>`. Any other value keeps ty, and a mismatch is
+// `(String) -> Option<Int>`. Any other value keeps ty, and a mismatch is
 // reported where the value is used.
 func (c *checker) defaultFilledFuncValue(node ast.Node, ty, expected Type) Type {
 	ft, ok := ty.(*FuncType)

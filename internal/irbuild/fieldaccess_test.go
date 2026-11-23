@@ -70,7 +70,7 @@ struct P
     x: Int
 end
 
-fn get(n: Int) -> Maybe<P>
+fn get(n: Int) -> Option<P>
     Some(P{x: n})
 end
 
@@ -78,7 +78,7 @@ fn found(n: Int) -> Result<Int, String>
     Ok(n + 1)
 end
 
-fn twice(n: Int) -> Maybe<Int>
+fn twice(n: Int) -> Option<Int>
     Some(get(n)?.x * 2)
 end
 

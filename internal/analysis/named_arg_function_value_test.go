@@ -9,7 +9,7 @@ import (
 
 // A value whose type is a function type has no parameter names: a
 // parameter, a struct field, a binding that copies a function value, a
-// call's result, a value taken out of a Maybe or a list. A named argument
+// call's result, a value taken out of an Option or a list. A named argument
 // through one, full or `_`, is "no parameter named", at the name. The checker
 // knew no names for such a callee and skipped the name, so a full call
 // passed the checker and the IR builder declined it, and a named `_`
@@ -83,7 +83,7 @@ end`, "value: v"},
   x = make()(port: 1, host: "h")
   _ = x
 end`, "port: 1"},
-		{"Maybe element", `fn main()
+		{"Option element", `fn main()
   x = case Some(connect)
     Some(g) -> g(port: 1, host: "h")
     None -> ""

@@ -39,7 +39,7 @@ fn main()
     io.print({..nested, "outer" => {"j" => 2}})
     io.print(with_entry({1 => "one"}, 2, "two"))
     io.print(with_entry({"x" => 1.5}, "x", 2.5))
-    scores: Map<String, Maybe<Int>> = {"ada" => Some(3)}
+    scores: Map<String, Option<Int>> = {"ada" => Some(3)}
     io.print({..scores, "bob" => None})
     lists = {"a" => [1]}
     io.print({..lists, "b" => []})

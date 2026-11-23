@@ -152,7 +152,7 @@ fn run_all<T>(fs: List<(String) -> T>, s: String) -> List<T>
     fs |> Iter.map(fn f -> f(s)) |> Iter.to_list()
 end
 
-fn run_maybe<T>(f: (String) -> Maybe<T>, s: String) -> Maybe<T>
+fn run_option<T>(f: (String) -> Option<T>, s: String) -> Option<T>
     f(s)
 end
 
@@ -160,11 +160,11 @@ fn run_pairs<K, T>(ps: List<(K, (String) -> T)>, s: String) -> List<(K, T)>
     ps |> Iter.map(fn p -> (p.first, p.second(s))) |> Iter.to_list()
 end
 
-fn parse(s: String, base: Int = 10) -> Maybe<Int>
+fn parse(s: String, base: Int = 10) -> Option<Int>
     Some(String.length(s) * base)
 end
 
-fn parse_hex(s: String) -> Maybe<Int>
+fn parse_hex(s: String) -> Option<Int>
     Some(String.length(s) * 16)
 end
 
@@ -172,7 +172,7 @@ fn size(s: String) -> Int
     String.length(s)
 end
 
-fn parse_in(s: String, base: Int) -> Maybe<Int>
+fn parse_in(s: String, base: Int) -> Option<Int>
     Some(String.length(s) * base)
 end
 
@@ -185,7 +185,7 @@ end
 		{"a function with no defaults", `run(size, "ab")`, `size |> run("ab")`, true},
 		{"a lambda", `run(fn s -> String.length(s), "ab")`, `(fn s -> String.length(s)) |> run("ab")`, true},
 		{"a list of functions", `run_all([parse, parse_hex], "10")`, `[parse, parse_hex] |> run_all("10")`, true},
-		{"a nested generic", `run_maybe(parse, "1")`, `parse |> run_maybe("1")`, true},
+		{"a nested generic", `run_option(parse, "1")`, `parse |> run_option("1")`, true},
 		{"a list of tuples of functions", `run_pairs([("dec", parse), ("hex", parse_hex)], "10")`, `[("dec", parse), ("hex", parse_hex)] |> run_pairs("10")`, true},
 		{"a function whose extra parameter has no default", `run(parse_in, "1")`, `parse_in |> run("1")`, false},
 	} {

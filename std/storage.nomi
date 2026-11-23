@@ -78,7 +78,7 @@ import
     int.Int
     io
     iter.Iter
-    maybe.Maybe.{self, None, Some}
+    option.Option.{self, None, Some}
     path
     results.Result.{self, Err, Ok}
     strings.String
@@ -176,7 +176,7 @@ pub struct ListOptions
     /// once in `Listing.prefixes` instead of in `objects`.
     delimiter: String = ""
     /// The `next` of the page before, to list the page after it.
-    continuation: Maybe<String> = None
+    continuation: Option<String> = None
     /// The most objects and prefixes a page holds, 1 to 1,000. A value
     /// outside that is taken as the nearer end.
     limit: Int = 1000
@@ -191,7 +191,7 @@ derive Debug for ListOptions
 pub struct Listing
     objects:  List<Entry> = []
     prefixes: List<String> = []
-    next:     Maybe<String> = None
+    next:     Option<String> = None
 end
 
 derive Equatable for Listing
@@ -232,7 +232,7 @@ pub interface Store
     fn get(store: self, key: String) -> Result<Object, Error>
     /// What the store knows about the object under `key`, or `None` when
     /// there is none.
-    fn info(store: self, key: String) -> Result<Maybe<Info>, Error>
+    fn info(store: self, key: String) -> Result<Option<Info>, Error>
     /// Removes the object under `key`. A missing key is `Ok`.
     fn delete(store: self, key: String) -> Result<Unit, Error>
     /// Where a reader fetches the object under `key`, with no I/O, or
@@ -243,7 +243,7 @@ pub interface Store
 
     /// Whether an object has the key.
     fn exists(store: self, key: String) -> Result<Bool, Error>
-        info(store, key) |> Result.map(Maybe.is_some)
+        info(store, key) |> Result.map(Option.is_some)
     end
 end
 
@@ -367,7 +367,7 @@ pub fn page(entries: Iter<Entry>, options: ListOptions) -> Listing
 
     next =
         if Iter.count(items) > limit then
-            Iter.last(shown) |> Maybe.map(fn (text, _) -> text)
+            Iter.last(shown) |> Option.map(fn (text, _) -> text)
         else
             None
         end
@@ -384,7 +384,7 @@ end
 
 // The common prefix `key` is folded into, when it holds the delimiter
 // after the prefix.
-fn folded(key: String, options: ListOptions) -> Maybe<String>
+fn folded(key: String, options: ListOptions) -> Option<String>
     if options.delimiter == "" then return None
     rest = String.drop(key, String.length(options.prefix))
 
@@ -529,7 +529,7 @@ end
 //! assert testing.text(ran, "/work/files/a/b.txt") == Some("hi")
 //! assert testing.text(ran, "/work/files/.nomi-storage/types/a/b.txt") == Some("text/plain")
 //
-pub fn local(root: String, public_base: Maybe<Url> = None) -> Store
+pub fn local(root: String, public_base: Option<Url> = None) -> Store
     Local{root:, dir: None, public_base:}
 end
 
@@ -575,7 +575,7 @@ end
 //!
 //! assert on_disk(fn root -> storage_testing.conformance(fn -> fresh(root))) == Ok([])
 //
-pub fn local_dir(dir: Dir, public_base: Maybe<Url> = None) -> Store
+pub fn local_dir(dir: Dir, public_base: Option<Url> = None) -> Store
     Local{root: ".", dir: Some(dir), public_base:}
 end
 
@@ -583,8 +583,8 @@ end
 /// every call then goes through.
 struct Local
     root:        String
-    dir:         Maybe<Dir>
-    public_base: Maybe<Url>
+    dir:         Option<Dir>
+    public_base: Option<Url>
 end
 
 // A Local reaches its files through its Dir when it has one, and by path
@@ -695,7 +695,7 @@ impl Store for Local
         )
     end
 
-    fn info(local: Local, key: String) -> Result<Maybe<Info>, Error>
+    fn info(local: Local, key: String) -> Result<Option<Info>, Error>
         check_key(key)?
         object = Local.object_path(local, key)
 
@@ -786,7 +786,7 @@ impl Store for Local
             end)
             |> Result.collect()?
 
-        Ok(page(Maybe.values(entries), options))
+        Ok(page(Option.values(entries), options))
     end
 end
 
@@ -798,7 +798,7 @@ fn local_entry(
     base:   String,
     file:   String,
     prefix: String,
-) -> Result<Maybe<Entry>, Error>
+) -> Result<Option<Entry>, Error>
     segments = String.split(String.drop(file, String.length(base)), "/")
     if Iter.any_match(segments, fn s -> String.starts_with(s, ".")) then return Ok(None)
     key = segments |> Iter.map(key_segment) |> String.join("/")
@@ -860,7 +860,7 @@ end
 // `.`, in any case, is CON, PRN, AUX, NUL, or COM or LPT and a digit.
 fn is_device_name(segment: String) -> Bool
     stem =
-        String.split(segment, ".") |> Iter.first() |> Maybe.with_default("") |> String.uppercase()
+        String.split(segment, ".") |> Iter.first() |> Option.with_default("") |> String.uppercase()
 
     Iter.contains(["CON", "PRN", "AUX", "NUL"], stem)
         or String.length(stem) == 4
@@ -951,7 +951,7 @@ end
 //
 pub fn handler(store: Store, param: String = "key") -> (Request) -> Response
     fn request ->
-        key = Request.path_value(request, param) |> Maybe.with_default("")
+        key = Request.path_value(request, param) |> Option.with_default("")
 
         case Store.get(store, key)
             Ok(object) ->
@@ -961,7 +961,7 @@ pub fn handler(store: Store, param: String = "key") -> (Request) -> Response
                     or response.status == Status.partial_content
                         and not String.starts_with(
                             Headers.get(response.headers, "Content-Type")
-                            |> Maybe.with_default(""),
+                            |> Option.with_default(""),
                             "multipart/",
                         )
 

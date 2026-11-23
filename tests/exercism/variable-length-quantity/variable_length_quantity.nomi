@@ -29,8 +29,8 @@ end
 pub fn decode(bytes: List<Byte>) -> Result<List<Int>, String>
     (pending, values) =
         bytes
-        |> Iter.map_reduce(None, fn pending: Maybe<Int>, byte ->
-            value = Maybe.with_default(pending, 0) <<< 7 ||| Byte.to_int(byte &&& 0x7F)
+        |> Iter.map_reduce(None, fn pending: Option<Int>, byte ->
+            value = Option.with_default(pending, 0) <<< 7 ||| Byte.to_int(byte &&& 0x7F)
 
             if byte &&& 0x80 == 0 then
                 (None, Some(value))
@@ -42,7 +42,7 @@ pub fn decode(bytes: List<Byte>) -> Result<List<Int>, String>
     if pending is Some(_) then return Err("incomplete sequence")
 
     values
-    |> Maybe.values()
+    |> Option.values()
     |> Iter.to_list()
     |> Ok()
 end

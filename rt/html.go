@@ -116,7 +116,7 @@ var unescapeCuts = map[string]string{
 // does (the one that ends in `;` is `&semi;`, which is only that), so the
 // answer is the whole decoding exactly when it does not end so. The names
 // Go's table leaves out are in unescapeCuts.
-func HTMLEntity(name string) Maybe[string] {
+func HTMLEntity(name string) Option[string] {
 	if name == "" || strings.IndexFunc(name, notASCIIAlnum) >= 0 {
 		return None[string]()
 	}

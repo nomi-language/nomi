@@ -320,7 +320,18 @@
 // language server never shows a band record: a request's position is
 // never in the band, and each reader that walks a whole map (references,
 // rename, highlights, the completion index, a served file's stored
-// references) skips the band.
+// references) skips the band. Nor does a diagnostic carry a band position:
+// once a file is checked, each error in the band moves to the declaration
+// its impl was synthesized for, the impl named by the slot the position is
+// in (repointSynthDiagnostics, synthSlotBase). Nor does it show a name
+// the programmer did not write: where the error moves, each qualifier
+// through the hidden import is taken out and each name the body binds
+// (`__value_email`, `__err`) is said as a value of the impl
+// (repointSynthErrors, inUserTerms), which every pass that reports on a
+// synthesized block runs its errors through. A destructured parameter's
+// slot (`__destr_<line>_<col>`) is at the parameter, outside the band, and
+// a message names such a parameter by its position or as it is written
+// (paramNamed, paramLabel).
 //
 // Every type implements Debug. A struct, enum or distinct type with no
 // written or derived Debug, declared at module level or in a body, has no
@@ -440,7 +451,7 @@
 // `Route.to` and `Set.add`. A rule about a checked type asks whether it is
 // std's by its nominal identity (isStdType: origin and name, or a type the
 // checker builds for it with no declaration at hand), never by its name
-// alone: a `?` over a Result, a Maybe's payload, a Bool, a Vector, Iter,
+// alone: a `?` over a Result, an Option's payload, a Bool, a Vector, Iter,
 // Set, Range, `Localize` or `Fragment`. A prelude type's name is reserved
 // in a program's files, but `Localize` is not: a program's own interface
 // of that name is no phrase placeholder's. StdRuleTypes lists the types
@@ -467,7 +478,7 @@
 // (interfaceImplAt, through reachedImpl, CalleeAt and InterfaceCallee)
 // all ask interfaceUse, so `a == b` and `Equatable.equal(a, b)` agree.
 // A receiver variable the checker closed is its closed type there, at any
-// depth (`Maybe<?1>` of `Debug.inspect(None)` is Maybe's block). In
+// depth (`Option<?1>` of `Debug.inspect(None)` is Option's block). In
 // order: OperatorPerInstance where the receiver is a declared type or a
 // collection whose type arguments hold a type parameter (`List<T>`,
 // `Box<T>` in a generic body), whose impl each instance answers at its
@@ -697,7 +708,7 @@
 // A source at an `Iter<T>` position has a record of the view instead
 // (iter_views.go, IterViews), made in the same pass: the source's type,
 // the element it pushes, and which walk the view is: std's List, String,
-// Bytes, Range, Vector, Set, Map or Maybe, the type's own `impl Iter`,
+// Bytes, Range, Vector, Set, Map or Option, the type's own `impl Iter`,
 // whose block the record names (implCandidates, or the type's one impl
 // of Iter where a where clause bounds it inside a generic body), or a
 // type parameter bounded by Iter, which each instance resolves. A
@@ -705,8 +716,8 @@
 // of type `Iter<T>` is a sequence already and has none. The IR builder
 // builds each view from its record (internal/irbuild, iterview.go).
 //
-// An expression whose type converts to the expected one below its top (a
-// `Maybe<List<Int>>` where a `Maybe<Display>` is expected, a `Box<Circle>`
+// An expression whose type converts to the expected one below its top (an
+// `Option<List<Int>>` where an `Option<Display>` is expected, a `Box<Circle>`
 // where a `Box<Shape>` is; spec §5 *Covariant conversion*) has a record
 // of the conversion (conversions.go, Conversions), made in the same pass:
 // its type, the expected type, and each part that enters an interface
@@ -784,6 +795,17 @@
 // The entry imports every unit no other unit imports, so its check reads
 // every other file's interface; opening a leaf reads its own closure.
 //
+// A process-wide cache of an answer computed from one analysis object (a
+// std file's declarations, a std function's file or boot depth, a
+// declaration's variances) is an ownedCache (owned_cache.go): it holds its
+// key weakly and drops the entry once the key is collected, and a value
+// that would reach its key holds it weakly too. So a process that checks
+// many programs, or builds the stdlib more than once, keeps no analysis
+// alive through a cache: a language server's closed files each build the
+// stdlib from source. TestOwnedCache_AnEntryGoesWithItsKey,
+// TestDocumentManager_AFinishedManagerIsCollected and std's
+// TestLoad_AFinishedLoadIsCollected hold it.
+//
 // # A bare todo
 //
 // `todo` is a contextual keyword (spec §2 *Keywords*). The parser reads
@@ -820,14 +842,14 @@
 // statement whose value a block drops (an `assert`, `refute` or `dbg`,
 // which a link answers as Unit). The checker (elseless_if.go) checks the
 // branches as an `if` with an `else` does, each link returning its
-// branches' own type, against the expected type when it is a Maybe and
+// branches' own type, against the expected type when it is an Option and
 // against Unit otherwise, as statements are. Any other joined type is an
 // error at the first branch whose value is not Unit, and so is a chain
 // whose branches do not join. The error names the type and carries a
 // parser.Fix, the language server's quick fix: where a statement drops the
 // value (checker.statementIf, or a Unit position) it writes `_ = ` before
-// the value, in block form when the `if` is one line; otherwise, for a
-// Maybe branch, it adds `else None`, after the last branch of a one-line
+// the value, in block form when the `if` is one line; otherwise, for an
+// Option branch, it adds `else None`, after the last branch of a one-line
 // `if` and as an `else` branch before a block's `end`. Any other branch
 // gets help to add an `else` and no fix.
 //
@@ -946,7 +968,7 @@
 //     after the binding; with one after the exit the message says to move
 //     it up.
 //   - `defer-on-error-cannot-fail` (checkDefer): a `defer on error` in a
-//     named function whose result is neither a Result nor a Maybe.
+//     named function whose result is neither a Result nor an Option.
 //   - `uncommitted-resource`: a Commit type's deferred usual release starts
 //     a pathFlow at the statement after the `defer`. It follows
 //     statements in order, branching at `if` and `case` and joining the
@@ -1038,14 +1060,14 @@
 // either way, so it is never an error and the checker does not report it.
 // A redundant `value as Type` (FileAnalysis.RedundantAscriptions), an
 // operand that restates the current value of the field it writes
-// (FileAnalysis.RestatedPaths), and a call whose Maybe the value's
+// (FileAnalysis.RestatedPaths), and a call whose Option the value's
 // refinement answers plainly, `List.first(names)` for a NonEmptyList
 // `names` (FileAnalysis.PlainCounterparts, plain_counterpart.go), are
 // recorded during the check, and FileHints reads them as hints, for the
 // language server and `nomi check --hints` alike. The last carries a fix
 // when a `!` unwraps the call: it names the refinement's function and
 // drops the `!`. The counterpart is the refinement's function of the same
-// name and arity whose result is no Maybe, so `Iter.reduce`, which takes
+// name and arity whose result is no Option, so `Iter.reduce`, which takes
 // a seed `NonEmptyList.reduce` does not, has none.
 //
 // A type parameter that style rule 52 writes as an interface value is
@@ -1135,7 +1157,7 @@
 //
 // Every type a program writes (an `ast.TypeExpr`: a parameter's or a
 // binding's annotation, a field's type, a type argument at a call, an impl
-// header, a `where` bound, an alias's target, a subtype's parent, the
+// header, a `where` bound, an alias's target, a refinement's parent, the
 // type of an `as`) is resolved through resolveTypeExpr, which records the
 // type for the node, and for each node nested in it, in
 // FileAnalysis.TypeExprTypes: one map write per node resolved. The type
@@ -1146,6 +1168,22 @@
 // a type. The IR builder reads a generic instance's type arguments here
 // where an annotation spells the instance (internal/irbuild package doc,
 // "Instantiation and dispatch").
+//
+// A name that names no type is reported once, where it is written, and
+// what it types has no type, which nothing reports again: a field keeps
+// its place in its struct or record variant with a nil type, as a
+// parameter keeps its slot, and a distinct type keeps its inner type's
+// place (DistinctType.InnerOfNoType); a binding, a `once` or an `as`
+// whose annotation names nothing has no type, rather than its value's; a
+// call whose type argument names nothing has no type. A declared type with
+// a part of no type, or a part whose type holds such a type, is poison
+// where it is used (hasPartOfNoType, part_of_no_type.go): the compiler's
+// impls for it are not checked; a demand of it, or a derive's demand of
+// such a part, draws no missing impl, in the check and in the reduction
+// over stored facts alike (demandOfNoType, DemandFact.NoType), the type
+// the demand is of found by the recording's TypeOrigin and the bucket's
+// type name; a call's interface bound on it draws no error; and a
+// position whose type is an interface admits it.
 //
 // The table is part of FileBodies and is written only while the file is
 // checked, as ExprTypes is. Type expressions in declarations are resolved
@@ -1194,7 +1232,7 @@
 // FileAnalysis.IrrefutablePatterns: `(a, _)`, `Point{x:, y:}`, `Unit`, a
 // marker's name, `Port(n)` over a Port and `.L(n) or .R(n)` over a
 // two-variant enum always match; `80` over a Port does not, since a
-// literal over a subtype is the test it is over the base. The rules read
+// literal over a refinement is the test it is over the base. The rules read
 // that record: a binding with no `else` must always match, and a binding
 // with one, an `if` pattern and an `is` pattern must be able to fail. A
 // parameter's pattern is held to checkParamPatternRefutable, the
@@ -1289,38 +1327,37 @@
 // TestStdState_ReadsBackAsTheBuild), and a process's stdlib read from a
 // state to the one analyzed from source (TestShared_ModulesAreLoadsModules).
 //
-// # Subtypes and validated types
+// # Refinements and validated types
 //
-// A subtype (spec §4 *Subtypes*; refinement.go) is a `subtype`
-// declaration, `subtype Port Int when fn p -> p >= 1 and p <= 65535`, a
-// DistinctType with Subtype set (refinementOf answers it; the Go names
-// keep "subtype"). Its rule, when it writes one, is DistinctType.Rule,
+// A refinement (spec §4 *Refinements*; refinement.go) is a `refine`
+// declaration, `refine Port Int when fn p -> p >= 1 and p <= 65535`, a
+// DistinctType with Refinement set (refinementOf answers it). Its rule, when it writes one, is DistinctType.Rule,
 // as written. A struct with a `when` rule is a validated struct
 // (StructType.Rule). A `type` with a rule is a validated type, and a
-// `type` whose inner type is a subtype is built the same checked way;
+// `type` whose inner type is a refinement is built the same checked way;
 // checkedDistinctOf answers both. Neither converts to anything; each
 // enters only through a literal, `try_from` or `unchecked`
 // (checkedCtorArg), and its literal's checks are its inner type's then
-// its own rule (RefinementChecks). A subtype needs a rule anywhere in its
+// its own rule (RefinementChecks). A refinement needs a rule anywhere in its
 // chain, and one of a single parent needs its own
-// (checkSubtypeHasARule): otherwise it is its parent under another name,
+// (checkRefinementHasARule): otherwise it is its parent under another name,
 // which is a typealias.
 //
-// `A and B` of subtypes is an intersection (NewSubtypeIntersection): a
-// DistinctType with Subtype and Intersection set, whose parents are its
+// `A and B` of refinements is an intersection (NewRefinementIntersection): a
+// DistinctType with Refinement and Intersection set, whose parents are its
 // members, held sorted in TypeArgs so substitution and identity treat
-// them as type arguments. A subtype with no rule of its own, an
+// them as type arguments. A refinement with no rule of its own, an
 // intersection among them, has exactly its parents' values, so a value
-// converts into it when it converts to every parent (intoRulelessSubtype,
+// converts into it when it converts to every parent (intoRulelessRefinement,
 // beside the widening up in unify.go and refinesInto); this is the one
 // conversion down. checkIntersections reports an interface beside
-// subtypes that their base does not implement.
+// refinements that their base does not implement.
 //
 // A generic typealias is an AliasTemplate in the registry: a use
 // instantiates its target (instantiateAlias), and checkAliasBounds
 // reports a use whose argument breaks the alias's `where`.
 //
-// A validated type, and a `type` over a subtype, implements std's
+// A validated type, and a `type` over a refinement, implements std's
 // `TryFrom` of its base, a generic one at its parameters: the front end
 // writes its `try_from` as that impl's (tryFromImpl in
 // refinement_synthesis.go), and a hand-written impl of that one source
@@ -1328,15 +1365,15 @@
 // checked through a `T.try_from(v)` call typed in the literal's file
 // (refinementCheckCall), which reaches the impl.
 //
-// Whether a `type` with no rule of its own is over a subtype is a fact
+// Whether a `type` with no rule of its own is over a refinement is a fact
 // about names, which the front end writes its functions before any
 // resolve: it writes the impl and the block with `unchecked` for every
 // `type` whose inner type is written as a name that could be one
-// (couldNameSubtype), and withholds both (ast.ImplBlock.Withhold), so
+// (couldNameRefinement), and withholds both (ast.ImplBlock.Withhold), so
 // until they are released they are empty inherent blocks no pass sees
 // anything in. The annotation pass releases them (releaseWithheldRefinement)
 // when the inner type resolves, through the file's own references and an
-// alias's in its declaring file, to a subtype or an intersection with one;
+// alias's in its declaring file, to a refinement or an intersection with one;
 // it stubs them then, so a dropped block never had a symbol, a completion
 // or a TryFrom impl. Each build decides again, and a block a build of the
 // same nodes kept loses its symbols when a later one drops it. A parent a
@@ -1346,48 +1383,48 @@
 // checker resolved it to, which this file may have no name for
 // (typeQualCall).
 //
-// A subtype's value is a value of the types it refines, its
+// A refinement's value is a value of the types it refines, its
 // parents: DistinctType.Inner, the first, and MoreParents, the rest of
-// `subtype PositiveInt NonNegativeInt and NonZeroInt when ...`. It converts up
+// `refine PositiveInt NonNegativeInt and NonZeroInt when ...`. It converts up
 // to each parent, each of their ancestors and the base every parent
 // reaches, implicitly and inside containers, by the unifier's assign modes
-// (unify.go), which try each parent in turn. Two subtypes of one parent
+// (unify.go), which try each parent in turn. Two refinements of one parent
 // never convert to each other, and nothing converts down.
 //
 // Where values meet with no type written (an `if`'s or `case`'s branches,
 // a collection literal's elements, a lambda's results, a range's
-// endpoints), a subtype beside an ancestor of it, or beside another
-// subtype they share an ancestor with, joins as the nearest shared
+// endpoints), a refinement beside an ancestor of it, or beside another
+// refinement they share an ancestor with, joins as the nearest shared
 // ancestor, at the top and at each position a value converts at
 // (refinementJoin, nearestSharedAncestor; branchesJoin tries it first when
 // no type is expected), and a range with no type written ranges over the
 // base (checkRangeLit). A later arm or element is checked against the
-// earlier ones' type with its subtypes erased (earlierArmsExpected,
+// earlier ones' type with its refinements erased (earlierArmsExpected,
 // checkLitElem), so a literal there is its base's, until the values have
 // joined: then the literals among them, in any position, are the nearest
-// std numeric subtype at or above what the other values join to whose
+// std numeric refinement at or above what the other values join to whose
 // rules each literal satisfies, decided in the checker, since those rules
-// are known (narrowLiteralJoin, numeric_subtypes.go). A numeric value has
+// are known (narrowLiteralJoin, numeric_refinements.go). A numeric value has
 // a range (spec §4 *Value ranges*; ranges.go): an interval with a bit for
-// "off zero", from literals, its type's std subtypes and literal-bound Int
+// "off zero", from literals, its type's std refinements and literal-bound Int
 // rules, comparisons with constants, exact arithmetic (+, -, * and unary -
 // on Int, Decimal and Duration nanoseconds; `+` of non-negative Floats)
 // and a few std results (callRange), and the elements of a range
 // literal, `Iter.from`, a collection literal or an adapter chain over
 // them for the parameter of a callback a std Iter function passes them
 // to (element_ranges.go: noted with its source as the call is checked,
-// seeded when the callback is; a callback whose parameter is a subtype
+// seeded when the callback is; a callback whose parameter is a refinement
 // that range proves takes the type the position passes, by one judgement
 // for a lambda's annotated parameter, a partial capture's slot and a
 // function passed by name, elemProves). As each expression is checked,
 // rangeTyped records its range and types it as the narrowest std numeric
-// subtype the range proves when the range rests on something other than
+// refinement the range proves when the range rests on something other than
 // literals (typeForRange), so `1 + 2` stays an Int; checkNodeExpecting
-// converts any value whose range proves the subtype expected
-// (provenRefinement), a literal-bound Int subtype over Int such as Int64
+// converts any value whose range proves the refinement expected
+// (provenRefinement), a literal-bound Int refinement over Int such as Int64
 // included. Bindings are immutable, so a binding's range (bindRange)
 // holds wherever it is read, with no fixed point for loops or recursion;
-// nothing relates two bindings. An unannotated `once` takes the subtype
+// nothing relates two bindings. An unannotated `once` takes the refinement
 // its value's range proves as its type (onceRangeType). The same three
 // carry a List's, Vector's, Set's, Map's or String's holding something,
 // which one function answers of an expression (holdsSomething: a
@@ -1398,22 +1435,22 @@
 // length's or size's argument): bindRange
 // keeps it for a binding with no type written as a nonEmpty fact in
 // checker.symRanges, provenRefinement converts a value that holds
-// something where its std non-empty subtype is expected (provenNonEmpty),
-// recording the read as that subtype in ExprTypes, which is all the IR
-// builder reads, and onceRangeType gives such a `once` the subtype, so
+// something where its std non-empty refinement is expected (provenNonEmpty),
+// recording the read as that refinement in ExprTypes, which is all the IR
+// builder reads, and onceRangeType gives such a `once` the refinement, so
 // it crosses to other files, interfaces and the stdlib's state as the
 // once's type. Every other
-// operation on a subtype is its base's. A type parameter bound
-// to a subtype widens the same way when a later argument is an
+// operation on a refinement is its base's. A type parameter bound
+// to a refinement widens the same way when a later argument is an
 // ancestor (widenToRefinementAncestor). A generic call, direct or piped,
 // solves its arguments through argSolving, which checks a literal
-// argument against what earlier arguments solved with subtypes
-// erased, or against the std numeric subtype they solved when the literal
+// argument against what earlier arguments solved with refinements
+// erased, or against the std numeric refinement they solved when the literal
 // satisfies it (a numeric literal argument is checked after the arguments
 // that solve its parameter on their own, deferredNumericLiteral, so the
 // order is irrelevant), undoes a widening an earlier argument no longer fits as a
 // mismatch at the later one (widenedPast: a function taking the
-// subtype, or taking an embedded type a later value of its enum
+// refinement, or taking an embedded type a later value of its enum
 // widened the parameter to, as widenToEnum does; the function would be
 // called with values it was not written for), checks a collection
 // literal whose elements are an ancestor or the enum of what earlier
@@ -1429,78 +1466,78 @@
 // next)` with p a PositiveInt and next an `(Int) -> Int` solves T to Int.
 //
 // A condition narrows a parameter or local binding in the code it guards
-// (spec §4 *Narrowing*; subtype_narrowing.go): condFacts reads
+// (spec §4 *Narrowing*; refinement_narrowing.go): condFacts reads
 // comparisons with a constant (an expression whose range is one value),
 // `Iter.is_empty` and comparisons with an empty literal, through `not`,
 // `and` and `or`, into a range or non-emptiness per binding, and
-// narrowSubtypes meets the binding's range with it in checker.symRanges
-// and records the subtype the range proves in checker.narrowed, which
+// narrowRefinements meets the binding's range with it in checker.symRanges
+// and records the refinement the range proves in checker.narrowed, which
 // every read of the binding takes (checkIdent), so ExprTypes, hover and
 // the IR builder see it. The regions are the branches of an `if`, the
 // right operand of `and` and `or`, a `case` arm's body after its guard or,
 // in a case with no subject, after its condition and the earlier ones,
 // and the rest of a block after an `if` that leaves or an assertion
 // (factsAfter). The same map holds a case arm's `embeds` narrowing
-// (narrowing.go), which the IR builder lowers as a projection; a subtype
+// (narrowing.go), which the IR builder lowers as a projection; a refinement
 // narrowing is a static fact, since the value is its base at run time. A
-// binding of a user's subtype keeps its type, though its range narrows.
+// binding of a user's refinement keeps its type, though its range narrows.
 //
 // Every parent
 // reaches one base (checkRefinementParents), so RefinementBase follows
-// Inner; a parent that reaches the subtype itself is a declaration
+// Inner; a parent that reaches the refinement itself is a declaration
 // cycle the type builder leaves out (distinctCycle). RefinementChecks
 // orders the rules a value satisfies, each once, a parent's ancestors
-// before it, the parents as written, the subtype last: the order a
+// before it, the parents as written, the refinement last: the order a
 // literal's compile-time check reports the first that fails in, with the
 // path to it (RefinementStep.Via).
 //
-// A generic subtype, `subtype NonEmptyList<T> List<T> when ...`, holds
+// A generic refinement, `refine NonEmptyList<T> List<T> when ...`, holds
 // its parents in terms of its own type parameters, and an instance's
 // parents and base are those at its type arguments (RefinementParents,
 // RefinementBase, both through DistinctInner), so a NonEmptyList<Int>
 // converts up to List<Int>. Its arguments convert as its parents hold them
-// (variance.go reads a subtype's every parent, std's among them), and a
+// (variance.go reads a refinement's every parent, std's among them), and a
 // conversion of one converts its base (conversions.go, refinementRunTime).
 // A collection literal where one is expected at open type arguments solves
 // them from its elements (distinctLiteralType). A `where` on the
 // declaration bounds the parameters as a struct's does. A struct
-// subtype takes no type parameters.
+// refinement takes no type parameters.
 //
-// The right operand of `/`, `%`, `<<<` and `>>>` may be a subtype in an
-// impl (operandSubtypeInterfaces): std's `impl Divide<NonZeroInt, Int> for
+// The right operand of `/`, `%`, `<<<` and `>>>` may be a refinement in an
+// impl (operandRefinementInterfaces): std's `impl Divide<NonZeroInt, Int> for
 // Int` and `impl ShiftLeft<NonNegativeInt, Int> for Int`. The impl is
-// selected by the operand's base (subtypeOperandFits), and the operand is
-// then held to the subtype by its type or its range (checkSubtypeOperand,
-// operand_subtype.go), so a checked program never divides by zero or
+// selected by the operand's base (refinementOperandFits), and the operand is
+// then held to the refinement by its type or its range (checkRefinementOperand,
+// operand_refinement.go), so a checked program never divides by zero or
 // shifts by a negative count; the VM's checks are a backstop.
 //
-// A subtype implements no interface of its own: it has its base's impls,
+// A refinement implements no interface of its own: it has its base's impls,
 // save those of an interface that makes a value of its type, whose
 // function names `self` in its result and has no default the interface
-// writes (interfaceMakesSelf; subtype_impls.go): `Parse`, `Summable`,
+// writes (interfaceMakesSelf; refinement_impls.go): `Parse`, `Summable`,
 // `Discrete` and the rest. The base's impl of one makes a value of the
-// base that no rule of the subtype checked, so every conformance site
-// asks subtypeLacksImpl before it reads the base's impls
+// base that no rule of the refinement checked, so every conformance site
+// asks refinementLacksImpl before it reads the base's impls
 // (typeImplementsInterface, typeSatisfiesInterfaceForImplMatch,
 // implCandidates, recordConformanceRecording), and the error is
-// InheritedImplMakesBaseCode's (subtypeMakesBaseError). A reader,
-// FromJson, is the exception (subtypeReaders; subtype_reads.go): it reads
-// a subtype at its base, and the IR builder checks the value against the
-// subtype's rules by the record SubtypeReadAt answers for the call at the
-// instance's types, which names each `try_from` to call (SubtypeChecks)
+// RefinementImplMakesBaseCode's (refinementMakesBaseError). A reader,
+// FromJson, is the exception (refinementReaders; refinement_reads.go): it reads
+// a refinement at its base, and the IR builder checks the value against the
+// refinement's rules by the record RefinementReadAt answers for the call at the
+// instance's types, which names each `try_from` to call (RefinementCheckCalls)
 // and what a breach answers. A record read from texts asks Parse of a
-// subtype field's base (fieldDemand) and checks the field the same way.
-// An instance whose type parameter reads a subtype (ReadsSubtype) is one
+// refinement field's base (fieldDemand) and checks the field the same way.
+// An instance whose type parameter reads a refinement (ReadsRefinement) is one
 // of its own in the builder, so the check is never shared with the
 // instance at the base; a generic type's impl is one per kind, so the
-// `where` of any impl but std::json's own reads no subtype
-// (blockReadsSubtype, implReceiverMatches). A generic call
-// whose arguments solve a type parameter to a subtype under a bound of
+// `where` of any impl but std::json's own reads no refinement
+// (blockReadsRefinement, implReceiverMatches). A generic call
+// whose arguments solve a type parameter to a refinement under a bound of
 // such an interface is called at the base (widenPastMadeSelf), so
-// `Iter.sum(ports)` is an Int. At run time a subtype is its base's
+// `Iter.sum(ports)` is an Int. At run time a refinement is its base's
 // value (irbuild erases it). So every
 // record the checker makes of a value's run-time shape reads a distinct
-// subtype as its base: the Iter view a source becomes (iterViewOf), a
+// refinement as its base: the Iter view a source becomes (iterViewOf), a
 // spread's head (checkSpreadHeads), and whether a value enters an
 // interface as itself (carriesOwnType, entersAsItself). The impls a call
 // solves a bound's open type arguments from are the base's too
@@ -1510,21 +1547,21 @@
 // A validated struct is a struct whose values satisfy the rule. It
 // converts to nothing; its rule only constrains construction.
 //
-// A value enters a subtype, a validated type or a validated struct in
+// A value enters a refinement, a validated type or a validated struct in
 // four ways:
 //
-//   - a literal of the base where the subtype is expected (a typed
+//   - a literal of the base where the refinement is expected (a typed
 //     literal with no `${...}` among them, `Duration"15m"`), or as the
 //     argument of its call form (`Port(8080)`), a struct literal whose
 //     fields are literals, or a collection literal whose elements are,
-//     through nested collection and tuple literals, where a subtype of
-//     a collection, or of a subtype of one, is expected or as the
+//     through nested collection and tuple literals, where a refinement of
+//     a collection, or of a refinement of one, is expected or as the
 //     argument of the call form, or a range literal whose endpoints are
-//     literals where a subtype of Range is expected (checkRangeLit)
+//     literals where a refinement of Range is expected (checkRangeLit)
 //     (checkCollectionRefinementLit, literalInnerOf, refinementCtorArg).
 //     A literal headed by a collection's name (`Vector[x]`, `Set[x]`)
-//     builds a subtype of that collection as the unnamed one does
-//     (shapeHeadSubtype). A literal of NonEmptyList, NonEmptyVector,
+//     builds a refinement of that collection as the unnamed one does
+//     (shapeHeadRefinement). A literal of NonEmptyList, NonEmptyVector,
 //     NonEmptySet or NonEmptyMap themselves needs no literal parts when
 //     it writes an element or spreads a value that holds something
 //     (literalHoldsSomething): its shape proves the rule, so it is not
@@ -1533,16 +1570,16 @@
 //     over irbuild's RefinementSites). A chain that reaches no base, its
 //     parent naming no type or a declaration cycle, is reported where it
 //     is declared, and a literal of it is checked as itself, since the
-//     chain's end is the subtype again (checkRefinementLiteral);
-//     A literal of a generic subtype is checked through its
+//     chain's end is the refinement again (checkRefinementLiteral);
+//     A literal of a generic refinement is checked through its
 //     `try_from` at the literal's type arguments: the checker types the
 //     call `Name.try_from(v)` in the literal's file
 //     (refinementCheckCall, RefinementStep.Check), its nodes at the
 //     literal's line and below-zero columns no token has, and v,
 //     RefinementLiteralName, the literal's value. Its owner is recorded as
-//     the subtype's declaration (refinementDeclSymbol), and
+//     the refinement's declaration (refinementDeclSymbol), and
 //     receiverOriginForReceiver takes that owner's origin from the record,
-//     so the file need bind no name to the subtype, and a type of its own
+//     so the file need bind no name to the refinement, and a type of its own
 //     by that name changes nothing; an error the call reports, a type
 //     argument that breaks a bound, is reported at the literal. Its declaration types
 //     the same call with each parameter a value of its bounds' interface,
@@ -1551,13 +1588,13 @@
 //     (recordRefinementRuleCheck, FileAnalysis.RefinementRuleChecks), so
 //     vmhost refuses a rule with effects whether or not a literal of it
 //     is checked;
-//   - `T.try_from(x)`, a `Maybe<T>`, generated for every subtype and checked
+//   - `T.try_from(x)`, an `Option<T>`, generated for every refinement and checked
 //     `type` (synthesizeRefinements; a checked `type`'s is its TryFrom
 //     impl's, whose parameter keeps the interface's name `value` and binds
 //     the argument under a fresh one when the rule reads a `value`), which checks each parent's `try_from` in
 //     the order written and then its own rule on the first parent's value, each
 //     call of a rule an ast.RefinementRule, a Bool that is False when the
-//     rule traps. A generic subtype's `try_from` and `unchecked` declare
+//     rule traps. A generic refinement's `try_from` and `unchecked` declare
 //     its type parameters and bounds as their own (refinementHead), so a
 //     call instantiates them as std's functions on a generic type are;
 //   - `T.unchecked(x)`, which checks nothing, allowed only in the file

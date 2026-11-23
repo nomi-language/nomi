@@ -52,7 +52,7 @@ import
     iter.Iter
     lists.List
     literals.{CheckedLiteral, Fragment, LiteralError}
-    maybe.Maybe.{self, None, Some}
+    option.Option.{self, None, Some}
     results.Result.{self, Err, Ok}
     strings.String
     unit.Unit
@@ -114,23 +114,23 @@ pub struct Url
     /// `https`, lowercase, or empty for a relative URL.
     scheme: String = ""
     /// The `user:password@` part.
-    user: Maybe<Userinfo> = None
+    user: Option<Userinfo> = None
     /// The host and its port, as `example.com:8080` or `[::1]:80`.
     host: String = ""
     /// The decoded path.
     path: String = ""
     /// The escaped path, set only when it is not the default encoding of
     /// `path` (`/a%2Fb` for the path `/a/b`).
-    raw_path: Maybe<String> = None
+    raw_path: Option<String> = None
     /// The encoded query, without the `?`. `Some("")` keeps a lone `?`.
-    query: Maybe<String> = None
+    query: Option<String> = None
     /// The decoded fragment, without the `#`.
-    fragment: Maybe<String> = None
+    fragment: Option<String> = None
     /// The escaped fragment, set as `raw_path` is.
-    raw_fragment: Maybe<String> = None
+    raw_fragment: Option<String> = None
     /// A URL with no `//` after the scheme: `ann@example.com` in
     /// `mailto:ann@example.com`.
-    opaque_part: Maybe<String> = None
+    opaque_part: Option<String> = None
     /// `True` for `file:///etc` read with an empty host that is not
     /// written back as `//`.
     omit_host: Bool = False
@@ -142,7 +142,7 @@ derive Hashable for Url
 /// A URL's user name and optional password.
 pub struct Userinfo
     name:     String
-    password: Maybe<String> = None
+    password: Option<String> = None
 end
 
 derive Equatable for Userinfo
@@ -173,7 +173,7 @@ impl Url
     //! assert u.path == "/a b"
     //! assert u.query == Some("q=1")
     //! assert u.fragment == Some("top")
-    //! assert Maybe.map(u.user, fn user -> user.name) == Some("ann")
+    //! assert Option.map(u.user, fn user -> user.name) == Some("ann")
     //! assert Url.parse("http://[::1]:namedport") |> Result.is_err()
     //
     pub fn parse(text: String) -> Result<Url, UrlError>
@@ -221,7 +221,7 @@ impl Url
     //! assert Url.port(Url"http://example.com:8080") == Some("8080")
     //! assert Url.port(Url"http://example.com") == None
     //
-    pub fn port(url: Url) -> Maybe<String>
+    pub fn port(url: Url) -> Option<String>
         case host.port_parts(to_parts(url))
             ""   -> None
             port -> Some(port)
@@ -277,7 +277,7 @@ impl Url
     //! ]
     //
     pub fn query_values(url: Url) -> Query
-        url.query |> Maybe.with_default("") |> query_from_text()
+        url.query |> Option.with_default("") |> query_from_text()
     end
 
     /// The URL with its query replaced by `query`, encoded as
@@ -374,7 +374,7 @@ impl Query
     //! assert Query.get(Query[("a", "1"), ("a", "2")], "a") == Some("1")
     //! assert Query.get(Query[], "a") == None
     //
-    pub fn get(query: Query, key: String) -> Maybe<String>
+    pub fn get(query: Query, key: String) -> Option<String>
         Query.values(query, key) |> List.first()
     end
 
@@ -712,7 +712,7 @@ fn pairs_of(flat: List<String>) -> List<(String, String)>
     end
 end
 
-fn maybe_text(text: String) -> Maybe<String>
+fn option_text(text: String) -> Option<String>
     if text == "" then None else Some(text)
 end
 
@@ -725,7 +725,7 @@ fn to_parts(url: Url) -> List<String>
     (has_user, user, has_password, password) =
         case url.user
             Some(u) ->
-                ("1", u.name, flag(Maybe.is_some(u.password)), Maybe.with_default(u.password, ""))
+                ("1", u.name, flag(Option.is_some(u.password)), Option.with_default(u.password, ""))
 
             None ->
                 ("", "", "", "")
@@ -733,18 +733,18 @@ fn to_parts(url: Url) -> List<String>
 
     [
         url.scheme,
-        Maybe.with_default(url.opaque_part, ""),
+        Option.with_default(url.opaque_part, ""),
         has_user,
         user,
         has_password,
         password,
         url.host,
         url.path,
-        Maybe.with_default(url.raw_path, ""),
+        Option.with_default(url.raw_path, ""),
         flag(url.query == Some("")),
-        Maybe.with_default(url.query, ""),
-        Maybe.with_default(url.fragment, ""),
-        Maybe.with_default(url.raw_fragment, ""),
+        Option.with_default(url.query, ""),
+        Option.with_default(url.fragment, ""),
+        Option.with_default(url.raw_fragment, ""),
         flag(url.omit_host),
     ]
 end
@@ -769,7 +769,7 @@ fn from_parts(parts: List<String>) -> Url
         ] ->
             Url{
                 scheme:,
-                opaque_part: maybe_text(opaque_text),
+                opaque_part: option_text(opaque_text),
                 user:
                     if has_user == "" then
                         None
@@ -788,10 +788,10 @@ fn from_parts(parts: List<String>) -> Url
                     end,
                 host:,
                 path:,
-                raw_path: maybe_text(raw_path),
+                raw_path: option_text(raw_path),
                 query: if force_query != "" or raw_query != "" then Some(raw_query) else None,
-                fragment: maybe_text(fragment),
-                raw_fragment: maybe_text(raw_fragment),
+                fragment: option_text(fragment),
+                raw_fragment: option_text(raw_fragment),
                 omit_host: omit_host != "",
             }
 

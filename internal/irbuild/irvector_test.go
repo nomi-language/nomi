@@ -115,8 +115,8 @@ fn main()
   io.inspect(Vector[..names, "Iris", "Eve"])
   io.inspect(Vector[..Vector[], 1, 2])
   io.inspect(Vector[1, ..Vector[]])
-  maybes: Vector<Maybe<Int>> = Vector[..Vector[], None]
-  io.inspect(maybes)
+  options: Vector<Option<Int>> = Vector[..Vector[], None]
+  io.inspect(options)
   io.inspect(Vector[..vector(Vector[1]), mark(2)])
   io.inspect(Vector[mark(3), ..vector(Vector[4])])
   t = Team{names:}

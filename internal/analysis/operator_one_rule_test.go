@@ -130,7 +130,7 @@ var oneRuleShapes = []oneRuleShape{
 	{name: "Vector", t: "Vector<Int>", families: []string{"==", "<", "+"}},
 	{name: "Set", t: "Set<Int>", families: []string{"==", "+"}},
 	{name: "Map", t: "Map<String, Int>", families: []string{"==", "+"}},
-	{name: "Maybe", t: "Maybe<Int>", families: []string{"=="}},
+	{name: "Option", t: "Option<Int>", families: []string{"=="}},
 	{name: "Result", t: "Result<Int, String>", families: []string{"=="}},
 	{name: "tuple", t: "(Int, String)", families: []string{"==", "<"}},
 	{name: "anonymous struct", t: "{x: Int}", families: []string{"=="}},

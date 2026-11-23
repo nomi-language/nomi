@@ -9,7 +9,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
-	"sync"
+	"weak"
 
 	"github.com/nomi-language/nomi/internal/ast"
 )
@@ -207,10 +207,14 @@ type ForeignImplFact[K comparable] struct {
 	HasInterface bool
 }
 
-// DemandFact is one recording of a file's ImplManifest.
+// DemandFact is one recording of a file's ImplManifest. NoType marks a
+// demand of a type with a part of no type, or a derive's demand of such a
+// part (FileAnalysis.demandOfNoType), which the file's analysis answers
+// when the facts are written and the reduction drops, as the check does.
 type DemandFact struct {
 	Iface, Type string
 	Rec         Recording
+	NoType      bool
 }
 
 // ProgramSupply is the supply side of a program's missing-impl check: the
@@ -460,13 +464,14 @@ func FileFactsOf(key string, fa *FileAnalysis, nodes []ast.Node, namer *FactsNam
 	for _, iface := range sortedKeys(fa.ImplManifest) {
 		for _, t := range sortedKeys(fa.ImplManifest[iface]) {
 			for _, rec := range fa.ImplManifest[iface][t] {
+				noType := fa.demandOfNoType(t, rec)
 				rec.Pos = f.shortPos(rec.Pos)
 				if d := rec.Derive; d != nil {
 					short := *d
 					short.DerivePos, short.FieldPos = f.shortPos(d.DerivePos), f.shortPos(d.FieldPos)
 					rec.Derive = &short
 				}
-				f.Demands = append(f.Demands, DemandFact{Iface: iface, Type: t, Rec: rec})
+				f.Demands = append(f.Demands, DemandFact{Iface: iface, Type: t, Rec: rec, NoType: noType})
 			}
 		}
 	}
@@ -517,18 +522,20 @@ func stdFnsOf(p *Program) func(*ast.FuncDef) *FileAnalysis {
 // isStdFile indexed, that declares a function with a body, or nil.
 func stdFnsIn(files map[*FileAnalysis]bool) func(*ast.FuncDef) *FileAnalysis {
 	return func(fd *ast.FuncDef) *FileAnalysis {
-		if f, ok := stdFnFile.Load(fd); ok && files[f.(*FileAnalysis)] {
-			return f.(*FileAnalysis)
+		if w, ok := stdFnFile.load(fd); ok {
+			if f := w.Value(); files[f] {
+				return f
+			}
 		}
 		return nil
 	}
 }
 
 // isStdFile reports whether f is a std file, and indexes its functions
-// with bodies when it is (stdFnsIn). Each std analysis is indexed once per
-// process: std's analyses are shared and never change.
+// with bodies when it is (stdFnsIn). Each std analysis is indexed once, for
+// as long as it lives: a std analysis never changes once built.
 func isStdFile(f *FileAnalysis) bool {
-	if _, ok := stdIndexed.Load(f); ok {
+	if _, ok := stdIndexed.load(f); ok {
 		return true
 	}
 	if _, isStd := stdlibModuleForPath(f.FilePath); !isStd {
@@ -536,16 +543,20 @@ func isStdFile(f *FileAnalysis) bool {
 	}
 	for _, sym := range f.Definitions {
 		if fd, ok := sym.Node.(*ast.FuncDef); ok && sym.Kind == SymbolFunction && fd.Body != nil {
-			stdFnFile.Store(fd, f)
+			stdFnFile.set(fd, weak.Make(f))
 		}
 	}
-	stdIndexed.Store(f, true)
+	stdIndexed.store(f, true)
 	return true
 }
 
 // stdFnFile holds each indexed std function's analysis, and stdIndexed the
-// std analyses indexed.
-var stdFnFile, stdIndexed sync.Map
+// std analyses indexed. The analysis is held weakly, since it reaches the
+// function that keys it.
+var (
+	stdFnFile  ownedCache[ast.FuncDef, weak.Pointer[FileAnalysis]]
+	stdIndexed ownedCache[FileAnalysis, bool]
+)
 
 // SupplyOf answers the supply side of the missing-impl check of fa's
 // program, a program checked from source, or nil when it has no impl index.
@@ -822,6 +833,9 @@ func reduceCoherence(files map[string]*FileFacts, keys []string, supply *Program
 		f := files[key]
 		for i := range f.Demands {
 			d := &f.Demands[i]
+			if d.NoType {
+				continue
+			}
 			rec := f.recording(d)
 			b := get(implPair{typeName: d.Type, iface: d.Iface})
 			b.recs = append(b.recs, rec)
@@ -861,7 +875,7 @@ func reduceCoherence(files map[string]*FileFacts, keys []string, supply *Program
 	return missingInOrder(missing)
 }
 
-const factsMagic = "NOMIFACTS5"
+const factsMagic = "NOMIFACTS7"
 
 // Encode writes f.
 func (f *FileFacts) Encode() []byte {

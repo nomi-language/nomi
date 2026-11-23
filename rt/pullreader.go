@@ -22,7 +22,7 @@ import (
 
 // Pull is what a pulled reader calls for its next chunk on frame fr: Some
 // chunk, None at the end, or the io.Error the read answers.
-type Pull func(fr *Frame) Result[Maybe[Bytes], IOError]
+type Pull func(fr *Frame) Result[Option[Bytes], IOError]
 
 // pullReader is the io.Reader under a pulled reader's buffer.
 type pullReader struct {
@@ -64,7 +64,7 @@ func newPullReader(name string, pull Pull, closeFn func() error) Reader {
 
 // ReaderFromFn is `Reader.from_fn`: a Reader that calls next for each chunk
 // it needs, on the frame of the read.
-func ReaderFromFn(next func(fr *Frame) Result[Maybe[Bytes], IOError]) Reader {
+func ReaderFromFn(next func(fr *Frame) Result[Option[Bytes], IOError]) Reader {
 	return newPullReader("<fn>", next, nil)
 }
 
@@ -74,15 +74,15 @@ func ReaderFromFn(next func(fr *Frame) Result[Maybe[Bytes], IOError]) Reader {
 func ReaderFromEach(run func(fr *Frame, yield func(chunk Bytes) bool)) Reader {
 	var next func() (Bytes, bool)
 	var stop func()
-	pull := func(fr *Frame) Result[Maybe[Bytes], IOError] {
+	pull := func(fr *Frame) Result[Option[Bytes], IOError] {
 		if next == nil {
 			next, stop = iter.Pull(func(yield func(Bytes) bool) { run(fr, yield) })
 		}
 		chunk, ok := next()
 		if !ok {
-			return Ok[Maybe[Bytes], IOError](None[Bytes]())
+			return Ok[Option[Bytes], IOError](None[Bytes]())
 		}
-		return Ok[Maybe[Bytes], IOError](Some(chunk))
+		return Ok[Option[Bytes], IOError](Some(chunk))
 	}
 	return newPullReader("<chunks>", pull, func() error {
 		if stop != nil {

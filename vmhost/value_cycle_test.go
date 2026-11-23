@@ -9,7 +9,7 @@ func TestRun_RecursionWithAWayOutRuns(t *testing.T) {
 	out := runOutput(t, `import std::io
 
 struct Node
-    next: Maybe<Node>
+    next: Option<Node>
     kids: List<Node>
     vec: Vector<Node>
     map: Map<String, Node>
@@ -19,7 +19,7 @@ end
 
 struct Chain<T>
     v: T
-    next: Maybe<Chain<T>>
+    next: Option<Chain<T>>
 end
 
 enum Tree
@@ -28,7 +28,7 @@ enum Tree
 end
 
 struct Defaulted
-    again: Maybe<Defaulted> = None
+    again: Option<Defaulted> = None
 end
 
 enum Rec
@@ -54,7 +54,7 @@ fn main()
     leaf = Node{next: None, kids: [], vec: [], map: {}, make: fn _ -> todo, result: Err("none")}
     root = {..leaf, next: Some(leaf), kids: [leaf, leaf]}
     struct Local
-        next: Maybe<Local>
+        next: Option<Local>
     end
     local = Local{next: Some(Local{next: None})}
     io.print(List.length(root.kids))

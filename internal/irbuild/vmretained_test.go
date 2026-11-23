@@ -317,9 +317,9 @@ func vmArgShapes(mod *ir.Module, f *ir.Func, links ...*ir.Module) [][]any {
 		rt.Decimal{},
 		rt.Byte(65),
 		rt.Bytes("A"),
-		// A Maybe a host call consumes, such as Maybe.to_result's receiver,
+		// An Option a host call consumes, such as Option.to_result's receiver,
 		// has no Match or projection in the graph to state its shape.
-		&probeVariant{enum: "maybe.Maybe", variant: "Some", payload: int64(1)},
+		&probeVariant{enum: "option.Option", variant: "Some", payload: int64(1)},
 	}
 	// A host handle is a leaf no literal builds: std's Regex bodies receive
 	// the handle Regex.compile answers, through the same extern table the

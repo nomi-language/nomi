@@ -25,13 +25,13 @@ pub enum Error
 end
 
 /// The number `text` writes, or `None` when it writes none.
-pub fn number(text: String) -> Maybe<Int>
+pub fn number(text: String) -> Option<Int>
     String.to_int(text)
 end
 
 /// The number `text` writes, or an `Err` saying what was there instead.
 pub fn parse(text: String) -> Result<Int, Error>
-    Maybe.to_result(number(text), .NotANumber{text:})
+    Option.to_result(number(text), .NotANumber{text:})
 end
 
 /// The number `text` writes. The caller promises it writes one, and a

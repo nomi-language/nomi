@@ -333,7 +333,7 @@ func (s AssertionSite) JudgeBool(subject bool, binding *AssertionBindingContext,
 	return s.Failure(s.FailedReason(), "", binding, values)
 }
 
-// ShapeFailure is the failure for a `Result` or `Maybe` subject that did not
+// ShapeFailure is the failure for a `Result` or `Option` subject that did not
 // hold: `assert` needs the carrying variant (Ok/Some) and `refute` needs the
 // other one.
 //

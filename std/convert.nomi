@@ -2,7 +2,7 @@
 //# A `?` applies it when the error it propagates is not the function's
 //# declared error type. `TryFrom` makes one when the value allows it.
 
-import maybe.Maybe
+import option.Option
 
 /// A type made from an `E`: `ApiError.from(e)`. A `?` on a `Result<T, E>`
 /// in a function that returns `Result<_, F>` applies `F`'s `From<E>` impl
@@ -51,7 +51,7 @@ end
 /// type Kelvin Float when fn k -> k >= 0.0
 ///
 /// impl TryFrom<Celsius> for Kelvin
-///     fn try_from(Celsius(c)) -> Maybe<Kelvin>
+///     fn try_from(Celsius(c)) -> Option<Kelvin>
 ///         Kelvin.try_from(c + 273.15)
 ///     end
 /// end
@@ -60,5 +60,5 @@ end
 /// A generic function bounded by `TryFrom<E>` checks a value into any type
 /// that has one, `where T: TryFrom<Int>` and then `T.try_from(n)`.
 pub interface TryFrom<E>
-    fn try_from(value: E) -> Maybe<self>
+    fn try_from(value: E) -> Option<self>
 end

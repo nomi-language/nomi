@@ -151,7 +151,7 @@ end
 
 // Focused programs for the mechanisms the Tour programs use: captures into a
 // block and its tasks, a branching block tail, nested blocks, a completed
-// outcome, a Maybe try, a lambda batch body and the scalar Display spellings.
+// outcome, an Option try, a lambda batch body and the scalar Display spellings.
 func TestIRConcurrency_Mechanisms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"captures, String tasks and a conditional tail", `import std::tasks.Task
@@ -199,9 +199,9 @@ fn main()
   Unit
 end
 `, "from a task\ndbg line 23: outer = 6\n"},
-		{"a completed outcome and a Maybe try", `import std::tasks.Task
+		{"a completed outcome and an Option try", `import std::tasks.Task
 
-fn half(n: Int) -> Maybe<Int>
+fn half(n: Int) -> Option<Int>
   if n % 2 == 0 then Some(n / 2) else None
 end
 
@@ -323,8 +323,8 @@ end
 func TestIRConcurrency_TryAndLoopInsideTheBlockRun(t *testing.T) {
 	// A try inside a task body leaves the task's lambda, whose boundary it
 	// is.
-	verifyLambdaProgram(t, "import\n std::io\n std::tasks.Task\nend\nfn run() -> Int\nr = concurrent\n t = Task.spawn(fn ->\n x = Some(2)?\n Some(x)\n end)\n Task.await(t)\n end\n Maybe.with_default(r, 0)\nend\n"+
-		"fn missing() -> Maybe<Int>\n    None\nend\nfn none() -> Int\nr = concurrent\n t = Task.spawn(fn ->\n x = missing()?\n Some(x)\n end)\n Task.await(t)\n end\n Maybe.with_default(r, 0)\nend\nfn main()\n io.print(run())\n io.print(none())\nend\n", "2\n0\n")
+	verifyLambdaProgram(t, "import\n std::io\n std::tasks.Task\nend\nfn run() -> Int\nr = concurrent\n t = Task.spawn(fn ->\n x = Some(2)?\n Some(x)\n end)\n Task.await(t)\n end\n Option.with_default(r, 0)\nend\n"+
+		"fn missing() -> Option<Int>\n    None\nend\nfn none() -> Int\nr = concurrent\n t = Task.spawn(fn ->\n x = missing()?\n Some(x)\n end)\n Task.await(t)\n end\n Option.with_default(r, 0)\nend\nfn main()\n io.print(run())\n io.print(none())\nend\n", "2\n0\n")
 	// An Iter.loop inside the block runs, as one inside any lambda does.
 	verifyLambdaProgram(t, "import\n std::io\n std::tasks.Task\nend\nfn run() -> Int\nconcurrent\n t = Task.spawn(fn -> 1)\n n0 = Task.await(t)\n Iter.loop(n0, fn n ->\n if n > 3 then break n * 10\n n + 1\n end)\n end\nend\nfn main()\n io.print(run())\nend\n", "40\n")
 }

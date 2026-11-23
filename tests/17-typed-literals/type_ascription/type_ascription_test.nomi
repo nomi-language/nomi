@@ -39,7 +39,7 @@ test "an ascription types an anonymous struct's fields"
 end
 
 test "an ascription types an empty collection and None"
-    later = None as Maybe<Post>
+    later = None as Option<Post>
     assert later == None
     names = [] as List<String>
     assert names == []

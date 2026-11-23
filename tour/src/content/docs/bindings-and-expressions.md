@@ -448,7 +448,7 @@ dbg line 24: range = "medium"
   up to `else` or `end`, as a function's body does.
 - An `if` without `else` is a statement: its branch is `Unit`, such as a
   print, or leaves with `return`. A branch with a value needs an `else`,
-  and a value that may be absent is a `Maybe` with `None` as its `else`:
+  and a value that may be absent is an `Option` with `None` as its `else`:
   `if x > 50 then Some("big") else None`.
 - `case x` ... `end` compares `x` against each pattern in turn and uses the
   first arm that matches. `_` matches anything. An arm whose `->` ends its

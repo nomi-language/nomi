@@ -9,12 +9,12 @@
 //
 //     pub struct AssertionDetails {
 //       reason: String = "assertion failed"
-//       actual: Maybe<String> = None
+//       actual: Option<String> = None
 //       details: List<AssertionDetail> = []
 //     }
 //
 // Its three field TYPES are each already expressible by the spec table
-// (stdScalarField, stdMaybeField, stdListField). The DEFAULTS are the whole
+// (stdScalarField, stdOptionField, stdListField). The DEFAULTS are the whole
 // question: stdstruct.go's shape check has to accept a field default, or
 // the declaration produces no anchor and every mention refuses `stdlib type`.
 //
@@ -25,7 +25,7 @@
 //     AssertionDetails{reason: "...", details: [...]}
 //
 // omitting `actual`, so a lowering that ignored defaults and left a zero
-// value in place would produce a `Maybe` whose Tag is 0 and which is
+// value in place would produce an `Option` whose Tag is 0 and which is
 // therefore NEITHER Some NOR None. That is not a refusal and not a
 // crash; it is a value that falls off the end of a `case`. `all_defaults` and
 // `only_reason` below are the rows that see it, because they are the ones that
@@ -33,7 +33,7 @@
 //
 // The zero-value hazard is per-field and each field fails differently, which is
 // why all three are read separately: `reason` would read "" instead of
-// "assertion failed", `actual` would be a tagless Maybe matching neither arm of
+// "assertion failed", `actual` would be a tagless Option matching neither arm of
 // `shown`, and `details` would be a nil list rather than an empty one.
 //
 // # Why the list is read through a PATTERN and not a count
@@ -63,10 +63,10 @@ import
     std::io
 end
 
-// shown renders a Maybe<String> without depending on Debug's layout, so the
-// `actual` rows stay readable when they are wrong. A tagless zero Maybe matches
+// shown renders an Option<String> without depending on Debug's layout, so the
+// `actual` rows stay readable when they are wrong. A tagless zero Option matches
 // neither arm, which is the failure this spelling exposes.
-fn shown(m: Maybe<String>) -> String
+fn shown(m: Option<String>) -> String
     case m
         Some(s) -> "Some(" + s + ")"
         None    -> "None"

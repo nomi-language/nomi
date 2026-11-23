@@ -260,7 +260,7 @@ end
 	}
 	for name, want := range map[string][]string{
 		"boxed":       {"List<Int>", "List<String>", "main.Shape", "Map<String, Int>"},
-		"boxed_debug": {"List<Int>", "maybe.Maybe<Int>", "main.Shape"},
+		"boxed_debug": {"List<Int>", "option.Option<Int>", "main.Shape"},
 	} {
 		got := keys[name]
 		if strings.Join(got, ",") != strings.Join(want, ",") {
@@ -441,7 +441,7 @@ end
 	}
 }
 
-// A Maybe, a Result or a Set held as Display renders as its interpolation
+// An Option, a Result or a Set held as Display renders as its interpolation
 // does: the box names std's impl instantiated at the container's kind, an
 // `embeds` enum's elements through the enum's own impl.
 func TestIRBoxedExistential_DisplayOfAStdContainerWithItsOwnImpl(t *testing.T) {

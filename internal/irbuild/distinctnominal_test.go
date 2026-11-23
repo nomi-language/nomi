@@ -2,7 +2,7 @@ package irbuild
 
 import "testing"
 
-// A distinct over a declared type runs: over a struct, an enum (Maybe and
+// A distinct over a declared type runs: over a struct, an enum (Option and
 // Result included), another distinct, a std Set or Vector, and a list of
 // declared values. Each is built, destructured in a binding, a parameter
 // and a `case`, shown, compared with `==`, held in a struct field and a
@@ -18,7 +18,7 @@ type Meters Int
 
 type Twice Meters
 
-type Wrapped Maybe<Int>
+type Wrapped Option<Int>
 
 type Res Result<Int, String>
 
@@ -55,7 +55,7 @@ impl Display for WP
     end
 end
 
-fn first<T>(xs: List<T>) -> Maybe<T>
+fn first<T>(xs: List<T>) -> Option<T>
     List.first(xs)
 end
 
@@ -66,7 +66,7 @@ fn get(w: Wrapped) -> Int
     end
 end
 
-fn unwrap(Wrapped(m): Wrapped) -> Maybe<Int>
+fn unwrap(Wrapped(m): Wrapped) -> Option<Int>
     m
 end
 
@@ -98,7 +98,7 @@ fn main()
     io.inspect(h)
     io.inspect(h == H{p: WP(P{x: 2}), w: Wrapped(Some(1))})
     begin
-        type Local Maybe<String>
+        type Local Option<String>
         io.inspect(Local(Some("a")))
     end
 end
@@ -130,7 +130,7 @@ end
 }
 
 // A distinct whose inner reaches the distinct back runs: `type Link Node`
-// where Node holds a `Maybe<Link>`, `type B W` where W holds a `Maybe<B>`,
+// where Node holds an `Option<Link>`, `type B W` where W holds an `Option<B>`,
 // a distinct reached through a struct's List, and one an enum's variant
 // carries. The distinct and the types it reaches are decided together,
 // co-inductively (irDistinctCoinductive), as a recursive struct is. Each is
@@ -140,13 +140,13 @@ func TestIRDistinctOverNominalType_CycleRuns(t *testing.T) {
 
 struct Node
     v: Int
-    next: Maybe<Link>
+    next: Option<Link>
 end
 
 type Link Node
 
 struct W
-    b: Maybe<B>
+    b: Option<B>
 end
 
 type B W

@@ -68,12 +68,12 @@ func TestCompletion_MemberOfGenericCall(t *testing.T) {
 		},
 		{
 			"owner generic function nested in one",
-			"fn f(points: List<Point>, p: Point) -> Int\n    Maybe.with_default(List.first(points), p)." + cursorMark + "\nend\n",
+			"fn f(points: List<Point>, p: Point) -> Int\n    Option.with_default(List.first(points), p)." + cursorMark + "\nend\n",
 			[]string{"x", "y"}, nil,
 		},
 		{
 			"map value through Map.get",
-			"fn f(m: Map<String, Point>, p: Point) -> Int\n    Maybe.with_default(Map.get(m, \"a\"), p)." + cursorMark + "\nend\n",
+			"fn f(m: Map<String, Point>, p: Point) -> Int\n    Option.with_default(Map.get(m, \"a\"), p)." + cursorMark + "\nend\n",
 			[]string{"x", "y"}, nil,
 		},
 		{
@@ -92,7 +92,7 @@ func TestCompletion_MemberOfGenericCall(t *testing.T) {
 			[]string{"x", "y"}, nil,
 		},
 		{
-			"a Maybe value has no fields",
+			"an Option value has no fields",
 			"fn f(points: List<Point>) -> Int\n    List.first(points)." + cursorMark + "\nend\n",
 			nil, []string{"x", "y", "map", "with_default"},
 		},
@@ -157,7 +157,7 @@ func TestCompletion_PipeAfterGenericCall(t *testing.T) {
 	labelsExclude(t, items, "to_point")
 
 	items = complete(t, genericDecls+"fn f(m: Map<String, Point>) -> Int\n    Map.get(m, \"a\") |> "+cursorMark+"\nend\n")
-	labelsInclude(t, items, "Maybe.with_default", "Maybe.map")
+	labelsInclude(t, items, "Option.with_default", "Option.map")
 	labelsExclude(t, items, "first", "List.first")
 }
 
@@ -165,7 +165,7 @@ func TestCompletion_PipeAfterGenericCall(t *testing.T) {
 func TestCompletion_MemberOfImportedGenericCall(t *testing.T) {
 	dir := writeProject(t, map[string]string{
 		"geo.nomi":  "pub struct Point\n    x: Int\n    y: Int\nend\n",
-		"util.nomi": "pub fn first<T>(xs: List<T>, fallback: T) -> T\n    List.first(xs) |> Maybe.with_default(fallback)\nend\n",
+		"util.nomi": "pub fn first<T>(xs: List<T>, fallback: T) -> T\n    List.first(xs) |> Option.with_default(fallback)\nend\n",
 		"main.nomi": "fn main() end\n",
 	})
 	s := NewServer()

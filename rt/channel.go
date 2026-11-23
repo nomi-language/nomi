@@ -248,7 +248,7 @@ func SenderSend[T any](fr *Frame, s Sender[T], v T) Result[Unit, ChannelClosed] 
 // The cancel arm is a peer of the receive arm rather than a test in front of it,
 // for SenderSend's reason: a receive that can complete completes. Go picks
 // randomly when both are ready, and that nondeterminism is accepted.
-func ReceiverReceive[T any](fr *Frame, r Receiver[T]) Maybe[T] {
+func ReceiverReceive[T any](fr *Frame, r Receiver[T]) Option[T] {
 	// The fast path first, so a receive that can complete now never touches the
 	// tracker: a park/unpark pair around a wait that does not happen would make
 	// `settled()` flicker for a supervisor that is busy.

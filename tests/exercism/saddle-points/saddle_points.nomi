@@ -33,6 +33,6 @@ fn column_minima(matrix: Vector<Vector<Int>>) -> Vector<Int>
     matrix
     |> Iter.transpose()
     |> Iter.map(Iter.min)
-    |> Maybe.values()
+    |> Option.values()
     |> Iter.to_vector()
 end

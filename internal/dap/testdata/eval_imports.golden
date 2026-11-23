@@ -48,17 +48,17 @@
 <- response stepIn
 <- event stopped {"allThreadsStopped":true,"reason":"step","threadId":1}
 -> stackTrace {"threadId":1}
-<- response stackTrace {"stackFrames":[{"column":9,"id":1,"line":85,"name":"Maybe<Int>.map","presentationHint":"subtle","source":{"name":"maybe.nomi","path":"$STD/maybe.nomi"}},{"column":18,"id":2,"line":6,"name":"main","source":{"name":"stdstep.nomi","path":"$TESTDATA/stdstep.nomi"}}],"totalFrames":2}
+<- response stackTrace {"stackFrames":[{"column":9,"id":1,"line":85,"name":"Option<Int>.map","presentationHint":"subtle","source":{"name":"option.nomi","path":"$STD/option.nomi"}},{"column":19,"id":2,"line":6,"name":"main","source":{"name":"stdstep.nomi","path":"$TESTDATA/stdstep.nomi"}}],"totalFrames":2}
 -> scopes {"frameId":1}
 <- response scopes {"scopes":[{"expensive":false,"name":"Locals","presentationHint":"locals","variablesReference":1}]}
 -> variables {"variablesReference":1}
-<- response variables {"variables":[{"declarationLocationReference":1,"name":"maybe","namedVariables":1,"type":"Maybe<Int>","value":"Some(2)","variablesReference":2},{"declarationLocationReference":2,"name":"f","type":"(Int) -> Int","value":"<func: <lambda>>","variablesReference":0}]}
--> evaluate {"context":"watch","expression":"Maybe.with_default(maybe, 0) + 1","frameId":1}
+<- response variables {"variables":[{"declarationLocationReference":1,"name":"option","namedVariables":1,"type":"Option<Int>","value":"Some(2)","variablesReference":2},{"declarationLocationReference":2,"name":"f","type":"(Int) -> Int","value":"<func: <lambda>>","variablesReference":0}]}
+-> evaluate {"context":"watch","expression":"Option.with_default(option, 0) + 1","frameId":1}
 <- response evaluate {"result":"3","type":"Int","variablesReference":0}
 -> evaluate {"context":"repl","expression":"f(5)","frameId":1}
 <- response evaluate {"result":"15","type":"Int","variablesReference":0}
--> evaluate {"context":"repl","expression":"maybe |> Maybe.map(f)","frameId":1}
-<- response evaluate {"namedVariables":1,"result":"Some(6)","type":"Maybe<Int>","variablesReference":3}
+-> evaluate {"context":"repl","expression":"option |> Option.map(f)","frameId":1}
+<- response evaluate {"namedVariables":1,"result":"Some(6)","type":"Option<Int>","variablesReference":3}
 -> continue {"threadId":1}
 <- response continue {"allThreadsContinued":true}
 <- event output {"category":"stdout","output":"Some(6)\n"}

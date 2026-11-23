@@ -12,7 +12,7 @@ import
     iter.Iter
     lists.List
     maps.Map
-    maybe.Maybe.{self, None, Some}
+    option.Option.{self, None, Some}
     results.Result
     results.Result.{Err, Ok}
     sets.Set
@@ -23,7 +23,7 @@ end
 //# JSON text to and from Nomi values. `Json.decode_as<T>` reads text as a
 //# typed value and `Json.encode_as` writes one. A struct takes part with
 //# `derive ToJson` and `derive FromJson`, and the built-in types, the
-//# collections, `Maybe` and `Result` already do. `Json.decode` and `Json.encode` work with the
+//# collections, `Option` and `Result` already do. `Json.decode` and `Json.encode` work with the
 //# `Json` tree itself, for JSON whose shape is not known in advance.
 
 /// A parsed JSON value. Each variant is named after the Nomi type it
@@ -70,7 +70,7 @@ end
 //! assert JsonObject.fields(object) == {"id" => Json.Int(7)}
 //! assert JsonObject.try_from(Json.Int(7)) == None
 //
-pub subtype JsonObject Json when fn json ->
+pub refine JsonObject Json when fn json ->
     case json
         .Obj(_) -> True
         _       -> False
@@ -360,7 +360,7 @@ end
 pub fn decode_defaulted_field<T>(
     fields: Map<String, Json>,
     key:    String,
-) -> Result<Maybe<T>, Json.ShapeError> where T: FromJson
+) -> Result<Option<T>, Json.ShapeError> where T: FromJson
     case Map.get(fields, key)
         Some(json) ->
             case T.from_json(json)
@@ -440,7 +440,7 @@ pub interface ToJson
     /// The JSON a struct field holding `value` writes under its key, or
     /// `None` to leave the key out. It is `Some(to_json(value))` unless an
     /// impl writes its own, as `Presence<T>`'s does for `Absent`.
-    open fn to_json_field(value: self) -> Maybe<Json>
+    open fn to_json_field(value: self) -> Option<Json>
         Some(to_json(value))
     end
 end
@@ -450,29 +450,29 @@ end
 /// reads an object as `derive FromJson` reads a struct with the same fields:
 /// each field from the key of its name, and keys it has no field for
 /// ignored. A missing key reads as its field's type's `from_missing`: `None`
-/// for a `Maybe` field, `Absent` for a `Presence` field (`std::presence`).
+/// for an `Option` field, `Absent` for a `Presence` field (`std::presence`).
 /// When `from_missing` answers `None`, as it does for most types, the
 /// missing key is the error `<key>: expected <type>, got missing`. A derived
 /// impl reads an enum's bare variant from its name as a string, and a
 /// variant with a payload from an object with exactly one key, its name, as
 /// `Result`'s impl reads `{"Ok": value}`.
-//! todo = Json.decode_as<{title: String, order: Maybe<Int>}>(`{"title": "milk", "id": 3}`)
+//! todo = Json.decode_as<{title: String, order: Option<Int>}>(`{"title": "milk", "id": 3}`)
 //! assert todo == Ok({title: "milk", order: None})
 //!
 //! missing = Json.decode_as<{title: String}>("{}") |> Result.map_err(&Display.to_string(&1))
 //! assert missing == Err("title: expected String, got missing")
 //!
 //! assert Int.from_missing() == None
-//! assert FromJson.from_missing<Maybe<Int>>() == Some(None)
+//! assert FromJson.from_missing<Option<Int>>() == Some(None)
 //
 pub interface FromJson
     fn from_json(json: Json) -> Result<self, Json.ShapeError>
 
     /// What a struct field of this type reads when its key is missing:
     /// `Some(value)`, or `None` when a missing key is an error. It is `None`
-    /// unless an impl writes its own, as `Maybe<T>`'s (`Some(None)`) and
+    /// unless an impl writes its own, as `Option<T>`'s (`Some(None)`) and
     /// `Presence<T>`'s (`Some(Absent)`) do.
-    open fn from_missing() -> Maybe<self>
+    open fn from_missing() -> Option<self>
         None
     end
 end
@@ -480,7 +480,7 @@ end
 /// The object a struct's fields write: each key with its field's
 /// `ToJson.to_json_field`, and a key whose answer is `None` left out.
 /// `derive ToJson` writes a struct, and a struct variant's payload, with it.
-pub fn object_of_fields(fields: Map<String, Maybe<Json>>) -> Json
+pub fn object_of_fields(fields: Map<String, Option<Json>>) -> Json
     Json.Obj(
         Iter.reduce(fields, {}, fn acc, (key, field) ->
             case field
@@ -639,8 +639,8 @@ impl FromJson for Set<T> where T: FromJson
     end
 end
 
-impl ToJson for Maybe<T> where T: ToJson
-    fn to_json(value: Maybe<T>) -> Json
+impl ToJson for Option<T> where T: ToJson
+    fn to_json(value: Option<T>) -> Json
         case value
             Some(inner) -> ToJson.to_json(inner)
             None        -> Json.Null
@@ -648,8 +648,8 @@ impl ToJson for Maybe<T> where T: ToJson
     end
 end
 
-impl FromJson for Maybe<T> where T: FromJson
-    fn from_json(json: Json) -> Result<Maybe<T>, Json.ShapeError>
+impl FromJson for Option<T> where T: FromJson
+    fn from_json(json: Json) -> Result<Option<T>, Json.ShapeError>
         case json
             Json.Null ->
                 Ok(None)
@@ -662,8 +662,8 @@ impl FromJson for Maybe<T> where T: FromJson
         end
     end
 
-    // A missing key of a Maybe field reads as None.
-    fn from_missing() -> Maybe<Maybe<T>>
+    // A missing key of an Option field reads as None.
+    fn from_missing() -> Option<Option<T>>
         Some(None)
     end
 end
@@ -960,7 +960,7 @@ end
 // What a missing key of an anonymous struct's field of type T reads as. The
 // IR builder instantiates it for each such field
 // (internal/irbuild/irrecordjson.go); no Nomi code calls it.
-fn missing_value<T>() -> Maybe<T> where T: FromJson
+fn missing_value<T>() -> Option<T> where T: FromJson
     T.from_missing()
 end
 

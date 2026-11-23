@@ -15,7 +15,7 @@ import (
 // preludeAnchorsOf takes a spec's identity from `fa.ModuleScope.Lookup(name)`,
 // so an anchor is a statement about ONE module: the name is in scope, resolves
 // to a type whose (Origin, Name) is the spec's, and that type's declaration has
-// the shape the spec describes. `Maybe` and `Result` are auto-imported into
+// the shape the spec describes. `Option` and `Result` are auto-imported into
 // every module, so for them "this module says so" and "this is the type"
 // coincide. For `Fragment` they do not.
 //
@@ -48,7 +48,7 @@ import (
 // are available without the using module:
 //
 //   - IDENTITY. Unlike `analysis.InterfaceType`, `analysis.EnumType` CARRIES an
-//     `Origin` (`Maybe` resolves with `Origin == "std/maybe"`), so
+//     `Origin` (`Option` resolves with `Origin == "std/option"`), so
 //     the analyzer's own nominal-identity rule answers directly. `std` is
 //     unforgeable as a module name (analysis/manifest.go's LoadManifest rejects
 //     `[package].name = "std"`), so a user's own `Fragment` carries a different

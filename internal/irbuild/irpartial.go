@@ -30,7 +30,7 @@ import (
 // records at the `&N`, which the body's call reads through openArg). It is
 // named so no Nomi program can spell it, so no parameter shadows a name the
 // callee expression starts from
-// (`&maybe.Maybe.map(&1, f)`, whose first parameter is `maybe`). It carries
+// (`&option.Option.map(&1, f)`, whose first parameter is `option`). It carries
 // the callee's default when the builder can see the declaration, so an
 // argument the call of the partial omits takes it, and partialOpen hands the
 // lambda the slot's kind and the callee's parameter name, by which the

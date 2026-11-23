@@ -116,7 +116,7 @@ import
     std::io
 end
 
-fn unwrap(m: Maybe<ids.Id>) -> Int
+fn unwrap(m: Option<ids.Id>) -> Int
     case m
         Some(ids.Id(x)) -> x
         None -> 0

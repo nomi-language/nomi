@@ -2,9 +2,9 @@
 import domain::zkinds.ReactionType
 
 pub struct Form
-    kind: Maybe<ReactionType>
+    kind: Option<ReactionType>
 end
 
-pub fn kind_of(form: Form) -> Maybe<ReactionType>
+pub fn kind_of(form: Form) -> Option<ReactionType>
     form.kind
 end

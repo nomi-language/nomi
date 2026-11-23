@@ -12,7 +12,7 @@ import (
 // calls with those elements takes it for the parameter that receives them,
 // so in `1..=n |> Iter.filter(fn d -> x % d == 0)` the parameter `d` is 1
 // and up and `%` takes it as a divisor. The parameter keeps its type (an
-// Int there): the range converts it where a subtype is expected, as a
+// Int there): the range converts it where a refinement is expected, as a
 // binding's does, and changes no type the program infers.
 //
 // The sources whose elements have a range (elemFactOf):
@@ -37,7 +37,7 @@ import (
 // a callback argument is noted with its source as the call is checked
 // (noteIterCallbacks), and checkLambdaExpecting and checkCapture seed the
 // parameter's range (seedLambdaElems, seedCaptureElems). A callback whose
-// parameter is a subtype the range proves takes the type the position
+// parameter is a refinement the range proves takes the type the position
 // passes, whichever way it is written (elemProves). A source of any
 // other form, a binding among them, gives no fact.
 
@@ -132,7 +132,7 @@ func (c *checker) noteIterCallbacks(call *ast.Call, piped ast.Node) {
 // elemProves reports whether parameter i of cb, a callback a std Iter
 // function calls with its source's elements (noteIterCallbacks), takes
 // what the position passes: the position passes a have, the parameter is a
-// want, a subtype of it, and the elements' range proves want's rules. It
+// want, a refinement of it, and the elements' range proves want's rules. It
 // is the one judgement for every way a callback is written: a lambda's
 // annotated parameter (seedLambdaElems), a partial capture's slot
 // (holeProvesSlot) and a function passed by name (callbackAsPassed) each
@@ -147,7 +147,7 @@ func (c *checker) elemProves(cb ast.Node, i int, have, want Type) bool {
 
 // callbackAsPassed is ty, the type of the function node names where a
 // function of type expected is passed, with each parameter that receives
-// its source's elements, and is a subtype their range proves, as the type
+// its source's elements, and is a refinement their range proves, as the type
 // the position passes: `1..=n |> Iter.map(verse)` with `verse:
 // (PositiveInt) -> String` passes an `(Int) -> String`, as `&verse(&1)` and
 // `fn d -> verse(d)` do. Nil when nothing changes.
@@ -184,7 +184,7 @@ func (c *checker) callbackAsPassed(node ast.Node, ty, expected Type) Type {
 
 // seedLambdaElems gives each parameter of n that receives its source's
 // elements their range, with params the parameters' types and expected
-// the types the position passes. A parameter annotated with a subtype the
+// the types the position passes. A parameter annotated with a refinement the
 // range proves, `fn d: PositiveInt ->` over `1..=n`, takes the type the
 // position passes, as a partial capture's slot does (holeProvesSlot):
 // params is changed in place.

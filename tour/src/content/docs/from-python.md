@@ -19,13 +19,13 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `x = 1`, then `x += 1` | `x = 1`, then `x = x + 1`. Values are immutable; the name is bound again. |
 | `s.strip()`, `len(xs)` | `String.trim(s)`, `List.length(xs)`: functions are called through their owner |
 | `class User:` with `self.name` | `struct User` with a `name: String` field, read as `user.name`; behavior goes in `impl User` |
-| `None` | `None`, but only in a `Maybe<T>`: a value that may be missing says so in its type |
+| `None` | `None`, but only in an `Option<T>`: a value that may be missing says so in its type |
 | `raise ValueError(..)`, `try:` | Return `Result<T, E>`; a postfix `?` passes an `Err` up |
 | `if xs:` on any value | `if` takes a `Bool`: `if not Iter.is_empty(xs)`, `if count > 0` |
 | `match`, which does nothing when no case matches | `case`, which must cover every value; the checker rejects one that does not |
 | `pair[0]` | `pair.first`, `pair.second`, ...: a tuple's items are read by name |
 | `1 / 2` is `0.5`; `-7 // 2` is `-4`; `-7 % 3` is `2` | `/` on two `Int`s truncates toward zero: `1 / 2` is `0` and `-7 / 2` is `-3`. Convert an operand with `Int.to_float` for a `Float` result. `%` takes the sign of its left operand, so `-7 % 3` is `-1`; `Int.floor_div` and `Int.modulo` are Python's `//` and `%`. The divisor must be a `NonZeroInt`: a literal other than 0 is one, and so is `d` after `if d == 0 then return ..`. |
-| `float(n)`, `int(s)` | `Int.to_float(n)`, `String.to_int(s)`, which returns a `Maybe`. Nomi's `x as T` converts nothing: it only states a type the value already fits (`[] as List<String>`). |
+| `float(n)`, `int(s)` | `Int.to_float(n)`, `String.to_int(s)`, which returns an `Option`. Nomi's `x as T` converts nothing: it only states a type the value already fits (`[] as List<String>`). |
 | `with open(path) as f:` | `defer Reader.close_quietly(r)` on the line after opening; the checker requires it for a resource |
 | `for x in xs:`, `while` | `Iter.each`, a fold, recursion, or `Iter.loop` |
 | Duck typing, or a `Protocol` any class of that shape satisfies | An `interface`, and a type implements one by saying so: `impl Speak for Dog` |
@@ -71,7 +71,7 @@ fn word_lengths(text: String) -> Map<String, Int>
     |> Iter.to_map()
 end
 
-fn average(numbers: List<Int>) -> Maybe<Float>
+fn average(numbers: List<Int>) -> Option<Float>
     Iter.mean(numbers)
 end
 

@@ -227,14 +227,14 @@ func projectSpec(v rt.Value) (stdcompiler.ProjectSpec, error) {
 	}
 	spec := stdcompiler.ProjectSpec{EntryPoint: entry, Files: files}
 	if m, err := field(v, "Project", "manifest"); err == nil && m != nil {
-		maybe, ok := m.(*rt.Record)
-		if !ok || maybe.Desc.Kind != rt.KindEnum || rt.ShortTypeName(maybe.Desc.Name) != "Maybe" {
-			return stdcompiler.ProjectSpec{}, fmt.Errorf("compiler.Project.manifest must be Maybe<String>")
+		option, ok := m.(*rt.Record)
+		if !ok || option.Desc.Kind != rt.KindEnum || rt.ShortTypeName(option.Desc.Name) != "Option" {
+			return stdcompiler.ProjectSpec{}, fmt.Errorf("compiler.Project.manifest must be Option<String>")
 		}
-		if maybe.Variant().Name == "Some" {
-			text, ok := maybe.Field(0).(string)
+		if option.Variant().Name == "Some" {
+			text, ok := option.Field(0).(string)
 			if !ok {
-				return stdcompiler.ProjectSpec{}, fmt.Errorf("compiler.Project.manifest must be Maybe<String>, got Some(%s)", describe(maybe.Field(0)))
+				return stdcompiler.ProjectSpec{}, fmt.Errorf("compiler.Project.manifest must be Option<String>, got Some(%s)", describe(option.Field(0)))
 			}
 			spec.Manifest = &text
 		}

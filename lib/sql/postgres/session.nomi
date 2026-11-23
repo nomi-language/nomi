@@ -90,7 +90,7 @@ end
 struct Gather<A>
     acc:     A
     wanting: Bool
-    failure: Maybe<sql.Error>
+    failure: Option<sql.Error>
     changed: Int
 end
 
@@ -141,7 +141,7 @@ end
 fn decoded(
     prepared: Prepared,
     names:    List<String>,
-    values:   List<Maybe<Bytes>>,
+    values:   List<Option<Bytes>>,
 ) -> Result<List<(String, Value)>, String>
     cells(names, prepared.codecs, prepared.formats, values, [])
 end
@@ -152,7 +152,7 @@ fn cells(
     names:   List<String>,
     codecs:  List<Codec>,
     formats: List<Int>,
-    values:  List<Maybe<Bytes>>,
+    values:  List<Option<Bytes>>,
     done:    List<(String, Value)>,
 ) -> Result<List<(String, Value)>, String>
     case (names, codecs, formats, values)
@@ -172,7 +172,7 @@ end
 fn bound(
     prepared: Prepared,
     params:   List<Value>,
-) -> Result<(List<Int>, List<Maybe<Bytes>>), sql.Error>
+) -> Result<(List<Int>, List<Option<Bytes>>), sql.Error>
     if Iter.count(params) != Iter.count(prepared.params) then
         return Err(
             sql.Error.Database{
@@ -327,7 +327,7 @@ pub fn rows_affected(tag: String) -> Int
 
     case (List.first(words), Iter.last(words))
         (Some(command), Some(count)) when command in counted ->
-            String.to_int(count) |> Maybe.with_default(0)
+            String.to_int(count) |> Option.with_default(0)
 
         _ ->
             0

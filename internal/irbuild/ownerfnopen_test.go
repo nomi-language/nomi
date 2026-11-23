@@ -6,7 +6,7 @@ import (
 )
 
 // A generic owner function called where inference left its own type
-// argument open (`Box.flat(Box.Full(None))`, flat<T> over `Box<Maybe<T>>`)
+// argument open (`Box.flat(Box.Full(None))`, flat<T> over `Box<Option<T>>`)
 // is instantiated at the type the checker closed the variable as
 // (analysis.TypeVar.Closed), as its operands are: from the declaring
 // file's tests (genericMethodItem) and from another file
@@ -42,7 +42,7 @@ enum Box<T>
 end
 
 impl Box<T>
-    fn shown<T>(b: Box<Maybe<T>>) -> String where T: Display
+    fn shown<T>(b: Box<Option<T>>) -> String where T: Display
         case b
             .Full(Some(v)) -> Display.to_string(v)
             .Full(None) -> "none"
@@ -59,9 +59,9 @@ end
 }
 
 // An owner function that uses its block's own T rather than declaring one
-// (`fn flat(b: Box<Maybe<T>>) -> Maybe<T>` in `impl Box<T>`) is built in
+// (`fn flat(b: Box<Option<T>>) -> Option<T>` in `impl Box<T>`) is built in
 // the instance of the block the checker instantiated the call at,
-// `Box<Int>` for a `Box<Maybe<Int>>` operand, and not in the operand's
+// `Box<Int>` for a `Box<Option<Int>>` operand, and not in the operand's
 // instance (templateCallInstance). It declined before, open T or not.
 func TestOwnerFnBlockParam_InstantiatesAtTheCheckersBlock(t *testing.T) {
 	if testing.Short() {
@@ -75,19 +75,19 @@ enum Box<T>
 end
 
 impl Box<T>
-    fn flat(b: Box<Maybe<T>>) -> Maybe<T>
+    fn flat(b: Box<Option<T>>) -> Option<T>
         case b
             .Full(inner) -> inner
-            .Empty -> Maybe.None
+            .Empty -> Option.None
         end
     end
 end
 
 fn main()
-    io.print("${Box.flat(Box.Full(Maybe.None)) == Maybe.None}")
-    empty: Box<Maybe<String>> = Box.Empty
-    io.print("${Box.flat(empty) == Maybe.None}")
-    io.print("${Box.flat(Box.Full(Maybe.Some(2)))}")
+    io.print("${Box.flat(Box.Full(Option.None)) == Option.None}")
+    empty: Box<Option<String>> = Box.Empty
+    io.print("${Box.flat(empty) == Option.None}")
+    io.print("${Box.flat(Box.Full(Option.Some(2)))}")
 end
 `, "True\nTrue\nSome(2)\n")
 }

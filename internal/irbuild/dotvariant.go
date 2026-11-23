@@ -53,14 +53,14 @@ import (
 // declaration's identity, whose spec names the variant. A module declaring
 // its own `Outcome` types the dot at its own enum, which is no prelude
 // instance. The same holds for every prelude spec, not only Outcome:
-// `m: Maybe<Int> = .None` takes this route too.
+// `m: Option<Int> = .None` takes this route too.
 //
 // WHAT THIS ROUTE CANNOT DO, and it is UNREACHABLE rather than a hole:
 // canonicalize an ALIAS. `t.Name` is the LOCAL spelling and the
 // declaration-name mapping lives only in the reference map, so
-// `import std::maybe.Maybe.{None as Nothing}` followed by `.Nothing`
+// `import std::option.Option.{None as Nothing}` followed by `.Nothing`
 // would find no variant on the spec and decline. The analyzer refuses that
-// program first — "no variant 'Nothing' on enum Maybe" — because the dot
+// program first — "no variant 'Nothing' on enum Option" — because the dot
 // shorthand resolves against the DECLARATION's variant names and an import
 // alias does not rename a variant for it. The unqualified form `Nothing` (no
 // dot) is a different node and lowers. Both halves are asserted, so an

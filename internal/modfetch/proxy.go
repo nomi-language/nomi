@@ -29,6 +29,9 @@ type directError struct {
 	private bool
 	// tried is what each proxy before `direct` answered.
 	tried []string
+	// notFound is set when there was a proxy before `direct` and every one
+	// answered that it does not have the module or version.
+	notFound bool
 }
 
 func (e *directError) Error() string { return "GOPROXY reached direct" }
@@ -58,7 +61,8 @@ const maxDownload = 500 << 20
 var httpClient = &http.Client{Timeout: 5 * time.Minute}
 
 // proxyGet fetches name ("@v/list", "@latest", "@v/<version>.zip", ...) for
-// module path through GOPROXY, as the go command walks its list.
+// module path through GOPROXY, as the go command walks its list. When every
+// proxy answered not found, the error wraps errNotFound (missingVersion).
 func (f *fetcher) proxyGet(path, name string) ([]byte, error) {
 	if f.offline {
 		return nil, &offlineError{what: path}
@@ -68,21 +72,23 @@ func (f *fetcher) proxyGet(path, name string) ([]byte, error) {
 		return nil, err
 	}
 	var errs []string
+	notFound := true
 	for _, p := range f.cfg.proxiesFor(path) {
 		switch p.url {
 		case "off":
 			if len(errs) == 0 {
 				return nil, fmt.Errorf("module lookup disabled by GOPROXY=off")
 			}
-			return nil, fmt.Errorf("%s", strings.Join(errs, "; "))
+			return nil, &proxyError{answers: errs, notFound: notFound}
 		case "direct":
-			return nil, &directError{private: f.cfg.private(path), tried: errs}
+			return nil, &directError{private: f.cfg.private(path), tried: errs, notFound: len(errs) > 0 && notFound}
 		}
 		data, err := readURL(p.url + "/" + enc + "/" + name)
 		if err == nil {
 			return data, nil
 		}
 		errs = append(errs, err.Error())
+		notFound = notFound && errors.Is(err, errNotFound)
 		if !p.fallAny && !errors.Is(err, errNotFound) {
 			return nil, err
 		}
@@ -90,7 +96,27 @@ func (f *fetcher) proxyGet(path, name string) ([]byte, error) {
 	if len(errs) == 0 {
 		return nil, fmt.Errorf("GOPROXY lists no proxy")
 	}
-	return nil, fmt.Errorf("%s", strings.Join(errs, "; "))
+	return nil, &proxyError{answers: errs, notFound: notFound}
+}
+
+// proxyError is what every proxy GOPROXY lists answered, none with the
+// file asked for. It is errNotFound when each answered not found.
+type proxyError struct {
+	answers  []string
+	notFound bool
+}
+
+func (e *proxyError) Error() string { return strings.Join(e.answers, "; ") }
+
+func (e *proxyError) Is(target error) bool { return e.notFound && target == errNotFound }
+
+// missingVersion reports whether err, from asking GOPROXY for a module
+// version, says that every proxy it asked lacks it.
+func missingVersion(err error) bool {
+	if d := (*directError)(nil); errors.As(err, &d) {
+		return d.notFound
+	}
+	return errors.Is(err, errNotFound)
 }
 
 // fileURLPath is the operating system path of a file URL's path. On

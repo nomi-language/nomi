@@ -61,6 +61,7 @@ func stateGlobalValues() []any {
 		floatFamily,
 		foldCallbackArg,
 		fromJSONIface,
+		generatedName,
 		hiddenQualifier,
 		htmlDisplaySlots,
 		htmlSlotHelps,
@@ -79,7 +80,7 @@ func stateGlobalValues() []any {
 		noProgram,
 		nonEmptyCounts,
 		nullNames,
-		operandSubtypeInterfaces,
+		operandRefinementInterfaces,
 		pendingDefault,
 		preludeImportsCache,
 		preludeImportsCacheErr,
@@ -93,7 +94,7 @@ func stateGlobalValues() []any {
 		stdDebugDecl,
 		stdHandleTypes,
 		stdIndex,
-		stdNonEmptySubtypes,
+		stdNonEmptyRefinements,
 		stdSetDecl,
 		stdVectorDecl,
 		subtestsNameExitless,
@@ -379,6 +380,7 @@ func (e *stateEncoder) stDistinctType(x *DistinctType) {
 	e.str(string(x.Origin))
 	e.str(string(x.Name))
 	e.stType(x.Inner)
+	e.w.Bool(x.InnerOfNoType)
 	e.w.Bool(x.WrittenAsParts)
 	e.w.Bool(x.Opaque)
 	e.str(string(x.OwningSourceFile))
@@ -386,7 +388,7 @@ func (e *stateEncoder) stDistinctType(x *DistinctType) {
 	e.stSPTypeParam_(x.TypeParamDefs)
 	e.stSType(x.TypeArgs)
 	e.str(string(x.Rule))
-	e.w.Bool(x.Subtype)
+	e.w.Bool(x.Refinement)
 	e.w.Bool(x.Intersection)
 	e.stSType(x.MoreParents)
 	e.stPunbuiltDecl(x.unbuilt)
@@ -396,6 +398,7 @@ func (d *stateDecoder) stDistinctType(x *DistinctType) {
 	x.Origin = string(d.str())
 	x.Name = string(d.str())
 	x.Inner = d.stType()
+	x.InnerOfNoType = bool(d.w.Bool())
 	x.WrittenAsParts = bool(d.w.Bool())
 	x.Opaque = bool(d.w.Bool())
 	x.OwningSourceFile = string(d.str())
@@ -403,7 +406,7 @@ func (d *stateDecoder) stDistinctType(x *DistinctType) {
 	x.TypeParamDefs = d.stSPTypeParam_()
 	x.TypeArgs = d.stSType()
 	x.Rule = string(d.str())
-	x.Subtype = bool(d.w.Bool())
+	x.Refinement = bool(d.w.Bool())
 	x.Intersection = bool(d.w.Bool())
 	x.MoreParents = d.stSType()
 	x.unbuilt = d.stPunbuiltDecl()
@@ -9945,4 +9948,4 @@ func (d *stateDecoder) stunbuiltDecl(x *unbuiltDecl) {
 }
 
 // stateCodecDigest is a digest of the code above it (StdStateFormat).
-const stateCodecDigest = "ad26bf405ba88628"
+const stateCodecDigest = "396a96b8cfde2ce5"

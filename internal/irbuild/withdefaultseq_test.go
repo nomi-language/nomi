@@ -14,7 +14,7 @@ func TestIRWithDefaultAtIterPayload_Runs(t *testing.T) {
 fn main()
     f: (List<Bool>) -> Int = fn xs -> Iter.count(xs)
     io.inspect(f(Iter.filter(Result.with_default(Err("no"), [False, True]), fn x -> x) |> Iter.to_list()))
-    io.inspect(Iter.filter(Maybe.with_default(None, [True]), fn x -> x) |> Iter.to_list())
+    io.inspect(Iter.filter(Option.with_default(None, [True]), fn x -> x) |> Iter.to_list())
 end
 `
 	const want = "1\n" +

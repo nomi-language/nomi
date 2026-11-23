@@ -12,7 +12,7 @@ func irRetainedSetKind(k kind) bool {
 
 // irSetElemKind is a retained set's element domain: every map key
 // (irMapKeyKind), plus the structural containers over elements (a List, a
-// Vector, a Maybe or Result, a Set). The VM hashes and compares an element
+// Vector, an Option or Result, a Set). The VM hashes and compares an element
 // as `==` does: a declared type through its hand-written Equatable and
 // Hashable, structurally otherwise (vm/keys.go).
 func irSetElemKind(k kind) bool {

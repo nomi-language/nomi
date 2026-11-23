@@ -20,7 +20,7 @@ end
 fn main()
     f = &pick(False, &1, Some(Ok(6.5)))
     io.inspect(f(None))
-    g: (Maybe<Result<Float, String>>) -> Maybe<Result<Float, String>> = &pick(True, &1, Some(Ok(6.5)))
+    g: (Option<Result<Float, String>>) -> Option<Result<Float, String>> = &pick(True, &1, Some(Ok(6.5)))
     io.inspect(g(Some(Err("e"))))
 end
 `, "Some(Ok(6.5))\nSome(Err(\"e\"))\n")

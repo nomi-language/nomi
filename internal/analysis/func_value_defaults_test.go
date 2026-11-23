@@ -11,11 +11,11 @@ import (
 // value has every parameter, and a call through it passes every argument.
 
 const funcValueDefaultsDecls = `
-fn parse(s: String, strict: Bool = False) -> Maybe<Int>
+fn parse(s: String, strict: Bool = False) -> Option<Int>
   if strict then None else String.to_int(s)
 end
 
-fn apply(f: (String) -> Maybe<Int>, s: String) -> Maybe<Int>
+fn apply(f: (String) -> Option<Int>, s: String) -> Option<Int>
   f(s)
 end
 
@@ -34,10 +34,10 @@ end
 
 func TestFuncValueDefaults_FillWhereFewerParametersAreExpected(t *testing.T) {
 	for _, stmt := range []string{
-		`_ = Maybe.map(Some("1"), parse)`,
+		`_ = Option.map(Some("1"), parse)`,
 		`_ = Iter.map(["1"], parse)`,
 		`_ = ["1"] |> Iter.map(parse)`,
-		`f: (String) -> Maybe<Int> = parse` + "\n  _ = f(\"1\")",
+		`f: (String) -> Option<Int> = parse` + "\n  _ = f(\"1\")",
 		`_ = apply(parse, "1")`,
 		`_ = apply(f: parse, s: "1")`,
 		`_ = parse |> apply("1")`,
@@ -61,9 +61,9 @@ func TestFuncValueDefaults_RejectedWhereADefaultCannotFill(t *testing.T) {
 	const copied = "g = parse\n  _ = g |> apply(\"1\")"
 	for _, tc := range []struct{ stmt, want string }{
 		{`_ = Iter.map(["1"], two)`, "argument 2: expected (String) -> U, got (String, Int) -> Int"},
-		{"g = parse\n  _ = apply(g, \"1\")", "argument 1: expected (String) -> Maybe<Int>, got (String, Bool) -> Maybe<Int>"},
-		{copied, "`apply` takes (String) -> Maybe<Int> as its first argument, but the pipe passes (String, Bool) -> Maybe<Int>"},
-		{"_ = two |> apply(\"1\")", "`apply` takes (String) -> Maybe<Int> as its first argument, but the pipe passes (String, Int) -> Int"},
+		{"g = parse\n  _ = apply(g, \"1\")", "argument 1: expected (String) -> Option<Int>, got (String, Bool) -> Option<Int>"},
+		{copied, "`apply` takes (String) -> Option<Int> as its first argument, but the pipe passes (String, Bool) -> Option<Int>"},
+		{"_ = two |> apply(\"1\")", "`apply` takes (String) -> Option<Int> as its first argument, but the pipe passes (String, Int) -> Int"},
 	} {
 		t.Run(tc.stmt, func(t *testing.T) {
 			_, errs := checkSourceWithStdlib(funcValueDefaultsDecls + "\nfn main()\n  " + tc.stmt + "\nend\n")
@@ -85,11 +85,11 @@ func TestFuncValueDefaults_RejectedWhereADefaultCannotFill(t *testing.T) {
 func TestFuncValueDefaults_AcceptedThroughALambdaOrAPartial(t *testing.T) {
 	_, errs := checkSourceWithStdlib(funcValueDefaultsDecls + `
 fn main()
-  a: Maybe<Maybe<Int>> = Maybe.map(Some("1"), fn s -> parse(s))
-  b: List<Maybe<Int>> = Iter.map(["1"], &parse(&1)) |> Iter.to_list()
-  c: List<Maybe<Int>> = Iter.map(["1"], &parse(&1, strict: True)) |> Iter.to_list()
-  f: (String) -> Maybe<Int> = fn s -> parse(s)
-  g: (String, Bool) -> Maybe<Int> = parse
+  a: Option<Option<Int>> = Option.map(Some("1"), fn s -> parse(s))
+  b: List<Option<Int>> = Iter.map(["1"], &parse(&1)) |> Iter.to_list()
+  c: List<Option<Int>> = Iter.map(["1"], &parse(&1, strict: True)) |> Iter.to_list()
+  f: (String) -> Option<Int> = fn s -> parse(s)
+  g: (String, Bool) -> Option<Int> = parse
   _ = (a, b, c, f("1"), g("1", True), apply(&parse(&1), "2"), parse("3"))
 end
 `)
@@ -103,7 +103,7 @@ end
 // function.
 func TestFuncValueDefaults_ACallThroughTheValuePassesEveryArgument(t *testing.T) {
 	for _, tc := range []struct{ body, want string }{
-		{"g: (String, Bool) -> Maybe<Int> = parse\n  _ = g(\"1\")", "expected 2 arguments, got 1"},
+		{"g: (String, Bool) -> Option<Int> = parse\n  _ = g(\"1\")", "expected 2 arguments, got 1"},
 		{"fs = [parse]\n  _ = Iter.map(fs, fn f -> f(\"1\")) |> Iter.to_list()", "expected 2 arguments, got 1"},
 		{"_ = held(\"1\")", "expected 2 arguments, got 1"},
 		{"_ = (parse)(\"1\")", "expected 2 arguments, got 1"},
@@ -121,12 +121,12 @@ fn pass<T>(x: T) -> T
 end
 
 struct Holder
-  f: (String, Bool) -> Maybe<Int>
+  f: (String, Bool) -> Option<Int>
 end
 
 once held = parse
 
-fn through(f: (String, Bool) -> Maybe<Int>) -> Maybe<Int>
+fn through(f: (String, Bool) -> Option<Int>) -> Option<Int>
   "1" |> f()
 end
 
@@ -166,7 +166,7 @@ struct Parsing
 end
 
 impl Parsing
-  fn parse(s: String, strict: Bool = False) -> Maybe<Int>
+  fn parse(s: String, strict: Bool = False) -> Option<Int>
     if strict then None else String.to_int(s)
   end
 end

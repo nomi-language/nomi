@@ -102,7 +102,7 @@ func (bl *irScalarBuilder) vectorCallPlan(t *ast.Call, args irQualArgs, method s
 		args.temps[i], args.kinds[i] = v, got
 	}
 	if method == "get" || method == "next_item" {
-		if _, anchored := preludeSpecAnchor(preludeSpecNamed("Maybe")); !anchored {
+		if _, anchored := preludeSpecAnchor(preludeSpecNamed("Option")); !anchored {
 			return nil
 		}
 	}

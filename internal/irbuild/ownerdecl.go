@@ -130,7 +130,7 @@ func stdTypeModule(sym *analysis.Symbol) (string, bool) {
 
 // bareStdMethodCall lowers a bare call whose callee the checker resolved to a
 // std type's method, brought into scope by a selective import
-// (`import std::maybe.Maybe.{with_default}`, then `with_default(m, 0)`). The
+// (`import std::option.Option.{with_default}`, then `with_default(m, 0)`). The
 // owner is the method's declared owning type, and the call takes the route
 // its qualified spelling takes over the call as written, so the checker's
 // facts about this call node (its solved signature, the types of its bare

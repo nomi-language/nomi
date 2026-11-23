@@ -2,7 +2,6 @@ package vmhost
 
 import (
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -16,7 +15,7 @@ func checkedRootsPass(t *testing.T, entry string, files map[string]string) {
 		t.Fatalf("the program does not load: %v", err)
 	}
 	if err := p.effectError(p.checkedRoots()...); err != nil {
-		t.Errorf("the lists refuse the program: %v", strings.ReplaceAll(err.Error(), dir+string(filepath.Separator), ""))
+		t.Errorf("the lists refuse the program: %v", inProject(err.Error(), dir))
 	}
 }
 

@@ -156,8 +156,8 @@ const (
 	// IterOverUserImpl is a named type carrying the program's own
 	// `impl Iter for T`.
 	IterOverUserImpl
-	// IterOverMaybe is a `Maybe<T>`, zero or one elements.
-	IterOverMaybe
+	// IterOverOption is an `Option<T>`, zero or one elements.
+	IterOverOption
 	// IterOverIntRange is a `Range<Int>`, which the consumer walks with
 	// std's Int `compare` and `next` built in, so its view takes the range
 	// alone.
@@ -193,8 +193,8 @@ func (d IterDomain) String() string {
 		return "bytes"
 	case IterOverUserImpl:
 		return "impl"
-	case IterOverMaybe:
-		return "maybe"
+	case IterOverOption:
+		return "option"
 	case IterOverIntRange:
 		return "int range"
 	case IterOverCodepointRange:
@@ -308,7 +308,7 @@ var iterOpSpecs = map[IterOp]iterOpSpec{
 	// newIter holds every other domain to its one operand.
 	IterView: {name: "(source view)", form: IterFormSource, min: 1, max: 4, over: []IterDomain{
 		IterOverList, IterOverEmptyList, IterOverString, IterOverMap, IterOverSet,
-		IterOverVector, IterOverRange, IterOverBytes, IterOverUserImpl, IterOverMaybe, IterOverIntRange,
+		IterOverVector, IterOverRange, IterOverBytes, IterOverUserImpl, IterOverOption, IterOverIntRange,
 		IterOverCodepointRange,
 	}},
 
@@ -341,7 +341,7 @@ var iterOpSpecs = map[IterOp]iterOpSpec{
 		IterOverSeq, IterOverList, IterOverMap,
 	}},
 	IterKnownCount: {name: "known_count", form: IterFormTerminal, min: 1, max: 1, over: []IterDomain{
-		IterOverSeq, IterOverList, IterOverMap, IterOverString, IterOverSet, IterOverVector, IterOverMaybe,
+		IterOverSeq, IterOverList, IterOverMap, IterOverString, IterOverSet, IterOverVector, IterOverOption,
 	}},
 	IterEmpty: {name: "is_empty", form: IterFormTerminal, min: 1, max: 1, over: overSeq},
 	IterFirst: {name: "first", form: IterFormTerminal, min: 1, max: 1, over: overSeq},

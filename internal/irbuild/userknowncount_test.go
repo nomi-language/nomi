@@ -24,7 +24,7 @@ impl Iter for Pair
         if yield(p.a) then yield(p.b) else False
     end
 
-    fn known_count(_p: Pair) -> Maybe<Int>
+    fn known_count(_p: Pair) -> Option<Int>
         io.print("counted")
         Some(7)
     end
@@ -34,7 +34,7 @@ fn total(xs: Iter<Int>) -> Int
     Iter.count(xs)
 end
 
-fn known(xs: Iter<Int>) -> Maybe<Int>
+fn known(xs: Iter<Int>) -> Option<Int>
     Iter.known_count(xs)
 end
 

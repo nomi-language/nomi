@@ -15,7 +15,7 @@ import (
 
 // Value is a Nomi value as the VM holds it: int64 (Int), float64 (Float),
 // bool, string, rt.Byte, rt.Bytes, *rt.Record (a struct, enum variant,
-// Maybe, Result, tuple, anonymous record, distinct or Set), *rt.List[any],
+// Option, Result, tuple, anonymous record, distinct or Set), *rt.List[any],
 // rt.Map[any, any], rt.Vector[any]. rt's DisplayText and DebugText render
 // one, and (*rt.Record).FieldNamed and Variant read one.
 type Value = rt.Value

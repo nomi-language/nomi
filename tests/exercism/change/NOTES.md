@@ -20,8 +20,8 @@ Two indexed reads, both `Vector.get(...)!`.
 
 | Read | Where | Result | Real use for a miss? |
 |---|---|---|---|
-| `Vector.get(table, amount - coin)!` | `best` | the fewest coins for the rest, a `Maybe` | No: the filter keeps `coin <= amount`, and the table holds every amount below `amount` |
-| `Vector.get(fewest, target)!` | `find_fewest_coins` | the answer, a `Maybe` | No: the table holds every amount from 0 to `target`, and a negative target has returned |
+| `Vector.get(table, amount - coin)!` | `best` | the fewest coins for the rest, an `Option` | No: the filter keeps `coin <= amount`, and the table holds every amount below `amount` |
+| `Vector.get(fewest, target)!` | `find_fewest_coins` | the answer, an `Option` | No: the table holds every amount from 0 to `target`, and a negative target has returned |
 
 ## Friction
 

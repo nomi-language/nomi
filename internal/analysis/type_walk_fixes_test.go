@@ -32,13 +32,13 @@ func TestComparisonErasesARefinementInsideAnAnonymousStruct(t *testing.T) {
 // order, wherever it names them: one only a conjunction's member names
 // takes an explicit type argument, as one a single interface names does.
 func TestTypeParameterInAConjunctionTakesAnExplicitArgument(t *testing.T) {
-	decls := "interface Source<T>\n  fn pull(s: self) -> Maybe<T>\nend\n\n" +
+	decls := "interface Source<T>\n  fn pull(s: self) -> Option<T>\nend\n\n" +
 		"interface Named\n  fn name(s: self) -> String\nend\n\n" +
 		"struct Ints\n  n: Int\nend\n\n" +
-		"impl Source<Int> for Ints\n  fn pull(s: Ints) -> Maybe<Int>\n    Some(s.n)\n  end\nend\n\n" +
+		"impl Source<Int> for Ints\n  fn pull(s: Ints) -> Option<Int>\n    Some(s.n)\n  end\nend\n\n" +
 		"impl Named for Ints\n  fn name(s: Ints) -> String\n    \"${s.n}\"\n  end\nend\n\n" +
-		"fn one<T>(s: Source<T>) -> Bool\n  Source.pull(s) |> Maybe.is_some()\nend\n\n" +
-		"fn both<T>(s: Source<T> and Named) -> Bool\n  Source.pull(s) |> Maybe.is_some()\nend\n\n"
+		"fn one<T>(s: Source<T>) -> Bool\n  Source.pull(s) |> Option.is_some()\nend\n\n" +
+		"fn both<T>(s: Source<T> and Named) -> Bool\n  Source.pull(s) |> Option.is_some()\nend\n\n"
 	cases := map[string]string{
 		"interface (already accepted)": "fn f() -> Bool\n  one<Int>(Ints{n: 1})\nend\n",
 		"conjunction":                  "fn f() -> Bool\n  both<Int>(Ints{n: 1})\nend\n",

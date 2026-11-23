@@ -9,7 +9,7 @@ import (
 // A part the builder compares itself, a tuple's slot or a distinct's inner
 // value, compares through the written Equatable the checker's record at
 // the part's type names (partEqualBody), as `==` on the part does and as
-// the same part inside a List, a Maybe, a Map key or a Set element does.
+// the same part inside a List, an Option, a Map key or a Set element does.
 // Meters' impl compares the last digit, so a comparison that projected
 // the distinct to its Int, as the part's kind would, prints False on the
 // first six lines. The struct and the enum, whose impls answer True, and
@@ -27,7 +27,7 @@ func TestPartEquality_AWrittenImplDecidesEveryPart(t *testing.T) {
 		"generic=True\n" +
 		"generic-ne=False\n" +
 		"list=True\n" +
-		"maybe=True\n" +
+		"option=True\n" +
 		"map-key=Some(a)\n" +
 		"set=1\n" +
 		"hash=True\n"
@@ -94,7 +94,7 @@ fn main()
     io.print("generic=${(Bx(1), 2) == (Bx(1), 2)}")
     io.print("generic-ne=${(Bx(1), 2) == (Bx(3), 2)}")
     io.print("list=${[(Meters(1), 2)] == [(Meters(11), 2)]}")
-    io.print("maybe=${Some((Meters(1), 2)) == Some((Meters(11), 2))}")
+    io.print("option=${Some((Meters(1), 2)) == Some((Meters(11), 2))}")
     io.print("map-key=${Map.get({(Meters(1), 2) => "a"}, (Meters(11), 2))}")
     io.print("set=${Set.size(Set[(Meters(1), 2), (Meters(11), 2)])}")
     io.print("hash=${Hashable.hash((Meters(1), 2)) == Hashable.hash((Meters(11), 2))}")

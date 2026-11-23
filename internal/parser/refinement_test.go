@@ -7,11 +7,11 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// A refinement's `when` rule (spec §4 *Subtypes*): after a `type`'s
+// A refinement's `when` rule (spec §4 *Refinements*): after a `type`'s
 // inner type, and after a struct's `end`, on that line.
 
 func TestParseRefinement_TypeWithLambdaRule(t *testing.T) {
-	nodes := parse(t, "pub subtype Port Int when fn port -> port >= 1 and port <= 65535\n")
+	nodes := parse(t, "pub refine Port Int when fn port -> port >= 1 and port <= 65535\n")
 	td, ok := nodes[0].(*ast.TypeDef)
 	if !ok {
 		t.Fatalf("got %T, want *ast.TypeDef", nodes[0])
@@ -19,13 +19,13 @@ func TestParseRefinement_TypeWithLambdaRule(t *testing.T) {
 	if _, isLambda := td.Rule.(*ast.Lambda); !isLambda {
 		t.Fatalf("Rule = %T, want *ast.Lambda", td.Rule)
 	}
-	if td.RuleLine != 1 || td.RuleCol != 22 {
-		t.Errorf("when at %d:%d, want 1:22", td.RuleLine, td.RuleCol)
+	if td.RuleLine != 1 || td.RuleCol != 21 {
+		t.Errorf("when at %d:%d, want 1:21", td.RuleLine, td.RuleCol)
 	}
 }
 
 func TestParseRefinement_TypeWithNamedRule(t *testing.T) {
-	nodes := parse(t, "subtype Username String when is_username\n")
+	nodes := parse(t, "refine Username String when is_username\n")
 	td := nodes[0].(*ast.TypeDef)
 	if id, ok := td.Rule.(*ast.Ident); !ok || id.Name != "is_username" {
 		t.Fatalf("Rule = %#v, want the Ident is_username", td.Rule)
@@ -74,7 +74,7 @@ func TestParseRefinement_Rejections(t *testing.T) {
 }
 
 func TestParseRefinement_SeveralParents(t *testing.T) {
-	nodes := parse(t, "pub subtype PositiveInt NonNegativeInt and NonZeroInt when fn n -> n > 0\n")
+	nodes := parse(t, "pub refine PositiveInt NonNegativeInt and NonZeroInt when fn n -> n > 0\n")
 	td := nodes[0].(*ast.TypeDef)
 	first, ok := td.InnerTypeExpr.(*ast.SimpleType)
 	if !ok || first.Name != "NonNegativeInt" {

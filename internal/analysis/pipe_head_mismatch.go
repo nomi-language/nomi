@@ -156,7 +156,7 @@ func (c *checker) pipeHeadError(p *pipeHead, msg string, want, have Type) TypeEr
 // pipeHeadHint is the help for a value of type have piped into a stage
 // that takes a want, when one fix is right for the two types: destructure a
 // distinct value to reach the type inside it, render a Display value as
-// the String the stage takes, handle a Maybe or Result whose payload the
+// the String the stage takes, handle an Option or Result whose payload the
 // stage takes, or convert between Int, Float and Decimal. value is the
 // pipe's head.
 func (c *checker) pipeHeadHint(want, have Type, value ast.Node) string {
@@ -172,8 +172,8 @@ func (c *checker) pipeHeadHint(want, have Type, value ast.Node) string {
 	}
 	if et, ok := h.(*EnumType); ok && len(et.TypeArgs) > 0 && TypesEqual(resolveTypeVar(et.TypeArgs[0]), w) {
 		switch {
-		case isStdType(et, stdMaybeType) && len(et.TypeArgs) == 1:
-			return "a Maybe may be None; handle it before this stage: give a fallback with `|> Maybe.with_default(...)`, match it with `case`, or propagate it with `?` in a function that returns a Maybe"
+		case isStdType(et, stdOptionType) && len(et.TypeArgs) == 1:
+			return "an Option may be None; handle it before this stage: give a fallback with `|> Option.with_default(...)`, match it with `case`, or propagate it with `?` in a function that returns an Option"
 		case isStdType(et, stdResultType) && len(et.TypeArgs) == 2:
 			return "a Result may be an Err; handle it before this stage: give a fallback with `|> Result.with_default(...)`, match it with `case`, or propagate it with `?` in a function that returns a Result"
 		}

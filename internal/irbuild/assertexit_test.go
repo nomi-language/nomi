@@ -88,7 +88,7 @@ func TestAssertionSubjectSetsAgreeWithTheChecker(t *testing.T) {
 	// asserting it. `Fragment` is reached through std/literals' own constructor
 	// spelling so the program does not depend on the enum being in the prelude.
 	sources := map[string]string{
-		"Maybe":    "test \"t\"\n  x: Maybe<Int> = Some(1)\n  assert x\nend\n",
+		"Option":   "test \"t\"\n  x: Option<Int> = Some(1)\n  assert x\nend\n",
 		"Result":   "test \"t\"\n  x: Result<Int, String> = Ok(1)\n  assert x\nend\n",
 		"Fragment": "import\n  std::literals.Fragment\nend\n\ntest \"t\"\n  x: Fragment<Int> = Fragment.Dynamic(1)\n  assert x\nend\n",
 		// `Outcome` is NOT an assertion subject, and this row is what holds

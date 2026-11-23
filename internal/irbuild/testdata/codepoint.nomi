@@ -9,49 +9,49 @@
 // are rt functions.
 //
 // So the fixture is strong for the lowering (a wrong opaque width, a lost
-// nominal identity, a dropped `Maybe` are all visible) and says nothing about
+// nominal identity, a dropped `Option` are all visible) and says nothing about
 // the rt functions beyond the inputs named below. That is why
 // codepoint_test.go checks the rt side's widths directly.
 //
-// # Why every Codepoint arrives inside a `Maybe`
+// # Why every Codepoint arrives inside an `Option`
 //
 // The values under test are mostly outside ASCII, where `Int.to_codepoint`
 // is the only constructor reachable from outside std/code_points, and it
-// answers `Maybe<Codepoint>` because the type validates. A codepoint literal
+// answers `Option<Codepoint>` because the type validates. A codepoint literal
 // (`'a'`) builds an ASCII one directly; codepoint_literal.nomi covers it. `?`
-// only propagates out of a function that returns `Maybe`/`Result`, so each
-// group below is a small `Maybe`-returning helper plus a rendering that
+// only propagates out of a function that returns `Option`/`Result`, so each
+// group below is a small `Option`-returning helper plus a rendering that
 // supplies a visible sentinel for `None`, and every helper takes an Int so the
 // same validation runs on both sides of each boundary.
 import std::io
 
 // --- the surface, one helper per declaration -------------------------------
-fn to_int_of(n: Int) -> Maybe<Int>
+fn to_int_of(n: Int) -> Option<Int>
     Some(Codepoint.to_int(Int.to_codepoint(n)?))
 end
 
-fn to_string_of(n: Int) -> Maybe<String>
+fn to_string_of(n: Int) -> Option<String>
     Some(Codepoint.to_string(Int.to_codepoint(n)?))
 end
 
-fn inspect_of(n: Int) -> Maybe<String>
+fn inspect_of(n: Int) -> Option<String>
     Some(Codepoint.inspect(Int.to_codepoint(n)?))
 end
 
-fn next_of(n: Int) -> Maybe<Codepoint>
+fn next_of(n: Int) -> Option<Codepoint>
     Codepoint.next(Int.to_codepoint(n)?)
 end
 
-fn steps_of(a: Int, b: Int) -> Maybe<Int>
+fn steps_of(a: Int, b: Int) -> Option<Int>
     Codepoint.steps_between(Int.to_codepoint(a)?, Int.to_codepoint(b)?)
 end
 
-fn step_by_of(n: Int, by: Int) -> Maybe<Codepoint>
+fn step_by_of(n: Int, by: Int) -> Option<Codepoint>
     Codepoint.step_by(Int.to_codepoint(n)?, by)
 end
 
 /// Two Codepoints from SEPARATE `to_codepoint` calls, so nothing shares a value.
-fn equal_of(a: Int, b: Int) -> Maybe<Bool>
+fn equal_of(a: Int, b: Int) -> Option<Bool>
     Some(Codepoint.equal(Int.to_codepoint(a)?, Int.to_codepoint(b)?))
 end
 
@@ -65,7 +65,7 @@ end
 /// nothing but a comparison across the boundary shows it.
 ///
 /// The Codepoints arrive as PARAMETERS rather than being unwrapped here, because
-/// a `Maybe<List<Codepoint>>` return annotation is refused under
+/// an `Option<List<Codepoint>>` return annotation is refused under
 /// `non-scalar type argument` — a user-side prelude-over-structural annotation,
 /// unrelated to this slice's key, and worth staying clear of rather than
 /// dragging into the fixture.
@@ -85,7 +85,7 @@ end
 /// whoever owns that key. Rendering both chains compares them structurally
 /// with no pointer anywhere in the path, which is what this fixture needs;
 /// both chains are built from the same input string.
-fn same_as_literal(s: String) -> Maybe<Bool>
+fn same_as_literal(s: String) -> Option<Bool>
     a = Int.to_codepoint(97)?
     b = Int.to_codepoint(98)?
     c = Int.to_codepoint(99)?
@@ -93,28 +93,28 @@ fn same_as_literal(s: String) -> Maybe<Bool>
 end
 
 // --- rendering, with a visible sentinel for None ---------------------------
-fn show_cp(m: Maybe<Codepoint>) -> String
+fn show_cp(m: Option<Codepoint>) -> String
     case m
         Some(cp) -> "Some(${Codepoint.to_int(cp)})"
         None     -> "None"
     end
 end
 
-fn show_int(m: Maybe<Int>) -> String
+fn show_int(m: Option<Int>) -> String
     case m
         Some(n) -> "Some(${n})"
         None    -> "None"
     end
 end
 
-fn show_str(m: Maybe<String>) -> String
+fn show_str(m: Option<String>) -> String
     case m
         Some(s) -> s
         None    -> "None"
     end
 end
 
-fn show_bool(m: Maybe<Bool>) -> String
+fn show_bool(m: Option<Bool>) -> String
     case m
         Some(b) -> "${b}"
         None    -> "None"
@@ -126,7 +126,7 @@ end
 ///
 /// Explicit recursion over `List.first` / `List.tail` rather than an `Iter`
 /// pipeline, which is refused for its own reasons and would take the whole
-/// fixture with it. `List.tail` answers `Maybe<List<T>>`, so an empty tail and
+/// fixture with it. `List.tail` answers `Option<List<T>>`, so an empty tail and
 /// an empty list are the same base case.
 fn join_points(cps: List<Codepoint>) -> String
     case List.first(cps)

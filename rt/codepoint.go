@@ -44,7 +44,7 @@ type Codepoint int64
 
 // IntToCodepoint is `Int.to_codepoint`: Some for 0 through 0x10FFFF outside
 // the UTF-16 surrogate block 0xD800–0xDFFF, None otherwise.
-func IntToCodepoint(v Int) Maybe[Codepoint] {
+func IntToCodepoint(v Int) Option[Codepoint] {
 	n := v.Saturated()
 	if n < 0 || n > 0x10FFFF || (n >= 0xD800 && n <= 0xDFFF) {
 		return None[Codepoint]()

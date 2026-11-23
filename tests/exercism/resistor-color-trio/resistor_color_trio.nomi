@@ -32,7 +32,7 @@ end
 /// The resistance the first three bands give: two digits, then the number
 /// of zeros after them. Bands after the third are ignored. `None` when there
 /// are fewer than three bands.
-pub fn label(bands: List<Color>) -> Maybe<Resistance>
+pub fn label(bands: List<Color>) -> Option<Resistance>
     [first, second, zeros, ..] = bands else return None
 
     ohms = (digit(first) * 10 + digit(second)) * Int.pow(10, digit(zeros))

@@ -208,14 +208,14 @@ func Send(
 	headers *rt.List[string],
 	bodyKindArg rt.Int,
 	data rt.Bytes,
-	input rt.Maybe[rt.Reader],
+	input rt.Option[rt.Reader],
 	contentLengthArg rt.Int,
 	host string,
 	closes bool,
 	trailers *rt.List[string],
 	stream bool,
 	maxBodyArg rt.Int,
-	tracer rt.Maybe[rt.HTTPHandle],
+	tracer rt.Option[rt.HTTPHandle],
 ) rt.Result[rt.HTTPExchange, *rt.List[string]] {
 	bodyKind := bodyKindArg.Saturated()
 	contentLength := contentLengthArg.Saturated()
@@ -440,7 +440,7 @@ func (in readerInput) Read(p []byte) (n int, err error) {
 // ExchangeTLS is `std::http::host.exchange_tls`: the TLS state of the
 // connection the response came over, as stateParts lists it; None over
 // plain HTTP.
-func ExchangeTLS(e rt.HTTPExchange) rt.Maybe[*rt.List[*rt.List[string]]] {
+func ExchangeTLS(e rt.HTTPExchange) rt.Option[*rt.List[*rt.List[string]]] {
 	if st := exchangeOf(e).resp.TLS; st != nil {
 		return rt.Some(stateParts(*st))
 	}

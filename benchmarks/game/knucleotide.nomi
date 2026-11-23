@@ -36,7 +36,7 @@ fn occurrences(sequence: List<String>, fragment: String)
     count =
         frequencies(sequence, PositiveInt.try_from(String.length(fragment))!)
         |> Map.get(fragment)
-        |> Maybe.with_default(0)
+        |> Option.with_default(0)
 
     io.print("${count}\t${fragment}")
 end

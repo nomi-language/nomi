@@ -22,7 +22,7 @@ func TestSession_EvaluatesTypesFromFilesTheFrameDoesNotImport(t *testing.T) {
 	h.wait("terminated")
 	h.disconnect()
 
-	// Maybe.map's frame, in std/maybe.nomi.
+	// Option.map's frame, in std/option.nomi.
 	h2 := newHarness(t)
 	config := runConfig("stdstep.nomi")
 	config["justMyCode"] = false
@@ -34,9 +34,9 @@ func TestSession_EvaluatesTypesFromFilesTheFrameDoesNotImport(t *testing.T) {
 	h2.stopped()
 	frames = h2.stack(thread)
 	h2.locals(frames[0])
-	h2.eval(frames[0], "watch", "Maybe.with_default(maybe, 0) + 1")
+	h2.eval(frames[0], "watch", "Option.with_default(option, 0) + 1")
 	h2.eval(frames[0], "repl", "f(5)")
-	h2.eval(frames[0], "repl", "maybe |> Maybe.map(f)")
+	h2.eval(frames[0], "repl", "option |> Option.map(f)")
 	h2.do("continue", thread)
 	h2.wait("terminated")
 	h2.disconnect()

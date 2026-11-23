@@ -12,7 +12,7 @@ import (
 // ProjectSpec is `compiler.Project`'s three fields as plain Go, and it exists so
 // the assembly below has ONE input shape rather than one per caller.
 //
-// Manifest is a pointer because `Maybe<String>` has three states and a `string`
+// Manifest is a pointer because `Option<String>` has three states and a `string`
 // has two: nil is None, and a non-nil empty string is `Some("")`, which is a
 // legal Nomi value and a manifest with no sections rather than no manifest at
 // all. Collapsing them would make `Some("")` behave as None — a wrong

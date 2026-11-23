@@ -453,7 +453,7 @@ func hostCallName(rv reflect.Value) (call, pkg string) {
 //     Admitting it BY THE GO TYPE rather than by width is what keeps
 //     `rt.DurationToString(rt.Duration) string` from projecting onto `(Int) ->
 //     String`. See opaque.go.
-//   - a PRELUDE instance over those (`rt.Maybe[int64]`), whose type arguments
+//   - a PRELUDE instance over those (`rt.Option[int64]`), whose type arguments
 //     are read out of the struct's own payload fields. See stdprelude.go.
 //   - a STRUCTURAL `*rt.List[T]` over those. A structural kind's identity is
 //     its interned *compKind, and sharedcomp.go makes that identity
@@ -538,8 +538,8 @@ func kindOfGoType(t reflect.Type) kind {
 // funcKindOfGoType is the function kind of a frame-taking Go callback, `func(fr
 // *rt.Frame, A...) R`, or kindInvalid. The frame is the callback's own
 // threading, as it is a host function's (hostFnFor), so it takes no Nomi
-// parameter: `func(*rt.Frame) rt.Result[rt.Maybe[rt.Bytes], rt.IOError]` is
-// `() -> Result<Maybe<Bytes>, Error>`. A callback without the frame is not
+// parameter: `func(*rt.Frame) rt.Result[rt.Option[rt.Bytes], rt.IOError]` is
+// `() -> Result<Option<Bytes>, Error>`. A callback without the frame is not
 // admitted: the generated adapter would call it back on the frame of the
 // call that made it, which a value kept past that call (a Reader.from_fn
 // reader) has left.
@@ -1466,8 +1466,8 @@ func stdLoweringOrder(names []string, lib *std.StdLib) []string {
 // is not a Nomi module, so it is skipped.
 //
 // The stdlib is ONE Nomi module, so a sibling is named BARE — `import iter` and
-// `import maybe.Maybe.{self, None}` — and only the FIRST segment is the module.
-// A second segment is a drill-through owner (`Maybe`), never a path step, so
+// `import option.Option.{self, None}` — and only the FIRST segment is the module.
+// A second segment is a drill-through owner (`Option`), never a path step, so
 // this takes the head and ignores the rest. Reading a two-segment `std/<name>`
 // would match nothing, so stdLoweringOrder would see zero edges and a module
 // could be lowered before the module it imports.
@@ -1985,7 +1985,7 @@ func lowerStdlibModuleIn(v *stdModuleView, earlier *stdlibIndex, dc *declineCens
 // The receiver and the interface are read with analysis.TypeExprBaseName, the
 // analyzer's own reading of an impl header. A reading of *ast.SimpleType alone
 // would answer "" for a GENERIC receiver (`impl Equatable for List<T>`, and
-// every impl block on `Map<K, V>`, `Set<T>`, `Maybe<T>`, `Result<T, E>`,
+// every impl block on `Map<K, V>`, `Set<T>`, `Option<T>`, `Result<T, E>`,
 // `Vector<T>`, `Range<T>`) and file its methods under the shape of a FREE
 // function, reachable under no spelling a call site can write. One
 // implementation also answers a QUALIFIED receiver

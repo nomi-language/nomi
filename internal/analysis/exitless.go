@@ -26,7 +26,7 @@ func onceExitless(name string) *exitlessSite {
 	return &exitlessSite{
 		what: fmt.Sprintf("the initializer of `once %s`", name),
 		why:  "a `once` has no function to return from",
-		hint: fmt.Sprintf("bind the Result or Maybe and handle it where `%s` is read, or compute the value inside a function", name),
+		hint: fmt.Sprintf("bind the Result or Option and handle it where `%s` is read, or compute the value inside a function", name),
 	}
 }
 
@@ -34,7 +34,7 @@ func paramDefaultExitless(param ast.Param) *exitlessSite {
 	return &exitlessSite{
 		what: "the default of " + paramLabel(param),
 		why:  "a default has no function to return from",
-		hint: "handle the Result or Maybe inside the default with `case`, or compute the value inside the function",
+		hint: "handle the Result or Option inside the default with `case`, or compute the value inside the function",
 	}
 }
 
@@ -42,7 +42,7 @@ func fieldDefaultExitless(field, owner string) *exitlessSite {
 	return &exitlessSite{
 		what: fmt.Sprintf("the default of field '%s' of %s", field, owner),
 		why:  "a default has no function to return from",
-		hint: "handle the Result or Maybe inside the default with `case`, or compute the value in a function and pass the field",
+		hint: "handle the Result or Option inside the default with `case`, or compute the value in a function and pass the field",
 	}
 }
 

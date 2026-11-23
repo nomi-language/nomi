@@ -10,7 +10,7 @@ func TestFormat_EnumVariant_TrailingComment(t *testing.T) {
 		"bare":           "enum Op\n    ToJson // note\n    FromJson\nend\n",
 		"bare last":      "enum Op\n    ToJson\n    FromJson // note\nend\n",
 		"type payload":   "enum Op\n    Add Int        // a\n    Mul (Int, Int) // m\nend\n",
-		"generic":        "enum Op<T>\n    A Maybe<T> // a\n    B (T) -> T // b\nend\n",
+		"generic":        "enum Op<T>\n    A Option<T> // a\n    B (T) -> T  // b\nend\n",
 		"struct payload": "enum Shape\n    Rect {w: Int, h: Int} // r\n    Circle {r: Int}       // c\nend\n",
 		"embeds":         "enum E\n    A        // a\n    embeds P // p\nend\n",
 		"doc comment":    "enum Op\n    /// doc\n    A // a\n    B\nend\n",

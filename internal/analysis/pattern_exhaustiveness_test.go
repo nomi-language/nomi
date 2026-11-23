@@ -9,13 +9,13 @@ import "testing"
 // (literals, nested variants, guards) do NOT — those need a `_` fallback.
 //
 // These tests live in the external test package so they can use the real
-// stdlib via `checkSourceWithStdlib` — Maybe / Result / Bool aren't
+// stdlib via `checkSourceWithStdlib` — Option / Result / Bool aren't
 // built-in language features, they're stdlib enums.
 
-func TestCaseExhaustiveMaybeAllVariants(t *testing.T) {
+func TestCaseExhaustiveOptionAllVariants(t *testing.T) {
 	src := `
 
-fn m(x: Maybe<Int>) -> Int
+fn m(x: Option<Int>) -> Int
   case x
     Some(n) -> n
     None -> 0
@@ -28,7 +28,7 @@ end`
 func TestCaseExhaustiveWildcard(t *testing.T) {
 	src := `
 
-fn m(x: Maybe<Int>) -> Int
+fn m(x: Option<Int>) -> Int
   case x
     Some(n) -> n
     _ -> 0
@@ -41,7 +41,7 @@ end`
 func TestCaseExhaustiveBareBinding(t *testing.T) {
 	src := `
 
-fn m(x: Maybe<Int>) -> Int
+fn m(x: Option<Int>) -> Int
   case x
     Some(n) -> n
     other -> 0
@@ -51,10 +51,10 @@ end`
 	expectNoStdlibErrors(t, errs)
 }
 
-func TestCaseNonExhaustiveMaybeMissingNone(t *testing.T) {
+func TestCaseNonExhaustiveOptionMissingNone(t *testing.T) {
 	src := `
 
-fn m(x: Maybe<Int>) -> Int
+fn m(x: Option<Int>) -> Int
   case x
     Some(n) -> n
   end
@@ -63,10 +63,10 @@ end`
 	expectStdlibError(t, errs, "non-exhaustive")
 }
 
-func TestCaseNonExhaustiveMaybeMissingSome(t *testing.T) {
+func TestCaseNonExhaustiveOptionMissingSome(t *testing.T) {
 	src := `
 
-fn m(x: Maybe<Int>) -> Int
+fn m(x: Option<Int>) -> Int
   case x
     None -> 0
   end
@@ -143,7 +143,7 @@ func TestCaseLiteralPayloadNotExhaustive(t *testing.T) {
 	// always requires a `_` fallback."
 	src := `
 
-fn m(x: Maybe<Int>) -> Int
+fn m(x: Option<Int>) -> Int
   case x
     Some(42) -> 1
     None -> 0
@@ -157,7 +157,7 @@ func TestCaseGuardNotExhaustive(t *testing.T) {
 	// Guard on the only `Some` branch — doesn't cover `Some` cleanly.
 	src := `
 
-fn m(x: Maybe<Int>) -> Int
+fn m(x: Option<Int>) -> Int
   case x
     Some(n) when n > 0 -> 1
     None -> 0
@@ -193,13 +193,13 @@ end`
 }
 
 func TestCaseExhaustiveNestedVariantInsideVariant(t *testing.T) {
-	// Some(Ok(_)) | Some(Err(_)) | None covers Maybe<Result<T, E>> fully:
+	// Some(Ok(_)) | Some(Err(_)) | None covers Option<Result<T, E>> fully:
 	// Some's sub-patterns themselves exhaust Result, so the outer Some is
 	// covered without an explicit Some(_) fallback.
 	src := `
 
 
-fn m(x: Maybe<Result<Int, String>>) -> Int
+fn m(x: Option<Result<Int, String>>) -> Int
   case x
     Some(Ok(n)) -> n
     Some(Err(_)) -> -1

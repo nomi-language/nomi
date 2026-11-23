@@ -7,7 +7,7 @@ derive Equatable for Node
 
 struct Link
     value: Int
-    next:  Maybe<Link>
+    next:  Option<Link>
 end
 
 struct Dir
@@ -68,7 +68,7 @@ test "a struct holds itself through a List"
     assert text == "Node{name: \"root\", children: [Node{name: \"a\", children: []}, Node{name: \"b\", children: [Node{name: \"c\", children: []}]}]}"
 end
 
-test "a struct holds itself through a Maybe"
+test "a struct holds itself through an Option"
     chain = Link{value: 1, next: Some(Link{value: 2, next: None})}
     assert length(chain) == 2
     text = Debug.inspect(chain)

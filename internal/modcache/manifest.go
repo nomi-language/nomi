@@ -77,9 +77,15 @@ func (p *ManifestProblem) Error() string {
 	return "[module] " + p.Msg
 }
 
-// dependencyName is the form of a [dependencies] key: a name an import
-// path can start with.
-var dependencyName = regexp.MustCompile(`^[a-z_][a-z0-9_]*$`)
+// moduleName is the form of a name an import path can start with: a
+// [dependencies] key, and the [module].name `nomi new` and `nomi init`
+// write.
+var moduleName = regexp.MustCompile(`^[a-z_][a-z0-9_]*$`)
+
+// IsModuleName reports whether name has the form of a name an import path
+// can start with: lowercase letters, digits and `_`, not starting with a
+// digit.
+func IsModuleName(name string) bool { return moduleName.MatchString(name) }
 
 // ParseModuleFile reads data, a nomi.toml's text, for its module name and
 // path and its [dependencies] table. The other tables are analysis's to
@@ -120,7 +126,7 @@ func ParseModuleFile(data []byte) (*ModuleFile, error) {
 			return &ManifestProblem{Key: path, Msg: fmt.Sprintf(format, args...)}
 		}
 		switch {
-		case !dependencyName.MatchString(name):
+		case !IsModuleName(name):
 			return nil, at("", "%q is not a dependency name: a name is lowercase letters, digits and `_`, as an import writes it", name)
 		case name == "std":
 			return nil, at("", "std is the standard library's name; name the dependency another way")

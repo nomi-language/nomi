@@ -27,7 +27,14 @@ func effectDiagnostics(t *testing.T, entry string, files map[string]string, opts
 	if !errors.As(err, &ds) {
 		t.Fatalf("the refusal is %T, not diagnostics: %v", err, err)
 	}
-	return strings.ReplaceAll(ds.Error(), dir+string(filepath.Separator), ""), ds
+	return inProject(ds.Error(), dir), ds
+}
+
+// inProject is text, a refusal's, with the project's directory dir left out
+// of each path and every path written with `/`, as the tests' wants are: on
+// Windows a diagnostic names `app\main.nomi`.
+func inProject(text, dir string) string {
+	return filepath.ToSlash(strings.ReplaceAll(text, dir+string(filepath.Separator), ""))
 }
 
 const effectManifest = "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[effects.self]\nstd = [\"std::io\"]\n"
@@ -157,7 +164,7 @@ struct App
 end
 
 fn boot(startup: Startup) -> Result<App, String>
-    Ok(App{name: List.first(startup.args) |> Maybe.with_default("app")})
+    Ok(App{name: List.first(startup.args) |> Option.with_default("app")})
 end
 
 fn main()
@@ -333,7 +340,7 @@ func listProblems(t *testing.T, files map[string]string) string {
 	if len(ds) == 0 {
 		return ""
 	}
-	return strings.ReplaceAll(ds.Error(), dir+string(filepath.Separator), "")
+	return inProject(ds.Error(), dir)
 }
 
 // A name in a dependency's own [effects.self] std that names nothing

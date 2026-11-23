@@ -322,7 +322,7 @@ func TestValType_ClassesAndSpelling(t *testing.T) {
 		{NewDistinctType(cp, IntType), ClassWord, "code_points.Codepoint(Int)"},
 		{NewDistinctType(NewSymbol("Expired"), nil), ClassNone, "Expired"},
 		{NewStructType(point), ClassRef, "shapes.Point"},
-		{NewEnumType(NewSymbol("maybe.Maybe"), IntType), ClassRef, "maybe.Maybe<Int>"},
+		{NewEnumType(NewSymbol("option.Option"), IntType), ClassRef, "option.Option<Int>"},
 		{NewTupleType(IntType, StringType), ClassRef, "(Int, String)"},
 		{NewRecordType([]string{"x", "y"}, []*ValType{IntType, IntType}), ClassRef, "{x: Int, y: Int}"},
 		{NewMapType(StringType, NewListType(IntType)), ClassRef, "Map<String, List<Int>>"},
@@ -347,24 +347,24 @@ func TestValType_ClassesAndSpelling(t *testing.T) {
 }
 
 // TestValType_LayoutIsStatedOnceAndMayReachItself: a declared type's layout is
-// stated after the type exists, so `Node { next: Maybe<Node> }` can name
+// stated after the type exists, so `Node { next: Option<Node> }` can name
 // itself, and a second statement is a producer bug.
 func TestValType_LayoutIsStatedOnceAndMayReachItself(t *testing.T) {
 	node := NewStructType(NewSymbol("list.Node"))
-	maybe := NewEnumType(NewSymbol("maybe.Maybe"), node)
-	maybe.SetVariants([]Variant{
+	option := NewEnumType(NewSymbol("option.Option"), node)
+	option.SetVariants([]Variant{
 		{Name: "Some", Form: VariantPositional, Fields: []Field{{Type: node}}},
 		{Name: "None", Form: VariantBare},
 	})
-	node.SetFields([]Field{{Name: "value", Type: IntType}, {Name: "next", Type: maybe}})
-	if l := node.Layout(); l == nil || len(l.Fields) != 2 || l.Fields[1].Type != maybe {
+	node.SetFields([]Field{{Name: "value", Type: IntType}, {Name: "next", Type: option}})
+	if l := node.Layout(); l == nil || len(l.Fields) != 2 || l.Fields[1].Type != option {
 		t.Fatalf("node layout: %+v", node.Layout())
 	}
-	if got := maybe.Layout().Variants[0].Fields[0].Type; got != node {
+	if got := option.Layout().Variants[0].Fields[0].Type; got != node {
 		t.Fatalf("Some's payload is %v, want the node itself", got)
 	}
-	if node.String() != "list.Node" || maybe.String() != "maybe.Maybe<list.Node>" {
-		t.Fatalf("a recursive type must still spell finitely: %s, %s", node, maybe)
+	if node.String() != "list.Node" || option.String() != "option.Option<list.Node>" {
+		t.Fatalf("a recursive type must still spell finitely: %s, %s", node, option)
 	}
 	mustPanic := func(what string, f func()) {
 		t.Helper()

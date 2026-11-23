@@ -170,7 +170,7 @@ func (g *gen) programTypeDef(t analysis.Type) (d *typeDef, program bool) {
 	case *analysis.EnumType:
 		origin, name, params = ty.Origin, ty.Name, ty.TypeParamDefs
 	case *analysis.DistinctType:
-		if ty.Subtype {
+		if ty.Refinement {
 			// A refinement is its base (refinement.go) and declares no
 			// type of its own.
 			return nil, true

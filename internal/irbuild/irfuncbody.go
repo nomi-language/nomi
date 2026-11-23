@@ -575,7 +575,7 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 			if dst, k, mobile, ok := bl.stdOnceValue(t); ok {
 				return dst, k, mobile, true
 			}
-			// `Maybe.None` with no expected type, as the bare `None`
+			// `Option.None` with no expected type, as the bare `None`
 			// arm above types it; see bareVariantOwnKind.
 			if k, ok := bl.bareVariantOwnKind(t); ok {
 				return bl.preludeBareValue(t, k)
@@ -2806,7 +2806,7 @@ func (bl *irScalarBuilder) bindingExpression(b *ast.Binding) (ir.Temp, kind, boo
 	if b.TypeAnnotation == nil {
 		if lam, isLambda := b.Value.(*ast.Lambda); isLambda {
 			// The lambda's result is the checker's, so an `if` arm's bare
-			// `Maybe.None` takes the other arm's type (lambdaResultWant).
+			// `Option.None` takes the other arm's type (lambdaResultWant).
 			defer bl.g.lambdaResultWant(lam, b.Line, b.Col)()
 		}
 		v, k, _, ok := bl.lower(b.Value)

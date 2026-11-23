@@ -266,3 +266,118 @@ func TestAddAndUpdate_KeepTheLibModulesOnOneCommit(t *testing.T) {
 		}
 	}
 }
+
+// publishLib publishes the lib/ module at path, named name, at each of
+// versions, and makes the last the proxy's @latest, as it is for lib/'s
+// newest commit.
+func publishLib(t *testing.T, p *testProxy, path, name string, versions ...string) {
+	t.Helper()
+	for _, v := range versions {
+		p.publish(t, path, v, map[string]string{
+			"nomi.toml":    "[module]\nname = \"" + name + "\"\npath = \"" + path + "\"\n",
+			name + ".nomi": "pub fn version() -> String\n    \"" + v + "\"\nend\n",
+		})
+	}
+	enc, _ := module.EscapePath(path)
+	writeFile(t, filepath.Join(p.dir, filepath.FromSlash(enc), "@latest"), `{"Version":"`+versions[len(versions)-1]+`"}`)
+}
+
+const (
+	libMarkdown = "github.com/nomi-language/nomi/lib/markdown"
+	libSqlite   = "github.com/nomi-language/nomi/lib/sql/sqlite"
+	libRelease  = "v0.5.0"
+	libCommit   = "v0.5.1-0.20261120000000-cccccccccccc"
+)
+
+// A release `nomi` adds a lib/ module at its own version, not at the
+// latest commit; a version on the command line wins; and a release whose
+// tag the proxy lacks says so, naming the tag, and adds nothing.
+func TestAdd_AReleaseTakesALibModuleAtItsOwnVersion(t *testing.T) {
+	p := newTestProxy(t)
+	publishLib(t, p, libMarkdown, "markdown", libRelease, libCommit)
+	publishLib(t, p, libSqlite, "sqlite", libCommit)
+	app, _ := setup(t, p)
+	release := Options{Release: libRelease}
+
+	added, err := Add(app, "", libMarkdown, release)
+	if err != nil {
+		t.Fatalf("Add markdown: %v", err)
+	}
+	if added.Module.Version != libRelease {
+		t.Errorf("a release added markdown at %s, want its own %s", added.Module.Version, libRelease)
+	}
+	if lock := readFile(t, filepath.Join(app, "nomi.lock")); !strings.Contains(lock, libMarkdown+" "+libRelease+" ") {
+		t.Errorf("nomi.lock after adding markdown:\n%s", lock)
+	}
+
+	if added, err := Add(app, "", libMarkdown+"@"+libCommit, release); err != nil || added.Module.Version != libCommit {
+		t.Fatalf("Add markdown@%s answered %+v, %v; want the version named", libCommit, added.Module, err)
+	}
+
+	// The proxy has no sqlite at the release, as after a release cut
+	// without its lib/ tags. Every proxy before `direct` lacks it, so it is
+	// the missing tag, not a download through the go command.
+	t.Setenv("GOPROXY", p.url()+",direct")
+	before := readFile(t, filepath.Join(app, "nomi.toml"))
+	_, err = Add(app, "", libSqlite, release)
+	want := "this nomi is release v0.5.0, which takes github.com/nomi-language/nomi/lib/sql/sqlite at v0.5.0, " +
+		"and the module proxy does not have that version: the release was published without the tag lib/sql/sqlite/v0.5.0; " +
+		"`nomi add github.com/nomi-language/nomi/lib/sql/sqlite@<version>` takes another version"
+	if err == nil || err.Error() != want {
+		t.Fatalf("Add of a lib/ module the release did not tag: %v\nwant %s", err, want)
+	}
+	if after := readFile(t, filepath.Join(app, "nomi.toml")); after != before {
+		t.Errorf("a failed Add changed nomi.toml:\n%s", after)
+	}
+}
+
+// A release `nomi`'s Update moves lib/ entries on another version to its
+// own, down from a later commit too, answers each move, and then leaves
+// them there. A release whose tag the proxy lacks says so.
+func TestUpdate_AReleaseKeepsTheLibModulesAtItsVersion(t *testing.T) {
+	p := newTestProxy(t)
+	publishLib(t, p, libMarkdown, "markdown", libRelease, libCommit)
+	publishLib(t, p, libSqlite, "sqlite", libRelease, libCommit)
+	app, _ := setup(t, p)
+	for _, path := range []string{libMarkdown, libSqlite} {
+		if _, err := Add(app, "", path, Options{}); err != nil {
+			t.Fatalf("Add %s from source: %v", path, err)
+		}
+	}
+	if lock := readFile(t, filepath.Join(app, "nomi.lock")); !strings.Contains(lock, libMarkdown+" "+libCommit+" ") {
+		t.Fatalf("a nomi built from source did not add markdown at the latest commit:\n%s", lock)
+	}
+
+	release := Options{Release: libRelease}
+	changes, err := Update(app, "", release)
+	if err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+	want := []Change{
+		{Path: libMarkdown, From: libCommit, To: libRelease},
+		{Path: libSqlite, From: libCommit, To: libRelease},
+	}
+	if len(changes) != len(want) || changes[0] != want[0] || changes[1] != want[1] {
+		t.Fatalf("Update answered %+v, want %+v", changes, want)
+	}
+	manifest := readFile(t, filepath.Join(app, "nomi.toml"))
+	for _, m := range []string{libMarkdown, libSqlite} {
+		if !strings.Contains(manifest, `module = "`+m+`", version = "`+libRelease+`" }`) {
+			t.Errorf("nomi.toml after Update does not name %s at %s:\n%s", m, libRelease, manifest)
+		}
+	}
+	if changes, err := Update(app, "", release); err != nil || len(changes) != 0 {
+		t.Errorf("a second Update answered %+v, %v; want no change", changes, err)
+	}
+	if off, err := LibOffRelease(app, libRelease); err != nil || len(off) != 0 {
+		t.Errorf("LibOffRelease after Update answered %v, %v", off, err)
+	}
+	if off, err := LibOffRelease(app, "v0.6.0"); err != nil || len(off) != 2 {
+		t.Errorf("LibOffRelease for another release answered %v, %v; want both modules", off, err)
+	}
+
+	_, err = Update(app, "markdown", Options{Release: "v0.6.0"})
+	if err == nil || !strings.Contains(err.Error(), "the release was published without the tag lib/markdown/v0.6.0") {
+		t.Errorf("Update to a release the proxy lacks: %v", err)
+	}
+}

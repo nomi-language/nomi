@@ -19,7 +19,7 @@ end
 //   - discharge the bare `Cancelled` sentinel into the WRONG SPEC. That last one
 //     is the reason this file exists at all: before the sentinel became
 //     per-spec, `Outcome.Cancelled` would have been emitted as `rt.None`, which
-//     is a `Maybe` for a type that is not one.
+//     is an `Option` for a type that is not one.
 //
 // # EVERY SPELLING, and why each is a separate row
 //
@@ -86,9 +86,9 @@ fn label(o: Outcome<String>) -> String
 end
 
 // The bare variant NESTED inside a prelude variant, so the descent reaches it
-// rather than stopping at the `Maybe` — and so the two sentinels (`None` and
+// rather than stopping at the `Option` — and so the two sentinels (`None` and
 // `Outcome.Cancelled`) are both live in one expression.
-fn nested(m: Maybe<Outcome<Int>>) -> Int
+fn nested(m: Option<Outcome<Int>>) -> Int
     case m
         Some(Outcome.Completed(v)) -> v
         Some(Outcome.Cancelled)    -> -1

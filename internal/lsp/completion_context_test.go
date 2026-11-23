@@ -118,7 +118,7 @@ func TestCompletion_KeywordsByPosition(t *testing.T) {
 func TestCompletion_TypePositionOffersTypes(t *testing.T) {
 	src := "struct Point\n  x: Int\nend\n\nfn helper() -> Int\n  1\nend\n\nfn f(p: ‸) end\n"
 	items := complete(t, src)
-	labelsInclude(t, items, "Int", "String", "Point", "Maybe", "List")
+	labelsInclude(t, items, "Int", "String", "Point", "Option", "List")
 	labelsExclude(t, items, "helper", "if", "Some")
 }
 
@@ -150,7 +150,7 @@ func TestCompletion_TestGroupLinesNotYetWritten(t *testing.T) {
 }
 
 func TestCompletion_PatternPositionOffersVariants(t *testing.T) {
-	items := complete(t, "fn f(m: Maybe<Int>) -> Int\n  case m\n    So‸\n  end\nend\n")
+	items := complete(t, "fn f(m: Option<Int>) -> Int\n  case m\n    So‸\n  end\nend\n")
 	labelsInclude(t, items, "Some")
 	labelsExclude(t, items, "f", "if")
 }

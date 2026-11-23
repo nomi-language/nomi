@@ -1,5 +1,5 @@
 // An owner function generic over its own T, whose parameter nests it
-// (`Box<Maybe<T>>`), called where nothing determines T: the checker leaves
+// (`Box<Option<T>>`), called where nothing determines T: the checker leaves
 // it open, as std/presence's `Presence.flatten(Presence.Present(None))`.
 pub enum Box<T>
     Empty
@@ -7,20 +7,20 @@ pub enum Box<T>
 end
 
 impl Box<T>
-    pub fn flat<T>(b: Box<Maybe<T>>) -> Maybe<T>
+    pub fn flat<T>(b: Box<Option<T>>) -> Option<T>
         case b
             .Full(inner) -> inner
-            .Empty       -> Maybe.None
+            .Empty       -> Option.None
         end
     end
 end
 
 test "same file, T open"
-    assert Box.flat(Box.Full(Maybe.None)) == Maybe.None
-    empty: Box<Maybe<String>> = Box.Empty
-    assert Box.flat(empty) == Maybe.None
+    assert Box.flat(Box.Full(Option.None)) == Option.None
+    empty: Box<Option<String>> = Box.Empty
+    assert Box.flat(empty) == Option.None
 end
 
 test "same file, T solved"
-    assert Box.flat(Box.Full(Maybe.Some("a"))) == Maybe.Some("a")
+    assert Box.flat(Box.Full(Option.Some("a"))) == Option.Some("a")
 end

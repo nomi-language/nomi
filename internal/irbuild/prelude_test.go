@@ -15,13 +15,13 @@ import (
 // against the things it is derived FROM: the std declaration, and rt.
 //
 // The differential harness cannot see a bug in anything implemented once, and
-// the Go types `Maybe` and `Result` lower to are hand-written in rt — so the
+// the Go types `Option` and `Result` lower to are hand-written in rt — so the
 // fixtures below pin the reference TEXT as well as agreement, and the two
 // guards assert absolute values rather than comparing two computations.
 
 // TestPreludeShapeMatchesStdSource asserts the anchors are BUILT.
 //
-// prelude.go refuses to lower anything when std/maybe.nomi or std/results.nomi
+// prelude.go refuses to lower anything when std/option.nomi or std/results.nomi
 // stops having the shape it assumes — different type parameters, a reordered
 // variant, a payload that stops naming the type parameter it named. That is
 // the safe failure, and it is silent: every prelude construct simply goes back
@@ -30,7 +30,7 @@ import (
 func TestPreludeShapeMatchesStdSource(t *testing.T) {
 	g := preludeGenForTest(t)
 	// payloads spells what the STD SOURCE declares, so a reader can check it
-	// against maybe.nomi / results.nomi / literals.nomi by eye: a type
+	// against option.nomi / results.nomi / literals.nomi by eye: a type
 	// parameter's name, a concrete type's name, or "-" for a bare variant.
 	// It is deliberately the source spelling rather than the spec's `param`
 	// index, because that index cannot express a CONCRETE payload and the
@@ -40,7 +40,7 @@ func TestPreludeShapeMatchesStdSource(t *testing.T) {
 		variants []string
 		payloads []string
 	}{
-		"Maybe":  {params: []string{"T"}, variants: []string{"Some", "None"}, payloads: []string{"T", "-"}},
+		"Option": {params: []string{"T"}, variants: []string{"Some", "None"}, payloads: []string{"T", "-"}},
 		"Result": {params: []string{"T", "E"}, variants: []string{"Ok", "Err"}, payloads: []string{"T", "E"}},
 		// `Static`'s payload is `String` and NOT `T`. Getting this pair the
 		// wrong way round is invisible at `Fragment<String>`, which is the only
@@ -160,7 +160,7 @@ func TestPreludeShapeMatchesStdSource(t *testing.T) {
 // that mutation can be caught.
 func TestPreludeLayoutMatchesRT(t *testing.T) {
 	byName := map[string]reflect.Type{
-		"Maybe":    reflect.TypeOf(rt.Maybe[int64]{}),
+		"Option":   reflect.TypeOf(rt.Option[int64]{}),
 		"Result":   reflect.TypeOf(rt.Result[int64, string]{}),
 		"Fragment": reflect.TypeOf(rt.Fragment[int64]{}),
 		// `rt.Outcome[string]`, and the argument is DELIBERATELY not int64.
@@ -239,12 +239,12 @@ func TestPreludeLayoutMatchesRT(t *testing.T) {
 
 	// And the BUILDER's own assignment, against those same values. This is
 	// the assertion that closes the loop, and it is one an output comparison
-	// cannot make: a `Maybe` the builder constructs and a `Maybe` built by
+	// cannot make: an `Option` the builder constructs and an `Option` built by
 	// rt.MapGet are one type, so if the two disagreed about which tag means
 	// Some, a program would be right only when the value never crossed the
 	// boundary, and silently wrong when it did.
 	g := preludeGenForTest(t)
-	m := g.preludeInstance(preludeAnchorForTest(g, "Maybe"), []kind{kindInt}).def
+	m := g.preludeInstance(preludeAnchorForTest(g, "Option"), []kind{kindInt}).def
 	if got := m.variant("Some").tag; got != int(rt.TagSome) {
 		t.Fatalf("the builder assigns Some tag %d, rt says %d", got, rt.TagSome)
 	}
@@ -294,27 +294,27 @@ func TestPreludeLayoutMatchesRT(t *testing.T) {
 // TestPreludeInstancesAreDistinctTypes is the identity property, asserted on
 // the builder's own table rather than on any rendered text.
 //
-// `Maybe<Int>` and `Maybe<String>` must be two *typeDef pointers, because
+// `Option<Int>` and `Option<String>` must be two *typeDef pointers, because
 // kind equality is pointer equality and one pointer would make them one kind —
-// which is sound for nothing. Two mentions of `Maybe<Int>` must be ONE pointer,
+// which is sound for nothing. Two mentions of `Option<Int>` must be ONE pointer,
 // or a value built at one mention would not be assignable at the other.
 func TestPreludeInstancesAreDistinctTypes(t *testing.T) {
 	g := preludeGenForTest(t)
-	a := preludeAnchorForTest(g, "Maybe")
+	a := preludeAnchorForTest(g, "Option")
 	mi := g.preludeInstance(a, []kind{kindInt})
 	mi2 := g.preludeInstance(a, []kind{kindInt})
 	ms := g.preludeInstance(a, []kind{kindString})
 	if mi != mi2 {
-		t.Fatal("two mentions of Maybe<Int> are two kinds")
+		t.Fatal("two mentions of Option<Int> are two kinds")
 	}
 	if mi == ms {
-		t.Fatal("Maybe<Int> and Maybe<String> are one kind")
+		t.Fatal("Option<Int> and Option<String> are one kind")
 	}
-	if got := mi.nomi(); got != "Maybe<Int>" {
-		t.Fatalf("Maybe<Int> renders as %q", got)
+	if got := mi.nomi(); got != "Option<Int>" {
+		t.Fatalf("Option<Int> renders as %q", got)
 	}
-	if got := ms.nomi(); got != "Maybe<String>" {
-		t.Fatalf("Maybe<String> reports itself as %q", got)
+	if got := ms.nomi(); got != "Option<String>" {
+		t.Fatalf("Option<String> reports itself as %q", got)
 	}
 	r := preludeAnchorForTest(g, "Result")
 	ris := g.preludeInstance(r, []kind{kindInt, kindString})
@@ -334,7 +334,7 @@ func TestPreludeInstancesAreDistinctTypes(t *testing.T) {
 // preludeGenForTest builds a gen over a trivial program that anchors every
 // spec.
 //
-// `Maybe` and `Result` are in every file's scope whether it imports them or
+// `Option` and `Result` are in every file's scope whether it imports them or
 // not; `Fragment` and `Outcome` are ordinary `pub enum`s in std/literals and
 // std/tasks, so the program has to import them and MENTION them — an unused
 // import is a front-end error. That asymmetry is not incidental: it is the one
@@ -371,12 +371,12 @@ func preludeGenForTest(t *testing.T) *gen {
 // TestPreludeIdentityIsNotAName holds that a prelude type's identity is its
 // declaration, not its name.
 //
-// A file that declares its OWN `Maybe` must not have it lowered to rt's. The
+// A file that declares its OWN `Option` must not have it lowered to rt's. The
 // declaration is refused for being generic, and the point of this test is that
 // the refusal is about the user's type rather than a silent redirection to the
 // prelude one — so the anchor must not resolve at all.
 func TestPreludeIdentityIsNotAName(t *testing.T) {
-	src := `enum Maybe<T>
+	src := `enum Option<T>
   Some T
   None
 end
@@ -390,7 +390,7 @@ end
 	if err != nil {
 		// A redeclaration may be a front-end error, which is a stronger
 		// version of the same guarantee.
-		if strings.Contains(err.Error(), "Maybe") {
+		if strings.Contains(err.Error(), "Option") {
 			return
 		}
 		t.Fatalf("analyzing: %v", err)
@@ -399,8 +399,8 @@ end
 	g.loadPreludes()
 	// An anchor is the STD declaration, never the local one.
 	for _, n := range p.Modules[0].Nodes {
-		if ed, isEnum := n.(*ast.EnumDef); isEnum && ed.Name == "Maybe" && g.preludeByDecl[ed] != nil {
-			t.Fatal("a locally declared Maybe was anchored as the prelude one")
+		if ed, isEnum := n.(*ast.EnumDef); isEnum && ed.Name == "Option" && g.preludeByDecl[ed] != nil {
+			t.Fatal("a locally declared Option was anchored as the prelude one")
 		}
 	}
 }

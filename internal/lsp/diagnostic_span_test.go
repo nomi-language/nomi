@@ -2,13 +2,20 @@ package lsp
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
-const spanURI = "file:///span/main.nomi"
+// spanURI is the document these tests open, at an absolute path: on Windows
+// `/span/main.nomi` has no drive, so it is not absolute, and a related
+// location in it is left out of a diagnostic.
+var spanURI = func() string {
+	path, _ := filepath.Abs(filepath.FromSlash("/span/main.nomi"))
+	return pathToURI(path)
+}()
 
 // publishedFor opens src and answers its published diagnostics, for a client
 // that reads relatedInformation or one that does not.

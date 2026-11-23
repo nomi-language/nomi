@@ -2,7 +2,7 @@
 Refinement over a scalar with a lambda rule
 ================================================================================
 
-pub subtype Port Int when fn port -> port >= 1
+pub refine Port Int when fn port -> port >= 1
 
 --------------------------------------------------------------------------------
 
@@ -24,7 +24,7 @@ pub subtype Port Int when fn port -> port >= 1
 Refinement with a named function as its rule
 ================================================================================
 
-subtype Username String when is_username
+refine Username String when is_username
 
 --------------------------------------------------------------------------------
 
@@ -113,7 +113,7 @@ end
 Refinement of several parents
 ================================================================================
 
-pub subtype PositiveInt NonNegativeInt and NonZeroInt when fn n -> n > 0
+pub refine PositiveInt NonNegativeInt and NonZeroInt when fn n -> n > 0
 
 --------------------------------------------------------------------------------
 
@@ -136,7 +136,7 @@ pub subtype PositiveInt NonNegativeInt and NonZeroInt when fn n -> n > 0
 Generic refinement with a bound
 ================================================================================
 
-subtype Sorted<T> List<T> where T: Comparable when fn xs -> True
+refine Sorted<T> List<T> where T: Comparable when fn xs -> True
 
 --------------------------------------------------------------------------------
 
@@ -163,10 +163,10 @@ subtype Sorted<T> List<T> where T: Comparable when fn xs -> True
         body: (type_identifier)))))
 
 ================================================================================
-Subtype of an intersection with no rule of its own
+Refinement of an intersection with no rule of its own
 ================================================================================
 
-subtype PositiveInt NonNegativeInt and NonZeroInt
+refine PositiveInt NonNegativeInt and NonZeroInt
 
 --------------------------------------------------------------------------------
 
@@ -194,7 +194,7 @@ type Email String when is_email
       (identifier))))
 
 ================================================================================
-Intersection of subtypes as a parameter type
+Intersection of refinements as a parameter type
 ================================================================================
 
 fn half(n: NonNegativeInt and NonZeroInt) -> Int

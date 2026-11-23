@@ -127,7 +127,7 @@ fn main()
     tags: .. |> Iter.filter(fn t -> t != "old") |> Iter.to_list(),
   }
   dbg p
-  dbg {..p, address: {.., city: Some("!") |> Maybe.map(fn s -> .. + s) |> Maybe.with_default("")}}.address
+  dbg {..p, address: {.., city: Some("!") |> Option.map(fn s -> .. + s) |> Option.with_default("")}}.address
   dbg Struct.update(p, {visits: .. * 10, address: {.., city: String.uppercase(..)}}).visits
   record = {n: 1, s: "a"}
   dbg {..record, n: .. + 1, s: .. + ..}
@@ -136,7 +136,12 @@ fn main()
 end
 `, "load\n"+
 		"dbg line 40: p = Person{name: \"Ada\", address: Address{street: \"1 Main Road\", city: \"Bath\"}, born: Place{at: Address{street: \"1 Main Road\", city: \"Bath\"}, year: 1815}, visits: 3, tags: [\"new\"]}\n"+
-		"dbg line 41: {..p, address: {.., city: Some(\"!\") |> Maybe.map(fn s -> .. + s) |> Maybe.with_default(\"\")}}.address = Address{street: \"1 Main Road\", city: \"Bath!\"}\n"+
+		"dbg line 41:\n"+
+		"  {\n"+
+		"      ..p,\n"+
+		"      address: {.., city: Some(\"!\") |> Option.map(fn s -> .. + s) |> Option.with_default(\"\")},\n"+
+		"  }.address\n"+
+		"  = Address{street: \"1 Main Road\", city: \"Bath!\"}\n"+
 		"dbg line 42: Struct.update(p, {visits: .. * 10, address: {.., city: String.uppercase(..)}}).visits = 30\n"+
 		"dbg line 44: {..record, n: .. + 1, s: .. + ..} = {n: 2, s: \"aa\"}\n"+
 		"dbg line 46: {..counts, \"a\" => .. + [2], \"b\" => .. + [3]} = {\"a\" => [1, 2], \"b\" => [3]}\n")

@@ -14,7 +14,7 @@ end
 /// `"SEND + MORE == MONEY"`, a true sum, with a different digit for each
 /// letter and no leading zero in a word of more than one letter; `None`
 /// when no digits do.
-pub fn solve(puzzle: String) -> Maybe<Map<String, Int>>
+pub fn solve(puzzle: String) -> Option<Map<String, Int>>
     [left, right] = String.split(puzzle, "==") else return None
 
     addends = left |> String.split("+") |> Iter.map(fn word -> (String.trim(word), 1))
@@ -61,7 +61,7 @@ fn assign(
     used:    Set<Int>,
     total:   Int,
     digits:  Map<String, Int>,
-) -> Maybe<Map<String, Int>>
+) -> Option<Map<String, Int>>
     [letter, ..rest] = letters else
         return if total == 0 then Some(digits) else None
     end

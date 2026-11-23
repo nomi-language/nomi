@@ -74,8 +74,8 @@ type stdInst struct {
 	args []kind
 	// types is the checker's type of each of args, or nil (substFrame).
 	types []analysis.Type
-	// reads is where each of args holds the subtypes the instance reads,
-	// or nil when it reads none (subtypeinst.go).
+	// reads is where each of args holds the refinements the instance reads,
+	// or nil when it reads none (refinementinst.go).
 	reads []string
 	// gen builds this instance's body; the signature below was resolved
 	// through it, so the two cannot disagree about an annotation.
@@ -114,7 +114,7 @@ type stdInstances struct {
 	program []*gen
 	// caller is the gen whose call asks for an instance. An instance gen
 	// interns its structural kinds, prelude, std generic struct and std
-	// generic host instances in the caller's tables, so `Maybe<Point>` or
+	// generic host instances in the caller's tables, so `Option<Point>` or
 	// `Vector<Point>` over the caller's Point is one kind on both sides of the
 	// call.
 	caller *gen
@@ -225,8 +225,8 @@ func (s *stdInstances) defaultAccessor(f *stdFunc, tps []string, args []kind, ty
 // instantiateAt is instantiate for f's body (slot -1) or defaultAccessor
 // for its parameter slot's default.
 func (s *stdInstances) instantiateAt(f *stdFunc, tps []string, args []kind, types []analysis.Type, slot int, caller *gen) (*stdInst, string) {
-	reads := subtypeReads(tps, types, func() map[string][]*analysis.InterfaceType { return s.stdParamBounds(f) })
-	key := openInstKey(s.dc, stdInstKey(f.decl, args), types) + subtypeReadsKey(reads)
+	reads := refinementReads(tps, types, func() map[string][]*analysis.InterfaceType { return s.stdParamBounds(f) })
+	key := openInstKey(s.dc, stdInstKey(f.decl, args), types) + refinementReadsKey(reads)
 	if slot >= 0 {
 		key += "\x00default " + strconv.Itoa(slot)
 	}
@@ -1231,7 +1231,7 @@ func stdModuleInherentHost(v *stdModuleView, recv, name string) bool {
 // stdKindQualCall lowers `method` on the concrete kind a type parameter or a
 // turbofish names: a declared type's impl as the function the call's record
 // names at the instance (kindImplCall), and a generic std container's impl
-// (`List<Int>`, `Maybe<String>`, `Map<String, Int>`) as an instance
+// (`List<Int>`, `Option<String>`, `Map<String, Int>`) as an instance
 // selected by the receiver. kt is the checker's type k was read from, nil
 // when the caller has none. handled is false when k names none of these,
 // and at a scalar, whose call the caller lowers as written.
@@ -1317,7 +1317,7 @@ func (bl *irScalarBuilder) stdKindQualCall(t *ast.Call, k kind, kt analysis.Type
 		return no()
 	}
 	if v, rk, mobile, ok, handled := bl.stdRecvKindCall(t, k, kt, method); handled {
-		// `T.zero(n)` at a `List<Int>`, `Zero.zero<Maybe<Int>>(1)`: the
+		// `T.zero(n)` at a `List<Int>`, `Zero.zero<Option<Int>>(1)`: the
 		// program's impl over the container. See stdrecvimpl.go.
 		return v, rk, mobile, ok, true
 	}
@@ -1603,7 +1603,7 @@ func irOwnOperationFamily(owner analysis.StdType, method string) bool {
 		return true
 	case stdResultType:
 		return method == "map_err" || method == "with_default"
-	case stdMaybeType:
+	case stdOptionType:
 		return method == "to_result" || method == "with_default"
 	}
 	return false

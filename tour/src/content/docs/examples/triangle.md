@@ -23,7 +23,7 @@ end
 /// Classifies three side lengths, or answers `None` when they do not make a
 /// triangle: a side is not positive, or one side is longer than the other two
 /// together.
-pub fn kind((a, b, c): (Float, Float, Float)) -> Maybe<Kind>
+pub fn kind((a, b, c): (Float, Float, Float)) -> Option<Kind>
     positive = a > 0.0 and b > 0.0 and c > 0.0
     inequality = a + b >= c and b + c >= a and a + c >= b
     if not (positive and inequality) then return None
@@ -108,7 +108,7 @@ test result: ok. 21 passed, 0 failed
 ## How it's written
 
 - Sides are a `(Float, Float, Float)` tuple, since the canonical data includes fractional sides and Nomi does not mix `Int` and `Float`. Whole sides are written `2.0`.
-- `kind` answers `Maybe<Kind>` over a `Kind` enum, `None` for a non-triangle; the three canonical predicates are thin wrappers over it.
+- `kind` answers `Option<Kind>` over a `Kind` enum, `None` for a non-triangle; the three canonical predicates are thin wrappers over it.
 - The kind comes from the size of the set of sides (1, 2 or 3 distinct lengths) rather than pairwise comparisons.
 - Each canonical group is a test named by the group's description, holding one `subtests` table; a `group` block is for shared `clock`, `boot` or `setup`, which none needs.
 - `is_isosceles` is `kind(sides) is Some(.Equilateral or .Isosceles)`: the `or` sits inside the payload, so one test says both kinds count.

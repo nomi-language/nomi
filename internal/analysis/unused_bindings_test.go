@@ -231,7 +231,7 @@ end
 func TestUnusedBinding_ArmPatternBindingNeverRead(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"case arm", `
-fn f(m: Maybe<Int>) -> Int
+fn f(m: Option<Int>) -> Int
   case m
     Some(v) -> 1
     None -> 0
@@ -255,7 +255,7 @@ fn f(r: Result<Int, String>) -> Int
 end
 `, "binding 'e' is never read"},
 		{"if condition", `
-fn f(m: Maybe<Int>) -> Int
+fn f(m: Option<Int>) -> Int
   if Some(v) = m then
     1
   else
@@ -281,7 +281,7 @@ struct P
   x: Int
   y: Int
 end
-fn f(m: Maybe<Int>, xs: List<Int>, p: (Int, Int)) -> Int
+fn f(m: Option<Int>, xs: List<Int>, p: (Int, Int)) -> Int
   _ = Iter.map([("a", 1)], fn (_word, count) -> count) |> Iter.to_list()
   _ = Iter.map([P{x: 1, y: 2}], fn {x:} -> x) |> Iter.to_list()
   _ = case xs

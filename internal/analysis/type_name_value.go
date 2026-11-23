@@ -8,7 +8,7 @@ import (
 )
 
 // A type name is not a value. `Int`, `Point`, `Shape`, `Display` and
-// `Maybe` name types; written where a value goes (`f = Int`,
+// `Option` name types; written where a value goes (`f = Int`,
 // `Iter.map(xs, String)`) or called as a function (`Int("4")`,
 // `String(4)`), they have no value to give. The names that are values are
 // an enum variant (`None`, `Shape.Dot`, and a positional variant such as
@@ -166,8 +166,8 @@ func (c *checker) distinctCtorValue(n ast.Node) (Type, bool) {
 		return nil, false
 	}
 	refused := c.checkOpaqueConstructor(n, dt)
-	if dt.Subtype || checkedDistinctOf(dt) != nil {
-		// The call form of a subtype or a validated type takes a literal;
+	if dt.Refinement || checkedDistinctOf(dt) != nil {
+		// The call form of a refinement or a validated type takes a literal;
 		// as a function it would take any value unchecked
 		// (refinement_check.go). An opaque one outside its file has no
 		// function to name instead.
@@ -176,7 +176,7 @@ func (c *checker) distinctCtorValue(n ast.Node) (Type, bool) {
 			line, col := startOf(n)
 			c.report(TypeError{Line: line, Col: col, Message: fmt.Sprintf(
 				"`%s` is %s and has no constructor function: its call form `%s(...)` takes only a literal", dt.Name, checkedKindText(dt), dt.Name)}.WithHint(fmt.Sprintf(
-				"to check values when the program runs, pass `%s.try_from`, a `(%s) -> Maybe<%s>`", dt.Name, formatTypeForError(base), dt.Name)))
+				"to check values when the program runs, pass `%s.try_from`, a `(%s) -> Option<%s>`", dt.Name, formatTypeForError(base), dt.Name)))
 		}
 		return &FuncType{Params: []Type{base}, Return: dt}, true
 	}
@@ -310,11 +310,11 @@ func typeNameCallHint(name, what string, resolved, argTy Type) string {
 	case "Int":
 		switch from {
 		case "String":
-			return "to parse a String, call `String.to_int`, which returns a `Maybe<Int>`"
+			return "to parse a String, call `String.to_int`, which returns an `Option<Int>`"
 		case "Float":
-			return "to convert a Float, call `Float.to_int`, which returns a `Maybe<Int>`, or `Float.round` first"
+			return "to convert a Float, call `Float.to_int`, which returns an `Option<Int>`, or `Float.round` first"
 		case "Decimal":
-			return "to convert a Decimal, call `Decimal.to_int`, which returns a `Maybe<Int>`"
+			return "to convert a Decimal, call `Decimal.to_int`, which returns an `Option<Int>`"
 		}
 	case "Float":
 		switch from {

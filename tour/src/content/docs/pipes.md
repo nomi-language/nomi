@@ -212,7 +212,7 @@ the program keeps.
 
 - A `tap` body may end in `dbg`, as a `Unit` function body may.
 - A `?` inside the lambda exits the lambda, so its result is a `Result` or
-  `Maybe`, not `Unit`, and the stage is rejected.
+  `Option`, not `Unit`, and the stage is rejected.
 - `tap?` is an error: `tap` passes its input on, so there is nothing for
   the `?` to propagate. Use `then?`.
 
@@ -227,12 +227,12 @@ with `not` negates the stage's result: `name |> not String.is_empty()` is
 `not String.is_empty(name)`.
 
 A [`?`](/pattern-matching/#passing-failures-up) after a stage unwraps its
-[`Maybe`](/reference/maybe/) or [`Result`](/reference/results/). It passes
+[`Option`](/reference/option/) or [`Result`](/reference/results/). It passes
 on the value inside a `Some` or an `Ok`. On `None` or `Err`, it returns that
 from the function straight away:
 
 ```nomi-run
-fn parse(text: String) -> Maybe<Int>
+fn parse(text: String) -> Option<Int>
     text
     |> String.trim()
     |> String.to_int()?

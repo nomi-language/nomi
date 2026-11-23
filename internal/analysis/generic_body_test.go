@@ -95,20 +95,20 @@ end
 	expectNoErrors(t, errs)
 }
 
-// Generic function wrapping a mapped result — occurs check prevents U = Maybe<U>.
-// Defines Maybe locally instead of importing stdlib so checkSource (which uses
+// Generic function wrapping a mapped result — occurs check prevents U = Option<U>.
+// Defines Option locally instead of importing stdlib so checkSource (which uses
 // BuildFile, no stdlib) can resolve Some/None.
-func TestCheck_GenericBodyMapMaybe(t *testing.T) {
+func TestCheck_GenericBodyMapOption(t *testing.T) {
 	_, errs := checkSource(`
-enum Maybe<T>
+enum Option<T>
     Some T
     None
 end
 
-fn map<T, U>(maybe: Maybe<T>, f: (T) -> U) -> Maybe<U>
-  case maybe
-    Some(v) -> Maybe.Some(f(v))
-    None -> Maybe.None
+fn map<T, U>(option: Option<T>, f: (T) -> U) -> Option<U>
+  case option
+    Some(v) -> Option.Some(f(v))
+    None -> Option.None
   end
 end
 `)

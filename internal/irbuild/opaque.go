@@ -50,7 +50,7 @@ import (
 // the analyzer's own (Origin, Name) rule, and the declaration's SHAPE is
 // checked — opaque, non-generic, inner exactly Int — so a std edit produces no
 // anchor and every mention refuses loudly rather than lowering against a layout
-// nobody wrote. Same two steps prelude.go takes for Maybe and Result.
+// nobody wrote. Same two steps prelude.go takes for Option and Result.
 //
 // The *typeDef is PROCESS-WIDE, one per spec, and that is a deliberate exception
 // to foreign.go's rule against shared defs. foreign.go's reason is that "a
@@ -100,7 +100,7 @@ type opaqueSpec struct {
 	// TestOpaqueDefsArePackageNeutral enforces it.
 	inner kind
 	// decl is the inner type as std's declaration writes it (typeText). A
-	// subtype is written as itself (`opaque type Codepoint Int64`), though
+	// refinement is written as itself (`opaque type Codepoint Int64`), though
 	// inner is its base's kind.
 	decl string
 	// goType is rt's Go type, held as the TYPE rather than as its spelling for
@@ -142,9 +142,9 @@ type opaqueSpec struct {
 // TestOpaqueSpecsAreLoadBearing checks, per row, that some std DECLARATION's
 // signature names the type, which is this table's actual bar.
 //
-// `Codepoint` is reached mostly through `Maybe<…>`. A prelude instance over
+// `Codepoint` is reached mostly through `Option<…>`. A prelude instance over
 // package-neutral arguments is interned PROCESS-WIDE, for exactly the reason
-// this file's header gives for sharing an opaque def, so `Maybe<Codepoint>`
+// this file's header gives for sharing an opaque def, so `Option<Codepoint>`
 // is a kind a call site in another gen compares equal to. See stdprelude.go.
 //
 // std/int's `NonZeroInt` and `PositiveInt` are refinements, which have no

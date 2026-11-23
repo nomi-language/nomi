@@ -45,7 +45,7 @@ func TestConcurrent_TaskRowNamesRTsOwnType(t *testing.T) {
 // TestChannel_BufferedCapacityIsAnInt reads STD's own declaration, because
 // channelCtorFromTarget lowers the capacity as an Int (it takes the row's
 // arity and refuses an argument of any other kind) rather than from the
-// checker's answer. The capacity is declared PositiveInt, a subtype whose
+// checker's answer. The capacity is declared PositiveInt, a refinement whose
 // values are Ints: its base is Int and the builder erases it to kindInt,
 // so an annotated `Channel.buffered(n)` passes the argument through.
 //

@@ -334,7 +334,7 @@
         {
           "comment": "`open` and `derive` are contextual keywords; like the bat syntax, match them everywhere.",
           "name": "keyword.declaration.nomi",
-          "match": "\\b(?:pub|opaque|export|once|fn|type|subtype|struct|enum|interface|impl|derive|for|embeds|typealias|extern|import|as|where|with|defer|test|setup|self|open)\\b"
+          "match": "\\b(?:pub|opaque|export|once|fn|type|refine|struct|enum|interface|impl|derive|for|embeds|typealias|extern|import|as|where|with|defer|test|setup|self|open)\\b"
         },
         {
           "comment": "`clock` and `boot` are keywords only as a test group's lines.",

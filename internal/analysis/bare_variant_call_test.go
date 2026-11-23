@@ -25,7 +25,7 @@ end
 fn main()
   _ = Shape.Circle(0)
   _ = Shape.Dot()
-  m: Maybe<Int> = None(1)
+  m: Option<Int> = None(1)
   _ = m
   _ = dot()
   _ = Shape.Square(1)
@@ -42,7 +42,7 @@ end
 		"9:3 variant .Circle carries no data; write .Circle without parentheses",
 		"13:7 variant Shape.Circle carries no data; write Shape.Circle without parentheses",
 		"14:7 variant Shape.Dot carries no data; write Shape.Dot without parentheses",
-		"15:19 variant None carries no data; write None without parentheses",
+		"15:20 variant None carries no data; write None without parentheses",
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("errors:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))

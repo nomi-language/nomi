@@ -20,7 +20,7 @@ end
 
 struct Slot
   name: String
-  value: Maybe<Int>
+  value: Option<Int>
 end
 
 enum Shape
@@ -29,7 +29,7 @@ enum Shape
   Empty
 end
 
-type Wrapped Maybe<Int>
+type Wrapped Option<Int>
 `
 
 // nonExhaustive returns the coverage errors among errs, as their messages.
@@ -49,13 +49,13 @@ func TestCaseExhaustive_CompoundScrutineesRejected(t *testing.T) {
 			"fn f(n: Int) -> String\n  case (n, n)\n    (0, 0) -> \"zero\"\n  end\nend",
 			"non-exhaustive case: add a `_` arm",
 		},
-		"tuple of Maybes missing (None, None)": {
-			"fn f(a: Maybe<Int>, b: Maybe<Int>) -> Int\n  case (a, b)\n    (Some(x), None) -> x\n    (None, Some(y)) -> y\n    (Some(x), Some(y)) -> x + y\n  end\nend",
-			"non-exhaustive case on (Maybe<Int>, Maybe<Int>): missing (None, None)",
+		"tuple of Options missing (None, None)": {
+			"fn f(a: Option<Int>, b: Option<Int>) -> Int\n  case (a, b)\n    (Some(x), None) -> x\n    (None, Some(y)) -> y\n    (Some(x), Some(y)) -> x + y\n  end\nend",
+			"non-exhaustive case on (Option<Int>, Option<Int>): missing (None, None)",
 		},
 		"tuple with a literal beside an enum": {
-			"fn f(a: Maybe<Int>, n: Int) -> Int\n  case (a, n)\n    (Some(x), _) -> x\n    (None, 0) -> 0\n  end\nend",
-			"non-exhaustive case on (Maybe<Int>, Int): missing (None, _)",
+			"fn f(a: Option<Int>, n: Int) -> Int\n  case (a, n)\n    (Some(x), _) -> x\n    (None, 0) -> 0\n  end\nend",
+			"non-exhaustive case on (Option<Int>, Int): missing (None, _)",
 		},
 		"tuple of enum and Bool": {
 			"fn f(s: Shape, b: Bool) -> Int\n  case (s, b)\n    (.Circle(_), True) -> 1\n    (.Rect{w:, h:}, _) -> 2\n    (.Empty, _) -> 3\n  end\nend",
@@ -70,8 +70,8 @@ func TestCaseExhaustive_CompoundScrutineesRejected(t *testing.T) {
 			"non-exhaustive case on List<Int>: missing []",
 		},
 		"list with a nested enum": {
-			"fn f(xs: List<Maybe<Int>>) -> Int\n  case xs\n    [] -> 0\n    [Some(a), ..rest] -> a\n  end\nend",
-			"non-exhaustive case on List<Maybe<Int>>: missing [None, ..]",
+			"fn f(xs: List<Option<Int>>) -> Int\n  case xs\n    [] -> 0\n    [Some(a), ..rest] -> a\n  end\nend",
+			"non-exhaustive case on List<Option<Int>>: missing [None, ..]",
 		},
 		"struct with a literal field": {
 			"fn f(p: Point) -> Int\n  case p\n    {x: 0, y:} -> y\n  end\nend",
@@ -90,12 +90,12 @@ func TestCaseExhaustive_CompoundScrutineesRejected(t *testing.T) {
 			"non-exhaustive case: add a `_` arm",
 		},
 		"guarded tuple arm": {
-			"fn f(a: Maybe<Int>, b: Maybe<Int>) -> Int\n  case (a, b)\n    (x, y) when x == y -> 0\n  end\nend",
+			"fn f(a: Option<Int>, b: Option<Int>) -> Int\n  case (a, b)\n    (x, y) when x == y -> 0\n  end\nend",
 			"non-exhaustive case: add a `_` arm",
 		},
 		"else arms over a tuple": {
-			"fn f(p: (Maybe<Int>, Maybe<Int>)) -> Int\n  (Some(a), Some(b)) = p else\n    (None, _) -> return 0\n  end\n  a + b\nend",
-			"non-exhaustive `else` on (Maybe<Int>, Maybe<Int>): missing (Some(_), None)",
+			"fn f(p: (Option<Int>, Option<Int>)) -> Int\n  (Some(a), Some(b)) = p else\n    (None, _) -> return 0\n  end\n  a + b\nend",
+			"non-exhaustive `else` on (Option<Int>, Option<Int>): missing (Some(_), None)",
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -110,14 +110,14 @@ func TestCaseExhaustive_CompoundScrutineesRejected(t *testing.T) {
 
 func TestCaseExhaustive_CompoundScrutineesAccepted(t *testing.T) {
 	for name, body := range map[string]string{
-		"tuple of Maybes, every pair":  "fn f(a: Maybe<Int>, b: Maybe<Int>) -> Int\n  case (a, b)\n    (Some(x), Some(y)) -> x + y\n    (Some(x), None) -> x\n    (None, Some(y)) -> y\n    (None, None) -> 0\n  end\nend",
-		"tuple with a wildcard column": "fn f(a: Maybe<Int>, b: Maybe<Int>) -> Int\n  case (a, b)\n    (Some(x), _) -> x\n    (None, Some(y)) -> y\n    (None, None) -> 0\n  end\nend",
+		"tuple of Options, every pair": "fn f(a: Option<Int>, b: Option<Int>) -> Int\n  case (a, b)\n    (Some(x), Some(y)) -> x + y\n    (Some(x), None) -> x\n    (None, Some(y)) -> y\n    (None, None) -> 0\n  end\nend",
+		"tuple with a wildcard column": "fn f(a: Option<Int>, b: Option<Int>) -> Int\n  case (a, b)\n    (Some(x), _) -> x\n    (None, Some(y)) -> y\n    (None, None) -> 0\n  end\nend",
 		"tuple of literals and _":      "fn f(n: Int) -> String\n  case (n, n)\n    (0, 0) -> \"zero\"\n    _ -> \"other\"\n  end\nend",
 		"tuple literal with binding":   "fn f(n: Int, b: Bool) -> Int\n  case (n, b)\n    (0, _) -> 0\n    (m, True) -> m\n    (_, False) -> -1\n  end\nend",
 		"nested Result in a tuple":     "fn f(a: Result<Int, String>, b: Bool) -> Int\n  case (a, b)\n    (Ok(n), _) -> n\n    (Err(_), True) -> 1\n    (Err(_), False) -> 2\n  end\nend",
 		"list by length":               "fn f(xs: List<Int>) -> Int\n  case xs\n    [] -> 0\n    [a] -> a\n    [a, b, ..rest] -> a + b\n  end\nend",
 		"list head and tail":           "fn f(xs: List<Int>) -> Int\n  case xs\n    [] -> 0\n    [h, ..t] -> h\n  end\nend",
-		"list of Maybes":               "fn f(xs: List<Maybe<Int>>) -> Int\n  case xs\n    [] -> 0\n    [Some(a), ..rest] -> a\n    [None, ..rest] -> 0\n  end\nend",
+		"list of Options":              "fn f(xs: List<Option<Int>>) -> Int\n  case xs\n    [] -> 0\n    [Some(a), ..rest] -> a\n    [None, ..rest] -> 0\n  end\nend",
 		"struct binding fields":        "fn f(p: Point) -> Int\n  case p\n    {x:, y:} -> x + y\n  end\nend",
 		"struct with enum field":       "fn f(s: Slot) -> Int\n  case s\n    {name:, value: Some(v)} -> v\n    {name:, value: None} -> 0\n  end\nend",
 		"struct literal field and _":   "fn f(p: Point) -> Int\n  case p\n    {x: 0, y:} -> y\n    _ -> 0\n  end\nend",

@@ -41,8 +41,8 @@ pub fn decode(encoded: String) -> String
     |> Iter.map(fn (count, letter) ->
         times =
             String.to_int(count)
-            |> Maybe.flat_map(NonNegativeInt.try_from)
-            |> Maybe.with_default(1)
+            |> Option.flat_map(NonNegativeInt.try_from)
+            |> Option.with_default(1)
 
         String.repeat(letter, times)
     end)

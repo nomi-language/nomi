@@ -187,9 +187,9 @@ end
 }
 
 // Every Matcher function called on a value held as Matcher, including those
-// whose result is no scalar (`List<String>`, `Maybe<String>`), over a String
+// whose result is no scalar (`List<String>`, `Option<String>`), over a String
 // and over a program struct. The signatures are std's declaration, resolved
-// against std's own file (stdProgIfaceOf), so `Maybe<String>` is the prelude
+// against std's own file (stdProgIfaceOf), so `Option<String>` is the prelude
 // enum's instance.
 func TestStdProgIface_EveryMatcherFunctionOnAnErasedReceiver(t *testing.T) {
 	if testing.Short() {
@@ -227,7 +227,7 @@ impl Matcher for Letter
         String.split(text, m.c) |> Iter.drop(1) |> Iter.map(fn _ -> m.c) |> Iter.to_list()
     end
 
-    fn find_in(m: Letter, text: String) -> Maybe<String>
+    fn find_in(m: Letter, text: String) -> Option<String>
         if String.contains(text, m.c) then Some(m.c) else None
     end
 end
@@ -238,8 +238,8 @@ fn report(m: Matcher)
     io.print(String.join(Matcher.split_in(m, "banana"), "|"))
     io.print(Matcher.replace_in(m, "banana", "o"))
     io.print(Int.to_string(Iter.count(Matcher.find_all_in(m, "banana"))))
-    io.print(Matcher.find_in(m, "banana") |> Maybe.with_default("none"))
-    io.print(Matcher.find_in(m, "xyz") |> Maybe.with_default("none"))
+    io.print(Matcher.find_in(m, "banana") |> Option.with_default("none"))
+    io.print(Matcher.find_in(m, "xyz") |> Option.with_default("none"))
 end
 
 fn main()
@@ -279,7 +279,7 @@ fn holders(x: Int, cs: List<Contains<Int>>) -> Int
 end
 
 fn found(ms: List<Matcher>, text: String) -> List<String>
-    ms |> Iter.map(&(Matcher.find_in(&1, text) |> Maybe.with_default("-"))) |> Iter.to_list()
+    ms |> Iter.map(&(Matcher.find_in(&1, text) |> Option.with_default("-"))) |> Iter.to_list()
 end
 
 fn main()
@@ -364,7 +364,7 @@ pub fn holds(c: Contains<Int>, x: Int) -> Bool
 end
 
 pub fn first_match(m: Matcher, text: String) -> String
-    Matcher.find_in(m, text) |> Maybe.with_default("-")
+    Matcher.find_in(m, text) |> Option.with_default("-")
 end
 `,
 	}, "True\nFalse\noo\n")
@@ -388,7 +388,7 @@ end
 
 fn main()
     m: matcher.Matcher = Regex`+"`o+`"+`
-    io.print(matcher.Matcher.find_in(m, "foo") |> Maybe.with_default("-"))
+    io.print(matcher.Matcher.find_in(m, "foo") |> Option.with_default("-"))
     n: matcher.Matcher = "o"
     io.print(Bool.to_string(matcher.Matcher.is_contained_in(n, "foo")))
     io.print(Matcher{s: "x"}.s)
@@ -459,15 +459,15 @@ fn main()
     hashes("Set", Hashable.hash(Set[1, 2]), Set[1, 2])
     hashes("Map", Hashable.hash({"a" => 1}), {"a" => 1})
     hashes("Bytes", Hashable.hash(Bytes.from_list([1, 2])), Bytes.from_list([1, 2]))
-    hashes("Maybe", Hashable.hash(Some(3)), Some(3))
+    hashes("Option", Hashable.hash(Some(3)), Some(3))
     case Date.new(2026, 5, 4)
         Ok(d) -> hashes("Date", Hashable.hash(d), d)
         Err(_) -> io.print("Date missing")
     end
     hashes("P", Hashable.hash(P{n: 7}), P{n: 7})
     equals("List", Equatable.equal([1, 2], [1, 2]), [1, 2], [1, 2])
-    none: Maybe<Int> = None
-    equals("Maybe", Equatable.equal(Some(1), none), Some(1), none)
+    none: Option<Int> = None
+    equals("Option", Equatable.equal(Some(1), none), Some(1), none)
     equals("P", Equatable.equal(P{n: 1}, P{n: 2}), P{n: 1}, P{n: 2})
     inspects("List", Debug.inspect([1, 2]), [1, 2])
     inspects("Map", Debug.inspect({"a" => 1}), {"a" => 1})
@@ -475,7 +475,7 @@ fn main()
     shows("Int", Display.to_string(4), 4)
     shows("P", Display.to_string(P{n: 3}), P{n: 3})
 end
-`, "Int True\nFloat True\nString True\nBool True\nList True\nSet True\nMap True\nBytes True\nMaybe True\nDate True\nP True\nList True\nMaybe True\nP True\nList True\nMap True\nP True\nInt True\nP True\n")
+`, "Int True\nFloat True\nString True\nBool True\nList True\nSet True\nMap True\nBytes True\nOption True\nDate True\nP True\nList True\nOption True\nP True\nList True\nMap True\nP True\nInt True\nP True\n")
 }
 
 // A file that declares its own `Json` holds values as std's ToJson, whose

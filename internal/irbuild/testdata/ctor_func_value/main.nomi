@@ -23,7 +23,7 @@ fn apply(f: (Int) -> Id, n: Int) -> Id
     f(n)
 end
 
-fn wrap_all<T>(xs: List<T>) -> List<Maybe<T>>
+fn wrap_all<T>(xs: List<T>) -> List<Option<T>>
     Iter.map(xs, Some) |> Iter.to_list()
 end
 
@@ -59,7 +59,7 @@ fn main()
     )
 
     // The std variants, bare and qualified.
-    xs: List<Maybe<Int>> = Iter.map([1], Some) |> Iter.to_list()
+    xs: List<Option<Int>> = Iter.map([1], Some) |> Iter.to_list()
 
     io.print(Debug.inspect(xs))
     io.print(xs == [Some(1)])
@@ -67,7 +67,7 @@ fn main()
     io.print(
         Debug.inspect(
             [1, 2]
-            |> Iter.map(Maybe.Some)
+            |> Iter.map(Option.Some)
             |> Iter.to_list()
         )
     )
@@ -85,7 +85,7 @@ fn main()
     io.print(Debug.inspect(wrap_all(["a"])))
 
     // A user enum's positional variants, generic or not.
-    io.print(Debug.inspect(Maybe.map(Some(1.5), Shape.Circle)))
+    io.print(Debug.inspect(Option.map(Some(1.5), Shape.Circle)))
 
     io.print(
         Debug.inspect(

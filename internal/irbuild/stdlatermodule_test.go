@@ -7,7 +7,7 @@ import "testing"
 // first, and Regex's Debug calls `String.to_typed_literal` in strings: the
 // shared lowering does not retain that body, and the program builds it
 // (otherModuleCallee). Reached directly, through a generic function's
-// Debug bound, inside a list and inside a Maybe.
+// Debug bound, inside a list and inside an Option.
 func TestIRStdBodyCallingALaterModule_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")

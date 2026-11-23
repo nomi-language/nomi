@@ -13,7 +13,7 @@ struct Config
 end
 
 fn boot(startup: Startup) -> Result<Config, String>
-    Ok(Config{store: Map.get(startup.env, "STORE") |> Maybe.with_default("none")})
+    Ok(Config{store: Map.get(startup.env, "STORE") |> Option.with_default("none")})
 end
 
 fn main()

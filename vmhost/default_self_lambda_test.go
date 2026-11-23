@@ -8,7 +8,7 @@ import (
 // An interface default is lowered once per implementor, so every value the
 // checker types as the default's `self`, or as a type holding it, is the
 // implementor there: a lambda's parameter, a binding, a list element, a pipe
-// stage, a `case` arm's binding and a `List<self>` or `Maybe<self>`
+// stage, a `case` arm's binding and a `List<self>` or `Option<self>`
 // parameter's contents. A value annotated with the interface's name stays an
 // existential.
 
@@ -81,7 +81,7 @@ const defaultSelfLambdaIface = `interface Temperature
         end
     end
 
-    fn pick(t: self, m: Maybe<self>) -> String
+    fn pick(t: self, m: Option<self>) -> String
         case m
             Some(c) -> [c, t] |> Iter.map(fn x -> Temperature.unit(x)) |> String.join("")
             None -> "-"

@@ -20,7 +20,7 @@ const (
 	typeCycleParentDecls = `pub struct Parent
     name: String
     kids: List<Child>
-    first: Maybe<Child>
+    first: Option<Child>
 end
 
 derive Equatable for Parent
@@ -40,7 +40,7 @@ derive ToJson for Shape
 
 pub struct Holder<T>
     value: T
-    owner: Maybe<Child>
+    owner: Option<Child>
 end
 
 derive Equatable for Holder<T> where T: Equatable
@@ -56,10 +56,10 @@ derive ToJson for Head
 `
 	typeCycleChildDecls = `pub struct Child
     n: Int
-    parent: Maybe<Parent>
+    parent: Option<Parent>
     shape: Shape
     held: List<Holder<Int>>
-    head: Maybe<Head>
+    head: Option<Head>
 end
 
 derive Equatable for Child
@@ -85,7 +85,7 @@ fn main()
     io.print(Iter.count(p.kids))
     io.print(p == p)
     io.print(c == two)
-    io.print(Maybe.map(two.head, fn h -> h.lead.n) |> Maybe.with_default(0))
+    io.print(Option.map(two.head, fn h -> h.lead.n) |> Option.with_default(0))
     io.print("${ToJson.to_json(leaf)}")
 end
 `
@@ -116,7 +116,7 @@ func typeCycleRun(t *testing.T, files map[string]string, want string) {
 	}
 }
 
-// Two files whose types refer to each other through a List, a Maybe, a direct
+// Two files whose types refer to each other through a List, an Option, a direct
 // field (Head.lead), an enum payload (Shape) and a generic struct (Holder),
 // with derived Equatable, ToJson and Debug over the cycle and a `case` over
 // the enum, print what the same declarations print from one file.
@@ -152,7 +152,7 @@ end
 fn walk(s: Step) -> Int
     case s
         Step.Stop -> 0
-        Step.Next(a) -> 1 + (Maybe.map(a.b, fn b -> Iter.count(b.cs)) |> Maybe.with_default(0))
+        Step.Next(a) -> 1 + (Option.map(a.b, fn b -> Iter.count(b.cs)) |> Option.with_default(0))
     end
 end
 
@@ -167,7 +167,7 @@ fn main()
     io.print(inner == outer)
 end
 `,
-		"a.nomi": "import b.B\n\npub struct A\n    name: String\n    b: Maybe<B>\nend\n\nderive Equatable for A\n",
+		"a.nomi": "import b.B\n\npub struct A\n    name: String\n    b: Option<B>\nend\n\nderive Equatable for A\n",
 		"b.nomi": "import c.C\n\npub struct B\n    cs: List<C>\nend\n\nderive Equatable for B\n",
 		"c.nomi": "import a.A\n\npub struct C\n    a: A\n    step: Step\nend\n\nderive Equatable for C\n\n" +
 			"pub enum Step\n    Stop\n    Next A\nend\n\nderive Equatable for Step\n",
@@ -188,9 +188,9 @@ func TestTypeCycle_InterfaceField(t *testing.T) {
 	typeCycleRun(t, map[string]string{
 		"main.nomi": "import\n    std::io\n    a.A\n    b.{B, Scorer}\nend\n\n" +
 			"fn main()\n    b = B{owner: None, bonus: 10}\n    x = A{n: 5, s: b, b: Some(b)}\n    io.print(Scorer.score(x.s, x))\nend\n",
-		"a.nomi": "import b.{B, Scorer}\n\npub struct A\n    n: Int\n    s: Scorer\n    b: Maybe<B>\nend\n",
+		"a.nomi": "import b.{B, Scorer}\n\npub struct A\n    n: Int\n    s: Scorer\n    b: Option<B>\nend\n",
 		"b.nomi": "import a.A\n\npub interface Scorer\n    fn score(value: self, a: A) -> Int\nend\n\n" +
-			"pub struct B\n    owner: Maybe<A>\n    bonus: Int\nend\n\n" +
+			"pub struct B\n    owner: Option<A>\n    bonus: Int\nend\n\n" +
 			"impl Scorer for B\n    fn score(value: B, a: A) -> Int\n        value.bonus + a.n\n    end\nend\n",
 	}, "15\n")
 }
@@ -211,7 +211,7 @@ func TestTypeCycle_ARefusalReachesTheWholeCycle(t *testing.T) {
 			"fn main()\n    io.print(Fine{n: 2}.n)\n    x = A{n: 1, bs: []}\n    io.print(x.n)\nend\n",
 		"a.nomi": "import b.B\n\npub struct A\n    n: Int\n    bs: List<B>\nend\n\npub struct Fine\n    n: Int\nend\n",
 		"b.nomi": "import a.A\n\npub enum Big\n" + variants.String() + "end\n\n" +
-			"pub struct B\n    big: Maybe<Big>\n    owner: Maybe<A>\nend\n",
+			"pub struct B\n    big: Option<Big>\n    owner: Option<A>\nend\n",
 	})
 	if _, err := Analyze(entry); err != nil {
 		t.Fatalf("the front end rejects this, so nothing below is tested: %v", err)

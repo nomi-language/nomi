@@ -64,7 +64,7 @@ func TestFormat_BareSpreadLayout(t *testing.T) {
 // around one stay on one line when they fit; broken after its `[` by its
 // author, it stays broken.
 func TestFormat_SpreadListDepthAndAuthorBreak(t *testing.T) {
-	const head = "fn f(z: Z) -> Maybe<Z>\n"
+	const head = "fn f(z: Z) -> Option<Z>\n"
 	const tail = "end\n"
 	for _, c := range []struct{ name, src, want string }{
 		{

@@ -1,8 +1,6 @@
 package analysis
 
 import (
-	"sync"
-
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
@@ -42,7 +40,7 @@ const (
 	// CalleeVariant is an enum variant's constructor.
 	CalleeVariant
 	// CalleeConstructor is a type's constructor: a struct's call form, a
-	// distinct type's, a subtype's. Decl is the type's declaration, nil
+	// distinct type's, a refinement's. Decl is the type's declaration, nil
 	// for `self(x)` in an interface default, which builds the
 	// implementor.
 	CalleeConstructor
@@ -189,14 +187,14 @@ func (fa *FileAnalysis) StdFuncs() map[ast.Node]StdFunc {
 
 // stdDecls caches, per std file analysis, the functions it declares
 // (stdDeclsOf). A std file's declarations do not change once built.
-var stdDecls sync.Map // *FileAnalysis -> map[ast.Node]StdFunc
+var stdDecls ownedCache[FileAnalysis, map[ast.Node]StdFunc]
 
 // stdDeclsOf is every function the std file f declares, with its
 // identity (StdFunc): its `fn`s and `host fn`s, at module level or in an
 // impl block, and its interfaces' functions.
 func stdDeclsOf(f *FileAnalysis) map[ast.Node]StdFunc {
-	if m, ok := stdDecls.Load(f); ok {
-		return m.(map[ast.Node]StdFunc)
+	if m, ok := stdDecls.load(f); ok {
+		return m
 	}
 	m := map[ast.Node]StdFunc{}
 	for _, sym := range f.Definitions {
@@ -219,7 +217,7 @@ func stdDeclsOf(f *FileAnalysis) map[ast.Node]StdFunc {
 		}
 	}
 	if len(f.Definitions) > 0 {
-		stdDecls.Store(f, m)
+		m = stdDecls.store(f, m)
 	}
 	return m
 }
@@ -695,7 +693,7 @@ func (s StdType) Func(name string) StdFunc {
 
 // Qualifier is what the qualifier of a call written `Q.m(...)` resolves
 // to (Callee.Qualifier), by the declaration the checker bound Q to: an
-// import alias, a re-export, a generated owner and a subtype's refinement
+// import alias, a re-export, a generated owner and a refinement's refinement
 // owner all give the declaration's own identity.
 type Qualifier struct {
 	Kind QualifierKind
@@ -824,7 +822,7 @@ func (fa *FileAnalysis) StdTypeQualifier(module, name string) Qualifier {
 
 // declQualifier is the qualifier of kind k that base, a type's or an
 // interface's symbol, declares: its nominal identity (origin, name) where
-// its type carries one, which an alias and a subtype's owner share with
+// its type carries one, which an alias and a refinement's owner share with
 // the declaration, else the std file that declares its node (a built-in
 // type, `Int`).
 func (fa *FileAnalysis) declQualifier(k QualifierKind, base *Symbol) Qualifier {
@@ -902,11 +900,11 @@ func (fa *FileAnalysis) stdTypeModuleOf(node ast.Node) (string, bool) {
 
 // stdTypeDecls caches, per std file analysis, the type and interface
 // declarations it makes (stdTypeDeclsOf).
-var stdTypeDecls sync.Map // *FileAnalysis -> map[ast.Node]bool
+var stdTypeDecls ownedCache[FileAnalysis, map[ast.Node]bool]
 
 func stdTypeDeclsOf(f *FileAnalysis) map[ast.Node]bool {
-	if m, ok := stdTypeDecls.Load(f); ok {
-		return m.(map[ast.Node]bool)
+	if m, ok := stdTypeDecls.load(f); ok {
+		return m
 	}
 	m := map[ast.Node]bool{}
 	for _, sym := range f.Definitions {
@@ -919,7 +917,7 @@ func stdTypeDeclsOf(f *FileAnalysis) map[ast.Node]bool {
 		}
 	}
 	if len(f.Definitions) > 0 {
-		stdTypeDecls.Store(f, m)
+		m = stdTypeDecls.store(f, m)
 	}
 	return m
 }

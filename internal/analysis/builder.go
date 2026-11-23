@@ -641,7 +641,7 @@ func findContextType(modules map[string]*Scope) Type {
 // symbol so downstream analysis produces fewer cascading errors.
 //
 // Pre-stdlib-as-package: this guarded against a curated `reservedTypeNames`
-// set (Int / Float / String / List / Maybe / Result / Display / …).
+// set (Int / Float / String / List / Option / Result / Display / …).
 // Post-cutover: the file scope's parent is the auto-prepended prelude, so the
 // parent-scope check IS the prelude-shadowing check — no curated list
 // needed. Any name above the file scope is, by construction, a prelude
@@ -654,7 +654,7 @@ func findContextType(modules map[string]*Scope) Type {
 // now fire too: `True`, `False`, `Some`, `None`,
 // `Ok`, `Err`, `Equal`, `Greater`, `Less`,
 // `Fragment` — plus the formerly-curated type names like
-// `Int`, `Display`, `Maybe`, `Result`. A user file declaring
+// `Int`, `Display`, `Option`, `Result`. A user file declaring
 // `struct Some { ... }` errors where it didn't pre-
 // cutover. The broadening matches the spec's intent ("prelude names
 // are reserved") — the curated set was lossy by accident, not by
@@ -4204,8 +4204,8 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 			//     position to report at. A local declaration of a prelude
 			//     name is diagnosed at its own site by checkReservedTypeName.
 			//   - An import colliding with another IMPORT is left to the check
-			//     above. `import std::maybe.{Maybe}` beside the prelude's own
-			//     injected `Maybe` is the explicit-is-better idiom, not an
+			//     above. `import std::option.{Option}` beside the prelude's own
+			//     injected `Option` is the explicit-is-better idiom, not an
 			//     error, and stdlib files must write it.
 			// Two user-written imports that bind one name to two different
 			// declarations are an error (spec §14 *Import forms*): the first keeps

@@ -47,7 +47,7 @@ fn is_small(n: Int) -> Bool
     end
 end
 
-fn answer(s: String) -> Maybe<Bool>
+fn answer(s: String) -> Option<Bool>
     case s
         "yes" or "y" -> Some(True)
         "no" or "n"  -> Some(False)
@@ -62,7 +62,7 @@ fn is_opener(c: Codepoint) -> Bool
     end
 end
 
-fn has_two_equal(m: Maybe<Tri>) -> Bool
+fn has_two_equal(m: Option<Tri>) -> Bool
     case m
         Some(.Equilateral or .Isosceles) -> True
         Some(.Scalene) or None           -> False
@@ -116,7 +116,7 @@ test "literal alternatives"
     refute is_small(4)
     assert answer("y") == Some(True)
     assert answer("n") == Some(False)
-    assert answer("maybe") == None
+    assert answer("option") == None
     assert is_opener('[')
     refute is_opener(')')
 end

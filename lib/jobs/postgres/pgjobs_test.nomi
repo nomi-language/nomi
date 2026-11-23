@@ -283,7 +283,7 @@ end
 
 // Step the hourly schedule through `hours` ticks after nine, as one
 // scheduler would.
-fn step_hours(queue: Queue, hours: Int) -> List<Result<Maybe<jobs.Enqueued>, sql.Error>>
+fn step_hours(queue: Queue, hours: Int) -> List<Result<Option<jobs.Enqueued>, sql.Error>>
     1..=hours
     |> Iter.map(fn hour -> jobs.enqueue_due(queue, hourly(), nine() + Duration.hours(hour)))
     |> Iter.to_list()

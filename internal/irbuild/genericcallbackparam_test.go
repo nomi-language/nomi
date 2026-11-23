@@ -6,7 +6,7 @@ import "testing"
 // parameter types are the callee's type parameters. The callback's
 // parameters meet the callee's the other way round (contravariant), and the
 // caller's own `E` there is not a parameter the call solves: `call` is
-// instantiated at `T = E, U = List<E>` (and `Maybe<E>`), and `apply`'s `T`
+// instantiated at `T = E, U = List<E>` (and `Option<E>`), and `apply`'s `T`
 // is solved to `E` from the annotated `fn _x: E ->` before any argument solves
 // it.
 func TestIRGenericCallbackOverCallerTypeParam_Runs(t *testing.T) {
@@ -31,7 +31,7 @@ fn e<E>(item: E, n: Int) -> Int
     call(item, n, fn rest, _item -> rest)
 end
 
-fn m<E>(item: E, opt: Maybe<E>) -> Maybe<E>
+fn m<E>(item: E, opt: Option<E>) -> Option<E>
     call(item, opt, fn _rest, item -> Some(item))
 end
 

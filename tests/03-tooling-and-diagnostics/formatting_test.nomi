@@ -53,7 +53,7 @@ enum Color
     Blue
 end
 
-pub enum Maybe2<T>
+pub enum Option2<T>
     None
     Some T
 end
@@ -100,7 +100,7 @@ pub type Handler (String, String) -> Result<String, String>
 pub type Expired
 pub opaque type Counter Int
 
-pub typealias Rule (String) -> Maybe<String>
+pub typealias Rule (String) -> Option<String>
 pub typealias Span {start: Int, stop: Int, line: Int}
 
 // ---------------------------------------------------------------------------

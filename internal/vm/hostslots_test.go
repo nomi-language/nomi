@@ -11,7 +11,7 @@ import (
 
 // A crossing into an adapter with a register form reads its operands from
 // their registers and writes its answer into its destination's: an Int past
-// 255, a Float, a String and a Bytes cross without a box, a fused Maybe's
+// 255, a Float, a String and a Bytes cross without a box, a fused Option's
 // payload lands in a register of its own bank, and a tuple lands in a split
 // destination's registers. The count is per activation over a loop doing
 // one crossing each (allocsPerActivation).
@@ -26,12 +26,12 @@ func TestHostSlots_ACrossingAllocatesNothing(t *testing.T) {
 		{"Float to Int", "Float.to_bits(1.5 + Int.to_float(n)) %% 1000", 0, ""},
 		{"Bytes to Int", "Bytes.length(data) + n", 0, ""},
 		{"String to Int", "String.length(text) + n", 0, ""},
-		{"Bytes and Int to a fused Maybe<Int>, !", "Bytes.uint32_be_at(data, 1000 + n %% 4)!", 0, ""},
-		{"Bytes and Int to a fused Maybe<Int>, case", "case Bytes.uint64_le_at(data, 990 + n %% 8)\n            Some(x) -> x %% 7\n            None -> 0\n        end", 0, ""},
-		{"Bytes and Int to a fused Maybe<Byte>", "Byte.to_int(Bytes.get(data, 1000 + n %% 4)!)", 0, ""},
-		{"a search to a fused Maybe<Int>", "Bytes.index_of(data, needle, n %% 900)!", 0, ""},
-		{"a fused Maybe of a tuple, its parts into a split destination", "Bytes.uvarint_at(data, 1000 + n %% 4)!.first", 0, ""},
-		{"a fused Maybe of a tuple, case", "case Bytes.varint_at(data, 990 + n %% 8)\n            Some((v, next)) -> v + next\n            None -> 0\n        end", 0, ""},
+		{"Bytes and Int to a fused Option<Int>, !", "Bytes.uint32_be_at(data, 1000 + n %% 4)!", 0, ""},
+		{"Bytes and Int to a fused Option<Int>, case", "case Bytes.uint64_le_at(data, 990 + n %% 8)\n            Some(x) -> x %% 7\n            None -> 0\n        end", 0, ""},
+		{"Bytes and Int to a fused Option<Byte>", "Byte.to_int(Bytes.get(data, 1000 + n %% 4)!)", 0, ""},
+		{"a search to a fused Option<Int>", "Bytes.index_of(data, needle, n %% 900)!", 0, ""},
+		{"a fused Option of a tuple, its parts into a split destination", "Bytes.uvarint_at(data, 1000 + n %% 4)!.first", 0, ""},
+		{"a fused Option of a tuple, case", "case Bytes.varint_at(data, 990 + n %% 8)\n            Some((v, next)) -> v + next\n            None -> 0\n        end", 0, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			src := `import std::io
@@ -90,7 +90,7 @@ func TestHostSlots_ACrossingAnswersAsTheAdapterDid(t *testing.T) {
     std::io
 end
 
-fn word(x: Maybe<Int>) -> String
+fn word(x: Option<Int>) -> String
     case x
         Some(n) -> "${n}"
         None -> "none"

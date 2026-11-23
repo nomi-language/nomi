@@ -21,7 +21,7 @@ fn ints(xs: List<Int>) -> List<Int>
     xs
 end
 
-fn maybe_ints(xs: List<Maybe<Int>>) -> Int
+fn option_ints(xs: List<Option<Int>>) -> Int
     List.length(xs)
 end
 
@@ -50,10 +50,10 @@ end
 		{"the parent first", "    _ = nonzero(if c then nz else p)"},
 		{"siblings at the base", "    _ = int(if c then nn else nz)"},
 		{"a list literal", "    _ = ints([List.length(xs), -1])"},
-		{"a list literal of options", "    _ = maybe_ints([Some(List.length(xs)), Some(-1), None])"},
+		{"a list literal of options", "    _ = option_ints([Some(List.length(xs)), Some(-1), None])"},
 		{"a map literal's values", "    _ = counts({\"a\" => List.length(xs), \"b\" => -1})"},
 		{"lists in branches", "    _ = ints(if c then [nn] else [-1])"},
-		{"options in branches", "    _ = maybe_ints([if c then Some(nn) else Some(-1)])"},
+		{"options in branches", "    _ = option_ints([if c then Some(nn) else Some(-1)])"},
 		{"anonymous structs in a list literal", "    rs = [{n: nn}, {n: int(-1)}]\n    _ = records(rs)"},
 		{"anonymous structs in branches", "    r = if c then {n: nn} else {n: int(-1)}\n    _ = records([r])"},
 		{"anonymous structs in tuples", "    rs = [({n: nn}, 1), ({n: int(-1)}, 2)]\n    _ = records(Iter.map(rs, .first) |> Iter.to_list())"},
@@ -79,20 +79,20 @@ end
 // function argument that takes it.
 func TestRefinementJoin_NoNearerThanTheSharedAncestor(t *testing.T) {
 	const decls = "fn int_of(c: Bool) -> Int\n    if c then 1 else -1\nend\n\nfn count(n: NonNegativeInt) -> Int\n    n\nend\n\nfn nonzero(n: NonZeroInt) -> Int\n    n\nend\n\nfn apply<T>(f: (T) -> Int, x: T) -> Int\n    f(x)\nend\n\n" +
-		"subtype Both NonNegativeInt and NonZeroInt\n\nfn both(n: Both) -> Int\n    n\nend\n\n"
+		"refine Both NonNegativeInt and NonZeroInt\n\nfn both(n: Both) -> Int\n    n\nend\n\n"
 	for _, tc := range []struct{ name, body, want, at string }{
 		{"a refinement and its base", "    j = if c then nn else i\n    _ = (count(j), nz)",
-			"argument 1: expected NonNegativeInt, got Int\nhelp: NonNegativeInt is a subtype of Int; check the value with `NonNegativeInt.try_from(...)`, which is `Some` when it satisfies `fn n -> n >= 0` and `None` when not", "j"},
+			"argument 1: expected NonNegativeInt, got Int\nhelp: NonNegativeInt is a refinement of Int; check the value with `NonNegativeInt.try_from(...)`, which is `Some` when it satisfies `fn n -> n >= 0` and `None` when not", "j"},
 		{"siblings", "    _ = (nonzero(if c then nn else nz), i)",
-			"argument 1: expected NonZeroInt, got Int\nhelp: NonZeroInt is a subtype of Int; check the value with `NonZeroInt.try_from(...)`, which is `Some` when it satisfies `fn n -> n != 0` and `None` when not", "if c then nn else nz"},
+			"argument 1: expected NonZeroInt, got Int\nhelp: NonZeroInt is a refinement of Int; check the value with `NonZeroInt.try_from(...)`, which is `Some` when it satisfies `fn n -> n != 0` and `None` when not", "if c then nn else nz"},
 		{"the expected type checks each branch", "    n: NonNegativeInt = if c then nn else i\n    _ = (n, nz)",
-			"type mismatch: expected NonNegativeInt, got Int\nhelp: NonNegativeInt is a subtype of Int; check the value with `NonNegativeInt.try_from(...)`, which is `Some` when it satisfies `fn n -> n >= 0` and `None` when not", "if c then nn else i"},
+			"type mismatch: expected NonNegativeInt, got Int\nhelp: NonNegativeInt is a refinement of Int; check the value with `NonNegativeInt.try_from(...)`, which is `Some` when it satisfies `fn n -> n >= 0` and `None` when not", "if c then nn else i"},
 		{"a parameter a function argument takes", "    _ = (apply(count, i), nz)",
-			"argument 2: expected NonNegativeInt, got Int\nhelp: NonNegativeInt is a subtype of Int; check the value with `NonNegativeInt.try_from(...)`, which is `Some` when it satisfies `fn n -> n >= 0` and `None` when not", "i"},
+			"argument 2: expected NonNegativeInt, got Int\nhelp: NonNegativeInt is a refinement of Int; check the value with `NonNegativeInt.try_from(...)`, which is `Some` when it satisfies `fn n -> n >= 0` and `None` when not", "i"},
 		{"different bases", "    s: NonEmptyString = \"a\"\n    v = if c then nn else s\n    _ = (v, nz, i)",
 			"if/else branch type mismatch: then is NonNegativeInt, else is NonEmptyString", "s"},
-		{"a subtype with no rule of its own", "    _ = (both(i), nn, nz)",
-			"argument 1: expected Both, got Int\nhelp: Both is a subtype of NonNegativeInt and NonZeroInt; check the value with `Both.try_from(...)`, which is `Some` when it is each of NonNegativeInt and NonZeroInt, and `None` when not", "i"},
+		{"a refinement with no rule of its own", "    _ = (both(i), nn, nz)",
+			"argument 1: expected Both, got Int\nhelp: Both is a refinement of NonNegativeInt and NonZeroInt; check the value with `Both.try_from(...)`, which is `Some` when it is each of NonNegativeInt and NonZeroInt, and `None` when not", "i"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			src := decls + "fn main()\n    c = True\n    nn: NonNegativeInt = 1\n    nz: NonZeroInt = -1\n    i = int_of(c)\n" + tc.body + "\nend\n"
@@ -111,10 +111,10 @@ func TestRefinementJoin_StdCountsAreNonNegative(t *testing.T) {
 	for _, tc := range []struct{ name, body string }{
 		{"lengths and counts", "    _ = (Int.pow(2, List.length(xs)), Int.pow(2, String.length(\"ab\")), Int.pow(2, Iter.count(xs)), Int.pow(2, Map.size({1 => 2})), Int.pow(2, Iter.count_by(xs, &(&1 > 1))))"},
 		{"an index", "    _ = xs |> Iter.with_index() |> Iter.map(fn (i, x) -> Int.pow(x, i)) |> Iter.sum()"},
-		{"a found index", "    _ = Iter.find_index(xs, &(&1 > 1)) |> Maybe.map(&Int.pow(2, &1))"},
+		{"a found index", "    _ = Iter.find_index(xs, &(&1 > 1)) |> Option.map(&Int.pow(2, &1))"},
 		{"abs and digits", "    _ = Int.to_digits(Int.abs(-12)) |> Iter.map(&Int.pow(2, &1)) |> Iter.to_list()"},
-		{"a default after an index", "    n: Int = Maybe.with_default(Iter.find_index(xs, &(&1 > 9)), -1)\n    _ = n"},
-		{"a piped default", "    _ = xs |> Iter.find_index(&(&1 > 9)) |> Maybe.with_default(-1)"},
+		{"a default after an index", "    n: Int = Option.with_default(Iter.find_index(xs, &(&1 > 9)), -1)\n    _ = n"},
+		{"a piped default", "    _ = xs |> Iter.find_index(&(&1 > 9)) |> Option.with_default(-1)"},
 		{"a range to a length", "    r: Range<Int> = 0..List.length(xs)\n    _ = r"},
 		{"an accumulator a lambda computes", "    _ = Iter.reduce(xs, List.length(xs), fn acc, x -> acc - x)"},
 		{"a piped accumulator", "    _ = List.length(xs) |> Iter.iterate(fn n -> n - 2) |> Iter.take(3) |> Iter.to_list()"},

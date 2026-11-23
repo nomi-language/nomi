@@ -3,6 +3,7 @@ package irbuild
 import (
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -69,6 +70,13 @@ type Program struct {
 	// analyzed with (frontend.Config.VirtualFiles), or nil. std/compiler's hosts
 	// resolve a checked or run source's imports against them.
 	VirtualFiles map[string]string
+	// ErrorDecls is each declaration whose check reported an error, in a
+	// program the front end refused (frontend.Project.ErrorDecls): a
+	// function, an impl function, a test or a group. The builder leaves
+	// each unlowered, attempting nothing in it, and lowers the rest, so an
+	// editor can show the effects of what checked. Nil for a program that
+	// checked.
+	ErrorDecls map[ast.Node]bool
 	// Stop, when set, reports that the lowering's caller no longer wants
 	// it. GenerateIR asks before each phase, and in each per-file phase
 	// before each file, and answers ErrStopped once it reports true.
@@ -155,8 +163,19 @@ func Analyze(entryPath string) (*Program, error) {
 
 // AnalyzeFile is Analyze with the host's front-end configuration: cfg.Provided
 // names the `host fn` keys the host's tables answer.
+//
+// A program the front end refuses is answered as a nil Program and the
+// error, except to a caller that sets cfg.ErrorDecls: when every error is
+// in a function, an impl function, a test or a group
+// (frontend.Project.ErrorDecls), that caller gets the Program beside the
+// error, with ErrorDecls set, the program an editor lowers to show the
+// effects of the declarations that checked (refusedProgram).
 func AnalyzeFile(entryPath string, cfg frontend.Config) (*Program, error) {
 	abs, err := filepath.Abs(entryPath)
+	if err != nil {
+		return nil, err
+	}
+	data, err := os.ReadFile(abs)
 	if err != nil {
 		return nil, err
 	}
@@ -166,14 +185,7 @@ func AnalyzeFile(entryPath string, cfg frontend.Config) (*Program, error) {
 	// mode produced it. Parse errors fall through to the chosen mode so the
 	// reported text is its own.
 	hasTests, _ := frontend.FileDeclaresTests(abs)
-	fe := frontend.New(cfg)
-	proj, err := fe.CheckFile(abs, frontend.Mode{Tests: hasTests})
-	if err != nil {
-		return nil, err
-	}
-	p := fileProgram(abs, proj, hasTests)
-	p.interfaces = fe.Interfaces
-	return p, nil
+	return analyzeFileSource(abs, string(data), hasTests, cfg)
 }
 
 // AnalyzeFileSource is AnalyzeFile for the file at entryPath whose text is
@@ -184,14 +196,29 @@ func AnalyzeFileSource(entryPath, src string, cfg frontend.Config) (*Program, er
 		return nil, err
 	}
 	hasTests, _ := frontend.SourceDeclaresTests(src)
+	return analyzeFileSource(abs, src, hasTests, cfg)
+}
+
+// analyzeFileSource is AnalyzeFileSource for the file at abs, checked with
+// its tests when hasTests is set.
+func analyzeFileSource(abs, src string, hasTests bool, cfg frontend.Config) (*Program, error) {
 	fe := frontend.New(cfg)
-	proj, err := fe.CheckFileSource(abs, src, frontend.Mode{Tests: hasTests})
-	if err != nil {
+	proj, err := fe.AnalyzeFileSource(abs, src, frontend.Mode{Tests: hasTests})
+	if refusedProgram(proj, err) {
 		return nil, err
 	}
 	p := fileProgram(abs, proj, hasTests)
 	p.interfaces = fe.Interfaces
-	return p, nil
+	p.ErrorDecls = proj.ErrorDecls
+	return p, err
+}
+
+// refusedProgram reports whether the front end's answer, proj beside err,
+// is a refusal that answers no Program: an error, unless the caller asked
+// for the declarations that hold it (frontend.Config.ErrorDecls) and every
+// error is in one (frontend.Project.ErrorDecls).
+func refusedProgram(proj *frontend.Project, err error) bool {
+	return err != nil && (proj == nil || proj.ErrorDecls == nil)
 }
 
 // fileProgram is the Program of a checked file entry at abs.
@@ -232,12 +259,14 @@ func AnalyzeSource(name, src string) (*Program, error) {
 // are virtual (cfg.VirtualFiles, cfg.VirtualManifest). It is the front end the
 // tour playground and the REPL run, neither of which has a filesystem to read
 // a sibling from. Every sibling becomes a Module, as Analyze makes one per
-// file.
+// file. A program the front end refuses is answered as AnalyzeFile answers
+// it: a nil Program, or for a caller that sets cfg.ErrorDecls, the Program
+// beside the error when every error is in a declaration.
 func AnalyzeVirtual(name, src string, cfg frontend.Config) (*Program, error) {
 	hasTests, _ := frontend.SourceDeclaresTests(src)
 	fe := frontend.New(cfg)
-	proj, err := fe.CheckSource(name, src, frontend.Mode{Tests: hasTests})
-	if err != nil {
+	proj, err := fe.AnalyzeSource(name, src, frontend.Mode{Tests: hasTests})
+	if refusedProgram(proj, err) {
 		return nil, err
 	}
 	entry := name + ".nomi"
@@ -255,7 +284,7 @@ func AnalyzeVirtual(name, src string, cfg frontend.Config) (*Program, error) {
 		analysis.MarkTailCalls(f.Nodes)
 		mods = append(mods, Module{Path: path, Name: f.Key, Nodes: f.Nodes, FA: f.FA})
 	}
-	return &Program{Modules: mods, HasTests: hasTests, Root: proj.Root, VirtualFiles: fe.VirtualFiles(), interfaces: fe.Interfaces}, nil
+	return &Program{Modules: mods, HasTests: hasTests, Root: proj.Root, VirtualFiles: fe.VirtualFiles(), interfaces: fe.Interfaces, ErrorDecls: proj.ErrorDecls}, err
 }
 
 // Result is a program lowered to IR.
@@ -429,6 +458,7 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 		p.Modules[i].DeclaresTests = i == 0 && p.HasTests && p.entryFirst()
 		gens[i] = newGen(&p.Modules[i], reg.pkgOf[i], std, files, i, reg)
 		gens[i].dc = declines
+		gens[i].errorDecls = p.ErrorDecls
 		gens[i].linked = linked != nil && i >= linkFrom
 		gens[i].fromObjects = p.objects != nil && i > 0 && i < own
 		if gens[i].fromObjects && p.Modules[i].bodies {

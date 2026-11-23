@@ -199,8 +199,8 @@ func assertExit(fr *frame, f *rt.AssertionFailure) error {
 
 // judge decides one assertion over its subject: nil means it held.
 //
-// WHICH JUDGEMENT IS READ OFF THE VALUE: a
-// `Maybe`/`Result` record is a shape subject, a subject carrying an answer is
+// WHICH JUDGEMENT IS READ OFF THE VALUE: an
+// `Option`/`Result` record is a shape subject, a subject carrying an answer is
 // an `Assertable`, and a Bool is a Bool. The rules and the words are
 // `rt.AssertionSite`'s (`JudgeBool`, `ShapeFailure`, `JudgeAssertable`), and
 // the report is built only on the losing branch.
@@ -232,13 +232,13 @@ func (m *Machine) judge(fr *frame, n *ir.Assert, site rt.AssertionSite, subj any
 		// The producer builds one of the three judgements above for every
 		// subject it retains. Reported rather than guessed, because a
 		// hand-built module can reach it.
-		return nil, fmt.Errorf("vm: %s: this machine judges a Bool, Maybe, Result or Assertable subject and %s is %T",
+		return nil, fmt.Errorf("vm: %s: this machine judges a Bool, Option, Result or Assertable subject and %s is %T",
 			fr.fn.Name(), n.Subject(), subj)
 	}
 	return site.JudgeBool(held, binding, rows), nil
 }
 
-// shapeCarries reads a `Maybe` or `Result` subject: whether it is the
+// shapeCarries reads an `Option` or `Result` subject: whether it is the
 // carrying variant (Some, Ok), and whether it is a shape subject at all.
 func shapeCarries(v any) (carries, isShape bool) {
 	r, ok := enumRecord(v)
@@ -246,7 +246,7 @@ func shapeCarries(v any) (carries, isShape bool) {
 		return false, false
 	}
 	switch r.Desc.Name {
-	case "maybe.Maybe":
+	case "option.Option":
 		return variantName(r) == "Some", true
 	case "results.Result":
 		return variantName(r) == "Ok", true
@@ -254,33 +254,33 @@ func shapeCarries(v any) (carries, isShape bool) {
 	return false, false
 }
 
-// assertableDetails reads the `Maybe<AssertionDetails>` an `Assertable`
+// assertableDetails reads the `Option<AssertionDetails>` an `Assertable`
 // answered into rt's report shape, through rt.AssertableDetailsOf: nil is
 // None, the subject reporting no failure.
 func assertableDetails(answer any) (*rt.AssertableDetails, error) {
-	payload, isSome, ok := maybeParts(answer)
+	payload, isSome, ok := optionParts(answer)
 	if !ok {
-		return nil, fmt.Errorf("Assertable.failure must return Maybe<AssertionDetails>, got %T", answer)
+		return nil, fmt.Errorf("Assertable.failure must return Option<AssertionDetails>, got %T", answer)
 	}
 	if !isSome {
 		return nil, nil
 	}
 	r, ok := structRecord(payload, "assertions.AssertionDetails")
 	if !ok {
-		return nil, fmt.Errorf("Assertable.failure must return Maybe<AssertionDetails>, got Some(%T)", payload)
+		return nil, fmt.Errorf("Assertable.failure must return Option<AssertionDetails>, got Some(%T)", payload)
 	}
 	var d rt.NomiAssertionDetails
 	if reason, ok := r.FieldNamed("reason"); ok {
 		d.Reason, _ = reason.(string)
 	}
 	if actual, ok := r.FieldNamed("actual"); ok {
-		if s, some, _ := maybeParts(actual); some {
+		if s, some, _ := optionParts(actual); some {
 			d.Actual = rt.Some(s.(string))
 		}
 	}
 	d.Expected = rt.None[string]()
 	if expected, ok := r.FieldNamed("expected"); ok {
-		if s, some, _ := maybeParts(expected); some {
+		if s, some, _ := optionParts(expected); some {
 			d.Expected = rt.Some(s.(string))
 		}
 	}
@@ -300,7 +300,7 @@ func assertableDetails(answer any) (*rt.AssertableDetails, error) {
 		}
 		d.Details = rtSliceList(rows)
 	}
-	return rt.AssertableDetailsOf(rt.Maybe[rt.NomiAssertionDetails]{Tag: rt.TagSome, Some: d}), nil
+	return rt.AssertableDetailsOf(rt.Option[rt.NomiAssertionDetails]{Tag: rt.TagSome, Some: d}), nil
 }
 
 // assertBinding is the "defined as:" block the node carries, with the value

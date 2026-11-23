@@ -101,7 +101,7 @@ func TestLiteralHover_ValidRegexHoversItsValue(t *testing.T) {
 // computes from its pattern included.
 func TestLiteralHover_RegexHoverShowsItsCaptureType(t *testing.T) {
 	for _, tc := range []struct{ lit, want string }{
-		{"Regex`(\\d+)-(\\w+)?`", "Regex<(String, Maybe<String>)>"},
+		{"Regex`(\\d+)-(\\w+)?`", "Regex<(String, Option<String>)>"},
 		{"Regex`(?P<year>\\d{4})`", "Regex<{year: String}>"},
 		{"Regex\"(a)\"", "Regex<String>"},
 	} {

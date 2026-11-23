@@ -8,7 +8,7 @@ import (
 // A map literal whose keys or values are still open in a type variable on
 // one side (`None`, `[]`, `Ok(1)`) takes the other entries' type, annotated
 // or not, and runs. The checker rejected each map below ("map key type
-// mismatch: expected Maybe<Int>, got Maybe<?1>"), and the builder declined
+// mismatch: expected Option<Int>, got Option<?1>"), and the builder declined
 // `{1 => [], 2 => [1]}`, whose value kinds join only through the checked
 // type.
 func TestOpenLiteralElems_MapsRun(t *testing.T) {
@@ -16,14 +16,14 @@ func TestOpenLiteralElems_MapsRun(t *testing.T) {
 
 fn main()
     a = {Some(1) => 1, None => 2}
-    b: Map<Maybe<Int>, Int> = {Some(1) => 1, None => 2}
+    b: Map<Option<Int>, Int> = {Some(1) => 1, None => 2}
     c = {None => 1, Some(2) => 3}
     d = {1 => None, 2 => Some(1)}
     e = {1 => [], 2 => [1]}
     f = {[] => 1, [1] => 2}
     g = {Ok(1) => 1, Err("e") => 2}
     h = {1 => {None => [Some(1)]}, 2 => {Some(2) => [None]}}
-    i: Map<Int, Maybe<Int>> = {1 => None, 2 => Some(3)}
+    i: Map<Int, Option<Int>> = {1 => None, 2 => Some(3)}
     l = [None, Some(1)]
     io.print(Debug.inspect((a, b, c, d)))
     io.print(Debug.inspect((e, f, g)))

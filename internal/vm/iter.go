@@ -126,7 +126,7 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 			if !ok {
 				return fmt.Errorf("vm: map iteration reads %T, not a Map", src)
 			}
-			fr.write(n.Dst(), sourceView(mapEntriesSeq(m), src, func(*rt.Frame) rt.Maybe[int64] { return rt.MapKnownCount(m) }))
+			fr.write(n.Dst(), sourceView(mapEntriesSeq(m), src, func(*rt.Frame) rt.Option[int64] { return rt.MapKnownCount(m) }))
 			return nil
 		}
 		if n.Over() == ir.IterOverSet {
@@ -134,7 +134,7 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 			if err != nil {
 				return err
 			}
-			fr.write(n.Dst(), sourceView(rt.MapKeysSeq(items), src, func(*rt.Frame) rt.Maybe[int64] { return rt.MapKnownCount(items) }))
+			fr.write(n.Dst(), sourceView(rt.MapKeysSeq(items), src, func(*rt.Frame) rt.Option[int64] { return rt.MapKnownCount(items) }))
 			return nil
 		}
 		if n.Over() == ir.IterOverVector {
@@ -142,15 +142,15 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 			if !ok {
 				return fmt.Errorf("vm: vector iteration reads %T, not a Vector", src)
 			}
-			fr.write(n.Dst(), sourceView(rt.VectorSeq(v), src, func(*rt.Frame) rt.Maybe[int64] { return rt.VectorKnownCount(v) }))
+			fr.write(n.Dst(), sourceView(rt.VectorSeq(v), src, func(*rt.Frame) rt.Option[int64] { return rt.VectorKnownCount(v) }))
 			return nil
 		}
-		if n.Over() == ir.IterOverMaybe {
-			m, err := maybeSource(src)
+		if n.Over() == ir.IterOverOption {
+			m, err := optionSource(src)
 			if err != nil {
 				return err
 			}
-			fr.write(n.Dst(), sourceView(rt.MaybeSeq(m), src, func(*rt.Frame) rt.Maybe[int64] { return rt.MaybeKnownCount(m) }))
+			fr.write(n.Dst(), sourceView(rt.OptionSeq(m), src, func(*rt.Frame) rt.Option[int64] { return rt.OptionKnownCount(m) }))
 			return nil
 		}
 		if n.Over() == ir.IterOverBytes {
@@ -176,7 +176,7 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 		if !ok {
 			return fmt.Errorf("vm: iteration view reads %T, not a list", src)
 		}
-		fr.write(n.Dst(), sourceView(rt.ListCellSeq[any](xs), src, func(*rt.Frame) rt.Maybe[int64] { return rt.ListCellKnownCount[any](xs) }))
+		fr.write(n.Dst(), sourceView(rt.ListCellSeq[any](xs), src, func(*rt.Frame) rt.Option[int64] { return rt.ListCellKnownCount[any](xs) }))
 		return nil
 	}
 	seq, ok := src.(rt.Seq[any])
@@ -421,10 +421,10 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 			return fmt.Errorf("vm: find requires a unary predicate")
 		}
 		if n.Signalling() {
-			fr.write(n.Dst(), maybeOf(rt.SeqFindCtl(fr.runtime, seq, ic.ctlPredicate(f, n.Op()))))
+			fr.write(n.Dst(), optionOf(rt.SeqFindCtl(fr.runtime, seq, ic.ctlPredicate(f, n.Op()))))
 			return nil
 		}
-		fr.write(n.Dst(), maybeOf(rt.SeqFind(fr.runtime, seq, func(runtime *rt.Frame, item any) bool {
+		fr.write(n.Dst(), optionOf(rt.SeqFind(fr.runtime, seq, func(runtime *rt.Frame, item any) bool {
 			result := ic.invoke(f, runtime, item)
 			b, ok := asBool(result)
 			if !ok {
@@ -440,7 +440,7 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 		if !rt.IsInt(arg) {
 			return fmt.Errorf("vm: Iter.get requires an Int index")
 		}
-		fr.write(n.Dst(), maybeOf(rt.SeqGet(fr.runtime, seq, rt.IntSaturated(arg))))
+		fr.write(n.Dst(), optionOf(rt.SeqGet(fr.runtime, seq, rt.IntSaturated(arg))))
 	case ir.IterPartition:
 		callback, err := fr.read(n.Arg(1))
 		if err != nil {
@@ -476,9 +476,9 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 			}, func(xs *list) any { return xs })
 		fr.write(n.Dst(), groups)
 	case ir.IterFirst:
-		fr.write(n.Dst(), maybeOf(rt.SeqFirst(fr.runtime, seq)))
+		fr.write(n.Dst(), optionOf(rt.SeqFirst(fr.runtime, seq)))
 	case ir.IterLast:
-		fr.write(n.Dst(), maybeOf(rt.SeqLast(fr.runtime, seq)))
+		fr.write(n.Dst(), optionOf(rt.SeqLast(fr.runtime, seq)))
 	case ir.IterKnownCount:
 		fr.write(n.Dst(), countValue(rt.SeqKnownCount(fr.runtime, seq)))
 	case ir.IterInfinite:
@@ -728,7 +728,7 @@ func (ic iterCaller) rangeView(fr *frame, n *ir.Iter, src any) error {
 		fns[i] = f
 	}
 	cmp, next := fns[0], fns[1]
-	var count func(*rt.Frame) rt.Maybe[int64]
+	var count func(*rt.Frame) rt.Option[int64]
 	if n.NumArgs() == 4 {
 		// A view entering a declared `Iter<T>` position carries the
 		// element's `Discrete.steps_between`, so it answers the Range's
@@ -741,33 +741,33 @@ func (ic iterCaller) rangeView(fr *frame, n *ir.Iter, src any) error {
 		if !ok || steps == nil || steps.arity != 2 {
 			return fmt.Errorf("vm: range view operand 3 is %T, not its distance function", v)
 		}
-		count = func(runtime *rt.Frame) rt.Maybe[int64] {
+		count = func(runtime *rt.Frame) rt.Option[int64] {
 			return rt.RangeCount64(rt.RangeKnownCount(runtime, r, func(runtime *rt.Frame, a, b any) rt.Ordering {
 				return iterOrdering(ic.invoke(cmp, runtime, a, b), "range comparator")
-			}, func(runtime *rt.Frame, a, b any) rt.Maybe[any] {
+			}, func(runtime *rt.Frame, a, b any) rt.Option[any] {
 				return rangeSteps(ic.invoke(steps, runtime, a, b))
 			}))
 		}
 	}
 	fr.write(n.Dst(), sourceView(rt.RangeSeq(r, func(runtime *rt.Frame, a, b any) rt.Ordering {
 		return iterOrdering(ic.invoke(cmp, runtime, a, b), "range comparator")
-	}, func(runtime *rt.Frame, v any) rt.Maybe[any] {
+	}, func(runtime *rt.Frame, v any) rt.Option[any] {
 		res := ic.invoke(next, runtime, v)
-		payload, isSome, ok := maybeParts(res)
+		payload, isSome, ok := optionParts(res)
 		if !ok {
-			panic(iterationFailure{fmt.Errorf("vm: range successor returned %T, want Maybe", res)})
+			panic(iterationFailure{fmt.Errorf("vm: range successor returned %T, want Option", res)})
 		}
 		if isSome {
-			return rt.Maybe[any]{Tag: rt.TagSome, Some: payload}
+			return rt.Option[any]{Tag: rt.TagSome, Some: payload}
 		}
-		return rt.Maybe[any]{Tag: rt.TagNone}
+		return rt.Option[any]{Tag: rt.TagNone}
 	}), src, count))
 	return nil
 }
 
 // sourceView marks seq as the view of src: rt.Seq's Src, which Debug renders,
 // and Count, the source's known_count override (nil for the default).
-func sourceView(seq rt.Seq[any], src any, count func(*rt.Frame) rt.Maybe[int64]) rt.Seq[any] {
+func sourceView(seq rt.Seq[any], src any, count func(*rt.Frame) rt.Option[int64]) rt.Seq[any] {
 	seq.Src, seq.Count = src, count
 	return seq
 }
@@ -803,7 +803,7 @@ func (ic iterCaller) userView(fr *frame, n *ir.Iter, src any) error {
 	// Count; one whose impl writes known_count carries it as operand 2.
 	// One whose impl writes infinite? carries it as operand 3, with Unit
 	// as operand 2 when it inherits known_count.
-	var count func(*rt.Frame) rt.Maybe[int64]
+	var count func(*rt.Frame) rt.Option[int64]
 	if n.NumArgs() >= 3 {
 		v, err := fr.read(n.Arg(2))
 		if err != nil {
@@ -816,7 +816,7 @@ func (ic iterCaller) userView(fr *frame, n *ir.Iter, src any) error {
 		case !ok || kc == nil || kc.arity != 1:
 			return fmt.Errorf("vm: user source view operand 2 is %T, not its known_count", v)
 		default:
-			count = func(runtime *rt.Frame) rt.Maybe[int64] {
+			count = func(runtime *rt.Frame) rt.Option[int64] {
 				return rt.RangeCount64(rangeSteps(ic.invoke(kc, runtime, src)))
 			}
 		}
@@ -963,7 +963,7 @@ func reduceOutcome(v, acc any) (any, bool) {
 // knownCount answers `Iter.known_count` for a family the source's static kind
 // resolved, through the rt function native names for that family.
 func knownCount(fr *frame, n *ir.Iter, src any) error {
-	var got rt.Maybe[int64]
+	var got rt.Option[int64]
 	switch n.Over() {
 	case ir.IterOverList:
 		xs, ok := src.(*list)
@@ -995,12 +995,12 @@ func knownCount(fr *frame, n *ir.Iter, src any) error {
 			return err
 		}
 		got = rt.MapKnownCount(items)
-	case ir.IterOverMaybe:
-		m, err := maybeSource(src)
+	case ir.IterOverOption:
+		m, err := optionSource(src)
 		if err != nil {
 			return err
 		}
-		got = rt.MaybeKnownCount(m)
+		got = rt.OptionKnownCount(m)
 	default:
 		return fmt.Errorf("vm: known_count over %s is not supported", n.Over())
 	}
@@ -1008,21 +1008,21 @@ func knownCount(fr *frame, n *ir.Iter, src any) error {
 	return nil
 }
 
-// maybeSource reads a Maybe a view walks as zero or one elements.
-func maybeSource(src any) (rt.Maybe[any], error) {
-	payload, isSome, ok := maybeParts(src)
+// optionSource reads an Option a view walks as zero or one elements.
+func optionSource(src any) (rt.Option[any], error) {
+	payload, isSome, ok := optionParts(src)
 	if !ok {
-		return rt.Maybe[any]{}, fmt.Errorf("vm: maybe iteration reads %T, not a Maybe", src)
+		return rt.Option[any]{}, fmt.Errorf("vm: option iteration reads %T, not an Option", src)
 	}
 	if isSome {
 		return rt.Some(payload), nil
 	}
-	return rt.Maybe[any]{Tag: rt.TagNone}, nil
+	return rt.Option[any]{Tag: rt.TagNone}, nil
 }
 
 // countValue boxes a known count.
-func countValue(m rt.Maybe[int64]) any {
-	return maybeOf(m)
+func countValue(m rt.Option[int64]) any {
+	return optionOf(m)
 }
 
 // pairDesc is the descriptor of an untyped pair a driver builds: a map

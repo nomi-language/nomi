@@ -36,31 +36,31 @@ func TestRtFuncs_CsvAndXmlReaders(t *testing.T) {
 		}
 	}
 
-	records := call("csv/host.open", rt.ReaderFromText("\ufeffa,\"b\"\"c\"\nd,é\"x"), hCodepoint(','), rb.Variant("maybe.Maybe", "None"), false, false, int64(0))
+	records := call("csv/host.open", rt.ReaderFromText("\ufeffa,\"b\"\"c\"\nd,é\"x"), hCodepoint(','), rb.Variant("option.Option", "None"), false, false, int64(0))
 	want("the first record", text(call("csv/host.next", records)), `[String("a"), String("b\"c")]`)
 	want("its line", text(call("csv/host.line", records)), `Int(1)`)
 	want("the second read", text(call("csv/host.next", records)), `[]`)
 	want("the stop", text(call("csv/host.stopped", records)), `[Int(1), Int(2), Int(4)]`)
 	want("the message", text(call("csv/host.message", records)), `String("a quote in a field that is not quoted; double it inside a quoted field, or allow lazy quotes")`)
 
-	invalid := call("csv/host.open", rt.ReaderFromText("a"), hCodepoint(';'), rb.Variant("maybe.Maybe", "Some", hCodepoint(';')), false, false, int64(0))
+	invalid := call("csv/host.open", rt.ReaderFromText("a"), hCodepoint(';'), rb.Variant("option.Option", "Some", hCodepoint(';')), false, false, int64(0))
 	want("a comment that is the delimiter's read", text(call("csv/host.next", invalid)), `[]`)
 	want("its stop", text(call("csv/host.stopped", invalid)), `[Int(3), Int(0), Int(0)]`)
 
 	failing := rt.ReaderFromText("a")
 	rt.ReaderClose(failing)
-	closed := call("csv/host.open", failing, hCodepoint(','), rb.Variant("maybe.Maybe", "None"), false, false, int64(-1))
+	closed := call("csv/host.open", failing, hCodepoint(','), rb.Variant("option.Option", "None"), false, false, int64(-1))
 	call("csv/host.next", closed)
 	want("a closed reader's stop", text(call("csv/host.stopped", closed)), `[Int(2), Int(0), Int(0)]`)
 	want("its failure", text(call("csv/host.failure", closed)), `io.Error/4.Closed{}`)
 
-	none := rb.Variant("maybe.Maybe", "None")
+	none := rb.Variant("option.Option", "None")
 	want("text read whole", text(call("csv/host.decode", rt.Bytes("\xef\xbb\xbfa,b\n\n\"c\nd\",é\n"), hCodepoint(','), none, false, false, int64(0))),
 		`/3{0=[[String("a"), String("b")], [String("c\nd"), String("é")]], 1=[Int(1), Int(3)], 2=[Int(0), Int(0), Int(0)], 3=String("")}`)
 	// The same failures as the reader's above, at the same place.
 	want("text read whole up to a failure", text(call("csv/host.decode", rt.Bytes("a,\"b\"\"c\"\nd,é\"x"), hCodepoint(','), none, false, false, int64(0))),
 		`/3{0=[[String("a"), String("b\"c")]], 1=[Int(1)], 2=[Int(1), Int(2), Int(4)], 3=String("a quote in a field that is not quoted; double it inside a quoted field, or allow lazy quotes")}`)
-	want("text read whole with invalid options", text(call("csv/host.decode", rt.Bytes("a"), hCodepoint(';'), rb.Variant("maybe.Maybe", "Some", hCodepoint(';')), false, false, int64(0))),
+	want("text read whole with invalid options", text(call("csv/host.decode", rt.Bytes("a"), hCodepoint(';'), rb.Variant("option.Option", "Some", hCodepoint(';')), false, false, int64(0))),
 		`/3{0=[], 1=[], 2=[Int(3), Int(0), Int(0)], 3=String("the comment character and the delimiter are both ';'")}`)
 
 	want("an encoded record", text(call("csv/host.encode", rtStrings("a", "b,c", " d", "e\"f"), hCodepoint(','), true)),

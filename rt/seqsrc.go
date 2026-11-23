@@ -97,9 +97,9 @@ func BytesEachWhile(fr *Frame, data Bytes, yield func(fr *Frame, item Byte) bool
 	return true
 }
 
-// MaybeSeq is `impl Iter for Maybe<T>`'s `each_while`: Some(x) pushes x,
+// OptionSeq is `impl Iter for Option<T>`'s `each_while`: Some(x) pushes x,
 // and None pushes nothing.
-func MaybeSeq[T any](m Maybe[T]) Seq[T] {
+func OptionSeq[T any](m Option[T]) Seq[T] {
 	return Seq[T]{Run: func(fr *Frame, yield func(fr *Frame, item T) bool) bool {
 		if m.Tag != TagSome {
 			return true
@@ -108,9 +108,9 @@ func MaybeSeq[T any](m Maybe[T]) Seq[T] {
 	}}
 }
 
-// MaybeKnownCount is `impl Iter for Maybe<T>`'s `known_count`: one for
+// OptionKnownCount is `impl Iter for Option<T>`'s `known_count`: one for
 // Some, zero for None.
-func MaybeKnownCount[T any](m Maybe[T]) Maybe[int64] {
+func OptionKnownCount[T any](m Option[T]) Option[int64] {
 	if m.Tag == TagSome {
 		return Some(int64(1))
 	}
@@ -170,12 +170,12 @@ func MapSeq[K, V, P any](m Map[K, V], pair func(K, V) P) Seq[P] {
 
 // ListCellKnownCount is `impl Iter for List<T>`'s `known_count`: the cached
 // length, over the consumer's cell type.
-func ListCellKnownCount[T any, N ListCellShape[T, N]](xs *N) Maybe[int64] {
+func ListCellKnownCount[T any, N ListCellShape[T, N]](xs *N) Option[int64] {
 	return Some(ListCellCount[T, N](xs))
 }
 
 // MapKnownCount is `impl Iter for Map<K, V>`'s override, `Some(size(m))`.
-func MapKnownCount[K, V any](m Map[K, V]) Maybe[int64] { return Some(MapSize(m)) }
+func MapKnownCount[K, V any](m Map[K, V]) Option[int64] { return Some(MapSize(m)) }
 
 // SeqKnownCount and StringKnownCount are the interface default, and the two
 // sources that inherit it.
@@ -203,7 +203,7 @@ func MapKnownCount[K, V any](m Map[K, V]) Maybe[int64] { return Some(MapSize(m))
 // decline. It is also the difference between
 // declining and consuming: neither calls `Run`, which is what makes
 // `known_count` the safe probe on an infinite source.
-func SeqKnownCount[T any](fr *Frame, src Seq[T]) Maybe[int64] {
+func SeqKnownCount[T any](fr *Frame, src Seq[T]) Option[int64] {
 	if src.Count != nil {
 		// A view answers its source's override (see Seq).
 		return src.Count(fr)
@@ -212,7 +212,7 @@ func SeqKnownCount[T any](fr *Frame, src Seq[T]) Maybe[int64] {
 }
 
 // StringKnownCount is the same decline for a String. See SeqKnownCount.
-func StringKnownCount(s string) Maybe[int64] { return None[int64]() }
+func StringKnownCount(s string) Option[int64] { return None[int64]() }
 
 // --- the protocol primitive --------------------------------------------------
 
@@ -224,14 +224,14 @@ func SeqEachWhile[T any](fr *Frame, src Seq[T], yield func(fr *Frame, item T) bo
 
 // --- positional terminals -----------------------------------------------------
 
-// SeqLast is `pub fn last<T>(source: Iter<T>) -> Maybe<T>`, whose std body is
+// SeqLast is `pub fn last<T>(source: Iter<T>) -> Option<T>`, whose std body is
 // `reduce(source, None, fn _acc, item -> Some(item))`.
 //
 // It consumes the whole source — there is no way to know an element is the last
 // until the next one fails to arrive — so it does not terminate on an infinite
 // source. A source that says it is infinite (Seq.Endless) is refused before
 // this runs, by the caller's SeqMustEnd; one that does not say so runs on.
-func SeqLast[T any](fr *Frame, src Seq[T]) Maybe[T] {
+func SeqLast[T any](fr *Frame, src Seq[T]) Option[T] {
 	out := None[T]()
 	src.Run(fr, func(fr *Frame, item T) bool {
 		out = Some(item)
@@ -240,13 +240,13 @@ func SeqLast[T any](fr *Frame, src Seq[T]) Maybe[T] {
 	return out
 }
 
-// SeqGet is `pub fn get<T>(source: Iter<T>, index: Int) -> Maybe<T>`.
+// SeqGet is `pub fn get<T>(source: Iter<T>, index: Int) -> Option<T>`.
 //
 // A negative index is None without touching the source, which is std's own
 // `if index < 0 { None }` guard and is observable: the source may have effects.
 // Otherwise the walk stops as soon as the element is found, which is std's
 // `break (0, Some(item))`.
-func SeqGet[T any](fr *Frame, src Seq[T], index int64) Maybe[T] {
+func SeqGet[T any](fr *Frame, src Seq[T], index int64) Option[T] {
 	if index < 0 {
 		return None[T]()
 	}

@@ -14,6 +14,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/nomi-language/nomi/internal/strlit"
 )
 
 // selfSigned writes a certificate for 127.0.0.1 and localhost, made now
@@ -54,6 +56,18 @@ func selfSigned(t *testing.T, dir string) (certPath, keyPath string) {
 	return certPath, keyPath
 }
 
+// withCertificate is program with a certificate selfSigned made for the
+// test in place of its "CERT" and "KEY" literals, each path written as a
+// Nomi string's body: a Windows path's `\` is an escape there.
+func withCertificate(t *testing.T, program string) string {
+	t.Helper()
+	certPath, keyPath := selfSigned(t, t.TempDir())
+	return strings.NewReplacer(
+		`"CERT"`, `"`+strlit.EncodeStringBody(certPath)+`"`,
+		`"KEY"`, `"`+strlit.EncodeStringBody(keyPath)+`"`,
+	).Replace(program)
+}
+
 const tlsProgram = `import std::http
 import std::http.{Body, Client, Listener, Request, Response, Server, Status}
 import std::io.{self, Reader, Writer}
@@ -77,7 +91,7 @@ fn hello(request: Request) -> Response
 end
 
 fn echo(conn: Connection) -> Unit
-    line = Reader.read_line(Connection.reader(conn))! |> Maybe.with_default("")
+    line = Reader.read_line(Connection.reader(conn))! |> Option.with_default("")
     _ = Writer.write_text(Connection.writer(conn), "echo ${line}\n")
 end
 
@@ -102,7 +116,7 @@ fn main()
     _ = Writer.write_text(Connection.writer(conn), "ping\n")
     Connection.close_write(conn)
     Connection.set_deadline(conn, None)
-    io.print("tcp ${Reader.read_line(Connection.reader(conn))! |> Maybe.with_default("-")}")
+    io.print("tcp ${Reader.read_line(Connection.reader(conn))! |> Option.with_default("-")}")
     io.print("addresses ${Connection.local_address(conn) != ""} ${Connection.remote_address(conn) == net.Listener.address(plain)}")
     Connection.close(conn)
     net.Listener.close(plain)
@@ -111,7 +125,7 @@ fn main()
     _ = Supervisor.spawn(App.web, fn -> net.serve(starttls, fn c -> echo(tls.server(c, ServerConfig{certificates: [certificate]})!), App.web))
     upgraded = tls.client(net.dial(net.Listener.address(starttls))!, {..trusted, server_name: Some("localhost")})!
     _ = Writer.write_text(Connection.writer(upgraded), "starttls\n")
-    io.print("upgraded ${Reader.read_line(Connection.reader(upgraded))! |> Maybe.with_default("-")} ${Iter.count(tls.state(upgraded)!.verified_chains)}")
+    io.print("upgraded ${Reader.read_line(Connection.reader(upgraded))! |> Option.with_default("-")} ${Iter.count(tls.state(upgraded)!.verified_chains)}")
     Connection.close(upgraded)
     net.Listener.close(starttls)
     io.print("bad pem ${Certificate.from_pem("x", "y") |> Result.is_err()}")
@@ -135,7 +149,7 @@ fn main()
     _ = Supervisor.spawn(App.web, fn -> net.serve(secure, echo, App.web))
     sconn = tls.dial(net.Listener.address(secure), {..trusted, next_protocols: ["echo/1"]})!
     _ = Writer.write_text(Connection.writer(sconn), "pong\n")
-    io.print("tls ${Reader.read_line(Connection.reader(sconn))! |> Maybe.with_default("-")}")
+    io.print("tls ${Reader.read_line(Connection.reader(sconn))! |> Option.with_default("-")}")
     state = tls.state(sconn)!
     io.print("state ${state.version} ${state.protocol} ${state.handshake_complete} ${Iter.count(state.peer_certificates)}")
     io.print("hostname ${tls.verify_hostname(sconn, "localhost") |> Result.is_ok()} ${tls.verify_hostname(sconn, "example.com") |> Result.is_ok()}")
@@ -143,7 +157,7 @@ fn main()
     refused = tls.dial(net.Listener.address(secure))
     io.print("refused ${refused |> Result.is_err()}")
     net.Listener.close(secure)
-    io.print("plain state ${tls.state(conn) |> Maybe.is_some()} ${Version.Tls12}")
+    io.print("plain state ${tls.state(conn) |> Option.is_some()} ${Version.Tls12}")
 end
 `
 
@@ -152,8 +166,7 @@ end
 // not, a TCP echo through net.serve, and a TLS echo through tls.listen and
 // tls.dial with ALPN, its connection state and hostname checks.
 func TestTLS_HTTPSAndTCPEndToEnd(t *testing.T) {
-	certPath, keyPath := selfSigned(t, t.TempDir())
-	src := strings.ReplaceAll(strings.ReplaceAll(tlsProgram, `"CERT"`, `"`+certPath+`"`), `"KEY"`, `"`+keyPath+`"`)
+	src := withCertificate(t, tlsProgram)
 	got := run(t, src)
 	for _, w := range []string{
 		"subject CN=nomi test [localhost]",

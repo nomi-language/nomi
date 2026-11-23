@@ -13,7 +13,7 @@ func TestIRLoopShapes_Run(t *testing.T) {
 	const src = `import std::io
 
 fn main()
-    m: Maybe<Int> = Some(3)
+    m: Option<Int> = Some(3)
     n = Iter.loop(0, fn n ->
         if n > 3 then break n
         if Some(v) = m then n + v else n + 1

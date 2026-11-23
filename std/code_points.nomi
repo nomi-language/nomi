@@ -7,7 +7,7 @@ import
     equatable.Equatable
     hashable.Hashable
     int.{Int, Int64}
-    maybe.Maybe.{self, None, Some}
+    option.Option.{self, None, Some}
     steppable.Steppable
     strings.String
 end
@@ -66,7 +66,7 @@ impl Codepoint
     //! assert Codepoint.to_digit(one) == None
     //! assert Codepoint.to_digit('x') == None
     //
-    pub fn to_digit(Codepoint(n)) -> Maybe<Int>
+    pub fn to_digit(Codepoint(n)) -> Option<Int>
         if n >= 48 and n <= 57 then Some(n - 48) else None
     end
 
@@ -208,7 +208,7 @@ impl Discrete for Codepoint
     //! assert Codepoint.next('A') == Some('B')
     //! assert Codepoint.next(Int.to_codepoint(0x10FFFF)?) == None
     //
-    fn next(cp: Codepoint) -> Maybe<Codepoint>
+    fn next(cp: Codepoint) -> Option<Codepoint>
         n = Codepoint.to_int(cp)
 
         // `cp` is a scalar value, so the next one is too: past the last
@@ -227,7 +227,7 @@ impl Discrete for Codepoint
     /// second, skipping invalid surrogate values without walking the range.
     //! assert Codepoint.steps_between('a', 'd') == Some(3)
     //
-    fn steps_between(Codepoint(a), Codepoint(b)) -> Maybe<Int>
+    fn steps_between(Codepoint(a), Codepoint(b)) -> Option<Int>
         if a > b then
             Some(0)
         else
@@ -244,7 +244,7 @@ impl Steppable for Codepoint
     /// Codepoint domain.
     //! assert Codepoint.step_by('A', 2) == Some('C')
     //
-    fn step_by(cp: Codepoint, by: Int) -> Maybe<Codepoint>
+    fn step_by(cp: Codepoint, by: Int) -> Option<Codepoint>
         n = Codepoint.to_int(cp)
 
         if by > 1_114_111 or by < -1_114_111 then

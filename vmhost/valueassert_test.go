@@ -11,7 +11,7 @@ import (
 
 // An assertion stands as a statement or as a binding's value, and its value
 // is the judged subject (spec §17): True for `assert` of a Bool, False for
-// `refute`, and the subject itself for a Maybe or Result. In an ordinary
+// `refute`, and the subject itself for an Option or Result. In an ordinary
 // `fn` a failure is the function's Err(AssertionFailure). Each form here
 // ran into a lowering gap before; the parameter subject (`assert x`) did too.
 func TestRun_AnAssertionAsAValueInAFunction(t *testing.T) {
@@ -37,7 +37,7 @@ fn wild(x: Bool) -> Result<Int, AssertionFailure>
   Ok(2)
 end
 
-fn some(m: Maybe<Int>) -> Result<Int, AssertionFailure>
+fn some(m: Option<Int>) -> Result<Int, AssertionFailure>
   Some(n) = assert m else
     return Ok(0)
   end
@@ -179,7 +179,7 @@ test "destructured"
     return
   end
   assert n == 1
-  none: Maybe<Int> = None
+  none: Option<Int> = None
   Some(_m) = assert none else
     return
   end

@@ -80,7 +80,7 @@ import
     equatable.Equatable
     int.{Int, NonNegativeInt, PositiveInt}
     iter.Iter
-    maybe.Maybe.{self, None, Some}
+    option.Option.{self, None, Some}
     resources.{Commit, Release}
     results.Result.{self, Err, Ok}
     strings.String
@@ -352,7 +352,7 @@ pub host fn ewrite<T>(value: T) -> Unit where T: Display
 //! lines = capture("one\ntwo\r\n", fn -> [read_line(), read_line(), read_line()])
 //! assert lines.value == [Result.Ok(Some("one")), Result.Ok(Some("two")), Result.Ok(None)]
 //
-pub host fn read_line() -> Result<Maybe<String>, Error>
+pub host fn read_line() -> Result<Option<String>, Error>
 
 /// Each line of standard input, as `io.read_line` reads them:
 /// `Reader.lines(io.stdin)`, from the same buffer. It reads as it runs, so
@@ -445,7 +445,7 @@ impl Reader
     //!     Result.Ok(None),
     //! ]
     //
-    pub host fn read_line(r: Reader) -> Result<Maybe<String>, Error>
+    pub host fn read_line(r: Reader) -> Result<Option<String>, Error>
 
     /// Up to `max` bytes, at least one, or `Ok(None)` at the end of the
     /// stream. A read returns what is ready, so it may return fewer than
@@ -463,7 +463,7 @@ impl Reader
     //! assert Reader.read(r) == Result.Ok(Some(String.to_bytes("ef")))
     //! assert Reader.read(r) == Result.Ok(None)
     //
-    pub fn read(r: Reader, max: PositiveInt = 65536) -> Result<Maybe<Bytes>, Error>
+    pub fn read(r: Reader, max: PositiveInt = 65536) -> Result<Option<Bytes>, Error>
         read_up_to(r, max)
     end
 
@@ -649,7 +649,7 @@ impl Reader
     //! failing = Reader.from_fn(fn -> Result.Err(Error.TimedOut))
     //! assert Reader.read_line(failing) == Result.Err(Error.TimedOut)
     //
-    pub host fn from_fn(next: () -> Result<Maybe<Bytes>, Error>) -> Reader
+    pub host fn from_fn(next: () -> Result<Option<Bytes>, Error>) -> Reader
 
     /// A reader over a sequence of chunks, pulled one at a time as reads
     /// need them, so the sequence may be long or never end. The sequence
@@ -692,7 +692,7 @@ impl Release for Reader
 end
 
 /// Up to max bytes from r, for `Reader.read`.
-host fn read_up_to(r: Reader, max: PositiveInt) -> Result<Maybe<Bytes>, Error>
+host fn read_up_to(r: Reader, max: PositiveInt) -> Result<Option<Bytes>, Error>
 
 impl Writer
     /// Writes `data` to the stream as it is. A writer over a file buffers
@@ -1002,7 +1002,7 @@ impl File
     /// ```nomi
     /// header = File.read(f, max: 16)?
     /// ```
-    pub fn read(f: File, max: PositiveInt = 65536) -> Result<Maybe<Bytes>, Error>
+    pub fn read(f: File, max: PositiveInt = 65536) -> Result<Option<Bytes>, Error>
         file_read(f, max)
     end
 
@@ -1016,7 +1016,7 @@ impl File
         f:        File,
         position: NonNegativeInt,
         max:      PositiveInt,
-    ) -> Result<Maybe<Bytes>, Error>
+    ) -> Result<Option<Bytes>, Error>
 
     /// Writes `data` at the position, which moves past it. A file opened
     /// with `Access.Read` is `PermissionDenied`.
@@ -1115,7 +1115,7 @@ impl Release for File
     end
 end
 
-host fn file_read(f: File, max: PositiveInt) -> Result<Maybe<Bytes>, Error>
+host fn file_read(f: File, max: PositiveInt) -> Result<Option<Bytes>, Error>
 
 /// What `io.capture` returns: the value `run` returned, everything it
 /// printed to stdout and to stderr, and its stdout and input together as a
@@ -1235,7 +1235,7 @@ pub struct Replayed
 end
 
 impl Assertable for Replayed
-    fn failure(replayed: Replayed) -> Maybe<AssertionDetails>
+    fn failure(replayed: Replayed) -> Option<AssertionDetails>
         if replayed.transcript == replayed.expected and replayed.unread == 0 then
             None
         else
@@ -1411,9 +1411,9 @@ end
 //! ages =
 //!     fn ->
 //!         print("What is your name?")
-//!         name = read_line() |> Result.with_default(None) |> Maybe.with_default("")
+//!         name = read_line() |> Result.with_default(None) |> Option.with_default("")
 //!         write("Hello, ${name}. Your age: ")
-//!         age = read_line() |> Result.with_default(None) |> Maybe.with_default("")
+//!         age = read_line() |> Result.with_default(None) |> Option.with_default("")
 //!         print("${name} is ${age}")
 //!     end
 //!

@@ -313,7 +313,7 @@ import
     literals.{Fragment, Literal}
     locale.Locale
     localize.Localize
-    maybe.Maybe.{None, Some}
+    option.Option.{None, Some}
     results.Result.{self, Err, Ok}
     strings.String
     subtract.Subtract

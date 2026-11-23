@@ -39,8 +39,8 @@ test "arms over channels of different element types share one result"
     _ = Sender.send(words.sender, "hi")
 
     got = Channel.select([
-        Arm.receive(numbers.receiver, fn n -> "number ${Maybe.with_default(n, 0)}"),
-        Arm.receive(words.receiver, fn w -> "word ${Maybe.with_default(w, "")}"),
+        Arm.receive(numbers.receiver, fn n -> "number ${Option.with_default(n, 0)}"),
+        Arm.receive(words.receiver, fn w -> "word ${Option.with_default(w, "")}"),
     ])
 
     assert got == "word hi"
@@ -202,8 +202,8 @@ fn fill(sender: Sender<Int>, values: List<Int>) -> Unit
 end
 
 fn take_rotating(a: Receiver<Int>, b: Receiver<Int>, round: Int) -> Int
-    first = Arm.receive(a, fn n -> Maybe.with_default(n, 0))
-    second = Arm.receive(b, fn n -> Maybe.with_default(n, 0))
+    first = Arm.receive(a, fn n -> Option.with_default(n, 0))
+    second = Arm.receive(b, fn n -> Option.with_default(n, 0))
 
     if round % 2 == 0 then
         Channel.select([first, second])
@@ -231,7 +231,7 @@ test "an arm takes named arguments, in any order"
     _ = Sender.send(ch.sender, 4)
 
     got = Channel.select(
-        [Arm.receive(receiver: ch.receiver, handle: fn n -> Maybe.with_default(n, 0))]
+        [Arm.receive(receiver: ch.receiver, handle: fn n -> Option.with_default(n, 0))]
     )
 
     assert got == 4

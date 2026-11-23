@@ -147,7 +147,7 @@ func irNamedParamShape(k kind) ir.ValShape {
 		return ir.ValUnknown
 	}
 	if k.def.isEnum {
-		// Including the prelude's `Maybe` and `Result`: `ir.MakeVariant` and
+		// Including the prelude's `Option` and `Result`: `ir.MakeVariant` and
 		// `ir.ConstBareVariant` both write `ir.ValVariant`, and
 		// `ProjPayload`'s demand is a variant, so an enum instance is one
 		// answer whether the builder declared it or rt did.

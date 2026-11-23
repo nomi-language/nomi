@@ -28,7 +28,7 @@ fn step_of(n: Int, by: Int) -> String
     show(Int.step_by(n, by))
 end
 
-fn show(m: Maybe<Int>) -> String
+fn show(m: Option<Int>) -> String
     case m
         Some(v) -> "Some(${v})"
         None    -> "None"

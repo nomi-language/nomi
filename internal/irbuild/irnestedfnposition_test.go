@@ -122,7 +122,7 @@ end
 		{"case on the nested fn's call", `import std::io
 fn main()
   xs = [begin
-    fn pick() -> Maybe<Int>
+    fn pick() -> Option<Int>
       Some(9)
     end
     case pick()

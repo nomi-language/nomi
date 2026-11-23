@@ -53,7 +53,7 @@ end
 derive Equatable for Color
 
 // A DERIVED enum keeps comparing structurally. This is not an oversight: the
-// prelude's `Maybe` and `Result` both carry `derive Equatable`, and routing a
+// prelude's `Option` and `Result` both carry `derive Equatable`, and routing a
 // synthesized impl through a Nomi function call would put one on the two
 // hottest comparisons in the language for no change in answer.
 test "a derived enum still compares structurally, both ways"

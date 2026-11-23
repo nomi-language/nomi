@@ -117,10 +117,10 @@ func TestPinned_DecimalAssertionOperands(t *testing.T) {
 	}
 }
 
-// TestVM_MaybeDecimalEqual runs `Maybe.equal` and `Result.equal` over a
-// Decimal payload. Maybe's derived Equatable and `==` both compare the payload
+// TestVM_OptionDecimalEqual runs `Option.equal` and `Result.equal` over a
+// Decimal payload. Option's derived Equatable and `==` both compare the payload
 // with rt.EqDecimal, so the call must agree with `==`, across scales too.
-func TestVM_MaybeDecimalEqual(t *testing.T) {
+func TestVM_OptionDecimalEqual(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
@@ -134,7 +134,7 @@ func TestVM_MaybeDecimalEqual(t *testing.T) {
 		"result equal ok err = False",
 		"",
 	}, "\n")
-	if got := vmReference(fixture("maybe_decimal_equal.nomi")); got.stdout != want || got.exit != 0 {
+	if got := vmReference(fixture("option_decimal_equal.nomi")); got.stdout != want || got.exit != 0 {
 		t.Fatalf("the VM does not produce the text this fixture pins: %s\n--- want ---\n%s", got, want)
 	}
 }

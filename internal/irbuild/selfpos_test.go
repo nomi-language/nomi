@@ -60,7 +60,7 @@ func soleInterfaceMethod(t *testing.T, src string) *ast.InterfaceMethod {
 func TestSelfShape_SelfIsAlwaysItsOwnNode(t *testing.T) {
 	for _, src := range []string{
 		"interface I\n    fn m(x: self) -> Int\nend",
-		"interface I\n    fn m(x: Maybe<self>) -> Int\nend",
+		"interface I\n    fn m(x: Option<self>) -> Int\nend",
 		"interface I\n    fn m(x: Int) -> self\nend",
 		"interface I\n    fn m(x: (self) -> Bool) -> Int\nend",
 	} {

@@ -179,8 +179,9 @@ func (p *Program) editorWalks(checked []Walk) []Walk {
 //
 // A line is Marked, drawn bold, at a call that can act
 // (vm.EffectWalk.ActCalls, actingCalls): what the compiler cannot show
-// is pure. So the read of a `once` (`io.stdout`) and a std function named
-// as a value have their line and no mark.
+// is pure. So the read of a `once` (`io.stdout`), a std function named
+// as a value and a `dbg`, whose keyword already shows its effect, have
+// their line and no mark.
 func (p *Program) reachedCalls(walks []Walk) []analyzedlowering.Reached {
 	type key struct {
 		at   ir.Pos
@@ -263,7 +264,10 @@ type actingCall struct {
 // by its callee's span, with the spans in the order the walks found them.
 // A call with no call syntax where it is, whose span is a point
 // (shownSpan), is one the builder made where the source names a function
-// as a value (`io.print` passed on), and is no call.
+// as a value (`io.print` passed on), and is no call. A `dbg` is left out
+// too: its keyword is the effect, in plain sight on its line, so it is
+// not marked, though its hover names the effect (reachedCalls). A call
+// of a function that holds one is in acting, as any call that can act is.
 func (p *Program) actingCalls(walks []Walk) (map[span]*actingCall, []span) {
 	out := map[span]*actingCall{}
 	var order []span
@@ -273,7 +277,7 @@ func (p *Program) actingCalls(walks []Walk) (map[span]*actingCall, []span) {
 		}
 		for _, c := range w.reach.ActCalls() {
 			s := p.spanOf(c.At)
-			if s.endLine == s.line && s.endCol == s.col {
+			if s.endLine == s.line && s.endCol == s.col || p.dbgAt(c.At) {
 				continue
 			}
 			fills := w.fills || w.reach.FromLate(c.In)
@@ -884,6 +888,13 @@ func (p *Program) shownSpan(at ir.Pos) (path string, line, col, endLine, endCol 
 		endCol = col + len("dbg")
 	}
 	return path, line, col, endLine, endCol
+}
+
+// dbgAt reports whether the call at is a `dbg`, whose keyword is its callee
+// (shownSpan).
+func (p *Program) dbgAt(at ir.Pos) bool {
+	_, ok := p.indexOf(at.File()).at[[2]int{at.Line(), at.Col()}].(*ast.Dbg)
+	return ok
 }
 
 // syntaxIndex is where a file's syntax (syntaxOf) has what a report shows:

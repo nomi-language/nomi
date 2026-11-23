@@ -26,8 +26,8 @@ import
     io.{self, Writer}
     iter.Iter
     lists.List
-    maybe.Maybe.{self, None, Some}
     net.{self, Connection}
+    option.Option.{self, None, Some}
     results.Result.{self, Err, Ok}
     strings.String
     unit.Unit
@@ -53,7 +53,7 @@ impl Version
         end
     end
 
-    fn of_number(n: Int) -> Maybe<Version>
+    fn of_number(n: Int) -> Option<Version>
         case n
             10 -> Some(Version.Tls10)
             11 -> Some(Version.Tls11)
@@ -106,7 +106,7 @@ impl Curve
         end
     end
 
-    fn of_name(name: String) -> Maybe<Curve>
+    fn of_name(name: String) -> Option<Curve>
         [
             Curve.X25519,
             Curve.P256,
@@ -297,12 +297,12 @@ impl CipherSuite
         case parts
             [id, name, insecure, ..versions] ->
                 CipherSuite{
-                    id: String.to_int(id) |> Maybe.with_default(0),
+                    id: String.to_int(id) |> Option.with_default(0),
                     name:,
                     insecure: insecure == "true",
                     versions: versions
                     |> Iter.flat_map(fn v ->
-                        String.to_int(v) |> Maybe.flat_map(Version.of_number)
+                        String.to_int(v) |> Option.flat_map(Version.of_number)
                     end)
                     |> Iter.to_list(),
                 }
@@ -321,7 +321,7 @@ pub struct ClientConfig
     certificates: List<Certificate> = []
     /// The name it checks the server's certificate against, and sends;
     /// `None` takes it from the address dialed.
-    server_name: Maybe<String> = None
+    server_name: Option<String> = None
     /// Accepts any certificate the server presents, unchecked. A program
     /// that sets it can be read by anyone between it and the server; it is
     /// for tests against a server whose certificate is made on the spot.
@@ -329,10 +329,10 @@ pub struct ClientConfig
     /// The application protocols it offers, most wanted first (ALPN).
     next_protocols: List<String> = []
     min_version:    Version = Version.Tls12
-    max_version:    Maybe<Version> = None
+    max_version:    Option<Version> = None
     /// The cipher suite IDs it offers, for TLS 1.2 and below; `None` is Go's.
-    cipher_suites:   Maybe<List<Int>> = None
-    curves:          Maybe<List<Curve>> = None
+    cipher_suites:   Option<List<Int>> = None
+    curves:          Option<List<Curve>> = None
     session_tickets: Bool = True
     /// How many sessions it keeps to resume; 0 keeps none.
     session_cache: Int = 0
@@ -340,11 +340,11 @@ pub struct ClientConfig
     /// Checks each handshake once Go has verified it, with what it agreed
     /// on; an `Err` fails the handshake with its reason. Go's
     /// `VerifyConnection`. It runs on the task making the connection.
-    verify: Maybe<(ConnectionState) -> Result<Unit, String>> = None
+    verify: Option<(ConnectionState) -> Result<Unit, String>> = None
     /// Where the handshake's secrets are written, in the NSS key log
     /// format, so a tool such as Wireshark can read the traffic. Anyone who
     /// reads it can read the connection. Go's `KeyLogWriter`.
-    key_log: Maybe<Writer> = None
+    key_log: Option<Writer> = None
 end
 
 /// What a server presents and how it checks clients.
@@ -357,19 +357,19 @@ pub struct ServerConfig
     /// The application protocols it accepts, most wanted first (ALPN).
     next_protocols:  List<String> = []
     min_version:     Version = Version.Tls12
-    max_version:     Maybe<Version> = None
-    cipher_suites:   Maybe<List<Int>> = None
-    curves:          Maybe<List<Curve>> = None
+    max_version:     Option<Version> = None
+    cipher_suites:   Option<List<Int>> = None
+    curves:          Option<List<Curve>> = None
     session_tickets: Bool = True
     /// Chooses the certificate for each handshake from what the client
     /// asked for; `None` from it falls back to `certificates`. Go's
     /// `GetCertificate`. It runs on the task serving the connections.
-    certificate_for: Maybe<(ClientHello) -> Maybe<Certificate>> = None
+    certificate_for: Option<(ClientHello) -> Option<Certificate>> = None
     /// Checks each handshake once Go has verified it, as
     /// `ClientConfig.verify` does.
-    verify: Maybe<(ConnectionState) -> Result<Unit, String>> = None
+    verify: Option<(ConnectionState) -> Result<Unit, String>> = None
     /// Where the handshake's secrets are written, as `ClientConfig.key_log`.
-    key_log: Maybe<Writer> = None
+    key_log: Option<Writer> = None
 end
 
 /// What a client asked for when it started a handshake: Go's
@@ -388,7 +388,7 @@ impl ClientHello
     fn of_handle(handle: http_host.Handle) -> ClientHello
         (name, protocols, versions, suites) =
             case http_host.hello_parts(handle)
-                [n, p, v, c] -> (List.first(n) |> Maybe.with_default(""), p, v, c)
+                [n, p, v, c] -> (List.first(n) |> Option.with_default(""), p, v, c)
                 _            -> ("", [], [], [])
             end
 
@@ -396,7 +396,7 @@ impl ClientHello
             server_name: name,
             protocols:,
             versions: versions
-            |> Iter.flat_map(fn v -> String.to_int(v) |> Maybe.flat_map(Version.of_number))
+            |> Iter.flat_map(fn v -> String.to_int(v) |> Option.flat_map(Version.of_number))
             |> Iter.to_list(),
             cipher_suites: suites |> Iter.flat_map(String.to_int) |> Iter.to_list(),
             handle:,
@@ -410,7 +410,7 @@ impl ClientHello
     end
 end
 
-fn verify_hook(verify: Maybe<(ConnectionState) -> Result<Unit, String>>) -> (
+fn verify_hook(verify: Option<(ConnectionState) -> Result<Unit, String>>) -> (
     List<List<String>>
 ) -> String
     case verify
@@ -437,17 +437,17 @@ impl ClientConfig
                 roots_kind(config.roots),
                 roots_pem(config.roots),
                 roots_files(config.roots),
-                Maybe.with_default(config.server_name, ""),
+                Option.with_default(config.server_name, ""),
                 config.insecure_skip_verify,
                 config.next_protocols,
                 Version.number(config.min_version),
                 config.max_version
-                |> Maybe.map(Version.number)
-                |> Maybe.with_default(0),
-                Maybe.with_default(config.cipher_suites, []),
-                Maybe.is_some(config.cipher_suites),
+                |> Option.map(Version.number)
+                |> Option.with_default(0),
+                Option.with_default(config.cipher_suites, []),
+                Option.is_some(config.cipher_suites),
                 curve_names(config.curves),
-                Maybe.is_some(config.curves),
+                Option.is_some(config.curves),
                 config.session_tickets,
                 config.session_cache,
                 case config.renegotiation
@@ -459,9 +459,9 @@ impl ClientConfig
                 fn _ -> None,
                 False,
                 verify_hook(config.verify),
-                Maybe.is_some(config.verify),
-                Maybe.with_default(config.key_log, io.stderr),
-                Maybe.is_some(config.key_log),
+                Option.is_some(config.verify),
+                Option.with_default(config.key_log, io.stderr),
+                Option.is_some(config.key_log),
             )
             |> Result.map_err(Error.from_parts)?
 
@@ -484,12 +484,12 @@ impl ServerConfig
                 config.next_protocols,
                 Version.number(config.min_version),
                 config.max_version
-                |> Maybe.map(Version.number)
-                |> Maybe.with_default(0),
-                Maybe.with_default(config.cipher_suites, []),
-                Maybe.is_some(config.cipher_suites),
+                |> Option.map(Version.number)
+                |> Option.with_default(0),
+                Option.with_default(config.cipher_suites, []),
+                Option.is_some(config.cipher_suites),
                 curve_names(config.curves),
-                Maybe.is_some(config.curves),
+                Option.is_some(config.curves),
                 config.session_tickets,
                 0,
                 0,
@@ -497,17 +497,17 @@ impl ServerConfig
                 case config.certificate_for
                     Some(choose) ->
                         fn hello ->
-                            choose(ClientHello.of_handle(hello)) |> Maybe.map(fn c -> c.handle)
+                            choose(ClientHello.of_handle(hello)) |> Option.map(fn c -> c.handle)
                         end
 
                     None ->
                         fn _ -> None
                 end,
-                Maybe.is_some(config.certificate_for),
+                Option.is_some(config.certificate_for),
                 verify_hook(config.verify),
-                Maybe.is_some(config.verify),
-                Maybe.with_default(config.key_log, io.stderr),
-                Maybe.is_some(config.key_log),
+                Option.is_some(config.verify),
+                Option.with_default(config.key_log, io.stderr),
+                Option.is_some(config.key_log),
             )
             |> Result.map_err(Error.from_parts)?
 
@@ -550,8 +550,8 @@ fn roots_files(roots: Roots) -> List<String>
     end
 end
 
-fn curve_names(curves: Maybe<List<Curve>>) -> List<String>
-    curves |> Maybe.with_default([]) |> Iter.map(Curve.name) |> Iter.to_list()
+fn curve_names(curves: Option<List<Curve>>) -> List<String>
+    curves |> Option.with_default([]) |> Iter.map(Curve.name) |> Iter.to_list()
 end
 
 /// What a finished handshake agreed on.
@@ -560,12 +560,12 @@ pub struct ConnectionState
     handshake_complete: Bool
     resumed:            Bool
     cipher_suite:       CipherSuite
-    curve:              Maybe<Curve>
+    curve:              Option<Curve>
     /// The application protocol both sides chose (ALPN).
-    protocol:    Maybe<String>
+    protocol:    Option<String>
     server_name: String
     /// The certificate this side presented, if any.
-    local_certificate: Maybe<CertificateInfo>
+    local_certificate: Option<CertificateInfo>
     peer_certificates: List<CertificateInfo>
     verified_chains:   List<List<CertificateInfo>>
 end
@@ -587,18 +587,18 @@ impl ConnectionState
                 _                     -> ("12", "false", "false", "0", "", "", "")
             end
 
-        id = String.to_int(suite) |> Maybe.with_default(0)
+        id = String.to_int(suite) |> Option.with_default(0)
         certificate = fn c: String -> CertificateInfo.of_parts(String.split(c, "\n"))
 
         ConnectionState{
             version: String.to_int(version)
-            |> Maybe.flat_map(Version.of_number)
-            |> Maybe.with_default(Version.Tls12),
+            |> Option.flat_map(Version.of_number)
+            |> Option.with_default(Version.Tls12),
             handshake_complete: complete == "true",
             resumed:            resumed == "true",
             cipher_suite: [..CipherSuite.secure(), ..CipherSuite.insecure()]
             |> Iter.find(fn s -> s.id == id)
-            |> Maybe.with_default(
+            |> Option.with_default(
                 CipherSuite{id:, name: CipherSuite.name_of(id), versions: [], insecure: False}
             ),
             curve:    Curve.of_name(curve),
@@ -639,7 +639,7 @@ impl Error
     pub fn from_parts(parts: List<String>) -> Error
         case parts
             ["Alert", code, reason] ->
-                Error.Alert{code: String.to_int(code) |> Maybe.with_default(0), reason:}
+                Error.Alert{code: String.to_int(code) |> Option.with_default(0), reason:}
 
             ["Verification", reason, ..certificates] ->
                 Error.Verification{
@@ -659,7 +659,7 @@ impl Error
                 Error.Handshake{
                     reason: String.join(
                         List.tail(parts)
-                        |> Maybe.with_default([]),
+                        |> Option.with_default([]),
                         ": ",
                     ),
                 }
@@ -696,7 +696,7 @@ pub fn dial(
             address,
             net.nanos(options.timeout),
             net.nanos(options.keep_alive.interval),
-            Maybe.with_default(options.local_address, ""),
+            Option.with_default(options.local_address, ""),
             host,
         )
         |> Result.map_err(net.Error.from_parts)?
@@ -736,8 +736,8 @@ end
 
 /// What the connection's handshake agreed on, or `None` when it is not a
 /// TLS connection.
-pub fn state(conn: Connection) -> Maybe<ConnectionState>
-    http_host.tls_state_parts(Connection.handle_of(conn)) |> Maybe.map(ConnectionState.of_parts)
+pub fn state(conn: Connection) -> Option<ConnectionState>
+    http_host.tls_state_parts(Connection.handle_of(conn)) |> Option.map(ConnectionState.of_parts)
 end
 
 /// The listener's connections as TLS servers with `config`, each handshake

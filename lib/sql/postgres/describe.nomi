@@ -167,13 +167,13 @@ fn described(
         |> Iter.map(fn t ->
             {
                 ..t,
-                migration: Map.get(made.tables, t.name) |> Maybe.with_default(""),
+                migration: Map.get(made.tables, t.name) |> Option.with_default(""),
                 columns: t.columns
                 |> Iter.map(fn c ->
                     {
                         ..c,
                         migration: Map.get(made.columns, column_key(t.name, c))
-                        |> Maybe.with_default(""),
+                        |> Option.with_default(""),
                     }
                 end)
                 |> Iter.to_list(),
@@ -257,7 +257,7 @@ fn migrate(link: Link, made: Made, m: Migration) -> Result<Made, Description>
     )
 end
 
-fn first_error(answers: List<messages.Message>) -> Maybe<messages.Report>
+fn first_error(answers: List<messages.Message>) -> Option<messages.Report>
     Iter.find_map(answers, fn m ->
         case m
             .ErrorResponse{report:} -> Some(report)
@@ -275,7 +275,7 @@ fn byte_offset(text: String, position: Int) -> Int
         String.to_codepoints(text)
         |> Iter.take(
             NonNegativeInt.try_from(position - 1)
-            |> Maybe.with_default(0)
+            |> Option.with_default(0)
         )
         |> Iter.to_list()
         |> String.from_codepoints()
@@ -356,7 +356,7 @@ once literal = Regex`'((?:[^']|'')*)'::[a-z ]+`
 //! assert check_values("other", [check]) == []
 //
 pub fn check_values(column: String, checks: List<String>) -> List<String>
-    found: Maybe<List<String>> = Iter.find_map(checks, fn def ->
+    found: Option<List<String>> = Iter.find_map(checks, fn def ->
         case String.captures(def, check_in)
             Some((name, items)) when name == column ->
                 values =
@@ -371,7 +371,7 @@ pub fn check_values(column: String, checks: List<String>) -> List<String>
         end
     end)
 
-    Maybe.with_default(found, [])
+    Option.with_default(found, [])
 end
 
 // The type names and view descriptions asked for so far.
@@ -401,8 +401,8 @@ fn type_name(
             name =
                 found
                 |> List.first()
-                |> Maybe.map(fn row -> text_at(row, 0))
-                |> Maybe.with_default("")
+                |> Option.map(fn row -> text_at(row, 0))
+                |> Option.with_default("")
 
             Ok(({..ds, types: Map.put(ds.types, (oid, modifier), name)}, name))
     end
@@ -419,7 +419,7 @@ fn view(link: Link, ds: Describer, oid: Int, depth: Int) -> (Describer, Statemen
             case rows(link, "SELECT pg_get_viewdef($1::oid)", [Value.Int(oid)])
                 Ok([row, ..]) ->
                     definition = text_at(row, 0) |> String.trim()
-                    body = String.strip_suffix(definition, ";") |> Maybe.with_default(definition)
+                    body = String.strip_suffix(definition, ";") |> Option.with_default(definition)
                     (after, s) = statement(link, ds, body, depth + 1)
                     ({..after, views: Map.put(after.views, oid, s)}, s)
 
@@ -699,7 +699,7 @@ fn joined(node: Json) -> (Set<String>, List<String>)
 end
 
 // The node under `node` whose subplan is named `name`.
-fn subplan(node: Json, name: String) -> Maybe<Json>
+fn subplan(node: Json, name: String) -> Option<Json>
     if field(node, "Subplan Name") == name then return Some(node)
     children(node) |> Iter.find_map(fn child -> subplan(child, name))
 end

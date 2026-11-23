@@ -11,7 +11,7 @@
 //#
 //# once continuation: FieldBits = Bits"10aa_aaaa"
 //#
-//# fn payload(byte: Int) -> Maybe<Int>
+//# fn payload(byte: Int) -> Option<Int>
 //#     Bits.field(continuation, byte)
 //# end
 //# ```
@@ -32,7 +32,7 @@ import
     iter.Iter
     lists.List
     literals.{Fragment, Literal}
-    maybe.Maybe.{self, None, Some}
+    option.Option.{self, None, Some}
     results.Result.{self, Err, Ok}
     strings.String
 end
@@ -64,7 +64,7 @@ derive Equatable for Bits
 //! assert Bits.field(f, 0b1100_0011) == Some(3)
 //! assert FieldBits.try_from(Bits"10xx") == None
 //
-pub subtype FieldBits Bits when fn pattern -> pattern.field_mask != 0
+pub refine FieldBits Bits when fn pattern -> pattern.field_mask != 0
 
 /// Why text is not a bit pattern. `index` counts characters from 0.
 pub enum Error
@@ -175,7 +175,7 @@ impl Bits
     //! assert Bits.field(continuation, 0b0010_0011) == None
     //! assert Bits.field(Bits"1aaa_0000", 0b1101_0000) == Some(5)
     //
-    pub fn field(pattern: FieldBits, n: Int) -> Maybe<Int>
+    pub fn field(pattern: FieldBits, n: Int) -> Option<Int>
         FieldBits(bits) = pattern
 
         if not Bits.matches(bits, n) then return None
@@ -241,14 +241,14 @@ struct Scan
     width:      NonNegativeInt
     mask:       Int
     value:      Int
-    field:      Maybe<String>
+    field:      Option<String>
     field_mask: Int
     closed:     Bool
-    failure:    Maybe<Error>
+    failure:    Option<Error>
 end
 
 fn read_bit(s: Scan, cp: Codepoint) -> Scan
-    if Maybe.is_some(s.failure) then return s
+    if Option.is_some(s.failure) then return s
 
     found = Display.to_string(cp)
     index = s.index + 1
@@ -262,7 +262,7 @@ fn read_bit(s: Scan, cp: Codepoint) -> Scan
         mask:       .. <<< 1,
         value:      .. <<< 1,
         field_mask: .. <<< 1,
-        closed:     Maybe.is_some(s.field),
+        closed:     Option.is_some(s.field),
     }
 
     case found

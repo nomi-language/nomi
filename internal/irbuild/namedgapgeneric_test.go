@@ -3,7 +3,7 @@ package irbuild
 import "testing"
 
 // A named argument that leaves a generic callee's defaulted slot before it
-// empty (`Box.pick(b, n: 2)` over `other: Maybe<T> = None`) fills that slot
+// empty (`Box.pick(b, n: 2)` over `other: Option<T> = None`) fills that slot
 // at the call's instantiation.
 func TestNamedGapGeneric_FillsTheSlotAtTheInstance(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
@@ -13,7 +13,7 @@ struct Box<T>
 end
 
 impl Box<T>
-    fn pick<T>(_b: Box<T>, other: Maybe<T> = None, n: Int = 0) -> Int
+    fn pick<T>(_b: Box<T>, other: Option<T> = None, n: Int = 0) -> Int
         case other
             Some(_) -> n + 1
             None -> n

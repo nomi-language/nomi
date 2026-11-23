@@ -24,12 +24,12 @@ func TestConfusion_CheckerNamesNomisSpelling(t *testing.T) {
 			"write `Int.to_string(n)`", "fn f() -> String\n  n = 1\n  Int.to_string(n)\nend\n"},
 		{"bare interface function", "fn f() -> String\n  n = 1\n  to_string(n)\nend\n",
 			"`Display.to_string(...)`", "fn f() -> String\n  n = 1\n  Display.to_string(n)\nend\n"},
-		{"head as a method", "fn f() -> Maybe<Int>\n  xs = [1, 2]\n  xs.head()\nend\n",
-			"write `List.first(xs)`", "fn f() -> Maybe<Int>\n  xs = [1, 2]\n  List.first(xs)\nend\n"},
-		{"List.head", "fn f() -> Maybe<Int>\n  xs = [1, 2]\n  List.head(xs)\nend\n",
-			"did you mean `List.first`?", "fn f() -> Maybe<Int>\n  xs = [1, 2]\n  List.first(xs)\nend\n"},
-		{"nil", "fn f() -> Maybe<Int>\n  x: Maybe<Int> = nil\n  x\nend\n",
-			"Nomi has no null", "fn f() -> Maybe<Int>\n  x: Maybe<Int> = None\n  x\nend\n"},
+		{"head as a method", "fn f() -> Option<Int>\n  xs = [1, 2]\n  xs.head()\nend\n",
+			"write `List.first(xs)`", "fn f() -> Option<Int>\n  xs = [1, 2]\n  List.first(xs)\nend\n"},
+		{"List.head", "fn f() -> Option<Int>\n  xs = [1, 2]\n  List.head(xs)\nend\n",
+			"did you mean `List.first`?", "fn f() -> Option<Int>\n  xs = [1, 2]\n  List.first(xs)\nend\n"},
+		{"nil", "fn f() -> Option<Int>\n  x: Option<Int> = nil\n  x\nend\n",
+			"Nomi has no null", "fn f() -> Option<Int>\n  x: Option<Int> = None\n  x\nend\n"},
 		{"true", "fn f() -> Bool\n  x: Bool = true\n  x\nend\n",
 			"the Bool literal is 'True'", "fn f() -> Bool\n  x: Bool = True\n  x\nend\n"},
 	} {
@@ -68,7 +68,7 @@ func TestConfusion_AStdMemberTypoNamesTheMember(t *testing.T) {
 		{"Iter.summ(xs)", "did you mean 'sum'?"},
 		{"Iter.coutn(xs)", "did you mean 'count'?"},
 		{"List.sum(xs)", "`sum` is an `Iter` function, and works on a List: write `Iter.sum(...)`"},
-		{"List.get(xs, 0) |> Maybe.with_default(0)", "write `Iter.get(...)`"},
+		{"List.get(xs, 0) |> Option.with_default(0)", "write `Iter.get(...)`"},
 	} {
 		t.Run(tc.call, func(t *testing.T) {
 			_, errs := checkSourceWithStdlib("fn f(xs: List<Int>) -> Int\n    " + tc.call + "\nend\n")

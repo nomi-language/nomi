@@ -22,8 +22,8 @@ func TestHandleEquality_IsRejected(t *testing.T) {
 			"`==` cannot compare `Context`: a handle to running state has no equality"},
 		{"task", "_ = concurrent\n        t = Task.spawn(fn -> 1)\n        t == t\n    end",
 			"`==` cannot compare `Task<Int>`: a handle to running state has no equality"},
-		{"held in a Maybe", "c = Some(Context.root())\n    _ = c == c",
-			"`==` cannot compare `Maybe<Context>`: it holds `Context`, and a handle to running state has no equality"},
+		{"held in an Option", "c = Some(Context.root())\n    _ = c == c",
+			"`==` cannot compare `Option<Context>`: it holds `Context`, and a handle to running state has no equality"},
 		{"held in a Vector", "v = Vector[Context.root()]\n    _ = v == v",
 			"`==` cannot compare `Vector<Context>`: it holds `Context`, and a handle to running state has no equality"},
 		{"Iter held in a Vector", "v = Vector[Iter.from(1)]\n    _ = v == v",
@@ -91,7 +91,7 @@ func TestHandleEquality_AReaderIsNoKey(t *testing.T) {
 	for name, tc := range map[string]struct{ body, want string }{
 		"set":         {"_ = Set[r]", "`Reader` cannot be a Set element: a handle to running state has no equality or hashing"},
 		"map key":     {"_ = {r => 1}", "`Reader` cannot be a Map key: a handle to running state has no equality or hashing"},
-		"hash":        {"_ = Hashable.hash(Some(r))", "Maybe<Reader> does not implement Hashable (required by `Hashable.hash`)"},
+		"hash":        {"_ = Hashable.hash(Some(r))", "Option<Reader> does not implement Hashable (required by `Hashable.hash`)"},
 		"tuple equal": {"_ = (1, r) == (1, r)", "`==` cannot compare `(Int, Reader)`: it holds `Reader`, and a handle to running state has no equality"},
 	} {
 		src := "import std::io.Reader\n\nfn main()\n    r = Reader.from_text(\"x\")\n    " + tc.body + "\nend\n"

@@ -11,7 +11,7 @@ import "fmt"
 // through the two functions below: an interpolation or interface-typed
 // argument (recordConformanceRecording), a `where T: Display` bound
 // (typeImplementsInterface), and a bound inside a generic impl's receiver
-// (`Maybe<(Int, Int)>` against `impl<T> Display for Maybe<T> where T:
+// (`Option<(Int, Int)>` against `impl<T> Display for Option<T> where T:
 // Display`, typeSatisfiesInterfaceForImplMatch).
 
 // displayParts is the parts a tuple or anonymous struct renders through

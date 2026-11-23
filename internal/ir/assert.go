@@ -52,11 +52,11 @@ import "strconv"
 // recorded for the keyword (`assertionBoundary`, in
 // internal/irbuild/assertexit.go).
 //
-// Whether the subject is a Bool, a `Maybe`/`Result` shape or an `Assertable`
+// Whether the subject is a Bool, an `Option`/`Result` shape or an `Assertable`
 // is not a field either. As with patterns (match.go), it is a consumer choice
 // made from an operand's type rather than from a flag. irbuild reads
 // `subject.k`. A kind on the node would restate a fact the producer and the
-// consumer already hold. The VM reads a Bool or a `Maybe`/`Result` record off the
+// consumer already hold. The VM reads a Bool or an `Option`/`Result` record off the
 // value; an `Assertable` subject's verdict comes from a user impl the producer
 // selected statically, so the producer calls it and the node carries that
 // ANSWER as an operand (`WithAnswer`), not a flag.
@@ -107,7 +107,7 @@ type Assert struct {
 	mismatch bool
 	binding  *AssertBinding
 	// answer is an `Assertable` subject's own verdict: the
-	// `Maybe<AssertionDetails>` its `Assertable.failure` returned, which the
+	// `Option<AssertionDetails>` its `Assertable.failure` returned, which the
 	// producer calls before the judgement. NoTemp for every other subject.
 	answer Temp
 }
@@ -191,7 +191,7 @@ func (a *Assert) WithBinding(b AssertBinding) *Assert {
 }
 
 // WithAnswer marks the subject as an `Assertable` and attaches the
-// `Maybe<AssertionDetails>` its `Assertable.failure` answered, and answers a.
+// `Option<AssertionDetails>` its `Assertable.failure` answered, and answers a.
 //
 // AN OPERAND AND NOT A KIND FLAG. Which judgement applies is still read off
 // the subject (see the file header). What the judgement cannot read off the

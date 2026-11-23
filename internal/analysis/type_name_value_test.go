@@ -35,7 +35,7 @@ func TestTypeName_CalledAsAFunctionIsRejected(t *testing.T) {
 		expr string
 		want string
 	}{
-		{`Int("4")`, "`Int` is a type, not a function\nhelp: to parse a String, call `String.to_int`, which returns a `Maybe<Int>`"},
+		{`Int("4")`, "`Int` is a type, not a function\nhelp: to parse a String, call `String.to_int`, which returns an `Option<Int>`"},
 		{`"4" |> Int()`, "`Int` is a type, not a function\nhelp: to parse a String, call `String.to_int`"},
 		{`Int(2.5)`, "`Int` is a type, not a function\nhelp: to convert a Float, call `Float.to_int`"},
 		{`String(4)`, "`String` is a type, not a function\nhelp: to turn a value into a String, interpolate it (`\"${x}\"`) or call `Display.to_string(x)`"},
@@ -44,7 +44,7 @@ func TestTypeName_CalledAsAFunctionIsRejected(t *testing.T) {
 		{`Float("1.5")`, "`Float` is a type, not a function"},
 		{`Bool(1)`, "`Bool` is a type, not a function"},
 		{`Dir(1)`, "`Dir` is a type, not a function\nhelp: build a value with one of its variants, as in `Dir.North`"},
-		{`Maybe(3)`, "`Maybe` is a type, not a function"},
+		{`Option(3)`, "`Option` is a type, not a function"},
 		{`Named(3)`, "`Named` is an interface, not a function"},
 	} {
 		src := typeNameDecls + "fn main()\n  _ = " + tc.expr + "\nend\n"
@@ -84,7 +84,7 @@ func TestTypeName_AsAValueIsRejected(t *testing.T) {
 		// from is rejected as a generic function is.
 		{`x = Some`, "cannot infer type parameter T of generic constructor 'Some' used as a value"},
 		{`x = Iter.map([1], Ok) |> Iter.to_list()`, "cannot infer type parameter E of generic constructor 'Ok' used as a value"},
-		{`x = Maybe.Some`, "cannot infer type parameter T of generic constructor 'Maybe.Some' used as a value"},
+		{`x = Option.Some`, "cannot infer type parameter T of generic constructor 'Option.Some' used as a value"},
 	} {
 		src := typeNameDecls + "fn main()\n  " + tc.stmt + "\n  _ = x\nend\n"
 		_, errs := checkSourceWithStdlib(src)
@@ -172,7 +172,7 @@ func TestTypeName_ConstructionAndValuesAreAccepted(t *testing.T) {
 		`x = Int.to_string(3)`,
 		`x = True`,
 		`x = Unit`,
-		`x = Maybe.Some(3)`,
+		`x = Option.Some(3)`,
 		`x = Context.value(Context.root(), Id)`,
 		// A witness of a block-local type, which the type registry does
 		// not hold.
@@ -184,15 +184,15 @@ func TestTypeName_ConstructionAndValuesAreAccepted(t *testing.T) {
 		"f = Id\n  x = f(3)",
 		"f: (Int) -> Id = Id\n  x = f(3)",
 		"type Token String\n  x = Token",
-		`x: List<Maybe<Int>> = Iter.map([1], Some) |> Iter.to_list()`,
+		`x: List<Option<Int>> = Iter.map([1], Some) |> Iter.to_list()`,
 		`x = Iter.map([1], Some) |> Iter.to_list()`,
-		`x = Iter.map([1], Maybe.Some) |> Iter.to_list()`,
+		`x = Iter.map([1], Option.Some) |> Iter.to_list()`,
 		`x = [1] |> Iter.map(Some) |> Iter.to_list()`,
 		`x: List<Result<Int, String>> = Iter.map([1], Ok) |> Iter.to_list()`,
 		`x: List<Result<Int, String>> = Iter.map(["e"], Err) |> Iter.to_list()`,
 		`x = Result.map_err(Err("e"), Label) |> Result.is_ok()`,
-		`x = Maybe.map(Some(1), Id)`,
-		"f: (Int) -> Maybe<Int> = Some\n  x = f(3)",
+		`x = Option.map(Some(1), Id)`,
+		"f: (Int) -> Option<Int> = Some\n  x = f(3)",
 		"f: (String) -> Result<Int, String> = Err\n  x = f(\"e\")",
 	} {
 		src := typeNameDecls + "fn main()\n  " + stmt + "\n  _ = x\nend\n"

@@ -82,7 +82,7 @@ func (g *gen) mapKind(key, val kind) kind {
 // with both components package-neutral it routes to the PROCESS-WIDE table, so
 // the kind a `stdMapField` produces is the SAME entry a call site's `g.mapKind`
 // produces and the two compare equal. A per-gen kind would be one no other gen
-// could ever match — the failure `stdMaybeField`'s `!shared` guard exists to
+// could ever match — the failure `stdOptionField`'s `!shared` guard exists to
 // catch. A nil gen with a non-neutral component panics there rather than
 // yielding a kind interned nowhere.
 //
@@ -198,7 +198,7 @@ func (g *gen) allHash(parts []kind) bool {
 // fields, an enum its tag and slots.
 //
 // A type reached again inside its own expansion (`enum Chain { End; Link
-// Chain }` as `Map<Chain, Int>`, or `struct Circle { inner: Maybe<Shape> }`
+// Chain }` as `Map<Chain, Int>`, or `struct Circle { inner: Option<Shape> }`
 // under `enum Shape { embeds Circle }`) is assumed to hash, co-inductively:
 // the outer expansion decides it from its other parts. rt.Hash walks the
 // value, which is finite, so the assumption holds at run time.
@@ -359,10 +359,10 @@ type mapFn struct {
 // with the Nomi body is a shared bottom rather than an argument.
 //
 // `map_keys` lowers in mapMapValuesPlan. `map_next` is a row above: it
-// answers `Maybe<((K, V), Map<K, V>)>`, the first entry in insertion order and
+// answers `Option<((K, V), Map<K, V>)>`, the first entry in insertion order and
 // the map without it.
 var mapFuncs = map[string]mapFn{
-	"get":      {args: 2, result: "maybe"},
+	"get":      {args: 2, result: "option"},
 	"put":      {args: 3, result: "map"},
 	"size":     {args: 1, result: "int"},
 	"remove":   {args: 2, result: "map"},
@@ -385,7 +385,7 @@ func (g *gen) mapResultKind(tag string, key, val kind, at ast.Node) (kind, bool)
 	case "map":
 		return g.mapKind(key, val), true
 	case "next":
-		// `Map.map_next` is `Maybe<((K, V), Map<K, V>)>`.
+		// `Map.map_next` is `Option<((K, V), Map<K, V>)>`.
 		entry := g.tupleKind([]kind{key, val})
 		// kindInvalid: reports — an unrepresentable tuple part, named by tupleKind.
 		if entry == kindInvalid {
@@ -396,15 +396,15 @@ func (g *gen) mapResultKind(tag string, key, val kind, at ast.Node) (kind, bool)
 		if pair == kindInvalid {
 			return kindInvalid, false
 		}
-		return g.maybeOf(pair, at)
-	case "maybe":
-		// `Map.get` returns `Maybe<V>`, whose representation prelude.go owns.
-		// Asked for rather than assembled here, so there is one shape of Maybe
+		return g.optionOf(pair, at)
+	case "option":
+		// `Map.get` returns `Option<V>`, whose representation prelude.go owns.
+		// Asked for rather than assembled here, so there is one shape of Option
 		// in the builder and not two. The anchors are loaded on first use.
 		g.loadPreludes()
-		a, anchored := preludeSpecAnchor(preludeSpecNamed("Maybe"))
+		a, anchored := preludeSpecAnchor(preludeSpecNamed("Option"))
 		if !anchored {
-			g.reject("Map.get without the prelude Maybe", val.nomi(), at)
+			g.reject("Map.get without the prelude Option", val.nomi(), at)
 			return kindInvalid, false
 		}
 		k := g.preludeInstance(a, []kind{val})

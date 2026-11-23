@@ -120,7 +120,7 @@ func isDir(path string) bool {
 var StdlibLoadOrder = []string{
 	"display", "debug", "equatable", "hashable", "comparable",
 	"add", "subtract", "multiply", "divide", "remainder",
-	"unit", "bool", "maybe", "results", "resources",
+	"unit", "bool", "option", "results", "resources",
 	"literals", "assertions", "testing",
 	"discrete", "steppable",
 	"int", "float", "decimal", "code_points",

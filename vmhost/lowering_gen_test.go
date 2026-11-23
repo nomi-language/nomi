@@ -36,13 +36,13 @@ import (
 
 // gt is a generated value's type.
 type gt struct {
-	k    string // Int, String, Bool, Float, List, Maybe, Result, Tuple, Box, Opt, Meters, Shape, Fn
+	k    string // Int, String, Bool, Float, List, Option, Result, Tuple, Box, Opt, Meters, Shape, Fn
 	args []*gt
 }
 
 func (t *gt) String() string {
 	switch t.k {
-	case "List", "Maybe", "Box", "Opt":
+	case "List", "Option", "Box", "Opt":
 		return t.k + "<" + t.args[0].String() + ">"
 	case "Result":
 		return "Result<" + t.args[0].String() + ", String>"
@@ -174,7 +174,7 @@ func (g *gen) typ(depth int) *gt {
 	case 0:
 		return of("List", g.typ(depth-1))
 	case 1:
-		return of("Maybe", g.typ(depth-1))
+		return of("Option", g.typ(depth-1))
 	case 2:
 		return of("Result", g.typ(depth-1))
 	case 3:
@@ -195,7 +195,7 @@ func (g *gen) equatable(t *gt) bool {
 		return true
 	case "Shape":
 		return !g.local
-	case "List", "Maybe", "Result":
+	case "List", "Option", "Result":
 		return g.equatable(t.args[0])
 	case "Box", "Opt":
 		return g.equatable(t.args[0])
@@ -302,7 +302,7 @@ func (g *gen) leaf(t *gt, sc []gvar) string {
 		return fmt.Sprintf("Shape.Square(%d)", g.r.Intn(10))
 	case "List":
 		return g.sortedStd(t.args[0], "["+g.leaf(t.args[0], sc)+"]")
-	case "Maybe":
+	case "Option":
 		return "Some(" + g.leaf(t.args[0], sc) + ")"
 	case "Result":
 		return g.okOf(t.args[0], g.leaf(t.args[0], sc))
@@ -368,8 +368,8 @@ func (g *gen) use(t *gt, v gvar, depth int, sc []gvar) string {
 			}
 			return "case " + n + "\n.Circle(r) -> r\n.Square(s) -> s * s\n.Dot -> 0\nend"
 		})
-	case t.k == "Bool" && v.t.k == "Maybe":
-		add(func() string { return "Maybe.is_some(" + n + ")" })
+	case t.k == "Bool" && v.t.k == "Option":
+		add(func() string { return "Option.is_some(" + n + ")" })
 	case t.k == "Bool" && v.t.k == "Result":
 		add(func() string { return "Result.is_ok(" + n + ")" })
 	}
@@ -394,16 +394,16 @@ func (g *gen) use(t *gt, v gvar, depth int, sc []gvar) string {
 				})
 			add(func() string { return "unbox(" + n + ")" })
 		}
-	case "Maybe":
+	case "Option":
 		if v.t.args[0].eq(t) {
 			add(func() string {
 				some := "Some(x) -> x"
 				if g.aux.Intn(2) == 0 {
-					some = "Some(x) as whole -> Maybe.with_default(whole, x)"
+					some = "Some(x) as whole -> Option.with_default(whole, x)"
 				}
 				return "case " + n + "\n" + some + "\nNone -> " + g.expr(t, d, sc) + "\nend"
 			},
-				func() string { return "Maybe.with_default(" + n + ", " + g.expr(t, d, sc) + ")" })
+				func() string { return "Option.with_default(" + n + ", " + g.expr(t, d, sc) + ")" })
 		}
 	case "Result":
 		if v.t.args[0].eq(t) {
@@ -596,7 +596,7 @@ func (g *gen) callback(u, t *gt, depth int, sc []gvar, annotate bool) string {
 		opts = append(opts, func() string { return "Shape.Circle" })
 	case t.k == "Opt" && t.args[0].eq(u):
 		opts = append(opts, func() string { return "Opt.Has" })
-	case t.k == "Maybe" && t.args[0].eq(u):
+	case t.k == "Option" && t.args[0].eq(u):
 		opts = append(opts, func() string { return "Some" })
 	case t.k == "List" && t.args[0].eq(u):
 		opts = append(opts, func() string { return "wrap" })
@@ -608,7 +608,7 @@ func (g *gen) callback(u, t *gt, depth int, sc []gvar, annotate bool) string {
 		// A function over the wider `Iter<T>` where a `(List<T>) -> Int`
 		// is expected.
 		opts = append(opts, func() string { return "tally" }, func() string { return "Iter.count" })
-	case u.k == "List" && t.k == "Maybe" && t.args[0].eq(u.args[0]):
+	case u.k == "List" && t.k == "Option" && t.args[0].eq(u.args[0]):
 		opts = append(opts, func() string { return "Iter.first" })
 	}
 	for _, v := range sc {
@@ -703,7 +703,7 @@ func (g *gen) expr(t *gt, depth int, sc []gvar) string {
 		},
 	)
 	add(
-		func() string { return "Maybe.with_default(Some(" + g.expr(t, d, sc) + "), " + g.expr(t, d, sc) + ")" },
+		func() string { return "Option.with_default(Some(" + g.expr(t, d, sc) + "), " + g.expr(t, d, sc) + ")" },
 		func() string {
 			return "Result.with_default(" + g.okOf(t, g.expr(t, d, sc)) + ", " + g.expr(t, d, sc) + ")"
 		},
@@ -728,7 +728,7 @@ func (g *gen) expr(t *gt, depth int, sc []gvar) string {
 		},
 		func() string {
 			u := g.typ(1)
-			return "Maybe.map(Some(" + g.expr(u, d, sc) + "), " + g.callback(u, t, d, sc, false) + ")\n|> Maybe.with_default(" + g.expr(t, d, sc) + ")"
+			return "Option.map(Some(" + g.expr(u, d, sc) + "), " + g.callback(u, t, d, sc, false) + ")\n|> Option.with_default(" + g.expr(t, d, sc) + ")"
 		},
 	)
 	add(func() string { return "unbox(box(" + g.expr(t, d, sc) + "))" })
@@ -791,7 +791,7 @@ func (g *gen) expr(t *gt, depth int, sc []gvar) string {
 		add(
 			func() string { u := g.eqType(); return paren(lit(u)) + " == " + paren(lit(u)) },
 			func() string { u := g.eqType(); return "same(" + g.expr(u, d, sc) + ", " + g.expr(u, d, sc) + ")" },
-			func() string { return "Maybe.is_some(Some(" + g.expr(g.typ(1), d, sc) + "))" },
+			func() string { return "Option.is_some(Some(" + g.expr(g.typ(1), d, sc) + "))" },
 			func() string {
 				u := g.typ(1)
 				return "Iter.any_match([" + lit(u) + "], " + g.callback(u, tBool, d, sc, false) + ")"
@@ -832,7 +832,7 @@ func (g *gen) expr(t *gt, depth int, sc []gvar) string {
 				return "Iter.filter(" + g.expr(t, d, sc) + ", " + g.callback(u, tBool, d, sc, false) + ") |> Iter.to_list()"
 			},
 		)
-	case "Maybe":
+	case "Option":
 		u := t.args[0]
 		add(func() string { return "Some(" + g.expr(u, d, sc) + ")" },
 			func() string { return "pick(" + g.boolLit() + ", None, Some(" + g.expr(u, d, sc) + "))" })
@@ -943,7 +943,7 @@ fn wrap<T>(x: T) -> List<T>
 end
 
 fn first_or<T>(xs: List<T>, d: T) -> T
-Maybe.with_default(List.first(xs), d)
+Option.with_default(List.first(xs), d)
 end
 
 fn apply<T, U>(x: T, f: (T) -> U) -> U
@@ -1103,13 +1103,13 @@ var genLeafInners = []struct {
 }{
 	{typ: "Decimal", val: func(n int) string { return fmt.Sprintf("%d.%dd", n, n+1) }},
 	{typ: "Bytes", val: func(n int) string { return fmt.Sprintf("String.to_bytes(\"b%d\")", n) }},
-	{typ: "Maybe<Byte>", val: func(n int) string { return fmt.Sprintf("Bytes.get(String.to_bytes(\"b%d\"), 0)", n) }},
+	{typ: "Option<Byte>", val: func(n int) string { return fmt.Sprintf("Bytes.get(String.to_bytes(\"b%d\"), 0)", n) }},
 	{typ: "Codepoint", val: func(n int) string { return fmt.Sprintf("'%c'", 'a'+rune(n%26)) }},
 	{typ: "Unit", val: func(int) string { return "Unit" }},
 	{typ: "Regex<Unit>", val: func(n int) string { return fmt.Sprintf("Regex\"a{%d}\"", n+1) }},
 	{typ: "Duration", val: func(n int) string { return fmt.Sprintf("Duration.seconds(%d)", n) }},
 	{typ: "List<Decimal>", val: func(n int) string { return fmt.Sprintf("[%d.5d, 0.25d]", n) }},
-	{typ: "Maybe<Decimal>", val: func(n int) string { return fmt.Sprintf("Some(%d.5d)", n) }},
+	{typ: "Option<Decimal>", val: func(n int) string { return fmt.Sprintf("Some(%d.5d)", n) }},
 	{typ: "(Decimal, Bytes)", val: func(n int) string { return fmt.Sprintf("(%d.5d, String.to_bytes(\"t\"))", n) }},
 	{typ: "Map<String, Decimal>", val: func(n int) string { return fmt.Sprintf("{\"k\" => %d.5d}", n) }},
 	{typ: "Set<Decimal>", val: func(n int) string { return fmt.Sprintf("Set[%d.5d]", n) }},
@@ -1506,7 +1506,7 @@ impl Iter for ItPair
         if yield(p.a) then yield(p.b) else False
     end
 
-    fn known_count(_p: ItPair) -> Maybe<Int>
+    fn known_count(_p: ItPair) -> Option<Int>
         Some(2)
     end
 end
@@ -1517,11 +1517,11 @@ derive Equatable for ItId
 derive Comparable for ItId
 
 impl Discrete for ItId
-    fn next(ItId(n)) -> Maybe<ItId>
+    fn next(ItId(n)) -> Option<ItId>
         Some(ItId(n + 1))
     end
 
-    fn steps_between(ItId(a), ItId(b)) -> Maybe<Int>
+    fn steps_between(ItId(a), ItId(b)) -> Option<Int>
         Some(b - a)
     end
 end
@@ -1532,7 +1532,7 @@ derive Equatable for ItLap
 derive Comparable for ItLap
 
 impl Discrete for ItLap
-    fn next(ItLap(n)) -> Maybe<ItLap>
+    fn next(ItLap(n)) -> Option<ItLap>
         if n >= 9 then None else Some(ItLap(n + 1))
     end
 end
@@ -1631,7 +1631,7 @@ func (g *gen) iterBlock() string {
 	case 6:
 		fmt.Fprintf(&out, "%s = Iter.loop(fn x: Int -> x, fn g ->\nif g(0) > %d then break g\nfn x: Int -> g(x) + 1\nend)\nio.inspect(%s(%d))\n", name("il"), k, name("il"), a)
 	case 7:
-		fmt.Fprintf(&out, "%s: Maybe<Int> = Some(%d)\n", name("io"), a)
+		fmt.Fprintf(&out, "%s: Option<Int> = Some(%d)\n", name("io"), a)
 		fmt.Fprintf(&out, "io.inspect(Iter.loop(0, fn n ->\nif n > %d then break n\nif Some(v) = %s then n + v else n + 1\nend))\n", b+k, name("io"))
 		fmt.Fprintf(&out, "io.inspect(Iter.loop(0, fn n, step = %d ->\nif n > %d then break n\nn + step\nend))\n", a, b+k)
 	case 8:
@@ -1682,7 +1682,7 @@ func (g *gen) patternBlock(inTest bool) string {
 		fmt.Fprintf(&out, "(%s(%s, _), %s) = (%s(%d, %s), %d)\n", pair, name("px"), name("py"), pair, a, str, b)
 		fmt.Fprintf(&out, "io.inspect(%s + %s)\n", name("px"), name("py"))
 	case 2:
-		fmt.Fprintf(&out, "fn %s(m: Maybe<(%s, Int)>) -> Int\nSome((%s(x, _), %d)) = m else return -1\nx\nend\n",
+		fmt.Fprintf(&out, "fn %s(m: Option<(%s, Int)>) -> Int\nSome((%s(x, _), %d)) = m else return -1\nx\nend\n",
 			name("pf"), pair, pair, r.Intn(3))
 		fmt.Fprintf(&out, "io.inspect(%s(Some((%s(%d, %s), %d))))\nio.inspect(%s(None))\n",
 			name("pf"), pair, a, str, r.Intn(3), name("pf"))
@@ -1952,8 +1952,8 @@ func (g *gen) leaveBlock() string {
 }
 
 // holdBlock writes a block over values a container or a variant holds:
-// a variant whose payload has one value (Unit, a marker), a Range in a
-// Maybe, a map of Iters, ChannelClosed inspected, a record hashed,
+// a variant whose payload has one value (Unit, a marker), a Range in an
+// Option, a map of Iters, ChannelClosed inspected, a record hashed,
 // `Equatable.equal` over tuples through a bound, and a partial that leaves
 // a defaulted slot open, passed through a generic call.
 // boundedBlockStart and boundedBlockEnd fence a block whose loops,
@@ -2003,7 +2003,7 @@ func (g *gen) holdBlock() string {
 		fmt.Fprintf(&out, "io.inspect(%s == Some(Range.from(%d)))\n", name("hr"), n+r.Intn(2))
 	case 2:
 		fmt.Fprintf(&out, "%s: Map<String, Iter<Int>> = {\"a\" => [%d, 2] |> Iter.map(fn x: Int -> x + 1)}\n", name("hm"), n)
-		fmt.Fprintf(&out, "io.inspect(Map.get(%s, \"a\") |> Maybe.map(fn it: Iter<Int> -> Iter.to_list(it)))\n", name("hm"))
+		fmt.Fprintf(&out, "io.inspect(Map.get(%s, \"a\") |> Option.map(fn it: Iter<Int> -> Iter.to_list(it)))\n", name("hm"))
 	case 3:
 		fmt.Fprintf(&out, "%s: Result<Unit, ChannelClosed> = %s\n", name("hc"), []string{"Ok(Unit)", "Err(ChannelClosed)"}[r.Intn(2)])
 		fmt.Fprintf(&out, "io.inspect(%s)\n", name("hc"))
@@ -2021,7 +2021,7 @@ func (g *gen) holdBlock() string {
 		fmt.Fprintf(&out, "%s = &%s(&1, b: &2)\n", name("hp"), name("hd"))
 		fmt.Fprintf(&out, "io.inspect(%s(%d))\n", name("hp"), n)
 		fmt.Fprintf(&out, "io.inspect(ident(%s)(%d, 1))\n", name("hp"), n)
-		fmt.Fprintf(&out, "io.inspect(Some(%s) |> Maybe.map(fn f: (Int, Int) -> Int -> f(1, 2)))\n", name("hp"))
+		fmt.Fprintf(&out, "io.inspect(Some(%s) |> Option.map(fn f: (Int, Int) -> Int -> f(1, 2)))\n", name("hp"))
 	}
 	out.WriteString("end\n")
 	return out.String()

@@ -11,14 +11,14 @@ import (
 // and both run the one walk, typeCycle, over a different relation:
 //
 //   - a distinct type's representation (distinctCycle): what its inner type
-//     and a subtype's parents hold, at every position, through the inner
+//     and a refinement's parents hold, at every position, through the inner
 //     types and parents of other distinct types. `type L List<L>` is a
 //     cycle here.
 //   - a value (valueCycle): what a value of a struct, an enum or a distinct
 //     type must already hold before it can be built. A struct's value holds
 //     each field without a default, an enum's holds one of its variants,
 //     and a distinct type's holds its inner type. `struct S` with `s: S` is
-//     a cycle here, and `struct S` with `next: Maybe<S>` is not.
+//     a cycle here, and `struct S` with `next: Option<S>` is not.
 //
 // Each check runs where its declaration is built, after the declaration's
 // own parts are set. A cycle runs through some declarations; the last of
@@ -174,7 +174,7 @@ func distinctCycle(dt *DistinctType, inner Type) []string {
 
 // representationEdges is distinctCycle's relation: every position a type
 // holds (typeChildren), and for a distinct type, its type arguments and,
-// one step further along the path, the type it wraps and a subtype's other
+// one step further along the path, the type it wraps and a refinement's other
 // parents.
 func representationEdges(t Type) ([]cycleStep, bool, any) {
 	dt, ok := t.(*DistinctType)
@@ -212,7 +212,7 @@ func valueCycle(decl Type) []string {
 //   - A struct holds each field without a default, and an anonymous struct
 //     each of its fields: any one that holds the declaration is enough.
 //   - A tuple holds each element.
-//   - A distinct type, a subtype among them, holds the type it wraps. A
+//   - A distinct type, a refinement among them, holds the type it wraps. A
 //     host type wraps nothing a program declares.
 //   - An enum holds one of its variants, so only when every variant holds
 //     the declaration does the enum. A variant with no payload, as `None`
@@ -298,7 +298,7 @@ func valueCycleError(kind, name string, line, col int, path []string) TypeError 
 	if own, ok := strings.CutPrefix(path[0], name+"."); ok && kind != "enum" {
 		field = fmt.Sprintf("field '%s'", own)
 	}
-	hint := fmt.Sprintf("no value of '%s' can be built without one already; wrap %s in `Maybe`, or hold it in a `List` or in an enum with a variant that does not need one", name, field)
+	hint := fmt.Sprintf("no value of '%s' can be built without one already; wrap %s in `Option`, or hold it in a `List` or in an enum with a variant that does not need one", name, field)
 	if kind == "enum" {
 		hint = fmt.Sprintf("no value of '%s' can be built without one already, since every variant needs one; add a variant that does not, such as one with no payload", name)
 	}
@@ -312,9 +312,9 @@ func distinctCycleError(n *ast.TypeDef, path []string) TypeError {
 	if len(path) > 2 {
 		msg += " (" + strings.Join(path, " → ") + ")"
 	}
-	if n.Subtype {
+	if n.Refinement {
 		return TypeError{Line: n.Line, Col: n.Col, Message: msg}.WithHint(fmt.Sprintf(
-			"a subtype's parents are types its values already are, and their parents in turn, so none of them can be '%s' itself", n.Name))
+			"a refinement's parents are types its values already are, and their parents in turn, so none of them can be '%s' itself", n.Name))
 	}
 	return TypeError{
 		Line: n.Line, Col: n.Col,

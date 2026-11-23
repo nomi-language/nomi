@@ -8,10 +8,10 @@ fn note(label: String, n: Int) -> Int
     n
 end
 
-// `Maybe<Int>` has no Display on either path — string interpolation refuses it
+// `Option<Int>` has no Display on either path — string interpolation refuses it
 // as `rendering a non-scalar value`, which is a renderer gap and not an `Iter`
 // one. Spelling the two arms out keeps this fixture about the iteration.
-fn show(m: Maybe<Int>) -> String
+fn show(m: Option<Int>) -> String
     case m
         Some(n) -> "Some(${n})"
         None    -> "None"

@@ -15,7 +15,7 @@ fn boot() -> Result<App, Exit>
     Ok(App{name: "count"})
 end
 
-fn count(path: Maybe<String>) -> Result<Int, Exit>
+fn count(path: Option<String>) -> Result<Int, Exit>
     case path
         Some(p) -> Ok(String.length(p))
         None    -> Err(Exit{code: 3, message: "usage: ${App.name} <file>"})

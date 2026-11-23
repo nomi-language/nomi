@@ -228,7 +228,7 @@ func lambdaBinds(l *ast.Lambda, in string) string {
 	return "`" + p.Name + "` is the `" + in + "`"
 }
 
-// tryStage is a `?` stage: it unwraps a Result or a Maybe, or returns the
+// tryStage is a `?` stage: it unwraps a Result or an Option, or returns the
 // failure from the function, lambda or test that encloses it.
 func (s *shapeSearch) tryStage(t *ast.TryOp, in, out string) pipeStage {
 	st := pipeStage{text: "?", out: out}
@@ -239,7 +239,7 @@ func (s *shapeSearch) tryStage(t *ast.TryOp, in, out string) pipeStage {
 	failure := "the failure"
 	if strings.HasPrefix(in, "Result<") {
 		failure = "the `Err`"
-	} else if strings.HasPrefix(in, "Maybe<") {
+	} else if strings.HasPrefix(in, "Option<") {
 		failure = "`None`"
 	}
 	boundary := ""

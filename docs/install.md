@@ -82,6 +82,11 @@ reference's "Private modules"). Its release ships every
 program importing `std::compiler` gets one from a second archive per
 target. `nomi build` downloads a `nomi-vm` that is not installed beside
 `nomi` from the release and checks it against the release's checksums.
+A release is also a set of git tags: one for the compiler and one per
+`lib/` module (`lib/markdown/v0.5.0`), since the Go module proxy serves a
+module in a subdirectory only from a tag with its directory in front. A
+release `nomi` takes the `lib/` modules at its own version, so `nomi add`
+of a library its release did not tag fails and names the missing tag.
 
 A `nomi` built from source, from a clone or with `go install`, builds each
 `nomi-vm` with Go: the one `NOMI_GO` names (a `go` command or a Go
@@ -105,5 +110,11 @@ Where Windows differs:
 - `nomi build` with no `-o` writes `<entry>.exe`.
 - Paths in a Nomi program use `/`, and std::fs also takes `\`; a drive is
   `C:/Users`.
+- Through a std::fs `Dir` on the disk, a `..` after a symlink is taken off
+  the path's text before the link is followed. With `up` a link,
+  `sub/up/../a.txt` is `sub/a.txt`, which is `NotFound` when missing. On
+  macOS, Linux and in memory the link is followed first, and the path is
+  `InvalidPath` when its `..` then leads outside. Neither answer leaves the
+  directory.
 - The debugger's integrated terminal needs Windows 10 version 1803 or later
   (it connects over a Unix socket).

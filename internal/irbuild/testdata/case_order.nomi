@@ -12,7 +12,7 @@ end
 //
 // This is the subset-reachable half of testdata/case_ordering.nomi, which the
 // boxed lowering used for the same job and which this builder still refuses for
-// an independent reason (its `nested` takes a `Maybe<Result<Int, String>>`).
+// an independent reason (its `nested` takes an `Option<Result<Int, String>>`).
 // The guard arms sit BETWEEN literal arms deliberately: a tree that hoisted
 // unguarded tests above guarded ones would answer the later arm.
 fn classify(n: Int) -> String

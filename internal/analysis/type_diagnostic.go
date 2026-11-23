@@ -126,7 +126,7 @@ func sprintTypes(entry, format string, args []any) string {
 
 // renderType is t as a diagnostic shows it: its String, except that a type
 // variable the checker never solved, an internal name (`?23`) that means
-// nothing to the reader, is `_`, as in `Maybe<_>`: a Maybe of a type the
+// nothing to the reader, is `_`, as in `Option<_>`: an Option of a type the
 // program does not fix.
 func renderType(t Type, entry string) string {
 	if !containsTypeVar(t) {

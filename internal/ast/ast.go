@@ -332,7 +332,7 @@ func (n *SelfType) TypeString() string { return "self" }
 
 // RefinementBaseType is the type a refinement's values are built from, in
 // the `try_from` and `unchecked` the front end generates for it (spec §4
-// *Subtypes*): the base at the end of a distinct refinement's chain
+// *Refinements*): the base at the end of a distinct refinement's chain
 // of parents (`Float` for `PositiveFloat`), or the record of a struct
 // refinement's fields. No source writes one: the declaring file may not
 // import the base's name.
@@ -1046,7 +1046,7 @@ type TestDecl struct {
 func (*TestDecl) NodeType() string { return "TestDecl" }
 func (n *TestDecl) LineNum() int   { return n.Line }
 
-// Assertion is `assert expr` or `refute expr`. Result and Maybe subjects
+// Assertion is `assert expr` or `refute expr`. Result and Option subjects
 // validate their shape and return the original value on success. Custom
 // Assertable subjects also return the original value. `assert` and `refute`
 // propagate an assertion failure otherwise. The Check flag is used internally
@@ -1145,7 +1145,7 @@ func (*Dbg) NodeType() string { return "Dbg" }
 func (n *Dbg) LineNum() int   { return n.Line }
 
 // Unwrap is `expr!`, a postfix `!` written against an expression whose type
-// is a Result or a Maybe: `Map.get(m, k)!`, `user.nickname!`. Its value is
+// is a Result or an Option: `Map.get(m, k)!`, `user.nickname!`. Its value is
 // the payload of Ok or Some; an Err or a None traps at the `!`'s line. Line
 // and Col are the `!`'s position.
 //
@@ -1477,7 +1477,7 @@ type StructDef struct {
 	EndTrivia []Trivia
 	// Rule is the refinement rule, the body's last item after every
 	// field (`when fn s -> ...`): a function from the struct to Bool that
-	// every value of it satisfies (spec §4 *Subtypes*), a lambda
+	// every value of it satisfies (spec §4 *Refinements*), a lambda
 	// or a function's name. Nil for a struct with no rule.
 	// RuleLine/RuleCol are the `when` keyword's position. RuleLeading
 	// holds the comments and blank lines above the `when` line, and
@@ -1630,12 +1630,12 @@ func (n *EnumDef) LineNum() int   { return n.Line }
 // ---------------------------------------------------------------------------
 
 // TypeDef defines a distinct-type wrapper, a zero-sized marker or a
-// subtype:
+// refinement:
 //
 //	type Name InnerType            → distinct over InnerType (primitive/tuple/generic)
 //	type Name                      → zero-sized marker
 //	type Name InnerType when rule  → validated distinct type
-//	subtype Name Parent when rule  → subtype of Parent
+//	refine Name Parent when rule  → refinement of Parent
 //
 // Struct (`struct Name {...}`) and enum (`enum Name { A | B }`) shapes
 // have their own AST nodes (StructDef, EnumDef) and are not produced by
@@ -1654,12 +1654,12 @@ type TypeDef struct {
 	// which the inner type may name; empty for a non-generic distinct.
 	TypeParams    []TypeParam
 	InnerTypeExpr TypeExpr // structured inner type, nil for zero-sized
-	// Subtype is set for a `subtype` declaration: its values are values of
-	// its parents, InnerTypeExpr and MoreParents (spec §4 *Subtypes*).
-	Subtype bool
-	// MoreParents are a subtype's parents after the first, which is
-	// InnerTypeExpr: `subtype PositiveInt NonNegativeInt and NonZeroInt
-	// when ...` holds NonZeroInt here. Empty for a subtype of one parent
+	// Refinement is set for a `refine` declaration: its values are values of
+	// its parents, InnerTypeExpr and MoreParents (spec §4 *Refinements*).
+	Refinement bool
+	// MoreParents are a refinement's parents after the first, which is
+	// InnerTypeExpr: `refine PositiveInt NonNegativeInt and NonZeroInt
+	// when ...` holds NonZeroInt here. Empty for a refinement of one parent
 	// and for every `type`, whose `A and B` is its InnerTypeExpr.
 	MoreParents []TypeExpr
 	// WhereClauses bounds the type parameters, written after the inner
@@ -1668,7 +1668,7 @@ type TypeDef struct {
 	WhereClauses []WhereConstraint
 	// Rule is the rule after `when`: a function from the inner type to
 	// Bool that every value of the type satisfies, a lambda or a
-	// function's name (spec §4 *Subtypes*, *Validated types*). Optional on
+	// function's name (spec §4 *Refinements*, *Validated types*). Optional on
 	// both keywords. Nil when the declaration writes none.
 	// RuleLine/RuleCol are the `when` keyword's position.
 	Rule     Node
@@ -1848,7 +1848,7 @@ func (n *BindingElse) LineNum() int   { return n.Line }
 // UncheckedRefinement builds a value of a refinement from Value, a value of
 // its base, without evaluating its rule: the body of the `unchecked` the
 // front end generates for a refinement, and the last step of its
-// `try_from` (spec §4 *Subtypes*). No source writes one.
+// `try_from` (spec §4 *Refinements*). No source writes one.
 type UncheckedRefinement struct {
 	TriviaCarrier
 	SpanCarrier
@@ -1863,7 +1863,7 @@ func (*UncheckedRefinement) NodeType() string { return "UncheckedRefinement" }
 func (n *UncheckedRefinement) LineNum() int   { return n.Line }
 
 // RefinementRule is the call of a refinement's rule, Rule, on Value that a
-// generated `try_from` makes (spec §4 *Subtypes*): a Bool, and
+// generated `try_from` makes (spec §4 *Refinements*): a Bool, and
 // False when the rule traps, so `try_from` answers None for a value whose
 // rule traps. No source writes one.
 type RefinementRule struct {
@@ -1884,7 +1884,7 @@ func (n *RefinementRule) LineNum() int   { return n.Line }
 // not be a refinement itself; the checker checks the one that applies and
 // records which (analysis.FileAnalysis.RefinementParents). Refined is
 // `Parent.try_from(value)`, for a parent that is a refinement; Plain is
-// `Some(value)`, for a parent that is the base. Both are Maybe<Parent>.
+// `Some(value)`, for a parent that is the base. Both are Option<Parent>.
 type RefinementParentCheck struct {
 	TriviaCarrier
 	SpanCarrier
@@ -2034,7 +2034,7 @@ func (n *InterfaceDef) LineNum() int   { return n.Line }
 //     form:
 //
 //     impl Display for Money { fn to_string(m: Money) -> String { ... } }
-//     impl<T> Iter for Box<T> { fn next(b: Box<T>) -> Maybe<(T, Box<T>)> { ... } }
+//     impl<T> Iter for Box<T> { fn next(b: Box<T>) -> Option<(T, Box<T>)> { ... } }
 //
 //     The interface is named once before `for`; methods inside are plain
 //     `fn` / `host fn` because the header names the single interface.
@@ -2348,8 +2348,8 @@ type ImportStmt struct {
 	Braced bool
 	// IncludeParent is set when the selective brace list carries the
 	// `self` marker — `std/foo.{self, X, Y}` lifts X and Y AND binds
-	// the LHS (`foo` as module owner, or `Maybe` as enum for the drill-through
-	// form `std/maybe.Maybe.{self, Some, None}`). `{self}` alone is allowed
+	// the LHS (`foo` as module owner, or `Option` as enum for the drill-through
+	// form `std/option.Option.{self, Some, None}`). `{self}` alone is allowed
 	// and imports only that parent binding.
 	IncludeParent bool
 	// SelfLine / SelfCol record the source position of the `self` token

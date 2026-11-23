@@ -18,7 +18,7 @@ func TestIRTestBody_TryEndsTheCaseEarly(t *testing.T) {
   end
 end
 
-fn half(n: Int) -> Maybe<Int>
+fn half(n: Int) -> Option<Int>
   if n % 2 == 0 then
     Some(n / 2)
   else

@@ -190,8 +190,10 @@ fn main()
             _ = Task.await(worker)
 
             Channel.select([
-                Arm.receive(replies.receiver, fn reply -> Maybe.with_default(reply, "closed")),
-                Arm.receive(failures.receiver, fn code -> "failed: ${Maybe.with_default(code, 0)}"),
+                Arm.receive(replies.receiver, fn reply -> Option.with_default(reply, "closed")),
+                Arm.receive(failures.receiver, fn code ->
+                    "failed: ${Option.with_default(code, 0)}"
+                end),
                 Arm.after(Duration.seconds(1), fn -> "timed out"),
             ])
         end
@@ -200,7 +202,7 @@ fn main()
 end
 ```
 <!-- expect
-dbg line 23: answer = "failed: 503"
+dbg line 25: answer = "failed: 503"
 -->
 
 When several arms are ready at once, the first one listed wins. For one

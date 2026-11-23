@@ -16,7 +16,7 @@ func TestJSONUserElements_StdInstancesCallTheUsersImpl(t *testing.T) {
 		"dbg line 31: notes = [Note{title: \"b\"}, Note{title: \"a\"}]\n" +
 		"dbg line 33: turbo = [Note{title: \"c\"}]\n" +
 		"dbg line 35: by_key = {\"k\" => Note{title: \"d\"}}\n" +
-		"dbg line 37: maybe = Some(Note{title: \"e\"})\n" +
+		"dbg line 37: option = Some(Note{title: \"e\"})\n" +
 		"dbg line 39: none = None\n" +
 		"dbg line 41: nested = [[Note{title: \"f\"}], []]\n" +
 		// The element's shape error carries the list index before the
@@ -25,7 +25,7 @@ func TestJSONUserElements_StdInstancesCallTheUsersImpl(t *testing.T) {
 		"dbg line 44: Json.encode(ToJson.to_json(notes)) = \"[{\\\"title\\\":\\\"b\\\"},{\\\"title\\\":\\\"a\\\"}]\"\n" +
 		"dbg line 45: Json.encode(ToJson.to_json(nested)) = \"[[{\\\"title\\\":\\\"f\\\"}],[]]\"\n" +
 		"dbg line 46: Json.encode(ToJson.to_json([by_key])) = \"[{\\\"k\\\":{\\\"title\\\":\\\"d\\\"}}]\"\n" +
-		"dbg line 47: Json.encode(ToJson.to_json([maybe, none])) = \"[{\\\"title\\\":\\\"e\\\"},null]\"\n" +
+		"dbg line 47: Json.encode(ToJson.to_json([option, none])) = \"[{\\\"title\\\":\\\"e\\\"},null]\"\n" +
 		"dbg line 48: Iter.sort(notes) = [Note{title: \"a\"}, Note{title: \"b\"}]\n" +
 		"dbg line 49: Iter.to_set(notes) |> Set.contains(Note{title: \"a\"}) = True\n"
 	got := vmReference(fixture("json_user_elements.nomi"))

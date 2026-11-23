@@ -30,7 +30,7 @@ import (
 //
 //   - `reason` defaults to a non-empty string, so a dropped default reads "".
 //   - `actual` defaults to None, whose Tag is TagNone and NOT 0. A dropped
-//     default leaves a zero Maybe, which is neither Some nor None and matches
+//     default leaves a zero Option, which is neither Some nor None and matches
 //     no arm of `shown`.
 //   - `details` defaults to `[]`, and an empty *List IS nil, so a dropped
 //     default here is INVISIBLE. It is pinned anyway: that is what makes the
@@ -126,7 +126,7 @@ func TestStdStructDefaults_ShapeCheckRejectsADriftedDefault(t *testing.T) {
 		"None default removed",
 		func(f []ast.StructField) { f[1].Default = nil },
 	}, {
-		// `Some` where the spec implements `None`. Both are Maybe<String>, so
+		// `Some` where the spec implements `None`. Both are Option<String>, so
 		// the field's KIND still matches and only the default differs.
 		"None default became Some",
 		func(f []ast.StructField) { f[1].Default = &ast.TypeIdent{Name: "Some"} },

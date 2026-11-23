@@ -37,7 +37,7 @@ import (
 // do the calls the builder writes with the record a written call has
 // (stdIfaceCallRecord): a record field's `ToJson.to_json_field(f)` and a
 // dispatch entry's (`stdProgThunk`). A default with no `self` operand (`fn
-// from_missing() -> Maybe<self>`) is instantiated at the type the record
+// from_missing() -> Option<self>`) is instantiated at the type the record
 // says the call is for (Callee.For). An impl that writes the function (an
 // `open` override, `Float.min`) is the record's Decl instead, and is found
 // first by every route that finds a written impl function. A default is no slot of an rt dispatch table: the

@@ -283,8 +283,8 @@ func implMemberFunc(d *implDef, it *implItem) *fileFunc {
 // function without `pub`, which the analyzer refuses from elsewhere ("type
 // 'Widget' has no member 'hidden'"). An INTERFACE impl function carries no
 // `pub` and is not one, and neither is one of a block the front end writes
-// (a private subtype's `try_from`), which the builder calls where a reader
-// in another module checks a value of the subtype (subtyperead.go).
+// (a private refinement's `try_from`), which the builder calls where a reader
+// in another module checks a value of the refinement (refinementread.go).
 func fileOwnFunc(d *implDef, public bool) bool {
 	return d.ifaceName == "" && !public && (d.decl == nil || d.decl.SynthOriginLine == 0)
 }

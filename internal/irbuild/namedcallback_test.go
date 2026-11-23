@@ -231,16 +231,16 @@ end
 	irTestBodyVM(t, src, 1)
 }
 
-// `derive FromJson` decodes a `Maybe<T>` field with std/json's
-// `decode_field<Maybe<T>>`, a call whose type argument is an applied
+// `derive FromJson` decodes an `Option<T>` field with std/json's
+// `decode_field<Option<T>>`, a call whose type argument is an applied
 // generic type.
-func TestNamedCallback_DeriveFromJsonMaybeField(t *testing.T) {
+func TestNamedCallback_DeriveFromJsonOptionField(t *testing.T) {
 	const src = `import std::json.{Json, FromJson}
 
 struct User
   name: String
-  age: Maybe<Int>
-  nick: Maybe<String>
+  age: Option<Int>
+  nick: Option<String>
 end
 
 derive FromJson for User

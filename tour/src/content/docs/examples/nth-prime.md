@@ -15,7 +15,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// The `n`th prime, counting 2 as the first, or `None` when `n` is less than
 /// one, since there is no zeroth prime.
-pub fn prime(n: Int) -> Maybe<Int>
+pub fn prime(n: Int) -> Option<Int>
     if n < 1 then return None
 
     Iter.from(2)
@@ -53,7 +53,7 @@ test result: ok. 5 passed, 0 failed
 
 ## How it's written
 
-- `prime` returns `Maybe<Int>`: there is no zeroth prime, and `None` says so without an error type for the one way to fail.
+- `prime` returns `Option<Int>`: there is no zeroth prime, and `None` says so without an error type for the one way to fail.
 - The primes are a lazy pipe, `Iter.from(2) |> Iter.filter(is_prime) |> Iter.get(n - 1)`, rather than a sieve: the sieve needs a limit chosen in advance, and the 10,001st prime takes well under a second by trial division.
 - `is_prime` tries divisors up to the square root with `Iter.take_while` and `Iter.all_match`, which stops at the first divisor. The candidates come from `Iter.from(2)`, so each is 2 or more, and `%` takes it as a divisor.
 - The five canonical cases are one `subtests` table.

@@ -16,7 +16,7 @@ end
 
 /// The value the first two bands read as digits give, ignoring any band
 /// after them, or `None` when there are fewer than two bands.
-pub fn value(bands: List<Color>) -> Maybe<Int>
+pub fn value(bands: List<Color>) -> Option<Int>
     case bands
         [first, second, ..] -> Some(digit(first) * 10 + digit(second))
         _                   -> None

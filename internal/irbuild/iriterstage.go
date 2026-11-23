@@ -199,7 +199,7 @@ func (bl *irScalarBuilder) iterStage(t *ast.Call, args irQualArgs, method string
 
 // innerSourceElem is the element a flat_map result of kind k pushes when k
 // is a source the view reads rather than a List or an Iter: a String,
-// Bytes, a Range, a Set, a Vector, a Maybe, a Map or a user source. Each such value is the machine's, with no expression the checker
+// Bytes, a Range, a Set, a Vector, an Option, a Map or a user source. Each such value is the machine's, with no expression the checker
 // typed against an Iter, so its kind names its source (viewSourceOfKind).
 func (bl *irScalarBuilder) innerSourceElem(k kind) (kind, bool) {
 	vs, ok := bl.viewSourceOfKind(k)

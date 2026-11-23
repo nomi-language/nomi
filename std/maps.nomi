@@ -10,7 +10,7 @@ import
     int.{Int, NonNegativeInt, PositiveInt}
     iter.Iter
     lists.{List, NonEmptyList}
-    maybe.Maybe.{self, None, Some}
+    option.Option.{self, None, Some}
     strings.String
     summable.Summable
 end
@@ -21,7 +21,7 @@ end
 //# first added, and every function here keeps that order. Two maps are `==`
 //# when they hold the same entries, in any order.
 //#
-//# `Map.get` reads a key and returns a `Maybe`, since the key may be
+//# `Map.get` reads a key and returns an `Option`, since the key may be
 //# missing. `a + b` is `Map.merge(a, b)`: the right-hand map wins on a
 //# shared key.
 //#
@@ -60,7 +60,7 @@ impl Map<K, V>
     //! assert Map.get({"a" => 1, "b" => 2}, "z") == None
     //! assert Map.get({"a" => 1, "b" => 2}, "b")! == 2
     //
-    pub host fn get<K, V>(m: Map<K, V>, key: K) -> Maybe<V>
+    pub host fn get<K, V>(m: Map<K, V>, key: K) -> Option<V>
 
     /// Returns a new map with `value` under `key`. A new key goes at the
     /// end; a key the map already holds keeps its place.
@@ -113,7 +113,7 @@ impl Map<K, V>
     //! assert Map.update({"a" => 1}, "b", 0, &(&1 + 1)) == {"a" => 1, "b" => 1}
     //
     pub fn update<K, V>(m: Map<K, V>, key: K, default: V, f: (V) -> V) -> Map<K, V>
-        before = Map.get(m, key) |> Maybe.with_default(default)
+        before = Map.get(m, key) |> Option.with_default(default)
         Map.put(m, key, f(before))
     end
 
@@ -121,7 +121,7 @@ impl Map<K, V>
     /// the map is empty.
     //! assert Map.map_next({"a" => 1}) == Some((("a", 1), {}))
     //
-    pub host fn map_next<K, V>(m: Map<K, V>) -> Maybe<((K, V), Map<K, V>)>
+    pub host fn map_next<K, V>(m: Map<K, V>) -> Option<((K, V), Map<K, V>)>
 
     /// Returns the number of entries in the map. O(1): a Map keeps its size.
     //! assert Map.size({"a" => 1, "b" => 2}) == 2
@@ -170,7 +170,7 @@ impl Contains for Map<K, V>
     //! refute Map.contains(empty, "a")
     //
     fn contains(c: Map<K, V>, x: K) -> Bool
-        Map.get(c, x) |> Maybe.is_some()
+        Map.get(c, x) |> Option.is_some()
     end
 end
 
@@ -180,7 +180,7 @@ impl Iter for Map<K, V>
     host fn each_while(m: Map<K, V>, yield: ((K, V)) -> Bool) -> Bool
 
     // A Map stores its entry count, so report it directly (O(1)).
-    fn known_count(m: Map<K, V>) -> Maybe<Int>
+    fn known_count(m: Map<K, V>) -> Option<Int>
         Some(size(m))
     end
 end
@@ -270,7 +270,7 @@ end
 /// program runs; `NonEmptyMap.try_from(m)` checks a Map computed at run
 /// time, and `NonEmptyMap.put(m, key, value)` builds one from any Map.
 /// Its keys and values are NonEmptyLists, and its first and last entries
-/// are plain values, not `Maybe`s. A NonEmptyMap is a Map and passes
+/// are plain values, not `Option`s. A NonEmptyMap is a Map and passes
 /// wherever one is expected. It is in the prelude.
 //! ages: NonEmptyMap<String, Int> = {"ann" => 31, "bo" => 12}
 //! assert NonEmptyMap.first_entry(ages) == ("ann", 31)
@@ -280,7 +280,7 @@ end
 //! none: Map<String, Int> = {}
 //! assert NonEmptyMap.try_from(none) == None
 //
-pub subtype NonEmptyMap<K, V> Map<K, V> when fn m -> Map.size(m) > 0
+pub refine NonEmptyMap<K, V> Map<K, V> when fn m -> Map.size(m) > 0
 
 impl NonEmptyMap<K, V>
     /// A NonEmptyMap of `key` mapped to `value`, then the entries of

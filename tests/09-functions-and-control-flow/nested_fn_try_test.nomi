@@ -5,7 +5,7 @@ fn parse(s: String) -> Result<Int, String>
     end
 end
 
-fn find(s: String) -> Maybe<Int>
+fn find(s: String) -> Option<Int>
     case s
         "" -> None
         _  -> Some(String.length(s))
@@ -33,8 +33,8 @@ test "`?` in a nested fn leaves the nested fn"
     assert doubled("") == Err("empty")
 end
 
-test "`?` on a Maybe in a nested fn"
-    fn plus_one(s: String) -> Maybe<Int>
+test "`?` on an Option in a nested fn"
+    fn plus_one(s: String) -> Option<Int>
         n = find(s)?
         Some(n + 1)
     end

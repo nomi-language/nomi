@@ -1,4 +1,4 @@
 go test fuzz v1
 uint(26)
 uint(1)
-string("import std::float.NonNegativeFloat\n\n/// A length in meters, never negative.\npub subtype Meters NonNegativeFloat when fn m -> m < 1.0e7\n\n/// A climbable height: under nine kilometers.\npub subtype Height Meters when fn h -> h < 9000.0\n\n/// The sum of two lengths, a length again.\npub fn plus(a: Meters, b: Meters) -> Meters\n    Meters.unchecked(a + b)\nend\n")
+string("import std::float.NonNegativeFloat\n\n/// A length in meters, never negative.\npub refinement Meters NonNegativeFloat when fn m -> m < 1.0e7\n\n/// A climbable height: under nine kilometers.\npub refinement Height Meters when fn h -> h < 9000.0\n\n/// The sum of two lengths, a length again.\npub fn plus(a: Meters, b: Meters) -> Meters\n    Meters.unchecked(a + b)\nend\n")

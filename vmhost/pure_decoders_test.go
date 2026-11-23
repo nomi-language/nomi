@@ -80,15 +80,15 @@ pub fn http_too_long() -> Result<String, http.Error>
     Request.text({..posted("text/plain", Body.Text("hello")), body_limit: Some(4)})
 end
 
-pub fn http_form() -> Result<Maybe<String>, http.Error>
+pub fn http_form() -> Result<Option<String>, http.Error>
     Request.form(form()) |> Result.map(fn q -> Query.get(q, "c"))
 end
 
-pub fn http_form_values() -> (Maybe<String>, Maybe<String>)
+pub fn http_form_values() -> (Option<String>, Option<String>)
     (Request.form_value(form(), "a"), Request.post_form_value(form(), "b"))
 end
 
-pub fn http_multipart_form() -> Result<Maybe<String>, http.Error>
+pub fn http_multipart_form() -> Result<Option<String>, http.Error>
     Request.multipart_form(upload()) |> Result.map(fn f -> Query.get(f.values, "note"))
 end
 
@@ -100,7 +100,7 @@ pub fn http_json_as() -> Result<Map<String, Int>, http.Error>
     Request.json_as(posted("application/json", Body.Text(` + "`" + `{"a": 1}` + "`" + `)))
 end
 
-pub fn http_read_multipart_form(r: Reader) -> Result<Maybe<String>, http.Error>
+pub fn http_read_multipart_form(r: Reader) -> Result<Option<String>, http.Error>
     http.read_multipart_form(r, "b") |> Result.map(fn f -> Query.get(f.values, "note"))
 end
 
@@ -159,7 +159,7 @@ func TestEffects_DecodersOfPlainValuesHaveNone(t *testing.T) {
 	}
 }
 
-// A subtype's rule may decode text, since decoding has no effect: a
+// A refinement's rule may decode text, since decoding has no effect: a
 // literal is checked by decoding it when the program is compiled.
 func TestEffects_ARuleMayDecodeText(t *testing.T) {
 	const decls = `import
@@ -167,9 +167,9 @@ func TestEffects_ARuleMayDecodeText(t *testing.T) {
     std::xml
 end
 
-subtype CsvText String when fn text -> csv.decode(text) |> Result.is_ok()
+refine CsvText String when fn text -> csv.decode(text) |> Result.is_ok()
 
-subtype XmlText String when fn text -> xml.decode(text) |> Result.is_ok()
+refine XmlText String when fn text -> xml.decode(text) |> Result.is_ok()
 
 `
 	if _, err := vmhost.LoadSource("main", decls+"fn main()\n    _: CsvText = \"a,b\\n1,2\\n\"\n    _: XmlText = \"<a>b</a>\"\nend\n"); err != nil {

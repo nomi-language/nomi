@@ -29,7 +29,7 @@ end
 
 /// The value the first two bands read as digits give, ignoring any band
 /// after them, or `None` when there are fewer than two bands.
-pub fn value(bands: List<Color>) -> Maybe<Int>
+pub fn value(bands: List<Color>) -> Option<Int>
     case bands
         [first, second, ..] -> Some(digit(first) * 10 + digit(second))
         _                   -> None
@@ -86,6 +86,6 @@ test result: ok. 8 passed, 0 failed
 ## How it's written
 
 - `value` takes the bands as a `List<Color>`, since one canonical case passes three, and matches `[first, second, ..]`.
-- Fewer than two bands answer `None`, so `value` returns `Maybe<Int>`. The canonical data never gives fewer; the test file adds one such case, marked as not canonical. A band list is data the caller may have read from anywhere, so a missing band is an answer rather than a trap (style §29).
+- Fewer than two bands answer `None`, so `value` returns `Option<Int>`. The canonical data never gives fewer; the test file adds one such case, marked as not canonical. A band list is data the caller may have read from anywhere, so a missing band is an answer rather than a trap (style §29).
 - The `Color` enum and its `digit` table are repeated from resistor-color: each exercise stands alone.
 - The table qualifies only the first row's first color (`[Color.Brown, .Black]`); every later bare variant, in its own row's list, takes that enum.

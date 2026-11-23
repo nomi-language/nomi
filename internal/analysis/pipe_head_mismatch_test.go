@@ -43,7 +43,7 @@ fn total(xs: List<Int>) -> Int
   Iter.count(xs)
 end
 
-fn first<T>(xs: List<T>) -> Maybe<T>
+fn first<T>(xs: List<T>) -> Option<T>
   List.first(xs)
 end
 
@@ -71,10 +71,10 @@ func TestPipeHeadMismatch_IsReportedAtTheStage(t *testing.T) {
 			"`total` takes a List<Int> as its first argument, but the pipe passes an Iter<Int>\n" +
 				"help: an Iter is not a collection; collect it into one with `|> Iter.to_list()`",
 			"total", "Iter.map(fn x -> x + 1)"},
-		{"a Maybe into a stage that takes its payload",
+		{"an Option into a stage that takes its payload",
 			"  _ = \"4\" |> String.to_int() |> Int.to_string()\n",
-			"`Int.to_string` takes an Int as its first argument, but the pipe passes a Maybe<Int>\n" +
-				"help: a Maybe may be None; handle it before this stage: give a fallback with `|> Maybe.with_default(...)`, match it with `case`, or propagate it with `?` in a function that returns a Maybe",
+			"`Int.to_string` takes an Int as its first argument, but the pipe passes an Option<Int>\n" +
+				"help: an Option may be None; handle it before this stage: give a fallback with `|> Option.with_default(...)`, match it with `case`, or propagate it with `?` in a function that returns an Option",
 			"Int.to_string", "String.to_int()"},
 		{"a Result into a stage that takes its payload",
 			"  res: Result<Int, String> = Ok(4)\n  _ = res |> Int.to_string()\n",

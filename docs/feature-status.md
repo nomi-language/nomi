@@ -38,10 +38,10 @@ match each item above.
 
 Parts of a shipped feature that are not built. Each line is open work.
 
-- **Subtypes and validated types.** A validated struct's literal is checked when the
+- **Refinements and validated types.** A validated struct's literal is checked when the
   program is compiled only when it writes every field as a literal; one
   that leaves a field to its default is an error naming `try_from`. A
-  validated struct takes no type parameters. `try_from` of a subtype
+  validated struct takes no type parameters. `try_from` of a refinement
   whose parents share an ancestor runs that ancestor's rule once for each
   parent, since a rule is reached only through its type's `try_from`.
   An element's range reaches only a lambda or capture passed straight to
@@ -52,9 +52,9 @@ Parts of a shipped feature that are not built. Each line is open work.
   `1..n` stays a `Range<Int>`, since `Range<T>` is invariant.
   A `once` reaches other code with the range its type states, not its
   exact value, and a Duration's typed literal has no range.
-  A generic type other than std::json's containers reads no subtype as
+  A generic type other than std::json's containers reads no refinement as
   FromJson, since its impl is one for every instance of one kind (spec
-  §4 *Subtypes*): `Box<Port>` and std::presence's `Presence<Port>` are
+  §4 *Refinements*): `Box<Port>` and std::presence's `Presence<Port>` are
   no `FromJson`.
 
 - **Checked literals.** `Url`, `Toml`, `Cron` and std::http's `Route` are the std types that implement `CheckedLiteral`; `Regex`, `Uuid` and the calendar types keep `Literal`, since their slots splice text or can fail. `LiteralError`'s fields have no defaults, so a `check` names all three. A checked literal with no slots is built each time it is reached, not once per site as a backtick literal is. A `Url` path slot of `.` or `..` is written `%2E` or `%2E%2E`, which a WHATWG URL parser, as browsers use, still reads as a dot segment. A `Toml` literal checks its static text with a stand-in for each slot, so two key slots that hold the same value at run time, or a key slot whose value matches a static key, write a key twice, which a TOML reader refuses; an `Int` slot outside 64 bits is written whole, which a reader may refuse too.

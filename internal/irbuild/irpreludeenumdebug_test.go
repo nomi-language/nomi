@@ -4,11 +4,11 @@ import "testing"
 
 func TestIRPreludeEnumDebug_TransparentAndOrdered(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn get() -> Maybe<Int>
+fn get() -> Option<Int>
     io.print("get")
     Some(42)
 end
-fn read(m: Maybe<Int>) -> Int
+fn read(m: Option<Int>) -> Int
     case m
         Some(n) -> n
         None -> 0
@@ -43,15 +43,15 @@ func TestIRPreludeEnumDebug_CompletePrograms(t *testing.T) {
 	verifyLambdaProgram(t, `import
     std::io std::literals.Fragment
 end
-fn maybe(ok: Bool) -> Maybe<String>
+fn option(ok: Bool) -> Option<String>
     if ok then Some("a\\\"b") else None
 end
 fn result(ok: Bool) -> Result<Int, String>
     if ok then Ok(42) else Err("bad")
 end
 fn main()
-  io.inspect(maybe(True))
-  io.inspect(maybe(False))
+  io.inspect(option(True))
+  io.inspect(option(False))
   io.inspect(result(True))
   io.inspect(result(False))
   io.inspect(Fragment.Static<Int>("text"))

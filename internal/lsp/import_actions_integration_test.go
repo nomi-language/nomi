@@ -135,9 +135,9 @@ func TestStdMap_ServerFixAllKeepsSomeImport(t *testing.T) {
 	}
 	content := string(b)
 	// The stdlib is one Nomi module, so its files name each other bare.
-	content = strings.Replace(content, "maybe.Maybe.{self, None}\n", "maybe.Maybe.{self, None, Some}\n", 1)
-	if !strings.Contains(content, "maybe.Maybe.{self, None, Some}") {
-		t.Fatal("std map fixture should include Maybe.Some import")
+	content = strings.Replace(content, "option.Option.{self, None}\n", "option.Option.{self, None, Some}\n", 1)
+	if !strings.Contains(content, "option.Option.{self, None, Some}") {
+		t.Fatal("std map fixture should include Option.Some import")
 	}
 	uri := fileuri.FromPath(mustAbsPath(t, path))
 
@@ -163,8 +163,8 @@ func TestStdMap_ServerFixAllKeepsSomeImport(t *testing.T) {
 			continue
 		}
 		edited := applyWorkspaceEdit(t, content, action, uri)
-		if !strings.Contains(edited, "maybe.Maybe.{self, None, Some}") {
-			t.Fatalf("server fixAll removed Maybe.Some:\n%s", edited)
+		if !strings.Contains(edited, "option.Option.{self, None, Some}") {
+			t.Fatalf("server fixAll removed Option.Some:\n%s", edited)
 		}
 	}
 }

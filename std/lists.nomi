@@ -11,7 +11,7 @@ import
     hashable.Hashable
     int.{Int, NonNegativeInt, PositiveInt}
     iter.Iter
-    maybe.Maybe.{self, None, Some}
+    option.Option.{self, None, Some}
     strings.String
     summable.Summable
 end
@@ -84,7 +84,7 @@ end
 //
 pub host type List<T>
 
-fn list_next<T>(list: List<T>) -> Maybe<(T, List<T>)>
+fn list_next<T>(list: List<T>) -> Option<(T, List<T>)>
     case list
         [h, ..t] -> Some((h, t))
         []       -> None
@@ -97,7 +97,7 @@ impl List<T>
     //! assert List.next_item([1, 2, 3]) == Some((1, [2, 3]))
     //! assert List.next_item([]) == None
     //
-    pub fn next_item<T>(list: List<T>) -> Maybe<(T, List<T>)>
+    pub fn next_item<T>(list: List<T>) -> Option<(T, List<T>)>
         list_next(list)
     end
 
@@ -121,7 +121,7 @@ impl List<T>
     //! assert List.first([1, 2, 3]) == Some(1)
     //! assert List.first([]) == None
     //
-    pub fn first<T>(list: List<T>) -> Maybe<T>
+    pub fn first<T>(list: List<T>) -> Option<T>
         case list
             [first, ..] -> Some(first)
             []          -> None
@@ -132,7 +132,7 @@ impl List<T>
     //! assert List.tail([1, 2, 3]) == Some([2, 3])
     //! assert List.tail([]) == None
     //
-    pub fn tail<T>(list: List<T>) -> Maybe<List<T>>
+    pub fn tail<T>(list: List<T>) -> Option<List<T>>
         case list
             [_, ..tail] -> Some(tail)
             []          -> None
@@ -148,7 +148,7 @@ impl List<T>
     //! assert List.remove_at(["a", "b", "c"], 0)! == ["b", "c"]
     //! assert List.remove_at(["a", "b", "c"], 3) == None
     //
-    pub host fn remove_at<T>(list: List<T>, index: Int) -> Maybe<List<T>>
+    pub host fn remove_at<T>(list: List<T>, index: Int) -> Option<List<T>>
 
     /// `Some` of the list with `item` at zero-based `index` and the elements
     /// from there on after it, or None when the index is outside `0` up to
@@ -159,7 +159,7 @@ impl List<T>
     //! assert List.insert(["a"], 1, "b") == Some(["a", "b"])
     //! assert List.insert(["a"], 2, "b") == None
     //
-    pub fn insert<T>(list: List<T>, index: Int, item: T) -> Maybe<List<T>>
+    pub fn insert<T>(list: List<T>, index: Int, item: T) -> Option<List<T>>
         if index < 0 then return None
         insert_run(list, index, item, [])
     end
@@ -267,7 +267,7 @@ fn split_run<T>(list: List<T>, pred: (T) -> Bool, taken: List<T>) -> (List<T>, L
 end
 
 // `list` with `item` at `index`, after `before` reversed.
-fn insert_run<T>(list: List<T>, index: Int, item: T, before: List<T>) -> Maybe<List<T>>
+fn insert_run<T>(list: List<T>, index: Int, item: T, before: List<T>) -> Option<List<T>>
     if index == 0 then return Some(List.concat(Iter.reverse(before), [item, ..list]))
 
     case list
@@ -306,7 +306,7 @@ impl Iter for List<T>
 
     // A List tracks its element count, so report it directly (O(1)) instead of
     // folding through the generic default.
-    host fn known_count(list: List<T>) -> Maybe<Int>
+    host fn known_count(list: List<T>) -> Option<Int>
 end
 
 impl Contains for List<T> where T: Equatable
@@ -406,7 +406,7 @@ impl Comparable for List<T> where T: Comparable
 end
 
 /// A List with at least one element, so its first, last, largest and
-/// smallest elements are plain values, not `Maybe`s. A literal is checked
+/// smallest elements are plain values, not `Option`s. A literal is checked
 /// when the program is compiled, so `[]` where a NonEmptyList is expected is
 /// an error before the program runs; `NonEmptyList.try_from(xs)` checks a
 /// List computed at run time, and `NonEmptyList.of(first, rest)` builds one
@@ -422,7 +422,7 @@ end
 //! assert NonEmptyList.try_from(none) == None
 //! assert NonEmptyList.try_from([1]) == Some([1])
 //
-pub subtype NonEmptyList<T> List<T> when fn list -> not Iter.is_empty(list)
+pub refine NonEmptyList<T> List<T> when fn list -> not Iter.is_empty(list)
 
 impl NonEmptyList<T>
     /// A NonEmptyList of `first` followed by the elements of `rest`, which

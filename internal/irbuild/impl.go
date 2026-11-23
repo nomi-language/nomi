@@ -250,7 +250,7 @@ type implDef struct {
 	oper *operIfaceSpec
 	// operRhs and operOut are the interface's two type arguments as written on
 	// this block's header — `Days` and `Day` for `impl Add<Days, Day> for Day`;
-	// for `impl Steppable<Int> for Meters`, `Int` and `Maybe<Meters>`.
+	// for `impl Steppable<Int> for Meters`, `Int` and `Option<Meters>`.
 	// Read only when `oper != nil`; operRhs is the axis the dispatch key adds
 	// and operOut is checked against the item's declared result.
 	operRhs kind
@@ -534,7 +534,7 @@ func (g *gen) resolveIface(d *ifaceDef) {
 		}
 		// A bare `self` return has no kind until an implementing type
 		// supplies one, so it has none here either. A nested one
-		// (`Maybe<self>`) is different: typeOf answers kindInvalid for it and
+		// (`Option<self>`) is different: typeOf answers kindInvalid for it and
 		// methodSignatureGap names it, which is why the model distinguishes
 		// the two and does not carry a bool.
 		if im.ReturnTypeExpr != nil && !m.shape.resultBareSelf() {
@@ -634,12 +634,12 @@ func erasedReceiverGap(m *ifaceMethod) string {
 // not the same question as a self return.
 //
 // `FromJson.from_json(json: Json) -> Result<self, Json.ShapeError>`,
-// `Discrete.next(v: self) -> Maybe<self>`, `Steppable.step_by(…) -> Maybe<self>`
+// `Discrete.next(v: self) -> Option<self>`, `Steppable.step_by(…) -> Option<self>`
 // are the three in std. typeOf answers kindInvalid for a self inside a
 // container, so the method has no result kind.
 //
 // It is a signature row and it is `hard`, which keeps the diagnostic accurate.
-// Without it `Parse.parse(text: String) -> Maybe<self>` would refuse as
+// Without it `Parse.parse(text: String) -> Option<self>` would refuse as
 // `interface function without a self-typed parameter`. Naming the receiver at
 // a call whose problem is the return sends a reader to fix the wrong thing.
 const gapNestedSelfResult = "interface function returning a type that contains self"
@@ -1251,7 +1251,7 @@ func (g *gen) inheritedDefaultSig(d *implDef, m *ifaceMethod) ([]kind, kind, boo
 	defer func() { g.defaultSelf = prev }()
 	if d.iface.foreign != "" && d.iface.unit >= 0 {
 		// The signature is written in the declaring file, so the checker's
-		// answers about its type expressions (`Maybe<self>`) are that file's.
+		// answers about its type expressions (`Option<self>`) are that file's.
 		defer g.lowerNamesFrom(d.iface.unit)()
 	}
 	ok := true
@@ -1544,6 +1544,9 @@ func (g *gen) implFunc(d *implDef, it *implItem) {
 		g.at(d.recv.def.line)
 	}
 	g.at(it.line)
+	if g.errorDeclBody(it.decl) {
+		return
+	}
 	prevImpl := g.implEmitting
 	g.implEmitting = d
 	defer func() { g.implEmitting = prevImpl }()

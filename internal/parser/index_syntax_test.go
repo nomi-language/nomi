@@ -38,7 +38,7 @@ func TestParser_SubscriptIsRefusedWithItsSpelling(t *testing.T) {
 				t.Errorf("error at %d:%d, want 2:%d (the `[`)", pe.Line, pe.Col, tc.col)
 			}
 			if !strings.HasPrefix(pe.Message, "Nomi has no "+tc.want) ||
-				!strings.HasSuffix(pe.Message, "which returns a Maybe (`Vector.get`, `Map.get` and `String.at` for those types), or take it apart with a pattern") {
+				!strings.HasSuffix(pe.Message, "which returns an Option (`Vector.get`, `Map.get` and `String.at` for those types), or take it apart with a pattern") {
 				t.Errorf("message = %q, want it to start %q", pe.Message, "Nomi has no "+tc.want)
 			}
 		})

@@ -21,7 +21,7 @@ pub struct Line
     sku:     String
     qty:     Int
     price:   Float
-    ratings: List<Maybe<Float>>
+    ratings: List<Option<Float>>
 end
 
 derive ToJson for Line

@@ -23,7 +23,7 @@ fn words<C>(re: Regex<C>, text: String) -> List<String>
   String.split(text, re)
 end
 
-fn compiled(pattern: String) -> Result<Regex<List<Maybe<String>>>, String>
+fn compiled(pattern: String) -> Result<Regex<List<Option<String>>>, String>
   re = Regex.compile(pattern)?
   Ok(re)
 end

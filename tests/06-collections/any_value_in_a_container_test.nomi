@@ -71,7 +71,7 @@ test "a Map entering an Iter of interface values"
     assert shown({1 => 2}) == ["(1, 2)"]
 end
 
-test "a Context in a Maybe and a task's outcome"
+test "a Context in an Option and a task's outcome"
     assert Some(Context.root()) is Some(_)
 
     n =

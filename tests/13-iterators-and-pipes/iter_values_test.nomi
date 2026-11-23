@@ -42,7 +42,7 @@ fn evens() -> Iter<Int>
     [2, 4, 6]
 end
 
-fn first_of<T>(xs: Iter<T>) -> Maybe<T>
+fn first_of<T>(xs: Iter<T>) -> Option<T>
     Iter.first(xs)
 end
 
@@ -73,7 +73,7 @@ test "an Iter is a Some and an Ok payload"
     found = Some(bumped)
     checked: Result<Iter<Int>, String> = Ok([7, 8])
 
-    assert found |> Maybe.map(fn it -> Iter.to_list(it)) == Some([2, 3])
+    assert found |> Option.map(fn it -> Iter.to_list(it)) == Some([2, 3])
     assert checked |> Result.map(fn it -> Iter.count(it)) == Ok(2)
 end
 

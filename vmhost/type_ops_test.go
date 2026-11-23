@@ -107,13 +107,13 @@ type toType struct {
 	// anonymous struct with a field of it is ParseFields, as a route's
 	// parameters are.
 	parses bool
-	// subtype marks a subtype, which has its base's impls save those of an
-	// interface that makes a value of its type (spec §4 *Subtypes*).
-	subtype bool
-	// json marks a type that implements ToJson and FromJson, a subtype's
+	// refinement marks a refinement, which has its base's impls save those of an
+	// interface that makes a value of its type (spec §4 *Refinements*).
+	refinement bool
+	// json marks a type that implements ToJson and FromJson, a refinement's
 	// read at its base and checked.
 	json bool
-	// badJSON and badText are, for a subtype, a value of its base that
+	// badJSON and badText are, for a refinement, a value of its base that
 	// breaks its rule: as JSON, and as the text Parse reads. Empty for a
 	// type with no rule to break.
 	badJSON, badText string
@@ -130,7 +130,7 @@ const (
 	needDisplay
 	needParse
 	// needJSON is an operation that writes and reads the value as JSON,
-	// and needBreach one that reads a value that breaks a subtype's rule
+	// and needBreach one that reads a value that breaks a refinement's rule
 	// (toType.badJSON, toType.badText). A type without either is no cell
 	// of the operation (toCells).
 	needJSON
@@ -197,9 +197,9 @@ var toTypes = []toType{
 	{name: "closure", inspect: "<function>", pre: "k = 10", typ: "(Int) -> Int", expr: "(fn n: Int -> n + k)", obs: "Debug.inspect($v(1))", want: "11", noEq: true, core: true},
 	{name: "iter", inspect: "<iter>", typ: "Iter<Int>", expr: "[1, 2] |> Iter.map(&(&1 * 10))", obs: "Debug.inspect(Iter.to_list($v))", want: "[10, 20]", noEq: true, core: true},
 	{name: "range", typ: "Range<Int>", expr: "1..4", want: "1..4", shown: "1..4"},
-	{name: "maybe int", typ: "Maybe<Int>", expr: "Some(3)", want: "Some(3)", shown: "Some(3)"},
-	{name: "maybe struct", decls: toPoint, typ: "Maybe<Point>", expr: "Some(Point{x: 1, y: 2})", want: "Some(Point{x: 1, y: 2})"},
-	{name: "maybe closure", inspect: "Some(<function>)", pre: "k = 10", typ: "Maybe<(Int) -> Int>", expr: "Some((fn n: Int -> n + k))", obs: "Debug.inspect(Maybe.map($v, fn f -> f(1)))", want: "Some(11)", noEq: true},
+	{name: "option int", typ: "Option<Int>", expr: "Some(3)", want: "Some(3)", shown: "Some(3)"},
+	{name: "option struct", decls: toPoint, typ: "Option<Point>", expr: "Some(Point{x: 1, y: 2})", want: "Some(Point{x: 1, y: 2})"},
+	{name: "option closure", inspect: "Some(<function>)", pre: "k = 10", typ: "Option<(Int) -> Int>", expr: "Some((fn n: Int -> n + k))", obs: "Debug.inspect(Option.map($v, fn f -> f(1)))", want: "Some(11)", noEq: true},
 	{name: "result int", typ: "Result<Int, String>", expr: "Ok(3)", want: "Ok(3)", core: true, shown: "Ok(3)"},
 	{name: "result err enum", decls: toPoint + "\n\n" + toColor, typ: "Result<Point, Color>", expr: "Err(Color.Red)", want: "Err(Red)"},
 	{name: "result unit marker", typ: "Result<Unit, ChannelClosed>", expr: "Err(ChannelClosed)", want: "Err(ChannelClosed)",
@@ -210,7 +210,7 @@ var toTypes = []toType{
 	{name: "outcome struct", decls: toPoint, imports: []string{"std::tasks.Outcome"}, typ: "Outcome<Point>",
 		expr: "Outcome.Completed(Point{x: 1, y: 2})", want: "Completed(Point{x: 1, y: 2})"},
 	{name: "list int", typ: "List<Int>", expr: "[1, 2]", want: "[1, 2]", shown: "[1, 2]", core: true},
-	{name: "list maybe", typ: "List<Maybe<Int>>", expr: "[Some(1), None]", want: "[Some(1), None]", shown: "[Some(1), None]"},
+	{name: "list option", typ: "List<Option<Int>>", expr: "[Some(1), None]", want: "[Some(1), None]", shown: "[Some(1), None]"},
 	{name: "list fn", inspect: "[<function>, <function>]", decls: toInc, typ: "List<(Int) -> Int>", expr: "[inc, inc]", obs: "Debug.inspect(Iter.map($v, fn f -> f(1)) |> Iter.to_list())", want: "[2, 2]", noEq: true},
 	{name: "list iter", inspect: "[<iter>]", typ: "List<Iter<Int>>", expr: "[[1, 2] |> Iter.map(&(&1 + 1))]", obs: "Debug.inspect(Iter.flatten($v) |> Iter.to_list())", want: "[2, 3]", noEq: true},
 	{name: "vector string", typ: "Vector<String>", expr: `Vector["a", "b"]`, want: `Vector["a", "b"]`, shown: "Vector[a, b]"},
@@ -243,7 +243,7 @@ var toTypes = []toType{
 	{name: "anonymous struct out of name order", typ: "{tags: Set<String>, inner: {v: Vector<Int>}, errors: Map<String, List<String>>}",
 		expr: `{tags: Set["t"], inner: {v: Vector[1]}, errors: {"a" => ["x"]}}`, want: `{errors: {"a" => ["x"]}, inner: {v: Vector[1]}, tags: Set["t"]}`,
 		shown: "{errors: {a => [x]}, inner: {v: Vector[1]}, tags: Set[t]}", core: true},
-	{name: "maybe maybe", typ: "Maybe<Maybe<Int>>", expr: "Some(Some(1))", want: "Some(Some(1))", shown: "Some(Some(1))"},
+	{name: "option option", typ: "Option<Option<Int>>", expr: "Some(Some(1))", want: "Some(Some(1))", shown: "Some(Some(1))"},
 	{name: "list unit", typ: "List<Unit>", expr: "[Unit, Unit]", want: "[Unit, Unit]"},
 	{name: "tuple with fn", inspect: "(1, <function>)", decls: toInc, typ: "(Int, (Int) -> Int)", expr: "(1, inc)", obs: "Debug.inspect($v.second(1))", want: "2", noEq: true},
 	{name: "user interface value", inspect: "Pt{x: 1}", decls: toNamed, typ: "Named", expr: "(Pt{x: 1} as Named)", obs: "Named.name($v)", want: "pt1"},
@@ -257,13 +257,13 @@ var toTypes = []toType{
 	// containers.
 	{name: "iter unit", inspect: "<iter>", typ: "Iter<Unit>", expr: "Iter.repeat(Unit) |> Iter.take(2)", obs: "Debug.inspect(Iter.count($v))", want: "2", noEq: true, core: true},
 	{name: "vector unit", typ: "Vector<Unit>", expr: "Vector[Unit, Unit]", want: "Vector[Unit, Unit]"},
-	{name: "maybe unit", typ: "Maybe<Unit>", expr: "Some(Unit)", want: "Some(Unit)"},
+	{name: "option unit", typ: "Option<Unit>", expr: "Some(Unit)", want: "Some(Unit)"},
 	{name: "tuple with unit", typ: "(Unit, Int)", expr: "(Unit, 1)", want: "(Unit, 1)"},
-	{name: "maybe iter", inspect: "Some(<iter>)", typ: "Maybe<Iter<Int>>", expr: "Some(Iter.from(1))", obs: "Debug.inspect(Maybe.map($v, fn it -> it |> Iter.take(2) |> Iter.to_list()))", want: "Some([1, 2])", noEq: true},
+	{name: "option iter", inspect: "Some(<iter>)", typ: "Option<Iter<Int>>", expr: "Some(Iter.from(1))", obs: "Debug.inspect(Option.map($v, fn it -> it |> Iter.take(2) |> Iter.to_list()))", want: "Some([1, 2])", noEq: true},
 	{name: "tuple with iter", inspect: "(<iter>, 1)", typ: "(Iter<Int>, Int)", expr: "(Iter.from(1), 1)", obs: "Debug.inspect($v.first |> Iter.take(2) |> Iter.to_list())", want: "[1, 2]", noEq: true},
 	{name: "record with iter", inspect: "{a: <iter>}", typ: "{a: Iter<Int>}", expr: "{a: Iter.from(1)}", obs: "Debug.inspect($v.a |> Iter.take(2) |> Iter.to_list())", want: "[1, 2]", noEq: true},
-	{name: "map iter value", inspect: `{"a" => <iter>}`, typ: "Map<String, Iter<Int>>", expr: `{"a" => Iter.from(1)}`, obs: `Debug.inspect(Map.get($v, "a") |> Maybe.map(fn it -> it |> Iter.take(2) |> Iter.to_list()))`, want: "Some([1, 2])", noEq: true},
-	{name: "map fn value", inspect: "{1 => <function>}", decls: toInc, typ: "Map<Int, (Int) -> Int>", expr: "{1 => inc}", obs: "Debug.inspect(Map.get($v, 1) |> Maybe.map(fn f -> f(1)))", want: "Some(2)", noEq: true},
+	{name: "map iter value", inspect: `{"a" => <iter>}`, typ: "Map<String, Iter<Int>>", expr: `{"a" => Iter.from(1)}`, obs: `Debug.inspect(Map.get($v, "a") |> Option.map(fn it -> it |> Iter.take(2) |> Iter.to_list()))`, want: "Some([1, 2])", noEq: true},
+	{name: "map fn value", inspect: "{1 => <function>}", decls: toInc, typ: "Map<Int, (Int) -> Int>", expr: "{1 => inc}", obs: "Debug.inspect(Map.get($v, 1) |> Option.map(fn f -> f(1)))", want: "Some(2)", noEq: true},
 	{name: "vector iter", inspect: "Vector[<iter>]", typ: "Vector<Iter<Int>>", expr: "Vector[[1] |> Iter.map(&(&1 + 1))]", obs: "Debug.inspect(Iter.flatten($v) |> Iter.to_list())", want: "[2]", noEq: true},
 	{name: "iter of iters", inspect: "<iter>", typ: "Iter<Iter<Int>>", expr: "[[1] |> Iter.map(&(&1 + 1))] |> Iter.map(fn it -> it)", obs: "Debug.inspect(Iter.flatten($v) |> Iter.to_list())", want: "[2]", noEq: true},
 	{name: "set marker", decls: "type Done", typ: "Set<Done>", expr: "Set[Done]", want: "Set[Done]"},
@@ -273,30 +273,30 @@ var toTypes = []toType{
 	{name: "box of fn", inspect: "Bx{v: <function>}", decls: toInc + "\n\nstruct Bx<A>\n    v: A\nend", typ: "Bx<(Int) -> Int>", expr: "Bx{v: inc}", obs: "Debug.inspect($v.v(1))", want: "2", noEq: true},
 	{name: "string distinct", decls: "type Name String", typ: "Name", expr: `Name("a")`, want: `Name("a")`},
 	{name: "validated type", decls: "type Tag String when fn s -> String.length(s) > 0", typ: "Tag", expr: `Tag("a")`, want: `Tag("a")`},
-	{name: "type over a subtype", decls: "type UserId PositiveInt", typ: "UserId", expr: "UserId(3)", want: "UserId(3)"},
-	{name: "intersection of subtypes", subtype: true, typ: "NonNegativeInt and NonZeroInt", expr: "3", want: "3", shown: "3", parses: true, json: true, badJSON: "0", badText: "0"},
-	{name: "refinement", subtype: true, decls: "subtype Port Int when fn p -> p >= 1", typ: "Port", expr: "Port(3)", want: "3", shown: "3", parses: true, core: true, json: true, badJSON: "0", badText: "0"},
-	{name: "refinement chain", subtype: true, decls: "subtype NonNeg Float when fn x -> x >= 0.0\n\nsubtype Pos NonNeg when fn x -> x > 0.0", typ: "Pos", expr: "Pos(2.5)", want: "2.5", shown: "2.5", json: true, badJSON: "-1.5"},
-	{name: "refinement of two parents", subtype: true, decls: "subtype NonNeg Int when fn n -> n >= 0\n\nsubtype NonZ Int when fn n -> n != 0\n\nsubtype Pos NonNeg and NonZ when fn n -> n > 0", typ: "Pos", expr: "Pos(3)", want: "3", shown: "3", parses: true, json: true, badJSON: "0", badText: "0"},
-	{name: "decimal refinement", subtype: true, typ: "PositiveDecimal", expr: "PositiveDecimal(2.25d)", want: "2.25d", shown: "2.25"},
-	{name: "duration refinement", subtype: true, imports: []string{"std::duration.Duration", "std::duration.PositiveDuration"}, typ: "PositiveDuration", expr: `PositiveDuration(Duration"2s")`, want: "2s", shown: "2s"},
-	{name: "string refinement", subtype: true, decls: "subtype Tag String when fn s -> String.length(s) > 0", typ: "Tag", expr: `Tag("a")`, want: `"a"`, shown: "a", parses: true, json: true, badJSON: `""`, badText: ""},
+	{name: "type over a refinement", decls: "type UserId PositiveInt", typ: "UserId", expr: "UserId(3)", want: "UserId(3)"},
+	{name: "intersection of refinements", refinement: true, typ: "NonNegativeInt and NonZeroInt", expr: "3", want: "3", shown: "3", parses: true, json: true, badJSON: "0", badText: "0"},
+	{name: "refinement", refinement: true, decls: "refine Port Int when fn p -> p >= 1", typ: "Port", expr: "Port(3)", want: "3", shown: "3", parses: true, core: true, json: true, badJSON: "0", badText: "0"},
+	{name: "refinement chain", refinement: true, decls: "refine NonNeg Float when fn x -> x >= 0.0\n\nrefine Pos NonNeg when fn x -> x > 0.0", typ: "Pos", expr: "Pos(2.5)", want: "2.5", shown: "2.5", json: true, badJSON: "-1.5"},
+	{name: "refinement of two parents", refinement: true, decls: "refine NonNeg Int when fn n -> n >= 0\n\nrefine NonZ Int when fn n -> n != 0\n\nrefine Pos NonNeg and NonZ when fn n -> n > 0", typ: "Pos", expr: "Pos(3)", want: "3", shown: "3", parses: true, json: true, badJSON: "0", badText: "0"},
+	{name: "decimal refinement", refinement: true, typ: "PositiveDecimal", expr: "PositiveDecimal(2.25d)", want: "2.25d", shown: "2.25"},
+	{name: "duration refinement", refinement: true, imports: []string{"std::duration.Duration", "std::duration.PositiveDuration"}, typ: "PositiveDuration", expr: `PositiveDuration(Duration"2s")`, want: "2s", shown: "2s"},
+	{name: "string refinement", refinement: true, decls: "refine Tag String when fn s -> String.length(s) > 0", typ: "Tag", expr: `Tag("a")`, want: `"a"`, shown: "a", parses: true, json: true, badJSON: `""`, badText: ""},
 	{name: "struct refinement", decls: "struct Span\n    low: Int\n    high: Int\n    when fn s -> s.low <= s.high\nend", typ: "Span", expr: "Span{low: 1, high: 2}", want: "Span{low: 1, high: 2}"},
 	// A refinement of a collection is its base at run time: the value
 	// is walked as its base, a List's view for a List refinement.
-	{name: "list refinement", subtype: true, inspect: "[3, 4]", decls: "subtype Two List<Int> when fn xs -> List.length(xs) == 2", typ: "Two", expr: "Two([3, 4])",
+	{name: "list refinement", refinement: true, inspect: "[3, 4]", decls: "refine Two List<Int> when fn xs -> List.length(xs) == 2", typ: "Two", expr: "Two([3, 4])",
 		obs: "Debug.inspect(Iter.map($v, &(&1 * 10)) |> Iter.to_list())", want: "[30, 40]", shown: "[3, 4]", core: true, json: true, badJSON: "[1]"},
-	{name: "map refinement", subtype: true, inspect: `{"a" => 1}`, decls: "subtype Some1 Map<String, Int> when fn m -> Map.size(m) > 0", typ: "Some1", expr: `Some1({"a" => 1})`,
+	{name: "map refinement", refinement: true, inspect: `{"a" => 1}`, decls: "refine Some1 Map<String, Int> when fn m -> Map.size(m) > 0", typ: "Some1", expr: `Some1({"a" => 1})`,
 		obs: "Debug.inspect(Iter.map($v, .second) |> Iter.to_list())", want: "[1]", shown: "{a => 1}", json: true, badJSON: "{}"},
-	{name: "vector refinement", subtype: true, inspect: "Vector[1, 2]", decls: "subtype Row Vector<Int> when fn v -> Vector.length(v) > 0", typ: "Row", expr: "Row([1, 2])",
+	{name: "vector refinement", refinement: true, inspect: "Vector[1, 2]", decls: "refine Row Vector<Int> when fn v -> Vector.length(v) > 0", typ: "Row", expr: "Row([1, 2])",
 		obs: "Debug.inspect(Iter.sum($v))", want: "3", shown: "Vector[1, 2]", json: true, badJSON: "[]"},
-	{name: "set refinement", subtype: true, inspect: "Set[1, 2]", decls: "subtype Few Set<Int> when fn s -> Set.size(s) > 0", typ: "Few", expr: "Few([1, 2])",
+	{name: "set refinement", refinement: true, inspect: "Set[1, 2]", decls: "refine Few Set<Int> when fn s -> Set.size(s) > 0", typ: "Few", expr: "Few([1, 2])",
 		obs: "Debug.inspect(Iter.sort(Iter.to_list($v)))", want: "[1, 2]", shown: "Set[1, 2]", json: true, badJSON: "[]"},
-	{name: "generic refinement", subtype: true, inspect: "[3, 4]", decls: "subtype Many<A> List<A> when fn xs -> not Iter.is_empty(xs)", typ: "Many<Int>", expr: "Many.try_from([3, 4])!",
+	{name: "generic refinement", refinement: true, inspect: "[3, 4]", decls: "refine Many<A> List<A> when fn xs -> not Iter.is_empty(xs)", typ: "Many<Int>", expr: "Many.try_from([3, 4])!",
 		obs: "Debug.inspect(Iter.map($v, &(&1 * 10)) |> Iter.to_list())", want: "[30, 40]", shown: "[3, 4]", json: true, badJSON: "[]"},
-	{name: "std NonEmptyList", subtype: true, inspect: "[3, 4]", typ: "NonEmptyList<Int>", expr: "NonEmptyList.of(3, [4])",
+	{name: "std NonEmptyList", refinement: true, inspect: "[3, 4]", typ: "NonEmptyList<Int>", expr: "NonEmptyList.of(3, [4])",
 		obs: "Debug.inspect(Iter.max($v))", want: "Some(4)", shown: "[3, 4]", json: true, badJSON: "[]"},
-	{name: "string refinement walked", subtype: true, inspect: `"ab"`, decls: "subtype Tag String when fn s -> String.length(s) > 0", typ: "Tag", expr: `Tag("ab")`,
+	{name: "string refinement walked", refinement: true, inspect: `"ab"`, decls: "refine Tag String when fn s -> String.length(s) > 0", typ: "Tag", expr: `Tag("ab")`,
 		obs: `String.join($v, "-")`, want: "a-b", shown: "ab", parses: true},
 	{name: "list distinct", decls: "type Ids List<Int>", typ: "Ids", expr: "Ids[1]", want: "Ids([1])"},
 	{name: "tuple distinct", decls: "type Pair (Int, String)", typ: "Pair", expr: "Pair(1, \"a\")", want: "Pair(1, \"a\")"},
@@ -357,12 +357,12 @@ var toOps = []toOp{
 	{name: "map value", body: "m = {\"k\" => $E}\nout = Map.get(m, \"k\")!", core: true},
 	{name: "enum payload case", decls: toWrap, body: "w: Wrap$P = .Has($E)\nout = case w\n    .Has(x) -> x\n    .Empty -> $E\nend", core: true},
 	{name: "enum payload else", decls: toWrap, body: "w = Wrap.Has($E)\nWrap.Has(out) = w else return Ok(Unit)"},
-	{name: "maybe case", body: "m = Some($E)\nout = case m\n    Some(x) -> x\n    None -> $E\nend"},
-	{name: "maybe else", body: "Some(out) = Some($E) else return Ok(Unit)"},
+	{name: "option case", body: "m = Some($E)\nout = case m\n    Some(x) -> x\n    None -> $E\nend"},
+	{name: "option else", body: "Some(out) = Some($E) else return Ok(Unit)"},
 	{name: "equality", body: "a = $E\nb = $E\nassert a == b\nassert not (a != b)\nout = a", needs: needEq, core: true},
 	{name: "equality in tuple", body: "assert ($E, 1) == ($E, 1)\nout = $E", needs: needEq},
 	{name: "equality in list", body: "assert [$E] == [$E]\nout = $E", needs: needEq},
-	{name: "equality in maybe", body: "assert Some($E) == Some($E)\nout = $E", needs: needEq},
+	{name: "equality in option", body: "assert Some($E) == Some($E)\nout = $E", needs: needEq},
 	{name: "hash", body: "assert Hashable.hash($E) == Hashable.hash($E)\nout = $E", needs: needEq},
 	{name: "interpolation", body: "s = \"<${$E}>\"\nassert s == \"<$S>\"\nout = $E", needs: needDisplay, core: true},
 	{name: "inspect", body: "assert Debug.inspect($E) == \"$I\"\nassert Debug.inspect([$E]) == \"[$I]\"\nout = $E", core: true},
@@ -371,14 +371,14 @@ var toOps = []toOp{
 	// route writes its parameters into a link and reads them from a path.
 	{name: "parse fields", imports: []string{"std::parse"},
 		body: "texts = parse.write_fields({v: $E})\nassert texts == [(\"v\", \"$S\")]\nout = parse.read_fields<{v: $T}>(Iter.to_map(texts))!.v", needs: needParse},
-	// A value of the type made by its Parse impl: a subtype has none.
+	// A value of the type made by its Parse impl: a refinement has none.
 	{name: "parse at the type", imports: []string{"std::parse.Parse"}, body: "out = Parse.parse<$T>(\"$S\")!", needs: needParse},
-	// A record whose field's text breaks a subtype's rule reads as None.
+	// A record whose field's text breaks a refinement's rule reads as None.
 	{name: "parse fields breach", imports: []string{"std::parse"},
 		body: "assert parse.read_fields<{v: $T}>({\"v\" => \"$X\"}) == None\nout = $E", needs: needParse | needBreach},
 	// The value written as JSON and read back, in a record's field, in a
-	// derived struct's field and at the top; a subtype is read at its base
-	// and checked (spec §4 *Subtypes*), and JSON that breaks its rule is
+	// derived struct's field and at the top; a refinement is read at its base
+	// and checked (spec §4 *Refinements*), and JSON that breaks its rule is
 	// the read's error.
 	{name: "json record field", imports: []string{"std::json.Json"},
 		body: "out = Json.decode_as<{v: $T}>(Json.encode_as({v: $E}))!.v", needs: needJSON},
@@ -420,7 +420,7 @@ var toOps = []toOp{
 	// Display is expected, through each covariant position, and a function
 	// taking Display where one taking $T is (spec §5 *Covariant
 	// conversion*).
-	{name: "into Maybe<Display>", body: "m = Some($E)\nd: Maybe<Display> = m\nassert Some(x) = d\nassert \"${x}\" == \"$S\"\nout = $E", needs: needDisplay},
+	{name: "into Option<Display>", body: "m = Some($E)\nd: Option<Display> = m\nassert Some(x) = d\nassert \"${x}\" == \"$S\"\nout = $E", needs: needDisplay},
 	{name: "into List<Display>", body: "xs = [$E, $E]\nds: List<Display> = xs\nassert (Iter.map(ds, Display.to_string) |> Iter.to_list()) == [\"$S\", \"$S\"]\nout = $E", needs: needDisplay},
 	{name: "into Result<Display, E>", body: "r: Result<$T, String> = Ok($E)\nd: Result<Display, String> = r\nassert Ok(x) = d\nassert \"${x}\" == \"$S\"\nout = $E", needs: needDisplay},
 	{name: "into a user enum of Display", decls: toHeld, body: "h = Held.One($E)\nd: Held<Display> = h\nassert Held.One(x) = d\nassert \"${x}\" == \"$S\"\nout = $E", needs: needDisplay},
@@ -436,8 +436,8 @@ var toOps = []toOp{
 	{name: "if branch", body: "out = if Iter.count([1]) == 1 then $E else $E"},
 	{name: "block", body: "out = begin\n    x = $E\n    x\nend"},
 	{name: "pipe", decls: "fn ident<A>(x: A) -> A\n    x\nend", body: "out = $E |> ident()"},
-	{name: "Iter.find", body: "out = [$E] |> Iter.find(fn _ -> True) |> Maybe.with_default($E)"},
-	{name: "Maybe.map", body: "out = Maybe.map(Some(1), fn _ -> $E)!"},
+	{name: "Iter.find", body: "out = [$E] |> Iter.find(fn _ -> True) |> Option.with_default($E)"},
+	{name: "Option.map", body: "out = Option.map(Some(1), fn _ -> $E)!"},
 	{name: "Map.put", body: "m: Map<String, $T> = {}\nm2 = Map.put(m, \"k\", $E)\nout = Map.get(m2, \"k\")!"},
 	{name: "list of tuples", body: "(out, n) = List.first([($E, 1)])!\nassert n == 1"},
 	{name: "Iter.map to tuple", body: "ys = [1] |> Iter.map(fn n -> ($E, n)) |> Iter.to_list()\n(out, _) = List.first(ys)!"},
@@ -447,7 +447,7 @@ var toOps = []toOp{
 	{name: "list else", body: "[out, ..] = [$E] else return Ok(Unit)"},
 	{name: "if else None", body: "m = if Iter.count([1]) == 1 then Some($E) else None\nout = m!"},
 	{name: "vector pattern", body: "xs: Vector<$T> = [$E]\nout = case xs\n    [x] -> x\n    _ -> $E\nend"},
-	{name: "maybe of maybe", body: "assert Some(Some(out)) = Some(Some($E))"},
+	{name: "option of option", body: "assert Some(Some(out)) = Some(Some($E))"},
 	{name: "result of tuple", body: "r: Result<($T, Int), String> = Ok(($E, 1))\nassert Ok((out, 1)) = r"},
 	{name: "lambda tuple parameter", body: "f = fn (a, _): ($T, Int) -> a\nout = f(($E, 1))"},
 	{name: "destructuring parameter", decls: "fn first_of_pair<A>((a, _): (A, Int)) -> A\n    a\nend", body: "out = first_of_pair(($E, 1))"},
@@ -478,7 +478,7 @@ var toOps = []toOp{
 	{name: "Iter.loop nested pattern", body: "((out, _), _) = Iter.loop((($E, 1), 0), fn ((w, k), i) -> if i > 2 then break ((w, k), i) else ((w, k), i + 1))"},
 	{name: "concurrent tail", imports: []string{"std::tasks.Task"}, body: "out = concurrent\n    t = Task.spawn(fn -> 1)\n    _ = Task.await(t)\n    $E\nend"},
 	{name: "nested list", body: "ll = [[$E], [$E, $E]]\nout = List.first(List.first(ll)!)!"},
-	{name: "list of maybe", body: "out = List.first([Some($E), None])!!"},
+	{name: "list of option", body: "out = List.first([Some($E), None])!!"},
 	{name: "capture", body: "f: ($T) -> ($T, Int) = &(&1, 1)\n(out, _) = f($E)"},
 	{name: "accessor", body: "out = [($E, 1)] |> Iter.map(.first) |> Iter.to_list() |> List.first()!"},
 	// Iter stages and terminals carrying the value.
@@ -495,7 +495,7 @@ var toOps = []toOp{
 	{name: "Iter.iterate", body: "out = Iter.iterate($E, fn x -> x) |> Iter.take(2) |> Iter.to_list() |> List.first()!"},
 	{name: "Iter.intersperse", body: "out = Iter.intersperse([$E, $E], $E) |> Iter.to_list() |> List.first()!"},
 	{name: "Iter.cycle", body: "out = Iter.cycle([$E]) |> Iter.take(3) |> Iter.to_list() |> List.first()!"},
-	{name: "Iter.permutations", body: "out = Iter.permutations([$E]) |> Iter.to_list() |> List.first() |> Maybe.with_default([]) |> List.first()!"},
+	{name: "Iter.permutations", body: "out = Iter.permutations([$E]) |> Iter.to_list() |> List.first() |> Option.with_default([]) |> List.first()!"},
 	{name: "Iter.chunk_by", body: "ys = [$E, $E] |> Iter.chunk_by(fn _ -> 1) |> Iter.to_list()\nout = List.first(List.first(ys)!)!"},
 	{name: "Iter.flat_map", body: "out = [1] |> Iter.flat_map(fn _ -> [$E]) |> Iter.to_list() |> List.first()!"},
 	{name: "Iter.last", body: "out = Iter.last([$E, $E])!"},
@@ -509,6 +509,9 @@ var toOps = []toOp{
 	{name: "set iterated", body: "out = Set[$E] |> Iter.map(fn x -> x) |> Iter.to_list() |> List.first()!", needs: needEq},
 	{name: "Iter.zip with a map", body: "ys = Iter.zip([1], {$E => 1}) |> Iter.to_list()\n(_, (out, _)) = List.first(ys)!", needs: needEq},
 	{name: "Iter.contains", body: "assert Iter.contains([$E], $E)\nout = $E", needs: needEq},
+	// The value names the collection literal's element type: `v in [Ok(3)]`
+	// with v a Result<Int, String> solves the literal's open error type.
+	{name: "in", body: "v: $T = $E\nassert v in [$E]\nassert v in Vector[$E]\nassert not v in []\nout = v", needs: needEq, core: true},
 	{name: "Iter.frequencies", body: "f = Iter.frequencies([$E, $E])\nassert Iter.count(f) == 1\nout = $E", needs: needEq},
 	{name: "inspect in tuple", body: "assert Debug.inspect(($E, 1)) == \"($I, 1)\"\nout = $E", core: true},
 	{name: "inspect bound in tuple", body: "v: $T = $E\nassert Debug.inspect((v, 1)) == \"($I, 1)\"\nout = v"},
@@ -635,9 +638,9 @@ type toRule struct {
 
 var toRules = []toRule{
 	{
-		match:  func(c toCell) bool { return c.t.subtype && c.t.parses && c.op.name == "parse at the type" },
+		match:  func(c toCell) bool { return c.t.refinement && c.t.parses && c.op.name == "parse at the type" },
 		reject: "has no impl of Parse \\(required by `Parse.parse`\\)",
-		why:    "a subtype has no Parse of its base's, whose parse makes a value no rule of the subtype has checked (spec §4 *Subtypes*)",
+		why:    "a refinement has no Parse of its base's, whose parse makes a value no rule of the refinement has checked (spec §4 *Refinements*)",
 	},
 	{
 		match: func(c toCell) bool {
@@ -646,6 +649,11 @@ var toRules = []toRule{
 		},
 		reject: "nothing names the type its `_` stands for",
 		why:    "a bound on a type argument needs the whole type, and `Ok(3)` leaves its error type open",
+	},
+	{
+		match:  func(c toCell) bool { return c.t.noEq && c.op.name == "in" },
+		reject: toNoEquality + "|the collection `in` looks in: (List|Vector)<.*> does not implement Contains",
+		why:    "List's and Vector's Contains holds where the element is Equatable, and the checker names the element or the collection it leaves without one",
 	},
 	{
 		match:  func(c toCell) bool { return strings.HasPrefix(c.t.expr, "(fn ") && c.op.name == "parameter default" },
@@ -665,7 +673,7 @@ var toRules = []toRule{
 			partial := strings.HasPrefix(c.t.expr, "Ok(") || strings.HasPrefix(c.t.expr, "Err(")
 			return partial && strings.HasPrefix(c.op.name, "into ") && c.op.name != "into Result<Display, E>"
 		},
-		reject: "type mismatch: expected (Maybe|List|Held)<Display>|type mismatch: expected \\(\\) -> Display",
+		reject: "type mismatch: expected (Option|List|Held)<Display>|type mismatch: expected \\(\\) -> Display",
 		why:    "`Ok(3)` leaves its error type open, so whether the Result implements Display is not determined (spec §5 *Covariant conversion*)",
 	},
 }
@@ -708,7 +716,7 @@ func (t *toType) takes(op *toOp) bool {
 	if op.needs&needJSON != 0 && !t.json {
 		return false
 	}
-	if op.needs&needBreach != 0 && (op.needs&needJSON != 0 && t.badJSON == "" || op.needs&needParse != 0 && !t.subtype) {
+	if op.needs&needBreach != 0 && (op.needs&needJSON != 0 && t.badJSON == "" || op.needs&needParse != 0 && !t.refinement) {
 		return false
 	}
 	return true

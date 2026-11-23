@@ -14,7 +14,7 @@ typealias Count Int
 typealias Handler (String, String) -> Result<String, String>
 typealias Pairs List<(Int, String)>
 typealias Row {name: String, size: Int}
-typealias Answer Maybe<Int>
+typealias Answer Option<Int>
 
 fn bump(n: Count) -> Count
     n + 1

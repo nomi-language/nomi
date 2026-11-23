@@ -203,7 +203,7 @@ end
 
 /// The current git branch, or `None` when git fails, as it does outside a
 /// repository.
-fn current_branch() -> Result<Maybe<String>, io.Error>
+fn current_branch() -> Result<Option<String>, io.Error>
     command = Command{program: "git", args: ["branch", "--show-current"]}
     out = process.output(command)?
 

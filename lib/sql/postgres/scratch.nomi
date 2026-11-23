@@ -93,7 +93,7 @@ fn free_port() -> Result<Int, String>
     address = net.Listener.address(listener)
     net.Listener.close(listener)
     (_, port) = net.split_host_port(address) |> Result.map_err(fn e -> "${e}")?
-    String.to_int(port) |> Maybe.to_result("the port of ${address} is not a number")
+    String.to_int(port) |> Option.to_result("the port of ${address} is not a number")
 end
 
 // Waits for the server on `port` to accept a connection, trying each 50

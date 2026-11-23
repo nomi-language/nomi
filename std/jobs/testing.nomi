@@ -35,7 +35,7 @@ import
     json.{FromJson, Json}
     lists.List
     maps.Map
-    maybe.Maybe.{self, None, Some}
+    option.Option.{self, None, Some}
     results.Result.{self, Err, Ok}
     sets.Set
     sql.{self, Conn}
@@ -76,13 +76,13 @@ pub struct StoredJob
     attempt:       Int
     max_attempts:  Int
     priority:      Int
-    unique_key:    Maybe<String>
+    unique_key:    Option<String>
     unique_across: UniqueStates
     run_at:        Instant
-    locked_by:     Maybe<String>
-    locked_until:  Maybe<Instant>
+    locked_by:     Option<String>
+    locked_until:  Option<Instant>
     errors:        List<JobError>
-    finished_at:   Maybe<Instant>
+    finished_at:   Option<Instant>
 end
 
 derive Equatable for StoredJob
@@ -312,7 +312,7 @@ impl Queue for Inline
         put(inline, {..state, watchers: .. + [wake]})
     end
 
-    fn last_tick(inline: Inline, schedule: String) -> Result<Maybe<Instant>, sql.Error>
+    fn last_tick(inline: Inline, schedule: String) -> Result<Option<Instant>, sql.Error>
         Ok(Map.get(peek(inline).ticks, schedule))
     end
 
@@ -320,8 +320,8 @@ impl Queue for Inline
         inline:   Inline,
         schedule: String,
         tick:     Instant,
-        job:      Maybe<NewJob>,
-    ) -> Result<Maybe<Enqueued>, sql.Error>
+        job:      Option<NewJob>,
+    ) -> Result<Option<Enqueued>, sql.Error>
         state = take(inline)
 
         later =
@@ -336,7 +336,7 @@ impl Queue for Inline
             put(inline, state)
         end
 
-        Ok(Maybe.map(job, &store(inline, &1)))
+        Ok(Option.map(job, &store(inline, &1)))
     end
 end
 
@@ -369,7 +369,7 @@ fn store(inline: Inline, job: NewJob) -> Enqueued
                 priority:      job.priority,
                 unique_key:    job.unique_key,
                 unique_across: job.unique_across,
-                run_at:        Maybe.with_default(job.run_at, now),
+                run_at:        Option.with_default(job.run_at, now),
                 locked_by:     None,
                 locked_until:  None,
                 errors:        [],
@@ -586,8 +586,8 @@ end
 fn put_job(
     o:        Opened,
     n:        Int,
-    run_at:   Maybe<Instant> = None,
-    priority: Maybe<Int> = None,
+    run_at:   Option<Instant> = None,
+    priority: Option<Int> = None,
 ) -> Result<JobId, String>
     jobs.enqueue(o.queue, o.conn, job(), n, run_at:, priority:)
     |> Result.map(&(&1.id))
@@ -608,12 +608,12 @@ fn record(
     o:        Opened,
     schedule: String,
     tick:     Instant,
-    job:      Maybe<NewJob>,
-) -> Result<Maybe<Enqueued>, String>
+    job:      Option<NewJob>,
+) -> Result<Option<Enqueued>, String>
     Queue.record_tick(o.queue, schedule, tick, job) |> Result.map_err(fn e -> "record_tick: ${e}")
 end
 
-fn last_tick(o: Opened, schedule: String) -> Result<Maybe<Instant>, String>
+fn last_tick(o: Opened, schedule: String) -> Result<Option<Instant>, String>
     Queue.last_tick(o.queue, schedule) |> Result.map_err(fn e -> "last_tick: ${e}")
 end
 

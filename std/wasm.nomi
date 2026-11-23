@@ -60,7 +60,7 @@ import
     int.{Int, Int64, NonNegativeInt}
     iter.Iter
     lists.List
-    maybe.Maybe.{self, None, Some}
+    option.Option.{self, None, Some}
     resources.Release
     results.Result.{self, Err, Ok}
     strings.String
@@ -301,7 +301,7 @@ pub struct Import
     name:     String
     params:   List<ValueType> = []
     results:  List<ValueType> = []
-    stopping: Maybe<List<Value>> = None
+    stopping: Option<List<Value>> = None
     run:      (Memory, List<Value>) -> Result<List<Value>, String>
 end
 
@@ -753,7 +753,7 @@ end
 
 /// What an import's `stopping` crosses as: nothing for none, else 1 and
 /// the values.
-fn stop_answer(stopping: Maybe<List<Value>>) -> Result<List<Int64>, Error>
+fn stop_answer(stopping: Option<List<Value>>) -> Result<List<Int64>, Error>
     case stopping
         None         -> Ok([])
         Some(values) -> Ok([1, ..encode(values)?])
@@ -848,7 +848,7 @@ end
 fn error_at(fields: List<String>, at: Int, length: Int) -> Error
     case fields
         ["out_of_range", size] ->
-            .OutOfRange{at:, length:, size: String.to_int(size) |> Maybe.with_default(0)}
+            .OutOfRange{at:, length:, size: String.to_int(size) |> Option.with_default(0)}
 
         _ ->
             error_of(fields)

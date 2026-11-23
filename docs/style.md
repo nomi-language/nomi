@@ -510,7 +510,7 @@ invent:
 ```nomi
 ids = rows |> Iter.map(.id) |> Iter.map(UserId) |> Iter.to_list()
 
-somes: List<Maybe<Int>> = Iter.map(ns, Some) |> Iter.to_list()
+somes: List<Option<Int>> = Iter.map(ns, Some) |> Iter.to_list()
 
 labelled = Result.map_err(result, ParseError)
 ```
@@ -828,7 +828,7 @@ A `typealias` is another spelling of its target, with no identity of its own
 repeat: an anonymous struct, a function type, a long tuple.
 
 ```nomi
-typealias Rule (String) -> Maybe<String>
+typealias Rule (String) -> Option<String>
 typealias Span {start: Int, stop: Int, line: Int}
 ```
 
@@ -971,7 +971,7 @@ names:
 
 ```nomi
 label =
-    if Some(name) = maybe_name then
+    if Some(name) = option_name then
         name
     else
         "unknown"
@@ -1082,7 +1082,7 @@ A plain `if`/`else` of two branches stays an `if`, and so does a chain
 whose branches run statements for their effects rather than produce a
 value.
 
-An `Html` literal's slot takes a `Maybe` and shows its value or nothing,
+An `Html` literal's slot takes an `Option` and shows its value or nothing,
 in element content and inside a quoted attribute value alike. To show a
 part only when a condition holds, give the slot an `if` whose `else` is
 `None` (spec §8 *`if`/`else`*):
@@ -1097,7 +1097,7 @@ not `${if unread > 0 then ... else Html.empty()}` or `else ""`. To
 leave a whole attribute out, give it an unquoted value:
 `class=${if active then Some("active") else None}`. Where the value is
 used as itself, write the `else` with that value: `if c then x else y`,
-not `if c then Some(x) else None` followed by `Maybe.with_default(y)`.
+not `if c then Some(x) else None` followed by `Option.with_default(y)`.
 
 ### 28. Negate with `!=`, `refute` and `Iter.reject` before `not`
 
@@ -1121,12 +1121,12 @@ write `&(not f(&1))`.
 ### 29. Pick the tool by what happens on failure
 
 **Writing a function that cannot take every input.** When some input has
-no answer, pick the first of these that fits (spec §4 *Subtypes*, §11
-*Traps, `Maybe` and `Result`*; tour:
-[Pattern Matching](/pattern-matching/#maybet-and-resultt-e)):
+no answer, pick the first of these that fits (spec §4 *Refinements*, §11
+*Traps, `Option` and `Result`*; tour:
+[Pattern Matching](/pattern-matching/#optiont-and-resultt-e)):
 
 1. **Type it.** When the requirement is about one argument's value alone
-   and a pure rule can check it, take a subtype: a count is a
+   and a pure rule can check it, take a refinement: a count is a
    `NonNegativeInt`, a buffer size a `PositiveInt`, a list that must have
    an element a `NonEmptyList`. A literal argument is checked when the
    program is compiled. A check narrows a binding (spec §4 *Narrowing*),
@@ -1143,21 +1143,21 @@ no answer, pick the first of these that fits (spec §4 *Subtypes*, §11
    once. Define only the
    meaning a caller would expect, never a guess that hides a bug: a chunk
    size of 0 has none, so `Iter.chunks` takes a `PositiveInt`.
-3. **Return `Maybe`** when absence is an ordinary outcome that depends on
+3. **Return `Option`** when absence is an ordinary outcome that depends on
    the data: a lookup that may miss, `find`, the first element of a list
-   that may be empty. Where a subtype proves the value is there, give that
-   subtype a function that answers it plainly, as `NonEmptyList.first`
+   that may be empty. Where a refinement proves the value is there, give that
+   refinement a function that answers it plainly, as `NonEmptyList.first`
    does.
 4. **Return `Result`** when the failure has a reason worth reporting, or
    comes from outside the program: a parse, input, a file, the network.
 5. **Trap** only on a caller's mistake that no type carries at a fair cost
-   and no `Maybe` can answer. A zero divisor is not one: `/` takes a
+   and no `Option` can answer. A zero divisor is not one: `/` takes a
    `NonZeroInt`, so a divisor is checked first or typed. An index past the
    end depends on another value, so `Vector.get` and `Vector.set` return
-   `Maybe`, and a caller that computed the index writes `!`. A trap reports a bug; nothing in the program catches
+   `Option`, and a caller that computed the index writes `!`. A trap reports a bug; nothing in the program catches
    it. Say in the doc comment what traps, make the message name the bad
    value, and give the caller a total way around it: a sibling that
-   returns `Maybe`, or a cheap check to run first.
+   returns `Option`, or a cheap check to run first.
 
 A failed task is the one trap that crosses a boundary: `Task.await`
 propagates the trap of the task it waits for, and the cancellation of a
@@ -1168,7 +1168,7 @@ task's failure is an outcome rather than a bug, because the code cancelled
 the task or runs work whose failure it reports, wait with `Task.outcome`,
 the total form, which returns how the task ended as an `Outcome`.
 
-Write the function once, returning a `Maybe` or a `Result`, as std's `get`
+Write the function once, returning an `Option` or a `Result`, as std's `get`
 does, and let a caller that knows the call cannot fail write `!` after it:
 
 ```nomi
@@ -1182,7 +1182,7 @@ end
 middle = Vector.get(sorted, Vector.length(sorted) / 2)!
 ```
 
-Don't return a `Maybe` whose `None` every caller must unwrap with an
+Don't return an `Option` whose `None` every caller must unwrap with an
 "impossible" arm: that arm is untested code, and it hides the bug a trap would
 report at its line. Don't trap on data from outside the program either; a
 missing key in a config file is something to report, not a crash.
@@ -1191,7 +1191,7 @@ missing key in a config file is something to report, not a crash.
 not have the shape you want. Choose by what the failure path does:
 
 - **`?`** passes the error up unchanged. Use it when the function returns a
-  `Result` or a `Maybe` and the caller should handle this step's failure as
+  `Result` or an `Option` and the caller should handle this step's failure as
   it is. In a pipe, write it after the stage (§7).
 - **`!`** traps. Use it when a failure would be a bug and the expression
   itself explains it: constant arguments (`Date.new(2024, 1, 1)!`), a key
@@ -1265,7 +1265,7 @@ fn find_post(id: Int) -> Result<Post, NotFound>
 end
 ```
 
-**State an invariant with `unreachable`.** When a `Maybe` or a `case` arm can
+**State an invariant with `unreachable`.** When an `Option` or a `case` arm can
 only miss because of an invariant the reader cannot see from the call, write a
 binding `else` with `unreachable` and the invariant as its reason. A made-up
 default would hide the bug instead:
@@ -1280,18 +1280,18 @@ fn position(student: Student) -> Int
 end
 ```
 
-`Maybe.with_default(0)` in its place returns 0 for a student someone forgot
+`Option.with_default(0)` in its place returns 0 for a student someone forgot
 to list, and nothing flags it. The reason is the claim a reader checks, so
 state the invariant, not the symptom: "every student is listed", not "not
 found". Never use `unreachable` or `!` for data from outside the program: one
 after parsing a line of input claims something the program does not control,
-and a failure that can really happen is a `Maybe` or a `Result` to handle.
+and a failure that can really happen is an `Option` or a `Result` to handle.
 When the claim is only that one value is there, `!` states it where the
 value is read: `Date.new(year, 1, 1)!`, not a binding `else` with
 `unreachable "1 January exists"`.
 
 **Turn a missing value into an error** with a binding `else` when the value
-is bound for the lines that follow, and with `Maybe.to_result` and a `?` after
+is bound for the lines that follow, and with `Option.to_result` and a `?` after
 it when the lookup is one stage of a pipe. Name the variant with its enum in
 `to_result`: nothing at that position fixes the error type, so `.NotFound`
 alone cannot be resolved there.
@@ -1305,7 +1305,7 @@ count =
     word
     |> String.trim()
     |> String.to_int()
-    |> Maybe.to_result(Error.NotANumber)?
+    |> Option.to_result(Error.NotANumber)?
 ```
 
 ### 30. Stub unwritten code with `todo`
@@ -2006,16 +2006,16 @@ callers would read. An opaque type inspects as `<opaque Clock>`, and
 
 When the rule is a test of one value that callers should go on using as
 the type it narrows (a port number, a divisor that is not zero, a
-tolerance that is not negative), declare a subtype instead (spec §4
-*Subtypes*; tour:
-[Structs, Enums & Distinct Types](/structs-enums-distinct/#subtypes)).
-A parameter typed with the subtype replaces a check that traps or a
+tolerance that is not negative), declare a refinement instead (spec §4
+*Refinements*; tour:
+[Structs, Enums & Distinct Types](/structs-enums-distinct/#refinements)).
+A parameter typed with the refinement replaces a check that traps or a
 `Result` the function returns only for that argument: a literal argument
 is checked when the program compiles, and a computed one goes through
 `try_from` where it is made, once:
 
 ```nomi
-pub subtype Port Int when fn p -> p >= 1 and p <= 65535
+pub refine Port Int when fn p -> p >= 1 and p <= 65535
 
 pub fn listen(port: Port) -> String
     "listening on ${port}"
@@ -2024,11 +2024,11 @@ end
 
 Std's `equal_within` takes a `NonNegativeFloat` tolerance, `Int.pow` a
 `NonNegativeInt` exponent and `Money.split` a `PositiveInt` count this
-way. Reach for the prelude's subtypes (`NonNegativeInt`,
+way. Reach for the prelude's refinements (`NonNegativeInt`,
 `PositiveFloat`, `NonEmptyString` and the rest) before declaring one, and
-name a subtype's existing parents with `and` rather than repeating their
+name a refinement's existing parents with `and` rather than repeating their
 rules; a parameter that needs two of them takes `NonNegativeInt and
-NonZeroInt` rather than a new subtype for one function. When the value is
+NonZeroInt` rather than a new refinement for one function. When the value is
 a thing of its own that callers must not mix with other values of its
 base (an email address, a user id), declare a validated type, `type Email
 String when is_email` or `type UserId PositiveInt`, which converts to
@@ -2039,8 +2039,8 @@ cannot be tested for alone.
 A function that has no answer for an empty collection takes the
 prelude's `NonEmptyList` (or `NonEmptyVector`, `NonEmptyMap`,
 `NonEmptySet`) and returns its answer, rather than taking a `List` and
-returning a `Maybe` that every caller who already knows the list has
-elements must unwrap. Return a `Maybe` when emptiness comes from data the
+returning an `Option` that every caller who already knows the list has
+elements must unwrap. Return an `Option` when emptiness comes from data the
 caller does not control, as `Iter.first` on any iterable does. A literal
 with an element needs no check, and neither does a binding of one with
 no type written. A function that needs a name or a key takes a

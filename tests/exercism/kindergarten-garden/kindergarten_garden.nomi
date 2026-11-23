@@ -12,7 +12,7 @@ end
 impl Plant
     /// The plant a diagram writes as `letter`, or `None` for a letter that
     /// names no plant.
-    pub fn from_letter(letter: String) -> Maybe<Plant>
+    pub fn from_letter(letter: String) -> Option<Plant>
         case letter
             "G" -> Some(.Grass)
             "C" -> Some(.Clover)
@@ -49,12 +49,12 @@ end
 impl Garden
     /// Reads a diagram of one line per row of cups, or `None` when a letter
     /// names no plant.
-    pub fn parse(diagram: String) -> Maybe<Garden>
+    pub fn parse(diagram: String) -> Option<Garden>
         rows =
             diagram
             |> String.lines()
             |> Iter.map(parse_row)
-            |> Maybe.collect()?
+            |> Option.collect()?
 
         Some({rows:})
     end
@@ -70,10 +70,10 @@ impl Garden
     end
 end
 
-fn parse_row(row: String) -> Maybe<List<Plant>>
+fn parse_row(row: String) -> Option<List<Plant>>
     row
     |> Iter.map(Plant.from_letter)
-    |> Maybe.collect()
+    |> Option.collect()
 end
 
 /// How many students come before `student` in the class. Every student is

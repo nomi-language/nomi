@@ -7,7 +7,7 @@ pub fn rotate(text: String, key: Int) -> String
 
     text
     |> String.to_codepoints()
-    |> Iter.map(fn letter -> Map.get(cipher, letter) |> Maybe.with_default(letter))
+    |> Iter.map(fn letter -> Map.get(cipher, letter) |> Option.with_default(letter))
     |> Iter.to_list()
     |> String.from_codepoints()
 end

@@ -14,7 +14,7 @@ import (
 // declaration's type parameter describes to the generator.
 //
 // `Vector.set` answers None for an index outside the vector and Some of the
-// new vector otherwise; hostMaybe's fast path answers it in registers.
+// new vector otherwise; hostOption's fast path answers it in registers.
 func vectorHost(key string) hostFn { return vectorHostWith(key, false) }
 
 // vectorHostWith is vectorHost, writing an owned receiver's storage in place
@@ -73,7 +73,7 @@ func vectorHostWith(key string, owned bool) hostFn {
 		case "Vector.length":
 			return rt.VectorLength(vec), nil
 		case "Vector.get":
-			return maybeOf(rt.VectorGet(vec, index)), nil
+			return optionOf(rt.VectorGet(vec, index)), nil
 		case "Vector.push":
 			if owned {
 				return rt.VectorPushOwned(vec, args[1]), nil

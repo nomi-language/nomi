@@ -40,7 +40,7 @@ import
     iter.Iter
     lists.List
     maps.Map
-    maybe.Maybe.{self, None, Some}
+    option.Option.{self, None, Some}
     results.Result.{self, Err, Ok}
     strings.String
     unit.Unit
@@ -157,10 +157,10 @@ impl Element
     /// The first child element named `local`, in the namespace `space`, or
     /// in any namespace when `space` is `None`.
     //! doc = decode("<r xmlns='urn:x'><k>1</k><k>2</k></r>")!
-    //! assert Element.child(doc, "k") |> Maybe.map(&Element.text(&1)) == Some("1")
+    //! assert Element.child(doc, "k") |> Option.map(&Element.text(&1)) == Some("1")
     //! assert Element.child(doc, "k", space: Some("urn:y")) == None
     //
-    pub fn child(element: Element, local: String, space: Maybe<String> = None) -> Maybe<Element>
+    pub fn child(element: Element, local: String, space: Option<String> = None) -> Option<Element>
         Element.elements(element) |> Iter.find(fn e -> named(e.name, local, space))
     end
 
@@ -176,7 +176,7 @@ impl Element
     pub fn children_named(
         element: Element,
         local:   String,
-        space:   Maybe<String> = None,
+        space:   Option<String> = None,
     ) -> List<Element>
         Element.elements(element)
         |> Iter.filter(fn e -> named(e.name, local, space))
@@ -189,8 +189,12 @@ impl Element
     //! assert Element.child_text(doc, "Code") == Some("NoSuchKey")
     //! assert Element.child_text(doc, "Message") == None
     //
-    pub fn child_text(element: Element, local: String, space: Maybe<String> = None) -> Maybe<String>
-        Element.child(element, local, space:) |> Maybe.map(fn e -> Element.text(e))
+    pub fn child_text(
+        element: Element,
+        local:   String,
+        space:   Option<String> = None,
+    ) -> Option<String>
+        Element.child(element, local, space:) |> Option.map(fn e -> Element.text(e))
     end
 
     /// All the text in the element and the elements in it, in document
@@ -217,14 +221,14 @@ impl Element
     //! assert Element.attribute(doc, "id", space: "urn:x") == Some("8")
     //! assert Element.attribute(doc, "name") == None
     //
-    pub fn attribute(element: Element, local: String, space: String = "") -> Maybe<String>
+    pub fn attribute(element: Element, local: String, space: String = "") -> Option<String>
         element.attributes
         |> Iter.find(fn a -> a.name.local == local and a.name.space == space)
-        |> Maybe.map(fn a -> a.value)
+        |> Option.map(fn a -> a.value)
     end
 end
 
-fn named(name: Name, local: String, space: Maybe<String>) -> Bool
+fn named(name: Name, local: String, space: Option<String>) -> Bool
     name.local == local
         and case space
             Some(s) -> name.space == s
@@ -303,7 +307,7 @@ end
 //!
 //! assert doc.name == Name{local: "ListBucketResult", space: "http://s3.amazonaws.com/doc/2006-03-01/"}
 //!
-//! assert Element.child(doc, "Contents") |> Maybe.flat_map(&Element.child_text(&1, "Key")) == Some(
+//! assert Element.child(doc, "Contents") |> Option.flat_map(&Element.child_text(&1, "Key")) == Some(
 //!     "a&b.jpg"
 //! )
 //!
@@ -398,7 +402,7 @@ fn each_token(tokens: host.Tokens, yield: (Result<Token, Error>) -> Bool) -> Boo
 end
 
 // The next token, None at the end of the document.
-fn next_token(tokens: host.Tokens) -> Result<Maybe<Token>, Error>
+fn next_token(tokens: host.Tokens) -> Result<Option<Token>, Error>
     case host.next(tokens)
         0 ->
             case host.stopped(tokens)
@@ -419,7 +423,7 @@ end
 
 // The failure a stop other than the Reader's (`host.stopped`) and its
 // message describe, or None at the end of the document.
-fn failure(stop: List<Int>, message: String) -> Maybe<Error>
+fn failure(stop: List<Int>, message: String) -> Option<Error>
     case stop
         [1, line, column] -> Some(Error.Syntax{message:, line:, column:})
         _                 -> None
@@ -427,7 +431,7 @@ fn failure(stop: List<Int>, message: String) -> Maybe<Error>
 end
 
 // The token of `kind` whose parts `host.current` and `host.decode` give.
-fn token_of(kind: Int, parts: List<List<String>>) -> Maybe<Token>
+fn token_of(kind: Int, parts: List<List<String>>) -> Option<Token>
     case (kind, parts)
         (1, [name, attributes, namespaces]) ->
             Some(

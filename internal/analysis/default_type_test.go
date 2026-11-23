@@ -109,7 +109,7 @@ fn main() end
 	want := []struct{ msg, hint string }{
 		{"can't tell this field's type from `Set[]`", "write `guessed: Set<_> = Set[]`, with the type for each `_`"},
 		{"can't tell this field's type from `[]`", "write `items: List<_> = []`, with the type for each `_`"},
-		{"can't tell this field's type from `None`", "write `later: Maybe<_> = None`, with the type for each `_`"},
+		{"can't tell this field's type from `None`", "write `later: Option<_> = None`, with the type for each `_`"},
 		{"can't tell this field's type from `.Temporary`", "write `restart: T = .Temporary`, with its type for `T`"},
 		{"can't tell this field's type from `Bad{}.loop`: it depends on a type that comes from this default", "write its type: `loop: T = Bad{}.loop`"},
 	}
@@ -256,7 +256,7 @@ end
 	got := checkOnceProject(t, map[string]string{"main.nomi": src}, []string{""})
 	errs := got["main.nomi"]
 	want := []struct{ msg, hint string }{
-		{"can't tell this parameter's type from `None`", "write `since: Maybe<_> = None`, with the type for each `_`"},
+		{"can't tell this parameter's type from `None`", "write `since: Option<_> = None`, with the type for each `_`"},
 		{"can't tell this parameter's type from `[]`", "write `items: List<_> = []`, with the type for each `_`"},
 	}
 	for _, w := range want {
