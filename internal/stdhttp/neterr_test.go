@@ -1,0 +1,65 @@
+package stdhttp
+
+import (
+	"net"
+	"os"
+	"slices"
+	"syscall"
+	"testing"
+
+	"github.com/nomi-language/nomi/internal/stdio"
+)
+
+// netErrCase is a system error a socket call returns, wrapped as Go's net
+// package wraps it, and the net.Error variant's name it is sorted to.
+type netErrCase struct {
+	call  string
+	errno syscall.Errno
+	want  string
+}
+
+func checkNetErrs(t *testing.T, system string, cases []netErrCase) {
+	t.Helper()
+	for _, c := range cases {
+		err := &net.OpError{Op: "dial", Net: "tcp", Err: os.NewSyscallError(c.call, c.errno)}
+		got := strsOf(netErr("dial", "127.0.0.1:1", err))
+		want := []string{c.want, "127.0.0.1:1"}
+		if !slices.Equal(got, want) {
+			t.Errorf("%s errno %d (%s): got %q, want %q", system, uint64(c.errno), c.errno, got, want)
+		}
+	}
+}
+
+// TestNetErr_UnixErrnosNameTheirVariant holds each errno a Unix socket call
+// returns to the net.Error variant that names its failure.
+func TestNetErr_UnixErrnosNameTheirVariant(t *testing.T) {
+	checkNetErrs(t, "Unix", []netErrCase{
+		{"connect", syscall.ECONNREFUSED, "Refused"},
+		{"connect", syscall.ENETUNREACH, "Unreachable"},
+		{"connect", syscall.EHOSTUNREACH, "Unreachable"},
+		{"read", syscall.ECONNRESET, "Reset"},
+		{"write", syscall.ECONNABORTED, "Reset"},
+		{"write", syscall.EPIPE, "Reset"},
+		{"bind", syscall.EADDRINUSE, "AddressInUse"},
+		{"connect", syscall.ETIMEDOUT, "Timeout"},
+	})
+}
+
+// TestNetErr_WindowsCodesNameTheUnixVariant holds each Winsock code a
+// Windows socket call returns, built by number so it runs on any system, to
+// the variant its Unix errno names. Go's syscall.ECONNREFUSED on Windows is
+// a number of Go's own, so a comparison with it never matches the
+// WSAECONNREFUSED a refused dial carries.
+func TestNetErr_WindowsCodesNameTheUnixVariant(t *testing.T) {
+	defer stdio.ReadWindowsCodesForTest()()
+	checkNetErrs(t, "Windows", []netErrCase{
+		{"connectex", 10061, "Refused"},     // WSAECONNREFUSED
+		{"connectex", 10051, "Unreachable"}, // WSAENETUNREACH
+		{"connectex", 10065, "Unreachable"}, // WSAEHOSTUNREACH
+		{"wsarecv", 10054, "Reset"},         // WSAECONNRESET
+		{"wsasend", 10053, "Reset"},         // WSAECONNABORTED
+		{"wsasend", 10058, "Reset"},         // WSAESHUTDOWN
+		{"bind", 10048, "AddressInUse"},     // WSAEADDRINUSE
+		{"connectex", 10060, "Timeout"},     // WSAETIMEDOUT
+	})
+}

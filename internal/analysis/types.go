@@ -201,7 +201,7 @@ func (t *StructType) String() string {
 	if shown := shownTypeArgs(t.TypeArgs, t.TypeParamDefs); len(shown) > 0 {
 		args := make([]string, len(shown))
 		for i, a := range shown {
-			args[i] = a.String()
+			args[i] = typeString(a)
 		}
 		return t.Name + "<" + strings.Join(args, ", ") + ">"
 	}
@@ -272,7 +272,7 @@ func (t *EnumType) String() string {
 	if shown := shownTypeArgs(t.TypeArgs, t.TypeParamDefs); len(shown) > 0 {
 		args := make([]string, len(shown))
 		for i, a := range shown {
-			args[i] = a.String()
+			args[i] = typeString(a)
 		}
 		return t.Name + "<" + strings.Join(args, ", ") + ">"
 	}
@@ -351,7 +351,7 @@ func (t *DistinctType) String() string {
 	if shown := shownTypeArgs(t.TypeArgs, t.TypeParamDefs); len(shown) > 0 {
 		args := make([]string, len(shown))
 		for i, a := range shown {
-			args[i] = a.String()
+			args[i] = typeString(a)
 		}
 		return t.Name + "<" + strings.Join(args, ", ") + ">"
 	}
@@ -395,7 +395,7 @@ func (t *FuncType) String() string {
 	params := make([]string, len(t.Params))
 	for i, p := range t.Params {
 		if p != nil {
-			params[i] = p.String()
+			params[i] = typeString(p)
 		} else {
 			params[i] = "?"
 		}
@@ -415,7 +415,7 @@ type TupleType struct{ Elems []Type }
 func (t *TupleType) String() string {
 	elems := make([]string, len(t.Elems))
 	for i, e := range t.Elems {
-		elems[i] = e.String()
+		elems[i] = typeString(e)
 	}
 	return fmt.Sprintf("(%s)", strings.Join(elems, ", "))
 }
@@ -425,7 +425,7 @@ func (t *TupleType) typeTag() {}
 // ListType represents a list type.
 type ListType struct{ Elem Type }
 
-func (t *ListType) String() string { return fmt.Sprintf("List<%s>", t.Elem.String()) }
+func (t *ListType) String() string { return fmt.Sprintf("List<%s>", typeString(t.Elem)) }
 func (t *ListType) typeTag()       {}
 
 // MapType represents a map type.
@@ -435,7 +435,7 @@ type MapType struct {
 }
 
 func (t *MapType) String() string {
-	return fmt.Sprintf("Map<%s, %s>", t.Key.String(), t.Val.String())
+	return fmt.Sprintf("Map<%s, %s>", typeString(t.Key), typeString(t.Val))
 }
 
 func (t *MapType) typeTag() {}
@@ -446,7 +446,7 @@ type AnonStructType struct{ Fields []FieldDef }
 func (t *AnonStructType) String() string {
 	fields := make([]string, len(t.Fields))
 	for i, f := range t.Fields {
-		fields[i] = fmt.Sprintf("%s: %s", f.Name, f.Type.String())
+		fields[i] = fmt.Sprintf("%s: %s", f.Name, typeString(f.Type))
 	}
 	return fmt.Sprintf("{%s}", strings.Join(fields, ", "))
 }
@@ -680,7 +680,7 @@ func (t *InterfaceType) String() string {
 	if shown := shownTypeArgs(t.TypeArgs, t.TypeParamDefs); len(shown) > 0 {
 		args := make([]string, len(shown))
 		for i, a := range shown {
-			args[i] = a.String()
+			args[i] = typeString(a)
 		}
 		return t.Name + "<" + strings.Join(args, ", ") + ">"
 	}

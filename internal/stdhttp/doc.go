@@ -175,8 +175,10 @@
 // sets a past deadline when it ends, so a cancelled task's I/O stops. A
 // listener (rt.NetListener) accepts on a goroutine into a channel, so
 // `Listener.accept` can stop for cancellation or an accept deadline, and
-// registers a drain hook that closes it. `net.Error` sorts Go errors with
-// errors.Is against system error numbers (not matched on Windows).
+// registers a drain hook that closes it. `net.Error` sorts Go errors by the
+// errno they carry as stdio.Errno reads it, which names a Windows code by
+// the Unix errno for the same failure, so a refused or reset connection is
+// the same variant on every system.
 // `dial_with`, `tls_dial` and `lookup` carry the `connect` class (not on
 // js/wasm, which offers only `fetch`, or wasip1), where each returns the
 // no-sockets error (`noSocketsMessage`).

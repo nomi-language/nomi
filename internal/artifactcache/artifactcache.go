@@ -2,6 +2,7 @@ package artifactcache
 
 import (
 	"bytes"
+	"debug/elf"
 	"errors"
 	"io"
 	"os"
@@ -66,17 +67,29 @@ func ProgramRoot() string {
 // changes with any change to what the binary links, including the embedded
 // std, so it identifies the compiler: two binaries that answer one ID lower
 // a program alike.
-var CompilerID = sync.OnceValue(func() string {
-	exe, err := os.Executable()
-	if err != nil {
-		return ""
-	}
-	id, _ := ReadBuildID(exe)
-	return id
-})
+//
+// It is a func literal, statically initialized, and not a sync.OnceValue
+// made at init: a binary that never calls it (nomi-vm, which links this
+// package for Root) then links no executable reader, debug/elf among them.
+var CompilerID = func() string {
+	compilerID.once.Do(func() {
+		if exe, err := os.Executable(); err == nil {
+			compilerID.id, _ = ReadBuildID(exe)
+		}
+	})
+	return compilerID.id
+}
+
+var compilerID struct {
+	once sync.Once
+	id   string
+}
 
 // buildIDPrefix and buildIDSuffix bracket the build ID the Go linker writes
-// near the start of every executable it links (cmd/internal/buildid).
+// at the start of the text section of a Mach-O or PE executable
+// (cmd/internal/buildid). An ELF executable has no such text: its ID is the
+// desc of a note in a PT_NOTE segment, named "Go" and of type
+// elfGoBuildIDNote, which the linker also names section .note.go.buildid.
 const (
 	buildIDPrefix = "\xff Go build ID: \""
 	buildIDSuffix = "\"\n \xff"
@@ -84,15 +97,23 @@ const (
 	// ID in the first page of the text section, within the first 32 KB on
 	// every platform Go links for.
 	buildIDWindow = 64 << 10
+	// elfGoBuildIDNote is the type of the ELF note holding the build ID
+	// (cmd/link's ELF_NOTE_GOBUILDID_TAG).
+	elfGoBuildIDNote = 4
 )
 
-// ReadBuildID reads the Go build ID from the executable at path.
+// ReadBuildID reads the Go build ID from the executable at path: from its
+// note when it is ELF, else from the start of its text.
 func ReadBuildID(path string) (string, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return "", err
 	}
 	defer f.Close()
+	var magic [4]byte
+	if _, err := f.ReadAt(magic[:], 0); err == nil && string(magic[:]) == elf.ELFMAG {
+		return readELFBuildID(f, path)
+	}
 	buf := make([]byte, buildIDWindow)
 	n, err := io.ReadFull(f, buf)
 	if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) {
@@ -109,6 +130,45 @@ func ReadBuildID(path string) (string, error) {
 		return "", errors.New("artifactcache: no Go build ID in " + path)
 	}
 	return string(rest[:j]), nil
+}
+
+// readELFBuildID reads the build ID note from the PT_NOTE segments of the
+// ELF file f, which is at path. A note is a header of three words (name
+// size, desc size, type), then the name and the desc, each padded to a
+// word.
+func readELFBuildID(f *os.File, path string) (string, error) {
+	ef, err := elf.NewFile(f)
+	if err != nil {
+		return "", err
+	}
+	for _, p := range ef.Progs {
+		if p.Type != elf.PT_NOTE {
+			continue
+		}
+		notes, err := io.ReadAll(p.Open())
+		if err != nil {
+			return "", err
+		}
+		for len(notes) >= 12 {
+			nameSize := int(ef.ByteOrder.Uint32(notes[0:]))
+			descSize := int(ef.ByteOrder.Uint32(notes[4:]))
+			kind := ef.ByteOrder.Uint32(notes[8:])
+			name := 12
+			desc := name + (nameSize+3)&^3
+			end := desc + (descSize+3)&^3
+			if nameSize < 0 || descSize < 0 || desc+descSize > len(notes) {
+				break
+			}
+			if kind == elfGoBuildIDNote && string(notes[name:name+nameSize]) == "Go\x00\x00" {
+				return string(notes[desc : desc+descSize]), nil
+			}
+			if end > len(notes) {
+				break
+			}
+			notes = notes[end:]
+		}
+	}
+	return "", errors.New("artifactcache: no Go build ID in " + path)
 }
 
 // TempPrefix starts the name of an entry being written, which Prune leaves

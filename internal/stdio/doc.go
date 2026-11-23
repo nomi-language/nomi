@@ -106,6 +106,9 @@
 // AlreadyExists, a refusal PermissionDenied, and so on by errno, each
 // carrying the path the program passed. What no variant names is `Other`,
 // with Go's operation word (`open`, `read`) and the errno's name, never Go's
-// prose. A write into a missing directory is NotFound naming the directory.
+// prose. The errno is the one Unix answers for the failure, on every system:
+// Errno reads a Windows code through one table (windowsErrnos), and
+// std/net's errors are sorted by the same reading. A write into a missing
+// directory is NotFound naming the directory.
 // The memory backend answers the same variants itself.
 package stdio

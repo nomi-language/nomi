@@ -1,9 +1,16 @@
 //# Inputs that make a careless Markdown parser quadratic: long runs of
 //# delimiters, brackets and backticks, unclosed constructs, and deep
-//# nesting. Each is rendered at a size and at eight times it, and the
-//# larger must take less than 24 times as long: eight is linear, and a
-//# quadratic parser takes 64. Each time is the least of three runs, and
-//# the wide margin keeps a busy machine's noise out of the ratio.
+//# nesting. Each is built at a size and at eight times it. One rendering
+//# of the larger is timed against eight renderings of the smaller, which
+//# is the same work for a linear parser, and it must take less than three
+//# times as long: a quadratic parser takes eight.
+//#
+//# Timing the same amount of work at both sizes keeps a busy machine out of
+//# the ratio: each measurement runs about as long, so the scheduler slows
+//# both alike. The two are timed in turn, and each one's time is the least
+//# of its runs so far, so a burst that slows one run is outlasted by the
+//# next pair. The check passes at the first pair whose least times are
+//# within the margin and fails after eight pairs that are not.
 
 import
     std::duration.Duration
@@ -11,25 +18,47 @@ import
     markdown
 end
 
-/// The least time of three renderings of `source`.
-fn cost(source: String) -> Duration
-    1..=3
-    |> Iter.map(fn _ ->
-        start = Instant.now()
+/// The time `times` renderings of `source` take, in nanoseconds.
+fn cost(source: String, times: Int) -> Int
+    start = Instant.now()
+
+    1..=times
+    |> Iter.each(fn _ ->
         _ = markdown.render(source)
-        Instant.between(start, Instant.now())
     end)
-    |> Iter.min()!
+
+    Duration.as_nanos(Instant.between(start, Instant.now()))
 end
 
-/// Whether rendering what `make` builds at eight times `n` costs less than
-/// 24 times what it costs at `n`.
+/// Whether rendering what `make` builds at eight times `n` is linear in its
+/// length, as `within` measures it.
 fn scales_linearly(make: (NonNegativeInt) -> String, n: NonNegativeInt) -> Bool
-    within(cost(make(n)), cost(make(n * 8)))
+    within(make(n), make(n * 8))
 end
 
-fn within(small: Duration, large: Duration) -> Bool
-    Duration.as_nanos(large) < 24 * Int.max(1, Duration.as_nanos(small))
+/// Whether one rendering of `large`, eight times as long as `small`, costs
+/// less than three times eight renderings of `small`, in one of at most
+/// eight pairs of runs. `small` is rendered once first, untimed, so its
+/// first timed run does not include the machine compiling the renderer's
+/// functions.
+fn within(small: String, large: String) -> Bool
+    _ = markdown.render(small)
+    settles(small, large, 8, cost(small, 8), cost(large, 1))
+end
+
+/// Whether the least times so far, `least_small` and `least_large`, are
+/// within the margin, or are after one more pair of runs, `pairs` counting
+/// the pairs left including the one they came from.
+fn settles(small: String, large: String, pairs: Int, least_small: Int, least_large: Int) -> Bool
+    if least_large < 3 * Int.max(1, least_small) then
+        True
+    else if pairs <= 1 then
+        False
+    else
+        s = Int.min(least_small, cost(small, 8))
+        l = Int.min(least_large, cost(large, 1))
+        settles(small, large, pairs - 1, s, l)
+    end
 end
 
 test "long runs and unclosed constructs render in time linear in their length"
@@ -80,5 +109,5 @@ test "deep nesting renders in time linear in the input's length"
             |> String.join("")
         end
 
-    assert within(cost(nested_list(30)), cost(nested_list(85)))
+    assert within(nested_list(30), nested_list(85))
 end

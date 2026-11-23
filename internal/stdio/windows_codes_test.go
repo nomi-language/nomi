@@ -150,6 +150,9 @@ func TestWindowsCodesNameTheirUnixErrno(t *testing.T) {
 		{123, rt.IOError{Tag: rt.TagIOOther, Operation: "mkdir", Path: "a", Code: "EINVAL"}},
 		{145, rt.IOError{Tag: rt.TagIODirectoryNotEmpty, Path: "a"}},
 		{267, rt.IOError{Tag: rt.TagIONotADirectory, Path: "a"}},
+		{109, rt.IOError{Tag: rt.TagIOBrokenPipe}},
+		{232, rt.IOError{Tag: rt.TagIOBrokenPipe}},
+		{10060, rt.IOError{Tag: rt.TagIOTimedOut}},
 	} {
 		got := Classify(c.want.Operation, "a", &fs.PathError{Op: c.want.Operation, Path: "a", Err: c.code})
 		if got != c.want {

@@ -67,7 +67,8 @@ func connFailure(op string, err error) rt.IOError {
 
 // netErr is err, from operation op on address, as a net.Error variant's
 // parts: a TLS failure as tls.Error's, else Go's error sorted by what
-// happened.
+// happened, a system's failure by its errno as stdio.Errno reads it on
+// every system.
 func netErr(op, address string, err error) *rt.List[string] {
 	if isTLSError(err) {
 		return listOf(tlsErrorParts(err))
@@ -76,7 +77,7 @@ func netErr(op, address string, err error) *rt.List[string] {
 	var addr *net.AddrError
 	var parse *net.ParseError
 	var timeout interface{ Timeout() bool }
-	switch {
+	switch errno := stdio.Errno(err); {
 	case errors.As(err, &dns):
 		return listOf([]string{"Dns", dns.Name, dns.Err, dns.Server, strconv.FormatBool(dns.IsNotFound), strconv.FormatBool(dns.IsTimeout)})
 	case errors.As(err, &addr):
@@ -85,15 +86,15 @@ func netErr(op, address string, err error) *rt.List[string] {
 		return listOf([]string{"InvalidAddress", parse.Text, parse.Type})
 	case errors.Is(err, net.ErrClosed):
 		return listOf([]string{"Closed"})
-	case errors.Is(err, syscall.ECONNREFUSED):
+	case errno == syscall.ECONNREFUSED:
 		return listOf([]string{"Refused", address})
-	case errors.Is(err, syscall.ENETUNREACH), errors.Is(err, syscall.EHOSTUNREACH):
+	case errno == syscall.ENETUNREACH, errno == syscall.EHOSTUNREACH:
 		return listOf([]string{"Unreachable", address})
-	case errors.Is(err, syscall.ECONNRESET), errors.Is(err, syscall.EPIPE):
+	case errno == syscall.ECONNRESET, errno == syscall.ECONNABORTED, errno == syscall.EPIPE:
 		return listOf([]string{"Reset", address})
-	case errors.Is(err, syscall.EADDRINUSE):
+	case errno == syscall.EADDRINUSE:
 		return listOf([]string{"AddressInUse", address})
-	case errors.As(err, &timeout) && timeout.Timeout(), errors.Is(err, context.DeadlineExceeded):
+	case errno == syscall.ETIMEDOUT, errors.As(err, &timeout) && timeout.Timeout(), errors.Is(err, context.DeadlineExceeded):
 		return listOf([]string{"Timeout", address})
 	}
 	return listOf([]string{"Other", op, address, err.Error()})

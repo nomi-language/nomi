@@ -10,7 +10,11 @@
 // inherits it. NOMI_ARTIFACT_CACHE=off turns the cache off.
 //
 // An entry is keyed by the compiler's identity (CompilerID), so a binary
-// never reads another binary's entry. Writes go to a temporary sibling and
+// never reads another binary's entry. The identity is the executable's Go
+// build ID, which ReadBuildID reads from the build ID note of an ELF file
+// and from the start of the text of a Mach-O or PE one;
+// TestReadBuildIDOnEveryReleaseTarget holds it to `go tool buildid` for
+// every target a release ships `nomi` for. Writes go to a temporary sibling and
 // are renamed into place, so a reader sees no file or a whole one; a reader
 // still checks what it reads, since a file can be truncated or corrupted
 // after it is written.

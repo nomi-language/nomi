@@ -2,7 +2,9 @@ package artifactcache
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -66,6 +68,53 @@ func TestCompilerIDIsTheBuildID(t *testing.T) {
 	}
 	if _, err := ReadBuildID(plain); err == nil {
 		t.Fatal("a file with no build ID has one")
+	}
+}
+
+// TestReadBuildIDOnEveryReleaseTarget cross-builds a hello-world program
+// for each target a release ships `nomi` for, one ELF, Mach-O or PE file
+// each, and requires ReadBuildID to answer what `go tool buildid` prints
+// for it. A target whose format the reader misses gives a compiler there
+// no identity, so it caches nothing.
+func TestReadBuildIDOnEveryReleaseTarget(t *testing.T) {
+	if testing.Short() {
+		t.Skip("builds a program per target")
+	}
+	goBin, err := exec.LookPath("go")
+	if err != nil {
+		t.Skip("no go command")
+	}
+	dir := t.TempDir()
+	for name, text := range map[string]string{
+		"go.mod":  "module hello\n\ngo 1.24\n",
+		"main.go": "package main\n\nfunc main() { println(\"hello\") }\n",
+	} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(text), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// The targets of scripts/release.sh that `nomi` runs on.
+	for _, target := range []string{"darwin/arm64", "darwin/amd64", "linux/amd64", "linux/arm64", "windows/amd64"} {
+		t.Run(strings.ReplaceAll(target, "/", "_"), func(t *testing.T) {
+			t.Parallel()
+			goos, goarch, _ := strings.Cut(target, "/")
+			exe := filepath.Join(dir, "hello-"+goos+"-"+goarch)
+			build := exec.Command(goBin, "build", "-o", exe, ".")
+			build.Dir = dir
+			build.Env = append(os.Environ(), "GOOS="+goos, "GOARCH="+goarch, "CGO_ENABLED=0", "GOFLAGS=", "GOWORK=off", "GOTOOLCHAIN=local")
+			if out, err := build.CombinedOutput(); err != nil {
+				t.Fatalf("go build for %s: %v\n%s", target, err, out)
+			}
+			out, err := exec.Command(goBin, "tool", "buildid", exe).Output()
+			if err != nil {
+				t.Fatalf("go tool buildid: %v", err)
+			}
+			want := strings.TrimSpace(string(out))
+			got, err := ReadBuildID(exe)
+			if err != nil || got == "" || got != want {
+				t.Fatalf("ReadBuildID of the %s program = %q, %v; go tool buildid prints %q", target, got, err, want)
+			}
+		})
 	}
 }
 
